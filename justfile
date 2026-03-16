@@ -18,6 +18,9 @@ spatial replay="replay.replay26":
 network replay="replay.replay26":
     python scripts/replay_network.py {{replay}}
 
+combat replay="replay.replay26":
+    python scripts/replay_combat.py {{replay}}
+
 map *args:
     python scripts/replay_map.py {{args}}
 
