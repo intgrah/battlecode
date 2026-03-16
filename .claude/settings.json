@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/cambc run:*)",
+      "WebFetch(domain:docs.battlecode.cam)",
+      "Bash(.venv/bin/python -c \"from cambc import Environment; print\\(list\\(Environment\\)\\)\")",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/cambc --help)",
+      "Bash(.venv/bin/python -c \"import importlib.metadata; print\\(importlib.metadata.metadata\\(''''cambc''''\\).as_string\\(\\)\\)\")",
+      "Bash(xxd /home/intgrah/git/intgrah/battlecode/maps/default_large1.map26)",
+      "Bash(xxd /home/intgrah/git/intgrah/battlecode/replay.replay26)",
+      "Bash(uv add:*)",
+      "Bash(.venv/bin/python /home/intgrah/git/intgrah/battlecode/replay_stats.py /home/intgrah/git/intgrah/battlecode/replay.replay26)"
+    ]
+  }
+}
