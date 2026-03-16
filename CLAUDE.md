@@ -1,6 +1,7 @@
 This project is for the Cambridge Battlecode competition (hosted by University of Cambridge, NOT MIT).
 
-Docs: https://docs.battlecode.cam
+Docs: https://docs.battlecode.cam — local copy in `docs/` (run `just docs` to update).
+Read the relevant files in `docs/` before writing or modifying bot code.
 CLI: `cambc` (pip install cambc). Python 3.12+. 2ms CPU time per unit per round.
 
 Reference materials from previous MIT Battlecode years are in `ref/`.

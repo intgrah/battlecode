@@ -1,6 +1,6 @@
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, GameConstants, Position
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
@@ -105,24 +105,16 @@ def try_move_random(ct: Controller) -> bool:
     return False
 
 
-def move_toward_building_conveyors(
-    ct: Controller, target: Position, core_pos: Position,
-) -> bool:
+def place_conveyor_here(ct: Controller, facing: Direction) -> bool:
     pos = ct.get_position()
-    d = toward(pos, target)
-    for cd in [d, d.rotate_left(), d.rotate_right(),
-               d.rotate_left().rotate_left(), d.rotate_right().rotate_right()]:
-        next_pos = pos.add(cd)
-        conv_dir = toward(next_pos, core_pos)
-        bid = ct.get_tile_building_id(next_pos) if in_bounds(ct, next_pos) else None
-        if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD and ct.can_destroy(next_pos):
-            ct.destroy(next_pos)
-        if ct.can_build_conveyor(next_pos, conv_dir):
-            ct.build_conveyor(next_pos, conv_dir)
-        elif ct.can_build_road(next_pos):
-            ct.build_road(next_pos)
-        if ct.can_move(cd):
-            ct.move(cd)
+    if ct.can_build_conveyor(pos, facing):
+        ct.build_conveyor(pos, facing)
+        return True
+    bid = ct.get_tile_building_id(pos)
+    if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
+        ct.destroy(pos)
+        if ct.can_build_conveyor(pos, facing):
+            ct.build_conveyor(pos, facing)
             return True
     return False
 
@@ -181,9 +173,10 @@ class CoreBot:
             self.enemy_pos = enemy_from_markers
 
         bot_cost = ct.get_builder_bot_cost()[0]
+        harvester_cost = ct.get_harvester_cost()[0]
 
         if rnd < ATTACK_ROUND:
-            should_spawn = self.num_spawned < INITIAL_BUILDERS and ti >= bot_cost + 100
+            should_spawn = self.num_spawned < INITIAL_BUILDERS and ti >= bot_cost + harvester_cost
         else:
             should_spawn = ti >= bot_cost * 3
 
@@ -208,6 +201,8 @@ class BuilderBot:
         self.harvesters_built = 0
         self.ore_target: Position | None = None
         self.role = "economy"
+        self.returning = False
+        self.outbound_path: list[Position] = []
 
     def run(self, ct: Controller) -> None:
         rnd = ct.get_current_round()
@@ -241,21 +236,57 @@ class BuilderBot:
             self._run_economy(ct)
 
     def _run_economy(self, ct: Controller) -> None:
+        if self.returning:
+            self._return_with_conveyors(ct)
+            return
+
         ore_adj = adjacent_ore(ct)
         if ore_adj is not None and ct.can_build_harvester(ore_adj):
             ct.build_harvester(ore_adj)
             self.harvesters_built += 1
             self.ore_target = None
+            self.returning = True
             return
 
         if self.harvesters_built < MAX_HARVESTERS:
             if self.ore_target is None:
                 self.ore_target = nearest_ore(ct)
-            if self.ore_target is not None and self.core_pos is not None:
-                move_toward_building_conveyors(ct, self.ore_target, self.core_pos)
+            if self.ore_target is not None:
+                old_pos = ct.get_position()
+                if try_move_toward(ct, self.ore_target):
+                    self.outbound_path.append(old_pos)
                 return
 
         try_move_random(ct)
+
+    def _return_with_conveyors(self, ct: Controller) -> None:
+        pos = ct.get_position()
+        if self.core_pos is None:
+            self.returning = False
+            self.outbound_path.clear()
+            return
+
+        if not self.outbound_path:
+            place_conveyor_here(ct, toward(pos, self.core_pos))
+            self.returning = False
+            return
+
+        next_tile = self.outbound_path[-1]
+        place_conveyor_here(ct, toward(pos, next_tile))
+
+        move_dir = toward(pos, next_tile)
+        if ct.can_move(move_dir):
+            ct.move(move_dir)
+            self.outbound_path.pop()
+        else:
+            for cd in [move_dir.rotate_left(), move_dir.rotate_right()]:
+                if ct.can_move(cd):
+                    ct.move(cd)
+                    self.outbound_path.pop()
+                    break
+            else:
+                self.returning = False
+                self.outbound_path.clear()
 
     def _run_attacker(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -268,7 +299,7 @@ class BuilderBot:
 
         dist = pos.distance_squared(target)
 
-        if dist <= 2:
+        if dist <= GameConstants.ACTION_RADIUS_SQ:
             facing = toward(pos, target)
             for d in Direction:
                 tile = pos.add(d)
@@ -278,7 +309,7 @@ class BuilderBot:
             ct.self_destruct()
             return
 
-        if dist <= 13:
+        if dist <= GameConstants.GUNNER_VISION_RADIUS_SQ:
             facing = toward(pos, target)
             for d in Direction:
                 tile = pos.add(d)

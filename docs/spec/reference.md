@@ -67,6 +67,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
       <tr><td>Harvester output interval</td><td>Every 4 rounds</td></tr>
       <tr><td>Sentinel stun (refined axionite ammo)</td><td>+3 action and move cooldown</td></tr>
       <tr><td>CPU time per unit per round</td><td>2ms (+5% buffer)</td></tr>
+      <tr><td>Memory limit per bot</td><td>1 GB</td></tr>
     </tbody>
   </table>
 </DenseTable>

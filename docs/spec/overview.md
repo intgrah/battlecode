@@ -152,6 +152,8 @@ To absorb variance, each unit has an **extra time buffer** equal to 5% of the ti
 
 Once a unit exhausts both its 2ms budget and its buffer in a single round, it is interrupted immediately.
 
+Each bot process has a **1 GB memory limit**. Exceeding this will terminate the process.
+
 <Warning>
   The local runner (`cambc run`) does **not** enforce time limits. Use `cambc test-run` to test on the same AWS Graviton3 hardware that runs ladder matches.
 </Warning>
