@@ -1,6 +1,13 @@
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, GameConstants, Position
+from cambc import (
+    Controller,
+    Direction,
+    EntityType,
+    Environment,
+    GameConstants,
+    Position,
+)
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
@@ -39,7 +46,8 @@ def adjacent_ore(ct: Controller) -> Position | None:
         if not in_bounds(ct, tile):
             continue
         if (
-            ct.get_tile_env(tile) in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+            ct.get_tile_env(tile)
+            in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
             and ct.get_tile_building_id(tile) is None
         ):
             return tile
@@ -51,7 +59,10 @@ def nearest_ore(ct: Controller) -> Position | None:
     best_dist = 999999
     pos = ct.get_position()
     for tile in ct.get_nearby_tiles():
-        if ct.get_tile_env(tile) not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+        if ct.get_tile_env(tile) not in (
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
+        ):
             continue
         if ct.get_tile_building_id(tile) is not None:
             continue
@@ -80,8 +91,13 @@ def find_nearest_enemy(ct: Controller) -> Position | None:
 def try_move_toward(ct: Controller, target: Position) -> bool:
     pos = ct.get_position()
     d = toward(pos, target)
-    for cd in [d, d.rotate_left(), d.rotate_right(),
-               d.rotate_left().rotate_left(), d.rotate_right().rotate_right()]:
+    for cd in [
+        d,
+        d.rotate_left(),
+        d.rotate_right(),
+        d.rotate_left().rotate_left(),
+        d.rotate_right().rotate_right(),
+    ]:
         next_pos = pos.add(cd)
         if ct.can_build_road(next_pos):
             ct.build_road(next_pos)
@@ -176,7 +192,9 @@ class CoreBot:
         harvester_cost = ct.get_harvester_cost()[0]
 
         if rnd < ATTACK_ROUND:
-            should_spawn = self.num_spawned < INITIAL_BUILDERS and ti >= bot_cost + harvester_cost
+            should_spawn = (
+                self.num_spawned < INITIAL_BUILDERS and ti >= bot_cost + harvester_cost
+            )
         else:
             should_spawn = ti >= bot_cost * 3
 
@@ -209,7 +227,10 @@ class BuilderBot:
 
         if self.core_pos is None:
             for eid in ct.get_nearby_entities():
-                if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+                if (
+                    ct.get_entity_type(eid) == EntityType.CORE
+                    and ct.get_team(eid) == ct.get_team()
+                ):
                     self.core_pos = ct.get_position(eid)
                     break
 
@@ -219,7 +240,10 @@ class BuilderBot:
 
         if self.enemy_core is None:
             for eid in ct.get_nearby_entities():
-                if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) != ct.get_team():
+                if (
+                    ct.get_entity_type(eid) == EntityType.CORE
+                    and ct.get_team(eid) != ct.get_team()
+                ):
                     self.enemy_core = ct.get_position(eid)
 
         if self.enemy_core is None:
