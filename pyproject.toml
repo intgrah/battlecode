@@ -1,0 +1,30 @@
+[project]
+name = "battlecode"
+version = "0.1.0"
+description = "Cambridge Battlecode bot"
+requires-python = ">=3.12"
+dependencies = ["cambc>=1.0.1", "protobuf>=7.34.0"]
+
+[dependency-groups]
+dev = ["ruff>=0.15.6", "ty>=0.0.22"]
+
+[tool.ruff]
+exclude = ["ref"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "C901",
+    "D",
+    "E501",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR2004",
+    "S101",
+    "S311",
+    "T201",
+]
+
+[tool.uv.workspace]
+members = ["test"]
