@@ -155,9 +155,8 @@ class CoreBot:
         if self.num_spawned < NUM_BUILDERS:
             if ti < bot_cost + ct.get_harvester_cost()[0]:
                 return
-        else:
-            if ti < 500 or ct.get_current_round() < RAIDER_START:
-                return
+        elif ti < 500 or ct.get_current_round() < RAIDER_START:
+            return
 
         sector = self.num_spawned
         for d in DIRS:
