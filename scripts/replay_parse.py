@@ -14,7 +14,7 @@ def entity_kind(e: Entity) -> str:
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r

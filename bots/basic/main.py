@@ -349,12 +349,9 @@ class BuilderBot:
 
 class TurretBot:
     def run(self, ct: Controller) -> None:
-        try:
-            target = ct.get_gunner_target()
-            if target is not None and ct.can_fire(target):
-                ct.fire(target)
-        except Exception:
-            pass
+        target = ct.get_gunner_target()
+        if target is not None and ct.can_fire(target):
+            ct.fire(target)
 
 
 # --- Player ---

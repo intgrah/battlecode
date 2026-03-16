@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 
@@ -32,23 +32,21 @@ DIR_ARROWS = {
 }
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def analyze(r: Replay, target_turn: int | None = None):
+def analyze(r: Replay, target_turn: int | None = None) -> dict:
     w, h = r.map.width, r.map.height
 
-    env_grid = []
-    for row in r.map.rows:
-        env_grid.append([t for t in row.tiles])
+    env_grid = [list(row.tiles) for row in r.map.rows]
 
     entities = {}
     entity_pos = {}
@@ -133,10 +131,8 @@ def render_state(d: dict) -> str:
             grid[y][x] = "1" if team == 0 else "2"
             bot_positions.add((x, y))
 
-    lines = []
-    lines.append(f"  {''.join(str(x % 10) for x in range(w))}")
-    for y in range(h):
-        lines.append(f"{y:2d} {''.join(grid[y])}")
+    lines = [f"  {''.join(str(x % 10) for x in range(w))}"]
+    lines.extend(f"{y:2d} {''.join(grid[y])}" for y in range(h))
     return "\n".join(lines)
 
 
@@ -155,16 +151,11 @@ def render_heatmap(d: dict, team: int) -> str:
                 grid[y][x] = "#"
 
     for (x, y), count in visits.items():
-        if max_v <= 1:
-            intensity = 1
-        else:
-            intensity = min(9, 1 + int(8 * count / max_v))
+        intensity = 1 if max_v <= 1 else min(9, 1 + int(8 * count / max_v))
         grid[y][x] = str(intensity)
 
-    lines = []
-    lines.append(f"  {''.join(str(x % 10) for x in range(w))}")
-    for y in range(h):
-        lines.append(f"{y:2d} {''.join(grid[y])}")
+    lines = [f"  {''.join(str(x % 10) for x in range(w))}"]
+    lines.extend(f"{y:2d} {''.join(grid[y])}" for y in range(h))
 
     total_tiles = sum(1 for v in visits.values() if v > 0)
     map_tiles = sum(1 for y in range(h) for x in range(w) if d["env_grid"][y][x] != 1)
