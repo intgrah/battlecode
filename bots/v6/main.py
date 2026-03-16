@@ -220,7 +220,7 @@ class BuilderBot:
         ti, _ax = ct.get_global_resources()
 
         if not self.has_income:
-            ti_col = ti + 1000  # rough check: if Ti stopped dropping, income started
+            ti + 1000  # rough check: if Ti stopped dropping, income started
             if ti > self.last_ti_collected:
                 self.has_income = True
             self.last_ti_collected = ti

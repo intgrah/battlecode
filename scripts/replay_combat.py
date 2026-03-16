@@ -4,24 +4,24 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 TURRET_KINDS = {"gunner", "sentinel", "breach", "launcher"}
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def analyze_combat(r: Replay):
+def analyze_combat(r: Replay) -> None:
     total_turns = len(r.turns)
     w, h = r.map.width, r.map.height
 
@@ -33,12 +33,10 @@ def analyze_combat(r: Replay):
     turrets_built = {0: defaultdict(int), 1: defaultdict(int)}
     turrets_alive = {0: defaultdict(int), 1: defaultdict(int)}
     turret_fire_count = {0: defaultdict(int), 1: defaultdict(int)}
-    turret_ammo_turns = {0: 0, 1: 0}
-    turret_no_ammo_turns = {0: 0, 1: 0}
 
     self_destructs = {0: [], 1: []}
     damage_events = {0: [], 1: []}
-    kills_by_type = {0: defaultdict(int), 1: defaultdict(int)}
+    {0: defaultdict(int), 1: defaultdict(int)}
 
     buildings_destroyed = {0: defaultdict(int), 1: defaultdict(int)}
     builder_losses = {0: 0, 1: 0}
@@ -172,7 +170,7 @@ def analyze_combat(r: Replay):
         print()
 
 
-def main():
+def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     analyze_combat(parse(path))
 

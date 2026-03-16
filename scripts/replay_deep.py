@@ -1,11 +1,10 @@
-import math
 import sys
-from collections import defaultdict, deque
+from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 
@@ -16,17 +15,17 @@ DIR_DELTA = {
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
-def build_timeline(r: Replay):
+def build_timeline(r: Replay) -> dict:
     w, h = r.map.width, r.map.height
     core_pos = {}
     for c in r.map.cores:
@@ -68,15 +67,15 @@ def build_timeline(r: Replay):
 
             elif k == "move_builder_bot":
                 mb = u.move_builder_bot
-                old = builder_pos.get(mb.id)
+                builder_pos.get(mb.id)
                 new = (mb.to.x, mb.to.y)
                 builder_pos[mb.id] = new
-                actions_this_turn[mb.id] = f"move"
+                actions_this_turn[mb.id] = "move"
 
             elif k == "remove_entity":
                 eid = u.remove_entity.id
                 if eid in all_entities:
-                    team, ek, pos = all_entities[eid]
+                    _team, ek, pos = all_entities[eid]
                     if pos in conveyors and conveyors[pos]["id"] == eid:
                         del conveyors[pos]
                     for t in (0, 1):
@@ -110,7 +109,7 @@ def build_timeline(r: Replay):
 # --- 1. Max flow analysis ---
 
 
-def compute_max_flow(conveyors, harvesters_t, core_pos, team, w, h):
+def compute_max_flow(conveyors: dict, harvesters_t: dict, core_pos: tuple[int, int], team: int, w: int, h: int) -> dict:
     team_convs = {p: c for p, c in conveyors.items() if c["team"] == team}
 
     reverse_graph = defaultdict(list)
@@ -135,7 +134,6 @@ def compute_max_flow(conveyors, harvesters_t, core_pos, team, w, h):
 
         reached = False
         path_len = 0
-        bottleneck_in_degree = 999
         path = []
 
         for start in starts:
@@ -187,7 +185,7 @@ def compute_max_flow(conveyors, harvesters_t, core_pos, team, w, h):
 # --- 2. Builder activity analysis ---
 
 
-def analyze_builders(builder_actions, builder_team):
+def analyze_builders(builder_actions: dict, builder_team: dict) -> tuple[dict, dict]:
     per_team = {0: defaultdict(int), 1: defaultdict(int)}
     per_team_total = {0: 0, 1: 0}
 
@@ -203,8 +201,8 @@ def analyze_builders(builder_actions, builder_team):
 # --- 3. Raid impact analysis ---
 
 
-def analyze_raids(r: Replay, core_pos):
-    w, h = r.map.width, r.map.height
+def analyze_raids(r: Replay, core_pos: dict) -> list:
+    _w, _h = r.map.width, r.map.height
     conveyors = {}
     harvesters = {0: {}, 1: {}}
     all_entities = {}
@@ -240,7 +238,7 @@ def analyze_raids(r: Replay, core_pos):
                             destroyed_pos = p
                             break
                     if destroyed_pos:
-                        enemy_team = 1 - team
+                        1 - team
                         cp = core_pos.get(team)
                         harv_cut = 0
                         if cp:
@@ -290,7 +288,7 @@ def analyze_raids(r: Replay, core_pos):
 # --- 4. Core entry analysis over time ---
 
 
-def core_entry_timeline(r: Replay, core_pos):
+def core_entry_timeline(r: Replay, core_pos: dict) -> dict:
     flow_per_turn = {0: defaultdict(int), 1: defaultdict(int)}
 
     for turn_idx, turn in enumerate(r.turns):
@@ -309,7 +307,7 @@ def core_entry_timeline(r: Replay, core_pos):
 # --- Main ---
 
 
-def main():
+def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     r = parse(path)
     tl = build_timeline(r)
@@ -335,7 +333,7 @@ def main():
             avg_path = sum(v["path_len"] for v in flow.values() if v["connected"]) / max(connected, 1)
 
             bottlenecks = {}
-            for hpos, v in flow.items():
+            for v in flow.values():
                 if v["connected"] and v["bottleneck"]:
                     bn = v["bottleneck"]
                     if bn not in bottlenecks:
@@ -378,7 +376,7 @@ def main():
         high_value = [i for i in imps if i["harvesters_disconnected"] >= 2]
         print(f"  Team {TEAM[t]} suffered {len(imps)} raids, {total_cut} total harvester-disconnections")
         if high_value:
-            print(f"  High-value raids (2+ harvesters cut):")
+            print("  High-value raids (2+ harvesters cut):")
             for i in high_value[:5]:
                 print(f"    t{i['turn']} at ({i['pos'][0]},{i['pos'][1]}): cut {i['harvesters_disconnected']} harvesters")
 
@@ -399,7 +397,7 @@ def main():
             rate = count / (hi - lo) if hi > lo else 0
             buckets.append(f"t{lo}-{hi}:{rate:.1f}/t")
         last_count = sum(v for turn, v in flows.items() if turn >= windows[-1])
-        last_rate = last_count / (2000 - windows[-1]) if 2000 > windows[-1] else 0
+        last_rate = last_count / (2000 - windows[-1]) if windows[-1] < 2000 else 0
         buckets.append(f"t{windows[-1]}+:{last_rate:.1f}/t")
         print(f"  Team {TEAM[t]}: {' | '.join(buckets)}")
 
