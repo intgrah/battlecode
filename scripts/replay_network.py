@@ -5,25 +5,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 ORE_ENVS = {2, 3}
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def analyze_network(r: Replay):
-    w, h = r.map.width, r.map.height
+def analyze_network(r: Replay) -> None:
+    _w, _h = r.map.width, r.map.height
 
     ore_tiles = set()
     for y, row in enumerate(r.map.rows):
@@ -134,14 +134,14 @@ def analyze_network(r: Replay):
             )
 
         if conveyor_flow:
-            peak_tile = max(conveyor_flow, key=conveyor_flow.get)
+            peak_tile = max(conveyor_flow, key=lambda k: conveyor_flow[k])
             peak_flow = conveyor_flow[peak_tile]
             print(
                 f"  Bottleneck: ({peak_tile[0]},{peak_tile[1]}) with {peak_flow} transfers",
             )
 
         max_theoretical = harvested * 2.5
-        actual_rate = sum(
+        sum(
             1 for pos in conveyors_placed[t] if conveyor_flow.get(pos, 0) > 0
         )
         print(

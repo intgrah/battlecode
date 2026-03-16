@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 
@@ -15,17 +15,17 @@ DIR_DELTA = {
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
-def build_graph(r: Replay):
+def build_graph(r: Replay) -> dict:
     w, h = r.map.width, r.map.height
 
     core_pos = {}
@@ -72,7 +72,7 @@ def build_graph(r: Replay):
     }
 
 
-def trace_chain(start, conveyors, core_pos, team, w, h):
+def trace_chain(start: tuple[int, int], conveyors: dict, core_pos: tuple[int, int], team: int, w: int, h: int) -> tuple[list, str, bool]:
     visited = set()
     path = [start]
     cur = start
@@ -116,7 +116,7 @@ def trace_chain(start, conveyors, core_pos, team, w, h):
     return path, "too_long", reached_core
 
 
-def analyze_graph(g):
+def analyze_graph(g: dict) -> None:
     for t in (0, 1):
         label = TEAM[t]
         cp = g["core_pos"].get(t)
@@ -146,7 +146,7 @@ def analyze_graph(g):
         total_hops = 0
         connected = 0
         disconnected = 0
-        for hpos, hid in team_harvesters.items():
+        for hpos in team_harvesters:
             adjacent_conveyors = []
             for dx in range(-1, 2):
                 for dy in range(-1, 2):
@@ -218,7 +218,7 @@ def analyze_graph(g):
         print()
 
 
-def main():
+def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     r = parse(path)
     g = build_graph(r)

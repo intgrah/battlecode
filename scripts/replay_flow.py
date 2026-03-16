@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 
@@ -16,17 +16,17 @@ DIR_DELTA = {
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
-def build_network(r: Replay):
+def build_network(r: Replay) -> dict:
     w, h = r.map.width, r.map.height
     core_pos = {}
     for c in r.map.cores:
@@ -78,7 +78,7 @@ def build_network(r: Replay):
     }
 
 
-def trace_to_core(start, conveyors, core_pos, team, w, h, max_hops=200):
+def trace_to_core(start: tuple[int, int], conveyors: dict, core_pos: tuple[int, int], team: int, w: int, h: int, max_hops: int = 200) -> tuple[list, str]:
     path = []
     cur = start
     visited = set()
@@ -97,15 +97,15 @@ def trace_to_core(start, conveyors, core_pos, team, w, h, max_hops=200):
     return path, "long"
 
 
-def compute_in_degree(conveyors, team):
+def compute_in_degree(conveyors: dict, team: int) -> dict:
     in_deg = defaultdict(int)
-    for pos, c in conveyors.items():
+    for c in conveyors.values():
         if c["team"] == team:
             in_deg[c["out"]] += 1
     return in_deg
 
 
-def find_branches(conveyors, team, core_pos, w, h):
+def find_branches(conveyors: dict, team: int, core_pos: tuple[int, int], w: int, h: int) -> list:
     team_convs = {p: c for p, c in conveyors.items() if c["team"] == team}
     in_deg = compute_in_degree(conveyors, team)
 
@@ -118,12 +118,12 @@ def find_branches(conveyors, team, core_pos, w, h):
     return branches
 
 
-def find_convergence_points(conveyors, team):
+def find_convergence_points(conveyors: dict, team: int) -> dict:
     in_deg = compute_in_degree(conveyors, team)
     return {p: d for p, d in in_deg.items() if d >= 2 and p in conveyors and conveyors[p]["team"] == team}
 
 
-def find_leak_points(conveyors, team, core_pos, w, h, actual_flow):
+def find_leak_points(conveyors: dict, team: int, core_pos: tuple[int, int], w: int, h: int, actual_flow: dict) -> list:
     team_convs = {p: c for p, c in conveyors.items() if c["team"] == team}
 
     on_live_chain = set()
@@ -145,7 +145,7 @@ def find_leak_points(conveyors, team, core_pos, w, h, actual_flow):
                     c = team_convs[adj]
                     if c["out"] == dead_pos:
                         continue
-                    out_dir = c["out"]
+                    c["out"]
                     for ddx in range(-1, 2):
                         for ddy in range(-1, 2):
                             inp = (adj[0] + ddx, adj[1] + ddy)
@@ -160,7 +160,7 @@ def find_leak_points(conveyors, team, core_pos, w, h, actual_flow):
     return leaks
 
 
-def compute_betweenness(conveyors, harvesters_t, core_pos, team, w, h):
+def compute_betweenness(conveyors: dict, harvesters_t: dict, core_pos: tuple[int, int], team: int, w: int, h: int) -> dict:
     tile_usage = defaultdict(int)
     for hpos in harvesters_t:
         for dx in range(-1, 2):
@@ -175,7 +175,7 @@ def compute_betweenness(conveyors, harvesters_t, core_pos, team, w, h):
     return tile_usage
 
 
-def analyze(net):
+def analyze(net: dict) -> None:
     for t in (0, 1):
         label = TEAM[t]
         cp = net["core_pos"].get(t)
@@ -278,7 +278,7 @@ def analyze(net):
         print()
 
 
-def main():
+def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     r = parse(path)
     net = build_network(r)
