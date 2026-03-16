@@ -104,8 +104,24 @@ def collect(r: Replay) -> dict:
                         max_exec_time[team] = max(max_exec_time[team], bo.exec_time_us)
             elif kind == "update_players":
                 p = u.update_players.players
-                resource_history[0].append((turn_idx, p.a.titanium, p.a.axionite, p.a.titanium_collected, p.a.axionite_collected))
-                resource_history[1].append((turn_idx, p.b.titanium, p.b.axionite, p.b.titanium_collected, p.b.axionite_collected))
+                resource_history[0].append(
+                    (
+                        turn_idx,
+                        p.a.titanium,
+                        p.a.axionite,
+                        p.a.titanium_collected,
+                        p.a.axionite_collected,
+                    ),
+                )
+                resource_history[1].append(
+                    (
+                        turn_idx,
+                        p.b.titanium,
+                        p.b.axionite,
+                        p.b.titanium_collected,
+                        p.b.axionite_collected,
+                    ),
+                )
             elif kind == "distribute_resources":
                 conveyor_moves_this_turn += len(u.distribute_resources.moves)
         conveyor_moves_per_turn.append(conveyor_moves_this_turn)
@@ -119,12 +135,20 @@ def collect(r: Replay) -> dict:
     return {
         "winner": TEAM.get(r.winner, "?") if r.HasField("winner") else "draw",
         "total_turns": total_turns,
-        "placed": placed, "removed": removed, "alive": alive,
-        "moves": moves, "total_damage": total_damage, "damage_by_kind": damage_by_kind,
-        "kills": kills, "tle_count": tle_count, "fire_count": fire_count,
-        "resource_history": resource_history, "conveyor_moves_per_turn": conveyor_moves_per_turn,
+        "placed": placed,
+        "removed": removed,
+        "alive": alive,
+        "moves": moves,
+        "total_damage": total_damage,
+        "damage_by_kind": damage_by_kind,
+        "kills": kills,
+        "tle_count": tle_count,
+        "fire_count": fire_count,
+        "resource_history": resource_history,
+        "conveyor_moves_per_turn": conveyor_moves_per_turn,
         "first_built": first_built,
-        "exec_time_total": exec_time_total, "exec_time_samples": exec_time_samples,
+        "exec_time_total": exec_time_total,
+        "exec_time_samples": exec_time_samples,
         "max_exec_time": max_exec_time,
     }
 
@@ -150,7 +174,11 @@ def print_stats(s: dict) -> None:
         if s["fire_count"][t]:
             print(f"  Shots fired: {dict(s['fire_count'][t])}")
         print(f"  TLEs: {s['tle_count'][t]}")
-        avg_us = s["exec_time_total"][t] / s["exec_time_samples"][t] if s["exec_time_samples"][t] else 0
+        avg_us = (
+            s["exec_time_total"][t] / s["exec_time_samples"][t]
+            if s["exec_time_samples"][t]
+            else 0
+        )
         print(f"  CPU: avg={avg_us:.0f}us  max={s['max_exec_time'][t]}us")
         print(f"  Built: {dict(s['placed'][t])}")
         print(f"  Lost:  {dict(s['removed'][t])}")
@@ -158,7 +186,15 @@ def print_stats(s: dict) -> None:
 
         milestones = [
             f"{k}@{s['first_built'][t][k]}"
-            for k in ["harvester", "conveyor", "foundry", "gunner", "sentinel", "breach", "launcher"]
+            for k in [
+                "harvester",
+                "conveyor",
+                "foundry",
+                "gunner",
+                "sentinel",
+                "breach",
+                "launcher",
+            ]
             if k in s["first_built"][t]
         ]
         if milestones:
@@ -177,7 +213,9 @@ def print_stats(s: dict) -> None:
     avg_conv = total_conv / n if n else 0
     peak_conv = max(s["conveyor_moves_per_turn"]) if s["conveyor_moves_per_turn"] else 0
     print(f"Builder moves: {s['moves']}")
-    print(f"Conveyor transfers: {total_conv} total  avg={avg_conv:.1f}/turn  peak={peak_conv}/turn")
+    print(
+        f"Conveyor transfers: {total_conv} total  avg={avg_conv:.1f}/turn  peak={peak_conv}/turn",
+    )
 
 
 def main() -> None:
