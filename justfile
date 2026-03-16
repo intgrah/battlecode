@@ -51,9 +51,13 @@ latest:
 bots:
     @python scripts/tournament.py list
 
-submit:
+submit bot="":
     #!/usr/bin/env bash
-    bot=$(python scripts/tournament.py latest)
+    if [ -z "{{bot}}" ]; then
+        bot=$(python scripts/tournament.py latest)
+    else
+        bot="{{bot}}"
+    fi
     echo "Submitting $bot"
     cambc submit "bots/$bot"
 
