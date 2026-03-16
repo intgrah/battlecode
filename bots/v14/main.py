@@ -402,7 +402,7 @@ class BuilderBot:
             if pos.distance_squared(enemy) == 0:
                 ct.self_destruct()
                 return
-            bugnav_step(ct, enemy, None, self.nav_state)
+            bugnav_road(ct, enemy, self.nav_state)
             return
 
         w = ct.get_map_width()
@@ -413,7 +413,7 @@ class BuilderBot:
             ct.self_destruct()
             return
 
-        bugnav_step(ct, enemy_core, None, self.nav_state)
+        bugnav_road(ct, enemy_core, self.nav_state)
 
 
 # --- Player ---
