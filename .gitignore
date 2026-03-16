@@ -11,3 +11,4 @@ wheels/
 
 *.replay26
 *_pb2.py
+results/

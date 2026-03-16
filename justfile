@@ -21,3 +21,36 @@ lint:
 
 fmt:
     .venv/bin/ruff format bots/ scripts/
+
+tournament *args:
+    .venv/bin/python scripts/tournament.py run {{args}}
+
+snapshot:
+    .venv/bin/python scripts/tournament.py snapshot
+
+latest:
+    @.venv/bin/python scripts/tournament.py latest
+
+bots:
+    @.venv/bin/python scripts/tournament.py list
+
+submit:
+    #!/usr/bin/env bash
+    bot=$(.venv/bin/python scripts/tournament.py latest)
+    echo "Submitting $bot"
+    .venv/bin/cambc submit "bots/$bot"
+
+status:
+    .venv/bin/cambc status
+
+docs:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd docs
+    curl -s https://docs.battlecode.cam/llms.txt -o llms.txt
+    grep -oP 'https://docs\.battlecode\.cam/\S+\.md' llms.txt | while read -r url; do
+        path="${url#https://docs.battlecode.cam/}"
+        mkdir -p "$(dirname "$path")"
+        curl -s "$url" -o "$path"
+        echo "$path"
+    done

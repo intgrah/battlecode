@@ -1,4 +1,4 @@
-# cambc.toml — Cambridge Battlecode project config
+# cambc.toml - Cambridge Battlecode project config
 
 bots_dir = "bots"
 maps_dir = "maps"
