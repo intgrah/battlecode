@@ -1,47 +1,61 @@
 default_map := "maps/default_large1.map26"
 
 run a b map=default_map:
-    .venv/bin/cambc run {{a}} {{b}} {{map}}
+    cambc run {{a}} {{b}} {{map}}
 
 watch a b map=default_map:
-    .venv/bin/cambc run {{a}} {{b}} {{map}} --watch
+    cambc run {{a}} {{b}} {{map}} --watch
 
 stats replay="replay.replay26":
-    .venv/bin/python scripts/replay_stats.py {{replay}}
+    python scripts/replay_stats.py {{replay}}
+
+economy replay="replay.replay26":
+    python scripts/replay_economy.py {{replay}}
+
+spatial replay="replay.replay26":
+    python scripts/replay_spatial.py {{replay}}
+
+map *args:
+    python scripts/replay_map.py {{args}}
+
+download match_id:
+    python scripts/download_match.py {{match_id}}
 
 match a b map=default_map:
-    .venv/bin/cambc run {{a}} {{b}} {{map}}
-    .venv/bin/python scripts/replay_stats.py replay.replay26
+    -cambc run {{a}} {{b}} {{map}} 2>&1 | grep -v "^Completed turn\|^Fatal\|^Python runtime\|^Update available\|^$"
+    python scripts/replay_stats.py replay.replay26
 
 proto:
     protoc --python_out=proto --proto_path=proto proto/cambc.proto
 
 lint:
-    .venv/bin/ruff check bots/ scripts/
+    ruff check --fix bots/ scripts/
 
 fmt:
-    .venv/bin/ruff format bots/ scripts/
+    ruff format bots/ scripts/
+
+f: lint fmt
 
 tournament *args:
-    .venv/bin/python scripts/tournament.py run {{args}}
+    python scripts/tournament.py run {{args}}
 
 snapshot:
-    .venv/bin/python scripts/tournament.py snapshot
+    python scripts/tournament.py snapshot
 
 latest:
-    @.venv/bin/python scripts/tournament.py latest
+    @python scripts/tournament.py latest
 
 bots:
-    @.venv/bin/python scripts/tournament.py list
+    @python scripts/tournament.py list
 
 submit:
     #!/usr/bin/env bash
-    bot=$(.venv/bin/python scripts/tournament.py latest)
+    bot=$(python scripts/tournament.py latest)
     echo "Submitting $bot"
-    .venv/bin/cambc submit "bots/$bot"
+    cambc submit "bots/$bot"
 
 status:
-    .venv/bin/cambc status
+    cambc status
 
 docs:
     #!/usr/bin/env bash
