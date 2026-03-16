@@ -5,12 +5,14 @@ import shutil
 import subprocess
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+
+sys.path.insert(0, str(ROOT / "proto"))
 from cambc_pb2 import Replay
 
-ROOT = Path(__file__).resolve().parent.parent
 BOTS_DIR = ROOT / "bots"
 MAPS_DIR = ROOT / "maps"
 RESULTS_DIR = ROOT / "results"
@@ -57,6 +59,7 @@ def run_match(bot_a: str, bot_b: str, map_path: str, replay_path: str) -> str | 
         text=True,
         timeout=120,
         cwd=str(ROOT),
+        check=False,
     )
     replay = Path(replay_path)
     if not replay.exists():
@@ -70,7 +73,7 @@ def run_match(bot_a: str, bot_b: str, map_path: str, replay_path: str) -> str | 
 
 def round_robin(bots: list[str], maps: list[str]) -> None:
     RESULTS_DIR.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
     run_dir = RESULTS_DIR / timestamp
     run_dir.mkdir()
 

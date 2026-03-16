@@ -11,7 +11,8 @@
       "Bash(xxd /home/intgrah/git/intgrah/battlecode/replay.replay26)",
       "Bash(uv add:*)",
       "Bash(.venv/bin/python /home/intgrah/git/intgrah/battlecode/replay_stats.py /home/intgrah/git/intgrah/battlecode/replay.replay26)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(python -c \"from proto.cambc_pb2 import Replay; r = Replay\\(\\); print\\(type\\(r.turns\\)\\)\")"
     ]
   }
 }

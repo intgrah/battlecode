@@ -154,7 +154,6 @@ class CoreBot:
     def run(self, ct: Controller) -> None:
         core_pos = ct.get_position()
         ti, _ax = ct.get_global_resources()
-        rnd = ct.get_current_round()
         bot_cost = ct.get_builder_bot_cost()[0]
 
         if self.num_spawned >= NUM_BUILDERS:
@@ -169,7 +168,7 @@ class CoreBot:
         sector = self.num_spawned % len(SECTOR_DIRS)
         spawn_dir = SECTOR_DIRS[sector]
 
-        for d in [spawn_dir, spawn_dir.rotate_left(), spawn_dir.rotate_right()] + DIRS:
+        for d in [spawn_dir, spawn_dir.rotate_left(), spawn_dir.rotate_right(), *DIRS]:
             spawn_pos = core_pos.add(d)
             if ct.can_spawn(spawn_pos):
                 ct.spawn_builder(spawn_pos)

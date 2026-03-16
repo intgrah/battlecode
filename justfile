@@ -15,6 +15,9 @@ economy replay="replay.replay26":
 spatial replay="replay.replay26":
     python scripts/replay_spatial.py {{replay}}
 
+network replay="replay.replay26":
+    python scripts/replay_network.py {{replay}}
+
 map *args:
     python scripts/replay_map.py {{args}}
 
