@@ -142,7 +142,7 @@ def analyze_graph(g):
         print(f"  Dead ends (output to nothing): {len(leaves)}")
 
         print()
-        print(f"  Harvester chains:")
+        print("  Harvester chains:")
         total_hops = 0
         connected = 0
         disconnected = 0

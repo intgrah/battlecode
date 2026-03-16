@@ -1,6 +1,6 @@
 import math
 import sys
-from collections import defaultdict, deque
+from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -229,7 +229,7 @@ def analyze(net):
         between = compute_betweenness(net["conveyors"], team_harv, cp, t, w, h)
         if between:
             top_central = sorted(between.items(), key=lambda x: -x[1])[:5]
-            print(f"  Most critical tiles (betweenness):")
+            print("  Most critical tiles (betweenness):")
             for pos, usage in top_central:
                 flow = net["actual_flow"].get(pos, 0)
                 print(f"    ({pos[0]},{pos[1]}): serves {usage} harvesters, flow={flow}")
