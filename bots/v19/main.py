@@ -258,14 +258,13 @@ class BuilderAgent:
                 ore_env(ct, t)
                 and ct.get_tile_building_id(t) is None
                 and (t.x, t.y) not in self.visited_ore
-            ):
-                if ct.can_build_harvester(t):
-                    ct.build_harvester(t)
-                    self.visited_ore.add((t.x, t.y))
-                    self.idle_turns = 0
-                    self.harvesters_built += 1
-                    self._new_explore_target(ct)
-                    return
+            ) and ct.can_build_harvester(t):
+                ct.build_harvester(t)
+                self.visited_ore.add((t.x, t.y))
+                self.idle_turns = 0
+                self.harvesters_built += 1
+                self._new_explore_target(ct)
+                return
 
         best_ore = None
         best_d = 999999

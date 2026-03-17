@@ -86,7 +86,7 @@ def analyze_throughput(r: Replay) -> None:
             elif k == "remove_entity":
                 eid = u.remove_entity.id
                 if eid in entities:
-                    team, ek = entities[eid]
+                    _team, ek = entities[eid]
                     for p, c in list(conveyors.items()):
                         if c["id"] == eid:
                             del conveyors[p]
@@ -138,7 +138,7 @@ def analyze_throughput(r: Replay) -> None:
         print(f"  Core deliveries: {total_core_delivery} stacks")
         print(f"  Flow loss: {loss} stacks ({loss_pct:.0f}%)")
 
-        harv_count = len(harvesters[t]) + len(harvester_born[t]) - len(harvesters[t])
+        len(harvesters[t]) + len(harvester_born[t]) - len(harvesters[t])
         max_capacity = len(harvester_born[t])
         if max_capacity > 0:
             theoretical = max_capacity * (total_turns / 4)

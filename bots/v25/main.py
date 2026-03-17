@@ -257,22 +257,20 @@ class CoreBot:
             if (
                 ct.get_team(eid) != my
                 and ct.get_entity_type(eid) == EntityType.BUILDER_BOT
-            ):
-                if core_pos.distance_squared(ct.get_position(eid)) <= 36:
-                    if ti >= cost:
-                        for d in DIRS:
-                            sp = core_pos.add(d)
-                            if ct.can_spawn(sp):
-                                ct.spawn_builder(sp)
-                                self.spawned += 1
-                                return
-                    return
-
-        harv_cost = ct.get_harvester_cost()[0]
-        if self.spawned < NUM_INITIAL:
-            if ti < cost + harv_cost:
+            ) and core_pos.distance_squared(ct.get_position(eid)) <= 36:
+                if ti >= cost:
+                    for d in DIRS:
+                        sp = core_pos.add(d)
+                        if ct.can_spawn(sp):
+                            ct.spawn_builder(sp)
+                            self.spawned += 1
+                            return
                 return
-        elif ti < cost + harv_cost + 200:
+
+        if self.spawned < NUM_INITIAL:
+            if ti < cost + ct.get_harvester_cost()[0]:
+                return
+        elif rnd < RAID_START or ti < 500:
             return
 
         spoke = self.spawned % len(SPOKES)
@@ -291,9 +289,10 @@ EXPLORE = 0
 SEEK_ORE = 1
 RETURN = 2
 CHAIN_BUILD = 3
-SWEEP = 4
-RAID = 5
-FORTIFY = 6
+MAINTAIN = 4
+PATROL = 5
+RAID = 6
+FORTIFY = 7
 
 
 class BuilderAgent:
@@ -317,9 +316,6 @@ class BuilderAgent:
         self.fortify_target: Position | None = None
         self.fortify_dir: Direction | None = None
         self.has_fortified = False
-        self.last_harv_pos: Position | None = None
-        self.sweep_toward_core = True
-        self.sweep_cycles = 0
 
     def _setup(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -381,8 +377,10 @@ class BuilderAgent:
             self._do_return(ct, pos)
         elif self.state == CHAIN_BUILD:
             self._do_chain_build(ct, pos)
-        elif self.state == SWEEP:
-            self._do_sweep(ct, pos)
+        elif self.state == MAINTAIN:
+            self._do_maintain(ct, pos)
+        elif self.state == PATROL:
+            self._do_patrol(ct, pos)
         elif self.state == FORTIFY:
             self._do_fortify(ct, pos)
         elif self.state == RAID:
@@ -519,11 +517,7 @@ class BuilderAgent:
             return
 
         self.idle_turns += 1
-        if (
-            self.has_income
-            and self.idle_turns >= IDLE_BEFORE_RAID
-            and self.harvesters_built == 0
-        ):
+        if self.has_income and self.idle_turns >= IDLE_BEFORE_RAID:
             self.state = RAID
             self.nav.reset()
             return
@@ -591,12 +585,9 @@ class BuilderAgent:
         if ct.can_build_harvester(self.ore_target):
             ct.build_harvester(self.ore_target)
             self.harvesters_built += 1
-            self.last_harv_pos = self.ore_target
+            self.state = MAINTAIN
+            self.idle_turns = 0
             self.ore_target = None
-            self.sweep_toward_core = True
-            self.sweep_cycles = 0
-            self.state = SWEEP
-            self.nav.reset()
             return
 
         if ct.is_in_vision(self.ore_target) and (
@@ -615,9 +606,7 @@ class BuilderAgent:
             self.state = EXPLORE
             self._new_explore_target(ct, ct.get_position())
 
-    def _do_sweep(self, ct: Controller, pos: Position) -> None:
-        assert self.core is not None
-
+    def _do_maintain(self, ct: Controller, pos: Position) -> None:
         brk = self._find_break(ct)
         if brk:
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
@@ -628,23 +617,10 @@ class BuilderAgent:
             self.nav.go(ct, brk, lambda d: step_walk(ct, d))
             return
 
-        adj = self._find_adj_ore(ct, pos)
-        if adj:
-            self.visited_ore.add((adj.x, adj.y))
-            self.ore_target = adj
-            self.state = RETURN
-            self.nav.reset()
-            return
-
-        ore = self._find_visible_ore(ct, pos)
-        if ore:
-            self.state = SEEK_ORE
-            self.target = ore
-            self.nav.reset()
-            return
-
+        assert self.core is not None
         ti, _ = ct.get_global_resources()
         rnd = ct.get_current_round()
+
         if (
             self.harvesters_built >= 1
             and ti > 200
@@ -659,29 +635,25 @@ class BuilderAgent:
                 self.nav.reset()
                 return
 
-        if self.sweep_toward_core:
-            if pos.distance_squared(self.core) <= 4:
-                self.sweep_toward_core = False
-                self.nav.reset()
-            else:
-                self.nav.go(ct, self.core, lambda d: step_road(ct, d))
-                return
-        elif self.last_harv_pos and pos.distance_squared(self.last_harv_pos) <= 4:
-            self.sweep_toward_core = True
-            self.sweep_cycles += 1
+        self.idle_turns += 1
+        if self.idle_turns >= IDLE_BEFORE_RAID and self.has_income:
+            self.state = RAID
             self.nav.reset()
-        elif self.last_harv_pos:
-            self.nav.go(ct, self.last_harv_pos, lambda d: step_road(ct, d))
             return
 
-        if self.sweep_cycles >= 2:
-            self.state = EXPLORE
-            self._new_explore_target(ct, pos)
+        if self.idle_turns > 20:
+            self.state = PATROL
+            self._new_explore_target(ct, ct.get_position())
+            return
+
+        if self.core and pos.distance_squared(self.core) > 4:
+            self.nav.go(ct, self.core, lambda d: step_walk(ct, d))
 
     def _do_fortify(self, ct: Controller, pos: Position) -> None:
-        assert self.core is not None and self.enemy_core is not None
+        assert self.core is not None
+        assert self.enemy_core is not None
         if not self.fortify_target:
-            self.state = SWEEP
+            self.state = MAINTAIN
             self.idle_turns = 0
             return
 
@@ -695,7 +667,7 @@ class BuilderAgent:
             bid = ct.get_tile_building_id(self.fortify_target)
             if bid is None:
                 self.fortify_target = None
-                self.state = SWEEP
+                self.state = MAINTAIN
                 self.idle_turns = 0
                 return
             self.fortify_dir = ct.get_direction(bid)
@@ -710,7 +682,7 @@ class BuilderAgent:
                 self.fortify_step = 3
             else:
                 self.fortify_target = None
-                self.state = SWEEP
+                self.state = MAINTAIN
                 self.idle_turns = 0
             return
 
@@ -736,18 +708,57 @@ class BuilderAgent:
                     self.fortify_target = None
                     self.fortify_step = 0
                     self.has_fortified = True
-                    self.state = SWEEP
+                    self.state = MAINTAIN
                     self.idle_turns = 0
                     return
 
             self.fortify_target = None
             self.fortify_step = 0
             self.has_fortified = True
-            self.state = SWEEP
+            self.state = MAINTAIN
             self.idle_turns = 0
 
+    def _do_patrol(self, ct: Controller, pos: Position) -> None:
+        adj = self._find_adj_ore(ct, pos)
+        if adj:
+            self.visited_ore.add((adj.x, adj.y))
+            self.ore_target = adj
+            self.state = RETURN
+            self.nav.reset()
+            return
+
+        ore = self._find_visible_ore(ct, pos)
+        if ore:
+            self.state = SEEK_ORE
+            self.target = ore
+            self.nav.reset()
+            return
+
+        brk = self._find_break(ct)
+        if brk:
+            self.state = MAINTAIN
+            self.idle_turns = 0
+            return
+
+        if self.has_income and self.idle_turns >= IDLE_BEFORE_RAID:
+            self.state = RAID
+            self.nav.reset()
+            return
+
+        self.idle_turns += 1
+        self.explore_turns += 1
+        if (
+            self.explore_turns > 30
+            or self.target is None
+            or pos.distance_squared(self.target) <= 4
+        ):
+            self._new_explore_target(ct, pos)
+        if self.target:
+            self.nav.go(ct, self.target, lambda d: step_road(ct, d))
+
     def _do_raid(self, ct: Controller, pos: Position) -> None:
-        assert self.core is not None and self.enemy_core is not None
+        assert self.core is not None
+        assert self.enemy_core is not None
         my = ct.get_team()
 
         bid = ct.get_tile_building_id(pos)

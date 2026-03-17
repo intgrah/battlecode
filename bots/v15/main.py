@@ -144,11 +144,14 @@ class Percept:
                 EntityType.CONVEYOR,
                 EntityType.HARVESTER,
                 EntityType.ARMOURED_CONVEYOR,
-            ):
-                if self.enemy_infra is None or d < pos.distance_squared(
+            ) and (
+                self.enemy_infra is None
+                or d
+                < pos.distance_squared(
                     self.enemy_infra,
-                ):
-                    self.enemy_infra = ep
+                )
+            ):
+                self.enemy_infra = ep
 
         for d in DIRS:
             count = 0

@@ -108,7 +108,7 @@ def analyze_snapshot(conveyors, harvesters_t, core_pos, team):
     }
 
 
-def main():
+def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     r = parse(path)
 
