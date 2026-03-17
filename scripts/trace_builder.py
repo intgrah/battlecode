@@ -66,7 +66,7 @@ for i, turn in enumerate(r.turns):
                 events.append(f"  ROAD at {pos}")
             elif ek == "harvester":
                 harvesters.append(pos)
-                events.append(f"  HARV at {pos}")
+                events.append(f"  HARV at {pos} [team={e.team}]")
         elif k == "move_builder_bot":
             m = u.move_builder_bot
             if m.id in bots:
@@ -138,3 +138,54 @@ for hpos in harvesters:
         print(f"  NO CHAIN  harv@{hpos}")
 
 print(f"\nConnected: {connected}/{connected + disconnected}")
+
+print("\n=== Oscillation detection ===")
+bot_history: dict[int, list[tuple[int, int]]] = {}
+
+for i2, turn2 in enumerate(r.turns):
+    for u in turn2.updates:
+        k = u.WhichOneof("kind")
+        if k == "place_entity":
+            e = u.place_entity.entity
+            if e.team == team and e.WhichOneof("kind") == "builder_bot":
+                bot_history[e.id] = [(e.position.x, e.position.y)]
+        elif k == "move_builder_bot":
+            m = u.move_builder_bot
+            if m.id in bot_history:
+                bot_history[m.id].append((m.to.x, m.to.y))
+        elif k == "remove_entity":
+            eid = u.remove_entity.id
+            bot_history.pop(eid, None)
+
+total_osc_turns = 0
+total_bot_turns = 0
+for bid, hist in bot_history.items():
+    total_bot_turns += len(hist)
+    osc_turns = 0
+    max_run = 0
+    cur_run = 0
+    worst_start = 0
+    for j in range(4, len(hist)):
+        window = hist[j - 4 : j + 1]
+        positions = set(window)
+        if len(positions) <= 2:
+            cur_run += 1
+            if cur_run > max_run:
+                max_run = cur_run
+                worst_start = j - cur_run
+            osc_turns += 1
+        else:
+            cur_run = 0
+    if max_run >= 10:
+        pct = 100 * osc_turns / len(hist)
+        pts = hist[worst_start] if worst_start < len(hist) else "?"
+        print(
+            f"  bot#{bid}: {osc_turns}/{len(hist)} turns oscillating ({pct:.0f}%), worst run={max_run} at turn ~{worst_start} near {pts}",
+        )
+    total_osc_turns += osc_turns
+
+if total_bot_turns > 0:
+    pct = 100 * total_osc_turns / total_bot_turns
+    print(
+        f"\n  Total: {total_osc_turns}/{total_bot_turns} bot-turns oscillating ({pct:.1f}%)",
+    )

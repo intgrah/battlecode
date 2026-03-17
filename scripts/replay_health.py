@@ -70,8 +70,8 @@ def analyze(r: Replay) -> None:
     entity_pos = {}
     harv_born = {0: {}, 1: {}}
 
-    # Per-harvester connectivity state
     harv_state = {0: {}, 1: {}}
+    harv_ever_connected = {0: set(), 1: set()}
     break_events = {0: [], 1: []}
     repair_events = {0: [], 1: []}
 
@@ -171,17 +171,17 @@ def analyze(r: Replay) -> None:
                         if pos in harvesters[t] and harvesters[t][pos] == eid:
                             del harvesters[t][pos]
 
-        # Check per-harvester connectivity every 20 turns
-        if turn_idx % 20 == 0:
-            for t in (0, 1):
-                for hpos in harvesters[t]:
-                    conn = is_connected(hpos, conveyors, core_pos, t)
-                    was = harv_state[t].get(hpos)
-                    if was is True and not conn:
-                        break_events[t].append((turn_idx, hpos))
-                    elif was is False and conn:
-                        repair_events[t].append((turn_idx, hpos))
-                    harv_state[t][hpos] = conn
+        for t in (0, 1):
+            for hpos in harvesters[t]:
+                conn = is_connected(hpos, conveyors, core_pos, t)
+                was = harv_state[t].get(hpos)
+                if conn:
+                    harv_ever_connected[t].add(hpos)
+                if was is True and not conn:
+                    break_events[t].append((turn_idx, hpos))
+                elif was is False and conn:
+                    repair_events[t].append((turn_idx, hpos))
+                harv_state[t][hpos] = conn
 
     # Compute final harvester adjacency
     for t in (0, 1):
@@ -207,8 +207,12 @@ def analyze(r: Replay) -> None:
         print(f"    Repairs: {len(repair_events[t])}")
         for turn, hpos in repair_events[t][:5]:
             print(f"      t{turn}: H({hpos[0]},{hpos[1]})")
-        never = sum(1 for h in harvesters[t] if not harv_state[t].get(h, False))
+        never = sum(1 for h in harvesters[t] if h not in harv_ever_connected[t])
+        broken_now = sum(1 for h in harvesters[t] if h in harv_ever_connected[t] and not harv_state[t].get(h, False))
+        connected_now = sum(1 for h in harvesters[t] if harv_state[t].get(h, False))
         print(f"    Never connected: {never}/{len(harvesters[t])}")
+        print(f"    Connected at end: {connected_now}/{len(harvesters[t])}")
+        print(f"    Broken at end: {broken_now}/{len(harvesters[t])}")
 
         print("  Destruction Causes:")
         for cause, count in sorted(destructions[t].items(), key=lambda x: -x[1]):

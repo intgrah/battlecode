@@ -76,6 +76,26 @@ submit bot="":
     echo "Submitting $bot"
     cambc submit "bots/$bot"
 
+challenge bot opponent:
+    #!/usr/bin/env bash
+    ranked="${RANKED:-v21}"
+    echo "Submitting {{bot}}"
+    cambc submit "bots/{{bot}}"
+    echo "Challenging {{opponent}}"
+    cambc unrated "{{opponent}}"
+    echo "Restoring $ranked"
+    cambc submit "bots/$ranked"
+
+challenge-all bot:
+    #!/usr/bin/env bash
+    ranked="${RANKED:-v21}"
+    echo "Submitting {{bot}}"
+    cambc submit "bots/{{bot}}"
+    cambc unrated "87ee9a96-2175-4a03-afbb-a1ed3b67bb84" || true
+    cambc unrated "05a96b0d-3ce5-4be8-921b-570dd973994a" || true
+    echo "Restoring $ranked"
+    cambc submit "bots/$ranked"
+
 status:
     cambc status
 
