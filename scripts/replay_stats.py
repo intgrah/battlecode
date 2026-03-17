@@ -35,8 +35,13 @@ def print_stats(s: dict) -> None:
             final_rate = ir[-1][1] if ir else 0
             print(f"  Income: peak={peak_rate:.1f}/t  final={final_rate:.1f}/t")
 
+        sd = s["self_destructs"][t]
+        bk = s["builder_kills"][t]
+        ek = s["kills"][t]
+        dmg = s["total_damage"][t]
+        mv = s["moves"][t]
         print(
-            f"  Damage: {s['total_damage'][t]}  Kills: {s['kills'][t]}  Self-destructs: {s['self_destructs'][t]}",
+            f"  Damage: {dmg}  Builder kills: {bk}  Entity kills: {ek}  Self-destructs: {sd}  Moves: {mv}",
         )
         print(f"  Built: {dict(s['placed'][t])}")
         print(f"  Lost:  {dict(s['removed'][t])}")

@@ -36,10 +36,11 @@ def analyze_combat(r: Replay) -> None:
 
     self_destructs = {0: [], 1: []}
     damage_events = {0: [], 1: []}
-    {0: defaultdict(int), 1: defaultdict(int)}
+    damaged_this_turn = set()
 
     buildings_destroyed = {0: defaultdict(int), 1: defaultdict(int)}
     builder_losses = {0: 0, 1: 0}
+    builder_kills = {0: 0, 1: 0}
 
     raid_arrivals = {0: [], 1: []}
 
@@ -48,6 +49,7 @@ def analyze_combat(r: Replay) -> None:
         core_pos[c.team] = (c.position.x, c.position.y)
 
     for turn_idx, turn in enumerate(r.turns):
+        damaged_this_turn.clear()
         for u in turn.updates:
             kind = u.WhichOneof("kind")
             if kind == "place_entity":
@@ -87,18 +89,19 @@ def analyze_combat(r: Replay) -> None:
                     if ek == "builder_bot":
                         builder_losses[team] += 1
                         epos = entity_pos.get(eid)
-                        if epos:
-                            enemy_team = 1 - team
+                        if eid in damaged_this_turn:
+                            builder_kills[1 - team] += 1
+                        elif epos:
                             self_destructs[team].append((turn_idx, epos))
-                    elif ek != "marker":
-                        enemy_team = 1 - team
-                        buildings_destroyed[enemy_team][ek] += 1
+                    elif ek != "marker" and eid in damaged_this_turn:
+                        buildings_destroyed[1 - team][ek] += 1
                     old = entity_pos.pop(eid, None)
                     if old:
                         pos_to_entity.pop(old, None)
             elif kind == "update_hp":
                 eid = u.update_hp.id
                 if u.update_hp.delta < 0 and eid in entities:
+                    damaged_this_turn.add(eid)
                     victim_team = entities[eid][0]
                     attacker_team = 1 - victim_team
                     dmg = abs(u.update_hp.delta)
@@ -139,7 +142,7 @@ def analyze_combat(r: Replay) -> None:
             for turn, d, _ in damage_events[t]:
                 dmg_timeline[turn] += d
             for i in range(window, total_turns):
-                dps = sum(dmg_timeline[i - window:i]) / window
+                dps = sum(dmg_timeline[i - window : i]) / window
                 peak_dps = max(peak_dps, dps)
             print(f"  Peak DPS (100t window): {peak_dps:.1f}/t")
 
@@ -149,7 +152,7 @@ def analyze_combat(r: Replay) -> None:
             sd_turns = [s[0] for s in sd_list]
             print(f"  SD window: t{min(sd_turns)} - t{max(sd_turns)}")
 
-        print(f"  Builder losses: {builder_losses[t]}")
+        print(f"  Builder losses: {builder_losses[t]} (killed: {builder_kills[t]})")
 
         if turrets_built[t]:
             print(f"  Turrets built: {dict(turrets_built[t])}")

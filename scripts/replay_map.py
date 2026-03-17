@@ -27,8 +27,15 @@ ENTITY_CHARS = {
 }
 
 DIR_ARROWS = {
-    0: "o", 1: "^", 2: "/", 3: ">", 4: "\\",
-    5: "v", 6: "/", 7: "<", 8: "\\",
+    0: "o",
+    1: "^",
+    2: "/",
+    3: ">",
+    4: "\\",
+    5: "v",
+    6: "/",
+    7: "<",
+    8: "\\",
 }
 
 
@@ -75,7 +82,12 @@ def analyze(r: Replay, target_turn: int | None = None) -> dict:
                 elif ek == "armoured_conveyor" and e.HasField("armoured_conveyor"):
                     conv_dir = e.armoured_conveyor.direction
                 if ek != "builder_bot":
-                    building_grid[(e.position.x, e.position.y)] = (e.team, ek, e.id, conv_dir)
+                    building_grid[(e.position.x, e.position.y)] = (
+                        e.team,
+                        ek,
+                        e.id,
+                        conv_dir,
+                    )
                 if ek == "builder_bot":
                     builder_visits[e.team][(e.position.x, e.position.y)] += 1
             elif kind == "move_builder_bot":
@@ -94,7 +106,8 @@ def analyze(r: Replay, target_turn: int | None = None) -> dict:
                 entity_team.pop(eid, None)
 
     return {
-        "w": w, "h": h,
+        "w": w,
+        "h": h,
         "env_grid": env_grid,
         "entities": entities,
         "entity_pos": entity_pos,
@@ -114,7 +127,12 @@ def render_state(d: dict) -> str:
             grid[y][x] = ENV_CHARS.get(d["env_grid"][y][x], "?")
 
     for (x, y), entry in d["building_grid"].items():
-        team, ek, _, conv_dir = entry[0], entry[1], entry[2], entry[3] if len(entry) > 3 else None
+        team, ek, _, conv_dir = (
+            entry[0],
+            entry[1],
+            entry[2],
+            entry[3] if len(entry) > 3 else None,
+        )
         if ek in ("conveyor", "armoured_conveyor") and conv_dir is not None:
             ch = DIR_ARROWS.get(conv_dir, ">")
         else:

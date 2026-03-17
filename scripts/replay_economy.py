@@ -38,14 +38,22 @@ def print_economy(s: dict) -> None:
 
             if len(ir) >= 4:
                 quartiles = [ir[len(ir) * i // 4] for i in range(1, 4)]
-                print("  Income @25/50/75%: " + "  ".join(f"t{t_}:{r:.1f}" for t_, r in quartiles))
+                print(
+                    "  Income @25/50/75%: "
+                    + "  ".join(f"t{t_}:{r:.1f}" for t_, r in quartiles),
+                )
 
         total_spent = final_ti_col + final_ax_col - rh[-1][1] - rh[-1][2] + 1000
-        print(f"  Collected: Ti={final_ti_col} Ax={final_ax_col}  Spent: ~{total_spent}")
+        print(
+            f"  Collected: Ti={final_ti_col} Ax={final_ax_col}  Spent: ~{total_spent}",
+        )
 
-        conveyors = s["placed"][t].get("conveyor", 0)
+        conveyors = sum(
+            s["placed"][t].get(k, 0)
+            for k in ("conveyor", "armoured_conveyor", "splitter", "bridge")
+        )
         roads = s["placed"][t].get("road", 0)
-        print(f"  Infrastructure: {conveyors} conveyors, {roads} roads")
+        print(f"  Infrastructure: {conveyors} transport, {roads} roads")
 
         if rh and len(rh) >= 5:
             step = max(1, len(rh) // 6)
@@ -60,9 +68,13 @@ def print_economy(s: dict) -> None:
     n = s["total_turns"]
     avg_conv = total_conv / n if n else 0
     peak_conv = max(s["conveyor_moves_per_turn"]) if s["conveyor_moves_per_turn"] else 0
-    print(f"Conveyor flow (global): {total_conv} total  avg={avg_conv:.1f}/t  peak={peak_conv}/t")
+    print(
+        f"Conveyor flow (global): {total_conv} total  avg={avg_conv:.1f}/t  peak={peak_conv}/t",
+    )
     if s["top_flow_tiles"]:
-        print(f"Hottest tiles: {', '.join(f'({x},{y}):{c}' for (x,y),c in s['top_flow_tiles'])}")
+        print(
+            f"Hottest tiles: {', '.join(f'({x},{y}):{c}' for (x, y), c in s['top_flow_tiles'])}",
+        )
 
 
 def main() -> None:

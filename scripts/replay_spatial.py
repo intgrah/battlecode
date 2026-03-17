@@ -26,13 +26,17 @@ def print_spatial(s: dict) -> None:
         builders = s["placed"][t].get("builder_bot", 0)
         print(f"  Builders spawned: {builders}")
 
-        moves = s["moves"]
-        print(f"  Total builder moves: {moves}")
+        print(f"  Total builder moves: {s['moves'][t]}")
 
-        conveyors = s["placed"][t].get("conveyor", 0)
+        conveyors = sum(
+            s["placed"][t].get(k, 0)
+            for k in ("conveyor", "armoured_conveyor", "splitter", "bridge")
+        )
         roads = s["placed"][t].get("road", 0)
         roads_lost = s["removed"][t].get("road", 0)
-        print(f"  Path tiles: {conveyors} conveyors + {roads} roads ({roads_lost} roads destroyed)")
+        print(
+            f"  Path tiles: {conveyors} transport + {roads} roads ({roads_lost} roads destroyed)",
+        )
 
         if conveyors + roads > 0:
             conv_pct = 100 * conveyors // (conveyors + roads)

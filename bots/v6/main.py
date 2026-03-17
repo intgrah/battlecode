@@ -12,8 +12,14 @@ from cambc import (
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 SECTOR_DIRS = [
-    Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
-    Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
 ]
 
 NUM_BUILDERS = 8
@@ -70,7 +76,14 @@ def nearest_ore(ct: Controller) -> Position | None:
     return best
 
 
-def bugnav_step(ct: Controller, target: Position, core_pos: Position | None, state: dict, *, skip_ore: bool = False) -> bool:
+def bugnav_step(
+    ct: Controller,
+    target: Position,
+    core_pos: Position | None,
+    state: dict,
+    *,
+    skip_ore: bool = False,
+) -> bool:
     pos = ct.get_position()
     d = toward(pos, target)
     dist = pos.distance_squared(target)
@@ -108,7 +121,12 @@ def bugnav_step(ct: Controller, target: Position, core_pos: Position | None, sta
     return False
 
 
-def _try_step(ct: Controller, d: Direction, core_pos: Position | None, skip_ore: bool = False) -> bool:
+def _try_step(
+    ct: Controller,
+    d: Direction,
+    core_pos: Position | None,
+    skip_ore: bool = False,
+) -> bool:
     pos = ct.get_position()
     next_pos = pos.add(d)
     if is_wall(ct, next_pos):
@@ -183,12 +201,19 @@ class BuilderBot:
     def _init(self, ct: Controller) -> None:
         pos = ct.get_position()
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == ct.get_team()
+            ):
                 self.core_pos = ct.get_position(eid)
                 break
 
         bid = ct.get_tile_building_id(pos)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER and ct.get_team(bid) == ct.get_team():
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.MARKER
+            and ct.get_team(bid) == ct.get_team()
+        ):
             val = ct.get_marker_value(bid)
             if val & MARKER_TYPE_MASK == MARKER_ASSIGN:
                 sector = val & 0xFF
@@ -228,14 +253,22 @@ class BuilderBot:
         skip = self.has_income
 
         ore = adjacent_ore(ct)
-        if ore is not None and (ore.x, ore.y) not in self.visited_ore and ct.can_build_harvester(ore):
+        if (
+            ore is not None
+            and (ore.x, ore.y) not in self.visited_ore
+            and ct.can_build_harvester(ore)
+        ):
             ct.build_harvester(ore)
             self.visited_ore.add((ore.x, ore.y))
             self._new_explore_target(ct)
             return
 
         visible_ore = nearest_ore(ct)
-        if visible_ore is not None and (visible_ore.x, visible_ore.y) not in self.visited_ore and self.core_pos is not None:
+        if (
+            visible_ore is not None
+            and (visible_ore.x, visible_ore.y) not in self.visited_ore
+            and self.core_pos is not None
+        ):
             bugnav_step(ct, visible_ore, self.core_pos, self.nav_state, skip_ore=skip)
             return
 
@@ -244,13 +277,20 @@ class BuilderBot:
 
         self.explore_turns += 1
         if self.explore_turns > 40 or (
-            self.explore_target is not None and pos.distance_squared(self.explore_target) <= 4
+            self.explore_target is not None
+            and pos.distance_squared(self.explore_target) <= 4
         ):
             self.sector_dir = random.choice(DIRS)
             self._new_explore_target(ct)
 
         if self.explore_target is not None:
-            bugnav_step(ct, self.explore_target, self.core_pos, self.nav_state, skip_ore=skip)
+            bugnav_step(
+                ct,
+                self.explore_target,
+                self.core_pos,
+                self.nav_state,
+                skip_ore=skip,
+            )
 
     def _attack(self, ct: Controller) -> None:
         if self.core_pos is None:

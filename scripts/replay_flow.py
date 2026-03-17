@@ -10,8 +10,15 @@ from cambc_pb2 import Entity, Replay
 TEAM = {0: "A", 1: "B"}
 
 DIR_DELTA = {
-    0: (0, 0), 1: (0, -1), 2: (1, -1), 3: (1, 0), 4: (1, 1),
-    5: (0, 1), 6: (-1, 1), 7: (-1, 0), 8: (-1, -1),
+    0: (0, 0),
+    1: (0, -1),
+    2: (1, -1),
+    3: (1, 0),
+    4: (1, 1),
+    5: (0, 1),
+    6: (-1, 1),
+    7: (-1, 0),
+    8: (-1, -1),
 }
 
 
@@ -44,10 +51,16 @@ def build_network(r: Replay) -> dict:
                 ek = entity_kind(e)
                 pos = (e.position.x, e.position.y)
                 all_buildings[e.id] = (e.team, ek, pos)
-                if ek == "conveyor":
-                    d = e.conveyor.direction
-                    dx, dy = DIR_DELTA.get(d, (0, 0))
-                    out = (pos[0] + dx, pos[1] + dy)
+                if ek in ("conveyor", "armoured_conveyor", "splitter", "bridge"):
+                    if ek == "bridge":
+                        target = e.bridge.target
+                        out = (target.x, target.y)
+                        d = 0
+                    else:
+                        sub = getattr(e, ek)
+                        d = sub.direction
+                        dx, dy = DIR_DELTA.get(d, (0, 0))
+                        out = (pos[0] + dx, pos[1] + dy)
                     conveyors[pos] = {"team": e.team, "out": out, "id": e.id, "dir": d}
                 elif ek == "harvester":
                     harvesters[e.team][pos] = e.id
@@ -70,7 +83,8 @@ def build_network(r: Replay) -> dict:
                     actual_flow[frm] += 1
 
     return {
-        "w": w, "h": h,
+        "w": w,
+        "h": h,
         "core_pos": core_pos,
         "conveyors": conveyors,
         "harvesters": harvesters,
@@ -78,7 +92,15 @@ def build_network(r: Replay) -> dict:
     }
 
 
-def trace_to_core(start: tuple[int, int], conveyors: dict, core_pos: tuple[int, int], team: int, w: int, h: int, max_hops: int = 200) -> tuple[list, str]:
+def trace_to_core(
+    start: tuple[int, int],
+    conveyors: dict,
+    core_pos: tuple[int, int],
+    team: int,
+    w: int,
+    h: int,
+    max_hops: int = 200,
+) -> tuple[list, str]:
     path = []
     cur = start
     visited = set()
@@ -105,7 +127,13 @@ def compute_in_degree(conveyors: dict, team: int) -> dict:
     return in_deg
 
 
-def find_branches(conveyors: dict, team: int, core_pos: tuple[int, int], w: int, h: int) -> list:
+def find_branches(
+    conveyors: dict,
+    team: int,
+    core_pos: tuple[int, int],
+    w: int,
+    h: int,
+) -> list:
     team_convs = {p: c for p, c in conveyors.items() if c["team"] == team}
     in_deg = compute_in_degree(conveyors, team)
 
@@ -114,16 +142,29 @@ def find_branches(conveyors: dict, team: int, core_pos: tuple[int, int], w: int,
     branches = []
     for root in roots:
         path, result = trace_to_core(root, conveyors, core_pos, team, w, h)
-        branches.append({"root": root, "path": path, "result": result, "len": len(path)})
+        branches.append(
+            {"root": root, "path": path, "result": result, "len": len(path)},
+        )
     return branches
 
 
 def find_convergence_points(conveyors: dict, team: int) -> dict:
     in_deg = compute_in_degree(conveyors, team)
-    return {p: d for p, d in in_deg.items() if d >= 2 and p in conveyors and conveyors[p]["team"] == team}
+    return {
+        p: d
+        for p, d in in_deg.items()
+        if d >= 2 and p in conveyors and conveyors[p]["team"] == team
+    }
 
 
-def find_leak_points(conveyors: dict, team: int, core_pos: tuple[int, int], w: int, h: int, actual_flow: dict) -> list:
+def find_leak_points(
+    conveyors: dict,
+    team: int,
+    core_pos: tuple[int, int],
+    w: int,
+    h: int,
+    actual_flow: dict,
+) -> list:
     team_convs = {p: c for p, c in conveyors.items() if c["team"] == team}
 
     on_live_chain = set()
@@ -149,18 +190,30 @@ def find_leak_points(conveyors: dict, team: int, core_pos: tuple[int, int], w: i
                     for ddx in range(-1, 2):
                         for ddy in range(-1, 2):
                             inp = (adj[0] + ddx, adj[1] + ddy)
-                            if inp == dead_pos and (ddx, ddy) != DIR_DELTA.get(c["dir"], (0, 0)):
+                            if inp == dead_pos and (ddx, ddy) != DIR_DELTA.get(
+                                c["dir"],
+                                (0, 0),
+                            ):
                                 flow_on_dead = actual_flow.get(dead_pos, 0)
                                 if flow_on_dead > 0:
-                                    leaks.append({
-                                        "dead": dead_pos,
-                                        "live_adj": adj,
-                                        "flow_leaked": flow_on_dead,
-                                    })
+                                    leaks.append(
+                                        {
+                                            "dead": dead_pos,
+                                            "live_adj": adj,
+                                            "flow_leaked": flow_on_dead,
+                                        },
+                                    )
     return leaks
 
 
-def compute_betweenness(conveyors: dict, harvesters_t: dict, core_pos: tuple[int, int], team: int, w: int, h: int) -> dict:
+def compute_betweenness(
+    conveyors: dict,
+    harvesters_t: dict,
+    core_pos: tuple[int, int],
+    team: int,
+    w: int,
+    h: int,
+) -> dict:
     tile_usage = defaultdict(int)
     for hpos in harvesters_t:
         for dx in range(-1, 2):
@@ -213,7 +266,9 @@ def analyze(net: dict) -> None:
 
         print(f"  Connectivity: {connected}/{connected + disconnected}")
         if chain_lengths:
-            print(f"  Chain lengths: min={min(chain_lengths)} avg={sum(chain_lengths)/len(chain_lengths):.0f} max={max(chain_lengths)}")
+            print(
+                f"  Chain lengths: min={min(chain_lengths)} avg={sum(chain_lengths) / len(chain_lengths):.0f} max={max(chain_lengths)}",
+            )
 
         # Convergence points (where chains merge)
         convergence = find_convergence_points(net["conveyors"], t)
@@ -223,7 +278,9 @@ def analyze(net: dict) -> None:
             for pos, deg in top:
                 core_dist = math.sqrt((pos[0] - cp[0]) ** 2 + (pos[1] - cp[1]) ** 2)
                 flow = net["actual_flow"].get(pos, 0)
-                print(f"    ({pos[0]},{pos[1]}): in-degree={deg} flow={flow} dist_to_core={core_dist:.0f}")
+                print(
+                    f"    ({pos[0]},{pos[1]}): in-degree={deg} flow={flow} dist_to_core={core_dist:.0f}",
+                )
 
         # Betweenness centrality
         between = compute_betweenness(net["conveyors"], team_harv, cp, t, w, h)
@@ -232,7 +289,9 @@ def analyze(net: dict) -> None:
             print("  Most critical tiles (betweenness):")
             for pos, usage in top_central:
                 flow = net["actual_flow"].get(pos, 0)
-                print(f"    ({pos[0]},{pos[1]}): serves {usage} harvesters, flow={flow}")
+                print(
+                    f"    ({pos[0]},{pos[1]}): serves {usage} harvesters, flow={flow}",
+                )
 
         # Dead branches
         branches = find_branches(net["conveyors"], t, cp, w, h)
@@ -240,7 +299,9 @@ def analyze(net: dict) -> None:
         dead_branches = [b for b in branches if b["result"] != "core"]
         dead_conv_count = sum(b["len"] for b in dead_branches)
         live_conv_count = sum(b["len"] for b in live_branches)
-        print(f"  Branches: {len(live_branches)} live ({live_conv_count} tiles), {len(dead_branches)} dead ({dead_conv_count} tiles)")
+        print(
+            f"  Branches: {len(live_branches)} live ({live_conv_count} tiles), {len(dead_branches)} dead ({dead_conv_count} tiles)",
+        )
 
         # Flow leaking into dead branches
         dead_with_flow = 0
@@ -251,7 +312,9 @@ def analyze(net: dict) -> None:
                 if f > 0:
                     dead_with_flow += 1
                     total_leaked += f
-        print(f"  Dead tiles with flow: {dead_with_flow} ({total_leaked} total leaked transfers)")
+        print(
+            f"  Dead tiles with flow: {dead_with_flow} ({total_leaked} total leaked transfers)",
+        )
 
         # Throughput analysis near core
         core_input_tiles = []
@@ -263,16 +326,22 @@ def analyze(net: dict) -> None:
                     core_input_tiles.append((p, f))
         core_input_tiles.sort(key=lambda x: -x[1])
         total_core_flow = sum(f for _, f in core_input_tiles)
-        print(f"  Core input: {len(core_input_tiles)} tiles, {total_core_flow} total flow ({total_core_flow/20:.1f}/turn)")
+        print(
+            f"  Core input: {len(core_input_tiles)} tiles, {total_core_flow} total flow ({total_core_flow / 20:.1f}/turn)",
+        )
 
         # Theoretical vs actual throughput
         theoretical_max = connected * 500  # 1 stack per 4 turns over 2000 turns
         actual_harvester_flow = sum(net["actual_flow"].get(h, 0) for h in team_harv)
         delivery_rate = total_core_flow / max(theoretical_max, 1) * 100
         print(f"  Harvester output: {actual_harvester_flow} stacks")
-        print(f"  Core delivery: {total_core_flow} stacks ({delivery_rate:.0f}% of theoretical)")
+        print(
+            f"  Core delivery: {total_core_flow} stacks ({delivery_rate:.0f}% of theoretical)",
+        )
         if actual_harvester_flow > 0:
-            loss_rate = (actual_harvester_flow - total_core_flow) / actual_harvester_flow * 100
+            loss_rate = (
+                (actual_harvester_flow - total_core_flow) / actual_harvester_flow * 100
+            )
             print(f"  Flow loss: {loss_rate:.0f}% (produced but not delivered)")
 
         print()

@@ -33,7 +33,7 @@ def collect(r: Replay) -> dict:
     entities = {}
     entity_pos = {}
     final_hp = {}
-    moves = 0
+    moves = {0: 0, 1: 0}
     total_damage = {0: 0, 1: 0}
     kills = {0: 0, 1: 0}
     tle_count = {0: 0, 1: 0}
@@ -58,12 +58,15 @@ def collect(r: Replay) -> dict:
     harvesters_connected = {0: 0, 1: 0}
 
     builder_acted_this_turn = set()
+    damaged_this_turn = set()
 
     self_destructs = {0: 0, 1: 0}
+    builder_kills = {0: 0, 1: 0}
 
     for turn_idx, turn in enumerate(r.turns):
         conveyor_moves_this_turn = 0
         builder_acted_this_turn.clear()
+        damaged_this_turn.clear()
         turn_builder_positions = {0: [], 1: []}
 
         for u in turn.updates:
@@ -91,27 +94,32 @@ def collect(r: Replay) -> dict:
                 new_pos = (mb.to.x, mb.to.y)
                 entity_pos[mb.id] = new_pos
                 pos_to_entity[new_pos] = mb.id
-                moves += 1
+                if mb.id in entities:
+                    moves[entities[mb.id][0]] += 1
                 builder_acted_this_turn.add(mb.id)
             elif kind == "remove_entity":
                 eid = u.remove_entity.id
                 if eid in entities:
                     team, ek, _ = entities[eid]
                     removed[team][ek] += 1
-                    if final_hp.get(eid, 0) <= 0:
-                        kills[1 - team] += 1
                     old_pos = entity_pos.pop(eid, None)
                     if old_pos:
                         pos_to_entity.pop(old_pos, None)
                     final_hp.pop(eid, None)
                     harvester_ids[team].discard(eid)
                     if ek == "builder_bot":
-                        self_destructs[team] += 1
+                        if eid in damaged_this_turn:
+                            builder_kills[1 - team] += 1
+                        else:
+                            self_destructs[team] += 1
+                    elif eid in damaged_this_turn:
+                        kills[1 - team] += 1
             elif kind == "update_hp":
                 eid = u.update_hp.id
                 if eid in final_hp:
                     final_hp[eid] += u.update_hp.delta
                 if u.update_hp.delta < 0 and eid in entities:
+                    damaged_this_turn.add(eid)
                     victim_team = entities[eid][0]
                     attacker_team = 1 - victim_team
                     total_damage[attacker_team] += abs(u.update_hp.delta)
@@ -206,15 +214,32 @@ def collect(r: Replay) -> dict:
         for positions in builder_positions_per_turn[t]:
             builder_active_turns[t] += len(positions)
 
+    core_tiles = {0: set(), 1: set()}
+    for t in (0, 1):
+        cp = core_positions[t]
+        if cp:
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    core_tiles[t].add((cp[0] + dx, cp[1] + dy))
+
+    deliveries_to_core = {0: set(), 1: set()}
+    for (frm, to), count in conveyor_flow_count.items():
+        if count > 0:
+            for t in (0, 1):
+                if to in core_tiles[t]:
+                    deliveries_to_core[t].add(frm)
+
     for t in (0, 1):
         for hid in harvester_ids[t]:
             if hid not in entity_pos:
                 continue
             hpos = entity_pos[hid]
-            for (frm, _), count in conveyor_flow_count.items():
-                if frm == hpos and count > 0:
-                    harvesters_connected[t] += 1
-                    break
+            outputted = any(
+                frm == hpos and count > 0
+                for (frm, _), count in conveyor_flow_count.items()
+            )
+            if outputted:
+                harvesters_connected[t] += 1
 
     income_rate = {0: [], 1: []}
     for t in (0, 1):
@@ -243,6 +268,7 @@ def collect(r: Replay) -> dict:
         "moves": moves,
         "total_damage": total_damage,
         "kills": kills,
+        "builder_kills": builder_kills,
         "self_destructs": self_destructs,
         "tle_count": tle_count,
         "fire_count": fire_count,

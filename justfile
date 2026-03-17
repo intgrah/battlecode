@@ -21,6 +21,18 @@ network replay="replay.replay26":
 combat replay="replay.replay26":
     python scripts/replay_combat.py {{replay}}
 
+health replay="replay.replay26":
+    python scripts/replay_health.py {{replay}}
+
+deep replay="replay.replay26":
+    python scripts/replay_deep.py {{replay}}
+
+flow replay="replay.replay26":
+    python scripts/replay_flow.py {{replay}}
+
+graph replay="replay.replay26":
+    python scripts/replay_graph.py {{replay}}
+
 map *args:
     python scripts/replay_map.py {{args}}
 
