@@ -1,4 +1,5 @@
 default_map := "maps/default_large1.map26"
+_analysis := "cd scripts && python -m analysis"
 
 run a b map=default_map:
     cambc run {{a}} {{b}} {{map}}
@@ -7,34 +8,28 @@ watch a b map=default_map:
     cambc run {{a}} {{b}} {{map}} --watch
 
 analyze replay="replay.replay26" *args="":
-    python -m analysis.report {{replay}} {{args}}
+    {{_analysis}} ../{{replay}} {{args}}
 
 stats replay="replay.replay26":
-    python scripts/replay_stats.py {{replay}}
+    {{_analysis}} ../{{replay}} -s summary
 
 economy replay="replay.replay26":
-    python scripts/replay_economy.py {{replay}}
-
-spatial replay="replay.replay26":
-    python scripts/replay_spatial.py {{replay}}
+    {{_analysis}} ../{{replay}} -s economy
 
 network replay="replay.replay26":
-    python scripts/replay_network.py {{replay}}
+    {{_analysis}} ../{{replay}} -s network
+
+spatial replay="replay.replay26":
+    {{_analysis}} ../{{replay}} -s spatial
+
+defense replay="replay.replay26":
+    {{_analysis}} ../{{replay}} -s defense
 
 combat replay="replay.replay26":
-    python scripts/replay_combat.py {{replay}}
+    {{_analysis}} ../{{replay}} -s combat
 
-health replay="replay.replay26":
-    python scripts/replay_health.py {{replay}}
-
-deep replay="replay.replay26":
-    python scripts/replay_deep.py {{replay}}
-
-flow replay="replay.replay26":
-    python scripts/replay_flow.py {{replay}}
-
-graph replay="replay.replay26":
-    python scripts/replay_graph.py {{replay}}
+bots replay="replay.replay26":
+    {{_analysis}} ../{{replay}} -s bots
 
 map *args:
     python scripts/replay_map.py {{args}}
@@ -44,7 +39,7 @@ download match_id:
 
 match a b map=default_map:
     -cambc run {{a}} {{b}} {{map}} 2>&1 | grep -v "^Completed turn\|^Fatal\|^Python runtime\|^Update available\|^$"
-    python scripts/replay_stats.py replay.replay26
+    {{_analysis}} ../replay.replay26 -s summary
 
 proto:
     protoc --python_out=proto --proto_path=proto proto/cambc.proto
@@ -66,7 +61,7 @@ snapshot:
 latest:
     @python scripts/tournament.py latest
 
-bots:
+bots-list:
     @python scripts/tournament.py list
 
 submit bot="":

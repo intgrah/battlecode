@@ -78,7 +78,7 @@ def analyze_combat(r: Replay) -> None:
                     if enemy_core:
                         dx = abs(new[0] - enemy_core[0])
                         dy = abs(new[1] - enemy_core[1])
-                        if dx <= 5 and dy <= 5:
+                        if dx <= 3 and dy <= 3:
                             raid_arrivals[team].append(turn_idx)
             elif kind == "remove_entity":
                 eid = u.remove_entity.id

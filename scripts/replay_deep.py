@@ -441,7 +441,9 @@ def main() -> None:
         if not flows:
             print(f"  Team {TEAM[t]}: no deliveries")
             continue
-        windows = [0, 200, 400, 600, 800, 1000, 1200, 1400, 1600, 1800]
+        n_buckets = 5
+        bucket_size = max(1, total_turns // n_buckets)
+        windows = list(range(0, total_turns, bucket_size))
         buckets = []
         for i in range(len(windows) - 1):
             lo, hi = windows[i], windows[i + 1]
@@ -449,7 +451,8 @@ def main() -> None:
             rate = count / (hi - lo) if hi > lo else 0
             buckets.append(f"t{lo}-{hi}:{rate:.1f}/t")
         last_count = sum(v for turn, v in flows.items() if turn >= windows[-1])
-        last_rate = last_count / (2000 - windows[-1]) if windows[-1] < 2000 else 0
+        remaining = total_turns - windows[-1]
+        last_rate = last_count / remaining if remaining > 0 else 0
         buckets.append(f"t{windows[-1]}+:{last_rate:.1f}/t")
         print(f"  Team {TEAM[t]}: {' | '.join(buckets)}")
 

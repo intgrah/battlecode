@@ -181,16 +181,18 @@ def analyze_throughput(r: Replay) -> None:
                         length = 0
                         cur = adj
                         visited = set()
+                        reached_core = False
                         while cur in team_convs and cur not in visited:
                             visited.add(cur)
                             length += 1
-                            if cur in core_tiles[t]:
+                            nxt = team_convs[cur]["out"]
+                            if nxt in core_tiles[t]:
                                 chain_lengths.append(length)
+                                reached_core = True
                                 break
-                            cur = team_convs[cur]["out"]
-                        else:
-                            if cur in core_tiles[t]:
-                                chain_lengths.append(length)
+                            cur = nxt
+                        if not reached_core and cur in core_tiles[t]:
+                            chain_lengths.append(length)
                         break
                 else:
                     continue

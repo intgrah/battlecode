@@ -268,10 +268,11 @@ class CoreBot:
                                 return
                     return
 
+        harv_cost = ct.get_harvester_cost()[0]
         if self.spawned < NUM_INITIAL:
-            if ti < cost + ct.get_harvester_cost()[0]:
+            if ti < cost + harv_cost:
                 return
-        elif rnd < RAID_START or ti < 500:
+        elif ti < cost + harv_cost + 200:
             return
 
         spoke = self.spawned % len(SPOKES)
@@ -518,7 +519,11 @@ class BuilderAgent:
             return
 
         self.idle_turns += 1
-        if self.has_income and self.idle_turns >= IDLE_BEFORE_RAID:
+        if (
+            self.has_income
+            and self.idle_turns >= IDLE_BEFORE_RAID
+            and self.harvesters_built == 0
+        ):
             self.state = RAID
             self.nav.reset()
             return
@@ -659,24 +664,19 @@ class BuilderAgent:
                 self.sweep_toward_core = False
                 self.nav.reset()
             else:
-                self.nav.go(ct, self.core, lambda d: step_walk(ct, d))
+                self.nav.go(ct, self.core, lambda d: step_road(ct, d))
                 return
         elif self.last_harv_pos and pos.distance_squared(self.last_harv_pos) <= 4:
             self.sweep_toward_core = True
             self.sweep_cycles += 1
             self.nav.reset()
         elif self.last_harv_pos:
-            self.nav.go(ct, self.last_harv_pos, lambda d: step_walk(ct, d))
+            self.nav.go(ct, self.last_harv_pos, lambda d: step_road(ct, d))
             return
 
         if self.sweep_cycles >= 2:
             self.state = EXPLORE
             self._new_explore_target(ct, pos)
-            return
-
-        if self.has_income and rnd >= RAID_START and self.sweep_cycles >= 1:
-            self.state = RAID
-            self.nav.reset()
 
     def _do_fortify(self, ct: Controller, pos: Position) -> None:
         assert self.core is not None and self.enemy_core is not None

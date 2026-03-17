@@ -15,7 +15,9 @@ from replay_parse import collect, parse
 
 
 def fetch_my_matches(
-    limit: int = 20, match_type: str | None = None, cursor: str | None = None,
+    limit: int = 20,
+    match_type: str | None = None,
+    cursor: str | None = None,
 ):
     creds = load_credentials()
     my_team_id = creds["team"]["id"]
@@ -243,7 +245,11 @@ def main():
 
     parser = argparse.ArgumentParser(description="Analyze recent online matches")
     parser.add_argument(
-        "-n", "--limit", type=int, default=10, help="Number of matches to fetch",
+        "-n",
+        "--limit",
+        type=int,
+        default=10,
+        help="Number of matches to fetch",
     )
     parser.add_argument(
         "-t",
@@ -253,7 +259,10 @@ def main():
         help="Filter match type",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Show per-game details",
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show per-game details",
     )
     args = parser.parse_args()
 
