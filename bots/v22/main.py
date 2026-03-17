@@ -196,10 +196,9 @@ class CoreBot:
             if (
                 ct.get_team(eid) != my
                 and ct.get_entity_type(eid) == EntityType.BUILDER_BOT
-            ):
-                if core_pos.distance_squared(ct.get_position(eid)) <= 36:
-                    enemy_nearby = True
-                    break
+            ) and core_pos.distance_squared(ct.get_position(eid)) <= 36:
+                enemy_nearby = True
+                break
 
         if enemy_nearby and ti >= cost:
             for d in DIRS:
@@ -332,14 +331,13 @@ class BuilderAgent:
                 ore_env(ct, t)
                 and ct.get_tile_building_id(t) is None
                 and (t.x, t.y) not in self.visited_ore
-            ):
-                if ct.can_build_harvester(t):
-                    ct.build_harvester(t)
-                    self.visited_ore.add((t.x, t.y))
-                    self.idle_turns = 0
-                    self.harvesters_built += 1
-                    self._new_explore_target(ct)
-                    return
+            ) and ct.can_build_harvester(t):
+                ct.build_harvester(t)
+                self.visited_ore.add((t.x, t.y))
+                self.idle_turns = 0
+                self.harvesters_built += 1
+                self._new_explore_target(ct)
+                return
 
         best_ore = None
         best_d = 999999
@@ -363,12 +361,11 @@ class BuilderAgent:
             return
 
         brk = self._find_break(ct, pos)
-        if brk:
-            if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
-                d = repair_dir(ct, brk, self.core)
-                if ct.can_build_conveyor(brk, d):
-                    ct.build_conveyor(brk, d)
-                    return
+        if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+            d = repair_dir(ct, brk, self.core)
+            if ct.can_build_conveyor(brk, d):
+                ct.build_conveyor(brk, d)
+                return
 
         self.idle_turns += 1
         self.explore_turns += 1

@@ -253,19 +253,50 @@ class CoreBot:
         core_pos = ct.get_position()
         my = ct.get_team()
 
+        enemy_threat: Position | None = None
+        enemy_builder_nearby = False
         for eid in ct.get_nearby_entities():
+            if ct.get_team(eid) == my:
+                continue
+            et = ct.get_entity_type(eid)
+            ep = ct.get_position(eid)
+            dist = core_pos.distance_squared(ep)
             if (
-                ct.get_team(eid) != my
-                and ct.get_entity_type(eid) == EntityType.BUILDER_BOT
-            ) and core_pos.distance_squared(ct.get_position(eid)) <= 36:
-                if ti >= cost:
-                    for d in DIRS:
-                        sp = core_pos.add(d)
-                        if ct.can_spawn(sp):
-                            ct.spawn_builder(sp)
-                            self.spawned += 1
-                            return
-                return
+                et in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH)
+                and dist <= 36
+            ):
+                if enemy_threat is None or dist < core_pos.distance_squared(
+                    enemy_threat,
+                ):
+                    enemy_threat = ep
+            elif et == EntityType.HARVESTER and dist <= 25:
+                if enemy_threat is None:
+                    enemy_threat = ep
+            elif et == EntityType.BUILDER_BOT and dist <= 36:
+                enemy_builder_nearby = True
+
+        if enemy_threat and ti >= cost:
+            spawn_dir = toward(core_pos, enemy_threat)
+            for d in [
+                spawn_dir,
+                spawn_dir.rotate_left(),
+                spawn_dir.rotate_right(),
+                *DIRS,
+            ]:
+                sp = core_pos.add(d)
+                if ct.can_spawn(sp):
+                    ct.spawn_builder(sp)
+                    self.spawned += 1
+                    return
+
+        if enemy_builder_nearby and ti >= cost:
+            for d in DIRS:
+                sp = core_pos.add(d)
+                if ct.can_spawn(sp):
+                    ct.spawn_builder(sp)
+                    self.spawned += 1
+                    return
+            return
 
         if self.spawned < NUM_INITIAL:
             if ti < cost + ct.get_harvester_cost()[0]:
@@ -474,13 +505,11 @@ class BuilderAgent:
             return out
         return None
 
-    def _find_frontline_conv(self, ct: Controller, pos: Position) -> Position | None:
+    def _find_defense_conv(self, ct: Controller, pos: Position) -> Position | None:
         assert self.core is not None
         assert self.enemy_core is not None
         my = ct.get_team()
-        mid_x = (self.core.x + self.enemy_core.x) // 2
-        mid_y = (self.core.y + self.enemy_core.y) // 2
-        mid = Position(mid_x, mid_y)
+        enemy_dir = toward(self.core, self.enemy_core)
         best = None
         best_dist = 999999
         for t in ct.get_nearby_tiles():
@@ -490,11 +519,32 @@ class BuilderAgent:
             et = ct.get_entity_type(bid)
             if et != EntityType.CONVEYOR:
                 continue
-            if t.distance_squared(self.core) <= 4:
+            core_dist = t.distance_squared(self.core)
+            if core_dist <= 4 or core_dist > 49:
                 continue
-            d = t.distance_squared(mid)
-            if d < best_dist:
-                best_dist = d
+            enemy_side = toward(self.core, t)
+            if (
+                enemy_side == enemy_dir
+                or enemy_side == enemy_dir.rotate_left()
+                or enemy_side == enemy_dir.rotate_right()
+            ):
+                if core_dist < best_dist:
+                    best_dist = core_dist
+                    best = t
+        if best:
+            return best
+        for t in ct.get_nearby_tiles():
+            bid = ct.get_tile_building_id(t)
+            if bid is None or ct.get_team(bid) != my:
+                continue
+            et = ct.get_entity_type(bid)
+            if et != EntityType.CONVEYOR:
+                continue
+            core_dist = t.distance_squared(self.core)
+            if core_dist <= 4 or core_dist > 49:
+                continue
+            if core_dist < best_dist:
+                best_dist = core_dist
                 best = t
         return best
 
@@ -627,7 +677,7 @@ class BuilderAgent:
             and rnd > 100
             and not self.has_fortified
         ):
-            fl = self._find_frontline_conv(ct, pos)
+            fl = self._find_defense_conv(ct, pos)
             if fl:
                 self.fortify_target = fl
                 self.fortify_step = 1
@@ -644,6 +694,10 @@ class BuilderAgent:
         if self.idle_turns > 20:
             self.state = PATROL
             self._new_explore_target(ct, ct.get_position())
+            return
+
+        if self.core and pos.distance_squared(self.core) > 4:
+            self.nav.go(ct, self.core, lambda d: step_walk(ct, d))
 
     def _do_fortify(self, ct: Controller, pos: Position) -> None:
         assert self.core is not None

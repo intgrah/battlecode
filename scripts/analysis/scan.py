@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 
-from .constants import TEAM_LABEL, TURRET_KINDS, Pos
+from .constants import CONVEYOR_KINDS, TEAM_LABEL, TURRET_KINDS, Pos
 from .snapshot import core_tiles, entity_kind
 from .types import DamageEvent, MapMeta, ResourceSnapshot, ScanData
 
@@ -71,6 +71,7 @@ def scan_replay(replay: object, meta: MapMeta) -> ScanData:
         1: defaultdict(int),
     }
     first_delivery_turn: dict[int, int | None] = {0: None, 1: None}
+    first_conveyor_killed_turn: dict[int, int | None] = {0: None, 1: None}
     harvester_ids: dict[int, set[int]] = {0: set(), 1: set()}
     harvester_positions: dict[int, set[Pos]] = {0: set(), 1: set()}
 
@@ -159,6 +160,11 @@ def scan_replay(replay: object, meta: MapMeta) -> ScanData:
                             buildings_destroyed[1 - team][ek] = (
                                 buildings_destroyed[1 - team].get(ek, 0) + 1
                             )
+                            if (
+                                ek in CONVEYOR_KINDS
+                                and first_conveyor_killed_turn[team] is None
+                            ):
+                                first_conveyor_killed_turn[team] = turn_idx
                     epos = entity_pos.pop(eid, None)
                     if epos and building_at.get(epos) == eid:
                         del building_at[epos]
@@ -328,6 +334,7 @@ def scan_replay(replay: object, meta: MapMeta) -> ScanData:
             t: dict(harvester_output_per_turn[t]) for t in (0, 1)
         },
         first_delivery_turn=first_delivery_turn,
+        first_conveyor_killed_turn=first_conveyor_killed_turn,
         builder_idle_turns=builder_idle_turns,
         builder_presence_turns=builder_presence_turns,
         builder_born=builder_born,

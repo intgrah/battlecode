@@ -29,6 +29,7 @@ def register(
 
 from . import bots as _bots  # noqa: F401
 from . import combat as _combat  # noqa: F401
+from . import compare as _compare  # noqa: F401
 from . import defense as _defense  # noqa: F401
 from . import economy as _economy  # noqa: F401
 from . import network as _network  # noqa: F401

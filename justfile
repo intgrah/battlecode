@@ -91,11 +91,12 @@ challenge-all bot:
     cambc submit "bots/{{bot}}"
     cambc unrated "87ee9a96-2175-4a03-afbb-a1ed3b67bb84" || true
     cambc unrated "05a96b0d-3ce5-4be8-921b-570dd973994a" || true
+    cambc unrated "421bd2a2-c421-4359-a06a-9a517f1e08a7" || true
     echo "Restoring $ranked"
     cambc submit "bots/$ranked"
 
 online *args:
-    python scripts/online_analyze.py {{args}}
+    python scripts/online.py {{args}}
 
 status:
     cambc status

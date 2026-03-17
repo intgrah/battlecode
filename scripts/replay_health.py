@@ -179,7 +179,9 @@ def analyze(r: Replay) -> None:
                     harv_ever_connected[t].add(hpos)
                 if was is True and not conn:
                     break_events[t].append((turn_idx, hpos))
-                elif was is False and conn:
+                elif was is True and conn:
+                    pass
+                elif was is False and conn and hpos in harv_ever_connected[t]:
                     repair_events[t].append((turn_idx, hpos))
                 harv_state[t][hpos] = conn
 

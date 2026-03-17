@@ -142,7 +142,7 @@ print(f"\nConnected: {connected}/{connected + disconnected}")
 print("\n=== Oscillation detection ===")
 bot_history: dict[int, list[tuple[int, int]]] = {}
 
-for i2, turn2 in enumerate(r.turns):
+for _i2, turn2 in enumerate(r.turns):
     for u in turn2.updates:
         k = u.WhichOneof("kind")
         if k == "place_entity":

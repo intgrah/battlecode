@@ -47,8 +47,12 @@ def download_replay(match_id: str, game_num: int) -> bytes:
     return urllib.request.urlopen(resp_data["url"], timeout=60).read()
 
 
-def analyze_matches(matches: list[dict], my_team_id: str, verbose: bool = False):
-    wins, losses, draws = 0, 0, 0
+def analyze_matches(
+    matches: list[dict],
+    my_team_id: str,
+    verbose: bool = False,
+) -> None:
+    wins, losses, _draws = 0, 0, 0
     per_opponent = defaultdict(
         lambda: {"wins": 0, "losses": 0, "games_won": 0, "games_lost": 0},
     )
@@ -140,7 +144,7 @@ def analyze_matches(matches: list[dict], my_team_id: str, verbose: bool = False)
         key=lambda o: -(per_opponent[o]["wins"] + per_opponent[o]["losses"]),
     ):
         d = per_opponent[opp]
-        mt = d["wins"] + d["losses"]
+        d["wins"] + d["losses"]
         gw, gl = d["games_won"], d["games_lost"]
         print(f"  {opp:<30s} {d['wins']}W-{d['losses']}L  (games {gw}-{gl})")
     print()
@@ -240,7 +244,7 @@ def analyze_matches(matches: list[dict], my_team_id: str, verbose: bool = False)
             )
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Analyze recent online matches")

@@ -92,6 +92,10 @@ class ScanData:
     raid_arrivals: dict[int, list[int]] = field(default_factory=dict)
     core_hp_timeline: dict[int, list[tuple[int, int]]] = field(default_factory=dict)
 
+    first_conveyor_killed_turn: dict[int, int | None] = field(default_factory=dict)
+    first_chain_break_turn: dict[int, int | None] = field(default_factory=dict)
+    chain_repairs: dict[int, int] = field(default_factory=dict)
+
     core_deliveries_per_turn: dict[int, dict[int, int]] = field(default_factory=dict)
     harvester_output_per_turn: dict[int, dict[int, int]] = field(default_factory=dict)
     first_delivery_turn: dict[int, int | None] = field(default_factory=dict)

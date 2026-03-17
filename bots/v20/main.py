@@ -275,9 +275,8 @@ class BuilderAgent:
             and self.harvesters_built >= 1
             and self.core
             and self.enemy_core
-        ):
-            if self._try_build_gunner(ct, pos):
-                return
+        ) and self._try_build_gunner(ct, pos):
+            return
 
         best_ore = None
         best_d = 999999
