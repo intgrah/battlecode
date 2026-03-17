@@ -83,7 +83,7 @@ def analyze_snapshot(conveyors, harvesters_t, core_pos, team):
         else:
             disconnected_harvs.append(hpos)
 
-    congested = {t: f for t, f in tile_flow.items() if f > 1.0}
+    congested = {t: f for t, f in tile_flow.items() if f > 0.5}
     bottleneck = max(tile_flow.items(), key=lambda x: x[1]) if tile_flow else (None, 0)
     total_income = len(connected_harvs) * 0.25
 
@@ -183,7 +183,7 @@ def main():
 
         last = snapshots[t][-1] if snapshots[t] else None
         if last and last["congested"]:
-            print(f"\n  Congested tiles at t{last['turn']} (flow > 1.0 stacks/turn):")
+            print(f"\n  Congested tiles at t{last['turn']} (flow > 0.5 stacks/turn):")
             for pos, flow in sorted(last["congested"].items(), key=lambda x: -x[1])[
                 :10
             ]:

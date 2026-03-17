@@ -103,7 +103,7 @@ def main() -> None:
             agg["peak_income"].append(0)
             agg["final_income"].append(0)
 
-        active = s["builder_active_turns"][t]
+        active = s["builder_presence_turns"][t]
         idle = s["builder_idle_turns"][t]
         agg["idle_pct"].append(100 * idle / max(active, 1))
 
@@ -125,7 +125,9 @@ def main() -> None:
             return 0
         s = sorted(lst)
         n = len(s)
-        return s[n // 2]
+        if n % 2 == 1:
+            return s[n // 2]
+        return (s[n // 2 - 1] + s[n // 2]) / 2
 
     total = wins + losses
     print(f"=== Overall: {wins}W-{losses}L ({100 * wins / total:.0f}% win rate) ===")

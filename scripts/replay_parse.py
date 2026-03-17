@@ -209,10 +209,10 @@ def collect(r: Replay) -> dict:
         if all_spreads:
             avg_builder_spread[t] = sum(all_spreads) / len(all_spreads)
 
-    builder_active_turns = {0: 0, 1: 0}
+    builder_presence_turns = {0: 0, 1: 0}
     for t in (0, 1):
         for positions in builder_positions_per_turn[t]:
-            builder_active_turns[t] += len(positions)
+            builder_presence_turns[t] += len(positions)
 
     core_tiles = {0: set(), 1: set()}
     for t in (0, 1):
@@ -282,7 +282,7 @@ def collect(r: Replay) -> dict:
         "first_resource_turn": first_resource_turn,
         "avg_builder_spread": avg_builder_spread,
         "builder_idle_turns": builder_idle_turns,
-        "builder_active_turns": builder_active_turns,
+        "builder_presence_turns": builder_presence_turns,
         "harvesters_connected": harvesters_connected,
         "harvester_count": {t: len(harvester_ids[t]) for t in (0, 1)},
         "income_rate": income_rate,

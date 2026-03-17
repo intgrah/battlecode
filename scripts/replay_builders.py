@@ -57,13 +57,6 @@ def analyze_builders(r: Replay) -> None:
                     builder_actions[e.id].append((turn_idx, "spawn"))
                     acted_this_turn.add(e.id)
                 elif ek in TRANSPORT_KINDS:
-                    for bid, bpos in entity_pos.items():
-                        if (
-                            bid in builder_born
-                            and bid not in builder_death
-                            and bpos == pos
-                        ):
-                            break
                     for bid in builder_born:
                         if bid not in builder_death and entity_pos.get(bid) is not None:
                             bp = entity_pos[bid]

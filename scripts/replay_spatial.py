@@ -19,7 +19,7 @@ def print_spatial(s: dict) -> None:
         print(f"  Builder avg spread: {spread:.1f} tiles")
 
         idle = s["builder_idle_turns"][t]
-        active = s["builder_active_turns"][t]
+        active = s["builder_presence_turns"][t]
         idle_pct = 100 * idle // max(active, 1)
         print(f"  Builder idle: {idle}/{active} unit-turns ({idle_pct}%)")
 

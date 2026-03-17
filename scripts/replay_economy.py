@@ -43,7 +43,8 @@ def print_economy(s: dict) -> None:
                     + "  ".join(f"t{t_}:{r:.1f}" for t_, r in quartiles),
                 )
 
-        total_spent = final_ti_col + final_ax_col - rh[-1][1] - rh[-1][2] + 1000
+        starting_ti = rh[0][1] if rh else 0
+        total_spent = final_ti_col + final_ax_col - rh[-1][1] - rh[-1][2] + starting_ti
         print(
             f"  Collected: Ti={final_ti_col} Ax={final_ax_col}  Spent: ~{total_spent}",
         )
