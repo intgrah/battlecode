@@ -58,7 +58,7 @@ def analyze_network(r: Replay) -> None:
                     core_pos[e.team] = pos
                 elif ek == "harvester":
                     harvester_ids[e.team].add(e.id)
-                elif ek in ("conveyor", "armoured_conveyor"):
+                elif ek in ("conveyor", "armoured_conveyor", "splitter", "bridge"):
                     conveyors_placed[e.team].add(pos)
                 if pos in ore_tiles and ek != "harvester":
                     ore_with_building.add(pos)
@@ -133,19 +133,21 @@ def analyze_network(r: Replay) -> None:
                 f"    Harvester ({hpos[0]},{hpos[1]}): dist={straight:.0f} flow={flow} {'OK' if connected else 'DISCONNECTED'}",
             )
 
-        if conveyor_flow:
-            peak_tile = max(conveyor_flow, key=lambda k: conveyor_flow[k])
-            peak_flow = conveyor_flow[peak_tile]
+        team_flow = {
+            pos: count
+            for pos, count in conveyor_flow.items()
+            if pos in conveyors_placed[t]
+        }
+        if team_flow:
+            peak_tile = max(team_flow, key=lambda k: team_flow[k])
+            peak_flow = team_flow[peak_tile]
             print(
                 f"  Bottleneck: ({peak_tile[0]},{peak_tile[1]}) with {peak_flow} transfers",
             )
 
-        max_theoretical = harvested * 2.5
-        sum(
-            1 for pos in conveyors_placed[t] if conveyor_flow.get(pos, 0) > 0
-        )
+        max_theoretical = harvested * 0.25
         print(
-            f"  Theoretical max income: {max_theoretical:.1f}/t (from {harvested} harvesters)",
+            f"  Theoretical max income: {max_theoretical:.1f} stacks/t (from {harvested} harvesters @ 1 stack/4t)",
         )
         print()
 

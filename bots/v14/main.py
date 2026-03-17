@@ -5,8 +5,14 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 SECTOR_DIRS = [
-    Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
-    Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
 ]
 
 NUM_BUILDERS = 8
@@ -20,9 +26,9 @@ RAIDER_TI_THRESHOLD = 1000
 BLOCK_SIZE = 5
 
 # Marker ADT: 2-bit tag in bits 30-31
-TAG_ASSIGN = 0 << 30      # sector assignment
-TAG_EXPLORED = 1 << 30    # explored block, no ore: bx(4) by(4)
-TAG_DEADEND = 2 << 30     # dead end direction: bx(4) by(4) dir(4)
+TAG_ASSIGN = 0 << 30  # sector assignment
+TAG_EXPLORED = 1 << 30  # explored block, no ore: bx(4) by(4)
+TAG_DEADEND = 2 << 30  # dead end direction: bx(4) by(4) dir(4)
 TAG_MASK = 0xC000_0000
 
 
@@ -116,8 +122,14 @@ def find_enemy_infra(ct: Controller) -> Position | None:
         if ct.get_team(eid) == my_team:
             continue
         etype = ct.get_entity_type(eid)
-        if etype in (EntityType.CONVEYOR, EntityType.HARVESTER, EntityType.ARMOURED_CONVEYOR,
-                     EntityType.SPLITTER, EntityType.BRIDGE, EntityType.FOUNDRY):
+        if etype in (
+            EntityType.CONVEYOR,
+            EntityType.HARVESTER,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+            EntityType.BRIDGE,
+            EntityType.FOUNDRY,
+        ):
             epos = ct.get_position(eid)
             d = pos.distance_squared(epos)
             if d < best_dist:
@@ -126,8 +138,20 @@ def find_enemy_infra(ct: Controller) -> Position | None:
     return best
 
 
-def bugnav_conv(ct: Controller, target: Position, core_pos: Position, state: dict, *, skip_ore: bool = False) -> bool:
-    return _bugnav(ct, target, state, lambda d: _try_step_conv(ct, d, core_pos, skip_ore))
+def bugnav_conv(
+    ct: Controller,
+    target: Position,
+    core_pos: Position,
+    state: dict,
+    *,
+    skip_ore: bool = False,
+) -> bool:
+    return _bugnav(
+        ct,
+        target,
+        state,
+        lambda d: _try_step_conv(ct, d, core_pos, skip_ore),
+    )
 
 
 def bugnav_road(ct: Controller, target: Position, state: dict) -> bool:
@@ -172,7 +196,12 @@ def _bugnav(ct: Controller, target: Position, state: dict, step_fn) -> bool:
     return False
 
 
-def _try_step_conv(ct: Controller, d: Direction, core_pos: Position, skip_ore: bool = False) -> bool:
+def _try_step_conv(
+    ct: Controller,
+    d: Direction,
+    core_pos: Position,
+    skip_ore: bool = False,
+) -> bool:
     pos = ct.get_position()
     next_pos = pos.add(d)
     if is_wall(ct, next_pos):
@@ -220,10 +249,12 @@ class CoreBot:
         if self.num_spawned < NUM_BUILDERS:
             if ti < bot_cost + ct.get_harvester_cost()[0]:
                 return
-        elif (self.num_spawned >= MAX_TOTAL_BUILDERS
-              or rnd < RAIDER_START
-              or ti < RAIDER_TI_THRESHOLD
-              or rnd % RAIDER_SPAWN_INTERVAL != 0):
+        elif (
+            self.num_spawned >= MAX_TOTAL_BUILDERS
+            or rnd < RAIDER_START
+            or ti < RAIDER_TI_THRESHOLD
+            or rnd % RAIDER_SPAWN_INTERVAL != 0
+        ):
             return
 
         sector = self.num_spawned
@@ -282,12 +313,19 @@ class BuilderBot:
     def _init(self, ct: Controller) -> None:
         pos = ct.get_position()
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == ct.get_team()
+            ):
                 self.core_pos = ct.get_position(eid)
                 break
 
         bid = ct.get_tile_building_id(pos)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER and ct.get_team(bid) == ct.get_team():
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.MARKER
+            and ct.get_team(bid) == ct.get_team()
+        ):
             val = ct.get_marker_value(bid)
             if val & TAG_MASK == TAG_ASSIGN:
                 sector = val & 0xFF
@@ -356,7 +394,11 @@ class BuilderBot:
         skip = self.has_income
 
         ore = adjacent_ore(ct)
-        if ore is not None and (ore.x, ore.y) not in self.visited_ore and ct.can_build_harvester(ore):
+        if (
+            ore is not None
+            and (ore.x, ore.y) not in self.visited_ore
+            and ct.can_build_harvester(ore)
+        ):
             ct.build_harvester(ore)
             self.visited_ore.add((ore.x, ore.y))
             self.turns_without_ore = 0
@@ -364,7 +406,11 @@ class BuilderBot:
             return
 
         visible_ore = nearest_ore(ct)
-        if visible_ore is not None and (visible_ore.x, visible_ore.y) not in self.visited_ore and self.core_pos is not None:
+        if (
+            visible_ore is not None
+            and (visible_ore.x, visible_ore.y) not in self.visited_ore
+            and self.core_pos is not None
+        ):
             self.turns_without_ore = 0
             bugnav_conv(ct, visible_ore, self.core_pos, self.nav_state, skip_ore=skip)
             return
@@ -381,7 +427,8 @@ class BuilderBot:
 
         self.explore_turns += 1
         if self.explore_turns > 30 or (
-            self.explore_target is not None and pos.distance_squared(self.explore_target) <= 4
+            self.explore_target is not None
+            and pos.distance_squared(self.explore_target) <= 4
         ):
             self.sector_dir = random.choice(DIRS)
             self._new_explore_target(ct)
@@ -390,7 +437,13 @@ class BuilderBot:
             if self.has_income:
                 bugnav_road(ct, self.explore_target, self.nav_state)
             else:
-                bugnav_conv(ct, self.explore_target, self.core_pos, self.nav_state, skip_ore=skip)
+                bugnav_conv(
+                    ct,
+                    self.explore_target,
+                    self.core_pos,
+                    self.nav_state,
+                    skip_ore=skip,
+                )
 
     def _raid(self, ct: Controller) -> None:
         if self.core_pos is None:

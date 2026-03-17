@@ -12,8 +12,14 @@ from cambc import (
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 SECTOR_DIRS = [
-    Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
-    Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
 ]
 
 NUM_BUILDERS = 3
@@ -44,7 +50,8 @@ def adjacent_ore(ct: Controller) -> Position | None:
         if not in_bounds(ct, tile):
             continue
         if (
-            ct.get_tile_env(tile) in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+            ct.get_tile_env(tile)
+            in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
             and ct.get_tile_building_id(tile) is None
         ):
             return tile
@@ -56,7 +63,10 @@ def nearest_ore(ct: Controller) -> Position | None:
     best_dist = 999999
     pos = ct.get_position()
     for tile in ct.get_nearby_tiles():
-        if ct.get_tile_env(tile) not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+        if ct.get_tile_env(tile) not in (
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
+        ):
             continue
         if ct.get_tile_building_id(tile) is not None:
             continue
@@ -67,7 +77,12 @@ def nearest_ore(ct: Controller) -> Position | None:
     return best
 
 
-def bugnav_step(ct: Controller, target: Position, core_pos: Position | None, state: dict) -> bool:
+def bugnav_step(
+    ct: Controller,
+    target: Position,
+    core_pos: Position | None,
+    state: dict,
+) -> bool:
     pos = ct.get_position()
     d = toward(pos, target)
     dist = pos.distance_squared(target)
@@ -111,7 +126,9 @@ def _try_step(ct: Controller, d: Direction, core_pos: Position | None) -> bool:
     if is_wall(ct, next_pos):
         return False
     if core_pos is not None:
-        env = ct.get_tile_env(next_pos) if in_bounds(ct, next_pos) else Environment.EMPTY
+        env = (
+            ct.get_tile_env(next_pos) if in_bounds(ct, next_pos) else Environment.EMPTY
+        )
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             conv_dir = d.opposite()
             if ct.can_build_conveyor(next_pos, conv_dir):
@@ -179,12 +196,19 @@ class BuilderBot:
     def _init(self, ct: Controller) -> None:
         pos = ct.get_position()
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == ct.get_team()
+            ):
                 self.core_pos = ct.get_position(eid)
                 break
 
         bid = ct.get_tile_building_id(pos)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER and ct.get_team(bid) == ct.get_team():
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.MARKER
+            and ct.get_team(bid) == ct.get_team()
+        ):
             val = ct.get_marker_value(bid)
             if val & MARKER_ASSIGN_MASK == MARKER_ASSIGN:
                 sector = val & 0xFF
@@ -230,7 +254,8 @@ class BuilderBot:
 
         self.explore_turns += 1
         if self.explore_turns > 40 or (
-            self.explore_target is not None and pos.distance_squared(self.explore_target) <= 4
+            self.explore_target is not None
+            and pos.distance_squared(self.explore_target) <= 4
         ):
             self.sector_dir = random.choice(DIRS)
             self._new_explore_target(ct)

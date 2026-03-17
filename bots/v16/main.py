@@ -80,6 +80,8 @@ class Percept:
         self.unexplored_dir: Direction | None = None
         self.nearby_harvesters = 0
         self.nearby_gunners = 0
+        self.frontline_conveyor: Position | None = None
+        self.has_defense_nearby = False
 
         self._scan(ct)
 
@@ -127,6 +129,25 @@ class Percept:
                     self.nearby_harvesters += 1
                 elif et == EntityType.GUNNER:
                     self.nearby_gunners += 1
+                    self.has_defense_nearby = True
+
+        if self.core and self.enemy_core and not self.has_defense_nearby:
+            mid_x = (self.core.x + self.enemy_core.x) // 2
+            mid_y = (self.core.y + self.enemy_core.y) // 2
+            best_front_dist = 999999
+            for t in ct.get_nearby_tiles():
+                bid = ct.get_tile_building_id(t)
+                if bid is None:
+                    continue
+                if ct.get_entity_type(bid) != EntityType.CONVEYOR:
+                    continue
+                if ct.get_team(bid) != self.my_team:
+                    continue
+                dist_to_mid = (t.x - mid_x) ** 2 + (t.y - mid_y) ** 2
+                dist_to_core = t.distance_squared(self.core)
+                if dist_to_core > 25 and dist_to_mid < best_front_dist:
+                    best_front_dist = dist_to_mid
+                    self.frontline_conveyor = t
 
         for eid in ct.get_nearby_entities():
             if ct.get_team(eid) == self.my_team:
@@ -292,6 +313,8 @@ class BuilderAgent:
         self.commitment = 0
         self.has_income = False
         self.last_ti = 0
+        self.last_pos: Position | None = None
+        self.stuck_turns = 0
 
     def _setup(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -336,21 +359,32 @@ class BuilderAgent:
             self.has_income = True
         self.last_ti = ti
 
+        pos = ct.get_position()
+        if self.last_pos and pos.x == self.last_pos.x and pos.y == self.last_pos.y:
+            self.stuck_turns += 1
+        else:
+            self.stuck_turns = 0
+        self.last_pos = pos
+
+        if self.stuck_turns >= 5 and self.core:
+            self.commitment = 0
+            self.target = self.core
+            self.target_type = "explore"
+            self.nav.reset()
+            self.stuck_turns = 0
+
         p = Percept(ct, self.core, self.enemy_core)
 
         # Always harvest if possible -- interrupt anything
-        if (
-            p.adj_ore
-            and (p.adj_ore.x, p.adj_ore.y) not in self.visited_ore
-            and p.ct.can_build_harvester(p.adj_ore)
-        ):
-            p.ct.build_harvester(p.adj_ore)
-            self.visited_ore.add((p.adj_ore.x, p.adj_ore.y))
-            self.idle_turns = 0
-            self.commitment = 0
-            self.target = None
-            self.target_type = ""
-            return
+        if p.adj_ore and (p.adj_ore.x, p.adj_ore.y) not in self.visited_ore:
+            if p.ct.can_build_harvester(p.adj_ore):
+                p.ct.build_harvester(p.adj_ore)
+                self.visited_ore.add((p.adj_ore.x, p.adj_ore.y))
+                self.idle_turns = 0
+                self.commitment = 0
+                self.target = None
+                self.target_type = ""
+            return  # wait here even if can't afford -- don't wander and waste scale
 
         # Recalculate only when not committed
         if self.commitment <= 0 or self.target is None:
@@ -493,6 +527,21 @@ class BuilderAgent:
                     ct.build_conveyor(target, best_dir)
                     self.target = None
                     return
+            self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
+            return
+
+        if action == "fortify" and target and self.core and self.enemy_core:
+            self.idle_turns = 0
+            pos = p.pos
+            if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ:
+                enemy_dir = toward(target, self.enemy_core)
+                for d in Direction:
+                    gunner_pos = target.add(d)
+                    if ct.can_build_gunner(gunner_pos, enemy_dir):
+                        ct.build_gunner(gunner_pos, enemy_dir)
+                        self.commitment = 0
+                        self.target = None
+                        return
             self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
             return
 

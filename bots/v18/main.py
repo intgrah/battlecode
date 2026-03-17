@@ -11,9 +11,8 @@ from cambc import (
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
-NUM_INITIAL = 8
+INITIAL_BUILDERS = 4
 MAX_BUILDERS = 50
-RESPAWN_TI = 1500
 RESPAWN_INTERVAL = 20
 
 SPOKES = [
@@ -80,6 +79,8 @@ class Percept:
         self.unexplored_dir: Direction | None = None
         self.nearby_harvesters = 0
         self.nearby_gunners = 0
+        self.frontline_conveyor: Position | None = None
+        self.has_defense_nearby = False
 
         self._scan(ct)
 
@@ -127,6 +128,25 @@ class Percept:
                     self.nearby_harvesters += 1
                 elif et == EntityType.GUNNER:
                     self.nearby_gunners += 1
+                    self.has_defense_nearby = True
+
+        if self.core and self.enemy_core and not self.has_defense_nearby:
+            mid_x = (self.core.x + self.enemy_core.x) // 2
+            mid_y = (self.core.y + self.enemy_core.y) // 2
+            best_front_dist = 999999
+            for t in ct.get_nearby_tiles():
+                bid = ct.get_tile_building_id(t)
+                if bid is None:
+                    continue
+                if ct.get_entity_type(bid) != EntityType.CONVEYOR:
+                    continue
+                if ct.get_team(bid) != self.my_team:
+                    continue
+                dist_to_mid = (t.x - mid_x) ** 2 + (t.y - mid_y) ** 2
+                dist_to_core = t.distance_squared(self.core)
+                if dist_to_core > 25 and dist_to_mid < best_front_dist:
+                    best_front_dist = dist_to_mid
+                    self.frontline_conveyor = t
 
         for eid in ct.get_nearby_entities():
             if ct.get_team(eid) == self.my_team:
@@ -252,14 +272,18 @@ class CoreBot:
         rnd = ct.get_current_round()
         core_pos = ct.get_position()
 
-        if self.spawned < NUM_INITIAL:
-            if ti < cost + ct.get_harvester_cost()[0]:
+        if self.spawned >= MAX_BUILDERS:
+            return
+
+        harvester_cost = ct.get_harvester_cost()[0]
+
+        if self.spawned < INITIAL_BUILDERS:
+            if ti < cost + harvester_cost:
                 return
-        elif (
-            self.spawned >= MAX_BUILDERS
-            or ti < RESPAWN_TI
-            or rnd % RESPAWN_INTERVAL != 0
-        ):
+        elif self.spawned < 8:
+            if ti < cost + harvester_cost + 200:
+                return
+        elif ti < 1500 or rnd % RESPAWN_INTERVAL != 0:
             return
 
         spoke = self.spawned % len(SPOKES)
@@ -292,6 +316,12 @@ class BuilderAgent:
         self.commitment = 0
         self.has_income = False
         self.last_ti = 0
+        self.last_pos: Position | None = None
+        self.stuck_turns = 0
+        self.fortify_state = 0  # 0=not fortifying, 1=go to target, 2=destroy conv, 3=build splitter, 4=build sentinel
+        self.fortify_conv_pos: Position | None = None
+        self.fortify_conv_dir: Direction | None = None
+        self.defenses_built = 0
 
     def _setup(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -336,21 +366,46 @@ class BuilderAgent:
             self.has_income = True
         self.last_ti = ti
 
+        pos = ct.get_position()
+        if self.last_pos and pos.x == self.last_pos.x and pos.y == self.last_pos.y:
+            self.stuck_turns += 1
+        else:
+            self.stuck_turns = 0
+        self.last_pos = pos
+
+        if self.stuck_turns >= 5 and self.core:
+            self.commitment = 0
+            self.target = self.core
+            self.target_type = "explore"
+            self.nav.reset()
+            self.stuck_turns = 0
+
         p = Percept(ct, self.core, self.enemy_core)
 
         # Always harvest if possible -- interrupt anything
+        if p.adj_ore and (p.adj_ore.x, p.adj_ore.y) not in self.visited_ore:
+            if p.ct.can_build_harvester(p.adj_ore):
+                p.ct.build_harvester(p.adj_ore)
+                self.visited_ore.add((p.adj_ore.x, p.adj_ore.y))
+                self.idle_turns = 0
+                self.commitment = 0
+                self.target = None
+                self.target_type = ""
+            return  # wait here even if can't afford -- don't wander and waste scale
+
+        # Fortify interrupt: if near frontline and conditions met, break commitment
         if (
-            p.adj_ore
-            and (p.adj_ore.x, p.adj_ore.y) not in self.visited_ore
-            and p.ct.can_build_harvester(p.adj_ore)
+            self.target_type != "fortify"
+            and p.frontline_conveyor
+            and not p.has_defense_nearby
+            and self.defenses_built < 1
+            and self.has_income
+            and p.ti > 500
+            and p.rnd > 200
+            and p.pos.distance_squared(p.frontline_conveyor)
+            <= GameConstants.ACTION_RADIUS_SQ
         ):
-            p.ct.build_harvester(p.adj_ore)
-            self.visited_ore.add((p.adj_ore.x, p.adj_ore.y))
-            self.idle_turns = 0
             self.commitment = 0
-            self.target = None
-            self.target_type = ""
-            return
 
         # Recalculate only when not committed
         if self.commitment <= 0 or self.target is None:
@@ -453,6 +508,21 @@ class BuilderAgent:
             elif ti_healthy:
                 scores.append((300 - repair_dist * 0.5, "repair", p.broken_chain))
 
+        # Fortify: build sentinel defense when economy is established
+        if (
+            p.frontline_conveyor
+            and ti_healthy
+            and p.ti > 500
+            and not p.has_defense_nearby
+            and self.defenses_built < 1
+            and p.rnd > 200
+        ):
+            fort_dist = p.pos.distance_squared(p.frontline_conveyor)
+            if fort_dist <= GameConstants.ACTION_RADIUS_SQ:
+                scores.append((550, "fortify", p.frontline_conveyor))
+            else:
+                scores.append((350 - fort_dist * 0.1, "fortify", p.frontline_conveyor))
+
         # Raid: when we see enemy infra and we have income
         if p.enemy_infra and ti_healthy:
             infra_dist = p.pos.distance_squared(p.enemy_infra)
@@ -496,6 +566,11 @@ class BuilderAgent:
             self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
             return
 
+        if action == "fortify" and target and self.core and self.enemy_core:
+            self.idle_turns = 0
+            self._do_fortify(ct, p, target)
+            return
+
         if action == "raid" and target:
             self.idle_turns = 0
             if p.pos.distance_squared(target) == 0:
@@ -522,18 +597,93 @@ class BuilderAgent:
 
         self.idle_turns += 1
 
+    def _do_fortify(self, ct: Controller, p: Percept, target: Position) -> None:
+        pos = p.pos
+
+        if self.fortify_state == 0:
+            if pos.distance_squared(target) > GameConstants.ACTION_RADIUS_SQ:
+                self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
+                return
+            bid = ct.get_tile_building_id(target)
+            if bid is None or ct.get_entity_type(bid) != EntityType.CONVEYOR:
+                self.commitment = 0
+                self.target = None
+                return
+            # Pre-check: is there space for a sentinel adjacent?
+            has_space = False
+            enemy_dir = (
+                toward(target, self.enemy_core) if self.enemy_core else Direction.NORTH
+            )
+            for d in Direction:
+                sp = target.add(d)
+                if (
+                    ib(ct, sp)
+                    and ct.get_tile_building_id(sp) is None
+                    and not wall(ct, sp)
+                ):
+                    has_space = True
+                    break
+            if not has_space:
+                self.commitment = 0
+                self.target = None
+                return
+            self.fortify_conv_pos = target
+            self.fortify_conv_dir = ct.get_direction(bid)
+            if ct.can_destroy(target):
+                ct.destroy(target)
+            self.fortify_state = 1
+            self.commitment = 5
+            return
+
+        if self.fortify_state == 1:
+            if self.fortify_conv_pos and self.fortify_conv_dir:
+                if ct.can_build_splitter(self.fortify_conv_pos, self.fortify_conv_dir):
+                    ct.build_splitter(self.fortify_conv_pos, self.fortify_conv_dir)
+                    self.fortify_state = 2
+                    return
+            # Failed -- rebuild conveyor
+            if self.fortify_conv_pos and self.fortify_conv_dir:
+                ct.can_build_conveyor(
+                    self.fortify_conv_pos,
+                    self.fortify_conv_dir,
+                ) and ct.build_conveyor(self.fortify_conv_pos, self.fortify_conv_dir)
+            self.fortify_state = 0
+            self.commitment = 0
+            self.target = None
+            return
+
+        if self.fortify_state == 2:
+            if not self.fortify_conv_pos or not self.enemy_core:
+                self.fortify_state = 0
+                self.commitment = 0
+                return
+            enemy_dir = toward(self.fortify_conv_pos, self.enemy_core)
+            for d in Direction:
+                sentinel_pos = self.fortify_conv_pos.add(d)
+                if ct.can_build_sentinel(sentinel_pos, enemy_dir):
+                    ct.build_sentinel(sentinel_pos, enemy_dir)
+                    self.fortify_state = 0
+                    self.commitment = 0
+                    self.target = None
+                    return
+            # Failed -- leave splitter in place (still routes resources)
+            self.fortify_state = 0
+            self.commitment = 0
+            self.target = None
+
 
 # --- Turret ---
 
 
 class TurretUnit:
     def run(self, ct: Controller) -> None:
-        try:
-            target = ct.get_gunner_target()
-            if target and ct.can_fire(target):
-                ct.fire(target)
-        except Exception:
-            pass
+        my = ct.get_team()
+        for eid in ct.get_nearby_entities():
+            if ct.get_team(eid) != my:
+                epos = ct.get_position(eid)
+                if ct.can_fire(epos):
+                    ct.fire(epos)
+                    return
 
 
 # --- Player ---
