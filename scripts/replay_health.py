@@ -208,7 +208,11 @@ def analyze(r: Replay) -> None:
         for turn, hpos in repair_events[t][:5]:
             print(f"      t{turn}: H({hpos[0]},{hpos[1]})")
         never = sum(1 for h in harvesters[t] if h not in harv_ever_connected[t])
-        broken_now = sum(1 for h in harvesters[t] if h in harv_ever_connected[t] and not harv_state[t].get(h, False))
+        broken_now = sum(
+            1
+            for h in harvesters[t]
+            if h in harv_ever_connected[t] and not harv_state[t].get(h, False)
+        )
         connected_now = sum(1 for h in harvesters[t] if harv_state[t].get(h, False))
         print(f"    Never connected: {never}/{len(harvesters[t])}")
         print(f"    Connected at end: {connected_now}/{len(harvesters[t])}")

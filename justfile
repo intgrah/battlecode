@@ -6,6 +6,9 @@ run a b map=default_map:
 watch a b map=default_map:
     cambc run {{a}} {{b}} {{map}} --watch
 
+analyze replay="replay.replay26" *args="":
+    python -m analysis.report {{replay}} {{args}}
+
 stats replay="replay.replay26":
     python scripts/replay_stats.py {{replay}}
 
@@ -95,6 +98,9 @@ challenge-all bot:
     cambc unrated "05a96b0d-3ce5-4be8-921b-570dd973994a" || true
     echo "Restoring $ranked"
     cambc submit "bots/$ranked"
+
+online *args:
+    python scripts/online_analyze.py {{args}}
 
 status:
     cambc status
