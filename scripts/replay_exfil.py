@@ -6,8 +6,10 @@ Checks:
 3. Looks for injected data that breaks protobuf (dd-style injection)
 """
 
-import os
 import sys
+from pathlib import Path
+
+from google.protobuf.message import DecodeError
 
 from proto import cambc_pb2
 
@@ -27,11 +29,12 @@ MARKERS = [
 
 
 def scan_protobuf(path: str) -> list[dict]:
-    data = open(path, "rb").read()
+    with Path(path).open("rb") as f:
+        data = f.read()
     r = cambc_pb2.Replay()
     try:
         r.ParseFromString(data)
-    except Exception as e:
+    except DecodeError as e:
         return [{"type": "parse_error", "error": str(e), "size": len(data)}]
 
     results = []
@@ -62,7 +65,8 @@ def scan_protobuf(path: str) -> list[dict]:
 
 
 def scan_raw(path: str) -> list[dict]:
-    data = open(path, "rb").read()
+    with Path(path).open("rb") as f:
+        data = f.read()
     results = []
     for m in MARKERS:
         idx = 0
@@ -84,11 +88,12 @@ def scan_raw(path: str) -> list[dict]:
 
 
 def scan_trailing(path: str) -> list[dict]:
-    data = open(path, "rb").read()
+    with Path(path).open("rb") as f:
+        data = f.read()
     r = cambc_pb2.Replay()
     try:
         consumed = r.ParseFromString(data)
-    except Exception:
+    except DecodeError:
         return []
     if consumed and consumed < len(data):
         trailing = data[consumed:]
@@ -104,8 +109,9 @@ def scan_trailing(path: str) -> list[dict]:
 
 
 def scan_file(path: str) -> bool:
+    p = Path(path)
     print(f"\n{'=' * 60}")
-    print(f"  {os.path.basename(path)}  ({os.path.getsize(path)} bytes)")
+    print(f"  {p.name}  ({p.stat().st_size} bytes)")
     print(f"{'=' * 60}")
 
     pb = scan_protobuf(path)
@@ -146,12 +152,14 @@ def main() -> None:
         print(f"Usage: {sys.argv[0]} <replay_file_or_directory> [...]")
         sys.exit(1)
 
-    paths = []
+    paths: list[str] = []
     for arg in sys.argv[1:]:
-        if os.path.isdir(arg):
-            for f in sorted(os.listdir(arg)):
-                if f.endswith(".replay26"):
-                    paths.append(os.path.join(arg, f))
+        if Path(arg).is_dir():
+            paths.extend(
+                str(entry)
+                for entry in sorted(Path(arg).iterdir())
+                if entry.name.endswith(".replay26")
+            )
         else:
             paths.append(arg)
 

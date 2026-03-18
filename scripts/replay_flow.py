@@ -2,6 +2,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+Pos = tuple[int, int]
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from proto.cambc_pb2 import Replay
 
@@ -29,7 +31,13 @@ def parse(path: str) -> Replay:
         return r
 
 
-def trace(start, conveyors, core_pos, team, max_hops=200):
+def trace(
+    start: Pos,
+    conveyors: dict[Pos, dict],
+    core_pos: Pos,
+    team: int,
+    max_hops: int = 200,
+) -> tuple[list[Pos], str]:
     path = []
     cur = start
     visited = set()
@@ -50,7 +58,11 @@ def trace(start, conveyors, core_pos, team, max_hops=200):
     return path, "long"
 
 
-def find_harvester_chain_start(hpos, conveyors, team):
+def find_harvester_chain_start(
+    hpos: Pos,
+    conveyors: dict[Pos, dict],
+    team: int,
+) -> Pos | None:
     for dx in range(-1, 2):
         for dy in range(-1, 2):
             adj = (hpos[0] + dx, hpos[1] + dy)
@@ -59,7 +71,12 @@ def find_harvester_chain_start(hpos, conveyors, team):
     return None
 
 
-def analyze_snapshot(conveyors, harvesters_t, core_pos, team):
+def analyze_snapshot(
+    conveyors: dict[Pos, dict],
+    harvesters_t: dict[Pos, int],
+    core_pos: Pos | None,
+    team: int,
+) -> dict | None:
     if not core_pos:
         return None
 

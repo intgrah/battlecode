@@ -1,11 +1,13 @@
 """Track splitters, turrets, foundries, bridges, barriers over time."""
 
+import sys
 from collections import defaultdict
+from pathlib import Path
 
-from proto.cambc_pb2 import Replay
+from proto.cambc_pb2 import Entity, Replay
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
@@ -88,16 +90,18 @@ def analyze_infrastructure(path: str) -> None:
             "breach",
             "road",
         ]
-        header_parts = ["  Turn"]
-        for ek in important:
-            if any(ek in snap for _, snap in timeline[team_id]):
-                header_parts.append(f"{ek[:8]:>8}")
+        header_parts = ["  Turn"] + [
+            f"{ek[:8]:>8}"
+            for ek in important
+            if any(ek in snap for _, snap in timeline[team_id])
+        ]
         print("  " + "".join(header_parts))
         for turn, snap in timeline[team_id]:
-            parts = [f"  t{turn:>4}"]
-            for ek in important:
-                if any(ek in s for _, s in timeline[team_id]):
-                    parts.append(f"{snap.get(ek, 0):>8}")
+            parts = [f"  t{turn:>4}"] + [
+                f"{snap.get(ek, 0):>8}"
+                for ek in important
+                if any(ek in s for _, s in timeline[team_id])
+            ]
             print("  " + "".join(parts))
 
 

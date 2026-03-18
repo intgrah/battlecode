@@ -128,8 +128,6 @@ def compute_max_flow(
     harvesters_t: dict,
     core_pos: tuple[int, int],
     team: int,
-    w: int,
-    h: int,
 ) -> dict:
     team_convs = {p: c for p, c in conveyors.items() if c["team"] == team}
 
@@ -183,7 +181,7 @@ def compute_max_flow(
             continue
 
         in_deg = defaultdict(int)
-        for pos, c in team_convs.items():
+        for _, c in team_convs.items():
             in_deg[c["out"]] += 1
 
         max_in = 0
@@ -348,6 +346,7 @@ def main() -> None:
 
     core_pos = tl["core_pos"]
     w, h = tl["w"], tl["h"]
+    total_turns = len(r.turns)
 
     print(f"Deep Analysis  |  Map {w}x{h}")
     print()
@@ -361,7 +360,7 @@ def main() -> None:
             if not cp:
                 continue
 
-            flow = compute_max_flow(conveyors, harv, cp, t, w, h)
+            flow = compute_max_flow(conveyors, harv, cp, t)
             connected = sum(1 for v in flow.values() if v["connected"])
             total = len(flow)
             avg_path = sum(

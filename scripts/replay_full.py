@@ -49,6 +49,7 @@ def main() -> None:
                 capture_output=True,
                 text=True,
                 timeout=30,
+                check=False,
             )
             output = result.stdout.strip()
             if brief:
@@ -65,7 +66,7 @@ def main() -> None:
                     print(f"  [ERROR] {err_lines[-1]}")
         except subprocess.TimeoutExpired:
             print("  [TIMEOUT]")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             print(f"  [ERROR] {e}")
 
     print(f"\n{'=' * 60}")

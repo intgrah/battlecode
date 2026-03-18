@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 from proto.cambc_pb2 import Replay
 
@@ -20,7 +21,8 @@ team = int(sys.argv[2]) if len(sys.argv) > 2 else 0
 max_turn = int(sys.argv[3]) if len(sys.argv) > 3 else 120
 
 r = Replay()
-r.ParseFromString(open(path, "rb").read())
+with Path(path).open("rb") as f:
+    r.ParseFromString(f.read())
 
 cores = {}
 for c in r.map.cores:

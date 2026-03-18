@@ -3,10 +3,10 @@
 import sys
 from pathlib import Path
 
-from proto.cambc_pb2 import Replay
+from proto.cambc_pb2 import Entity, Replay
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
@@ -53,9 +53,12 @@ def analyze_ore(path: str) -> None:
                 pos = (e.position.x, e.position.y)
                 if ek == "builder_bot":
                     builder_pos[e.id] = pos
-                elif ek == "harvester":
-                    if pos in ore_tiles and pos not in harvester_turn[e.team]:
-                        harvester_turn[e.team][pos] = turn_idx
+                elif (
+                    ek == "harvester"
+                    and pos in ore_tiles
+                    and pos not in harvester_turn[e.team]
+                ):
+                    harvester_turn[e.team][pos] = turn_idx
             elif k == "move_builder_bot":
                 m = u.move_builder_bot
                 eid = m.id
@@ -68,9 +71,10 @@ def analyze_ore(path: str) -> None:
                 continue
             bx, by = builder_pos[bid]
             for ox, oy in ore_tiles:
-                if (ox - bx) ** 2 + (oy - by) ** 2 <= 20:
-                    if (ox, oy) not in first_seen[team]:
-                        first_seen[team][(ox, oy)] = turn_idx
+                if (ox - bx) ** 2 + (oy - by) ** 2 <= 20 and (ox, oy) not in first_seen[
+                    team
+                ]:
+                    first_seen[team][(ox, oy)] = turn_idx
 
     for team_id in (0, 1):
         team_name = "A" if team_id == 0 else "B"
