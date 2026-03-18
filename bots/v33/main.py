@@ -358,9 +358,8 @@ class CoreBot:
                 ep = ct.get_position(eid)
                 core_pos = ct.get_position()
                 if ep.distance_squared(core_pos) <= 49:
-                    if rnd - self.defense_spawned_round >= 2:
-                        if self._try_spawn_toward(ct, ep):
-                            self.defense_spawned_round = rnd
+                    # Spawn defender every round when under attack
+                    self._try_spawn_toward(ct, ep)
                     return
 
         # Initial builders: wait until we can afford bot + harvester
@@ -522,21 +521,34 @@ class BuilderAgent:
             return out
         return None
 
-    def _find_enemy_near_core(self, ct: Controller) -> Position | None:
+    def _find_threats_near_core(
+        self, ct: Controller
+    ) -> tuple[Position | None, Position | None]:
+        """Find enemy turrets and builders near our core.
+        Returns (closest_turret, closest_builder)."""
         if self.core is None:
-            return None
+            return None, None
         my = ct.get_team()
+        best_turret: Position | None = None
+        best_turret_dist = 999999
+        best_builder: Position | None = None
+        best_builder_dist = 999999
         for eid in ct.get_nearby_entities():
             if ct.get_team(eid) == my:
                 continue
             ep = ct.get_position(eid)
             et = ct.get_entity_type(eid)
-            if et == EntityType.BUILDER_BOT and ep.distance_squared(self.core) <= 49:
-                return ep
             if et in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
-                if ep.distance_squared(self.core) <= 64:
-                    return ep
-        return None
+                d = ep.distance_squared(self.core)
+                if d <= 64 and d < best_turret_dist:
+                    best_turret_dist = d
+                    best_turret = ep
+            elif et == EntityType.BUILDER_BOT:
+                d = ep.distance_squared(self.core)
+                if d <= 49 and d < best_builder_dist:
+                    best_builder_dist = d
+                    best_builder = ep
+        return best_turret, best_builder
 
     def _try_heal_core(self, ct: Controller) -> bool:
         if self.core is None:
@@ -546,6 +558,34 @@ class BuilderAgent:
             if ct.can_heal(self.core):
                 ct.heal(self.core)
                 return True
+        return False
+
+    def _try_place_gunner_on_network(self, ct: Controller, pos: Position) -> bool:
+        """Build a gunner adjacent to our conveyor network, facing toward enemy.
+        The gunner will get ammo from the conveyor it's next to."""
+        if self.core is None or self.enemy_core is None:
+            return False
+        my = ct.get_team()
+        enemy_dir = toward(self.core, self.enemy_core)
+        # Find allied conveyors near core for defensive gunners
+        for t in ct.get_nearby_tiles():
+            if t.distance_squared(self.core) > 20:
+                continue
+            bid = ct.get_tile_building_id(t)
+            if bid is None or ct.get_team(bid) != my:
+                continue
+            et = ct.get_entity_type(bid)
+            if et not in (EntityType.CONVEYOR, EntityType.SPLITTER):
+                continue
+            for d in DIRS:
+                gp = t.add(d)
+                if not ib(ct, gp) or not ct.is_in_vision(gp):
+                    continue
+                if pos.distance_squared(gp) > GameConstants.ACTION_RADIUS_SQ:
+                    continue
+                if ct.can_build_gunner(gp, enemy_dir):
+                    ct.build_gunner(gp, enemy_dir)
+                    return True
         return False
 
     def _find_core_conv(self, ct: Controller) -> Position | None:
@@ -614,14 +654,13 @@ class BuilderAgent:
 
         # ANTI-CHEESE: defend core against enemy units/turrets
         if self.state not in (RAID,):
-            enemy = self._find_enemy_near_core(ct)
-            if enemy and pos.distance_squared(self.core) <= 64:
-                # Always try to heal core
+            enemy_turret, enemy_builder = self._find_threats_near_core(ct)
+            if (enemy_turret or enemy_builder) and pos.distance_squared(self.core) <= 64:
+                # Heal core every chance we get
                 self._try_heal_core(ct)
-                # Move toward enemy to intercept/block
-                if pos.distance_squared(enemy) > 2:
-                    self.nav.go(ct, enemy, lambda d: step_road(ct, d))
-                    return
+                # Intercept enemy builders before they place turrets
+                if enemy_builder and pos.distance_squared(enemy_builder) > 2:
+                    self.nav.go(ct, enemy_builder, lambda d: step_road(ct, d))
                 return
 
         # Repair breaks (high priority but not during chain build)
@@ -838,17 +877,14 @@ class BuilderAgent:
             self.nav.reset()
             return
 
-        # Fortify: replace conveyor near core with splitter + ammo-fed gunner
-        # Do this ASAP after first harvester to defend against cheese
-        if self.fortify_count < 2 and self.harvesters_built >= 1:
+        # Build gunner adjacent to conveyor for defense
+        if self.fortify_count < 3 and self.harvesters_built >= 1:
             ti, _ = ct.get_global_resources()
-            if ti > 100:
-                fl = self._find_frontline_conv(ct)
-                if fl:
-                    self.fortify_target = fl
-                    self.fortify_step = 1
-                    self.state = FORTIFY
-                    self.nav.reset()
+            gun_cost, _ = ct.get_gunner_cost()
+            if ti > gun_cost + 20:
+                built = self._try_place_gunner_on_network(ct, pos)
+                if built:
+                    self.fortify_count += 1
                     return
 
         self.idle_turns += 1
