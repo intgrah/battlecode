@@ -154,13 +154,15 @@ Once a unit exhausts both its 2ms budget and its buffer in a single round, it is
 
 Each bot process has a **1 GB memory limit**. Exceeding this will terminate the process.
 
+Only Python standard library modules are available. External packages (e.g. `numpy`, `scipy`) cannot be imported — bots run in a sandboxed environment with no `pip install`.
+
 <Warning>
   The local runner (`cambc run`) does **not** enforce time limits. Use `cambc test-run` to test on the same AWS Graviton3 hardware that runs ladder matches.
 </Warning>
 
 ## Debugging
 
-* **stdout** (`print()`) is captured by the engine and saved to the replay. You can view each unit's output in the visualiser.
+* **stdout** via `print("msg")` is captured by the engine and saved to the replay. You can view each unit's output in the visualiser.
 * **stderr** prints to the console in real time — use this for debugging during local runs.
 * `c.draw_indicator_line(pos_a, pos_b, r, g, b)` and `c.draw_indicator_dot(pos, r, g, b)` draw debug overlays on the map, saved to the replay.
 

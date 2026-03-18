@@ -8,7 +8,7 @@
 
 ## Requirements
 
-* **Python 3.12+**
+* **Python 3.12 or 3.13** (3.14 is not supported)
 * **pip** (comes with Python)
 
 ## Install
