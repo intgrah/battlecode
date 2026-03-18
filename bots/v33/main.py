@@ -485,13 +485,15 @@ class BuilderAgent:
         return best or random.choice(DIRS)
 
     def _new_explore_target(self, ct: Controller, pos: Position) -> None:
-        # First exploration: follow spoke direction from core for straighter chains
+        # First exploration: follow spoke direction for straighter chains
         if self.harvesters_built == 0 and self.spoke_dir is not None:
             d = self.spoke_dir
         else:
             d = self._explore_dir(ct, pos)
         dx, dy = d.delta()
-        dist = random.randint(6, max(self.w, self.h) // 3)
+        # Keep exploration range moderate to avoid overly long chains
+        max_range = max(self.w, self.h) // 4
+        dist = random.randint(5, max(6, max_range))
         tx = max(1, min(self.w - 2, pos.x + dx * dist + random.randint(-2, 2)))
         ty = max(1, min(self.h - 2, pos.y + dy * dist + random.randint(-2, 2)))
         self.target = Position(tx, ty)
@@ -737,9 +739,14 @@ class BuilderAgent:
         if adj:
             self.visited_ore.add((adj.x, adj.y))
             self.ore_target = adj
-            self.state = CHAIN_BUILD
+            # First harvester: build chain from current pos (already on conveyors)
+            # Later harvesters: return to core first for clean chain
+            if self.harvesters_built == 0:
+                self.state = CHAIN_BUILD
+                self.chain_wait = 0
+            else:
+                self.state = RETURN
             self.nav.reset()
-            self.chain_wait = 0
             return
 
         ore = self._find_visible_ore(ct, pos)
@@ -764,8 +771,12 @@ class BuilderAgent:
             self._new_explore_target(ct, pos)
 
         if self.target:
-            skip = self.has_income
-            self.nav.go(ct, self.target, lambda d: step_conv(ct, d, skip_ore=skip))
+            # First harvester: explore with conveyors for connected chain
+            # After that: explore with roads (faster, cheaper)
+            if self.harvesters_built == 0:
+                self.nav.go(ct, self.target, lambda d: step_conv(ct, d))
+            else:
+                self.nav.go(ct, self.target, lambda d: step_road(ct, d))
             if self.nav.unreachable:
                 self.nav.unreachable = False
                 self._new_explore_target(ct, ct.get_position())
@@ -775,9 +786,12 @@ class BuilderAgent:
         if adj:
             self.visited_ore.add((adj.x, adj.y))
             self.ore_target = adj
-            self.state = CHAIN_BUILD
+            if self.harvesters_built == 0:
+                self.state = CHAIN_BUILD
+                self.chain_wait = 0
+            else:
+                self.state = RETURN
             self.nav.reset()
-            self.chain_wait = 0
             return
 
         if self.target is None:
@@ -797,8 +811,10 @@ class BuilderAgent:
                 self._new_explore_target(ct, pos)
             return
 
-        skip = self.has_income
-        self.nav.go(ct, self.target, lambda d: step_conv(ct, d, skip_ore=skip))
+        if self.harvesters_built == 0:
+            self.nav.go(ct, self.target, lambda d: step_conv(ct, d))
+        else:
+            self.nav.go(ct, self.target, lambda d: step_road(ct, d))
         if self.nav.unreachable:
             self.nav.unreachable = False
             self.state = EXPLORE
@@ -893,9 +909,8 @@ class BuilderAgent:
         if ore:
             self.visited_ore.add((ore.x, ore.y))
             self.ore_target = ore
-            self.state = CHAIN_BUILD
+            self.state = RETURN
             self.idle_turns = 0
-            self.chain_wait = 0
             self.nav.reset()
             return
 
@@ -1009,9 +1024,8 @@ class BuilderAgent:
         if adj:
             self.visited_ore.add((adj.x, adj.y))
             self.ore_target = adj
-            self.state = CHAIN_BUILD
+            self.state = RETURN
             self.idle_turns = 0
-            self.chain_wait = 0
             self.nav.reset()
             return
 
