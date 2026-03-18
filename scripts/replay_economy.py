@@ -80,7 +80,11 @@ def print_economy(s: dict) -> None:
 
 def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
-    print_economy(collect(parse(path)))
+    max_turns = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    r = parse(path)
+    if max_turns is not None:
+        del r.turns[max_turns:]
+    print_economy(collect(r))
 
 
 if __name__ == "__main__":

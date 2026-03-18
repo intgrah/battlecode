@@ -1,6 +1,8 @@
 """Detect position oscillation cycles in builder movement."""
 
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 from proto.cambc_pb2 import Replay
 
