@@ -14,7 +14,8 @@
       "Bash(ruff check:*)",
       "Bash(python -c \"from proto.cambc_pb2 import Replay; r = Replay\\(\\); print\\(type\\(r.turns\\)\\)\")",
       "Bash(cambc run:*)",
-      "Bash(python scripts/trace_builder.py replay.replay26 0 80)"
+      "Bash(python scripts/trace_builder.py replay.replay26 0 80)",
+      "Bash(python -m ruff check analysis/)"
     ]
   }
 }

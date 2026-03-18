@@ -1,329 +1,32 @@
 import random
+from enum import Enum
 
-from cambc import (
-    Controller,
-    Direction,
-    EntityType,
-    Environment,
-    GameConstants,
-    Position,
+from bugnav import BugNav
+from cambc import Controller, Direction, EntityType, GameConstants, Position
+from core import IDLE_BEFORE_RAID, RAID_START
+from util import (
+    DIRS,
+    ib,
+    ore_env,
+    repair_dir,
+    step_conv,
+    step_raid,
+    step_road,
+    step_walk,
+    toward,
+    wall,
 )
 
-DIRS = [d for d in Direction if d != Direction.CENTRE]
 
-NUM_INITIAL = 4
-RAID_START = 200
-IDLE_BEFORE_RAID = 60
-
-SPOKES = [
-    Direction.NORTH,
-    Direction.NORTHEAST,
-    Direction.EAST,
-    Direction.SOUTHEAST,
-    Direction.SOUTH,
-    Direction.SOUTHWEST,
-    Direction.WEST,
-    Direction.NORTHWEST,
-]
-
-
-def toward(a: Position, b: Position) -> Direction:
-    return a.direction_to(b)
-
-
-def ib(ct: Controller, p: Position) -> bool:
-    return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
-
-
-def wall(ct: Controller, p: Position) -> bool:
-    return not ib(ct, p) or ct.get_tile_env(p) == Environment.WALL
-
-
-def ore_env(ct: Controller, p: Position) -> bool:
-    return ib(ct, p) and ct.get_tile_env(p) in (
-        Environment.ORE_TITANIUM,
-        Environment.ORE_AXIONITE,
-    )
-
-
-class BugNav:
-    def __init__(self) -> None:
-        self.wf = False
-        self.ws = 1
-        self.wf_start: tuple[int, int] | None = None
-        self.wf_start_dist = 999999
-        self.mline_start: tuple[int, int] | None = None
-        self.prev_target: tuple[int, int] | None = None
-        self.last_dir: Direction | None = None
-        self.wf_turns = 0
-        self.recent: list[tuple[int, int]] = []
-        self.unreachable = False
-
-    def reset(self) -> None:
-        self.__init__()
-
-    def _on_mline(self, px: int, py: int, tx: int, ty: int) -> bool:
-        if self.mline_start is None:
-            return True
-        sx, sy = self.mline_start
-        dx, dy = tx - sx, ty - sy
-        cross = dx * (py - sy) - dy * (px - sx)
-        length = max(abs(dx), abs(dy), 1)
-        return abs(cross) <= length
-
-    def go(self, ct: Controller, target: Position, step_fn) -> bool:
-        pos = ct.get_position()
-
-        if (
-            self.prev_target is None
-            or target.x != self.prev_target[0]
-            or target.y != self.prev_target[1]
-        ):
-            self.reset()
-            self.prev_target = (target.x, target.y)
-            self.mline_start = (pos.x, pos.y)
-
-        self.recent.append((pos.x, pos.y))
-        if len(self.recent) > 8:
-            self.recent.pop(0)
-        if len(self.recent) >= 8 and len(set(self.recent)) <= 2:
-            self.ws = -self.ws
-            self.wf = not self.wf
-            self.recent.clear()
-            self.unreachable = True
-            return False
-
-        dist = pos.distance_squared(target)
-        d = toward(pos, target)
-
-        if not self.wf:
-            if step_fn(d):
-                return True
-            self.wf = True
-            self.wf_start = (pos.x, pos.y)
-            self.wf_start_dist = dist
-            self.last_dir = d
-            self.wf_turns = 0
-
-        self.wf_turns += 1
-
-        if self.wf_turns > 1 and (pos.x, pos.y) != self.wf_start:
-            exit_wf = False
-            if (
-                dist < self.wf_start_dist
-                and self._on_mline(
-                    pos.x,
-                    pos.y,
-                    target.x,
-                    target.y,
-                )
-            ) or dist < self.wf_start_dist - 4:
-                exit_wf = True
-            if exit_wf:
-                self.wf = False
-                if step_fn(d):
-                    return True
-                self.wf = True
-                self.wf_start = (pos.x, pos.y)
-                self.wf_start_dist = dist
-                self.last_dir = d
-                self.wf_turns = 0
-
-        if self.wf_turns > 2 and self.wf_start == (pos.x, pos.y):
-            self.ws = -self.ws
-            self.wf = False
-            return False
-
-        scan = d
-        for _ in range(8):
-            if step_fn(scan):
-                self.last_dir = scan
-                return True
-            scan = scan.rotate_right() if self.ws == 1 else scan.rotate_left()
-
-        return False
-
-
-# --- Step functions ---
-
-
-def step_road(ct: Controller, d: Direction) -> bool:
-    nxt = ct.get_position().add(d)
-    if wall(ct, nxt):
-        return False
-    if ct.can_build_road(nxt):
-        ct.build_road(nxt)
-    if ct.can_move(d):
-        ct.move(d)
-        return True
-    return False
-
-
-def step_walk(ct: Controller, d: Direction) -> bool:
-    if wall(ct, ct.get_position().add(d)):
-        return False
-    if ct.can_move(d):
-        ct.move(d)
-        return True
-    return False
-
-
-def step_conv(ct: Controller, d: Direction) -> bool:
-    pos = ct.get_position()
-    nxt = pos.add(d)
-    if wall(ct, nxt):
-        return False
-    if not ore_env(ct, nxt):
-        bid = ct.get_tile_building_id(nxt)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
-            if ct.get_team(bid) == ct.get_team():
-                ct.destroy(nxt)
-        if ct.can_build_conveyor(nxt, d.opposite()):
-            ct.build_conveyor(nxt, d.opposite())
-    if ct.can_move(d):
-        ct.move(d)
-        return True
-    return False
-
-
-def step_raid(ct: Controller, d: Direction) -> bool:
-    nxt = ct.get_position().add(d)
-    if wall(ct, nxt):
-        return False
-    if ct.can_move(d):
-        ct.move(d)
-        return True
-    if ct.can_build_road(nxt):
-        ct.build_road(nxt)
-    if ct.can_move(d):
-        ct.move(d)
-        return True
-    return False
-
-
-def repair_dir(ct: Controller, gap: Position, core: Position) -> Direction:
-    my = ct.get_team()
-    best_dir = None
-    best_core_dist = 999999
-    upstream_dir = None
-
-    for d in DIRS:
-        adj = gap.add(d)
-        if not ib(ct, adj) or not ct.is_in_vision(adj):
-            continue
-        bid = ct.get_tile_building_id(adj)
-        if bid is None or ct.get_team(bid) != my:
-            continue
-        et = ct.get_entity_type(bid)
-        if et not in (
-            EntityType.CONVEYOR,
-            EntityType.ARMOURED_CONVEYOR,
-            EntityType.SPLITTER,
-        ):
-            continue
-        conv_out = ct.get_direction(bid)
-        ox, oy = conv_out.delta()
-        out_pos = Position(adj.x + ox, adj.y + oy)
-        if out_pos.x == gap.x and out_pos.y == gap.y:
-            upstream_dir = conv_out
-            continue
-        dist = adj.distance_squared(core)
-        if dist < best_core_dist:
-            best_core_dist = dist
-            best_dir = d
-
-    if best_dir:
-        return best_dir
-    if upstream_dir:
-        return upstream_dir
-    return toward(gap, core)
-
-
-# --- Core ---
-
-
-class CoreBot:
-    def __init__(self) -> None:
-        self.spawned = 0
-
-    def run(self, ct: Controller) -> None:
-        ti, _ = ct.get_global_resources()
-        cost = ct.get_builder_bot_cost()[0]
-        rnd = ct.get_current_round()
-        core_pos = ct.get_position()
-        my = ct.get_team()
-
-        enemy_threat: Position | None = None
-        enemy_builder_nearby = False
-        for eid in ct.get_nearby_entities():
-            if ct.get_team(eid) == my:
-                continue
-            et = ct.get_entity_type(eid)
-            ep = ct.get_position(eid)
-            dist = core_pos.distance_squared(ep)
-            if (
-                et in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH)
-                and dist <= 36
-            ):
-                if enemy_threat is None or dist < core_pos.distance_squared(
-                    enemy_threat,
-                ):
-                    enemy_threat = ep
-            elif et == EntityType.HARVESTER and dist <= 25:
-                if enemy_threat is None:
-                    enemy_threat = ep
-            elif et == EntityType.BUILDER_BOT and dist <= 36:
-                enemy_builder_nearby = True
-
-        if enemy_threat and ti >= cost:
-            spawn_dir = toward(core_pos, enemy_threat)
-            for d in [
-                spawn_dir,
-                spawn_dir.rotate_left(),
-                spawn_dir.rotate_right(),
-                *DIRS,
-            ]:
-                sp = core_pos.add(d)
-                if ct.can_spawn(sp):
-                    ct.spawn_builder(sp)
-                    self.spawned += 1
-                    return
-
-        if enemy_builder_nearby and ti >= cost and self.spawned < NUM_INITIAL:
-            for d in DIRS:
-                sp = core_pos.add(d)
-                if ct.can_spawn(sp):
-                    ct.spawn_builder(sp)
-                    self.spawned += 1
-                    return
-            return
-
-        if self.spawned < NUM_INITIAL:
-            if ti < cost + ct.get_harvester_cost()[0]:
-                return
-        elif rnd < RAID_START or ti < 500:
-            return
-
-        spoke = self.spawned % len(SPOKES)
-        sd = SPOKES[spoke]
-        for d in [sd, sd.rotate_left(), sd.rotate_right(), *DIRS]:
-            sp = core_pos.add(d)
-            if ct.can_spawn(sp):
-                ct.spawn_builder(sp)
-                self.spawned += 1
-                return
-
-
-# --- Builder states ---
-
-EXPLORE = 0
-SEEK_ORE = 1
-RETURN = 2
-CHAIN_BUILD = 3
-MAINTAIN = 4
-PATROL = 5
-RAID = 6
-FORTIFY = 7
+class BuilderState(Enum):
+    EXPLORE = 0
+    SEEK_ORE = 1
+    RETURN = 2
+    CHAIN_BUILD = 3
+    MAINTAIN = 4
+    PATROL = 5
+    RAID = 6
+    FORTIFY = 7
 
 
 class BuilderAgent:
@@ -331,7 +34,7 @@ class BuilderAgent:
         self.core: Position | None = None
         self.enemy_core: Position | None = None
         self.nav = BugNav()
-        self.state = EXPLORE
+        self.state = BuilderState.EXPLORE
         self.init_done = False
         self.spoke_dir: Direction | None = None
         self.builder_id = 0
@@ -368,7 +71,7 @@ class BuilderAgent:
             self.spoke_dir = random.choice(DIRS)
 
         if rnd >= RAID_START:
-            self.state = RAID
+            self.state = BuilderState.RAID
 
         self.init_done = True
 
@@ -385,7 +88,11 @@ class BuilderAgent:
 
         pos = ct.get_position()
 
-        if self.state not in (RAID, CHAIN_BUILD, RETURN):
+        if self.state not in (
+            BuilderState.RAID,
+            BuilderState.CHAIN_BUILD,
+            BuilderState.RETURN,
+        ):
             bid = ct.get_tile_building_id(pos)
             if bid is not None and ct.get_team(bid) != ct.get_team():
                 et = ct.get_entity_type(bid)
@@ -400,22 +107,23 @@ class BuilderAgent:
                     ct.self_destruct()
                     return
 
-        if self.state == EXPLORE:
-            self._do_explore(ct, pos)
-        elif self.state == SEEK_ORE:
-            self._do_seek_ore(ct, pos)
-        elif self.state == RETURN:
-            self._do_return(ct, pos)
-        elif self.state == CHAIN_BUILD:
-            self._do_chain_build(ct, pos)
-        elif self.state == MAINTAIN:
-            self._do_maintain(ct, pos)
-        elif self.state == PATROL:
-            self._do_patrol(ct, pos)
-        elif self.state == FORTIFY:
-            self._do_fortify(ct, pos)
-        elif self.state == RAID:
-            self._do_raid(ct, pos)
+        match self.state:
+            case BuilderState.EXPLORE:
+                self._do_explore(ct, pos)
+            case BuilderState.SEEK_ORE:
+                self._do_seek_ore(ct, pos)
+            case BuilderState.RETURN:
+                self._do_return(ct, pos)
+            case BuilderState.CHAIN_BUILD:
+                self._do_chain_build(ct, pos)
+            case BuilderState.MAINTAIN:
+                self._do_maintain(ct, pos)
+            case BuilderState.PATROL:
+                self._do_patrol(ct, pos)
+            case BuilderState.FORTIFY:
+                self._do_fortify(ct, pos)
+            case BuilderState.RAID:
+                self._do_raid(ct, pos)
 
     # --- Helpers ---
 
@@ -527,10 +235,9 @@ class BuilderAgent:
                 enemy_side == enemy_dir
                 or enemy_side == enemy_dir.rotate_left()
                 or enemy_side == enemy_dir.rotate_right()
-            ):
-                if core_dist < best_dist:
-                    best_dist = core_dist
-                    best = t
+            ) and core_dist < best_dist:
+                best_dist = core_dist
+                best = t
         if best:
             return best
         for t in ct.get_nearby_tiles():
@@ -594,20 +301,20 @@ class BuilderAgent:
         if adj:
             self.visited_ore.add((adj.x, adj.y))
             self.ore_target = adj
-            self.state = RETURN
+            self.state = BuilderState.RETURN
             self.nav.reset()
             return
 
         ore = self._find_visible_ore(ct, pos)
         if ore:
-            self.state = SEEK_ORE
+            self.state = BuilderState.SEEK_ORE
             self.target = ore
             self.nav.reset()
             return
 
         self.idle_turns += 1
         if self.has_income and self.idle_turns >= IDLE_BEFORE_RAID:
-            self.state = RAID
+            self.state = BuilderState.RAID
             self.nav.reset()
             return
 
@@ -630,12 +337,12 @@ class BuilderAgent:
         if adj:
             self.visited_ore.add((adj.x, adj.y))
             self.ore_target = adj
-            self.state = RETURN
+            self.state = BuilderState.RETURN
             self.nav.reset()
             return
 
         if self.target is None:
-            self.state = EXPLORE
+            self.state = BuilderState.EXPLORE
             return
 
         if ct.is_in_vision(self.target) and (
@@ -647,20 +354,20 @@ class BuilderAgent:
                 self.target = ore
                 self.nav.reset()
             else:
-                self.state = EXPLORE
+                self.state = BuilderState.EXPLORE
                 self._new_explore_target(ct, pos)
             return
 
         self.nav.go(ct, self.target, lambda d: step_road(ct, d))
         if self.nav.unreachable:
             self.nav.unreachable = False
-            self.state = EXPLORE
+            self.state = BuilderState.EXPLORE
             self._new_explore_target(ct, ct.get_position())
 
     def _do_return(self, ct: Controller, pos: Position) -> None:
         assert self.core is not None
         if pos.distance_squared(self.core) <= 2:
-            self.state = CHAIN_BUILD
+            self.state = BuilderState.CHAIN_BUILD
             self.nav.reset()
             return
 
@@ -668,7 +375,7 @@ class BuilderAgent:
 
     def _do_chain_build(self, ct: Controller, pos: Position) -> None:
         if not self.ore_target:
-            self.state = EXPLORE
+            self.state = BuilderState.EXPLORE
             return
 
         if ct.can_build_harvester(self.ore_target) and self._ore_would_connect(
@@ -678,7 +385,7 @@ class BuilderAgent:
         ):
             ct.build_harvester(self.ore_target)
             self.harvesters_built += 1
-            self.state = MAINTAIN
+            self.state = BuilderState.MAINTAIN
             self.idle_turns = 0
             self.ore_target = None
             return
@@ -688,7 +395,7 @@ class BuilderAgent:
             or ct.get_tile_building_id(self.ore_target) is not None
         ):
             self.ore_target = None
-            self.state = EXPLORE
+            self.state = BuilderState.EXPLORE
             self._new_explore_target(ct, pos)
             return
 
@@ -696,7 +403,7 @@ class BuilderAgent:
         if self.nav.unreachable:
             self.nav.unreachable = False
             self.ore_target = None
-            self.state = EXPLORE
+            self.state = BuilderState.EXPLORE
             self._new_explore_target(ct, ct.get_position())
 
     def _do_maintain(self, ct: Controller, pos: Position) -> None:
@@ -720,10 +427,9 @@ class BuilderAgent:
             if (
                 ct.get_team(eid) != my
                 and ct.get_entity_type(eid) == EntityType.BUILDER_BOT
-            ):
-                if self.core.distance_squared(ct.get_position(eid)) <= 100:
-                    enemy_near_core = True
-                    break
+            ) and self.core.distance_squared(ct.get_position(eid)) <= 100:
+                enemy_near_core = True
+                break
 
         should_fortify = (
             self.harvesters_built >= 1
@@ -735,18 +441,18 @@ class BuilderAgent:
             if fl:
                 self.fortify_target = fl
                 self.fortify_step = 1
-                self.state = FORTIFY
+                self.state = BuilderState.FORTIFY
                 self.nav.reset()
                 return
 
         self.idle_turns += 1
         if self.idle_turns >= IDLE_BEFORE_RAID and self.has_income:
-            self.state = RAID
+            self.state = BuilderState.RAID
             self.nav.reset()
             return
 
         if self.idle_turns > 20:
-            self.state = PATROL
+            self.state = BuilderState.PATROL
             self._new_explore_target(ct, ct.get_position())
             return
 
@@ -757,7 +463,7 @@ class BuilderAgent:
         assert self.core is not None
         assert self.enemy_core is not None
         if not self.fortify_target:
-            self.state = MAINTAIN
+            self.state = BuilderState.MAINTAIN
             self.idle_turns = 0
             return
 
@@ -771,7 +477,7 @@ class BuilderAgent:
             bid = ct.get_tile_building_id(self.fortify_target)
             if bid is None:
                 self.fortify_target = None
-                self.state = MAINTAIN
+                self.state = BuilderState.MAINTAIN
                 self.idle_turns = 0
                 return
             self.fortify_dir = ct.get_direction(bid)
@@ -786,7 +492,7 @@ class BuilderAgent:
                 self.fortify_step = 3
             else:
                 self.fortify_target = None
-                self.state = MAINTAIN
+                self.state = BuilderState.MAINTAIN
                 self.idle_turns = 0
             return
 
@@ -812,14 +518,14 @@ class BuilderAgent:
                     self.fortify_target = None
                     self.fortify_step = 0
                     self.has_fortified = True
-                    self.state = MAINTAIN
+                    self.state = BuilderState.MAINTAIN
                     self.idle_turns = 0
                     return
 
             self.fortify_target = None
             self.fortify_step = 0
             self.has_fortified = True
-            self.state = MAINTAIN
+            self.state = BuilderState.MAINTAIN
             self.idle_turns = 0
 
     def _do_patrol(self, ct: Controller, pos: Position) -> None:
@@ -827,25 +533,25 @@ class BuilderAgent:
         if adj:
             self.visited_ore.add((adj.x, adj.y))
             self.ore_target = adj
-            self.state = RETURN
+            self.state = BuilderState.RETURN
             self.nav.reset()
             return
 
         ore = self._find_visible_ore(ct, pos)
         if ore:
-            self.state = SEEK_ORE
+            self.state = BuilderState.SEEK_ORE
             self.target = ore
             self.nav.reset()
             return
 
         brk = self._find_break(ct)
         if brk:
-            self.state = MAINTAIN
+            self.state = BuilderState.MAINTAIN
             self.idle_turns = 0
             return
 
         if self.has_income and self.idle_turns >= IDLE_BEFORE_RAID:
-            self.state = RAID
+            self.state = BuilderState.RAID
             self.nav.reset()
             return
 
@@ -910,44 +616,3 @@ class BuilderAgent:
                 return
 
         self.nav.go(ct, self.enemy_core, lambda d: step_raid(ct, d))
-
-
-# --- Turret ---
-
-
-class TurretUnit:
-    def run(self, ct: Controller) -> None:
-        my = ct.get_team()
-        best = None
-        best_prio = -1
-        for eid in ct.get_nearby_entities():
-            if ct.get_team(eid) == my:
-                continue
-            epos = ct.get_position(eid)
-            if not ct.can_fire(epos):
-                continue
-            prio = 10 if ct.get_entity_type(eid) == EntityType.BUILDER_BOT else 1
-            if prio > best_prio:
-                best_prio = prio
-                best = epos
-        if best:
-            ct.fire(best)
-
-
-# --- Player ---
-
-
-class Player:
-    def __init__(self) -> None:
-        self.core_bot = CoreBot()
-        self.builder = BuilderAgent()
-        self.turret = TurretUnit()
-
-    def run(self, ct: Controller) -> None:
-        etype = ct.get_entity_type()
-        if etype == EntityType.CORE:
-            self.core_bot.run(ct)
-        elif etype == EntityType.BUILDER_BOT:
-            self.builder.run(ct)
-        elif etype in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
-            self.turret.run(ct)
