@@ -32,6 +32,18 @@ combat replay="replay.replay26":
 bots replay="replay.replay26":
     {{_analysis}} ../{{replay}} -s bots
 
+debug replay="replay.replay26" *args="":
+    python scripts/replay_debug.py {{replay}} {{args}}
+
+debug-team replay="replay.replay26" team="A" *args="":
+    python scripts/replay_debug.py {{replay}} --team {{team}} {{args}}
+
+debug-entity replay="replay.replay26" entity="" *args="":
+    python scripts/replay_debug.py {{replay}} --entity {{entity}} {{args}}
+
+explain replay="replay.replay26" *args="":
+    python scripts/replay_debug.py {{replay}} --min-priority 40 --no-map {{args}}
+
 map *args:
     python scripts/replay_map.py {{args}}
 
