@@ -8130,7 +8130,8 @@ def get_next_move(
                             best_move = first_move
 
                         heapq.heappush(
-                            open_set, (new_g + h, new_g, neighbor, first_move),
+                            open_set,
+                            (new_g + h, new_g, neighbor, first_move),
                         )
 
     return best_move
@@ -8292,7 +8293,9 @@ class BuilderBot:
                 candidate.core0_pos if self.team == Team.A else candidate.core1_pos
             )
             direction = self.get_move(
-                ct, self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])), False,
+                ct,
+                self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])),
+                False,
             )
             if direction is not None:
                 self.safe_move(ct, direction)
@@ -8470,7 +8473,10 @@ class BuilderBot:
 
                 if chosen:
                     direction = self.get_move(
-                        ct, self.pos_to_idx(enemy_core), False, False,
+                        ct,
+                        self.pos_to_idx(enemy_core),
+                        False,
+                        False,
                     )
                     if direction is not None:
                         turret_pos = pos.add(direction)
@@ -8581,7 +8587,8 @@ class BuilderBot:
                     if intent.x != harvester_pos.x or intent.y != harvester_pos.y:
                         tile_type = ct.get_tile_env(intent)
                         if (
-                            tile_type not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+                            tile_type
+                            not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
                         ) and self.safe_conveyer_move(ct, direction):
                             return
 
@@ -8607,13 +8614,14 @@ class BuilderBot:
             # Move towards harvester
             direction = self.get_move(ct, target, True)
             self.safe_conveyer_move(
-                ct, direction if direction is not None else Direction.WEST,
+                ct,
+                direction if direction is not None else Direction.WEST,
             )
             self.tick += 1
             if self.tick > 100:
                 self.tick = 0
                 self.done = True
-                    # If it takes too long, just run for enemy base
+                # If it takes too long, just run for enemy base
         else:
             # We do not know what map we are on
             return
@@ -8814,7 +8822,10 @@ class BuilderBot:
         return False
 
     def safe_conveyer_move(
-        self, ct: Controller, direction: Direction, destruct=True,
+        self,
+        ct: Controller,
+        direction: Direction,
+        destruct=True,
     ) -> None:
         """Moves in a given direction given that it is safe"""
 

@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import contextlib
+
 from proto.cambc_pb2 import Replay
 
 # ---------------------------------------------------------------------------
@@ -180,11 +182,11 @@ class TurnState:
 
 
 class ReplayDebugger:
-    def __init__(self, replay: Replay):
+    def __init__(self, replay: Replay) -> None:
         self.replay = replay
         self.w = replay.map.width
         self.h = replay.map.height
-        self.env_grid = [[tile for tile in row.tiles] for row in replay.map.rows]
+        self.env_grid = [list(row.tiles) for row in replay.map.rows]
 
         self.core_pos: dict[int, tuple[int, int]] = {}
         for c in replay.map.cores:
@@ -419,7 +421,6 @@ class ReplayDebugger:
         if info is None:
             return
 
-        old_hp = info.hp
         info.hp += delta
 
         if delta < 0:
@@ -458,9 +459,7 @@ class ReplayDebugger:
 
     def _handle_resources(self, turn: int, players) -> None:
         for t, p in ((0, players.a), (1, players.b)):
-            old_collected = (
-                self.resources.ti_collected[t] + self.resources.ax_collected[t]
-            )
+            (self.resources.ti_collected[t] + self.resources.ax_collected[t])
             new_collected = p.titanium_collected + p.axionite_collected
 
             self.resources.ti[t] = p.titanium
@@ -542,10 +541,8 @@ class ReplayDebugger:
         for line in bo.stdout.strip().split("\n"):
             line = line.strip()
             if line.startswith("{") and '"_dbg"' in line:
-                try:
+                with contextlib.suppress(json.JSONDecodeError):
                     info.parsed = json.loads(line)
-                except json.JSONDecodeError:
-                    pass
 
         self.bot_output[turn][bo.id] = info
 
@@ -631,7 +628,7 @@ class ReplayDebugger:
 
         # Build entity lookup for current state
         pos_to_ent: dict[tuple[int, int], EntityInfo] = {}
-        for eid, info in self.entities.items():
+        for info in self.entities.values():
             pos_to_ent[info.pos] = info
 
         for y in range(y1, y2 + 1):

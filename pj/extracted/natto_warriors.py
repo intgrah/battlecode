@@ -6,6 +6,7 @@ DIRECTIONS_AND_C = list(Direction)
 
 DIRECTIONS_CARDINAL = [Direction.NORTH, Direction.EAST, Direction.WEST, Direction.SOUTH]
 
+
 class Base:
     ct: Controller
 
@@ -35,6 +36,8 @@ class Base:
         self.id = self.ct.get_id()
         self.try_moved = False
         self.tiles = self.ct.get_nearby_tiles()
+
+
 import random
 
 from base import *
@@ -53,7 +56,8 @@ class Builder(Base):
 
         self.try_build_harvester()
         self.repair()
-        if self.suicide(): return
+        if self.suicide():
+            return
         self.support_ore()
         self.explore()
 
@@ -110,7 +114,10 @@ class Builder(Base):
             return
         if self.explore_timer < 0:
             self.explore_timer = 35
-            self.explore_pos = Position(random.randrange(self.W), random.randrange(self.H))
+            self.explore_pos = Position(
+                random.randrange(self.W),
+                random.randrange(self.H),
+            )
         if ct.get_position().distance_squared(self.explore_pos) <= 5:
             self.explore_timer = -1
             self.explore()
@@ -189,7 +196,8 @@ class Builder(Base):
             to.rotate_left().rotate_left(),
             to.rotate_right().rotate_right(),
         ]
-        if me.distance_squared(pos) <= limit: return
+        if me.distance_squared(pos) <= limit:
+            return
         for dir in dirs:
             if dir in DIRECTIONS_CARDINAL:
                 self.try_build_at(me.add(dir))
@@ -205,6 +213,8 @@ class Builder(Base):
             if ct.can_build_harvester(check_pos):
                 ct.build_harvester(check_pos)
                 return
+
+
 from base import *
 
 
@@ -216,12 +226,15 @@ class Core(Base):
         self.ct = ct
         ti, _ax = ct.get_global_resources()
         round = ct.get_current_round()
-        if ti < (2.0 - round / 2000.0) * 220 * ct.get_scale_percent() / 100.0: return
+        if ti < (2.0 - round / 2000.0) * 220 * ct.get_scale_percent() / 100.0:
+            return
         random.shuffle(DIRECTIONS)
         for d in DIRECTIONS:
             spawn_pos = ct.get_position().add(d)
             if ct.can_spawn(spawn_pos):
                 ct.spawn_builder(spawn_pos)
+
+
 from base import *
 
 
@@ -232,6 +245,8 @@ class Gunner(Base):
     def run(self, ct) -> None:
         self.ct = ct
         self.reset()
+
+
 from builder import *
 from core import *
 from gunner import *
@@ -252,6 +267,8 @@ class Player:
         elif etype == EntityType.GUNNER and self.bot is None:
             self.bot = Gunner(ct)
         self.bot.run(ct)
+
+
 class Symmetry:
     def __init__(self, ct) -> None:
         self.ct = ct

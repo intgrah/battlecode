@@ -27,18 +27,20 @@ class Player:
         self.core_pos = None
         self.enemy_core = None
         self.enemy_core_candidates = []  # symmetry candidates to try
-        self.role = None          # 'eco' or 'hijack'
+        self.role = None  # 'eco' or 'hijack'
         self.target_ore = None
         self.prev_pos = None
         self.explore_dir = None
         self.stuck = 0
-        self.path = []            # BFS path as list of Positions
-        self.path_target = None   # target the path was computed for
+        self.path = []  # BFS path as list of Positions
+        self.path_target = None  # target the path was computed for
 
         # Eco state -- unified build plan: conveyors core->outward, harvester last
-        self.build_plan = None      # list of ('conveyor', pos, dir) or ('harvester', pos, None)
+        self.build_plan = (
+            None  # list of ('conveyor', pos, dir) or ('harvester', pos, None)
+        )
         self.plan_idx = 0
-        self.plan_set = set()       # positions reserved for the plan (don't put roads here)
+        self.plan_set = set()  # positions reserved for the plan (don't put roads here)
 
         # Core state
         self.builders_spawned = 0
@@ -97,7 +99,10 @@ class Player:
         # Find our core
         for eid in ct.get_nearby_entities():
             try:
-                if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == self.team:
+                if (
+                    ct.get_entity_type(eid) == EntityType.CORE
+                    and ct.get_team(eid) == self.team
+                ):
                     self.core_pos = ct.get_position(eid)
                     break
             except Exception:
@@ -109,8 +114,8 @@ class Player:
         cx, cy = self.core_pos.x, self.core_pos.y
         self.enemy_core_candidates = [
             Position(self.w - 1 - cx, self.h - 1 - cy),  # 180 deg rotation
-            Position(self.w - 1 - cx, cy),                 # horizontal reflection (left<->right)
-            Position(cx, self.h - 1 - cy),                 # vertical reflection (top<->bottom)
+            Position(self.w - 1 - cx, cy),  # horizontal reflection (left<->right)
+            Position(cx, self.h - 1 - cy),  # vertical reflection (top<->bottom)
         ]
         # Deduplicate (e.g. on a square map with centered core, some coincide)
         seen = set()
@@ -129,9 +134,11 @@ class Player:
             bid = ct.get_tile_building_id(tile)
             if bid is not None:
                 try:
-                    if (ct.get_team(bid) == self.team
-                            and ct.get_entity_type(bid) == EntityType.MARKER
-                            and ct.get_marker_value(bid) == 42):
+                    if (
+                        ct.get_team(bid) == self.team
+                        and ct.get_entity_type(bid) == EntityType.MARKER
+                        and ct.get_marker_value(bid) == 42
+                    ):
                         eco_count += 1
                 except Exception:
                     pass
@@ -179,13 +186,18 @@ class Player:
                     team = ct.get_team(bid)
                     etype = ct.get_entity_type(bid)
                     # Already the correct type here -- skip
-                    if team == self.team and etype in (EntityType.CONVEYOR, EntityType.HARVESTER):
+                    if team == self.team and etype in (
+                        EntityType.CONVEYOR,
+                        EntityType.HARVESTER,
+                    ):
                         self.plan_idx += 1
                         return
                     # Any allied building blocking the plan tile -- destroy it
                     if team == self.team:
                         pos = ct.get_position()
-                        if pos.distance_squared(target_pos) <= 2 and ct.can_destroy(target_pos):
+                        if pos.distance_squared(target_pos) <= 2 and ct.can_destroy(
+                            target_pos,
+                        ):
                             ct.destroy(target_pos)
                         else:
                             # Move closer so we can destroy next round
@@ -275,7 +287,10 @@ class Player:
         # Check all visible buildings for enemy core -- might spot it from any angle
         for eid in ct.get_nearby_buildings():
             try:
-                if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) != self.team:
+                if (
+                    ct.get_entity_type(eid) == EntityType.CORE
+                    and ct.get_team(eid) != self.team
+                ):
                     self.enemy_core = ct.get_position(eid)
                     self.enemy_core_candidates = []  # confirmed
                     return
@@ -289,13 +304,14 @@ class Player:
             is_core = False
             if bid is not None:
                 with contextlib.suppress(Exception):
-                    is_core = (ct.get_entity_type(bid) == EntityType.CORE
-                               and ct.get_team(bid) != self.team)
+                    is_core = (
+                        ct.get_entity_type(bid) == EntityType.CORE
+                        and ct.get_team(bid) != self.team
+                    )
             if not is_core:
                 # Wrong -- remove and try next candidate
                 self.enemy_core_candidates = [
-                    c for c in self.enemy_core_candidates
-                    if (c.x, c.y) != (ec.x, ec.y)
+                    c for c in self.enemy_core_candidates if (c.x, c.y) != (ec.x, ec.y)
                 ]
                 if self.enemy_core_candidates:
                     self.enemy_core = self.enemy_core_candidates[0]
@@ -365,8 +381,11 @@ class Player:
                 if ct.get_team(eid) == self.team:
                     continue
                 etype = ct.get_entity_type(eid)
-                if etype not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR,
-                                 EntityType.SPLITTER):
+                if etype not in (
+                    EntityType.CONVEYOR,
+                    EntityType.ARMOURED_CONVEYOR,
+                    EntityType.SPLITTER,
+                ):
                     continue
                 bpos = ct.get_position(eid)
                 bdir = ct.get_direction(eid)
@@ -522,16 +541,23 @@ class Player:
 
 # -- Helpers ----------------------------------------------------------
 
+
 def _in_bounds(p: Position, w: int, h: int) -> bool:
     return 0 <= p.x < w and 0 <= p.y < h
 
 
 _DIR_PRI_CACHE = {
     d: [
-        d, d.rotate_left(), d.rotate_right(),
-        d.rotate_left().rotate_left(), d.rotate_right().rotate_right(),
-        d.opposite().rotate_right(), d.opposite().rotate_left(), d.opposite(),
-    ] for d in DIRS
+        d,
+        d.rotate_left(),
+        d.rotate_right(),
+        d.rotate_left().rotate_left(),
+        d.rotate_right().rotate_right(),
+        d.opposite().rotate_right(),
+        d.opposite().rotate_left(),
+        d.opposite(),
+    ]
+    for d in DIRS
 }
 
 
@@ -675,8 +701,10 @@ def _best_gunner_dir(ct, gunner_pos, conveyor_pos, team):
             uid = ct.get_tile_builder_bot_id(scan)
             if bid is not None:
                 try:
-                    if (ct.get_entity_type(bid) == EntityType.CORE
-                            and ct.get_team(bid) != team):
+                    if (
+                        ct.get_entity_type(bid) == EntityType.CORE
+                        and ct.get_team(bid) != team
+                    ):
                         hit_core = True
                 except Exception:
                     pass
@@ -689,8 +717,12 @@ def _best_gunner_dir(ct, gunner_pos, conveyor_pos, team):
 
         # Check ammo compatibility
         # Diagonal-facing gunners accept ammo from all four sides -- no restriction
-        if d in (Direction.NORTHEAST, Direction.SOUTHEAST,
-                 Direction.SOUTHWEST, Direction.NORTHWEST):
+        if d in (
+            Direction.NORTHEAST,
+            Direction.SOUTHEAST,
+            Direction.SOUTHWEST,
+            Direction.NORTHWEST,
+        ):
             return d
 
         # Cardinal-facing gunners can't accept ammo from the facing direction

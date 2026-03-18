@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
 import subprocess
 import sys
 from datetime import UTC, datetime
 
 
 def run(cmd: list[str]) -> str:
-    return subprocess.run(cmd, capture_output=True, text=True).stdout
+    return subprocess.run(cmd, capture_output=True, text=True, check=False).stdout
 
 
 def parse_matches(text: str) -> list[dict[str, str]]:

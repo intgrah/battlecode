@@ -31,7 +31,7 @@ def trace(path: str) -> None:
     building_at: dict[Pos, int] = {}
     our_infra: set[Pos] = set()
 
-    RAID_DIST = 12
+    raid_dist = 12
 
     events: list[str] = []
 
@@ -72,7 +72,7 @@ def trace(path: str) -> None:
                     entity_pos[mb.id] = new_pos
                     if team == enemy_team:
                         dist = chebyshev(new_pos, our_core)
-                        if dist <= RAID_DIST:
+                        if dist <= raid_dist:
                             near_infra = min(
                                 (chebyshev(new_pos, p) for p in our_infra),
                                 default=999,

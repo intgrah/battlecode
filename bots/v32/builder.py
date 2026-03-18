@@ -320,7 +320,7 @@ class BuilderAgent:
                 self.writer.flush(ct)
                 return
 
-        rnd = ct.get_current_round()
+        ct.get_current_round()
 
         match self.state:
             case ExploreConv() as s:

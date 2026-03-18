@@ -102,7 +102,10 @@ class BuilderHandler:
         # Rush builders delegate to RushManager
         if self.role == BuilderRole.RUSHER and self.rush_manager is not None:
             still_rushing = self.rush_manager.play(
-                ct, self.movement, self.core_pos, self.symmetry,
+                ct,
+                self.movement,
+                self.core_pos,
+                self.symmetry,
             )
             if not still_rushing:
                 # Rush failed/done, convert to economy builder
@@ -143,9 +146,11 @@ class BuilderHandler:
                 return
 
         # Systematic exploration sweep
-        if (self.explore_target is None
-                or my_pos.distance_squared(self.explore_target) < 4
-                or self.stuck_turns > 8):
+        if (
+            self.explore_target is None
+            or my_pos.distance_squared(self.explore_target) < 4
+            or self.stuck_turns > 8
+        ):
             self.explore_target = self._pick_explore_target(ct)
             self.stuck_turns = 0
 
@@ -211,9 +216,14 @@ class BuilderHandler:
             building_id = ct.get_tile_building_id(target_pos)
             if building_id is not None:
                 btype = ct.get_entity_type(building_id)
-                if btype == EntityType.ROAD and ct.get_team(building_id) == ct.get_team():
+                if (
+                    btype == EntityType.ROAD
+                    and ct.get_team(building_id) == ct.get_team()
+                ):
                     # Destroy our road to make room (free action)
-                    if my_pos.distance_squared(target_pos) <= 2 and ct.can_destroy(target_pos):
+                    if my_pos.distance_squared(target_pos) <= 2 and ct.can_destroy(
+                        target_pos,
+                    ):
                         ct.destroy(target_pos)
                     else:
                         self.movement.move_to(ct, target_pos)
@@ -234,9 +244,20 @@ class BuilderHandler:
                     ct.move(dir_to_new)
                 return
             # Hit a wall -- replan chain
-            if ct.is_in_vision(target_pos) and ct.get_tile_env(target_pos) == Environment.WALL:
-                replan_from = self.chain_path[self.chain_index - 1][0] if self.chain_index > 0 else target_pos
-                self.chain_path = self.economy.plan_chain_path(ct, replan_from, self.core_pos)
+            if (
+                ct.is_in_vision(target_pos)
+                and ct.get_tile_env(target_pos) == Environment.WALL
+            ):
+                replan_from = (
+                    self.chain_path[self.chain_index - 1][0]
+                    if self.chain_index > 0
+                    else target_pos
+                )
+                self.chain_path = self.economy.plan_chain_path(
+                    ct,
+                    replan_from,
+                    self.core_pos,
+                )
                 if self.chain_path and self.chain_path[0][0] == replan_from:
                     self.chain_path = self.chain_path[1:]
                 self.chain_index = 0
@@ -283,7 +304,9 @@ class BuilderHandler:
         if self.chain_path and self.chain_path[0][0] == harvester_pos:
             self.chain_path = self.chain_path[1:]
         self.chain_index = 0
-        self.state = BuilderState.BUILD_CONVEYOR if self.chain_path else BuilderState.EXPLORING
+        self.state = (
+            BuilderState.BUILD_CONVEYOR if self.chain_path else BuilderState.EXPLORING
+        )
 
     def _finish_chain(self) -> None:
         self.chain_path = []
@@ -340,7 +363,9 @@ class BuilderHandler:
                 if mpos in self._known_ore_set or mpos in self._mirror_checked:
                     continue
                 orig = current_ores[i]
-                if mpos.distance_squared(self.core_pos) >= orig.distance_squared(self.core_pos):
+                if mpos.distance_squared(self.core_pos) >= orig.distance_squared(
+                    self.core_pos,
+                ):
                     continue
                 if not ct.is_in_vision(mpos):
                     self.known_ores.append(mpos)
@@ -348,7 +373,11 @@ class BuilderHandler:
                 else:
                     self._mirror_checked.add(mpos)
 
-    def _pick_best_known_ore(self, ct: Controller, core_pos: Position) -> Position | None:
+    def _pick_best_known_ore(
+        self,
+        ct: Controller,
+        core_pos: Position,
+    ) -> Position | None:
         """Pick the best ore from known_ores, pruning stale entries."""
         best_pos = None
         best_score = -1.0
@@ -365,9 +394,11 @@ class BuilderHandler:
 
             dist_sq = pos.distance_squared(core_pos)
             score = 1.0 / (dist_sq + 1)
-            if ct.is_in_vision(pos) and ct.get_tile_env(pos) == Environment.ORE_TITANIUM:
-                if ct.get_current_round() < 200:
-                    score *= 1.5
+            if (
+                ct.is_in_vision(pos)
+                and ct.get_tile_env(pos) == Environment.ORE_TITANIUM
+            ) and ct.get_current_round() < 200:
+                score *= 1.5
             if score > best_score:
                 best_score = score
                 best_pos = pos
@@ -409,6 +440,8 @@ class BuilderHandler:
                     return True
 
         return False
+
+
 """Parasitic gunner rush — simple version.
 
 Every rush builder does the same thing:
@@ -447,7 +480,10 @@ class RushManager:
     def _scan_for_enemy_core(self, ct):
         my_team = ct.get_team()
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) != my_team:
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) != my_team
+            ):
                 return ct.get_position(eid)
         return None
 
@@ -516,12 +552,18 @@ class RushManager:
             if bid is not None:
                 bteam = ct.get_team(bid)
                 btype = ct.get_entity_type(bid)
-                if (bteam != ct.get_team() and
-                        btype in (EntityType.CONVEYOR, EntityType.SPLITTER,
-                                  EntityType.ARMOURED_CONVEYOR)):
-                    if my_pos.distance_squared(self.enemy_core_pos) <= 8:
-                        ct.self_destruct()
-                        return False  # Dead
+                if (
+                    bteam != ct.get_team()
+                    and btype
+                    in (
+                        EntityType.CONVEYOR,
+                        EntityType.SPLITTER,
+                        EntityType.ARMOURED_CONVEYOR,
+                    )
+                    and my_pos.distance_squared(self.enemy_core_pos) <= 8
+                ):
+                    ct.self_destruct()
+                    return False  # Dead
 
         # Priority 3: Walk onto enemy conveyor for self-destruct
         if not self._built_gunner and self._move_onto_enemy_conveyor(ct):
@@ -573,8 +615,11 @@ class RushManager:
                 continue
             if ct.get_team(bid) == my_team:
                 continue
-            if ct.get_entity_type(bid) in (EntityType.CONVEYOR, EntityType.SPLITTER,
-                                            EntityType.ARMOURED_CONVEYOR):
+            if ct.get_entity_type(bid) in (
+                EntityType.CONVEYOR,
+                EntityType.SPLITTER,
+                EntityType.ARMOURED_CONVEYOR,
+            ):
                 ct.move(d)
                 return True
         return False
@@ -593,6 +638,8 @@ class RushManager:
                 if ct.can_move(d):
                     ct.move(d)
                 return
+
+
 from cambc import Controller, Position
 from utils import ALL_SPAWN_DIRS, MapSize, classify_map
 
@@ -719,8 +766,12 @@ class CoreHandler:
             return spawn_pos
 
         # Try adjacent directions
-        for d in [spawn_dir.rotate_left(), spawn_dir.rotate_right(),
-                  spawn_dir.rotate_left().rotate_left(), spawn_dir.rotate_right().rotate_right()]:
+        for d in [
+            spawn_dir.rotate_left(),
+            spawn_dir.rotate_right(),
+            spawn_dir.rotate_left().rotate_left(),
+            spawn_dir.rotate_right().rotate_right(),
+        ]:
             spawn_pos = core_pos.add(d)
             if ct.can_spawn(spawn_pos):
                 return spawn_pos
@@ -750,6 +801,8 @@ class CoreHandler:
                 return spawn_pos
 
         return None
+
+
 from collections import deque
 
 from cambc import Controller, Position
@@ -791,7 +844,10 @@ class EconomyManager:
         return False
 
     def plan_chain_path(
-        self, ct: Controller, start_pos: Position, core_pos: Position,
+        self,
+        ct: Controller,
+        start_pos: Position,
+        core_pos: Position,
         goal_dist_sq: int = 5,
     ) -> list[tuple[Position, Direction]]:
         """BFS from start_pos to a tile near target (dist^2<=goal_dist_sq).
@@ -863,13 +919,19 @@ class EconomyManager:
 
             # Verify the tile we'd push resources to isn't a wall
             target_tile = last.add(face_dir)
-            if ct.is_in_vision(target_tile) and ct.get_tile_env(target_tile) == Environment.WALL:
+            if (
+                ct.is_in_vision(target_tile)
+                and ct.get_tile_env(target_tile) == Environment.WALL
+            ):
                 # Try other cardinal directions toward core
                 best_alt = None
                 best_alt_dist = 999
                 for d in CARDINALS:
                     check = last.add(d)
-                    if ct.is_in_vision(check) and ct.get_tile_env(check) == Environment.WALL:
+                    if (
+                        ct.is_in_vision(check)
+                        and ct.get_tile_env(check) == Environment.WALL
+                    ):
                         continue
                     dist = check.distance_squared(core_pos)
                     if dist < best_alt_dist:
@@ -882,11 +944,18 @@ class EconomyManager:
 
         return path
 
-    def try_build_chain_segment(self, ct: Controller, pos: Position, face_dir: Direction) -> bool:
+    def try_build_chain_segment(
+        self,
+        ct: Controller,
+        pos: Position,
+        face_dir: Direction,
+    ) -> bool:
         if ct.can_build_conveyor(pos, face_dir):
             ct.build_conveyor(pos, face_dir)
             return True
         return False
+
+
 from builder import BuilderHandler
 from cambc import Controller
 from core import CoreHandler
@@ -919,6 +988,8 @@ class Player:
         self.handler.init_turn(ct)
         self.handler.play(ct)
         self.handler.end_turn(ct)
+
+
 from cambc import Controller, Direction, Position
 from pathfinder import Pathfinder
 
@@ -971,6 +1042,8 @@ class MovementManager:
         TODO: Check for enemy turret ranges, breach splash zones, etc.
         """
         return False
+
+
 from cambc import Controller, Direction, Position
 from utils import DIR_TO_ORD, INF
 
@@ -1139,7 +1212,10 @@ class BugNav:
         # Try one rotation right
         right = direct_dir.rotate_right()
         new_pos = my_pos.add(right)
-        if new_pos.distance_squared(target) < current_dist and self._can_pass(ct, right):
+        if new_pos.distance_squared(target) < current_dist and self._can_pass(
+            ct,
+            right,
+        ):
             return right
 
         # Try one rotation left
@@ -1174,7 +1250,12 @@ class BugNav:
         # Empty tile = could build a road there (not a wall, no building)
         return bool(ct.is_tile_empty(pos))
 
-    def _pick_rotation(self, ct: Controller, blocked_dir: Direction, target: Position) -> None:
+    def _pick_rotation(
+        self,
+        ct: Controller,
+        blocked_dir: Direction,
+        target: Position,
+    ) -> None:
         """Pick whether to trace right or left around the obstacle."""
         my_pos = ct.get_position()
 
@@ -1232,7 +1313,12 @@ class BugNav:
             return
         my_pos = ct.get_position()
         obstacle_ord = DIR_TO_ORD[self.last_obstacle_dir]
-        state = (my_pos.x << 17) | (my_pos.y << 5) | (obstacle_ord << 1) | (1 if self.rotate_right else 0)
+        state = (
+            (my_pos.x << 17)
+            | (my_pos.y << 5)
+            | (obstacle_ord << 1)
+            | (1 if self.rotate_right else 0)
+        )
 
         if state in self.visited_states:
             self._hard_reset()
@@ -1264,6 +1350,8 @@ class BugNav:
         self.visited_states.clear()
         self.turns_moving_to_obstacle = 0
         self.tracing_turns = 0
+
+
 from cambc import Controller, Direction, Position
 from nav import BugNav
 
@@ -1293,9 +1381,11 @@ class LocalBFS:
         current_round = ct.get_current_round()
 
         # Use cached result if position and target unchanged and cache fresh
-        if (self._cached_target == target
-                and self._cached_pos == my_pos
-                and current_round - self._cache_round <= 2):
+        if (
+            self._cached_target == target
+            and self._cached_pos == my_pos
+            and current_round - self._cache_round <= 2
+        ):
             return self._cached_dir
 
         result = self._bfs(ct, my_pos, target)
@@ -1308,7 +1398,12 @@ class LocalBFS:
 
         return result
 
-    def _bfs(self, ct: Controller, start: Position, target: Position) -> Direction | None:
+    def _bfs(
+        self,
+        ct: Controller,
+        start: Position,
+        target: Position,
+    ) -> Direction | None:
         """Run bounded BFS within vision range using only passable tiles.
 
         Builder vision r^2 = 20, so roughly 60 visible tiles.
@@ -1399,6 +1494,8 @@ class Pathfinder:
 
         # Fall back to BugNav (considers buildable tiles too)
         return self.bug_nav.navigate(ct, target)
+
+
 from cambc import Controller, Position
 
 
@@ -1448,7 +1545,7 @@ class SymmetryDetector:
             self._processed.add(key)
 
             env = ct.get_tile_env(pos)
-            is_wall = (env == Environment.WALL)
+            is_wall = env == Environment.WALL
 
             if is_wall:
                 self.walls.add(key)
@@ -1458,8 +1555,8 @@ class SymmetryDetector:
             # Check each still-possible hypothesis
             # 0 = horizontal, 1 = vertical, 2 = rotational
             mirrors = (
-                (w - 1 - pos.x, pos.y),           # horizontal
-                (pos.x, h - 1 - pos.y),           # vertical
+                (w - 1 - pos.x, pos.y),  # horizontal
+                (pos.x, h - 1 - pos.y),  # vertical
                 (w - 1 - pos.x, h - 1 - pos.y),  # rotational
             )
 
@@ -1522,6 +1619,8 @@ class SymmetryDetector:
             else:  # rotational
                 mirrored.append(Position(w - 1 - pos.x, h - 1 - pos.y))
         return mirrored
+
+
 """Turret handlers — each turret type gets its own Player instance.
 The engine calls run() every round; we must call fire() explicitly."""
 
@@ -1544,7 +1643,9 @@ class GunnerHandler:
         if rnd % 50 == 0 or (not self._logged and rnd > 260):
             self._logged = True
             can = ct.can_fire(target) if target else False
-            print(f"[GUNNER R{rnd}] cd={cooldown} ammo={ammo} target={target} can_fire={can}")
+            print(
+                f"[GUNNER R{rnd}] cd={cooldown} ammo={ammo} target={target} can_fire={can}",
+            )
 
         if cooldown > 0:
             return
@@ -1574,7 +1675,12 @@ class SentinelHandler:
     def end_turn(self, ct: Controller) -> None:
         pass
 
-    def _find_target_in_line(self, ct: Controller, pos: Position, facing: Direction) -> Position | None:
+    def _find_target_in_line(
+        self,
+        ct: Controller,
+        pos: Position,
+        facing: Direction,
+    ) -> Position | None:
         delta = facing.delta()
         check = pos
         vision_sq = ct.get_vision_radius_sq()
@@ -1606,7 +1712,12 @@ class BreachHandler:
     def end_turn(self, ct: Controller) -> None:
         pass
 
-    def _find_target_in_cone(self, ct: Controller, pos: Position, facing: Direction) -> Position | None:
+    def _find_target_in_cone(
+        self,
+        ct: Controller,
+        pos: Position,
+        facing: Direction,
+    ) -> Position | None:
         delta = facing.delta()
         check = pos
         attack_sq = 5
@@ -1635,12 +1746,19 @@ class LauncherHandler:
 
     def end_turn(self, ct: Controller) -> None:
         pass
+
+
 from enum import Enum
 
 from cambc import Controller, Direction, Position
 
 DIRECTIONS: list[Direction] = [d for d in Direction if d != Direction.CENTRE]
-CARDINALS: list[Direction] = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
+CARDINALS: list[Direction] = [
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+]
 
 # Precomputed direction ordinals for fast lookup (avoids list(Direction).index())
 DIR_TO_ORD: dict[Direction, int] = {d: i for i, d in enumerate(Direction)}
@@ -1676,7 +1794,10 @@ def can_afford(ct: Controller, cost: tuple[int, int]) -> bool:
 
 def find_core_pos(ct: Controller) -> Position | None:
     for eid in ct.get_nearby_entities():
-        if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+        if (
+            ct.get_entity_type(eid) == EntityType.CORE
+            and ct.get_team(eid) == ct.get_team()
+        ):
             return ct.get_position(eid)
     return None
 

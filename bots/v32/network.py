@@ -155,7 +155,6 @@ class NetworkBelief:
         cx, cy = core.x, core.y
         w, h = ct.get_map_width(), ct.get_map_height()
         best: Position | None = None
-        best_flow = -1.0
         for t in ct.get_nearby_tiles():
             bid = ct.get_tile_building_id(t)
             if bid is None or ct.get_team(bid) != my:

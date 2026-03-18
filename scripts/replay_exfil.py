@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Scan replay files for exfiltrated data.
 
 Checks:
