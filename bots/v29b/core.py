@@ -45,7 +45,12 @@ class CoreBot:
             if ct.get_team(eid) == my:
                 continue
             et = ct.get_entity_type(eid)
-            if et in (EntityType.BUILDER_BOT, EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
+            if et in (
+                EntityType.BUILDER_BOT,
+                EntityType.GUNNER,
+                EntityType.SENTINEL,
+                EntityType.BREACH,
+            ):
                 self._try_spawn_toward(ct, ct.get_position(eid))
                 return
 

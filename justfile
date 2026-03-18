@@ -133,6 +133,9 @@ remote-status:
 remote-fetch:
     rsync -av {{_vps}}:{{_vps_dir}}/replays_remote/ replays_remote/
 
+ci *args:
+    python scripts/remote_ci.py {{args}}
+
 docs:
     #!/usr/bin/env bash
     set -euo pipefail

@@ -80,7 +80,17 @@ def analyze_infrastructure(path: str) -> None:
             print(f"    {ek}: {b} built, {d} destroyed, {a} alive")
 
         print("  Timeline (alive counts):")
-        important = ["harvester", "conveyor", "splitter", "bridge", "foundry", "gunner", "sentinel", "breach", "road"]
+        important = [
+            "harvester",
+            "conveyor",
+            "splitter",
+            "bridge",
+            "foundry",
+            "gunner",
+            "sentinel",
+            "breach",
+            "road",
+        ]
         header_parts = ["  Turn"]
         for ek in important:
             if any(ek in snap for _, snap in timeline[team_id]):

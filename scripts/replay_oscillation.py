@@ -101,16 +101,18 @@ def analyze_oscillation(path: str) -> None:
                 total_oscillating_turns += osc_turns
                 pct = 100 * osc_turns / len(positions)
                 print(
-                    f"  Bot {bid}: period={worst_period} x{worst_repeat+1} "
+                    f"  Bot {bid}: period={worst_period} x{worst_repeat + 1} "
                     f"from t~{worst_start} ({osc_turns} turns, {pct:.0f}%) "
-                    f"seq={worst_seq[:6]}"
+                    f"seq={worst_seq[:6]}",
                 )
             else:
                 print(f"  Bot {bid}: no significant oscillation")
 
         if total_bot_turns > 0:
             pct = 100 * total_oscillating_turns / total_bot_turns
-            print(f"  Total oscillating: {total_oscillating_turns}/{total_bot_turns} turns ({pct:.0f}%)")
+            print(
+                f"  Total oscillating: {total_oscillating_turns}/{total_bot_turns} turns ({pct:.0f}%)",
+            )
 
 
 if __name__ == "__main__":

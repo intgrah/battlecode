@@ -8136,7 +8136,7 @@ def get_next_move(
                             best_move = first_move
 
                         heapq.heappush(
-                            open_set, (new_g + h, new_g, neighbor, first_move)
+                            open_set, (new_g + h, new_g, neighbor, first_move),
                         )
 
     return best_move
@@ -8161,15 +8161,14 @@ class Core:
                     ct.spawn_builder(spawn_pos)
 
                     self.num_spawned += 1
-        else:
-            if ct.get_global_resources()[0] > 150 and self.cooldown <= 0:
-                if ct.can_spawn(spawn_pos):
-                    ct.spawn_builder(spawn_pos)
+        elif ct.get_global_resources()[0] > 150 and self.cooldown <= 0:
+            if ct.can_spawn(spawn_pos):
+                ct.spawn_builder(spawn_pos)
 
-                    self.num_spawned += 1
-                    self.cooldown = 15
-            else:
-                self.cooldown -= 1
+                self.num_spawned += 1
+                self.cooldown = 15
+        else:
+            self.cooldown -= 1
 
         # TODO - more robust marker position (in case this one is invalid)
         # marker_pos = Position(spawn_pos.x + 2, spawn_pos.y)
@@ -8251,7 +8250,7 @@ class BuilderBot:
             # pos = ct.get_position()
             # self.builder_id = ct.get_marker_value(ct.get_tile_building_id(Position(pos.x + 2, pos.y))) ^ ENCRYPTION_KEYS[ct.get_current_round()]
             self.builder_id = self.id ^ secrets.randbits(
-                32
+                32,
             )  # TEMPORARY TO ADD MORE VARIANCE
 
         # If the builder bot works out what map we are on based on visual clues
@@ -8299,7 +8298,7 @@ class BuilderBot:
                 candidate.core0_pos if self.team == Team.A else candidate.core1_pos
             )
             direction = self.get_move(
-                ct, self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])), False
+                ct, self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])), False,
             )
             if direction is not None:
                 self.safe_move(ct, direction)
@@ -8367,8 +8366,8 @@ class BuilderBot:
                         ct,
                         self.pos_to_idx(
                             harvester_pos.add(
-                                DIRECTIONS[ct.get_current_round() % len(DIRECTIONS)]
-                            )
+                                DIRECTIONS[ct.get_current_round() % len(DIRECTIONS)],
+                            ),
                         ),
                         False,
                     )
@@ -8419,7 +8418,7 @@ class BuilderBot:
                         if ct.get_entity_type(conveyer_id) != EntityType.CONVEYOR:
                             continue
                         if ct.get_direction(conveyer_id) != new_new_pos.direction_to(
-                            new_pos
+                            new_pos,
                         ):
                             continue
                         enemy_core = new_pos
@@ -8477,7 +8476,7 @@ class BuilderBot:
 
                 if chosen:
                     direction = self.get_move(
-                        ct, self.pos_to_idx(enemy_core), False, False
+                        ct, self.pos_to_idx(enemy_core), False, False,
                     )
                     if direction is not None:
                         turret_pos = pos.add(direction)
@@ -8528,7 +8527,7 @@ class BuilderBot:
                         direction = self.get_move(
                             ct,
                             self.pos_to_idx(
-                                Position(enemy_core.x + cd.x, enemy_core.y + cd.y)
+                                Position(enemy_core.x + cd.x, enemy_core.y + cd.y),
                             ),
                             False,
                         )
@@ -8538,7 +8537,7 @@ class BuilderBot:
                         direction = self.get_move(
                             ct,
                             self.pos_to_idx(
-                                Position(enemy_core.x + cd.x, enemy_core.y + cd.y)
+                                Position(enemy_core.x + cd.x, enemy_core.y + cd.y),
                             ),
                             False,
                             False,
@@ -8578,8 +8577,8 @@ class BuilderBot:
                     ct,
                     self.pos_to_idx(
                         harvester_pos.add(
-                            DIRECTIONS[ct.get_current_round() % len(DIRECTIONS)]
-                        )
+                            DIRECTIONS[ct.get_current_round() % len(DIRECTIONS)],
+                        ),
                     ),
                     True,
                 )
@@ -8614,16 +8613,15 @@ class BuilderBot:
                     self.done = True
                     self.tick = 0
                 return
-            else:
-                # Move towards harvester
-                direction = self.get_move(ct, target, True)
-                self.safe_conveyer_move(
-                    ct, direction if direction is not None else Direction.WEST
-                )
-                self.tick += 1
-                if self.tick > 100:
-                    self.tick = 0
-                    self.done = True
+            # Move towards harvester
+            direction = self.get_move(ct, target, True)
+            self.safe_conveyer_move(
+                ct, direction if direction is not None else Direction.WEST,
+            )
+            self.tick += 1
+            if self.tick > 100:
+                self.tick = 0
+                self.done = True
                     # If it takes too long, just run for enemy base
         else:
             # We do not know what map we are on
@@ -8762,11 +8760,11 @@ class BuilderBot:
 
                         if ct.get_team(building_id) == self.team:
                             self.map_ally_buildings[idx] = ct.get_entity_type(
-                                building_id
+                                building_id,
                             )
                         else:
                             self.map_enemy_buildings[idx] = ct.get_entity_type(
-                                building_id
+                                building_id,
                             )
                     else:
                         self.map_ally_buildings[idx] = None
@@ -8826,7 +8824,7 @@ class BuilderBot:
         return False
 
     def safe_conveyer_move(
-        self, ct: Controller, direction: Direction, destruct=True
+        self, ct: Controller, direction: Direction, destruct=True,
     ) -> None:
         """Moves in a given direction given that it is safe"""
 

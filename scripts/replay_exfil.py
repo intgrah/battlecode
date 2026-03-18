@@ -7,12 +7,11 @@ Checks:
 3. Looks for injected data that breaks protobuf (dd-style injection)
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "proto"))
 import cambc_pb2
-
 
 MARKERS = [
     b"bbbbbbbb",
@@ -80,7 +79,7 @@ def scan_raw(path: str) -> list[dict]:
                     "marker": m.decode("utf-8", errors="replace"),
                     "offset": idx,
                     "context": repr(context),
-                }
+                },
             )
             idx += len(m)
     return results
@@ -101,15 +100,15 @@ def scan_trailing(path: str) -> list[dict]:
                 "offset": consumed,
                 "length": len(trailing),
                 "preview": repr(trailing[:200]),
-            }
+            },
         ]
     return []
 
 
 def scan_file(path: str):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {os.path.basename(path)}  ({os.path.getsize(path)} bytes)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     pb = scan_protobuf(path)
     raw = scan_raw(path)
@@ -126,12 +125,14 @@ def scan_file(path: str):
             print(f"  PROTOBUF PARSE ERROR: {f['error']}")
             print(f"    File size: {f['size']}")
         elif t == "stdout":
-            print(f"  STDOUT t={f['turn']} id={f['entity_id']} len={f['length']} tled={f['tled']}")
+            print(
+                f"  STDOUT t={f['turn']} id={f['entity_id']} len={f['length']} tled={f['tled']}",
+            )
             if f.get("preview"):
                 for line in f["preview"].split("\n")[:10]:
                     print(f"    | {line}")
                 if len(f["preview"]) >= 500:
-                    print(f"    | ... (truncated)")
+                    print("    | ... (truncated)")
         elif t == "raw_marker":
             print(f"  RAW MARKER '{f['marker']}' at offset {f['offset']}")
             print(f"    {f['context']}")

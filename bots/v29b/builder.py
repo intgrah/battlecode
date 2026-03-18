@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from bugnav import BugNav
 from cambc import Controller, EntityType, GameConstants, Position
 from comms import MarkerReader, MarkerWriter
-from marker import BreakAlert, OreClaim, ClaimState, PressureSummary, Threat, Urgency
+from marker import BreakAlert, ClaimState, OreClaim, PressureSummary, Threat, Urgency
 from params import (
     DEFENSE_MIN_HARVESTERS,
     PATROL_IDLE_LIMIT,
@@ -185,7 +185,9 @@ class BuilderAgent:
                 return True
         return False
 
-    def _nearest_connected(self, pos: Position, pressure: dict[Position, bool]) -> Position | None:
+    def _nearest_connected(
+        self, pos: Position, pressure: dict[Position, bool],
+    ) -> Position | None:
         best: Position | None = None
         best_score = 999999.0
         for p, is_connected in self.connected.items():
@@ -240,7 +242,10 @@ class BuilderAgent:
         my = ct.get_team()
         fx, fy = 0.0, 0.0
         for eid in ct.get_nearby_entities():
-            if ct.get_team(eid) != my or ct.get_entity_type(eid) != EntityType.BUILDER_BOT:
+            if (
+                ct.get_team(eid) != my
+                or ct.get_entity_type(eid) != EntityType.BUILDER_BOT
+            ):
                 continue
             ep = ct.get_position(eid)
             dx, dy = pos.x - ep.x, pos.y - ep.y
@@ -358,8 +363,7 @@ class BuilderAgent:
         brk = self._find_break(ct)
         if brk:
             already_alerted = any(
-                b.break_x == brk.x and b.break_y == brk.y
-                for _, b in self.reader.breaks
+                b.break_x == brk.x and b.break_y == brk.y for _, b in self.reader.breaks
             )
             if not already_alerted:
                 self.writer.propose(
@@ -381,7 +385,7 @@ class BuilderAgent:
             empty_count = total - full_count
             spare = min(15, empty_count // max(1, total // 4))
             assert self.core is not None
-            dist_to_core = min(15, int(math.isqrt(pos.distance_squared(self.core))))
+            dist_to_core = min(15, math.isqrt(pos.distance_squared(self.core)))
             self.writer.propose(
                 pos,
                 PressureSummary(
@@ -412,7 +416,11 @@ class BuilderAgent:
         self.harvesters_seen = max(self.harvesters_seen, local_harv)
 
         bid = ct.get_tile_building_id(pos)
-        if bid is not None and ct.get_team(bid) != my and ct.get_entity_type(bid) in _DESTRUCTIBLE:
+        if (
+            bid is not None
+            and ct.get_team(bid) != my
+            and ct.get_entity_type(bid) in _DESTRUCTIBLE
+        ):
             ct.self_destruct()
             return
 
@@ -485,6 +493,7 @@ class BuilderAgent:
                 brk = self._find_break(ct)
                 if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
                     from util import repair_dir
+
                     assert self.core is not None
                     d = repair_dir(ct, brk, self.core)
                     if ct.can_build_conveyor(brk, d):
@@ -523,7 +532,9 @@ class BuilderAgent:
                     and s.idle_turns >= PATROL_IDLE_LIMIT
                 ):
                     self.state = Raid()
-                elif isinstance(self.state, Patrol) and s.idle_turns >= PATROL_IDLE_LIMIT:
+                elif (
+                    isinstance(self.state, Patrol) and s.idle_turns >= PATROL_IDLE_LIMIT
+                ):
                     self.state = ExploreRoad()
                 elif isinstance(self.state, Patrol):
                     if self._retarget(s, pos):

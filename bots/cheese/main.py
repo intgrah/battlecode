@@ -1,9 +1,9 @@
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Direction, EntityType, Environment, Position
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 CONVEYORS = frozenset(
-    {EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER}
+    {EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER},
 )
 
 
@@ -133,7 +133,10 @@ class Builder:
 
         if self.core is None:
             for eid in ct.get_nearby_entities():
-                if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == my:
+                if (
+                    ct.get_entity_type(eid) == EntityType.CORE
+                    and ct.get_team(eid) == my
+                ):
                     self.core = ct.get_position(eid)
                     w, h = ct.get_map_width(), ct.get_map_height()
                     self.ec = Position(w - 1 - self.core.x, h - 1 - self.core.y)

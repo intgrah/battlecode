@@ -37,13 +37,12 @@ def analyze_markers(path: str) -> None:
                         stats[old_team]["overwritten"] += 1
                     markers_alive[pos] = e.team
                     stats[e.team]["placed"] += 1
-                else:
-                    if pos in markers_alive:
-                        old_team = markers_alive[pos]
-                        stats[old_team]["destroyed_by_build"] += 1
-                        if e.team != old_team:
-                            stats[old_team]["destroyed_by_enemy"] += 1
-                        del markers_alive[pos]
+                elif pos in markers_alive:
+                    old_team = markers_alive[pos]
+                    stats[old_team]["destroyed_by_build"] += 1
+                    if e.team != old_team:
+                        stats[old_team]["destroyed_by_enemy"] += 1
+                    del markers_alive[pos]
             elif k == "remove_entity":
                 eid = u.remove_entity.id
 
