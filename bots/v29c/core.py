@@ -64,7 +64,12 @@ class CoreBot:
             if ct.get_team(eid) == my:
                 continue
             et = ct.get_entity_type(eid)
-            if et in (EntityType.BUILDER_BOT, EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
+            if et in (
+                EntityType.BUILDER_BOT,
+                EntityType.GUNNER,
+                EntityType.SENTINEL,
+                EntityType.BREACH,
+            ):
                 self._try_spawn_toward(ct, ct.get_position(eid))
                 return
 
@@ -90,9 +95,17 @@ class CoreBot:
                 return
 
         if rnd < 200:
-            target = INITIAL_EXPLORERS + (ti - SPAWN_TI_BUFFER) // (cost * 3) if ti > SPAWN_TI_BUFFER else INITIAL_EXPLORERS
+            target = (
+                INITIAL_EXPLORERS + (ti - SPAWN_TI_BUFFER) // (cost * 3)
+                if ti > SPAWN_TI_BUFFER
+                else INITIAL_EXPLORERS
+            )
         else:
-            target = INITIAL_EXPLORERS + (ti - SPAWN_TI_BUFFER) // (cost * 2) if ti > SPAWN_TI_BUFFER else INITIAL_EXPLORERS
+            target = (
+                INITIAL_EXPLORERS + (ti - SPAWN_TI_BUFFER) // (cost * 2)
+                if ti > SPAWN_TI_BUFFER
+                else INITIAL_EXPLORERS
+            )
 
         target = min(target, MAX_BUILDERS)
         if self.spawned < target:

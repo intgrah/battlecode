@@ -4,18 +4,15 @@ from dataclasses import dataclass, field
 from bugnav import BugNav
 from cambc import Controller, EntityType, GameConstants, Position
 from comms import MarkerReader, MarkerWriter
-from marker import BreakAlert, OreClaim, ClaimState, PressureSummary, Threat, Urgency
+from marker import BreakAlert, ClaimState, OreClaim, PressureSummary, Threat, Urgency
 from params import (
-    BREAK_TTL,
     BUILDCHAIN_WAIT_LIMIT,
-    CLAIM_TTL,
     DEFENSE_MIN_HARVESTERS,
     PATROL_IDLE_LIMIT,
-    PRESSURE_ANCHOR_MAX,
     PRESSURE_HIGH,
     REPULSION_JITTER,
 )
-from util import CARDINALS, DIRS, ore_env, step_conv, step_road, step_walk
+from util import DIRS, ore_env, step_conv, step_road
 
 _TRANSPORT = frozenset(
     {
@@ -161,7 +158,9 @@ class BuilderAgent:
                 best = t
         return best
 
-    def _nearest_connected(self, pos: Position, pressure: dict[Position, bool]) -> Position | None:
+    def _nearest_connected(
+        self, pos: Position, pressure: dict[Position, bool],
+    ) -> Position | None:
         """Nearest connected tile, preferring low pressure."""
         best: Position | None = None
         best_score = 999999.0
@@ -244,7 +243,10 @@ class BuilderAgent:
         my = ct.get_team()
         fx, fy = 0.0, 0.0
         for eid in ct.get_nearby_entities():
-            if ct.get_team(eid) != my or ct.get_entity_type(eid) != EntityType.BUILDER_BOT:
+            if (
+                ct.get_team(eid) != my
+                or ct.get_entity_type(eid) != EntityType.BUILDER_BOT
+            ):
                 continue
             ep = ct.get_position(eid)
             dx, dy = pos.x - ep.x, pos.y - ep.y
@@ -317,8 +319,7 @@ class BuilderAgent:
         brk = self._find_break(ct)
         if brk:
             already_alerted = any(
-                b.break_x == brk.x and b.break_y == brk.y
-                for _, b in self.reader.breaks
+                b.break_x == brk.x and b.break_y == brk.y for _, b in self.reader.breaks
             )
             if not already_alerted:
                 self.writer.propose(
@@ -364,7 +365,11 @@ class BuilderAgent:
         my = ct.get_team()
 
         bid = ct.get_tile_building_id(pos)
-        if bid is not None and ct.get_team(bid) != my and ct.get_entity_type(bid) in _DESTRUCTIBLE:
+        if (
+            bid is not None
+            and ct.get_team(bid) != my
+            and ct.get_entity_type(bid) in _DESTRUCTIBLE
+        ):
             assert self.core is not None and self.enemy_core is not None
             if pos.distance_squared(self.enemy_core) < pos.distance_squared(self.core):
                 ct.self_destruct()
@@ -440,6 +445,7 @@ class BuilderAgent:
                 brk = self._find_break(ct)
                 if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
                     from util import repair_dir
+
                     assert self.core is not None
                     d = repair_dir(ct, brk, self.core)
                     if ct.can_build_conveyor(brk, d):

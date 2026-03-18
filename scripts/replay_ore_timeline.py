@@ -1,7 +1,6 @@
 """Track ore discovery, claiming, and harvester placement timeline."""
 
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
@@ -35,7 +34,9 @@ def analyze_ore(path: str) -> None:
                 ore_type[(x, y)] = "Ax"
 
     print(f"Ore Timeline  |  {total_turns} turns  |  {w}x{h}")
-    print(f"Total ore tiles: {len(ore_tiles)} ({sum(1 for v in ore_type.values() if v == 'Ti')} Ti, {sum(1 for v in ore_type.values() if v == 'Ax')} Ax)")
+    print(
+        f"Total ore tiles: {len(ore_tiles)} ({sum(1 for v in ore_type.values() if v == 'Ti')} Ti, {sum(1 for v in ore_type.values() if v == 'Ax')} Ax)",
+    )
 
     entities = {}
     builder_pos = {}
@@ -94,7 +95,7 @@ def analyze_ore(path: str) -> None:
             print(f"  Avg harvester turn: {avg_harv:.0f}")
             print(f"  Last harvester at: t{max(harvested.values())}")
 
-        print(f"\n  Per-ore detail:")
+        print("\n  Per-ore detail:")
         all_ore = sorted(ore_tiles)
         for ox, oy in all_ore:
             ot = ore_type.get((ox, oy), "?")
