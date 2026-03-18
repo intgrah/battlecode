@@ -1,4 +1,5 @@
 import random
+from collections.abc import Callable
 
 from cambc import (
     Controller,
@@ -74,7 +75,9 @@ class BugNav:
     def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct: Controller, target: Position, step_fn) -> bool:
+    def go(
+        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool],
+    ) -> bool:
         pos = ct.get_position()
         d = toward(pos, target)
         dist = pos.distance_squared(target)
@@ -293,12 +296,12 @@ class BuilderAgent:
         self.last_ti = ti
 
         rnd = ct.get_current_round()
-        if not self.raiding:
-            if (self.builder_id in RAIDER_IDS and rnd >= RAID_START) or (
-                self.idle_turns >= IDLE_BEFORE_RAID and self.has_income
-            ):
-                self.raiding = True
-                self.nav.reset()
+        if not self.raiding and (
+            (self.builder_id in RAIDER_IDS and rnd >= RAID_START)
+            or (self.idle_turns >= IDLE_BEFORE_RAID and self.has_income)
+        ):
+            self.raiding = True
+            self.nav.reset()
 
         if self.raiding:
             self._raid(ct)
@@ -360,7 +363,7 @@ class BuilderAgent:
         if self._try_build_sentinel(ct, pos):
             return
 
-        brk = self._find_break(ct, pos)
+        brk = self._find_break(ct)
         if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
             d = repair_dir(ct, brk, self.core)
             if ct.can_build_conveyor(brk, d):
@@ -378,7 +381,7 @@ class BuilderAgent:
         if self.target:
             self.nav.go(ct, self.target, lambda d: step_conv(ct, d))
 
-    def _find_break(self, ct: Controller, pos: Position) -> Position | None:
+    def _find_break(self, ct: Controller) -> Position | None:
         my = ct.get_team()
         for t in ct.get_nearby_tiles():
             bid = ct.get_tile_building_id(t)

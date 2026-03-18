@@ -1,4 +1,5 @@
 import random
+from collections.abc import Callable
 
 from cambc import (
     Controller,
@@ -71,7 +72,12 @@ class BugNav:
         length = max(abs(dx), abs(dy), 1)
         return abs(cross) <= length
 
-    def go(self, ct: Controller, target: Position, step_fn) -> bool:
+    def go(
+        self,
+        ct: Controller,
+        target: Position,
+        step_fn: Callable[[Direction], bool],
+    ) -> bool:
         pos = ct.get_position()
 
         if (
@@ -477,7 +483,7 @@ class BuilderAgent:
             return out
         return None
 
-    def _find_frontline_conv(self, ct: Controller, pos: Position) -> Position | None:
+    def _find_frontline_conv(self, ct: Controller) -> Position | None:
         assert self.core is not None
         assert self.enemy_core is not None
         my = ct.get_team()
@@ -630,7 +636,7 @@ class BuilderAgent:
             and rnd > 100
             and not self.has_fortified
         ):
-            fl = self._find_frontline_conv(ct, pos)
+            fl = self._find_frontline_conv(ct)
             if fl:
                 self.fortify_target = fl
                 self.fortify_step = 1

@@ -163,7 +163,7 @@ def bugnav_step(
         state["stuck"] = 0
 
     if not state.get("wall_following"):
-        if _try_step(ct, d, core_pos, skip_ore, max_dist_sq=max_dist_sq):
+        if _try_step(ct, d, core_pos, skip_ore=skip_ore, max_dist_sq=max_dist_sq):
             state["closest"] = min(state.get("closest", 999999), dist)
             return True
         state["wall_following"] = True
@@ -173,7 +173,7 @@ def bugnav_step(
     scan = d
     side = state.get("wall_side", 1)
     for _ in range(8):
-        if _try_step(ct, scan, core_pos, skip_ore, max_dist_sq=max_dist_sq):
+        if _try_step(ct, scan, core_pos, skip_ore=skip_ore, max_dist_sq=max_dist_sq):
             new_dist = ct.get_position().distance_squared(target)
             if new_dist < state.get("closest", 999999):
                 state["wall_following"] = False
@@ -188,8 +188,8 @@ def _try_step(
     ct: Controller,
     d: Direction,
     core_pos: Position | None,
-    skip_ore: bool = False,
     *,
+    skip_ore: bool = False,
     max_dist_sq: int = 0,
 ) -> bool:
     pos = ct.get_position()

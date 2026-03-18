@@ -1,4 +1,5 @@
 import random
+from collections.abc import Callable
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 
@@ -150,7 +151,7 @@ def bugnav_conv(
         ct,
         target,
         state,
-        lambda d: _try_step_conv(ct, d, core_pos, skip_ore),
+        lambda d: _try_step_conv(ct, d, skip_ore=skip_ore),
     )
 
 
@@ -158,7 +159,9 @@ def bugnav_road(ct: Controller, target: Position, state: dict) -> bool:
     return _bugnav(ct, target, state, lambda d: _try_step_road(ct, d))
 
 
-def _bugnav(ct: Controller, target: Position, state: dict, step_fn) -> bool:
+def _bugnav(
+    ct: Controller, target: Position, state: dict, step_fn: Callable[[Direction], bool],
+) -> bool:
     pos = ct.get_position()
     d = toward(pos, target)
     dist = pos.distance_squared(target)
@@ -199,7 +202,7 @@ def _bugnav(ct: Controller, target: Position, state: dict, step_fn) -> bool:
 def _try_step_conv(
     ct: Controller,
     d: Direction,
-    core_pos: Position,
+    *,
     skip_ore: bool = False,
 ) -> bool:
     pos = ct.get_position()
