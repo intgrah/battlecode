@@ -15,7 +15,11 @@
       "Bash(python -c \"from proto.cambc_pb2 import Replay; r = Replay\\(\\); print\\(type\\(r.turns\\)\\)\")",
       "Bash(cambc run:*)",
       "Bash(python scripts/trace_builder.py replay.replay26 0 80)",
-      "Bash(python -m ruff check analysis/)"
+      "Bash(python -m ruff check analysis/)",
+      "Bash(python scripts/replay_exfil.py replays_remote/exfil/ replays_remote/pyjail2/ replays_remote/pyjail3/ replays_remote/pyjail4/)"
+    ],
+    "additionalDirectories": [
+      "/home/intgrah/git/intgrah/battlecode/bots/v29a"
     ]
   }
 }

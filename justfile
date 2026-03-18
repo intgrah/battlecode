@@ -101,6 +101,38 @@ online *args:
 status:
     cambc status
 
+_vps := "chi"
+_vps_dir := "~/battlecode"
+_vps_cambc := "~/battlecode/.venv/bin/cambc"
+
+sync:
+    rsync -av --delete bots/ {{_vps}}:{{_vps_dir}}/bots/
+    rsync -av maps/ {{_vps}}:{{_vps_dir}}/maps/
+    rsync -av scripts/ {{_vps}}:{{_vps_dir}}/scripts/
+    rsync -av proto/ {{_vps}}:{{_vps_dir}}/proto/
+
+remote-run a b map=default_map:
+    just sync
+    ssh {{_vps}} "cd {{_vps_dir}} && {{_vps_cambc}} run bots/{{a}} bots/{{b}} {{map}} --replay replay.replay26"
+    scp {{_vps}}:{{_vps_dir}}/replay.replay26 replay_remote.replay26
+
+remote-match a b map=default_map:
+    just sync
+    ssh {{_vps}} "cd {{_vps_dir}} && {{_vps_cambc}} run bots/{{a}} bots/{{b}} {{map}} --replay replay.replay26 2>&1 | grep -v '^Completed turn\|^Fatal\|^Python runtime\|^Update available\|^$$'"
+    ssh {{_vps}} "cd {{_vps_dir}}/scripts && ../.venv/bin/python -m analysis ../replay.replay26 -s summary"
+    scp {{_vps}}:{{_vps_dir}}/replay.replay26 replay_remote.replay26
+
+remote-tournament *args:
+    just sync
+    ssh {{_vps}} "cd {{_vps_dir}} && nohup .venv/bin/python scripts/tournament.py run {{args}} > tournament.log 2>&1 &"
+    @echo "Tournament running on VPS. Check with: just remote-status"
+
+remote-status:
+    ssh {{_vps}} "tail -20 {{_vps_dir}}/tournament.log 2>/dev/null || echo 'No tournament running'"
+
+remote-fetch:
+    rsync -av {{_vps}}:{{_vps_dir}}/replays_remote/ replays_remote/
+
 docs:
     #!/usr/bin/env bash
     set -euo pipefail
