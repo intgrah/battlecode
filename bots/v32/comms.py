@@ -69,16 +69,25 @@ class MarkerWriter:
         if self._pending is None or priority > self._pending[2]:
             self._pending = (pos, encoded, priority)
 
+    def _safe_to_mark(self, ct: Controller, pos: Position) -> bool:
+        bid = ct.get_tile_building_id(pos)
+        if bid is None:
+            return ct.can_place_marker(pos)
+        et = ct.get_entity_type(bid)
+        if et == EntityType.MARKER:
+            return ct.can_place_marker(pos)
+        return False
+
     def flush(self, ct: Controller) -> None:
         if self._pending is None:
             return
         pos, val, _ = self._pending
-        if ct.can_place_marker(pos):
+        if self._safe_to_mark(ct, pos):
             ct.place_marker(pos, val)
         else:
             for d in DIRS:
                 adj = pos.add(d)
-                if ct.can_place_marker(adj):
+                if self._safe_to_mark(ct, adj):
                     ct.place_marker(adj, val)
                     break
         self._pending = None
