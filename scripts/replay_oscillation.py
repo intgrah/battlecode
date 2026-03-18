@@ -1,11 +1,8 @@
 """Detect position oscillation cycles in builder movement."""
 
-import sys
 from collections import defaultdict
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from proto.cambc_pb2 import Replay
 
 
 def entity_kind(e):
@@ -22,7 +19,7 @@ def analyze_oscillation(path: str) -> None:
     builder_pos_history = defaultdict(list)
     dead = set()
 
-    for turn_idx, turn in enumerate(r.turns):
+    for _turn_idx, turn in enumerate(r.turns):
         for u in turn.updates:
             k = u.WhichOneof("kind")
             if k == "place_entity":
@@ -36,7 +33,7 @@ def analyze_oscillation(path: str) -> None:
                 builder_pos[m.id] = (m.to.x, m.to.y)
             elif k == "remove_entity":
                 dead.add(u.remove_entity.id)
-        for bid, (team, kind) in entities.items():
+        for bid, (_team, kind) in entities.items():
             if kind == "builder_bot" and bid in builder_pos and bid not in dead:
                 builder_pos_history[bid].append(builder_pos[bid])
 

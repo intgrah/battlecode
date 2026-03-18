@@ -89,10 +89,9 @@ class CoreBot:
             rnd >= RAIDER_SPAWN_ROUND_EARLY
             and ti > raider_ti
             and rnd - self.last_raider_round >= raider_interval
-        ):
-            if self._try_spawn_toward(ct, self.enemy_core):
-                self.last_raider_round = rnd
-                return
+        ) and self._try_spawn_toward(ct, self.enemy_core):
+            self.last_raider_round = rnd
+            return
 
         if rnd < 200:
             target = (

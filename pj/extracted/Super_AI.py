@@ -1,10 +1,11 @@
 from enum import Enum
+
 from cambc import Controller, Direction, EntityType, Environment, Position
-from utils import DIRECTIONS, find_core_pos, can_afford, RUSH_MARKER_VALUE
-from movement import MovementManager
-from economy import EconomyManager
-from symmetry import SymmetryDetector
 from combat import RushManager
+from economy import EconomyManager
+from movement import MovementManager
+from symmetry import SymmetryDetector
+from utils import DIRECTIONS, RUSH_MARKER_VALUE, can_afford, find_core_pos
 
 
 class BuilderState(Enum):
@@ -101,7 +102,7 @@ class BuilderHandler:
         # Rush builders delegate to RushManager
         if self.role == BuilderRole.RUSHER and self.rush_manager is not None:
             still_rushing = self.rush_manager.play(
-                ct, self.movement, self.core_pos, self.symmetry
+                ct, self.movement, self.core_pos, self.symmetry,
             )
             if not still_rushing:
                 # Rush failed/done, convert to economy builder
@@ -323,7 +324,7 @@ class BuilderHandler:
         If symmetry is confirmed, also add mirrored ore positions."""
         for pos in ct.get_nearby_tiles():
             env = ct.get_tile_env(pos)
-            if env != Environment.ORE_TITANIUM and env != Environment.ORE_AXIONITE:
+            if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
                 continue
             if ct.get_tile_building_id(pos) is not None:
                 continue
@@ -358,7 +359,7 @@ class BuilderHandler:
                 if ct.get_tile_building_id(pos) is not None:
                     continue
                 env = ct.get_tile_env(pos)
-                if env != Environment.ORE_TITANIUM and env != Environment.ORE_AXIONITE:
+                if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
                     continue
             still_valid.append(pos)
 
@@ -419,8 +420,7 @@ Every rush builder does the same thing:
 No coordination needed. Every rush builder is the same role.
 """
 
-from cambc import Controller, Direction, EntityType, Environment, Position
-from utils import DIRECTIONS, can_afford
+from cambc import Controller, Position
 
 GUNNER_RANGE_SQ = 13
 SETUP_DIST_SQ = 36
@@ -473,7 +473,7 @@ class RushManager:
 
         if self.phase == "navigate":
             return self._do_navigate(ct, movement)
-        elif self.phase == "attack":
+        if self.phase == "attack":
             return self._do_attack(ct, movement)
         return False
 
@@ -491,7 +491,7 @@ class RushManager:
         movement.move_to(ct, self.enemy_core_pos)
         return True
 
-    def _do_attack(self, ct, movement):
+    def _do_attack(self, ct, movement) -> bool:
         """Simple loop: try to build gunner, or self-destruct on enemy conveyor, or reposition."""
         self._setup_rounds += 1
         my_pos = ct.get_position()
@@ -524,9 +524,8 @@ class RushManager:
                         return False  # Dead
 
         # Priority 3: Walk onto enemy conveyor for self-destruct
-        if not self._built_gunner:
-            if self._move_onto_enemy_conveyor(ct):
-                return True
+        if not self._built_gunner and self._move_onto_enemy_conveyor(ct):
+            return True
 
         # Priority 4: Get closer to core
         if my_pos.distance_squared(self.enemy_core_pos) > 4:
@@ -552,14 +551,13 @@ class RushManager:
             if facing == Direction.CENTRE:
                 facing = Direction.NORTH
 
-            if ct.can_build_gunner(tile, facing):
-                if dist < best_dist:
-                    best_dist = dist
-                    best = (tile, facing)
+            if ct.can_build_gunner(tile, facing) and dist < best_dist:
+                best_dist = dist
+                best = (tile, facing)
 
         return best
 
-    def _move_onto_enemy_conveyor(self, ct):
+    def _move_onto_enemy_conveyor(self, ct) -> bool:
         """Walk onto a nearby enemy conveyor for self-destruct next turn."""
         my_pos = ct.get_position()
         my_team = ct.get_team()
@@ -581,7 +579,7 @@ class RushManager:
                 return True
         return False
 
-    def _try_reposition(self, ct, movement):
+    def _try_reposition(self, ct, movement) -> None:
         my_pos = ct.get_position()
         for d in DIRECTIONS:
             new_pos = my_pos.add(d)
@@ -595,11 +593,8 @@ class RushManager:
                 if ct.can_move(d):
                     ct.move(d)
                 return
-from cambc import Controller, Direction, Position
-from utils import ALL_SPAWN_DIRS, DIRECTIONS, classify_map, MapSize, can_afford, RUSH_MARKER_VALUE
-from economy import EconomyManager
-from symmetry import SymmetryDetector
-
+from cambc import Controller, Position
+from utils import ALL_SPAWN_DIRS, MapSize, classify_map
 
 MIN_ECONOMY_BUILDERS = 3
 MIN_RUSH_ROUND = 100
@@ -636,8 +631,7 @@ class CoreHandler:
             if is_rush:
                 # Place rush marker nearby. Core tiles can't hold markers,
                 # so we search all tiles within core action radius (r^2=8)
-                marker_placed = False
-                core_pos = ct.get_position()
+                ct.get_position()
                 # Try the spawn position first, then scan outward
                 candidates = [spawn_pos]
                 # Add all tiles within action radius, sorted by distance to spawn
@@ -649,7 +643,6 @@ class CoreHandler:
                 for mpos in candidates:
                     if ct.can_place_marker(mpos):
                         ct.place_marker(mpos, marker_val)
-                        marker_placed = True
                         break
 
             ct.spawn_builder(spawn_pos)
@@ -705,9 +698,7 @@ class CoreHandler:
         if ct.get_current_round() - self.last_rush_round < RUSH_SPAWN_GAP:
             return False
         ti, _ = ct.get_global_resources()
-        if ti < MIN_RUSH_TI:
-            return False
-        return True
+        return not ti < MIN_RUSH_TI
 
     def _pick_rush_spawn_pos(self, ct: Controller) -> Position | None:
         """Spawn rush builder toward estimated enemy core."""
@@ -760,8 +751,9 @@ class CoreHandler:
 
         return None
 from collections import deque
-from cambc import Controller, Direction, EntityType, Environment, Position
-from utils import CARDINALS, can_afford, best_cardinal_toward, direction_between
+
+from cambc import Controller, Position
+from utils import CARDINALS, best_cardinal_toward, direction_between
 
 MAX_CHAIN_LEN = 40
 
@@ -776,7 +768,7 @@ class EconomyManager:
 
         for pos in ct.get_nearby_tiles():
             env = ct.get_tile_env(pos)
-            if env != Environment.ORE_TITANIUM and env != Environment.ORE_AXIONITE:
+            if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
                 continue
             if ct.get_tile_building_id(pos) is not None:
                 continue
@@ -800,7 +792,7 @@ class EconomyManager:
 
     def plan_chain_path(
         self, ct: Controller, start_pos: Position, core_pos: Position,
-        goal_dist_sq: int = 5
+        goal_dist_sq: int = 5,
     ) -> list[tuple[Position, Direction]]:
         """BFS from start_pos to a tile near target (dist^2<=goal_dist_sq).
 
@@ -841,7 +833,7 @@ class EconomyManager:
                     bid = ct.get_tile_building_id(next_pos)
                     if bid is not None:
                         btype = ct.get_entity_type(bid)
-                        if btype != EntityType.ROAD and btype != EntityType.CONVEYOR:
+                        if btype not in (EntityType.ROAD, EntityType.CONVEYOR):
                             continue
 
                 parent[next_pos] = current
@@ -895,10 +887,10 @@ class EconomyManager:
             ct.build_conveyor(pos, face_dir)
             return True
         return False
-from cambc import Controller, EntityType
-from core import CoreHandler
 from builder import BuilderHandler
-from turrets import GunnerHandler, SentinelHandler, BreachHandler, LauncherHandler
+from cambc import Controller
+from core import CoreHandler
+from turrets import BreachHandler, GunnerHandler, LauncherHandler, SentinelHandler
 
 
 class Player:
@@ -1066,14 +1058,13 @@ class BugNav:
                     self.min_location_to_target = new_pos
                 self._last_pos = my_pos
                 return greedy_dir
-            else:
-                # Greedy failed: start tracing
-                blocked_dir = my_pos.direction_to(target)
-                self.last_obstacle_dir = blocked_dir
-                self.visited_states.clear()
-                self.turns_moving_to_obstacle = 0
-                self.tracing_turns = 0
-                self._pick_rotation(ct, blocked_dir, target)
+            # Greedy failed: start tracing
+            blocked_dir = my_pos.direction_to(target)
+            self.last_obstacle_dir = blocked_dir
+            self.visited_states.clear()
+            self.turns_moving_to_obstacle = 0
+            self.tracing_turns = 0
+            self._pick_rotation(ct, blocked_dir, target)
 
         # Tracing mode
         if self.is_tracing:
@@ -1181,9 +1172,7 @@ class BugNav:
         if ct.is_tile_passable(pos):
             return True
         # Empty tile = could build a road there (not a wall, no building)
-        if ct.is_tile_empty(pos):
-            return True
-        return False
+        return bool(ct.is_tile_empty(pos))
 
     def _pick_rotation(self, ct: Controller, blocked_dir: Direction, target: Position) -> None:
         """Pick whether to trace right or left around the obstacle."""
@@ -1222,10 +1211,7 @@ class BugNav:
 
         d = self.last_obstacle_dir
         for _ in range(16):
-            if self.rotate_right:
-                d = d.rotate_left()
-            else:
-                d = d.rotate_right()
+            d = d.rotate_left() if self.rotate_right else d.rotate_right()
 
             if self._can_pass(ct, d):
                 # Update last_obstacle_dir for next iteration
@@ -1278,9 +1264,7 @@ class BugNav:
         self.visited_states.clear()
         self.turns_moving_to_obstacle = 0
         self.tracing_turns = 0
-from collections import deque
 from cambc import Controller, Direction, Position
-from utils import DIRECTIONS
 from nav import BugNav
 
 
@@ -1415,7 +1399,7 @@ class Pathfinder:
 
         # Fall back to BugNav (considers buildable tiles too)
         return self.bug_nav.navigate(ct, target)
-from cambc import Controller, Environment, Position
+from cambc import Controller, Position
 
 
 class SymmetryDetector:
@@ -1487,10 +1471,9 @@ class SymmetryDetector:
                     # This tile is wall; if mirror is known passable -> eliminate
                     if mk in self.passable:
                         self.possible[i] = False
-                else:
-                    # This tile is passable; if mirror is known wall -> eliminate
-                    if mk in self.walls:
-                        self.possible[i] = False
+                # This tile is passable; if mirror is known wall -> eliminate
+                elif mk in self.walls:
+                    self.possible[i] = False
 
     def get_confirmed(self) -> str | None:
         """Return confirmed symmetry type, or None if still ambiguous.
@@ -1514,10 +1497,10 @@ class SymmetryDetector:
         h = self._map_h
         if sym == "horizontal":
             return Position(w - 1 - pos.x, pos.y)
-        elif sym == "vertical":
+        if sym == "vertical":
             return Position(pos.x, h - 1 - pos.y)
-        else:  # rotational
-            return Position(w - 1 - pos.x, h - 1 - pos.y)
+        # rotational
+        return Position(w - 1 - pos.x, h - 1 - pos.y)
 
     def mirror_ore_list(self, ores: list[Position]) -> list[Position]:
         """Mirror all ore positions using confirmed symmetry.
@@ -1542,11 +1525,11 @@ class SymmetryDetector:
 """Turret handlers — each turret type gets its own Player instance.
 The engine calls run() every round; we must call fire() explicitly."""
 
-from cambc import Controller, EntityType, Direction, Position
+from cambc import Controller, Direction, Position
 
 
 class GunnerHandler:
-    def __init__(self):
+    def __init__(self) -> None:
         self._logged = False
 
     def init_turn(self, ct: Controller) -> None:
@@ -1653,7 +1636,8 @@ class LauncherHandler:
     def end_turn(self, ct: Controller) -> None:
         pass
 from enum import Enum
-from cambc import Controller, Direction, EntityType, Environment, Position
+
+from cambc import Controller, Direction, Position
 
 DIRECTIONS: list[Direction] = [d for d in Direction if d != Direction.CENTRE]
 CARDINALS: list[Direction] = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
@@ -1665,7 +1649,7 @@ DIR_TO_ORD: dict[Direction, int] = {d: i for i, d in enumerate(Direction)}
 INF: int = 999_999
 
 # All spawn directions including CENTRE (cached for core.py)
-ALL_SPAWN_DIRS: list[Direction] = [Direction.CENTRE] + DIRECTIONS
+ALL_SPAWN_DIRS: list[Direction] = [Direction.CENTRE, *DIRECTIONS]
 
 RUSH_MARKER_VALUE: int = 0xDEAD_BEEF
 
@@ -1680,7 +1664,7 @@ def classify_map(ct: Controller) -> MapSize:
     area = ct.get_map_width() * ct.get_map_height()
     if area < 625:
         return MapSize.SMALL
-    elif area < 1600:
+    if area < 1600:
         return MapSize.MEDIUM
     return MapSize.LARGE
 

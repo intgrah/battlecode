@@ -5,9 +5,8 @@
 """
 
 import random
-import sys
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType
 
 AMPLE_RESOURCES = 1000
 
@@ -23,11 +22,11 @@ opposite_direction = {
     Direction.NORTHWEST: Direction.SOUTHEAST,
     Direction.SOUTHEAST: Direction.NORTHWEST,
     Direction.SOUTHWEST: Direction.NORTHEAST,
-    Direction.CENTRE: Direction.CENTRE
+    Direction.CENTRE: Direction.CENTRE,
 }
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.num_spawned = 0 # number of builder bots spawned so far (core)
 
     def run(self, ct: Controller) -> None:

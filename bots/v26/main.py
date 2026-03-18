@@ -527,10 +527,9 @@ class BuilderAgent:
                 enemy_side == enemy_dir
                 or enemy_side == enemy_dir.rotate_left()
                 or enemy_side == enemy_dir.rotate_right()
-            ):
-                if core_dist < best_dist:
-                    best_dist = core_dist
-                    best = t
+            ) and core_dist < best_dist:
+                best_dist = core_dist
+                best = t
         if best:
             return best
         for t in ct.get_nearby_tiles():
@@ -720,10 +719,9 @@ class BuilderAgent:
             if (
                 ct.get_team(eid) != my
                 and ct.get_entity_type(eid) == EntityType.BUILDER_BOT
-            ):
-                if self.core.distance_squared(ct.get_position(eid)) <= 100:
-                    enemy_near_core = True
-                    break
+            ) and self.core.distance_squared(ct.get_position(eid)) <= 100:
+                enemy_near_core = True
+                break
 
         should_fortify = (
             self.harvesters_built >= 1

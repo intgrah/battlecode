@@ -1,10 +1,6 @@
 """Track ore discovery, claiming, and harvester placement timeline."""
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from proto.cambc_pb2 import Replay
 
 
 def entity_kind(e):
@@ -40,7 +36,6 @@ def analyze_ore(path: str) -> None:
 
     entities = {}
     builder_pos = {}
-    harvester_built = {}
 
     first_seen = {0: {}, 1: {}}
     harvester_turn = {0: {}, 1: {}}

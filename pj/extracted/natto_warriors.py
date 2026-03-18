@@ -2,14 +2,14 @@ from cambc import *
 
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
-DIRECTIONS_AND_C = [d for d in Direction]
+DIRECTIONS_AND_C = list(Direction)
 
 DIRECTIONS_CARDINAL = [Direction.NORTH, Direction.EAST, Direction.WEST, Direction.SOUTH]
 
 class Base:
     ct: Controller
 
-    def __init__(self, ct: Controller):
+    def __init__(self, ct: Controller) -> None:
         self.ct = ct
         self.id = -1
         self.team = ct.get_team()
@@ -31,21 +31,23 @@ class Base:
     def is_inside(self, p: Position):
         return p.x >= 0 and p.y >= 0 and p.x < self.W and p.y < self.H
 
-    def reset(self):
+    def reset(self) -> None:
         self.id = self.ct.get_id()
         self.try_moved = False
         self.tiles = self.ct.get_nearby_tiles()
-from base import *
 import random
 
+from base import *
+
+
 class Builder(Base):
-    def __init__(self, ct):
+    def __init__(self, ct) -> None:
         super().__init__(ct)
 
         self.explore_timer = -1
         self.explore_pos = Position(0, 0)
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.ct = ct
         self.reset()
 
@@ -55,17 +57,17 @@ class Builder(Base):
         self.support_ore()
         self.explore()
 
-    def suicide(self):
+    def suicide(self) -> bool | None:
         # suicide if we find a good attack square
         ct = self.ct
         me = ct.get_position()
         enemy = ct.get_tile_building_id(me)
-        if enemy:
-            if ct.get_team(enemy) != self.team:
-                ct.self_destruct()
-                return True
+        if enemy and ct.get_team(enemy) != self.team:
+            ct.self_destruct()
+            return True
+        return None
 
-    def repair(self):
+    def repair(self) -> None:
         # if our conveyor points to empty or enemy: fix it
         ct = self.ct
         best = []
@@ -102,7 +104,7 @@ class Builder(Base):
             self.move_to(loc, 0)
             self.try_build_at(loc)
 
-    def explore(self):
+    def explore(self) -> None:
         ct = self.ct
         if self.try_moved:
             return
@@ -116,24 +118,24 @@ class Builder(Base):
         ct.draw_indicator_line(ct.get_position(), self.explore_pos, 0, 255, 0)
         self.move_to(self.explore_pos)
 
-    def support_ore(self):
+    def support_ore(self) -> None:
         ct = self.ct
         tiles = ct.get_nearby_tiles()
         for t in tiles:
             env = ct.get_tile_env(t)
-            if env.value[:3] == 'ore' and ct.get_tile_building_id(t) is None:
+            if env.value[:3] == "ore" and ct.get_tile_building_id(t) is None:
                 ct.draw_indicator_line(ct.get_position(), t, 255, 0, 0)
                 self.move_to(t)
                 return
 
-    def try_build_at(self, pos: Position):
+    def try_build_at(self, pos: Position) -> None:
         # build pointing towards base (best)
         # towards own position (ok)
         # towards own conveyors (may fail)
         # towards enemy conveyors (use roads at this point)
         ct = self.ct
         ct.draw_indicator_dot(pos, 255, 255, 255)
-        ti, ax = ct.get_global_resources()
+        ti, _ax = ct.get_global_resources()
         if ti < 85 * ct.get_scale_percent() / 100.0 and ct.get_current_round() < 300:
             return
         cdirs = []
@@ -155,10 +157,7 @@ class Builder(Base):
                     if t == EntityType.CORE:
                         s = 5
                     elif t == EntityType.CONVEYOR:
-                        if point == me:
-                            s = 4
-                        else:
-                            s = 3
+                        s = 4 if point == me else 3
                     else:
                         s = 0
                 else:
@@ -176,7 +175,7 @@ class Builder(Base):
             else:
                 ct.build_conveyor(pos, random.choice(cdirs))
 
-    def move_to(self, pos, limit=2):
+    def move_to(self, pos, limit=2) -> None:
         if self.try_moved:
             return
         self.try_moved = True
@@ -199,7 +198,7 @@ class Builder(Base):
                     ct.move(dir)
                     return
 
-    def try_build_harvester(self):
+    def try_build_harvester(self) -> None:
         ct = self.ct
         for d in DIRECTIONS:
             check_pos = ct.get_position().add(d)
@@ -207,15 +206,15 @@ class Builder(Base):
                 ct.build_harvester(check_pos)
                 return
 from base import *
-import random
+
 
 class Core(Base):
-    def __init__(self, ct):
+    def __init__(self, ct) -> None:
         super().__init__(ct)
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.ct = ct
-        ti, ax = ct.get_global_resources()
+        ti, _ax = ct.get_global_resources()
         round = ct.get_current_round()
         if ti < (2.0 - round / 2000.0) * 220 * ct.get_scale_percent() / 100.0: return
         random.shuffle(DIRECTIONS)
@@ -225,19 +224,21 @@ class Core(Base):
                 ct.spawn_builder(spawn_pos)
 from base import *
 
+
 class Gunner(Base):
-    def __init__(self, ct):
+    def __init__(self, ct) -> None:
         super().__init__(ct)
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         self.ct = ct
         self.reset()
-from core import *
 from builder import *
+from core import *
 from gunner import *
 
+
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.bot = None
 
     def run(self, ct: Controller) -> None:
@@ -248,13 +249,12 @@ class Player:
         elif etype == EntityType.BUILDER_BOT:
             if self.bot is None:
                 self.bot = Builder(ct)
-        elif etype == EntityType.GUNNER:
-            if self.bot is None:
-                self.bot = Gunner(ct)
+        elif etype == EntityType.GUNNER and self.bot is None:
+            self.bot = Gunner(ct)
         self.bot.run(ct)
 class Symmetry:
-    def __init__(self, ct):
+    def __init__(self, ct) -> None:
         self.ct = ct
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         pass

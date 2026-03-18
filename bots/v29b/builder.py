@@ -186,7 +186,9 @@ class BuilderAgent:
         return False
 
     def _nearest_connected(
-        self, pos: Position, pressure: dict[Position, bool],
+        self,
+        pos: Position,
+        pressure: dict[Position, bool],
     ) -> Position | None:
         best: Position | None = None
         best_score = 999999.0
@@ -304,8 +306,9 @@ class BuilderAgent:
         return pos.x == s.target.x and pos.y == s.target.y
 
     def _try_place_gunner(self, ct: Controller) -> bool:
-        assert self.core is not None and self.enemy_core is not None
-        my = ct.get_team()
+        assert self.core is not None
+        assert self.enemy_core is not None
+        ct.get_team()
         pos = ct.get_position()
         enemy_dir = pos.direction_to(self.enemy_core)
         for t in ct.get_nearby_tiles():

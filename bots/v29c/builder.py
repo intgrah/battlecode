@@ -177,7 +177,9 @@ class BuilderAgent:
         return best
 
     def _nearest_connected(
-        self, pos: Position, pressure: dict[Position, bool],
+        self,
+        pos: Position,
+        pressure: dict[Position, bool],
     ) -> Position | None:
         best: Position | None = None
         best_score = 999999.0
@@ -278,8 +280,7 @@ class BuilderAgent:
 
         chain_positions = [p for p, c in self.connected.items() if c]
         if chain_positions:
-            farthest = max(chain_positions, key=lambda p: p.distance_squared(self.core))
-            return farthest
+            return max(chain_positions, key=lambda p: p.distance_squared(self.core))
 
         return None
 
@@ -292,9 +293,7 @@ class BuilderAgent:
             return False
         if self.harvesters_built >= 2 and idle_turns > 30:
             return True
-        if idle_turns > 100:
-            return True
-        return False
+        return idle_turns > 100
 
     def _find_enemy_infra(self, ct: Controller) -> Position | None:
         my = ct.get_team()

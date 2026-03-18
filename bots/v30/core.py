@@ -1,13 +1,16 @@
+from collections import deque
+
 from cambc import Controller, EntityType, Position
-from params import SPAWN_INITIAL_CAP, SPAWN_SURPLUS_TURNS, SPAWN_TI_BUFFER
 from util import DIRS, SPOKES, toward
+
+TI_WINDOW = 10
 
 
 class CoreBot:
     def __init__(self) -> None:
         self.spawned = 0
         self.spoke_idx = 0
-        self.surplus_turns = 0
+        self.ti_history: deque[int] = deque(maxlen=TI_WINDOW)
 
     def _try_spawn(self, ct: Controller) -> bool:
         pos = ct.get_position()
@@ -35,13 +38,11 @@ class CoreBot:
     def run(self, ct: Controller) -> None:
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
+
         if ti < cost:
-            self.surplus_turns = 0
             return
 
-        pos = ct.get_position()
         my = ct.get_team()
-
         for eid in ct.get_nearby_entities():
             if ct.get_team(eid) == my:
                 continue
@@ -55,16 +56,17 @@ class CoreBot:
                 self._try_spawn_toward(ct, ct.get_position(eid))
                 return
 
-        if self.spawned < SPAWN_INITIAL_CAP:
+        if self.spawned < 4:
             self._try_spawn(ct)
             return
 
-        threshold = SPAWN_TI_BUFFER + cost * self.spawned
-        if ti > threshold:
-            self.surplus_turns += 1
-        else:
-            self.surplus_turns = 0
+        if self.spawned >= 8:
+            return
 
-        if self.surplus_turns >= SPAWN_SURPLUS_TURNS:
+        self.ti_history.append(ti)
+        if len(self.ti_history) < TI_WINDOW:
+            return
+
+        ti_delta = self.ti_history[-1] - self.ti_history[0]
+        if ti_delta > 0 and ti > cost * 5:
             self._try_spawn(ct)
-            self.surplus_turns = 0

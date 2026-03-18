@@ -159,7 +159,9 @@ class BuilderAgent:
         return best
 
     def _nearest_connected(
-        self, pos: Position, pressure: dict[Position, bool],
+        self,
+        pos: Position,
+        pressure: dict[Position, bool],
     ) -> Position | None:
         """Nearest connected tile, preferring low pressure."""
         best: Position | None = None
@@ -200,7 +202,7 @@ class BuilderAgent:
     def _pick_chain_target(self, ct: Controller) -> Position | None:
         assert self.core is not None
         pos = ct.get_position()
-        my = ct.get_team()
+        ct.get_team()
         farthest: Position | None = None
         farthest_dist = 0
         for p, is_connected in self.connected.items():
@@ -370,7 +372,8 @@ class BuilderAgent:
             and ct.get_team(bid) != my
             and ct.get_entity_type(bid) in _DESTRUCTIBLE
         ):
-            assert self.core is not None and self.enemy_core is not None
+            assert self.core is not None
+            assert self.enemy_core is not None
             if pos.distance_squared(self.enemy_core) < pos.distance_squared(self.core):
                 ct.self_destruct()
                 return

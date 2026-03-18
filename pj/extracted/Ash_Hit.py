@@ -21,10 +21,10 @@ def is_in_bound(p:Position, ct:Controller):
     return p.x >= 0 and p.y >= 0 and p.x < ct.get_map_width() and p.y < ct.get_map_height()
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.player = None
     def run(self, ct: Controller) -> None:
-        if self.player == None:
+        if self.player is None:
             etype = ct.get_entity_type()
             if etype == EntityType.CORE:
                 self.player = Core()
@@ -33,7 +33,7 @@ class Player:
         self.player.run(ct)
 
 class Core:
-    def __init__(self):
+    def __init__(self) -> None:
         self.num_spawned = 0
     def run(self, ct: Controller) -> None:
         if self.num_spawned < 3:
@@ -55,7 +55,7 @@ class Core:
                 self.num_spawned += 1
 
 class BuilderBot:
-    def __init__(self):
+    def __init__(self) -> None:
         self.path = []
         self.state = "searching ore"
         self.spawn_round = 0
@@ -71,7 +71,7 @@ class BuilderBot:
             building_id = ct.get_tile_building_id(ct.get_position())
             if building_id is not None and ct.get_entity_type(building_id) == EntityType.CONVEYOR and \
                ct.get_team(building_id) != ct.get_team() and \
-               (ct.get_stored_resource(building_id) != None or ct.get_current_round() - self.spawn_round > 100):
+               (ct.get_stored_resource(building_id) is not None or ct.get_current_round() - self.spawn_round > 100):
                 ct.self_destruct()
                 return
             move_dir = [d for d in Direction if d != Direction.CENTRE]
@@ -84,7 +84,7 @@ class BuilderBot:
                 building_id = ct.get_tile_building_id(pos)
                 if building_id is not None and ct.get_entity_type(building_id) == EntityType.CONVEYOR and ct.get_team(building_id) != ct.get_team():
                     weight += 100
-                    if ct.get_stored_resource(building_id) != None:
+                    if ct.get_stored_resource(building_id) is not None:
                         weight += 100
                 move_weights.append(weight)
 
@@ -122,7 +122,7 @@ class BuilderBot:
                 building_id = ct.get_tile_building_id(ct.get_position())
                 if building_id is not None and ct.get_entity_type(building_id) == EntityType.CONVEYOR and \
                    ct.get_team(building_id) != ct.get_team() and \
-                   (ct.get_stored_resource(building_id) != None or ct.get_current_round() - self.spawn_round > 100):
+                   (ct.get_stored_resource(building_id) is not None or ct.get_current_round() - self.spawn_round > 100):
                     ct.self_destruct()
             return
 

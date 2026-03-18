@@ -39,7 +39,7 @@ class CoreBot:
             self.surplus_turns = 0
             return
 
-        pos = ct.get_position()
+        ct.get_position()
         my = ct.get_team()
 
         for eid in ct.get_nearby_entities():

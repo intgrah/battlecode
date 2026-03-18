@@ -105,7 +105,7 @@ def scan_trailing(path: str) -> list[dict]:
     return []
 
 
-def scan_file(path: str):
+def scan_file(path: str) -> bool:
     print(f"\n{'=' * 60}")
     print(f"  {os.path.basename(path)}  ({os.path.getsize(path)} bytes)")
     print(f"{'=' * 60}")
@@ -143,7 +143,7 @@ def scan_file(path: str):
     return True
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <replay_file_or_directory> [...]")
         sys.exit(1)

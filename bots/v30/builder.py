@@ -1,27 +1,17 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from bugnav import BugNav
 from cambc import Controller, EntityType, GameConstants, Position
 from comms import MarkerReader, MarkerWriter
-from marker import BreakAlert, ClaimState, OreClaim, PressureSummary, Threat, Urgency
-from nav import Nav
+from marker import BreakAlert, PressureSummary, Threat, Urgency
+from network import NetworkBelief
 from params import (
-    BUILDCHAIN_WAIT_LIMIT,
     DEFENSE_MIN_HARVESTERS,
     PATROL_IDLE_LIMIT,
-    PRESSURE_HIGH,
     REPULSION_JITTER,
 )
-from util import DIRS, ore_env, step_conv, step_road
-
-_TRANSPORT = frozenset(
-    {
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-        EntityType.BRIDGE,
-    },
-)
+from util import DIRS, ore_env, repair_dir, step_conv, step_road
 
 _DESTRUCTIBLE = frozenset(
     {
@@ -36,29 +26,19 @@ _DESTRUCTIBLE = frozenset(
 
 
 @dataclass
-class ExploreRoad:
+class ExploreConv:
+    nav: BugNav = field(default_factory=BugNav)
     target: Position | None = None
-
-
-@dataclass
-class WalkToAnchor:
-    ore: Position
-    anchor: Position
-
-
-@dataclass
-class BuildChain:
-    ore: Position
-    wait_turns: int = 0
 
 
 @dataclass
 class Patrol:
+    nav: BugNav = field(default_factory=BugNav)
     target: Position | None = None
     idle_turns: int = 0
 
 
-State = ExploreRoad | WalkToAnchor | BuildChain | Patrol
+State = ExploreConv | Patrol
 
 
 class BuilderAgent:
@@ -67,9 +47,8 @@ class BuilderAgent:
         self.enemy_core: Position | None = None
         self.w = 0
         self.h = 0
-        self.nav: Nav | None = None
-        self.connected: dict[Position, bool] = {}
-        self.state: State = ExploreRoad()
+        self.net = NetworkBelief()
+        self.state: State = ExploreConv()
         self.reader = MarkerReader()
         self.writer = MarkerWriter()
         self.harvesters_built = 0
@@ -77,7 +56,6 @@ class BuilderAgent:
     def _setup(self, ct: Controller) -> None:
         my = ct.get_team()
         self.w, self.h = ct.get_map_width(), ct.get_map_height()
-        self.nav = Nav(self.w, self.h)
         for eid in ct.get_nearby_entities():
             if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == my:
                 self.core = ct.get_position(eid)
@@ -87,58 +65,6 @@ class BuilderAgent:
                 self.w - 1 - self.core.x,
                 self.h - 1 - self.core.y,
             )
-
-    def _update_connected(self, ct: Controller) -> None:
-        assert self.core is not None
-        my = ct.get_team()
-        cx, cy = self.core.x, self.core.y
-        for t in ct.get_nearby_tiles():
-            bid = ct.get_tile_building_id(t)
-            if bid is None or ct.get_team(bid) != my:
-                self.connected.pop(t, None)
-                continue
-            et = ct.get_entity_type(bid)
-            if et not in _TRANSPORT:
-                self.connected.pop(t, None)
-                continue
-            x, y = t.x, t.y
-            visited: list[Position] = []
-            seen: set[tuple[int, int]] = set()
-            result: bool | None = None
-            while (x, y) not in seen:
-                seen.add((x, y))
-                p = Position(x, y)
-                visited.append(p)
-                if abs(x - cx) <= 1 and abs(y - cy) <= 1:
-                    result = True
-                    break
-                if not ct.is_in_vision(p):
-                    break
-                b = ct.get_tile_building_id(p)
-                if b is None or ct.get_team(b) != my:
-                    result = False
-                    break
-                bt = ct.get_entity_type(b)
-                if bt not in _TRANSPORT:
-                    result = False
-                    break
-                dx, dy = ct.get_direction(b).delta()
-                x, y = x + dx, y + dy
-            if result is not None:
-                for v in visited:
-                    self.connected[v] = result
-
-    def _measure_pressure(self, ct: Controller) -> dict[Position, bool]:
-        my = ct.get_team()
-        pressure: dict[Position, bool] = {}
-        for t in ct.get_nearby_tiles():
-            bid = ct.get_tile_building_id(t)
-            if bid is None or ct.get_team(bid) != my:
-                continue
-            if ct.get_entity_type(bid) not in _TRANSPORT:
-                continue
-            pressure[t] = ct.get_stored_resource(bid) is not None
-        return pressure
 
     def _find_ore(self, ct: Controller) -> Position | None:
         pos = ct.get_position()
@@ -155,72 +81,38 @@ class BuilderAgent:
                 best = t
         return best
 
-    def _nearest_connected(
-        self, pos: Position, pressure: dict[Position, bool],
-    ) -> Position | None:
-        best: Position | None = None
-        best_score = 999999.0
-        for p, is_connected in self.connected.items():
-            if not is_connected:
-                continue
-            dist = pos.distance_squared(p)
-            full = pressure.get(p, False)
-            score = dist + (100.0 if full else 0.0)
-            if score < best_score:
-                best_score = score
-                best = p
-        return best
-
-    def _find_break(self, ct: Controller) -> Position | None:
+    def _find_enemy_near_core(self, ct: Controller) -> Position | None:
         assert self.core is not None
         my = ct.get_team()
-        cx, cy = self.core.x, self.core.y
-        for t in ct.get_nearby_tiles():
-            bid = ct.get_tile_building_id(t)
-            if bid is None or ct.get_team(bid) != my:
+        for eid in ct.get_nearby_entities():
+            if ct.get_team(eid) == my:
                 continue
-            et = ct.get_entity_type(bid)
-            if et not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-                continue
-            dx, dy = ct.get_direction(bid).delta()
-            out = Position(t.x + dx, t.y + dy)
-            if not ct.is_in_vision(out):
-                continue
-            if ct.get_tile_building_id(out) is not None:
-                continue
-            if abs(out.x - cx) <= 1 and abs(out.y - cy) <= 1:
-                continue
-            return out
+            ep = ct.get_position(eid)
+            if ep.distance_squared(self.core) <= 36:
+                return ep
         return None
 
-    def _pick_chain_target(self, ct: Controller) -> Position | None:
+    def _try_build_gunner(self, ct: Controller, near: Position) -> bool:
+        assert self.enemy_core is not None
+        facing = near.direction_to(self.enemy_core)
+        for d in DIRS:
+            gp = near.add(d)
+            for f in (facing, facing.rotate_left(), facing.rotate_right()):
+                if ct.can_build_gunner(gp, f):
+                    ct.build_gunner(gp, f)
+                    return True
+        return False
+
+    def _pick_chain_target(self) -> Position | None:
         assert self.core is not None
-        pos = ct.get_position()
         farthest: Position | None = None
         farthest_dist = 0
-        for p, is_connected in self.connected.items():
-            if not is_connected:
-                continue
+        for p in self.net.connected_tiles():
             d = self.core.distance_squared(p)
-            if d > farthest_dist and pos.distance_squared(p) > 4:
+            if d > farthest_dist:
                 farthest_dist = d
                 farthest = p
         return farthest
-
-    def _try_build_gunner(self, ct: Controller) -> bool:
-        assert self.enemy_core is not None
-        pos = ct.get_position()
-        facing = pos.direction_to(self.enemy_core)
-        for d in DIRS:
-            gp = pos.add(d)
-            if ct.can_build_gunner(gp, facing):
-                ct.build_gunner(gp, facing)
-                return True
-            for alt in (facing.rotate_left(), facing.rotate_right()):
-                if ct.can_build_gunner(gp, alt):
-                    ct.build_gunner(gp, alt)
-                    return True
-        return False
 
     def _break_from_comms(self, pos: Position) -> Position | None:
         best: Position | None = None
@@ -270,16 +162,15 @@ class BuilderAgent:
             max(0, min(self.h - 1, pos.y + dy * self.h)),
         )
 
-    def _retarget(self, s: ExploreRoad | Patrol, pos: Position) -> bool:
-        assert self.nav is not None
+    def _retarget(self, s: ExploreConv | Patrol, pos: Position) -> bool:
         if s.target is None:
             return True
-        if self.nav.unreachable:
-            self.nav.unreachable = False
+        if s.nav.unreachable:
+            s.nav.unreachable = False
             return True
         return pos.x == s.target.x and pos.y == s.target.y
 
-    def _propose_markers(self, ct: Controller, pressure: dict[Position, bool]) -> None:
+    def _propose_markers(self, ct: Controller) -> None:
         pos = ct.get_position()
         rnd = ct.get_current_round()
         my = ct.get_team()
@@ -312,7 +203,8 @@ class BuilderAgent:
             )
             break
 
-        brk = self._find_break(ct)
+        assert self.core is not None
+        brk = self.net.find_break(ct, self.core)
         if brk:
             already_alerted = any(
                 b.break_x == brk.x and b.break_y == brk.y for _, b in self.reader.breaks
@@ -331,16 +223,17 @@ class BuilderAgent:
                     priority=80,
                 )
 
-        full_count = sum(1 for v in pressure.values() if v)
-        total = len(pressure)
-        if total > 0 and full_count / total > PRESSURE_HIGH:
+        congested = self.net.congested_tiles()
+        if congested:
+            t = congested[0]
+            info = self.net.get(t)
             self.writer.propose(
                 pos,
                 PressureSummary(
-                    pos_x=pos.x,
-                    pos_y=pos.y,
-                    pressure_level=min(15, full_count),
-                    upstream_harvesters=0,
+                    pos_x=t.x,
+                    pos_y=t.y,
+                    pressure_level=min(15, info.upstream_harvesters if info else 0),
+                    upstream_harvesters=info.upstream_harvesters if info else 0,
                     freshness=rnd % 64,
                     chain_direction=0,
                 ),
@@ -350,99 +243,62 @@ class BuilderAgent:
     def run(self, ct: Controller) -> None:
         if self.core is None:
             self._setup(ct)
-        if self.core is None or self.nav is None:
+        if self.core is None:
             return
 
-        self.nav.update(ct)
-        self._update_connected(ct)
-        pressure = self._measure_pressure(ct)
+        self.net.update(ct, self.core)
         self.reader.scan(ct)
 
         pos = ct.get_position()
         my = ct.get_team()
 
-        bid = ct.get_tile_building_id(pos)
-        if (
-            bid is not None
-            and ct.get_team(bid) != my
-            and ct.get_entity_type(bid) in _DESTRUCTIBLE
-        ):
-            assert self.core is not None and self.enemy_core is not None
-            if pos.distance_squared(self.enemy_core) < pos.distance_squared(self.core):
-                ct.self_destruct()
+        enemy = self._find_enemy_near_core(ct)
+        if enemy and pos.distance_squared(self.core) <= 36:
+            if pos.distance_squared(enemy) <= GameConstants.ACTION_RADIUS_SQ:
+                bid = ct.get_tile_building_id(enemy)
+                if bid is not None and ct.get_team(bid) != my:
+                    ct.heal(self.core)
+                    return
+            s = self.state
+            if isinstance(s, (ExploreConv, Patrol)):
+                s.nav.go(ct, enemy, lambda d: step_road(ct, d))
+                self._propose_markers(ct)
+                self.writer.flush(ct)
                 return
 
         match self.state:
-            case ExploreRoad() as s:
+            case ExploreConv() as s:
                 ore = self._find_ore(ct)
+                if ore and pos.distance_squared(ore) <= GameConstants.ACTION_RADIUS_SQ:
+                    if ct.can_build_harvester(ore):
+                        ct.build_harvester(ore)
+                        self.harvesters_built += 1
+                        if self.harvesters_built >= DEFENSE_MIN_HARVESTERS:
+                            self._try_build_gunner(ct, self.core)
+                    return
                 if ore:
-                    anchor = self._nearest_connected(pos, pressure) or self.core
-                    assert anchor is not None
-                    rnd = ct.get_current_round()
-                    self.writer.propose(
-                        pos,
-                        OreClaim(
-                            ore_x=ore.x,
-                            ore_y=ore.y,
-                            state=ClaimState.CLAIMED,
-                            claimer_hash=ct.get_id() % 64,
-                            freshness=rnd % 64,
-                            ore_type=0,
-                        ),
-                        priority=60,
-                    )
-                    self.state = WalkToAnchor(ore=ore, anchor=anchor)
+                    s.target = ore
+                    s.nav.reset()
                 elif self._retarget(s, pos):
                     if s.target is None:
                         s.target = self._initial_target(ct)
                     else:
                         s.target = self._pick_explore_target(ct)
-                if isinstance(self.state, ExploreRoad):
-                    assert s.target is not None
-                    self.nav.go(ct, s.target, lambda d: step_road(ct, d))
-
-            case WalkToAnchor() as s:
-                if pos.distance_squared(s.anchor) <= GameConstants.ACTION_RADIUS_SQ:
-                    d = pos.direction_to(s.anchor)
-                    if ct.can_build_conveyor(pos, d):
-                        ct.build_conveyor(pos, d)
-                    self.state = BuildChain(ore=s.ore)
-                else:
-                    self.nav.go(ct, s.anchor, lambda d: step_road(ct, d))
-
-            case BuildChain() as s:
-                if pos.distance_squared(s.ore) == 1:
-                    if ct.can_build_harvester(s.ore):
-                        ct.build_harvester(s.ore)
-                        self.harvesters_built += 1
-                        if self.harvesters_built >= DEFENSE_MIN_HARVESTERS:
-                            self._try_build_gunner(ct)
-                        self.state = Patrol()
-                    else:
-                        s.wait_turns += 1
-                        if s.wait_turns >= BUILDCHAIN_WAIT_LIMIT:
-                            self.state = Patrol()
-                    return
-                ti, _ = ct.get_global_resources()
-                conv_cost, _ = ct.get_conveyor_cost()
-                reserve = conv_cost
-                if pos.distance_squared(s.ore) <= 4:
-                    ti_cost, _ = ct.get_harvester_cost()
-                    reserve += ti_cost
-                if ti < reserve:
-                    s.wait_turns += 1
-                    if s.wait_turns >= BUILDCHAIN_WAIT_LIMIT:
-                        self.state = Patrol()
-                    return
-                s.wait_turns = 0
-                self.nav.go(ct, s.ore, lambda d: step_conv(ct, d), cardinal_only=True)
+                    s.nav.reset()
+                if s.target is not None:
+                    ti, _ = ct.get_global_resources()
+                    conv_cost, _ = ct.get_conveyor_cost()
+                    reserve = conv_cost
+                    if ore and pos.distance_squared(ore) <= 4:
+                        ti_cost, _ = ct.get_harvester_cost()
+                        reserve += ti_cost
+                    if ti < reserve:
+                        return
+                    s.nav.go(ct, s.target, lambda d: step_conv(ct, d))
 
             case Patrol() as s:
-                brk = self._find_break(ct)
+                brk = self.net.find_break(ct, self.core)
                 if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
-                    from util import repair_dir
-
-                    assert self.core is not None
                     d = repair_dir(ct, brk, self.core)
                     if ct.can_build_conveyor(brk, d):
                         ct.build_conveyor(brk, d)
@@ -451,40 +307,45 @@ class BuilderAgent:
 
                 if brk:
                     s.target = brk
+                    s.nav.reset()
                     s.idle_turns = 0
-                    self.nav.go(ct, s.target, lambda d: step_road(ct, d))
-                    self._propose_markers(ct, pressure)
+                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                    self._propose_markers(ct)
                     self.writer.flush(ct)
                     return
 
                 brk_from_comms = self._break_from_comms(pos)
                 if brk_from_comms:
                     s.target = brk_from_comms
+                    s.nav.reset()
                     s.idle_turns = 0
-                    self.nav.go(ct, s.target, lambda d: step_road(ct, d))
-                    self._propose_markers(ct, pressure)
+                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                    self._propose_markers(ct)
                     self.writer.flush(ct)
                     return
 
                 ore = self._find_ore(ct)
                 if ore:
-                    anchor = self._nearest_connected(pos, pressure) or self.core
+                    anchor = (
+                        self.net.nearest_connected(pos, max_upstream=4) or self.core
+                    )
                     assert anchor is not None
                     self.state = WalkToAnchor(ore=ore, anchor=anchor)
                     s.idle_turns = 0
                 else:
                     s.idle_turns += 1
                     if s.idle_turns >= PATROL_IDLE_LIMIT:
-                        self.state = ExploreRoad()
+                        self.state = ExploreConv()
                     elif self._retarget(s, pos):
-                        chain_t = self._pick_chain_target(ct)
+                        chain_t = self._pick_chain_target()
                         if chain_t:
                             s.target = chain_t
                         else:
                             s.target = self._pick_explore_target(ct)
+                        s.nav.reset()
                 if isinstance(self.state, Patrol):
                     if s.target is not None:
-                        self.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                        s.nav.go(ct, s.target, lambda d: step_road(ct, d))
 
-        self._propose_markers(ct, pressure)
+        self._propose_markers(ct)
         self.writer.flush(ct)

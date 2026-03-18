@@ -1,11 +1,8 @@
 """Track splitters, turrets, foundries, bridges, barriers over time."""
 
-import sys
 from collections import defaultdict
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from proto.cambc_pb2 import Replay
 
 
 def entity_kind(e):

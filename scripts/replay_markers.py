@@ -1,11 +1,8 @@
 """Analyze marker usage: writes, reads, overwrites, destruction."""
 
-import sys
 from collections import defaultdict
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-from cambc_pb2 import Replay
+from proto.cambc_pb2 import Replay
 
 
 def entity_kind(e):
@@ -24,7 +21,7 @@ def analyze_markers(path: str) -> None:
     markers_alive = {}
     stats = {0: defaultdict(int), 1: defaultdict(int)}
 
-    for turn_idx, turn in enumerate(r.turns):
+    for _turn_idx, turn in enumerate(r.turns):
         for u in turn.updates:
             k = u.WhichOneof("kind")
             if k == "place_entity":
@@ -44,7 +41,7 @@ def analyze_markers(path: str) -> None:
                         stats[old_team]["destroyed_by_enemy"] += 1
                     del markers_alive[pos]
             elif k == "remove_entity":
-                eid = u.remove_entity.id
+                pass
 
     for team_id in (0, 1):
         team_name = "A" if team_id == 0 else "B"
