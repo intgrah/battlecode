@@ -4,21 +4,8 @@ from pathlib import Path
 
 from .types import MapMeta
 
-_proto_path_added = False
-
-
-def _ensure_proto_path() -> None:
-    global _proto_path_added  # noqa: PLW0603
-    if not _proto_path_added:
-        import sys
-
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "proto"))
-        _proto_path_added = True
-
-
 def parse(path: str) -> object:
-    _ensure_proto_path()
-    from cambc_pb2 import Replay  # type: ignore[import-not-found]
+    from proto.cambc_pb2 import Replay
 
     with Path(path).open("rb") as f:
         r = Replay()
