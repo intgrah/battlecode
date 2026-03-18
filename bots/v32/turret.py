@@ -23,4 +23,15 @@ class TurretUnit:
                 best_type = et.name
         if best:
             ct.fire(best)
-            print(json.dumps({"_dbg": True, "unit": "turret", "action": "fire", "target": [best.x, best.y], "target_type": best_type}, separators=(",", ":")))
+            print(
+                json.dumps(
+                    {
+                        "_dbg": True,
+                        "unit": "turret",
+                        "action": "fire",
+                        "target": [best.x, best.y],
+                        "target_type": best_type,
+                    },
+                    separators=(",", ":"),
+                ),
+            )
