@@ -252,6 +252,20 @@ class BuilderAgent:
         pos = ct.get_position()
         my = ct.get_team()
 
+        cong = self.net.most_congested()
+        if cong and pos.distance_squared(cong) <= GameConstants.ACTION_RADIUS_SQ:
+            bid = ct.get_tile_building_id(cong)
+            if bid is not None and ct.get_team(bid) == my:
+                et = ct.get_entity_type(bid)
+                if et in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+                    d = ct.get_direction(bid)
+                    ct.destroy(cong)
+                    if ct.can_build_splitter(cong, d):
+                        ct.build_splitter(cong, d)
+                    self._propose_markers(ct)
+                    self.writer.flush(ct)
+                    return
+
         enemy = self._find_enemy_near_core(ct)
         if enemy and pos.distance_squared(self.core) <= 36:
             if pos.distance_squared(enemy) <= GameConstants.ACTION_RADIUS_SQ:
