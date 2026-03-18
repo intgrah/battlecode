@@ -49,7 +49,7 @@ class NetworkBelief:
             info.is_splitter = et == EntityType.SPLITTER
             visible_transport.append((t, bid))
 
-        for t, bid in visible_transport:
+        for t, _ in visible_transport:
             info = self.tiles[t]
             seen: set[tuple[int, int]] = set()
             chain: list[Position] = []
@@ -82,7 +82,7 @@ class NetworkBelief:
                     if ti is not None:
                         ti.connected = result
 
-        for t, bid in visible_transport:
+        for t, _ in visible_transport:
             info = self.tiles[t]
             info.flow = self._compute_flow(ct, t, my, w, h, set())
             info.is_dead = info.connected is True and info.flow == 0.0

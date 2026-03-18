@@ -1,5 +1,6 @@
 import json
 import random
+from pathlib import Path
 from dataclasses import dataclass, field
 
 from bugnav import BugNav
@@ -171,7 +172,7 @@ class BuilderAgent:
             return True
         return pos.x == s.target.x and pos.y == s.target.y
 
-    def _emit_debug(self, ct: Controller, action: str = "", **extra) -> None:
+    def _emit_debug(self, ct: Controller, action: str = "", **extra: str | int | bool | list[int]) -> None:
         """Emit structured debug JSON to stdout for replay_debug.py."""
         pos = ct.get_position()
         state = self.state
@@ -281,7 +282,7 @@ class BuilderAgent:
 
         brk = self.net.find_break(ct, self.core)
         if brk:
-            with open("/tmp/v32_debug.txt", "a") as f:
+            with Path("/tmp/v32_debug.txt").open("a") as f:
                 f.write(
                     f"t{ct.get_current_round()} bot@{pos} FOUND brk@{brk} dist={pos.distance_squared(brk)}\n",
                 )

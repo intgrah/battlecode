@@ -1,4 +1,4 @@
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, Position, Team
 
 _TRANSPORT = frozenset(
     {
@@ -47,7 +47,7 @@ class NetworkBelief:
             info.has_resource = ct.get_stored_resource(bid) is not None
             visible_transport.append((t, bid))
 
-        for t, bid in visible_transport:
+        for t, _ in visible_transport:
             info = self.tiles[t]
             x, y = t.x, t.y
             seen: set[tuple[int, int]] = set()
@@ -81,7 +81,7 @@ class NetworkBelief:
                     if ti is not None:
                         ti.connected = result
 
-        for t, bid in visible_transport:
+        for t, _ in visible_transport:
             info = self.tiles[t]
             self._count_upstream(ct, t, my, set(), count_ref := [0])
             info.upstream_harvesters = count_ref[0]
@@ -90,7 +90,7 @@ class NetworkBelief:
         self,
         ct: Controller,
         pos: Position,
-        my,
+        my: Team,
         seen: set[tuple[int, int]],
         count_ref: list[int],
     ) -> None:
