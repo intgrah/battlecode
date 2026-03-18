@@ -485,7 +485,11 @@ class BuilderAgent:
         return best or random.choice(DIRS)
 
     def _new_explore_target(self, ct: Controller, pos: Position) -> None:
-        d = self._explore_dir(ct, pos)
+        # First exploration: follow spoke direction from core for straighter chains
+        if self.harvesters_built == 0 and self.spoke_dir is not None:
+            d = self.spoke_dir
+        else:
+            d = self._explore_dir(ct, pos)
         dx, dy = d.delta()
         dist = random.randint(6, max(self.w, self.h) // 3)
         tx = max(1, min(self.w - 2, pos.x + dx * dist + random.randint(-2, 2)))
@@ -760,8 +764,6 @@ class BuilderAgent:
             self._new_explore_target(ct, pos)
 
         if self.target:
-            # Build conveyors while exploring (creates connected chains)
-            # Use budget gate to prevent starvation
             skip = self.has_income
             self.nav.go(ct, self.target, lambda d: step_conv(ct, d, skip_ore=skip))
             if self.nav.unreachable:
@@ -795,7 +797,8 @@ class BuilderAgent:
                 self._new_explore_target(ct, pos)
             return
 
-        self.nav.go(ct, self.target, lambda d: step_conv(ct, d))
+        skip = self.has_income
+        self.nav.go(ct, self.target, lambda d: step_conv(ct, d, skip_ore=skip))
         if self.nav.unreachable:
             self.nav.unreachable = False
             self.state = EXPLORE
