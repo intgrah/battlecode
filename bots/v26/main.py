@@ -511,7 +511,7 @@ class BuilderAgent:
             return out
         return None
 
-    def _find_defense_conv(self, ct: Controller, pos: Position) -> Position | None:
+    def _find_defense_conv(self, ct: Controller) -> Position | None:
         assert self.core is not None
         assert self.enemy_core is not None
         my = ct.get_team()
@@ -735,7 +735,7 @@ class BuilderAgent:
             and ((ti > 200 and rnd > 100) or enemy_near_core)
         )
         if should_fortify:
-            fl = self._find_defense_conv(ct, pos)
+            fl = self._find_defense_conv(ct)
             if fl:
                 self.fortify_target = fl
                 self.fortify_step = 1
