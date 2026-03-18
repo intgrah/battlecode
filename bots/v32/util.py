@@ -6,12 +6,12 @@ CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 
 SPOKES = [
     Direction.NORTH,
-    Direction.NORTHEAST,
     Direction.EAST,
-    Direction.SOUTHEAST,
     Direction.SOUTH,
-    Direction.SOUTHWEST,
     Direction.WEST,
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
     Direction.NORTHWEST,
 ]
 

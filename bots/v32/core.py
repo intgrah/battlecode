@@ -21,7 +21,7 @@ class CoreBot:
             if ct.can_spawn(sp):
                 ct.spawn_builder(sp)
                 self.spawned += 1
-                self.spoke_idx += 2
+                self.spoke_idx += 1
                 return True
         return False
 
