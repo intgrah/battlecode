@@ -15,6 +15,9 @@
       "Bash(python -m ruff check analysis/)",
       "Bash(python scripts/replay_builders.py /tmp/v30_test.replay26)",
       "Bash(python scripts/replay_economy.py /tmp/v30_test.replay26)"
+    ],
+    "additionalDirectories": [
+      "/home/intgrah/git/intgrah/battlecode/bots"
     ]
   }
 }
