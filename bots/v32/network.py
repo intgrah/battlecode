@@ -103,6 +103,23 @@ class NetworkBelief:
             info.flow = self._compute_flow(ct, t, my, w, h, set())
             info.is_dead = info.connected and info.flow == 0.0
 
+    def _harvester_outputs(
+        self, ct: Controller, hpos: Position, my: int, w: int, h: int
+    ) -> int:
+        count = 0
+        for dx, dy in _CARDINAL_DELTAS:
+            nx, ny = hpos.x + dx, hpos.y + dy
+            if not (0 <= nx < w and 0 <= ny < h):
+                continue
+            adj = Position(nx, ny)
+            if ct.is_in_vision(adj):
+                bid = ct.get_tile_building_id(adj)
+                if bid is not None and ct.get_team(bid) == my:
+                    count += 1
+            elif adj in self.tiles:
+                count += 1
+        return max(count, 1)
+
     def _compute_flow(
         self,
         ct: Controller,
@@ -123,7 +140,8 @@ class NetworkBelief:
                 continue
             adj = Position(nx, ny)
             if adj in self.known_harvesters:
-                total += 0.25
+                outputs = self._harvester_outputs(ct, adj, my, w, h)
+                total += 0.25 / outputs
                 continue
             if ct.is_in_vision(adj):
                 bid = ct.get_tile_building_id(adj)
@@ -131,7 +149,8 @@ class NetworkBelief:
                     continue
                 et = ct.get_entity_type(bid)
                 if et == EntityType.HARVESTER:
-                    total += 0.25
+                    outputs = self._harvester_outputs(ct, adj, my, w, h)
+                    total += 0.25 / outputs
                     continue
                 if et not in _TRANSPORT:
                     continue
