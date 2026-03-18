@@ -178,13 +178,8 @@ class NetworkBelief:
                 continue
             if abs(out.x - cx) <= 1 and abs(out.y - cy) <= 1:
                 continue
-            info = self.tiles.get(t)
-            if info is None or info.connected is not True:
-                continue
-            flow = info.flow
-            if flow > best_flow:
-                best_flow = flow
-                best = out
+            best = out
+            break
         return best
 
     def most_congested(self, core: Position, threshold: float = 1.0) -> Position | None:
