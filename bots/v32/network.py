@@ -179,8 +179,6 @@ class NetworkBelief:
                 continue
             info = self.tiles.get(t)
             flow = info.flow if info else 0.0
-            if flow <= 0.0:
-                continue
             if flow > best_flow:
                 best_flow = flow
                 best = out

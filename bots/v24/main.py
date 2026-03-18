@@ -511,6 +511,8 @@ class Player:
         self.builder = BuilderBot()
 
     def run(self, ct: Controller) -> None:
+        if ct.get_current_round() > 500:
+            return
         etype = ct.get_entity_type()
         if etype == EntityType.CORE:
             self.core.run(ct)

@@ -253,20 +253,19 @@ class BuilderAgent:
         my = ct.get_team()
 
         brk = self.net.find_break(ct, self.core)
+        if brk is None and ct.is_in_vision(Position(11, 20)):
+            bid_at = ct.get_tile_building_id(Position(11, 20))
+            if bid_at is None:
+                with open("/tmp/v32_debug.txt", "a") as f:
+                    f.write(f"t{ct.get_current_round()} bot@{pos} MISS: (11,20) empty+visible but find_break=None\n")
         if brk:
-            with open("/tmp/v32_debug.txt", "a") as f:
-                f.write(f"t{ct.get_current_round()} bot@{pos} BREAK@{brk} dist={pos.distance_squared(brk)} can_conv={ct.can_build_conveyor(brk, repair_dir(ct, brk, self.core)) if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ else 'far'}\n")
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
                 bid = ct.get_tile_building_id(brk)
                 if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
                     ct.destroy(brk)
                 d = repair_dir(ct, brk, self.core)
-                built = ct.can_build_conveyor(brk, d)
-                if built:
+                if ct.can_build_conveyor(brk, d):
                     ct.build_conveyor(brk, d)
-                with open("/tmp/v32_debug.txt", "a") as f:
-                    ti, _ = ct.get_global_resources()
-                    f.write(f"  REPAIR brk={brk} dir={d} built={built} ti={ti} cd={ct.get_action_cooldown()}\n")
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
