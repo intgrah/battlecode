@@ -142,7 +142,6 @@ def find_enemy_infra(ct: Controller) -> Position | None:
 def bugnav_conv(
     ct: Controller,
     target: Position,
-    core_pos: Position,
     state: dict,
     *,
     skip_ore: bool = False,
@@ -418,7 +417,7 @@ class BuilderBot:
             and self.core_pos is not None
         ):
             self.turns_without_ore = 0
-            bugnav_conv(ct, visible_ore, self.core_pos, self.nav_state, skip_ore=skip)
+            bugnav_conv(ct, visible_ore, self.nav_state, skip_ore=skip)
             return
 
         self.turns_without_ore += 1
@@ -446,7 +445,6 @@ class BuilderBot:
                 bugnav_conv(
                     ct,
                     self.explore_target,
-                    self.core_pos,
                     self.nav_state,
                     skip_ore=skip,
                 )

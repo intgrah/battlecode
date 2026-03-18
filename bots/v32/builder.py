@@ -1,7 +1,8 @@
 import json
 import random
-from pathlib import Path
+import tempfile
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from bugnav import BugNav
 from cambc import Controller, EntityType, GameConstants, Position
@@ -282,7 +283,7 @@ class BuilderAgent:
 
         brk = self.net.find_break(ct, self.core)
         if brk:
-            with Path("/tmp/v32_debug.txt").open("a") as f:
+            with (Path(tempfile.gettempdir()) / "v32_debug.txt").open("a") as f:
                 f.write(
                     f"t{ct.get_current_round()} bot@{pos} FOUND brk@{brk} dist={pos.distance_squared(brk)}\n",
                 )
@@ -398,9 +399,8 @@ class BuilderAgent:
                     else:
                         s.target = self._pick_explore_target(ct)
                     s.nav.reset()
-                if isinstance(self.state, Patrol):
-                    if s.target is not None:
-                        s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
+                if isinstance(self.state, Patrol) and s.target is not None:
+                    s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
 
         self._emit_debug(ct, "tick")
         self._propose_markers(ct)
