@@ -56,6 +56,7 @@ class BuilderAgent:
         self.reader = MarkerReader()
         self.writer = MarkerWriter()
         self.harvesters_built = 0
+        self._recent_positions: list[tuple[int, int]] = []
 
     def _setup(self, ct: Controller) -> None:
         my = ct.get_team()
@@ -99,7 +100,6 @@ class BuilderAgent:
 
     def _try_place_harvester(self, ct: Controller, ore: Position) -> bool:
         my = ct.get_team()
-        has_cardinal_conv = False
         for cd in CARDINALS:
             adj = ore.add(cd)
             if not (0 <= adj.x < self.w and 0 <= adj.y < self.h):
@@ -112,24 +112,10 @@ class BuilderAgent:
                     EntityType.ARMOURED_CONVEYOR,
                     EntityType.SPLITTER,
                 ):
-                    has_cardinal_conv = True
-                    break
-        if has_cardinal_conv:
-            if ct.can_build_harvester(ore):
-                ct.build_harvester(ore)
-                return True
-            return False
-        pos = ct.get_position()
-        for cd in CARDINALS:
-            adj = ore.add(cd)
-            if not (0 <= adj.x < self.w and 0 <= adj.y < self.h):
-                continue
-            if pos.distance_squared(adj) > GameConstants.ACTION_RADIUS_SQ:
-                continue
-            d_back = adj.direction_to(ore)
-            if ct.can_build_conveyor(adj, d_back):
-                ct.build_conveyor(adj, d_back)
-                return False
+                    if ct.can_build_harvester(ore):
+                        ct.build_harvester(ore)
+                        return True
+                    return False
         return False
 
     def _try_build_gunner(self, ct: Controller, near: Position) -> bool:
@@ -402,15 +388,19 @@ class BuilderAgent:
                 if ore and pos.distance_squared(ore) <= GameConstants.ACTION_RADIUS_SQ:
                     if self._try_place_harvester(ct, ore):
                         self.harvesters_built += 1
-                        return
-                    if pos.distance_squared(ore) <= 2:
-                        return
+                        ore = self._find_ore(ct)
                 if ore and (s.target is None or s.target != ore):
                     s.target = ore
                     s.nav.reset()
                 elif not ore and self._retarget(s, pos):
                     if s.target is None:
                         s.target = self._initial_target(ct)
+                    elif self.spoke_target is not None:
+                        if pos.distance_squared(self.spoke_target) <= 4:
+                            unv = self._pick_unvisited_target(ct)
+                            s.target = unv or self._pick_explore_target(ct)
+                        else:
+                            s.target = self.spoke_target
                     else:
                         unv = self._pick_unvisited_target(ct)
                         s.target = unv or self._pick_explore_target(ct)
