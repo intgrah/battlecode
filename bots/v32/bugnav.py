@@ -110,6 +110,10 @@ class BugNav:
                 self.unreachable = True
                 self._tracing = False
                 return False
+            if self._trace_steps > 20:
+                self.unreachable = True
+                self._tracing = False
+                return False
             cur_dist = pos.distance_squared(target)
             if (pos.x, pos.y) in self._line and cur_dist < self._obstacle_start_dist:
                 self._tracing = False

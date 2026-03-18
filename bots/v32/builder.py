@@ -34,13 +34,32 @@ class ExploreConv:
 
 
 @dataclass
+class ExploreRoad:
+    nav: BugNav = field(default_factory=BugNav)
+    target: Position | None = None
+
+
+@dataclass
+class WalkToAnchor:
+    ore: Position
+    anchor: Position
+    nav: BugNav = field(default_factory=BugNav)
+
+
+@dataclass
+class BuildChain:
+    ore: Position
+    nav: BugNav = field(default_factory=BugNav)
+
+
+@dataclass
 class Patrol:
     nav: BugNav = field(default_factory=BugNav)
     target: Position | None = None
     uneventful: int = 0
 
 
-State = ExploreConv | Patrol
+State = ExploreConv | ExploreRoad | WalkToAnchor | BuildChain | Patrol
 
 
 class BuilderAgent:
@@ -129,6 +148,43 @@ class BuilderAgent:
                     return True
         return False
 
+    def _nearest_connected(self, pos: Position) -> Position | None:
+        best: Position | None = None
+        best_dist = 999999
+        for p in self.net.connected_tiles():
+            d = pos.distance_squared(p)
+            if d < best_dist:
+                best_dist = d
+                best = p
+        return best
+
+    def _has_cardinal_conveyor(self, ct: Controller, ore: Position) -> bool:
+        my = ct.get_team()
+        for d in CARDINALS:
+            adj = ore.add(d)
+            if not ct.is_in_vision(adj):
+                continue
+            bid = ct.get_tile_building_id(adj)
+            if (
+                bid is not None
+                and ct.get_team(bid) == my
+                and ct.get_entity_type(bid) in _DESTRUCTIBLE
+            ):
+                return True
+        return False
+
+    def _ensure_cardinal_conveyor(
+        self, ct: Controller, pos: Position, ore: Position
+    ) -> None:
+        for d in CARDINALS:
+            adj = ore.add(d)
+            if not ct.is_in_vision(adj):
+                continue
+            out_dir = adj.direction_to(pos)
+            if ct.can_build_conveyor(adj, out_dir):
+                ct.build_conveyor(adj, out_dir)
+                return
+
     def _pick_chain_target(self) -> Position | None:
         assert self.core is not None
         farthest: Position | None = None
@@ -206,7 +262,7 @@ class BuilderAgent:
         self.spoke_target = t
         return t
 
-    def _retarget(self, s: ExploreConv | Patrol, pos: Position) -> bool:
+    def _retarget(self, s: ExploreConv | ExploreRoad | Patrol, pos: Position) -> bool:
         if s.target is None:
             return True
         if s.nav.unreachable:
@@ -389,6 +445,8 @@ class BuilderAgent:
                     if self._try_place_harvester(ct, ore):
                         self.harvesters_built += 1
                         ore = self._find_ore(ct)
+                    else:
+                        ore = None
                 if ore and (s.target is None or s.target != ore):
                     s.target = ore
                     s.nav.reset()
@@ -407,8 +465,54 @@ class BuilderAgent:
                     s.nav.reset()
                 if s.target is not None:
                     s.nav.go(ct, s.target, lambda d: step_conv(ct, d))
-                if not ore and s.target is not None and pos == s.target:
-                    self.state = Patrol()
+                if not ore and s.target is not None:
+                    arrived = pos.x == s.target.x and pos.y == s.target.y
+                    unreachable = s.nav.unreachable
+                    if arrived or unreachable:
+                        self.state = ExploreRoad()
+                        return
+
+            case ExploreRoad() as s:
+                ore = self._find_ore(ct)
+                if ore:
+                    anchor = self._nearest_connected(pos) or self.core
+                    assert anchor is not None
+                    self.state = WalkToAnchor(ore=ore, anchor=anchor)
+                    return
+                if self._retarget(s, pos):
+                    if s.target is None:
+                        s.target = self._initial_target(ct)
+                    else:
+                        unv = self._pick_unvisited_target(ct)
+                        s.target = unv or self._pick_explore_target(ct)
+                    s.nav.reset()
+                if s.target is not None:
+                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+
+            case WalkToAnchor() as s:
+                if pos.distance_squared(s.anchor) <= GameConstants.ACTION_RADIUS_SQ:
+                    d = pos.direction_to(s.anchor)
+                    if ct.can_build_conveyor(pos, d):
+                        ct.build_conveyor(pos, d)
+                    self.state = BuildChain(ore=s.ore)
+                    return
+                s.nav.go(ct, s.anchor, lambda d: step_road(ct, d))
+
+            case BuildChain() as s:
+                if pos.distance_squared(s.ore) == 1:
+                    if not self._has_cardinal_conveyor(ct, s.ore):
+                        self._ensure_cardinal_conveyor(ct, pos, s.ore)
+                    elif ct.can_build_harvester(s.ore):
+                        ct.build_harvester(s.ore)
+                        self.harvesters_built += 1
+                        self.state = ExploreRoad()
+                    return
+                ti, _ = ct.get_global_resources()
+                ti_cost, _ = ct.get_harvester_cost()
+                conv_cost, _ = ct.get_conveyor_cost()
+                if ti < ti_cost + conv_cost:
+                    return
+                s.nav.go(ct, s.ore, lambda d: step_conv(ct, d))
 
             case Patrol() as s:
                 dead = self.net.dead_conveyor()
@@ -431,10 +535,13 @@ class BuilderAgent:
 
                 ore = self._find_ore(ct)
                 if ore:
-                    self.state = ExploreConv(target=ore)
+                    anchor = self._nearest_connected(pos) or self.core
+                    assert anchor is not None
+                    self.state = WalkToAnchor(ore=ore, anchor=anchor)
                     s.uneventful = 0
-                elif s.uneventful >= PATROL_IDLE_LIMIT:
-                    self.state = ExploreConv()
+                    return
+                if s.uneventful >= PATROL_IDLE_LIMIT:
+                    self.state = ExploreRoad()
                 elif self._retarget(s, pos):
                     s.uneventful += 1
                     chain_t = self._pick_chain_target()
