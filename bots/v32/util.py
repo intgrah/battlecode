@@ -1,4 +1,3 @@
-import random
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 

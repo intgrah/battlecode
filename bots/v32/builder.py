@@ -99,6 +99,7 @@ class BuilderAgent:
 
     def _try_place_harvester(self, ct: Controller, ore: Position) -> bool:
         my = ct.get_team()
+        has_cardinal_conv = False
         for cd in CARDINALS:
             adj = ore.add(cd)
             if not (0 <= adj.x < self.w and 0 <= adj.y < self.h):
@@ -111,10 +112,24 @@ class BuilderAgent:
                     EntityType.ARMOURED_CONVEYOR,
                     EntityType.SPLITTER,
                 ):
-                    if ct.can_build_harvester(ore):
-                        ct.build_harvester(ore)
-                        return True
-                    return False
+                    has_cardinal_conv = True
+                    break
+        if has_cardinal_conv:
+            if ct.can_build_harvester(ore):
+                ct.build_harvester(ore)
+                return True
+            return False
+        pos = ct.get_position()
+        for cd in CARDINALS:
+            adj = ore.add(cd)
+            if not (0 <= adj.x < self.w and 0 <= adj.y < self.h):
+                continue
+            if pos.distance_squared(adj) > GameConstants.ACTION_RADIUS_SQ:
+                continue
+            d_back = adj.direction_to(ore)
+            if ct.can_build_conveyor(adj, d_back):
+                ct.build_conveyor(adj, d_back)
+                return False
         return False
 
     def _try_build_gunner(self, ct: Controller, near: Position) -> bool:
@@ -340,7 +355,8 @@ class BuilderAgent:
                     f"t{ct.get_current_round()} bot@{pos} FOUND brk@{brk} dist={pos.distance_squared(brk)}\n",
                 )
         if brk:
-            if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+            dist = pos.distance_squared(brk)
+            if dist <= GameConstants.ACTION_RADIUS_SQ:
                 bid = ct.get_tile_building_id(brk)
                 if bid is not None and ct.get_entity_type(bid) in (
                     EntityType.ROAD,
@@ -352,7 +368,10 @@ class BuilderAgent:
                 if ok:
                     ct.build_conveyor(brk, d)
                 ti, _ = ct.get_global_resources()
-                self._emit_debug(ct, "repair", brk=[brk.x, brk.y], built=ok, ti=ti)
+                with (Path(tempfile.gettempdir()) / "v32_debug.txt").open("a") as f:
+                    f.write(
+                        f"t{rnd} bot@{pos} REPAIR brk@{brk} built={ok} ti={ti} d={d}\n",
+                    )
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return

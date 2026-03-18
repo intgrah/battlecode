@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 
 _TRANSPORT = frozenset(
     {
@@ -13,11 +13,13 @@ _CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
 class TileInfo:
-    __slots__ = ("connected", "direction", "flow", "is_dead", "is_splitter")
+    __slots__ = ("connected", "direction", "flow", "flow_ti", "flow_ax", "is_dead", "is_splitter")
 
     def __init__(self) -> None:
         self.connected: bool = False
         self.flow: float = 0.0
+        self.flow_ti: float = 0.0
+        self.flow_ax: float = 0.0
         self.is_splitter: bool = False
         self.is_dead: bool = False
         self.direction: Direction = Direction.CENTRE
@@ -26,7 +28,7 @@ class TileInfo:
 class NetworkBelief:
     def __init__(self) -> None:
         self.tiles: dict[Position, TileInfo] = {}
-        self.known_harvesters: set[Position] = set()
+        self.known_harvesters: dict[Position, bool] = {}
 
     def update(self, ct: Controller, core: Position) -> None:
         my = ct.get_team()
@@ -39,11 +41,12 @@ class NetworkBelief:
             bid = ct.get_tile_building_id(t)
             if bid is None or ct.get_team(bid) != my:
                 self.tiles.pop(t, None)
-                self.known_harvesters.discard(t)
+                self.known_harvesters.pop(t, None)
                 continue
             et = ct.get_entity_type(bid)
             if et == EntityType.HARVESTER:
-                self.known_harvesters.add(t)
+                env = ct.get_tile_env(t)
+                self.known_harvesters[t] = env == Environment.ORE_TITANIUM
                 self.tiles.pop(t, None)
                 continue
             if et not in _TRANSPORT:
@@ -65,6 +68,8 @@ class NetworkBelief:
 
             px, py = t.x, t.y
             while (px, py) not in seen:
+                if not (0 <= px < w and 0 <= py < h):
+                    break
                 seen.add((px, py))
                 p = Position(px, py)
                 chain.append(p)
@@ -100,7 +105,10 @@ class NetworkBelief:
 
         for t, _ in visible_transport:
             info = self.tiles[t]
-            info.flow = self._compute_flow(ct, t, my, w, h, set())
+            total, ti_f, ax_f = self._compute_flow(ct, t, my, w, h, set())
+            info.flow = total
+            info.flow_ti = ti_f
+            info.flow_ax = ax_f
             info.is_dead = info.connected and info.flow == 0.0
 
     def _harvester_outputs(
@@ -133,12 +141,14 @@ class NetworkBelief:
         w: int,
         h: int,
         seen: set[tuple[int, int]],
-    ) -> float:
+    ) -> tuple[float, float, float]:
         if (pos.x, pos.y) in seen:
-            return 0.0
+            return 0.0, 0.0, 0.0
         seen.add((pos.x, pos.y))
 
         total = 0.0
+        ti_total = 0.0
+        ax_total = 0.0
         for dx, dy in _CARDINAL_DELTAS:
             nx, ny = pos.x + dx, pos.y + dy
             if not (0 <= nx < w and 0 <= ny < h):
@@ -146,7 +156,12 @@ class NetworkBelief:
             adj = Position(nx, ny)
             if adj in self.known_harvesters:
                 outputs = self._harvester_outputs(ct, adj, my, w, h)
-                total += 0.25 / outputs
+                contrib = 0.25 / outputs
+                total += contrib
+                if self.known_harvesters[adj]:
+                    ti_total += contrib
+                else:
+                    ax_total += contrib
                 continue
             if ct.is_in_vision(adj):
                 bid = ct.get_tile_building_id(adj)
@@ -155,27 +170,41 @@ class NetworkBelief:
                 et = ct.get_entity_type(bid)
                 if et == EntityType.HARVESTER:
                     outputs = self._harvester_outputs(ct, adj, my, w, h)
-                    total += 0.25 / outputs
+                    contrib = 0.25 / outputs
+                    total += contrib
+                    env = ct.get_tile_env(adj)
+                    if env == Environment.ORE_TITANIUM:
+                        ti_total += contrib
+                    else:
+                        ax_total += contrib
                     continue
                 if et not in _TRANSPORT:
                     continue
                 out_dx, out_dy = ct.get_direction(bid).delta()
                 if nx + out_dx == pos.x and ny + out_dy == pos.y:
-                    upstream = self._compute_flow(ct, adj, my, w, h, seen)
+                    up_t, up_ti, up_ax = self._compute_flow(ct, adj, my, w, h, seen)
                     if et == EntityType.SPLITTER:
-                        upstream /= 3.0
-                    total += upstream
+                        up_t /= 3.0
+                        up_ti /= 3.0
+                        up_ax /= 3.0
+                    total += up_t
+                    ti_total += up_ti
+                    ax_total += up_ax
             else:
                 stored = self.tiles.get(adj)
                 if stored is not None:
                     out_dx, out_dy = stored.direction.delta()
                     if nx + out_dx == pos.x and ny + out_dy == pos.y:
-                        upstream = self._compute_flow(ct, adj, my, w, h, seen)
+                        up_t, up_ti, up_ax = self._compute_flow(ct, adj, my, w, h, seen)
                         if stored.is_splitter:
-                            upstream /= 3.0
-                        total += upstream
+                            up_t /= 3.0
+                            up_ti /= 3.0
+                            up_ax /= 3.0
+                        total += up_t
+                        ti_total += up_ti
+                        ax_total += up_ax
 
-        return total
+        return total, ti_total, ax_total
 
     def get(self, pos: Position) -> TileInfo | None:
         return self.tiles.get(pos)
@@ -254,6 +283,50 @@ class NetworkBelief:
                 return p
         return None
 
+    def foundry_candidate(
+        self, ct: Controller, min_flow: float = 0.25
+    ) -> tuple[Position, Position, Position] | None:
+        ti_tiles = []
+        ax_tiles = []
+        for p, info in self.tiles.items():
+            if not info.connected:
+                continue
+            if info.flow_ti >= min_flow:
+                ti_tiles.append(p)
+            if info.flow_ax >= min_flow:
+                ax_tiles.append(p)
+        best: tuple[Position, Position, Position] | None = None
+        best_dist = 999999
+        for tp in ti_tiles:
+            for ap in ax_tiles:
+                d = tp.distance_squared(ap)
+                if d >= best_dist or d > 9:
+                    continue
+                for dx, dy in _CARDINAL_DELTAS:
+                    fp = Position(tp.x + dx, tp.y + dy)
+                    if not ct.is_in_vision(fp):
+                        continue
+                    bid = ct.get_tile_building_id(fp)
+                    if bid is None and fp.distance_squared(ap) <= 4:
+                        best = (tp, ap, fp)
+                        best_dist = d
+        return best
+
+    def defense_candidate(
+        self, enemy_core: Position, min_flow: float = 0.25
+    ) -> Position | None:
+        best: Position | None = None
+        best_score = -1.0
+        for p, info in self.tiles.items():
+            if not info.connected or info.flow < min_flow:
+                continue
+            enemy_dist = max(p.distance_squared(enemy_core), 1)
+            score = info.flow / enemy_dist
+            if score > best_score:
+                best_score = score
+                best = p
+        return best
+
     def dump(self, path: str, turn: int, bot_id: int, bot_pos: tuple[int, int]) -> None:
         import json
 
@@ -265,6 +338,8 @@ class NetworkBelief:
                 f"{p.x},{p.y}": {
                     "connected": info.connected,
                     "flow": round(info.flow, 3),
+                    "flow_ti": round(info.flow_ti, 3),
+                    "flow_ax": round(info.flow_ax, 3),
                     "is_dead": info.is_dead,
                     "is_splitter": info.is_splitter,
                 }
