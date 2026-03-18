@@ -13,7 +13,15 @@ _CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
 class TileInfo:
-    __slots__ = ("connected", "direction", "flow", "flow_ti", "flow_ax", "is_dead", "is_splitter")
+    __slots__ = (
+        "connected",
+        "direction",
+        "flow",
+        "flow_ax",
+        "flow_ti",
+        "is_dead",
+        "is_splitter",
+    )
 
     def __init__(self) -> None:
         self.connected: bool = False
@@ -284,7 +292,7 @@ class NetworkBelief:
         return None
 
     def foundry_candidate(
-        self, ct: Controller, min_flow: float = 0.25
+        self, ct: Controller, min_flow: float = 0.25,
     ) -> tuple[Position, Position, Position] | None:
         ti_tiles = []
         ax_tiles = []
@@ -313,7 +321,7 @@ class NetworkBelief:
         return best
 
     def defense_candidate(
-        self, enemy_core: Position, min_flow: float = 0.25
+        self, enemy_core: Position, min_flow: float = 0.25,
     ) -> Position | None:
         best: Position | None = None
         best_score = -1.0
