@@ -680,11 +680,10 @@ class BuilderAgent:
             self.has_income = True
         self.last_ti = ti
 
-        # ANTI-CHEESE: defend core - just heal when under attack
+        # ANTI-CHEESE: defend core - heal when under attack
         if self.state not in (RAID,):
             enemy_turret, enemy_builder = self._find_threats_near_core(ct)
             if (enemy_turret or enemy_builder) and pos.distance_squared(self.core) <= 64:
-                # Heal core - this is the best defense against gunner cheese
                 self._try_heal_core(ct)
                 return
 
