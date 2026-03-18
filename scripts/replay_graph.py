@@ -1,3 +1,4 @@
+import math
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -153,7 +154,7 @@ def analyze_graph(g: dict) -> None:
         print(f"  Harvesters: {len(team_harvesters)}")
 
         in_degree = defaultdict(int)
-        for pos, c in team_conveyors.items():
+        for c in team_conveyors.values():
             in_degree[c["output"]] += 1
 
         roots = [pos for pos in team_conveyors if in_degree[pos] == 0]
@@ -217,8 +218,6 @@ def analyze_graph(g: dict) -> None:
                 best_result = result
 
             hops = len(best_path)
-            import math
-
             straight = (
                 math.sqrt((hpos[0] - cp[0]) ** 2 + (hpos[1] - cp[1]) ** 2) if cp else 0
             )

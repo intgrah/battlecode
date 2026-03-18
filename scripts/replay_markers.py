@@ -1,11 +1,13 @@
 """Analyze marker usage: writes, reads, overwrites, destruction."""
 
+import sys
 from collections import defaultdict
+from pathlib import Path
 
-from proto.cambc_pb2 import Replay
+from proto.cambc_pb2 import Entity, Replay
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 

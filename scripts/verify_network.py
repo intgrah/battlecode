@@ -9,6 +9,7 @@ Usage:
     python scripts/verify_network.py replay.replay26 [turn] [team]
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -30,7 +31,7 @@ DIR_DELTA = {
 TRANSPORT = {"conveyor", "armoured_conveyor", "splitter", "bridge"}
 
 
-def build_ground_truth(r, at_turn, team):
+def build_ground_truth(r: Replay, at_turn: int, team: int) -> dict | None:
     """Build the actual conveyor graph at a given turn."""
     alive = {}  # id -> (team, kind, pos, direction)
 
@@ -81,7 +82,7 @@ def build_ground_truth(r, at_turn, team):
             harvesters.append(pos)
 
     # Trace connectivity: for each conveyor, follow output chain to core
-    def is_connected(start) -> bool:
+    def is_connected(start: tuple[int, int]) -> bool:
         cur = start
         seen = set()
         while cur not in seen:
@@ -115,10 +116,8 @@ def build_ground_truth(r, at_turn, team):
     }
 
 
-def extract_bot_beliefs(r, at_turn, team):
+def extract_bot_beliefs(r: Replay, at_turn: int, team: int) -> tuple[dict, dict]:
     """Extract bot beliefs from _dbg JSON in bot_output events."""
-    import json
-
     entities = {}
     bot_positions = {}
 
@@ -138,8 +137,8 @@ def extract_bot_beliefs(r, at_turn, team):
             elif k == "bot_output":
                 bo = u.bot_output
                 if bo.id in entities and entities[bo.id][0] == team:
-                    for line in bo.output.split("\n"):
-                        line = line.strip()
+                    for raw_line in bo.output.split("\n"):
+                        line = raw_line.strip()
                         if line.startswith("{") and '"_dbg"' in line:
                             try:
                                 d = json.loads(line)
@@ -151,7 +150,12 @@ def extract_bot_beliefs(r, at_turn, team):
     return beliefs, bot_positions
 
 
-def render_map(r, gt, at_turn, team, center=None, radius=8):
+def render_map(
+    r: Replay,
+    gt: dict,
+    center: tuple[int, int] | None = None,
+    radius: int = 8,
+) -> str:
     """Render ASCII map showing ground truth connectivity."""
     w, h = r.map.width, r.map.height
 
@@ -214,7 +218,8 @@ def main() -> None:
     team = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 
     r = Replay()
-    r.ParseFromString(Path(path).open("rb").read())
+    with Path(path).open("rb") as f:
+        r.ParseFromString(f.read())
 
     if at_turn is None:
         at_turn = len(r.turns)
@@ -245,7 +250,7 @@ def main() -> None:
     print(
         "=== Map (+ = connected, - = disconnected, X = break, H = harvester, C = core) ===",
     )
-    print(render_map(r, gt, at_turn, team))
+    print(render_map(r, gt))
     print()
 
     # Show disconnected chains

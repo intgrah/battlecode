@@ -3,7 +3,9 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from proto.cambc_pb2 import Replay
+from proto.cambc_pb2 import Entity, Replay
+
+Pos = tuple[int, int]
 
 TEAM = {0: "A", 1: "B"}
 
@@ -21,17 +23,17 @@ DIR_DELTA = {
 
 
 def parse(path: str) -> Replay:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         r = Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def entity_kind(e):
+def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
-def trace(start, convs, cp, team) -> bool:
+def trace(start: Pos, convs: dict[Pos, dict], cp: Pos, team: int) -> bool:
     cur = start
     visited = set()
     for _ in range(200):
@@ -46,7 +48,12 @@ def trace(start, convs, cp, team) -> bool:
     return False
 
 
-def is_connected(hpos, conveyors, core_pos, team) -> bool:
+def is_connected(
+    hpos: Pos,
+    conveyors: dict[Pos, dict],
+    core_pos: dict[int, Pos],
+    team: int,
+) -> bool:
     cp = core_pos.get(team)
     if not cp:
         return False
