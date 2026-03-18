@@ -58,7 +58,6 @@ class BugNav:
         self._line: set[tuple[int, int]] = set()
         self._line_target: tuple[int, int] | None = None
         self._target: tuple[int, int] | None = None
-        self._history: list[tuple[int, int]] = []
 
     def reset(self) -> None:
         self.unreachable = False
@@ -68,7 +67,6 @@ class BugNav:
         self._trace_start = None
         self._trace_steps = 0
         self._line = set()
-        self._history = []
         self._line_target = None
         self._target = None
 
@@ -83,16 +81,6 @@ class BugNav:
 
         if pos.x == tx and pos.y == ty:
             return False
-
-        self._history.append((pos.x, pos.y))
-        if len(self._history) > 16:
-            self._history = self._history[-16:]
-        if len(self._history) >= 8:
-            recent = set(self._history[-8:])
-            if len(recent) <= 4:
-                self.unreachable = True
-                self._tracing = False
-                return False
 
         if self._target != (tx, ty):
             self._target = (tx, ty)
