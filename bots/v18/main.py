@@ -642,11 +642,10 @@ class BuilderAgent:
             return
 
         if self.fortify_state == 1:
-            if self.fortify_conv_pos and self.fortify_conv_dir:
-                if ct.can_build_splitter(self.fortify_conv_pos, self.fortify_conv_dir):
-                    ct.build_splitter(self.fortify_conv_pos, self.fortify_conv_dir)
-                    self.fortify_state = 2
-                    return
+            if self.fortify_conv_pos and self.fortify_conv_dir and ct.can_build_splitter(self.fortify_conv_pos, self.fortify_conv_dir):
+                ct.build_splitter(self.fortify_conv_pos, self.fortify_conv_dir)
+                self.fortify_state = 2
+                return
             # Failed -- rebuild conveyor
             if self.fortify_conv_pos and self.fortify_conv_dir:
                 ct.can_build_conveyor(

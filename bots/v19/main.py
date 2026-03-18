@@ -1,4 +1,5 @@
 import random
+from collections.abc import Callable
 
 from cambc import (
     Controller,

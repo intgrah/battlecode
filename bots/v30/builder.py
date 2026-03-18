@@ -341,7 +341,7 @@ class BuilderAgent:
                         self.net.nearest_connected(pos, max_upstream=4) or self.core
                     )
                     assert anchor is not None
-                    self.state = WalkToAnchor(ore=ore, anchor=anchor)
+                    self.state = ExploreConv()
                     s.idle_turns = 0
                 else:
                     s.idle_turns += 1
@@ -354,9 +354,8 @@ class BuilderAgent:
                         else:
                             s.target = self._pick_explore_target(ct)
                         s.nav.reset()
-                if isinstance(self.state, Patrol):
-                    if s.target is not None:
-                        s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                if isinstance(self.state, Patrol) and s.target is not None:
+                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
 
         self._propose_markers(ct)
         self.writer.flush(ct)
