@@ -171,12 +171,15 @@ class NetworkBelief:
             return out
         return None
 
-    def most_congested(self, threshold: float = 1.0) -> Position | None:
+    def most_congested(self, core: Position, threshold: float = 1.0) -> Position | None:
         best: Position | None = None
-        best_flow = threshold
+        best_dist = -1
         for p, info in self.tiles.items():
-            if info.connected is True and info.flow > best_flow:
-                best_flow = info.flow
+            if not (info.connected is True and info.flow > threshold and not info.is_splitter):
+                continue
+            d = p.distance_squared(core)
+            if d > best_dist:
+                best_dist = d
                 best = p
         return best
 

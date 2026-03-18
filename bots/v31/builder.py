@@ -223,7 +223,7 @@ class BuilderAgent:
                     priority=80,
                 )
 
-        cong = self.net.most_congested()
+        cong = self.net.most_congested(self.core)
         if cong:
             info = self.net.get(cong)
             flow_int = min(15, int(info.flow * 4)) if info else 0
@@ -251,20 +251,6 @@ class BuilderAgent:
 
         pos = ct.get_position()
         my = ct.get_team()
-
-        cong = self.net.most_congested()
-        if cong and pos.distance_squared(cong) <= GameConstants.ACTION_RADIUS_SQ:
-            bid = ct.get_tile_building_id(cong)
-            if bid is not None and ct.get_team(bid) == my:
-                et = ct.get_entity_type(bid)
-                if et in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-                    d = ct.get_direction(bid)
-                    ct.destroy(cong)
-                    if ct.can_build_splitter(cong, d):
-                        ct.build_splitter(cong, d)
-                    self._propose_markers(ct)
-                    self.writer.flush(ct)
-                    return
 
         enemy = self._find_enemy_near_core(ct)
         if enemy and pos.distance_squared(self.core) <= 36:
@@ -337,26 +323,6 @@ class BuilderAgent:
                     s.nav.go(ct, s.target, lambda d: step_road(ct, d))
                     self._propose_markers(ct)
                     self.writer.flush(ct)
-                    return
-
-                cong = self.net.most_congested()
-                if cong and pos.distance_squared(cong) <= GameConstants.ACTION_RADIUS_SQ:
-                    bid = ct.get_tile_building_id(cong)
-                    if bid is not None and ct.get_team(bid) == my:
-                        et = ct.get_entity_type(bid)
-                        if et in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-                            d = ct.get_direction(bid)
-                            ct.destroy(cong)
-                            if ct.can_build_splitter(cong, d):
-                                ct.build_splitter(cong, d)
-                    s.uneventful = 0
-                    return
-
-                if cong:
-                    s.target = cong
-                    s.nav.reset()
-                    s.uneventful = 0
-                    s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
                     return
 
                 dead = self.net.dead_conveyor()
