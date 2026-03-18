@@ -75,7 +75,7 @@ cambc unrated <opponent_team_id>
 
 ## Debugging
 
-* **stdout** (`print()`) is captured and saved to the replay — view it per-unit in the visualiser
+* **stdout** via `print("msg")` is captured and saved to the replay — view it per-unit in the visualiser
 * **stderr** prints to your console in real time
 * Use `c.draw_indicator_line()` and `c.draw_indicator_dot()` to draw debug overlays on the map
 

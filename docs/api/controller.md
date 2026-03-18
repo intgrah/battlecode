@@ -185,7 +185,7 @@ c.get_builder_bot_cost()
 
 ## Building
 
-Every buildable entity has `can_build_*` and `build_*` methods. All require action cooldown == 0 and sufficient resources. The `can_build_*` variants return `bool`; `build_*` raises `GameError` if not legal.
+Every buildable entity has `can_build_*` and `build_*` methods. All require action cooldown == 0 and sufficient resources. The `can_build_*` variants return `bool`; `build_*` returns the new entity's `int` id or raises `GameError` if not legal.
 
 ### Directional buildings
 
@@ -242,6 +242,10 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
   Destroy this unit. Builder bots deal 20 damage to their tile.
 </ResponseField>
 
+<ResponseField name="resign()" type="None">
+  Forfeit the game immediately. Destroys this team's core, ending the game as a loss.
+</ResponseField>
+
 ## Markers
 
 <ResponseField name="place_marker(position: Position, value: int)" type="None">
@@ -276,8 +280,8 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 
 ## Core
 
-<ResponseField name="spawn_builder(position: Position)" type="None">
-  Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown.
+<ResponseField name="spawn_builder(position: Position)" type="int">
+  Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown. Returns the new entity's id.
 </ResponseField>
 
 <ResponseField name="can_spawn(position: Position)" type="bool">
