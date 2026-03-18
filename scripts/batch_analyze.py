@@ -4,7 +4,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from replay_parse import TEAM, collect, parse
+from analysis.constants import TEAM_LABEL
+from analysis.parse import extract_map_meta, parse
+from analysis.scan import scan_replay
 
 
 def main() -> None:
@@ -22,7 +24,7 @@ def main() -> None:
     losses = 0
     our_team = 0
 
-    agg = {
+    agg: dict[str, list] = {
         "ti_collected": [],
         "ax_collected": [],
         "harvesters": [],
@@ -41,14 +43,18 @@ def main() -> None:
         "damage_taken": [],
     }
 
-    opp_agg = {
+    opp_agg: dict[str, list] = {
         "ti_collected": [],
         "harvesters": [],
         "peak_income": [],
     }
 
-    per_opponent = defaultdict(lambda: {"wins": 0, "losses": 0})
-    per_map = defaultdict(lambda: {"wins": 0, "losses": 0})
+    per_opponent: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "losses": 0},
+    )
+    per_map: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "losses": 0},
+    )
 
     for rp in replays:
         name = rp.stem
@@ -57,9 +63,10 @@ def main() -> None:
         map_name = parts[-1]
 
         r = parse(str(rp))
-        s = collect(r)
+        meta = extract_map_meta(r)
+        s = scan_replay(r, meta)
 
-        we_won = s["winner"] == TEAM[our_team]
+        we_won = s.winner == TEAM_LABEL[our_team]
         if we_won:
             wins += 1
             per_opponent[opponent]["wins"] += 1
@@ -71,30 +78,32 @@ def main() -> None:
 
         t = our_team
         e = 1 - t
-        rh = s["resource_history"][t]
+        rh = s.resource_history.get(t, [])
 
         if rh:
-            agg["ti_collected"].append(rh[-1][3])
-            agg["ax_collected"].append(rh[-1][4])
+            agg["ti_collected"].append(rh[-1].titanium_collected)
+            agg["ax_collected"].append(rh[-1].axionite_collected)
 
-        agg["harvesters"].append(s["harvester_count"][t])
-        agg["harvesters_connected"].append(s["harvesters_connected"][t])
-        agg["first_income"].append(s["first_resource_turn"][t] or 9999)
-        agg["self_destructs"].append(s["self_destructs"][t])
-        agg["builder_kills"].append(s["builder_kills"][t])
-        agg["builders_spawned"].append(s["placed"][t].get("builder_bot", 0))
-        agg["moves"].append(s["moves"][t])
-        agg["damage_dealt"].append(s["total_damage"][t])
-        agg["damage_taken"].append(s["total_damage"][e])
+        agg["harvesters"].append(s.harvester_count.get(t, 0))
+        agg["harvesters_connected"].append(s.harvesters_connected.get(t, 0))
+        agg["first_income"].append(s.first_resource_turn.get(t) or 9999)
+        agg["self_destructs"].append(s.self_destructs.get(t, 0))
+        agg["builder_kills"].append(s.builder_kills.get(t, 0))
+        agg["builders_spawned"].append(
+            s.entities_placed.get(t, {}).get("builder_bot", 0),
+        )
+        agg["moves"].append(s.total_moves.get(t, 0))
+        agg["damage_dealt"].append(s.total_damage.get(t, 0))
+        agg["damage_taken"].append(s.total_damage.get(e, 0))
 
         conveyors = sum(
-            s["placed"][t].get(k, 0)
+            s.entities_placed.get(t, {}).get(k, 0)
             for k in ("conveyor", "armoured_conveyor", "splitter", "bridge")
         )
         agg["conveyors"].append(conveyors)
-        agg["roads"].append(s["placed"][t].get("road", 0))
+        agg["roads"].append(s.entities_placed.get(t, {}).get("road", 0))
 
-        ir = s["income_rate"][t]
+        ir = s.income_rate.get(t, [])
         if ir:
             agg["peak_income"].append(max(r for _, r in ir))
             agg["final_income"].append(ir[-1][1])
@@ -102,15 +111,15 @@ def main() -> None:
             agg["peak_income"].append(0)
             agg["final_income"].append(0)
 
-        active = s["builder_presence_turns"][t]
-        idle = s["builder_idle_turns"][t]
+        active = s.builder_presence_turns.get(t, 0)
+        idle = s.builder_idle_turns.get(t, 0)
         agg["idle_pct"].append(100 * idle / max(active, 1))
 
-        rh_e = s["resource_history"][e]
+        rh_e = s.resource_history.get(e, [])
         if rh_e:
-            opp_agg["ti_collected"].append(rh_e[-1][3])
-        opp_agg["harvesters"].append(s["harvester_count"][e])
-        ir_e = s["income_rate"][e]
+            opp_agg["ti_collected"].append(rh_e[-1].titanium_collected)
+        opp_agg["harvesters"].append(s.harvester_count.get(e, 0))
+        ir_e = s.income_rate.get(e, [])
         if ir_e:
             opp_agg["peak_income"].append(max(r for _, r in ir_e))
         else:
@@ -149,48 +158,27 @@ def main() -> None:
     print()
 
     print("=== Our Stats (avg / median) ===")
+    for label, key in [
+        ("Ti collected", "ti_collected"),
+        ("Ax collected", "ax_collected"),
+        ("Harvesters", "harvesters"),
+        ("Harvs connected", "harvesters_connected"),
+        ("Peak income", "peak_income"),
+        ("Final income", "final_income"),
+        ("Builders spawned", "builders_spawned"),
+        ("Builder moves", "moves"),
+        ("Self-destructs", "self_destructs"),
+        ("Builder kills", "builder_kills"),
+        ("Conveyors placed", "conveyors"),
+        ("Roads placed", "roads"),
+        ("Damage dealt", "damage_dealt"),
+        ("Damage taken", "damage_taken"),
+    ]:
+        print(f"  {label + ':':20s} {avg(agg[key]):>8.1f} / {med(agg[key]):>8.0f}")
     print(
-        f"  Ti collected:      {avg(agg['ti_collected']):>8.0f} / {med(agg['ti_collected']):>8.0f}",
+        f"  {'First income:':20s} t{avg(agg['first_income']):>7.0f} / t{med(agg['first_income']):>7.0f}"
     )
-    print(
-        f"  Ax collected:      {avg(agg['ax_collected']):>8.0f} / {med(agg['ax_collected']):>8.0f}",
-    )
-    print(
-        f"  Harvesters:        {avg(agg['harvesters']):>8.1f} / {med(agg['harvesters']):>8.0f}",
-    )
-    print(
-        f"  Harvs connected:   {avg(agg['harvesters_connected']):>8.1f} / {med(agg['harvesters_connected']):>8.0f}",
-    )
-    print(
-        f"  First income:      t{avg(agg['first_income']):>7.0f} / t{med(agg['first_income']):>7.0f}",
-    )
-    print(
-        f"  Peak income:       {avg(agg['peak_income']):>8.1f} / {med(agg['peak_income']):>8.1f}/t",
-    )
-    print(
-        f"  Final income:      {avg(agg['final_income']):>8.1f} / {med(agg['final_income']):>8.1f}/t",
-    )
-    print(
-        f"  Builders spawned:  {avg(agg['builders_spawned']):>8.1f} / {med(agg['builders_spawned']):>8.0f}",
-    )
-    print(f"  Builder moves:     {avg(agg['moves']):>8.0f} / {med(agg['moves']):>8.0f}")
-    print(f"  Builder idle%:     {avg(agg['idle_pct']):>8.1f}%")
-    print(
-        f"  Self-destructs:    {avg(agg['self_destructs']):>8.1f} / {med(agg['self_destructs']):>8.0f}",
-    )
-    print(
-        f"  Builder kills:     {avg(agg['builder_kills']):>8.1f} / {med(agg['builder_kills']):>8.0f}",
-    )
-    print(
-        f"  Conveyors placed:  {avg(agg['conveyors']):>8.0f} / {med(agg['conveyors']):>8.0f}",
-    )
-    print(f"  Roads placed:      {avg(agg['roads']):>8.0f} / {med(agg['roads']):>8.0f}")
-    print(
-        f"  Damage dealt:      {avg(agg['damage_dealt']):>8.0f} / {med(agg['damage_dealt']):>8.0f}",
-    )
-    print(
-        f"  Damage taken:      {avg(agg['damage_taken']):>8.0f} / {med(agg['damage_taken']):>8.0f}",
-    )
+    print(f"  {'Builder idle%:':20s} {avg(agg['idle_pct']):>8.1f}%")
     print()
 
     print("=== Opponent Stats (avg) ===")

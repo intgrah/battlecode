@@ -10,7 +10,8 @@ from cambc.auth import get_token, load_credentials
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from replay_parse import collect, parse
+from analysis.parse import extract_map_meta, parse
+from analysis.scan import scan_replay
 
 
 def fetch_my_matches(
@@ -112,7 +113,8 @@ def analyze_matches(
                 tmp.parent.mkdir(parents=True, exist_ok=True)
                 tmp.write_bytes(replay_data)
                 r = parse(str(tmp))
-                s = collect(r)
+                meta = extract_map_meta(r)
+                s = scan_replay(r, meta)
                 our_team = 0 if we_are_a else 1
                 game_analyses.append(
                     {
@@ -121,7 +123,7 @@ def analyze_matches(
                         "won": g_won,
                         "turns": g.get("turnsPlayed", 0),
                         "condition": condition,
-                        "stats": s,
+                        "scan": s,
                         "our_team": our_team,
                     },
                 )
@@ -177,24 +179,24 @@ def analyze_matches(
     opp_peak_income = []
 
     for ga in game_analyses:
-        s = ga["stats"]
+        s = ga["scan"]
         t = ga["our_team"]
         e = 1 - t
-        rh = s["resource_history"][t]
+        rh = s.resource_history.get(t, [])
         if rh:
-            our_ti.append(rh[-1][3])
-        our_harvesters.append(s["harvester_count"][t])
-        our_first_income.append(s["first_resource_turn"][t] or 9999)
-        ir = s["income_rate"][t]
+            our_ti.append(rh[-1].titanium_collected)
+        our_harvesters.append(s.harvester_count.get(t, 0))
+        our_first_income.append(s.first_resource_turn.get(t) or 9999)
+        ir = s.income_rate.get(t, [])
         if ir:
             our_peak_income.append(max(r for _, r in ir))
-        our_damage.append(s["total_damage"][t])
-        our_builders.append(s["placed"][t].get("builder_bot", 0))
+        our_damage.append(s.total_damage.get(t, 0))
+        our_builders.append(s.entities_placed.get(t, {}).get("builder_bot", 0))
 
-        rh_e = s["resource_history"][e]
+        rh_e = s.resource_history.get(e, [])
         if rh_e:
-            opp_ti.append(rh_e[-1][3])
-        ir_e = s["income_rate"][e]
+            opp_ti.append(rh_e[-1].titanium_collected)
+        ir_e = s.income_rate.get(e, [])
         if ir_e:
             opp_peak_income.append(max(r for _, r in ir_e))
 
@@ -224,18 +226,20 @@ def analyze_matches(
         print("Win vs Loss comparison (our avg):")
         for label, subset in [("  Wins: ", win_analyses), ("  Losses:", loss_analyses)]:
             ti = [
-                ga["stats"]["resource_history"][ga["our_team"]][-1][3]
+                ga["scan"]
+                .resource_history.get(ga["our_team"], [])[-1]
+                .titanium_collected
                 for ga in subset
-                if ga["stats"]["resource_history"][ga["our_team"]]
+                if ga["scan"].resource_history.get(ga["our_team"])
             ]
             pi = []
             for ga in subset:
-                ir = ga["stats"]["income_rate"][ga["our_team"]]
+                ir = ga["scan"].income_rate.get(ga["our_team"], [])
                 if ir:
                     pi.append(max(r for _, r in ir))
-            dmg = [ga["stats"]["total_damage"][ga["our_team"]] for ga in subset]
+            dmg = [ga["scan"].total_damage.get(ga["our_team"], 0) for ga in subset]
             fi = [
-                ga["stats"]["first_resource_turn"][ga["our_team"]] or 9999
+                ga["scan"].first_resource_turn.get(ga["our_team"]) or 9999
                 for ga in subset
             ]
             print(
