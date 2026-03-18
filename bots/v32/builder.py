@@ -257,6 +257,9 @@ class BuilderAgent:
             with open("/tmp/v32_debug.txt", "a") as f:
                 f.write(f"t{ct.get_current_round()} bot@{pos} BREAK@{brk} dist={pos.distance_squared(brk)} can_conv={ct.can_build_conveyor(brk, repair_dir(ct, brk, self.core)) if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ else 'far'}\n")
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+                bid = ct.get_tile_building_id(brk)
+                if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
+                    ct.destroy(brk)
                 d = repair_dir(ct, brk, self.core)
                 built = ct.can_build_conveyor(brk, d)
                 if built:
@@ -271,7 +274,7 @@ class BuilderAgent:
             if isinstance(s, (ExploreConv, Patrol)):
                 s.target = brk
                 s.nav.reset()
-                s.nav.go(ct, brk, lambda d: step_road(ct, d))
+                s.nav.go(ct, brk, lambda d: step_walk(ct, d))
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
