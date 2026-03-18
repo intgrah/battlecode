@@ -13,7 +13,7 @@ _CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
 class TileInfo:
-    __slots__ = ("connected", "flow", "is_splitter", "is_dead")
+    __slots__ = ("connected", "flow", "is_dead", "is_splitter")
 
     def __init__(self) -> None:
         self.connected: bool | None = None
@@ -175,7 +175,11 @@ class NetworkBelief:
         best: Position | None = None
         best_dist = -1
         for p, info in self.tiles.items():
-            if not (info.connected is True and info.flow > threshold and not info.is_splitter):
+            if not (
+                info.connected is True
+                and info.flow > threshold
+                and not info.is_splitter
+            ):
                 continue
             d = p.distance_squared(core)
             if d > best_dist:

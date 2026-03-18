@@ -8,7 +8,6 @@ from marker import BreakAlert, PressureSummary, Threat, Urgency
 from network import NetworkBelief
 from params import (
     DEFENSE_MIN_HARVESTERS,
-    EXPLORE_CONV_CUTOFF,
     PATROL_IDLE_LIMIT,
     REPULSION_JITTER,
 )
@@ -253,19 +252,40 @@ class BuilderAgent:
         pos = ct.get_position()
         my = ct.get_team()
 
+        brk = self.net.find_break(ct, self.core)
+        if brk:
+            with open("/tmp/v32_debug.txt", "a") as f:
+                f.write(f"t{ct.get_current_round()} bot@{pos} BREAK@{brk} dist={pos.distance_squared(brk)} can_conv={ct.can_build_conveyor(brk, repair_dir(ct, brk, self.core)) if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ else 'far'}\n")
+            if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+                d = repair_dir(ct, brk, self.core)
+                built = ct.can_build_conveyor(brk, d)
+                if built:
+                    ct.build_conveyor(brk, d)
+                with open("/tmp/v32_debug.txt", "a") as f:
+                    ti, _ = ct.get_global_resources()
+                    f.write(f"  REPAIR brk={brk} dir={d} built={built} ti={ti} cd={ct.get_action_cooldown()}\n")
+                self._propose_markers(ct)
+                self.writer.flush(ct)
+                return
+            s = self.state
+            if isinstance(s, (ExploreConv, Patrol)):
+                s.target = brk
+                s.nav.reset()
+                s.nav.go(ct, brk, lambda d: step_road(ct, d))
+                self._propose_markers(ct)
+                self.writer.flush(ct)
+                return
+
         enemy = self._find_enemy_near_core(ct)
         if enemy and pos.distance_squared(self.core) <= 36:
-            if pos.distance_squared(enemy) <= GameConstants.ACTION_RADIUS_SQ:
-                bid = ct.get_tile_building_id(enemy)
-                if bid is not None and ct.get_team(bid) != my:
-                    ct.heal(self.core)
-                    return
             s = self.state
             if isinstance(s, (ExploreConv, Patrol)):
                 s.nav.go(ct, enemy, lambda d: step_road(ct, d))
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
+
+        rnd = ct.get_current_round()
 
         match self.state:
             case ExploreConv() as s:
@@ -309,25 +329,11 @@ class BuilderAgent:
                     s.nav.go(ct, s.target, lambda d: step_conv(ct, d))
 
             case Patrol() as s:
-                brk = self.net.find_break(ct, self.core)
-                if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
-                    d = repair_dir(ct, brk, self.core)
-                    if ct.can_build_conveyor(brk, d):
-                        ct.build_conveyor(brk, d)
-                    s.uneventful = 0
-                    return
-
-                if brk:
-                    s.target = brk
-                    s.nav.reset()
-                    s.uneventful = 0
-                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
-                    self._propose_markers(ct)
-                    self.writer.flush(ct)
-                    return
-
                 dead = self.net.dead_conveyor()
-                if dead and pos.distance_squared(dead) <= GameConstants.ACTION_RADIUS_SQ:
+                if (
+                    dead
+                    and pos.distance_squared(dead) <= GameConstants.ACTION_RADIUS_SQ
+                ):
                     ct.destroy(dead)
                     if ct.can_build_road(dead):
                         ct.build_road(dead)
@@ -345,17 +351,16 @@ class BuilderAgent:
                 if ore:
                     self.state = ExploreConv(target=ore)
                     s.uneventful = 0
-                else:
-                    if s.uneventful >= PATROL_IDLE_LIMIT:
-                        self.state = ExploreConv()
-                    elif self._retarget(s, pos):
-                        s.uneventful += 1
-                        chain_t = self._pick_chain_target()
-                        if chain_t:
-                            s.target = chain_t
-                        else:
-                            s.target = self._pick_explore_target(ct)
-                        s.nav.reset()
+                elif s.uneventful >= PATROL_IDLE_LIMIT:
+                    self.state = ExploreConv()
+                elif self._retarget(s, pos):
+                    s.uneventful += 1
+                    chain_t = self._pick_chain_target()
+                    if chain_t:
+                        s.target = chain_t
+                    else:
+                        s.target = self._pick_explore_target(ct)
+                    s.nav.reset()
                 if isinstance(self.state, Patrol):
                     if s.target is not None:
                         s.nav.go(ct, s.target, lambda d: step_walk(ct, d))

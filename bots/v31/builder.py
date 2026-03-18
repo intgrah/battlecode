@@ -326,7 +326,10 @@ class BuilderAgent:
                     return
 
                 dead = self.net.dead_conveyor()
-                if dead and pos.distance_squared(dead) <= GameConstants.ACTION_RADIUS_SQ:
+                if (
+                    dead
+                    and pos.distance_squared(dead) <= GameConstants.ACTION_RADIUS_SQ
+                ):
                     ct.destroy(dead)
                     if ct.can_build_road(dead):
                         ct.build_road(dead)
@@ -344,17 +347,16 @@ class BuilderAgent:
                 if ore:
                     self.state = ExploreConv(target=ore)
                     s.uneventful = 0
-                else:
-                    if s.uneventful >= PATROL_IDLE_LIMIT:
-                        self.state = ExploreConv()
-                    elif self._retarget(s, pos):
-                        s.uneventful += 1
-                        chain_t = self._pick_chain_target()
-                        if chain_t:
-                            s.target = chain_t
-                        else:
-                            s.target = self._pick_explore_target(ct)
-                        s.nav.reset()
+                elif s.uneventful >= PATROL_IDLE_LIMIT:
+                    self.state = ExploreConv()
+                elif self._retarget(s, pos):
+                    s.uneventful += 1
+                    chain_t = self._pick_chain_target()
+                    if chain_t:
+                        s.target = chain_t
+                    else:
+                        s.target = self._pick_explore_target(ct)
+                    s.nav.reset()
                 if isinstance(self.state, Patrol):
                     if s.target is not None:
                         s.nav.go(ct, s.target, lambda d: step_walk(ct, d))

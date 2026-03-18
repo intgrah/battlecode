@@ -13,7 +13,7 @@ _CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
 class TileInfo:
-    __slots__ = ("connected", "flow", "is_splitter", "is_dead")
+    __slots__ = ("connected", "flow", "is_dead", "is_splitter")
 
     def __init__(self) -> None:
         self.connected: bool | None = None
@@ -153,29 +153,46 @@ class NetworkBelief:
     def find_break(self, ct: Controller, core: Position) -> Position | None:
         my = ct.get_team()
         cx, cy = core.x, core.y
+        w, h = ct.get_map_width(), ct.get_map_height()
+        best: Position | None = None
+        best_flow = -1.0
         for t in ct.get_nearby_tiles():
             bid = ct.get_tile_building_id(t)
             if bid is None or ct.get_team(bid) != my:
                 continue
             et = ct.get_entity_type(bid)
-            if et not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+            if et not in (
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+            ):
                 continue
             dx, dy = ct.get_direction(bid).delta()
             out = Position(t.x + dx, t.y + dy)
+            if not (0 <= out.x < w and 0 <= out.y < h):
+                continue
             if not ct.is_in_vision(out):
                 continue
             if ct.get_tile_building_id(out) is not None:
                 continue
             if abs(out.x - cx) <= 1 and abs(out.y - cy) <= 1:
                 continue
-            return out
-        return None
+            info = self.tiles.get(t)
+            flow = info.flow if info else 0.0
+            if flow > best_flow:
+                best_flow = flow
+                best = out
+        return best
 
     def most_congested(self, core: Position, threshold: float = 1.0) -> Position | None:
         best: Position | None = None
         best_dist = -1
         for p, info in self.tiles.items():
-            if not (info.connected is True and info.flow > threshold and not info.is_splitter):
+            if not (
+                info.connected is True
+                and info.flow > threshold
+                and not info.is_splitter
+            ):
                 continue
             d = p.distance_squared(core)
             if d > best_dist:
