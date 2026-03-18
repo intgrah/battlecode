@@ -10,7 +10,6 @@ from comms import MarkerReader, MarkerWriter
 from marker import BreakAlert, PressureSummary, Threat, Urgency
 from network import NetworkBelief
 from params import (
-    DEFENSE_MIN_HARVESTERS,
     PATROL_IDLE_LIMIT,
     REPULSION_JITTER,
 )
@@ -48,8 +47,10 @@ class BuilderAgent:
     def __init__(self) -> None:
         self.core: Position | None = None
         self.enemy_core: Position | None = None
+        self.spoke_target: Position | None = None
         self.w = 0
         self.h = 0
+        self.visited: list[list[bool]] | None = None
         self.net = NetworkBelief()
         self.state: State = ExploreConv()
         self.reader = MarkerReader()
@@ -63,6 +64,7 @@ class BuilderAgent:
             if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == my:
                 self.core = ct.get_position(eid)
                 break
+        self.visited = [[False] * self.h for _ in range(self.w)]
         if self.core is not None:
             self.enemy_core = Position(
                 self.w - 1 - self.core.x,
@@ -94,6 +96,26 @@ class BuilderAgent:
             if ep.distance_squared(self.core) <= 36:
                 return ep
         return None
+
+    def _try_place_harvester(self, ct: Controller, ore: Position) -> bool:
+        my = ct.get_team()
+        for cd in CARDINALS:
+            adj = ore.add(cd)
+            if not (0 <= adj.x < self.w and 0 <= adj.y < self.h):
+                continue
+            bid = ct.get_tile_building_id(adj)
+            if bid is not None and ct.get_team(bid) == my:
+                et = ct.get_entity_type(bid)
+                if et in (
+                    EntityType.CONVEYOR,
+                    EntityType.ARMOURED_CONVEYOR,
+                    EntityType.SPLITTER,
+                ):
+                    if ct.can_build_harvester(ore):
+                        ct.build_harvester(ore)
+                        return True
+                    return False
+        return False
 
     def _try_build_gunner(self, ct: Controller, near: Position) -> bool:
         assert self.enemy_core is not None
@@ -128,6 +150,22 @@ class BuilderAgent:
                 best = p
         return best
 
+    def _pick_unvisited_target(self, ct: Controller) -> Position | None:
+        if self.visited is None:
+            return None
+        pos = ct.get_position()
+        best: Position | None = None
+        best_dist = 999999
+        step = 3
+        for x in range(0, self.w, step):
+            for y in range(0, self.h, step):
+                if not self.visited[x][y]:
+                    d = (pos.x - x) ** 2 + (pos.y - y) ** 2
+                    if d < best_dist:
+                        best_dist = d
+                        best = Position(x, y)
+        return best
+
     def _pick_explore_target(self, ct: Controller) -> Position:
         pos = ct.get_position()
         my = ct.get_team()
@@ -160,10 +198,12 @@ class BuilderAgent:
         pos = ct.get_position()
         d = self.core.direction_to(pos)
         dx, dy = d.delta()
-        return Position(
+        t = Position(
             max(0, min(self.w - 1, pos.x + dx * self.w)),
             max(0, min(self.h - 1, pos.y + dy * self.h)),
         )
+        self.spoke_target = t
+        return t
 
     def _retarget(self, s: ExploreConv | Patrol, pos: Position) -> bool:
         if s.target is None:
@@ -282,6 +322,9 @@ class BuilderAgent:
 
         self.net.update(ct, self.core)
         self.reader.scan(ct)
+        if self.visited is not None:
+            for t in ct.get_nearby_tiles():
+                self.visited[t.x][t.y] = True
 
         pos = ct.get_position()
         my = ct.get_team()
@@ -338,42 +381,25 @@ class BuilderAgent:
             case ExploreConv() as s:
                 ore = self._find_ore(ct)
                 if ore and pos.distance_squared(ore) <= GameConstants.ACTION_RADIUS_SQ:
-                    has_cardinal_conv = False
-                    my = ct.get_team()
-                    for cd in CARDINALS:
-                        adj = ore.add(cd)
-                        if not (0 <= adj.x < self.w and 0 <= adj.y < self.h):
-                            continue
-                        bid = ct.get_tile_building_id(adj)
-                        if bid is not None and ct.get_team(bid) == my:
-                            et = ct.get_entity_type(bid)
-                            if et in (
-                                EntityType.CONVEYOR,
-                                EntityType.ARMOURED_CONVEYOR,
-                                EntityType.SPLITTER,
-                            ):
-                                has_cardinal_conv = True
-                                break
-                    can = ct.can_build_harvester(ore)
-                    if has_cardinal_conv and can:
-                        ct.build_harvester(ore)
+                    if self._try_place_harvester(ct, ore):
                         self.harvesters_built += 1
-                        if self.harvesters_built >= DEFENSE_MIN_HARVESTERS:
-                            self._try_build_gunner(ct, self.core)
                         return
-                    if pos.distance_squared(ore) == 1:
+                    if pos.distance_squared(ore) <= 2:
                         return
-                if ore:
+                if ore and (s.target is None or s.target != ore):
                     s.target = ore
                     s.nav.reset()
-                elif self._retarget(s, pos):
+                elif not ore and self._retarget(s, pos):
                     if s.target is None:
                         s.target = self._initial_target(ct)
                     else:
-                        s.target = self._pick_explore_target(ct)
+                        unv = self._pick_unvisited_target(ct)
+                        s.target = unv or self._pick_explore_target(ct)
                     s.nav.reset()
                 if s.target is not None:
                     s.nav.go(ct, s.target, lambda d: step_conv(ct, d))
+                if not ore and s.target is not None and pos == s.target:
+                    self.state = Patrol()
 
             case Patrol() as s:
                 dead = self.net.dead_conveyor()

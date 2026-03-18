@@ -85,6 +85,17 @@ def build_state_at_turn(r, at_turn, team):
             cur = graph[cur]["out"]
         return False
 
+    harvester_set = set(tuple(h) for h in harvesters)
+    all_buildings = set(graph.keys()) | harvester_set | core_tiles
+
+    def harvester_output_count(hpos):
+        count = 0
+        for dx, dy in CARDINAL_DELTAS:
+            adj = (hpos[0] + dx, hpos[1] + dy)
+            if adj in all_buildings:
+                count += 1
+        return max(count, 1)
+
     def count_upstream(pos, seen=None):
         if seen is None:
             seen = set()
@@ -94,8 +105,8 @@ def build_state_at_turn(r, at_turn, team):
         total = 0.0
         for dx, dy in CARDINAL_DELTAS:
             adj = (pos[0] + dx, pos[1] + dy)
-            if adj in [tuple(h) for h in harvesters]:
-                total += 0.25
+            if adj in harvester_set:
+                total += 0.25 / harvester_output_count(adj)
             if adj in graph:
                 info = graph[adj]
                 if info["out"] == pos:
