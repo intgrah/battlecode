@@ -292,7 +292,9 @@ class NetworkBelief:
         return None
 
     def foundry_candidate(
-        self, ct: Controller, min_flow: float = 0.25,
+        self,
+        ct: Controller,
+        min_flow: float = 0.25,
     ) -> tuple[Position, Position, Position] | None:
         ti_tiles = []
         ax_tiles = []
@@ -321,7 +323,9 @@ class NetworkBelief:
         return best
 
     def defense_candidate(
-        self, enemy_core: Position, min_flow: float = 0.25,
+        self,
+        enemy_core: Position,
+        min_flow: float = 0.25,
     ) -> Position | None:
         best: Position | None = None
         best_score = -1.0
