@@ -77,19 +77,14 @@ def step_conv(ct: Controller, d: Direction) -> bool:
     if wall(ct, nxt):
         return False
     if not ore_env(ct, nxt):
-        ti, _ = ct.get_global_resources()
-        ti_cost, _ = ct.get_harvester_cost()
-        conv_cost, _ = ct.get_conveyor_cost()
-        can_afford = ti >= ti_cost + conv_cost
         bid = ct.get_tile_building_id(nxt)
         if (
-            can_afford
-            and bid is not None
+            bid is not None
             and ct.get_entity_type(bid) == EntityType.ROAD
             and ct.get_team(bid) == ct.get_team()
         ):
             ct.destroy(nxt)
-        if can_afford and ct.can_build_conveyor(nxt, d.opposite()):
+        if ct.can_build_conveyor(nxt, d.opposite()):
             ct.build_conveyor(nxt, d.opposite())
     if ct.can_move(d):
         ct.move(d)
