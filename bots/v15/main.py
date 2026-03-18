@@ -1,4 +1,5 @@
 import random
+from collections.abc import Callable
 
 from cambc import (
     Controller,
@@ -6,6 +7,7 @@ from cambc import (
     EntityType,
     Environment,
     GameConstants,
+    GameError,
     Position,
 )
 
@@ -183,7 +185,9 @@ class BugNav:
     def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct: Controller, target: Position, step_fn) -> bool:
+    def go(
+        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool],
+    ) -> bool:
         pos = ct.get_position()
         d = toward(pos, target)
         dist = pos.distance_squared(target)
@@ -218,7 +222,7 @@ class BugNav:
         return False
 
 
-def step_conv(ct: Controller, d: Direction, core: Position) -> bool:
+def step_conv(ct: Controller, d: Direction) -> bool:
     nxt = ct.get_position().add(d)
     if wall(ct, nxt):
         return False
@@ -484,7 +488,7 @@ class BuilderAgent:
     ) -> None:
         if action == "seek_ore" and target and self.core:
             self.idle_turns = 0
-            self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
+            self.nav.go(ct, target, lambda d: step_conv(ct, d))
             return
 
         if action == "repair" and target and self.core:
@@ -496,7 +500,7 @@ class BuilderAgent:
                     ct.build_conveyor(target, best_dir)
                     self.target = None
                     return
-            self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
+            self.nav.go(ct, target, lambda d: step_conv(ct, d))
             return
 
         if action == "raid" and target:
@@ -516,7 +520,7 @@ class BuilderAgent:
             return
 
         if action == "explore" and target and self.core:
-            moved = self.nav.go(ct, target, lambda d: step_conv(ct, d, self.core))
+            moved = self.nav.go(ct, target, lambda d: step_conv(ct, d))
             if not moved:
                 self.idle_turns += 1
             else:
@@ -535,7 +539,7 @@ class TurretUnit:
             target = ct.get_gunner_target()
             if target and ct.can_fire(target):
                 ct.fire(target)
-        except Exception:
+        except GameError:
             pass
 
 

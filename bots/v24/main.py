@@ -1,6 +1,6 @@
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position, Team
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
@@ -83,7 +83,7 @@ def nearest_ore(ct: Controller) -> Position | None:
     return best
 
 
-def in_degree(ct: Controller, pos: Position, my_team) -> int:
+def in_degree(ct: Controller, pos: Position, my_team: Team) -> int:
     count = 0
     for eid in ct.get_nearby_entities():
         if ct.get_team(eid) == my_team:
@@ -125,7 +125,7 @@ def bugnav_step(
         state["stuck"] = 0
 
     if not state.get("wall_following"):
-        if _try_step(ct, d, core_pos, skip_ore):
+        if _try_step(ct, d, core_pos, skip_ore=skip_ore):
             state["closest"] = min(state.get("closest", 999999), dist)
             return True
         state["wall_following"] = True
@@ -135,7 +135,7 @@ def bugnav_step(
     scan = d
     side = state.get("wall_side", 1)
     for _ in range(8):
-        if _try_step(ct, scan, core_pos, skip_ore):
+        if _try_step(ct, scan, core_pos, skip_ore=skip_ore):
             new_dist = ct.get_position().distance_squared(target)
             if new_dist < state.get("closest", 999999):
                 state["wall_following"] = False
@@ -150,6 +150,7 @@ def _try_step(
     ct: Controller,
     d: Direction,
     core_pos: Position | None,
+    *,
     skip_ore: bool = False,
 ) -> bool:
     pos = ct.get_position()
@@ -368,7 +369,7 @@ class BuilderBot:
                 skip_ore=skip,
             )
 
-    def _find_active_target(self, ct: Controller, my_team) -> Position | None:
+    def _find_active_target(self, ct: Controller, my_team: Team) -> Position | None:
         best = None
         best_core_dist = 999999
         for eid in ct.get_nearby_entities():
@@ -388,7 +389,7 @@ class BuilderBot:
                 best = ep
         return best
 
-    def _find_any_infra(self, ct: Controller, my_team) -> Position | None:
+    def _find_any_infra(self, ct: Controller, my_team: Team) -> Position | None:
         best = None
         best_core_dist = 999999
         for eid in ct.get_nearby_entities():

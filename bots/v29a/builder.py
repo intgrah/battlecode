@@ -12,7 +12,7 @@ from params import (
     PRESSURE_HIGH,
     REPULSION_JITTER,
 )
-from util import DIRS, ore_env, step_conv, step_road
+from util import DIRS, ore_env, repair_dir, step_conv, step_road
 
 _TRANSPORT = frozenset(
     {
@@ -447,8 +447,6 @@ class BuilderAgent:
             case Patrol() as s:
                 brk = self._find_break(ct)
                 if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
-                    from util import repair_dir
-
                     assert self.core is not None
                     d = repair_dir(ct, brk, self.core)
                     if ct.can_build_conveyor(brk, d):
@@ -492,9 +490,8 @@ class BuilderAgent:
                         else:
                             s.target = self._pick_explore_target(ct)
                         s.nav.reset()
-                if isinstance(self.state, Patrol):
-                    if s.target is not None:
-                        s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                if isinstance(self.state, Patrol) and s.target is not None:
+                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
 
         self._propose_markers(ct, pressure)
         self.writer.flush(ct)
