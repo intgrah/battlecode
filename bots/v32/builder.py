@@ -253,11 +253,15 @@ class BuilderAgent:
         my = ct.get_team()
 
         brk = self.net.find_break(ct, self.core)
-        if brk is None and ct.is_in_vision(Position(11, 20)):
+        if brk is None and ct.get_current_round() > 100 and ct.is_in_vision(Position(11, 20)):
             bid_at = ct.get_tile_building_id(Position(11, 20))
             if bid_at is None:
+                upstream = Position(11, 21)
+                ubid = ct.get_tile_building_id(upstream) if ct.is_in_vision(upstream) else None
+                utype = ct.get_entity_type(ubid) if ubid else None
+                udir = ct.get_direction(ubid) if ubid and utype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER) else None
                 with open("/tmp/v32_debug.txt", "a") as f:
-                    f.write(f"t{ct.get_current_round()} bot@{pos} MISS: (11,20) empty+visible but find_break=None\n")
+                    f.write(f"t{ct.get_current_round()} bot@{pos} MISS: (11,20) empty. upstream(11,21) bid={ubid} type={utype} dir={udir}\n")
         if brk:
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
                 bid = ct.get_tile_building_id(brk)
