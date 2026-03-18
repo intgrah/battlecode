@@ -98,6 +98,10 @@ class Player:
   <Accordion title="Time limit">
     Each unit gets **2ms of CPU time** per round, plus a 5% buffer that refills when you use less. Locally there are no time limits — use remote test runs to check performance on the actual hardware.
   </Accordion>
+
+  <Accordion title="No external packages">
+    Only Python standard library modules are available. External packages like `numpy` or `scipy` cannot be imported — bots run in a sandboxed environment with no `pip install`.
+  </Accordion>
 </AccordionGroup>
 
 ## Next steps

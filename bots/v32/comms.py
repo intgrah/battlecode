@@ -70,6 +70,9 @@ class MarkerWriter:
             self._pending = (pos, encoded, priority)
 
     def _safe_to_mark(self, ct: Controller, pos: Position) -> bool:
+        w, h = ct.get_map_width(), ct.get_map_height()
+        if not (0 <= pos.x < w and 0 <= pos.y < h):
+            return False
         bid = ct.get_tile_building_id(pos)
         if bid is None:
             return ct.can_place_marker(pos)
