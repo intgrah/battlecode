@@ -8,7 +8,6 @@ from cambc.api import api_get
 from cambc.auth import get_token, load_credentials
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "proto"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from replay_parse import collect, parse

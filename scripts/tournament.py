@@ -10,14 +10,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-sys.path.insert(0, str(ROOT / "proto"))
-from cambc_pb2 import Replay
+from proto.cambc_pb2 import Replay
 
 BOTS_DIR = ROOT / "bots"
 MAPS_DIR = ROOT / "maps"
 RESULTS_DIR = ROOT / "results"
-
-sys.path.insert(0, str(ROOT / "proto"))
 
 
 def versioned_bots() -> list[tuple[int, Path]]:

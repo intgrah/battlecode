@@ -8,8 +8,6 @@ from cambc.auth import get_token
 
 ROOT = Path(__file__).resolve().parent.parent
 
-sys.path.insert(0, str(ROOT / "proto"))
-
 
 def download_match(match_id: str, out_dir: Path) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)

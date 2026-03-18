@@ -1,3 +1,5 @@
+import sys
+
 from proto.cambc_pb2 import Replay
 
 DD = {
