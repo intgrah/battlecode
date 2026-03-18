@@ -23,25 +23,17 @@ Options:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import contextlib
 
-from proto.cambc_pb2 import (
-    BotOutput,
-    Entity,
-    FireTurret,
-    MoveBuilderBot,
-    Players,
-    RemoveEntity,
-    Replay,
-    UpdateHp,
-)
+from analysis.parse import parse as parse_replay
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -137,7 +129,7 @@ def _decode_marker(encrypted: int) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def _entity_kind(e: Entity) -> str:
+def _entity_kind(e: object) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
@@ -191,7 +183,7 @@ class TurnState:
 
 
 class ReplayDebugger:
-    def __init__(self, replay: Replay) -> None:
+    def __init__(self, replay: object) -> None:
         self.replay = replay
         self.w = replay.map.width
         self.h = replay.map.height
@@ -256,7 +248,7 @@ class ReplayDebugger:
 
     # --- Update handlers ---
 
-    def _handle_place(self, turn: int, entity: Entity) -> None:
+    def _handle_place(self, turn: int, entity: object) -> None:
         e = entity
         ek = _entity_kind(e)
         pos = (e.position.x, e.position.y)
@@ -346,7 +338,7 @@ class ReplayDebugger:
         if ek in CONVEYOR_KINDS:
             self._conveyor_chains[e.team].add(pos)
 
-    def _handle_move(self, _turn: int, mb: MoveBuilderBot) -> None:
+    def _handle_move(self, _turn: int, mb: object) -> None:
         eid = mb.id
         new_pos = (mb.to.x, mb.to.y)
         if eid in self.entities:
@@ -354,7 +346,7 @@ class ReplayDebugger:
         self._acted.add(eid)
         self._idle_streak[eid] = 0
 
-    def _handle_remove(self, turn: int, rm: RemoveEntity) -> None:
+    def _handle_remove(self, turn: int, rm: object) -> None:
         eid = rm.id
         info = self.entities.pop(eid, None)
         if info is None:
@@ -421,7 +413,7 @@ class ReplayDebugger:
                 ),
             )
 
-    def _handle_hp(self, turn: int, hp_update: UpdateHp) -> None:
+    def _handle_hp(self, turn: int, hp_update: object) -> None:
         eid = hp_update.id
         delta = hp_update.delta
         info = self.entities.get(eid)
@@ -464,9 +456,8 @@ class ReplayDebugger:
             ax_collected=dict(self.resources.ax_collected),
         )
 
-    def _handle_resources(self, turn: int, players: Players) -> None:
+    def _handle_resources(self, turn: int, players: object) -> None:
         for t, p in ((0, players.a), (1, players.b)):
-            (self.resources.ti_collected[t] + self.resources.ax_collected[t])
             new_collected = p.titanium_collected + p.axionite_collected
 
             self.resources.ti[t] = p.titanium
@@ -513,7 +504,7 @@ class ReplayDebugger:
 
                     self._prev_income[t] = rate
 
-    def _handle_fire(self, turn: int, fire: FireTurret) -> None:
+    def _handle_fire(self, turn: int, fire: object) -> None:
         f_from = getattr(fire, "from")
         from_pos = (f_from.x, f_from.y)
         to_pos = (fire.to.x, fire.to.y)
@@ -541,7 +532,7 @@ class ReplayDebugger:
             ),
         )
 
-    def _handle_bot_output(self, turn: int, bo: BotOutput) -> None:
+    def _handle_bot_output(self, turn: int, bo: object) -> None:
         info = BotDebugInfo(raw=bo.stdout)
 
         # Try to parse structured debug JSON from stdout
@@ -902,13 +893,6 @@ def _identify_phases(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-
-
-def parse_replay(path: str) -> Replay:
-    with Path(path).open("rb") as f:
-        r = Replay()
-        r.ParseFromString(f.read())
-        return r
 
 
 def main() -> None:

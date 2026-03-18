@@ -32,6 +32,12 @@ combat replay="replay.replay26":
 bots replay="replay.replay26":
     {{_analysis}} ../{{replay}} -s bots
 
+compare replay="replay.replay26":
+    {{_analysis}} ../{{replay}} -s compare
+
+full replay="replay.replay26":
+    python scripts/replay_full.py {{replay}}
+
 debug replay="replay.replay26" *args="":
     python scripts/replay_debug.py {{replay}} {{args}}
 
