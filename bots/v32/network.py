@@ -104,7 +104,12 @@ class NetworkBelief:
             info.is_dead = info.connected and info.flow == 0.0
 
     def _harvester_outputs(
-        self, ct: Controller, hpos: Position, my: int, w: int, h: int
+        self,
+        ct: Controller,
+        hpos: Position,
+        my: int,
+        w: int,
+        h: int,
     ) -> int:
         count = 0
         for dx, dy in _CARDINAL_DELTAS:

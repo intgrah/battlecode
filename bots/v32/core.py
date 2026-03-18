@@ -44,31 +44,19 @@ class CoreBot:
             return
 
         my = ct.get_team()
-        for eid in ct.get_nearby_entities():
-            if ct.get_team(eid) == my:
-                continue
-            et = ct.get_entity_type(eid)
-            if et in (
-                EntityType.BUILDER_BOT,
-                EntityType.GUNNER,
-                EntityType.SENTINEL,
-                EntityType.BREACH,
-            ):
-                spawned = self._try_spawn_toward(ct, ct.get_position(eid))
-                if spawned:
-                    print(
-                        json.dumps(
-                            {
-                                "_dbg": True,
-                                "unit": "core",
-                                "action": "spawn_defense",
-                                "spawned": self.spawned,
-                                "ti": ti,
-                            },
-                            separators=(",", ":"),
-                        ),
-                    )
-                return
+        if self.spawned < 12:
+            for eid in ct.get_nearby_entities():
+                if ct.get_team(eid) == my:
+                    continue
+                et = ct.get_entity_type(eid)
+                if et in (
+                    EntityType.BUILDER_BOT,
+                    EntityType.GUNNER,
+                    EntityType.SENTINEL,
+                    EntityType.BREACH,
+                ):
+                    self._try_spawn_toward(ct, ct.get_position(eid))
+                    return
 
         if self.spawned < 4:
             if self._try_spawn(ct):

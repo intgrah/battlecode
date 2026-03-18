@@ -69,7 +69,7 @@ def step_conv(ct: Controller, d: Direction) -> bool:
     if _is_diagonal(d):
         dx, dy = d.delta()
         pair = [_DELTA_TO_DIR[(dx, 0)], _DELTA_TO_DIR[(0, dy)]]
-        if random.random() < 0.5:
+        if ct.get_current_round() % 2 == 0:
             pair.reverse()
         return any(step_conv(ct, cd) for cd in pair)
     pos = ct.get_position()
