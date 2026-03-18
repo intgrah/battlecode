@@ -160,7 +160,10 @@ def bugnav_road(ct: Controller, target: Position, state: dict) -> bool:
 
 
 def _bugnav(
-    ct: Controller, target: Position, state: dict, step_fn: Callable[[Direction], bool],
+    ct: Controller,
+    target: Position,
+    state: dict,
+    step_fn: Callable[[Direction], bool],
 ) -> bool:
     pos = ct.get_position()
     d = toward(pos, target)
