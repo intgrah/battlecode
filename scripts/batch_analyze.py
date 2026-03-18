@@ -176,7 +176,7 @@ def main() -> None:
     ]:
         print(f"  {label + ':':20s} {avg(agg[key]):>8.1f} / {med(agg[key]):>8.0f}")
     print(
-        f"  {'First income:':20s} t{avg(agg['first_income']):>7.0f} / t{med(agg['first_income']):>7.0f}"
+        f"  {'First income:':20s} t{avg(agg['first_income']):>7.0f} / t{med(agg['first_income']):>7.0f}",
     )
     print(f"  {'Builder idle%:':20s} {avg(agg['idle_pct']):>8.1f}%")
     print()

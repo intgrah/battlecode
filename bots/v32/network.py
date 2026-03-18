@@ -1,4 +1,4 @@
-from cambc import Controller, EntityType, Position
+from cambc import Controller, Direction, EntityType, Position
 
 _TRANSPORT = frozenset(
     {
@@ -13,18 +13,20 @@ _CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
 class TileInfo:
-    __slots__ = ("connected", "flow", "is_dead", "is_splitter")
+    __slots__ = ("connected", "direction", "flow", "is_dead", "is_splitter")
 
     def __init__(self) -> None:
-        self.connected: bool | None = None
+        self.connected: bool = False
         self.flow: float = 0.0
         self.is_splitter: bool = False
         self.is_dead: bool = False
+        self.direction: Direction = Direction.CENTRE
 
 
 class NetworkBelief:
     def __init__(self) -> None:
         self.tiles: dict[Position, TileInfo] = {}
+        self.known_harvesters: set[Position] = set()
 
     def update(self, ct: Controller, core: Position) -> None:
         my = ct.get_team()
@@ -37,8 +39,13 @@ class NetworkBelief:
             bid = ct.get_tile_building_id(t)
             if bid is None or ct.get_team(bid) != my:
                 self.tiles.pop(t, None)
+                self.known_harvesters.discard(t)
                 continue
             et = ct.get_entity_type(bid)
+            if et == EntityType.HARVESTER:
+                self.known_harvesters.add(t)
+                self.tiles.pop(t, None)
+                continue
             if et not in _TRANSPORT:
                 self.tiles.pop(t, None)
                 continue
@@ -47,13 +54,14 @@ class NetworkBelief:
                 info = TileInfo()
                 self.tiles[t] = info
             info.is_splitter = et == EntityType.SPLITTER
+            info.direction = ct.get_direction(bid)
             visible_transport.append((t, bid))
 
         for t, _ in visible_transport:
             info = self.tiles[t]
             seen: set[tuple[int, int]] = set()
             chain: list[Position] = []
-            result: bool | None = None
+            result: bool = False
 
             px, py = t.x, t.y
             while (px, py) not in seen:
@@ -63,29 +71,37 @@ class NetworkBelief:
                 if abs(px - cx) <= 1 and abs(py - cy) <= 1:
                     result = True
                     break
-                if not ct.is_in_vision(p):
-                    break
-                b = ct.get_tile_building_id(p)
-                if b is None or ct.get_team(b) != my:
-                    result = False
-                    break
-                bt = ct.get_entity_type(b)
-                if bt not in _TRANSPORT:
-                    result = False
-                    break
-                dx, dy = ct.get_direction(b).delta()
-                px, py = px + dx, py + dy
+                if ct.is_in_vision(p):
+                    b = ct.get_tile_building_id(p)
+                    if b is None or ct.get_team(b) != my:
+                        result = False
+                        break
+                    bt = ct.get_entity_type(b)
+                    if bt not in _TRANSPORT:
+                        result = False
+                        break
+                    dx, dy = ct.get_direction(b).delta()
+                    px, py = px + dx, py + dy
+                else:
+                    stored = self.tiles.get(p)
+                    if stored is not None and stored.connected:
+                        result = True
+                        break
+                    if stored is not None and stored.direction != Direction.CENTRE:
+                        dx, dy = stored.direction.delta()
+                        px, py = px + dx, py + dy
+                    else:
+                        break
 
-            if result is not None:
-                for p in chain:
-                    ti = self.tiles.get(p)
-                    if ti is not None:
-                        ti.connected = result
+            for p in chain:
+                ti = self.tiles.get(p)
+                if ti is not None:
+                    ti.connected = result
 
         for t, _ in visible_transport:
             info = self.tiles[t]
             info.flow = self._compute_flow(ct, t, my, w, h, set())
-            info.is_dead = info.connected is True and info.flow == 0.0
+            info.is_dead = info.connected and info.flow == 0.0
 
     def _compute_flow(
         self,
@@ -106,23 +122,34 @@ class NetworkBelief:
             if not (0 <= nx < w and 0 <= ny < h):
                 continue
             adj = Position(nx, ny)
-            if not ct.is_in_vision(adj):
-                continue
-            bid = ct.get_tile_building_id(adj)
-            if bid is None or ct.get_team(bid) != my:
-                continue
-            et = ct.get_entity_type(bid)
-            if et == EntityType.HARVESTER:
+            if adj in self.known_harvesters:
                 total += 0.25
                 continue
-            if et not in _TRANSPORT:
-                continue
-            out_dx, out_dy = ct.get_direction(bid).delta()
-            if nx + out_dx == pos.x and ny + out_dy == pos.y:
-                upstream = self._compute_flow(ct, adj, my, w, h, seen)
-                if et == EntityType.SPLITTER:
-                    upstream /= 3.0
-                total += upstream
+            if ct.is_in_vision(adj):
+                bid = ct.get_tile_building_id(adj)
+                if bid is None or ct.get_team(bid) != my:
+                    continue
+                et = ct.get_entity_type(bid)
+                if et == EntityType.HARVESTER:
+                    total += 0.25
+                    continue
+                if et not in _TRANSPORT:
+                    continue
+                out_dx, out_dy = ct.get_direction(bid).delta()
+                if nx + out_dx == pos.x and ny + out_dy == pos.y:
+                    upstream = self._compute_flow(ct, adj, my, w, h, seen)
+                    if et == EntityType.SPLITTER:
+                        upstream /= 3.0
+                    total += upstream
+            else:
+                stored = self.tiles.get(adj)
+                if stored is not None:
+                    out_dx, out_dy = stored.direction.delta()
+                    if nx + out_dx == pos.x and ny + out_dy == pos.y:
+                        upstream = self._compute_flow(ct, adj, my, w, h, seen)
+                        if stored.is_splitter:
+                            upstream /= 3.0
+                        total += upstream
 
         return total
 
@@ -130,7 +157,7 @@ class NetworkBelief:
         return self.tiles.get(pos)
 
     def connected_tiles(self) -> list[Position]:
-        return [p for p, info in self.tiles.items() if info.connected is True]
+        return [p for p, info in self.tiles.items() if info.connected]
 
     def nearest_connected(
         self,
@@ -140,7 +167,7 @@ class NetworkBelief:
         best: Position | None = None
         best_dist = 999999
         for p, info in self.tiles.items():
-            if info.connected is not True:
+            if not info.connected:
                 continue
             if info.flow > max_flow:
                 continue
@@ -189,11 +216,7 @@ class NetworkBelief:
         best: Position | None = None
         best_dist = -1
         for p, info in self.tiles.items():
-            if not (
-                info.connected is True
-                and info.flow > threshold
-                and not info.is_splitter
-            ):
+            if not (info.connected and info.flow > threshold and not info.is_splitter):
                 continue
             d = p.distance_squared(core)
             if d > best_dist:
@@ -209,6 +232,7 @@ class NetworkBelief:
 
     def dump(self, path: str, turn: int, bot_id: int, bot_pos: tuple[int, int]) -> None:
         import json
+
         entry = {
             "turn": turn,
             "bot_id": bot_id,
