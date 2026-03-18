@@ -213,7 +213,11 @@ def analyze_builders(r: Replay) -> None:
 
 def main() -> None:
     path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
-    analyze_builders(parse(path))
+    max_turns = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    r = parse(path)
+    if max_turns is not None:
+        del r.turns[max_turns:]
+    analyze_builders(r)
 
 
 if __name__ == "__main__":

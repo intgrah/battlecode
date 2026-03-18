@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .types import MapMeta
 
+
 def parse(path: str) -> object:
     from proto.cambc_pb2 import Replay
 
