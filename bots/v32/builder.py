@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from bugnav import BugNav
-from cambc import Controller, Direction, EntityType, GameConstants, Position
+from cambc import Controller, EntityType, GameConstants, Position
 from comms import MarkerReader, MarkerWriter
 from marker import BreakAlert, PressureSummary, Threat, Urgency
 from network import NetworkBelief
@@ -282,6 +282,10 @@ class BuilderAgent:
 
         pos = ct.get_position()
         my = ct.get_team()
+        rnd = ct.get_current_round()
+
+        if rnd % 50 == 0:
+            self.net.dump("/tmp/v32_belief.jsonl", rnd, ct.get_id(), (pos.x, pos.y))
 
         brk = self.net.find_break(ct, self.core)
         if brk:
@@ -366,14 +370,7 @@ class BuilderAgent:
                         s.target = self._pick_explore_target(ct)
                     s.nav.reset()
                 if s.target is not None:
-                    def _step(d: Direction) -> bool:
-                        if ore:
-                            ti, _ = ct.get_global_resources()
-                            hc, _ = ct.get_harvester_cost()
-                            if ti < hc:
-                                return step_walk(ct, d)
-                        return step_conv(ct, d)
-                    s.nav.go(ct, s.target, _step)
+                    s.nav.go(ct, s.target, lambda d: step_conv(ct, d))
 
             case Patrol() as s:
                 dead = self.net.dead_conveyor()

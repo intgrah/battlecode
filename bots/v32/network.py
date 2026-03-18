@@ -206,3 +206,22 @@ class NetworkBelief:
             if info.is_dead:
                 return p
         return None
+
+    def dump(self, path: str, turn: int, bot_id: int, bot_pos: tuple[int, int]) -> None:
+        import json
+        entry = {
+            "turn": turn,
+            "bot_id": bot_id,
+            "bot_pos": list(bot_pos),
+            "tiles": {
+                f"{p.x},{p.y}": {
+                    "connected": info.connected,
+                    "flow": round(info.flow, 3),
+                    "is_dead": info.is_dead,
+                    "is_splitter": info.is_splitter,
+                }
+                for p, info in self.tiles.items()
+            },
+        }
+        with open(path, "a") as f:
+            f.write(json.dumps(entry, separators=(",", ":")) + "\n")
