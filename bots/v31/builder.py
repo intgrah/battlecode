@@ -223,17 +223,17 @@ class BuilderAgent:
                     priority=80,
                 )
 
-        congested = self.net.congested_tiles()
-        if congested:
-            t = congested[0]
-            info = self.net.get(t)
+        cong = self.net.most_congested()
+        if cong:
+            info = self.net.get(cong)
+            flow_int = min(15, int(info.flow * 4)) if info else 0
             self.writer.propose(
                 pos,
                 PressureSummary(
-                    pos_x=t.x,
-                    pos_y=t.y,
-                    pressure_level=min(15, info.upstream_harvesters if info else 0),
-                    upstream_harvesters=info.upstream_harvesters if info else 0,
+                    pos_x=cong.x,
+                    pos_y=cong.y,
+                    pressure_level=flow_int,
+                    upstream_harvesters=flow_int,
                     freshness=rnd % 64,
                     chain_direction=0,
                 ),
@@ -325,23 +325,44 @@ class BuilderAgent:
                     self.writer.flush(ct)
                     return
 
-                brk_from_comms = self._break_from_comms(pos)
-                if brk_from_comms:
-                    s.target = brk_from_comms
+                cong = self.net.most_congested()
+                if cong and pos.distance_squared(cong) <= GameConstants.ACTION_RADIUS_SQ:
+                    bid = ct.get_tile_building_id(cong)
+                    if bid is not None and ct.get_team(bid) == my:
+                        et = ct.get_entity_type(bid)
+                        if et in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+                            d = ct.get_direction(bid)
+                            ct.destroy(cong)
+                            if ct.can_build_splitter(cong, d):
+                                ct.build_splitter(cong, d)
+                    s.idle_turns = 0
+                    return
+
+                if cong:
+                    s.target = cong
                     s.nav.reset()
                     s.idle_turns = 0
                     s.nav.go(ct, s.target, lambda d: step_road(ct, d))
-                    self._propose_markers(ct)
-                    self.writer.flush(ct)
+                    return
+
+                dead = self.net.dead_conveyor()
+                if dead and pos.distance_squared(dead) <= GameConstants.ACTION_RADIUS_SQ:
+                    ct.destroy(dead)
+                    if ct.can_build_road(dead):
+                        ct.build_road(dead)
+                    s.idle_turns = 0
+                    return
+
+                if dead:
+                    s.target = dead
+                    s.nav.reset()
+                    s.idle_turns = 0
+                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
                     return
 
                 ore = self._find_ore(ct)
                 if ore:
-                    anchor = (
-                        self.net.nearest_connected(pos, max_upstream=4) or self.core
-                    )
-                    assert anchor is not None
-                    self.state = WalkToAnchor(ore=ore, anchor=anchor)
+                    self.state = ExploreConv(target=ore)
                     s.idle_turns = 0
                 else:
                     s.idle_turns += 1
