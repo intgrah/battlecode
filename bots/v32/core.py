@@ -1,3 +1,4 @@
+import json
 from collections import deque
 
 from cambc import Controller, EntityType, Position
@@ -53,11 +54,14 @@ class CoreBot:
                 EntityType.SENTINEL,
                 EntityType.BREACH,
             ):
-                self._try_spawn_toward(ct, ct.get_position(eid))
+                spawned = self._try_spawn_toward(ct, ct.get_position(eid))
+                if spawned:
+                    print(json.dumps({"_dbg": True, "unit": "core", "action": "spawn_defense", "spawned": self.spawned, "ti": ti}, separators=(",", ":")))
                 return
 
         if self.spawned < 4:
-            self._try_spawn(ct)
+            if self._try_spawn(ct):
+                print(json.dumps({"_dbg": True, "unit": "core", "action": "spawn_initial", "spawned": self.spawned, "ti": ti}, separators=(",", ":")))
             return
 
         if self.spawned >= 8:
@@ -69,4 +73,6 @@ class CoreBot:
 
         ti_delta = self.ti_history[-1] - self.ti_history[0]
         if ti_delta > 0 and ti > cost * 5:
-            self._try_spawn(ct)
+            if self._try_spawn(ct):
+                print(json.dumps({"_dbg": True, "unit": "core", "action": "spawn_economy", "spawned": self.spawned, "ti": ti, "ti_delta": ti_delta}, separators=(",", ":")))
+
