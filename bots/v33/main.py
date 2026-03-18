@@ -550,6 +550,28 @@ class BuilderAgent:
                     best_builder = ep
         return best_turret, best_builder
 
+    def _find_enemy_conv_near_core(self, ct: Controller) -> Position | None:
+        """Find enemy conveyor/transport near our core to destroy."""
+        if self.core is None:
+            return None
+        my = ct.get_team()
+        best = None
+        best_dist = 999999
+        pos = ct.get_position()
+        for t in ct.get_nearby_tiles():
+            if t.distance_squared(self.core) > 49:
+                continue
+            bid = ct.get_tile_building_id(t)
+            if bid is None or ct.get_team(bid) == my:
+                continue
+            et = ct.get_entity_type(bid)
+            if et in _TRANSPORT:
+                d = pos.distance_squared(t)
+                if d < best_dist:
+                    best_dist = d
+                    best = t
+        return best
+
     def _try_heal_core(self, ct: Controller) -> bool:
         if self.core is None:
             return False
@@ -652,15 +674,12 @@ class BuilderAgent:
             self.has_income = True
         self.last_ti = ti
 
-        # ANTI-CHEESE: defend core against enemy units/turrets
+        # ANTI-CHEESE: defend core - just heal when under attack
         if self.state not in (RAID,):
             enemy_turret, enemy_builder = self._find_threats_near_core(ct)
             if (enemy_turret or enemy_builder) and pos.distance_squared(self.core) <= 64:
-                # Heal core every chance we get
+                # Heal core - this is the best defense against gunner cheese
                 self._try_heal_core(ct)
-                # Intercept enemy builders before they place turrets
-                if enemy_builder and pos.distance_squared(enemy_builder) > 2:
-                    self.nav.go(ct, enemy_builder, lambda d: step_road(ct, d))
                 return
 
         # Repair breaks (high priority but not during chain build)
