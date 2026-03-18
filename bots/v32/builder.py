@@ -174,7 +174,10 @@ class BuilderAgent:
         return pos.x == s.target.x and pos.y == s.target.y
 
     def _emit_debug(
-        self, ct: Controller, action: str = "", **extra: str | int | bool | list[int],
+        self,
+        ct: Controller,
+        action: str = "",
+        **extra: str | int | bool | list[int],
     ) -> None:
         """Emit structured debug JSON to stdout for replay_debug.py."""
         pos = ct.get_position()
