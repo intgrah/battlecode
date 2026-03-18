@@ -12,7 +12,7 @@ from params import (
     RAID_MIN_HARVESTERS,
     REPULSION_JITTER,
 )
-from util import DIRS, ore_env, step_conv, step_patrol, step_raid
+from util import DIRS, ore_env, repair_dir, step_conv, step_patrol, step_raid
 
 _TRANSPORT = frozenset(
     {
@@ -495,8 +495,6 @@ class BuilderAgent:
             case Patrol() as s:
                 brk = self._find_break(ct)
                 if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
-                    from util import repair_dir
-
                     assert self.core is not None
                     d = repair_dir(ct, brk, self.core)
                     if ct.can_build_conveyor(brk, d):

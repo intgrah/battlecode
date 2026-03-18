@@ -207,7 +207,10 @@ class BugNav:
         self.__init__()
 
     def go(
-        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool],
+        self,
+        ct: Controller,
+        target: Position,
+        step_fn: Callable[[Direction], bool],
     ) -> bool:
         pos = ct.get_position()
         d = toward(pos, target)

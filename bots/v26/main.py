@@ -1,4 +1,5 @@
 import random
+from collections.abc import Callable
 
 from cambc import (
     Controller,
@@ -71,7 +72,9 @@ class BugNav:
         length = max(abs(dx), abs(dy), 1)
         return abs(cross) <= length
 
-    def go(self, ct: Controller, target: Position, step_fn) -> bool:
+    def go(
+        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool]
+    ) -> bool:
         pos = ct.get_position()
 
         if (
@@ -175,9 +178,12 @@ def step_conv(ct: Controller, d: Direction) -> bool:
         return False
     if not ore_env(ct, nxt):
         bid = ct.get_tile_building_id(nxt)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
-            if ct.get_team(bid) == ct.get_team():
-                ct.destroy(nxt)
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.ROAD
+            and ct.get_team(bid) == ct.get_team()
+        ):
+            ct.destroy(nxt)
         if ct.can_build_conveyor(nxt, d.opposite()):
             ct.build_conveyor(nxt, d.opposite())
     if ct.can_move(d):

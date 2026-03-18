@@ -1,3 +1,5 @@
+import random
+
 from cambc import Controller, Direction, EntityType, Environment, Position
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
@@ -80,8 +82,6 @@ _DELTA_TO_DIR = {d.delta(): d for d in Direction if d != Direction.CENTRE}
 
 def step_conv(ct: Controller, d: Direction) -> bool:
     if _is_diagonal(d):
-        import random
-
         dx, dy = d.delta()
         pair = [_DELTA_TO_DIR[(dx, 0)], _DELTA_TO_DIR[(0, dy)]]
         if random.random() < 0.5:
