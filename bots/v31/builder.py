@@ -11,7 +11,7 @@ from params import (
     PATROL_IDLE_LIMIT,
     REPULSION_JITTER,
 )
-from util import CARDINALS, DIRS, ore_env, repair_dir, step_conv, step_road
+from util import CARDINALS, DIRS, ore_env, repair_dir, step_conv, step_road, step_walk
 
 _DESTRUCTIBLE = frozenset(
     {
@@ -35,7 +35,7 @@ class ExploreConv:
 class Patrol:
     nav: BugNav = field(default_factory=BugNav)
     target: Position | None = None
-    idle_turns: int = 0
+    uneventful: int = 0
 
 
 State = ExploreConv | Patrol
@@ -327,13 +327,13 @@ class BuilderAgent:
                     d = repair_dir(ct, brk, self.core)
                     if ct.can_build_conveyor(brk, d):
                         ct.build_conveyor(brk, d)
-                    s.idle_turns = 0
+                    s.uneventful = 0
                     return
 
                 if brk:
                     s.target = brk
                     s.nav.reset()
-                    s.idle_turns = 0
+                    s.uneventful = 0
                     s.nav.go(ct, s.target, lambda d: step_road(ct, d))
                     self._propose_markers(ct)
                     self.writer.flush(ct)
@@ -349,14 +349,14 @@ class BuilderAgent:
                             ct.destroy(cong)
                             if ct.can_build_splitter(cong, d):
                                 ct.build_splitter(cong, d)
-                    s.idle_turns = 0
+                    s.uneventful = 0
                     return
 
                 if cong:
                     s.target = cong
                     s.nav.reset()
-                    s.idle_turns = 0
-                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                    s.uneventful = 0
+                    s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
                     return
 
                 dead = self.net.dead_conveyor()
@@ -364,25 +364,25 @@ class BuilderAgent:
                     ct.destroy(dead)
                     if ct.can_build_road(dead):
                         ct.build_road(dead)
-                    s.idle_turns = 0
+                    s.uneventful = 0
                     return
 
                 if dead:
                     s.target = dead
                     s.nav.reset()
-                    s.idle_turns = 0
-                    s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                    s.uneventful = 0
+                    s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
                     return
 
                 ore = self._find_ore(ct)
                 if ore:
                     self.state = ExploreConv(target=ore)
-                    s.idle_turns = 0
+                    s.uneventful = 0
                 else:
-                    s.idle_turns += 1
-                    if s.idle_turns >= PATROL_IDLE_LIMIT:
+                    if s.uneventful >= PATROL_IDLE_LIMIT:
                         self.state = ExploreConv()
                     elif self._retarget(s, pos):
+                        s.uneventful += 1
                         chain_t = self._pick_chain_target()
                         if chain_t:
                             s.target = chain_t
@@ -391,7 +391,7 @@ class BuilderAgent:
                         s.nav.reset()
                 if isinstance(self.state, Patrol):
                     if s.target is not None:
-                        s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                        s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
 
         self._propose_markers(ct)
         self.writer.flush(ct)
