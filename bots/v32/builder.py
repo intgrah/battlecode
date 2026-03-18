@@ -1,4 +1,6 @@
+import json
 import random
+import sys
 from dataclasses import dataclass, field
 
 from bugnav import BugNav
@@ -170,6 +172,28 @@ class BuilderAgent:
             return True
         return pos.x == s.target.x and pos.y == s.target.y
 
+    def _emit_debug(self, ct: Controller, action: str = "", **extra) -> None:
+        """Emit structured debug JSON to stdout for replay_debug.py."""
+        pos = ct.get_position()
+        state = self.state
+        dbg = {
+            "_dbg": True,
+            "state": type(state).__name__,
+            "pos": [pos.x, pos.y],
+            "action": action,
+            "target": [state.target.x, state.target.y] if hasattr(state, "target") and state.target else None,
+            "net_connected": len(self.net.connected_tiles()),
+            "net_dead": [[p.x, p.y] for p in self.net.tiles if self.net.tiles[p].is_dead],
+            "threats": len(self.reader.threats),
+            "breaks": len(self.reader.breaks),
+            "claims": len(self.reader.claims),
+            "harvesters_built": self.harvesters_built,
+        }
+        if isinstance(state, Patrol):
+            dbg["uneventful"] = state.uneventful
+        dbg.update(extra)
+        print(json.dumps(dbg, separators=(",", ":")))
+
     def _propose_markers(self, ct: Controller) -> None:
         pos = ct.get_position()
         rnd = ct.get_current_round()
@@ -270,6 +294,8 @@ class BuilderAgent:
                 d = repair_dir(ct, brk, self.core)
                 if ct.can_build_conveyor(brk, d):
                     ct.build_conveyor(brk, d)
+                ti, _ = ct.get_global_resources()
+                self._emit_debug(ct, "repair", brk=[brk.x, brk.y], built=built, ti=ti)
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
@@ -287,6 +313,7 @@ class BuilderAgent:
             s = self.state
             if isinstance(s, (ExploreConv, Patrol)):
                 s.nav.go(ct, enemy, lambda d: step_road(ct, d))
+                self._emit_debug(ct, "defend_core", enemy=[enemy.x, enemy.y])
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
@@ -371,5 +398,6 @@ class BuilderAgent:
                     if s.target is not None:
                         s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
 
+        self._emit_debug(ct, "tick")
         self._propose_markers(ct)
         self.writer.flush(ct)
