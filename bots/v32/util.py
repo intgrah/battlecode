@@ -118,7 +118,7 @@ def repair_dir(ct: Controller, gap: Position, core: Position) -> Direction:
     best_core_dist = 999999
     upstream_dir = None
 
-    for d in DIRS:
+    for d in CARDINALS:
         adj = gap.add(d)
         if not ib(ct, adj) or not ct.is_in_vision(adj):
             continue
@@ -147,4 +147,8 @@ def repair_dir(ct: Controller, gap: Position, core: Position) -> Direction:
         return best_dir
     if upstream_dir:
         return upstream_dir
-    return toward(gap, core)
+    d = toward(gap, core)
+    dx, dy = d.delta()
+    if dx != 0 and dy != 0:
+        return _DELTA_TO_DIR[(dx, 0)]
+    return d
