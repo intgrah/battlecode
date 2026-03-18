@@ -24,12 +24,15 @@ MAPS = ["maps/default_large1.map26", "maps/default_medium1.map26"]
 
 def ssh(cmd: str, timeout: int = 120) -> str:
     r = subprocess.run(
-        ["ssh", VPS, cmd], capture_output=True, text=True, timeout=timeout,
+        ["ssh", VPS, cmd],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
     )
     return r.stdout + r.stderr
 
 
-def sync():
+def sync() -> None:
     for d in ["bots", "maps", "scripts", "proto"]:
         subprocess.run(
             ["rsync", "-a", "--delete", f"{d}/", f"{VPS}:{VPS_DIR}/{d}/"],
@@ -40,15 +43,14 @@ def sync():
 def run_match(a: str, b: str, map_path: str) -> str:
     replay = f"replays/{a}_vs_{b}_{map_path.rsplit('/', maxsplit=1)[-1]}.replay26"
     ssh(f"mkdir -p {VPS_DIR}/replays")
-    out = ssh(
+    ssh(
         f"cd {VPS_DIR} && {CAMBC} run bots/{a} bots/{b} {map_path} --replay {replay} 2>&1"
         f" | grep -v '^Completed turn\\|^Update available\\|^$'",
         timeout=300,
     )
-    summary = ssh(
+    return ssh(
         f"cd {VPS_DIR}/scripts && {PYTHON} -m analysis ../{replay} -s summary 2>&1",
     )
-    return summary
 
 
 def run_round(bots: list[str], maps: list[str]) -> dict[str, dict]:
@@ -67,16 +69,23 @@ def run_round(bots: list[str], maps: list[str]) -> dict[str, dict]:
     return results
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--interval", type=int, default=0, help="Seconds between rounds (0 = run once)",
+        "--interval",
+        type=int,
+        default=0,
+        help="Seconds between rounds (0 = run once)",
     )
     parser.add_argument(
-        "--bots", default="v29a,v25,rug", help="Comma-separated bot list",
+        "--bots",
+        default="v29a,v25,rug",
+        help="Comma-separated bot list",
     )
     parser.add_argument(
-        "--maps", default=",".join(MAPS), help="Comma-separated map list",
+        "--maps",
+        default=",".join(MAPS),
+        help="Comma-separated map list",
     )
     args = parser.parse_args()
 

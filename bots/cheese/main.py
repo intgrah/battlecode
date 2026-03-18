@@ -30,7 +30,7 @@ def conv_feeds_core(ct, bid, ec):
     return on_core(Position(ep.x + dx, ep.y + dy), ec)
 
 
-def has_upstream(ct, tile, my):
+def has_upstream(ct, tile, my) -> bool:
     for d in DIRS:
         adj = tile.add(d)
         if not ib(ct, adj) or not ct.is_in_vision(adj):
@@ -48,16 +48,16 @@ def has_upstream(ct, tile, my):
 
 
 class BugNav:
-    def __init__(self):
+    def __init__(self) -> None:
         self.wf = False
         self.ws = 1
         self.best = 999999
         self.recent: list[tuple[int, int]] = []
 
-    def reset(self):
+    def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct, target, step_fn):
+    def go(self, ct, target, step_fn) -> bool:
         pos = ct.get_position()
         self.recent.append((pos.x, pos.y))
         if len(self.recent) > 8:
@@ -92,7 +92,7 @@ class BugNav:
         return False
 
 
-def step_road(ct, d):
+def step_road(ct, d) -> bool:
     nxt = ct.get_position().add(d)
     if wall(ct, nxt):
         return False
@@ -105,10 +105,10 @@ def step_road(ct, d):
 
 
 class CoreBot:
-    def __init__(self):
+    def __init__(self) -> None:
         self.spawned = 0
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         ti, _ = ct.get_global_resources()
         if ti < ct.get_builder_bot_cost()[0]:
             return
@@ -122,12 +122,12 @@ class CoreBot:
 
 
 class Builder:
-    def __init__(self):
+    def __init__(self) -> None:
         self.core = None
         self.ec = None
         self.nav = BugNav()
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         pos = ct.get_position()
         my = ct.get_team()
 
@@ -213,7 +213,7 @@ class Builder:
 
 
 class Turret:
-    def run(self, ct):
+    def run(self, ct) -> None:
         my = ct.get_team()
         best = None
         best_prio = -1
@@ -233,12 +233,12 @@ class Turret:
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.core_bot = CoreBot()
         self.builder = Builder()
         self.turret = Turret()
 
-    def run(self, ct):
+    def run(self, ct) -> None:
         et = ct.get_entity_type()
         if et == EntityType.CORE:
             self.core_bot.run(ct)

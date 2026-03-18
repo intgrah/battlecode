@@ -8,7 +8,9 @@ Strategy:
   5. Self-destruct on enemy conveyors feeding directly into the core.
 """
 
+import contextlib
 import random
+
 from cambc import Controller, Direction, EntityType, Environment, Position
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
@@ -16,7 +18,7 @@ CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.team = -1
         self.w = 0
         self.h = 0
@@ -41,7 +43,7 @@ class Player:
         # Core state
         self.builders_spawned = 0
 
-    def run(self, ct: Controller):
+    def run(self, ct: Controller) -> None:
         if self.team == -1:
             self.team = ct.get_team()
             self.w = ct.get_map_width()
@@ -57,7 +59,7 @@ class Player:
 
     # == Core ======================================================
 
-    def _core(self, ct: Controller):
+    def _core(self, ct: Controller) -> None:
         rnd = ct.get_current_round()
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
@@ -81,16 +83,16 @@ class Player:
 
     # == Builder ===================================================
 
-    def _builder(self, ct: Controller):
+    def _builder(self, ct: Controller) -> None:
         if self.core_pos is None:
             self._init_builder(ct)
 
-        if self.role == 'eco':
+        if self.role == "eco":
             self._eco(ct)
         else:
             self._hijack(ct)
 
-    def _init_builder(self, ct: Controller):
+    def _init_builder(self, ct: Controller) -> None:
         pos = ct.get_position()
         # Find our core
         for eid in ct.get_nearby_entities():
@@ -135,14 +137,14 @@ class Player:
                     pass
 
         if eco_count < 2:
-            self.role = 'eco'
+            self.role = "eco"
             for d in DIRS:
                 p = pos.add(d)
                 if ct.can_place_marker(p):
                     ct.place_marker(p, 42)
                     break
         else:
-            self.role = 'hijack'
+            self.role = "hijack"
 
         if self.enemy_core is not None:
             self.explore_dir = pos.direction_to(self.enemy_core)
@@ -151,7 +153,7 @@ class Player:
 
     # == Eco ======================================================
 
-    def _eco(self, ct: Controller):
+    def _eco(self, ct: Controller) -> None:
         """Unified eco: find ore, plan chain, build conveyors core->outward, harvester last."""
         # Phase 0: Find ore and create the build plan
         if self.build_plan is None:
@@ -160,7 +162,7 @@ class Player:
 
         # Phase 1: Execute build plan step by step
         if self.plan_idx >= len(self.build_plan):
-            self.role = 'hijack'
+            self.role = "hijack"
             return
 
         btype, target_pos, target_dir = self.build_plan[self.plan_idx]
@@ -169,7 +171,7 @@ class Player:
         if ct.is_in_vision(target_pos):
             if ct.get_tile_env(target_pos) == Environment.WALL:
                 # Chain is broken by a wall -- give up
-                self.role = 'hijack'
+                self.role = "hijack"
                 return
             bid = ct.get_tile_building_id(target_pos)
             if bid is not None:
@@ -200,7 +202,7 @@ class Player:
         pos = ct.get_position()
         if pos.distance_squared(target_pos) <= 2:
             ti, _ = ct.get_global_resources()
-            if btype == 'harvester':
+            if btype == "harvester":
                 cost, _ = ct.get_harvester_cost()
                 if ti >= cost and ct.can_build_harvester(target_pos):
                     ct.build_harvester(target_pos)
@@ -216,7 +218,7 @@ class Player:
         # -- Move toward build position --
         self._move_toward(ct, target_pos, build_roads=True)
 
-    def _eco_plan(self, ct: Controller):
+    def _eco_plan(self, ct: Controller) -> None:
         """Find titanium ore and create a full build plan (conveyors + harvester)."""
         pos = ct.get_position()
         core = self.core_pos
@@ -237,11 +239,11 @@ class Player:
         if best_ore is None:
             # No ore visible -- explore outward to find some
             if ct.get_current_round() > 50:
-                self.role = 'hijack'
+                self.role = "hijack"
                 return
             if self.explore_dir is None or self.explore_dir == Direction.CENTRE:
                 self.explore_dir = core.direction_to(
-                    Position(self.w // 2, self.h // 2)
+                    Position(self.w // 2, self.h // 2),
                 )
             explore_target = pos
             for _ in range(5):
@@ -257,14 +259,14 @@ class Player:
         # and the bot can walk along each new conveyor to reach the next build site.
         self.build_plan = []
         for cpos, cdir in reversed(chain):
-            self.build_plan.append(('conveyor', cpos, cdir))
-        self.build_plan.append(('harvester', best_ore, None))
+            self.build_plan.append(("conveyor", cpos, cdir))
+        self.build_plan.append(("harvester", best_ore, None))
         self.plan_idx = 0
         self.plan_set = {step[1] for step in self.build_plan}
 
     # == Hijack ===================================================
 
-    def _update_enemy_core(self, ct: Controller):
+    def _update_enemy_core(self, ct: Controller) -> None:
         """Scan vision for the real enemy core; eliminate wrong candidates."""
         # Fast path: already confirmed (candidates list empty)
         if not self.enemy_core_candidates:
@@ -286,11 +288,9 @@ class Player:
             bid = ct.get_tile_building_id(ec)
             is_core = False
             if bid is not None:
-                try:
+                with contextlib.suppress(Exception):
                     is_core = (ct.get_entity_type(bid) == EntityType.CORE
                                and ct.get_team(bid) != self.team)
-                except Exception:
-                    pass
             if not is_core:
                 # Wrong -- remove and try next candidate
                 self.enemy_core_candidates = [
@@ -303,7 +303,7 @@ class Player:
                     self.enemy_core = None
                 self.path = []  # clear stale path
 
-    def _hijack(self, ct: Controller):
+    def _hijack(self, ct: Controller) -> None:
         self._update_enemy_core(ct)
         pos = ct.get_position()
         ec = self.enemy_core
@@ -400,7 +400,7 @@ class Player:
 
     # == Movement =================================================
 
-    def _move_toward(self, ct: Controller, target: Position, build_roads: bool):
+    def _move_toward(self, ct: Controller, target: Position, build_roads: bool) -> None:
         if ct.get_move_cooldown() > 0:
             return
 
@@ -447,13 +447,12 @@ class Player:
                             self.stuck = 0
                             ct.move(d)
                             return
-                else:
-                    # Next tile is outside vision -- move toward it greedily
-                    if ct.can_move(d):
-                        self.prev_pos = pos
-                        self.stuck = 0
-                        ct.move(d)
-                        return
+                # Next tile is outside vision -- move toward it greedily
+                elif ct.can_move(d):
+                    self.prev_pos = pos
+                    self.stuck = 0
+                    ct.move(d)
+                    return
 
         # -- Greedy fallback (BFS didn't produce a usable step) --
         primary = pos.direction_to(target)
@@ -515,7 +514,7 @@ class Player:
 
     # == Gunner ==================================================
 
-    def _gunner(self, ct: Controller):
+    def _gunner(self, ct: Controller) -> None:
         target = ct.get_gunner_target()
         if target is not None and ct.can_fire(target):
             ct.fire(target)
@@ -531,7 +530,7 @@ _DIR_PRI_CACHE = {
     d: [
         d, d.rotate_left(), d.rotate_right(),
         d.rotate_left().rotate_left(), d.rotate_right().rotate_right(),
-        d.opposite().rotate_right(), d.opposite().rotate_left(), d.opposite()
+        d.opposite().rotate_right(), d.opposite().rotate_left(), d.opposite(),
     ] for d in DIRS
 }
 

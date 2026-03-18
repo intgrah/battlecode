@@ -13,7 +13,7 @@ ALL_DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
 
 class BugNavPlanner:
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
         self.costs = [[UNKNOWN_COST for _ in range(width)] for _ in range(height)]
@@ -30,14 +30,15 @@ class BugNavPlanner:
         self._trace_start: tuple[int, int] | None = None
         self._trace_steps = 0
         self._trace_state_visits: dict[
-            tuple[int, int, bool, Direction | None], int
+            tuple[int, int, bool, Direction | None], int,
         ] = {}
         self._recent_positions: list[tuple[int, int]] = []
 
     def set_goal(self, goal: Position) -> None:
         goal_key = self._to_key(goal)
         if not self.in_bounds(goal):
-            raise ValueError("goal must be in bounds")
+            msg = "goal must be in bounds"
+            raise ValueError(msg)
         self._goal = goal_key
         self._recent_positions.clear()
         self._reset_trace()
@@ -67,7 +68,7 @@ class BugNavPlanner:
         return changed
 
     def next_step(
-        self, start: Position, ct: Controller | None = None
+        self, start: Position, ct: Controller | None = None,
     ) -> Position | None:
         if self._goal is None:
             return None
@@ -243,10 +244,7 @@ class BugNavPlanner:
     ) -> tuple[Direction, tuple[int, int]] | None:
         assert self._goal is not None
 
-        legal = {
-            direction: next_key
-            for direction, next_key in self._legal_moves(start_key, ct)
-        }
+        legal = dict(self._legal_moves(start_key, ct))
         if not legal:
             return None
 
@@ -254,7 +252,7 @@ class BugNavPlanner:
             tuple[tuple[int, int, float, float], Direction, tuple[int, int]] | None
         ) = None
         for index, direction in enumerate(
-            self._trace_scan_order(heading, follow_right)
+            self._trace_scan_order(heading, follow_right),
         ):
             next_key = legal.get(direction)
             if next_key is None:
@@ -309,15 +307,12 @@ class BugNavPlanner:
     ) -> tuple[Direction, tuple[int, int]] | None:
         assert self._goal is not None
 
-        legal = {
-            direction: next_key
-            for direction, next_key in self._legal_moves(start_key, ct)
-        }
+        legal = dict(self._legal_moves(start_key, ct))
         best: (
             tuple[tuple[int, int, float, float], Direction, tuple[int, int]] | None
         ) = None
         for index, direction in enumerate(
-            self._trace_scan_order(heading, follow_right)
+            self._trace_scan_order(heading, follow_right),
         ):
             next_key = legal.get(direction)
             if next_key is None or next_key == blocked_key:
@@ -373,7 +368,7 @@ class BugNavPlanner:
         )
 
     def _trace_scan_order(
-        self, heading: Direction, follow_right: bool
+        self, heading: Direction, follow_right: bool,
     ) -> list[Direction]:
         order: list[Direction] = []
         direction = heading.rotate_left() if follow_right else heading.rotate_right()
@@ -505,7 +500,7 @@ class BugNavPlanner:
         return node != start_key
 
     def _movement_cost(
-        self, from_node: tuple[int, int], to_node: tuple[int, int]
+        self, from_node: tuple[int, int], to_node: tuple[int, int],
     ) -> float:
         cell_cost = self.costs[to_node[1]][to_node[0]]
         if math.isinf(cell_cost):
@@ -567,9 +562,8 @@ class BugNavPlanner:
 from __future__ import annotations
 
 import heapq
-import math
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Direction
 
 INF = float("inf")
 PASSABLE_COST = 1.0
@@ -591,7 +585,7 @@ class DStarLitePlanner:
     `next_step()` or `next_direction()` to retrieve the repaired path.
     """
 
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int) -> None:
         """Create a planner for a rectangular map.
 
         Args:
@@ -629,7 +623,8 @@ class DStarLitePlanner:
 
         goal_key = self._to_key(goal)
         if not self.in_bounds(goal):
-            raise ValueError("goal must be in bounds")
+            msg = "goal must be in bounds"
+            raise ValueError(msg)
 
         self._goal = goal_key
         self._queue.clear()
@@ -703,7 +698,7 @@ class DStarLitePlanner:
         return changed
 
     def next_step(
-        self, start: Position, ct: Controller | None = None
+        self, start: Position, ct: Controller | None = None,
     ) -> Position | None:
         """Return the next tile on the repaired path from `start` to the goal.
 
@@ -882,8 +877,7 @@ class DStarLitePlanner:
             best_rhs = INF
             for neighbor in self._neighbors(node):
                 candidate = self._movement_cost(node, neighbor) + self._get_g(neighbor)
-                if candidate < best_rhs:
-                    best_rhs = candidate
+                best_rhs = min(best_rhs, candidate)
             self._set_rhs(node, best_rhs)
 
         if self._get_g(node) != self._get_rhs(node):
@@ -901,7 +895,7 @@ class DStarLitePlanner:
         return (best + self._heuristic(start_key, node) + self._k_m, best)
 
     def _movement_cost(
-        self, from_node: tuple[int, int], to_node: tuple[int, int]
+        self, from_node: tuple[int, int], to_node: tuple[int, int],
     ) -> float:
         """Return the edge cost for stepping into a neighboring tile."""
 
@@ -1010,7 +1004,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Direction
 from role_memory import EconomyMemory
 
 CARDINAL_DIRECTIONS = [
@@ -1093,7 +1087,7 @@ class BaseEconomyState:
         memory.active_move_goal = None
 
     def _ore_tile_still_valid(
-        self, player, ct: Controller, ore: Position | None
+        self, player, ct: Controller, ore: Position | None,
     ) -> bool:
         if ore is None:
             return False
@@ -1132,7 +1126,7 @@ class BaseEconomyState:
         return self._ore_has_harvester(player, ct, memory.current_ore_target)
 
     def _pick_adjacent_work_tile(
-        self, player, ct: Controller, ore_pos: Position
+        self, player, ct: Controller, ore_pos: Position,
     ) -> Position | None:
         current = ct.get_position()
         assert player.planner is not None
@@ -1216,7 +1210,7 @@ class BaseEconomyState:
                     current.distance_squared(work_tile),
                     ore,
                     work_tile,
-                )
+                ),
             )
 
         if not candidates:
@@ -1284,7 +1278,7 @@ class BaseEconomyState:
         return sinks
 
     def _can_route_conveyor_through(
-        self, player, pos: Position, sink_set: set[Position]
+        self, player, pos: Position, sink_set: set[Position],
     ) -> bool:
         assert player.planner is not None
         if self._is_core_tile(player, pos):
@@ -1294,7 +1288,7 @@ class BaseEconomyState:
         return not player.planner.is_known_blocked(pos)
 
     def _plan_conveyor_route_to_core(
-        self, player, start: Position
+        self, player, start: Position,
     ) -> list[Position] | None:
         assert player.planner is not None
         sink_candidates = self._core_sink_tiles(player)
@@ -1411,7 +1405,7 @@ class GoToEdgeState(BaseEconomyState):
         return best
 
     def _collect_visible_titanium_cluster(
-        self, player, ct: Controller, seed: Position
+        self, player, ct: Controller, seed: Position,
     ) -> set[Position]:
         assert player.planner is not None
 
@@ -1558,7 +1552,7 @@ class BuildHarvesterState(BaseEconomyState):
             next_ore = self._next_unharvested_vein_ore(player, ct)
             if next_ore is not None:
                 player.transition(
-                    ct, "move_to_titanium", "built_harvester_continue_vein"
+                    ct, "move_to_titanium", "built_harvester_continue_vein",
                 )
             else:
                 player.transition(ct, "wait_for_titanium", "built_final_harvester")
@@ -1692,9 +1686,9 @@ class _SetupHelpers(GoToEdgeState):
 
 _SETUP_HELPERS = _SetupHelpers()
 from __future__ import annotations
-from cambc import Controller, Direction, EntityType
 
 from bugnav import BugNavPlanner
+from cambc import Direction
 from economy_states import (
     BuildHarvesterState,
     ConnectToCoreState,
@@ -1704,7 +1698,7 @@ from economy_states import (
     corner_goals,
     find_friendly_core,
 )
-from role_memory import BotRole, EconomyMemory, TurretPlacerMemory
+from role_memory import BotRole, TurretPlacerMemory
 from state_machine import StateMachine
 from turret_placer_states import (
     AssaultTargetedConveyorState,
@@ -1729,7 +1723,7 @@ TURRET_PLACER_START_ROUND = 10
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.spawned_economy_builders = 0
         self.spawned_turret_placers = 0
 
@@ -1840,14 +1834,14 @@ class Player:
         self.machine.connect("move_to_titanium", "build_harvester")
         self.machine.connect_many("move_to_titanium", ["go_to_edge"])
         self.machine.connect_many(
-            "build_harvester", ["move_to_titanium", "wait_for_titanium", "go_to_edge"]
+            "build_harvester", ["move_to_titanium", "wait_for_titanium", "go_to_edge"],
         )
         self.machine.connect_many(
             "wait_for_titanium",
             ["connect_to_core", "build_harvester", "go_to_edge"],
         )
         self.machine.connect_many(
-            "connect_to_core", ["wait_for_titanium", "go_to_edge"]
+            "connect_to_core", ["wait_for_titanium", "go_to_edge"],
         )
 
     def setup_turret_placer_machine(self, ct: Controller) -> None:
@@ -1870,14 +1864,12 @@ class Player:
         if old_state != new_state:
             suffix = f" reason={reason}" if reason else ""
             print(
-                f"[r={ct.get_current_round()} id={ct.get_id()}] state_change {old_state} -> {new_state}{suffix}"
+                f"[r={ct.get_current_round()} id={ct.get_id()}] state_change {old_state} -> {new_state}{suffix}",
             )
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-
-from cambc import Position
 
 
 class BotRole(Enum):
@@ -1934,7 +1926,7 @@ class StateMachine:
     time, which makes state flow easy to inspect and hard to break accidentally.
     """
 
-    def __init__(self, owner: Any, initial: str):
+    def __init__(self, owner: Any, initial: str) -> None:
         """Create a state machine for one owner object.
 
         Args:
@@ -2002,7 +1994,8 @@ class StateMachine:
             self._last_reason = reason
             return
         if not self.can_transition(target):
-            raise ValueError(f"illegal transition: {old_state_name} -> {target}")
+            msg = f"illegal transition: {old_state_name} -> {target}"
+            raise ValueError(msg)
 
         old_state = self._states[old_state_name]
         new_state = self._states[target]
@@ -2052,11 +2045,11 @@ class StateMachine:
 
     def _require_state(self, name: str) -> None:
         if name not in self._states:
-            raise KeyError(f"unknown state: {name}")
+            msg = f"unknown state: {name}"
+            raise KeyError(msg)
 from __future__ import annotations
 
-from cambc import Controller, Direction, EntityType, Environment, Position
-
+from cambc import Direction
 from role_memory import TurretPlacerMemory
 
 SEARCH_DIRECTIONS = [
@@ -2176,7 +2169,7 @@ class BaseTurretPlacerState:
             mirror = Position(width - 1, height - 1)
         else:
             mirror = Position(
-                width - 1 - player.core_pos.x, height - 1 - player.core_pos.y
+                width - 1 - player.core_pos.x, height - 1 - player.core_pos.y,
             )
 
         goals = [
@@ -2250,7 +2243,7 @@ class BaseTurretPlacerState:
         return memory.search_goal
 
     def _targeted_conveyor_building_id(
-        self, ct: Controller, pos: Position
+        self, ct: Controller, pos: Position,
     ) -> int | None:
         if not ct.is_in_vision(pos):
             return None
@@ -2306,7 +2299,7 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
     name = "enemy_core_found"
 
     def _has_other_friendly_builder_near(
-        self, player, ct: Controller, target: Position
+        self, player, ct: Controller, target: Position,
     ) -> bool:
         my_id = ct.get_id()
         for unit_id in ct.get_nearby_units():
@@ -2324,12 +2317,12 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
                 # check if they are ontop of the target conveyor
                 if ct.get_position(unit_id) == target:
                     print(
-                        "friendly builder is about to destroy target conveyor, we should help"
+                        "friendly builder is about to destroy target conveyor, we should help",
                     )
                     return True
                 # check if they are on the corner tiles of the enemy core
                 if player.planner is not None and ct.get_position(
-                    unit_id
+                    unit_id,
                 ) not in self._core_corner_tiles(player):
                     print(
                         "skipping builder at ",
@@ -2338,13 +2331,12 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
                     )
                     continue
                 return True
-            else:
-                print(
-                    "friendly builder not near enough to ",
-                    target,
-                    " distance squared: ",
-                    ct.get_position(unit_id).distance_squared(target),
-                )
+            print(
+                "friendly builder not near enough to ",
+                target,
+                " distance squared: ",
+                ct.get_position(unit_id).distance_squared(target),
+            )
         return False
 
     def _touching_tiles_visible_from(
@@ -2391,7 +2383,7 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
         return not player.planner.is_known_blocked(pos)
 
     def _nearest_supported_targeted_conveyor(
-        self, player, ct: Controller
+        self, player, ct: Controller,
     ) -> Position | None:
         memory = self._memory(player)
         current = ct.get_position()
@@ -2442,7 +2434,7 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
 
                 ct.draw_indicator_dot(candidate, 255, 80, 80)
                 visible_count = self._touching_tiles_visible_from(
-                    candidate, touching_tiles, vision_radius_sq
+                    candidate, touching_tiles, vision_radius_sq,
                 )
                 if visible_count == 0:
                     continue
@@ -2475,7 +2467,7 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
                 continue
             memory.targeted_conveyors.add(pos)
             print(
-                f"[r={ct.get_current_round()} id={ct.get_id()}] targeted_conveyor pos={pos.x},{pos.y} resource={stored_resource.value}"
+                f"[r={ct.get_current_round()} id={ct.get_id()}] targeted_conveyor pos={pos.x},{pos.y} resource={stored_resource.value}",
             )
 
     def run(self, player, ct) -> None:
@@ -2501,7 +2493,7 @@ class EnemyCoreFoundState(BaseTurretPlacerState):
             memory.active_targeted_conveyor = target
             memory.gunner_site = None
             player.transition(
-                ct, "assault_targeted_conveyor", "supported_targeted_conveyor"
+                ct, "assault_targeted_conveyor", "supported_targeted_conveyor",
             )
             return
 
@@ -2510,7 +2502,7 @@ class AssaultTargetedConveyorState(BaseTurretPlacerState):
     name = "assault_targeted_conveyor"
 
     def _pick_gunner_site(
-        self, player, ct: Controller, target: Position
+        self, player, ct: Controller, target: Position,
     ) -> Position | None:
         assert player.planner is not None
         current = ct.get_position()
@@ -2524,7 +2516,7 @@ class AssaultTargetedConveyorState(BaseTurretPlacerState):
             if ct.is_in_vision(pos):
                 if ct.get_tile_env(pos) != Environment.EMPTY:
                     print(
-                        "reject gunner site non-empty env ", pos, ct.get_tile_env(pos)
+                        "reject gunner site non-empty env ", pos, ct.get_tile_env(pos),
                     )
                     continue
                 if player.planner.is_known_blocked(pos):
@@ -2564,7 +2556,7 @@ class AssaultTargetedConveyorState(BaseTurretPlacerState):
 
         if memory.gunner_site is None:
             memory.gunner_site = self._pick_gunner_site(
-                player, ct, memory.active_targeted_conveyor
+                player, ct, memory.active_targeted_conveyor,
             )
 
         if memory.gunner_site is None:
@@ -2602,7 +2594,7 @@ class AssaultTargetedConveyorState(BaseTurretPlacerState):
                 memory.active_targeted_conveyor = None
                 memory.gunner_site = None
                 player.transition(
-                    ct, "enemy_core_found", "built_gunner_after_target_lost"
+                    ct, "enemy_core_found", "built_gunner_after_target_lost",
                 )
                 return
             if memory.gunner_site is not None:

@@ -1,4 +1,5 @@
 default_map := "maps/default_large1.map26"
+small_map := "maps/default_small1.map26"
 _analysis := "cd scripts && python -m analysis"
 
 run a b map=default_map:

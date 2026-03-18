@@ -3,7 +3,6 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
 
 from replay_parse import TEAM, collect, parse
 

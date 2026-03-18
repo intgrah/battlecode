@@ -37,7 +37,7 @@ class CoreBot:
         if ti < cost:
             return
 
-        pos = ct.get_position()
+        ct.get_position()
         my = ct.get_team()
         rnd = ct.get_current_round()
 

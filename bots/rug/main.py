@@ -2029,7 +2029,7 @@ class KnownMap:
         core1_pos: Position,
         titanium: list[int],
         axionite: list[int],
-    ):
+    ) -> None:
         self.width = width
         self.height = height
         self.map_env = map_env
@@ -8048,10 +8048,7 @@ def get_next_move(
     sdx = abs(start_idx % width - goal_x)
     sdy = abs(start_idx // width - goal_y)
     best_h: float
-    if diagonal:
-        best_h = (sdx + sdy) + (1.414 - 2) * min(sdx, sdy)
-    else:
-        best_h = sdx + sdy
+    best_h = sdx + sdy + (1.414 - 2) * min(sdx, sdy) if diagonal else sdx + sdy
     best_move = None
 
     # Initial neighbors to "lock in" the first_move direction
@@ -8073,10 +8070,7 @@ def get_next_move(
                 sdx = abs(nx - goal_x)
                 sdy = abs(ny - goal_y)
                 h: float
-                if diagonal:
-                    h = (sdx + sdy) + (1.414 - 2) * min(sdx, sdy)
-                else:
-                    h = sdx + sdy
+                h = sdx + sdy + (1.414 - 2) * min(sdx, sdy) if diagonal else sdx + sdy
                 h *= map_walkable[neighbor]
 
                 g_scores[neighbor] = 1
@@ -8086,7 +8080,7 @@ def get_next_move(
                     best_move = direction
 
     while open_set:
-        f, depth, current, first_move = heapq.heappop(open_set)
+        _f, depth, current, first_move = heapq.heappop(open_set)
 
         if current == goal_idx:
             return first_move
@@ -8136,7 +8130,8 @@ def get_next_move(
                             best_move = first_move
 
                         heapq.heappush(
-                            open_set, (new_g + h, new_g, neighbor, first_move),
+                            open_set,
+                            (new_g + h, new_g, neighbor, first_move),
                         )
 
     return best_move
@@ -8145,11 +8140,11 @@ def get_next_move(
 class Core:
     """Controller for core building"""
 
-    def __init__(self, ct: Controller):
+    def __init__(self, ct: Controller) -> None:
         self.num_spawned = 0
         self.cooldown = 10
 
-    def run(self, ct: Controller):
+    def run(self, ct: Controller) -> None:
         """Exectues once each round"""
 
         spawn_pos = ct.get_position()
@@ -8179,10 +8174,10 @@ class Core:
 class Gunner:
     """Controller for gunner building"""
 
-    def __init__(self, ct: Controller):
+    def __init__(self, ct: Controller) -> None:
         pass
 
-    def run(self, ct: Controller):
+    def run(self, ct: Controller) -> None:
         """Exectues once each round"""
 
         direction = ct.get_direction(ct.get_id())
@@ -8207,7 +8202,7 @@ class Gunner:
 class BuilderBot:
     """Controller for builder bots"""
 
-    def __init__(self, ct: Controller):
+    def __init__(self, ct: Controller) -> None:
         self.id = ct.get_id()
         self.team = ct.get_team(self.id)
         self.width = ct.get_map_width()
@@ -8286,7 +8281,7 @@ class BuilderBot:
     def pos_to_idx(self, pos: Position):
         return pos.y * self.width + pos.x
 
-    def run(self, ct: Controller):
+    def run(self, ct: Controller) -> None:
         """Exectues once each round"""
 
         self.update_map(ct)
@@ -8298,7 +8293,9 @@ class BuilderBot:
                 candidate.core0_pos if self.team == Team.A else candidate.core1_pos
             )
             direction = self.get_move(
-                ct, self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])), False,
+                ct,
+                self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])),
+                False,
             )
             if direction is not None:
                 self.safe_move(ct, direction)
@@ -8353,7 +8350,7 @@ class BuilderBot:
                     dist_to_core = self.idx_to_pos(target).distance_squared(ally_core)
 
             # After placing harvester, run to box enemy base in
-            if self.done == True:
+            if self.done:
                 self.tick += 1
 
                 # Circle harvester for a bit - for safety
@@ -8476,7 +8473,10 @@ class BuilderBot:
 
                 if chosen:
                     direction = self.get_move(
-                        ct, self.pos_to_idx(enemy_core), False, False,
+                        ct,
+                        self.pos_to_idx(enemy_core),
+                        False,
+                        False,
                     )
                     if direction is not None:
                         turret_pos = pos.add(direction)
@@ -8587,11 +8587,10 @@ class BuilderBot:
                     if intent.x != harvester_pos.x or intent.y != harvester_pos.y:
                         tile_type = ct.get_tile_env(intent)
                         if (
-                            tile_type != Environment.ORE_TITANIUM
-                            and tile_type != Environment.ORE_AXIONITE
-                        ):
-                            if self.safe_conveyer_move(ct, direction):
-                                return
+                            tile_type
+                            not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+                        ) and self.safe_conveyer_move(ct, direction):
+                            return
 
                 # Mark harvester with a road, and wait till we have the money to build it
                 # print(f"Can Buy: {ct.get_global_resources()[0] >= ct.get_harvester_cost()[0]}")
@@ -8599,9 +8598,8 @@ class BuilderBot:
                     ct.get_entity_type(ct.get_tile_building_id(harvester_pos))
                     != EntityType.HARVESTER
                     and ct.get_global_resources()[0] >= ct.get_harvester_cost()[0]
-                ):
-                    if ct.can_destroy(harvester_pos):
-                        ct.destroy(harvester_pos)
+                ) and ct.can_destroy(harvester_pos):
+                    ct.destroy(harvester_pos)
                 if ct.can_build_harvester(harvester_pos):
                     ct.build_harvester(harvester_pos)
                 elif ct.can_build_road(harvester_pos):
@@ -8616,18 +8614,19 @@ class BuilderBot:
             # Move towards harvester
             direction = self.get_move(ct, target, True)
             self.safe_conveyer_move(
-                ct, direction if direction is not None else Direction.WEST,
+                ct,
+                direction if direction is not None else Direction.WEST,
             )
             self.tick += 1
             if self.tick > 100:
                 self.tick = 0
                 self.done = True
-                    # If it takes too long, just run for enemy base
+                # If it takes too long, just run for enemy base
         else:
             # We do not know what map we are on
             return
 
-    def debug_map(self):
+    def debug_map(self) -> None:
         """Debug the environment map"""
 
         for i in range(self.height):
@@ -8644,7 +8643,7 @@ class BuilderBot:
                     row += "."
             print(row)
 
-    def debug_ally_buildings(self):
+    def debug_ally_buildings(self) -> None:
         """Debug the ally building map"""
 
         for i in range(self.height):
@@ -8659,7 +8658,7 @@ class BuilderBot:
                     row += "."
             print(row)
 
-    def debug_walkable(self, ct: Controller):
+    def debug_walkable(self, ct: Controller) -> None:
         """Debug the walkable map"""
         pos = ct.get_position()
         for i in range(self.height):
@@ -8674,7 +8673,7 @@ class BuilderBot:
                     row += "."
             print(row)
 
-    def debug_ally_bots(self):
+    def debug_ally_bots(self) -> None:
         """Debug the ally bot map"""
 
         for i in range(self.height):
@@ -8815,16 +8814,18 @@ class BuilderBot:
             or intent.y >= self.height
         ):
             return False
-        if ct.is_tile_empty(intent):
-            if ct.can_build_road(intent):
-                ct.build_road(intent)
+        if ct.is_tile_empty(intent) and ct.can_build_road(intent):
+            ct.build_road(intent)
         if ct.can_move(direction):
             ct.move(direction)
             return True
         return False
 
     def safe_conveyer_move(
-        self, ct: Controller, direction: Direction, destruct=True,
+        self,
+        ct: Controller,
+        direction: Direction,
+        destruct=True,
     ) -> None:
         """Moves in a given direction given that it is safe"""
 
@@ -8850,9 +8851,8 @@ class BuilderBot:
         if (
             ct.get_team(block) == self.team
             and ct.get_entity_type(block) != EntityType.CONVEYOR
-        ):
-            if ct.can_destroy(intent):
-                ct.destroy(intent)
+        ) and ct.can_destroy(intent):
+            ct.destroy(intent)
         if ct.is_tile_empty(intent):
             conveyer_direction = direction.opposite()
             if ct.can_build_conveyor(intent, conveyer_direction):
@@ -8873,7 +8873,7 @@ controller_map = {
 class Player:
     """Main entry point"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.first_turn = True
         self.controller = None
 

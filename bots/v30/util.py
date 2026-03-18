@@ -71,10 +71,7 @@ def step_conv(ct: Controller, d: Direction) -> bool:
         pair = [_DELTA_TO_DIR[(dx, 0)], _DELTA_TO_DIR[(0, dy)]]
         if random.random() < 0.5:
             pair.reverse()
-        for cd in pair:
-            if step_conv(ct, cd):
-                return True
-        return False
+        return any(step_conv(ct, cd) for cd in pair)
     pos = ct.get_position()
     nxt = pos.add(d)
     if wall(ct, nxt):

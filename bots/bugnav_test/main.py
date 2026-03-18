@@ -9,13 +9,13 @@ from util import DIRS, step_road
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.nav = BugNav()
         self.target = None
         self.spawned = False
         self.f = None
 
-    def run(self, ct: Controller):
+    def run(self, ct: Controller) -> None:
         if self.f is None:
             team = ct.get_team().name.lower()
             self.f = open(f"/tmp/bugnav_trace_{team}.txt", "w")

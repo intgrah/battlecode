@@ -1,5 +1,6 @@
 import random
-from cambc import Controller, Direction, EntityType, Environment, Position, ResourceType
+
+from cambc import Controller, Direction, EntityType, Environment, Position
 
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
@@ -71,7 +72,7 @@ def _detect_loop(history: list[Position]) -> bool:
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.round = 0
 
         self.core_pos = None
@@ -123,9 +124,7 @@ class Player:
         env = ct.get_tile_env(pos)
         if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             return False
-        if ct.get_tile_building_id(pos) is None:
-            return True
-        return False
+        return ct.get_tile_building_id(pos) is None
 
     def _is_core_tile(self, pos: Position, ct: Controller) -> bool:
         if not (0 <= pos.x < ct.get_map_width() and 0 <= pos.y < ct.get_map_height()):
@@ -199,7 +198,7 @@ class Player:
 
         return False
 
-    def _enter_attack_mode(self):
+    def _enter_attack_mode(self) -> None:
         self.state = ATTACKING
         self.target = None
         self.prev_pos = None
@@ -222,7 +221,7 @@ class Player:
                         return True
         return False
 
-    def _place_claim(self, ct: Controller, ore_pos: Position):
+    def _place_claim(self, ct: Controller, ore_pos: Position) -> None:
         """Place a marker on our current tile claiming this ore."""
         pos = ct.get_position()
         if ct.can_place_marker(pos):
@@ -292,7 +291,7 @@ class Player:
         # --- Regular builder spawning on corners only ---
         if self.builders_spawned >= 5 and self.round < LATE_GAME_ROUND:
             return
-        if self.round % 10 != 0 and self.round != 1 and self.round != 7 and self.round != 15:
+        if self.round % 10 != 0 and self.round not in {1, 7, 15}:
             return
 
         for dx, dy in CORNER_OFFSETS:
@@ -312,10 +311,9 @@ class Player:
         pos = ct.get_position()
 
         # Vision-safe ore check: drop target if tile is no longer empty
-        if self.target is not None:
-            if ct.is_in_vision(self.target):
-                if not ct.is_tile_empty(self.target):
-                    self.target = None
+        if self.target is not None and ct.is_in_vision(self.target):
+            if not ct.is_tile_empty(self.target):
+                self.target = None
 
         # Scan for nearest UNCLAIMED titanium ore
         if self.target is None:
@@ -629,7 +627,7 @@ class Player:
     # ------------------------------------------------------------------
     # Bug2 pathfinding
     # ------------------------------------------------------------------
-    def bug2(self, ct: Controller, move_fn=None):
+    def bug2(self, ct: Controller, move_fn=None) -> None:
         if move_fn is None:
             move_fn = self._move_or_build_road
         pos = ct.get_position()
@@ -659,7 +657,7 @@ class Player:
                     self.tracing_dir = self.tracing_dir.rotate_right()
                     self.tracing_dir = self.tracing_dir.rotate_right()
             else:
-                for i in range(4):
+                for _i in range(4):
                     self.tracing_dir = self.tracing_dir.rotate_left()
                     self.tracing_dir = self.tracing_dir.rotate_left()
                     if self.can_explore(pos.add(self.tracing_dir), ct):
@@ -735,7 +733,7 @@ class Player:
                         break
         return best_dir
 
-    def builder_step_to_target(self, target: Position, ct: Controller, cardinal: bool = True):
+    def builder_step_to_target(self, target: Position, ct: Controller, cardinal: bool = True) -> None:
         best_dir = self.builder_get_best_direction(target, ct, cardinal)
 
         if best_dir is not None and best_dir != Direction.CENTRE:
@@ -744,7 +742,7 @@ class Player:
     def builder_function(self, ct: Controller) -> None:
         # If exploring/harvesting/connecting and the enemy core comes into
         # view, immediately switch to ATTACKING.
-        if self.state in (EXPLORING,):
+        if self.state == EXPLORING:
             my_team = ct.get_team()
             for eid in ct.get_nearby_entities():
                 if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) != my_team:
@@ -838,22 +836,20 @@ class Player:
                     ct.build_conveyor(next_pos, back)
                     self.placed_conveyors.add(next_pos)
                 return False
-            else:
-                # Late game: build a road and move onto it
-                if ct.get_action_cooldown() == 0 and ct.can_build_road(next_pos):
-                    ct.build_road(next_pos)
-                    if ct.get_move_cooldown() == 0 and ct.can_move(direction):
-                        ct.move(direction)
-                        self.prev_pos = curr_pos
-                        return True
-                    return False
+            # Late game: build a road and move onto it
+            if ct.get_action_cooldown() == 0 and ct.can_build_road(next_pos):
+                ct.build_road(next_pos)
+                if ct.get_move_cooldown() == 0 and ct.can_move(direction):
+                    ct.move(direction)
+                    self.prev_pos = curr_pos
+                    return True
                 return False
-        else:
-            if ct.get_move_cooldown() == 0 and ct.can_move(direction):
-                ct.move(direction)
-                self.prev_pos = curr_pos
-                return True
             return False
+        if ct.get_move_cooldown() == 0 and ct.can_move(direction):
+            ct.move(direction)
+            self.prev_pos = curr_pos
+            return True
+        return False
 
     def _connect_move(self, ct: Controller, direction: Direction) -> bool:
         pos = ct.get_position()
