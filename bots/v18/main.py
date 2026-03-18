@@ -205,7 +205,10 @@ class BugNav:
         self.__init__()
 
     def go(
-        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool],
+        self,
+        ct: Controller,
+        target: Position,
+        step_fn: Callable[[Direction], bool],
     ) -> bool:
         pos = ct.get_position()
         d = toward(pos, target)
@@ -642,7 +645,11 @@ class BuilderAgent:
             return
 
         if self.fortify_state == 1:
-            if self.fortify_conv_pos and self.fortify_conv_dir and ct.can_build_splitter(self.fortify_conv_pos, self.fortify_conv_dir):
+            if (
+                self.fortify_conv_pos
+                and self.fortify_conv_dir
+                and ct.can_build_splitter(self.fortify_conv_pos, self.fortify_conv_dir)
+            ):
                 ct.build_splitter(self.fortify_conv_pos, self.fortify_conv_dir)
                 self.fortify_state = 2
                 return

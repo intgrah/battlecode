@@ -73,7 +73,10 @@ class BugNav:
         return abs(cross) <= length
 
     def go(
-        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool],
+        self,
+        ct: Controller,
+        target: Position,
+        step_fn: Callable[[Direction], bool],
     ) -> bool:
         pos = ct.get_position()
 

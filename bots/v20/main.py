@@ -66,7 +66,9 @@ class BugNav:
     def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool]) -> bool:
+    def go(
+        self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool],
+    ) -> bool:
         pos = ct.get_position()
         d = toward(pos, target)
         dist = pos.distance_squared(target)
