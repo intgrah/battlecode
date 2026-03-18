@@ -294,10 +294,11 @@ class BuilderAgent:
                 ):
                     ct.destroy(brk)
                 d = repair_dir(ct, brk, self.core)
-                if ct.can_build_conveyor(brk, d):
+                ok = ct.can_build_conveyor(brk, d)
+                if ok:
                     ct.build_conveyor(brk, d)
                 ti, _ = ct.get_global_resources()
-                self._emit_debug(ct, "repair", brk=[brk.x, brk.y], built=built, ti=ti)
+                self._emit_debug(ct, "repair", brk=[brk.x, brk.y], built=ok, ti=ti)
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return

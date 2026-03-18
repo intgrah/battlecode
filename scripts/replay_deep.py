@@ -181,7 +181,7 @@ def compute_max_flow(
             continue
 
         in_deg = defaultdict(int)
-        for _, c in team_convs.items():
+        for c in team_convs.values():
             in_deg[c["out"]] += 1
 
         max_in = 0
