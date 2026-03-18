@@ -357,9 +357,8 @@ class BuilderAgent:
                     else:
                         s.target = self._pick_explore_target(ct)
                     s.nav.reset()
-                if isinstance(self.state, Patrol):
-                    if s.target is not None:
-                        s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
+                if isinstance(self.state, Patrol) and s.target is not None:
+                    s.nav.go(ct, s.target, lambda d: step_walk(ct, d))
 
         self._propose_markers(ct)
         self.writer.flush(ct)

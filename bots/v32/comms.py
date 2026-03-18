@@ -62,7 +62,7 @@ class MarkerWriter:
     """Decides which marker to write each turn."""
 
     def __init__(self) -> None:
-        self._pending: tuple[Position, int] | None = None
+        self._pending: tuple[Position, int, int] | None = None
 
     def propose(self, pos: Position, marker: Marker, priority: int) -> None:
         encoded = marker.encode()

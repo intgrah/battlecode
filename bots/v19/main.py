@@ -66,7 +66,7 @@ class BugNav:
     def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct: Controller, target: Position, step_fn) -> bool:
+    def go(self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool]) -> bool:
         pos = ct.get_position()
         d = toward(pos, target)
         dist = pos.distance_squared(target)
@@ -221,12 +221,12 @@ class BuilderAgent:
         self.last_ti = ti
 
         rnd = ct.get_current_round()
-        if not self.raiding:
-            if (self.builder_id in RAIDER_IDS and rnd >= RAID_START) or (
-                self.idle_turns >= IDLE_BEFORE_RAID and self.has_income
-            ):
-                self.raiding = True
-                self.nav.reset()
+        if not self.raiding and (
+            (self.builder_id in RAIDER_IDS and rnd >= RAID_START)
+            or (self.idle_turns >= IDLE_BEFORE_RAID and self.has_income)
+        ):
+            self.raiding = True
+            self.nav.reset()
 
         if self.raiding:
             self._raid(ct)
