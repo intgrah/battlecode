@@ -28,9 +28,9 @@ LATE_GAME_ROUND = 500
 MIN_ATTACK_ROUND = 200
 
 # Loop detection settings
-HISTORY_LENGTH = 30       # how many recent positions to remember
-MIN_CYCLE_LEN = 2         # shortest cycle we look for
-MAX_CYCLE_LEN = 10        # longest cycle we look for
+HISTORY_LENGTH = 30  # how many recent positions to remember
+MIN_CYCLE_LEN = 2  # shortest cycle we look for
+MAX_CYCLE_LEN = 10  # longest cycle we look for
 CYCLE_REPEATS_NEEDED = 2  # how many full repeats of the cycle to require
 
 
@@ -122,7 +122,11 @@ class Player:
         if ct.is_tile_passable(pos):
             return True
         env = ct.get_tile_env(pos)
-        if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+        if env in (
+            Environment.WALL,
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
+        ):
             return False
         return ct.get_tile_building_id(pos) is None
 
@@ -230,7 +234,12 @@ class Player:
     # ------------------------------------------------------------------
     # Conveyor helpers (build + track)
     # ------------------------------------------------------------------
-    def _build_conveyor_tracked(self, ct: Controller, pos: Position, direction: Direction) -> bool:
+    def _build_conveyor_tracked(
+        self,
+        ct: Controller,
+        pos: Position,
+        direction: Direction,
+    ) -> bool:
         """Build a conveyor and record it in placed_conveyors. Returns True if built."""
         if ct.get_action_cooldown() == 0 and ct.can_build_conveyor(pos, direction):
             ct.build_conveyor(pos, direction)
@@ -333,10 +342,9 @@ class Player:
             if self.target is None:
                 min_dist = 999999
                 for t in ct.get_nearby_tiles():
-                    if (
-                        ct.get_tile_env(t) == Environment.ORE_TITANIUM
-                        and ct.is_tile_empty(t)
-                    ):
+                    if ct.get_tile_env(
+                        t,
+                    ) == Environment.ORE_TITANIUM and ct.is_tile_empty(t):
                         dist = pos.distance_squared(t)
                         if dist < min_dist:
                             min_dist = dist
@@ -358,10 +366,11 @@ class Player:
             valid = [d for d in DIRECTIONS if self.can_explore(pos.add(d), ct)]
             if valid:
                 non_back = [
-                    d for d in valid
-                    if not self.prev_pos or pos.add(d) != self.prev_pos
+                    d for d in valid if not self.prev_pos or pos.add(d) != self.prev_pos
                 ]
-                self.wander_dir = random.choice(non_back) if non_back else random.choice(valid)
+                self.wander_dir = (
+                    random.choice(non_back) if non_back else random.choice(valid)
+                )
                 self._move_or_build_road(ct, self.wander_dir)
 
     # ------------------------------------------------------------------
@@ -484,7 +493,10 @@ class Player:
 
         # Update known enemy core position
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) != my_team:
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) != my_team
+            ):
                 self.enemy_core_pos = ct.get_position(eid)
                 break
 
@@ -498,8 +510,14 @@ class Player:
             else:
                 valid = [d for d in DIRECTIONS if self.can_explore(pos.add(d), ct)]
                 if valid:
-                    non_back = [d for d in valid if not self.prev_pos or pos.add(d) != self.prev_pos]
-                    self.wander_dir = random.choice(non_back) if non_back else random.choice(valid)
+                    non_back = [
+                        d
+                        for d in valid
+                        if not self.prev_pos or pos.add(d) != self.prev_pos
+                    ]
+                    self.wander_dir = (
+                        random.choice(non_back) if non_back else random.choice(valid)
+                    )
                     self._move_or_build_road(ct, self.wander_dir)
             return
 
@@ -647,7 +665,10 @@ class Player:
                 self.obs_start_dist = pos.distance_squared(self.target)
                 self.tracing_dir = dir
         else:
-            if pos in self.line and pos.distance_squared(self.target) < self.obs_start_dist:
+            if (
+                pos in self.line
+                and pos.distance_squared(self.target) < self.obs_start_dist
+            ):
                 self.is_tracing = False
                 return
 
@@ -694,7 +715,12 @@ class Player:
 
         return locs
 
-    def builder_get_best_direction(self, target: Position, ct: Controller, cardinal: bool = True):
+    def builder_get_best_direction(
+        self,
+        target: Position,
+        ct: Controller,
+        cardinal: bool = True,
+    ):
         pos = ct.get_position()
 
         best_dir = pos.direction_to(target)
@@ -728,12 +754,20 @@ class Player:
             if best_dir is None:
                 for f_dir in fallbacks:
                     np = pos.add(f_dir)
-                    if (self.prev_pos and self.prev_pos != np) and self.can_explore(pos.add(f_dir), ct):
+                    if (self.prev_pos and self.prev_pos != np) and self.can_explore(
+                        pos.add(f_dir),
+                        ct,
+                    ):
                         best_dir = f_dir
                         break
         return best_dir
 
-    def builder_step_to_target(self, target: Position, ct: Controller, cardinal: bool = True) -> None:
+    def builder_step_to_target(
+        self,
+        target: Position,
+        ct: Controller,
+        cardinal: bool = True,
+    ) -> None:
         best_dir = self.builder_get_best_direction(target, ct, cardinal)
 
         if best_dir is not None and best_dir != Direction.CENTRE:
@@ -745,7 +779,10 @@ class Player:
         if self.state == EXPLORING:
             my_team = ct.get_team()
             for eid in ct.get_nearby_entities():
-                if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) != my_team:
+                if (
+                    ct.get_entity_type(eid) == EntityType.CORE
+                    and ct.get_team(eid) != my_team
+                ):
                     self._enter_attack_mode()
                     break
 
@@ -832,7 +869,10 @@ class Player:
             if ct.get_current_round() < 100:
                 # Early game: place a backward conveyor (ore flows toward core)
                 back = direction.opposite()
-                if ct.get_action_cooldown() == 0 and ct.can_build_conveyor(next_pos, back):
+                if ct.get_action_cooldown() == 0 and ct.can_build_conveyor(
+                    next_pos,
+                    back,
+                ):
                     ct.build_conveyor(next_pos, back)
                     self.placed_conveyors.add(next_pos)
                 return False
@@ -902,7 +942,10 @@ class Player:
             # Place a conveyor instead of a road so ore starts flowing immediately.
             # Direction is our current heading; if bug2 changes course when we
             # arrive, _connect_move will re-orient our own conveyor.
-            if ct.get_action_cooldown() == 0 and ct.can_build_conveyor(next_pos, direction):
+            if ct.get_action_cooldown() == 0 and ct.can_build_conveyor(
+                next_pos,
+                direction,
+            ):
                 ct.build_conveyor(next_pos, direction)
                 self.placed_conveyors.add(next_pos)
             return False

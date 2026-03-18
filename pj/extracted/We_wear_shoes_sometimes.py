@@ -25,9 +25,10 @@ opposite_direction = {
     Direction.CENTRE: Direction.CENTRE,
 }
 
+
 class Player:
     def __init__(self) -> None:
-        self.num_spawned = 0 # number of builder bots spawned so far (core)
+        self.num_spawned = 0  # number of builder bots spawned so far (core)
 
     def run(self, ct: Controller) -> None:
         etype = ct.get_entity_type()
@@ -61,6 +62,16 @@ class Player:
                 ct.place_marker(marker_pos, ct.get_current_round())
 
             # if we have ample resources, start kamikazeing
-            if ct.get_tile_building_id(ct.get_position()) is not None and ct.get_team(ct.get_tile_building_id(ct.get_position())) != ct.get_team(ct.get_id()) and ct.get_entity_type(ct.get_tile_building_id(ct.get_position())) == EntityType.CONVEYOR and ct.get_stored_resource(ct.get_tile_building_id(ct.get_position())) is not None:
-                print(f"Kamikazeing on tile with {ct.get_stored_resource(ct.get_tile_building_id(ct.get_position()))} resources on turn {ct.get_current_round()}")
+            if (
+                ct.get_tile_building_id(ct.get_position()) is not None
+                and ct.get_team(ct.get_tile_building_id(ct.get_position()))
+                != ct.get_team(ct.get_id())
+                and ct.get_entity_type(ct.get_tile_building_id(ct.get_position()))
+                == EntityType.CONVEYOR
+                and ct.get_stored_resource(ct.get_tile_building_id(ct.get_position()))
+                is not None
+            ):
+                print(
+                    f"Kamikazeing on tile with {ct.get_stored_resource(ct.get_tile_building_id(ct.get_position()))} resources on turn {ct.get_current_round()}",
+                )
                 ct.self_destruct()

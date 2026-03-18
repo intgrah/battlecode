@@ -94,18 +94,17 @@ class CoreBot:
             return
 
         ti_delta = self.ti_history[-1] - self.ti_history[0]
-        if ti_delta > 0 and ti > cost * 5:
-            if self._try_spawn(ct):
-                print(
-                    json.dumps(
-                        {
-                            "_dbg": True,
-                            "unit": "core",
-                            "action": "spawn_economy",
-                            "spawned": self.spawned,
-                            "ti": ti,
-                            "ti_delta": ti_delta,
-                        },
-                        separators=(",", ":"),
-                    ),
-                )
+        if ti_delta > 0 and ti > cost * 5 and self._try_spawn(ct):
+            print(
+                json.dumps(
+                    {
+                        "_dbg": True,
+                        "unit": "core",
+                        "action": "spawn_economy",
+                        "spawned": self.spawned,
+                        "ti": ti,
+                        "ti_delta": ti_delta,
+                    },
+                    separators=(",", ":"),
+                ),
+            )

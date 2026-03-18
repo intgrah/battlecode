@@ -17,7 +17,7 @@ def fetch_my_matches(
     limit: int = 20,
     match_type: str | None = None,
     cursor: str | None = None,
-):
+) -> tuple[list[dict], str, str | None]:
     creds = load_credentials()
     my_team_id = creds["team"]["id"]
     my_team_name = creds["team"]["name"]
@@ -49,6 +49,7 @@ def download_replay(match_id: str, game_num: int) -> bytes:
 def analyze_matches(
     matches: list[dict],
     my_team_id: str,
+    *,
     verbose: bool = False,
 ) -> None:
     wins, losses, _draws = 0, 0, 0
@@ -125,7 +126,7 @@ def analyze_matches(
                     },
                 )
                 tmp.unlink(missing_ok=True)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"    (replay unavailable: {e})")
 
     print()
@@ -143,7 +144,6 @@ def analyze_matches(
         key=lambda o: -(per_opponent[o]["wins"] + per_opponent[o]["losses"]),
     ):
         d = per_opponent[opp]
-        d["wins"] + d["losses"]
         gw, gl = d["games_won"], d["games_lost"]
         print(f"  {opp:<30s} {d['wins']}W-{d['losses']}L  (games {gw}-{gl})")
     print()
@@ -158,10 +158,10 @@ def analyze_matches(
     if not game_analyses:
         return
 
-    def avg(lst):
+    def avg(lst: list[float]) -> float:
         return sum(lst) / len(lst) if lst else 0
 
-    def med(lst):
+    def med(lst: list[float]) -> float:
         if not lst:
             return 0
         s = sorted(lst)
@@ -244,7 +244,7 @@ def analyze_matches(
 
 
 def main() -> None:
-    import argparse
+    import argparse  # noqa: PLC0415
 
     parser = argparse.ArgumentParser(description="Analyze recent online matches")
     parser.add_argument(

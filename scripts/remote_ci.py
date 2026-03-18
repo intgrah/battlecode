@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Continuous integration runner on VPS.
 
 Usage: python scripts/remote_ci.py [--interval 60] [--bots v29a,v29b,v25,rug]
@@ -24,10 +23,11 @@ MAPS = ["maps/default_large1.map26", "maps/default_medium1.map26"]
 
 def ssh(cmd: str, timeout: int = 120) -> str:
     r = subprocess.run(
-        ["ssh", VPS, cmd],
+        ["ssh", VPS, cmd],  # noqa: S607
         capture_output=True,
         text=True,
         timeout=timeout,
+        check=False,
     )
     return r.stdout + r.stderr
 
@@ -35,8 +35,9 @@ def ssh(cmd: str, timeout: int = 120) -> str:
 def sync() -> None:
     for d in ["bots", "maps", "scripts", "proto"]:
         subprocess.run(
-            ["rsync", "-a", "--delete", f"{d}/", f"{VPS}:{VPS_DIR}/{d}/"],
+            ["rsync", "-a", "--delete", f"{d}/", f"{VPS}:{VPS_DIR}/{d}/"],  # noqa: S607
             capture_output=True,
+            check=False,
         )
 
 
