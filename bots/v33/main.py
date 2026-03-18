@@ -370,8 +370,8 @@ class CoreBot:
             self._try_spawn(ct)
             return
 
-        # After initial builders: spawn aggressively for both economy and raids
-        if rnd < 200 or ti < 500:
+        # After initial builders: spawn for raids when we have surplus
+        if rnd < 200 or ti < 300:
             return
         self._try_spawn(ct)
 
