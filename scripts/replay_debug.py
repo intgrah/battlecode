@@ -39,8 +39,15 @@ from proto.cambc_pb2 import Replay
 TEAM_LABEL = {0: "A", 1: "B"}
 ENV_CHARS = {0: ".", 1: "#", 2: "T", 3: "X"}
 DIR_DELTA = {
-    0: (0, 0), 1: (0, -1), 2: (1, -1), 3: (1, 0),
-    4: (1, 1), 5: (0, 1), 6: (-1, 1), 7: (-1, 0), 8: (-1, -1),
+    0: (0, 0),
+    1: (0, -1),
+    2: (1, -1),
+    3: (1, 0),
+    4: (1, 1),
+    5: (0, 1),
+    6: (-1, 1),
+    7: (-1, 0),
+    8: (-1, -1),
 }
 DIR_ARROWS = {0: "o", 1: "^", 2: "/", 3: ">", 4: "\\", 5: "v", 6: "\\", 7: "<", 8: "/"}
 CONVEYOR_KINDS = frozenset({"conveyor", "armoured_conveyor", "splitter", "bridge"})
@@ -48,10 +55,21 @@ TURRET_KINDS = frozenset({"gunner", "sentinel", "breach", "launcher"})
 MOBILE_KINDS = frozenset({"builder_bot"})
 
 ENTITY_CHARS = {
-    "core": "@", "builder_bot": "b", "conveyor": ">", "splitter": "Y",
-    "bridge": "=", "harvester": "H", "foundry": "F", "road": "-",
-    "barrier": "B", "marker": ",", "gunner": "g", "sentinel": "s",
-    "breach": "x", "launcher": "L", "armoured_conveyor": ">",
+    "core": "@",
+    "builder_bot": "b",
+    "conveyor": ">",
+    "splitter": "Y",
+    "bridge": "=",
+    "harvester": "H",
+    "foundry": "F",
+    "road": "-",
+    "barrier": "B",
+    "marker": ",",
+    "gunner": "g",
+    "sentinel": "s",
+    "breach": "x",
+    "launcher": "L",
+    "armoured_conveyor": ">",
 }
 
 # Marker decoding (matches bots/v32/marker.py)
@@ -74,7 +92,7 @@ def _decode_marker(encrypted: int) -> dict | None:
             "state": _CLAIM_STATES.get((payload >> 14) & 0x3, "?"),
             "freshness": (payload >> 2) & 0x3F,
         }
-    elif tag == 1:
+    if tag == 1:
         return {
             "type": "Threat",
             "enemy_x": (payload >> 22) & 0x3F,
@@ -83,7 +101,7 @@ def _decode_marker(encrypted: int) -> dict | None:
             "urgency": _URGENCY.get(payload & 0x3, "?"),
             "freshness": (payload >> 2) & 0x3F,
         }
-    elif tag == 2:
+    if tag == 2:
         return {
             "type": "Pressure",
             "pos_x": (payload >> 22) & 0x3F,
@@ -92,7 +110,7 @@ def _decode_marker(encrypted: int) -> dict | None:
             "upstream_harvesters": (payload >> 8) & 0xF,
             "freshness": (payload >> 2) & 0x3F,
         }
-    elif tag == 3:
+    if tag == 3:
         return {
             "type": "BreakAlert",
             "break_x": (payload >> 22) & 0x3F,
@@ -106,6 +124,7 @@ def _decode_marker(encrypted: int) -> dict | None:
 # ---------------------------------------------------------------------------
 # Entity / game state tracking
 # ---------------------------------------------------------------------------
+
 
 def _entity_kind(e) -> str:
     return e.WhichOneof("kind") or "unknown"
@@ -128,6 +147,7 @@ class EntityInfo:
 @dataclass
 class BotDebugInfo:
     """Parsed structured debug JSON from BotOutput.stdout."""
+
     raw: str = ""
     parsed: dict | None = None
 
@@ -147,6 +167,7 @@ class Event:
 @dataclass
 class TurnState:
     """Snapshot of resources at a turn."""
+
     ti: dict[int, int] = field(default_factory=lambda: {0: 1000, 1: 1000})
     ax: dict[int, int] = field(default_factory=lambda: {0: 0, 1: 0})
     ti_collected: dict[int, int] = field(default_factory=lambda: {0: 0, 1: 0})
@@ -156,6 +177,7 @@ class TurnState:
 # ---------------------------------------------------------------------------
 # Core replay scanner with event detection
 # ---------------------------------------------------------------------------
+
 
 class ReplayDebugger:
     def __init__(self, replay: Replay):
@@ -173,11 +195,16 @@ class ReplayDebugger:
         self.events: list[Event] = []
         self.resources = TurnState()
         self.resources_at_turn: dict[int, TurnState] = {}  # snapshots at event turns
-        self.bot_output: dict[int, dict[int, BotDebugInfo]] = defaultdict(dict)  # turn -> eid -> info
+        self.bot_output: dict[int, dict[int, BotDebugInfo]] = defaultdict(
+            dict,
+        )  # turn -> eid -> info
 
         # Tracking for event detection
         self._prev_income: dict[int, float] = {0: 0.0, 1: 0.0}
-        self._income_window: dict[int, list[tuple[int, int]]] = {0: [], 1: []}  # (turn, collected)
+        self._income_window: dict[int, list[tuple[int, int]]] = {
+            0: [],
+            1: [],
+        }  # (turn, collected)
         self._entity_counts: dict[int, Counter] = {0: Counter(), 1: Counter()}
         self._conveyor_chains: dict[int, set[tuple[int, int]]] = {0: set(), 1: set()}
         self._idle_streak: dict[int, int] = defaultdict(int)
@@ -238,9 +265,15 @@ class ReplayDebugger:
             marker_value = e.marker.value
 
         info = EntityInfo(
-            id=e.id, team=e.team, kind=ek, pos=pos,
-            hp=e.hp, max_hp=e.max_hp, direction=direction,
-            bridge_target=bridge_target, marker_value=marker_value,
+            id=e.id,
+            team=e.team,
+            kind=ek,
+            pos=pos,
+            hp=e.hp,
+            max_hp=e.max_hp,
+            direction=direction,
+            bridge_target=bridge_target,
+            marker_value=marker_value,
             spawn_turn=turn,
         )
         self.entities[e.id] = info
@@ -251,32 +284,55 @@ class ReplayDebugger:
 
         # Event: entity spawned (only interesting ones)
         if ek == "builder_bot":
-            self.events.append(Event(
-                turn=turn, kind="spawn", team=e.team, entity_id=e.id, pos=pos,
-                description=f"Builder #{e.id} spawned at {pos}",
-                priority=20,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="spawn",
+                    team=e.team,
+                    entity_id=e.id,
+                    pos=pos,
+                    description=f"Builder #{e.id} spawned at {pos}",
+                    priority=20,
+                ),
+            )
         elif ek == "harvester":
-            self.events.append(Event(
-                turn=turn, kind="spawn", team=e.team, entity_id=e.id, pos=pos,
-                description=f"Harvester #{e.id} built at {pos} (team {TEAM_LABEL[e.team]} now has {self._entity_counts[e.team]['harvester']})",
-                priority=40,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="spawn",
+                    team=e.team,
+                    entity_id=e.id,
+                    pos=pos,
+                    description=f"Harvester #{e.id} built at {pos} (team {TEAM_LABEL[e.team]} now has {self._entity_counts[e.team]['harvester']})",
+                    priority=40,
+                ),
+            )
         elif ek in TURRET_KINDS:
-            self.events.append(Event(
-                turn=turn, kind="spawn", team=e.team, entity_id=e.id, pos=pos,
-                description=f"{ek.title()} #{e.id} built at {pos} facing dir={direction}",
-                priority=50,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="spawn",
+                    team=e.team,
+                    entity_id=e.id,
+                    pos=pos,
+                    description=f"{ek.title()} #{e.id} built at {pos} facing dir={direction}",
+                    priority=50,
+                ),
+            )
         elif ek == "marker":
             decoded = _decode_marker(marker_value) if marker_value else None
             if decoded and decoded["type"] in ("Threat", "BreakAlert"):
-                self.events.append(Event(
-                    turn=turn, kind="marker", team=e.team, pos=pos,
-                    description=f"Marker placed at {pos}: {decoded}",
-                    details={"marker": decoded},
-                    priority=60 if decoded["type"] == "Threat" else 50,
-                ))
+                self.events.append(
+                    Event(
+                        turn=turn,
+                        kind="marker",
+                        team=e.team,
+                        pos=pos,
+                        description=f"Marker placed at {pos}: {decoded}",
+                        details={"marker": decoded},
+                        priority=60 if decoded["type"] == "Threat" else 50,
+                    ),
+                )
 
         if ek in CONVEYOR_KINDS:
             self._conveyor_chains[e.team].add(pos)
@@ -305,32 +361,56 @@ class ReplayDebugger:
         if info.kind == "builder_bot":
             was_damaged = eid in self._damaged
             cause = "killed" if was_damaged else "self-destruct"
-            self.events.append(Event(
-                turn=turn, kind="death", team=info.team, entity_id=eid, pos=info.pos,
-                description=f"Builder #{eid} {cause} at {info.pos} (lived {turn - info.spawn_turn} turns)",
-                details={"cause": cause, "lifetime": turn - info.spawn_turn},
-                priority=60 if was_damaged else 30,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="death",
+                    team=info.team,
+                    entity_id=eid,
+                    pos=info.pos,
+                    description=f"Builder #{eid} {cause} at {info.pos} (lived {turn - info.spawn_turn} turns)",
+                    details={"cause": cause, "lifetime": turn - info.spawn_turn},
+                    priority=60 if was_damaged else 30,
+                ),
+            )
         elif info.kind in ("harvester", "foundry") or info.kind in TURRET_KINDS:
             was_damaged = eid in self._damaged
-            self.events.append(Event(
-                turn=turn, kind="death", team=info.team, entity_id=eid, pos=info.pos,
-                description=f"{info.kind.title()} #{eid} destroyed at {info.pos} (team {TEAM_LABEL[info.team]})",
-                priority=70,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="death",
+                    team=info.team,
+                    entity_id=eid,
+                    pos=info.pos,
+                    description=f"{info.kind.title()} #{eid} destroyed at {info.pos} (team {TEAM_LABEL[info.team]})",
+                    priority=70,
+                ),
+            )
         elif info.kind in CONVEYOR_KINDS and eid in self._damaged:
             # Conveyor destroyed = potential chain break
-            self.events.append(Event(
-                turn=turn, kind="break", team=info.team, entity_id=eid, pos=info.pos,
-                description=f"Conveyor break: {info.kind} #{eid} destroyed at {info.pos}",
-                priority=80,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="break",
+                    team=info.team,
+                    entity_id=eid,
+                    pos=info.pos,
+                    description=f"Conveyor break: {info.kind} #{eid} destroyed at {info.pos}",
+                    priority=80,
+                ),
+            )
         elif info.kind == "core":
-            self.events.append(Event(
-                turn=turn, kind="death", team=info.team, entity_id=eid, pos=info.pos,
-                description=f"CORE DESTROYED - Team {TEAM_LABEL[info.team]} loses!",
-                priority=100,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="death",
+                    team=info.team,
+                    entity_id=eid,
+                    pos=info.pos,
+                    description=f"CORE DESTROYED - Team {TEAM_LABEL[info.team]} loses!",
+                    priority=100,
+                ),
+            )
 
     def _handle_hp(self, turn: int, hp_update) -> None:
         eid = hp_update.id
@@ -345,17 +425,28 @@ class ReplayDebugger:
         if delta < 0:
             self._damaged.add(eid)
             if info.kind == "core":
-                self.events.append(Event(
-                    turn=turn, kind="combat", team=1 - info.team, pos=info.pos,
-                    description=f"Core hit! Team {TEAM_LABEL[info.team]} core: {info.hp}/{info.max_hp} HP (took {abs(delta)} dmg)",
-                    priority=90,
-                ))
+                self.events.append(
+                    Event(
+                        turn=turn,
+                        kind="combat",
+                        team=1 - info.team,
+                        pos=info.pos,
+                        description=f"Core hit! Team {TEAM_LABEL[info.team]} core: {info.hp}/{info.max_hp} HP (took {abs(delta)} dmg)",
+                        priority=90,
+                    ),
+                )
             elif info.kind in TURRET_KINDS or info.kind == "harvester":
-                self.events.append(Event(
-                    turn=turn, kind="combat", team=1 - info.team, entity_id=eid, pos=info.pos,
-                    description=f"{info.kind.title()} #{eid} at {info.pos} took {abs(delta)} dmg ({info.hp}/{info.max_hp})",
-                    priority=40,
-                ))
+                self.events.append(
+                    Event(
+                        turn=turn,
+                        kind="combat",
+                        team=1 - info.team,
+                        entity_id=eid,
+                        pos=info.pos,
+                        description=f"{info.kind.title()} #{eid} at {info.pos} took {abs(delta)} dmg ({info.hp}/{info.max_hp})",
+                        priority=40,
+                    ),
+                )
 
     def _snapshot_resources(self, turn: int) -> None:
         self.resources_at_turn[turn] = TurnState(
@@ -367,7 +458,9 @@ class ReplayDebugger:
 
     def _handle_resources(self, turn: int, players) -> None:
         for t, p in ((0, players.a), (1, players.b)):
-            old_collected = self.resources.ti_collected[t] + self.resources.ax_collected[t]
+            old_collected = (
+                self.resources.ti_collected[t] + self.resources.ax_collected[t]
+            )
             new_collected = p.titanium_collected + p.axionite_collected
 
             self.resources.ti[t] = p.titanium
@@ -390,19 +483,27 @@ class ReplayDebugger:
 
                     # Detect significant income changes
                     if old_rate > 0.1 and rate < old_rate * 0.5:
-                        self.events.append(Event(
-                            turn=turn, kind="economy", team=t,
-                            description=f"Team {TEAM_LABEL[t]} income dropped: {old_rate:.2f} -> {rate:.2f}/turn",
-                            details={"old_rate": old_rate, "new_rate": rate},
-                            priority=70,
-                        ))
+                        self.events.append(
+                            Event(
+                                turn=turn,
+                                kind="economy",
+                                team=t,
+                                description=f"Team {TEAM_LABEL[t]} income dropped: {old_rate:.2f} -> {rate:.2f}/turn",
+                                details={"old_rate": old_rate, "new_rate": rate},
+                                priority=70,
+                            ),
+                        )
                     elif rate > 0.1 and old_rate < 0.05:
-                        self.events.append(Event(
-                            turn=turn, kind="economy", team=t,
-                            description=f"Team {TEAM_LABEL[t]} first income: {rate:.2f}/turn",
-                            details={"rate": rate},
-                            priority=50,
-                        ))
+                        self.events.append(
+                            Event(
+                                turn=turn,
+                                kind="economy",
+                                team=t,
+                                description=f"Team {TEAM_LABEL[t]} first income: {rate:.2f}/turn",
+                                details={"rate": rate},
+                                priority=50,
+                            ),
+                        )
 
                     self._prev_income[t] = rate
 
@@ -422,13 +523,17 @@ class ReplayDebugger:
                 break
 
         firer_kind = firer.kind if firer else "turret"
-        self.events.append(Event(
-            turn=turn, kind="turret", team=firer.team if firer else None,
-            pos=from_pos,
-            description=f"{firer_kind} at {from_pos} fires at {to_pos} (target: {target_kind})",
-            details={"from": from_pos, "to": to_pos, "target_id": target_id},
-            priority=35,
-        ))
+        self.events.append(
+            Event(
+                turn=turn,
+                kind="turret",
+                team=firer.team if firer else None,
+                pos=from_pos,
+                description=f"{firer_kind} at {from_pos} fires at {to_pos} (target: {target_kind})",
+                details={"from": from_pos, "to": to_pos, "target_id": target_id},
+                priority=35,
+            ),
+        )
 
     def _handle_bot_output(self, turn: int, bo) -> None:
         info = BotDebugInfo(raw=bo.stdout)
@@ -446,13 +551,17 @@ class ReplayDebugger:
 
         if bo.tled:
             ent = self.entities.get(bo.id)
-            self.events.append(Event(
-                turn=turn, kind="tle", team=ent.team if ent else None,
-                entity_id=bo.id,
-                pos=ent.pos if ent else None,
-                description=f"TLE: entity #{bo.id} ({ent.kind if ent else '?'}) timed out ({bo.exec_time_us}us)",
-                priority=75,
-            ))
+            self.events.append(
+                Event(
+                    turn=turn,
+                    kind="tle",
+                    team=ent.team if ent else None,
+                    entity_id=bo.id,
+                    pos=ent.pos if ent else None,
+                    description=f"TLE: entity #{bo.id} ({ent.kind if ent else '?'}) timed out ({bo.exec_time_us}us)",
+                    priority=75,
+                ),
+            )
 
         if info.parsed and bo.id in self.entities:
             ent = self.entities[bo.id]
@@ -461,13 +570,18 @@ class ReplayDebugger:
             state = dbg.get("state")
             prev_state = dbg.get("prev_state")
             if prev_state and state and prev_state != state:
-                self.events.append(Event(
-                    turn=turn, kind="state", team=ent.team, entity_id=bo.id,
-                    pos=ent.pos,
-                    description=f"Builder #{bo.id} state: {prev_state} -> {state}",
-                    details={"debug": dbg},
-                    priority=45,
-                ))
+                self.events.append(
+                    Event(
+                        turn=turn,
+                        kind="state",
+                        team=ent.team,
+                        entity_id=bo.id,
+                        pos=ent.pos,
+                        description=f"Builder #{bo.id} state: {prev_state} -> {state}",
+                        details={"debug": dbg},
+                        priority=45,
+                    ),
+                )
 
     def _handle_distribute(self, turn: int, dist) -> None:
         # Resource distribution through conveyors — not individually interesting,
@@ -485,16 +599,26 @@ class ReplayDebugger:
                 streak = self._idle_streak[eid]
                 # Only report at specific thresholds to avoid spam
                 if streak in (10, 30, 60):
-                    self.events.append(Event(
-                        turn=turn, kind="idle", team=info.team,
-                        entity_id=eid, pos=info.pos,
-                        description=f"Builder #{eid} idle for {streak} turns at {info.pos}",
-                        priority=25 + (15 if streak >= 30 else 0),
-                    ))
+                    self.events.append(
+                        Event(
+                            turn=turn,
+                            kind="idle",
+                            team=info.team,
+                            entity_id=eid,
+                            pos=info.pos,
+                            description=f"Builder #{eid} idle for {streak} turns at {info.pos}",
+                            priority=25 + (15 if streak >= 30 else 0),
+                        ),
+                    )
 
     # --- Map rendering ---
 
-    def render_map_snippet(self, center: tuple[int, int], radius: int, turn: int) -> str:
+    def render_map_snippet(
+        self,
+        center: tuple[int, int],
+        radius: int,
+        turn: int,
+    ) -> str:
         """Render a small map area around a position."""
         cx, cy = center
         x1, y1 = max(0, cx - radius), max(0, cy - radius)
@@ -518,7 +642,10 @@ class ReplayDebugger:
                 elif (x, y) in pos_to_ent:
                     info = pos_to_ent[(x, y)]
                     ch = ENTITY_CHARS.get(info.kind, "?")
-                    if info.kind in ("conveyor", "armoured_conveyor") and info.direction:
+                    if (
+                        info.kind in ("conveyor", "armoured_conveyor")
+                        and info.direction
+                    ):
                         ch = DIR_ARROWS.get(info.direction, ">")
                     if info.team == 1:
                         ch = ch.upper()
@@ -551,6 +678,7 @@ class ReplayDebugger:
 # ---------------------------------------------------------------------------
 # Output formatting
 # ---------------------------------------------------------------------------
+
 
 def format_narrative(
     debugger: ReplayDebugger,
@@ -672,7 +800,9 @@ def format_json(
         "total_turns": total_turns,
         "winner": winner,
         "map_size": [debugger.w, debugger.h],
-        "core_positions": {TEAM_LABEL[t]: list(p) for t, p in debugger.core_pos.items()},
+        "core_positions": {
+            TEAM_LABEL[t]: list(p) for t, p in debugger.core_pos.items()
+        },
         "events": [
             {
                 "turn": ev.turn,
@@ -716,15 +846,24 @@ def _collapse_events(events: list[Event]) -> list[Event]:
         if ev.kind == "turret" and ev.turn > skip_turret_until:
             count = 1
             j = i + 1
-            while j < len(events) and events[j].kind == "turret" and events[j].turn - ev.turn <= 5:
+            while (
+                j < len(events)
+                and events[j].kind == "turret"
+                and events[j].turn - ev.turn <= 5
+            ):
                 count += 1
                 j += 1
             if count > 3:
-                result.append(Event(
-                    turn=ev.turn, kind="turret", team=ev.team, pos=ev.pos,
-                    description=f"{count} turret shots over turns {ev.turn}-{events[j-1].turn}",
-                    priority=35,
-                ))
+                result.append(
+                    Event(
+                        turn=ev.turn,
+                        kind="turret",
+                        team=ev.team,
+                        pos=ev.pos,
+                        description=f"{count} turret shots over turns {ev.turn}-{events[j - 1].turn}",
+                        priority=35,
+                    ),
+                )
                 skip_turret_until = events[j - 1].turn
                 i = j
                 continue
@@ -739,7 +878,10 @@ def _collapse_events(events: list[Event]) -> list[Event]:
     return result
 
 
-def _identify_phases(events: list[Event], total_turns: int) -> list[tuple[str, list[Event]]]:
+def _identify_phases(
+    events: list[Event],
+    total_turns: int,
+) -> list[tuple[str, list[Event]]]:
     """Group events into game phases."""
     if not events:
         return []
@@ -767,6 +909,7 @@ def _identify_phases(events: list[Event], total_turns: int) -> list[tuple[str, l
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_replay(path: str) -> Replay:
     with Path(path).open("rb") as f:
         r = Replay()
@@ -776,7 +919,12 @@ def parse_replay(path: str) -> Replay:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Event-driven replay debugger")
-    parser.add_argument("replay", nargs="?", default="replay.replay26", help="Replay file path")
+    parser.add_argument(
+        "replay",
+        nargs="?",
+        default="replay.replay26",
+        help="Replay file path",
+    )
     parser.add_argument("--team", choices=["A", "B"], help="Filter to team")
     parser.add_argument("--entity", type=int, help="Filter to entity ID")
     parser.add_argument("--turns", help="Turn range (e.g. 100-200)")
@@ -786,7 +934,12 @@ def main() -> None:
     parser.add_argument("--no-map", action="store_true", help="Skip map snippets")
     parser.add_argument("--verbose", action="store_true", help="Show all events")
     parser.add_argument("--json", action="store_true", help="JSON output")
-    parser.add_argument("--min-priority", type=int, default=0, help="Minimum event priority (0-100)")
+    parser.add_argument(
+        "--min-priority",
+        type=int,
+        default=0,
+        help="Minimum event priority (0-100)",
+    )
 
     args = parser.parse_args()
 
@@ -811,7 +964,8 @@ def main() -> None:
         output = format_json(debugger, events)
     else:
         output = format_narrative(
-            debugger, events,
+            debugger,
+            events,
             team_filter=team_filter,
             entity_filter=args.entity,
             turn_range=turn_range,

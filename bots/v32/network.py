@@ -173,12 +173,15 @@ class NetworkBelief:
                 continue
             if not ct.is_in_vision(out):
                 continue
-            if ct.get_tile_building_id(out) is not None:
+            out_bid = ct.get_tile_building_id(out)
+            if out_bid is not None and ct.get_entity_type(out_bid) != EntityType.MARKER:
                 continue
             if abs(out.x - cx) <= 1 and abs(out.y - cy) <= 1:
                 continue
             info = self.tiles.get(t)
-            flow = info.flow if info else 0.0
+            if info is None or info.connected is not True:
+                continue
+            flow = info.flow
             if flow > best_flow:
                 best_flow = flow
                 best = out

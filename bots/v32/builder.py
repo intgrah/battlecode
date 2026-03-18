@@ -1,6 +1,5 @@
 import json
 import random
-import sys
 from dataclasses import dataclass, field
 
 from bugnav import BugNav
@@ -181,9 +180,13 @@ class BuilderAgent:
             "state": type(state).__name__,
             "pos": [pos.x, pos.y],
             "action": action,
-            "target": [state.target.x, state.target.y] if hasattr(state, "target") and state.target else None,
+            "target": [state.target.x, state.target.y]
+            if hasattr(state, "target") and state.target
+            else None,
             "net_connected": len(self.net.connected_tiles()),
-            "net_dead": [[p.x, p.y] for p in self.net.tiles if self.net.tiles[p].is_dead],
+            "net_dead": [
+                [p.x, p.y] for p in self.net.tiles if self.net.tiles[p].is_dead
+            ],
             "threats": len(self.reader.threats),
             "breaks": len(self.reader.breaks),
             "claims": len(self.reader.claims),
@@ -277,19 +280,18 @@ class BuilderAgent:
         my = ct.get_team()
 
         brk = self.net.find_break(ct, self.core)
-        if brk is None and ct.get_current_round() > 100 and ct.is_in_vision(Position(11, 20)):
-            bid_at = ct.get_tile_building_id(Position(11, 20))
-            if bid_at is None:
-                upstream = Position(11, 21)
-                ubid = ct.get_tile_building_id(upstream) if ct.is_in_vision(upstream) else None
-                utype = ct.get_entity_type(ubid) if ubid else None
-                udir = ct.get_direction(ubid) if ubid and utype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER) else None
-                with open("/tmp/v32_debug.txt", "a") as f:
-                    f.write(f"t{ct.get_current_round()} bot@{pos} MISS: (11,20) empty. upstream(11,21) bid={ubid} type={utype} dir={udir}\n")
+        if brk:
+            with open("/tmp/v32_debug.txt", "a") as f:
+                f.write(
+                    f"t{ct.get_current_round()} bot@{pos} FOUND brk@{brk} dist={pos.distance_squared(brk)}\n",
+                )
         if brk:
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
                 bid = ct.get_tile_building_id(brk)
-                if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
+                if bid is not None and ct.get_entity_type(bid) in (
+                    EntityType.ROAD,
+                    EntityType.MARKER,
+                ):
                     ct.destroy(brk)
                 d = repair_dir(ct, brk, self.core)
                 if ct.can_build_conveyor(brk, d):
@@ -303,7 +305,7 @@ class BuilderAgent:
             if isinstance(s, (ExploreConv, Patrol)):
                 s.target = brk
                 s.nav.reset()
-                s.nav.go(ct, brk, lambda d: step_walk(ct, d))
+                s.nav.go(ct, brk, lambda d: step_road(ct, d))
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
