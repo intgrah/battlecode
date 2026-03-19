@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import csv
 import json
+import statistics
 import sys
 import time
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from analysis.constants import CONVEYOR_KINDS, Pos
+from analysis.constants import SCALE_PCT, TURRET_KINDS, Pos
 from analysis.parse import extract_map_meta, parse
 from analysis.snapshot import core_tiles, entity_kind
 
@@ -18,8 +20,8 @@ REPLAYS_DIR = Path(__file__).resolve().parent.parent / "replays_all"
 INDEX_PATH = REPLAYS_DIR / "index.json"
 OUTPUT_PATH = Path(__file__).resolve().parent / "features.csv"
 
-SNAPSHOT_TURNS = [50, 100, 200, 300, 500, 750, 1000]
-ENTITY_TYPES = [
+SNAPSHOT_TURNS = [50, 100, 200, 400, 700, 1000, 1500]
+BUILDING_TYPES = [
     "builder_bot",
     "conveyor",
     "armoured_conveyor",
@@ -36,19 +38,57 @@ ENTITY_TYPES = [
 ]
 TURRET_TYPES = ["gunner", "sentinel", "breach", "launcher"]
 CONVEYOR_TYPES = ["conveyor", "armoured_conveyor", "splitter", "bridge"]
+TURRET_TYPE_MAP = {"gunner": 0, "sentinel": 1, "breach": 2, "launcher": 3}
 
-WORKERS = 8
+WORKERS = 4
 
 
 def chebyshev(a: Pos, b: Pos) -> int:
     return max(abs(a[0] - b[0]), abs(a[1] - b[1]))
 
 
-def euclidean_sq(a: Pos, b: Pos) -> int:
-    return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2
+@dataclass
+class BuilderTrace:
+    eid: int
+    team: int
+    born: int
+    death: int = -1
+    max_own_core_dist: int = 0
+    min_enemy_core_dist: int = 999
+    was_self_destruct: bool = False
+    was_launched: bool = False
+    prev_pos: Pos = (0, 0)
+    near_enemy_turns: int = 0
 
 
-def extract_features(replay_path: str) -> dict[str, object] | None:
+@dataclass
+class TeamState:
+    placed: Counter[str] = field(default_factory=Counter)
+    alive: Counter[str] = field(default_factory=Counter)
+    first_built: dict[str, int] = field(default_factory=dict)
+
+    harvester_positions: list[Pos] = field(default_factory=list)
+    turret_positions: list[Pos] = field(default_factory=list)
+    harvester_turns: list[int] = field(default_factory=list)
+
+    builder_spawn_turns: list[int] = field(default_factory=list)
+    builders: dict[int, BuilderTrace] = field(default_factory=dict)
+    builder_idle_turns: int = 0
+    builder_presence_turns: int = 0
+    self_destruct_turns: list[int] = field(default_factory=list)
+
+    raid_arrivals: list[int] = field(default_factory=list)
+    raid_per_turn: Counter[int] = field(default_factory=Counter)
+
+    first_resource_turn: int | None = None
+    first_delivery_turn: int | None = None
+
+
+def extract_features(
+    replay_path: str,
+    team_a_name: str,
+    team_b_name: str,
+) -> dict[str, object] | None:
     try:
         replay = parse(replay_path)
     except (OSError, ValueError, KeyError):
@@ -63,108 +103,25 @@ def extract_features(replay_path: str) -> dict[str, object] | None:
     winner_raw = replay.winner if replay.HasField("winner") else None  # type: ignore[attr-defined]
     winner = winner_raw if winner_raw is not None else -1
 
-    row: dict[str, object] = {}
-    row["replay"] = Path(replay_path).stem
-    row["total_turns"] = total_turns
-    row["winner"] = winner
+    own_core: dict[int, Pos] = {}
+    enemy_core: dict[int, Pos] = {}
+    for t in (0, 1):
+        own_core[t] = meta.core_pos.get(t, (0, 0))
+        enemy_core[t] = meta.core_pos.get(1 - t, (0, 0))
 
-    # ── map features ──
-    row["map_w"] = meta.width
-    row["map_h"] = meta.height
-    row["map_area"] = meta.width * meta.height
-    row["map_passable"] = meta.passable_count
-    row["map_passable_pct"] = meta.passable_count / (meta.width * meta.height)
-    ti_ore = sum(1 for _, _, t in meta.ore_tiles if t == "titanium")
-    ax_ore = sum(1 for _, _, t in meta.ore_tiles if t == "axionite")
-    row["map_ti_ore"] = ti_ore
-    row["map_ax_ore"] = ax_ore
-    row["map_total_ore"] = ti_ore + ax_ore
-    c0 = meta.core_pos.get(0, (0, 0))
-    c1 = meta.core_pos.get(1, (0, 0))
-    row["core_dist_cheb"] = chebyshev(c0, c1)
-    row["core_dist_sq"] = euclidean_sq(c0, c1)
-
-    # ── per-team state tracking ──
-    entities: dict[int, tuple[int, str, int]] = {}
-    entity_pos: dict[int, Pos] = {}
-    entity_hp: dict[int, int] = {}
-    building_at: dict[Pos, int] = {}
     core_tile_sets = {t: core_tiles(meta.core_pos, t) for t in (0, 1)}
-    core_entity_ids: dict[int, int] = {}
 
-    # counters per team
-    placed: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
-    removed: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
-    alive_count: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
-    moves: dict[int, int] = {0: 0, 1: 0}
-    total_damage: dict[int, int] = {0: 0, 1: 0}
-    damage_by_victim: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
-    buildings_destroyed: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
-    builder_kills: dict[int, int] = {0: 0, 1: 0}
-    self_destructs: dict[int, int] = {0: 0, 1: 0}
-    tle_count: dict[int, int] = {0: 0, 1: 0}
-    exec_total: dict[int, int] = {0: 0, 1: 0}
-    exec_samples: dict[int, int] = {0: 0, 1: 0}
-    exec_max: dict[int, int] = {0: 0, 1: 0}
-    turret_shots: dict[int, Counter[str]] = {0: Counter(), 1: Counter()}
-    fire_count: dict[int, int] = {0: 0, 1: 0}
+    entities: dict[int, tuple[int, str]] = {}
+    entity_pos: dict[int, Pos] = {}
+    ts: dict[int, TeamState] = {0: TeamState(), 1: TeamState()}
 
-    # timing
-    first_built: dict[int, dict[str, int]] = {0: {}, 1: {}}
-    first_resource_turn: dict[int, int | None] = {0: None, 1: None}
-    first_delivery_turn: dict[int, int | None] = {0: None, 1: None}
-    first_conveyor_killed: dict[int, int | None] = {0: None, 1: None}
-    first_core_damage: dict[int, int | None] = {0: None, 1: None}
-    first_raid: dict[int, int | None] = {0: None, 1: None}
-    raid_count: dict[int, int] = {0: 0, 1: 0}
-
-    # resources
-    ti_collected: dict[int, int] = {0: 0, 1: 0}
-    ax_collected: dict[int, int] = {0: 0, 1: 0}
-    ti_current: dict[int, int] = {0: 1000, 1: 1000}
-    ax_current: dict[int, int] = {0: 0, 1: 0}
-    # income tracking (rolling window)
-    income_history: dict[int, list[tuple[int, int]]] = {0: [], 1: []}
-    peak_income: dict[int, float] = {0: 0.0, 1: 0.0}
-
-    # core hp
-    core_hp: dict[int, int] = {0: 500, 1: 500}
-    min_core_hp: dict[int, int] = {0: 500, 1: 500}
-
-    # flow
-    conv_moves_total = 0
-    conv_moves_peak = 0
-    core_deliveries: dict[int, int] = {0: 0, 1: 0}
-    harvester_positions: dict[int, set[Pos]] = {0: set(), 1: set()}
-    harvester_outputs: dict[int, int] = {0: 0, 1: 0}
-
-    # builder trace stats
-    builder_born: dict[int, int] = {}
-    builder_team: dict[int, int] = {}
-    builder_prev_pos: dict[int, Pos] = {}
-    builder_dist_traveled: dict[int, int] = {0: 0, 1: 0}
-    builder_idle_turns: dict[int, int] = {0: 0, 1: 0}
-    builder_presence_turns: dict[int, int] = {0: 0, 1: 0}
-    builder_max_core_dist: dict[int, int] = {0: 0, 1: 0}
-    builder_sum_core_dist: dict[int, int] = {0: 0, 1: 0}
-    builder_core_dist_samples: dict[int, int] = {0: 0, 1: 0}
-    builder_oscillation_count: dict[int, int] = {0: 0, 1: 0}
-    builder_pos_window: dict[int, list[Pos]] = {}
-    builder_builds: dict[int, int] = {0: 0, 1: 0}
-    builder_heals: dict[int, int] = {0: 0, 1: 0}
-    builder_near_enemy_turns: dict[int, int] = {0: 0, 1: 0}
-    builder_near_own_infra_turns: dict[int, int] = {0: 0, 1: 0}
-
-    # snapshot collection
-    snapshot_data: dict[int, dict[int, dict[str, int]]] = {}
-    snapshot_resources: dict[int, dict[int, dict[str, int]]] = {}
+    snapshot_counts: dict[int, dict[int, dict[str, int]]] = {}
     snapshot_turn_set = set(SNAPSHOT_TURNS)
 
     acted_this_turn: set[int] = set()
     damaged_this_turn: set[int] = set()
 
     for turn_idx, turn in enumerate(all_turns):
-        conv_moves_this = 0
         acted_this_turn.clear()
         damaged_this_turn.clear()
 
@@ -176,439 +133,400 @@ def extract_features(replay_path: str) -> dict[str, object] | None:
                 ek = entity_kind(e)
                 team = e.team
                 pos: Pos = (e.position.x, e.position.y)
-                entities[e.id] = (team, ek, e.max_hp)
+                entities[e.id] = (team, ek)
                 entity_pos[e.id] = pos
-                entity_hp[e.id] = e.hp
-                placed[team][ek] += 1
-                alive_count[team][ek] += 1
                 acted_this_turn.add(e.id)
+                st = ts[team]
+                st.placed[ek] += 1
+                st.alive[ek] += 1
 
-                if ek not in ("builder_bot", "marker"):
-                    building_at[pos] = e.id
-                if ek not in first_built[team]:
-                    first_built[team][ek] = turn_idx
-                if ek == "core":
-                    core_entity_ids[team] = e.id
-                elif ek == "harvester":
-                    harvester_positions[team].add(pos)
+                if ek not in st.first_built:
+                    st.first_built[ek] = turn_idx
+
+                if ek == "harvester":
+                    st.harvester_positions.append(pos)
+                    st.harvester_turns.append(turn_idx)
+                elif ek in TURRET_KINDS:
+                    st.turret_positions.append(pos)
                 elif ek == "builder_bot":
-                    builder_born[e.id] = turn_idx
-                    builder_team[e.id] = team
-                    builder_prev_pos[e.id] = pos
-                    builder_pos_window[e.id] = [pos]
-                    builder_builds[team] += 1
-
-                    own_core = meta.core_pos.get(team, (0, 0))
-                    d = chebyshev(pos, own_core)
-                    builder_sum_core_dist[team] += d
-                    builder_core_dist_samples[team] += 1
+                    st.builder_spawn_turns.append(turn_idx)
+                    bt = BuilderTrace(
+                        eid=e.id,
+                        team=team,
+                        born=turn_idx,
+                        prev_pos=pos,
+                    )
+                    bt.max_own_core_dist = chebyshev(pos, own_core[team])
+                    bt.min_enemy_core_dist = chebyshev(pos, enemy_core[team])
+                    st.builders[e.id] = bt
 
             elif kind == "move_builder_bot":
                 mb = u.move_builder_bot
                 new_pos: Pos = (mb.to.x, mb.to.y)
-                old_pos = entity_pos.get(mb.id, new_pos)
+                old_pos = entity_pos.get(mb.id)
                 entity_pos[mb.id] = new_pos
+                acted_this_turn.add(mb.id)
+
                 if mb.id in entities:
                     team = entities[mb.id][0]
-                    moves[team] += 1
-                    acted_this_turn.add(mb.id)
+                    st = ts[team]
+                    bt = st.builders.get(mb.id)
+                    if bt:
+                        d_own = chebyshev(new_pos, own_core[team])
+                        d_enemy = chebyshev(new_pos, enemy_core[team])
+                        bt.max_own_core_dist = max(bt.max_own_core_dist, d_own)
+                        bt.min_enemy_core_dist = min(bt.min_enemy_core_dist, d_enemy)
 
-                    dist = abs(new_pos[0] - old_pos[0]) + abs(new_pos[1] - old_pos[1])
-                    builder_dist_traveled[team] += dist
+                        if d_enemy <= 4:
+                            st.raid_arrivals.append(turn_idx)
+                            st.raid_per_turn[turn_idx] += 1
+                        if d_enemy <= 8:
+                            bt.near_enemy_turns += 1
 
-                    own_core = meta.core_pos.get(team, (0, 0))
-                    d = chebyshev(new_pos, own_core)
-                    builder_max_core_dist[team] = max(builder_max_core_dist[team], d)
-                    builder_sum_core_dist[team] += d
-                    builder_core_dist_samples[team] += 1
-
-                    enemy_core = meta.core_pos.get(1 - team)
-                    if enemy_core and chebyshev(new_pos, enemy_core) <= 3:
-                        raid_count[team] += 1
-                        if first_raid[team] is None:
-                            first_raid[team] = turn_idx
-
-                    if enemy_core and chebyshev(new_pos, enemy_core) <= 8:
-                        builder_near_enemy_turns[team] += 1
-
-                    own_infra = harvester_positions[team]
-                    if own_infra:
-                        nearest = min(chebyshev(new_pos, p) for p in own_infra)
-                        if nearest <= 3:
-                            builder_near_own_infra_turns[team] += 1
-
-                    window = builder_pos_window.get(mb.id)
-                    if window is not None:
-                        window.append(new_pos)
-                        if len(window) > 10:
-                            window.pop(0)
-                        if len(window) == 10 and len(set(window)) <= 2:
-                            builder_oscillation_count[team] += 1
-
-                    builder_prev_pos[mb.id] = new_pos
+                        if old_pos:
+                            manhattan = abs(new_pos[0] - old_pos[0]) + abs(new_pos[1] - old_pos[1])
+                            if manhattan > 3:
+                                bt.was_launched = True
+                        bt.prev_pos = new_pos
 
             elif kind == "remove_entity":
                 eid = u.remove_entity.id
                 if eid in entities:
-                    team, ek, _ = entities[eid]
-                    removed[team][ek] += 1
-                    alive_count[team][ek] = max(0, alive_count[team][ek] - 1)
+                    team, ek = entities[eid]
+                    st = ts[team]
+                    st.alive[ek] = max(0, st.alive[ek] - 1)
 
                     if ek == "builder_bot":
-                        if eid in damaged_this_turn:
-                            builder_kills[1 - team] += 1
-                        else:
-                            self_destructs[team] += 1
-                        builder_prev_pos.pop(eid, None)
-                        builder_pos_window.pop(eid, None)
                         acted_this_turn.add(eid)
-                    elif ek != "marker":
-                        if eid in damaged_this_turn:
-                            buildings_destroyed[1 - team][ek] += 1
-                            if ek in CONVEYOR_KINDS and first_conveyor_killed[team] is None:
-                                first_conveyor_killed[team] = turn_idx
-
-                    epos = entity_pos.pop(eid, None)
-                    if epos and building_at.get(epos) == eid:
-                        del building_at[epos]
-                    entity_hp.pop(eid, None)
-                    if ek == "harvester" and epos:
-                        harvester_positions[team].discard(epos)
+                        bt = st.builders.get(eid)
+                        if bt:
+                            bt.death = turn_idx
+                            if eid not in damaged_this_turn:
+                                bt.was_self_destruct = True
+                                st.self_destruct_turns.append(turn_idx)
+                    entity_pos.pop(eid, None)
 
             elif kind == "update_hp":
-                eid = u.update_hp.id
                 delta = u.update_hp.delta
-                if eid in entity_hp:
-                    entity_hp[eid] += delta
-                if delta < 0 and eid in entities:
-                    damaged_this_turn.add(eid)
-                    victim_team, victim_type, _ = entities[eid]
-                    attacker = 1 - victim_team
-                    dmg = abs(delta)
-                    total_damage[attacker] += dmg
-                    damage_by_victim[attacker][victim_type] += dmg
-
-                    for t in (0, 1):
-                        if eid == core_entity_ids.get(t):
-                            core_hp[t] = max(0, core_hp[t] + delta)
-                            min_core_hp[t] = min(min_core_hp[t], core_hp[t])
-                            if first_core_damage[t] is None:
-                                first_core_damage[t] = turn_idx
-                elif delta > 0 and eid in entities:
-                    healer_team = entities[eid][0]
-                    builder_heals[healer_team] += 1
-
-            elif kind == "fire_turret":
-                f = u.fire_turret
-                f_from = getattr(f, "from")
-                fpos: Pos = (f_from.x, f_from.y)
-                fid = building_at.get(fpos)
-                if fid and fid in entities:
-                    team, ek, _ = entities[fid]
-                    turret_shots[team][ek] += 1
-                    fire_count[team] += 1
-
-            elif kind == "bot_output":
-                bo = u.bot_output
-                if bo.id in entities:
-                    team = entities[bo.id][0]
-                    if bo.tled:
-                        tle_count[team] += 1
-                    if bo.exec_time_us > 0:
-                        exec_total[team] += bo.exec_time_us
-                        exec_samples[team] += 1
-                        exec_max[team] = max(exec_max[team], bo.exec_time_us)
-                acted_this_turn.add(bo.id)
-                if bo.id in entities:
-                    team = entities[bo.id][0]
-                    ek = entities[bo.id][1]
-                    if ek == "builder_bot" and hasattr(bo, "built") and bo.built:
-                        builder_builds[team] += 1
+                if delta < 0:
+                    damaged_this_turn.add(u.update_hp.id)
 
             elif kind == "update_players":
                 p = u.update_players.players
                 for t, player in ((0, p.a), (1, p.b)):
-                    old_ti = ti_collected[t]
-                    ti_collected[t] = player.titanium_collected
-                    ax_collected[t] = player.axionite_collected
-                    ti_current[t] = player.titanium
-                    ax_current[t] = player.axionite
-                    if first_resource_turn[t] is None and ti_collected[t] > old_ti:
-                        first_resource_turn[t] = turn_idx
-
-                    income_history[t].append((turn_idx, ti_collected[t] + ax_collected[t]))
-                    if len(income_history[t]) >= 2:
-                        hist = income_history[t]
-                        lookback = min(100, len(hist) - 1)
-                        dt = hist[-1][0] - hist[-1 - lookback][0]
-                        if dt > 0:
-                            dr = hist[-1][1] - hist[-1 - lookback][1]
-                            rate = dr / dt
-                            peak_income[t] = max(peak_income[t], rate)
+                    if ts[t].first_resource_turn is None and player.titanium_collected > 0:
+                        ts[t].first_resource_turn = turn_idx
 
             elif kind == "distribute_resources":
                 for mv in u.distribute_resources.moves:
-                    frm: Pos = (getattr(mv, "from").x, getattr(mv, "from").y)
                     to: Pos = (mv.to.x, mv.to.y)
-                    conv_moves_this += 1
                     for t in (0, 1):
-                        if frm in harvester_positions[t]:
-                            harvester_outputs[t] += 1
-                        if to in core_tile_sets[t]:
-                            core_deliveries[t] += 1
-                            if first_delivery_turn[t] is None:
-                                first_delivery_turn[t] = turn_idx
+                        if to in core_tile_sets[t] and ts[t].first_delivery_turn is None:
+                            ts[t].first_delivery_turn = turn_idx
 
-            elif kind == "heal_entity":
-                h = u.heal_entity
-                if h.id in entities:
-                    team = entities[h.id][0]
-                    builder_heals[team] += 1
-
-        conv_moves_total += conv_moves_this
-        conv_moves_peak = max(conv_moves_peak, conv_moves_this)
-
-        # builder idle tracking
-        for eid, (team, ek, _) in entities.items():
-            if ek == "builder_bot" and eid in entity_hp:
-                builder_presence_turns[team] += 1
+        for eid, (team, ek) in entities.items():
+            if ek == "builder_bot" and eid in ts[team].builders and ts[team].builders[eid].death == -1:
+                ts[team].builder_presence_turns += 1
                 if eid not in acted_this_turn:
-                    builder_idle_turns[team] += 1
+                    ts[team].builder_idle_turns += 1
 
-        # snapshot at key turns
         if turn_idx in snapshot_turn_set:
+            snapshot_counts[turn_idx] = {}
             for t in (0, 1):
-                counts = dict(alive_count[t])
-                if turn_idx not in snapshot_data:
-                    snapshot_data[turn_idx] = {}
-                snapshot_data[turn_idx][t] = counts
-            if turn_idx not in snapshot_resources:
-                snapshot_resources[turn_idx] = {}
-            for t in (0, 1):
-                snapshot_resources[turn_idx][t] = {
-                    "ti": ti_current[t],
-                    "ax": ax_current[t],
-                    "ti_collected": ti_collected[t],
-                    "ax_collected": ax_collected[t],
-                }
+                snapshot_counts[turn_idx][t] = dict(ts[t].alive)
 
-    # ── write features ──
+    # ── post-processing ──
 
-    # map
-    # (already written above)
+    row: dict[str, object] = {}
+    row["replay"] = Path(replay_path).stem
+    row["winner"] = winner
+    row["team_a"] = team_a_name
+    row["team_b"] = team_b_name
+    row["total_turns"] = total_turns
 
-    # per-team features
+    # map context
+    row["map_w"] = meta.width
+    row["map_h"] = meta.height
+    row["map_area"] = meta.width * meta.height
+    row["map_passable_pct"] = round(meta.passable_count / (meta.width * meta.height), 4)
+    ti_ore = sum(1 for _, _, t in meta.ore_tiles if t == "titanium")
+    ax_ore = sum(1 for _, _, t in meta.ore_tiles if t == "axionite")
+    row["map_ti_ore"] = ti_ore
+    row["map_ax_ore"] = ax_ore
+    row["core_dist_cheb"] = chebyshev(own_core[0], own_core[1])
+    row["game_end_pct"] = round(total_turns / 2000, 4)
+
     for t in (0, 1):
         p = f"t{t}_"
+        st = ts[t]
 
-        # timing
-        row[p + "first_resource"] = first_resource_turn[t]
-        row[p + "first_delivery"] = first_delivery_turn[t]
-        row[p + "first_conv_killed"] = first_conveyor_killed[t]
-        row[p + "first_core_dmg"] = first_core_damage[t]
-        row[p + "first_raid"] = first_raid[t]
-        row[p + "raid_count"] = raid_count[t]
-
-        for etype in ENTITY_TYPES:
-            fb = first_built[t].get(etype)
-            row[p + f"first_{etype}"] = fb
-
-        # final resources
-        row[p + "final_ti"] = ti_current[t]
-        row[p + "final_ax"] = ax_current[t]
-        row[p + "ti_collected"] = ti_collected[t]
-        row[p + "ax_collected"] = ax_collected[t]
-        row[p + "peak_income"] = round(peak_income[t], 3)
-
-        # entity totals
-        for etype in ENTITY_TYPES:
-            row[p + f"placed_{etype}"] = placed[t].get(etype, 0)
-            row[p + f"removed_{etype}"] = removed[t].get(etype, 0)
-            row[p + f"alive_{etype}"] = alive_count[t].get(etype, 0)
-
-        row[p + "total_placed"] = sum(placed[t].values())
-        row[p + "total_conveyors_placed"] = sum(placed[t].get(c, 0) for c in CONVEYOR_TYPES)
-        row[p + "total_turrets_placed"] = sum(placed[t].get(c, 0) for c in TURRET_TYPES)
-
-        # combat
-        row[p + "total_damage"] = total_damage[t]
-        row[p + "builder_kills"] = builder_kills[t]
-        row[p + "self_destructs"] = self_destructs[t]
-        row[p + "buildings_destroyed_total"] = sum(buildings_destroyed[t].values())
-        for etype in ENTITY_TYPES:
-            row[p + f"destroyed_{etype}"] = buildings_destroyed[t].get(etype, 0)
-        row[p + "dmg_to_core"] = damage_by_victim[t].get("core", 0)
-        row[p + "dmg_to_builders"] = damage_by_victim[t].get("builder_bot", 0)
-        row[p + "dmg_to_conveyors"] = sum(
-            damage_by_victim[t].get(c, 0) for c in CONVEYOR_TYPES
+        # ── build order ──
+        for etype in BUILDING_TYPES:
+            row[p + f"first_{etype}"] = st.first_built.get(etype)
+        row[p + "builds_before_first_harvester"] = _count_before(
+            st.builder_spawn_turns, st.first_built.get("harvester"),
         )
-        row[p + "dmg_to_harvesters"] = damage_by_victim[t].get("harvester", 0)
-        row[p + "dmg_to_turrets"] = sum(
-            damage_by_victim[t].get(c, 0) for c in TURRET_TYPES
+        first_turret_turn = _first_turret_turn(st.first_built)
+        row[p + "harvesters_before_first_turret"] = _harvester_count_before(
+            st.harvester_turns, first_turret_turn,
         )
-        row[p + "fire_count"] = fire_count[t]
-        for tt in TURRET_TYPES:
-            row[p + f"shots_{tt}"] = turret_shots[t].get(tt, 0)
+        row[p + "first_turret_type"] = _first_turret_type(st.first_built)
+        row[p + "has_foundry"] = int("foundry" in st.first_built)
 
-        # core hp
-        row[p + "core_hp"] = core_hp[t]
-        row[p + "min_core_hp"] = min_core_hp[t]
+        # ── snapshots ──
+        for snap_t in SNAPSHOT_TURNS:
+            sp = f"{p}t{snap_t}_"
+            if snap_t in snapshot_counts and t in snapshot_counts[snap_t]:
+                counts = snapshot_counts[snap_t][t]
+                row[sp + "builders"] = counts.get("builder_bot", 0)
+                row[sp + "harvesters"] = counts.get("harvester", 0)
+                row[sp + "turrets"] = sum(counts.get(tt, 0) for tt in TURRET_TYPES)
+                row[sp + "conveyors"] = sum(counts.get(ct, 0) for ct in CONVEYOR_TYPES)
+            else:
+                row[sp + "builders"] = None
+                row[sp + "harvesters"] = None
+                row[sp + "turrets"] = None
+                row[sp + "conveyors"] = None
 
-        # flow
-        row[p + "core_deliveries"] = core_deliveries[t]
-        row[p + "harvester_outputs"] = harvester_outputs[t]
+        # ── builder allocation ──
+        all_builders = list(st.builders.values())
+        total_builders = len(all_builders)
+        raiders = [b for b in all_builders if b.min_enemy_core_dist <= 4]
+        defenders = [b for b in all_builders if b.max_own_core_dist <= 6 and b.min_enemy_core_dist > 4]
+        scouts = [b for b in all_builders if b not in raiders and b not in defenders]
 
-        # moves
-        row[p + "total_moves"] = moves[t]
+        row[p + "raider_count"] = len(raiders)
+        row[p + "defender_count"] = len(defenders)
+        row[p + "scout_count"] = len(scouts)
+        row[p + "raider_pct"] = round(len(raiders) / total_builders, 4) if total_builders > 0 else 0.0
 
-        # builder trace
-        row[p + "builder_dist_traveled"] = builder_dist_traveled[t]
-        row[p + "builder_idle_turns"] = builder_idle_turns[t]
-        row[p + "builder_presence_turns"] = builder_presence_turns[t]
-        idle_pct = (
-            builder_idle_turns[t] / builder_presence_turns[t]
-            if builder_presence_turns[t] > 0
+        raider_born_turns = [b.born for b in raiders]
+        row[p + "first_raider_turn"] = min(raider_born_turns) if raider_born_turns else None
+        quarter = total_turns // 4
+        row[p + "raider_commitment_early"] = sum(1 for b in raiders if b.born < quarter)
+
+        raider_lifetimes = [
+            (b.death if b.death >= 0 else total_turns) - b.born for b in raiders
+        ]
+        row[p + "avg_raider_lifetime"] = (
+            round(statistics.mean(raider_lifetimes), 1) if raider_lifetimes else 0.0
+        )
+
+        max_dists = [b.max_own_core_dist for b in all_builders]
+        row[p + "avg_builder_max_dist_from_own_core"] = (
+            round(statistics.mean(max_dists), 2) if max_dists else 0.0
+        )
+
+        row[p + "builder_idle_pct"] = (
+            round(st.builder_idle_turns / st.builder_presence_turns, 4)
+            if st.builder_presence_turns > 0
             else 0.0
         )
-        row[p + "builder_idle_pct"] = round(idle_pct, 4)
-        row[p + "builder_max_core_dist"] = builder_max_core_dist[t]
-        avg_core_dist = (
-            builder_sum_core_dist[t] / builder_core_dist_samples[t]
-            if builder_core_dist_samples[t] > 0
-            else 0.0
+        sd_count = len(st.self_destruct_turns)
+        dead_builders = sum(1 for b in all_builders if b.death >= 0)
+        row[p + "self_destruct_count"] = sd_count
+        row[p + "self_destruct_pct"] = (
+            round(sd_count / dead_builders, 4) if dead_builders > 0 else 0.0
         )
-        row[p + "builder_avg_core_dist"] = round(avg_core_dist, 2)
-        row[p + "builder_oscillation"] = builder_oscillation_count[t]
-        row[p + "builder_near_enemy_turns"] = builder_near_enemy_turns[t]
-        row[p + "builder_near_own_infra_turns"] = builder_near_own_infra_turns[t]
-        row[p + "builder_heals"] = builder_heals[t]
-
-        # efficiency
-        row[p + "tle_count"] = tle_count[t]
-        avg_exec = (
-            exec_total[t] / exec_samples[t] if exec_samples[t] > 0 else 0
+        row[p + "self_destruct_turn_first"] = st.self_destruct_turns[0] if st.self_destruct_turns else None
+        row[p + "self_destruct_turn_median"] = (
+            int(statistics.median(st.self_destruct_turns)) if st.self_destruct_turns else None
         )
-        row[p + "avg_exec_us"] = round(avg_exec, 1)
-        row[p + "max_exec_us"] = exec_max[t]
-
-        # snapshots
-        for st in SNAPSHOT_TURNS:
-            sp = f"{p}t{st}_"
-            if st in snapshot_data and t in snapshot_data[st]:
-                counts = snapshot_data[st][t]
-                for etype in ENTITY_TYPES:
-                    row[sp + etype] = counts.get(etype, 0)
-                row[sp + "total_conveyors"] = sum(
-                    counts.get(c, 0) for c in CONVEYOR_TYPES
-                )
-                row[sp + "total_turrets"] = sum(
-                    counts.get(c, 0) for c in TURRET_TYPES
-                )
-            else:
-                for etype in ENTITY_TYPES:
-                    row[sp + etype] = None
-                row[sp + "total_conveyors"] = None
-                row[sp + "total_turrets"] = None
-
-            if st in snapshot_resources and t in snapshot_resources[st]:
-                r = snapshot_resources[st][t]
-                row[sp + "ti"] = r["ti"]
-                row[sp + "ax"] = r["ax"]
-                row[sp + "ti_collected"] = r["ti_collected"]
-                row[sp + "ax_collected"] = r["ax_collected"]
-            else:
-                row[sp + "ti"] = None
-                row[sp + "ax"] = None
-                row[sp + "ti_collected"] = None
-                row[sp + "ax_collected"] = None
-
-    # global flow
-    row["conv_moves_total"] = conv_moves_total
-    row["conv_moves_peak"] = conv_moves_peak
-    avg_conv = conv_moves_total / total_turns if total_turns > 0 else 0
-    row["conv_moves_avg"] = round(avg_conv, 2)
-
-    # ── delta features (t0 - t1) ──
-    for feat in [
-        "first_resource",
-        "first_delivery",
-        "first_conv_killed",
-        "first_core_dmg",
-        "first_raid",
-        "ti_collected",
-        "ax_collected",
-        "peak_income",
-        "total_damage",
-        "core_hp",
-        "total_moves",
-        "builder_idle_pct",
-        "builder_oscillation",
-        "total_placed",
-        "total_conveyors_placed",
-        "total_turrets_placed",
-        "placed_harvester",
-        "core_deliveries",
-        "builder_near_enemy_turns",
-        "fire_count",
-    ]:
-        v0 = row.get(f"t0_{feat}")
-        v1 = row.get(f"t1_{feat}")
-        if v0 is not None and v1 is not None:
-            row[f"delta_{feat}"] = v0 - v1  # type: ignore[operator]
-        else:
-            row[f"delta_{feat}"] = None
-
-    # ── ratio features ──
-    for t in (0, 1):
-        p = f"t{t}_"
-        ti = ti_collected[t]
-        if ti > 0:
-            row[p + "turret_invest_pct"] = round(
-                sum(placed[t].get(c, 0) for c in TURRET_TYPES) * 10 / ti, 4,
-            )
-            row[p + "conv_invest_pct"] = round(
-                sum(placed[t].get(c, 0) for c in CONVEYOR_TYPES) * 3 / ti, 4,
-            )
-            row[p + "harvester_invest_pct"] = round(
-                placed[t].get("harvester", 0) * 80 / ti, 4,
-            )
-        else:
-            row[p + "turret_invest_pct"] = 0.0
-            row[p + "conv_invest_pct"] = 0.0
-            row[p + "harvester_invest_pct"] = 0.0
-
-        total_conv_placed = sum(placed[t].get(c, 0) for c in CONVEYOR_TYPES)
-        if total_conv_placed > 0:
-            row[p + "conv_survival_pct"] = round(
-                sum(alive_count[t].get(c, 0) for c in CONVEYOR_TYPES) / total_conv_placed,
+        row[p + "builders_spawned"] = total_builders
+        row[p + "builder_spawn_rate_early"] = (
+            round(sum(1 for t2 in st.builder_spawn_turns if t2 < 200) / 200, 4) if total_turns >= 200 else 0.0
+        )
+        row[p + "builder_spawn_rate_late"] = (
+            round(
+                sum(1 for t2 in st.builder_spawn_turns if t2 >= 500) / max(1, total_turns - 500),
                 4,
             )
-        else:
-            row[p + "conv_survival_pct"] = None
+            if total_turns > 500
+            else 0.0
+        )
+        row[p + "builder_spawn_cadence_cv"] = _cadence_cv(st.builder_spawn_turns)
 
-        if builder_presence_turns[t] > 0:
-            row[p + "builds_per_presence"] = round(
-                sum(placed[t].values()) / builder_presence_turns[t], 4,
-            )
-            row[p + "dist_per_presence"] = round(
-                builder_dist_traveled[t] / builder_presence_turns[t], 4,
-            )
-        else:
-            row[p + "builds_per_presence"] = 0.0
-            row[p + "dist_per_presence"] = 0.0
+        # ── raid strategy ──
+        row[p + "raid_start_turn"] = st.raid_arrivals[0] if st.raid_arrivals else None
+        row[p + "raid_start_pct"] = (
+            round(st.raid_arrivals[0] / total_turns, 4) if st.raid_arrivals else None
+        )
+        row[p + "raid_phases"] = _count_raid_phases(st.raid_arrivals)
+        row[p + "raid_total_arrivals"] = len(st.raid_arrivals)
+        row[p + "raid_peak_builders"] = (
+            max(st.raid_per_turn.values()) if st.raid_per_turn else 0
+        )
+        raider_depths = [b.min_enemy_core_dist for b in raiders]
+        row[p + "raid_depth_avg"] = (
+            round(statistics.mean(raider_depths), 2) if raider_depths else None
+        )
+        raid_span = (
+            st.raid_arrivals[-1] - st.raid_arrivals[0] if len(st.raid_arrivals) >= 2 else 0
+        )
+        row[p + "raid_sustained"] = int(raid_span > 200)
+        row[p + "raid_early"] = int(bool(st.raid_arrivals) and st.raid_arrivals[0] < 150)
+        row[p + "launched_raiders"] = sum(1 for b in raiders if b.was_launched)
 
-        harv = placed[t].get("harvester", 0)
-        if harv > 0:
-            row[p + "deliveries_per_harvester"] = round(core_deliveries[t] / harv, 2)
-        else:
-            row[p + "deliveries_per_harvester"] = 0.0
+        # ── economy layout ──
+        row[p + "harvesters_placed"] = st.placed.get("harvester", 0)
+        row[p + "harvester_timing_avg"] = (
+            round(statistics.mean(st.harvester_turns), 1)
+            if st.harvester_turns
+            else None
+        )
+        harv_dists = [chebyshev(hp, own_core[t]) for hp in st.harvester_positions]
+        row[p + "harvester_dist_from_core_avg"] = (
+            round(statistics.mean(harv_dists), 2) if harv_dists else 0.0
+        )
+        row[p + "harvester_dist_from_core_max"] = max(harv_dists) if harv_dists else 0
+        row[p + "harvester_spread"] = _pairwise_std(st.harvester_positions)
+        row[p + "conveyors_placed"] = sum(st.placed.get(c, 0) for c in CONVEYOR_TYPES)
+        harv_count = st.placed.get("harvester", 0)
+        conv_count = sum(st.placed.get(c, 0) for c in CONVEYOR_TYPES)
+        row[p + "conveyor_per_harvester"] = (
+            round(conv_count / harv_count, 2) if harv_count > 0 else 0.0
+        )
+        row[p + "bridges_placed"] = st.placed.get("bridge", 0)
+        row[p + "splitters_placed"] = st.placed.get("splitter", 0)
+        row[p + "armoured_conveyors_placed"] = st.placed.get("armoured_conveyor", 0)
+        row[p + "roads_placed"] = st.placed.get("road", 0)
+        row[p + "barriers_placed"] = st.placed.get("barrier", 0)
+        row[p + "scale_pressure"] = _scale_pressure(st.placed)
+        row[p + "econ_start_turn"] = st.first_built.get("harvester")
+        row[p + "econ_setup_duration"] = (
+            st.first_delivery_turn - st.first_built.get("builder_bot", 0)
+            if st.first_delivery_turn is not None and "builder_bot" in st.first_built
+            else None
+        )
+
+        # ── turret/defense ──
+        row[p + "turrets_placed"] = sum(st.placed.get(tt, 0) for tt in TURRET_TYPES)
+        for tt in TURRET_TYPES:
+            row[p + f"{tt}s_placed"] = st.placed.get(tt, 0)
+        turret_types_used = sum(1 for tt in TURRET_TYPES if st.placed.get(tt, 0) > 0)
+        row[p + "turret_diversity"] = turret_types_used
+        row[p + "turret_start_turn"] = _first_turret_turn(st.first_built)
+        turret_core_dists = [chebyshev(tp, own_core[t]) for tp in st.turret_positions]
+        row[p + "turret_dist_from_core_avg"] = (
+            round(statistics.mean(turret_core_dists), 2) if turret_core_dists else None
+        )
+        row[p + "turrets_near_core"] = sum(1 for d in turret_core_dists if d <= 4)
+        turret_enemy_dists = [chebyshev(tp, enemy_core[t]) for tp in st.turret_positions]
+        row[p + "turrets_near_enemy"] = sum(1 for d in turret_enemy_dists if d <= 8)
+        row[p + "turret_to_harvester_ratio"] = (
+            round(sum(st.placed.get(tt, 0) for tt in TURRET_TYPES) / harv_count, 3)
+            if harv_count > 0
+            else 0.0
+        )
+        total_turrets = sum(st.placed.get(tt, 0) for tt in TURRET_TYPES)
+        row[p + "launcher_pct"] = (
+            round(st.placed.get("launcher", 0) / total_turrets, 4)
+            if total_turrets > 0
+            else 0.0
+        )
+        row[p + "has_breach"] = int(st.placed.get("breach", 0) > 0)
+
+        # ── tempo ──
+        row[p + "first_builder_turn"] = st.first_built.get("builder_bot")
+        row[p + "first_resource_turn"] = st.first_resource_turn
+        row[p + "first_delivery_turn"] = st.first_delivery_turn
+        fb_turn = st.first_built.get("builder_bot", 0)
+        row[p + "setup_speed"] = (
+            st.first_delivery_turn - fb_turn
+            if st.first_delivery_turn is not None
+            else None
+        )
+        first_harv = st.first_built.get("harvester")
+        first_raid_t = st.raid_arrivals[0] if st.raid_arrivals else None
+        row[p + "aggression_before_econ"] = int(
+            first_raid_t is not None
+            and first_harv is not None
+            and first_raid_t < first_harv,
+        )
+        second_harv_turn = st.harvester_turns[1] if len(st.harvester_turns) >= 2 else None
+        row[p + "turret_before_second_harvester"] = int(
+            first_turret_turn is not None
+            and second_harv_turn is not None
+            and first_turret_turn < second_harv_turn,
+        )
 
     return row
 
 
-def process_one(args: tuple[str, str]) -> tuple[str, dict[str, object] | None]:
-    key, path = args
-    return key, extract_features(path)
+def _count_before(spawn_turns: list[int], threshold: int | None) -> int:
+    if threshold is None:
+        return len(spawn_turns)
+    return sum(1 for t in spawn_turns if t < threshold)
+
+
+def _harvester_count_before(harvester_turns: list[int], threshold: int | None) -> int:
+    if threshold is None:
+        return len(harvester_turns)
+    return sum(1 for t in harvester_turns if t < threshold)
+
+
+def _first_turret_turn(first_built: dict[str, int]) -> int | None:
+    turns = [first_built[k] for k in TURRET_TYPES if k in first_built]
+    return min(turns) if turns else None
+
+
+def _first_turret_type(first_built: dict[str, int]) -> int:
+    best_turn = float("inf")
+    best_type = 4
+    for tt in TURRET_TYPES:
+        t = first_built.get(tt)
+        if t is not None and t < best_turn:
+            best_turn = t
+            best_type = TURRET_TYPE_MAP[tt]
+    return best_type
+
+
+def _cadence_cv(spawn_turns: list[int]) -> float:
+    if len(spawn_turns) < 3:
+        return 0.0
+    intervals = [spawn_turns[i + 1] - spawn_turns[i] for i in range(len(spawn_turns) - 1)]
+    mean = statistics.mean(intervals)
+    if mean == 0:
+        return 0.0
+    return round(statistics.stdev(intervals) / mean, 4)
+
+
+def _count_raid_phases(arrivals: list[int]) -> int:
+    if not arrivals:
+        return 0
+    phases = 1
+    prev = arrivals[0]
+    for a in arrivals[1:]:
+        if a - prev > 50:
+            phases += 1
+        prev = a
+    return phases
+
+
+def _pairwise_std(positions: list[Pos]) -> float:
+    if len(positions) < 2:
+        return 0.0
+    dists: list[float] = [
+        chebyshev(positions[i], positions[j])
+        for i in range(len(positions))
+        for j in range(i + 1, len(positions))
+    ]
+    return round(statistics.stdev(dists), 2) if len(dists) >= 2 else 0.0
+
+
+def _scale_pressure(placed: Counter[str]) -> float:
+    scale = 100.0
+    for kind, count in placed.items():
+        pct = SCALE_PCT.get(kind, 0.0)
+        scale += pct * count
+    return round(scale, 1)
+
+
+def process_one(
+    args: tuple[str, str, str, str],
+) -> tuple[str, dict[str, object] | None]:
+    key, path, team_a, team_b = args
+    return key, extract_features(path, team_a, team_b)
 
 
 def main() -> None:
@@ -617,13 +535,13 @@ def main() -> None:
         sys.exit(1)
 
     index: dict[str, dict] = json.loads(INDEX_PATH.read_text())
-    tasks: list[tuple[str, str]] = []
+    tasks: list[tuple[str, str, str, str]] = []
     for key, entry in index.items():
         mid = entry["matchId"]
         g = entry["game"]
         path = REPLAYS_DIR / f"{mid}_g{g}.replay26"
         if path.exists():
-            tasks.append((key, str(path)))
+            tasks.append((key, str(path), entry.get("teamA", ""), entry.get("teamB", "")))
 
     print(f"Extracting features from {len(tasks)} replays ({WORKERS} workers)...")
     t0 = time.time()
@@ -635,14 +553,14 @@ def main() -> None:
     with ProcessPoolExecutor(max_workers=WORKERS) as pool:
         futures = {pool.submit(process_one, t): t for t in tasks}
         for future in as_completed(futures):
-            key, row = future.result()
-            if row is not None:
-                rows.append(row)
+            key, row_result = future.result()
+            if row_result is not None:
+                rows.append(row_result)
                 done += 1
             else:
                 failed += 1
             total = done + failed
-            if total % 500 == 0:
+            if total % 50 == 0:
                 elapsed = time.time() - t0
                 rate = total / elapsed if elapsed > 0 else 0
                 eta = (len(tasks) - total) / rate if rate > 0 else 0

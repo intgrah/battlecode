@@ -75,6 +75,7 @@ class BuilderAgent:
         self.reader = MarkerReader()
         self.writer = MarkerWriter()
         self.harvesters_built = 0
+        self._gunner_placed = False
         self._recent_positions: list[tuple[int, int]] = []
 
     def _setup(self, ct: Controller) -> None:
@@ -115,6 +116,17 @@ class BuilderAgent:
             ep = ct.get_position(eid)
             if ep.distance_squared(self.core) <= 36:
                 return ep
+        return None
+
+    def _find_enemy_building_near_core(self, ct: Controller) -> Position | None:
+        assert self.core is not None
+        my = ct.get_team()
+        for t in ct.get_nearby_tiles():
+            bid = ct.get_tile_building_id(t)
+            if bid is None or ct.get_team(bid) == my:
+                continue
+            if t.distance_squared(self.core) <= 36:
+                return t
         return None
 
     def _try_place_harvester(self, ct: Controller, ore: Position) -> bool:
@@ -174,7 +186,10 @@ class BuilderAgent:
         return False
 
     def _ensure_cardinal_conveyor(
-        self, ct: Controller, pos: Position, ore: Position
+        self,
+        ct: Controller,
+        pos: Position,
+        ore: Position,
     ) -> None:
         for d in CARDINALS:
             adj = ore.add(d)
@@ -390,6 +405,16 @@ class BuilderAgent:
         if rnd % 50 == 0:
             self.net.dump("/tmp/v32_belief.jsonl", rnd, ct.get_id(), (pos.x, pos.y))
 
+        if (
+            not self._gunner_placed
+            and pos.distance_squared(self.core) <= 8
+            and rnd >= 20
+        ):
+            assert self.enemy_core is not None
+            if self._try_build_gunner(ct, pos) or self._try_build_gunner(ct, self.core):
+                self._gunner_placed = True
+                return
+
         brk = self.net.find_break(ct, self.core)
         if brk:
             with (Path(tempfile.gettempdir()) / "v32_debug.txt").open("a") as f:
@@ -427,11 +452,19 @@ class BuilderAgent:
                 return
 
         enemy = self._find_enemy_near_core(ct)
-        if enemy and pos.distance_squared(self.core) <= 36:
+        enemy_building_near_core = self._find_enemy_building_near_core(ct)
+        threat = enemy or enemy_building_near_core
+        if threat and pos.distance_squared(self.core) <= 100:
+            if pos.distance_squared(
+                self.core,
+            ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(self.core):
+                ct.heal(self.core)
+                return
             s = self.state
-            if isinstance(s, (ExploreConv, Patrol)):
-                s.nav.go(ct, enemy, lambda d: step_road(ct, d))
-                self._emit_debug(ct, "defend_core", enemy=[enemy.x, enemy.y])
+            if isinstance(s, (ExploreConv, ExploreRoad, Patrol)):
+                s.target = self.core
+                s.nav.reset()
+                s.nav.go(ct, self.core, lambda d: step_walk(ct, d))
                 self._propose_markers(ct)
                 self.writer.flush(ct)
                 return
@@ -466,9 +499,11 @@ class BuilderAgent:
                 if s.target is not None:
                     s.nav.go(ct, s.target, lambda d: step_conv(ct, d))
                 if not ore and s.target is not None:
+                    assert self.core is not None
+                    far_enough = pos.distance_squared(self.core) >= 100
                     arrived = pos.x == s.target.x and pos.y == s.target.y
                     unreachable = s.nav.unreachable
-                    if arrived or unreachable:
+                    if arrived or unreachable or far_enough:
                         self.state = ExploreRoad()
                         return
 
@@ -488,6 +523,13 @@ class BuilderAgent:
                     s.nav.reset()
                 if s.target is not None:
                     s.nav.go(ct, s.target, lambda d: step_road(ct, d))
+                if (
+                    s.target is not None
+                    and (pos == s.target or s.nav.unreachable)
+                    and self._pick_unvisited_target(ct) is None
+                ):
+                    self.state = Patrol()
+                    return
 
             case WalkToAnchor() as s:
                 if pos.distance_squared(s.anchor) <= GameConstants.ACTION_RADIUS_SQ:
