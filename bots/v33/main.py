@@ -1,15 +1,3 @@
-"""v33 — Unstoppable economy + anti-cheese defense.
-
-Combines best ideas from v32/v25/v24/v21:
-- v25's explore→seek→return→chain_build flow
-- v32's network repair and break detection
-- v25's fortify system (splitter + ammo-fed gunner)
-- Budget-gated conveyor building (never starve)
-- Proactive defense: splitter + gunner near core ASAP
-- Anti-cheese: detect enemy builders/turrets near core, spawn + heal
-- Full 2000 round play
-"""
-
 import random
 from collections import deque
 from collections.abc import Callable
@@ -27,7 +15,16 @@ from cambc import (
 # Constants
 # ---------------------------------------------------------------------------
 
-DIRS = [d for d in Direction if d != Direction.CENTRE]
+DIRS = [
+    Direction.NORTH,
+    Direction.NORTHEAST,
+    Direction.EAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTH,
+    Direction.SOUTHWEST,
+    Direction.WEST,
+    Direction.NORTHWEST,
+]
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 SPOKES = [
     Direction.NORTH,
@@ -46,15 +43,16 @@ _TRANSPORT = frozenset(
         EntityType.ARMOURED_CONVEYOR,
         EntityType.SPLITTER,
         EntityType.BRIDGE,
-    }
+    },
 )
 _INFRA = _TRANSPORT | {EntityType.HARVESTER, EntityType.FOUNDRY}
 
-NUM_INITIAL_BUILDERS = 4
-MAX_BUILDERS = 12
-IDLE_BEFORE_RAID = 50
+NUM_INITIAL_BUILDERS = 3
+MAX_BUILDERS = 6
+IDLE_BEFORE_RAID = 60
 PATROL_IDLE_LIMIT = 30
 TI_WINDOW = 10
+FORTIFY_MIN_HARVESTERS = 3
 
 # ---------------------------------------------------------------------------
 # Utilities
@@ -80,7 +78,7 @@ def ore_env(ct: Controller, p: Position) -> bool:
     )
 
 
-_DELTA_TO_DIR = {d.delta(): d for d in Direction if d != Direction.CENTRE}
+_DELTA_TO_DIR = {d.delta(): d for d in DIRS}
 
 
 def _is_diagonal(d: Direction) -> bool:
@@ -344,7 +342,6 @@ class CoreBot:
 
         my = ct.get_team()
 
-        # ANTI-CHEESE: Spawn defenders toward any enemy near core
         for eid in ct.get_nearby_entities():
             if ct.get_team(eid) == my:
                 continue
@@ -357,9 +354,12 @@ class CoreBot:
             ):
                 ep = ct.get_position(eid)
                 core_pos = ct.get_position()
-                if ep.distance_squared(core_pos) <= 49:
-                    # Spawn defender every round when under attack
+                if (
+                    ep.distance_squared(core_pos) <= 49
+                    and rnd - self.defense_spawned_round >= 10
+                ):
                     self._try_spawn_toward(ct, ep)
+                    self.defense_spawned_round = rnd
                     return
 
         # Initial builders: wait until we can afford bot + harvester
@@ -425,7 +425,8 @@ class BuilderAgent:
         if self.core:
             self.w, self.h = ct.get_map_width(), ct.get_map_height()
             self.enemy_core = Position(
-                self.w - 1 - self.core.x, self.h - 1 - self.core.y
+                self.w - 1 - self.core.x,
+                self.h - 1 - self.core.y,
             )
             self.spoke_dir = toward(self.core, pos)
         if self.spoke_dir is None or self.spoke_dir == Direction.CENTRE:
@@ -437,7 +438,7 @@ class BuilderAgent:
     # --- Helpers ---
 
     def _find_adj_ore(self, ct: Controller, pos: Position) -> Position | None:
-        for d in Direction:
+        for d in DIRS:
             t = pos.add(d)
             if not ib(ct, t):
                 continue
@@ -507,7 +508,11 @@ class BuilderAgent:
             if bid is None or ct.get_team(bid) != my:
                 continue
             et = ct.get_entity_type(bid)
-            if et not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER):
+            if et not in (
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+            ):
                 continue
             dd = ct.get_direction(bid)
             dx, dy = dd.delta()
@@ -528,7 +533,8 @@ class BuilderAgent:
         return None
 
     def _find_threats_near_core(
-        self, ct: Controller
+        self,
+        ct: Controller,
     ) -> tuple[Position | None, Position | None]:
         """Find enemy turrets and builders near our core.
         Returns (closest_turret, closest_builder)."""
@@ -683,7 +689,9 @@ class BuilderAgent:
         # ANTI-CHEESE: defend core - heal when under attack
         if self.state not in (RAID,):
             enemy_turret, enemy_builder = self._find_threats_near_core(ct)
-            if (enemy_turret or enemy_builder) and pos.distance_squared(self.core) <= 64:
+            if (enemy_turret or enemy_builder) and pos.distance_squared(
+                self.core,
+            ) <= 64:
                 self._try_heal_core(ct)
                 return
 
@@ -855,9 +863,9 @@ class BuilderAgent:
             return
 
         # Only place harvester if it has a connected conveyor adjacent
-        if (
-            ct.can_build_harvester(self.ore_target)
-            and self._has_adjacent_conveyor(ct, self.ore_target)
+        if ct.can_build_harvester(self.ore_target) and self._has_adjacent_conveyor(
+            ct,
+            self.ore_target,
         ):
             ct.build_harvester(self.ore_target)
             self.harvesters_built += 1
@@ -918,11 +926,10 @@ class BuilderAgent:
             self.nav.reset()
             return
 
-        # Build gunner adjacent to conveyor for defense
-        if self.fortify_count < 3 and self.harvesters_built >= 1:
+        if self.fortify_count < 2 and self.harvesters_built >= FORTIFY_MIN_HARVESTERS:
             ti, _ = ct.get_global_resources()
             gun_cost, _ = ct.get_gunner_cost()
-            if ti > gun_cost + 20:
+            if ti > gun_cost * 3:
                 built = self._try_place_gunner_on_network(ct, pos)
                 if built:
                     self.fortify_count += 1
@@ -1000,7 +1007,11 @@ class BuilderAgent:
                 self.fortify_dir.rotate_right(),
             ]:
                 gun_pos = self.fortify_target.add(try_d)
-                if not ib(ct, gun_pos) or not ct.is_in_vision(gun_pos) or wall(ct, gun_pos):
+                if (
+                    not ib(ct, gun_pos)
+                    or not ct.is_in_vision(gun_pos)
+                    or wall(ct, gun_pos)
+                ):
                     continue
                 if ct.get_tile_building_id(gun_pos) is not None:
                     continue
@@ -1080,7 +1091,7 @@ class BuilderAgent:
                 return
 
         past_midpoint = pos.distance_squared(self.enemy_core) < pos.distance_squared(
-            self.core
+            self.core,
         )
         if past_midpoint:
             best = None
