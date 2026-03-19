@@ -418,6 +418,7 @@ class BuilderAgent:
         self.harvesters_built = 0
         self.fortify_count = 0
         self.chain_wait = 0
+        self._counter_turret_placed = False
         self.fortify_target: Position | None = None
         self.fortify_dir: Direction | None = None
         self.fortify_step = 0
@@ -573,6 +574,25 @@ class BuilderAgent:
                     best_builder = ep
         return best_turret, best_builder
 
+    def _find_conv_feeding_enemy(self, ct: Controller, enemy_pos: Position) -> Position | None:
+        my = ct.get_team()
+        for d in CARDINALS:
+            adj = enemy_pos.add(d)
+            if not ib(ct, adj) or not ct.is_in_vision(adj):
+                continue
+            bid = ct.get_tile_building_id(adj)
+            if bid is None or ct.get_team(bid) != my:
+                continue
+            et = ct.get_entity_type(bid)
+            if et not in (EntityType.CONVEYOR, EntityType.SPLITTER):
+                continue
+            conv_dir = ct.get_direction(bid)
+            dx, dy = conv_dir.delta()
+            out = Position(adj.x + dx, adj.y + dy)
+            if out.x == enemy_pos.x and out.y == enemy_pos.y:
+                return adj
+        return None
+
     def _find_enemy_conv_near_core(self, ct: Controller) -> Position | None:
         """Find enemy conveyor/transport near our core to destroy."""
         if self.core is None:
@@ -703,17 +723,21 @@ class BuilderAgent:
         if self.state not in (RAID,):
             enemy_turret, _ = self._find_threats_near_core(ct)
             if enemy_turret:
-                if pos.distance_squared(enemy_turret) <= GameConstants.ACTION_RADIUS_SQ:
-                    bid = ct.get_tile_building_id(pos)
-                    if bid is not None and ct.get_team(bid) != ct.get_team():
-                        ct.self_destruct()
-                        return
                 if pos.distance_squared(self.core) <= GameConstants.ACTION_RADIUS_SQ:
-                    self._try_heal_core(ct)
-                    return
-                if pos.distance_squared(self.core) <= 64:
-                    self.nav.go(ct, enemy_turret, lambda d: step_walk(ct, d))
-                    return
+                    if self._try_heal_core(ct):
+                        return
+                if not self._counter_turret_placed and pos.distance_squared(enemy_turret) <= 20:
+                    for d in DIRS:
+                        gp = pos.add(d)
+                        if not ib(ct, gp):
+                            continue
+                        f = gp.direction_to(enemy_turret)
+                        if f == Direction.CENTRE:
+                            continue
+                        if ct.can_build_gunner(gp, f):
+                            ct.build_gunner(gp, f)
+                            self._counter_turret_placed = True
+                            return
 
         # Repair breaks (high priority but not during chain build)
         if self.state not in (RAID, RETURN, CHAIN_BUILD, FORTIFY):

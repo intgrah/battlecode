@@ -148,9 +148,21 @@ def analyze(ctx: Context, teams: list[int]) -> BotsReport:
             hist = s.builder_pos_history.get(bid, [])
             positions = [p for _, p in hist]
             total_bot_turns += len(positions)
-            for i in range(10, len(positions)):
-                window = positions[i - 10 : i]
-                if len(set(window)) <= 2:
+            for i in range(2, len(positions)):
+                is_osc = False
+                max_period = min(i, 50)
+                for period in range(2, max_period + 1):
+                    if i - 2 * period + 1 < 0:
+                        break
+                    match = True
+                    for k in range(period):
+                        if positions[i - k] != positions[i - period - k]:
+                            match = False
+                            break
+                    if match:
+                        is_osc = True
+                        break
+                if is_osc:
                     osc_turns += 1
         osc_pct[t] = 100 * osc_turns / total_bot_turns if total_bot_turns > 0 else 0.0
 
