@@ -1,11 +1,6 @@
 import random
 
-from cambc import (
-    Direction,
-    EntityType,
-    Environment,
-    Position,
-)
+from cambc import Direction, EntityType, Environment, Position
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIRS = [
@@ -19,16 +14,25 @@ DIRS = [
     Direction.NORTHWEST,
 ]
 NUM_EXPLORERS = 8
-
-_BRIDGE = EntityType.BRIDGE
-_TRANSPORT = frozenset(
-    {
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-        EntityType.BRIDGE,
-    },
-)
+MAX_FOUNDRIES = 1
+SPOKE_OFFSETS = [
+    (0, -1),  # N
+    (1, -2),  # NNE
+    (1, -1),  # NE
+    (2, -1),  # NEE
+    (1, 0),  # E
+    (2, 1),  # SEE
+    (1, 1),  # SE
+    (1, 2),  # SSE
+    (0, 1),  # S
+    (-1, 2),  # SSW
+    (-1, 1),  # SW
+    (-2, 1),  # SWW
+    (-1, 0),  # W
+    (-2, -1),  # NWW
+    (-1, -1),  # NW
+    (-1, -2),  # NNW
+]
 
 
 class Player:
@@ -52,6 +56,13 @@ class Player:
         self.repair_pos = None
         self.repair_from = None
         self.repair_turns = 0
+        # Foundry state
+        self.foundry_step = 0
+        self.foundry_pos = None
+        self.foundry_ax_harv = None
+        self.foundry_ti_chain = None
+        self.foundry_output_dir = None
+        self.foundry_wait = 0
         # Bugnav state
         self.bug_target = None
         self.bug_wf = False
@@ -67,8 +78,6 @@ class Player:
             self.run_core(c)
         elif etype == EntityType.BUILDER_BOT:
             self.run_builder(c)
-        elif etype in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
-            self.run_turret(c)
 
     # ---- CORE ----
     def run_core(self, c) -> None:
@@ -78,12 +87,14 @@ class Player:
 
         # First: spawn farmers (explorers)
         if self.num_spawned < NUM_EXPLORERS:
-            if ti >= cost + 80:
+            reserve = 200 if self.num_spawned >= 4 else 80
+            if ti >= cost + reserve:
                 self._spawn(c)
             return
 
-        # Spawn raider every 4 rounds when unprotected bridges exist
         rnd = c.get_current_round()
+        if self.num_spawned >= 20:
+            return
         if ti >= cost and rnd % 3 == 0:
             has_naked_bridge = False
             for bid in c.get_nearby_buildings():
@@ -112,8 +123,7 @@ class Player:
                 self._spawn(c)
                 return
 
-        # After round 200: spawn raiders unconditionally
-        if rnd >= 200 and ti >= cost + 200:
+        if rnd >= 200 and ti >= cost + 400:
             self._spawn(c)
 
     def _spawn(self, c) -> None:
@@ -144,14 +154,15 @@ class Player:
             self._run_chainer(c)
         elif self.role == "repairing":
             self._run_repairer(c)
+        elif self.role == "foundry_builder":
+            self._run_foundry_builder(c)
         elif self.role == "raider":
             self._run_raider(c)
 
     # ---- EXPLORER ----
     def _run_explorer(self, c) -> None:
         rnd = c.get_current_round()
-        bot_id = c.get_id()
-        if rnd >= 300 and bot_id % 2 == 0:
+        if rnd >= 200 and c.get_id() % 4 == 0:
             self.role = "raider"
             self._run_raider(c)
             return
@@ -159,6 +170,29 @@ class Player:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         my_team = c.get_team()
+
+        # Check for foundry opportunity: only after round 400 to avoid scaling damage
+        if rnd >= 400 and not self._foundry_exists(c):
+            best_ax = None
+            best_ax_dist = 999
+            for bid in c.get_nearby_buildings():
+                try:
+                    if c.get_team(bid) != my_team:
+                        continue
+                    if c.get_entity_type(bid) != EntityType.HARVESTER:
+                        continue
+                    hpos = c.get_position(bid)
+                    if self._is_ax_ore(c, hpos):
+                        d = pos.distance_squared(hpos)
+                        if d < best_ax_dist:
+                            best_ax_dist = d
+                            best_ax = hpos
+                except Exception:
+                    continue
+            if best_ax is not None and best_ax_dist <= 8:
+                self._start_foundry(c, best_ax, pos)
+                if self.role == "foundry_builder":
+                    return
 
         # Build harvester on any cardinal-adjacent unclaimed ore
         for d in CARDINALS:
@@ -172,16 +206,22 @@ class Player:
                 if ti >= h_cost and c.can_build_harvester(adj):
                     c.build_harvester(adj)
                     self.my_harvester = adj
-                    bridge_start = self._find_bridge_start(c, adj, pos)
-                    self._start_chain(c, bridge_start)
+                    if (
+                        self._is_ax_ore(c, adj)
+                        and c.get_current_round() >= 400
+                        and not self._foundry_exists(c)
+                    ):
+                        self._start_foundry(c, adj, pos)
+                    else:
+                        bridge_start = self._find_bridge_start(c, adj, pos)
+                        self._start_chain(c, bridge_start)
                     return
                 return
             except Exception:
                 pass
 
-        # Scan vision for unclaimed ore — only chase if it's roughly in our scout direction
         if self.scout_dir is None:
-            self.scout_dir = DIRS[c.get_id() % 8]
+            self.scout_dir = c.get_id() % len(SPOKE_OFFSETS)
         best_ore = None
         best_dist = 999
         for tile in c.get_nearby_tiles():
@@ -232,21 +272,10 @@ class Player:
                 self._bug_move(c, best_ore)
             return
 
-        # No uncrowded ore visible — explore outward gradually from core
         map_w = c.get_map_width()
         map_h = c.get_map_height()
-        # Explore distance grows with turns alive (start close, go further)
         explore_dist = min(5 + self.turns_alive // 3, 30)
-        dx, dy = {
-            Direction.NORTH: (0, -1),
-            Direction.SOUTH: (0, 1),
-            Direction.EAST: (1, 0),
-            Direction.WEST: (-1, 0),
-            Direction.NORTHEAST: (1, -1),
-            Direction.NORTHWEST: (-1, -1),
-            Direction.SOUTHEAST: (1, 1),
-            Direction.SOUTHWEST: (-1, 1),
-        }.get(self.scout_dir, (1, 0))
+        dx, dy = SPOKE_OFFSETS[self.scout_dir % len(SPOKE_OFFSETS)]
         origin = self.core_pos or pos
         tx = max(0, min(map_w - 1, origin.x + dx * explore_dist))
         ty = max(0, min(map_h - 1, origin.y + dy * explore_dist))
@@ -255,6 +284,241 @@ class Player:
             self._redirect()
             return
         self._bug_move(c, explore_target)
+
+    # ---- FOUNDRY BUILDING ----
+    def _start_foundry(self, c, ax_harv_pos, builder_pos) -> None:
+        self.foundry_ax_harv = ax_harv_pos
+        self.foundry_step = 0
+        self.foundry_pos = None
+        self.foundry_ti_chain = None
+        self.foundry_output_dir = None
+        my_team = c.get_team()
+
+        best_pos = None
+        best_score = -1
+        for d in CARDINALS:
+            candidate = ax_harv_pos.add(d)
+            if self._is_wall(c, candidate) or self._is_ore(c, candidate):
+                continue
+            bid = c.get_tile_building_id(candidate)
+            if bid is not None:
+                try:
+                    if c.get_team(bid) != my_team:
+                        continue
+                    etype = c.get_entity_type(bid)
+                    if etype not in (EntityType.ROAD, EntityType.MARKER):
+                        continue
+                except Exception:
+                    continue
+            score = 0
+            free_sides = 0
+            for d2 in CARDINALS:
+                side = candidate.add(d2)
+                if side.x == ax_harv_pos.x and side.y == ax_harv_pos.y:
+                    continue
+                if self._is_ti_ore(c, side):
+                    score += 100
+                sbid = c.get_tile_building_id(side)
+                if sbid is not None:
+                    try:
+                        if c.get_team(sbid) == my_team:
+                            etype = c.get_entity_type(sbid)
+                            if etype == EntityType.HARVESTER:
+                                hpos = c.get_position(sbid)
+                                if self._is_ti_ore(c, hpos):
+                                    score += 200
+                            elif etype in (
+                                EntityType.CONVEYOR,
+                                EntityType.BRIDGE,
+                                EntityType.SPLITTER,
+                            ):
+                                score += 50
+                    except Exception:
+                        pass
+                if not self._is_wall(c, side) and not self._is_ore(c, side):
+                    free_sides += 1
+            score += free_sides
+            if free_sides >= 1 and score > best_score:
+                best_score = score
+                best_pos = candidate
+
+        if best_pos is None:
+            bridge_start = self._find_bridge_start(c, ax_harv_pos, builder_pos)
+            self._start_chain(c, bridge_start)
+            return
+
+        self.foundry_pos = best_pos
+        self.role = "foundry_builder"
+
+    def _run_foundry_builder(self, c) -> None:
+        pos = c.get_position()
+        ti, _ = c.get_global_resources()
+        my_team = c.get_team()
+        self.foundry_wait = getattr(self, "foundry_wait", 0) + 1
+
+        if self.foundry_pos is None or self.foundry_wait > 30:
+            if self.foundry_ax_harv is not None and self.foundry_step < 3:
+                bridge_start = self._find_bridge_start(c, self.foundry_ax_harv, pos)
+                self._start_chain(c, bridge_start)
+            else:
+                self.role = "explorer"
+            return
+
+        if self.foundry_step == 0:
+            if pos.distance_squared(self.foundry_pos) > 2:
+                self._bug_move(c, self.foundry_pos)
+                return
+            foundry_cost, _ = c.get_foundry_cost()
+            if ti < foundry_cost:
+                return
+            existing = c.get_tile_building_id(self.foundry_pos)
+            if existing is not None:
+                try:
+                    if c.get_team(existing) == my_team:
+                        c.destroy(self.foundry_pos)
+                    else:
+                        self.role = "explorer"
+                        return
+                except Exception:
+                    self.role = "explorer"
+                    return
+            if c.can_build_foundry(self.foundry_pos):
+                c.build_foundry(self.foundry_pos)
+                self.foundry_step = 1
+                return
+            self.role = "explorer"
+            return
+
+        if self.foundry_step == 1:
+            for d in CARDINALS:
+                side = self.foundry_pos.add(d)
+                if (
+                    side.x == self.foundry_ax_harv.x
+                    and side.y == self.foundry_ax_harv.y
+                ):
+                    continue
+                bid = c.get_tile_building_id(side)
+                if bid is not None:
+                    try:
+                        if c.get_team(bid) == my_team:
+                            etype = c.get_entity_type(bid)
+                            if etype == EntityType.HARVESTER:
+                                hpos = c.get_position(bid)
+                                if self._is_ti_ore(c, hpos):
+                                    self.foundry_ti_chain = side
+                                    self.foundry_step = 2
+                                    return
+                            if etype in (
+                                EntityType.CONVEYOR,
+                                EntityType.BRIDGE,
+                                EntityType.SPLITTER,
+                            ):
+                                self.foundry_ti_chain = side
+                                self.foundry_step = 2
+                                return
+                    except Exception:
+                        pass
+                    continue
+                if self._is_ti_ore(c, side):
+                    h_cost, _ = c.get_harvester_cost()
+                    if ti >= h_cost and c.can_build_harvester(side):
+                        c.build_harvester(side)
+                        self.foundry_ti_chain = side
+                        self.foundry_step = 2
+                        return
+                    return
+
+            ti_pos = None
+            for d in CARDINALS:
+                side = self.foundry_pos.add(d)
+                if (
+                    side.x == self.foundry_ax_harv.x
+                    and side.y == self.foundry_ax_harv.y
+                ):
+                    continue
+                bid = c.get_tile_building_id(side)
+                if (
+                    bid is None
+                    and not self._is_wall(c, side)
+                    and not self._is_ore(c, side)
+                ):
+                    ti_pos = side
+                    break
+
+            if ti_pos is not None:
+                if pos.distance_squared(ti_pos) > 2:
+                    self._bug_move(c, ti_pos)
+                    return
+                conv_cost, _ = c.get_conveyor_cost()
+                if ti < conv_cost:
+                    return
+                direction = ti_pos.direction_to(self.foundry_pos)
+                if c.can_build_conveyor(ti_pos, direction):
+                    c.build_conveyor(ti_pos, direction)
+                    self.foundry_ti_chain = ti_pos
+                    self.foundry_step = 2
+                    return
+
+            self.foundry_step = 2
+
+        if self.foundry_step == 2:
+            output_pos = None
+            for d in CARDINALS:
+                side = self.foundry_pos.add(d)
+                if (
+                    side.x == self.foundry_ax_harv.x
+                    and side.y == self.foundry_ax_harv.y
+                ):
+                    continue
+                if (
+                    self.foundry_ti_chain is not None
+                    and side.x == self.foundry_ti_chain.x
+                    and side.y == self.foundry_ti_chain.y
+                ):
+                    continue
+                bid = c.get_tile_building_id(side)
+                if (
+                    bid is None
+                    and not self._is_wall(c, side)
+                    and not self._is_ore(c, side)
+                ):
+                    output_pos = side
+                    break
+
+            if output_pos is None:
+                self.role = "explorer"
+                return
+
+            bridge_start = output_pos
+            core_adj = self._nearest_core_adj(bridge_start)
+            self.chain_waypoints = self._calc_chain(c, bridge_start, core_adj)
+            self.chain_index = 0
+            self.chain_stuck = 0
+            self.chain_turns = 0
+            self.role = "chaining"
+
+        if self.foundry_step == 3:
+            h_cost, _ = c.get_harvester_cost()
+            ax_bid = c.get_tile_building_id(self.foundry_ax_harv)
+            if ax_bid is None:
+                if pos.distance_squared(self.foundry_ax_harv) > 2:
+                    self._bug_move(c, self.foundry_ax_harv)
+                    return
+                if ti >= h_cost and c.can_build_harvester(self.foundry_ax_harv):
+                    c.build_harvester(self.foundry_ax_harv)
+                    self.my_harvester = self.foundry_ax_harv
+                return
+
+            ti_bid = c.get_tile_building_id(self.foundry_ti_chain)
+            if ti_bid is None:
+                if pos.distance_squared(self.foundry_ti_chain) > 2:
+                    self._bug_move(c, self.foundry_ti_chain)
+                    return
+                if ti >= h_cost and c.can_build_harvester(self.foundry_ti_chain):
+                    c.build_harvester(self.foundry_ti_chain)
+                return
+
+            self.foundry_step = 2
 
     # ---- BRIDGE CHAIN BUILDING ----
     def _start_chain(self, c, bridge_start) -> None:
@@ -326,12 +590,19 @@ class Player:
         ti, _ = c.get_global_resources()
         self.chain_turns += 1
 
+        if c.get_current_round() >= 200 and not self.chain_complete:
+            self.role = "raider"
+            self.chain_waypoints = None
+            self._run_raider(c)
+            return
+
         if (
             self.chain_waypoints is None
             or self.chain_index >= len(self.chain_waypoints)
-            or self.chain_turns > 150
+            or self.chain_turns > 80
         ):
-            self.role = "explorer"
+            # Chain complete (or timed out) — become raider
+            self.role = "raider"
             self.chain_waypoints = None
             return
 
@@ -834,26 +1105,37 @@ class Player:
 
     # ---- HELPERS ----
     def _redirect(self) -> None:
-        if self.scout_dir is not None and self.scout_dir in DIRS:
-            opp = self.scout_dir.opposite()
-            options = [d for d in DIRS if d not in (self.scout_dir, opp)]
+        n = len(SPOKE_OFFSETS)
+        if self.scout_dir is not None:
+            opp = (self.scout_dir + n // 2) % n
+            options = [i for i in range(n) if i not in (self.scout_dir, opp)]
         else:
-            options = list(DIRS)
+            options = list(range(n))
         self.scout_dir = random.choice(options)
         self.stuck_turns = 0
 
     def _find_core(self, c):
         my_team = c.get_team()
-        for eid in c.get_nearby_entities():
+        for eid in c.get_nearby_buildings():
             try:
-                if (
-                    c.get_team(eid) == my_team
-                    and c.get_entity_type(eid) == EntityType.CORE
-                ):
+                if c.get_team(eid) == my_team and c.get_hp(eid) == 500:
                     return c.get_position(eid)
             except Exception:
                 continue
         return None
+
+    def _foundry_exists(self, c) -> bool:
+        my_team = c.get_team()
+        for bid in c.get_nearby_buildings():
+            try:
+                if (
+                    c.get_team(bid) == my_team
+                    and c.get_entity_type(bid) == EntityType.FOUNDRY
+                ):
+                    return True
+            except Exception:
+                continue
+        return False
 
     def _try_bridge_from_here(self, c, pos, waypoints, current_idx) -> bool:
         my_team = c.get_team()
@@ -913,8 +1195,20 @@ class Player:
 
     def _is_ore(self, c, p):
         try:
-            e = c.get_tile_env(p)
-            return e in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+            env = c.get_tile_env(p)
+            return env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+        except Exception:
+            return False
+
+    def _is_ti_ore(self, c, p):
+        try:
+            return c.get_tile_env(p) == Environment.ORE_TITANIUM
+        except Exception:
+            return False
+
+    def _is_ax_ore(self, c, p):
+        try:
+            return c.get_tile_env(p) == Environment.ORE_AXIONITE
         except Exception:
             return False
 
@@ -922,25 +1216,4 @@ class Player:
         try:
             return c.get_tile_env(p) == Environment.WALL
         except Exception:
-            return True
-
-    def run_turret(self, c) -> None:
-        my = c.get_team()
-        best = None
-        best_prio = -1
-        for eid in c.get_nearby_entities():
-            try:
-                if c.get_team(eid) == my:
-                    continue
-                epos = c.get_position(eid)
-                if not c.can_fire(epos):
-                    continue
-                et = c.get_entity_type(eid)
-                prio = 10 if et == EntityType.BUILDER_BOT else 1
-                if prio > best_prio:
-                    best_prio = prio
-                    best = epos
-            except Exception:
-                continue
-        if best:
-            c.fire(best)
+            return False
