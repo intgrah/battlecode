@@ -184,7 +184,9 @@ def extract_features(
                             bt.near_enemy_turns += 1
 
                         if old_pos:
-                            manhattan = abs(new_pos[0] - old_pos[0]) + abs(new_pos[1] - old_pos[1])
+                            manhattan = abs(new_pos[0] - old_pos[0]) + abs(
+                                new_pos[1] - old_pos[1],
+                            )
                             if manhattan > 3:
                                 bt.was_launched = True
                         bt.prev_pos = new_pos
@@ -214,18 +216,28 @@ def extract_features(
             elif kind == "update_players":
                 p = u.update_players.players
                 for t, player in ((0, p.a), (1, p.b)):
-                    if ts[t].first_resource_turn is None and player.titanium_collected > 0:
+                    if (
+                        ts[t].first_resource_turn is None
+                        and player.titanium_collected > 0
+                    ):
                         ts[t].first_resource_turn = turn_idx
 
             elif kind == "distribute_resources":
                 for mv in u.distribute_resources.moves:
                     to: Pos = (mv.to.x, mv.to.y)
                     for t in (0, 1):
-                        if to in core_tile_sets[t] and ts[t].first_delivery_turn is None:
+                        if (
+                            to in core_tile_sets[t]
+                            and ts[t].first_delivery_turn is None
+                        ):
                             ts[t].first_delivery_turn = turn_idx
 
         for eid, (team, ek) in entities.items():
-            if ek == "builder_bot" and eid in ts[team].builders and ts[team].builders[eid].death == -1:
+            if (
+                ek == "builder_bot"
+                and eid in ts[team].builders
+                and ts[team].builders[eid].death == -1
+            ):
                 ts[team].builder_presence_turns += 1
                 if eid not in acted_this_turn:
                     ts[team].builder_idle_turns += 1
@@ -264,11 +276,13 @@ def extract_features(
         for etype in BUILDING_TYPES:
             row[p + f"first_{etype}"] = st.first_built.get(etype)
         row[p + "builds_before_first_harvester"] = _count_before(
-            st.builder_spawn_turns, st.first_built.get("harvester"),
+            st.builder_spawn_turns,
+            st.first_built.get("harvester"),
         )
         first_turret_turn = _first_turret_turn(st.first_built)
         row[p + "harvesters_before_first_turret"] = _harvester_count_before(
-            st.harvester_turns, first_turret_turn,
+            st.harvester_turns,
+            first_turret_turn,
         )
         row[p + "first_turret_type"] = _first_turret_type(st.first_built)
         row[p + "has_foundry"] = int("foundry" in st.first_built)
@@ -292,16 +306,24 @@ def extract_features(
         all_builders = list(st.builders.values())
         total_builders = len(all_builders)
         raiders = [b for b in all_builders if b.min_enemy_core_dist <= 4]
-        defenders = [b for b in all_builders if b.max_own_core_dist <= 6 and b.min_enemy_core_dist > 4]
+        defenders = [
+            b
+            for b in all_builders
+            if b.max_own_core_dist <= 6 and b.min_enemy_core_dist > 4
+        ]
         scouts = [b for b in all_builders if b not in raiders and b not in defenders]
 
         row[p + "raider_count"] = len(raiders)
         row[p + "defender_count"] = len(defenders)
         row[p + "scout_count"] = len(scouts)
-        row[p + "raider_pct"] = round(len(raiders) / total_builders, 4) if total_builders > 0 else 0.0
+        row[p + "raider_pct"] = (
+            round(len(raiders) / total_builders, 4) if total_builders > 0 else 0.0
+        )
 
         raider_born_turns = [b.born for b in raiders]
-        row[p + "first_raider_turn"] = min(raider_born_turns) if raider_born_turns else None
+        row[p + "first_raider_turn"] = (
+            min(raider_born_turns) if raider_born_turns else None
+        )
         quarter = total_turns // 4
         row[p + "raider_commitment_early"] = sum(1 for b in raiders if b.born < quarter)
 
@@ -328,17 +350,24 @@ def extract_features(
         row[p + "self_destruct_pct"] = (
             round(sd_count / dead_builders, 4) if dead_builders > 0 else 0.0
         )
-        row[p + "self_destruct_turn_first"] = st.self_destruct_turns[0] if st.self_destruct_turns else None
+        row[p + "self_destruct_turn_first"] = (
+            st.self_destruct_turns[0] if st.self_destruct_turns else None
+        )
         row[p + "self_destruct_turn_median"] = (
-            int(statistics.median(st.self_destruct_turns)) if st.self_destruct_turns else None
+            int(statistics.median(st.self_destruct_turns))
+            if st.self_destruct_turns
+            else None
         )
         row[p + "builders_spawned"] = total_builders
         row[p + "builder_spawn_rate_early"] = (
-            round(sum(1 for t2 in st.builder_spawn_turns if t2 < 200) / 200, 4) if total_turns >= 200 else 0.0
+            round(sum(1 for t2 in st.builder_spawn_turns if t2 < 200) / 200, 4)
+            if total_turns >= 200
+            else 0.0
         )
         row[p + "builder_spawn_rate_late"] = (
             round(
-                sum(1 for t2 in st.builder_spawn_turns if t2 >= 500) / max(1, total_turns - 500),
+                sum(1 for t2 in st.builder_spawn_turns if t2 >= 500)
+                / max(1, total_turns - 500),
                 4,
             )
             if total_turns > 500
@@ -361,10 +390,14 @@ def extract_features(
             round(statistics.mean(raider_depths), 2) if raider_depths else None
         )
         raid_span = (
-            st.raid_arrivals[-1] - st.raid_arrivals[0] if len(st.raid_arrivals) >= 2 else 0
+            st.raid_arrivals[-1] - st.raid_arrivals[0]
+            if len(st.raid_arrivals) >= 2
+            else 0
         )
         row[p + "raid_sustained"] = int(raid_span > 200)
-        row[p + "raid_early"] = int(bool(st.raid_arrivals) and st.raid_arrivals[0] < 150)
+        row[p + "raid_early"] = int(
+            bool(st.raid_arrivals) and st.raid_arrivals[0] < 150,
+        )
         row[p + "launched_raiders"] = sum(1 for b in raiders if b.was_launched)
 
         # ── economy layout ──
@@ -411,7 +444,9 @@ def extract_features(
             round(statistics.mean(turret_core_dists), 2) if turret_core_dists else None
         )
         row[p + "turrets_near_core"] = sum(1 for d in turret_core_dists if d <= 4)
-        turret_enemy_dists = [chebyshev(tp, enemy_core[t]) for tp in st.turret_positions]
+        turret_enemy_dists = [
+            chebyshev(tp, enemy_core[t]) for tp in st.turret_positions
+        ]
         row[p + "turrets_near_enemy"] = sum(1 for d in turret_enemy_dists if d <= 8)
         row[p + "turret_to_harvester_ratio"] = (
             round(sum(st.placed.get(tt, 0) for tt in TURRET_TYPES) / harv_count, 3)
@@ -443,7 +478,9 @@ def extract_features(
             and first_harv is not None
             and first_raid_t < first_harv,
         )
-        second_harv_turn = st.harvester_turns[1] if len(st.harvester_turns) >= 2 else None
+        second_harv_turn = (
+            st.harvester_turns[1] if len(st.harvester_turns) >= 2 else None
+        )
         row[p + "turret_before_second_harvester"] = int(
             first_turret_turn is not None
             and second_harv_turn is not None
@@ -484,7 +521,9 @@ def _first_turret_type(first_built: dict[str, int]) -> int:
 def _cadence_cv(spawn_turns: list[int]) -> float:
     if len(spawn_turns) < 3:
         return 0.0
-    intervals = [spawn_turns[i + 1] - spawn_turns[i] for i in range(len(spawn_turns) - 1)]
+    intervals = [
+        spawn_turns[i + 1] - spawn_turns[i] for i in range(len(spawn_turns) - 1)
+    ]
     mean = statistics.mean(intervals)
     if mean == 0:
         return 0.0
@@ -541,7 +580,9 @@ def main() -> None:
         g = entry["game"]
         path = REPLAYS_DIR / f"{mid}_g{g}.replay26"
         if path.exists():
-            tasks.append((key, str(path), entry.get("teamA", ""), entry.get("teamB", "")))
+            tasks.append(
+                (key, str(path), entry.get("teamA", ""), entry.get("teamB", "")),
+            )
 
     print(f"Extracting features from {len(tasks)} replays ({WORKERS} workers)...")
     t0 = time.time()
