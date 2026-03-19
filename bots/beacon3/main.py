@@ -221,11 +221,15 @@ class Player:
                     if c.get_team(wp_bid) == my_team and c.get_hp(wp_bid) == 20:
                         target = c.get_bridge_target(wp_bid)
                         if (
-                            c.is_in_vision(target)
-                            and c.get_tile_building_id(target) is None
-                        ) and not self._is_wall(c, target) and not self._is_ore(
-                            c,
-                            target,
+                            (
+                                c.is_in_vision(target)
+                                and c.get_tile_building_id(target) is None
+                            )
+                            and not self._is_wall(c, target)
+                            and not self._is_ore(
+                                c,
+                                target,
+                            )
                         ):
                             self.repair_pos = target
                             self.repair_from = wp
@@ -309,7 +313,10 @@ class Player:
         if self.core_pos is None or self.patrol_waypoints is None:
             return
         # Reuse waypoints from the gap onward
-        self.chain_waypoints = [bridge_start, *self.patrol_waypoints[waypoint_idx + 1:]]
+        self.chain_waypoints = [
+            bridge_start,
+            *self.patrol_waypoints[waypoint_idx + 1 :],
+        ]
         self.chain_index = 0
         self.chain_stuck = 0
         self.chain_turns = 0

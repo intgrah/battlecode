@@ -149,7 +149,9 @@ class Player:
 
     # ---- EXPLORER ----
     def _run_explorer(self, c) -> None:
-        if c.get_current_round() >= 200:
+        rnd = c.get_current_round()
+        bot_id = c.get_id()
+        if rnd >= 300 and bot_id % 2 == 0:
             self.role = "raider"
             self._run_raider(c)
             return
@@ -324,19 +326,12 @@ class Player:
         ti, _ = c.get_global_resources()
         self.chain_turns += 1
 
-        if c.get_current_round() >= 200 and not self.chain_complete:
-            self.role = "raider"
-            self.chain_waypoints = None
-            self._run_raider(c)
-            return
-
         if (
             self.chain_waypoints is None
             or self.chain_index >= len(self.chain_waypoints)
-            or self.chain_turns > 80
+            or self.chain_turns > 150
         ):
-            # Chain complete (or timed out) — become raider
-            self.role = "raider"
+            self.role = "explorer"
             self.chain_waypoints = None
             return
 
