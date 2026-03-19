@@ -574,7 +574,11 @@ class BuilderAgent:
                     best_builder = ep
         return best_turret, best_builder
 
-    def _find_conv_feeding_enemy(self, ct: Controller, enemy_pos: Position) -> Position | None:
+    def _find_conv_feeding_enemy(
+        self,
+        ct: Controller,
+        enemy_pos: Position,
+    ) -> Position | None:
         my = ct.get_team()
         for d in CARDINALS:
             adj = enemy_pos.add(d)
@@ -720,13 +724,16 @@ class BuilderAgent:
             self.has_income = True
         self.last_ti = ti
 
-        if self.state not in (RAID,):
+        if self.state != RAID:
             enemy_turret, _ = self._find_threats_near_core(ct)
             if enemy_turret:
                 if pos.distance_squared(self.core) <= GameConstants.ACTION_RADIUS_SQ:
                     if self._try_heal_core(ct):
                         return
-                if not self._counter_turret_placed and pos.distance_squared(enemy_turret) <= 20:
+                if (
+                    not self._counter_turret_placed
+                    and pos.distance_squared(enemy_turret) <= 20
+                ):
                     for d in DIRS:
                         gp = pos.add(d)
                         if not ib(ct, gp):
@@ -977,7 +984,11 @@ class BuilderAgent:
                 if ibid is None or ct.get_team(ibid) != my:
                     continue
                 iet = ct.get_entity_type(ibid)
-                if iet in (EntityType.HARVESTER, EntityType.CONVEYOR, EntityType.SPLITTER):
+                if iet in (
+                    EntityType.HARVESTER,
+                    EntityType.CONVEYOR,
+                    EntityType.SPLITTER,
+                ):
                     has_input = True
                     break
             if not has_input:

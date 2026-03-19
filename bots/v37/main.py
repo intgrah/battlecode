@@ -1,6 +1,11 @@
 import random
 
-from cambc import Direction, Position
+from cambc import (
+    Direction,
+    EntityType,
+    Environment,
+    Position,
+)
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIRS = [
@@ -14,6 +19,16 @@ DIRS = [
     Direction.NORTHWEST,
 ]
 NUM_EXPLORERS = 8
+
+_BRIDGE = EntityType.BRIDGE
+_TRANSPORT = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    },
+)
 
 
 class Player:
@@ -47,11 +62,13 @@ class Player:
         self.bug_recent = []
 
     def run(self, c) -> None:
-        etype = str(c.get_entity_type())
-        if "CORE" in etype:
+        etype = c.get_entity_type()
+        if etype == EntityType.CORE:
             self.run_core(c)
-        elif "BUILDER" in etype:
+        elif etype == EntityType.BUILDER_BOT:
             self.run_builder(c)
+        elif etype in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
+            self.run_turret(c)
 
     # ---- CORE ----
     def run_core(self, c) -> None:
@@ -832,9 +849,12 @@ class Player:
 
     def _find_core(self, c):
         my_team = c.get_team()
-        for eid in c.get_nearby_buildings():
+        for eid in c.get_nearby_entities():
             try:
-                if c.get_team(eid) == my_team and c.get_hp(eid) == 500:
+                if (
+                    c.get_team(eid) == my_team
+                    and c.get_entity_type(eid) == EntityType.CORE
+                ):
                     return c.get_position(eid)
             except Exception:
                 continue
@@ -898,12 +918,34 @@ class Player:
 
     def _is_ore(self, c, p):
         try:
-            return "ORE" in str(c.get_tile_env(p))
+            e = c.get_tile_env(p)
+            return e in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
         except Exception:
             return False
 
     def _is_wall(self, c, p):
         try:
-            return "WALL" in str(c.get_tile_env(p))
+            return c.get_tile_env(p) == Environment.WALL
         except Exception:
-            return False
+            return True
+
+    def run_turret(self, c) -> None:
+        my = c.get_team()
+        best = None
+        best_prio = -1
+        for eid in c.get_nearby_entities():
+            try:
+                if c.get_team(eid) == my:
+                    continue
+                epos = c.get_position(eid)
+                if not c.can_fire(epos):
+                    continue
+                et = c.get_entity_type(eid)
+                prio = 10 if et == EntityType.BUILDER_BOT else 1
+                if prio > best_prio:
+                    best_prio = prio
+                    best = epos
+            except Exception:
+                continue
+        if best:
+            c.fire(best)

@@ -687,7 +687,7 @@ class BuilderAgent:
         self.last_ti = ti
 
         # ANTI-CHEESE: defend core - heal when under attack
-        if self.state not in (RAID,):
+        if self.state != RAID:
             enemy_turret, enemy_builder = self._find_threats_near_core(ct)
             if (enemy_turret or enemy_builder) and pos.distance_squared(
                 self.core,

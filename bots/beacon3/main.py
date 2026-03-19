@@ -1,5 +1,6 @@
 import random
-from cambc import Controller, Direction, Position
+
+from cambc import Direction, Position
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIRS = [
@@ -16,7 +17,7 @@ NUM_EXPLORERS = 8
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.num_spawned = 0
         self.scout_dir = None
         self.stuck_turns = 0
@@ -48,7 +49,7 @@ class Player:
         self.bug_wf_turns = 0
         self.bug_recent = []
 
-    def run(self, c):
+    def run(self, c) -> None:
         etype = str(c.get_entity_type())
         if "CORE" in etype:
             self.run_core(c)
@@ -56,7 +57,7 @@ class Player:
             self.run_builder(c)
 
     # ---- CORE ----
-    def run_core(self, c):
+    def run_core(self, c) -> None:
         ti, _ = c.get_global_resources()
         cost, _ = c.get_builder_bot_cost()
 
@@ -69,7 +70,7 @@ class Player:
         if rnd >= 200 and ti >= cost + 200:
             self._spawn(c)
 
-    def _spawn(self, c):
+    def _spawn(self, c) -> None:
         cp = c.get_position()
         for dx in range(-1, 2):
             for dy in range(-1, 2):
@@ -80,7 +81,7 @@ class Player:
                     return
 
     # ---- BUILDER ----
-    def run_builder(self, c):
+    def run_builder(self, c) -> None:
         self.turns_alive += 1
 
         if self.role is None:
@@ -103,7 +104,7 @@ class Player:
             self._run_raider(c)
 
     # ---- EXPLORER ----
-    def _run_explorer(self, c):
+    def _run_explorer(self, c) -> None:
         if c.get_current_round() >= 200:
             self.role = "raider"
             self._run_raider(c)
@@ -111,7 +112,7 @@ class Player:
 
         pos = c.get_position()
         ti, _ = c.get_global_resources()
-        my_team = c.get_team()
+        c.get_team()
 
         # Build harvester on any adjacent unclaimed ore
         for d in DIRS:
@@ -128,8 +129,7 @@ class Player:
                     bridge_start = self._find_bridge_start(c, adj, pos)
                     self._start_chain(c, bridge_start)
                     return
-                else:
-                    return
+                return
             except Exception:
                 pass
 
@@ -179,9 +179,9 @@ class Player:
         self._bug_move(c, explore_target)
 
     # ---- PATROLLER (guard a bridge) ----
-    def _run_patroller(self, c):
+    def _run_patroller(self, c) -> None:
         pos = c.get_position()
-        ti, _ = c.get_global_resources()
+        _ti, _ = c.get_global_resources()
         my_team = c.get_team()
 
         if self.patrol_waypoints is None or len(self.patrol_waypoints) < 2:
@@ -223,16 +223,16 @@ class Player:
                         if (
                             c.is_in_vision(target)
                             and c.get_tile_building_id(target) is None
+                        ) and not self._is_wall(c, target) and not self._is_ore(
+                            c,
+                            target,
                         ):
-                            if not self._is_wall(c, target) and not self._is_ore(
-                                c, target
-                            ):
-                                self.repair_pos = target
-                                self.repair_from = wp
-                                self.repair_turns = 0
-                                self.role = "repairing"
-                                self._run_repairer(c)
-                                return
+                            self.repair_pos = target
+                            self.repair_from = wp
+                            self.repair_turns = 0
+                            self.role = "repairing"
+                            self._run_repairer(c)
+                            return
                 except Exception:
                     continue
 
@@ -262,7 +262,9 @@ class Player:
                                 self._run_raider(c)
                                 return
                             bridge_start = self._find_bridge_start(
-                                c, self.my_harvester, pos
+                                c,
+                                self.my_harvester,
+                                pos,
                             )
                             self._start_chain(c, bridge_start)
                             return
@@ -281,19 +283,18 @@ class Player:
                     self.patrol_index -= 1
                 else:
                     self.patrol_index += 1
+            elif self.patrol_index <= 0:
+                self.patrol_forward = True
+                self.patrol_index += 1
             else:
-                if self.patrol_index <= 0:
-                    self.patrol_forward = True
-                    self.patrol_index += 1
-                else:
-                    self.patrol_index -= 1
+                self.patrol_index -= 1
             self.patrol_index = max(0, min(self.patrol_index, len(wps) - 1))
             target = wps[self.patrol_index]
 
         self._bug_move(c, target)
 
     # ---- BRIDGE CHAIN BUILDING ----
-    def _start_chain(self, c, bridge_start):
+    def _start_chain(self, c, bridge_start) -> None:
         if self.core_pos is None:
             return
         core_adj = self._nearest_core_adj(bridge_start)
@@ -303,14 +304,12 @@ class Player:
         self.chain_turns = 0
         self.role = "chaining"
 
-    def _start_chain_from(self, c, bridge_start, waypoint_idx):
+    def _start_chain_from(self, c, bridge_start, waypoint_idx) -> None:
         """Rebuild chain starting from a specific waypoint, reusing remaining waypoints."""
         if self.core_pos is None or self.patrol_waypoints is None:
             return
         # Reuse waypoints from the gap onward
-        self.chain_waypoints = [bridge_start] + self.patrol_waypoints[
-            waypoint_idx + 1 :
-        ]
+        self.chain_waypoints = [bridge_start, *self.patrol_waypoints[waypoint_idx + 1:]]
         self.chain_index = 0
         self.chain_stuck = 0
         self.chain_turns = 0
@@ -370,7 +369,7 @@ class Player:
         waypoints.append(core_adj)
         return waypoints
 
-    def _run_chainer(self, c):
+    def _run_chainer(self, c) -> None:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         self.chain_turns += 1
@@ -515,7 +514,7 @@ class Player:
         if self._bug_move(c, target):
             self.chain_stuck = 0
 
-    def _build_core_conveyor(self, c, conv_pos):
+    def _build_core_conveyor(self, c, conv_pos) -> None:
         if self.core_pos is None:
             return
         existing = c.get_tile_building_id(conv_pos)
@@ -657,13 +656,13 @@ class Player:
         for d in DIRS:
             candidate = gap_pos.add(d)
             if candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(
-                self.core_pos
+                self.core_pos,
             ):
                 if not self._is_wall(c, candidate) and not self._is_ore(c, candidate):
                     return candidate
         return None
 
-    def _run_repairer(self, c):
+    def _run_repairer(self, c) -> None:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         self.repair_turns += 1
@@ -718,18 +717,17 @@ class Player:
                 self.role = prev_role
                 self.repair_pos = None
                 return
-            else:
-                self.role = prev_role
-                self.repair_pos = None
-                return
+            self.role = prev_role
+            self.repair_pos = None
+            return
 
         self._bug_move(c, self.repair_pos)
 
     # ---- RAIDER ----
-    def _run_raider(self, c):
+    def _run_raider(self, c) -> None:
         pos = c.get_position()
         my_team = c.get_team()
-        ti, _ = c.get_global_resources()
+        _ti, _ = c.get_global_resources()
 
         # Priority 1: if standing on a friendly bridge, park here
         my_bid = c.get_tile_building_id(pos)
@@ -864,17 +862,17 @@ class Player:
         return best_pos
 
     # ---- BUGNAV ----
-    def _bug_reset(self):
+    def _bug_reset(self) -> None:
         self.bug_wf = False
         self.bug_wf_start = None
         self.bug_wf_start_dist = 999999
         self.bug_wf_turns = 0
         self.bug_recent = []
 
-    def _bug_move(self, c, target, pave=True):
+    def _bug_move(self, c, target, pave=True) -> bool:
         """Bug2 pathfinding toward target. Returns True if moved."""
         pos = c.get_position()
-        ti, _ = c.get_global_resources()
+        _ti, _ = c.get_global_resources()
 
         # Reset if target changed
         if (
@@ -932,7 +930,7 @@ class Player:
             scan = scan.rotate_right() if self.bug_ws == 1 else scan.rotate_left()
         return False
 
-    def _bug_step(self, c, d, pave=True):
+    def _bug_step(self, c, d, pave=True) -> bool:
         """Try to move in direction d. Build road if needed and pave=True."""
         pos = c.get_position()
         nxt = pos.add(d)
@@ -1013,10 +1011,10 @@ class Player:
         return None
 
     # ---- HELPERS ----
-    def _redirect(self):
+    def _redirect(self) -> None:
         if self.scout_dir is not None and self.scout_dir in DIRS:
             opp = self.scout_dir.opposite()
-            options = [d for d in DIRS if d != self.scout_dir and d != opp]
+            options = [d for d in DIRS if d not in (self.scout_dir, opp)]
         else:
             options = list(DIRS)
         self.scout_dir = random.choice(options)
@@ -1032,7 +1030,7 @@ class Player:
                 continue
         return None
 
-    def _try_bridge_from_here(self, c, pos, waypoints, current_idx):
+    def _try_bridge_from_here(self, c, pos, waypoints, current_idx) -> bool:
         my_team = c.get_team()
         for future_idx in range(current_idx + 1, len(waypoints) - 1):
             future_pos = waypoints[future_idx]
@@ -1100,7 +1098,7 @@ class Player:
         except Exception:
             return False
 
-    def _is_blocked(self, c, p):
+    def _is_blocked(self, c, p) -> bool:
         """Check if a tile is unsuitable for bridge placement (wall, ore, or has a harvester)."""
         if self._is_wall(c, p) or self._is_ore(c, p):
             return True

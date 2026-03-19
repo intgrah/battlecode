@@ -85,7 +85,7 @@ def build_state_at_turn(r, at_turn, team):
             cur = graph[cur]["out"]
         return False
 
-    harvester_set = set(tuple(h) for h in harvesters)
+    harvester_set = {tuple(h) for h in harvesters}
     all_buildings = set(graph.keys()) | harvester_set | core_tiles
 
     def harvester_output_count(hpos):
