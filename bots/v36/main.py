@@ -369,24 +369,6 @@ class CoreBot:
             self._try_spawn(ct)
             return
 
-        if self.spawned == NUM_INITIAL_BUILDERS and rnd >= 20:
-            pos = ct.get_position()
-            my = ct.get_team()
-            for d in DIRS:
-                sp = pos.add(d)
-                bid = ct.get_tile_building_id(sp) if ib(ct, sp) else None
-                if bid is not None and ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CONVEYOR:
-                    if ct.can_spawn(sp):
-                        ct.spawn_builder(sp)
-                        self.spawned += 1
-                        return
-            for d in DIRS:
-                sp = pos.add(d)
-                if ct.can_spawn(sp):
-                    ct.spawn_builder(sp)
-                    self.spawned += 1
-                    return
-
         if self.spawned >= max_b:
             return
 
@@ -414,12 +396,10 @@ class BuilderAgent:
         self.spoke_dir: Direction | None = None
         self.target: Position | None = None
         self.visited_ore: set[tuple[int, int]] = set()
-        self.harvesters_built = 0
-        self.is_defender = False
+        self.turrets_built = 0
 
     def _setup(self, ct: Controller) -> None:
         my = ct.get_team()
-        rnd = ct.get_current_round()
         self.w, self.h = ct.get_map_width(), ct.get_map_height()
         for eid in ct.get_nearby_entities():
             if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == my:
@@ -430,8 +410,6 @@ class BuilderAgent:
             self.spoke_dir = toward(self.core, ct.get_position())
         if self.spoke_dir is None or self.spoke_dir == Direction.CENTRE:
             self.spoke_dir = random.choice(DIRS)
-        if self.core and 15 <= rnd <= 100 and ct.get_position().distance_squared(self.core) <= 8:
-            self.is_defender = True
         self.init_done = True
 
     def _find_adj_ore(self, ct: Controller, pos: Position) -> Position | None:
@@ -521,60 +499,24 @@ class BuilderAgent:
         ty = max(1, min(self.h - 2, pos.y + dy * dist + random.randint(-3, 3)))
         return Position(tx, ty)
 
-    def _formation_tiles(self) -> list[tuple[Position, bool]]:
-        assert self.core is not None
-        cx, cy = self.core.x, self.core.y
-        turrets: list[tuple[Position, bool]] = []
-        splitters: list[tuple[Position, bool]] = []
-        for dx in range(-2, 3):
-            for dy in range(-2, 3):
-                if abs(dx) <= 1 and abs(dy) <= 1:
-                    continue
-                x, y = cx + dx, cy + dy
-                if not (0 <= x < self.w and 0 <= y < self.h):
-                    continue
-                p = Position(x, y)
-                is_splitter = (abs(dx) == 2) != (abs(dy) == 2) and abs(dx) + abs(dy) == 3
-                if is_splitter:
-                    splitters.append((p, True))
-                else:
-                    turrets.append((p, False))
-        return turrets + splitters
-
-    def _try_formation_step(self, ct: Controller, pos: Position) -> bool:
+    def _try_build_turret(self, ct: Controller, pos: Position) -> bool:
         assert self.core is not None and self.enemy_core is not None
         my = ct.get_team()
-        need_walk: Position | None = None
-        for p, is_splitter in self._formation_tiles():
-            if wall(ct, p):
+        cx, cy = self.core.x, self.core.y
+        for t in ct.get_nearby_tiles():
+            if t.distance_squared(self.core) > 20:
                 continue
-            bid = ct.get_tile_building_id(p)
-            if is_splitter:
-                if bid is not None and ct.get_entity_type(bid) == EntityType.SPLITTER:
-                    continue
-            else:
-                if bid is not None and ct.get_entity_type(bid) in (EntityType.GUNNER, EntityType.SENTINEL):
-                    continue
-            if pos.distance_squared(p) > GameConstants.ACTION_RADIUS_SQ:
-                if need_walk is None:
-                    need_walk = p
+            if ct.get_tile_building_id(t) is not None:
                 continue
-            if bid is not None and ct.get_team(bid) == my:
-                ct.destroy(p)
+            if wall(ct, t) or ore_env(ct, t):
+                continue
+            if pos.distance_squared(t) > GameConstants.ACTION_RADIUS_SQ:
+                continue
+            facing = t.direction_to(self.enemy_core)
+            if ct.can_build_gunner(t, facing):
+                ct.build_gunner(t, facing)
+                self.turrets_built += 1
                 return True
-            if is_splitter:
-                facing = p.direction_to(self.core)
-                if ct.can_build_splitter(p, facing):
-                    ct.build_splitter(p, facing)
-                    return True
-            else:
-                facing = p.direction_to(self.enemy_core)
-                if ct.can_build_gunner(p, facing):
-                    ct.build_gunner(p, facing)
-                    return True
-        if need_walk is not None:
-            self.nav.go(ct, need_walk, lambda d: step_conv(ct, d))
-            return True
         return False
 
     def run(self, ct: Controller) -> None:
@@ -600,7 +542,6 @@ class BuilderAgent:
                 if ct.can_build_harvester(adj_ore):
                     ct.build_harvester(adj_ore)
                     self.visited_ore.add((adj_ore.x, adj_ore.y))
-                    self.harvesters_built += 1
                 return
             for d in CARDINALS:
                 adj = adj_ore.add(d)
@@ -612,13 +553,17 @@ class BuilderAgent:
                     return
             self.visited_ore.add((adj_ore.x, adj_ore.y))
 
-        if self.is_defender:
-            if self._try_formation_step(ct, pos):
-                return
-            if ct.can_heal(self.core):
-                ct.heal(self.core)
+        brk = self._find_break(ct)
+        if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+            bid_brk = ct.get_tile_building_id(brk)
+            if bid_brk is not None and ct.get_entity_type(bid_brk) in (EntityType.ROAD, EntityType.MARKER):
+                ct.destroy(brk)
+            d = repair_dir(ct, brk, self.core)
+            if ct.can_build_conveyor(brk, d):
+                ct.build_conveyor(brk, d)
             return
 
+        enemy_near = False
         for eid in ct.get_nearby_entities():
             if ct.get_team(eid) == my:
                 continue
@@ -626,10 +571,27 @@ class BuilderAgent:
             if et in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
                 ep = ct.get_position(eid)
                 if ep.distance_squared(self.core) <= 49:
+                    enemy_near = True
                     if pos.distance_squared(self.core) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(self.core):
                         ct.heal(self.core)
                         return
                     break
+            elif et == EntityType.BUILDER_BOT:
+                ep = ct.get_position(eid)
+                if ep.distance_squared(self.core) <= 36:
+                    enemy_near = True
+
+        if enemy_near and self.turrets_built < 4 and pos.distance_squared(self.core) <= 20:
+            if self._try_build_turret(ct, pos):
+                return
+
+        rnd = ct.get_current_round()
+        if self.turrets_built < 2 and pos.distance_squared(self.core) <= 16:
+            ti, _ = ct.get_global_resources()
+            gun_cost, _ = ct.get_gunner_cost()
+            if ti > gun_cost + 50:
+                if self._try_build_turret(ct, pos):
+                    return
 
         if self.target is None:
             ore = self._find_visible_ore(ct, pos)
