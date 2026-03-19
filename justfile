@@ -90,12 +90,14 @@ submit bot="":
     else
         bot="{{bot}}"
     fi
+    find "bots/$bot" -type d -name __pycache__ -exec rm -rf {} +
     echo "Submitting $bot"
     cambc submit "bots/$bot"
 
 challenge bot opponent:
     #!/usr/bin/env bash
     ranked="${RANKED:-v21}"
+    find "bots/{{bot}}" -type d -name __pycache__ -exec rm -rf {} +
     echo "Submitting {{bot}}"
     cambc submit "bots/{{bot}}"
     echo "Challenging {{opponent}}"
@@ -106,6 +108,7 @@ challenge bot opponent:
 challenge-all bot:
     #!/usr/bin/env bash
     ranked="${RANKED:-v21}"
+    find "bots/{{bot}}" -type d -name __pycache__ -exec rm -rf {} +
     echo "Submitting {{bot}}"
     cambc submit "bots/{{bot}}"
     cambc unrated "87ee9a96-2175-4a03-afbb-a1ed3b67bb84" || true
