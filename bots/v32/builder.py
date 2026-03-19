@@ -399,7 +399,7 @@ class BuilderAgent:
                 self.visited[t.x][t.y] = True
 
         pos = ct.get_position()
-        my = ct.get_team()
+        ct.get_team()
         rnd = ct.get_current_round()
 
         if rnd % 50 == 0:

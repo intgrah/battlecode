@@ -1,5 +1,6 @@
 import random
-from cambc import Controller, Direction, Position
+
+from cambc import Direction, Position
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIRS = [
@@ -16,7 +17,7 @@ NUM_EXPLORERS = 8
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.num_spawned = 0
         self.scout_dir = None
         self.stuck_turns = 0
@@ -40,7 +41,7 @@ class Player:
         self.repair_from = None
         self.repair_turns = 0
 
-    def run(self, c):
+    def run(self, c) -> None:
         etype = str(c.get_entity_type())
         if "CORE" in etype:
             self.run_core(c)
@@ -48,7 +49,7 @@ class Player:
             self.run_builder(c)
 
     # ---- CORE ----
-    def run_core(self, c):
+    def run_core(self, c) -> None:
         ti, _ = c.get_global_resources()
         cost, _ = c.get_builder_bot_cost()
 
@@ -61,7 +62,7 @@ class Player:
         if rnd >= 200 and ti >= cost + 200:
             self._spawn(c)
 
-    def _spawn(self, c):
+    def _spawn(self, c) -> None:
         cp = c.get_position()
         for dx in range(-1, 2):
             for dy in range(-1, 2):
@@ -72,7 +73,7 @@ class Player:
                     return
 
     # ---- BUILDER ----
-    def run_builder(self, c):
+    def run_builder(self, c) -> None:
         self.turns_alive += 1
 
         if self.role is None:
@@ -95,7 +96,7 @@ class Player:
             self._run_raider(c)
 
     # ---- EXPLORER ----
-    def _run_explorer(self, c):
+    def _run_explorer(self, c) -> None:
         if c.get_current_round() >= 200:
             self.role = "raider"
             self._run_raider(c)
@@ -103,7 +104,7 @@ class Player:
 
         pos = c.get_position()
         ti, _ = c.get_global_resources()
-        my_team = c.get_team()
+        c.get_team()
 
         # Check for disconnected harvesters nearby and reconnect
         disconnected = self._find_disconnected_harvester(c)
@@ -142,8 +143,7 @@ class Player:
                     bridge_start = self._find_bridge_start(c, adj, pos)
                     self._start_chain(c, bridge_start)
                     return
-                else:
-                    return
+                return
             except Exception:
                 pass
 
@@ -168,7 +168,7 @@ class Player:
 
         self._explore(c)
 
-    def _explore(self, c):
+    def _explore(self, c) -> None:
         """Walk outward laying roads, navigating around walls."""
         pos = c.get_position()
         ti, _ = c.get_global_resources()
@@ -211,7 +211,7 @@ class Player:
             self._redirect()
 
     # ---- PATROLLER (guard a bridge) ----
-    def _run_patroller(self, c):
+    def _run_patroller(self, c) -> None:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         my_team = c.get_team()
@@ -271,7 +271,10 @@ class Player:
                             adj_bid = c.get_tile_building_id(adj)
                             if adj_bid is not None:
                                 try:
-                                    if c.get_team(adj_bid) == my_team and c.get_hp(adj_bid) == 20:
+                                    if (
+                                        c.get_team(adj_bid) == my_team
+                                        and c.get_hp(adj_bid) == 20
+                                    ):
                                         has_transport = True
                                         break
                                 except Exception:
@@ -281,7 +284,11 @@ class Player:
                                 self.role = "raider"
                                 self._run_raider(c)
                                 return
-                            bridge_start = self._find_bridge_start(c, self.my_harvester, pos)
+                            bridge_start = self._find_bridge_start(
+                                c,
+                                self.my_harvester,
+                                pos,
+                            )
                             self._start_chain(c, bridge_start)
                             return
             except Exception:
@@ -301,7 +308,11 @@ class Player:
                     for wp in self.patrol_waypoints[:-1]:
                         try:
                             wbid = c.get_tile_building_id(wp)
-                            if wbid is not None and c.get_team(wbid) == my_team and c.get_hp(wbid) == 20:
+                            if (
+                                wbid is not None
+                                and c.get_team(wbid) == my_team
+                                and c.get_hp(wbid) == 20
+                            ):
                                 self.guard_pos = wp
                                 break
                         except Exception:
@@ -317,7 +328,7 @@ class Player:
             self._try_move(c, preferred, ti)
 
     # ---- BRIDGE CHAIN BUILDING ----
-    def _start_chain(self, c, bridge_start):
+    def _start_chain(self, c, bridge_start) -> None:
         if self.core_pos is None:
             return
         core_adj = self._nearest_core_adj(bridge_start)
@@ -373,15 +384,15 @@ class Player:
                     found = True
                     break
                 if not found:
-                    cx += (1 if dx > 0 else -1 if dx < 0 else 0)
-                    cy += (1 if dy > 0 else -1 if dy < 0 else 0)
+                    cx += 1 if dx > 0 else -1 if dx < 0 else 0
+                    cy += 1 if dy > 0 else -1 if dy < 0 else 0
                     continue
             cx, cy = nx, ny
             waypoints.append(Position(cx, cy))
         waypoints.append(core_adj)
         return waypoints
 
-    def _run_chainer(self, c):
+    def _run_chainer(self, c) -> None:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         self.chain_turns += 1
@@ -392,7 +403,11 @@ class Player:
             self._run_raider(c)
             return
 
-        if self.chain_waypoints is None or self.chain_index >= len(self.chain_waypoints) or self.chain_turns > 80:
+        if (
+            self.chain_waypoints is None
+            or self.chain_index >= len(self.chain_waypoints)
+            or self.chain_turns > 80
+        ):
             # Chain complete (or timed out) — start patrolling
             if self.chain_waypoints and self.my_harvester:
                 self.patrol_waypoints = list(self.chain_waypoints)
@@ -505,7 +520,10 @@ class Player:
 
             for d in DIRS:
                 alt = target.add(d)
-                if alt.distance_squared(next_target) <= 9 and alt.distance_squared(pos) <= 2:
+                if (
+                    alt.distance_squared(next_target) <= 9
+                    and alt.distance_squared(pos) <= 2
+                ):
                     ex2 = c.get_tile_building_id(alt)
                     if ex2 is not None:
                         try:
@@ -537,20 +555,19 @@ class Player:
                     if self._is_ore(c, nxt) or self._is_wall(c, nxt):
                         continue
                     bid = c.get_tile_building_id(nxt)
-                    if bid is None:
-                        if c.can_build_road(nxt):
-                            c.build_road(nxt)
-                            if c.can_move(d):
-                                c.move(d)
-                                self.chain_stuck = 0
-                            return
+                    if bid is None and c.can_build_road(nxt):
+                        c.build_road(nxt)
+                        if c.can_move(d):
+                            c.move(d)
+                            self.chain_stuck = 0
+                        return
                 except Exception:
                     continue
         moved = self._try_move(c, preferred, ti)
         if moved is not None:
             self.chain_stuck = 0
 
-    def _build_core_conveyor(self, c, conv_pos):
+    def _build_core_conveyor(self, c, conv_pos) -> None:
         if self.core_pos is None:
             return
         existing = c.get_tile_building_id(conv_pos)
@@ -598,7 +615,10 @@ class Player:
                     adj_bid = c.get_tile_building_id(adj)
                     if adj_bid is not None:
                         try:
-                            if c.get_team(adj_bid) == my_team and c.get_hp(adj_bid) == 20:
+                            if (
+                                c.get_team(adj_bid) == my_team
+                                and c.get_hp(adj_bid) == 20
+                            ):
                                 has_transport = True
                                 break
                         except Exception:
@@ -688,12 +708,14 @@ class Player:
                     return candidate
         for d in DIRS:
             candidate = gap_pos.add(d)
-            if candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(self.core_pos):
+            if candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(
+                self.core_pos,
+            ):
                 if not self._is_wall(c, candidate) and not self._is_ore(c, candidate):
                     return candidate
         return None
 
-    def _run_repairer(self, c):
+    def _run_repairer(self, c) -> None:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         self.repair_turns += 1
@@ -738,23 +760,25 @@ class Player:
             if c.can_build_bridge(self.repair_pos, bridge_target):
                 c.build_bridge(self.repair_pos, bridge_target)
                 target_bid = c.get_tile_building_id(bridge_target)
-                if target_bid is None and bridge_target.distance_squared(self.core_pos) > 4:
+                if (
+                    target_bid is None
+                    and bridge_target.distance_squared(self.core_pos) > 4
+                ):
                     self.repair_from = self.repair_pos
                     self.repair_pos = bridge_target
                     return
                 self.role = prev_role
                 self.repair_pos = None
                 return
-            else:
-                self.role = prev_role
-                self.repair_pos = None
-                return
+            self.role = prev_role
+            self.repair_pos = None
+            return
 
         preferred = pos.direction_to(self.repair_pos)
         self._try_move(c, preferred, ti)
 
     # ---- RAIDER ----
-    def _run_raider(self, c):
+    def _run_raider(self, c) -> None:
         pos = c.get_position()
         my_team = c.get_team()
         ti, _ = c.get_global_resources()
@@ -916,10 +940,10 @@ class Player:
         return None
 
     # ---- HELPERS ----
-    def _redirect(self):
+    def _redirect(self) -> None:
         if self.scout_dir is not None and self.scout_dir in DIRS:
             opp = self.scout_dir.opposite()
-            options = [d for d in DIRS if d != self.scout_dir and d != opp]
+            options = [d for d in DIRS if d not in (self.scout_dir, opp)]
         else:
             options = list(DIRS)
         self.scout_dir = random.choice(options)
@@ -935,7 +959,7 @@ class Player:
                 continue
         return None
 
-    def _try_bridge_from_here(self, c, pos, waypoints, current_idx):
+    def _try_bridge_from_here(self, c, pos, waypoints, current_idx) -> bool:
         my_team = c.get_team()
         for future_idx in range(current_idx + 1, len(waypoints) - 1):
             future_pos = waypoints[future_idx]
