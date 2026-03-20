@@ -1,0 +1,166 @@
+from astar import Astar
+from cambc import EntityType, Environment
+from map_belief import _TRANSPORT, COST_EMPTY, COST_IMPASSABLE, MapBelief
+
+WALK_8 = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+WALK_4 = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+
+BRIDGE_DELTAS = [
+    (dx, dy) for dx in range(-3, 4) for dy in range(-3, 4) if 2 < dx * dx + dy * dy <= 9
+]
+
+COST_REUSE = 0
+COST_CONV = 3
+COST_BRIDGE = 10
+COST_ROAD_REPLACE = 3
+
+_IMPASSABLE_ENV = frozenset(
+    (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE),
+)
+
+
+class NavAstar(Astar):
+    def __init__(
+        self,
+        belief: MapBelief,
+        sx: int,
+        sy: int,
+        gx: int,
+        gy: int,
+    ) -> None:
+        self.belief = belief
+        self.gx = gx
+        self.gy = gy
+        self.min_cost = COST_EMPTY
+        super().__init__(belief.w, belief.h, sx, sy)
+
+    def is_goal(self, x: int, y: int) -> bool:
+        return x == self.gx and y == self.gy
+
+    def get_neighbors(self, cx: int, cy: int) -> list[tuple[int, int, int]]:
+        b = self.belief
+        w, h = b.w, b.h
+        result: list[tuple[int, int, int]] = []
+        for dx, dy in WALK_8:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                wt = b.walkable(nx, ny)
+                if wt < COST_IMPASSABLE:
+                    result.append((nx, ny, wt))
+        return result
+
+    def heuristic(self, x: int, y: int) -> int:
+        dx = abs(x - self.gx)
+        dy = abs(y - self.gy)
+        return max(dx, dy) * self.min_cost
+
+
+class FlowAstar(Astar):
+    def __init__(
+        self,
+        belief: MapBelief,
+        sx: int,
+        sy: int,
+        core_x: int,
+        core_y: int,
+    ) -> None:
+        self.belief = belief
+        self.core_x = core_x
+        self.core_y = core_y
+        self.core_set: set[int] = set()
+        w, h = belief.w, belief.h
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                cx, cy = core_x + dx, core_y + dy
+                if 0 <= cx < w and 0 <= cy < h:
+                    self.core_set.add(cy * w + cx)
+        super().__init__(w, h, sx, sy)
+
+    def is_goal(self, x: int, y: int) -> bool:
+        return y * self.w + x in self.core_set
+
+    def get_neighbors(self, cx: int, cy: int) -> list[tuple[int, int, int]]:
+        b = self.belief
+        w, h = b.w, b.h
+        ci = cy * w + cx
+        blocked = b.blocked
+        if blocked[ci]:
+            return []
+        e = b.env[ci]
+        if e is not None and e in _IMPASSABLE_ENV:
+            return []
+        ent = b.entity[ci]
+        if ent is not None and ent[1] != b.my_team:
+            return []
+
+        result: list[tuple[int, int, int]] = []
+
+        if ent is not None:
+            etype = ent[0]
+
+            if etype == EntityType.CORE:
+                for ddx, ddy in WALK_4:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                        result.append((nx, ny, 0))
+
+            elif etype in _TRANSPORT:
+                d = b.direction[ci]
+                bt = b.bridge_target[ci]
+                if etype == EntityType.BRIDGE and bt is not None:
+                    bx, by = bt
+                    if 0 <= bx < w and 0 <= by < h and not blocked[by * w + bx]:
+                        result.append((bx, by, COST_REUSE))
+                elif d is not None:
+                    ddx, ddy = d.delta()
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                        result.append((nx, ny, COST_REUSE))
+
+            elif etype == EntityType.ROAD:
+                for ddx, ddy in WALK_4:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                        result.append((nx, ny, COST_ROAD_REPLACE))
+                for ddx, ddy in BRIDGE_DELTAS:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                        result.append((nx, ny, COST_BRIDGE))
+
+        else:
+            for ddx, ddy in WALK_4:
+                nx, ny = cx + ddx, cy + ddy
+                if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                    result.append((nx, ny, COST_CONV))
+            for ddx, ddy in BRIDGE_DELTAS:
+                nx, ny = cx + ddx, cy + ddy
+                if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                    result.append((nx, ny, COST_BRIDGE))
+
+        return result
+
+    def heuristic(self, x: int, y: int) -> int:
+        return abs(x - self.core_x) + abs(y - self.core_y)
+
+
+def nav_astar(
+    belief: MapBelief,
+    sx: int,
+    sy: int,
+    gx: int,
+    gy: int,
+    max_expand: int = 80,
+) -> list[tuple[int, int]] | None:
+    search = NavAstar(belief, sx, sy, gx, gy)
+    search.compute(max_expand)
+    return search.get_path()
+
+
+def flow_astar(
+    belief: MapBelief,
+    sx: int,
+    sy: int,
+    core_x: int,
+    core_y: int,
+) -> FlowAstar:
+    return FlowAstar(belief, sx, sy, core_x, core_y)
