@@ -36,6 +36,7 @@ class Builder(Entity):
 
     def run(self, ct: Controller) -> None:
         import time
+
         t0 = time.perf_counter_ns()
         self.belief.update(ct)
         t1 = time.perf_counter_ns()
@@ -46,24 +47,30 @@ class Builder(Entity):
         self._execute(decision, ct, pos)
         t3 = time.perf_counter_ns()
         us = lambda a, b: (b - a) // 1000
-        print(f"cpu: update={us(t0,t1)} decide={us(t1,t2)} exec={us(t2,t3)} total={us(t0,t3)}us")
+        print(
+            f"cpu: update={us(t0, t1)} decide={us(t1, t2)} exec={us(t2, t3)} total={us(t0, t3)}us",
+        )
 
     # -- Decision layer --
 
     def _decide(self, pos: Position) -> Decision:
-        # Tier 1: connect harvesters — find one with incomplete chain, closest first
-        best_chain: Decision | None = None
-        best_chain_dist = 999999
+        # Tier 1: connect harvesters — cheap check first, A* only for incomplete
+        best_incomplete: tuple[int, int] | None = None
+        best_dist = 999999
         for hx, hy in self.belief.harvested:
-            step = self._chain_step(pos, (hx, hy))
+            if self.belief.is_chain_complete(hx, hy):
+                continue
+            dist = (pos.x - hx) ** 2 + (pos.y - hy) ** 2
+            if dist < best_dist:
+                best_dist = dist
+                best_incomplete = (hx, hy)
+        if best_incomplete is not None:
+            step = self._chain_step(pos, best_incomplete)
             if step is not None:
-                dist = (pos.x - hx) ** 2 + (pos.y - hy) ** 2
-                if dist < best_chain_dist:
-                    best_chain_dist = dist
-                    best_chain = step
-                    print(f"chain: harv=({hx},{hy}) -> {step.action.name} @ {step.target}")
-        if best_chain is not None:
-            return best_chain
+                print(
+                    f"chain: harv=({best_incomplete[0]},{best_incomplete[1]}) -> {step.action.name} @ {step.target}",
+                )
+                return step
 
         # Tier 2: place harvester if cardinally adjacent
         unharvested = (self.belief.ore_ti | self.belief.ore_ax) - self.belief.harvested
@@ -76,7 +83,8 @@ class Builder(Entity):
         # Tier 3: navigate to nearest unharvested ore
         if unharvested:
             best = min(
-                unharvested, key=lambda o: (pos.x - o[0]) ** 2 + (pos.y - o[1]) ** 2
+                unharvested,
+                key=lambda o: (pos.x - o[0]) ** 2 + (pos.y - o[1]) ** 2,
             )
             adj = self._cardinal_adjacent(pos, Position(best[0], best[1]))
             if adj is not None:
@@ -154,7 +162,9 @@ class Builder(Entity):
             # Bridge: build at (x,y) targeting (nx,ny)
             if pos.distance_squared(build_at) <= 2:
                 return Decision(
-                    Action.BUILD_CHAIN_SEGMENT, Position(nx, ny), aux=build_at
+                    Action.BUILD_CHAIN_SEGMENT,
+                    Position(nx, ny),
+                    aux=build_at,
                 )
             return Decision(Action.NAVIGATE, build_at)
 

@@ -299,6 +299,57 @@ class MapBelief:
     def is_unseen(self, x: int, y: int) -> bool:
         return self.env[self.idx(x, y)] is None
 
+    def is_chain_complete(self, hx: int, hy: int) -> bool:
+        """Cheap forward trace from harvester to check if chain reaches core."""
+        visited: set[tuple[int, int]] = set()
+        # Find a transport neighbor to start tracing from
+        for ddx, ddy in _CARDINALS:
+            nx, ny = hx + ddx, hy + ddy
+            if not self.in_bounds(nx, ny):
+                continue
+            ni = self.idx(nx, ny)
+            ent = self.entity[ni]
+            if ent is None:
+                continue
+            etype, team = ent
+            if team != self.my_team:
+                continue
+            if etype == EntityType.CORE:
+                return True
+            if etype in _TRANSPORT and self._trace_to_core(nx, ny, visited):
+                return True
+        return False
+
+    def _trace_to_core(self, x: int, y: int, visited: set[tuple[int, int]]) -> bool:
+        """Follow output directions from (x,y) to see if chain reaches core."""
+        while (x, y) not in visited:
+            visited.add((x, y))
+            i = self.idx(x, y)
+            ent = self.entity[i]
+            if ent is None:
+                return False
+            etype, team = ent
+            if team != self.my_team:
+                return False
+            if etype == EntityType.CORE:
+                return True
+            if etype not in _TRANSPORT:
+                return False
+
+            d = self.direction[i]
+            bt = self.bridge_target[i]
+            if d is not None:
+                dx, dy = d.delta()
+                x, y = x + dx, y + dy
+            elif bt is not None:
+                x, y = bt
+            else:
+                return False
+
+            if not self.in_bounds(x, y):
+                return False
+        return False
+
     # -- Flow computation --
 
     def flow(self, x: int, y: int) -> float:
