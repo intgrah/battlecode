@@ -11,7 +11,7 @@ from pathlib import Path
 
 from google.protobuf.message import DecodeError
 
-from proto import cambc_pb2
+import proto.cambc_pb2
 
 MARKERS = [
     b"bbbbbbbb",
@@ -31,7 +31,7 @@ MARKERS = [
 def scan_protobuf(path: str) -> list[dict]:
     with Path(path).open("rb") as f:
         data = f.read()
-    r = cambc_pb2.Replay()
+    r = proto.cambc_pb2.Replay()
     try:
         r.ParseFromString(data)
     except DecodeError as e:
@@ -90,7 +90,7 @@ def scan_raw(path: str) -> list[dict]:
 def scan_trailing(path: str) -> list[dict]:
     with Path(path).open("rb") as f:
         data = f.read()
-    r = cambc_pb2.Replay()
+    r = proto.cambc_pb2.Replay()
     try:
         consumed = r.ParseFromString(data)
     except DecodeError:

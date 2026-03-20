@@ -23,7 +23,9 @@ def download_match(match_id: str, out_dir: Path) -> list[Path]:
     paths = []
     for g in games:
         game_num = g["gameNumber"]
-        url = f"https://game.battlecode.cam/api/matches/replay?matchId={match_id}&game={game_num}"
+        from cambc.auth import get_api_url
+
+        url = f"{get_api_url()}/api/matches/replay?matchId={match_id}&game={game_num}"
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req, timeout=30) as resp:
             resp_data = json.loads(resp.read())
