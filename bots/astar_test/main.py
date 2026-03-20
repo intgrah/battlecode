@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from builder import ExploreBuilder
+from builder import Builder
 from cambc import Controller, EntityType
 from core import Core
 
@@ -18,7 +18,7 @@ class Player:
                 case EntityType.CORE:
                     self.unit = Core(ct)
                 case EntityType.BUILDER_BOT:
-                    self.unit = ExploreBuilder(ct)
+                    self.unit = Builder(ct)
                 case _:
                     raise NotImplementedError
         self.unit.run(ct)

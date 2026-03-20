@@ -1,11 +1,11 @@
 from enum import Enum
 
-from cambc import Controller, EntityType, Environment, Team
+from cambc import Controller, Direction, EntityType, Environment, Team
 
 # A* walkability costs. Lower = preferred by pathfinder.
-COST_ROAD = 7       # walkable buildings (roads, conveyors, splitters, allied core)
-COST_EMPTY = 10      # seen empty ground — builder must build a road to traverse
-COST_UNSEEN = 12     # never seen — optimistic guess, slightly penalised vs known empty
+COST_ROAD = 7  # walkable buildings (roads, conveyors, splitters, allied core)
+COST_EMPTY = 10  # seen empty ground — builder must build a road to traverse
+COST_UNSEEN = 12  # never seen — optimistic guess, slightly penalised vs known empty
 COST_IMPASSABLE = 1_000_000  # walls, ore tiles, enemy buildings, non-walkable buildings
 
 
@@ -30,6 +30,25 @@ _WALKABLE_BUILDINGS = frozenset(
     ),
 )
 
+_DIRECTED_BUILDINGS = frozenset(
+    (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+    ),
+)
+
+_TRANSPORT = frozenset(
+    (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    ),
+)
+
+_CARDINALS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
 
 class MapBelief:
     """Persistent per-builder map knowledge, updated incrementally from vision.
@@ -38,14 +57,20 @@ class MapBelief:
     Detects map symmetry to infer unseen tiles from seen ones.
 
     Fields:
-        env:        terrain per tile. None = never seen, else Environment enum.
-                    Permanent once set — terrain never changes.
-                    Also set by symmetry reflection (inferred, not directly observed).
-        entity:     building per tile. None = no building or never seen.
-                    (EntityType, Team) if a building was observed. Stale belief —
-                    buildings can be destroyed while out of vision.
-                    NOT reflected by symmetry (players build differently).
-        symmetry:   confirmed map symmetry type, or None if unresolved.
+        env:            terrain per tile. None = never seen, else Environment enum.
+                        Permanent once set — terrain never changes.
+                        Also set by symmetry reflection (inferred, not directly observed).
+        entity:         building per tile. None = no building or never seen.
+                        (EntityType, Team) if a building was observed. Stale belief —
+                        buildings can be destroyed while out of vision.
+                        NOT reflected by symmetry (players build differently).
+        direction:      output direction of conveyors/splitters. None if not applicable.
+        bridge_target:  (x, y) target of bridges. None if not a bridge.
+        last_seen:      turn number when tile was last in vision. 0 if never seen.
+        ore_ti:         set of known Ti ore positions.
+        ore_ax:         set of known Ax ore positions.
+        harvested:      set of ore positions that have a harvester on them.
+        symmetry:       confirmed map symmetry type, or None if unresolved.
 
     Symmetry detection:
         Three hypotheses (ROT, HOR, VER) are tested against observations.
@@ -73,6 +98,12 @@ class MapBelief:
         n = w * h
         self.env: list[Environment | None] = [None] * n
         self.entity: list[tuple[EntityType, Team] | None] = [None] * n
+        self.direction: list[Direction | None] = [None] * n
+        self.bridge_target: list[tuple[int, int] | None] = [None] * n
+        self.last_seen: list[int] = [0] * n
+        self.ore_ti: set[tuple[int, int]] = set()
+        self.ore_ax: set[tuple[int, int]] = set()
+        self.harvested: set[tuple[int, int]] = set()
         self.symmetry: Symmetry | None = None
         self._sym_candidates = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
         self._enemy_core: tuple[int, int] | None = None
@@ -95,17 +126,42 @@ class MapBelief:
 
     def update(self, ct: Controller) -> None:
         """Incorporate all visible tiles into the belief. Call once per turn."""
+        rnd = ct.get_current_round()
         new_tiles: list[tuple[int, int, Environment]] = []
 
         for t in ct.get_nearby_tiles():
-            i = self.idx(t.x, t.y)
+            x, y = t.x, t.y
+            i = self.idx(x, y)
+            self.last_seen[i] = rnd
+
             env = ct.get_tile_env(t)
             self.env[i] = env
+
+            if env == Environment.ORE_TITANIUM:
+                self.ore_ti.add((x, y))
+            elif env == Environment.ORE_AXIONITE:
+                self.ore_ax.add((x, y))
+
             bid = ct.get_tile_building_id(t)
             if bid is not None:
                 etype = ct.get_entity_type(bid)
                 team = ct.get_team(bid)
                 self.entity[i] = (etype, team)
+
+                if etype in _DIRECTED_BUILDINGS:
+                    self.direction[i] = ct.get_direction(bid)
+                    self.bridge_target[i] = None
+                elif etype == EntityType.BRIDGE:
+                    self.direction[i] = None
+                    bt = ct.get_bridge_target(bid)
+                    self.bridge_target[i] = (bt.x, bt.y)
+                else:
+                    self.direction[i] = None
+                    self.bridge_target[i] = None
+
+                if etype == EntityType.HARVESTER:
+                    self.harvested.add((x, y))
+
                 if (
                     self._enemy_core is None
                     and etype == EntityType.CORE
@@ -115,7 +171,11 @@ class MapBelief:
                     self._enemy_core = (center.x, center.y)
             else:
                 self.entity[i] = None
-            new_tiles.append((t.x, t.y, env))
+                self.direction[i] = None
+                self.bridge_target[i] = None
+                self.harvested.discard((x, y))
+
+            new_tiles.append((x, y, env))
 
         if self.symmetry is None:
             self._eliminate_symmetries(new_tiles)
@@ -238,3 +298,136 @@ class MapBelief:
 
     def is_unseen(self, x: int, y: int) -> bool:
         return self.env[self.idx(x, y)] is None
+
+    # -- Flow computation --
+
+    def flow(self, x: int, y: int) -> float:
+        """Compute flow at tile (x, y) by tracing upstream sources."""
+        return self._flow(x, y, set())
+
+    def _flow(self, x: int, y: int, visited: set[tuple[int, int]]) -> float:
+        if (x, y) in visited:
+            return 0.0
+        visited.add((x, y))
+        i = self.idx(x, y)
+        ent = self.entity[i]
+        if ent is None:
+            return 0.0
+        etype, team = ent
+        if team != self.my_team:
+            return 0.0
+
+        if etype == EntityType.HARVESTER:
+            n_outputs = 0
+            for ddx, ddy in _CARDINALS:
+                nx, ny = x + ddx, y + ddy
+                if not self.in_bounds(nx, ny):
+                    continue
+                ni = self.idx(nx, ny)
+                nent = self.entity[ni]
+                if nent is not None and nent[0] in _TRANSPORT | {EntityType.CORE}:
+                    n_outputs += 1
+            return 0.25 / max(n_outputs, 1)
+
+        if etype not in _TRANSPORT and etype != EntityType.CORE:
+            return 0.0
+
+        total = 0.0
+        for nx, ny in self._tiles_feeding_into(x, y):
+            total += self._flow(nx, ny, visited)
+
+        if etype == EntityType.SPLITTER:
+            total /= 3
+
+        return total
+
+    def _tiles_feeding_into(self, x: int, y: int) -> list[tuple[int, int]]:
+        """Find all tiles whose output points at (x, y)."""
+        result: list[tuple[int, int]] = []
+        for ddx, ddy in _CARDINALS:
+            nx, ny = x + ddx, y + ddy
+            if not self.in_bounds(nx, ny):
+                continue
+            ni = self.idx(nx, ny)
+            ent = self.entity[ni]
+            if ent is None:
+                continue
+            etype, team = ent
+            if team != self.my_team:
+                continue
+            if etype == EntityType.HARVESTER:
+                result.append((nx, ny))
+                continue
+            d = self.direction[ni]
+            if d is not None:
+                dx, dy = d.delta()
+                if nx + dx == x and ny + dy == y:
+                    result.append((nx, ny))
+        for bx, by in self._bridges_targeting(x, y):
+            result.append((bx, by))
+        return result
+
+    def _bridges_targeting(self, x: int, y: int) -> list[tuple[int, int]]:
+        """Find all bridges in belief that target (x, y)."""
+        result: list[tuple[int, int]] = []
+        for ddx in range(-3, 4):
+            for ddy in range(-3, 4):
+                if ddx == 0 and ddy == 0:
+                    continue
+                if ddx * ddx + ddy * ddy > 9:
+                    continue
+                bx, by = x + ddx, y + ddy
+                if not self.in_bounds(bx, by):
+                    continue
+                bi = self.idx(bx, by)
+                bt = self.bridge_target[bi]
+                if bt is not None and bt[0] == x and bt[1] == y:
+                    result.append((bx, by))
+        return result
+
+    def excess_flow(self, x: int, y: int) -> float:
+        """How much flow is stuck at this tile. Positive = congestion."""
+        i = self.idx(x, y)
+        ent = self.entity[i]
+        if ent is None:
+            return 0.0
+        etype, team = ent
+        if team != self.my_team:
+            return 0.0
+
+        if etype == EntityType.HARVESTER:
+            n_outputs = 0
+            for ddx, ddy in _CARDINALS:
+                nx, ny = x + ddx, y + ddy
+                if not self.in_bounds(nx, ny):
+                    continue
+                ni = self.idx(nx, ny)
+                nent = self.entity[ni]
+                if nent is not None and nent[0] in _TRANSPORT | {EntityType.CORE}:
+                    n_outputs += 1
+            if n_outputs == 0:
+                return 0.25
+
+        if etype in _TRANSPORT:
+            incoming = self.flow(x, y)
+            d = self.direction[i]
+            if d is not None:
+                dx, dy = d.delta()
+                ox, oy = x + dx, y + dy
+                if not self.in_bounds(ox, oy):
+                    return incoming
+                oi = self.idx(ox, oy)
+                oent = self.entity[oi]
+                if oent is None:
+                    return incoming
+            bt = self.bridge_target[i]
+            if etype == EntityType.BRIDGE and bt is not None:
+                tx, ty = bt
+                if not self.in_bounds(tx, ty):
+                    return incoming
+                ti = self.idx(tx, ty)
+                tent = self.entity[ti]
+                if tent is None:
+                    return incoming
+
+        return 0.0
