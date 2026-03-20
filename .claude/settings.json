@@ -15,7 +15,8 @@
       "Bash(python -m ruff check analysis/)",
       "Bash(python scripts/replay_builders.py /tmp/v30_test.replay26)",
       "Bash(python scripts/replay_economy.py /tmp/v30_test.replay26)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(CAMBC_API_URL=https://game.staging.battlecode.cam python3 /home/intgrah/git/intgrah/battlecode/scripts/wait_match.py 2a3ef31c-0ec0-4ce7-adfa-eeee36d1d55a)"
     ],
     "additionalDirectories": [
       "/home/intgrah/git/intgrah/battlecode/bots"

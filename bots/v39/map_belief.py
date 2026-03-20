@@ -18,8 +18,8 @@ class Symmetry(Enum):
     """
 
     ROT = 0  # 180° rotational: (x,y) <-> (w-1-x, h-1-y)
-    HOR = 1  # horizontal reflection: (x,y) <-> (w-1-x, y)
-    VER = 2  # vertical reflection: (x,y) <-> (x, h-1-y)
+    HOR = 1  # horizontal reflection: (x,y) <-> (x, h-1-y)
+    VER = 2  # vertical reflection: (x,y) <-> (w-1-x, y)
 
 
 _WALKABLE_BUILDINGS = frozenset(
@@ -103,8 +103,8 @@ class MapBelief:
         self.bridge_target: list[tuple[int, int] | None] = [None] * n
         self.last_seen: list[int] = [0] * n
         self.flow_in: list[float] = [0.0] * n
-        self.flow_out: list[float] = [0.0] * n
         self.excess: list[float] = [0.0] * n
+        self.blocked: list[bool] = [False] * n
         self.transport_tiles: set[int] = set()
         self.harvester_tiles: set[int] = set()
         self.ore_ti: set[tuple[int, int]] = set()
@@ -113,6 +113,15 @@ class MapBelief:
         self.symmetry: Symmetry | None = None
         self._sym_candidates = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
         self._enemy_core: tuple[int, int] | None = None
+        cx, cy = core_pos
+        self._core_tiles: set[int] = set()
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    self._core_tiles.add(ny * w + nx)
+        self._out_target: dict[int, list[int]] = {}
+        self._out_target_dirty = True
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -123,23 +132,29 @@ class MapBelief:
             case Symmetry.ROT:
                 return (self.w - 1 - x, self.h - 1 - y)
             case Symmetry.HOR:
-                return (self.w - 1 - x, y)
-            case Symmetry.VER:
                 return (x, self.h - 1 - y)
+            case Symmetry.VER:
+                return (self.w - 1 - x, y)
         return (x, y)
 
     # -- Per-turn update --
 
-    def update(self, ct: Controller) -> None:
-        """Incorporate all visible tiles into the belief. Call once per turn."""
+    def update(self, ct: Controller) -> list[tuple[int, int]]:
+        """Incorporate all visible tiles into the belief. Call once per turn.
+
+        Returns list of (x, y) tiles whose entity/walkability changed.
+        """
         rnd = ct.get_current_round()
         new_tiles: list[tuple[int, int, Environment]] = []
+        changed: list[tuple[int, int]] = []
 
         for t in ct.get_nearby_tiles():
             x, y = t.x, t.y
             i = self.idx(x, y)
             self.last_seen[i] = rnd
 
+            old_env = self.env[i]
+            old_ent = self.entity[i]
             env = ct.get_tile_env(t)
             self.env[i] = env
 
@@ -147,12 +162,14 @@ class MapBelief:
                 self.ore_ti.add((x, y))
             elif env == Environment.ORE_AXIONITE:
                 self.ore_ax.add((x, y))
-
             bid = ct.get_tile_building_id(t)
             if bid is not None:
                 etype = ct.get_entity_type(bid)
                 team = ct.get_team(bid)
-                self.entity[i] = (etype, team)
+                new_ent = (etype, team)
+                self.entity[i] = new_ent
+                if new_ent != old_ent or env != old_env:
+                    changed.append((x, y))
 
                 if etype in _DIRECTED_BUILDINGS:
                     self.direction[i] = ct.get_direction(bid)
@@ -169,7 +186,7 @@ class MapBelief:
                     self.harvested.add((x, y))
                     self.harvester_tiles.add(i)
                     self.transport_tiles.discard(i)
-                elif etype in _TRANSPORT or etype == EntityType.CORE:
+                elif etype in _TRANSPORT:
                     self.transport_tiles.add(i)
                     self.harvester_tiles.discard(i)
                 else:
@@ -190,6 +207,8 @@ class MapBelief:
                 self.harvested.discard((x, y))
                 self.transport_tiles.discard(i)
                 self.harvester_tiles.discard(i)
+                if old_ent is not None or env != old_env:
+                    changed.append((x, y))
 
             new_tiles.append((x, y, env))
 
@@ -206,6 +225,8 @@ class MapBelief:
                         self.ore_ti.add((mx, my))
                     elif env == Environment.ORE_AXIONITE:
                         self.ore_ax.add((mx, my))
+
+        return changed
 
     # -- Symmetry detection --
 
@@ -225,9 +246,9 @@ class MapBelief:
                     case Symmetry.ROT:
                         px, py = w - 1 - cx, h - 1 - cy
                     case Symmetry.HOR:
-                        px, py = w - 1 - cx, cy
-                    case Symmetry.VER:
                         px, py = cx, h - 1 - cy
+                    case Symmetry.VER:
+                        px, py = w - 1 - cx, cy
                 if (px, py) != (ex, ey):
                     to_remove.add(sym)
         else:
@@ -236,10 +257,10 @@ class MapBelief:
             for sym in self._sym_candidates:
                 match sym:
                     case Symmetry.HOR:
-                        if cy != h - 1 - cy:
+                        if cy == h - 1 - cy:
                             to_remove.add(sym)
                     case Symmetry.VER:
-                        if cx != w - 1 - cx:
+                        if cx == w - 1 - cx:
                             to_remove.add(sym)
                     case Symmetry.ROT:
                         pass
@@ -251,9 +272,9 @@ class MapBelief:
                     case Symmetry.ROT:
                         mx, my = w - 1 - x, h - 1 - y
                     case Symmetry.HOR:
-                        mx, my = w - 1 - x, y
-                    case Symmetry.VER:
                         mx, my = x, h - 1 - y
+                    case Symmetry.VER:
+                        mx, my = w - 1 - x, y
                 mi = self.idx(mx, my)
                 mirror_env = self.env[mi]
                 if mirror_env is not None and mirror_env != env:
@@ -267,8 +288,9 @@ class MapBelief:
         elif len(self._sym_candidates) > 1:
             # Heuristic fallback: if >50% of tiles seen and multiple hypotheses
             # survive, all survivors are likely valid (map has multiple symmetries).
-            # Pick any one. Not a proof — the builder may discover contradictions
-            # later if the guess is wrong.
+            # Pick any one. Not a proof.
+            # There exist contrived counterexamples for this.
+
             seen = sum(1 for e in self.env if e is not None)
             if seen > self.w * self.h // 2:
                 self.symmetry = next(iter(self._sym_candidates))
@@ -323,247 +345,101 @@ class MapBelief:
     def is_unseen(self, x: int, y: int) -> bool:
         return self.env[self.idx(x, y)] is None
 
-    def is_chain_complete(self, hx: int, hy: int) -> bool:
-        """Cheap forward trace from harvester to check if chain reaches core."""
-        visited: set[tuple[int, int]] = set()
-        # Find a transport neighbor to start tracing from
-        for ddx, ddy in _CARDINALS:
-            nx, ny = hx + ddx, hy + ddy
-            if not self.in_bounds(nx, ny):
-                continue
-            ni = self.idx(nx, ny)
-            ent = self.entity[ni]
-            if ent is None:
-                continue
-            etype, team = ent
-            if team != self.my_team:
-                continue
-            if etype == EntityType.CORE:
-                return True
-            if etype in _TRANSPORT and self._trace_to_core(nx, ny, visited):
-                return True
-        return False
-
-    def _trace_to_core(self, x: int, y: int, visited: set[tuple[int, int]]) -> bool:
-        """Follow output directions from (x,y) to see if chain reaches core."""
-        while (x, y) not in visited:
-            visited.add((x, y))
-            i = self.idx(x, y)
-            ent = self.entity[i]
-            if ent is None:
-                return False
-            etype, team = ent
-            if team != self.my_team:
-                return False
-            if etype == EntityType.CORE:
-                return True
-            if etype not in _TRANSPORT:
-                return False
-
-            d = self.direction[i]
-            bt = self.bridge_target[i]
-            if d is not None:
-                dx, dy = d.delta()
-                x, y = x + dx, y + dy
-            elif bt is not None:
-                x, y = bt
-            else:
-                return False
-
-            if not self.in_bounds(x, y):
-                return False
-        return False
-
     # -- Flow computation (Kahn's topological sort) --
 
     def recompute_flow(self) -> None:
-        """Recompute flow_in, flow_out, excess for all tiles. O(k) via topological sort,
-        where k = number of transport + harvester tiles.
+        core_tiles = self._core_tiles
+        receivers = self.transport_tiles | core_tiles
+        w, h = self.w, self.h
 
-        excess(tile) = production + flow_in - flow_out
-        Positive excess = congestion (flow stuck at this tile).
-        """
-        all_tiles = self.harvester_tiles | self.transport_tiles
-        for i in all_tiles:
+        for i in self.harvester_tiles | receivers:
             self.flow_in[i] = 0.0
-            self.flow_out[i] = 0.0
             self.excess[i] = 0.0
 
-        in_degree: dict[int, int] = {}
-        queue: deque[int] = deque()
+        in_degree: dict[int, int] = dict.fromkeys(receivers, 0)
+        out_target: dict[int, list[int]] = {}
+        in_reverse: dict[int, list[int]] = {}
 
-        # 1. Seed harvesters — they produce 0.25 each
+        for i in self.transport_tiles:
+            ent = self.entity[i]
+            if ent is None:
+                continue
+            etype = ent[0]
+            bt = self.bridge_target[i]
+            d = self.direction[i]
+            tgt = -1
+            if etype == EntityType.BRIDGE and bt is not None:
+                bx, by = bt
+                if 0 <= bx < w and 0 <= by < h:
+                    tgt = by * w + bx
+            elif d is not None:
+                dx, dy = d.delta()
+                nx, ny = i % w + dx, i // w + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    tgt = ny * w + nx
+            if tgt >= 0 and tgt in in_degree:
+                in_degree[tgt] += 1
+                out_target[i] = [tgt]
+                in_reverse.setdefault(tgt, []).append(i)
+
+        queue: deque[int] = deque()
         for i in self.harvester_tiles:
-            self.excess[i] = 0.25
+            ix, iy = i % w, i // w
+            outs: list[int] = []
+            for ddx, ddy in _CARDINALS:
+                nx, ny = ix + ddx, iy + ddy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if ni in receivers:
+                        outs.append(ni)
+                        in_degree[ni] += 1
+                        in_reverse.setdefault(ni, []).append(i)
+            out_target[i] = outs
             queue.append(i)
 
-        # 2. Compute in-degrees for transport tiles
-        for i in self.transport_tiles:
-            x, y = i % self.w, i // self.w
-            deg = len(self._tiles_feeding_into(x, y))
-            in_degree[i] = deg
+        for i, deg in in_degree.items():
             if deg == 0:
                 queue.append(i)
 
-        # 3. BFS in topological order
         while queue:
             ci = queue.popleft()
-            cx, cy = ci % self.w, ci // self.w
             ent = self.entity[ci]
             if ent is None:
                 continue
             etype = ent[0]
+            outs = out_target.get(ci, [])
 
-            out_tiles: list[int] = []
             if etype == EntityType.HARVESTER:
-                for ddx, ddy in _CARDINALS:
-                    nx, ny = cx + ddx, cy + ddy
-                    if not self.in_bounds(nx, ny):
-                        continue
-                    ni = self.idx(nx, ny)
-                    if ni in self.transport_tiles:
-                        out_tiles.append(ni)
-                n_out = max(len(out_tiles), 1)
+                n_out = max(len(outs), 1)
                 push = 0.25 / n_out
-                self.flow_out[ci] = push * len(out_tiles)
-                self.excess[ci] = 0.25 - self.flow_out[ci]
-                for oi in out_tiles:
+                self.excess[ci] = 0.25 - push * len(outs)
+                for oi in outs:
                     self.flow_in[oi] += push
-                    if oi in in_degree:
-                        in_degree[oi] -= 1
-                        if in_degree[oi] <= 0:
-                            queue.append(oi)
-                continue
-
-            if etype == EntityType.CORE:
-                self.flow_out[ci] = self.flow_in[ci]
-                self.excess[ci] = 0.0
-                continue
-
-            if etype not in _TRANSPORT:
-                continue
-
-            incoming = self.flow_in[ci]
-            d = self.direction[ci]
-            bt = self.bridge_target[ci]
-            if d is not None:
-                dx, dy = d.delta()
-                nx, ny = cx + dx, cy + dy
-                if self.in_bounds(nx, ny):
-                    ni = self.idx(nx, ny)
-                    if ni in self.transport_tiles:
-                        out_tiles.append(ni)
-            elif bt is not None:
-                bx, by = bt
-                if self.in_bounds(bx, by):
-                    ni = self.idx(bx, by)
-                    if ni in self.transport_tiles:
-                        out_tiles.append(ni)
-
-            push = incoming / 3 if etype == EntityType.SPLITTER else incoming
-            total_out = 0.0
-            for oi in out_tiles:
-                self.flow_in[oi] += push
-                total_out += push
-                if oi in in_degree:
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
+            elif etype in _TRANSPORT:
+                incoming = self.flow_in[ci]
+                push = incoming / 3 if etype == EntityType.SPLITTER else incoming
+                total_out = 0.0
+                for oi in outs:
+                    self.flow_in[oi] += push
+                    total_out += push
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
+                self.excess[ci] = incoming - total_out
 
-            self.flow_out[ci] = total_out
-            self.excess[ci] = incoming - total_out
-
-    def flow(self, x: int, y: int) -> float:
-        """O(1) flow_in lookup. Call recompute_flow() first."""
-        return self.flow_in[self.idx(x, y)]
-
-    def _tiles_feeding_into(self, x: int, y: int) -> list[tuple[int, int]]:
-        """Find all tiles whose output points at (x, y)."""
-        result: list[tuple[int, int]] = []
-        for ddx, ddy in _CARDINALS:
-            nx, ny = x + ddx, y + ddy
-            if not self.in_bounds(nx, ny):
-                continue
-            ni = self.idx(nx, ny)
-            ent = self.entity[ni]
-            if ent is None:
-                continue
-            etype, team = ent
-            if team != self.my_team:
-                continue
-            if etype == EntityType.HARVESTER:
-                result.append((nx, ny))
-                continue
-            d = self.direction[ni]
-            if d is not None:
-                dx, dy = d.delta()
-                if nx + dx == x and ny + dy == y:
-                    result.append((nx, ny))
-        for bx, by in self._bridges_targeting(x, y):
-            result.append((bx, by))
-        return result
-
-    def _bridges_targeting(self, x: int, y: int) -> list[tuple[int, int]]:
-        """Find all bridges in belief that target (x, y)."""
-        result: list[tuple[int, int]] = []
-        for ddx in range(-3, 4):
-            for ddy in range(-3, 4):
-                if ddx == 0 and ddy == 0:
-                    continue
-                if ddx * ddx + ddy * ddy > 9:
-                    continue
-                bx, by = x + ddx, y + ddy
-                if not self.in_bounds(bx, by):
-                    continue
-                bi = self.idx(bx, by)
-                bt = self.bridge_target[bi]
-                if bt is not None and bt[0] == x and bt[1] == y:
-                    result.append((bx, by))
-        return result
-
-    def excess_flow(self, x: int, y: int) -> float:
-        """How much flow is stuck at this tile. Positive = congestion."""
-        i = self.idx(x, y)
-        ent = self.entity[i]
-        if ent is None:
-            return 0.0
-        etype, team = ent
-        if team != self.my_team:
-            return 0.0
-
-        if etype == EntityType.HARVESTER:
-            n_outputs = 0
-            for ddx, ddy in _CARDINALS:
-                nx, ny = x + ddx, y + ddy
-                if not self.in_bounds(nx, ny):
-                    continue
-                ni = self.idx(nx, ny)
-                nent = self.entity[ni]
-                if nent is not None and nent[0] in _TRANSPORT | {EntityType.CORE}:
-                    n_outputs += 1
-            if n_outputs == 0:
-                return 0.25
-
-        if etype in _TRANSPORT:
-            incoming = self.flow(x, y)
-            d = self.direction[i]
-            if d is not None:
-                dx, dy = d.delta()
-                ox, oy = x + dx, y + dy
-                if not self.in_bounds(ox, oy):
-                    return incoming
-                oi = self.idx(ox, oy)
-                oent = self.entity[oi]
-                if oent is None:
-                    return incoming
-            bt = self.bridge_target[i]
-            if etype == EntityType.BRIDGE and bt is not None:
-                tx, ty = bt
-                if not self.in_bounds(tx, ty):
-                    return incoming
-                ti = self.idx(tx, ty)
-                tent = self.entity[ti]
-                if tent is None:
-                    return incoming
-
-        return 0.0
+        for i in receivers:
+            self.blocked[i] = False
+        seeds: deque[int] = deque()
+        for i in receivers:
+            if self.flow_in[i] > 0.75:
+                self.blocked[i] = True
+                seeds.append(i)
+        while seeds:
+            bi = seeds.popleft()
+            for fi in in_reverse.get(bi, []):
+                if fi in receivers and not self.blocked[fi]:
+                    self.blocked[fi] = True
+                    seeds.append(fi)
