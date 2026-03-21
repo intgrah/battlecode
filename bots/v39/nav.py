@@ -84,14 +84,24 @@ class FlowAstar(Astar):
         w, h = b.w, b.h
         ci = cy * w + cx
         blocked = b.blocked
+        env = b.env
         if blocked[ci]:
             return []
-        e = b.env[ci]
+        e = env[ci]
         if e is not None and e in _IMPASSABLE_ENV:
             return []
         ent = b.entity[ci]
         if ent is not None and ent[1] != b.my_team:
             return []
+
+        def passable(nx: int, ny: int) -> bool:
+            if not (0 <= nx < w and 0 <= ny < h):
+                return False
+            ni = ny * w + nx
+            if blocked[ni]:
+                return False
+            ne = env[ni]
+            return ne is None or ne not in _IMPASSABLE_ENV
 
         result: list[tuple[int, int, int]] = []
 
@@ -101,7 +111,7 @@ class FlowAstar(Astar):
             if etype == EntityType.CORE:
                 for ddx, ddy in WALK_4:
                     nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                    if passable(nx, ny):
                         result.append((nx, ny, 0))
 
             elif etype in _TRANSPORT:
@@ -109,32 +119,32 @@ class FlowAstar(Astar):
                 bt = b.bridge_target[ci]
                 if etype == EntityType.BRIDGE and bt is not None:
                     bx, by = bt
-                    if 0 <= bx < w and 0 <= by < h and not blocked[by * w + bx]:
+                    if passable(bx, by):
                         result.append((bx, by, COST_REUSE))
                 elif d is not None:
                     ddx, ddy = d.delta()
                     nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                    if passable(nx, ny):
                         result.append((nx, ny, COST_REUSE))
 
             elif etype == EntityType.ROAD:
                 for ddx, ddy in WALK_4:
                     nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                    if passable(nx, ny):
                         result.append((nx, ny, COST_ROAD_REPLACE))
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                    if passable(nx, ny):
                         result.append((nx, ny, COST_BRIDGE))
 
         else:
             for ddx, ddy in WALK_4:
                 nx, ny = cx + ddx, cy + ddy
-                if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                if passable(nx, ny):
                     result.append((nx, ny, COST_CONV))
             for ddx, ddy in BRIDGE_DELTAS:
                 nx, ny = cx + ddx, cy + ddy
-                if 0 <= nx < w and 0 <= ny < h and not blocked[ny * w + nx]:
+                if passable(nx, ny):
                     result.append((nx, ny, COST_BRIDGE))
 
         return result

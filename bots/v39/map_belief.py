@@ -122,6 +122,7 @@ class MapBelief:
                     self._core_tiles.add(ny * w + nx)
         self._out_target: dict[int, list[int]] = {}
         self._out_target_dirty = True
+        self.unit_tiles: set[int] = set()
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -147,6 +148,14 @@ class MapBelief:
         rnd = ct.get_current_round()
         new_tiles: list[tuple[int, int, Environment]] = []
         changed: list[tuple[int, int]] = []
+
+        self.unit_tiles.clear()
+        my_id = ct.get_id()
+        for uid in ct.get_nearby_units():
+            if uid == my_id:
+                continue
+            upos = ct.get_position(uid)
+            self.unit_tiles.add(self.idx(upos.x, upos.y))
 
         for t in ct.get_nearby_tiles():
             x, y = t.x, t.y
@@ -325,6 +334,8 @@ class MapBelief:
             Environment.ORE_TITANIUM,
             Environment.ORE_AXIONITE,
         ):
+            return COST_IMPASSABLE
+        if i in self.unit_tiles:
             return COST_IMPASSABLE
         ent = self.entity[i]
         if ent is None:
