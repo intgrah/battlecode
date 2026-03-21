@@ -46,8 +46,10 @@ def nav_astar(
     sy: int,
     gx: int,
     gy: int,
-    max_expand: int = 80,
+    ct: "Controller",
+    budget_us: int = 1800,
 ) -> list[tuple[int, int]] | None:
+    from cambc import Controller
     search = NavAstar(belief, sx, sy, gx, gy)
-    search.compute(max_expand)
+    search.compute(ct, budget_us)
     return search.get_path()

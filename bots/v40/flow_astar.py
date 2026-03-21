@@ -9,9 +9,10 @@ BRIDGE_DELTAS = [
 ]
 
 COST_REUSE = 0
-COST_CONV = 999999  # temporary: force bridges only
+COST_CONV = 3
 COST_BRIDGE = 10
 COST_ROAD_REPLACE = 3
+CONV_CUTOFF_SQ = 8
 
 _IMPASSABLE_ENV = frozenset(
     (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE),
@@ -91,20 +92,24 @@ class FlowAstar(Astar):
                         result.append((nx, ny, COST_REUSE))
 
             elif etype == EntityType.ROAD:
-                for ddx, ddy in WALK_4:
-                    nx, ny = cx + ddx, cy + ddy
-                    if passable(nx, ny):
-                        result.append((nx, ny, COST_ROAD_REPLACE))
+                core_dist_sq = (cx - self.core_x) ** 2 + (cy - self.core_y) ** 2
+                if core_dist_sq > CONV_CUTOFF_SQ:
+                    for ddx, ddy in WALK_4:
+                        nx, ny = cx + ddx, cy + ddy
+                        if passable(nx, ny):
+                            result.append((nx, ny, COST_ROAD_REPLACE))
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if passable(nx, ny):
                         result.append((nx, ny, COST_BRIDGE))
 
         else:
-            for ddx, ddy in WALK_4:
-                nx, ny = cx + ddx, cy + ddy
-                if passable(nx, ny):
-                    result.append((nx, ny, COST_CONV))
+            core_dist_sq = (cx - self.core_x) ** 2 + (cy - self.core_y) ** 2
+            if core_dist_sq > CONV_CUTOFF_SQ:
+                for ddx, ddy in WALK_4:
+                    nx, ny = cx + ddx, cy + ddy
+                    if passable(nx, ny):
+                        result.append((nx, ny, COST_CONV))
             for ddx, ddy in BRIDGE_DELTAS:
                 nx, ny = cx + ddx, cy + ddy
                 if passable(nx, ny):

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 CIPHER = 0x2120B7E8
-CLAIM_TTL = 0  # TO DO: investigate TTL trends
+CLAIM_TTL = 8  # TO DO: investigate TTL trends
 
 _TAG_SHIFT = 28
 _TAG_MASK = 0xF
