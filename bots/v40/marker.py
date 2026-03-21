@@ -37,7 +37,20 @@ class TaskClaim:
         )
 
 
-Marker = TaskClaim
+@dataclass(frozen=True)
+class Eureka:
+    symmetry: int
+
+    def encode(self) -> int:
+        val = (1 << _TAG_SHIFT) | self.symmetry
+        return val ^ CIPHER
+
+    @staticmethod
+    def decode(payload: int) -> Eureka:
+        return Eureka(symmetry=payload & 0x3)
+
+
+Marker = TaskClaim | Eureka
 
 
 def decode(encrypted: int) -> Marker | None:
@@ -47,6 +60,8 @@ def decode(encrypted: int) -> Marker | None:
     match tag:
         case 0:
             return TaskClaim.decode(payload)
+        case 1:
+            return Eureka.decode(payload)
         case _:
             return None
 

@@ -2,7 +2,7 @@ from cambc import Controller, EntityType, Environment, GameConstants, Position
 from entity import Entity
 from flow_astar import FlowAstar, flow_astar
 from map_belief import _TRANSPORT, COST_IMPASSABLE, MapBelief
-from marker import TaskClaim, TaskKind
+from marker import Eureka, TaskClaim, TaskKind
 from nav_astar import nav_astar
 
 
@@ -43,14 +43,19 @@ class Builder(Entity):
         if self._debug_target is not None:
             target, r, g, b = self._debug_target
             ct.draw_indicator_line(ct.get_position(), target, r, g, b)
+        marker_val = None
         if self._claim is not None:
             self._last_claim = self._claim
+            marker_val = self._claim.encode()
+        elif self.belief.symmetry is not None:
+            marker_val = Eureka(self.belief.symmetry.value).encode()
+        if marker_val is not None:
             placed = False
             for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
                 if t == ct.get_position():
                     continue
                 if ct.can_place_marker(t):
-                    ct.place_marker(t, self._claim.encode())
+                    ct.place_marker(t, marker_val)
                     placed = True
                     break
             if not placed:
@@ -60,7 +65,7 @@ class Builder(Entity):
                     bid = ct.get_tile_building_id(t)
                     if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
                         ct.destroy(t)
-                        ct.place_marker(t, self._claim.encode())
+                        ct.place_marker(t, marker_val)
                         break
 
     def _policy(self, ct: Controller, pos: Position) -> None:
