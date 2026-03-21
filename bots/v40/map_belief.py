@@ -2,7 +2,7 @@ from collections import deque
 from enum import Enum
 
 from cambc import Controller, Direction, EntityType, Environment, Team
-from marker import TaskClaim, is_stale
+from marker import Eureka, TaskClaim, is_stale
 from marker import decode as decode_marker
 
 # A* walkability costs. Lower = preferred by pathfinder.
@@ -204,9 +204,12 @@ class MapBelief:
                     self.transport_tiles.add(i)
                     self.harvester_tiles.discard(i)
                 elif etype == EntityType.MARKER and team == self.my_team:
-                    claim = decode_marker(ct.get_marker_value(bid))
-                    if claim is not None and not is_stale(claim, rnd):
-                        self.claims.add(claim)
+                    msg = decode_marker(ct.get_marker_value(bid))
+                    if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
+                        self.claims.add(msg)
+                    elif isinstance(msg, Eureka) and self.symmetry is None:
+                        self.symmetry = Symmetry(msg.symmetry)
+                        self._reflect_all()
                 else:
                     self.transport_tiles.discard(i)
                     self.harvester_tiles.discard(i)
