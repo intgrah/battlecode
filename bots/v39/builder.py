@@ -1,7 +1,8 @@
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, GameConstants, Position
 from entity import Entity
 from flow_astar import FlowAstar, flow_astar
 from map_belief import _TRANSPORT, COST_IMPASSABLE, MapBelief
+from marker import TaskClaim, TaskKind
 from nav_astar import nav_astar
 
 
@@ -38,11 +39,30 @@ class Builder(Entity):
         if not hasattr(self, "_log"):
             self._log = open(f"/tmp/v39_b{ct.get_id()}.log", "w")  # noqa: SIM115
         self._debug_target = None
+        self._claim: TaskClaim | None = None
         action = self._policy(ct, pos)
         self._log.write(f"{ct.get_current_round()} {pos.x},{pos.y} {action}\n")
         if self._debug_target is not None:
             target, r, g, b = self._debug_target
             ct.draw_indicator_line(ct.get_position(), target, r, g, b)
+        if self._claim is not None:
+            placed = False
+            for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
+                if t == ct.get_position():
+                    continue
+                if ct.can_place_marker(t):
+                    ct.place_marker(t, self._claim.encode())
+                    placed = True
+                    break
+            if not placed:
+                for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
+                    if t == ct.get_position():
+                        continue
+                    bid = ct.get_tile_building_id(t)
+                    if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
+                        ct.destroy(t)
+                        ct.place_marker(t, self._claim.encode())
+                        break
 
     def _policy(self, ct: Controller, pos: Position) -> str:
         if self._try_place_harvester(ct, pos):
@@ -55,12 +75,20 @@ class Builder(Entity):
             return "explore"
         return "idle"
 
+    def _is_claimed(self, tile_index: int, kind: TaskKind) -> bool:
+        return any(
+            c.tile_index == tile_index and c.kind == kind for c in self.belief.claims
+        )
+
     def _try_fix_excess(self, ct: Controller, pos: Position) -> bool:
         best_tile = None
         best_dist = 999999
         w = self.belief.w
         for i in self.belief.harvester_tiles | self.belief.transport_tiles:
-            if self.belief.excess[i] > 0.01:
+            if self.belief.excess[i] > 0.01 and not self._is_claimed(
+                i,
+                TaskKind.FIX_EXCESS,
+            ):
                 x, y = i % w, i // w
                 dist = (pos.x - x) ** 2 + (pos.y - y) ** 2
                 if dist < best_dist:
@@ -68,6 +96,9 @@ class Builder(Entity):
                     best_tile = (x, y)
         if best_tile is None:
             return False
+        ti = self.belief.idx(best_tile[0], best_tile[1])
+        rnd = ct.get_current_round()
+        self._claim = TaskClaim(TaskKind.FIX_EXCESS, ti, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
         return self._build_chain(ct, pos, best_tile)
 
@@ -75,14 +106,20 @@ class Builder(Entity):
         unharvested = (self.belief.ore_ti | self.belief.ore_ax) - self.belief.harvested
         if not unharvested:
             return False
+        w = self.belief.w
         candidates = sorted(
             unharvested,
             key=lambda o: (pos.x - o[0]) ** 2 + (pos.y - o[1]) ** 2,
         )
+        rnd = ct.get_current_round()
         for ore in candidates:
+            oi = ore[1] * w + ore[0]
+            if self._is_claimed(oi, TaskKind.NAV_ORE):
+                continue
             adj = self._cardinal_adjacent(pos, Position(ore[0], ore[1]))
             if adj is not None:
                 self._navigate(ct, pos, adj)
+                self._claim = TaskClaim(TaskKind.NAV_ORE, oi, rnd)
                 self._debug_target = (Position(ore[0], ore[1]), 0, 255, 0)
                 return True
         return False
@@ -122,11 +159,14 @@ class Builder(Entity):
         if path is None or len(path) < 2:
             return
         nx, ny = path[1]
-        d = pos.direction_to(Position(nx, ny))
+        nxt = Position(nx, ny)
+        bid = ct.get_tile_building_id(nxt)
+        if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
+            ct.destroy(nxt)
+        d = pos.direction_to(nxt)
         if ct.can_move(d):
             ct.move(d)
         else:
-            nxt = Position(nx, ny)
             road_cost, _ = ct.get_road_cost()
             ti, _ = ct.get_global_resources()
             if ti >= road_cost and ct.can_build_road(nxt):

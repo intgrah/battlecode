@@ -15,7 +15,7 @@ class TaskKind(IntEnum):
     EXPLORE = 2
 
 
-@dataclass
+@dataclass(frozen=True)
 class TaskClaim:
     kind: TaskKind
     tile_index: int
@@ -23,10 +23,7 @@ class TaskClaim:
 
     def encode(self) -> int:
         val = (
-            (0 << _TAG_SHIFT)
-            | (self.kind << 23)
-            | (self.tile_index << 11)
-            | self.round
+            (0 << _TAG_SHIFT) | (self.kind << 23) | (self.tile_index << 11) | self.round
         )
         return val ^ CIPHER
 

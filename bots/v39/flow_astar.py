@@ -68,7 +68,7 @@ class FlowAstar(Astar):
 
         result: list[tuple[int, int, int]] = []
 
-        if ent is not None:
+        if ent is not None and ent[0] != EntityType.MARKER:
             etype = ent[0]
 
             if etype == EntityType.CORE:

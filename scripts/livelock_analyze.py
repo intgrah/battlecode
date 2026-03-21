@@ -15,11 +15,7 @@ for path in files:
     for line in open(path):
         line = line.strip()
         if (
-            not line
-            or line.startswith(" ")
-            or line.startswith("nav")
-            or line.startswith("build")
-            or line.startswith("fix_")
+            not line or line.startswith((" ", "nav", "build", "fix_"))
         ):
             continue
         parts = line.split()

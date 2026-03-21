@@ -2,6 +2,8 @@ from collections import deque
 from enum import Enum
 
 from cambc import Controller, Direction, EntityType, Environment, Team
+from marker import TaskClaim, is_stale
+from marker import decode as decode_marker
 
 # A* walkability costs. Lower = preferred by pathfinder.
 COST_ROAD = 7  # walkable buildings (roads, conveyors, splitters, allied core)
@@ -123,6 +125,7 @@ class MapBelief:
         self._out_target: dict[int, list[int]] = {}
         self._out_target_dirty = True
         self.unit_tiles: set[int] = set()
+        self.claims: set[TaskClaim] = set()
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -156,6 +159,8 @@ class MapBelief:
                 continue
             upos = ct.get_position(uid)
             self.unit_tiles.add(self.idx(upos.x, upos.y))
+
+        self.claims = {c for c in self.claims if not is_stale(c, rnd, ttl=8)}
 
         for t in ct.get_nearby_tiles():
             x, y = t.x, t.y
@@ -341,6 +346,8 @@ class MapBelief:
         if ent is None:
             return COST_EMPTY
         etype, team = ent
+        if etype == EntityType.MARKER:
+            return COST_EMPTY
         if etype in _WALKABLE_BUILDINGS or (
             etype == EntityType.CORE and team == self.my_team
         ):

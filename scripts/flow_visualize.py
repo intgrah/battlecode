@@ -172,7 +172,7 @@ def compute_flow(core_tiles, transports, harvesters):
             if in_deg[out] == 0:
                 queue.append(out)
 
-    return {pos: f for pos, f in flow_at.items()}
+    return dict(flow_at.items())
 
 
 def render(
@@ -189,7 +189,7 @@ def render(
     roads_set,
     flow_qs,
     output_path,
-):
+) -> None:
     CELL = 48
     img = Image.new("RGB", (w * CELL, h * CELL), (30, 30, 30))
     draw = ImageDraw.Draw(img)
@@ -274,7 +274,7 @@ def render(
             elif pos in ore_ax:
                 draw.text((px + 2, py + 1), "Ax", fill=tc, font=font)
 
-    def _draw_arrow(sx, sy, ex, ey, color, width=3):
+    def _draw_arrow(sx, sy, ex, ey, color, width=3) -> None:
         draw.line([(sx, sy), (ex, ey)], fill=color, width=width)
         angle = math.atan2(ey - sy, ex - sx)
         a1, a2 = angle + 2.5, angle - 2.5
@@ -336,7 +336,7 @@ def render(
     print(f"Saved {output_path} ({w * CELL}x{h * CELL})")
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <replay_file> [output_png]")
         sys.exit(1)
