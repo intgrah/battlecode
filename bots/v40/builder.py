@@ -23,6 +23,8 @@ class Builder(Entity):
         self._last_claim: TaskClaim | None = None
 
     def run(self, ct: Controller) -> None:
+        import time as _time
+        t0 = _time.perf_counter_ns()
         changed = self.belief.update(ct)
         needs_reflow = any(
             self.belief.idx(cx, cy) in self.belief.transport_tiles
@@ -42,9 +44,11 @@ class Builder(Entity):
         self._debug_target = None
         self._claim: TaskClaim | None = None
         action = self._policy(ct, pos)
+        t1 = _time.perf_counter_ns()
+        us = (t1 - t0) // 1000
         n_claims = len(self.belief.claims)
         ti, _ = ct.get_global_resources()
-        self._log.write(f"{ct.get_current_round()} {pos.x},{pos.y} {action} claims={n_claims} ti={ti}\n")
+        self._log.write(f"{ct.get_current_round()} {pos.x},{pos.y} {action} claims={n_claims} ti={ti} us={us}\n")
         if self._debug_target is not None:
             target, r, g, b = self._debug_target
             ct.draw_indicator_line(ct.get_position(), target, r, g, b)
