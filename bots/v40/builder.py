@@ -23,8 +23,6 @@ class Builder(Entity):
         self._last_claim: TaskClaim | None = None
 
     def run(self, ct: Controller) -> None:
-        import time as _time
-        t0 = _time.perf_counter_ns()
         changed = self.belief.update(ct)
         needs_reflow = any(
             self.belief.idx(cx, cy) in self.belief.transport_tiles
@@ -39,16 +37,9 @@ class Builder(Entity):
 
         pos = ct.get_position()
         self._advance_frontier()
-        if not hasattr(self, "_log"):
-            self._log = open(f"/tmp/v39_b{ct.get_id()}.log", "w")  # noqa: SIM115
         self._debug_target = None
         self._claim: TaskClaim | None = None
-        action = self._policy(ct, pos)
-        t1 = _time.perf_counter_ns()
-        us = (t1 - t0) // 1000
-        n_claims = len(self.belief.claims)
-        ti, _ = ct.get_global_resources()
-        self._log.write(f"{ct.get_current_round()} {pos.x},{pos.y} {action} claims={n_claims} ti={ti} us={us}\n")
+        self._policy(ct, pos)
         if self._debug_target is not None:
             target, r, g, b = self._debug_target
             ct.draw_indicator_line(ct.get_position(), target, r, g, b)
@@ -72,23 +63,14 @@ class Builder(Entity):
                         ct.place_marker(t, self._claim.encode())
                         break
 
-    def _policy(self, ct: Controller, pos: Position) -> str:
+    def _policy(self, ct: Controller, pos: Position) -> None:
         if self._try_place_harvester(ct, pos):
-            return "place"
+            return
         if self._try_fix_excess(ct, pos):
-            return "fix"
+            return
         if self._try_nav_ore(ct, pos):
-            return "harvest"
-        if self._try_explore(ct, pos):
-            return "explore"
-        w = self.belief.w
-        n_excess = sum(1 for i in self.belief.harvester_tiles | self.belief.transport_tiles if self.belief.excess[i] > 0.01)
-        n_excess_unclaimed = sum(1 for i in self.belief.harvester_tiles | self.belief.transport_tiles if self.belief.excess[i] > 0.01 and not self._is_claimed(i, TaskKind.FIX_EXCESS))
-        unharvested = (self.belief.ore_ti | self.belief.ore_ax) - self.belief.harvested
-        n_ore = len(unharvested)
-        n_ore_unclaimed = sum(1 for o in unharvested if not self._is_claimed(o[1] * w + o[0], TaskKind.NAV_ORE))
-        self._log.write(f"  IDLE: excess={n_excess} unclaimed_ex={n_excess_unclaimed} ore={n_ore} unclaimed_ore={n_ore_unclaimed}\n")
-        return "idle"
+            return
+        self._try_explore(ct, pos)
 
     def _is_claimed(self, tile_index: int, kind: TaskKind) -> bool:
         for c in self.belief.claims:
@@ -172,7 +154,8 @@ class Builder(Entity):
             pos.y,
             target.x,
             target.y,
-            max_expand=2500,
+            ct,
+            budget_us=1800,
         )
         if path is None or len(path) < 2:
             return
@@ -250,7 +233,7 @@ class Builder(Entity):
                     self.core_pos.y,
                 )
                 self._cached_chain_source = start
-            self._flow_search.compute(60)
+            self._flow_search.compute(ct, 1200)
             path = self._flow_search.get_path()
             if self._flow_search.done:
                 self._flow_search = None

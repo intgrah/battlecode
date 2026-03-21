@@ -1,5 +1,7 @@
 import heapq
 
+from cambc import Controller
+
 INF = 1_000_000
 
 
@@ -42,7 +44,7 @@ class Astar:
         path.reverse()
         return path
 
-    def compute(self, budget: int = 200) -> None:
+    def compute(self, ct: Controller, budget_us: int) -> None:
         if self.done:
             return
 
@@ -56,7 +58,7 @@ class Astar:
         heuristic = self.heuristic
 
         expanded = 0
-        while heap and expanded < budget:
+        while heap:
             f_val, _, ci = heapq.heappop(heap)
             cx = ci % w
             cy = ci // w
@@ -70,6 +72,8 @@ class Astar:
                 return
 
             expanded += 1
+            if expanded & 15 == 0 and ct.get_cpu_time_elapsed() >= budget_us:
+                return
 
             for nx, ny, cost in get_neighbors(cx, cy):
                 if nx < 0 or nx >= w or ny < 0 or ny >= h:

@@ -10,11 +10,9 @@ class Core(Entity):
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:
-        if self.spawned >= 6:
-            return
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
-        if ti >= cost:
+        if ti >= cost * 3 and ct.get_current_round() >= self.spawned * 50:
             pos = ct.get_position()
             for d in DIRECTIONS:
                 sp = pos.add(d)
