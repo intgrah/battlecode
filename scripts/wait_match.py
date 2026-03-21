@@ -10,7 +10,7 @@ def wait(match_id: str) -> None:
         m = data["match"]
         status = m.get("status", "?")
         games = data.get("games", [])
-        if status == "complete" or status == "error":
+        if status in {"complete", "error"}:
             score = f"{m.get('scoreA', 0)}-{m.get('scoreB', 0)}"
             print(f"{status} {score} ({len(games)} games)")
             break

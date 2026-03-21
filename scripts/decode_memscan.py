@@ -52,7 +52,7 @@ def decode(replay_path: str) -> bytes:
     return data
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <replay...>")
         return

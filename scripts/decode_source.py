@@ -69,7 +69,7 @@ def download_replay(match_id: str, game: int) -> bytes:
     return urllib.request.urlopen(resp["url"]).read()
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <match_id> [out_file]")
         return

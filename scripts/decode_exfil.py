@@ -39,7 +39,7 @@ def decode_u32s(markers: list[int]) -> bytes:
     return base64.b64decode(b64_data)
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: decode_exfil.py <replay> [out_path]")
         return
