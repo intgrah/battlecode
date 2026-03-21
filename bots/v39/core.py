@@ -10,7 +10,7 @@ class Core(Entity):
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:
-        if self.spawned >= 1:
+        if self.spawned >= 6:
             return
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
