@@ -1,6 +1,7 @@
+import random
 import time
 
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from entity import Entity
 from map_belief import _TRANSPORT, COST_IMPASSABLE, MapBelief
 from nav import flow_astar, nav_astar
@@ -20,8 +21,12 @@ class Builder(Entity):
         self._cached_chain_source: tuple[int, int] | None = None
         self._cached_chain_path: list[tuple[int, int]] | None = None
         self._flow_search = None
+        self._rng = random.Random()
+        self._goal: tuple[str, tuple[int, int]] | None = None
+        self._recent_pos: list[tuple[int, int]] = []
 
     def run(self, ct: Controller) -> None:
+        self._eid = ct.get_id()
         t0 = time.perf_counter_ns()
         changed = self.belief.update(ct)
         needs_reflow = any(
@@ -39,26 +44,63 @@ class Builder(Entity):
         t1 = time.perf_counter_ns()
         pos = ct.get_position()
         self._advance_frontier()
+        self._action = "idle"
         self._act(ct, pos)
         t2 = time.perf_counter_ns()
 
         if not hasattr(self, "_cpu_log"):
-            self._cpu_log = open("/tmp/v39_cpu.log", "w")
+            self._cpu_log = open(f"/tmp/v39_cpu_{self._eid}.log", "w")
         rnd = ct.get_current_round()
-        self._cpu_log.write(f"{rnd} {(t1 - t0) // 1000} {(t2 - t1) // 1000}\n")
+        nav_fail = getattr(self, "_nav_fail", "")
+        extra = f" [{nav_fail}]" if nav_fail else ""
+        self._nav_fail = ""
+        self._cpu_log.write(f"{rnd} {pos.x},{pos.y} {self._action}{extra}\n")
 
     def _act(self, ct: Controller, pos: Position) -> None:
-        if self._try_fix_excess(ct, pos):
-            return
         if self._try_place_harvester(ct, pos):
-            return
-        if self._try_navigate_to_ore(ct, pos):
-            return
-        if self._try_explore(ct, pos):
+            self._goal = None
             return
 
-    def _try_fix_excess(self, ct: Controller, pos: Position) -> bool:
-        best_tile: tuple[int, int] | None = None
+        self._validate_goal()
+
+        if self._goal is None:
+            self._goal = self._pick_goal(pos)
+        if self._goal is None:
+            return
+
+        kind, target = self._goal
+        self._action = f"{kind} -> {target[0]},{target[1]}"
+        if kind == "fix_excess":
+            i = self.belief.idx(target[0], target[1])
+            self._action += f" ex={self.belief.excess[i]:.2f} fl={self.belief.flow_in[i]:.2f} ent={self.belief.entity[i]}"
+            if not self._build_chain(ct, pos, target):
+                self._goal = None
+        elif kind == "harvest":
+            adj = self._cardinal_adjacent(pos, Position(target[0], target[1]))
+            if adj is None:
+                self._goal = None
+            else:
+                self._navigate(ct, pos, adj)
+        elif kind == "explore":
+            self._navigate(ct, pos, Position(target[0], target[1]))
+
+    def _validate_goal(self) -> None:
+        if self._goal is None:
+            return
+        kind, target = self._goal
+        if kind == "fix_excess":
+            i = self.belief.idx(target[0], target[1])
+            if self.belief.excess[i] <= 0.01:
+                self._goal = None
+        elif kind == "harvest":
+            if target in self.belief.harvested:
+                self._goal = None
+        elif kind == "explore":
+            if not self.belief.is_unseen(target[0], target[1]):
+                self._goal = None
+
+    def _pick_goal(self, pos: Position) -> tuple[str, tuple[int, int]] | None:
+        best_tile = None
         best_dist = 999999
         for i in self.belief.harvester_tiles | self.belief.transport_tiles:
             if self.belief.excess[i] > 0.01:
@@ -67,9 +109,27 @@ class Builder(Entity):
                 if dist < best_dist:
                     best_dist = dist
                     best_tile = (x, y)
-        if best_tile is None:
-            return False
-        return self._build_chain(ct, pos, best_tile)
+        if best_tile is not None:
+            return ("fix_excess", best_tile)
+
+        unharvested = (self.belief.ore_ti | self.belief.ore_ax) - self.belief.harvested
+        if unharvested:
+            candidates = sorted(
+                unharvested,
+                key=lambda o: (pos.x - o[0]) ** 2 + (pos.y - o[1]) ** 2,
+            )
+            for ore in candidates:
+                adj = self._cardinal_adjacent(pos, Position(ore[0], ore[1]))
+                if adj is not None:
+                    return ("harvest", ore)
+
+        target = self._pick_frontier_target(pos)
+        if target is not None:
+            return ("explore", (target.x, target.y))
+
+        unseen = sum(1 for e in self.belief.env if e is None)
+        self._action = f"idle r={self.explore_radius} unseen={unseen}"
+        return None
 
     def _try_place_harvester(self, ct: Controller, pos: Position) -> bool:
         unharvested = (self.belief.ore_ti | self.belief.ore_ax) - self.belief.harvested
@@ -81,44 +141,43 @@ class Builder(Entity):
                 ti, _ = ct.get_global_resources()
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     ct.build_harvester(ore_pos)
+                    self._action = "place_harv"
                     return True
         return False
-
-    def _try_navigate_to_ore(self, ct: Controller, pos: Position) -> bool:
-        unharvested = (self.belief.ore_ti | self.belief.ore_ax) - self.belief.harvested
-        if not unharvested:
-            return False
-        best = min(
-            unharvested,
-            key=lambda o: (pos.x - o[0]) ** 2 + (pos.y - o[1]) ** 2,
-        )
-        adj = self._cardinal_adjacent(pos, Position(best[0], best[1]))
-        if adj is None:
-            return False
-        self._navigate(ct, pos, adj)
-        return True
-
-    def _try_explore(self, ct: Controller, pos: Position) -> bool:
-        target = self._pick_frontier_target(pos)
-        if target is None:
-            return False
-        self._navigate(ct, pos, target)
-        return True
 
     def _navigate(self, ct: Controller, pos: Position, target: Position) -> None:
         if pos == target:
             return
-        expand = 60 if self._reflow_this_turn else 150
+        cur = (pos.x, pos.y)
+        self._recent_pos.append(cur)
+        if len(self._recent_pos) > 6:
+            self._recent_pos.pop(0)
+
+        oscillating = len(self._recent_pos) >= 4 and cur in self._recent_pos[:-2]
+        if oscillating:
+            self._goal = None
+
         path = nav_astar(
-            self.belief, pos.x, pos.y, target.x, target.y, max_expand=expand,
+            self.belief,
+            pos.x,
+            pos.y,
+            target.x,
+            target.y,
+            max_expand=2500,
         )
         if path is None or len(path) < 2:
+            self._action += f" nopath->{target.x},{target.y}"
             return
+        if len(path) <= 6:
+            self._action += f" path={path}"
+        else:
+            self._action += f" path={path[:3]}...{path[-1]} len={len(path)}"
         nx, ny = path[1]
         d = pos.direction_to(Position(nx, ny))
         if ct.can_move(d):
             ct.move(d)
         else:
+            self._action += f" blocked@{nx},{ny}"
             nxt = Position(nx, ny)
             road_cost, _ = ct.get_road_cost()
             ti, _ = ct.get_global_resources()
@@ -127,7 +186,9 @@ class Builder(Entity):
                 if ct.can_move(d):
                     ct.move(d)
 
-    def _build_chain(self, ct: Controller, pos: Position, source: tuple[int, int]) -> bool:
+    def _build_chain(
+        self, ct: Controller, pos: Position, source: tuple[int, int]
+    ) -> bool:
         cx, cy = self.core_pos.x, self.core_pos.y
         sx, sy = source
 
@@ -173,7 +234,11 @@ class Builder(Entity):
         if path is None or self._cached_chain_source != start:
             if self._flow_search is None or self._cached_chain_source != start:
                 self._flow_search = flow_astar(
-                    self.belief, sx, sy, self.core_pos.x, self.core_pos.y,
+                    self.belief,
+                    sx,
+                    sy,
+                    self.core_pos.x,
+                    self.core_pos.y,
                 )
                 self._cached_chain_source = start
             self._flow_search.compute(30 if self._reflow_this_turn else 60)
@@ -183,6 +248,7 @@ class Builder(Entity):
             self._cached_chain_path = path
         if path is None or len(path) < 2:
             self._cached_chain_path = None
+            self._action += f" chain:nopath start=({sx},{sy}) env={self.belief.env[self.belief.idx(sx,sy)]}"
             return False
 
         for k in range(len(path) - 1):
@@ -225,9 +291,12 @@ class Builder(Entity):
                 self._navigate(ct, pos, adj)
                 return True
 
+        self._action += f" chain:allbuilt path={path[:3]}..{path[-1]} len={len(path)}"
         return False
 
-    def _place_conveyor(self, ct: Controller, build_pos: Position, toward: Position) -> None:
+    def _place_conveyor(
+        self, ct: Controller, build_pos: Position, toward: Position
+    ) -> None:
         pos = ct.get_position()
         if pos == build_pos:
             return
@@ -243,7 +312,9 @@ class Builder(Entity):
         if ti >= conv_cost and ct.can_build_conveyor(build_pos, d):
             ct.build_conveyor(build_pos, d)
 
-    def _place_bridge(self, ct: Controller, bridge_pos: Position, target: Position) -> None:
+    def _place_bridge(
+        self, ct: Controller, bridge_pos: Position, target: Position
+    ) -> None:
         pos = ct.get_position()
         if pos == bridge_pos:
             return
@@ -326,10 +397,6 @@ class Builder(Entity):
         if not candidates:
             return None
         candidates.sort(
-            key=lambda c: (
-                (c[0] - pos.x) ** 2
-                + (c[1] - pos.y) ** 2
-                - ((c[0] - cx) ** 2 + (c[1] - cy) ** 2) // 4
-            ),
+            key=lambda c: (c[0] - pos.x) ** 2 + (c[1] - pos.y) ** 2,
         )
         return Position(candidates[0][0], candidates[0][1])
