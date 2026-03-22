@@ -201,9 +201,7 @@ def _pf_step(player, ct: Controller, pos: Position) -> bool:
     if try_move_smart(ct, pos, direction):
         player.pf_agent.current = next_pos
         player.last_dir = direction
-        if (
-            next_pos in (player.pf_prev_pos, player.pf_prev_pos2, player.pf_prev_pos3)
-        ):
+        if next_pos in (player.pf_prev_pos, player.pf_prev_pos2, player.pf_prev_pos3):
             player.pf_stuck += 1
         else:
             player.pf_stuck = max(0, player.pf_stuck - 1)
@@ -605,8 +603,7 @@ def update_claimed_ore(player, ct: Controller) -> None:
                 player.claimed_ore.add(player.target)
                 player.target = None
             elif (
-                etype == EntityType.ROAD
-                or (etype == EntityType.BARRIER and near_core)
+                etype == EntityType.ROAD or (etype == EntityType.BARRIER and near_core)
             ) and ct.can_destroy(player.target):
                 ct.destroy(player.target)
         elif _has_adjacent_gunner(ct, player.target):
@@ -838,7 +835,7 @@ def _economy(player, ct: Controller, pos: Position) -> None:
         has_bridge = False
         for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
             adj = hp.add(d)
-            if not ct.is_in_bounds(adj) or not ct.is_in_vision(adj):
+            if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
                 continue
             abid = ct.get_tile_building_id(adj)
             if (
@@ -913,9 +910,10 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
 
     if ct.is_in_vision(player.core_pos):
         core_id = ct.get_tile_building_id(player.core_pos)
-        if (ct.get_hp() < ct.get_max_hp() or (
-            core_id is not None and ct.get_hp(core_id) < ct.get_max_hp(core_id)
-        )) and ct.can_heal(player.core_pos):
+        if (
+            ct.get_hp() < ct.get_max_hp()
+            or (core_id is not None and ct.get_hp(core_id) < ct.get_max_hp(core_id))
+        ) and ct.can_heal(player.core_pos):
             print("healing")
             ct.heal(player.core_pos)
             player.base_phase = 6

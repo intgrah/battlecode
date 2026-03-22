@@ -14,8 +14,8 @@ Phases 2-3 (Assault, Economy): not yet implemented.
 """
 
 from adgato_builder import run_builder
-from cambc import Controller, Direction, EntityType, Environment, Position
 from adgato_core import run_core
+from cambc import Controller, Direction, EntityType, Environment, Position
 from gunner import run_gunner
 from launcher import run_launcher
 from pathfinding import AgentState
@@ -97,7 +97,7 @@ class Player:
         self.pf_prev_pos2: Position | None = None
         self.pf_prev_pos3: Position | None = None
 
-    def try_resolve(self, w: int, h: int, tag: str) -> bool:
+    def try_resolve(self, _w: int, _h: int, tag: str) -> bool:
         """Resolve symmetry if only one candidate remains."""
         if self.sym_resolved:
             return True

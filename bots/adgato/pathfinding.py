@@ -4,6 +4,8 @@ All functions operate on Position (NamedTuple) and Direction (Enum)
 from the cambc engine, avoiding raw tuple/int-index overhead.
 """
 
+from typing import Literal
+
 from cambc import Direction, Position
 
 # ── Direction utilities ─────────────────────────────────────────────
@@ -25,7 +27,7 @@ _DIR_IDX = {d: i for i, d in enumerate(_ALL_DIRS)}
 _NEIGHBOR_DIRS = _ALL_DIRS
 
 
-def _rotate(d, steps):
+def _rotate(d: Direction, steps: int) -> Direction:
     """Rotate direction by steps * 45° clockwise (negative = CCW)."""
     return _ALL_DIRS[(_DIR_IDX[d] + steps) % 8]
 
@@ -33,17 +35,19 @@ def _rotate(d, steps):
 # ── Core helpers ────────────────────────────────────────────────────
 
 
-def chebyshev(a, b):
+def chebyshev(a: Position, b: Position) -> int:
     """Chebyshev (king-move) distance between two Positions."""
     return max(abs(a.x - b.x), abs(a.y - b.y))
 
 
-def in_vision(origin, cell):
+def in_vision(origin: Position, cell: Position) -> bool:
     """Check if cell is within builder bot vision radius (r² <= 20)."""
     return origin.distance_squared(cell) <= 20
 
 
-def _bresenham_step(x, y, err, adx, ady, sx, sy):
+def _bresenham_step(
+    x: int, y: int, err: int, adx: int, ady: int, sx: int, sy: int
+) -> tuple[int, int, int]:
     """Advance one Bresenham step. Returns (x, y, err)."""
     e2 = 2 * err
     if e2 > -ady:
@@ -55,7 +59,10 @@ def _bresenham_step(x, y, err, adx, ady, sx, sy):
     return x, y, err
 
 
-def _make_line_state(pos, target):
+def _make_line_state(
+    pos: Position,
+    target: Position,
+) -> tuple[int, int, Literal[1, -1, 0], Literal[1, -1, 0], int]:
     """Compute Bresenham parameters for a line from pos toward target.
     Returns (adx, ady, sx, sy, err)."""
     adx = abs(target.x - pos.x)
@@ -170,10 +177,10 @@ class AgentState:
         self.dbg_first_wall = None
 
     @property
-    def done(self):
+    def done(self) -> bool:
         return self.reached
 
-    def retarget(self, current, goal) -> None:
+    def retarget(self, current: Position, goal: Position) -> None:
         """Reset state for a new goal while keeping the agent at current."""
         self.start = current
         self.goal = goal
@@ -191,7 +198,7 @@ class AgentState:
         self.reached = False
 
 
-def bug2_step(agent: AgentState, pos, walkable, occupied):
+def bug2_step(agent: AgentState, pos: Position, walkable, occupied):
     """Advance one Bug2 step for a single agent.
     occupied is the set of Positions occupied by OTHER agents this turn.
     Returns the new Position (may be unchanged if blocked by another agent)."""
@@ -250,7 +257,10 @@ def bug2_step(agent: AgentState, pos, walkable, occupied):
             # Fall through to non-tracing
         else:
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable,
+                current,
+                agent.tracing_dir,
+                agent.trace_left,
+                walkable,
             )
             if next_pos is None:
                 return current  # stuck
@@ -330,7 +340,10 @@ def bug2_step(agent: AgentState, pos, walkable, occupied):
             agent.prev_target = target
 
         next_cell, blocked, agent.line_state = _step_along_line(
-            current, target, walkable, agent.line_state,
+            current,
+            target,
+            walkable,
+            agent.line_state,
         )
 
         if blocked is not None:
@@ -347,7 +360,10 @@ def bug2_step(agent: AgentState, pos, walkable, occupied):
                 agent.trace_left = left_diff <= right_diff
 
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable,
+                current,
+                agent.tracing_dir,
+                agent.trace_left,
+                walkable,
             )
             agent.is_tracing = True
         else:
