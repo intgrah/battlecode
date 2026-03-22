@@ -2,7 +2,7 @@ from cambc import Controller, Direction, EntityType, Position
 from entity import Entity
 from map_belief import COST_IMPASSABLE, MapBelief
 from marker import TaskClaim, TaskKind
-from nav_dstar import NavDStar
+from nav_astar import nav_astar
 
 from .build import Build, BuildKind
 
@@ -12,8 +12,6 @@ class BuilderBase(Entity):
     _last_claim: TaskClaim | None
     _claim: TaskClaim | None
     _debug_target: tuple[Position, int, int, int] | None
-    _nav: NavDStar
-    _nav_goal: tuple[int, int] | None
 
     def _move_toward(
         self,
@@ -23,10 +21,18 @@ class BuilderBase(Entity):
     ) -> Direction:
         if pos == target:
             return Direction.CENTRE
-        step = self._nav_step(pos, target)
-        if step is None:
+        path = nav_astar(
+            self.belief,
+            pos.x,
+            pos.y,
+            target.x,
+            target.y,
+            ct,
+            budget_us=1800,
+        )
+        if path is None or len(path) < 2:
             return Direction.CENTRE
-        nx, ny = step
+        nx, ny = path[1]
         nxt = Position(nx, ny)
         bid = ct.get_tile_building_id(nxt)
         if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
@@ -44,10 +50,18 @@ class BuilderBase(Entity):
     ) -> tuple[Direction, Build | None]:
         if pos == target:
             return Direction.CENTRE, None
-        step = self._nav_step(pos, target)
-        if step is None:
+        path = nav_astar(
+            self.belief,
+            pos.x,
+            pos.y,
+            target.x,
+            target.y,
+            ct,
+            budget_us=1800,
+        )
+        if path is None or len(path) < 2:
             return Direction.CENTRE, None
-        nx, ny = step
+        nx, ny = path[1]
         nxt = Position(nx, ny)
         bid = ct.get_tile_building_id(nxt)
         if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
@@ -60,12 +74,6 @@ class BuilderBase(Entity):
         if ti >= road_cost and ct.can_build_road(nxt):
             return d, Build(BuildKind.ROAD, nxt)
         return Direction.CENTRE, None
-
-    def _nav_step(self, pos: Position, target: Position) -> tuple[int, int] | None:
-        goal = (target.x, target.y)
-        self._nav.set_goal(pos.x, pos.y, goal[0], goal[1])
-        self._nav.compute(200)
-        return self._nav.get_next_step()
 
     def _cardinal_adjacent(self, pos: Position, target: Position) -> Position | None:
         best = None
