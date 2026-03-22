@@ -6,16 +6,19 @@ from .build import Build, BuildKind
 
 
 class HarvestMixin(BuilderBase):
-    def _place_harvester(
+    def _harvest(
         self,
         ct: Controller,
         pos: Position,
-    ) -> tuple[Direction, Build | None]:
+    ) -> tuple[Direction, Build | None] | None:
         unharvested = (
             (self.belief.ore_ti | self.belief.ore_ax)
             - self.belief.my_harvested
             - self.belief.en_harvested
         )
+        if not unharvested:
+            return None
+
         for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             p = (pos.x + ddx, pos.y + ddy)
             if p in unharvested:
@@ -30,18 +33,7 @@ class HarvestMixin(BuilderBase):
                 ti, _ = ct.get_global_resources()
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     return Direction.CENTRE, Build(BuildKind.HARVESTER, ore_pos)
-        return Direction.CENTRE, None
 
-    def _nav_ore(
-        self,
-        ct: Controller,
-        pos: Position,
-    ) -> tuple[Direction, Build | None] | None:
-        unharvested = (
-            (self.belief.ore_ti | self.belief.ore_ax) - self.belief.my_harvested - self.belief.en_harvested
-        )
-        if not unharvested:
-            return None
         w = self.belief.w
         rnd = ct.get_current_round()
         candidates = sorted(
@@ -56,9 +48,21 @@ class HarvestMixin(BuilderBase):
             if self._is_claimed(oi, TaskKind.NAV_ORE):
                 continue
             adj = self._cardinal_adjacent(pos, Position(ore[0], ore[1]))
-            if adj is not None:
-                move, build = self._move_toward_with_road(ct, pos, adj)
-                self._claim = TaskClaim(TaskKind.NAV_ORE, oi, rnd)
-                self._debug_target = (Position(ore[0], ore[1]), 0, 255, 0)
-                return move, build
+            if adj is None:
+                continue
+            move, build = self._move_toward_with_road(ct, pos, adj)
+            if move != Direction.CENTRE and build is None:
+                new_pos = pos.add(move)
+                ore_pos = Position(ore[0], ore[1])
+                if new_pos.distance_squared(ore_pos) == 1:
+                    bid = ct.get_tile_building_id(ore_pos)
+                    if bid is not None and ct.can_destroy(ore_pos):
+                        ct.destroy(ore_pos)
+                    h_cost, _ = ct.get_harvester_cost()
+                    ti, _ = ct.get_global_resources()
+                    if ti >= h_cost:
+                        build = Build(BuildKind.HARVESTER, ore_pos)
+            self._claim = TaskClaim(TaskKind.NAV_ORE, oi, rnd)
+            self._debug_target = (Position(ore[0], ore[1]), 0, 255, 0)
+            return move, build
         return None

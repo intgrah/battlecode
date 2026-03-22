@@ -124,7 +124,7 @@ class FlowGraph:
     def _compute_targets(self, x: int, y: int, fi: int) -> dict[int, int]:
         b = self.belief
 
-        if b.my_blocked[fi] or self._is_impassable(fi):
+        if b.my_flow.blocked[fi] or self._is_impassable(fi):
             return {}
 
         ent = b.entity[fi]
@@ -139,7 +139,7 @@ class FlowGraph:
                     nx, ny = x + dx, y + dy
                     if b.in_bounds(nx, ny):
                         ti = b.idx(nx, ny)
-                        if not b.my_blocked[ti] and not self._is_impassable(ti):
+                        if not b.my_flow.blocked[ti] and not self._is_impassable(ti):
                             result[ti] = 0
                 return result
 
@@ -168,7 +168,7 @@ class FlowGraph:
             bx, by = bt
             if b.in_bounds(bx, by):
                 ti = b.idx(bx, by)
-                if not b.my_blocked[ti] and not self._is_impassable(ti):
+                if not b.my_flow.blocked[ti] and not self._is_impassable(ti):
                     return {ti: COST_REUSE}
             return {}
 
@@ -177,7 +177,7 @@ class FlowGraph:
             nx, ny = x + dx, y + dy
             if b.in_bounds(nx, ny):
                 ti = b.idx(nx, ny)
-                if not b.my_blocked[ti] and not self._is_impassable(ti):
+                if not b.my_flow.blocked[ti] and not self._is_impassable(ti):
                     return {ti: COST_REUSE}
             return {}
 
@@ -190,13 +190,13 @@ class FlowGraph:
             nx, ny = x + dx, y + dy
             if b.in_bounds(nx, ny):
                 ti = b.idx(nx, ny)
-                if not b.my_blocked[ti] and not self._is_impassable(ti):
+                if not b.my_flow.blocked[ti] and not self._is_impassable(ti):
                     result[ti] = COST_CONV
         for dx, dy in _BRIDGE_DELTAS:
             nx, ny = x + dx, y + dy
             if b.in_bounds(nx, ny):
                 ti = b.idx(nx, ny)
-                if not b.my_blocked[ti] and not self._is_impassable(ti):
+                if not b.my_flow.blocked[ti] and not self._is_impassable(ti):
                     result[ti] = COST_BRIDGE
         return result
 
@@ -210,7 +210,7 @@ class FlowGraph:
         ti: int,
     ) -> int:
         b = self.belief
-        if b.my_blocked[fi] or b.my_blocked[ti]:
+        if b.my_flow.blocked[fi] or b.my_flow.blocked[ti]:
             return INF
         if self._is_impassable(fi) or self._is_impassable(ti):
             return INF
