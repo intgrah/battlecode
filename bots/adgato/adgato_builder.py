@@ -838,7 +838,7 @@ def _economy(player, ct: Controller, pos: Position) -> None:
         has_bridge = False
         for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
             adj = hp.add(d)
-            if not ct.is_in_vision(adj):
+            if not ct.is_in_bounds(adj) or not ct.is_in_vision(adj):
                 continue
             abid = ct.get_tile_building_id(adj)
             if (

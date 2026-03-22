@@ -13,9 +13,9 @@ candidates are eliminated go idle.
 Phases 2-3 (Assault, Economy): not yet implemented.
 """
 
-from builder import run_builder
+from adgato_builder import run_builder
 from cambc import Controller, Direction, EntityType, Environment, Position
-from core import run_core
+from adgato_core import run_core
 from gunner import run_gunner
 from launcher import run_launcher
 from pathfinding import AgentState
