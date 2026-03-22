@@ -32,4 +32,4 @@ class MultiGoalNavAstar(Astar):
         return result
 
     def heuristic(self, x: int, y: int) -> int:
-        return 0
+        return x - x + y - y

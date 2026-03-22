@@ -1,4 +1,4 @@
-from cambc import Direction, EntityType, Environment, Position, Controller, Team
+from cambc import Controller, Direction, EntityType, Environment, Position, Team
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 

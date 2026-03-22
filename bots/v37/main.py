@@ -1,6 +1,6 @@
 import random
 
-from cambc import Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIRS = [
@@ -720,7 +720,7 @@ class Player:
         if self._bug_move(c, target):
             self.chain_stuck = 0
 
-    def _build_core_conveyor(self, c, conv_pos) -> None:
+    def _build_core_conveyor(self, c: Controller, conv_pos) -> None:
         if self.core_pos is None:
             return
         existing = c.get_tile_building_id(conv_pos)
@@ -854,7 +854,7 @@ class Player:
         self._bug_move(c, self.repair_pos)
 
     # ---- RAIDER ----
-    def _run_raider(self, c) -> None:
+    def _run_raider(self, c: Controller) -> None:
         pos = c.get_position()
         my_team = c.get_team()
 
@@ -1023,7 +1023,7 @@ class Player:
         self.bug_wf_turns = 0
         self.bug_recent = []
 
-    def _bug_move(self, c, target, pave=True) -> bool:
+    def _bug_move(self, c: Controller, target, pave=True) -> bool:
         """Bug2 pathfinding toward target. Returns True if moved."""
         pos = c.get_position()
         _ti, _ = c.get_global_resources()
@@ -1084,7 +1084,7 @@ class Player:
             scan = scan.rotate_right() if self.bug_ws == 1 else scan.rotate_left()
         return False
 
-    def _bug_step(self, c, d, pave=True) -> bool:
+    def _bug_step(self, c: Controller, d: Direction, pave=True) -> bool:
         """Try to move in direction d. Build road if needed and pave=True."""
         pos = c.get_position()
         nxt = pos.add(d)
@@ -1124,7 +1124,7 @@ class Player:
                 continue
         return None
 
-    def _foundry_exists(self, c) -> bool:
+    def _foundry_exists(self, c: Controller) -> bool:
         my_team = c.get_team()
         for bid in c.get_nearby_buildings():
             try:
@@ -1137,7 +1137,7 @@ class Player:
                 continue
         return False
 
-    def _try_bridge_from_here(self, c, pos, waypoints, current_idx) -> bool:
+    def _try_bridge_from_here(self, c: Controller, pos, waypoints, current_idx) -> bool:
         my_team = c.get_team()
         for future_idx in range(current_idx + 1, len(waypoints) - 1):
             future_pos = waypoints[future_idx]
@@ -1164,7 +1164,7 @@ class Player:
                     return True
         return False
 
-    def _find_bridge_start(self, c, harvester_pos, explorer_pos):
+    def _find_bridge_start(self, c: Controller, harvester_pos, explorer_pos):
         if self.core_pos is None:
             return explorer_pos
         best = explorer_pos
@@ -1184,7 +1184,7 @@ class Player:
                 best = adj
         return best
 
-    def _nudge_off_wall(self, c, wall_pos, from_pos):
+    def _nudge_off_wall(self, c: Controller, wall_pos: Position, from_pos: Position):
         for d in DIRS:
             alt = wall_pos.add(d)
             if self._is_wall(c, alt) or self._is_ore(c, alt):
@@ -1193,26 +1193,26 @@ class Player:
                 return alt
         return None
 
-    def _is_ore(self, c, p):
+    def _is_ore(self, c: Controller, p: Position) -> bool:
         try:
             env = c.get_tile_env(p)
             return env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
         except Exception:
             return False
 
-    def _is_ti_ore(self, c, p):
+    def _is_ti_ore(self, c: Controller, p: Position) -> bool:
         try:
             return c.get_tile_env(p) == Environment.ORE_TITANIUM
         except Exception:
             return False
 
-    def _is_ax_ore(self, c, p):
+    def _is_ax_ore(self, c: Controller, p: Position) -> bool:
         try:
             return c.get_tile_env(p) == Environment.ORE_AXIONITE
         except Exception:
             return False
 
-    def _is_wall(self, c, p):
+    def _is_wall(self, c: Controller, p: Position) -> bool:
         try:
             return c.get_tile_env(p) == Environment.WALL
         except Exception:
