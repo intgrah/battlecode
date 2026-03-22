@@ -1,4 +1,4 @@
-from cambc import Direction, EntityType, Environment, Position
+from cambc import Direction, EntityType, Environment, Position, Controller, Team
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
@@ -7,30 +7,30 @@ CONVEYORS = frozenset(
 )
 
 
-def ib(ct, p):
+def ib(ct: Controller, p: Position) -> bool:
     return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
 
 
-def wall(ct, p):
+def wall(ct: Controller, p: Position):
     return not ib(ct, p) or ct.get_tile_env(p) == Environment.WALL
 
 
-def on_core(p, cc):
+def on_core(p: Position, cc: Position) -> int:
     return abs(p.x - cc.x) <= 1 and abs(p.y - cc.y) <= 1
 
 
-def adj_core(p, cc):
+def adj_core(p: Position, cc: Position) -> int:
     return max(abs(p.x - cc.x), abs(p.y - cc.y)) == 2
 
 
-def conv_feeds_core(ct, bid, ec):
+def conv_feeds_core(ct: Controller, bid: int, ec: Position) -> int:
     d = ct.get_direction(bid)
     dx, dy = d.delta()
     ep = ct.get_position(bid)
     return on_core(Position(ep.x + dx, ep.y + dy), ec)
 
 
-def has_upstream(ct, tile, my) -> bool:
+def has_upstream(ct: Controller, tile: Position, my: Team) -> bool:
     for d in DIRS:
         adj = tile.add(d)
         if not ib(ct, adj) or not ct.is_in_vision(adj):
@@ -108,7 +108,7 @@ class CoreBot:
     def __init__(self) -> None:
         self.spawned = 0
 
-    def run(self, ct) -> None:
+    def run(self, ct: Controller) -> None:
         ti, _ = ct.get_global_resources()
         if ti < ct.get_builder_bot_cost()[0]:
             return
@@ -124,10 +124,10 @@ class CoreBot:
 class Builder:
     def __init__(self) -> None:
         self.core = None
-        self.ec = None
+        self.ec: Position | None = None
         self.nav = BugNav()
 
-    def run(self, ct) -> None:
+    def run(self, ct: Controller) -> None:
         pos = ct.get_position()
         my = ct.get_team()
 
@@ -171,7 +171,7 @@ class Builder:
 
         self.nav.go(ct, self.ec, lambda d: step_road(ct, d))
 
-    def _find_turret_spot(self, ct, pos, my):
+    def _find_turret_spot(self, ct: Controller, pos: Position, my: Team):
         best = None
         best_d = 999999
         for tile in ct.get_nearby_tiles():
@@ -180,9 +180,10 @@ class Builder:
             if not adj_core(tile, self.ec):
                 continue
             bid = ct.get_tile_building_id(tile)
-            if bid is not None:
-                if ct.get_team(bid) != my or ct.get_entity_type(bid) != EntityType.ROAD:
-                    continue
+            if (bid is not None and ct.get_team(bid) != my) or ct.get_entity_type(
+                bid,
+            ) != EntityType.ROAD:
+                continue
             if not has_upstream(ct, tile, my):
                 continue
             face = tile.direction_to(self.ec)
@@ -194,7 +195,7 @@ class Builder:
                 best = (tile, face)
         return best
 
-    def _find_target_conv(self, ct, pos, my):
+    def _find_target_conv(self, ct: Controller, pos: Position, my: Team):
         best = None
         best_d = 999999
         for eid in ct.get_nearby_entities():
@@ -213,7 +214,7 @@ class Builder:
 
 
 class Turret:
-    def run(self, ct) -> None:
+    def run(self, ct: Controller) -> None:
         my = ct.get_team()
         best = None
         best_prio = -1
@@ -238,7 +239,7 @@ class Player:
         self.builder = Builder()
         self.turret = Turret()
 
-    def run(self, ct) -> None:
+    def run(self, ct: Controller) -> None:
         et = ct.get_entity_type()
         if et == EntityType.CORE:
             self.core_bot.run(ct)
