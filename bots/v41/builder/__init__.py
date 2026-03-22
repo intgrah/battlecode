@@ -8,7 +8,6 @@ from cambc import (
 )
 from map_belief import MapBelief
 from marker import Eureka, TaskClaim
-from nav_dstar import NavDStar
 
 from .build import Build, BuildKind
 from .explore import ExploreMixin
@@ -28,15 +27,12 @@ class Builder(HarvestMixin, FixExcessMixin, RaidMixin, ExploreMixin):
             (core_pos.x, core_pos.y),
         )
         self._last_claim: TaskClaim | None = None
-        self._nav = NavDStar(self.belief)
 
     def run(self, ct: Controller) -> None:
-        changed, needs_reflow = self.belief.update(ct)
+        _, needs_reflow = self.belief.update(ct)
         if needs_reflow:
             self._flow_search = None
             self._cached_chain_path = None
-        for cx, cy in changed:
-            self._nav.on_tile_changed(cx, cy)
         print(f"update: {ct.get_cpu_time_elapsed()}us")
 
         pos = ct.get_position()

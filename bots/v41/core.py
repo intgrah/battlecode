@@ -13,10 +13,9 @@ class Core(Entity):
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
         h_cost, _ = ct.get_harvester_cost()
-        if self.spawned >= 50:
+        if self.spawned >= 6:
             return
-        multiplier = 2.5 + ct.get_current_round() / 100
-        if ti >= cost * multiplier + h_cost:
+        if ti >= cost:
             pos = ct.get_position()
             for d in DIRECTIONS:
                 sp = pos.add(d)

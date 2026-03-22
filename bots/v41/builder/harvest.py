@@ -38,7 +38,7 @@ class HarvestMixin(BuilderBase):
         pos: Position,
     ) -> tuple[Direction, Build | None] | None:
         unharvested = (
-            self.belief.ore_ti - self.belief.my_harvested - self.belief.en_harvested
+            (self.belief.ore_ti | self.belief.ore_ax) - self.belief.my_harvested - self.belief.en_harvested
         )
         if not unharvested:
             return None
