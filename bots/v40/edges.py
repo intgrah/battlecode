@@ -92,7 +92,7 @@ class FlowEdges:
             if team == belief.my_team and (
                 etype in _TRANSPORT or etype == EntityType.CORE
             ):
-                flow = belief.flow_in[i]
+                flow = belief.my_flow_in[i]
                 reuse_cost = 1 if flow < 1.0 else COST_IMPASSABLE
                 d = belief.direction[i]
                 bt = belief.bridge_target[i]
@@ -142,7 +142,7 @@ class FlowEdges:
             if ent is not None:
                 etype, team = ent
                 if team == belief.my_team:
-                    flow = belief.flow_in[ni]
+                    flow = belief.my_flow_in[ni]
                     reuse_cost = 1 if flow < 1.0 else COST_IMPASSABLE
                     if etype == EntityType.HARVESTER:
                         result.append((nx, ny, reuse_cost))
@@ -168,7 +168,7 @@ class FlowEdges:
             if ent is not None:
                 etype, team = ent
                 if team == belief.my_team and etype == EntityType.BRIDGE:
-                    flow = belief.flow_in[ni]
+                    flow = belief.my_flow_in[ni]
                     reuse_cost = 1 if flow < 1.0 else COST_IMPASSABLE
                     bt = belief.bridge_target[ni]
                     if bt is not None and bt[0] == x and bt[1] == y:
@@ -205,7 +205,7 @@ class FlowEdges:
         if team != belief.my_team:
             return COST_IMPASSABLE
         if etype in _TRANSPORT or etype == EntityType.CORE:
-            if belief.flow_in[i] >= 1.0:
+            if belief.my_flow_in[i] >= 1.0:
                 return COST_IMPASSABLE
             return 1
         if etype == EntityType.ROAD:

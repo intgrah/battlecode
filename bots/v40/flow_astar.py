@@ -47,7 +47,7 @@ class FlowAstar(Astar):
         b = self.belief
         w, h = b.w, b.h
         ci = cy * w + cx
-        blocked = b.blocked
+        blocked = b.my_blocked
         env = b.env
         if blocked[ci]:
             return []

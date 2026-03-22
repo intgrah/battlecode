@@ -1,5 +1,10 @@
+from typing import TYPE_CHECKING
+
 from astar import Astar
 from map_belief import COST_EMPTY, COST_IMPASSABLE, MapBelief
+
+if TYPE_CHECKING:
+    from cambc import Controller
 
 WALK_8 = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
 
@@ -49,7 +54,6 @@ def nav_astar(
     ct: "Controller",
     budget_us: int = 1800,
 ) -> list[tuple[int, int]] | None:
-    from cambc import Controller
     search = NavAstar(belief, sx, sy, gx, gy)
     search.compute(ct, budget_us)
     return search.get_path()

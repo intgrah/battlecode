@@ -75,7 +75,11 @@ class Builder(Entity):
     def _is_claimed(self, tile_index: int, kind: TaskKind) -> bool:
         for c in self.belief.claims:
             if c.tile_index == tile_index and c.kind == kind:
-                if self._last_claim is not None and c.tile_index == self._last_claim.tile_index and c.kind == self._last_claim.kind:
+                if (
+                    self._last_claim is not None
+                    and c.tile_index == self._last_claim.tile_index
+                    and c.kind == self._last_claim.kind
+                ):
                     continue
                 return True
         return False

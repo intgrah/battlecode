@@ -14,9 +14,7 @@ for path in files:
     entries: list[tuple[int, str, str]] = []
     for line in open(path):
         line = line.strip()
-        if (
-            not line or line.startswith((" ", "nav", "build", "fix_"))
-        ):
+        if not line or line.startswith((" ", "nav", "build", "fix_")):
             continue
         parts = line.split()
         try:
@@ -36,7 +34,7 @@ for path in files:
     stuck_start = None
     stuck_positions: set[str] = set()
 
-    for i, (rnd, pos, action) in enumerate(entries):
+    for i, (_rnd, _pos, action) in enumerate(entries):
         action_counts[action] += 1
 
         lo = max(0, i - WINDOW + 1)

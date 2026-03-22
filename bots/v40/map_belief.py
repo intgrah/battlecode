@@ -50,6 +50,15 @@ _TRANSPORT = frozenset(
     ),
 )
 
+_TURRETS = frozenset(
+    (
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+    ),
+)
+
 _CARDINALS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 
@@ -97,24 +106,46 @@ class MapBelief:
         self.w = w
         self.h = h
         self.my_team = my_team
-        self.core_pos = core_pos
         n = w * h
+
+        # -- Per-tile arrays (indexed by y * w + x) --
         self.env: list[Environment | None] = [None] * n
         self.entity: list[tuple[EntityType, Team] | None] = [None] * n
         self.direction: list[Direction | None] = [None] * n
         self.bridge_target: list[tuple[int, int] | None] = [None] * n
         self.last_seen: list[int] = [0] * n
-        self.flow_in: list[float] = [0.0] * n
-        self.excess: list[float] = [0.0] * n
-        self.blocked: list[bool] = [False] * n
-        self.transport_tiles: set[int] = set()
-        self.harvester_tiles: set[int] = set()
+
+        # -- Resources (xy tuples) --
         self.ore_ti: set[tuple[int, int]] = set()
         self.ore_ax: set[tuple[int, int]] = set()
-        self.harvested: set[tuple[int, int]] = set()
+
+        # -- Friendly beliefs --
+        self.my_core: tuple[int, int] = core_pos
+        self.my_harvested: set[tuple[int, int]] = set()
+        self.my_harvesters: set[int] = set()
+        self.my_transport: set[int] = set()
+        self.my_turrets: set[int] = set()
+        self.my_flow_in: list[float] = [0.0] * n
+        self.my_excess: list[float] = [0.0] * n
+        self.my_blocked: list[bool] = [False] * n
+
+        # -- Enemy beliefs --
+        self.en_core: tuple[int, int] | None = None
+        self.en_harvested: set[tuple[int, int]] = set()
+        self.en_harvesters: set[int] = set()
+        self.en_transport: set[int] = set()
+        self.en_turrets: set[int] = set()
+        self.en_flow_in: list[float] = [0.0] * n
+
+        # -- Ephemeral (rebuilt each turn) --
+        self.unit_tiles: set[int] = set()
+        self.claims: set[TaskClaim] = set()
+
+        # -- Symmetry --
         self.symmetry: Symmetry | None = None
         self._sym_candidates = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
-        self._enemy_core: tuple[int, int] | None = None
+
+        # -- Internal --
         cx, cy = core_pos
         self._core_tiles: set[int] = set()
         for dx in range(-1, 2):
@@ -124,8 +155,6 @@ class MapBelief:
                     self._core_tiles.add(ny * w + nx)
         self._out_target: dict[int, list[int]] = {}
         self._out_target_dirty = True
-        self.unit_tiles: set[int] = set()
-        self.claims: set[TaskClaim] = set()
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -143,7 +172,7 @@ class MapBelief:
 
     # -- Per-turn update --
 
-    def update(self, ct: Controller) -> list[tuple[int, int]]:
+    def update(self, ct: Controller) -> tuple[list[tuple[int, int]], bool]:
         """Incorporate all visible tiles into the belief. Call once per turn.
 
         Returns list of (x, y) tiles whose entity/walkability changed.
@@ -196,38 +225,65 @@ class MapBelief:
                     self.direction[i] = None
                     self.bridge_target[i] = None
 
-                if etype == EntityType.HARVESTER:
-                    self.harvested.add((x, y))
-                    self.harvester_tiles.add(i)
-                    self.transport_tiles.discard(i)
-                elif etype in _TRANSPORT:
-                    self.transport_tiles.add(i)
-                    self.harvester_tiles.discard(i)
-                elif etype == EntityType.MARKER and team == self.my_team:
-                    msg = decode_marker(ct.get_marker_value(bid))
-                    if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
-                        self.claims.add(msg)
-                    elif isinstance(msg, Eureka) and self.symmetry is None:
-                        self.symmetry = Symmetry(msg.symmetry)
-                        self._reflect_all()
+                if team == self.my_team:
+                    if etype == EntityType.HARVESTER:
+                        self.my_harvested.add((x, y))
+                        self.my_harvesters.add(i)
+                        self.my_transport.discard(i)
+                    elif etype in _TRANSPORT:
+                        self.my_transport.add(i)
+                        self.my_harvesters.discard(i)
+                    elif etype in _TURRETS:
+                        self.my_turrets.add(i)
+                    elif etype == EntityType.MARKER:
+                        msg = decode_marker(ct.get_marker_value(bid))
+                        if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
+                            self.claims.add(msg)
+                        elif isinstance(msg, Eureka) and self.symmetry is None:
+                            self.symmetry = Symmetry(msg.symmetry)
+                            self._reflect_all()
+                    else:
+                        self.my_transport.discard(i)
+                        self.my_harvesters.discard(i)
+                    self.en_transport.discard(i)
+                    self.en_harvesters.discard(i)
+                    self.en_turrets.discard(i)
                 else:
-                    self.transport_tiles.discard(i)
-                    self.harvester_tiles.discard(i)
+                    if etype == EntityType.HARVESTER:
+                        self.en_harvested.add((x, y))
+                        self.en_harvesters.add(i)
+                        self.en_transport.discard(i)
+                    elif etype in _TRANSPORT:
+                        self.en_transport.add(i)
+                        self.en_harvesters.discard(i)
+                    elif etype in _TURRETS:
+                        self.en_turrets.add(i)
+                    else:
+                        self.en_transport.discard(i)
+                        self.en_harvesters.discard(i)
+                    self.my_transport.discard(i)
+                    self.my_harvesters.discard(i)
+                    self.my_turrets.discard(i)
 
                 if (
-                    self._enemy_core is None
+                    self.en_core is None
                     and etype == EntityType.CORE
                     and team != self.my_team
                 ):
                     center = ct.get_position(bid)
-                    self._enemy_core = (center.x, center.y)
+                    self.en_core = (center.x, center.y)
             else:
                 self.entity[i] = None
                 self.direction[i] = None
                 self.bridge_target[i] = None
-                self.harvested.discard((x, y))
-                self.transport_tiles.discard(i)
-                self.harvester_tiles.discard(i)
+                self.my_harvested.discard((x, y))
+                self.en_harvested.discard((x, y))
+                self.my_transport.discard(i)
+                self.my_harvesters.discard(i)
+                self.my_turrets.discard(i)
+                self.en_transport.discard(i)
+                self.en_harvesters.discard(i)
+                self.en_turrets.discard(i)
                 if old_ent is not None or env != old_env:
                     changed.append((x, y))
 
@@ -247,7 +303,22 @@ class MapBelief:
                     elif env == Environment.ORE_AXIONITE:
                         self.ore_ax.add((mx, my))
 
-        return changed
+        needs_reflow = any(
+            self.idx(cx, cy) in self.my_transport
+            or self.idx(cx, cy) in self.my_harvesters
+            for cx, cy in changed
+        )
+        needs_enemy_reflow = any(
+            self.idx(cx, cy) in self.en_transport
+            or self.idx(cx, cy) in self.en_harvesters
+            for cx, cy in changed
+        )
+        if needs_reflow:
+            self.recompute_flow()
+        if needs_enemy_reflow:
+            self.recompute_enemy_flow()
+
+        return changed, needs_reflow
 
     # -- Symmetry detection --
 
@@ -259,9 +330,9 @@ class MapBelief:
         to_remove: set[Symmetry] = set()
 
         # Eliminate using core positions
-        if self._enemy_core is not None:
-            cx, cy = self.core_pos
-            ex, ey = self._enemy_core
+        if self.en_core is not None:
+            cx, cy = self.my_core
+            ex, ey = self.en_core
             for sym in self._sym_candidates:
                 match sym:
                     case Symmetry.ROT:
@@ -274,7 +345,7 @@ class MapBelief:
                     to_remove.add(sym)
         else:
             # Without enemy core, eliminate symmetries that would map our core to itself
-            cx, cy = self.core_pos
+            cx, cy = self.my_core
             for sym in self._sym_candidates:
                 match sym:
                     case Symmetry.HOR:
@@ -374,18 +445,18 @@ class MapBelief:
 
     def recompute_flow(self) -> None:
         core_tiles = self._core_tiles
-        receivers = self.transport_tiles | core_tiles
+        receivers = self.my_transport | core_tiles
         w, h = self.w, self.h
 
-        for i in self.harvester_tiles | receivers:
-            self.flow_in[i] = 0.0
-            self.excess[i] = 0.0
+        for i in self.my_harvesters | receivers:
+            self.my_flow_in[i] = 0.0
+            self.my_excess[i] = 0.0
 
         in_degree: dict[int, int] = dict.fromkeys(receivers, 0)
         out_target: dict[int, list[int]] = {}
         in_reverse: dict[int, list[int]] = {}
 
-        for i in self.transport_tiles:
+        for i in self.my_transport:
             ent = self.entity[i]
             if ent is None:
                 continue
@@ -408,7 +479,7 @@ class MapBelief:
                 in_reverse.setdefault(tgt, []).append(i)
 
         queue: deque[int] = deque()
-        for i in self.harvester_tiles:
+        for i in self.my_harvesters:
             ix, iy = i % w, i // w
             outs: list[int] = []
             for ddx, ddy in _CARDINALS:
@@ -437,34 +508,118 @@ class MapBelief:
             if etype == EntityType.HARVESTER:
                 n_out = max(len(outs), 1)
                 push = 0.25 / n_out
-                self.excess[ci] = 0.25 - push * len(outs)
+                self.my_excess[ci] = 0.25 - push * len(outs)
                 for oi in outs:
-                    self.flow_in[oi] += push
+                    self.my_flow_in[oi] += push
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
             elif etype in _TRANSPORT:
-                incoming = self.flow_in[ci]
+                incoming = self.my_flow_in[ci]
                 push = incoming / 3 if etype == EntityType.SPLITTER else incoming
                 total_out = 0.0
                 for oi in outs:
-                    self.flow_in[oi] += push
+                    self.my_flow_in[oi] += push
                     total_out += push
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
-                self.excess[ci] = incoming - total_out
+                self.my_excess[ci] = incoming - total_out
 
         for i in receivers:
-            self.blocked[i] = False
+            self.my_blocked[i] = False
         seeds: deque[int] = deque()
         for i in receivers:
-            if self.flow_in[i] > 0.75:
-                self.blocked[i] = True
+            if self.my_flow_in[i] > 0.75:
+                self.my_blocked[i] = True
                 seeds.append(i)
         while seeds:
             bi = seeds.popleft()
             for fi in in_reverse.get(bi, []):
-                if fi in receivers and not self.blocked[fi]:
-                    self.blocked[fi] = True
+                if fi in receivers and not self.my_blocked[fi]:
+                    self.my_blocked[fi] = True
                     seeds.append(fi)
+
+    def recompute_enemy_flow(self) -> None:
+        w, h = self.w, self.h
+        for i in self.en_transport | self.en_harvesters:
+            self.en_flow_in[i] = 0.0
+
+        receivers: set[int] = set(self.en_transport)
+        if self.en_core is not None:
+            ex, ey = self.en_core
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    nx, ny = ex + dx, ey + dy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        receivers.add(ny * w + nx)
+
+        in_degree: dict[int, int] = dict.fromkeys(receivers, 0)
+        out_target: dict[int, list[int]] = {}
+        in_reverse: dict[int, list[int]] = {}
+
+        for i in self.en_transport:
+            ent = self.entity[i]
+            if ent is None:
+                continue
+            etype = ent[0]
+            bt = self.bridge_target[i]
+            d = self.direction[i]
+            tgt = -1
+            if etype == EntityType.BRIDGE and bt is not None:
+                bx, by = bt
+                if 0 <= bx < w and 0 <= by < h:
+                    tgt = by * w + bx
+            elif d is not None:
+                dx, dy = d.delta()
+                nx, ny = i % w + dx, i // w + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    tgt = ny * w + nx
+            if tgt >= 0 and tgt in in_degree:
+                in_degree[tgt] += 1
+                out_target[i] = [tgt]
+                in_reverse.setdefault(tgt, []).append(i)
+
+        queue: deque[int] = deque()
+        for i in self.en_harvesters:
+            ix, iy = i % w, i // w
+            outs: list[int] = []
+            for ddx, ddy in _CARDINALS:
+                nx, ny = ix + ddx, iy + ddy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if ni in receivers:
+                        outs.append(ni)
+                        in_degree[ni] += 1
+                        in_reverse.setdefault(ni, []).append(i)
+            out_target[i] = outs
+            queue.append(i)
+
+        for i, deg in in_degree.items():
+            if deg == 0:
+                queue.append(i)
+
+        while queue:
+            ci = queue.popleft()
+            ent = self.entity[ci]
+            if ent is None:
+                continue
+            etype = ent[0]
+            outs = out_target.get(ci, [])
+
+            if etype == EntityType.HARVESTER:
+                n_out = max(len(outs), 1)
+                push = 0.25 / n_out
+                for oi in outs:
+                    self.en_flow_in[oi] += push
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
+            elif etype in _TRANSPORT:
+                incoming = self.en_flow_in[ci]
+                push = incoming / 3 if etype == EntityType.SPLITTER else incoming
+                for oi in outs:
+                    self.en_flow_in[oi] += push
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
