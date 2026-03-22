@@ -16,15 +16,15 @@ class RaidMixin(BuilderBase):
         best_flow = 0.0
         w = self.belief.w
         for i in self.belief.en_transport:
-            if self.belief.en_flow_in[i] <= 0:
+            if self.belief.en_flow.total[i] <= 0:
                 continue
             ent = self.belief.entity[i]
             if ent is None or ent[0] not in _RAIDABLE:
                 continue
             if i in self.belief.unit_tiles:
                 continue
-            if self.belief.en_flow_in[i] > best_flow:
-                best_flow = self.belief.en_flow_in[i]
+            if self.belief.en_flow.total[i] > best_flow:
+                best_flow = self.belief.en_flow.total[i]
                 best_tile = (i % w, i // w)
         if best_tile is None:
             return None

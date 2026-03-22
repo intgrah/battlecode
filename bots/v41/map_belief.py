@@ -1,4 +1,5 @@
 from collections import deque
+from dataclasses import dataclass, field
 from enum import Enum
 
 from cambc import Controller, Direction, EntityType, Environment, Team
@@ -6,10 +7,36 @@ from marker import Eureka, TaskClaim, is_stale
 from marker import decode as decode_marker
 
 # A* walkability costs. Lower = preferred by pathfinder.
-COST_ROAD = 7  # walkable buildings (roads, conveyors, splitters, allied core)
+COST_ROAD = 5  # walkable buildings (roads, conveyors, splitters, allied core)
 COST_EMPTY = 10  # seen empty ground — builder must build a road to traverse
 COST_UNSEEN = 12  # never seen — optimistic guess, slightly penalised vs known empty
 COST_IMPASSABLE = 1_000_000  # walls, ore tiles, enemy buildings, non-walkable buildings
+
+
+@dataclass(slots=True)
+class FlowState:
+    n: int
+    ti: list[float] = field(init=False)
+    ax: list[float] = field(init=False)
+    rax: list[float] = field(init=False)
+    total: list[float] = field(init=False)
+    ti_excess: list[float] = field(init=False)
+    ax_excess: list[float] = field(init=False)
+    rax_excess: list[float] = field(init=False)
+    excess: list[float] = field(init=False)
+    blocked: list[bool] = field(init=False)
+
+    def __post_init__(self) -> None:
+        n = self.n
+        self.ti = [0.0] * n
+        self.ax = [0.0] * n
+        self.rax = [0.0] * n
+        self.total = [0.0] * n
+        self.ti_excess = [0.0] * n
+        self.ax_excess = [0.0] * n
+        self.rax_excess = [0.0] * n
+        self.excess = [0.0] * n
+        self.blocked = [False] * n
 
 
 class Symmetry(Enum):
@@ -124,10 +151,9 @@ class MapBelief:
         self.my_harvested: set[tuple[int, int]] = set()
         self.my_harvesters: set[int] = set()
         self.my_transport: set[int] = set()
+        self.my_foundries: set[int] = set()
         self.my_turrets: set[int] = set()
-        self.my_flow_in: list[float] = [0.0] * n
-        self.my_excess: list[float] = [0.0] * n
-        self.my_blocked: list[bool] = [False] * n
+        self.my_flow = FlowState(n)
 
         # -- Enemy beliefs --
         self.en_core: tuple[int, int] | None = None
@@ -135,7 +161,8 @@ class MapBelief:
         self.en_harvesters: set[int] = set()
         self.en_transport: set[int] = set()
         self.en_turrets: set[int] = set()
-        self.en_flow_in: list[float] = [0.0] * n
+        self.en_foundries: set[int] = set()
+        self.en_flow = FlowState(n)
 
         # -- Ephemeral (rebuilt each turn) --
         self.unit_tiles: set[int] = set()
@@ -230,8 +257,14 @@ class MapBelief:
                         self.my_harvested.add((x, y))
                         self.my_harvesters.add(i)
                         self.my_transport.discard(i)
+                        self.my_foundries.discard(i)
                     elif etype in _TRANSPORT:
                         self.my_transport.add(i)
+                        self.my_harvesters.discard(i)
+                        self.my_foundries.discard(i)
+                    elif etype == EntityType.FOUNDRY:
+                        self.my_foundries.add(i)
+                        self.my_transport.discard(i)
                         self.my_harvesters.discard(i)
                     elif etype in _TURRETS:
                         self.my_turrets.add(i)
@@ -245,6 +278,7 @@ class MapBelief:
                     else:
                         self.my_transport.discard(i)
                         self.my_harvesters.discard(i)
+                        self.my_foundries.discard(i)
                     self.en_transport.discard(i)
                     self.en_harvesters.discard(i)
                     self.en_turrets.discard(i)
@@ -253,14 +287,21 @@ class MapBelief:
                         self.en_harvested.add((x, y))
                         self.en_harvesters.add(i)
                         self.en_transport.discard(i)
+                        self.en_foundries.discard(i)
                     elif etype in _TRANSPORT:
                         self.en_transport.add(i)
+                        self.en_harvesters.discard(i)
+                        self.en_foundries.discard(i)
+                    elif etype == EntityType.FOUNDRY:
+                        self.en_foundries.add(i)
+                        self.en_transport.discard(i)
                         self.en_harvesters.discard(i)
                     elif etype in _TURRETS:
                         self.en_turrets.add(i)
                     else:
                         self.en_transport.discard(i)
                         self.en_harvesters.discard(i)
+                        self.en_foundries.discard(i)
                     self.my_transport.discard(i)
                     self.my_harvesters.discard(i)
                     self.my_turrets.discard(i)
@@ -306,6 +347,7 @@ class MapBelief:
         needs_reflow = any(
             self.idx(cx, cy) in self.my_transport
             or self.idx(cx, cy) in self.my_harvesters
+            or self.idx(cx, cy) in self.my_foundries
             for cx, cy in changed
         )
         needs_enemy_reflow = any(
@@ -313,6 +355,30 @@ class MapBelief:
             or self.idx(cx, cy) in self.en_harvesters
             for cx, cy in changed
         )
+        _has_foundry_change = False
+        for cx, cy in changed:
+            ent = self.entity[self.idx(cx, cy)]
+            if ent is not None and ent[0] in (EntityType.SPLITTER, EntityType.FOUNDRY):
+                _has_foundry_change = True
+                break
+        if self.my_foundries or _has_foundry_change:
+            with open("/tmp/v41_flow_debug.log", "a") as dbg:
+                dbg.write(f"r={rnd} changed={len(changed)} reflow={needs_reflow} foundries={self.my_foundries} transport={len(self.my_transport)}\n")
+                for fi in self.my_foundries:
+                    fx, fy = fi % self.w, fi // self.w
+                    ent = self.entity[fi]
+                    dbg.write(f"  belief_foundry ({fx},{fy}) ent={ent} dir={self.direction[fi]}\n")
+                    for ddx, ddy in _CARDINALS:
+                        nx, ny = fx + ddx, fy + ddy
+                        if self.in_bounds(nx, ny):
+                            ni = self.idx(nx, ny)
+                            nent = self.entity[ni]
+                            dbg.write(f"    adj ({nx},{ny}) ent={nent} dir={self.direction[ni]} in_transport={ni in self.my_transport}\n")
+                for cx, cy in changed:
+                    ci = self.idx(cx, cy)
+                    ent = self.entity[ci]
+                    if ent is not None:
+                        dbg.write(f"  changed ({cx},{cy}) {ent[0].name} in_transport={ci in self.my_transport} in_foundries={ci in self.my_foundries} dir={self.direction[ci]}\n")
         if needs_reflow:
             self.recompute_flow()
         if needs_enemy_reflow:
@@ -409,28 +475,24 @@ class MapBelief:
     def walkable(self, x: int, y: int) -> int:
         """A* movement cost for a builder to traverse this tile."""
         i = self.idx(x, y)
-        env = self.env[i]
-        if env is None:
-            return COST_UNSEEN
-        if env in (
-            Environment.WALL,
-            Environment.ORE_TITANIUM,
-            Environment.ORE_AXIONITE,
-        ):
-            return COST_IMPASSABLE
         if i in self.unit_tiles:
             return COST_IMPASSABLE
-        ent = self.entity[i]
-        if ent is None:
-            return COST_EMPTY
-        etype, team = ent
-        if etype == EntityType.MARKER:
-            return COST_EMPTY
-        if etype in _WALKABLE_BUILDINGS or (
-            etype == EntityType.CORE and team == self.my_team
-        ):
-            return COST_ROAD
-        return COST_IMPASSABLE
+        match self.env[i]:
+            case None:
+                return COST_UNSEEN
+            case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+                return COST_IMPASSABLE
+        match self.entity[i]:
+            case None:
+                return COST_EMPTY
+            case (EntityType.MARKER, _):
+                return COST_EMPTY
+            case (EntityType.CORE, team) if team == self.my_team:
+                return COST_ROAD
+            case (etype, _) if etype in _WALKABLE_BUILDINGS:
+                return COST_ROAD
+            case _:
+                return COST_IMPASSABLE
 
     def in_bounds(self, x: int, y: int) -> bool:
         return 0 <= x < self.w and 0 <= y < self.h
@@ -443,145 +505,121 @@ class MapBelief:
 
     # -- Flow computation (Kahn's topological sort) --
 
+    def _harvester_ore_type(self, i: int) -> Environment | None:
+        x, y = i % self.w, i // self.w
+        if (x, y) in self.ore_ti:
+            return Environment.ORE_TITANIUM
+        if (x, y) in self.ore_ax:
+            return Environment.ORE_AXIONITE
+        return None
+
     def recompute_flow(self) -> None:
-        core_tiles = self._core_tiles
-        receivers = self.my_transport | core_tiles
-        w, h = self.w, self.h
-
-        for i in self.my_harvesters | receivers:
-            self.my_flow_in[i] = 0.0
-            self.my_excess[i] = 0.0
-
-        in_degree: dict[int, int] = dict.fromkeys(receivers, 0)
-        out_target: dict[int, list[int]] = {}
-        in_reverse: dict[int, list[int]] = {}
-
-        for i in self.my_transport:
-            ent = self.entity[i]
-            if ent is None:
-                continue
-            etype = ent[0]
-            bt = self.bridge_target[i]
-            d = self.direction[i]
-            tgt = -1
-            if etype == EntityType.BRIDGE and bt is not None:
-                bx, by = bt
-                if 0 <= bx < w and 0 <= by < h:
-                    tgt = by * w + bx
-            elif d is not None:
-                dx, dy = d.delta()
-                nx, ny = i % w + dx, i // w + dy
-                if 0 <= nx < w and 0 <= ny < h:
-                    tgt = ny * w + nx
-            if tgt >= 0 and tgt in in_degree:
-                in_degree[tgt] += 1
-                out_target[i] = [tgt]
-                in_reverse.setdefault(tgt, []).append(i)
-
-        queue: deque[int] = deque()
-        for i in self.my_harvesters:
-            ix, iy = i % w, i // w
-            outs: list[int] = []
-            for ddx, ddy in _CARDINALS:
-                nx, ny = ix + ddx, iy + ddy
-                if 0 <= nx < w and 0 <= ny < h:
-                    ni = ny * w + nx
-                    if ni in receivers:
-                        outs.append(ni)
-                        in_degree[ni] += 1
-                        in_reverse.setdefault(ni, []).append(i)
-            out_target[i] = outs
-            queue.append(i)
-
-        for i, deg in in_degree.items():
-            if deg == 0:
-                queue.append(i)
-
-        while queue:
-            ci = queue.popleft()
-            ent = self.entity[ci]
-            if ent is None:
-                continue
-            etype = ent[0]
-            outs = out_target.get(ci, [])
-
-            if etype == EntityType.HARVESTER:
-                n_out = max(len(outs), 1)
-                push = 0.25 / n_out
-                self.my_excess[ci] = 0.25 - push * len(outs)
-                for oi in outs:
-                    self.my_flow_in[oi] += push
-                    in_degree[oi] -= 1
-                    if in_degree[oi] <= 0:
-                        queue.append(oi)
-            elif etype in _TRANSPORT:
-                incoming = self.my_flow_in[ci]
-                push = incoming / 3 if etype == EntityType.SPLITTER else incoming
-                total_out = 0.0
-                for oi in outs:
-                    self.my_flow_in[oi] += push
-                    total_out += push
-                    in_degree[oi] -= 1
-                    if in_degree[oi] <= 0:
-                        queue.append(oi)
-                self.my_excess[ci] = incoming - total_out
-
-        for i in receivers:
-            self.my_blocked[i] = False
-        seeds: deque[int] = deque()
-        for i in receivers:
-            if self.my_flow_in[i] > 0.75:
-                self.my_blocked[i] = True
-                seeds.append(i)
-        while seeds:
-            bi = seeds.popleft()
-            for fi in in_reverse.get(bi, []):
-                if fi in receivers and not self.my_blocked[fi]:
-                    self.my_blocked[fi] = True
-                    seeds.append(fi)
+        self._recompute_flow_impl(
+            self.my_flow,
+            self.my_harvesters,
+            self.my_transport,
+            self.my_foundries,
+            self._core_tiles,
+        )
 
     def recompute_enemy_flow(self) -> None:
-        w, h = self.w, self.h
-        for i in self.en_transport | self.en_harvesters:
-            self.en_flow_in[i] = 0.0
-
-        receivers: set[int] = set(self.en_transport)
+        en_core_tiles: set[int] = set()
         if self.en_core is not None:
             ex, ey = self.en_core
+            w, h = self.w, self.h
             for dx in range(-1, 2):
                 for dy in range(-1, 2):
                     nx, ny = ex + dx, ey + dy
                     if 0 <= nx < w and 0 <= ny < h:
-                        receivers.add(ny * w + nx)
+                        en_core_tiles.add(ny * w + nx)
+        self._recompute_flow_impl(
+            self.en_flow,
+            self.en_harvesters,
+            self.en_transport,
+            self.en_foundries,
+            en_core_tiles,
+        )
+
+    def _recompute_flow_impl(
+        self,
+        f: FlowState,
+        harvesters: set[int],
+        transport: set[int],
+        foundries: set[int],
+        core_tiles: set[int],
+    ) -> None:
+        receivers = transport | foundries | core_tiles
+        w, h = self.w, self.h
+
+        for i in harvesters | receivers:
+            f.ti[i] = 0.0
+            f.ax[i] = 0.0
+            f.rax[i] = 0.0
+            f.total[i] = 0.0
+            f.ti_excess[i] = 0.0
+            f.ax_excess[i] = 0.0
+            f.rax_excess[i] = 0.0
+            f.excess[i] = 0.0
 
         in_degree: dict[int, int] = dict.fromkeys(receivers, 0)
         out_target: dict[int, list[int]] = {}
         in_reverse: dict[int, list[int]] = {}
 
-        for i in self.en_transport:
+        for i in transport:
             ent = self.entity[i]
             if ent is None:
                 continue
             etype = ent[0]
             bt = self.bridge_target[i]
             d = self.direction[i]
-            tgt = -1
             if etype == EntityType.BRIDGE and bt is not None:
                 bx, by = bt
                 if 0 <= bx < w and 0 <= by < h:
                     tgt = by * w + bx
+                    if tgt in in_degree:
+                        in_degree[tgt] += 1
+                        out_target[i] = [tgt]
+                        in_reverse.setdefault(tgt, []).append(i)
+            elif etype == EntityType.SPLITTER and d is not None:
+                ix, iy = i % w, i // w
+                dx, dy = d.delta()
+                outs: list[int] = []
+                for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
+                    nx, ny = ix + odx, iy + ody
+                    if 0 <= nx < w and 0 <= ny < h:
+                        tgt = ny * w + nx
+                        if tgt in in_degree:
+                            outs.append(tgt)
+                            in_degree[tgt] += 1
+                            in_reverse.setdefault(tgt, []).append(i)
+                if outs:
+                    out_target[i] = outs
             elif d is not None:
                 dx, dy = d.delta()
                 nx, ny = i % w + dx, i // w + dy
                 if 0 <= nx < w and 0 <= ny < h:
                     tgt = ny * w + nx
-            if tgt >= 0 and tgt in in_degree:
-                in_degree[tgt] += 1
-                out_target[i] = [tgt]
-                in_reverse.setdefault(tgt, []).append(i)
+                    if tgt in in_degree:
+                        in_degree[tgt] += 1
+                        out_target[i] = [tgt]
+                        in_reverse.setdefault(tgt, []).append(i)
+
+        for i in foundries:
+            ix, iy = i % w, i // w
+            feeders = set(in_reverse.get(i, []))
+            outs: list[int] = []
+            for ddx, ddy in _CARDINALS:
+                nx, ny = ix + ddx, iy + ddy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if ni in in_degree and ni not in foundries and ni not in feeders:
+                        outs.append(ni)
+                        in_degree[ni] += 1
+                        in_reverse.setdefault(ni, []).append(i)
+            out_target[i] = outs
 
         queue: deque[int] = deque()
-        for i in self.en_harvesters:
+        for i in harvesters:
             ix, iy = i % w, i // w
             outs: list[int] = []
             for ddx, ddy in _CARDINALS:
@@ -608,18 +646,82 @@ class MapBelief:
             outs = out_target.get(ci, [])
 
             if etype == EntityType.HARVESTER:
+                ore = self._harvester_ore_type(ci)
                 n_out = max(len(outs), 1)
                 push = 0.25 / n_out
+                excess = 0.25 - push * len(outs)
                 for oi in outs:
-                    self.en_flow_in[oi] += push
+                    if ore == Environment.ORE_TITANIUM:
+                        f.ti[oi] += push
+                    elif ore == Environment.ORE_AXIONITE:
+                        f.ax[oi] += push
+                    f.total[oi] += push
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
+                if ore == Environment.ORE_TITANIUM:
+                    f.ti_excess[ci] = excess
+                elif ore == Environment.ORE_AXIONITE:
+                    f.ax_excess[ci] = excess
+                f.excess[ci] = excess
+            elif etype == EntityType.FOUNDRY:
+                ti_in = f.ti[ci]
+                ax_in = f.ax[ci]
+                refined = min(ti_in, ax_in)
+                f.ti_excess[ci] = ti_in - refined
+                f.ax_excess[ci] = ax_in - refined
+                rax_in = f.rax[ci]
+                rax_out = rax_in + refined
+                for oi in outs:
+                    f.rax[oi] += rax_out
+                    f.total[oi] += rax_out
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
+                total_out = rax_out * len(outs)
+                f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
+                cx, cy = ci % w, ci // w
+                with open("/tmp/v41_flow_debug.log", "a") as dbg:
+                    dbg.write(f"  FOUNDRY ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} refined={refined:.3f} outs={len(outs)} excess={f.excess[ci]:.3f}\n")
             elif etype in _TRANSPORT:
-                incoming = self.en_flow_in[ci]
-                push = incoming / 3 if etype == EntityType.SPLITTER else incoming
+                ti_in = f.ti[ci]
+                ax_in = f.ax[ci]
+                rax_in = f.rax[ci]
+                if etype == EntityType.SPLITTER:
+                    cx, cy = ci % w, ci // w
+                    with open("/tmp/v41_flow_debug.log", "a") as dbg:
+                        dbg.write(f"  SPLITTER ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} outs={len(outs)}\n")
+                divisor = 3 if etype == EntityType.SPLITTER else 1
+                ti_push = ti_in / divisor
+                ax_push = ax_in / divisor
+                rax_push = rax_in / divisor
+                total_push = ti_push + ax_push + rax_push
+                total_out = 0.0
                 for oi in outs:
-                    self.en_flow_in[oi] += push
+                    f.ti[oi] += ti_push
+                    f.ax[oi] += ax_push
+                    f.rax[oi] += rax_push
+                    f.total[oi] += total_push
+                    total_out += total_push
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
+                incoming = ti_in + ax_in + rax_in
+                f.ti_excess[ci] = ti_in - ti_push * len(outs)
+                f.ax_excess[ci] = ax_in - ax_push * len(outs)
+                f.rax_excess[ci] = rax_in - rax_push * len(outs)
+                f.excess[ci] = incoming - total_out
+
+        for i in receivers:
+            f.blocked[i] = False
+        seeds: deque[int] = deque()
+        for i in receivers:
+            if f.total[i] > 0.75:
+                f.blocked[i] = True
+                seeds.append(i)
+        while seeds:
+            bi = seeds.popleft()
+            for fi in in_reverse.get(bi, []):
+                if fi in receivers and not f.blocked[fi]:
+                    f.blocked[fi] = True
+                    seeds.append(fi)

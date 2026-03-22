@@ -22,8 +22,8 @@ class FixExcessMixin(BuilderBase):
         best_tile = None
         best_dist = 999999
         w = self.belief.w
-        for i in self.belief.my_harvesters | self.belief.my_transport:
-            if self.belief.my_excess[i] > 0.01 and not self._is_claimed(
+        for i in self.belief.my_harvesters | self.belief.my_transport | self.belief.my_foundries:
+            if self.belief.my_flow.excess[i] > 0.01 and not self._is_claimed(
                 i,
                 TaskKind.FIX_EXCESS,
             ):
@@ -38,7 +38,10 @@ class FixExcessMixin(BuilderBase):
         rnd = ct.get_current_round()
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, ti, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
-        return self._build_chain(ct, pos, best_tile)
+        result = self._build_chain(ct, pos, best_tile)
+        with open("/tmp/v41_flow_debug.log", "a") as dbg:
+            dbg.write(f"  fix_excess target=({best_tile[0]},{best_tile[1]}) chain_result={result is not None}\n")
+        return result
 
     def _build_chain(
         self,
@@ -54,19 +57,23 @@ class FixExcessMixin(BuilderBase):
 
         if ent is not None:
             etype = ent[0]
-            if etype == EntityType.HARVESTER:
+            if etype in (EntityType.HARVESTER, EntityType.FOUNDRY):
                 best_start = None
                 best_d = 999999
                 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = sx + ddx, sy + ddy
                     if not self.belief.in_bounds(nx, ny):
                         continue
-                    env = self.belief.env[self.belief.idx(nx, ny)]
+                    ni = self.belief.idx(nx, ny)
+                    env = self.belief.env[ni]
                     if env in (
                         Environment.WALL,
                         Environment.ORE_TITANIUM,
                         Environment.ORE_AXIONITE,
                     ):
+                        continue
+                    nent = self.belief.entity[ni]
+                    if nent is not None and nent[0] in _TRANSPORT:
                         continue
                     d = (nx - cx) ** 2 + (ny - cy) ** 2
                     if d < best_d:
@@ -87,6 +94,8 @@ class FixExcessMixin(BuilderBase):
                     sx, sy = bt
 
         start = (sx, sy)
+        with open("/tmp/v41_flow_debug.log", "a") as dbg:
+            dbg.write(f"  chain start=({sx},{sy}) source=({source[0]},{source[1]})\n")
         path = self._cached_chain_path
         if path is None or self._cached_chain_source != start:
             if self._flow_search is None or self._cached_chain_source != start:
@@ -104,6 +113,8 @@ class FixExcessMixin(BuilderBase):
             self._cached_chain_path = path
         if path is None or len(path) < 2:
             self._cached_chain_path = None
+            with open("/tmp/v41_flow_debug.log", "a") as dbg:
+                dbg.write(f"  chain FAILED path={path} done={self._flow_search is None}\n")
             return None
 
         for k in range(len(path) - 1):

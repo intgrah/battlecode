@@ -12,7 +12,7 @@ COST_REUSE = 0
 COST_CONV = 3
 COST_BRIDGE = 10
 COST_ROAD_REPLACE = 3
-CONV_CUTOFF_SQ = 8
+CONV_CUTOFF_SQ = 0
 
 _IMPASSABLE_ENV = frozenset(
     (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE),
@@ -47,7 +47,7 @@ class FlowAstar(Astar):
         b = self.belief
         w, h = b.w, b.h
         ci = cy * w + cx
-        blocked = b.my_blocked
+        blocked = b.my_flow.blocked
         env = b.env
         if blocked[ci]:
             return []

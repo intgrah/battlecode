@@ -11,6 +11,8 @@ class BuildKind(Enum):
     CONVEYOR = auto()
     BRIDGE = auto()
     ROAD = auto()
+    FOUNDRY = auto()
+    SPLITTER = auto()
     SELF_DESTRUCT = auto()
     HEAL = auto()
 
@@ -30,20 +32,35 @@ class Build:
                     ct.build_harvester(self.pos)
             case BuildKind.CONVEYOR:
                 assert isinstance(self.aux, Direction)
-                self._destroy_friendly(ct, self.pos)
                 cost, _ = ct.get_conveyor_cost()
-                if ti >= cost and ct.can_build_conveyor(self.pos, self.aux):
-                    ct.build_conveyor(self.pos, self.aux)
+                if ti >= cost:
+                    self._destroy_friendly(ct, self.pos)
+                    if ct.can_build_conveyor(self.pos, self.aux):
+                        ct.build_conveyor(self.pos, self.aux)
             case BuildKind.BRIDGE:
                 assert isinstance(self.aux, Position)
-                self._destroy_friendly(ct, self.pos)
                 cost, _ = ct.get_bridge_cost()
-                if ti >= cost and ct.can_build_bridge(self.pos, self.aux):
-                    ct.build_bridge(self.pos, self.aux)
+                if ti >= cost:
+                    self._destroy_friendly(ct, self.pos)
+                    if ct.can_build_bridge(self.pos, self.aux):
+                        ct.build_bridge(self.pos, self.aux)
             case BuildKind.ROAD:
                 cost, _ = ct.get_road_cost()
                 if ti >= cost and ct.can_build_road(self.pos):
                     ct.build_road(self.pos)
+            case BuildKind.FOUNDRY:
+                cost, _ = ct.get_foundry_cost()
+                if ti >= cost:
+                    self._destroy_friendly(ct, self.pos)
+                    if ct.can_build_foundry(self.pos):
+                        ct.build_foundry(self.pos)
+            case BuildKind.SPLITTER:
+                assert isinstance(self.aux, Direction)
+                cost, _ = ct.get_splitter_cost()
+                if ti >= cost:
+                    self._destroy_friendly(ct, self.pos)
+                    if ct.can_build_splitter(self.pos, self.aux):
+                        ct.build_splitter(self.pos, self.aux)
             case BuildKind.SELF_DESTRUCT:
                 ct.self_destruct()
             case BuildKind.HEAL:

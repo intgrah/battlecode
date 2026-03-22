@@ -12,11 +12,12 @@ from marker import Eureka, TaskClaim
 from .build import Build, BuildKind
 from .explore import ExploreMixin
 from .fix_excess import FixExcessMixin
+from .foundry import FoundryMixin
 from .harvest import HarvestMixin
 from .raid import RaidMixin
 
 
-class Builder(HarvestMixin, FixExcessMixin, RaidMixin, ExploreMixin):
+class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixin):
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
         core_pos = self._find_core(ct)
@@ -58,11 +59,11 @@ class Builder(HarvestMixin, FixExcessMixin, RaidMixin, ExploreMixin):
         self._write_marker(ct)
 
     def _policy(self, ct: Controller, pos: Position) -> tuple[Direction, Build | None]:
-        result = self._place_harvester(ct, pos)
-        if result[1] is not None:
+        result = self._fix_excess(ct, pos)
+        if result is not None:
             return result
 
-        result = self._fix_excess(ct, pos)
+        result = self._harvest(ct, pos)
         if result is not None:
             return result
 
@@ -70,7 +71,11 @@ class Builder(HarvestMixin, FixExcessMixin, RaidMixin, ExploreMixin):
         if result is not None:
             return result
 
-        result = self._nav_ore(ct, pos)
+        result = self._place_foundry(ct, pos)
+        if result is not None:
+            return result
+
+        result = self._split_foundry(ct, pos)
         if result is not None:
             return result
 
