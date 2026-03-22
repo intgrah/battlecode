@@ -16,7 +16,8 @@
       "Bash(python scripts/replay_builders.py /tmp/v30_test.replay26)",
       "Bash(python scripts/replay_economy.py /tmp/v30_test.replay26)",
       "Bash(git checkout:*)",
-      "Bash(CAMBC_API_URL=https://game.staging.battlecode.cam python3 /home/intgrah/git/intgrah/battlecode/scripts/wait_match.py 2a3ef31c-0ec0-4ce7-adfa-eeee36d1d55a)"
+      "Bash(CAMBC_API_URL=https://game.staging.battlecode.cam python3 /home/intgrah/git/intgrah/battlecode/scripts/wait_match.py 2a3ef31c-0ec0-4ce7-adfa-eeee36d1d55a)",
+      "Bash(CAMBC_API_URL=https://game.staging.battlecode.cam cambc unrated b1b80504-7b20-4d36-9f2a-b5200c8db924)"
     ],
     "additionalDirectories": [
       "/home/intgrah/git/intgrah/battlecode/bots"
