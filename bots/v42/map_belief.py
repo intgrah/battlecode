@@ -361,30 +361,6 @@ class MapBelief:
             or self.idx(cx, cy) in self.en_harvesters
             for cx, cy in changed
         )
-        _has_foundry_change = False
-        for cx, cy in changed:
-            ent = self.entity[self.idx(cx, cy)]
-            if ent is not None and ent[0] in (EntityType.SPLITTER, EntityType.FOUNDRY):
-                _has_foundry_change = True
-                break
-        if self.my_foundries or _has_foundry_change:
-            with open("/tmp/v41_flow_debug.log", "a") as dbg:
-                dbg.write(f"r={rnd} changed={len(changed)} reflow={needs_reflow} foundries={self.my_foundries} transport={len(self.my_transport)}\n")
-                for fi in self.my_foundries:
-                    fx, fy = fi % self.w, fi // self.w
-                    ent = self.entity[fi]
-                    dbg.write(f"  belief_foundry ({fx},{fy}) ent={ent} dir={self.direction[fi]}\n")
-                    for ddx, ddy in _CARDINALS:
-                        nx, ny = fx + ddx, fy + ddy
-                        if self.in_bounds(nx, ny):
-                            ni = self.idx(nx, ny)
-                            nent = self.entity[ni]
-                            dbg.write(f"    adj ({nx},{ny}) ent={nent} dir={self.direction[ni]} in_transport={ni in self.my_transport}\n")
-                for cx, cy in changed:
-                    ci = self.idx(cx, cy)
-                    ent = self.entity[ci]
-                    if ent is not None:
-                        dbg.write(f"  changed ({cx},{cy}) {ent[0].name} in_transport={ci in self.my_transport} in_foundries={ci in self.my_foundries} dir={self.direction[ci]}\n")
         if needs_reflow:
             self.recompute_flow()
         if needs_enemy_reflow:
@@ -512,6 +488,7 @@ class MapBelief:
     # -- Flow computation (Kahn's topological sort) --
 
     def _accepts_input_from(self, ti: int, from_dir: Direction) -> bool:
+        """Check if tile ti accepts input arriving along from_dir (source->target direction)."""
         ent = self.entity[ti]
         if ent is None:
             return True
@@ -520,11 +497,11 @@ class MapBelief:
         if etype == EntityType.SPLITTER:
             if d is None:
                 return False
-            return from_dir == d.opposite()
+            return from_dir == d
         if etype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
             if d is None:
                 return True
-            return from_dir != d
+            return from_dir != d.opposite()
         return True
 
     def _harvester_ore_type(self, i: int) -> Environment | None:
@@ -705,17 +682,10 @@ class MapBelief:
                         queue.append(oi)
                 total_out = rax_out * len(outs)
                 f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
-                cx, cy = ci % w, ci // w
-                with open("/tmp/v41_flow_debug.log", "a") as dbg:
-                    dbg.write(f"  FOUNDRY ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} refined={refined:.3f} outs={len(outs)} excess={f.excess[ci]:.3f}\n")
             elif etype in _TRANSPORT:
                 ti_in = f.ti[ci]
                 ax_in = f.ax[ci]
                 rax_in = f.rax[ci]
-                if etype == EntityType.SPLITTER:
-                    cx, cy = ci % w, ci // w
-                    with open("/tmp/v41_flow_debug.log", "a") as dbg:
-                        dbg.write(f"  SPLITTER ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} outs={len(outs)}\n")
                 divisor = 3 if etype == EntityType.SPLITTER else 1
                 ti_push = ti_in / divisor
                 ax_push = ax_in / divisor

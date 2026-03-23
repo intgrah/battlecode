@@ -54,20 +54,11 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             build.execute(ct)
 
         if self._debug_target is not None:
-            target, r, g, b = self._debug_target
-            ct.draw_indicator_line(ct.get_position(), target, r, g, b)
+            ct.draw_indicator_line(ct.get_position(), *self._debug_target)
         self._write_marker(ct)
 
     def _policy(self, ct: Controller, pos: Position) -> tuple[Direction, Build | None]:
-        result = self._fix_excess(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._harvest(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._raid(ct, pos)
+        result = self._fix_excess_ti_rax(ct, pos)
         if result is not None:
             return result
 
@@ -75,7 +66,19 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         if result is not None:
             return result
 
-        result = self._split_foundry(ct, pos)
+        result = self._fix_excess_ax(ct, pos)
+        if result is not None:
+            return result
+
+        result = self._harvest_ti(ct, pos)
+        if result is not None:
+            return result
+
+        result = self._harvest_ax(ct, pos)
+        if result is not None:
+            return result
+
+        result = self._raid(ct, pos)
         if result is not None:
             return result
 
