@@ -21,7 +21,7 @@ cambc run starter starter --watch
 ```
 
 <Info>
-  Teams can have at most **50 living units total**, including the core. In larger bots, use `c.can_build_unit()` before spawning or building units.
+  Teams can have at most **50 living units total**, including the core. In larger bots, use `c.get_unit_count()` and `c.get_max_unit_count()` if you want the exact numbers. `c.can_spawn()` and any unit-producing `c.can_build_*()` method already account for the cap.
 </Info>
 
 ## Bot structure

@@ -149,8 +149,12 @@ class Player:
   Return this team's current cost scale as a percentage (100.0 = base cost).
 </ResponseField>
 
-<ResponseField name="can_build_unit()" type="bool">
-  Return True if your team is below the global 50-unit cap and may create another living unit. The cap includes the core.
+<ResponseField name="get_unit_count()" type="int">
+  Return the number of living units currently on your team, including the core.
+</ResponseField>
+
+<ResponseField name="get_max_unit_count()" type="int">
+  Return the maximum number of living units your team may have at once. This includes the core.
 </ResponseField>
 
 <ResponseField name="get_cpu_time_elapsed()" type="int">
@@ -191,7 +195,7 @@ c.get_builder_bot_cost()
 
 Every buildable entity has `can_build_*` and `build_*` methods. All require action cooldown == 0 and sufficient resources. The `can_build_*` variants return `bool`; `build_*` returns the new entity's `int` id or raises `GameError` if not legal.
 
-Methods that create living units (the turret build methods and `spawn_builder()`) also require room under the global unit cap. Use `can_build_unit()` to check this explicitly.
+If a `can_build_*` method would create a living unit, it also accounts for the global unit cap.
 
 ### Directional buildings
 
@@ -229,11 +233,11 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
-  Heal on the acting builder bot's own tile. Costs 1 titanium and one action cooldown. If the builder bot is damaged, it heals the builder bot for 4 HP; otherwise it heals the building underneath for 4 HP.
+  Heal all friendly entities on the tile at position by 4 HP. Costs 1 titanium and one action cooldown.
 </ResponseField>
 
 <ResponseField name="can_heal(position: Position)" type="bool">
-  Return True if this builder bot can heal at position this round. Only the builder bot's own tile is legal, and either the bot or the building underneath must be damaged.
+  Return True if this builder bot can heal the tile at position this round. The tile must be within action radius, and at least one friendly entity on it must be damaged.
 </ResponseField>
 
 <ResponseField name="destroy(building_pos: Position)" type="None">
