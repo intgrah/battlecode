@@ -6,16 +6,35 @@ from .build import Build, BuildKind
 
 
 class HarvestMixin(BuilderBase):
-    def _harvest(
+    def _harvest_ti(
         self,
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Build | None] | None:
-        unharvested = (
-            (self.belief.ore_ti | self.belief.ore_ax)
-            - self.belief.my_harvested
-            - self.belief.en_harvested
+        return self._harvest_impl(
+            ct, pos, self.belief.ore_ti - self.belief.my_harvested - self.belief.en_harvested,
         )
+
+    def _harvest_ax(
+        self,
+        ct: Controller,
+        pos: Position,
+    ) -> tuple[Direction, Build | None] | None:
+        has_ti_flow = any(
+            self.belief.my_flow.ti[i] > 0 for i in self.belief.my_transport
+        )
+        if not has_ti_flow:
+            return None
+        return self._harvest_impl(
+            ct, pos, self.belief.ore_ax - self.belief.my_harvested - self.belief.en_harvested,
+        )
+
+    def _harvest_impl(
+        self,
+        ct: Controller,
+        pos: Position,
+        unharvested: set[tuple[int, int]],
+    ) -> tuple[Direction, Build | None] | None:
         if not unharvested:
             return None
 

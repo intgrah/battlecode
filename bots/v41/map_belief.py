@@ -512,6 +512,7 @@ class MapBelief:
     # -- Flow computation (Kahn's topological sort) --
 
     def _accepts_input_from(self, ti: int, from_dir: Direction) -> bool:
+        """Check if tile ti accepts input arriving along from_dir (source→target direction)."""
         ent = self.entity[ti]
         if ent is None:
             return True
@@ -520,11 +521,11 @@ class MapBelief:
         if etype == EntityType.SPLITTER:
             if d is None:
                 return False
-            return from_dir == d.opposite()
+            return from_dir == d
         if etype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
             if d is None:
                 return True
-            return from_dir != d
+            return from_dir != d.opposite()
         return True
 
     def _harvester_ore_type(self, i: int) -> Environment | None:
