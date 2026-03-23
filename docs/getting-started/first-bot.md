@@ -20,6 +20,10 @@ The starter bot demonstrates core mechanics: the core spawns builder bots, build
 cambc run starter starter --watch
 ```
 
+<Info>
+  Teams can have at most **50 living units total**, including the core. In larger bots, use `c.can_build_unit()` before spawning or building units.
+</Info>
+
 ## Bot structure
 
 Every bot is a Python file containing a `Player` class with a `run` method. The engine creates one `Player` instance per unit and calls `run(controller)` once per round.

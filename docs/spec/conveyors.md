@@ -46,8 +46,8 @@ Outputs its contents to a **specific tile within Euclidean distance 3** (distanc
 | Property  | Value |
 | --------- | ----- |
 | HP        | 20    |
-| Base cost | 10 Ti |
-| Scaling   | 1%    |
+| Base cost | 20 Ti |
+| Scaling   | 5%    |
 
 ```python  theme={"dark"}
 # Build a bridge that outputs to a target position

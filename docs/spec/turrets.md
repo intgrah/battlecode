@@ -14,11 +14,19 @@ Ammo-based turrets can hold up to one stack of one resource type and only accept
   If a tile containing both a building and a unit is hit, **both** take full damage.
 </Info>
 
+<Info>
+  Raw axionite fed into a turret is **destroyed**. Only the ammo types listed below have any effect.
+</Info>
+
 ## Gunner
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/gunner.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=62439f66dff4e5aa36645340d4daad02" alt="Gunner" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/gunner.png" />
 
 Has a vision radius of √13. Can only target the **closest non-empty tile** in the direction it is facing. Using refined axionite as ammo deals double damage.
+
+<Info>
+  Markers remain targetable, but they do **not** shield occupied tiles behind them.
+</Info>
 
 | Property      | Value                         |
 | ------------- | ----------------------------- |
@@ -47,16 +55,16 @@ Has a vision radius of √13. Can only target the **closest non-empty tile** in 
 
 High range, low damage support turret. Can hit all tiles within **1 king move** (Chebyshev distance) of the straight line in its facing direction, within vision range.
 
-Using refined axionite instead of titanium as ammo adds **+3 to the action and move cooldown** of any unit directly hit — acting as a stun.
+Using refined axionite instead of titanium as ammo adds **+2 to the action and move cooldown** of any unit directly hit — acting as a stun.
 
 | Property      | Value               |
 | ------------- | ------------------- |
 | HP            | 30                  |
 | Base cost     | 15 Ti               |
-| Scaling       | 10%                 |
-| Damage        | 20                  |
-| Reload        | 4 rounds            |
-| Ammo per shot | 10                  |
+| Scaling       | 20%                 |
+| Damage        | 10                  |
+| Reload        | 2 rounds            |
+| Ammo per shot | 5                   |
 | Vision r²     | 32                  |
 | Attack r²     | 32 (same as vision) |
 
@@ -71,7 +79,7 @@ Using refined axionite instead of titanium as ammo adds **+3 to the action and m
 </Tabs>
 
 <Tip>
-  Sentinels with refined axionite ammo are extremely powerful — a +3 cooldown stun can completely shut down enemy builder bots.
+  Sentinels with refined axionite ammo still disrupt builder bots by delaying both movement and actions.
 </Tip>
 
 ## Breach
@@ -88,16 +96,16 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 | Damage        | 40 direct + 20 splash (8 surrounding tiles) |
 | Reload        | 1 round                                     |
 | Ammo per shot | 5 (refined axionite only)                   |
-| Vision r²     | 10                                          |
+| Vision r²     | 13                                          |
 | Attack r²     | 5                                           |
 
 <Tabs>
   <Tab title="Cardinal">
-        <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/breach-cardinal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=6772d55191483a12387ffe30564d9229" alt="Breach range — cardinal direction" width="1257" height="1180" data-path="images/ranges/breach-cardinal.png" />
+        <img src="https://mintcdn.com/cambridgebattlecode/jkHPwcNhhgR_-bsi/images/ranges/breach-cardinal.png?fit=max&auto=format&n=jkHPwcNhhgR_-bsi&q=85&s=401c6ed47480bff1a0791b8b80e25bf9" alt="Breach range — cardinal direction" width="1024" height="984" data-path="images/ranges/breach-cardinal.png" />
   </Tab>
 
   <Tab title="Diagonal">
-        <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/breach-diagonal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=3bd0b9962a4ff67130873b0422ba77f9" alt="Breach range — diagonal direction" width="1257" height="1180" data-path="images/ranges/breach-diagonal.png" />
+        <img src="https://mintcdn.com/cambridgebattlecode/HREr2plTj9cAMxXJ/images/ranges/breach-diagonal.png?fit=max&auto=format&n=HREr2plTj9cAMxXJ&q=85&s=abf61b4bda33d930891fe73a6d9379c8" alt="Breach range — diagonal direction" width="1024" height="986" data-path="images/ranges/breach-diagonal.png" />
   </Tab>
 </Tabs>
 
