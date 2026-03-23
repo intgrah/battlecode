@@ -87,6 +87,12 @@ _TURRETS = frozenset(
 )
 
 _CARDINALS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+_DELTA_TO_DIR = {
+    (0, -1): Direction.NORTH,
+    (0, 1): Direction.SOUTH,
+    (1, 0): Direction.EAST,
+    (-1, 0): Direction.WEST,
+}
 
 
 class MapBelief:
@@ -505,6 +511,22 @@ class MapBelief:
 
     # -- Flow computation (Kahn's topological sort) --
 
+    def _accepts_input_from(self, ti: int, from_dir: Direction) -> bool:
+        ent = self.entity[ti]
+        if ent is None:
+            return True
+        etype = ent[0]
+        d = self.direction[ti]
+        if etype == EntityType.SPLITTER:
+            if d is None:
+                return False
+            return from_dir == d.opposite()
+        if etype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+            if d is None:
+                return True
+            return from_dir != d
+        return True
+
     def _harvester_ore_type(self, i: int) -> Environment | None:
         x, y = i % self.w, i // self.w
         if (x, y) in self.ore_ti:
@@ -606,16 +628,17 @@ class MapBelief:
 
         for i in foundries:
             ix, iy = i % w, i // w
-            feeders = set(in_reverse.get(i, []))
             outs: list[int] = []
             for ddx, ddy in _CARDINALS:
                 nx, ny = ix + ddx, iy + ddy
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
-                    if ni in in_degree and ni not in foundries and ni not in feeders:
-                        outs.append(ni)
-                        in_degree[ni] += 1
-                        in_reverse.setdefault(ni, []).append(i)
+                    if ni in in_degree and ni not in foundries:
+                        from_dir = _DELTA_TO_DIR.get((ddx, ddy))
+                        if from_dir is not None and self._accepts_input_from(ni, from_dir):
+                            outs.append(ni)
+                            in_degree[ni] += 1
+                            in_reverse.setdefault(ni, []).append(i)
             out_target[i] = outs
 
         queue: deque[int] = deque()
