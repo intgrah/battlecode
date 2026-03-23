@@ -95,6 +95,7 @@ def extract_state(r: Replay):
 
     transports = {p: e for p, e in pos_map.items() if e["type"] in TRANSPORT_TYPES}
     harvesters = {p: e for p, e in pos_map.items() if e["type"] == "harvester"}
+    foundries = {p: e for p, e in pos_map.items() if e["type"] == "foundry"}
     roads_set = {p for p, e in pos_map.items() if e["type"] == "road"}
 
     return (
@@ -108,32 +109,52 @@ def extract_state(r: Replay):
         ore_ax,
         transports,
         harvesters,
+        foundries,
         roads_set,
     )
 
 
-def compute_flow(core_tiles, transports, harvesters):
+def compute_flow(core_tiles, transports, harvesters, ore_ti, ore_ax, foundries):
     output_of = {}
+    splitter_outs = {}
     for pos, t in transports.items():
         if t["type"] == "bridge":
-            output_of[pos] = t.get("target")
+            output_of[pos] = [t.get("target")] if t.get("target") else []
+        elif t["type"] == "splitter" and t.get("dir"):
+            dx, dy = t["dir"]
+            outs = []
+            for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
+                nb = (pos[0] + odx, pos[1] + ody)
+                outs.append(nb)
+            splitter_outs[pos] = outs
+            output_of[pos] = outs
         elif t.get("dir"):
             dx, dy = t["dir"]
-            output_of[pos] = (pos[0] + dx, pos[1] + dy)
+            output_of[pos] = [(pos[0] + dx, pos[1] + dy)]
 
-    all_nodes = set(transports.keys()) | core_tiles
+    all_nodes = set(transports.keys()) | core_tiles | set(foundries.keys())
     in_deg = dict.fromkeys(all_nodes, 0)
     for pos in transports:
-        out = output_of.get(pos)
-        if out and out in all_nodes:
-            in_deg[out] += 1
+        for out in output_of.get(pos, []):
+            if out in all_nodes:
+                in_deg[out] += 1
+    for fpos in foundries:
+        for dx, dy in CARD:
+            nb = (fpos[0] + dx, fpos[1] + dy)
+            if nb in all_nodes and nb not in foundries:
+                in_deg[nb] += 1
     for hpos in harvesters:
         for dx, dy in CARD:
             nb = (hpos[0] + dx, hpos[1] + dy)
             if nb in all_nodes:
                 in_deg[nb] += 1
 
-    flow_at = dict.fromkeys(all_nodes, 0.0)
+    z = {p: 0.0 for p in all_nodes}
+    ti_flow = dict(z)
+    ax_flow = dict(z)
+    rax_flow = dict(z)
+    flow_at = dict(z)
+
     queue: deque = deque()
     for hpos in harvesters:
         outs = [
@@ -143,13 +164,19 @@ def compute_flow(core_tiles, transports, harvesters):
         ]
         n = max(len(outs), 1)
         push = 0.25 / n
+        is_ti = hpos in ore_ti
+        is_ax = hpos in ore_ax
         for nb in outs:
+            if is_ti:
+                ti_flow[nb] += push
+            elif is_ax:
+                ax_flow[nb] += push
             flow_at[nb] += push
             in_deg[nb] -= 1
             if in_deg[nb] == 0:
                 queue.append(nb)
     for pos, d in in_deg.items():
-        if d == 0 and pos not in core_tiles and pos in transports:
+        if d == 0 and pos not in core_tiles and (pos in transports or pos in foundries):
             queue.append(pos)
 
     processed: set = set()
@@ -160,19 +187,45 @@ def compute_flow(core_tiles, transports, harvesters):
         processed.add(pos)
         if pos in core_tiles:
             continue
+
+        if pos in foundries:
+            ti_in = ti_flow[pos]
+            ax_in = ax_flow[pos]
+            refined = min(ti_in, ax_in)
+            rax_in = rax_flow[pos]
+            rax_out = rax_in + refined
+            for dx, dy in CARD:
+                nb = (pos[0] + dx, pos[1] + dy)
+                if nb in all_nodes and nb not in foundries:
+                    rax_flow[nb] += rax_out
+                    flow_at[nb] += rax_out
+                    in_deg[nb] -= 1
+                    if in_deg[nb] == 0:
+                        queue.append(nb)
+            continue
+
         if pos not in transports:
             continue
-        incoming = flow_at[pos]
-        out = output_of.get(pos)
-        if out and out in all_nodes:
-            t = transports[pos]
-            push = incoming / 3 if t["type"] == "splitter" else incoming
-            flow_at[out] += push
-            in_deg[out] -= 1
-            if in_deg[out] == 0:
-                queue.append(out)
+        t = transports[pos]
+        ti_in = ti_flow[pos]
+        ax_in = ax_flow[pos]
+        rax_in = rax_flow[pos]
+        divisor = 3 if t["type"] == "splitter" else 1
+        ti_push = ti_in / divisor
+        ax_push = ax_in / divisor
+        rax_push = rax_in / divisor
+        total_push = ti_push + ax_push + rax_push
+        for out in output_of.get(pos, []):
+            if out in all_nodes:
+                ti_flow[out] += ti_push
+                ax_flow[out] += ax_push
+                rax_flow[out] += rax_push
+                flow_at[out] += total_push
+                in_deg[out] -= 1
+                if in_deg[out] == 0:
+                    queue.append(out)
 
-    return dict(flow_at.items())
+    return flow_at, ti_flow, ax_flow, rax_flow
 
 
 def render(
@@ -186,8 +239,12 @@ def render(
     ore_ax,
     transports,
     harvesters,
+    foundries,
     roads_set,
     flow_qs,
+    ti_flow,
+    ax_flow,
+    rax_flow,
     output_path,
 ) -> None:
     CELL = 48
@@ -221,6 +278,8 @@ def render(
                     if f > 0
                     else (50, 50, 100)
                 )
+            elif pos in foundries:
+                bg = (140, 80, 30)
             elif pos in harvesters:
                 bg = (40, 120, 40)
             elif pos in transports:
@@ -258,11 +317,31 @@ def render(
                     fill=(180, 180, 180),
                     font=sfont,
                 )
+            elif pos in foundries:
+                ti_f = ti_flow.get(pos, 0.0)
+                ax_f = ax_flow.get(pos, 0.0)
+                rax_f = rax_flow.get(pos, 0.0)
+                draw.text((px + 2, py + 1), "F", fill=tc, font=font)
+                draw.text((px + 2, py + 14), f"T{ti_f:.1f}", fill=(100, 180, 255), font=sfont)
+                draw.text((px + 2, py + 24), f"A{ax_f:.1f}", fill=(255, 160, 80), font=sfont)
+                draw.text((px + 2, py + 34), f"R{rax_f:.1f}", fill=(200, 100, 255), font=sfont)
             elif pos in harvesters:
                 draw.text((px + 2, py + 1), "H", fill=tc, font=font)
             elif pos in transports:
                 f = flow_qs.get(pos, 0.0)
+                ti_f = ti_flow.get(pos, 0.0)
+                ax_f = ax_flow.get(pos, 0.0)
+                rax_f = rax_flow.get(pos, 0.0)
                 draw.text((px + 2, py + 1), f"{f:.2f}", fill=tc, font=font)
+                parts = []
+                if ti_f > 0.001:
+                    parts.append(f"T{ti_f:.1f}")
+                if ax_f > 0.001:
+                    parts.append(f"A{ax_f:.1f}")
+                if rax_f > 0.001:
+                    parts.append(f"R{rax_f:.1f}")
+                if parts:
+                    draw.text((px + 2, py + 16), " ".join(parts), fill=(180, 180, 180), font=sfont)
                 draw.text(
                     (px + 2, py + CELL - 13),
                     transports[pos]["type"][0].upper(),
@@ -355,16 +434,22 @@ def main() -> None:
         ore_ax,
         transports,
         harvesters,
+        foundries,
         roads_set,
     ) = extract_state(r)
-    flow_qs = compute_flow(core_tiles, transports, harvesters)
+    flow_qs, ti_flow, ax_flow, rax_flow = compute_flow(
+        core_tiles, transports, harvesters, ore_ti, ore_ax, foundries,
+    )
 
     over_1 = sum(1 for f in flow_qs.values() if f > 1.0)
     over_half = sum(1 for f in flow_qs.values() if f > 0.5)
     total_core = sum(flow_qs.get(ct, 0.0) for ct in core_tiles)
-    print(f"Harvesters: {len(harvesters)}, Transport: {len(transports)}")
+    ti_core = sum(ti_flow.get(ct, 0.0) for ct in core_tiles)
+    ax_core = sum(ax_flow.get(ct, 0.0) for ct in core_tiles)
+    rax_core = sum(rax_flow.get(ct, 0.0) for ct in core_tiles)
+    print(f"Harvesters: {len(harvesters)}, Transport: {len(transports)}, Foundries: {len(foundries)}")
     print(f"Congested (>1.0): {over_1}, Near capacity (>0.5): {over_half}")
-    print(f"Total flow to core: {total_core:.2f}/turn")
+    print(f"Total flow to core: {total_core:.2f}/turn (Ti={ti_core:.2f} Ax={ax_core:.2f} rAx={rax_core:.2f})")
 
     render(
         w,
@@ -377,8 +462,12 @@ def main() -> None:
         ore_ax,
         transports,
         harvesters,
+        foundries,
         roads_set,
         flow_qs,
+        ti_flow,
+        ax_flow,
+        rax_flow,
         output_path,
     )
 
