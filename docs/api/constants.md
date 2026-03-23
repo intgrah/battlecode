@@ -34,7 +34,7 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | `BUILDER_BOT_VISION_RADIUS_SQ` | 20    | Builder bot vision               |
 | `GUNNER_VISION_RADIUS_SQ`      | 13    | Gunner vision                    |
 | `SENTINEL_VISION_RADIUS_SQ`    | 32    | Sentinel vision                  |
-| `BREACH_VISION_RADIUS_SQ`      | 10    | Breach vision                    |
+| `BREACH_VISION_RADIUS_SQ`      | 13    | Breach vision                    |
 | `BREACH_ATTACK_RADIUS_SQ`      | 5     | Breach attack cone               |
 | `LAUNCHER_VISION_RADIUS_SQ`    | 26    | Launcher vision + throw range    |
 | `BRIDGE_TARGET_RADIUS_SQ`      | 9     | Max bridge output distance²      |
@@ -43,10 +43,10 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 
 | Constant                      | Value    |
 | ----------------------------- | -------- |
-| `BUILDER_BOT_BASE_COST`       | (10, 0)  |
+| `BUILDER_BOT_BASE_COST`       | (50, 0)  |
 | `CONVEYOR_BASE_COST`          | (3, 0)   |
 | `SPLITTER_BASE_COST`          | (6, 0)   |
-| `BRIDGE_BASE_COST`            | (10, 0)  |
+| `BRIDGE_BASE_COST`            | (20, 0)  |
 | `ARMOURED_CONVEYOR_BASE_COST` | (10, 5)  |
 | `HARVESTER_BASE_COST`         | (80, 0)  |
 | `ROAD_BASE_COST`              | (1, 0)   |
@@ -81,14 +81,14 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 
 | Constant                           | Value | Description                   |
 | ---------------------------------- | ----- | ----------------------------- |
-| `BUILDER_BOT_SELF_DESTRUCT_DAMAGE` | 20    | Damage on self-destruct       |
-| `HEAL_AMOUNT`                      | 10    | HP restored per heal action   |
+| `BUILDER_BOT_SELF_DESTRUCT_DAMAGE` | 0     | Damage on self-destruct       |
+| `HEAL_AMOUNT`                      | 4     | HP restored per heal action   |
 | `GUNNER_DAMAGE`                    | 10    | Gunner base damage per shot   |
 | `GUNNER_FIRE_COOLDOWN`             | 1     | Turns between gunner shots    |
 | `GUNNER_AMMO_COST`                 | 2     | Resources consumed per shot   |
-| `SENTINEL_DAMAGE`                  | 20    | Sentinel damage per shot      |
-| `SENTINEL_FIRE_COOLDOWN`           | 4     | Turns between sentinel shots  |
-| `SENTINEL_AMMO_COST`               | 10    | Resources consumed per shot   |
+| `SENTINEL_DAMAGE`                  | 10    | Sentinel damage per shot      |
+| `SENTINEL_FIRE_COOLDOWN`           | 2     | Turns between sentinel shots  |
+| `SENTINEL_AMMO_COST`               | 5     | Resources consumed per shot   |
 | `BREACH_DAMAGE`                    | 40    | Breach direct hit damage      |
 | `BREACH_SPLASH_DAMAGE`             | 20    | Breach splash damage          |
 | `BREACH_FIRE_COOLDOWN`             | 1     | Turns between breach shots    |

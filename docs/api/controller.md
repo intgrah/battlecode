@@ -70,7 +70,7 @@ class Player:
 </ResponseField>
 
 <ResponseField name="get_gunner_target()" type="Position | None">
-  Return the position of the closest non-empty tile in the gunner's facing direction, or None if nothing is in range. Only valid on gunners.
+  Return the position of the gunner's current target tile in its facing direction, or None if nothing is in range. Markers remain targetable, but they do not shield occupied tiles behind them. Only valid on gunners.
 </ResponseField>
 
 ### Building info
@@ -149,6 +149,10 @@ class Player:
   Return this team's current cost scale as a percentage (100.0 = base cost).
 </ResponseField>
 
+<ResponseField name="can_build_unit()" type="bool">
+  Return True if your team is below the global 50-unit cap and may create another living unit. The cap includes the core.
+</ResponseField>
+
 <ResponseField name="get_cpu_time_elapsed()" type="int">
   Return the CPU time elapsed this round in microseconds.
 </ResponseField>
@@ -187,6 +191,8 @@ c.get_builder_bot_cost()
 
 Every buildable entity has `can_build_*` and `build_*` methods. All require action cooldown == 0 and sufficient resources. The `can_build_*` variants return `bool`; `build_*` returns the new entity's `int` id or raises `GameError` if not legal.
 
+Methods that create living units (the turret build methods and `spawn_builder()`) also require room under the global unit cap. Use `can_build_unit()` to check this explicitly.
+
 ### Directional buildings
 
 These take `(position: Position, direction: Direction)` — the direction the building faces:
@@ -223,11 +229,11 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
-  Heal all friendly entities on the tile by 10 HP. Costs one action cooldown.
+  Heal on the acting builder bot's own tile. Costs 1 titanium and one action cooldown. If the builder bot is damaged, it heals the builder bot for 4 HP; otherwise it heals the building underneath for 4 HP.
 </ResponseField>
 
 <ResponseField name="can_heal(position: Position)" type="bool">
-  Return True if this builder bot can heal the tile this round.
+  Return True if this builder bot can heal at position this round. Only the builder bot's own tile is legal, and either the bot or the building underneath must be damaged.
 </ResponseField>
 
 <ResponseField name="destroy(building_pos: Position)" type="None">
@@ -239,11 +245,11 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 </ResponseField>
 
 <ResponseField name="self_destruct()" type="None">
-  Destroy this unit. Builder bots deal 20 damage to their tile.
+  Destroy this unit. Builder bots no longer deal damage on self-destruct. **Terminates this unit's execution immediately** — no code after `self_destruct()` will run.
 </ResponseField>
 
 <ResponseField name="resign()" type="None">
-  Forfeit the game immediately. Destroys this team's core, ending the game as a loss.
+  Forfeit the game immediately. Destroys this team's core, ending the game as a loss. **Terminates this unit's execution immediately** — no code after `resign()` will run.
 </ResponseField>
 
 ## Markers
@@ -263,11 +269,11 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Combat
 
 <ResponseField name="fire(target: Position)" type="None">
-  Fire this turret at target. Use `launch()` for launchers.
+  Fire this turret at target, or perform the builder bot's own-tile attack. Builder bots spend 2 titanium to deal 2 damage to the building on their current tile. Use `launch()` for launchers.
 </ResponseField>
 
 <ResponseField name="can_fire(target: Position)" type="bool">
-  Return True if this turret can fire at target this round.
+  Return True if this turret can fire at target this round, or if this builder bot can use its own-tile attack on target.
 </ResponseField>
 
 <ResponseField name="launch(bot_pos: Position, target: Position)" type="None">
@@ -281,11 +287,11 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Core
 
 <ResponseField name="spawn_builder(position: Position)" type="int">
-  Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown. Returns the new entity's id.
+  Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown and requires room under the global unit cap. Returns the new entity's id.
 </ResponseField>
 
 <ResponseField name="can_spawn(position: Position)" type="bool">
-  Return True if the core can spawn a builder at position this round.
+  Return True if the core can spawn a builder at position this round, including the unit-cap check.
 </ResponseField>
 
 ## Debug indicators

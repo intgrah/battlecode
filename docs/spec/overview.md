@@ -81,6 +81,8 @@ Units are game entities which run an **independent instance** of the code that y
 
 Each round, units take their turns **in the order they were spawned**. After all units have taken their turn, [resources are distributed](/spec/conveyors#resource-distribution). See the [reference tables](/spec/reference) for a quick comparison of all entity stats.
 
+Each team can have at most **50 living units total**, including the core. In practice, that means a team can have at most **49 additional living units** at once.
+
 ### Vision and action radius
 
 Units have a **vision radius** and an **action radius**.
@@ -101,7 +103,7 @@ Turrets also have an **attack range** which is different from their action radiu
       <tr><td>Builder bot</td><td>20</td><td>2</td></tr>
       <tr><td>Gunner</td><td>13</td><td>2</td></tr>
       <tr><td>Sentinel</td><td>32</td><td>2</td></tr>
-      <tr><td>Breach</td><td>10</td><td>2</td></tr>
+      <tr><td>Breach</td><td>13</td><td>2</td></tr>
       <tr><td>Launcher</td><td>26</td><td>2</td></tr>
     </tbody>
   </table>
@@ -121,7 +123,7 @@ All units may place one [marker](/spec/other-buildings#marker) per round on a ti
 
 ### Self-destruct
 
-All units may self-destruct at any time. Builder bots deal **20 damage** to the tile they are standing on upon self-destruct.
+All units may self-destruct at any time. Builder bots do **not** deal damage when they self-destruct.
 
 ## Buildings
 

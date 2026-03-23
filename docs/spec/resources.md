@@ -24,7 +24,7 @@ Axionite comes in two forms:
   <Card title="Raw axionite" icon="gem">
     <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/resources/axionite-raw.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=38b077f489b1034e7689f88bd83f2ca6" alt="Raw axionite" style={{ width: 32 }} width="512" height="512" data-path="images/resources/axionite-raw.png" />
 
-    Mined from axionite ore deposits. When fed to a turret or core, it **decays into titanium**. Must be refined first for advanced uses.
+    Mined from axionite ore deposits. When fed to a turret or core, it is **destroyed**. You must refine it first for advanced uses.
   </Card>
 
   <Card title="Refined axionite" icon="flask-vial">
@@ -56,7 +56,7 @@ $$
 \text{cost} = \lfloor \text{scale} \times \text{base cost} \rfloor
 $$
 
-Where scale starts at 1.0 and increases **additively** with each entity built — two builder bots at +10% each gives 1.2x, not 1.21x. You can query the current scale with `c.get_scale_percent()` which returns it as a percentage (100.0 at base).
+Where scale starts at 1.0 and increases **additively** with each entity built — two gunners at +10% each give 1.2x, not 1.21x. You can query the current scale with `c.get_scale_percent()` which returns it as a percentage (100.0 at base).
 
 <DenseTable>
   <table>
@@ -64,8 +64,10 @@ Where scale starts at 1.0 and increases **additively** with each entity built �
 
     <tbody>
       <tr><td>Road</td><td>+0.5%</td></tr>
-      <tr><td>Conveyor, splitter, armoured conveyor, bridge, barrier</td><td>+1%</td></tr>
-      <tr><td>Builder bot, harvester, gunner, sentinel, breach, launcher</td><td>+10%</td></tr>
+      <tr><td>Conveyor, splitter, armoured conveyor, barrier</td><td>+1%</td></tr>
+      <tr><td>Bridge</td><td>+5%</td></tr>
+      <tr><td>Harvester, gunner, breach, launcher</td><td>+10%</td></tr>
+      <tr><td>Builder bot, sentinel</td><td>+20%</td></tr>
       <tr><td>Axionite foundry</td><td>+100%</td></tr>
     </tbody>
   </table>

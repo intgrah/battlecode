@@ -79,6 +79,8 @@ cambc run --watch my_bot opponent                   # run + auto-open visualiser
 cambc run my_bot opponent --replay out.replay26     # custom replay path
 ```
 
+After the match completes, `cambc run` prints a summary showing the winner, win condition, turn count, and a resource breakdown (titanium, axionite, units, and buildings) for each team.
+
 ### `cambc watch`
 
 View a replay in the browser-based visualiser.
