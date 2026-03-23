@@ -13,7 +13,7 @@ class Astar:
         sx: int,
         sy: int,
         goals: set[int],
-        edges: list[list[tuple[int, int, int]]],
+        edges: list[list[tuple[int, int]]],
         h_table: list[int],
     ) -> None:
         self.w = w
