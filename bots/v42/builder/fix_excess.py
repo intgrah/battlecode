@@ -82,7 +82,7 @@ class FixExcessMixin(BuilderBase):
         target = self._find_ti_conveyor(best_tile)
         if target is None:
             return None
-        return self._build_chain_to_target(ct, pos, best_tile, target, banned_leakage=TI | RAX)
+        return self._build_ax_chain(ct, pos, best_tile, target)
 
     def _find_ti_conveyor(self, source: tuple[int, int]) -> tuple[int, int] | None:
         best_conv = None
@@ -103,6 +103,96 @@ class FixExcessMixin(BuilderBase):
                 best_dist = dist
                 best_conv = (x, y)
         return best_conv
+
+    def _build_ax_chain(
+        self,
+        ct: Controller,
+        pos: Position,
+        source: tuple[int, int],
+        target: tuple[int, int],
+    ) -> tuple[Direction, Build | None] | None:
+        sx, sy = source
+        si = self.belief.idx(sx, sy)
+        ent = self.belief.entity[si]
+        if ent is not None and ent[0] in (EntityType.HARVESTER, EntityType.FOUNDRY):
+            best_start = None
+            best_d = 999999
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = sx + ddx, sy + ddy
+                if not self.belief.in_bounds(nx, ny):
+                    continue
+                ni = self.belief.idx(nx, ny)
+                env = self.belief.env[ni]
+                if env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
+                    continue
+                nent = self.belief.entity[ni]
+                if nent is not None and nent[0] in _TRANSPORT:
+                    continue
+                d = (nx - target[0]) ** 2 + (ny - target[1]) ** 2
+                if d < best_d:
+                    best_d = d
+                    best_start = (nx, ny)
+            if best_start is None:
+                return None
+            sx, sy = best_start
+
+        gx, gy = target
+        gi = self.belief.idx(gx, gy)
+        search = flow_astar(
+            self.belief, sx, sy, gx, gy,
+            goal_set={gi},
+            banned_leakage=TI | RAX,
+        )
+        search.compute(ct, 1200)
+        path = search.get_path()
+        if path is None or len(path) < 2:
+            return None
+
+        for k in range(len(path) - 1):
+            x, y = path[k]
+            nx, ny = path[k + 1]
+
+            pi = self.belief.idx(x, y)
+            pent = self.belief.entity[pi]
+            if pent is not None and pent[1] == self.belief.my_team:
+                ptype = pent[0]
+                if ptype in _TRANSPORT or ptype == EntityType.CORE:
+                    continue
+
+            build_at = Position(x, y)
+            dx, dy = nx - x, ny - y
+            is_cardinal = abs(dx) + abs(dy) == 1
+
+            if pos == build_at:
+                adj = self._cardinal_adjacent(pos, build_at)
+                if adj is not None:
+                    return self._move_toward_with_road(ct, pos, adj)
+                continue
+
+            if is_cardinal:
+                if pos.distance_squared(build_at) <= 2:
+                    d = build_at.direction_to(Position(nx, ny))
+                    return Direction.CENTRE, Build(BuildKind.CONVEYOR, build_at, d)
+                adj = self._cardinal_adjacent(pos, build_at)
+                if adj is not None:
+                    return self._move_toward_with_road(ct, pos, adj)
+                continue
+
+            if pos.distance_squared(build_at) <= 2:
+                return Direction.CENTRE, Build(
+                    BuildKind.BRIDGE,
+                    build_at,
+                    Position(nx, ny),
+                )
+            adj = self._cardinal_adjacent(pos, build_at)
+            if adj is not None:
+                return self._move_toward_with_road(ct, pos, adj)
+
+        return None
 
     def _build_chain_to_target(
         self,

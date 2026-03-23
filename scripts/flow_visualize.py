@@ -283,13 +283,23 @@ def render(
             elif pos in harvesters:
                 bg = (40, 120, 40)
             elif pos in transports:
+                ti_f = ti_flow.get(pos, 0.0)
+                ax_f = ax_flow.get(pos, 0.0)
+                rax_f = rax_flow.get(pos, 0.0)
+                has_ti = ti_f > 0.001
+                has_ax = ax_f > 0.001
+                has_rax = rax_f > 0.001
+                n_commodities = has_ti + has_ax + has_rax
                 f = flow_qs.get(pos, 0.0)
-                if f > 1.0:
-                    bg = (min(255, int(120 + f * 70)), 20, 20)
-                elif f > 0.5:
-                    bg = (180, 130, 20)
-                elif f > 0:
-                    bg = (20, min(255, int(70 + f * 140)), 20)
+                intensity = min(255, int(80 + f * 120))
+                if n_commodities > 1:
+                    bg = (intensity, 20, 20)
+                elif has_ti:
+                    bg = (20, 60, intensity)
+                elif has_ax:
+                    bg = (intensity, int(intensity * 0.6), 20)
+                elif has_rax:
+                    bg = (int(intensity * 0.7), 20, intensity)
                 else:
                     bg = (40, 65, 40)
             elif pos in ore_ti:
@@ -333,21 +343,15 @@ def render(
                 ax_f = ax_flow.get(pos, 0.0)
                 rax_f = rax_flow.get(pos, 0.0)
                 draw.text((px + 2, py + 1), f"{f:.2f}", fill=tc, font=font)
-                parts = []
+                y_off = 16
                 if ti_f > 0.001:
-                    parts.append(f"T{ti_f:.1f}")
+                    draw.text((px + 2, py + y_off), f"T{ti_f:.2f}", fill=(100, 180, 255), font=sfont)
+                    y_off += 10
                 if ax_f > 0.001:
-                    parts.append(f"A{ax_f:.1f}")
+                    draw.text((px + 2, py + y_off), f"A{ax_f:.2f}", fill=(255, 160, 80), font=sfont)
+                    y_off += 10
                 if rax_f > 0.001:
-                    parts.append(f"R{rax_f:.1f}")
-                if parts:
-                    draw.text((px + 2, py + 16), " ".join(parts), fill=(180, 180, 180), font=sfont)
-                draw.text(
-                    (px + 2, py + CELL - 13),
-                    transports[pos]["type"][0].upper(),
-                    fill=(150, 150, 150),
-                    font=sfont,
-                )
+                    draw.text((px + 2, py + y_off), f"R{rax_f:.2f}", fill=(200, 100, 255), font=sfont)
             elif pos in ore_ti:
                 draw.text((px + 2, py + 1), "Ti", fill=tc, font=font)
             elif pos in ore_ax:
@@ -447,7 +451,18 @@ def main() -> None:
     ti_core = sum(ti_flow.get(ct, 0.0) for ct in core_tiles)
     ax_core = sum(ax_flow.get(ct, 0.0) for ct in core_tiles)
     rax_core = sum(rax_flow.get(ct, 0.0) for ct in core_tiles)
-    print(f"Harvesters: {len(harvesters)}, Transport: {len(transports)}, Foundries: {len(foundries)}")
+    n_conv = sum(1 for t in transports.values() if t["type"] == "conveyor")
+    n_aconv = sum(1 for t in transports.values() if t["type"] == "armoured_conveyor")
+    n_bridge = sum(1 for t in transports.values() if t["type"] == "bridge")
+    n_splitter = sum(1 for t in transports.values() if t["type"] == "splitter")
+    n_mixed = sum(
+        1 for p in transports
+        if (ti_flow.get(p, 0) > 0.001) + (ax_flow.get(p, 0) > 0.001) + (rax_flow.get(p, 0) > 0.001) > 1
+    )
+    print(f"Harvesters: {len(harvesters)}, Foundries: {len(foundries)}")
+    print(f"Conv: {n_conv}, Armoured: {n_aconv}, Bridge: {n_bridge}, Splitter: {n_splitter}")
+    if n_mixed > 0:
+        print(f"MIXED FLOW TILES: {n_mixed} (BUG)")
     print(f"Congested (>1.0): {over_1}, Near capacity (>0.5): {over_half}")
     print(f"Total flow to core: {total_core:.2f}/turn (Ti={ti_core:.2f} Ax={ax_core:.2f} rAx={rax_core:.2f})")
 

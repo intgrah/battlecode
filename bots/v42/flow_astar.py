@@ -82,11 +82,14 @@ def _build_flow_edges(
     belief: MapBelief,
     leakage_mask: list[int],
     banned_leakage: int,
+    goal_set: set[int] | None = None,
 ) -> list[list[tuple[int, int]]]:
     w, h = belief.w, belief.h
     n = w * h
     blocked = belief.my_flow.blocked
     env = belief.env
+    if goal_set is None:
+        goal_set = set()
     entity = belief.entity
     direction = belief.direction
     bridge_target = belief.bridge_target
@@ -207,6 +210,6 @@ def flow_astar(
                 if 0 <= cx < w and 0 <= cy < h:
                     goal_set.add(cy * w + cx)
     leakage_mask = _build_leakage_mask(belief)
-    edges = _build_flow_edges(belief, leakage_mask, banned_leakage)
+    edges = _build_flow_edges(belief, leakage_mask, banned_leakage, goal_set)
     h_table = _build_heuristic(w, h, gx, gy)
     return Astar(w, h, sx, sy, goal_set, edges, h_table)
