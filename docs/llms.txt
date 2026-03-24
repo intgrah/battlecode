@@ -8,7 +8,7 @@
 - [CLI reference](https://docs.battlecode.cam/getting-started/cli.md): Every command available in the cambc CLI.
 - [Your First Bot](https://docs.battlecode.cam/getting-started/first-bot.md): Write a basic bot that spawns builder bots and starts harvesting resources.
 - [Installation](https://docs.battlecode.cam/getting-started/installation.md): Install the Cambridge Battlecode CLI and run your first local match.
-- [How Matches Work](https://docs.battlecode.cam/getting-started/matches.md): How ladder matches, ratings, and the best-of-5 format work.
+- [How Matches Work](https://docs.battlecode.cam/getting-started/matches.md): How ladder matches, Elo ratings, and the 5-game format work.
 - [Running Matches](https://docs.battlecode.cam/getting-started/running-matches.md): Run local matches with the CLI and view replays in the visualiser.
 - [Submitting](https://docs.battlecode.cam/getting-started/submitting.md): Upload your bot to the platform to compete on the ladder.
 - [Cambridge Battlecode](https://docs.battlecode.cam/index.md): Documentation for the Cambridge Battlecode programming competition.
