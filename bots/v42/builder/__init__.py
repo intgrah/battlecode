@@ -82,9 +82,7 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             "eid": ct.get_id(),
             "pos": [pos.x, pos.y],
             "explore_radius": self.explore_radius,
-            "env": [
-                b.env[i].value if b.env[i] is not None else None for i in range(n)
-            ],
+            "env": [b.env[i].value if b.env[i] is not None else None for i in range(n)],
             "entity": [
                 [b.entity[i][0].value, b.entity[i][1].value]
                 if b.entity[i] is not None

@@ -20,11 +20,19 @@
   let frame = $state<BeliefFrame | null>(null);
   let loading = $state(false);
 
-  let showEnv = $state(true);
-  let showEntities = $state(true);
-  let showFlowTi = $state(false);
-  let showFlowAx = $state(false);
-  let showFlowRax = $state(false);
+  let useBeliefEntities = $state(true);
+
+  let camX = $state(0);
+  let camY = $state(0);
+  let zoom = $state(1);
+  let dragging = $state(false);
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let camStartX = 0;
+  let camStartY = 0;
+  let showFlowTi = $state(true);
+  let showFlowAx = $state(true);
+  let showFlowRax = $state(true);
   let showBlocked = $state(false);
 
   let overlays = $derived(
@@ -49,6 +57,7 @@
       if (botIds.length > 0) {
         selectBot(botIds[0]);
       }
+      centerCamera();
     } catch (e) {
       console.error("Failed to load replay:", e);
     }
@@ -76,9 +85,27 @@
     if (!botFrames) return;
     rounds = [...botFrames.keys()].sort((a, b) => a - b);
     if (rounds.length > 0) {
-      selectedRound = rounds[0];
+      if (!rounds.includes(selectedRound)) {
+        const closest = rounds.reduce((prev, curr) =>
+          Math.abs(curr - selectedRound) < Math.abs(prev - selectedRound)
+            ? curr
+            : prev,
+        );
+        selectedRound = closest;
+      }
       loadFrame();
     }
+  }
+
+  function centerCamera() {
+    if (!canvas || !replayData) return;
+    const g = replayData.ground;
+    const mapW = g.w * 64;
+    const mapH = g.h * 64;
+    const fitZoom = Math.min(canvas.clientWidth / mapW, canvas.clientHeight / mapH, 1);
+    zoom = fitZoom;
+    camX = (canvas.clientWidth - mapW * zoom) / 2;
+    camY = (canvas.clientHeight - mapH * zoom) / 2;
   }
 
   function loadFrame() {
@@ -89,20 +116,30 @@
     if (!frame || !canvas || !replayData) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(camX, camY);
+    ctx.scale(zoom, zoom);
+
     const turnIndicators = replayData.indicators.get(frame.round) ?? [];
     const botIndicators = turnIndicators.filter((il) => il.eid === selectedBot);
     render(
       ctx,
       frame,
       {
-        showEnv,
-        showEntities,
+        useBeliefEntities,
         overlays,
         ground: replayData.ground,
         indicators: botIndicators,
+        turnState: replayData.turnStates.get(frame.round),
+        selectedBot,
       },
       sprites,
     );
+    ctx.restore();
   });
 
   function prevRound() {
@@ -124,6 +161,65 @@
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === "ArrowLeft") prevRound();
     else if (e.key === "ArrowRight") nextRound();
+  }
+
+  function canvasToTile(clientX: number, clientY: number): [number, number] {
+    if (!canvas) return [0, 0];
+    const rect = canvas.getBoundingClientRect();
+    const pixelX = (clientX - rect.left) * (canvas.width / rect.width);
+    const pixelY = (clientY - rect.top) * (canvas.height / rect.height);
+    const worldX = (pixelX - camX) / zoom;
+    const worldY = (pixelY - camY) / zoom;
+    return [Math.floor(worldX / 64), Math.floor(worldY / 64)];
+  }
+
+  function onCanvasClick(e: MouseEvent) {
+    if (!canvas || !replayData || !frame || dragging) return;
+    const [tileX, tileY] = canvasToTile(e.clientX, e.clientY);
+    const turnState = replayData.turnStates.get(frame.round);
+    if (!turnState) return;
+    for (const ent of turnState.entities.values()) {
+      if (ent.kind === "builder_bot" && ent.x === tileX && ent.y === tileY) {
+        if (replayData.bots.has(ent.id)) {
+          selectBot(ent.id);
+          return;
+        }
+      }
+    }
+  }
+
+  function onCanvasMouseDown(e: MouseEvent) {
+    if (e.button !== 0) return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    camStartX = camX;
+    camStartY = camY;
+  }
+
+  function onCanvasMouseMove(e: MouseEvent) {
+    if (!dragging) return;
+    camX = camStartX + (e.clientX - dragStartX);
+    camY = camStartY + (e.clientY - dragStartY);
+  }
+
+  function onCanvasMouseUp() {
+    dragging = false;
+  }
+
+  function onCanvasWheel(e: WheelEvent) {
+    e.preventDefault();
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const newZoom = Math.max(0.2, Math.min(5, zoom * factor));
+
+    camX = mouseX - ((mouseX - camX) / zoom) * newZoom;
+    camY = mouseY - ((mouseY - camY) / zoom) * newZoom;
+    zoom = newZoom;
   }
 </script>
 
@@ -173,15 +269,19 @@
               selectedRound = closest;
               loadFrame();
             }}
+            onwheel={(e) => {
+              e.preventDefault();
+              if (e.deltaY < 0) nextRound();
+              else prevRound();
+            }}
           />
           <button onclick={nextRound}>&gt;</button>
         </div>
       </div>
 
       <div class="control-group checkboxes">
-        <label><input type="checkbox" bind:checked={showEnv} /> Env</label>
         <label
-          ><input type="checkbox" bind:checked={showEntities} /> Entities</label
+          ><input type="checkbox" bind:checked={useBeliefEntities} /> Belief Entities</label
         >
         <label><input type="checkbox" bind:checked={showFlowTi} /> Ti</label>
         <label><input type="checkbox" bind:checked={showFlowAx} /> Ax</label>
@@ -207,7 +307,15 @@
     </div>
   {:else}
     <div class="canvas-wrapper">
-      <canvas bind:this={canvas}></canvas>
+      <canvas
+        bind:this={canvas}
+        onclick={onCanvasClick}
+        onmousedown={onCanvasMouseDown}
+        onmousemove={onCanvasMouseMove}
+        onmouseup={onCanvasMouseUp}
+        onmouseleave={onCanvasMouseUp}
+        onwheel={onCanvasWheel}
+      ></canvas>
     </div>
   {/if}
 </div>
@@ -217,8 +325,11 @@
     font-family: "Berkeley Mono", "Fira Code", monospace;
     background: #0a0a0a;
     color: #ccc;
-    min-height: 100vh;
+    height: 100vh;
     padding: 12px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
   }
 
   .controls {
@@ -295,19 +406,30 @@
   }
 
   .drop-zone {
+    flex: 1;
     border: 2px dashed #333;
-    padding: 60px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #555;
     font-size: 14px;
   }
 
   .canvas-wrapper {
-    overflow: auto;
+    flex: 1;
     border: 1px solid #222;
+    overflow: hidden;
+    position: relative;
   }
 
   canvas {
     display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+  }
+
+  canvas:active {
+    cursor: grabbing;
   }
 </style>

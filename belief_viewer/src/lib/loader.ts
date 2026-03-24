@@ -1,6 +1,7 @@
 import { ReplaySchema } from "./proto/cambc_pb";
 import { fromBinary } from "@bufbuild/protobuf";
 import type { BeliefFrame } from "./types";
+import { reconstructStates, type TurnState } from "./gamestate";
 
 const BELIEF_PREFIX = "BELIEF:";
 
@@ -26,6 +27,7 @@ export interface ReplayData {
   botIds: number[];
   ground: GroundTruth;
   indicators: Map<number, IndicatorLine[]>;
+  turnStates: Map<number, TurnState>;
 }
 
 export async function loadReplayFromUrl(url: string): Promise<ReplayData> {
@@ -95,8 +97,9 @@ function parseReplay(buf: ArrayBuffer): ReplayData {
     }
   }
 
+  const turnStates = reconstructStates(replay);
   const botIds = [...bots.keys()].sort((a, b) => a - b);
-  return { bots, botIds, ground, indicators };
+  return { bots, botIds, ground, indicators, turnStates };
 }
 
 export async function loadSprites(): Promise<Map<string, HTMLImageElement>> {

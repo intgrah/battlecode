@@ -1,7 +1,8 @@
 import { Env, EType, Dir, TeamId, Overlay, type BeliefFrame } from "./types";
 import type { GroundTruth, IndicatorLine } from "./loader";
+import type { TurnState, GameEntity } from "./gamestate";
 
-const TILE_SIZE = 48;
+const TILE_SIZE = 64;
 
 const ENV_COLORS: Record<string, string> = {
   [Env.EMPTY]: "#3d3d3d",
@@ -32,6 +33,28 @@ const DIR_SHORT: Record<string, string> = {
   [Dir.NORTHWEST]: "nw",
 };
 
+const DIR_ROTATION_NUM: Record<number, number> = {
+  1: -Math.PI / 2,
+  2: -Math.PI / 4,
+  3: 0,
+  4: Math.PI / 4,
+  5: Math.PI / 2,
+  6: (3 * Math.PI) / 4,
+  7: Math.PI,
+  8: (-3 * Math.PI) / 4,
+};
+
+const DIR_SHORT_NUM: Record<number, string> = {
+  1: "n",
+  2: "ne",
+  3: "e",
+  4: "se",
+  5: "s",
+  6: "sw",
+  7: "w",
+  8: "nw",
+};
+
 const MIRROR_MAP: Record<string, [string, boolean]> = {};
 for (const team of ["gold", "silver"]) {
   MIRROR_MAP[`gunner_e_${team}`] = [`gunner_w_${team}`, true];
@@ -40,11 +63,12 @@ for (const team of ["gold", "silver"]) {
 }
 
 export interface RenderOptions {
-  showEnv: boolean;
-  showEntities: boolean;
+  useBeliefEntities: boolean;
   overlays: Set<Overlay>;
   ground: GroundTruth;
   indicators: IndicatorLine[];
+  turnState: TurnState | undefined;
+  selectedBot: number;
 }
 
 export function render(
@@ -54,12 +78,8 @@ export function render(
   sprites: Map<string, HTMLImageElement>,
 ) {
   const { w, h } = frame;
-  ctx.canvas.width = w * TILE_SIZE;
-  ctx.canvas.height = h * TILE_SIZE;
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
   ctx.fillStyle = "#0d0d1a";
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.fillRect(0, 0, w * TILE_SIZE, h * TILE_SIZE);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
@@ -67,7 +87,7 @@ export function render(
       const py = y * TILE_SIZE;
       const env = frame.env[i];
 
-      if (opts.showEnv) {
+      {
         const groundEnv = opts.ground.env[i];
         ctx.fillStyle = "#352927";
         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
@@ -89,22 +109,32 @@ export function render(
         }
       }
 
-      if (opts.showEntities) {
-        renderEntity(ctx, frame, i, px, py, sprites);
+      {
+        const seen = env !== null;
+        if (seen && opts.useBeliefEntities) {
+          renderEntity(ctx, frame, i, px, py, sprites);
+        } else if (opts.turnState) {
+          renderGroundEntity(
+            ctx,
+            frame,
+            opts.turnState,
+            i,
+            px,
+            py,
+            sprites,
+            !seen,
+          );
+        }
       }
 
-      for (const ov of opts.overlays) {
-        renderOverlay(ctx, frame, ov, i, px, py);
-      }
-
-      renderFlowDots(ctx, frame, i, px, py);
+      renderFlowOverlay(ctx, frame, opts.overlays, i, px, py);
     }
   }
 
-  if (opts.showEntities) {
-    renderCore(ctx, frame, sprites);
-    renderBridges(ctx, frame, sprites);
-    renderUnits(ctx, frame, sprites);
+  renderCore(ctx, frame, sprites);
+  renderBridges(ctx, frame, sprites);
+  if (opts.turnState) {
+    renderAllBuilders(ctx, frame, opts.turnState, opts.selectedBot, sprites);
   }
 
   renderRadii(ctx, frame);
@@ -193,7 +223,9 @@ function renderEntity(
       drawn = drawSprite(ctx, sprites, `bridge_stand_${teamSuffix}`, px, py);
       break;
     case EType.ROAD:
+      ctx.globalAlpha = 0.6;
       drawn = drawSprite(ctx, sprites, `road_${teamSuffix}`, px, py);
+      ctx.globalAlpha = 1;
       break;
     case EType.BARRIER:
       drawn = drawSprite(ctx, sprites, `barrier_${teamSuffix}`, px, py);
@@ -261,106 +293,53 @@ function renderEntity(
   }
 }
 
-function renderOverlay(
+function renderFlowOverlay(
   ctx: CanvasRenderingContext2D,
   frame: BeliefFrame,
-  overlay: Overlay,
+  overlays: Set<Overlay>,
   i: number,
   px: number,
   py: number,
 ) {
-  switch (overlay) {
-    case Overlay.FLOW_TI: {
-      const v = frame.flow_ti[i];
-      if (v > 0.001) {
-        ctx.fillStyle = `rgba(64, 128, 255, ${Math.min(0.85, v * 1.5 + 0.2)})`;
-        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        drawFlowValue(ctx, v, px, py, "#6af");
-      }
-      break;
+  const ti = overlays.has(Overlay.FLOW_TI) ? frame.flow_ti[i] : 0;
+  const ax = overlays.has(Overlay.FLOW_AX) ? frame.flow_ax[i] : 0;
+  const rax = overlays.has(Overlay.FLOW_RAX) ? frame.flow_rax[i] : 0;
+  const total = ti + ax + rax;
+
+  if (total > 0.001) {
+    const alpha = Math.min(0.75, total * 1.2 + 0.15);
+    const r = Math.round((ti * 64 + ax * 255 + rax * 180) / total);
+    const g = Math.round((ti * 128 + ax * 160 + rax * 64) / total);
+    const b = Math.round((ti * 255 + ax * 32 + rax * 255) / total);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+    ctx.font = "bold 12px monospace";
+    ctx.textAlign = "left";
+    let textY = py + 14;
+    if (ti > 0.001) {
+      ctx.fillStyle = "#8ac4ff";
+      ctx.fillText(`Ti ${ti.toFixed(2)}`, px + 2, textY);
+      textY += 14;
     }
-    case Overlay.FLOW_AX: {
-      const v = frame.flow_ax[i];
-      if (v > 0.001) {
-        ctx.fillStyle = `rgba(255, 160, 32, ${Math.min(0.85, v * 1.5 + 0.2)})`;
-        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        drawFlowValue(ctx, v, px, py, "#fa4");
-      }
-      break;
+    if (ax > 0.001) {
+      ctx.fillStyle = "#ffcc66";
+      ctx.fillText(`Ax ${ax.toFixed(2)}`, px + 2, textY);
+      textY += 14;
     }
-    case Overlay.FLOW_RAX: {
-      const v = frame.flow_rax[i];
-      if (v > 0.001) {
-        ctx.fillStyle = `rgba(180, 64, 255, ${Math.min(0.85, v * 1.5 + 0.2)})`;
-        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        drawFlowValue(ctx, v, px, py, "#c6f");
-      }
-      break;
+    if (rax > 0.001) {
+      ctx.fillStyle = "#d89aff";
+      ctx.fillText(`RAx${rax.toFixed(2)}`, px + 2, textY);
     }
-    case Overlay.BLOCKED:
-      if (frame.blocked[i]) {
-        ctx.fillStyle = "rgba(255, 0, 0, 0.35)";
-        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-      }
-      break;
+  }
+
+  if (overlays.has(Overlay.BLOCKED) && frame.blocked[i]) {
+    ctx.fillStyle = "rgba(255, 0, 0, 0.35)";
+    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
   }
 }
 
-function drawFlowValue(
-  ctx: CanvasRenderingContext2D,
-  value: number,
-  px: number,
-  py: number,
-  color: string,
-) {
-  ctx.fillStyle = color;
-  ctx.font = "bold 10px monospace";
-  ctx.textAlign = "center";
-  ctx.fillText(value.toFixed(2), px + TILE_SIZE / 2, py + TILE_SIZE - 3);
-}
-
-function renderFlowDots(
-  ctx: CanvasRenderingContext2D,
-  frame: BeliefFrame,
-  i: number,
-  px: number,
-  py: number,
-) {
-  const ti = frame.flow_ti[i];
-  const ax = frame.flow_ax[i];
-  const rax = frame.flow_rax[i];
-  if (ti <= 0.001 && ax <= 0.001 && rax <= 0.001) return;
-
-  let dotX = px + TILE_SIZE - 5;
-  let dotY = py + 5;
-  const r = 3;
-
-  if (ti > 0.001) {
-    ctx.fillStyle = "#4080ff";
-    ctx.beginPath();
-    ctx.arc(dotX, dotY, r, 0, Math.PI * 2);
-    ctx.fill();
-    dotY += r * 2 + 2;
-  }
-  if (ax > 0.001) {
-    ctx.fillStyle = "#ffa020";
-    ctx.beginPath();
-    ctx.arc(dotX, dotY, r, 0, Math.PI * 2);
-    ctx.fill();
-    dotY += r * 2 + 2;
-  }
-  if (rax > 0.001) {
-    ctx.fillStyle = "#b440ff";
-    ctx.beginPath();
-    ctx.arc(dotX, dotY, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function renderRadii(
-  ctx: CanvasRenderingContext2D,
-  frame: BeliefFrame,
-) {
+function renderRadii(ctx: CanvasRenderingContext2D, frame: BeliefFrame) {
   drawTileRadius(ctx, frame, 20, "rgba(80, 140, 255, 0.5)");
   drawTileRadius(ctx, frame, 2, "rgba(255, 80, 80, 0.5)");
 }
@@ -416,8 +395,14 @@ function renderIndicatorLines(
     ctx.strokeStyle = `rgb(${il.r}, ${il.g}, ${il.b})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(il.ax * TILE_SIZE + TILE_SIZE / 2, il.ay * TILE_SIZE + TILE_SIZE / 2);
-    ctx.lineTo(il.bx * TILE_SIZE + TILE_SIZE / 2, il.by * TILE_SIZE + TILE_SIZE / 2);
+    ctx.moveTo(
+      il.ax * TILE_SIZE + TILE_SIZE / 2,
+      il.ay * TILE_SIZE + TILE_SIZE / 2,
+    );
+    ctx.lineTo(
+      il.bx * TILE_SIZE + TILE_SIZE / 2,
+      il.by * TILE_SIZE + TILE_SIZE / 2,
+    );
     ctx.stroke();
   }
 }
@@ -466,6 +451,7 @@ function renderBridges(
     const angle = Math.atan2(dy, dx);
 
     ctx.save();
+    ctx.globalAlpha = 0.6;
     ctx.translate(sx, sy);
     ctx.rotate(angle);
     const bridgeHeight = TILE_SIZE * 0.7;
@@ -474,23 +460,108 @@ function renderBridges(
   }
 }
 
-function renderUnits(
+function renderGroundEntity(
   ctx: CanvasRenderingContext2D,
   frame: BeliefFrame,
+  turnState: TurnState,
+  i: number,
+  px: number,
+  py: number,
+  sprites: Map<string, HTMLImageElement>,
+  dimmed: boolean,
+) {
+  const x = i % frame.w;
+  const y = Math.floor(i / frame.w);
+  for (const ent of turnState.entities.values()) {
+    if (ent.x !== x || ent.y !== y) continue;
+    if (ent.kind === "builder_bot" || ent.kind === "core") continue;
+    const teamSuffix = ent.team === 0 ? "gold" : "silver";
+    const dir = ent.direction;
+    const dirShort = dir !== undefined ? DIR_SHORT_NUM[dir] : null;
+    const rotation = dir !== undefined ? DIR_ROTATION_NUM[dir] : undefined;
+
+    let spriteName: string | null = null;
+    switch (ent.kind) {
+      case "conveyor":
+        spriteName = `conveyor_${teamSuffix}`;
+        break;
+      case "armoured_conveyor":
+        spriteName = `armoured_conveyor_${teamSuffix}`;
+        break;
+      case "splitter":
+        if (dirShort) spriteName = `splitter_${dirShort}_${teamSuffix}`;
+        break;
+      case "bridge":
+        spriteName = `bridge_stand_${teamSuffix}`;
+        break;
+      case "road":
+        spriteName = `road_${teamSuffix}`;
+        break;
+      case "barrier":
+        spriteName = `barrier_${teamSuffix}`;
+        break;
+      case "harvester":
+        spriteName = `harvester_${teamSuffix}`;
+        break;
+      case "foundry":
+        spriteName = `foundry_${teamSuffix}`;
+        break;
+      case "marker":
+        spriteName = `marker_${teamSuffix}`;
+        break;
+      case "gunner":
+        if (dirShort) spriteName = `gunner_${dirShort}_${teamSuffix}`;
+        break;
+      case "sentinel":
+        if (dirShort) spriteName = `sentinel_${dirShort}_${teamSuffix}`;
+        break;
+      case "breach":
+        if (dirShort) spriteName = `breach_${dirShort}_${teamSuffix}`;
+        break;
+      case "launcher":
+        spriteName = `launcher_${teamSuffix}`;
+        break;
+    }
+
+    if (spriteName) {
+      if (dimmed) ctx.globalAlpha = 0.35;
+      if (ent.kind === "conveyor" || ent.kind === "armoured_conveyor") {
+        drawSprite(ctx, sprites, spriteName, px, py, rotation);
+      } else {
+        drawSprite(ctx, sprites, spriteName, px, py);
+      }
+      if (dimmed) ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function renderAllBuilders(
+  ctx: CanvasRenderingContext2D,
+  frame: BeliefFrame,
+  turnState: TurnState,
+  selectedBot: number,
   sprites: Map<string, HTMLImageElement>,
 ) {
-  const selfTile = frame.pos[1] * frame.w + frame.pos[0];
-  const selfPx = frame.pos[0] * TILE_SIZE;
-  const selfPy = frame.pos[1] * TILE_SIZE;
-  drawSprite(ctx, sprites, "builderbot_front_gold", selfPx, selfPy);
-  ctx.strokeStyle = "#ff0";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(selfPx + 1, selfPy + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+  const visionSq = 20;
 
-  for (const i of frame.unit_tiles) {
-    if (i === selfTile) continue;
-    const px = (i % frame.w) * TILE_SIZE;
-    const py = Math.floor(i / frame.w) * TILE_SIZE;
-    drawSprite(ctx, sprites, "builderbot_front_gold", px, py);
+  for (const ent of turnState.entities.values()) {
+    if (ent.kind !== "builder_bot") continue;
+    const px = ent.x * TILE_SIZE;
+    const py = ent.y * TILE_SIZE;
+    const teamSuffix = ent.team === 0 ? "gold" : "silver";
+    const isSelected = ent.id === selectedBot;
+    const dx = ent.x - frame.pos[0];
+    const dy = ent.y - frame.pos[1];
+    const inVision = dx * dx + dy * dy <= visionSq;
+
+    if (!isSelected && !inVision) ctx.globalAlpha = 0.35;
+    drawSprite(ctx, sprites, `builderbot_front_${teamSuffix}`, px, py);
+    ctx.globalAlpha = 1;
+
+    if (isSelected) {
+      ctx.strokeStyle = "#ff0";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+    }
   }
 }
