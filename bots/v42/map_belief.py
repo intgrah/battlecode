@@ -683,13 +683,15 @@ class MapBelief:
                 f.ax_excess[ci] = ax_in - refined
                 rax_in = f.rax[ci]
                 rax_out = rax_in + refined
+                n_outs = len(outs)
+                push = rax_out / n_outs if n_outs > 0 else 0.0
                 for oi in outs:
-                    f.rax[oi] += rax_out
-                    f.total[oi] += rax_out
+                    f.rax[oi] += push
+                    f.total[oi] += push
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
-                total_out = rax_out * len(outs)
+                total_out = rax_out
                 f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
             elif etype in _TRANSPORT:
                 ti_in = f.ti[ci]
