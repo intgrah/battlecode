@@ -13,7 +13,7 @@ class Core(Entity):
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
         h_cost, _ = ct.get_harvester_cost()
-        if self.spawned >= 50:
+        if self.spawned >= 1:
             return
         multiplier = 3.0 + self.spawned * 0.5
         if ti >= cost * multiplier + h_cost:

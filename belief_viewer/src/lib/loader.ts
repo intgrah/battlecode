@@ -71,6 +71,31 @@ function parseReplay(buf: ArrayBuffer): ReplayData {
           const raw = JSON.parse(json);
           raw.ore_ti = new Set(raw.ore_ti);
           raw.ore_ax = new Set(raw.ore_ax);
+
+          const n = w * h;
+          const sparseToDense = (sparse: Record<string, number>): number[] => {
+            const arr = new Array(n).fill(0);
+            for (const [k, v] of Object.entries(sparse)) {
+              arr[Number(k)] = v;
+            }
+            return arr;
+          };
+          const sparseToBlockedArr = (sparse: number[]): boolean[] => {
+            const arr = new Array(n).fill(false);
+            for (const idx of sparse) {
+              arr[idx] = true;
+            }
+            return arr;
+          };
+          raw.flow_ti = sparseToDense(raw.flow_ti);
+          raw.flow_ax = sparseToDense(raw.flow_ax);
+          raw.flow_rax = sparseToDense(raw.flow_rax);
+          raw.excess_ti = sparseToDense(raw.excess_ti);
+          raw.excess_ax = sparseToDense(raw.excess_ax);
+          raw.excess_rax = sparseToDense(raw.excess_rax);
+          raw.blocked = sparseToBlockedArr(raw.blocked);
+          raw.leakage = sparseToDense(raw.leakage);
+
           const frame = raw as BeliefFrame;
 
           if (!bots.has(frame.eid)) {
