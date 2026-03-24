@@ -6,6 +6,7 @@ from cambc import (
     GameConstants,
     Position,
 )
+from flow_astar import build_leakage_mask
 from map_belief import MapBelief
 from marker import Eureka, TaskClaim
 
@@ -30,17 +31,29 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         self._last_claim: TaskClaim | None = None
 
     def run(self, ct: Controller) -> None:
+        import time as _t
+
+        t0 = _t.perf_counter_ns()
         _, needs_reflow = self.belief.update(ct)
         if needs_reflow:
             self._flow_search = None
             self._cached_chain_path = None
-        print(f"update: {ct.get_cpu_time_elapsed()}us")
+            self._ax_flow_search = None
+            self._ax_cached_path = None
+            self._leakage_mask = build_leakage_mask(self.belief)
+        t1 = _t.perf_counter_ns()
 
         pos = ct.get_position()
         self._debug_target = None
         self._claim: TaskClaim | None = None
 
         move, build = self._policy(ct, pos)
+        t2 = _t.perf_counter_ns()
+        if not hasattr(self, "_tlog"):
+            self._tlog = open("/tmp/v42_cpu.log", "w")
+        self._tlog.write(
+            f"{ct.get_current_round()} {(t1 - t0) // 1000} {(t2 - t1) // 1000}\n",
+        )
 
         if move != Direction.CENTRE:
             if ct.can_move(move):
@@ -58,31 +71,32 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         self._write_marker(ct)
 
     def _policy(self, ct: Controller, pos: Position) -> tuple[Direction, Build | None]:
-        result = self._fix_excess_ti_rax(ct, pos)
-        if result is not None:
-            return result
+        import time as _t
 
-        result = self._place_foundry(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._fix_excess_ax(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._harvest_ti(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._harvest_ax(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._raid(ct, pos)
-        if result is not None:
-            return result
-
-        result = self._explore(ct, pos)
+        tasks = [
+            ("fix_ti", self._fix_excess_ti_rax),
+            ("foundry", self._place_foundry),
+            ("fix_ax", self._fix_excess_ax),
+            ("harv_ti", self._harvest_ti),
+            ("harv_ax", self._harvest_ax),
+            ("raid", self._raid),
+            ("explore", self._explore),
+        ]
+        if not hasattr(self, "_plog"):
+            self._plog = open("/tmp/v42_pol.log", "w")
+        parts = []
+        for name, fn in tasks:
+            t0 = _t.perf_counter_ns()
+            result = fn(ct, pos)
+            t1 = _t.perf_counter_ns()
+            parts.append(f"{name}={(t1 - t0) // 1000}")
+            if result is not None:
+                self._plog.write(
+                    f"{ct.get_current_round()} {' '.join(parts)} -> {name}\n",
+                )
+                return result
+        self._plog.write(f"{ct.get_current_round()} {' '.join(parts)} -> idle\n")
+        result = None
         if result is not None:
             return result
 

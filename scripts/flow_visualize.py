@@ -267,7 +267,7 @@ def render(
     rax_flow: FlowMap,
     output_path: str,
 ) -> None:
-    cell = 48
+    cell = 72
     img = Image.new("RGB", (w * cell, h * cell), (30, 30, 30))
     draw = ImageDraw.Draw(img)
     for path in [
@@ -275,8 +275,8 @@ def render(
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
     ]:
         try:
-            font = ImageFont.truetype(path, 13)
-            sfont = ImageFont.truetype(path, 9)
+            font = ImageFont.truetype(path, 16)
+            sfont = ImageFont.truetype(path, 12)
             break
         except OSError:
             pass
@@ -301,27 +301,11 @@ def render(
             elif pos in foundries:
                 bg = (140, 80, 30)
             elif pos in harvesters:
-                bg = (40, 120, 40)
+                bg = (55, 65, 55)
             elif pos in transports:
-                ti_f = ti_flow.get(pos, 0.0)
-                ax_f = ax_flow.get(pos, 0.0)
-                rax_f = rax_flow.get(pos, 0.0)
-                has_ti = ti_f > 0.001
-                has_ax = ax_f > 0.001
-                has_rax = rax_f > 0.001
-                n_commodities = has_ti + has_ax + has_rax
                 f = flow_qs.get(pos, 0.0)
-                intensity = min(255, int(80 + f * 120))
-                if n_commodities > 1:
-                    bg = (intensity, 20, 20)
-                elif has_ti:
-                    bg = (20, 60, intensity)
-                elif has_ax:
-                    bg = (intensity, int(intensity * 0.6), 20)
-                elif has_rax:
-                    bg = (int(intensity * 0.7), 20, intensity)
-                else:
-                    bg = (40, 65, 40)
+                g = min(220, int(50 + f * 130))
+                bg = (g, g, g)
             elif pos in ore_ti:
                 bg = (35, 70, 120)
             elif pos in ore_ax:
@@ -342,8 +326,8 @@ def render(
                 if f > 0.001:
                     draw.text((px + 2, py + 1), f"{f:.2f}", fill=tc, font=font)
                 draw.text(
-                    (px + 2, py + cell - 13),
-                    "C",
+                    (px + 2, py + cell - 15),
+                    "Core",
                     fill=(180, 180, 180),
                     font=sfont,
                 )
@@ -351,31 +335,67 @@ def render(
                 ti_f = ti_flow.get(pos, 0.0)
                 ax_f = ax_flow.get(pos, 0.0)
                 rax_f = rax_flow.get(pos, 0.0)
-                draw.text((px + 2, py + 1), "F", fill=tc, font=font)
-                draw.text((px + 2, py + 14), f"T{ti_f:.1f}", fill=(100, 180, 255), font=sfont)
-                draw.text((px + 2, py + 24), f"A{ax_f:.1f}", fill=(255, 160, 80), font=sfont)
-                draw.text((px + 2, py + 34), f"R{rax_f:.1f}", fill=(200, 100, 255), font=sfont)
+                draw.text((px + 2, py + 1), "Foundry", fill=tc, font=font)
+                draw.text(
+                    (px + 2, py + 14),
+                    f"T{ti_f:.1f}",
+                    fill=(100, 180, 255),
+                    font=sfont,
+                )
+                draw.text(
+                    (px + 2, py + 24),
+                    f"A{ax_f:.1f}",
+                    fill=(255, 160, 80),
+                    font=sfont,
+                )
+                draw.text(
+                    (px + 2, py + 34),
+                    f"R{rax_f:.1f}",
+                    fill=(200, 100, 255),
+                    font=sfont,
+                )
             elif pos in harvesters:
-                draw.text((px + 2, py + 1), "H", fill=tc, font=font)
+                draw.text((px + 2, py + 1), "Harvest", fill=tc, font=font)
+                dot_x = px + cell - 12
+                dot_y = py + 10
+                dot_r = 6
+                if pos in ore_ti:
+                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(80, 150, 255))
+                elif pos in ore_ax:
+                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(255, 160, 50))
             elif pos in transports:
                 f = flow_qs.get(pos, 0.0)
                 ti_f = ti_flow.get(pos, 0.0)
                 ax_f = ax_flow.get(pos, 0.0)
                 rax_f = rax_flow.get(pos, 0.0)
-                draw.text((px + 2, py + 1), f"{f:.2f}", fill=tc, font=font)
-                y_off = 16
+                t = transports[pos]
+                label = {"conveyor": "Conv", "armoured_conveyor": "AConv", "splitter": "Split", "bridge": "Bridge"}.get(t["type"], "?")
+                draw.text((px + 2, py + 1), label, fill=(180, 180, 180), font=sfont)
+                draw.text((px + 2, py + 14), f"{f:.2f}", fill=tc, font=font)
+                dot_x = px + cell - 12
+                dot_y = py + 10
+                dot_r = 6
                 if ti_f > 0.001:
-                    draw.text((px + 2, py + y_off), f"T{ti_f:.2f}", fill=(100, 180, 255), font=sfont)
-                    y_off += 10
+                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(80, 150, 255))
+                    dot_y += 16
                 if ax_f > 0.001:
-                    draw.text((px + 2, py + y_off), f"A{ax_f:.2f}", fill=(255, 160, 80), font=sfont)
-                    y_off += 10
+                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(255, 160, 50))
+                    dot_y += 16
                 if rax_f > 0.001:
-                    draw.text((px + 2, py + y_off), f"R{rax_f:.2f}", fill=(200, 100, 255), font=sfont)
+                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(200, 80, 255))
+                y_off = 34
+                if ti_f > 0.001:
+                    draw.text((px + 2, py + y_off), f"Ti{ti_f:.1f}", fill=(100, 180, 255), font=sfont)
+                    y_off += 13
+                if ax_f > 0.001:
+                    draw.text((px + 2, py + y_off), f"Ax{ax_f:.1f}", fill=(255, 160, 80), font=sfont)
+                    y_off += 13
+                if rax_f > 0.001:
+                    draw.text((px + 2, py + y_off), f"RA{rax_f:.1f}", fill=(200, 100, 255), font=sfont)
             elif pos in ore_ti:
-                draw.text((px + 2, py + 1), "Ti", fill=tc, font=font)
+                draw.text((px + 2, py + 1), "Ti Ore", fill=tc, font=font)
             elif pos in ore_ax:
-                draw.text((px + 2, py + 1), "Ax", fill=tc, font=font)
+                draw.text((px + 2, py + 1), "Ax Ore", fill=tc, font=font)
 
     def _draw_arrow(sx: int, sy: int, ex: int, ey: int, color: tuple[int, int, int], width: int = 3) -> None:
         draw.line([(sx, sy), (ex, ey)], fill=color, width=width)
@@ -463,7 +483,12 @@ def main() -> None:
         roads_set,
     ) = extract_state(r)
     flow_qs, ti_flow, ax_flow, rax_flow = compute_flow(
-        core_tiles, transports, harvesters, ore_ti, ore_ax, foundries,
+        core_tiles,
+        transports,
+        harvesters,
+        ore_ti,
+        ore_ax,
+        foundries,
     )
 
     over_1 = sum(1 for f in flow_qs.values() if f > 1.0)
@@ -477,15 +502,23 @@ def main() -> None:
     n_bridge = sum(1 for t in transports.values() if t["type"] == "bridge")
     n_splitter = sum(1 for t in transports.values() if t["type"] == "splitter")
     n_mixed = sum(
-        1 for p in transports
-        if (ti_flow.get(p, 0) > 0.001) + (ax_flow.get(p, 0) > 0.001) + (rax_flow.get(p, 0) > 0.001) > 1
+        1
+        for p in transports
+        if (ti_flow.get(p, 0) > 0.001)
+        + (ax_flow.get(p, 0) > 0.001)
+        + (rax_flow.get(p, 0) > 0.001)
+        > 1
     )
     print(f"Harvesters: {len(harvesters)}, Foundries: {len(foundries)}")
-    print(f"Conv: {n_conv}, Armoured: {n_aconv}, Bridge: {n_bridge}, Splitter: {n_splitter}")
+    print(
+        f"Conv: {n_conv}, Armoured: {n_aconv}, Bridge: {n_bridge}, Splitter: {n_splitter}",
+    )
     if n_mixed > 0:
         print(f"MIXED FLOW TILES: {n_mixed} (BUG)")
     print(f"Congested (>1.0): {over_1}, Near capacity (>0.5): {over_half}")
-    print(f"Total flow to core: {total_core:.2f}/turn (Ti={ti_core:.2f} Ax={ax_core:.2f} rAx={rax_core:.2f})")
+    print(
+        f"Total flow to core: {total_core:.2f}/turn (Ti={ti_core:.2f} Ax={ax_core:.2f} rAx={rax_core:.2f})",
+    )
 
     render(
         w,

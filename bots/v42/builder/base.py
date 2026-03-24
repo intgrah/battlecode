@@ -2,7 +2,7 @@ from cambc import Controller, Direction, EntityType, Position
 from entity import Entity
 from map_belief import COST_IMPASSABLE, MapBelief
 from marker import TaskClaim, TaskKind
-from nav_astar import nav_astar
+from nav_astar import NavAstar
 
 from .build import Build, BuildKind
 
@@ -21,18 +21,14 @@ class BuilderBase(Entity):
     ) -> Direction:
         if pos == target:
             return Direction.CENTRE
-        path = nav_astar(
-            self.belief,
-            pos.x,
-            pos.y,
-            target.x,
-            target.y,
-            ct,
-            budget_us=1800,
-        )
-        if path is None or len(path) < 2:
+        search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
+        search.set_budget(ct, 1800)
+        search.compute()
+        raw = search.get_path()
+        if raw is None or len(raw) < 2:
             return Direction.CENTRE
-        nx, ny = path[1]
+        w = self.belief.w
+        nx, ny = raw[1] % w, raw[1] // w
         nxt = Position(nx, ny)
         bid = ct.get_tile_building_id(nxt)
         if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
@@ -50,18 +46,14 @@ class BuilderBase(Entity):
     ) -> tuple[Direction, Build | None]:
         if pos == target:
             return Direction.CENTRE, None
-        path = nav_astar(
-            self.belief,
-            pos.x,
-            pos.y,
-            target.x,
-            target.y,
-            ct,
-            budget_us=1800,
-        )
-        if path is None or len(path) < 2:
+        search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
+        search.set_budget(ct, 1800)
+        search.compute()
+        raw = search.get_path()
+        if raw is None or len(raw) < 2:
             return Direction.CENTRE, None
-        nx, ny = path[1]
+        w = self.belief.w
+        nx, ny = raw[1] % w, raw[1] // w
         nxt = Position(nx, ny)
         bid = ct.get_tile_building_id(nxt)
         if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:

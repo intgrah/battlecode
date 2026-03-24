@@ -12,7 +12,9 @@ class HarvestMixin(BuilderBase):
         pos: Position,
     ) -> tuple[Direction, Build | None] | None:
         return self._harvest_impl(
-            ct, pos, self.belief.ore_ti - self.belief.my_harvested - self.belief.en_harvested,
+            ct,
+            pos,
+            self.belief.ore_ti - self.belief.my_harvested - self.belief.en_harvested,
         )
 
     def _harvest_ax(
@@ -26,7 +28,9 @@ class HarvestMixin(BuilderBase):
         if not has_ti_flow:
             return None
         return self._harvest_impl(
-            ct, pos, self.belief.ore_ax - self.belief.my_harvested - self.belief.en_harvested,
+            ct,
+            pos,
+            self.belief.ore_ax - self.belief.my_harvested - self.belief.en_harvested,
         )
 
     def _harvest_impl(

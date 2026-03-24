@@ -373,22 +373,30 @@ class MapBelief:
                 break
         if self.my_foundries or _has_foundry_change:
             with _DEBUG_LOG.open("a") as dbg:
-                dbg.write(f"r={rnd} changed={len(changed)} reflow={needs_reflow} foundries={self.my_foundries} transport={len(self.my_transport)}\n")
+                dbg.write(
+                    f"r={rnd} changed={len(changed)} reflow={needs_reflow} foundries={self.my_foundries} transport={len(self.my_transport)}\n",
+                )
                 for fi in self.my_foundries:
                     fx, fy = fi % self.w, fi // self.w
                     ent = self.entity[fi]
-                    dbg.write(f"  belief_foundry ({fx},{fy}) ent={ent} dir={self.direction[fi]}\n")
+                    dbg.write(
+                        f"  belief_foundry ({fx},{fy}) ent={ent} dir={self.direction[fi]}\n",
+                    )
                     for ddx, ddy in _CARDINALS:
                         nx, ny = fx + ddx, fy + ddy
                         if self.in_bounds(nx, ny):
                             ni = self.idx(nx, ny)
                             nent = self.entity[ni]
-                            dbg.write(f"    adj ({nx},{ny}) ent={nent} dir={self.direction[ni]} in_transport={ni in self.my_transport}\n")
+                            dbg.write(
+                                f"    adj ({nx},{ny}) ent={nent} dir={self.direction[ni]} in_transport={ni in self.my_transport}\n",
+                            )
                 for cx, cy in changed:
                     ci = self.idx(cx, cy)
                     ent = self.entity[ci]
                     if ent is not None:
-                        dbg.write(f"  changed ({cx},{cy}) {ent[0].name} in_transport={ci in self.my_transport} in_foundries={ci in self.my_foundries} dir={self.direction[ci]}\n")
+                        dbg.write(
+                            f"  changed ({cx},{cy}) {ent[0].name} in_transport={ci in self.my_transport} in_foundries={ci in self.my_foundries} dir={self.direction[ci]}\n",
+                        )
         if needs_reflow:
             self.recompute_flow()
         if needs_enemy_reflow:
@@ -640,7 +648,10 @@ class MapBelief:
                     ni = ny * w + nx
                     if ni in in_degree and ni not in foundries:
                         from_dir = _DELTA_TO_DIR.get((ddx, ddy))
-                        if from_dir is not None and self._accepts_input_from(ni, from_dir):
+                        if from_dir is not None and self._accepts_input_from(
+                            ni,
+                            from_dir,
+                        ):
                             outs.append(ni)
                             in_degree[ni] += 1
                             in_reverse.setdefault(ni, []).append(i)
@@ -656,7 +667,10 @@ class MapBelief:
                     ni = ny * w + nx
                     if ni in receivers:
                         from_dir = _DELTA_TO_DIR.get((ddx, ddy))
-                        if from_dir is not None and self._accepts_input_from(ni, from_dir):
+                        if from_dir is not None and self._accepts_input_from(
+                            ni,
+                            from_dir,
+                        ):
                             outs.append(ni)
                             in_degree[ni] += 1
                             in_reverse.setdefault(ni, []).append(i)
@@ -712,7 +726,9 @@ class MapBelief:
                 f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
                 cx, cy = ci % w, ci // w
                 with _DEBUG_LOG.open("a") as dbg:
-                    dbg.write(f"  FOUNDRY ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} refined={refined:.3f} outs={len(outs)} excess={f.excess[ci]:.3f}\n")
+                    dbg.write(
+                        f"  FOUNDRY ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} refined={refined:.3f} outs={len(outs)} excess={f.excess[ci]:.3f}\n",
+                    )
             elif etype in _TRANSPORT:
                 ti_in = f.ti[ci]
                 ax_in = f.ax[ci]
@@ -720,7 +736,9 @@ class MapBelief:
                 if etype == EntityType.SPLITTER:
                     cx, cy = ci % w, ci // w
                     with _DEBUG_LOG.open("a") as dbg:
-                        dbg.write(f"  SPLITTER ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} outs={len(outs)}\n")
+                        dbg.write(
+                            f"  SPLITTER ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} outs={len(outs)}\n",
+                        )
                 divisor = 3 if etype == EntityType.SPLITTER else 1
                 ti_push = ti_in / divisor
                 ax_push = ax_in / divisor
