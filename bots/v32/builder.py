@@ -299,8 +299,8 @@ class BuilderAgent:
             "state": type(state).__name__,
             "pos": [pos.x, pos.y],
             "action": action,
-            "target": [state.target.x, state.target.y]
-            if hasattr(state, "target") and state.target
+            "target": [t.x, t.y]
+            if (t := getattr(state, "target", None))
             else None,
             "net_connected": len(self.net.connected_tiles()),
             "net_dead": [

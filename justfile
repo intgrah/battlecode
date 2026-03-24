@@ -72,6 +72,15 @@ proto:
 lint:
     ruff check --fix bots/ scripts/
 
+typecheck:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ty check
+    for d in bots/*/ty.toml; do
+        d=$(dirname "$d")
+        ty check --project "$d"
+    done
+
 fmt:
     ruff format bots/ scripts/
 
