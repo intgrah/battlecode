@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import AX, RAX, TI, Astar, flow_astar
 from map_belief import _TRANSPORT
@@ -60,10 +58,7 @@ class FixExcessMixin(BuilderBase):
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
         allowed = self._commodity_of(idx)
         return self._build_chain_to_core(
-            ct,
-            pos,
-            best_tile,
-            banned_leakage=(TI | AX | RAX) & ~allowed,
+            ct, pos, best_tile, banned_leakage=(TI | AX | RAX) & ~allowed
         )
 
     def _fix_excess_ax(
@@ -224,12 +219,7 @@ class FixExcessMixin(BuilderBase):
             return None
         gi = self.belief.idx(goal[0], goal[1])
         return self._build_chain(
-            ct,
-            pos,
-            start,
-            goal,
-            goal_set={gi},
-            banned_leakage=banned_leakage,
+            ct, pos, start, goal, goal_set={gi}, banned_leakage=banned_leakage
         )
 
     def _find_start_tile(
@@ -291,11 +281,7 @@ class FixExcessMixin(BuilderBase):
         if start is None:
             return None
         return self._build_chain(
-            ct,
-            pos,
-            start,
-            (cx, cy),
-            banned_leakage=banned_leakage,
+            ct, pos, start, (cx, cy), banned_leakage=banned_leakage
         )
 
     def _build_chain(
@@ -332,15 +318,6 @@ class FixExcessMixin(BuilderBase):
             self._cached_chain_path = None
             return None
 
-        return self._follow_path(ct, pos, path)
-
-    def _follow_path(
-        self,
-        ct: Controller,
-        pos: Position,
-        path: list[tuple[int, int]],
-    ) -> tuple[Direction, Build | None] | None:
-        """Walk *path* and build/move toward the first unbuildable segment."""
         for k in range(len(path) - 1):
             x, y = path[k]
             nx, ny = path[k + 1]
@@ -365,28 +342,23 @@ class FixExcessMixin(BuilderBase):
             dx, dy = nx - x, ny - y
             is_cardinal = abs(dx) + abs(dy) == 1
 
+            if pos == build_at:
+                adj = self._cardinal_adjacent(pos, build_at)
+                if adj is not None:
+                    move, road = self._move_toward_with_road(ct, pos, adj)
+                    return move, road
+                continue
+
             if is_cardinal:
-                if pos == build_at:
-                    # Build conveyor at own tile + move forward in one turn
-                    d = build_at.direction_to(Position(nx, ny))
-                    conv = Build(BuildKind.CONVEYOR, build_at, d)
-                    if ct.can_move(d):
-                        return d, conv
-                    return Direction.CENTRE, conv
                 if pos.distance_squared(build_at) <= 2:
                     d = build_at.direction_to(Position(nx, ny))
                     return Direction.CENTRE, Build(BuildKind.CONVEYOR, build_at, d)
                 adj = self._cardinal_adjacent(pos, build_at)
                 if adj is not None:
-                    return self._move_toward_with_road(ct, pos, adj)
+                    move, road = self._move_toward_with_road(ct, pos, adj)
+                    return move, road
                 continue
 
-            if pos == build_at:
-                return Direction.CENTRE, Build(
-                    BuildKind.BRIDGE,
-                    build_at,
-                    Position(nx, ny),
-                )
             if pos.distance_squared(build_at) <= 2:
                 return Direction.CENTRE, Build(
                     BuildKind.BRIDGE,
@@ -395,6 +367,7 @@ class FixExcessMixin(BuilderBase):
                 )
             adj = self._cardinal_adjacent(pos, build_at)
             if adj is not None:
-                return self._move_toward_with_road(ct, pos, adj)
+                move, road = self._move_toward_with_road(ct, pos, adj)
+                return move, road
 
         return None

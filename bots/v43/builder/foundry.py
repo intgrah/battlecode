@@ -13,7 +13,16 @@ class FoundryMixin(BuilderBase):
         if self.belief.my_foundries:
             return None
 
+        # Delay foundry until at least 3 Ti harvesters are connected,
+        # since the 100% scaling cost makes everything much more expensive.
         w = self.belief.w
+        ti_h = sum(
+            1
+            for i in self.belief.my_harvesters
+            if (i % w, i // w) in self.belief.ore_ti
+        )
+        if ti_h < 3:
+            return None
         f = self.belief.my_flow
         best_tile: int | None = None
         best_score = 0.0
