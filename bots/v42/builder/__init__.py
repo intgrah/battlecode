@@ -108,6 +108,9 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             "flow_ax": [round(b.my_flow.ax[i], 3) for i in range(n)],
             "flow_rax": [round(b.my_flow.rax[i], 3) for i in range(n)],
             "blocked": [b.my_flow.blocked[i] for i in range(n)],
+            "excess_ti": [round(b.my_flow.ti_excess[i], 3) for i in range(n)],
+            "excess_ax": [round(b.my_flow.ax_excess[i], 3) for i in range(n)],
+            "excess_rax": [round(b.my_flow.rax_excess[i], 3) for i in range(n)],
             "unit_tiles": list(b.unit_tiles),
             "symmetry": b.symmetry.name if b.symmetry is not None else None,
         }

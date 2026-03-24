@@ -18,6 +18,9 @@ export interface BeliefFrame {
   flow_ax: number[];
   flow_rax: number[];
   blocked: boolean[];
+  excess_ti: number[];
+  excess_ax: number[];
+  excess_rax: number[];
   unit_tiles: number[];
   symmetry: string | null;
 }
@@ -70,4 +73,5 @@ export enum Overlay {
   FLOW_AX = "flow_ax",
   FLOW_RAX = "flow_rax",
   BLOCKED = "blocked",
+  EXCESS = "excess",
 }
