@@ -333,6 +333,21 @@ function renderFlowOverlay(
     }
   }
 
+  if (overlays.has(Overlay.EXCESS)) {
+    const eti = frame.excess_ti[i];
+    const eax = frame.excess_ax[i];
+    const erax = frame.excess_rax[i];
+    const etotal = eti + eax + erax;
+    if (etotal > 0.001) {
+      ctx.fillStyle = `rgba(255, 255, 0, ${Math.min(0.7, etotal * 1.5 + 0.2)})`;
+      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff0";
+      ctx.fillText(`E ${etotal.toFixed(2)}`, px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 4);
+    }
+  }
+
   if (overlays.has(Overlay.BLOCKED) && frame.blocked[i]) {
     ctx.fillStyle = "rgba(255, 0, 0, 0.35)";
     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);

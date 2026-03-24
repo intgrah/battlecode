@@ -31,16 +31,16 @@
   let dragStartY = 0;
   let camStartX = 0;
   let camStartY = 0;
-  let showFlowTi = $state(true);
-  let showFlowAx = $state(true);
-  let showFlowRax = $state(true);
+  let showFlow = $state(true);
+  let showExcess = $state(false);
   let showBlocked = $state(false);
 
   let overlays = $derived(
     new Set([
-      ...(showFlowTi ? [Overlay.FLOW_TI] : []),
-      ...(showFlowAx ? [Overlay.FLOW_AX] : []),
-      ...(showFlowRax ? [Overlay.FLOW_RAX] : []),
+      ...(showFlow
+        ? [Overlay.FLOW_TI, Overlay.FLOW_AX, Overlay.FLOW_RAX]
+        : []),
+      ...(showExcess ? [Overlay.EXCESS] : []),
       ...(showBlocked ? [Overlay.BLOCKED] : []),
     ]),
   );
@@ -319,15 +319,10 @@
       </div>
 
       <div class="control-group checkboxes">
-        <label
-          ><input type="checkbox" bind:checked={useBeliefEntities} /> Belief Entities</label
-        >
-        <label><input type="checkbox" bind:checked={showFlowTi} /> Ti</label>
-        <label><input type="checkbox" bind:checked={showFlowAx} /> Ax</label>
-        <label><input type="checkbox" bind:checked={showFlowRax} /> RAx</label>
-        <label
-          ><input type="checkbox" bind:checked={showBlocked} /> Blocked</label
-        >
+        <label><input type="checkbox" bind:checked={useBeliefEntities} /> Belief</label>
+        <label><input type="checkbox" bind:checked={showFlow} /> Flow</label>
+        <label><input type="checkbox" bind:checked={showExcess} /> Excess</label>
+        <label><input type="checkbox" bind:checked={showBlocked} /> Blocked</label>
       </div>
     {/if}
 
