@@ -9,10 +9,17 @@ Strategy:
   5. Self-destruct on enemy conveyors feeding directly into the core.
 """
 
-import contextlib
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import (
+    Controller,
+    Direction,
+    EntityType,
+    Environment,
+    GameError,
+    Position,
+    Team,
+)
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
@@ -20,12 +27,12 @@ CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 
 class Player:
     def __init__(self) -> None:
-        self.team = -1
+        self.team: Team | None = None
         self.w = 0
         self.h = 0
 
         # Builder state
-        self.core_pos = None
+        self.core_pos: Position | None = None
         self.enemy_core = None
         self.enemy_core_candidates = []  # symmetry candidates to try
         self.role = None  # 'eco' or 'hijack'
@@ -37,7 +44,7 @@ class Player:
         self.path_target = None  # target the path was computed for
 
         # Eco state -- build plan: bridge, conveyors bridge->outward, harvester last
-        self.build_plan = None  # list of ('bridge', pos, target) / ('conveyor', pos, dir) / ('harvester', pos, None)
+        self.build_plan: list[tuple[str, Position, Position | Direction | None]] | None = None
         self.plan_idx = 0
         self.plan_set = set()  # positions reserved for the plan (don't put roads here)
         self.eco_idx = 0  # index for distributing eco bots to different ore
@@ -48,7 +55,7 @@ class Player:
         self.builders_spawned = 0
 
     def run(self, ct: Controller) -> None:
-        if self.team == -1:
+        if self.team is None:
             self.team = ct.get_team()
             self.w = ct.get_map_width()
             self.h = ct.get_map_height()
@@ -101,14 +108,15 @@ class Player:
         # Find our core
         for eid in ct.get_nearby_entities():
             try:
-                if (
+                is_our_core = (
                     ct.get_entity_type(eid) == EntityType.CORE
                     and ct.get_team(eid) == self.team
-                ):
-                    self.core_pos = ct.get_position(eid)
-                    break
-            except Exception:
+                )
+            except GameError:
                 continue
+            if is_our_core:
+                self.core_pos = ct.get_position(eid)
+                break
         if self.core_pos is None:
             self.core_pos = pos
 
@@ -136,14 +144,15 @@ class Player:
             bid = ct.get_tile_building_id(tile)
             if bid is not None:
                 try:
-                    if (
+                    is_eco_marker = (
                         ct.get_team(bid) == self.team
                         and ct.get_entity_type(bid) == EntityType.MARKER
                         and ct.get_marker_value(bid) == 42
-                    ):
-                        eco_count += 1
-                except Exception:
-                    pass
+                    )
+                except GameError:
+                    is_eco_marker = False
+                if is_eco_marker:
+                    eco_count += 1
 
         if eco_count < 4:
             self.role = "eco"
@@ -206,31 +215,31 @@ class Player:
                 try:
                     team = ct.get_team(bid)
                     etype = ct.get_entity_type(bid)
-                    # Already the correct type here -- skip
-                    if team == self.team and etype in (
-                        EntityType.CONVEYOR,
-                        EntityType.HARVESTER,
-                        EntityType.BRIDGE,
+                except GameError:
+                    self.plan_idx += 1
+                    return
+                # Already the correct type here -- skip
+                if team == self.team and etype in (
+                    EntityType.CONVEYOR,
+                    EntityType.HARVESTER,
+                    EntityType.BRIDGE,
+                ):
+                    self.plan_idx += 1
+                    return
+                # Any allied building blocking the plan tile -- destroy it
+                if team == self.team:
+                    pos = ct.get_position()
+                    if pos.distance_squared(target_pos) <= 2 and ct.can_destroy(
+                        target_pos,
                     ):
-                        self.plan_idx += 1
-                        return
-                    # Any allied building blocking the plan tile -- destroy it
-                    if team == self.team:
-                        pos = ct.get_position()
-                        if pos.distance_squared(target_pos) <= 2 and ct.can_destroy(
-                            target_pos,
-                        ):
-                            ct.destroy(target_pos)
-                        else:
-                            # Move closer so we can destroy next round
-                            self._move_toward(ct, target_pos, build_roads=True)
-                        return
-                    # Enemy building -- can't destroy, skip this step
-                    self.plan_idx += 1
+                        ct.destroy(target_pos)
+                    else:
+                        # Move closer so we can destroy next round
+                        self._move_toward(ct, target_pos, build_roads=True)
                     return
-                except Exception:
-                    self.plan_idx += 1
-                    return
+                # Enemy building -- can't destroy, skip this step
+                self.plan_idx += 1
+                return
 
         # -- Try to build if in range --
         pos = ct.get_position()
@@ -242,13 +251,13 @@ class Player:
                     ct.build_harvester(target_pos)
                     self.plan_idx += 1
                     return
-            elif btype == "bridge":
+            elif btype == "bridge" and isinstance(target_dir, Position):
                 cost, _ = ct.get_bridge_cost()
                 if ti >= cost + 10 and ct.can_build_bridge(target_pos, target_dir):
                     ct.build_bridge(target_pos, target_dir)
                     self.plan_idx += 1
                     return
-            else:  # conveyor
+            elif isinstance(target_dir, Direction):
                 cost, _ = ct.get_conveyor_cost()
                 if ti >= cost + 10 and ct.can_build_conveyor(target_pos, target_dir):
                     ct.build_conveyor(target_pos, target_dir)
@@ -262,16 +271,20 @@ class Player:
         """Find titanium ore and create a full build plan (conveyors + harvester)."""
         pos = ct.get_position()
         core = self.core_pos
+        if core is None:
+            return
 
         # Collect ALL valid titanium ore tiles, sorted by score
         ore_list = []
         for tile in ct.get_nearby_tiles():
-            if ct.get_tile_env(tile) == Environment.ORE_TITANIUM:
-                if ct.get_tile_building_id(tile) is None:
-                    d_core = tile.distance_squared(core)
-                    d_me = pos.distance_squared(tile)
-                    score = d_core * 3 + d_me
-                    ore_list.append((score, tile))
+            if (
+                ct.get_tile_env(tile) == Environment.ORE_TITANIUM
+                and ct.get_tile_building_id(tile) is None
+            ):
+                d_core = tile.distance_squared(core)
+                d_me = pos.distance_squared(tile)
+                score = d_core * 3 + d_me
+                ore_list.append((score, tile))
 
         ore_list.sort()
 
@@ -338,15 +351,16 @@ class Player:
         # Check all visible buildings for enemy core -- might spot it from any angle
         for eid in ct.get_nearby_buildings():
             try:
-                if (
+                found_enemy_core = (
                     ct.get_entity_type(eid) == EntityType.CORE
                     and ct.get_team(eid) != self.team
-                ):
-                    self.enemy_core = ct.get_position(eid)
-                    self.enemy_core_candidates = []  # confirmed
-                    return
-            except Exception:
+                )
+            except GameError:
                 continue
+            if found_enemy_core:
+                self.enemy_core = ct.get_position(eid)
+                self.enemy_core_candidates = []  # confirmed
+                return
 
         # If current candidate is in vision but no enemy core there, eliminate it
         ec = self.enemy_core
@@ -354,11 +368,13 @@ class Player:
             bid = ct.get_tile_building_id(ec)
             is_core = False
             if bid is not None:
-                with contextlib.suppress(Exception):
+                try:
                     is_core = (
                         ct.get_entity_type(bid) == EntityType.CORE
                         and ct.get_team(bid) != self.team
                     )
+                except GameError:
+                    is_core = False
             if not is_core:
                 # Wrong -- remove and try next candidate
                 self.enemy_core_candidates = [
@@ -371,6 +387,7 @@ class Player:
                 self.path = []  # clear stale path
 
     def _hijack(self, ct: Controller) -> None:
+        assert self.team is not None
         self._update_enemy_core(ct)
         pos = ct.get_position()
         ec = self.enemy_core
@@ -382,74 +399,76 @@ class Player:
         # -- Priority 1: Drop gunner on empty tile next to core fed by enemy conveyor --
         for eid in ct.get_nearby_buildings():
             try:
-                if ct.get_team(eid) == self.team:
-                    continue
+                eid_team = ct.get_team(eid)
                 etype = ct.get_entity_type(eid)
-                if etype not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-                    continue
                 cpos = ct.get_position(eid)
                 cdir = ct.get_direction(eid)
-                out = cpos.add(cdir)
-                if not _in_bounds(out, w, h):
-                    continue
-                if not ct.is_in_vision(out) or not ct.is_tile_empty(out):
-                    continue
-                # Output tile must be adjacent to enemy core (Chebyshev distance 2 from center = touching the 3x3)
-                if max(abs(out.x - ec.x), abs(out.y - ec.y)) != 2:
-                    continue
-                # Find the best facing direction: must actually hit enemy core
-                gun_dir = _best_gunner_dir(ct, out, cpos, self.team)
-                if gun_dir is None:
-                    continue
-                if pos.distance_squared(out) <= 2 and ct.can_build_gunner(out, gun_dir):
-                    ct.build_gunner(out, gun_dir)
-                    print(f"HIJACK: gunner at {out} facing {gun_dir}")
-                    return
-                # Walk to it
-                self._move_toward(ct, out, build_roads=True)
-                return
-            except Exception:
+            except GameError:
                 continue
+            if eid_team == self.team:
+                continue
+            if etype not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+                continue
+            out = cpos.add(cdir)
+            if not _in_bounds(out, w, h):
+                continue
+            if not ct.is_in_vision(out) or not ct.is_tile_empty(out):
+                continue
+            # Output tile must be adjacent to enemy core (Chebyshev distance 2 from center = touching the 3x3)
+            if max(abs(out.x - ec.x), abs(out.y - ec.y)) != 2:
+                continue
+            # Find the best facing direction: must actually hit enemy core
+            gun_dir = _best_gunner_dir(ct, out, cpos, self.team)
+            if gun_dir is None:
+                continue
+            if pos.distance_squared(out) <= 2 and ct.can_build_gunner(out, gun_dir):
+                ct.build_gunner(out, gun_dir)
+                print(f"HIJACK: gunner at {out} facing {gun_dir}")
+                return
+            # Walk to it
+            self._move_toward(ct, out, build_roads=True)
+            return
 
         # -- Priority 2: Self-destruct on enemy conveyor adjacent to core --
         # Already standing on an enemy building next to the core? Blow up!
         bid = ct.get_tile_building_id(pos)
         if bid is not None:
             try:
-                if ct.get_team(bid) != self.team:
-                    if max(abs(pos.x - ec.x), abs(pos.y - ec.y)) <= 2:
-                        ct.self_destruct()
-                        print(f"HIJACK: self-destruct at {pos}")
-                        return
-            except Exception:
-                pass
+                bid_team = ct.get_team(bid)
+            except GameError:
+                bid_team = self.team
+            if bid_team != self.team and max(abs(pos.x - ec.x), abs(pos.y - ec.y)) <= 2:
+                ct.self_destruct()
+                print(f"HIJACK: self-destruct at {pos}")
+                return
 
         # Look for enemy conveyors adjacent to core to walk onto and self-destruct
         best_sd = None
         best_sd_dist = 9999
         for eid in ct.get_nearby_buildings():
             try:
-                if ct.get_team(eid) == self.team:
-                    continue
+                eid_team = ct.get_team(eid)
                 etype = ct.get_entity_type(eid)
-                if etype not in (
-                    EntityType.CONVEYOR,
-                    EntityType.ARMOURED_CONVEYOR,
-                    EntityType.SPLITTER,
-                ):
-                    continue
                 bpos = ct.get_position(eid)
                 bdir = ct.get_direction(eid)
-                out_tile = bpos.add(bdir)
-                # Check if this conveyor's output goes INTO the core (Chebyshev <= 1 from center)
-                if max(abs(out_tile.x - ec.x), abs(out_tile.y - ec.y)) <= 1:
-                    # This conveyor feeds directly into the core -- self-destruct target!
-                    d = pos.distance_squared(bpos)
-                    if d < best_sd_dist:
-                        best_sd_dist = d
-                        best_sd = bpos
-            except Exception:
+            except GameError:
                 continue
+            if eid_team == self.team:
+                continue
+            if etype not in (
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+            ):
+                continue
+            out_tile = bpos.add(bdir)
+            # Check if this conveyor's output goes INTO the core (Chebyshev <= 1 from center)
+            if max(abs(out_tile.x - ec.x), abs(out_tile.y - ec.y)) <= 1:
+                # This conveyor feeds directly into the core -- self-destruct target!
+                d = pos.distance_squared(bpos)
+                if d < best_sd_dist:
+                    best_sd_dist = d
+                    best_sd = bpos
 
         if best_sd is not None:
             if pos == best_sd:
@@ -470,7 +489,7 @@ class Player:
 
     # == Movement =================================================
 
-    def _move_toward(self, ct: Controller, target: Position, build_roads: bool) -> None:
+    def _move_toward(self, ct: Controller, target: Position, *, build_roads: bool) -> None:
         if ct.get_move_cooldown() > 0:
             return
 
@@ -506,8 +525,7 @@ class Player:
                     if env == Environment.WALL:
                         self.path = []  # path invalidated, will recompute next round
                     else:
-                        if ct.is_tile_empty(nxt):
-                            if build_roads and nxt not in self.plan_set:
+                        if ct.is_tile_empty(nxt) and build_roads and nxt not in self.plan_set:
                                 ti, _ = ct.get_global_resources()
                                 if ti > 20 and ct.can_build_road(nxt):
                                     ct.build_road(nxt)
@@ -675,7 +693,13 @@ def _bfs(ct: Controller, start: Position, goal: Position, w: int, h: int) -> lis
     return path
 
 
-def _plan_conveyor_chain(harv, core, w, h, walls=None):
+def _plan_conveyor_chain(
+    harv: Position,
+    core: Position,
+    w: int,
+    h: int,
+    walls: set[tuple[int, int]] | None = None,
+) -> tuple[list[tuple[Position, Direction]], Position | None, Position | None]:
     """Plan a conveyor chain from harvester to a bridge position near core.
 
     The bridge is placed at Chebyshev distance > 2 from core center but within
@@ -761,7 +785,7 @@ def _plan_conveyor_chain(harv, core, w, h, walls=None):
     return plan, goal, goal_target
 
 
-def _best_gunner_dir(ct, gunner_pos, conveyor_pos, team):
+def _best_gunner_dir(ct: Controller, gunner_pos: Position, conveyor_pos: Position, team: Team) -> Direction | None:
     """Find the best direction for a gunner so it actually hits the enemy core.
 
     Checks actual tile contents instead of computed positions.
@@ -773,13 +797,7 @@ def _best_gunner_dir(ct, gunner_pos, conveyor_pos, team):
     # Try all 8 directions, prioritizing ones toward the conveyor's output direction
     # (which should point toward the core)
     primary = conveyor_pos.direction_to(gunner_pos)
-    if primary == Direction.CENTRE:
-        candidates = DIRS
-    else:
-        # The conveyor outputs toward the gunner, so the core is roughly
-        # in the direction the conveyor was going -- use the conveyor->gunner direction
-        # extended past the gunner
-        candidates = _dir_pri(primary)
+    candidates = DIRS if primary == Direction.CENTRE else _dir_pri(primary)
 
     for d in candidates:
         # Scan along the firing line for the first non-empty tile
@@ -795,13 +813,12 @@ def _best_gunner_dir(ct, gunner_pos, conveyor_pos, team):
             uid = ct.get_tile_builder_bot_id(scan)
             if bid is not None:
                 try:
-                    if (
+                    hit_core = (
                         ct.get_entity_type(bid) == EntityType.CORE
                         and ct.get_team(bid) != team
-                    ):
-                        hit_core = True
-                except Exception:
-                    pass
+                    )
+                except GameError:
+                    hit_core = False
                 break  # Hit something (core or not), stop scanning
             if uid is not None:
                 break  # Hit a unit, stop scanning

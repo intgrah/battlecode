@@ -368,6 +368,7 @@ class BuilderAgent:
 
         brk = self._find_break(ct)
         if brk and pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+            assert self.core is not None
             d = repair_dir(ct, brk, self.core)
             if ct.can_build_conveyor(brk, d):
                 ct.build_conveyor(brk, d)

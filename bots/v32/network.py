@@ -1,4 +1,7 @@
-from cambc import Controller, Direction, EntityType, Environment, Position
+import json
+from pathlib import Path
+
+from cambc import Controller, Direction, EntityType, Environment, Position, Team
 
 _TRANSPORT = frozenset(
     {
@@ -123,7 +126,7 @@ class NetworkBelief:
         self,
         ct: Controller,
         hpos: Position,
-        my: int,
+        my: Team,
         w: int,
         h: int,
     ) -> int:
@@ -145,7 +148,7 @@ class NetworkBelief:
         self,
         ct: Controller,
         pos: Position,
-        my: int,
+        my: Team,
         w: int,
         h: int,
         seen: set[tuple[int, int]],
@@ -340,8 +343,6 @@ class NetworkBelief:
         return best
 
     def dump(self, path: str, turn: int, bot_id: int, bot_pos: tuple[int, int]) -> None:
-        import json
-
         entry = {
             "turn": turn,
             "bot_id": bot_id,
@@ -358,5 +359,5 @@ class NetworkBelief:
                 for p, info in self.tiles.items()
             },
         }
-        with open(path, "a") as f:
+        with Path(path).open("a") as f:
             f.write(json.dumps(entry, separators=(",", ":")) + "\n")

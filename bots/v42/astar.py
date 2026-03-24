@@ -51,7 +51,6 @@ class Astar:
         if self.done:
             return
 
-        w = self.w
         g = self.g
         parent = self.parent
         heap = self.heap

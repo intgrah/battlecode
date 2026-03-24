@@ -1,4 +1,4 @@
-from astar import INF, Astar
+from astar import Astar
 from cambc import EntityType, Environment
 from map_belief import _TRANSPORT, MapBelief
 

@@ -21,7 +21,7 @@ def main() -> None:
     replay = parse(replay_path)
     meta = extract_map_meta(replay)
 
-    total = len(replay.turns)  # type: ignore[attr-defined]
+    total = len(replay.turns)
     ctx = Context(
         map_meta=meta,
         replay_path=replay_path,

@@ -1,21 +1,25 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .types import MapMeta
 
-
-def parse(path: str) -> object:
+if TYPE_CHECKING:
     from proto.cambc_pb2 import Replay
 
+
+def parse(path: str) -> Replay:
+    from proto.cambc_pb2 import Replay as _Replay
+
     with Path(path).open("rb") as f:
-        r = Replay()
+        r = _Replay()
         r.ParseFromString(f.read())
         return r
 
 
-def extract_map_meta(replay: object) -> MapMeta:
-    m = replay.map  # type: ignore[attr-defined]
+def extract_map_meta(replay: Replay) -> MapMeta:
+    m = replay.map
     w, h = m.width, m.height
 
     core_pos: dict[int, tuple[int, int]] = {}

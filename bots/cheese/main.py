@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from cambc import Controller, Direction, EntityType, Environment, Position, Team
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
@@ -11,7 +13,7 @@ def ib(ct: Controller, p: Position) -> bool:
     return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
 
 
-def wall(ct: Controller, p: Position):
+def wall(ct: Controller, p: Position) -> bool:
     return not ib(ct, p) or ct.get_tile_env(p) == Environment.WALL
 
 
@@ -57,7 +59,7 @@ class BugNav:
     def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct, target, step_fn) -> bool:
+    def go(self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool]) -> bool:
         pos = ct.get_position()
         self.recent.append((pos.x, pos.y))
         if len(self.recent) > 8:
@@ -92,7 +94,7 @@ class BugNav:
         return False
 
 
-def step_road(ct, d) -> bool:
+def step_road(ct: Controller, d: Direction) -> bool:
     nxt = ct.get_position().add(d)
     if wall(ct, nxt):
         return False
@@ -141,7 +143,7 @@ class Builder:
                     w, h = ct.get_map_width(), ct.get_map_height()
                     self.ec = Position(w - 1 - self.core.x, h - 1 - self.core.y)
                     break
-        if not self.ec:
+        if self.ec is None:
             return
 
         spot = self._find_turret_spot(ct, pos, my)
@@ -171,7 +173,8 @@ class Builder:
 
         self.nav.go(ct, self.ec, lambda d: step_road(ct, d))
 
-    def _find_turret_spot(self, ct: Controller, pos: Position, my: Team):
+    def _find_turret_spot(self, ct: Controller, pos: Position, my: Team) -> tuple[Position, Direction] | None:
+        assert self.ec is not None
         best = None
         best_d = 999999
         for tile in ct.get_nearby_tiles():
@@ -195,7 +198,8 @@ class Builder:
                 best = (tile, face)
         return best
 
-    def _find_target_conv(self, ct: Controller, pos: Position, my: Team):
+    def _find_target_conv(self, ct: Controller, pos: Position, my: Team) -> Position | None:
+        assert self.ec is not None
         best = None
         best_d = 999999
         for eid in ct.get_nearby_entities():

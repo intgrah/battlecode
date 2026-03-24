@@ -4,7 +4,7 @@ import urllib.request
 from pathlib import Path
 
 from cambc.api import api_get
-from cambc.auth import get_token
+from cambc.auth import get_api_url, get_token
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -23,7 +23,6 @@ def download_match(match_id: str, out_dir: Path) -> list[Path]:
     paths = []
     for g in games:
         game_num = g["gameNumber"]
-        from cambc.auth import get_api_url
 
         url = f"{get_api_url()}/api/matches/replay?matchId={match_id}&game={game_num}"
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})

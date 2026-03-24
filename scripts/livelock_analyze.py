@@ -1,10 +1,12 @@
-import glob
 import sys
+import tempfile
 from collections import defaultdict
+from pathlib import Path
 
-files = sorted(glob.glob("/tmp/v39_b*.log"))
+log_dir = Path(tempfile.gettempdir())
+files = sorted(str(p) for p in log_dir.glob("v39_b*.log"))
 if not files:
-    print("No log files found at /tmp/v39_b*.log")
+    print(f"No log files found at {log_dir}/v39_b*.log")
     sys.exit(1)
 
 WINDOW = 8
@@ -12,18 +14,19 @@ WINDOW = 8
 for path in files:
     eid = path.split("v39_b")[1].split(".")[0]
     entries: list[tuple[int, str, str]] = []
-    for line in open(path):
-        line = line.strip()
-        if not line or line.startswith((" ", "nav", "build", "fix_")):
-            continue
-        parts = line.split()
-        try:
-            rnd = int(parts[0])
-        except ValueError:
-            continue
-        pos = parts[1]
-        action = parts[2] if len(parts) > 2 else "unknown"
-        entries.append((rnd, pos, action))
+    with Path(path).open() as fh:
+        for raw_line in fh:
+            line = raw_line.strip()
+            if not line or line.startswith((" ", "nav", "build", "fix_")):
+                continue
+            parts = line.split()
+            try:
+                rnd = int(parts[0])
+            except ValueError:
+                continue
+            pos = parts[1]
+            action = parts[2] if len(parts) > 2 else "unknown"
+            entries.append((rnd, pos, action))
 
     total = len(entries)
     if total == 0:

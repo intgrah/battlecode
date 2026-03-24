@@ -1,12 +1,18 @@
 """Launcher unit logic for v6."""
 
+from __future__ import annotations
+
 import random
+from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType
 from utils import king_dist
 
+if TYPE_CHECKING:
+    from main import Player
 
-def run_launcher(player, ct: Controller) -> None:
+
+def run_launcher(player: Player, ct: Controller) -> None:
     """If a builder is in the team core, launch it to a random tile outside the core."""
     pos = ct.get_position()
     my_team = ct.get_team()
