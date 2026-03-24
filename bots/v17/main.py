@@ -59,7 +59,7 @@ def ore_env(ct: Controller, p: Position) -> bool:
 
 
 class Percept:
-    def __init__(self, ct: Controller, core: Position, enemy_core: Position) -> None:
+    def __init__(self, ct: Controller, core: Position, enemy_core: Position | None) -> None:
         self.ct = ct
         self.pos = ct.get_position()
         self.core = core

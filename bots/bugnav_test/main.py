@@ -1,11 +1,17 @@
-import os
+import importlib
 import sys
+import tempfile
+from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "v27"))
-
-from bugnav import BugNav
 from cambc import Controller, EntityType, Position
-from util import DIRS, step_road
+
+sys.path.insert(0, str(Path(__file__).parent / ".." / "v27"))
+
+bugnav_mod = importlib.import_module("bugnav")
+util_mod = importlib.import_module("util")
+BugNav = bugnav_mod.BugNav
+DIRS = util_mod.DIRS
+step_road = util_mod.step_road
 
 
 class Player:
@@ -18,7 +24,8 @@ class Player:
     def run(self, ct: Controller) -> None:
         if self.f is None:
             team = ct.get_team().name.lower()
-            self.f = open(f"/tmp/bugnav_trace_{team}.txt", "w")
+            trace_path = Path(tempfile.gettempdir()) / f"bugnav_trace_{team}.txt"
+            self.f = trace_path.open("w")
 
         if ct.get_entity_type() == EntityType.CORE:
             if not self.spawned:

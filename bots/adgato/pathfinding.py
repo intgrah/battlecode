@@ -72,7 +72,7 @@ def _make_line_state(
     return adx, ady, sx, sy, adx - ady
 
 
-def scan_line(pos, target, walkable):
+def scan_line(pos: Position, target: Position, walkable: set[Position]) -> tuple[Position | None, Position | None]:
     """Walk a Bresenham line from pos toward target within vision.
     Returns (furthest_walkable, first_wall).
     furthest_walkable: last walkable cell before a wall or vision edge, or None.
@@ -95,7 +95,12 @@ def scan_line(pos, target, walkable):
     return furthest, None
 
 
-def _step_along_line(current, target, walkable, line_state):
+def _step_along_line(
+    current: Position,
+    target: Position,
+    walkable: set[Position],
+    line_state: tuple[int, int, int, int, int],
+) -> tuple[Position, Direction | None, tuple[int, int, int, int, int] | None]:
     """Take one Bresenham step from current toward target.
     Returns (next_cell, blocked_direction_or_None, new_line_state)."""
     if current == target:
@@ -110,13 +115,13 @@ def _step_along_line(current, target, walkable, line_state):
     return cell, None, new_state
 
 
-def has_line_of_sight(pos, target, walkable):
+def has_line_of_sight(pos: Position, target: Position, walkable: set[Position]) -> bool:
     """Check if target is reachable from pos along a clear Bresenham line."""
     furthest, _ = scan_line(pos, target, walkable)
     return furthest == target
 
 
-def _trace_step(sim_pos, sim_dir, trace_left, walkable, origin):
+def _trace_step(sim_pos: Position, sim_dir: Direction, *, trace_left: bool, walkable: set[Position], origin: Position) -> tuple[Position, Direction] | None:
     """Take one wall-following step. Returns (new_pos, new_dir) or None if stuck/out of vision."""
     next_pos = sim_pos.add(sim_dir)
     if not in_vision(origin, next_pos):
@@ -136,7 +141,7 @@ def _trace_step(sim_pos, sim_dir, trace_left, walkable, origin):
     return None
 
 
-def _trace_move(current, tracing_dir, trace_left, walkable):
+def _trace_move(current: Position, tracing_dir: Direction, *, trace_left: bool | None, walkable: set[Position]) -> tuple[Position | None, Direction]:
     """Take one wall-following move. Returns (next_pos, new_dir) or (None, dir)."""
     next_pos = current.add(tracing_dir)
     if next_pos in walkable:
@@ -157,7 +162,7 @@ def _trace_move(current, tracing_dir, trace_left, walkable):
 class AgentState:
     """Holds all mutable state for one Bug2 agent."""
 
-    def __init__(self, start, goal) -> None:
+    def __init__(self, start: Position, goal: Position) -> None:
         self.start = start
         self.goal = goal
         self.current = start
@@ -165,16 +170,15 @@ class AgentState:
         self.is_tracing = False
         self.checkpoint_dist = chebyshev(start, goal)
         self.detour_dist = self.checkpoint_dist
-        self.obstacle_start_pos = None
+        self.obstacle_start_pos: Position | None = None
         self.tracing_dir = Direction.NORTH
-        self.trace_left = None
-        self.trace_heads = None
+        self.trace_left: bool | None = None
+        self.trace_heads: list[tuple[Position, Direction, Position]] | None = None
         self.line_state = _make_line_state(start, goal)
         self.prev_target = goal
         self.reached = False
-        # Debug: last scan_line results (set by bug2_step each call)
-        self.dbg_last_open = None
-        self.dbg_first_wall = None
+        self.dbg_last_open: Position | None = None
+        self.dbg_first_wall: Position | None = None
 
     @property
     def done(self) -> bool:
@@ -198,7 +202,7 @@ class AgentState:
         self.reached = False
 
 
-def bug2_step(agent: AgentState, pos: Position, walkable, occupied):
+def bug2_step(agent: AgentState, pos: Position, walkable: set[Position], occupied: set[Position]) -> Position:
     """Advance one Bug2 step for a single agent.
     occupied is the set of Positions occupied by OTHER agents this turn.
     Returns the new Position (may be unchanged if blocked by another agent)."""
@@ -259,8 +263,8 @@ def bug2_step(agent: AgentState, pos: Position, walkable, occupied):
             next_pos, agent.tracing_dir = _trace_move(
                 current,
                 agent.tracing_dir,
-                agent.trace_left,
-                walkable,
+                trace_left=agent.trace_left,
+                walkable=walkable,
             )
             if next_pos is None:
                 return current  # stuck
@@ -268,12 +272,12 @@ def bug2_step(agent: AgentState, pos: Position, walkable, occupied):
     if not agent.is_tracing:
         wall_visible = first_wall is not None
 
-        if wall_visible and agent.trace_heads is None:
+        if first_wall is not None and agent.trace_heads is None:
             trace_start = last_open if last_open is not None else current
             wall_dir = trace_start.direction_to(first_wall)
             agent.trace_heads = [
-                [trace_start, wall_dir, trace_start],
-                [trace_start, wall_dir, trace_start],
+                (trace_start, wall_dir, trace_start),
+                (trace_start, wall_dir, trace_start),
             ]
 
         elif not wall_visible:
@@ -284,13 +288,13 @@ def bug2_step(agent: AgentState, pos: Position, walkable, occupied):
                 pos_h, dir_h, los_h = agent.trace_heads[side]
                 is_left = side == 0
                 for _ in range(5):
-                    result = _trace_step(pos_h, dir_h, is_left, walkable, current)
+                    result = _trace_step(pos_h, dir_h, trace_left=is_left, walkable=walkable, origin=current)
                     if result is None:
                         break
                     pos_h, dir_h = result
                     if has_line_of_sight(current, pos_h, walkable):
                         los_h = pos_h
-                agent.trace_heads[side] = [pos_h, dir_h, los_h]
+                agent.trace_heads[side] = (pos_h, dir_h, los_h)
 
         if agent.trace_heads is not None:
             gx = goal.x - current.x
@@ -362,8 +366,8 @@ def bug2_step(agent: AgentState, pos: Position, walkable, occupied):
             next_pos, agent.tracing_dir = _trace_move(
                 current,
                 agent.tracing_dir,
-                agent.trace_left,
-                walkable,
+                trace_left=agent.trace_left,
+                walkable=walkable,
             )
             agent.is_tracing = True
         else:

@@ -95,12 +95,12 @@ def extract_features(
         return None
 
     meta = extract_map_meta(replay)
-    all_turns = replay.turns  # type: ignore[attr-defined]
+    all_turns = replay.turns
     total_turns = len(all_turns)
     if total_turns < 10:
         return None
 
-    winner_raw = replay.winner if replay.HasField("winner") else None  # type: ignore[attr-defined]
+    winner_raw = replay.winner if replay.HasField("winner") else None
     winner = winner_raw if winner_raw is not None else -1
 
     own_core: dict[int, Pos] = {}

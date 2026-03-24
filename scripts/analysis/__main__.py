@@ -50,7 +50,7 @@ def main() -> None:
         deps |= SECTIONS[name].deps
 
     if "snapshots" in deps:
-        total = len(replay.turns)  # type: ignore[attr-defined]
+        total = len(replay.turns)
         ctx.snapshots = replay_snapshots(replay, sample_turns(total))
 
     if "scan" in deps:

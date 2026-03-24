@@ -173,8 +173,7 @@ def flow_astar(
             continue
 
         expanded += 1
-        if ct is not None and expanded % 32 == 0:
-            if ct.get_cpu_time_elapsed() - start_t > budget_us:
+        if ct is not None and expanded % 32 == 0 and ct.get_cpu_time_elapsed() - start_t > budget_us:
                 path = []
                 ni = best_ni
                 while ni != -1:

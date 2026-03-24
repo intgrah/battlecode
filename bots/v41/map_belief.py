@@ -1,10 +1,14 @@
+import tempfile
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 from cambc import Controller, Direction, EntityType, Environment, Team
 from marker import Eureka, TaskClaim, is_stale
 from marker import decode as decode_marker
+
+_DEBUG_LOG = Path(tempfile.gettempdir()) / "v41_flow_debug.log"
 
 # A* walkability costs. Lower = preferred by pathfinder.
 COST_ROAD = 5  # walkable buildings (roads, conveyors, splitters, allied core)
@@ -368,7 +372,7 @@ class MapBelief:
                 _has_foundry_change = True
                 break
         if self.my_foundries or _has_foundry_change:
-            with open("/tmp/v41_flow_debug.log", "a") as dbg:
+            with _DEBUG_LOG.open("a") as dbg:
                 dbg.write(f"r={rnd} changed={len(changed)} reflow={needs_reflow} foundries={self.my_foundries} transport={len(self.my_transport)}\n")
                 for fi in self.my_foundries:
                     fx, fy = fi % self.w, fi // self.w
@@ -707,7 +711,7 @@ class MapBelief:
                 total_out = rax_out * len(outs)
                 f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
                 cx, cy = ci % w, ci // w
-                with open("/tmp/v41_flow_debug.log", "a") as dbg:
+                with _DEBUG_LOG.open("a") as dbg:
                     dbg.write(f"  FOUNDRY ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} refined={refined:.3f} outs={len(outs)} excess={f.excess[ci]:.3f}\n")
             elif etype in _TRANSPORT:
                 ti_in = f.ti[ci]
@@ -715,7 +719,7 @@ class MapBelief:
                 rax_in = f.rax[ci]
                 if etype == EntityType.SPLITTER:
                     cx, cy = ci % w, ci // w
-                    with open("/tmp/v41_flow_debug.log", "a") as dbg:
+                    with _DEBUG_LOG.open("a") as dbg:
                         dbg.write(f"  SPLITTER ({cx},{cy}) ti={ti_in:.3f} ax={ax_in:.3f} rax={rax_in:.3f} outs={len(outs)}\n")
                 divisor = 3 if etype == EntityType.SPLITTER else 1
                 ti_push = ti_in / divisor
