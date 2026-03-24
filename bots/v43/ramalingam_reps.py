@@ -20,28 +20,45 @@ class RamalingamReps:
         self.inv: list[list[int]] = [[] for _ in range(n)]
         self._heap: list[tuple[int, int]] = []
 
+    def seed_source(self, s: int) -> None:
+        """Seed a single source node (dist=0) without propagating."""
+        self.dist[s] = 0
+        self.pred[s] = s
+        heapq.heappush(self._heap, (0, s))
+
     def set_sources(self, sources: list[int]) -> None:
         for s in sources:
-            self.dist[s] = 0
-            self.pred[s] = s
-            heapq.heappush(self._heap, (0, s))
+            self.seed_source(s)
         self.propagate()
 
-    def propagate(self) -> None:
+    def propagate(self, max_expansions: int = 0) -> bool:
+        """Restore SSSP invariant.
+
+        If *max_expansions* > 0, stop after that many node pops and return
+        ``False`` to signal that work remains.  Return ``True`` when the
+        heap is fully drained (invariant restored).
+        """
         dist = self.dist
         pred = self.pred
         adj = self.adj
         heap = self._heap
+        count = 0
         while heap:
             d, u = heapq.heappop(heap)
             if d != dist[u]:
                 continue
+            count += 1
+            if max_expansions > 0 and count >= max_expansions:
+                # Push *u* back so we resume from here next time.
+                heapq.heappush(heap, (d, u))
+                return False
             for v, cost in adj[u]:
                 nd = d + cost
                 if nd < dist[v]:
                     dist[v] = nd
                     pred[v] = u
                     heapq.heappush(heap, (nd, v))
+        return True
 
     def add_edge(self, u: int, v: int, cost: int) -> None:
         self.adj[u].append((v, cost))

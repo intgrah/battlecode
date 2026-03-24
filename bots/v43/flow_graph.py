@@ -47,8 +47,19 @@ class FlowGraph:
         n = belief.w * belief.h
         self.sp = RamalingamReps(n)
         self._out_edges: list[dict[int, int]] = [{} for _ in range(n)]
+        self._initialized = False
 
-    def initialize(self, core_x: int, core_y: int) -> None:
+    def initialize(
+        self,
+        core_x: int,
+        core_y: int,
+        max_expansions: int = 0,
+    ) -> bool:
+        """Build edge graph and run initial Dijkstra.
+
+        If *max_expansions* > 0, the Dijkstra is budget-limited and may
+        not finish.  Returns ``True`` when fully initialized.
+        """
         b = self.belief
         for y in range(b.h):
             for x in range(b.w):
@@ -59,15 +70,31 @@ class FlowGraph:
                     self.sp.adj[ti].append((fi, cost))
                     self.sp.inv[fi].append(ti)
 
-        core_tiles = []
+        core_tiles: list[int] = []
         for dx in range(-1, 2):
             for dy in range(-1, 2):
                 cx, cy = core_x + dx, core_y + dy
                 if b.in_bounds(cx, cy):
                     core_tiles.append(b.idx(cx, cy))
-        self.sp.set_sources(core_tiles)
+        # Seed sources without auto-propagate.
+        for s in core_tiles:
+            self.sp.seed_source(s)
+        self._initialized = self.sp.propagate(max_expansions)
+        return self._initialized
+
+    def continue_init(self, max_expansions: int = 0) -> bool:
+        """Continue budgeted initialization. Returns True when done."""
+        self._initialized = self.sp.propagate(max_expansions)
+        return self._initialized
+
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
 
     def on_tile_changed(self, x: int, y: int) -> None:
+        """Register a tile change. Call propagate_updates() once after all changes."""
+        if not self._initialized:
+            return
         b = self.belief
         self._rebuild_node(x, y)
         for dx, dy in _CARDINAL:
@@ -78,7 +105,11 @@ class FlowGraph:
             nx, ny = x + dx, y + dy
             if b.in_bounds(nx, ny):
                 self._sync_edge(nx, ny, x, y)
-        self.sp.propagate()
+
+    def propagate_updates(self, max_expansions: int = 200) -> None:
+        """Propagate all pending edge changes with a budget."""
+        if self._initialized:
+            self.sp.propagate(max_expansions)
 
     def _rebuild_node(self, x: int, y: int) -> None:
         b = self.belief

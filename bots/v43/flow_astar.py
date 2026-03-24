@@ -183,100 +183,12 @@ def _build_flow_edges(
     return edges
 
 
-def _build_flow_edges_fast(
-    belief: MapBelief,
-) -> list[list[tuple[int, int]]]:
-    """Cardinal-only edges for core chains. No bridges, no leakage check."""
-    w, h = belief.w, belief.h
-    n = w * h
-    blocked = belief.my_flow.blocked
-    env = belief.env
-    entity = belief.entity
-    direction = belief.direction
-    bridge_target = belief.bridge_target
-    my_team = belief.my_team
-    impassable = _IMPASSABLE_ENV
-
-    edges: list[list[tuple[int, int]]] = [[] for _ in range(n)]
-
-    for ci in range(n):
-        if blocked[ci]:
-            continue
-        e = env[ci]
-        if e is not None and e in impassable:
-            continue
-        ent = entity[ci]
-        if ent is not None and ent[1] != my_team:
-            continue
-        cx, cy = ci % w, ci // w
-        result = edges[ci]
-
-        if ent is not None and ent[0] != EntityType.MARKER:
-            etype = ent[0]
-            if etype == EntityType.CORE:
-                for ddx, ddy in WALK_4:
-                    nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        ni = ny * w + nx
-                        if not blocked[ni]:
-                            ne = env[ni]
-                            if ne is None or ne not in impassable:
-                                result.append((ni, 0))
-            elif etype in _TRANSPORT:
-                d = direction[ci]
-                bt = bridge_target[ci]
-                if etype == EntityType.BRIDGE and bt is not None:
-                    bx, by = bt
-                    if 0 <= bx < w and 0 <= by < h:
-                        ni = by * w + bx
-                        if not blocked[ni]:
-                            ne = env[ni]
-                            if ne is None or ne not in impassable:
-                                result.append((ni, COST_REUSE))
-                elif d is not None:
-                    ddx, ddy = d.delta()
-                    nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        ni = ny * w + nx
-                        if not blocked[ni]:
-                            ne = env[ni]
-                            if ne is None or ne not in impassable:
-                                result.append((ni, COST_REUSE))
-            elif etype == EntityType.ROAD:
-                for ddx, ddy in WALK_4:
-                    nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        ni = ny * w + nx
-                        if not blocked[ni]:
-                            ne = env[ni]
-                            if ne is None or ne not in impassable:
-                                result.append((ni, COST_ROAD_REPLACE))
-        else:
-            for ddx, ddy in WALK_4:
-                nx, ny = cx + ddx, cy + ddy
-                if 0 <= nx < w and 0 <= ny < h:
-                    ni = ny * w + nx
-                    if not blocked[ni]:
-                        ne = env[ni]
-                        if ne is None or ne not in impassable:
-                            result.append((ni, COST_CONV))
-
-    return edges
-
-
-_h_cache: list[tuple[int, int, int, int, list[int]] | None] = [None]
-
-
 def _build_heuristic(w: int, h: int, gx: int, gy: int) -> list[int]:
-    cached = _h_cache[0]
-    if cached is not None and cached[:4] == (w, h, gx, gy):
-        return cached[4]
     n = w * h
     table = [0] * n
     for i in range(n):
         x, y = i % w, i // w
         table[i] = abs(x - gx) + abs(y - gy)
-    _h_cache[0] = (w, h, gx, gy, table)
     return table
 
 
@@ -297,11 +209,7 @@ def flow_astar(
                 cx, cy = gx + dx, gy + dy
                 if 0 <= cx < w and 0 <= cy < h:
                     goal_set.add(cy * w + cx)
-    # Use fast cardinal-only edges when no leakage ban (core chains)
-    if banned_leakage == 0:
-        edges = _build_flow_edges_fast(belief)
-    else:
-        leakage_mask = _build_leakage_mask(belief)
-        edges = _build_flow_edges(belief, leakage_mask, banned_leakage, goal_set)
+    leakage_mask = _build_leakage_mask(belief)
+    edges = _build_flow_edges(belief, leakage_mask, banned_leakage, goal_set)
     h_table = _build_heuristic(w, h, gx, gy)
     return Astar(w, h, sx, sy, goal_set, edges, h_table)

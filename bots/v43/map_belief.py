@@ -613,7 +613,8 @@ class MapBelief:
                     if ni in in_degree and ni not in foundries:
                         from_dir = _DELTA_TO_DIR.get((ddx, ddy))
                         if from_dir is not None and self._accepts_input_from(
-                            ni, from_dir
+                            ni,
+                            from_dir,
                         ):
                             outs.append(ni)
                             in_degree[ni] += 1
@@ -631,7 +632,8 @@ class MapBelief:
                     if ni in receivers:
                         from_dir = _DELTA_TO_DIR.get((ddx, ddy))
                         if from_dir is not None and self._accepts_input_from(
-                            ni, from_dir
+                            ni,
+                            from_dir,
                         ):
                             outs.append(ni)
                             in_degree[ni] += 1
