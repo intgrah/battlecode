@@ -180,17 +180,20 @@ class MapBelief:
 
         # -- Internal --
         cx, cy = core_pos
-        self._core_tiles: set[int] = set()
+        self.my_core_tiles: set[int] = set()
         for dx in range(-1, 2):
             for dy in range(-1, 2):
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    self._core_tiles.add(ny * w + nx)
+                    self.my_core_tiles.add(ny * w + nx)
         self._out_target: dict[int, list[int]] = {}
         self._out_target_dirty = True
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
+
+    def pos(self, i: int) -> tuple[int, int]:
+        return i % self.w, i // self.w
 
     def mirror(self, x: int, y: int) -> tuple[int, int]:
         """Mirror a position under the confirmed symmetry. Identity if unconfirmed."""
@@ -518,7 +521,7 @@ class MapBelief:
             self.my_harvesters,
             self.my_transport,
             self.my_foundries,
-            self._core_tiles,
+            self.my_core_tiles,
         )
 
     def recompute_enemy_flow(self) -> None:
@@ -610,9 +613,12 @@ class MapBelief:
                 nx, ny = ix + ddx, iy + ddy
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
-                    if ni in in_degree and ni not in foundries:
+                    if ni in in_degree:
                         from_dir = _DELTA_TO_DIR.get((ddx, ddy))
-                        if from_dir is not None and self._accepts_input_from(ni, from_dir):
+                        if from_dir is not None and self._accepts_input_from(
+                            ni,
+                            from_dir,
+                        ):
                             outs.append(ni)
                             in_degree[ni] += 1
                             in_reverse.setdefault(ni, []).append(i)
@@ -628,7 +634,10 @@ class MapBelief:
                     ni = ny * w + nx
                     if ni in receivers:
                         from_dir = _DELTA_TO_DIR.get((ddx, ddy))
-                        if from_dir is not None and self._accepts_input_from(ni, from_dir):
+                        if from_dir is not None and self._accepts_input_from(
+                            ni,
+                            from_dir,
+                        ):
                             outs.append(ni)
                             in_degree[ni] += 1
                             in_reverse.setdefault(ni, []).append(i)

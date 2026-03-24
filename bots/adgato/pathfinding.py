@@ -46,7 +46,13 @@ def in_vision(origin: Position, cell: Position) -> bool:
 
 
 def _bresenham_step(
-    x: int, y: int, err: int, adx: int, ady: int, sx: int, sy: int,
+    x: int,
+    y: int,
+    err: int,
+    adx: int,
+    ady: int,
+    sx: int,
+    sy: int,
 ) -> tuple[int, int, int]:
     """Advance one Bresenham step. Returns (x, y, err)."""
     e2 = 2 * err

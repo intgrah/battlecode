@@ -1,5 +1,6 @@
+from ax_chain_astar import AxChainAstar
 from cambc import Controller, Direction, EntityType, Environment, Position
-from flow_astar import AX, RAX, TI, Astar, flow_astar
+from flow_astar import AX, RAX, TI, FlowAstar
 from map_belief import _TRANSPORT
 from marker import TaskClaim, TaskKind
 
@@ -10,9 +11,12 @@ from .build import Build, BuildKind
 class FixExcessMixin(BuilderBase):
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
-        self._flow_search: Astar | None = None
+        self._flow_search: FlowAstar | None = None
         self._cached_chain_source: tuple[int, int] | None = None
-        self._cached_chain_path: list[tuple[int, int]] | None = None
+        self._cached_chain_path: list[int] | None = None
+        self._ax_flow_search: FlowAstar | None = None
+        self._ax_cached_source: tuple[int, int] | None = None
+        self._ax_cached_path: list[int] | None = None
 
     def _commodity_of(self, i: int) -> int:
         f = self.belief.my_flow
@@ -34,11 +38,16 @@ class FixExcessMixin(BuilderBase):
         best_dist = 999999
         w = self.belief.w
         f = self.belief.my_flow
-        for i in self.belief.my_harvesters | self.belief.my_transport | self.belief.my_foundries:
+        for i in (
+            self.belief.my_harvesters
+            | self.belief.my_transport
+            | self.belief.my_foundries
+        ):
             ti_ex = f.ti_excess[i]
             rax_ex = f.rax_excess[i]
             if (ti_ex > 0.01 or rax_ex > 0.01) and not self._is_claimed(
-                i, TaskKind.FIX_EXCESS,
+                i,
+                TaskKind.FIX_EXCESS,
             ):
                 x, y = i % w, i // w
                 dist = (pos.x - x) ** 2 + (pos.y - y) ** 2
@@ -52,7 +61,12 @@ class FixExcessMixin(BuilderBase):
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
         allowed = self._commodity_of(idx)
-        return self._build_chain_to_core(ct, pos, best_tile, banned_leakage=(TI | AX | RAX) & ~allowed)
+        return self._build_chain_to_core(
+            ct,
+            pos,
+            best_tile,
+            banned_leakage=(TI | AX | RAX) & ~allowed,
+        )
 
     def _fix_excess_ax(
         self,
@@ -65,7 +79,8 @@ class FixExcessMixin(BuilderBase):
         f = self.belief.my_flow
         for i in self.belief.my_harvesters | self.belief.my_transport:
             if f.ax_excess[i] > 0.01 and not self._is_claimed(
-                i, TaskKind.FIX_EXCESS,
+                i,
+                TaskKind.FIX_EXCESS,
             ):
                 x, y = i % w, i // w
                 dist = (pos.x - x) ** 2 + (pos.y - y) ** 2
@@ -79,44 +94,36 @@ class FixExcessMixin(BuilderBase):
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, ti_idx, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 255)
 
-        target = self._find_ti_conveyor(best_tile)
-        if target is None:
+        ti_goals = self._find_ti_conveyor_goals()
+        if not ti_goals:
             return None
-        return self._build_ax_chain(ct, pos, best_tile, target)
+        return self._build_ax_chain(ct, pos, best_tile, ti_goals)
 
-    def _find_ti_conveyor(self, source: tuple[int, int]) -> tuple[int, int] | None:
-        best_conv = None
-        best_dist = 999999
-        w = self.belief.w
+    def _find_ti_conveyor_goals(self) -> set[int]:
         f = self.belief.my_flow
+        goals: set[int] = set()
         for i in self.belief.my_transport:
             if f.ti[i] <= 0:
                 continue
             ent = self.belief.entity[i]
             if ent is None:
                 continue
-            if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-                continue
-            x, y = i % w, i // w
-            dist = (source[0] - x) ** 2 + (source[1] - y) ** 2
-            if dist < best_dist:
-                best_dist = dist
-                best_conv = (x, y)
-        return best_conv
+            if ent[0] in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+                goals.add(i)
+        return goals
 
     def _build_ax_chain(
         self,
         ct: Controller,
         pos: Position,
         source: tuple[int, int],
-        target: tuple[int, int],
+        ti_goals: set[int],
     ) -> tuple[Direction, Build | None] | None:
         sx, sy = source
         si = self.belief.idx(sx, sy)
         ent = self.belief.entity[si]
         if ent is not None and ent[0] in (EntityType.HARVESTER, EntityType.FOUNDRY):
             best_start = None
-            best_d = 999999
             for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = sx + ddx, sy + ddy
                 if not self.belief.in_bounds(nx, ny):
@@ -132,31 +139,40 @@ class FixExcessMixin(BuilderBase):
                 nent = self.belief.entity[ni]
                 if nent is not None and nent[0] in _TRANSPORT:
                     continue
-                d = (nx - target[0]) ** 2 + (ny - target[1]) ** 2
-                if d < best_d:
-                    best_d = d
-                    best_start = (nx, ny)
+                best_start = (nx, ny)
+                break
             if best_start is None:
                 return None
             sx, sy = best_start
 
-        gx, gy = target
-        gi = self.belief.idx(gx, gy)
-        search = flow_astar(
-            self.belief, sx, sy, gx, gy,
-            goal_set={gi},
-            banned_leakage=TI | RAX,
-        )
-        search.compute(ct, 1200)
-        path = search.get_path()
+        start = (sx, sy)
+
+        path = self._ax_cached_path
+        if path is None or self._ax_cached_source != start:
+            if self._ax_flow_search is None or self._ax_cached_source != start:
+                self._ax_flow_search = AxChainAstar(
+                    self.belief,
+                    sx,
+                    sy,
+                    ti_goals,
+                )
+                self._ax_cached_source = start
+            self._ax_flow_search.set_budget(ct, 1200)
+            self._ax_flow_search.compute()
+            path = self._ax_flow_search.get_path()
+            if self._ax_flow_search.done:
+                self._ax_flow_search = None
+            self._ax_cached_path = path
         if path is None or len(path) < 2:
+            self._ax_cached_path = None
             return None
 
+        w = self.belief.w
         for k in range(len(path) - 1):
-            x, y = path[k]
-            nx, ny = path[k + 1]
+            x, y = path[k] % w, path[k] // w
+            nx, ny = path[k + 1] % w, path[k + 1] // w
 
-            pi = self.belief.idx(x, y)
+            pi = path[k]
             pent = self.belief.entity[pi]
             if pent is not None and pent[1] == self.belief.my_team:
                 ptype = pent[0]
@@ -193,20 +209,6 @@ class FixExcessMixin(BuilderBase):
                 return self._move_toward_with_road(ct, pos, adj)
 
         return None
-
-    def _build_chain_to_target(
-        self,
-        ct: Controller,
-        pos: Position,
-        source: tuple[int, int],
-        goal: tuple[int, int],
-        banned_leakage: int = 0,
-    ) -> tuple[Direction, Build | None] | None:
-        start = self._find_start_tile(source[0], source[1], goal[0], goal[1])
-        if start is None:
-            return None
-        gi = self.belief.idx(goal[0], goal[1])
-        return self._build_chain(ct, pos, start, goal, goal_set={gi}, banned_leakage=banned_leakage)
 
     def _find_start_tile(
         self,
@@ -266,29 +268,36 @@ class FixExcessMixin(BuilderBase):
         start = self._find_start_tile(source[0], source[1], cx, cy)
         if start is None:
             return None
-        return self._build_chain(ct, pos, start, (cx, cy), banned_leakage=banned_leakage)
-
+        return self._build_chain(
+            ct,
+            pos,
+            start,
+            banned_leakage=banned_leakage,
+        )
 
     def _build_chain(
         self,
         ct: Controller,
         pos: Position,
         start: tuple[int, int],
-        goal: tuple[int, int],
-        goal_set: set[int] | None = None,
         banned_leakage: int = 0,
     ) -> tuple[Direction, Build | None] | None:
         sx, sy = start
-        gx, gy = goal
+        w = self.belief.w
 
         path = self._cached_chain_path
         if path is None or self._cached_chain_source != start:
             if self._flow_search is None or self._cached_chain_source != start:
-                self._flow_search = flow_astar(
-                    self.belief, sx, sy, gx, gy, goal_set=goal_set, banned_leakage=banned_leakage,
+                self._flow_search = FlowAstar(
+                    self.belief,
+                    sx,
+                    sy,
+                    self.belief.my_core_tiles,
+                    banned_leakage,
                 )
                 self._cached_chain_source = start
-            self._flow_search.compute(ct, 1200)
+            self._flow_search.set_budget(ct, 1200)
+            self._flow_search.compute()
             path = self._flow_search.get_path()
             if self._flow_search.done:
                 self._flow_search = None
@@ -298,10 +307,10 @@ class FixExcessMixin(BuilderBase):
             return None
 
         for k in range(len(path) - 1):
-            x, y = path[k]
-            nx, ny = path[k + 1]
+            x, y = path[k] % w, path[k] // w
+            nx, ny = path[k + 1] % w, path[k + 1] // w
 
-            pi = self.belief.idx(x, y)
+            pi = path[k]
             pent = self.belief.entity[pi]
             if pent is not None and pent[1] == self.belief.my_team:
                 ptype = pent[0]

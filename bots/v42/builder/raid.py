@@ -1,3 +1,9 @@
+"""
+SELF DESTRUCT DAMAGE FROM BUILDERS WAS REMOVED. RAIDING SHOULD NOT USE SELF DESTRUCT ANYMORE.
+
+TODO: USE ACTUAL ATTACK STRATS, NOT SELF DESTRUCTION.
+"""
+
 from cambc import Controller, Direction, EntityType, Position
 
 from .base import BuilderBase

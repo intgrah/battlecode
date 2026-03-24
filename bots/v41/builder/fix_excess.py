@@ -27,7 +27,11 @@ class FixExcessMixin(BuilderBase):
         best_tile = None
         best_dist = 999999
         w = self.belief.w
-        for i in self.belief.my_harvesters | self.belief.my_transport | self.belief.my_foundries:
+        for i in (
+            self.belief.my_harvesters
+            | self.belief.my_transport
+            | self.belief.my_foundries
+        ):
             if self.belief.my_flow.excess[i] > 0.01 and not self._is_claimed(
                 i,
                 TaskKind.FIX_EXCESS,
@@ -45,7 +49,9 @@ class FixExcessMixin(BuilderBase):
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
         result = self._build_chain(ct, pos, best_tile)
         with _DEBUG_LOG.open("a") as dbg:
-            dbg.write(f"  fix_excess target=({best_tile[0]},{best_tile[1]}) chain_result={result is not None}\n")
+            dbg.write(
+                f"  fix_excess target=({best_tile[0]},{best_tile[1]}) chain_result={result is not None}\n",
+            )
         return result
 
     def _build_chain(
@@ -119,7 +125,9 @@ class FixExcessMixin(BuilderBase):
         if path is None or len(path) < 2:
             self._cached_chain_path = None
             with _DEBUG_LOG.open("a") as dbg:
-                dbg.write(f"  chain FAILED path={path} done={self._flow_search is None}\n")
+                dbg.write(
+                    f"  chain FAILED path={path} done={self._flow_search is None}\n",
+                )
             return None
 
         for k in range(len(path) - 1):

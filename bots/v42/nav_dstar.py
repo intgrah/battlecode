@@ -1,4 +1,4 @@
-from dstar import DStarLite
+from algorithms.dstar import DStarLite
 from map_belief import COST_EMPTY, COST_IMPASSABLE, MapBelief
 
 WALK_8 = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]

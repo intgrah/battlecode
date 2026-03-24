@@ -1,55 +1,52 @@
-from typing import TYPE_CHECKING
-
-from astar import Astar
+from algorithms import Astar
+from cambc import Controller
 from map_belief import COST_EMPTY, COST_IMPASSABLE, MapBelief
-
-if TYPE_CHECKING:
-    from cambc import Controller
 
 WALK_8 = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
 
 
-def _build_nav_edges(belief: MapBelief) -> list[list[tuple[int, int]]]:
-    w, h = belief.w, belief.h
-    n = w * h
-    edges: list[list[tuple[int, int]]] = [[] for _ in range(n)]
-    for ci in range(n):
-        cx, cy = ci % w, ci // w
-        result = edges[ci]
+class NavAstar(Astar[int]):
+    def __init__(
+        self,
+        belief: MapBelief,
+        sx: int,
+        sy: int,
+        gx: int,
+        gy: int,
+    ) -> None:
+        self._belief = belief
+        self._w = belief.w
+        self._h = belief.h
+        self._gx = gx
+        self._gy = gy
+        self._ct: Controller | None = None
+        self._budget_us = 0
+        si = sy * belief.w + sx
+        gi = gy * belief.w + gx
+        super().__init__(si, {gi})
+
+    def set_budget(self, ct: Controller, budget_us: int) -> None:
+        self._ct = ct
+        self._budget_us = budget_us
+
+    def should_continue(self) -> bool:
+        if self._ct is None:
+            return True
+        return self._ct.get_cpu_time_elapsed() < self._budget_us
+
+    def heuristic(self, node: int) -> int:
+        dx = abs(node % self._w - self._gx)
+        dy = abs(node // self._w - self._gy)
+        return max(dx, dy) * COST_EMPTY
+
+    def get_neighbors(self, node: int) -> list[tuple[int, int]]:
+        w, h = self._w, self._h
+        cx, cy = node % w, node // w
+        result: list[tuple[int, int]] = []
         for dx, dy in WALK_8:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * w + nx
-                wt = belief.walkable(nx, ny)
+                wt = self._belief.walkable(nx, ny)
                 if wt < COST_IMPASSABLE:
-                    result.append((ni, wt))
-    return edges
-
-
-def _build_nav_heuristic(w: int, h: int, gx: int, gy: int) -> list[int]:
-    n = w * h
-    table = [0] * n
-    for i in range(n):
-        x, y = i % w, i // w
-        dx = abs(x - gx)
-        dy = abs(y - gy)
-        table[i] = max(dx, dy) * COST_EMPTY
-    return table
-
-
-def nav_astar(
-    belief: MapBelief,
-    sx: int,
-    sy: int,
-    gx: int,
-    gy: int,
-    ct: "Controller",
-    budget_us: int = 1800,
-) -> list[tuple[int, int]] | None:
-    w, h = belief.w, belief.h
-    gi = gy * w + gx
-    edges = _build_nav_edges(belief)
-    h_table = _build_nav_heuristic(w, h, gx, gy)
-    search = Astar(w, h, sx, sy, {gi}, edges, h_table)
-    search.compute(ct, budget_us)
-    return search.get_path()
+                    result.append((ny * w + nx, wt))
+        return result

@@ -1,12 +1,7 @@
-from astar import Astar
-from cambc import EntityType, Environment
-from map_belief import _TRANSPORT, MapBelief
-
-WALK_4 = [(0, -1), (1, 0), (0, 1), (-1, 0)]
-
-BRIDGE_DELTAS = [
-    (dx, dy) for dx in range(-3, 4) for dy in range(-3, 4) if 2 < dx * dx + dy * dy <= 9
-]
+from algorithms import Astar
+from cambc import Controller, EntityType, Environment
+from map_belief import MapBelief
+from util import BRIDGE_DELTAS, DIR4_DELTA
 
 COST_REUSE = 0
 COST_CONV = 3
@@ -18,12 +13,12 @@ _IMPASSABLE_ENV = frozenset(
     (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE),
 )
 
-TI = 1
-AX = 2
-RAX = 4
+TI = 0b001
+AX = 0b010
+RAX = 0b100
 
 
-def _build_leakage_mask(belief: MapBelief) -> list[int]:
+def build_leakage_mask(belief: MapBelief) -> list[int]:
     w, h = belief.w, belief.h
     n = w * h
     mask = [0] * n
@@ -36,7 +31,7 @@ def _build_leakage_mask(belief: MapBelief) -> list[int]:
             continue
         if etype == EntityType.FOUNDRY:
             ix, iy = i % w, i // w
-            for ddx, ddy in WALK_4:
+            for ddx, ddy in DIR4_DELTA:
                 nx, ny = ix + ddx, iy + ddy
                 if 0 <= nx < w and 0 <= ny < h:
                     mask[ny * w + nx] |= RAX
@@ -70,7 +65,7 @@ def _build_leakage_mask(belief: MapBelief) -> list[int]:
         else:
             continue
         ix, iy = i % w, i // w
-        for ddx, ddy in WALK_4:
+        for ddx, ddy in DIR4_DELTA:
             nx, ny = ix + ddx, iy + ddy
             if 0 <= nx < w and 0 <= ny < h:
                 mask[ny * w + nx] |= commodity
@@ -78,138 +73,154 @@ def _build_leakage_mask(belief: MapBelief) -> list[int]:
     return mask
 
 
-def _build_flow_edges(
-    belief: MapBelief,
-    leakage_mask: list[int],
-    banned_leakage: int,
-    goal_set: set[int] | None = None,
-) -> list[list[tuple[int, int]]]:
-    w, h = belief.w, belief.h
-    n = w * h
-    blocked = belief.my_flow.blocked
-    env = belief.env
-    if goal_set is None:
-        goal_set = set()
-    entity = belief.entity
-    direction = belief.direction
-    bridge_target = belief.bridge_target
-    core_x, core_y = belief.my_core
+class FlowAstar(Astar[int]):
+    def __init__(
+        self,
+        belief: MapBelief,
+        sx: int,
+        sy: int,
+        goals: set[int],
+        banned_leakage: int,
+    ) -> None:
+        self._w = belief.w
+        self._h = belief.h
+        core_x, core_y = belief.my_core
+        self._gx = core_x
+        self._gy = core_y
+        self._banned_leakage = banned_leakage
+        self._leakage_mask = build_leakage_mask(belief)
+        self._blocked = belief.my_flow.blocked
+        self._env = belief.env
+        self._entity = belief.entity
+        self._direction = belief.direction
+        self._bridge_target = belief.bridge_target
+        self._my_team = belief.my_team
+        self._core_x = core_x
+        self._core_y = core_y
+        self._ct: Controller | None = None
+        self._budget_us = 0
+        si = sy * self._w + sx
+        super().__init__(si, goals)
 
-    edges: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    def set_budget(self, ct: Controller, budget_us: int) -> None:
+        self._ct = ct
+        self._budget_us = budget_us
 
-    for ci in range(n):
-        if blocked[ci]:
-            continue
-        e = env[ci]
+    def should_continue(self) -> bool:
+        if self._ct is None:
+            return True
+        return self._ct.get_cpu_time_elapsed() < self._budget_us
+
+    def heuristic(self, node: int) -> int:
+        return abs(node % self._w - self._gx) + abs(node // self._w - self._gy)
+
+    def get_neighbors(self, node: int) -> list[tuple[int, int]]:
+        w, h = self._w, self._h
+        blocked = self._blocked
+        env = self._env
+        entity = self._entity
+        direction = self._direction
+        bridge_target = self._bridge_target
+        leakage_mask = self._leakage_mask
+        banned_leakage = self._banned_leakage
+
+        if blocked[node]:
+            return []
+        e = env[node]
         if e is not None and e in _IMPASSABLE_ENV:
-            continue
-        ent = entity[ci]
-        if ent is not None and ent[1] != belief.my_team:
-            continue
+            return []
+        ent = entity[node]
+        if ent is not None and ent[1] != self._my_team:
+            return []
 
-        cx, cy = ci % w, ci // w
+        cx, cy = node % w, node // w
+        result: list[tuple[int, int]] = []
 
-        def passable(ni: int) -> bool:
-            if blocked[ni]:
-                return False
-            ne = env[ni]
-            return ne is None or ne not in _IMPASSABLE_ENV
-
-        def no_leak(ni: int) -> bool:
-            return leakage_mask[ni] & banned_leakage == 0
-
-        result = edges[ci]
-
-        if ent is not None and ent[0] != EntityType.MARKER:
-            etype = ent[0]
-
-            if etype == EntityType.CORE:
-                for ddx, ddy in WALK_4:
+        match ent:
+            case (EntityType.CORE, _):
+                for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         ni = ny * w + nx
-                        if passable(ni):
+                        if not blocked[ni] and (
+                            env[ni] is None or env[ni] not in _IMPASSABLE_ENV
+                        ):
                             result.append((ni, 0))
 
-            elif etype in _TRANSPORT:
-                d = direction[ci]
-                bt = bridge_target[ci]
-                if etype == EntityType.BRIDGE and bt is not None:
+            case (EntityType.BRIDGE, _):
+                bt = bridge_target[node]
+                if bt is not None:
                     bx, by = bt
                     if 0 <= bx < w and 0 <= by < h:
                         ni = by * w + bx
-                        if passable(ni):
+                        if not blocked[ni] and (
+                            env[ni] is None or env[ni] not in _IMPASSABLE_ENV
+                        ):
                             result.append((ni, COST_REUSE))
-                elif d is not None:
+
+            case (
+                EntityType.CONVEYOR
+                | EntityType.ARMOURED_CONVEYOR
+                | EntityType.SPLITTER,
+                _,
+            ):
+                d = direction[node]
+                if d is not None:
                     ddx, ddy = d.delta()
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         ni = ny * w + nx
-                        if passable(ni):
+                        if not blocked[ni] and (
+                            env[ni] is None or env[ni] not in _IMPASSABLE_ENV
+                        ):
                             result.append((ni, COST_REUSE))
 
-            elif etype == EntityType.ROAD:
-                core_dist_sq = (cx - core_x) ** 2 + (cy - core_y) ** 2
+            case (EntityType.ROAD, _):
+                core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
                 if core_dist_sq > CONV_CUTOFF_SQ:
-                    for ddx, ddy in WALK_4:
+                    for ddx, ddy in DIR4_DELTA:
                         nx, ny = cx + ddx, cy + ddy
                         if 0 <= nx < w and 0 <= ny < h:
                             ni = ny * w + nx
-                            if passable(ni) and no_leak(ni):
+                            if (
+                                not blocked[ni]
+                                and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                                and leakage_mask[ni] & banned_leakage == 0
+                            ):
                                 result.append((ni, COST_ROAD_REPLACE))
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         ni = ny * w + nx
-                        if passable(ni) and no_leak(ni):
+                        if (
+                            not blocked[ni]
+                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                            and leakage_mask[ni] & banned_leakage == 0
+                        ):
                             result.append((ni, COST_BRIDGE))
 
-        else:
-            core_dist_sq = (cx - core_x) ** 2 + (cy - core_y) ** 2
-            if core_dist_sq > CONV_CUTOFF_SQ:
-                for ddx, ddy in WALK_4:
+            case None | (EntityType.MARKER, _):
+                core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
+                if core_dist_sq > CONV_CUTOFF_SQ:
+                    for ddx, ddy in DIR4_DELTA:
+                        nx, ny = cx + ddx, cy + ddy
+                        if 0 <= nx < w and 0 <= ny < h:
+                            ni = ny * w + nx
+                            if (
+                                not blocked[ni]
+                                and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                                and leakage_mask[ni] & banned_leakage == 0
+                            ):
+                                result.append((ni, COST_CONV))
+                for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         ni = ny * w + nx
-                        if passable(ni) and no_leak(ni):
-                            result.append((ni, COST_CONV))
-            for ddx, ddy in BRIDGE_DELTAS:
-                nx, ny = cx + ddx, cy + ddy
-                if 0 <= nx < w and 0 <= ny < h:
-                    ni = ny * w + nx
-                    if passable(ni) and no_leak(ni):
-                        result.append((ni, COST_BRIDGE))
+                        if (
+                            not blocked[ni]
+                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                            and leakage_mask[ni] & banned_leakage == 0
+                        ):
+                            result.append((ni, COST_BRIDGE))
 
-    return edges
-
-
-def _build_heuristic(w: int, h: int, gx: int, gy: int) -> list[int]:
-    n = w * h
-    table = [0] * n
-    for i in range(n):
-        x, y = i % w, i // w
-        table[i] = abs(x - gx) + abs(y - gy)
-    return table
-
-
-def flow_astar(
-    belief: MapBelief,
-    sx: int,
-    sy: int,
-    gx: int,
-    gy: int,
-    goal_set: set[int] | None = None,
-    banned_leakage: int = 0,
-) -> Astar:
-    w, h = belief.w, belief.h
-    if goal_set is None:
-        goal_set = set()
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                cx, cy = gx + dx, gy + dy
-                if 0 <= cx < w and 0 <= cy < h:
-                    goal_set.add(cy * w + cx)
-    leakage_mask = _build_leakage_mask(belief)
-    edges = _build_flow_edges(belief, leakage_mask, banned_leakage, goal_set)
-    h_table = _build_heuristic(w, h, gx, gy)
-    return Astar(w, h, sx, sy, goal_set, edges, h_table)
+        return result
