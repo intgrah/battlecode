@@ -153,10 +153,6 @@ class Player:
   Return the number of living units currently on your team, including the core.
 </ResponseField>
 
-<ResponseField name="get_max_unit_count()" type="int">
-  Return the maximum number of living units your team may have at once. This includes the core.
-</ResponseField>
-
 <ResponseField name="get_cpu_time_elapsed()" type="int">
   Return the CPU time elapsed this round in microseconds.
 </ResponseField>
@@ -233,11 +229,11 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
-  Heal all friendly entities on the tile at position by 4 HP. Costs 1 titanium and one action cooldown.
+  Heal all friendly entities on the builder bot's own tile by 4 HP. If both a builder bot and a friendly building share the tile, both are healed. Costs 1 titanium and one action cooldown. Position must equal the builder bot's current position.
 </ResponseField>
 
 <ResponseField name="can_heal(position: Position)" type="bool">
-  Return True if this builder bot can heal the tile at position this round. The tile must be within action radius, and at least one friendly entity on it must be damaged.
+  Return True if this builder bot can heal the tile at position this round. Position must equal the builder bot's current position. Requires action cooldown == 0, enough titanium, and at least one damaged friendly entity on the tile.
 </ResponseField>
 
 <ResponseField name="destroy(building_pos: Position)" type="None">

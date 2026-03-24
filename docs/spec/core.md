@@ -24,7 +24,7 @@ The core is each team's central building. **If your core is destroyed, you lose 
 The core can **spawn one builder bot per round** on any of the 9 tiles it occupies. Spawning costs one action cooldown.
 
 <Info>
-  Each team can have at most **50 living units total**, including the core. That means you can have at most **49 additional living units**. Use `c.get_unit_count()` and `c.get_max_unit_count()` if you want the exact numbers. `c.can_spawn()` and any unit-producing `c.can_build_*()` method already account for the cap.
+  Each team can have at most **50 living units total**, including the core. That means you can have at most **49 additional living units**. Use `c.get_unit_count()` together with `GameConstants.MAX_TEAM_UNITS` if you want the exact numbers. `c.can_spawn()` and any unit-producing `c.can_build_*()` method already account for the cap.
 </Info>
 
 ```python  theme={"dark"}
