@@ -31,7 +31,9 @@ CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
 def build_state_at_turn(
-    r: Replay, at_turn: int, team: int,
+    r: Replay,
+    at_turn: int,
+    team: int,
 ) -> dict | None:
     alive = {}
     core_pos = None
@@ -99,7 +101,10 @@ def build_state_at_turn(
                 count += 1
         return max(count, 1)
 
-    def count_upstream(pos: tuple[int, int], seen: set[tuple[int, int]] | None = None) -> float:
+    def count_upstream(
+        pos: tuple[int, int],
+        seen: set[tuple[int, int]] | None = None,
+    ) -> float:
         if seen is None:
             seen = set()
         if pos in seen:
@@ -161,9 +166,7 @@ def main() -> None:
 
         turn_beliefs = [b for b in beliefs if b["turn"] == turn]
 
-        all_belief_tiles = {
-            k: v for b in turn_beliefs for k, v in b["tiles"].items()
-        }
+        all_belief_tiles = {k: v for b in turn_beliefs for k, v in b["tiles"].items()}
 
         conn_correct = 0
         conn_wrong = 0

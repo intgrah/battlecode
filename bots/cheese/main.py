@@ -59,7 +59,12 @@ class BugNav:
     def reset(self) -> None:
         self.__init__()
 
-    def go(self, ct: Controller, target: Position, step_fn: Callable[[Direction], bool]) -> bool:
+    def go(
+        self,
+        ct: Controller,
+        target: Position,
+        step_fn: Callable[[Direction], bool],
+    ) -> bool:
         pos = ct.get_position()
         self.recent.append((pos.x, pos.y))
         if len(self.recent) > 8:
@@ -173,7 +178,12 @@ class Builder:
 
         self.nav.go(ct, self.ec, lambda d: step_road(ct, d))
 
-    def _find_turret_spot(self, ct: Controller, pos: Position, my: Team) -> tuple[Position, Direction] | None:
+    def _find_turret_spot(
+        self,
+        ct: Controller,
+        pos: Position,
+        my: Team,
+    ) -> tuple[Position, Direction] | None:
         assert self.ec is not None
         best = None
         best_d = 999999
@@ -198,7 +208,12 @@ class Builder:
                 best = (tile, face)
         return best
 
-    def _find_target_conv(self, ct: Controller, pos: Position, my: Team) -> Position | None:
+    def _find_target_conv(
+        self,
+        ct: Controller,
+        pos: Position,
+        my: Team,
+    ) -> Position | None:
         assert self.ec is not None
         best = None
         best_d = 999999

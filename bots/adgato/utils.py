@@ -228,9 +228,9 @@ def place_comms(ct: Controller, core_pos: Position, value: int) -> bool:
         if bid is None:
             continue
         if ct.get_entity_type(bid) == EntityType.MARKER and ct.can_place_marker(tile):
-                print(f"maker at {tile} w/ {value}")
-                ct.place_marker(tile, value)
-                return True
+            print(f"maker at {tile} w/ {value}")
+            ct.place_marker(tile, value)
+            return True
 
     # 2. Try a tile with no building
     for tile in tiles:

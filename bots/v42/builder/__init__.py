@@ -1,3 +1,4 @@
+import json
 import time
 
 from cambc import (
@@ -33,7 +34,6 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         self._last_claim: TaskClaim | None = None
 
     def run(self, ct: Controller) -> None:
-
         t0 = time.perf_counter_ns()
         _, needs_reflow = self.belief.update(ct)
         if needs_reflow:
@@ -45,6 +45,7 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         t1 = time.perf_counter_ns()
 
         pos = ct.get_position()
+        self._dump(ct, pos)
         self._debug_target = None
         self._claim: TaskClaim | None = None
 
@@ -70,6 +71,49 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         if self._debug_target is not None:
             ct.draw_indicator_line(ct.get_position(), *self._debug_target)
         self._write_marker(ct)
+
+    def _dump(self, ct: Controller, pos: Position) -> None:
+        b = self.belief
+        n = b.w * b.h
+        data = {
+            "w": b.w,
+            "h": b.h,
+            "round": ct.get_current_round(),
+            "eid": ct.get_id(),
+            "pos": [pos.x, pos.y],
+            "explore_radius": self.explore_radius,
+            "env": [
+                b.env[i].value if b.env[i] is not None else None for i in range(n)
+            ],
+            "entity": [
+                [b.entity[i][0].value, b.entity[i][1].value]
+                if b.entity[i] is not None
+                else None
+                for i in range(n)
+            ],
+            "direction": [
+                b.direction[i].value if b.direction[i] is not None else None
+                for i in range(n)
+            ],
+            "bridge_target": {
+                str(i): [b.bridge_target[i][0], b.bridge_target[i][1]]
+                for i in range(n)
+                if b.bridge_target[i] is not None
+            },
+            "my_core": list(b.my_core),
+            "ore_ti": list(b.ore_ti),
+            "ore_ax": list(b.ore_ax),
+            "my_harvesters": list(b.my_harvesters),
+            "my_transport": list(b.my_transport),
+            "my_foundries": list(b.my_foundries),
+            "flow_ti": [round(b.my_flow.ti[i], 3) for i in range(n)],
+            "flow_ax": [round(b.my_flow.ax[i], 3) for i in range(n)],
+            "flow_rax": [round(b.my_flow.rax[i], 3) for i in range(n)],
+            "blocked": [b.my_flow.blocked[i] for i in range(n)],
+            "unit_tiles": list(b.unit_tiles),
+            "symmetry": b.symmetry.name if b.symmetry is not None else None,
+        }
+        print("BELIEF:" + json.dumps(data, separators=(",", ":")))
 
     def _policy(self, ct: Controller, pos: Position) -> tuple[Direction, Build | None]:
         tasks = [

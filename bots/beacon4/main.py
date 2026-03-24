@@ -261,7 +261,12 @@ class Player:
                 best_adj = adj
         return best_adj
 
-    def _calc_chain(self, c: Controller, start: Position, core_adj: Position) -> list[Position]:
+    def _calc_chain(
+        self,
+        c: Controller,
+        start: Position,
+        core_adj: Position,
+    ) -> list[Position]:
         waypoints = [Position(start.x, start.y)]
         cx, cy = start.x, start.y
         max_iter = 50
@@ -504,7 +509,8 @@ class Player:
         for d in DIRS:
             candidate = gap_pos.add(d)
             if (
-                candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(self.core_pos)
+                candidate.distance_squared(self.core_pos)
+                < gap_pos.distance_squared(self.core_pos)
                 and not self._is_wall(c, candidate)
                 and not self._is_ore(c, candidate)
             ):
@@ -781,7 +787,11 @@ class Player:
 
         self.bug_wf_turns += 1
         # Exit wall-following if closer than when we started
-        if self.bug_wf_turns > 1 and (pos.x, pos.y) != self.bug_wf_start and (dist < self.bug_wf_start_dist - 4 or dist < self.bug_wf_start_dist):
+        if (
+            self.bug_wf_turns > 1
+            and (pos.x, pos.y) != self.bug_wf_start
+            and (dist < self.bug_wf_start_dist - 4 or dist < self.bug_wf_start_dist)
+        ):
             self.bug_wf = False
             if self._bug_step(c, d, pave=pave):
                 return True
@@ -843,7 +853,13 @@ class Player:
                 continue
         return None
 
-    def _try_bridge_from_here(self, c: Controller, pos: Position, waypoints: list[Position], current_idx: int) -> bool:
+    def _try_bridge_from_here(
+        self,
+        c: Controller,
+        pos: Position,
+        waypoints: list[Position],
+        current_idx: int,
+    ) -> bool:
         my_team = c.get_team()
         for future_idx in range(current_idx + 1, len(waypoints) - 1):
             future_pos = waypoints[future_idx]
@@ -870,7 +886,12 @@ class Player:
                     return True
         return False
 
-    def _find_bridge_start(self, c: Controller, harvester_pos: Position, explorer_pos: Position) -> Position:
+    def _find_bridge_start(
+        self,
+        c: Controller,
+        harvester_pos: Position,
+        explorer_pos: Position,
+    ) -> Position:
         if self.core_pos is None:
             return explorer_pos
         best = explorer_pos
@@ -890,7 +911,12 @@ class Player:
                 best = adj
         return best
 
-    def _nudge_off_wall(self, c: Controller, wall_pos: Position, from_pos: Position) -> Position | None:
+    def _nudge_off_wall(
+        self,
+        c: Controller,
+        wall_pos: Position,
+        from_pos: Position,
+    ) -> Position | None:
         for d in DIRS:
             alt = wall_pos.add(d)
             if self._is_wall(c, alt) or self._is_ore(c, alt):
