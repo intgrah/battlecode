@@ -393,7 +393,7 @@ class Player:
         if self.foundry_step == 1:
             for d in CARDINALS:
                 side = self.foundry_pos.add(d)
-                if (
+                if self.foundry_ax_harv is not None and (
                     side.x == self.foundry_ax_harv.x
                     and side.y == self.foundry_ax_harv.y
                 ):
@@ -432,7 +432,7 @@ class Player:
             ti_pos = None
             for d in CARDINALS:
                 side = self.foundry_pos.add(d)
-                if (
+                if self.foundry_ax_harv is not None and (
                     side.x == self.foundry_ax_harv.x
                     and side.y == self.foundry_ax_harv.y
                 ):
@@ -466,7 +466,7 @@ class Player:
             output_pos = None
             for d in CARDINALS:
                 side = self.foundry_pos.add(d)
-                if (
+                if self.foundry_ax_harv is not None and (
                     side.x == self.foundry_ax_harv.x
                     and side.y == self.foundry_ax_harv.y
                 ):
@@ -535,6 +535,8 @@ class Player:
         self.role = "chaining"
 
     def _nearest_core_adj(self, pos: Position) -> Position:
+        if self.core_pos is None:
+            return pos
         best_adj = self.core_pos.add(CARDINALS[0])
         best_dist = 999999
         for d in CARDINALS:

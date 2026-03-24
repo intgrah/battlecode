@@ -41,7 +41,10 @@ ignore = [
 "proto/*.pyi" = ["N802", "PYI021"]
 
 [tool.ty.environment]
-extra-paths = [".", "scripts", "proto", "bots/adgato", "bots/astar_test"]
+extra-paths = [".", "scripts", "proto"]
+
+[tool.ty.src]
+exclude = ["ref/"]
 
 [tool.uv.workspace]
 members = ["test"]

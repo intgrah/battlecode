@@ -8218,7 +8218,7 @@ class BuilderBot:
             None for _ in range(self.size)
         ]
         self.map_enemy_bot: list[None | int] = [None for _ in range(self.size)]
-        self.map_walkable = [1 for _ in range(self.size)]
+        self.map_walkable: list[int | float] = [1 for _ in range(self.size)]
         self.map_titanium: list[int] = []
         self.map_axionite: list[int] = []
 
