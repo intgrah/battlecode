@@ -41,7 +41,29 @@ ignore = [
 "proto/*.pyi" = ["N802", "PYI021"]
 
 [tool.ty.environment]
-extra-paths = [".", "scripts", "proto", "bots/adgato", "bots/astar_test"]
+extra-paths = [".", "scripts", "proto"]
+
+[tool.ty.src]
+# Multi-file bots are checked independently via `ty check --project bots/<bot>`
+# (each has its own ty.toml with environment.root = ["."])
+exclude = [
+    "ref/",
+    "bots/adgato/",
+    "bots/astar_test/",
+    "bots/v27/",
+    "bots/v28/",
+    "bots/v29a/",
+    "bots/v29b/",
+    "bots/v29c/",
+    "bots/v30/",
+    "bots/v31/",
+    "bots/v32/",
+    "bots/v38/",
+    "bots/v39/",
+    "bots/v40/",
+    "bots/v41/",
+    "bots/v42/",
+]
 
 [tool.uv.workspace]
 members = ["test"]
