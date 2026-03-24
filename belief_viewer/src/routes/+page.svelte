@@ -44,9 +44,12 @@
     ]),
   );
 
+  let needsCenter = $state(false);
+
   onMount(async () => {
     sprites = await loadSprites();
     await loadFromUrl("/replay.replay26");
+    needsCenter = true;
   });
 
   async function loadFromUrl(url: string) {
@@ -54,10 +57,10 @@
     try {
       replayData = await loadReplayFromUrl(url);
       botIds = replayData.botIds;
+      console.log("loaded", { botIds, botsSize: replayData.bots.size });
       if (botIds.length > 0) {
         selectBot(botIds[0]);
       }
-      centerCamera();
     } catch (e) {
       console.error("Failed to load replay:", e);
     }
@@ -97,37 +100,48 @@
     }
   }
 
-  function centerCamera() {
-    if (!canvas || !replayData) return;
+  function loadFrame() {
+    frame = replayData?.bots.get(selectedBot)?.get(selectedRound) ?? null;
+    console.log("loadFrame", { selectedBot, selectedRound, hasFrame: !!frame, botIds, rounds: rounds.slice(0, 5) });
+  }
+
+  let offscreen: OffscreenCanvas | null = null;
+  let rafId = 0;
+
+  function draw() {
+    console.log("draw", { frame: !!frame, canvas: !!canvas, replayData: !!replayData, cw: canvas?.clientWidth, ch: canvas?.clientHeight, camX, camY, zoom });
+    if (!frame || !canvas || !replayData) return;
+    const cw = canvas.clientWidth;
+    const ch = canvas.clientHeight;
+    if (cw === 0 || ch === 0) {
+      rafId = requestAnimationFrame(draw);
+      return;
+    }
+
+    canvas.width = cw;
+    canvas.height = ch;
+
     const g = replayData.ground;
     const mapW = g.w * 64;
     const mapH = g.h * 64;
-    const fitZoom = Math.min(canvas.clientWidth / mapW, canvas.clientHeight / mapH, 1);
-    zoom = fitZoom;
-    camX = (canvas.clientWidth - mapW * zoom) / 2;
-    camY = (canvas.clientHeight - mapH * zoom) / 2;
-  }
 
-  function loadFrame() {
-    frame = replayData?.bots.get(selectedBot)?.get(selectedRound) ?? null;
-  }
+    if (needsCenter) {
+      zoom = Math.min(cw / mapW, ch / mapH, 1);
+      camX = (cw - mapW * zoom) / 2;
+      camY = (ch - mapH * zoom) / 2;
+      needsCenter = false;
+    }
 
-  $effect(() => {
-    if (!frame || !canvas || !replayData) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.translate(camX, camY);
-    ctx.scale(zoom, zoom);
+    if (!offscreen || offscreen.width !== mapW || offscreen.height !== mapH) {
+      offscreen = new OffscreenCanvas(mapW, mapH);
+    }
+    const offCtx = offscreen.getContext("2d");
+    if (!offCtx) return;
 
     const turnIndicators = replayData.indicators.get(frame.round) ?? [];
     const botIndicators = turnIndicators.filter((il) => il.eid === selectedBot);
     render(
-      ctx,
+      offCtx as unknown as CanvasRenderingContext2D,
       frame,
       {
         useBeliefEntities,
@@ -139,7 +153,28 @@
       },
       sprites,
     );
-    ctx.restore();
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(offscreen, Math.round(camX), Math.round(camY), Math.round(mapW * zoom), Math.round(mapH * zoom));
+  }
+
+  $effect(() => {
+    void frame;
+    void canvas;
+    void replayData;
+    void camX;
+    void camY;
+    void zoom;
+    void useBeliefEntities;
+    void overlays;
+    void selectedBot;
+    void sprites;
+    void needsCenter;
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(draw);
   });
 
   function prevRound() {
