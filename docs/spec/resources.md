@@ -42,6 +42,8 @@ Axionite comes in two forms:
 
 Resources are stored and moved in **stacks of 10**. At the end of each round, buildings that output resources send them to adjacent buildings that accept them.
 
+Each stored stack also has a **resource ID**. You can query the stack currently sitting in a conveyor or other storage building with `c.get_stored_resource_id(...)`.
+
 <Warning>
   Resources can be outputted to buildings belonging to the **opposing team**.
 </Warning>

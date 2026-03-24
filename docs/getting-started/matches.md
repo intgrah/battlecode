@@ -4,7 +4,7 @@
 
 # How Matches Work
 
-> How ladder matches, ratings, and the best-of-5 format work.
+> How ladder matches, Elo ratings, and the 5-game format work.
 
 ## Match format
 
@@ -22,7 +22,7 @@ A game ends when:
 
 ## Ladder
 
-The [ladder](https://game.battlecode.cam/ladder) ranks all teams by **Glicko-2** rating. New teams start unrated and are seeded to 1500 when they upload their first ready submission.
+The [ladder](https://game.battlecode.cam/ladder) ranks all teams by **Elo** rating. New teams start unrated and are seeded to 1500 when they upload their first ready submission.
 
 ### Scheduling
 
@@ -36,13 +36,9 @@ With N teams, each cycle creates floor(N/2) matches — one match per team.
 
 ### Rating updates
 
-Ratings are updated using **Glicko-2** after each scheduler cycle. Match outcomes use fractional scoring based on the game score (e.g., a 5-0 win counts more than a 3-2 win).
+Ratings are updated using **Elo** immediately after each match completes. Match outcomes use fractional scoring based on the game score (e.g., a 5-0 win counts more than a 3-2 win).
 
-Each team has three rating components:
-
-* **Rating** — skill estimate (starts at 1500)
-* **Uncertainty (RD)** — confidence in the rating (starts high, decreases with more matches)
-* **Volatility** — expected rating fluctuation
+Each team has a single Elo rating that moves up or down after each match.
 
 ## Unrated matches
 

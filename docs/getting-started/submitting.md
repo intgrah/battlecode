@@ -55,7 +55,7 @@ Your submission must contain a `main.py` file with a `Player` class. The file ca
 
 ## Ladder
 
-The [ladder](https://game.battlecode.cam/ladder) ranks all teams by Glicko-2 rating. Every 10 minutes, the scheduler creates one match per team, pairing you with a similarly-rated opponent. Each match consists of **5 games** — the team that wins more games wins the match. Ratings update after each scheduler cycle. See [How matches work](/getting-started/matches) for details.
+The [ladder](https://game.battlecode.cam/ladder) ranks all teams by Elo rating. Every 10 minutes, the scheduler creates one match per team, pairing you with a nearby-rated opponent using greedy nearest-rating matching with small random jitter. Each match consists of **5 games** — the team that wins more games wins the match. Ratings update immediately after each match. See [How matches work](/getting-started/matches) for details.
 
 <Tip>
   Use `cambc test-run` to test your bot with full time limits on the same hardware as the ladder before submitting. Use `cambc unrated` to challenge specific teams without affecting your rating.

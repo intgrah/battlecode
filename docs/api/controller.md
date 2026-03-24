@@ -83,6 +83,10 @@ class Player:
   Return the resource stored in a conveyor/splitter/armoured conveyor/bridge/foundry, or None if empty. Raises `GameError` if the entity has no storage.
 </ResponseField>
 
+<ResponseField name="get_stored_resource_id(id: int | None = None)" type="int | None">
+  Return the id of the resource stack stored in a conveyor/splitter/armoured conveyor/bridge/foundry, or None if empty. Raises `GameError` if the entity has no storage.
+</ResponseField>
+
 ### Tile queries
 
 <ResponseField name="get_tile_env(pos: Position)" type="Environment">
