@@ -1,3 +1,5 @@
+import time
+
 from cambc import (
     Controller,
     Direction,
@@ -31,9 +33,8 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         self._last_claim: TaskClaim | None = None
 
     def run(self, ct: Controller) -> None:
-        import time as _t
 
-        t0 = _t.perf_counter_ns()
+        t0 = time.perf_counter_ns()
         _, needs_reflow = self.belief.update(ct)
         if needs_reflow:
             self._flow_search = None
@@ -41,14 +42,14 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             self._ax_flow_search = None
             self._ax_cached_path = None
             self._leakage_mask = build_leakage_mask(self.belief)
-        t1 = _t.perf_counter_ns()
+        t1 = time.perf_counter_ns()
 
         pos = ct.get_position()
         self._debug_target = None
         self._claim: TaskClaim | None = None
 
         move, build = self._policy(ct, pos)
-        t2 = _t.perf_counter_ns()
+        t2 = time.perf_counter_ns()
         if not hasattr(self, "_tlog"):
             self._tlog = open("/tmp/v42_cpu.log", "w")
         self._tlog.write(
@@ -71,8 +72,6 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         self._write_marker(ct)
 
     def _policy(self, ct: Controller, pos: Position) -> tuple[Direction, Build | None]:
-        import time as _t
-
         tasks = [
             ("fix_ti", self._fix_excess_ti_rax),
             ("foundry", self._place_foundry),
@@ -86,9 +85,9 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             self._plog = open("/tmp/v42_pol.log", "w")
         parts = []
         for name, fn in tasks:
-            t0 = _t.perf_counter_ns()
+            t0 = time.perf_counter_ns()
             result = fn(ct, pos)
-            t1 = _t.perf_counter_ns()
+            t1 = time.perf_counter_ns()
             parts.append(f"{name}={(t1 - t0) // 1000}")
             if result is not None:
                 self._plog.write(
