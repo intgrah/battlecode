@@ -131,7 +131,7 @@ export function render(
     }
   }
 
-  renderCore(ctx, frame, sprites);
+  renderCore(ctx, frame, sprites, opts.turnState);
   renderBridges(ctx, frame, sprites);
   if (opts.turnState) {
     renderAllBuilders(ctx, frame, opts.turnState, opts.selectedBot, sprites);
@@ -411,17 +411,36 @@ function renderCore(
   ctx: CanvasRenderingContext2D,
   frame: BeliefFrame,
   sprites: Map<string, HTMLImageElement>,
+  turnState: TurnState | undefined,
 ) {
   const [cx, cy] = frame.my_core;
-  const sprite = sprites.get("base_gold");
-  if (sprite) {
+  const mySprite = sprites.get("base_gold");
+  if (mySprite) {
     ctx.drawImage(
-      sprite,
+      mySprite,
       (cx - 1) * TILE_SIZE,
       (cy - 1) * TILE_SIZE,
       TILE_SIZE * 3,
       TILE_SIZE * 3,
     );
+  }
+
+  if (turnState) {
+    for (const ent of turnState.entities.values()) {
+      if (ent.kind === "core" && (ent.x !== cx || ent.y !== cy)) {
+        const teamSuffix = ent.team === 0 ? "gold" : "silver";
+        const sprite = sprites.get(`base_${teamSuffix}`);
+        if (sprite) {
+          ctx.drawImage(
+            sprite,
+            (ent.x - 1) * TILE_SIZE,
+            (ent.y - 1) * TILE_SIZE,
+            TILE_SIZE * 3,
+            TILE_SIZE * 3,
+          );
+        }
+      }
+    }
   }
 }
 
