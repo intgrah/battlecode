@@ -18,7 +18,7 @@ from cambc.auth import get_api_url, get_token
 STRIDE = 256
 
 
-def extract(replay_data: bytes):
+def extract(replay_data: bytes) -> tuple[bytes, int, int, int] | None:
     r = cambc_pb2.Replay()
     r.ParseFromString(replay_data)
 

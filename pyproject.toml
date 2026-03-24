@@ -38,6 +38,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["E402"]
 "scripts/analysis/*" = ["TID252", "TC001", "TC003", "PLC0415"]
+"proto/*.pyi" = ["N802", "PYI021"]
+
+[tool.ty.environment]
+extra-paths = [".", "scripts", "proto", "bots/adgato", "bots/astar_test"]
 
 [tool.uv.workspace]
 members = ["test"]

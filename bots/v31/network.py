@@ -1,4 +1,4 @@
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, Position, Team
 
 _TRANSPORT = frozenset(
     {
@@ -91,7 +91,7 @@ class NetworkBelief:
         self,
         ct: Controller,
         pos: Position,
-        my: int,
+        my: Team,
         w: int,
         h: int,
         seen: set[tuple[int, int]],

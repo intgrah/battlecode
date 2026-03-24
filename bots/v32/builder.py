@@ -403,7 +403,12 @@ class BuilderAgent:
         rnd = ct.get_current_round()
 
         if rnd % 50 == 0:
-            self.net.dump("/tmp/v32_belief.jsonl", rnd, ct.get_id(), (pos.x, pos.y))
+            self.net.dump(
+                str(Path(tempfile.gettempdir()) / "v32_belief.jsonl"),
+                rnd,
+                ct.get_id(),
+                (pos.x, pos.y),
+            )
 
         if (
             not self._gunner_placed

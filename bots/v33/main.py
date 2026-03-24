@@ -588,10 +588,9 @@ class BuilderAgent:
         if self.core is None:
             return False
         pos = ct.get_position()
-        if pos.distance_squared(self.core) <= GameConstants.ACTION_RADIUS_SQ:
-            if ct.can_heal(self.core):
-                ct.heal(self.core)
-                return True
+        if pos.distance_squared(self.core) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(self.core):
+            ct.heal(self.core)
+            return True
         return False
 
     def _try_place_gunner_on_network(self, ct: Controller, pos: Position) -> bool:
@@ -906,6 +905,7 @@ class BuilderAgent:
         brk = self._find_break(ct)
         if brk:
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
+                assert self.core is not None
                 d = repair_dir(ct, brk, self.core)
                 if ct.can_build_conveyor(brk, d):
                     ct.build_conveyor(brk, d)
@@ -1000,6 +1000,7 @@ class BuilderAgent:
             # Build gunner adjacent to splitter, facing enemy core
             # CRITICAL: gunner must NOT face toward the splitter (ammo source)
             enemy_dir = toward(self.fortify_target, self.enemy_core)
+            assert self.fortify_dir is not None
             for try_d in [
                 self.fortify_dir.rotate_left().rotate_left(),
                 self.fortify_dir.rotate_right().rotate_right(),

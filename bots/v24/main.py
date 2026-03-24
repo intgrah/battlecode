@@ -370,6 +370,7 @@ class BuilderBot:
             )
 
     def _find_active_target(self, ct: Controller, my_team: Team) -> Position | None:
+        assert self.enemy_core is not None
         best = None
         best_core_dist = 999999
         for eid in ct.get_nearby_entities():
@@ -390,6 +391,7 @@ class BuilderBot:
         return best
 
     def _find_any_infra(self, ct: Controller, my_team: Team) -> Position | None:
+        assert self.enemy_core is not None
         best = None
         best_core_dist = 999999
         for eid in ct.get_nearby_entities():

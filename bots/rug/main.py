@@ -8016,16 +8016,17 @@ BAD_WALKABLE = 1000
 def get_next_move(
     ct: Controller,
     map_enemy_buildings: list[EntityType | None],
-    map_walkable: list[bool],
+    map_walkable: list[float],
     map_env: list[Environment],
     width: int,
     height: int,
     start_idx: int,
     goal_idx: int,
+    *,
     diagonal: bool,
-    max_depth=0,
-    enemy_base_walkable=True,
-):
+    max_depth: int = 0,
+    enemy_base_walkable: bool = True,
+) -> Direction | None:
     start_t = ct.get_cpu_time_elapsed()
 
     if start_idx == goal_idx:
@@ -8041,7 +8042,7 @@ def get_next_move(
     g_scores = [inf] * (width * height)
     g_scores[start_idx] = 0
 
-    # (f_score, depth, current_index, first_move)
+    # Heap entries: f_score, depth, current_index, first_move
     open_set = []
 
     # Track the best move found so far based on heuristic distance
@@ -8094,7 +8095,6 @@ def get_next_move(
         for di in range(direction_len):
             # Budget of 3ms, if we exceed, then just submit whatever move
             if ct.get_cpu_time_elapsed() - start_t > 3000:
-                # print(ct.get_cpu_time_elapsed() - start_t)
                 return best_move
 
             direction = DIRECTIONS[di]
@@ -8140,7 +8140,7 @@ def get_next_move(
 class Core:
     """Controller for core building"""
 
-    def __init__(self, ct: Controller) -> None:
+    def __init__(self, _ct: Controller) -> None:
         self.num_spawned = 0
         self.cooldown = 10
 
@@ -8150,9 +8150,8 @@ class Core:
         spawn_pos = ct.get_position()
 
         # Need to tweak these values, balance of early game econ -> constant pressure on enemy base
-        if self.num_spawned < 20:
-            if ct.get_global_resources()[0] > 500:
-                if ct.can_spawn(spawn_pos):
+        if self.num_spawned < 20 and ct.get_global_resources()[0] > 500:
+            if ct.can_spawn(spawn_pos):
                     ct.spawn_builder(spawn_pos)
 
                     self.num_spawned += 1
@@ -8165,23 +8164,18 @@ class Core:
         else:
             self.cooldown -= 1
 
-        # TODO - more robust marker position (in case this one is invalid)
-        # marker_pos = Position(spawn_pos.x + 2, spawn_pos.y)
-        # if (ct.can_place_marker(marker_pos)):
-        #     ct.place_marker(marker_pos, self.num_spawned ^ ENCRYPTION_KEYS[ct.get_current_round()])
 
 
 class Gunner:
     """Controller for gunner building"""
 
-    def __init__(self, ct: Controller) -> None:
+    def __init__(self, _ct: Controller) -> None:
         pass
 
     def run(self, ct: Controller) -> None:
         """Exectues once each round"""
 
         direction = ct.get_direction(ct.get_id())
-        # print(direction)
 
         pos = ct.get_position().add(direction)
         if ct.can_fire(pos):
@@ -8227,7 +8221,7 @@ class BuilderBot:
             None for _ in range(self.size)
         ]
         self.map_enemy_bot: list[None | int] = [None for _ in range(self.size)]
-        self.map_walkable = [1 for _ in range(self.size)]
+        self.map_walkable: list[float] = [1 for _ in range(self.size)]
         self.map_titanium: list[int] = []
         self.map_axionite: list[int] = []
 
@@ -8242,11 +8236,7 @@ class BuilderBot:
         elif ct.get_current_round() > 22 and ct.get_current_round() < 28:
             self.builder_id = 3
         else:
-            # pos = ct.get_position()
-            # self.builder_id = ct.get_marker_value(ct.get_tile_building_id(Position(pos.x + 2, pos.y))) ^ ENCRYPTION_KEYS[ct.get_current_round()]
-            self.builder_id = self.id ^ secrets.randbits(
-                32,
-            )  # TEMPORARY TO ADD MORE VARIANCE
+            self.builder_id = self.id ^ secrets.randbits(32)
 
         # If the builder bot works out what map we are on based on visual clues
         self.candidate_maps: list[KnownMap] = []
@@ -8271,14 +8261,14 @@ class BuilderBot:
                 self.candidate_maps.append(m)
                 continue
 
-    def idx_to_pos(self, idx: int):
+    def idx_to_pos(self, idx: int) -> Position:
         """Converts grid index to position"""
 
         x = idx % self.width
         y = idx // self.width
         return Position(x, y)
 
-    def pos_to_idx(self, pos: Position):
+    def pos_to_idx(self, pos: Position) -> int:
         return pos.y * self.width + pos.x
 
     def run(self, ct: Controller) -> None:
@@ -8295,24 +8285,18 @@ class BuilderBot:
             direction = self.get_move(
                 ct,
                 self.pos_to_idx(ally_core.add(ALTERNATING[self.builder_id])),
-                False,
+                for_construction=False,
             )
             if direction is not None:
                 self.safe_move(ct, direction)
 
             # Try place if we can
-            for dir, delta in ALTERNATING_PLACEMENTS[self.builder_id]:
+            for conv_dir, delta in ALTERNATING_PLACEMENTS[self.builder_id]:
                 pos = ct.get_position()
                 pos = Position(pos.x + delta.x, pos.y + delta.y)
 
-                # TODO : enable when they fix destroying platforms under bots
-                # bot = ct.get_tile_builder_bot_id(pos)
-                # if bot is not None and ct.get_team(bot) != self.team:
-                #     if (ct.can_destroy(pos)):
-                #         ct.destroy(pos)
-
-                if ct.can_build_conveyor(pos, dir):
-                    ct.build_conveyor(pos, dir)
+                if ct.can_build_conveyor(pos, conv_dir):
+                    ct.build_conveyor(pos, conv_dir)
 
             if ct.can_heal(ally_core):
                 ct.heal(ally_core)
@@ -8366,7 +8350,7 @@ class BuilderBot:
                                 DIRECTIONS[ct.get_current_round() % len(DIRECTIONS)],
                             ),
                         ),
-                        False,
+                        for_construction=False,
                     )
                     if direction is not None:
                         self.safe_move(ct, direction)
@@ -8394,9 +8378,11 @@ class BuilderBot:
                     building_id = ct.get_tile_building_id(new_pos)
                     if building_id is not None:
                         occupant = ct.get_tile_builder_bot_id(new_pos)
-                        if occupant is None or ct.get_team(occupant) != self.team:
-                            if not ct.is_tile_passable(new_pos):
-                                continue
+                        if (
+                            (occupant is None or ct.get_team(occupant) != self.team)
+                            and not ct.is_tile_passable(new_pos)
+                        ):
+                            continue
 
                     for candidate_direction in CARDINAL_DIRECTIONS:
                         new_new_pos = new_pos.add(candidate_direction)
@@ -8444,9 +8430,11 @@ class BuilderBot:
                         building_id = ct.get_tile_building_id(new_pos)
                         if building_id is not None:
                             occupant = ct.get_tile_builder_bot_id(new_pos)
-                            if occupant is None or ct.get_team(occupant) != self.team:
-                                if not ct.is_tile_passable(new_pos):
-                                    continue
+                            if (
+                                (occupant is None or ct.get_team(occupant) != self.team)
+                                and not ct.is_tile_passable(new_pos)
+                            ):
+                                continue
 
                         for candidate_direction in DIRECTIONS:
                             new_new_pos = new_pos.add(candidate_direction)
@@ -8475,8 +8463,8 @@ class BuilderBot:
                     direction = self.get_move(
                         ct,
                         self.pos_to_idx(enemy_core),
-                        False,
-                        False,
+                        for_construction=False,
+                        enemy_base_walkable=False,
                     )
                     if direction is not None:
                         turret_pos = pos.add(direction)
@@ -8529,7 +8517,7 @@ class BuilderBot:
                             self.pos_to_idx(
                                 Position(enemy_core.x + cd.x, enemy_core.y + cd.y),
                             ),
-                            False,
+                            for_construction=False,
                         )
                         if direction is not None:
                             self.safe_move(ct, direction)
@@ -8539,24 +8527,13 @@ class BuilderBot:
                             self.pos_to_idx(
                                 Position(enemy_core.x + cd.x, enemy_core.y + cd.y),
                             ),
-                            False,
-                            False,
+                            for_construction=False,
+                            enemy_base_walkable=False,
                         )
                         if direction is not None:
                             self.safe_move(ct, direction)
                         else:
                             self.target_offset += random.randint(1, 5)
-
-                    # direction = self.get_move(ct, self.pos_to_idx(enemy_core), False)
-
-                    # if (direction is not None):
-                    #     turret_pos = pos.add(direction)
-                    #     if (turret_pos.distance_squared(enemy_core) < 8 and ct.get_gunner_cost()[0] < ct.get_global_resources()[0]):
-                    #         turret_dir = turret_pos.direction_to(enemy_core)
-                    #         if (ct.can_build_gunner(turret_pos, turret_dir)):
-                    #             ct.build_gunner(turret_pos, turret_dir)
-
-                    #     self.safe_move(ct, direction)
 
                     if pos.distance_squared(enemy_core) < 8:
                         if (
@@ -8570,7 +8547,6 @@ class BuilderBot:
                 return
 
             harvester_pos = self.idx_to_pos(target)
-            # print(f"{harvester_pos.x} {harvester_pos.y} {pos.distance_squared(harvester_pos)}")
             if pos.distance_squared(harvester_pos) < 2:
                 # Start circling it
                 direction = self.get_move(
@@ -8580,7 +8556,7 @@ class BuilderBot:
                             DIRECTIONS[ct.get_current_round() % len(DIRECTIONS)],
                         ),
                     ),
-                    True,
+                    for_construction=True,
                 )
                 if direction is not None:
                     intent = ct.get_position().add(direction)
@@ -8593,7 +8569,6 @@ class BuilderBot:
                             return
 
                 # Mark harvester with a road, and wait till we have the money to build it
-                # print(f"Can Buy: {ct.get_global_resources()[0] >= ct.get_harvester_cost()[0]}")
                 if (
                     ct.get_entity_type(ct.get_tile_building_id(harvester_pos))
                     != EntityType.HARVESTER
@@ -8612,7 +8587,7 @@ class BuilderBot:
                     self.tick = 0
                 return
             # Move towards harvester
-            direction = self.get_move(ct, target, True)
+            direction = self.get_move(ct, target, for_construction=True)
             self.safe_conveyer_move(
                 ct,
                 direction if direction is not None else Direction.WEST,
@@ -8717,12 +8692,10 @@ class BuilderBot:
                 if not known_map:
                     tile_type = ct.get_tile_env(query_pos)
                     self.map_env[idx] = tile_type
-                    if tile_type == Environment.ORE_TITANIUM:
-                        if idx not in self.map_titanium:
-                            self.map_titanium.append(idx)
-                    elif tile_type == Environment.ORE_AXIONITE:
-                        if idx not in self.map_axionite:
-                            self.map_axionite.append(idx)
+                    if tile_type == Environment.ORE_TITANIUM and idx not in self.map_titanium:
+                        self.map_titanium.append(idx)
+                    elif tile_type == Environment.ORE_AXIONITE and idx not in self.map_axionite:
+                        self.map_axionite.append(idx)
 
                 can_walk = 1 if self.map_env[idx] != Environment.WALL else BAD_WALKABLE
                 if (
@@ -8775,9 +8748,10 @@ class BuilderBot:
         self,
         ct: Controller,
         goal_idx: int,
+        *,
         for_construction: bool,
         enemy_base_walkable: bool = True,
-        max_depth=0,
+        max_depth: int = 0,
     ) -> Direction | None:
         """
         Get direction to move to goal, most costly method
@@ -8797,12 +8771,12 @@ class BuilderBot:
             self.height,
             start_idx,
             goal_idx,
-            not for_construction,
-            max_depth,
-            enemy_base_walkable,
+            diagonal=not for_construction,
+            max_depth=max_depth,
+            enemy_base_walkable=enemy_base_walkable,
         )
 
-    def safe_move(self, ct: Controller, direction: Direction) -> None:
+    def safe_move(self, ct: Controller, direction: Direction) -> bool:
         """Moves in a given direction given that it is safe"""
 
         pos = ct.get_position()
@@ -8825,8 +8799,9 @@ class BuilderBot:
         self,
         ct: Controller,
         direction: Direction,
-        destruct=True,
-    ) -> None:
+        *,
+        destruct: bool = True,
+    ) -> bool:
         """Moves in a given direction given that it is safe"""
 
         pos = ct.get_position()
@@ -8878,9 +8853,7 @@ class Player:
         self.controller = None
 
     def run(self, ct: Controller) -> None:
-        """"""
-        # start_time = time.perf_counter()
-
+        """Run the player for one round."""
         if self.first_turn:
             self.first_turn = False
 
@@ -8891,8 +8864,3 @@ class Player:
 
         elif self.controller is not None:
             self.controller.run(ct)
-
-        # end_time = time.perf_counter()
-        # duration = end_time - start_time
-        # print(f"Executed in {duration * 1000}ms")
-        # print(f"Executed in {duration * 1000}ms")

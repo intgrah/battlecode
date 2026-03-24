@@ -9,6 +9,7 @@ Usage:
 
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -29,7 +30,9 @@ TRANSPORT = {"conveyor", "armoured_conveyor", "splitter", "bridge"}
 CARDINAL_DELTAS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 
 
-def build_state_at_turn(r, at_turn, team):
+def build_state_at_turn(
+    r: Replay, at_turn: int, team: int,
+) -> dict | None:
     alive = {}
     core_pos = None
     for c in r.map.cores:
@@ -73,7 +76,7 @@ def build_state_at_turn(r, at_turn, team):
         elif ek == "harvester":
             harvesters.append(pos)
 
-    def is_connected(start) -> bool:
+    def is_connected(start: tuple[int, int]) -> bool:
         cur = start
         seen = set()
         while cur not in seen:
@@ -88,7 +91,7 @@ def build_state_at_turn(r, at_turn, team):
     harvester_set = {tuple(h) for h in harvesters}
     all_buildings = set(graph.keys()) | harvester_set | core_tiles
 
-    def harvester_output_count(hpos):
+    def harvester_output_count(hpos: tuple[int, int]) -> int:
         count = 0
         for dx, dy in CARDINAL_DELTAS:
             adj = (hpos[0] + dx, hpos[1] + dy)
@@ -96,7 +99,7 @@ def build_state_at_turn(r, at_turn, team):
                 count += 1
         return max(count, 1)
 
-    def count_upstream(pos, seen=None):
+    def count_upstream(pos: tuple[int, int], seen: set[tuple[int, int]] | None = None) -> float:
         if seen is None:
             seen = set()
         if pos in seen:
@@ -130,7 +133,8 @@ def build_state_at_turn(r, at_turn, team):
 
 def main() -> None:
     replay_path = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
-    belief_path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/v32_belief.jsonl"
+    default_belief = Path(tempfile.gettempdir()) / "v32_belief.jsonl"
+    belief_path = sys.argv[2] if len(sys.argv) > 2 else str(default_belief)
     team = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 
     r = Replay()
@@ -138,9 +142,8 @@ def main() -> None:
         r.ParseFromString(f.read())
 
     beliefs = []
-    with open(belief_path) as f:
-        for line in f:
-            beliefs.append(json.loads(line))
+    with Path(belief_path).open() as f:
+        beliefs.extend(json.loads(line) for line in f)
 
     turns_seen = sorted({b["turn"] for b in beliefs})
 
@@ -158,10 +161,9 @@ def main() -> None:
 
         turn_beliefs = [b for b in beliefs if b["turn"] == turn]
 
-        all_belief_tiles = {}
-        for b in turn_beliefs:
-            for k, v in b["tiles"].items():
-                all_belief_tiles[k] = v
+        all_belief_tiles = {
+            k: v for b in turn_beliefs for k, v in b["tiles"].items()
+        }
 
         conn_correct = 0
         conn_wrong = 0

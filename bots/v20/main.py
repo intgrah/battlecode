@@ -316,6 +316,8 @@ class BuilderAgent:
 
     def _try_build_gunner(self, ct: Controller, pos: Position) -> bool:
         my = ct.get_team()
+        assert self.core is not None
+        assert self.enemy_core is not None
         enemy_dir = toward(self.core, self.enemy_core)
 
         for t in ct.get_nearby_tiles():
@@ -380,6 +382,8 @@ class BuilderAgent:
             ):
                 continue
             if pos.distance_squared(out) <= GameConstants.ACTION_RADIUS_SQ:
+                if self.core is None:
+                    break
                 best_dir = toward(out, self.core)
                 if ct.can_build_conveyor(out, best_dir):
                     ct.build_conveyor(out, best_dir)

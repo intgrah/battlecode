@@ -407,6 +407,7 @@ class BuilderAgent:
             self._new_explore_target(ct, ct.get_position())
 
     def _do_maintain(self, ct: Controller, pos: Position) -> None:
+        assert self.core is not None
         brk = self._find_break(ct)
         if brk:
             if pos.distance_squared(brk) <= GameConstants.ACTION_RADIUS_SQ:
