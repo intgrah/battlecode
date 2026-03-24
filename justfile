@@ -174,8 +174,7 @@ ci *args:
     python scripts/remote_ci.py {{args}}
 
 belief replay="replay.replay26":
-    cp {{replay}} belief_viewer/static/replay.replay26
-    cd belief_viewer && bun run dev -- --port 5174
+    cd belief_viewer && REPLAY_FILE={{replay}} bun run dev -- --port 5174
 
 docs:
     #!/usr/bin/env bash

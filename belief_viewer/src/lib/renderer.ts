@@ -352,6 +352,34 @@ function renderFlowOverlay(
     ctx.fillStyle = "rgba(255, 0, 0, 0.35)";
     ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
   }
+
+  if (overlays.has(Overlay.LEAKAGE) && frame.leakage[i] > 0) {
+    const leak = frame.leakage[i];
+    const dotSize = 6;
+    const margin = 4;
+    let dotX = px + TILE_SIZE - margin - dotSize;
+    let dotY = py + margin;
+    if (leak & 1) {
+      ctx.fillStyle = "rgba(100, 160, 255, 0.8)";
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, dotSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+      dotY += dotSize + 2;
+    }
+    if (leak & 2) {
+      ctx.fillStyle = "rgba(255, 180, 50, 0.8)";
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, dotSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+      dotY += dotSize + 2;
+    }
+    if (leak & 4) {
+      ctx.fillStyle = "rgba(200, 130, 255, 0.8)";
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, dotSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }
 
 function renderRadii(ctx: CanvasRenderingContext2D, frame: BeliefFrame) {

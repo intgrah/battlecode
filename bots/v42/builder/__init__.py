@@ -36,7 +36,7 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
     def run(self, ct: Controller) -> None:
         t0 = time.perf_counter_ns()
         _, needs_reflow = self.belief.update(ct)
-        if needs_reflow:
+        if needs_reflow or not hasattr(self, "_leakage_mask"):
             self._flow_search = None
             self._cached_chain_path = None
             self._ax_flow_search = None
@@ -104,13 +104,14 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             "my_harvesters": list(b.my_harvesters),
             "my_transport": list(b.my_transport),
             "my_foundries": list(b.my_foundries),
-            "flow_ti": [round(b.my_flow.ti[i], 3) for i in range(n)],
-            "flow_ax": [round(b.my_flow.ax[i], 3) for i in range(n)],
-            "flow_rax": [round(b.my_flow.rax[i], 3) for i in range(n)],
-            "blocked": [b.my_flow.blocked[i] for i in range(n)],
-            "excess_ti": [round(b.my_flow.ti_excess[i], 3) for i in range(n)],
-            "excess_ax": [round(b.my_flow.ax_excess[i], 3) for i in range(n)],
-            "excess_rax": [round(b.my_flow.rax_excess[i], 3) for i in range(n)],
+            "flow_ti": {i: round(b.my_flow.ti[i], 3) for i in range(n) if b.my_flow.ti[i] > 0.001},
+            "flow_ax": {i: round(b.my_flow.ax[i], 3) for i in range(n) if b.my_flow.ax[i] > 0.001},
+            "flow_rax": {i: round(b.my_flow.rax[i], 3) for i in range(n) if b.my_flow.rax[i] > 0.001},
+            "blocked": [i for i in range(n) if b.my_flow.blocked[i]],
+            "excess_ti": {i: round(b.my_flow.ti_excess[i], 3) for i in range(n) if b.my_flow.ti_excess[i] > 0.001},
+            "excess_ax": {i: round(b.my_flow.ax_excess[i], 3) for i in range(n) if b.my_flow.ax_excess[i] > 0.001},
+            "excess_rax": {i: round(b.my_flow.rax_excess[i], 3) for i in range(n) if b.my_flow.rax_excess[i] > 0.001},
+            "leakage": {i: self._leakage_mask[i] for i in range(n) if self._leakage_mask[i] != 0},
             "unit_tiles": list(b.unit_tiles),
             "symmetry": b.symmetry.name if b.symmetry is not None else None,
         }

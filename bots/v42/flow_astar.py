@@ -57,6 +57,9 @@ def build_leakage_mask(belief: MapBelief) -> list[int]:
                     mask[ny * w + nx] |= commodity
 
     for i in range(n):
+        ent = belief.entity[i]
+        if ent is None or ent[0] != EntityType.HARVESTER:
+            continue
         e = belief.env[i]
         if e == Environment.ORE_TITANIUM:
             commodity = TI

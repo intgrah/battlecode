@@ -34,6 +34,7 @@
   let showFlow = $state(true);
   let showExcess = $state(false);
   let showBlocked = $state(false);
+  let showLeakage = $state(false);
 
   let overlays = $derived(
     new Set([
@@ -41,6 +42,7 @@
         ? [Overlay.FLOW_TI, Overlay.FLOW_AX, Overlay.FLOW_RAX]
         : []),
       ...(showExcess ? [Overlay.EXCESS] : []),
+      ...(showLeakage ? [Overlay.LEAKAGE] : []),
       ...(showBlocked ? [Overlay.BLOCKED] : []),
     ]),
   );
@@ -49,7 +51,7 @@
 
   onMount(async () => {
     sprites = await loadSprites();
-    await loadFromUrl("/replay.replay26");
+    await loadFromUrl("/api/replay");
     needsCenter = true;
   });
 
@@ -323,6 +325,7 @@
         <label><input type="checkbox" bind:checked={showFlow} /> Flow</label>
         <label><input type="checkbox" bind:checked={showExcess} /> Excess</label>
         <label><input type="checkbox" bind:checked={showBlocked} /> Blocked</label>
+        <label><input type="checkbox" bind:checked={showLeakage} /> Leakage</label>
       </div>
     {/if}
 

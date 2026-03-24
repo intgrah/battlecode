@@ -1,4 +1,5 @@
-from flow_astar import RAX, TI, FlowAstar
+from cambc import EntityType
+from flow_astar import COST_REUSE, RAX, TI, FlowAstar, _IMPASSABLE_ENV
 from map_belief import MapBelief
 
 
@@ -21,3 +22,21 @@ class AxChainAstar(FlowAstar):
             if self._goal_positions
             else 0
         )
+
+    def get_neighbors(self, node: int) -> list[tuple[int, int]]:
+        result = super().get_neighbors(node)
+        ent = self._entity[node]
+        if ent is not None and ent[0] in (
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+            EntityType.BRIDGE,
+        ):
+            banned = self._banned_leakage
+            mask = self._leakage_mask
+            result = [
+                (ni, c)
+                for ni, c in result
+                if c != COST_REUSE or mask[ni] & banned == 0
+            ]
+        return result
