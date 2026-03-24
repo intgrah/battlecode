@@ -44,7 +44,9 @@ class Player:
         self.path_target = None  # target the path was computed for
 
         # Eco state -- build plan: bridge, conveyors bridge->outward, harvester last
-        self.build_plan: list[tuple[str, Position, Position | Direction | None]] | None = None
+        self.build_plan: (
+            list[tuple[str, Position, Position | Direction | None]] | None
+        ) = None
         self.plan_idx = 0
         self.plan_set = set()  # positions reserved for the plan (don't put roads here)
         self.eco_idx = 0  # index for distributing eco bots to different ore
@@ -489,7 +491,13 @@ class Player:
 
     # == Movement =================================================
 
-    def _move_toward(self, ct: Controller, target: Position, *, build_roads: bool) -> None:
+    def _move_toward(
+        self,
+        ct: Controller,
+        target: Position,
+        *,
+        build_roads: bool,
+    ) -> None:
         if ct.get_move_cooldown() > 0:
             return
 
@@ -525,11 +533,15 @@ class Player:
                     if env == Environment.WALL:
                         self.path = []  # path invalidated, will recompute next round
                     else:
-                        if ct.is_tile_empty(nxt) and build_roads and nxt not in self.plan_set:
-                                ti, _ = ct.get_global_resources()
-                                if ti > 20 and ct.can_build_road(nxt):
-                                    ct.build_road(nxt)
-                                # If can't afford road, fall through to greedy
+                        if (
+                            ct.is_tile_empty(nxt)
+                            and build_roads
+                            and nxt not in self.plan_set
+                        ):
+                            ti, _ = ct.get_global_resources()
+                            if ti > 20 and ct.can_build_road(nxt):
+                                ct.build_road(nxt)
+                            # If can't afford road, fall through to greedy
                         if ct.can_move(d):
                             self.prev_pos = pos
                             self.stuck = 0
@@ -785,7 +797,12 @@ def _plan_conveyor_chain(
     return plan, goal, goal_target
 
 
-def _best_gunner_dir(ct: Controller, gunner_pos: Position, conveyor_pos: Position, team: Team) -> Direction | None:
+def _best_gunner_dir(
+    ct: Controller,
+    gunner_pos: Position,
+    conveyor_pos: Position,
+    team: Team,
+) -> Direction | None:
     """Find the best direction for a gunner so it actually hits the enemy core.
 
     Checks actual tile contents instead of computed positions.

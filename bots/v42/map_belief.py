@@ -729,3 +729,4 @@ class MapBelief:
                 if fi in receivers and not f.blocked[fi]:
                     f.blocked[fi] = True
                     seeds.append(fi)
+

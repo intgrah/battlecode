@@ -63,7 +63,20 @@ FlowMap = dict[Pos, float]
 
 def extract_state(
     r: Replay,
-) -> tuple[int, int, int, int, PosSet, PosSet, PosSet, PosSet, PosEntMap, PosEntMap, PosEntMap, PosSet]:
+) -> tuple[
+    int,
+    int,
+    int,
+    int,
+    PosSet,
+    PosSet,
+    PosSet,
+    PosSet,
+    PosEntMap,
+    PosEntMap,
+    PosEntMap,
+    PosSet,
+]:
     w, h = r.map.width, r.map.height
     cx, cy = r.map.cores[0].position.x, r.map.cores[0].position.y
 
@@ -86,7 +99,12 @@ def extract_state(
             if k == "place_entity":
                 e = u.place_entity.entity
                 ek = e.WhichOneof("kind")
-                ent: Ent = {"team": e.team, "type": ek, "x": e.position.x, "y": e.position.y}
+                ent: Ent = {
+                    "team": e.team,
+                    "type": ek,
+                    "x": e.position.x,
+                    "y": e.position.y,
+                }
                 if ek in ("conveyor", "armoured_conveyor", "splitter"):
                     ent["dir"] = DIR_DELTA.get(getattr(e, ek).direction, (0, 0))
                 elif ek == "bridge":
@@ -360,44 +378,86 @@ def render(
                 dot_y = py + 10
                 dot_r = 6
                 if pos in ore_ti:
-                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(80, 150, 255))
+                    draw.ellipse(
+                        [dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
+                        fill=(80, 150, 255),
+                    )
                 elif pos in ore_ax:
-                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(255, 160, 50))
+                    draw.ellipse(
+                        [dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
+                        fill=(255, 160, 50),
+                    )
             elif pos in transports:
                 f = flow_qs.get(pos, 0.0)
                 ti_f = ti_flow.get(pos, 0.0)
                 ax_f = ax_flow.get(pos, 0.0)
                 rax_f = rax_flow.get(pos, 0.0)
                 t = transports[pos]
-                label = {"conveyor": "Conv", "armoured_conveyor": "AConv", "splitter": "Split", "bridge": "Bridge"}.get(t["type"], "?")
+                label = {
+                    "conveyor": "Conv",
+                    "armoured_conveyor": "AConv",
+                    "splitter": "Split",
+                    "bridge": "Bridge",
+                }.get(t["type"], "?")
                 draw.text((px + 2, py + 1), label, fill=(180, 180, 180), font=sfont)
                 draw.text((px + 2, py + 14), f"{f:.2f}", fill=tc, font=font)
                 dot_x = px + cell - 12
                 dot_y = py + 10
                 dot_r = 6
                 if ti_f > 0.001:
-                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(80, 150, 255))
+                    draw.ellipse(
+                        [dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
+                        fill=(80, 150, 255),
+                    )
                     dot_y += 16
                 if ax_f > 0.001:
-                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(255, 160, 50))
+                    draw.ellipse(
+                        [dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
+                        fill=(255, 160, 50),
+                    )
                     dot_y += 16
                 if rax_f > 0.001:
-                    draw.ellipse([dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r], fill=(200, 80, 255))
+                    draw.ellipse(
+                        [dot_x - dot_r, dot_y - dot_r, dot_x + dot_r, dot_y + dot_r],
+                        fill=(200, 80, 255),
+                    )
                 y_off = 34
                 if ti_f > 0.001:
-                    draw.text((px + 2, py + y_off), f"Ti{ti_f:.1f}", fill=(100, 180, 255), font=sfont)
+                    draw.text(
+                        (px + 2, py + y_off),
+                        f"Ti{ti_f:.1f}",
+                        fill=(100, 180, 255),
+                        font=sfont,
+                    )
                     y_off += 13
                 if ax_f > 0.001:
-                    draw.text((px + 2, py + y_off), f"Ax{ax_f:.1f}", fill=(255, 160, 80), font=sfont)
+                    draw.text(
+                        (px + 2, py + y_off),
+                        f"Ax{ax_f:.1f}",
+                        fill=(255, 160, 80),
+                        font=sfont,
+                    )
                     y_off += 13
                 if rax_f > 0.001:
-                    draw.text((px + 2, py + y_off), f"RA{rax_f:.1f}", fill=(200, 100, 255), font=sfont)
+                    draw.text(
+                        (px + 2, py + y_off),
+                        f"RA{rax_f:.1f}",
+                        fill=(200, 100, 255),
+                        font=sfont,
+                    )
             elif pos in ore_ti:
                 draw.text((px + 2, py + 1), "Ti Ore", fill=tc, font=font)
             elif pos in ore_ax:
                 draw.text((px + 2, py + 1), "Ax Ore", fill=tc, font=font)
 
-    def _draw_arrow(sx: int, sy: int, ex: int, ey: int, color: tuple[int, int, int], width: int = 3) -> None:
+    def _draw_arrow(
+        sx: int,
+        sy: int,
+        ex: int,
+        ey: int,
+        color: tuple[int, int, int],
+        width: int = 3,
+    ) -> None:
         draw.line([(sx, sy), (ex, ey)], fill=color, width=width)
         angle = math.atan2(ey - sy, ex - sx)
         a1, a2 = angle + 2.5, angle - 2.5

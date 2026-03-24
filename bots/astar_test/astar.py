@@ -173,14 +173,18 @@ def flow_astar(
             continue
 
         expanded += 1
-        if ct is not None and expanded % 32 == 0 and ct.get_cpu_time_elapsed() - start_t > budget_us:
-                path = []
-                ni = best_ni
-                while ni != -1:
-                    path.append((ni % w, ni // w))
-                    ni = parent[ni]
-                path.reverse()
-                return path
+        if (
+            ct is not None
+            and expanded % 32 == 0
+            and ct.get_cpu_time_elapsed() - start_t > budget_us
+        ):
+            path = []
+            ni = best_ni
+            while ni != -1:
+                path.append((ni % w, ni // w))
+                ni = parent[ni]
+            path.reverse()
+            return path
 
         for dx, dy, jump in EDGES_FLOW:
             nx, ny = cx + dx, cy + dy

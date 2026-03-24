@@ -23,7 +23,13 @@ if TYPE_CHECKING:
     from main import Player
 
 
-def _init_symmetry(player: Player, _ct: Controller, pos: Position, w: int, h: int) -> None:
+def _init_symmetry(
+    player: Player,
+    _ct: Controller,
+    pos: Position,
+    w: int,
+    h: int,
+) -> None:
     if player.sym_candidates is not None:
         return
     player.sym_candidates = get_symmetry_candidates(pos, w, h)
@@ -46,7 +52,13 @@ def _read_comms(player: Player, ct: Controller, pos: Position) -> None:
         print(f"Core: enemy at {epos} [{sym}] phase={phase}")
 
 
-def _eliminate_symmetry(player: Player, ct: Controller, _pos: Position, w: int, h: int) -> None:
+def _eliminate_symmetry(
+    player: Player,
+    ct: Controller,
+    _pos: Position,
+    w: int,
+    h: int,
+) -> None:
     if player.sym_resolved is not None:
         return
     for tile in ct.get_nearby_tiles():

@@ -1262,9 +1262,11 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
                             player.suicide_countdown = 0
                         return
 
-    if player.advance_targeting_ore and (player.target is None or player.target not in player.known_ore):
-            player.advance_targeting_ore = False
-            player.target = None
+    if player.advance_targeting_ore and (
+        player.target is None or player.target not in player.known_ore
+    ):
+        player.advance_targeting_ore = False
+        player.target = None
 
     # Look for nearest visible unclaimed ore, preferring LOS
     # (re-evaluates even while targeting ore to switch to a closer one)

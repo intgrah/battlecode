@@ -119,7 +119,9 @@ def main() -> None:
     done = 0
     failed = 0
 
-    def do_download(task: tuple[dict[str, str], int, Path]) -> tuple[dict[str, str], int, bool]:
+    def do_download(
+        task: tuple[dict[str, str], int, Path],
+    ) -> tuple[dict[str, str], int, bool]:
         m, g, out_path = task
         match_id: str = m["id"]
         ok = download_game(token, match_id, g, out_path)

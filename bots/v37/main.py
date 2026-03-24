@@ -287,7 +287,12 @@ class Player:
         self._bug_move(c, explore_target)
 
     # ---- FOUNDRY BUILDING ----
-    def _start_foundry(self, c: Controller, ax_harv_pos: Position, builder_pos: Position) -> None:
+    def _start_foundry(
+        self,
+        c: Controller,
+        ax_harv_pos: Position,
+        builder_pos: Position,
+    ) -> None:
         self.foundry_ax_harv = ax_harv_pos
         self.foundry_step = 0
         self.foundry_pos = None
@@ -547,7 +552,12 @@ class Player:
                 best_adj = adj
         return best_adj
 
-    def _calc_chain(self, c: Controller, start: Position, core_adj: Position) -> list[Position]:
+    def _calc_chain(
+        self,
+        c: Controller,
+        start: Position,
+        core_adj: Position,
+    ) -> list[Position]:
         waypoints = [Position(start.x, start.y)]
         cx, cy = start.x, start.y
         max_iter = 50
@@ -637,7 +647,7 @@ class Player:
         if self.chain_stuck > 3:
             bridge_cost, _ = c.get_bridge_cost()
             if ti >= bridge_cost and self._try_bridge_from_here(c, pos, waypoints, idx):
-                    return
+                return
             if self.chain_stuck > 6:
                 core_adj = waypoints[-1]
                 new_chain = self._calc_chain(c, pos, core_adj)
@@ -790,11 +800,12 @@ class Player:
         for d in DIRS:
             candidate = gap_pos.add(d)
             if (
-                candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(self.core_pos)
+                candidate.distance_squared(self.core_pos)
+                < gap_pos.distance_squared(self.core_pos)
                 and not self._is_wall(c, candidate)
                 and not self._is_ore(c, candidate)
             ):
-                    return candidate
+                return candidate
         return None
 
     def _run_repairer(self, c: Controller) -> None:
@@ -1073,13 +1084,13 @@ class Player:
             and (pos.x, pos.y) != self.bug_wf_start
             and (dist < self.bug_wf_start_dist - 4 or dist < self.bug_wf_start_dist)
         ):
-                self.bug_wf = False
-                if self._bug_step(c, d, pave=pave):
-                    return True
-                self.bug_wf = True
-                self.bug_wf_start = (pos.x, pos.y)
-                self.bug_wf_start_dist = dist
-                self.bug_wf_turns = 0
+            self.bug_wf = False
+            if self._bug_step(c, d, pave=pave):
+                return True
+            self.bug_wf = True
+            self.bug_wf_start = (pos.x, pos.y)
+            self.bug_wf_start_dist = dist
+            self.bug_wf_turns = 0
 
         # Loop detection
         if self.bug_wf_turns > 2 and self.bug_wf_start == (pos.x, pos.y):
@@ -1148,7 +1159,13 @@ class Player:
                 continue
         return False
 
-    def _try_bridge_from_here(self, c: Controller, pos: Position, waypoints: list[Position], current_idx: int) -> bool:
+    def _try_bridge_from_here(
+        self,
+        c: Controller,
+        pos: Position,
+        waypoints: list[Position],
+        current_idx: int,
+    ) -> bool:
         my_team = c.get_team()
         for future_idx in range(current_idx + 1, len(waypoints) - 1):
             future_pos = waypoints[future_idx]
@@ -1175,7 +1192,12 @@ class Player:
                     return True
         return False
 
-    def _find_bridge_start(self, c: Controller, harvester_pos: Position, explorer_pos: Position) -> Position:
+    def _find_bridge_start(
+        self,
+        c: Controller,
+        harvester_pos: Position,
+        explorer_pos: Position,
+    ) -> Position:
         if self.core_pos is None:
             return explorer_pos
         best = explorer_pos
@@ -1195,7 +1217,12 @@ class Player:
                 best = adj
         return best
 
-    def _nudge_off_wall(self, c: Controller, wall_pos: Position, from_pos: Position) -> Position | None:
+    def _nudge_off_wall(
+        self,
+        c: Controller,
+        wall_pos: Position,
+        from_pos: Position,
+    ) -> Position | None:
         for d in DIRS:
             alt = wall_pos.add(d)
             if self._is_wall(c, alt) or self._is_ore(c, alt):

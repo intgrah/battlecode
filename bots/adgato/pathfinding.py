@@ -78,7 +78,11 @@ def _make_line_state(
     return adx, ady, sx, sy, adx - ady
 
 
-def scan_line(pos: Position, target: Position, walkable: set[Position]) -> tuple[Position | None, Position | None]:
+def scan_line(
+    pos: Position,
+    target: Position,
+    walkable: set[Position],
+) -> tuple[Position | None, Position | None]:
     """Walk a Bresenham line from pos toward target within vision.
     Returns (furthest_walkable, first_wall).
     furthest_walkable: last walkable cell before a wall or vision edge, or None.
@@ -127,7 +131,14 @@ def has_line_of_sight(pos: Position, target: Position, walkable: set[Position]) 
     return furthest == target
 
 
-def _trace_step(sim_pos: Position, sim_dir: Direction, *, trace_left: bool, walkable: set[Position], origin: Position) -> tuple[Position, Direction] | None:
+def _trace_step(
+    sim_pos: Position,
+    sim_dir: Direction,
+    *,
+    trace_left: bool,
+    walkable: set[Position],
+    origin: Position,
+) -> tuple[Position, Direction] | None:
     """Take one wall-following step. Returns (new_pos, new_dir) or None if stuck/out of vision."""
     next_pos = sim_pos.add(sim_dir)
     if not in_vision(origin, next_pos):
@@ -147,7 +158,13 @@ def _trace_step(sim_pos: Position, sim_dir: Direction, *, trace_left: bool, walk
     return None
 
 
-def _trace_move(current: Position, tracing_dir: Direction, *, trace_left: bool | None, walkable: set[Position]) -> tuple[Position | None, Direction]:
+def _trace_move(
+    current: Position,
+    tracing_dir: Direction,
+    *,
+    trace_left: bool | None,
+    walkable: set[Position],
+) -> tuple[Position | None, Direction]:
     """Take one wall-following move. Returns (next_pos, new_dir) or (None, dir)."""
     next_pos = current.add(tracing_dir)
     if next_pos in walkable:
@@ -208,7 +225,12 @@ class AgentState:
         self.reached = False
 
 
-def bug2_step(agent: AgentState, pos: Position, walkable: set[Position], occupied: set[Position]) -> Position:
+def bug2_step(
+    agent: AgentState,
+    pos: Position,
+    walkable: set[Position],
+    occupied: set[Position],
+) -> Position:
     """Advance one Bug2 step for a single agent.
     occupied is the set of Positions occupied by OTHER agents this turn.
     Returns the new Position (may be unchanged if blocked by another agent)."""
@@ -294,7 +316,13 @@ def bug2_step(agent: AgentState, pos: Position, walkable: set[Position], occupie
                 pos_h, dir_h, los_h = agent.trace_heads[side]
                 is_left = side == 0
                 for _ in range(5):
-                    result = _trace_step(pos_h, dir_h, trace_left=is_left, walkable=walkable, origin=current)
+                    result = _trace_step(
+                        pos_h,
+                        dir_h,
+                        trace_left=is_left,
+                        walkable=walkable,
+                        origin=current,
+                    )
                     if result is None:
                         break
                     pos_h, dir_h = result

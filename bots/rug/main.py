@@ -8152,9 +8152,9 @@ class Core:
         # Need to tweak these values, balance of early game econ -> constant pressure on enemy base
         if self.num_spawned < 20 and ct.get_global_resources()[0] > 500:
             if ct.can_spawn(spawn_pos):
-                    ct.spawn_builder(spawn_pos)
+                ct.spawn_builder(spawn_pos)
 
-                    self.num_spawned += 1
+                self.num_spawned += 1
         elif ct.get_global_resources()[0] > 150 and self.cooldown <= 0:
             if ct.can_spawn(spawn_pos):
                 ct.spawn_builder(spawn_pos)
@@ -8163,7 +8163,6 @@ class Core:
                 self.cooldown = 15
         else:
             self.cooldown -= 1
-
 
 
 class Gunner:
@@ -8379,9 +8378,8 @@ class BuilderBot:
                     if building_id is not None:
                         occupant = ct.get_tile_builder_bot_id(new_pos)
                         if (
-                            (occupant is None or ct.get_team(occupant) != self.team)
-                            and not ct.is_tile_passable(new_pos)
-                        ):
+                            occupant is None or ct.get_team(occupant) != self.team
+                        ) and not ct.is_tile_passable(new_pos):
                             continue
 
                     for candidate_direction in CARDINAL_DIRECTIONS:
@@ -8431,9 +8429,8 @@ class BuilderBot:
                         if building_id is not None:
                             occupant = ct.get_tile_builder_bot_id(new_pos)
                             if (
-                                (occupant is None or ct.get_team(occupant) != self.team)
-                                and not ct.is_tile_passable(new_pos)
-                            ):
+                                occupant is None or ct.get_team(occupant) != self.team
+                            ) and not ct.is_tile_passable(new_pos):
                                 continue
 
                         for candidate_direction in DIRECTIONS:
@@ -8692,9 +8689,15 @@ class BuilderBot:
                 if not known_map:
                     tile_type = ct.get_tile_env(query_pos)
                     self.map_env[idx] = tile_type
-                    if tile_type == Environment.ORE_TITANIUM and idx not in self.map_titanium:
+                    if (
+                        tile_type == Environment.ORE_TITANIUM
+                        and idx not in self.map_titanium
+                    ):
                         self.map_titanium.append(idx)
-                    elif tile_type == Environment.ORE_AXIONITE and idx not in self.map_axionite:
+                    elif (
+                        tile_type == Environment.ORE_AXIONITE
+                        and idx not in self.map_axionite
+                    ):
                         self.map_axionite.append(idx)
 
                 can_walk = 1 if self.map_env[idx] != Environment.WALL else BAD_WALKABLE

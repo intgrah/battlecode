@@ -588,7 +588,9 @@ class BuilderAgent:
         if self.core is None:
             return False
         pos = ct.get_position()
-        if pos.distance_squared(self.core) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(self.core):
+        if pos.distance_squared(
+            self.core,
+        ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(self.core):
             ct.heal(self.core)
             return True
         return False

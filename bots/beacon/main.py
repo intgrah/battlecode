@@ -217,7 +217,12 @@ class Player:
                 best_adj = adj
         return best_adj
 
-    def _calc_chain(self, c: Controller, start: Position, core_adj: Position) -> list[Position]:
+    def _calc_chain(
+        self,
+        c: Controller,
+        start: Position,
+        core_adj: Position,
+    ) -> list[Position]:
         """Return waypoints from start toward core_adj, each within bridge range (dist_sq<=9).
         Bridges at waypoints[0..n-2], conveyor at waypoints[-1] (core_adj).
         Skips wall tiles by nudging waypoints to adjacent non-wall positions."""
@@ -459,7 +464,10 @@ class Player:
                 pass
 
     # ---- BRIDGE REPAIR ----
-    def _find_disconnected_harvester(self, c: Controller) -> tuple[Position, Position] | None:
+    def _find_disconnected_harvester(
+        self,
+        c: Controller,
+    ) -> tuple[Position, Position] | None:
         """Find a friendly harvester with no adjacent bridge/conveyor.
         Returns (harvester_pos, best_build_pos) or None."""
         my_team = c.get_team()
@@ -595,7 +603,8 @@ class Player:
         for d in DIRS:
             candidate = gap_pos.add(d)
             if (
-                candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(self.core_pos)
+                candidate.distance_squared(self.core_pos)
+                < gap_pos.distance_squared(self.core_pos)
                 and not self._is_wall(c, candidate)
                 and not self._is_ore(c, candidate)
             ):
@@ -774,7 +783,12 @@ class Player:
                 continue
         return best_pos
 
-    def _try_move(self, c: Controller, preferred: Direction, ti: int) -> Direction | None:
+    def _try_move(
+        self,
+        c: Controller,
+        preferred: Direction,
+        ti: int,
+    ) -> Direction | None:
         """Try preferred direction first, then adjacent, then rest.
         Returns the direction moved, or None if stuck."""
         idx = DIRS.index(preferred) if preferred in DIRS else 0
@@ -828,7 +842,13 @@ class Player:
                 continue
         return None
 
-    def _try_bridge_from_here(self, c: Controller, pos: Position, waypoints: list[Position], current_idx: int) -> bool:
+    def _try_bridge_from_here(
+        self,
+        c: Controller,
+        pos: Position,
+        waypoints: list[Position],
+        current_idx: int,
+    ) -> bool:
         """When stuck, try to build a bridge from current position to any future waypoint.
         Bridges teleport over walls so the chainer doesn't need to walk there.
         Returns True if a bridge was built."""
@@ -869,7 +889,12 @@ class Player:
                     return True
         return False
 
-    def _find_bridge_start(self, c: Controller, harvester_pos: Position, explorer_pos: Position) -> Position:
+    def _find_bridge_start(
+        self,
+        c: Controller,
+        harvester_pos: Position,
+        explorer_pos: Position,
+    ) -> Position:
         """Find the best cardinal-adjacent tile to the harvester for the first bridge.
         Prefers the tile closest to core. Falls back to explorer's position."""
         if self.core_pos is None:
@@ -889,7 +914,12 @@ class Player:
                 best = adj
         return best
 
-    def _nudge_off_wall(self, c: Controller, wall_pos: Position, from_pos: Position) -> Position | None:
+    def _nudge_off_wall(
+        self,
+        c: Controller,
+        wall_pos: Position,
+        from_pos: Position,
+    ) -> Position | None:
         """Find a non-wall tile adjacent to wall_pos that's within bridge range of from_pos."""
         for d in DIRS:
             alt = wall_pos.add(d)
