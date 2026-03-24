@@ -8,6 +8,7 @@
     type ReplayData,
   } from "$lib/loader";
   import { Overlay, type BeliefFrame } from "$lib/types";
+  import { computeScaleAndCosts } from "$lib/gamestate";
 
   let canvas = $state<HTMLCanvasElement>();
   let sprites = $state<Map<string, HTMLImageElement>>(new Map());
@@ -57,7 +58,6 @@
     try {
       replayData = await loadReplayFromUrl(url);
       botIds = replayData.botIds;
-      console.log("loaded", { botIds, botsSize: replayData.bots.size });
       if (botIds.length > 0) {
         selectBot(botIds[0]);
       }
@@ -102,7 +102,6 @@
 
   function loadFrame() {
     frame = replayData?.bots.get(selectedBot)?.get(selectedRound) ?? null;
-    console.log("loadFrame", { selectedBot, selectedRound, hasFrame: !!frame, botIds, rounds: rounds.slice(0, 5) });
   }
 
   let offscreen: OffscreenCanvas | null = null;
@@ -157,7 +156,13 @@
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, cw, ch);
-    ctx.drawImage(offscreen, Math.round(camX), Math.round(camY), Math.round(mapW * zoom), Math.round(mapH * zoom));
+    ctx.drawImage(
+      offscreen,
+      Math.round(camX),
+      Math.round(camY),
+      Math.round(mapW * zoom),
+      Math.round(mapH * zoom),
+    );
   }
 
   $effect(() => {
@@ -330,8 +335,19 @@
       <span class="loading">Loading...</span>
     {/if}
 
-    {#if frame}
-      <span class="info">{frame.w}x{frame.h} | {frame.symmetry ?? "?"}</span>
+    {#if frame && replayData}
+      {@const ts = replayData.turnStates.get(frame.round)}
+      <span class="info">
+        {frame.w}x{frame.h} | {frame.symmetry ?? "?"}
+        {#if ts}
+          {@const sc = computeScaleAndCosts(ts, 0)}
+          | Ti: {ts.players[0].titanium} ({ts.players[0].titaniumCollected} mined)
+          | RAx: {ts.players[0].axionite} ({ts.players[0].axioniteCollected} mined)
+          | Scale: {sc.scale.toFixed(2)}x | Builder: {sc.costs.builder_bot} Harv:
+          {sc.costs.harvester} Foundry: {sc.costs.foundry} Conv: {sc.costs
+            .conveyor} Bridge: {sc.costs.bridge}
+        {/if}
+      </span>
     {/if}
   </div>
 
