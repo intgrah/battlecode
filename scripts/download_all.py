@@ -34,7 +34,7 @@ def fetch_all_matches(since: str | None) -> list[dict]:
     cursor = None
     pages = 0
     while True:
-        params: dict[str, str | int] = {"limit": 100}
+        params: dict[str, str] = {"limit": "100"}
         if cursor:
             params["cursor"] = cursor
         data = api_get("/api/matches", params=params)
@@ -97,7 +97,11 @@ def main() -> None:
         print("Nothing to download.")
         return
 
-    token = get_token()
+    token_val = get_token()
+    if token_val is None:
+        print("No auth token found.")
+        return
+    token: str = token_val
     tasks: list[tuple[dict, int, Path]] = []
     for m in matches:
         mid = m["id"]
@@ -115,9 +119,10 @@ def main() -> None:
     done = 0
     failed = 0
 
-    def do_download(task: tuple[dict, int, Path]) -> tuple[dict, int, bool]:
+    def do_download(task: tuple[dict[str, str], int, Path]) -> tuple[dict[str, str], int, bool]:
         m, g, out_path = task
-        ok = download_game(token, m["id"], g, out_path)
+        match_id: str = m["id"]
+        ok = download_game(token, match_id, g, out_path)
         return m, g, ok
 
     with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:

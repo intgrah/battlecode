@@ -1,5 +1,9 @@
 """Core unit logic for v6."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from cambc import Controller, Direction, EntityType, Position, ResourceType
 from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
@@ -15,8 +19,11 @@ from utils import (
     read_comms,
 )
 
+if TYPE_CHECKING:
+    from main import Player
 
-def _init_symmetry(player, ct: Controller, pos: Position, w: int, h: int) -> None:
+
+def _init_symmetry(player: Player, _ct: Controller, pos: Position, w: int, h: int) -> None:
     if player.sym_candidates is not None:
         return
     player.sym_candidates = get_symmetry_candidates(pos, w, h)
@@ -28,7 +35,7 @@ def _init_symmetry(player, ct: Controller, pos: Position, w: int, h: int) -> Non
             seen[epos] = s
 
 
-def _read_comms(player, ct: Controller, pos: Position) -> None:
+def _read_comms(player: Player, ct: Controller, pos: Position) -> None:
     if player.sym_resolved is not None:
         return
     sym, phase, epos, _ = read_comms(ct, pos)
@@ -39,7 +46,7 @@ def _read_comms(player, ct: Controller, pos: Position) -> None:
         print(f"Core: enemy at {epos} [{sym}] phase={phase}")
 
 
-def _eliminate_symmetry(player, ct: Controller, pos: Position, w: int, h: int) -> None:
+def _eliminate_symmetry(player: Player, ct: Controller, _pos: Position, w: int, h: int) -> None:
     if player.sym_resolved is not None:
         return
     for tile in ct.get_nearby_tiles():
@@ -50,14 +57,13 @@ def _eliminate_symmetry(player, ct: Controller, pos: Position, w: int, h: int) -
                 if s in player.sym_eliminated:
                     continue
                 mirrored = mirror_pos(tile, s, w, h)
-                if mirrored in player.known_env:
-                    if player.known_env[mirrored] != env:
-                        player.sym_eliminated.add(s)
+                if mirrored in player.known_env and player.known_env[mirrored] != env:
+                    player.sym_eliminated.add(s)
     if player.try_resolve(w, h, "Core"):
         player.core_phase = PHASE_FOUND
 
 
-def _write_comms(player, ct: Controller, pos: Position) -> None:
+def _write_comms(player: Player, ct: Controller, pos: Position) -> None:
     sym_name = player.sym_resolved or "unknown"
     ex = player.enemy_core.x if player.enemy_core else 0
     ey = player.enemy_core.y if player.enemy_core else 0
@@ -81,7 +87,7 @@ def _write_comms(player, ct: Controller, pos: Position) -> None:
         place_comms(ct, pos, value)
 
 
-def _debug_output(player, ct: Controller, rnd: int) -> None:
+def _debug_output(player: Player, ct: Controller, _rnd: int) -> None:
     for bid, counts in player.splitter_resource_counts.items():
         sp = player.known_splitters.get(bid) if player.known_splitters else None
         d = ct.get_position().direction_to(sp) if sp else "?"
@@ -90,7 +96,7 @@ def _debug_output(player, ct: Controller, rnd: int) -> None:
         print(f"{d}, TI {ti_count} AX {ax_count}")
 
 
-def _spawn_initial(player, ct: Controller, pos: Position) -> None:
+def _spawn_initial(player: Player, ct: Controller, pos: Position) -> None:
     """Spawn first builders. First 3 toward enemy core, rest at cardinal offsets."""
     enemy_pos = player.enemy_core or (
         player.sym_candidates["rotational"] if player.sym_candidates else None
@@ -123,7 +129,7 @@ def _spawn_initial(player, ct: Controller, pos: Position) -> None:
             player.spawned += 1
 
 
-def _spawn_economy(player, ct: Controller, pos: Position, rnd: int) -> None:
+def _spawn_economy(player: Player, ct: Controller, pos: Position, rnd: int) -> None:
     """After turn 23, spawn alternating advance/economy builders on matching round parity."""
     if rnd <= 23:
         return
@@ -171,7 +177,7 @@ def _spawn_economy(player, ct: Controller, pos: Position, rnd: int) -> None:
         print(f"Spawned {'advance' if spawn_advance else 'economy'} builder")
 
 
-def run_core(player, ct: Controller) -> None:
+def run_core(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     w, h = ct.get_map_width(), ct.get_map_height()
     rnd = ct.get_current_round()

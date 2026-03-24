@@ -35,7 +35,7 @@ def trace(path: str) -> None:
 
     events: list[str] = []
 
-    for turn_idx, turn in enumerate(replay.turns):  # type: ignore[attr-defined]
+    for turn_idx, turn in enumerate(replay.turns):
         for u in turn.updates:
             kind = u.WhichOneof("kind")
 

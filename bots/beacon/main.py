@@ -1,6 +1,6 @@
 import random
 
-from cambc import Direction, Position
+from cambc import Controller, Direction, GameError, Position
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIRS = [
@@ -34,7 +34,7 @@ class Player:
         self.repair_from = None  # the hanging bridge's position (for context)
         self.repair_turns = 0  # timeout counter
 
-    def run(self, c) -> None:
+    def run(self, c: Controller) -> None:
         etype = str(c.get_entity_type())
         if "CORE" in etype:
             self.run_core(c)
@@ -42,7 +42,7 @@ class Player:
             self.run_builder(c)
 
     # ---- CORE ----
-    def run_core(self, c) -> None:
+    def run_core(self, c: Controller) -> None:
         ti, _ = c.get_global_resources()
         cost, _ = c.get_builder_bot_cost()
         rnd = c.get_current_round()
@@ -55,7 +55,7 @@ class Player:
         elif ti >= cost + 50:
             self._spawn(c)
 
-    def _spawn(self, c) -> None:
+    def _spawn(self, c: Controller) -> None:
         cp = c.get_position()
         for dx in range(-1, 2):
             for dy in range(-1, 2):
@@ -66,7 +66,7 @@ class Player:
                     return
 
     # ---- BUILDER ----
-    def run_builder(self, c) -> None:
+    def run_builder(self, c: Controller) -> None:
         self.turns_alive += 1
 
         if self.role is None:
@@ -86,7 +86,7 @@ class Player:
             self._run_raider(c)
 
     # ---- EXPLORER ----
-    def _run_explorer(self, c) -> None:
+    def _run_explorer(self, c: Controller) -> None:
         pos = c.get_position()
         ti, _ = c.get_global_resources()
         c.get_current_round()
@@ -126,7 +126,7 @@ class Player:
                         self._start_chain(c, bridge_start)
                         return
                     return
-            except Exception:
+            except GameError:
                 pass
 
         # Scan vision for unharvested ore — beeline toward it
@@ -139,7 +139,7 @@ class Player:
                     if dist < best_dist:
                         best_dist = dist
                         best_ore = tile
-            except Exception:
+            except GameError:
                 pass
 
         if best_ore is not None:
@@ -147,7 +147,7 @@ class Player:
 
         self._explore(c)
 
-    def _explore(self, c) -> None:
+    def _explore(self, c: Controller) -> None:
         """Walk outward laying roads, navigating around walls."""
         pos = c.get_position()
         ti, _ = c.get_global_resources()
@@ -189,11 +189,11 @@ class Player:
                     self._redirect()
                 else:
                     self._try_move(c, self.scout_dir, ti)
-        except Exception:
+        except GameError:
             self._redirect()
 
     # ---- BRIDGE CHAIN BUILDING ----
-    def _start_chain(self, c, builder_pos) -> None:
+    def _start_chain(self, c: Controller, builder_pos: Position) -> None:
         """Initialize bridge chain from builder_pos back to core."""
         if self.core_pos is None:
             return
@@ -204,8 +204,9 @@ class Player:
         self.chain_turns = 0
         self.role = "chaining"
 
-    def _nearest_core_adj(self, pos):
+    def _nearest_core_adj(self, pos: Position) -> Position:
         """Return the cardinal-adjacent tile to core closest to pos."""
+        assert self.core_pos is not None
         best_adj = self.core_pos.add(CARDINALS[0])
         best_dist = 999999
         for d in CARDINALS:
@@ -216,7 +217,7 @@ class Player:
                 best_adj = adj
         return best_adj
 
-    def _calc_chain(self, c, start, core_adj):
+    def _calc_chain(self, c: Controller, start: Position, core_adj: Position) -> list[Position]:
         """Return waypoints from start toward core_adj, each within bridge range (dist_sq<=9).
         Bridges at waypoints[0..n-2], conveyor at waypoints[-1] (core_adj).
         Skips wall tiles by nudging waypoints to adjacent non-wall positions."""
@@ -266,7 +267,7 @@ class Player:
         waypoints.append(core_adj)
         return waypoints
 
-    def _run_chainer(self, c) -> None:
+    def _run_chainer(self, c: Controller) -> None:
         """Walk toward core building bridges at each waypoint."""
         pos = c.get_position()
         ti, _ = c.get_global_resources()
@@ -312,14 +313,13 @@ class Player:
                         if self._is_ore(c, nxt) or self._is_wall(c, nxt):
                             continue
                         bid = c.get_tile_building_id(nxt)
-                        if bid is None:
-                            if c.can_build_road(nxt):
-                                c.build_road(nxt)
-                                if c.can_move(d):
-                                    c.move(d)
-                                    self.chain_stuck = 0
-                                return
-                    except Exception:
+                        if bid is None and c.can_build_road(nxt):
+                            c.build_road(nxt)
+                            if c.can_move(d):
+                                c.move(d)
+                                self.chain_stuck = 0
+                            return
+                    except GameError:
                         continue
             self._try_move(c, preferred, ti)
             return
@@ -330,9 +330,8 @@ class Player:
         # If stuck, try to bridge from CURRENT position to any reachable future waypoint
         if self.chain_stuck > 3:
             bridge_cost, _ = c.get_bridge_cost()
-            if ti >= bridge_cost:
-                if self._try_bridge_from_here(c, pos, waypoints, idx):
-                    return
+            if ti >= bridge_cost and self._try_bridge_from_here(c, pos, waypoints, idx):
+                return
             # If bridging failed, recalculate remaining chain from current position
             if self.chain_stuck > 6:
                 core_adj = waypoints[-1]  # preserve the core-adjacent target
@@ -369,7 +368,7 @@ class Player:
                 try:
                     if c.get_team(existing) == c.get_team():
                         c.destroy(target)
-                except Exception:
+                except GameError:
                     pass
 
             if c.can_build_bridge(target, next_target):
@@ -392,7 +391,7 @@ class Player:
                                 c.destroy(alt)
                             else:
                                 continue
-                        except Exception:
+                        except GameError:
                             continue
                     if c.can_build_bridge(alt, next_target):
                         c.build_bridge(alt, next_target)
@@ -424,13 +423,13 @@ class Player:
                             c.move(d)
                             self.chain_stuck = 0
                         return
-                except Exception:
+                except GameError:
                     continue
         moved = self._try_move(c, preferred, ti)
         if moved is not None:
             self.chain_stuck = 0
 
-    def _build_core_conveyor(self, c, conv_pos) -> None:
+    def _build_core_conveyor(self, c: Controller, conv_pos: Position) -> None:
         """Build a conveyor at conv_pos pointing into core."""
         if self.core_pos is None:
             return
@@ -446,7 +445,7 @@ class Player:
                     c.destroy(conv_pos)
                 else:
                     return  # Enemy building, can't do anything
-            except Exception:
+            except GameError:
                 return
 
         direction = conv_pos.direction_to(self.core_pos)
@@ -456,11 +455,11 @@ class Player:
             try:
                 if c.can_build_conveyor(conv_pos, direction):
                     c.build_conveyor(conv_pos, direction)
-            except Exception:
+            except GameError:
                 pass
 
     # ---- BRIDGE REPAIR ----
-    def _find_disconnected_harvester(self, c):
+    def _find_disconnected_harvester(self, c: Controller) -> tuple[Position, Position] | None:
         """Find a friendly harvester with no adjacent bridge/conveyor.
         Returns (harvester_pos, best_build_pos) or None."""
         my_team = c.get_team()
@@ -490,7 +489,7 @@ class Player:
                             ):
                                 has_transport = True
                                 break
-                        except Exception:
+                        except GameError:
                             pass
                 if has_transport:
                     continue
@@ -510,11 +509,11 @@ class Player:
                         best_adj = adj
                 if best_adj is not None:
                     return (harv_pos, best_adj)
-            except Exception:
+            except GameError:
                 continue
         return None
 
-    def _find_hanging_bridge(self, c):
+    def _find_hanging_bridge(self, c: Controller) -> tuple[Position, Position] | None:
         """Find a nearby friendly bridge whose target tile has no building (broken chain).
         Only returns gaps that are non-wall and close to this unit.
         Returns (bridge_pos, gap_pos) or None."""
@@ -541,11 +540,11 @@ class Player:
                     if gap_dist <= 36 and gap_dist < best_dist:
                         best_dist = gap_dist
                         best = (c.get_position(bid), target)
-            except Exception:
+            except GameError:
                 continue
         return best
 
-    def _find_repair_target(self, c, gap_pos):
+    def _find_repair_target(self, c: Controller, gap_pos: Position) -> Position | None:
         """Find the best target for a patch bridge at gap_pos.
         Prefers an existing friendly bridge/conveyor closer to core within bridge range.
         Falls back to a position ~2 tiles closer to core."""
@@ -575,7 +574,7 @@ class Player:
                 if dist < best_dist:
                     best_dist = dist
                     best_bid_pos = bpos
-            except Exception:
+            except GameError:
                 continue
 
         if best_bid_pos is not None:
@@ -595,14 +594,15 @@ class Player:
         # Try all directions within bridge range
         for d in DIRS:
             candidate = gap_pos.add(d)
-            if candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(
-                self.core_pos,
+            if (
+                candidate.distance_squared(self.core_pos) < gap_pos.distance_squared(self.core_pos)
+                and not self._is_wall(c, candidate)
+                and not self._is_ore(c, candidate)
             ):
-                if not self._is_wall(c, candidate) and not self._is_ore(c, candidate):
-                    return candidate
+                return candidate
         return None
 
-    def _run_repairer(self, c) -> None:
+    def _run_repairer(self, c: Controller) -> None:
         """Walk to the gap position and build a patch bridge."""
         pos = c.get_position()
         ti, _ = c.get_global_resources()
@@ -645,19 +645,21 @@ class Player:
                         self.role = "explorer"
                         self.repair_pos = None
                         return
-                except Exception:
+                except GameError:
                     pass
 
-            if c.can_build_bridge(self.repair_pos, bridge_target):
-                c.build_bridge(self.repair_pos, bridge_target)
+            repair_pos = self.repair_pos
+            if repair_pos is not None and c.can_build_bridge(repair_pos, bridge_target):
+                c.build_bridge(repair_pos, bridge_target)
                 # Check if the new bridge's target is also a gap (chain still broken)
                 target_bid = c.get_tile_building_id(bridge_target)
                 if (
                     target_bid is None
+                    and self.core_pos is not None
                     and bridge_target.distance_squared(self.core_pos) > 4
                 ):
                     # Chain still broken further down — continue repairing
-                    self.repair_from = self.repair_pos
+                    self.repair_from = repair_pos
                     self.repair_pos = bridge_target
                     return
                 self.role = "explorer"
@@ -673,7 +675,7 @@ class Player:
         self._try_move(c, preferred, ti)
 
     # ---- RAIDER (mid game) ----
-    def _run_raider(self, c) -> None:
+    def _run_raider(self, c: Controller) -> None:
         pos = c.get_position()
         my_team = c.get_team()
         ti, _ = c.get_global_resources()
@@ -699,7 +701,7 @@ class Player:
                         enemy_harvesters.append(bpos)
                     elif hp == 20:  # conveyor or bridge
                         enemy_transport[bid] = bpos
-            except Exception:
+            except GameError:
                 pass
 
         best_pos = None
@@ -744,7 +746,7 @@ class Player:
             self.stuck_turns += 1
             self.scout_dir = DIRS[(DIRS.index(self.scout_dir) + 1) % 8]
 
-    def _find_blocked_bridge_target(self, c):
+    def _find_blocked_bridge_target(self, c: Controller) -> Position | None:
         """Find a friendly bridge whose target has an enemy building on it.
         Returns the blocked position to suicide onto, or None."""
         my_team = c.get_team()
@@ -768,11 +770,11 @@ class Player:
                     if dist < best_dist:
                         best_dist = dist
                         best_pos = target
-            except Exception:
+            except GameError:
                 continue
         return best_pos
 
-    def _try_move(self, c, preferred, ti):
+    def _try_move(self, c: Controller, preferred: Direction, ti: int) -> Direction | None:
         """Try preferred direction first, then adjacent, then rest.
         Returns the direction moved, or None if stuck."""
         idx = DIRS.index(preferred) if preferred in DIRS else 0
@@ -785,7 +787,7 @@ class Player:
                 if c.can_move(d):
                     c.move(d)
                     return d
-            except Exception:
+            except GameError:
                 continue
 
         # Pass 2: pave one road
@@ -801,7 +803,7 @@ class Player:
                             c.move(d)
                             return d
                         return None
-                except Exception:
+                except GameError:
                     continue
 
         return None
@@ -816,17 +818,17 @@ class Player:
         self.scout_dir = random.choice(options)
         self.stuck_turns = 0
 
-    def _find_core(self, c):
+    def _find_core(self, c: Controller) -> Position | None:
         my_team = c.get_team()
         for eid in c.get_nearby_buildings():
             try:
                 if c.get_team(eid) == my_team and c.get_hp(eid) == 500:
                     return c.get_position(eid)
-            except Exception:
+            except GameError:
                 continue
         return None
 
-    def _try_bridge_from_here(self, c, pos, waypoints, current_idx) -> bool:
+    def _try_bridge_from_here(self, c: Controller, pos: Position, waypoints: list[Position], current_idx: int) -> bool:
         """When stuck, try to build a bridge from current position to any future waypoint.
         Bridges teleport over walls so the chainer doesn't need to walk there.
         Returns True if a bridge was built."""
@@ -858,7 +860,7 @@ class Player:
                             c.destroy(build_pos)
                         else:
                             continue
-                    except Exception:
+                    except GameError:
                         continue
                 if c.can_build_bridge(build_pos, future_pos):
                     c.build_bridge(build_pos, future_pos)
@@ -867,7 +869,7 @@ class Player:
                     return True
         return False
 
-    def _find_bridge_start(self, c, harvester_pos, explorer_pos):
+    def _find_bridge_start(self, c: Controller, harvester_pos: Position, explorer_pos: Position) -> Position:
         """Find the best cardinal-adjacent tile to the harvester for the first bridge.
         Prefers the tile closest to core. Falls back to explorer's position."""
         if self.core_pos is None:
@@ -887,7 +889,7 @@ class Player:
                 best = adj
         return best
 
-    def _nudge_off_wall(self, c, wall_pos, from_pos):
+    def _nudge_off_wall(self, c: Controller, wall_pos: Position, from_pos: Position) -> Position | None:
         """Find a non-wall tile adjacent to wall_pos that's within bridge range of from_pos."""
         for d in DIRS:
             alt = wall_pos.add(d)
@@ -897,14 +899,14 @@ class Player:
                 return alt
         return None
 
-    def _is_ore(self, c, p):
+    def _is_ore(self, c: Controller, p: Position) -> bool:
         try:
             return "ORE" in str(c.get_tile_env(p))
-        except Exception:
+        except GameError:
             return False
 
-    def _is_wall(self, c, p):
+    def _is_wall(self, c: Controller, p: Position) -> bool:
         try:
             return "WALL" in str(c.get_tile_env(p))
-        except Exception:
+        except GameError:
             return False  # Out of vision — assume not a wall, handle at build time

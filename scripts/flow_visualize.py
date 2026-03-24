@@ -15,10 +15,14 @@ Blue curved lines = bridges, yellow arrows = conveyor directions.
 Numbers = flow in quarter-stacks (4 = 1.0 = capacity).
 """
 
+from __future__ import annotations
+
 import math
 import sys
+import tempfile
 from collections import deque
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from proto.cambc_pb2 import Replay
@@ -50,7 +54,16 @@ def parse_replay(path: str) -> Replay:
     return r
 
 
-def extract_state(r: Replay):
+Pos = tuple[int, int]
+Ent = dict[str, Any]
+PosSet = set[Pos]
+PosEntMap = dict[Pos, Ent]
+FlowMap = dict[Pos, float]
+
+
+def extract_state(
+    r: Replay,
+) -> tuple[int, int, int, int, PosSet, PosSet, PosSet, PosSet, PosEntMap, PosEntMap, PosEntMap, PosSet]:
     w, h = r.map.width, r.map.height
     cx, cy = r.map.cores[0].position.x, r.map.cores[0].position.y
 
@@ -73,7 +86,7 @@ def extract_state(r: Replay):
             if k == "place_entity":
                 e = u.place_entity.entity
                 ek = e.WhichOneof("kind")
-                ent = {"team": e.team, "type": ek, "x": e.position.x, "y": e.position.y}
+                ent: Ent = {"team": e.team, "type": ek, "x": e.position.x, "y": e.position.y}
                 if ek in ("conveyor", "armoured_conveyor", "splitter"):
                     ent["dir"] = DIR_DELTA.get(getattr(e, ek).direction, (0, 0))
                 elif ek == "bridge":
@@ -114,7 +127,14 @@ def extract_state(r: Replay):
     )
 
 
-def compute_flow(core_tiles, transports, harvesters, ore_ti, ore_ax, foundries):
+def compute_flow(
+    core_tiles: PosSet,
+    transports: PosEntMap,
+    harvesters: PosEntMap,
+    ore_ti: PosSet,
+    ore_ax: PosSet,
+    foundries: PosEntMap,
+) -> tuple[FlowMap, FlowMap, FlowMap, FlowMap]:
     output_of = {}
     splitter_outs = {}
     for pos, t in transports.items():
@@ -149,7 +169,7 @@ def compute_flow(core_tiles, transports, harvesters, ore_ti, ore_ax, foundries):
             if nb in all_nodes:
                 in_deg[nb] += 1
 
-    z = {p: 0.0 for p in all_nodes}
+    z = dict.fromkeys(all_nodes, 0.0)
     ti_flow = dict(z)
     ax_flow = dict(z)
     rax_flow = dict(z)
@@ -229,26 +249,26 @@ def compute_flow(core_tiles, transports, harvesters, ore_ti, ore_ax, foundries):
 
 
 def render(
-    w,
-    h,
-    cx,
-    cy,
-    core_tiles,
-    walls,
-    ore_ti,
-    ore_ax,
-    transports,
-    harvesters,
-    foundries,
-    roads_set,
-    flow_qs,
-    ti_flow,
-    ax_flow,
-    rax_flow,
-    output_path,
+    w: int,
+    h: int,
+    _cx: int,
+    _cy: int,
+    core_tiles: PosSet,
+    walls: PosSet,
+    ore_ti: PosSet,
+    ore_ax: PosSet,
+    transports: PosEntMap,
+    harvesters: PosEntMap,
+    foundries: PosEntMap,
+    roads_set: PosSet,
+    flow_qs: FlowMap,
+    ti_flow: FlowMap,
+    ax_flow: FlowMap,
+    rax_flow: FlowMap,
+    output_path: str,
 ) -> None:
-    CELL = 48
-    img = Image.new("RGB", (w * CELL, h * CELL), (30, 30, 30))
+    cell = 48
+    img = Image.new("RGB", (w * cell, h * cell), (30, 30, 30))
     draw = ImageDraw.Draw(img)
     for path in [
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
@@ -265,7 +285,7 @@ def render(
 
     for y in range(h):
         for x in range(w):
-            px, py = x * CELL, y * CELL
+            px, py = x * cell, y * cell
             pos = (x, y)
             if pos in walls:
                 bg = (50, 35, 35)
@@ -312,7 +332,7 @@ def render(
                 bg = (35, 35, 35)
 
             draw.rectangle(
-                [px, py, px + CELL - 1, py + CELL - 1],
+                [px, py, px + cell - 1, py + cell - 1],
                 fill=bg,
                 outline=(20, 20, 20),
             )
@@ -322,7 +342,7 @@ def render(
                 if f > 0.001:
                     draw.text((px + 2, py + 1), f"{f:.2f}", fill=tc, font=font)
                 draw.text(
-                    (px + 2, py + CELL - 13),
+                    (px + 2, py + cell - 13),
                     "C",
                     fill=(180, 180, 180),
                     font=sfont,
@@ -357,7 +377,7 @@ def render(
             elif pos in ore_ax:
                 draw.text((px + 2, py + 1), "Ax", fill=tc, font=font)
 
-    def _draw_arrow(sx, sy, ex, ey, color, width=3) -> None:
+    def _draw_arrow(sx: int, sy: int, ex: int, ey: int, color: tuple[int, int, int], width: int = 3) -> None:
         draw.line([(sx, sy), (ex, ey)], fill=color, width=width)
         angle = math.atan2(ey - sy, ex - sx)
         a1, a2 = angle + 2.5, angle - 2.5
@@ -376,10 +396,10 @@ def render(
             dx, dy = t["dir"]
             if dx == 0 and dy == 0:
                 continue
-            sx = pos[0] * CELL + CELL // 2
-            sy = pos[1] * CELL + CELL // 2
-            ex = sx + dx * (CELL // 3)
-            ey = sy + dy * (CELL // 3)
+            sx = pos[0] * cell + cell // 2
+            sy = pos[1] * cell + cell // 2
+            ex = sx + dx * (cell // 3)
+            ey = sy + dy * (cell // 3)
             _draw_arrow(sx, sy, ex, ey, (255, 255, 0), width=2)
 
     bridge_pairs: dict = {}
@@ -391,10 +411,10 @@ def render(
 
     for bridges in bridge_pairs.values():
         for idx, (src, tgt) in enumerate(bridges):
-            sx = src[0] * CELL + CELL // 2
-            sy = src[1] * CELL + CELL // 2
-            ex = tgt[0] * CELL + CELL // 2
-            ey = tgt[1] * CELL + CELL // 2
+            sx = src[0] * cell + cell // 2
+            sy = src[1] * cell + cell // 2
+            ex = tgt[0] * cell + cell // 2
+            ey = tgt[1] * cell + cell // 2
             dx, dy = ex - sx, ey - sy
             length = max(1, math.sqrt(dx * dx + dy * dy))
             nx, ny = -dy / length, dx / length
@@ -416,7 +436,7 @@ def render(
             )
 
     img.save(output_path)
-    print(f"Saved {output_path} ({w * CELL}x{h * CELL})")
+    print(f"Saved {output_path} ({w * cell}x{h * cell})")
 
 
 def main() -> None:
@@ -424,7 +444,8 @@ def main() -> None:
         print(f"Usage: {sys.argv[0]} <replay_file> [output_png]")
         sys.exit(1)
     replay_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/flow_map.png"
+    default_out = str(Path(tempfile.gettempdir()) / "flow_map.png")
+    output_path = sys.argv[2] if len(sys.argv) > 2 else default_out
 
     r = parse_replay(replay_path)
     (

@@ -20,6 +20,9 @@ def fetch_my_matches(
     cursor: str | None = None,
 ) -> tuple[list[dict], str, str | None]:
     creds = load_credentials()
+    if creds is None:
+        msg = "No credentials found"
+        raise RuntimeError(msg)
     my_team_id = creds["team"]["id"]
     my_team_name = creds["team"]["name"]
 

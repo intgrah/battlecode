@@ -1,3 +1,6 @@
+import tempfile
+from pathlib import Path
+
 from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import FlowAstar, flow_astar
 from map_belief import _TRANSPORT
@@ -5,6 +8,8 @@ from marker import TaskClaim, TaskKind
 
 from .base import BuilderBase
 from .build import Build, BuildKind
+
+_DEBUG_LOG = Path(tempfile.gettempdir()) / "v41_flow_debug.log"
 
 
 class FixExcessMixin(BuilderBase):
@@ -39,7 +44,7 @@ class FixExcessMixin(BuilderBase):
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, ti, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
         result = self._build_chain(ct, pos, best_tile)
-        with open("/tmp/v41_flow_debug.log", "a") as dbg:
+        with _DEBUG_LOG.open("a") as dbg:
             dbg.write(f"  fix_excess target=({best_tile[0]},{best_tile[1]}) chain_result={result is not None}\n")
         return result
 
@@ -94,7 +99,7 @@ class FixExcessMixin(BuilderBase):
                     sx, sy = bt
 
         start = (sx, sy)
-        with open("/tmp/v41_flow_debug.log", "a") as dbg:
+        with _DEBUG_LOG.open("a") as dbg:
             dbg.write(f"  chain start=({sx},{sy}) source=({source[0]},{source[1]})\n")
         path = self._cached_chain_path
         if path is None or self._cached_chain_source != start:
@@ -113,7 +118,7 @@ class FixExcessMixin(BuilderBase):
             self._cached_chain_path = path
         if path is None or len(path) < 2:
             self._cached_chain_path = None
-            with open("/tmp/v41_flow_debug.log", "a") as dbg:
+            with _DEBUG_LOG.open("a") as dbg:
                 dbg.write(f"  chain FAILED path={path} done={self._flow_search is None}\n")
             return None
 

@@ -327,6 +327,8 @@ class BuilderAgent:
             ):
                 continue
             if pos.distance_squared(out) <= GameConstants.ACTION_RADIUS_SQ:
+                if self.core is None:
+                    break
                 best_dir = toward(out, self.core)
                 if ct.can_build_conveyor(out, best_dir):
                     ct.build_conveyor(out, best_dir)

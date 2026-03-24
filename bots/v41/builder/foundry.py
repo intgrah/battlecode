@@ -1,4 +1,5 @@
 from cambc import Controller, Direction, EntityType, Environment, Position
+from map_belief import MapBelief
 
 from .base import BuilderBase
 from .build import Build, BuildKind
@@ -13,7 +14,7 @@ _PERP: dict[Direction, list[tuple[int, int]]] = {
 }
 
 
-def _is_foundry_site(belief, nx: int, ny: int) -> bool:
+def _is_foundry_site(belief: MapBelief, nx: int, ny: int) -> bool:
     if not belief.in_bounds(nx, ny):
         return False
     ni = belief.idx(nx, ny)
@@ -123,7 +124,7 @@ class FoundryMixin(BuilderBase):
                 if pos.distance_squared(splitter_pos) <= 2 and pos != splitter_pos:
                     self._debug_target = (splitter_pos, 255, 200, 0)
                     return Direction.CENTRE, Build(
-                        BuildKind.SPLITTER, splitter_pos, aux=conv_dir
+                        BuildKind.SPLITTER, splitter_pos, aux=conv_dir,
                     )
 
                 adj = self._cardinal_adjacent(pos, splitter_pos)
