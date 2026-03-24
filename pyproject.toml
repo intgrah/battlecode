@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Cambridge Battlecode bot"
 requires-python = ">=3.12"
 dependencies = [
-    "cambc>=1.4.3",
+    "cambc>=1.4.6",
     "networkx>=3.6.1",
     "pillow>=12.1.1",
     "protobuf>=7.34.0",
