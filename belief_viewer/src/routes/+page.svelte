@@ -109,7 +109,6 @@
   let rafId = 0;
 
   function draw() {
-    console.log("draw", { frame: !!frame, canvas: !!canvas, replayData: !!replayData, cw: canvas?.clientWidth, ch: canvas?.clientHeight, camX, camY, zoom });
     if (!frame || !canvas || !replayData) return;
     const cw = canvas.clientWidth;
     const ch = canvas.clientHeight;
