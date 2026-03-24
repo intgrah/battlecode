@@ -16,12 +16,13 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 
 ## General
 
-| Constant            | Value | Description                         |
-| ------------------- | ----- | ----------------------------------- |
-| `MAX_TURNS`         | 2000  | Maximum number of turns per game    |
-| `STACK_SIZE`        | 10    | Resources are moved in stacks of 10 |
-| `STARTING_TITANIUM` | 1000  | Each team's initial titanium        |
-| `STARTING_AXIONITE` | 0     | Each team's initial axionite        |
+| Constant            | Value | Description                                       |
+| ------------------- | ----- | ------------------------------------------------- |
+| `MAX_TURNS`         | 2000  | Maximum number of turns per game                  |
+| `MAX_TEAM_UNITS`    | 50    | Maximum living units per team, including the core |
+| `STACK_SIZE`        | 10    | Resources are moved in stacks of 10               |
+| `STARTING_TITANIUM` | 1000  | Each team's initial titanium                      |
+| `STARTING_AXIONITE` | 0     | Each team's initial axionite                      |
 
 ## Radii (squared)
 
@@ -79,21 +80,25 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 
 ## Combat
 
-| Constant                           | Value | Description                   |
-| ---------------------------------- | ----- | ----------------------------- |
-| `BUILDER_BOT_SELF_DESTRUCT_DAMAGE` | 0     | Damage on self-destruct       |
-| `HEAL_AMOUNT`                      | 4     | HP restored per heal action   |
-| `GUNNER_DAMAGE`                    | 10    | Gunner base damage per shot   |
-| `GUNNER_FIRE_COOLDOWN`             | 1     | Turns between gunner shots    |
-| `GUNNER_AMMO_COST`                 | 2     | Resources consumed per shot   |
-| `SENTINEL_DAMAGE`                  | 10    | Sentinel damage per shot      |
-| `SENTINEL_FIRE_COOLDOWN`           | 2     | Turns between sentinel shots  |
-| `SENTINEL_AMMO_COST`               | 5     | Resources consumed per shot   |
-| `BREACH_DAMAGE`                    | 40    | Breach direct hit damage      |
-| `BREACH_SPLASH_DAMAGE`             | 20    | Breach splash damage          |
-| `BREACH_FIRE_COOLDOWN`             | 1     | Turns between breach shots    |
-| `BREACH_AMMO_COST`                 | 5     | Refined axionite per shot     |
-| `LAUNCHER_FIRE_COOLDOWN`           | 1     | Turns between launcher throws |
+| Constant                           | Value  | Description                             |
+| ---------------------------------- | ------ | --------------------------------------- |
+| `BUILDER_BOT_ATTACK_DAMAGE`        | 2      | Builder bot own-tile attack damage      |
+| `BUILDER_BOT_ATTACK_COST`          | (2, 0) | Cost per builder bot attack             |
+| `BUILDER_BOT_HEAL_COST`            | (1, 0) | Cost per builder bot heal               |
+| `BUILDER_BOT_SELF_DESTRUCT_DAMAGE` | 0      | Damage on self-destruct                 |
+| `HEAL_AMOUNT`                      | 4      | HP restored per heal action             |
+| `GUNNER_DAMAGE`                    | 10     | Gunner base damage per shot             |
+| `GUNNER_FIRE_COOLDOWN`             | 1      | Turns between gunner shots              |
+| `GUNNER_AMMO_COST`                 | 2      | Resources consumed per shot             |
+| `SENTINEL_DAMAGE`                  | 10     | Sentinel damage per shot                |
+| `SENTINEL_FIRE_COOLDOWN`           | 2      | Turns between sentinel shots            |
+| `SENTINEL_AMMO_COST`               | 5      | Resources consumed per shot             |
+| `SENTINEL_STUN_DURATION`           | 2      | Cooldown added by refined axionite stun |
+| `BREACH_DAMAGE`                    | 40     | Breach direct hit damage                |
+| `BREACH_SPLASH_DAMAGE`             | 20     | Breach splash damage                    |
+| `BREACH_FIRE_COOLDOWN`             | 1      | Turns between breach shots              |
+| `BREACH_AMMO_COST`                 | 5      | Refined axionite per shot               |
+| `LAUNCHER_FIRE_COOLDOWN`           | 1      | Turns between launcher throws           |
 
 
 Built with [Mintlify](https://mintlify.com).

@@ -63,7 +63,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
       <tr><td>Stack size</td><td>10</td></tr>
       <tr><td>Starting titanium</td><td>1000</td></tr>
       <tr><td>Starting axionite</td><td>0</td></tr>
-      <tr><td>Builder bot heal</td><td>4 HP for 1 Ti to all friendly entities on the tile</td></tr>
+      <tr><td>Builder bot heal</td><td>4 HP for 1 Ti to all friendly entities on own tile</td></tr>
       <tr><td>Builder bot attack</td><td>2 damage for 2 Ti (own tile only)</td></tr>
       <tr><td>Builder bot self-destruct damage</td><td>0</td></tr>
       <tr><td>Harvester output interval</td><td>Every 4 rounds</td></tr>
