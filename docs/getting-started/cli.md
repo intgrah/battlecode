@@ -158,7 +158,7 @@ Show your current team, rating, rank, and member list.
 cambc status
 ```
 
-Displays your username, team name, category, Glicko-2 rating with uncertainty, matches played, and team members with roles.
+Displays your username, team name, category, Elo rating, matches played, and team members with roles.
 
 ### `cambc unrated`
 

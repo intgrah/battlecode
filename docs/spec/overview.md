@@ -146,6 +146,17 @@ for entity_id in c.get_nearby_entities():
   The ID-based API was chosen for performance — constructing Python objects for every entity query would be too slow within the 2ms time limit.
 </Info>
 
+## Resource IDs
+
+Each stored resource stack also has a **unique integer ID**. Use these IDs when you want to tell otherwise identical stacks apart in your logistics network.
+
+You can query the stack currently stored in a conveyor, splitter, armoured conveyor, bridge, or foundry with `c.get_stored_resource_id(id)`. If the building is empty, it returns `None`.
+
+```python  theme={"dark"}
+resource_type = c.get_stored_resource(conveyor_id)
+resource_id = c.get_stored_resource_id(conveyor_id)
+```
+
 ## Computation limit
 
 Each unit gets **2ms of CPU time** per round. If your code exceeds this, execution is interrupted and `run()` is called fresh on the next round — **your bot does not resume where it left off**.
