@@ -1,3 +1,7 @@
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
 [project]
 name = "battlecode"
 version = "0.1.0"
@@ -11,8 +15,15 @@ dependencies = [
     "scipy>=1.17.1",
 ]
 
+[project.scripts]
+network-optimise = "scripts.network_optimise:main"
+
 [dependency-groups]
 dev = ["ruff>=0.15.6", "ty>=0.0.22"]
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["scripts", "proto"]
 
 [tool.ruff]
 exclude = ["ref"]
