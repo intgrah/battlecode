@@ -13,7 +13,6 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from proto.cambc_pb2 import Replay
 
 DIR_DELTA = {

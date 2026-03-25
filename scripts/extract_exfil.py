@@ -25,8 +25,12 @@ def extract(path: str) -> None:
     print("No exfiltrated content found.")
 
 
-if __name__ == "__main__":
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <replay.replay26>")
         sys.exit(1)
     extract(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()

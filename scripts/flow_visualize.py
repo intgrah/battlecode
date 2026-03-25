@@ -24,7 +24,6 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from proto.cambc_pb2 import Replay
 
 try:

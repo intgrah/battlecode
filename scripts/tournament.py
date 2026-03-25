@@ -8,10 +8,9 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-
 from proto.cambc_pb2 import Replay
 
+ROOT = Path(__file__).resolve().parent.parent
 BOTS_DIR = ROOT / "bots"
 MAPS_DIR = ROOT / "maps"
 RESULTS_DIR = ROOT / "results"

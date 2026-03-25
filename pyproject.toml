@@ -16,7 +16,32 @@ dependencies = [
 ]
 
 [project.scripts]
+batch-analyze = "scripts.batch_analyze:main"
+compare-belief = "scripts.compare_belief:main"
+decode-exfil = "scripts.decode_exfil:main"
+decode-memscan = "scripts.decode_memscan:main"
+decode-source = "scripts.decode_source:main"
+download-all = "scripts.download_all:main"
+download-match = "scripts.download_match:main"
+extract-exfil = "scripts.extract_exfil:main"
+flow-visualize = "scripts.flow_visualize:main"
+livelock-analyze = "scripts.livelock_analyze:main"
 network-optimise = "scripts.network_optimise:main"
+network-visualize = "scripts.network_visualize:main"
+online = "scripts.online:main"
+online-analyze = "scripts.online_analyze:main"
+raid-trace = "scripts.raid_trace:main"
+remote-ci = "scripts.remote_ci:main"
+replay-analyze = "scripts.analysis.__main__:main"
+replay-debug = "scripts.replay_debug:main"
+replay-exfil = "scripts.replay_exfil:main"
+replay-full = "scripts.replay_full:main"
+replay-map = "scripts.replay_map:main"
+replay-markers = "scripts.replay_markers:main"
+tournament = "scripts.tournament:main"
+trace-builder = "scripts.trace_builder:main"
+verify-network = "scripts.verify_network:main"
+wait-match = "scripts.wait_match:main"
 
 [dependency-groups]
 dev = ["ruff>=0.15.6", "ty>=0.0.22"]
@@ -48,8 +73,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/*" = ["E402"]
-"scripts/analysis/*" = ["TID252", "TC001", "TC003", "PLC0415"]
+"scripts/analysis/*" = ["E402", "TID252", "TC001", "TC003", "PLC0415"]
 "proto/*.pyi" = ["N802", "PYI021"]
 
 [tool.ty.environment]

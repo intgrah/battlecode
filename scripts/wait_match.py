@@ -19,8 +19,12 @@ def wait(match_id: str) -> None:
         time.sleep(3)
 
 
-if __name__ == "__main__":
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <match_id>")
         sys.exit(1)
     wait(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()

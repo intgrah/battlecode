@@ -25,16 +25,11 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
-import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from analysis.parse import parse as parse_replay
+from scripts.analysis.parse import parse as parse_replay
 
 if TYPE_CHECKING:
     from proto.cambc_pb2 import (

@@ -1,8 +1,7 @@
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-import cambc_pb2
+from proto import cambc_pb2
 
 
 def decode(replay_path: str) -> bytes:

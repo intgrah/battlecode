@@ -61,8 +61,12 @@ def analyze_markers(path: str) -> None:
         print(f"  Write rate: {rate:.2f}/turn")
 
 
-if __name__ == "__main__":
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: replay_markers.py <replay_path>")
         sys.exit(1)
     analyze_markers(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()

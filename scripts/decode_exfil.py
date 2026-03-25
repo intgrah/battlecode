@@ -2,8 +2,7 @@ import base64
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-import cambc_pb2
+from proto import cambc_pb2
 
 
 def extract_markers(replay_path: str) -> list[int]:
