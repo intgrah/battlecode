@@ -234,5 +234,7 @@ class FlowAstar(Astar[int]):
                 if leakage_mask[ni] & banned_leakage != 0:
                     nx, ny = ni % w, ni // w
                     cx, cy = node % w, node // w
-                    print(f"EDGE TO LEAKY: ({cx},{cy})->({nx},{ny}) leak={leakage_mask[ni]} banned={banned_leakage} cost={c} ent={entity[node]}")
+                    print(
+                        f"EDGE TO LEAKY: ({cx},{cy})->({nx},{ny}) leak={leakage_mask[ni]} banned={banned_leakage} cost={c} ent={entity[node]}",
+                    )
         return result

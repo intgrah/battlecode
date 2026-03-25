@@ -1,5 +1,5 @@
 from cambc import EntityType
-from flow_astar import COST_REUSE, RAX, TI, FlowAstar, _IMPASSABLE_ENV
+from flow_astar import COST_REUSE, RAX, TI, FlowAstar
 from map_belief import MapBelief
 
 
@@ -35,8 +35,6 @@ class AxChainAstar(FlowAstar):
             banned = self._banned_leakage
             mask = self._leakage_mask
             result = [
-                (ni, c)
-                for ni, c in result
-                if c != COST_REUSE or mask[ni] & banned == 0
+                (ni, c) for ni, c in result if c != COST_REUSE or mask[ni] & banned == 0
             ]
         return result

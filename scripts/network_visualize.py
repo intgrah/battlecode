@@ -1,10 +1,10 @@
-import sys
 import math
+import sys
 
 sys.path.insert(0, "proto")
 import cambc_pb2
-from PIL import Image, ImageDraw
 import numpy as np
+from PIL import Image, ImageDraw
 from scipy.optimize import linear_sum_assignment
 
 replay_file = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
@@ -206,9 +206,7 @@ sources_by_dist = sorted(sources, key=lambda s: dist(s[0], core))
 
 paired_sources = []
 for fi, (ai, ti) in enumerate(zip(ax_matched, ti_matched)):
-    paired_sources.append(
-        (fi, ti_ores[ti], ax_ores[ai], foundries[fi])
-    )
+    paired_sources.append((fi, ti_ores[ti], ax_ores[ai], foundries[fi]))
 
 tree_core = Tree(core)
 
@@ -299,6 +297,7 @@ draw.text(
     fill=(180, 180, 180),
 )
 
+
 def compute_metrics(t, label):
     total_length = 0
     max_flow = 0
@@ -333,14 +332,16 @@ for label, t in [("core_tree", tree_core)] + [
     total_max_flow = max(total_max_flow, mf)
     total_over_cap += oc
 
-print(f"--- Network Metrics ---")
+print("--- Network Metrics ---")
 print(f"RAx delivered:  {rax_delivered:.2f} ({len(foundries)} foundries)")
 print(f"Ti delivered:   {ti_delivered:.2f} ({n_unpaired_ti} unpaired Ti)")
 print(f"Total flow:     {rax_delivered + ti_delivered:.2f}")
 print(f"Network cost:   {total_cost:.1f} (total edge length)")
 print(f"Max edge flow:  {total_max_flow:.2f}")
 print(f"Over capacity:  {total_over_cap} edges")
-print(f"Efficiency:     {(rax_delivered + ti_delivered) / max(total_cost, 0.01) * 100:.2f} flow/cost")
+print(
+    f"Efficiency:     {(rax_delivered + ti_delivered) / max(total_cost, 0.01) * 100:.2f} flow/cost",
+)
 
 img.save(output_file)
 print(f"Saved to {output_file}")
