@@ -1,10 +1,10 @@
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, Position
 from entity import Entity
 from map_belief import COST_IMPASSABLE, MapBelief
 from marker import TaskClaim, TaskKind
 from nav_astar import NavAstar
 
-from .build import Build, BuildKind
+from .build import Action, PlaceRoad
 
 
 class BuilderBase(Entity):
@@ -12,6 +12,9 @@ class BuilderBase(Entity):
     _last_claim: TaskClaim | None
     _claim: TaskClaim | None
     _debug_target: tuple[Position, int, int, int] | None
+    _nav_target_key: tuple[int, int] | None
+    _nav_path: list[int] | None
+    _nav_search: NavAstar | None
 
     def _move_toward(
         self,
@@ -22,7 +25,7 @@ class BuilderBase(Entity):
         if pos == target:
             return Direction.CENTRE
         search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
-        search.set_budget(ct, 1800)
+        search.set_budget(ct, 5000)
         search.compute()
         raw = search.get_path()
         if raw is None or len(raw) < 2:
@@ -40,15 +43,49 @@ class BuilderBase(Entity):
         ct: Controller,
         pos: Position,
         target: Position,
-    ) -> tuple[Direction, Build | None]:
+    ) -> tuple[Direction, Action | None]:
         if pos == target:
             return Direction.CENTRE, None
-        search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
-        search.set_budget(ct, 1800)
-        search.compute()
-        raw = search.get_path()
+
+        target_key = (target.x, target.y)
+        if self._nav_target_key != target_key:
+            self._nav_target_key = target_key
+            self._nav_path = None
+            self._nav_search = None
+
+        # If we have a cached path, follow it
+        if self._nav_path is not None:
+            w = self.belief.w
+            pi = pos.y * w + pos.x
+            if pi in self._nav_path:
+                idx = self._nav_path.index(pi)
+                if idx + 1 < len(self._nav_path):
+                    nxt_i = self._nav_path[idx + 1]
+                    nx, ny = nxt_i % w, nxt_i // w
+                    nxt = Position(nx, ny)
+                    d = pos.direction_to(nxt)
+                    if ct.can_move(d):
+                        return d, None
+                    road_cost, _ = ct.get_road_cost()
+                    ti, _ = ct.get_global_resources()
+                    if ti >= road_cost and ct.can_build_road(nxt):
+                        return d, PlaceRoad(nxt)
+            # Path invalid (not on it), recompute
+            self._nav_path = None
+            self._nav_search = None
+
+        # Compute or resume A*
+        if self._nav_search is None:
+            self._nav_search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
+        self._nav_search.set_budget(ct, 1800)
+        self._nav_search.compute()
+        if not self._nav_search.done:
+            return Direction.CENTRE, None
+        raw = self._nav_search.get_path()
         if raw is None or len(raw) < 2:
             return Direction.CENTRE, None
+        self._nav_path = raw
+        self._nav_search = None
         w = self.belief.w
         nx, ny = raw[1] % w, raw[1] // w
         nxt = Position(nx, ny)
@@ -58,7 +95,7 @@ class BuilderBase(Entity):
         road_cost, _ = ct.get_road_cost()
         ti, _ = ct.get_global_resources()
         if ti >= road_cost and ct.can_build_road(nxt):
-            return d, Build(BuildKind.ROAD, nxt)
+            return d, PlaceRoad(nxt)
         return Direction.CENTRE, None
 
     def _cardinal_adjacent(self, pos: Position, target: Position) -> Position | None:
