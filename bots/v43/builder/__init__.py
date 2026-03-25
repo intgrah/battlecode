@@ -1,4 +1,5 @@
 import json
+from typing import TYPE_CHECKING
 
 from cambc import (
     Controller,
@@ -12,15 +13,36 @@ from flow_astar import build_leakage_mask
 from map_belief import MapBelief
 from marker import Eureka, TaskClaim
 
-from .build import Build, BuildKind
+from .build import Action, PlaceRoad, Task, execute
+from .connect_excess_ax_ti_conv import ConnectExcessAxTiConvMixin
+from .connect_excess_ti_rax_core import ConnectExcessTiRaxCoreMixin
 from .explore import ExploreMixin
-from .fix_excess import FixExcessMixin
-from .foundry import FoundryMixin
 from .harvest import HarvestMixin
+from .nav_enemy_core import NavEnemyCoreMixin
+from .patrol import PatrolMixin
+from .place_foundry_mixed_conv import PlaceFoundryMixedConvMixin
+from .place_foundry_ti_conv import PlaceFoundryTiConvMixin
+from .place_splitter_foundry import PlaceSplitterFoundryMixin
 from .raid import RaidMixin
 
+if TYPE_CHECKING:
+    from nav_astar import NavAstar
 
-class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixin):
+DEBUG_DUMP = False
+
+
+class Builder(
+    HarvestMixin,
+    ConnectExcessTiRaxCoreMixin,
+    ConnectExcessAxTiConvMixin,
+    PlaceFoundryTiConvMixin,
+    PlaceFoundryMixedConvMixin,
+    PlaceSplitterFoundryMixin,
+    RaidMixin,
+    NavEnemyCoreMixin,
+    PatrolMixin,
+    ExploreMixin,
+):
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
         core_pos = self._find_core(ct)
@@ -31,6 +53,9 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             (core_pos.x, core_pos.y),
         )
         self._last_claim: TaskClaim | None = None
+        self._nav_target_key: tuple[int, int] | None = None
+        self._nav_path: list[int] | None = None
+        self._nav_search: NavAstar | None = None
 
     def run(self, ct: Controller) -> None:
         _, needs_reflow = self.belief.update(ct)
@@ -42,28 +67,30 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
             self._leakage_mask = build_leakage_mask(self.belief)
 
         pos = ct.get_position()
-        self._dump(ct, pos)
+        if DEBUG_DUMP:
+            self._dump(ct)
         self._debug_target = None
         self._claim: TaskClaim | None = None
 
-        move, build = self._policy(ct, pos)
+        move, build = self._execute(ct, pos)
 
         if move != Direction.CENTRE:
             if ct.can_move(move):
                 ct.move(move)
-            elif build is not None and build.kind == BuildKind.ROAD:
-                build.execute(ct)
+            elif isinstance(build, PlaceRoad):
+                execute(build, ct)
                 if ct.can_move(move):
                     ct.move(move)
                 build = None
         if build is not None:
-            build.execute(ct)
+            execute(build, ct)
 
         if self._debug_target is not None:
             ct.draw_indicator_line(ct.get_position(), *self._debug_target)
         self._write_marker(ct)
 
-    def _dump(self, ct: Controller, pos: Position) -> None:
+    def _dump(self, ct: Controller) -> None:
+        pos = ct.get_position()
         b = self.belief
         n = b.w * b.h
         data = {
@@ -134,24 +161,58 @@ class Builder(HarvestMixin, FixExcessMixin, FoundryMixin, RaidMixin, ExploreMixi
         }
         print("BELIEF:" + json.dumps(data, separators=(",", ":")))
 
-    def _policy(self, ct: Controller, pos: Position) -> tuple[Direction, Build | None]:
-        tasks = [
-            self._fix_excess_ti_rax,
-            self._place_foundry,
-            self._fix_excess_ax,
-            self._harvest_ti,
-            self._harvest_ax,
-            self._raid,
-            self._explore,
-        ]
-        for fn in tasks:
-            result = fn(ct, pos)
+    def _policy(self, pos: Position) -> list[tuple[float, Task]]:
+        """Score each task. Higher = more priority."""
+        scores: list[tuple[float, Task]] = []
+
+        has_excess = any(
+            self.belief.my_flow.excess[i] > 0.01
+            for i in self.belief.my_harvesters | self.belief.my_transport
+        )
+        scores.append((100.0 if has_excess else 0.0, Task.FIX_EXCESS))
+
+        unharvested_ti = (
+            self.belief.ore_ti - self.belief.my_harvested - self.belief.en_harvested
+        )
+        if unharvested_ti:
+            nearest_dist = min(
+                abs(pos.x - ox) + abs(pos.y - oy) for ox, oy in unharvested_ti
+            )
+            scores.append((max(1.0, 50.0 - nearest_dist), Task.HARVEST_TI))
+        else:
+            scores.append((0.0, Task.HARVEST_TI))
+
+        scores.append((20.0, Task.EXPLORE))
+        scores.append((5.0, Task.PATROL))
+        scores.append((0.0, Task.NAV_ENEMY_CORE))
+        scores.append((0.0, Task.RAID))
+
+        scores.sort(key=lambda t: t[0], reverse=True)
+        return scores
+
+    def _execute(
+        self,
+        ct: Controller,
+        pos: Position,
+    ) -> tuple[Direction, Action | None]:
+        for _, task in self._policy(pos):
+            match task:
+                case Task.FIX_EXCESS:
+                    result = self._connect_excess_ti_rax_core(ct, pos)
+                case Task.HARVEST_TI:
+                    result = self._harvest_ti(ct, pos)
+                case Task.RAID:
+                    result = self._raid(ct, pos)
+                case Task.EXPLORE:
+                    result = self._explore(ct, pos)
+                case Task.PATROL:
+                    result = self._patrol(ct, pos)
+                case Task.NAV_ENEMY_CORE:
+                    result = self._nav_enemy_core(ct, pos)
+                case _:
+                    result = None
             if result is not None:
                 return result
-        result = None
-        if result is not None:
-            return result
-
         return Direction.CENTRE, None
 
     def _write_marker(self, ct: Controller) -> None:

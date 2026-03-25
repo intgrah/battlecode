@@ -1,468 +1,959 @@
-import math
+import heapq
 import sys
-from collections import defaultdict
-from dataclasses import dataclass
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
-
-import numpy as np
-from PIL import Image, ImageDraw
-from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import minimum_spanning_tree
+from random import Random
 
 from proto import cambc_pb2
 
 type Pos = tuple[int, int]
-type Edge = tuple[Pos, Pos]
-type FlowMap = dict[Edge, float]
-type SourceFlowMap = dict[Pos, float]
-type FoundryData = tuple[list[Edge], FlowMap, SourceFlowMap]
 
 
 @dataclass(frozen=True)
-class Network:
-    main_edges: list[Edge]
-    main_flows: FlowMap
-    main_sources: SourceFlowMap
-    main_commodity: str
-    foundry_ax: list[FoundryData]
-    foundry_ti: list[FoundryData]
-    foundry_positions: list[Pos]
-    rax: float
-    ti_del: float
-    cost: float
-    max_flow: float
-    over_cap: int
-    n_foundries: int
+class MapGrid:
+    w: int
+    h: int
+    walls: frozenset[Pos]
+    ti_ores: tuple[Pos, ...]
+    ax_ores: tuple[Pos, ...]
+    core: Pos
+    ore_set: frozenset[Pos] = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "ore_set",
+            frozenset(self.ti_ores) | frozenset(self.ax_ores),
+        )
+
+    def in_bounds(self, p: Pos) -> bool:
+        return 0 <= p[0] < self.w and 0 <= p[1] < self.h
 
 
-CAPACITY = 1.0
-FOUNDRY_COST = 120.0
-CONV_COST_PER_TILE = 3.0
-
-
-def dist(a: Pos, b: Pos) -> float:
-    return math.hypot(a[0] - b[0], a[1] - b[1])
-
-
-def kmeans(
-    points: list[Pos],
+def kmeans[T](
+    points: list[T],
     k: int,
-) -> tuple[list[int], list[Pos]]:
-    if k >= len(points):
-        return list(range(len(points))), list(points)
-    rng = np.random.RandomState(42)
-    indices = rng.choice(len(points), k, replace=False)
-    centers = [points[i] for i in indices]
-    assignments = [0] * len(points)
-    for _ in range(50):
+    dist: Callable[[T, T], float],
+    mean: Callable[[list[T]], T],
+    max_iter: int = 100,
+) -> tuple[list[int], list[T]]:
+    """Lloyd's algorithm. Returns (assignments, centres)."""
+    n = len(points)
+    assert k <= n
+    rng = Random(42)
+    centres = rng.sample(points, k)
+    assignments = [0] * n
+    for _ in range(max_iter):
+        changed = False
         for i, p in enumerate(points):
-            assignments[i] = min(range(k), key=lambda c: dist(p, centers[c]))
+            nearest = min(range(k), key=lambda c: dist(p, centres[c]))
+            if nearest != assignments[i]:
+                changed = True
+                assignments[i] = nearest
+        if not changed:
+            break
         for ci in range(k):
-            members = [points[i] for i in range(len(points)) if assignments[i] == ci]
+            members = [p for p, a in zip(points, assignments, strict=True) if a == ci]
             if members:
-                centers[ci] = (
-                    round(sum(m[0] for m in members) / len(members)),
-                    round(sum(m[1] for m in members) / len(members)),
-                )
-    return assignments, centers
+                centres[ci] = mean(members)
+    return assignments, centres
 
 
-def steiner_tree(
-    sources: list[Pos],
-    root: Pos,
-    occupied: set[Pos],
-    source_flow: float = 0.25,
-) -> tuple[list[Edge], set[Pos]]:
-    if not sources:
-        return [], occupied
+type Flow = tuple[float, float, float]
 
-    max_per_branch = int(CAPACITY / source_flow)
+DIR4: tuple[Pos, ...] = ((-1, 0), (1, 0), (0, -1), (0, 1))
 
-    if len(sources) <= max_per_branch:
-        points = [*sources, root]
-        n = len(points)
-        d = np.zeros((n, n))
-        for i in range(n):
-            for j in range(n):
-                d[i][j] = dist(points[i], points[j])
-        mst = minimum_spanning_tree(csr_matrix(d))
-        edges: list[Edge] = []
-        used: set[Pos] = set()
-        cx = mst.tocoo()
-        for i, j, _ in zip(cx.row, cx.col, cx.data, strict=True):
-            edges.append((points[i], points[j]))
-            used.add(points[i])
-            used.add(points[j])
-        return edges, occupied | used
-
-    sorted_sources = sorted(sources, key=lambda s: dist(s, root))
-    chunks = [
-        sorted_sources[i : i + max_per_branch]
-        for i in range(0, len(sorted_sources), max_per_branch)
-    ]
-
-    all_edges: list[Edge] = []
-    all_used: set[Pos] = set()
-    for chunk in chunks:
-        edges, occupied = steiner_tree(chunk, root, occupied, source_flow)
-        all_edges.extend(edges)
-        all_used.update(t for e in edges for t in e)
-
-    return all_edges, occupied | all_used
+OPPOSITE: dict[Pos, Pos] = {
+    (-1, 0): (1, 0),
+    (1, 0): (-1, 0),
+    (0, -1): (0, 1),
+    (0, 1): (0, -1),
+}
 
 
-def compute_edge_flows(
-    edges: list[Edge],
-    source_flows: SourceFlowMap,
-    root: Pos,
-) -> FlowMap:
-    adj: dict[Pos, list[Pos]] = defaultdict(list)
-    for u, v in edges:
-        adj[u].append(v)
-        adj[v].append(u)
+def perpendiculars(d: Pos) -> tuple[Pos, Pos]:
+    dx, dy = d
+    return (-dy, dx), (dy, -dx)
 
-    parent: dict[Pos, Pos | None] = {root: None}
-    children: dict[Pos, list[Pos]] = defaultdict(list)
-    visited = {root}
-    queue = [root]
-    order = [root]
+
+class EntityType:
+    CONVEYOR = "conveyor"
+    BRIDGE = "bridge"
+    HARVESTER_TI = "harvester_ti"
+    HARVESTER_AX = "harvester_ax"
+    FOUNDRY = "foundry"
+    SPLITTER = "splitter"
+    CORE = "core"
+
+
+@dataclass
+class Entity:
+    etype: str
+    pos: Pos
+    direction: Pos | None = None
+    bridge_target: Pos | None = None
+
+
+@dataclass
+class Network:
+    entities: dict[Pos, Entity]
+
+    def outputs(self, pos: Pos) -> list[Pos]:
+        """Tiles that this entity sends flow to."""
+        ent = self.entities.get(pos)
+        if ent is None:
+            return []
+        match ent.etype:
+            case EntityType.CONVEYOR:
+                assert ent.direction is not None
+                dx, dy = ent.direction
+                dst = (pos[0] + dx, pos[1] + dy)
+                return [dst] if dst in self.entities else []
+            case EntityType.BRIDGE:
+                assert ent.bridge_target is not None
+                return [ent.bridge_target] if ent.bridge_target in self.entities else []
+            case EntityType.SPLITTER:
+                assert ent.direction is not None
+                result = []
+                for d in (ent.direction, *perpendiculars(ent.direction)):
+                    dst = (pos[0] + d[0], pos[1] + d[1])
+                    if dst in self.entities and self.accepts_from(dst, OPPOSITE[d]):
+                        result.append(dst)
+                return result
+            case EntityType.HARVESTER_TI | EntityType.HARVESTER_AX:
+                result = []
+                for d in DIR4:
+                    dst = (pos[0] + d[0], pos[1] + d[1])
+                    if dst in self.entities and self.accepts_from(dst, OPPOSITE[d]):
+                        result.append(dst)
+                return result
+            case EntityType.FOUNDRY:
+                result = []
+                for d in DIR4:
+                    dst = (pos[0] + d[0], pos[1] + d[1])
+                    if dst in self.entities and self.accepts_from(dst, OPPOSITE[d]):
+                        result.append(dst)
+                return result
+            case EntityType.CORE:
+                return []
+            case _:
+                return []
+
+    def accepts_from(self, pos: Pos, from_dir: Pos) -> bool:
+        """Does the entity at pos accept input from direction from_dir?
+        from_dir is the direction FROM which the input arrives (e.g. (-1,0) means input comes from the west).
+        """
+        ent = self.entities.get(pos)
+        if ent is None:
+            return False
+        match ent.etype:
+            case EntityType.CONVEYOR:
+                assert ent.direction is not None
+                return from_dir != ent.direction
+            case EntityType.BRIDGE:
+                return True
+            case EntityType.SPLITTER:
+                assert ent.direction is not None
+                return from_dir == OPPOSITE[ent.direction]
+            case EntityType.HARVESTER_TI | EntityType.HARVESTER_AX:
+                return False
+            case EntityType.FOUNDRY:
+                return True
+            case EntityType.CORE:
+                return True
+            case _:
+                return False
+
+    def output_targets(self, pos: Pos) -> list[Pos]:
+        """Tiles that this entity COULD output toward, regardless of what's there.
+        Unlike outputs(), this doesn't check if the destination accepts.
+        """
+        ent = self.entities.get(pos)
+        if ent is None:
+            return []
+        match ent.etype:
+            case EntityType.CONVEYOR:
+                assert ent.direction is not None
+                dx, dy = ent.direction
+                return [(pos[0] + dx, pos[1] + dy)]
+            case EntityType.BRIDGE:
+                assert ent.bridge_target is not None
+                return [ent.bridge_target]
+            case EntityType.SPLITTER:
+                assert ent.direction is not None
+                return [
+                    (pos[0] + d[0], pos[1] + d[1])
+                    for d in (ent.direction, *perpendiculars(ent.direction))
+                ]
+            case EntityType.HARVESTER_TI | EntityType.HARVESTER_AX:
+                return [(pos[0] + d[0], pos[1] + d[1]) for d in DIR4]
+            case EntityType.FOUNDRY:
+                return [(pos[0] + d[0], pos[1] + d[1]) for d in DIR4]
+            case _:
+                return []
+
+    def build_graph(self) -> dict[Pos, list[Pos]]:
+        """Build the adjacency list from the entity placement."""
+        graph: dict[Pos, list[Pos]] = {}
+        for pos in self.entities:
+            graph[pos] = self.outputs(pos)
+        return graph
+
+
+def compute_flow(network: Network) -> dict[Pos, Flow]:
+    """Compute per-tile commodity flow using Kahn's topological sort.
+
+    Harvesters produce 0.25 of their commodity.
+    Foundries consume min(ti_in, ax_in) of each, produce that much rax.
+    All other entities pass through flow unchanged.
+    Flow is split equally across all outputs.
+
+    Precondition: the network graph is a DAG.
+    Returns: per-tile (ti, ax, rax) accumulated input flow.
+    """
+    graph = network.build_graph()
+
+    nodes = set(graph.keys())
+    for dsts in graph.values():
+        nodes.update(dsts)
+
+    in_degree: dict[Pos, int] = dict.fromkeys(nodes, 0)
+    for dsts in graph.values():
+        for v in dsts:
+            in_degree[v] += 1
+
+    flow: dict[Pos, Flow] = dict.fromkeys(nodes, (0.0, 0.0, 0.0))
+
+    for pos in nodes:
+        ent = network.entities.get(pos)
+        if ent is None:
+            continue
+        match ent.etype:
+            case EntityType.HARVESTER_TI:
+                flow[pos] = (0.25, 0.0, 0.0)
+            case EntityType.HARVESTER_AX:
+                flow[pos] = (0.0, 0.25, 0.0)
+
+    queue = deque(n for n in nodes if in_degree[n] == 0)
+
     while queue:
-        n = queue.pop(0)
-        for nb in adj[n]:
-            if nb not in visited:
-                visited.add(nb)
-                parent[nb] = n
-                children[n].append(nb)
-                queue.append(nb)
-                order.append(nb)
+        u = queue.popleft()
+        ti, ax, rax = flow[u]
 
-    subtree: dict[Pos, float] = {}
-    for n in reversed(order):
-        child_flow = sum(subtree.get(c, 0) for c in children.get(n, []))
-        own = source_flows.get(n, 0)
-        subtree[n] = child_flow + own
-
-    flows: FlowMap = {}
-    for n, p in parent.items():
-        if p is None:
-            continue
-        edge_key = (n, p)
-        rev_key = (p, n)
-        if edge_key in [(u, v) for u, v in edges]:
-            flows[edge_key] = subtree[n]
-        elif rev_key in [(u, v) for u, v in edges]:
-            flows[rev_key] = subtree[n]
+        ent = network.entities.get(u)
+        if ent is not None and ent.etype == EntityType.FOUNDRY:
+            refined = min(ti, ax)
+            out_ti = ti - refined
+            out_ax = ax - refined
+            out_rax = rax + refined
         else:
-            flows[edge_key] = subtree[n]
+            out_ti, out_ax, out_rax = ti, ax, rax
 
-    return flows
+        outputs = graph.get(u, [])
+        n_out = len(outputs)
+        if n_out > 0:
+            for v in outputs:
+                vti, vax, vrax = flow[v]
+                flow[v] = (
+                    vti + out_ti / n_out,
+                    vax + out_ax / n_out,
+                    vrax + out_rax / n_out,
+                )
+                in_degree[v] -= 1
+                if in_degree[v] == 0:
+                    queue.append(v)
+
+    return flow
 
 
-def build_network(
-    k_foundries: int,
-    ti_ores: list[Pos],
-    ax_ores: list[Pos],
-    core: Pos,
-) -> Network:
-    n_ti = len(ti_ores)
-    n_ax = len(ax_ores)
+CONV_COST = 3
+BRIDGE_COST = 20
+BRIDGE_DELTAS: tuple[Pos, ...] = tuple(
+    (dx, dy) for dx in range(-3, 4) for dy in range(-3, 4) if 1 < dx * dx + dy * dy <= 9
+)
 
-    if k_foundries == 0:
-        occupied: set[Pos] = {core}
-        edges, occupied = steiner_tree(ti_ores, core, occupied)
-        source_flows = dict.fromkeys(ti_ores, 0.25)
-        flows = compute_edge_flows(edges, source_flows, core)
-        max_f = max(flows.values()) if flows else 0
-        over_cap = sum(1 for f in flows.values() if f > CAPACITY + 0.01)
-        total_length = sum(dist(u, v) for u, v in edges)
-        cost = total_length * CONV_COST_PER_TILE
-        return Network(
-            main_edges=edges,
-            main_flows=flows,
-            main_sources=source_flows,
-            main_commodity="ti",
-            foundry_ax=[],
-            foundry_ti=[],
-            foundry_positions=[],
-            rax=0.0,
-            ti_del=n_ti * 0.25,
-            cost=cost,
-            max_flow=max_f,
-            over_cap=over_cap,
-            n_foundries=0,
-        )
 
-    k = min(k_foundries, n_ax)
-    ax_assignments, ax_centers = kmeans(ax_ores, k)
+def compute_banned(
+    network: Network,
+    tile_commodity: dict[Pos, str],
+    commodity: str,
+) -> frozenset[Pos]:
+    """Compute tiles banned for building a chain carrying `commodity`.
 
-    ax_per_foundry: dict[int, list[int]] = defaultdict(list)
-    for i, ci in enumerate(ax_assignments):
-        ax_per_foundry[ci].append(i)
-
-    foundry_positions: list[Pos] = []
-    foundry_ax_indices: list[list[int]] = []
-    for ci in range(k):
-        members = ax_per_foundry.get(ci, [])
-        if not members:
+    A tile X is banned if any adjacent entity outputs toward X and carries
+    an incompatible commodity. This is directional: a conveyor only bans
+    the tile in its output direction, not all 4 neighbours.
+    """
+    banned: set[Pos] = set()
+    for pos, ent in network.entities.items():
+        if ent.etype == EntityType.FOUNDRY:
             continue
-        foundry_positions.append(ax_centers[ci])
-        foundry_ax_indices.append(members)
-
-    actual_k = len(foundry_positions)
-    if actual_k == 0:
-        return build_network(0, ti_ores, ax_ores, core)
-
-    ti_assigned: set[int] = set()
-    foundry_ti_indices: list[list[int]] = []
-    for fi in range(actual_k):
-        needed = len(foundry_ax_indices[fi])
-        fp = foundry_positions[fi]
-        candidates = sorted(
-            [(dist(ti_ores[i], fp), i) for i in range(n_ti) if i not in ti_assigned],
-        )
-        assigned = [idx for _, idx in candidates[:needed]]
-        foundry_ti_indices.append(assigned)
-        ti_assigned.update(assigned)
-
-    unpaired_ti = [i for i in range(n_ti) if i not in ti_assigned]
-
-    occupied: set[Pos] = set()
-    occupied.add(core)
-    for p in ti_ores:
-        occupied.add(p)
-    for p in ax_ores:
-        occupied.add(p)
-    for p in foundry_positions:
-        occupied.add(p)
-
-    unpaired_ti_positions = [ti_ores[i] for i in unpaired_ti]
-
-    ti_to_core_edges, occupied = steiner_tree(unpaired_ti_positions, core, occupied)
-    ti_source_flows_main = dict.fromkeys(unpaired_ti_positions, 0.25)
-    ti_to_core_flows = compute_edge_flows(ti_to_core_edges, ti_source_flows_main, core)
-
-    rax_to_core_sources = list(foundry_positions)
-    rax_source_flows: SourceFlowMap = {}
-    for fi in range(actual_k):
-        fp = foundry_positions[fi]
-        n_matched = min(len(foundry_ax_indices[fi]), len(foundry_ti_indices[fi]))
-        rax_source_flows[fp] = n_matched * 0.25
-
-    rax_to_core_edges, occupied = steiner_tree(rax_to_core_sources, core, occupied)
-    rax_to_core_flows = compute_edge_flows(rax_to_core_edges, rax_source_flows, core)
-
-    main_edges = ti_to_core_edges + rax_to_core_edges
-    main_flows = {**ti_to_core_flows, **rax_to_core_flows}
-    main_source_flows = {**ti_source_flows_main, **rax_source_flows}
-
-    foundry_ax_data: list[FoundryData] = []
-    foundry_ti_data: list[FoundryData] = []
-    for fi in range(actual_k):
-        fp = foundry_positions[fi]
-        ax_positions = [ax_ores[i] for i in foundry_ax_indices[fi]]
-        ax_edges, occupied = steiner_tree(ax_positions, fp, occupied)
-        ax_source_flows = dict.fromkeys(ax_positions, 0.25)
-        ax_flows = compute_edge_flows(ax_edges, ax_source_flows, fp)
-        foundry_ax_data.append((ax_edges, ax_flows, ax_source_flows))
-
-        ti_positions = [ti_ores[i] for i in foundry_ti_indices[fi]]
-        ti_edges, occupied = steiner_tree(ti_positions, fp, occupied)
-        ti_source_flows = dict.fromkeys(ti_positions, 0.25)
-        ti_flows = compute_edge_flows(ti_edges, ti_source_flows, fp)
-        foundry_ti_data.append((ti_edges, ti_flows, ti_source_flows))
-
-    all_flows = list(main_flows.values())
-    for _ax_e, ax_f, _ in foundry_ax_data:
-        all_flows.extend(ax_f.values())
-    for _ti_e, ti_f, _ in foundry_ti_data:
-        all_flows.extend(ti_f.values())
-
-    max_f = max(all_flows) if all_flows else 0
-    over_cap = sum(1 for f in all_flows if f > CAPACITY + 0.01)
-
-    total_length = sum(dist(u, v) for u, v in main_edges)
-    for ax_e, _, _ in foundry_ax_data:
-        total_length += sum(dist(u, v) for u, v in ax_e)
-    for ti_e, _, _ in foundry_ti_data:
-        total_length += sum(dist(u, v) for u, v in ti_e)
-
-    cost = actual_k * FOUNDRY_COST + total_length * CONV_COST_PER_TILE
-    rax_del = (
-        sum(
-            min(len(foundry_ax_indices[fi]), len(foundry_ti_indices[fi]))
-            for fi in range(actual_k)
-        )
-        * 0.25
-    )
-    ti_del = len(unpaired_ti) * 0.25
-
-    return Network(
-        main_edges=main_edges,
-        main_flows=main_flows,
-        main_sources=main_source_flows,
-        main_commodity="mixed",
-        foundry_ax=foundry_ax_data,
-        foundry_ti=foundry_ti_data,
-        foundry_positions=foundry_positions,
-        rax=rax_del,
-        ti_del=ti_del,
-        cost=cost,
-        max_flow=max_f,
-        over_cap=over_cap,
-        n_foundries=actual_k,
-    )
+        output_commodity = tile_commodity.get(pos)
+        if output_commodity is None or output_commodity == commodity:
+            continue
+        for target in network.output_targets(pos):
+            banned.add(target)
+    return frozenset(banned)
 
 
-def draw_network(
-    best: Network,
-    ti_ores: list[Pos],
-    ax_ores: list[Pos],
-    walls: set[Pos],
-    core: Pos,
-    w: int,
-    h: int,
-    output_file: str,
-) -> None:
-    scale = 40
-    pad = 60
-    img_w = w * scale + pad * 2
-    img_h = h * scale + pad * 2
-    img = Image.new("RGB", (img_w, img_h), (30, 25, 25))
-    draw = ImageDraw.Draw(img)
+def astar(
+    grid: MapGrid,
+    source: Pos,
+    goals: frozenset[Pos],
+    blocked: frozenset[Pos],
+    tile_cost: dict[Pos, float] | None = None,
+    network: Network | None = None,
+) -> list[Pos] | None:
+    """A* on a grid. Cardinal moves cost CONV_COST, bridge jumps cost BRIDGE_COST.
+    tile_cost overrides the cost for specific tiles (e.g. 0 for reuse).
+    Tiles in `blocked` are impassable.
+    If network is provided, existing entities must accept from the arrival direction.
+    Heuristic: min manhattan to any goal (admissible since min edge cost can be 0).
+    """
+    if source in goals:
+        return [source]
+    if not goals:
+        return None
 
-    def tx(x: int, y: int) -> tuple[int, int]:
-        return x * scale + pad, y * scale + pad
+    goal_tuple = tuple(goals)
+    inf = float("inf")
 
-    for wx, wy in walls:
-        px, py = tx(wx, wy)
-        draw.rectangle(
-            [px - scale // 3, py - scale // 3, px + scale // 3, py + scale // 3],
-            fill=(60, 45, 40),
-        )
+    def h(p: Pos) -> float:
+        return min(abs(p[0] - g[0]) + abs(p[1] - g[1]) for g in goal_tuple)
 
-    colors = {"ti": (80, 140, 255), "ax": (255, 160, 40), "rax": (200, 130, 255)}
+    g_cost: dict[Pos, float] = {source: 0}
+    parent: dict[Pos, Pos | None] = {source: None}
+    heap: list[tuple[float, Pos]] = [(h(source), source)]
 
-    def draw_edges(
-        edges: list[Edge],
-        flows: FlowMap,
-        commodity: str,
-    ) -> None:
-        color = colors[commodity]
-        for u, v in edges:
-            f = flows.get((u, v), flows.get((v, u), 0))
-            width = max(1, min(6, int(f * 8)))
-            a = tx(u[0], u[1])
-            b = tx(v[0], v[1])
-            draw.line([a, b], fill=color, width=width)
-            mx = (a[0] + b[0]) // 2
-            my = (a[1] + b[1]) // 2
-            fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
-            draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
+    while heap:
+        f_val, cur = heapq.heappop(heap)
 
-    fp_set = set(best.foundry_positions)
-    for u, v in best.main_edges:
-        f = best.main_flows.get((u, v), best.main_flows.get((v, u), 0))
-        is_rax = u in fp_set or v in fp_set
-        commodity = "rax" if is_rax else "ti"
-        color = colors[commodity]
-        width = max(1, min(6, int(f * 8)))
-        a = tx(u[0], u[1])
-        b = tx(v[0], v[1])
-        draw.line([a, b], fill=color, width=width)
-        mx = (a[0] + b[0]) // 2
-        my = (a[1] + b[1]) // 2
-        fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
-        draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
+        if cur in goals:
+            path: list[Pos] = []
+            n: Pos | None = cur
+            while n is not None:
+                path.append(n)
+                n = parent[n]
+            path.reverse()
+            return path
 
-    for ax_edges, ax_flows, _ in best.foundry_ax:
-        draw_edges(ax_edges, ax_flows, "ax")
+        gc = g_cost.get(cur, inf)
+        if f_val > gc + h(cur):
+            continue
 
-    for ti_edges, ti_flows, _ in best.foundry_ti:
-        draw_edges(ti_edges, ti_flows, "ti")
+        cx, cy = cur
 
-    for x, y in ti_ores:
-        px, py = tx(x, y)
-        draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=colors["ti"])
+        for dx, dy in DIR4:
+            npos = (cx + dx, cy + dy)
+            if not grid.in_bounds(npos):
+                continue
+            if npos in blocked:
+                continue
+            if network is not None and npos in network.entities:
+                from_dir = (-dx, -dy)
+                if not network.accepts_from(npos, from_dir):
+                    continue
+            if tile_cost is not None and npos in tile_cost:
+                cost = tile_cost[npos]
+            else:
+                cost = CONV_COST
+            new_g = gc + cost
+            if new_g < g_cost.get(npos, inf):
+                g_cost[npos] = new_g
+                parent[npos] = cur
+                heapq.heappush(heap, (new_g + h(npos), npos))
 
-    for x, y in ax_ores:
-        px, py = tx(x, y)
-        draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=colors["ax"])
+        for dx, dy in BRIDGE_DELTAS:
+            npos = (cx + dx, cy + dy)
+            if not grid.in_bounds(npos):
+                continue
+            if npos in blocked:
+                continue
+            if network is not None and npos in network.entities:
+                from_dir = (-dx, -dy)
+                if not network.accepts_from(npos, from_dir):
+                    continue
+            cost = BRIDGE_COST
+            new_g = gc + cost
+            if new_g < g_cost.get(npos, inf):
+                g_cost[npos] = new_g
+                parent[npos] = cur
+                heapq.heappush(heap, (new_g + h(npos), npos))
 
-    for fp in best.foundry_positions:
-        px, py = tx(fp[0], fp[1])
-        draw.rectangle([px - 7, py - 7, px + 7, py + 7], fill=(200, 50, 200))
-
-    cpx, cpy = tx(core[0], core[1])
-    draw.ellipse([cpx - 10, cpy - 10, cpx + 10, cpy + 10], fill=(50, 200, 80))
-
-    draw.text(
-        (pad, 5),
-        f"Best: k={best.n_foundries} RAx={best.rax:.2f} Ti={best.ti_del:.2f} cost={best.cost:.0f}",
-        fill=(255, 255, 255),
-    )
-    draw.text(
-        (pad, img_h - 25),
-        "Blue=Ti  Orange=Ax  Purple=RAx  Square=Foundry  Green=Core",
-        fill=(180, 180, 180),
-    )
-
-    img.save(output_file)
-    print(f"Saved to {output_file}")
+    return None
 
 
-def main() -> None:
-    map_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
-
-    with Path(map_file).open("rb") as f:
+def load_map(path: str) -> MapGrid:
+    with Path(path).open("rb") as f:
         mm = cambc_pb2.Map()
         mm.ParseFromString(f.read())
 
     w, h = mm.width, mm.height
-
-    ti_ores: list[Pos] = []
-    ax_ores: list[Pos] = []
+    ti: list[Pos] = []
+    ax: list[Pos] = []
     walls: set[Pos] = set()
     for y, row in enumerate(mm.rows):
         for x, tile in enumerate(row.tiles):
-            if tile == 2:
-                ti_ores.append((x, y))
-            elif tile == 3:
-                ax_ores.append((x, y))
-            elif tile == 1:
+            if tile == 1:
                 walls.add((x, y))
+            elif tile == 2:
+                ti.append((x, y))
+            elif tile == 3:
+                ax.append((x, y))
 
     core: Pos = next((c.position.x, c.position.y) for c in mm.cores if c.team == 0)
-    n_ax = len(ax_ores)
-    n_ti = len(ti_ores)
-
-    print(f"Map: {w}x{h}, Ti={n_ti}, Ax={n_ax}")
-
-    best: Network | None = None
-    for k in range(n_ax + 1):
-        result = build_network(k, ti_ores, ax_ores, core)
-        print(
-            f"k={k:2d}: foundries={result.n_foundries:2d} RAx={result.rax:.2f} Ti={result.ti_del:.2f} "
-            f"cost={result.cost:8.1f} max_flow={result.max_flow:.2f} over_cap={result.over_cap}",
-        )
-        if result.over_cap > 0:
-            continue
-        if (
-            best is None
-            or result.rax > best.rax
-            or (result.rax == best.rax and result.cost < best.cost)
-        ):
-            best = result
-
-    if best is None:
-        best = build_network(0, ti_ores, ax_ores, core)
-
-    print(
-        f"\nBest: foundries={best.n_foundries} RAx={best.rax:.2f} "
-        f"Ti={best.ti_del:.2f} cost={best.cost:.0f}",
+    return MapGrid(
+        w=w,
+        h=h,
+        walls=frozenset(walls),
+        ti_ores=tuple(ti),
+        ax_ores=tuple(ax),
+        core=core,
     )
 
-    draw_network(best, ti_ores, ax_ores, walls, core, w, h, output_file)
+
+FOUNDRY_COST = 120
+CAPACITY = 1.0
+
+
+def manhattan(a: Pos, b: Pos) -> int:
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def core_3x3(core: Pos, w: int, h: int) -> frozenset[Pos]:
+    cx, cy = core
+    return frozenset(
+        (cx + dx, cy + dy)
+        for dx in range(-1, 2)
+        for dy in range(-1, 2)
+        if 0 <= cx + dx < w and 0 <= cy + dy < h
+    )
+
+
+def pos_mean(points: list[Pos]) -> Pos:
+    return (
+        round(sum(p[0] for p in points) / len(points)),
+        round(sum(p[1] for p in points) / len(points)),
+    )
+
+
+def place_foundry(
+    grid: MapGrid,
+    ax_members: list[Pos],
+    ti_members: list[Pos],
+    occupied: frozenset[Pos],
+) -> Pos | None:
+    all_pts = ax_members + ti_members
+    cx, cy = pos_mean(all_pts)
+    for r in range(40):
+        best: Pos | None = None
+        best_cost = float("inf")
+        for dx in range(-r, r + 1):
+            for dy in range(-r, r + 1):
+                if abs(dx) != r and abs(dy) != r:
+                    continue
+                pos = (cx + dx, cy + dy)
+                if not grid.in_bounds(pos):
+                    continue
+                if pos in grid.walls or pos in grid.ore_set or pos in occupied:
+                    continue
+                cost = sum(manhattan(pos, m) for m in all_pts)
+                cost += manhattan(pos, grid.core) // 2
+                if cost < best_cost:
+                    best_cost = cost
+                    best = pos
+        if best is not None:
+            return best
+    return None
+
+
+def connect_sources(
+    grid: MapGrid,
+    network: Network,
+    tile_commodity: dict[Pos, str],
+    sources: list[Pos],
+    dest_tiles: frozenset[Pos],
+    commodity: str,
+) -> int:
+    """Connect each source to the tree rooted at dest_tiles using greedy A*.
+
+    Places conveyors/bridges into network.entities. Tracks commodity per tile.
+    Returns number of sources successfully connected.
+
+    The tree grows with each connection. Same-commodity tiles in the tree
+    are free to traverse (cost 0). New tiles cost CONV_COST or BRIDGE_COST.
+    """
+    tree: set[Pos] = set(dest_tiles)
+    connected = 0
+
+    sorted_src = sorted(sources, key=lambda s: min(manhattan(s, d) for d in dest_tiles))
+
+    for src in sorted_src:
+        # Find start tile: cardinal neighbour of source, not banned, not wall/ore
+        banned = compute_banned(network, tile_commodity, commodity)
+        best_start: Pos | None = None
+        best_d = 999999
+        for d in DIR4:
+            n = (src[0] + d[0], src[1] + d[1])
+            if not grid.in_bounds(n):
+                continue
+            if n in grid.walls or n in grid.ore_set:
+                continue
+            if n in banned and n not in tree:
+                continue
+            dist = min(manhattan(n, t) for t in tree)
+            if dist < best_d:
+                best_d = dist
+                best_start = n
+        if best_start is None:
+            continue
+
+        # Compute flow to find capacity
+        flow = compute_flow(network)
+
+        # Build tree parent map: each tile -> its output tile (toward root)
+        tree_parent: dict[Pos, Pos | None] = {}
+        for t in tree:
+            outs = network.outputs(t)
+            # Parent = the output tile that's also in the tree (toward root)
+            parent_tile = None
+            for o in outs:
+                if o in tree:
+                    parent_tile = o
+                    break
+            tree_parent[t] = parent_tile
+
+        # A tile is available if adding 0.25 to every tile on the path to root
+        # would not exceed capacity anywhere (except core tiles)
+        ct_local = core_3x3(grid.core, grid.w, grid.h)
+        full_tiles: set[Pos] = set()
+        avail: set[Pos] = set()
+        for t in tree:
+            ok = True
+            cur: Pos | None = t
+            while cur is not None:
+                total = sum(flow.get(cur, (0.0, 0.0, 0.0)))
+                if total + 0.25 > CAPACITY + 0.01 and cur not in ct_local:
+                    ok = False
+                    break
+                cur = tree_parent.get(cur)
+            if ok:
+                avail.add(t)
+            else:
+                full_tiles.add(t)
+        if not avail:
+            continue
+
+        # Blocked: walls, ores, other-commodity tiles, banned tiles, full tree tiles
+        blocked: set[Pos] = set()
+        blocked |= grid.walls
+        blocked |= grid.ore_set
+        blocked |= banned
+        blocked |= full_tiles
+        for pos in network.entities:
+            if pos not in tree and tile_commodity.get(pos) != commodity:
+                blocked.add(pos)
+        blocked -= avail
+
+        # Cost for tree tiles: 0 if room for 2+ more, CONV_COST if last slot
+        costs: dict[Pos, float] = {}
+        for t in avail:
+            total = sum(flow.get(t, (0.0, 0.0, 0.0)))
+            if total + 0.50 <= CAPACITY + 0.01:
+                costs[t] = 0
+            else:
+                costs[t] = CONV_COST
+
+        path = astar(
+            grid,
+            best_start,
+            frozenset(avail),
+            frozenset(blocked),
+            costs,
+            network,
+        )
+        if path is None:
+            continue
+
+        # Place entities along the path
+        new_tiles: list[Pos] = []
+        for i in range(len(path) - 1):
+            a, b = path[i], path[i + 1]
+            if a in network.entities:
+                continue  # already built (reuse)
+            dx = b[0] - a[0]
+            dy = b[1] - a[1]
+            if abs(dx) + abs(dy) == 1:
+                network.entities[a] = Entity(
+                    etype=EntityType.CONVEYOR,
+                    pos=a,
+                    direction=(dx, dy),
+                )
+            else:
+                network.entities[a] = Entity(
+                    etype=EntityType.BRIDGE,
+                    pos=a,
+                    bridge_target=b,
+                )
+            tile_commodity[a] = commodity
+            tree.add(a)
+            new_tiles.append(a)
+
+        connected += 1
+
+    return connected
+
+
+# ── Visualization ─────────────────────────────────────────────────────────
+
+TILE_PX = 48
+PAD = 60
+COLORS: dict[str, tuple[int, int, int]] = {
+    "ti": (80, 140, 255),
+    "ax": (255, 160, 40),
+    "rax": (200, 130, 255),
+    "foundry": (200, 50, 200),
+}
+
+
+def draw_network(
+    network: Network,
+    tile_commodity: dict[Pos, str],
+    flow: dict[Pos, Flow],
+    grid: MapGrid,
+    out_path: str,
+) -> None:
+    from PIL import Image, ImageDraw
+
+    iw = grid.w * TILE_PX + PAD * 2
+    ih = grid.h * TILE_PX + PAD * 2
+    img = Image.new("RGB", (iw, ih), (30, 25, 25))
+    draw = ImageDraw.Draw(img)
+
+    def txy(p: Pos) -> tuple[int, int]:
+        return p[0] * TILE_PX + PAD, p[1] * TILE_PX + PAD
+
+    def tcen(p: Pos) -> tuple[int, int]:
+        return p[0] * TILE_PX + PAD + TILE_PX // 2, p[1] * TILE_PX + PAD + TILE_PX // 2
+
+    # Background
+    for y in range(grid.h):
+        for x in range(grid.w):
+            px, py = txy((x, y))
+            if (x, y) in grid.walls:
+                draw.rectangle([px, py, px + TILE_PX, py + TILE_PX], fill=(60, 45, 40))
+            else:
+                draw.rectangle(
+                    [px, py, px + TILE_PX, py + TILE_PX],
+                    fill=(35, 30, 28),
+                    outline=(50, 45, 42),
+                )
+
+    # Transport tiles
+    ct = core_3x3(grid.core, grid.w, grid.h)
+    fp_set = {p for p, e in network.entities.items() if e.etype == EntityType.FOUNDRY}
+    for pos, ent in network.entities.items():
+        if pos in grid.ore_set or pos in ct or pos in fp_set:
+            continue
+        c = COLORS.get(tile_commodity.get(pos, ""), (180, 180, 180))
+        px, py = txy(pos)
+        draw.rectangle([px + 2, py + 2, px + TILE_PX - 2, py + TILE_PX - 2], fill=c)
+
+    # Bridge arcs
+    for pos, ent in network.entities.items():
+        if ent.etype == EntityType.BRIDGE and ent.bridge_target is not None:
+            c = COLORS.get(tile_commodity.get(pos, ""), (180, 180, 180))
+            draw.line([tcen(pos), tcen(ent.bridge_target)], fill=c, width=2)
+
+    # Flow labels
+    for pos, f in flow.items():
+        total = sum(f)
+        if total < 0.01:
+            continue
+        px, py = txy(pos)
+        ti, ax, rax = f
+        lines = []
+        if ti > 0.001:
+            lines.append(f"Ti{ti:.2f}")
+        if ax > 0.001:
+            lines.append(f"Ax{ax:.2f}")
+        if rax > 0.001:
+            lines.append(f"RAx{rax:.2f}")
+        fc = (255, 80, 80) if total > CAPACITY else (220, 220, 220)
+        for li, text in enumerate(lines):
+            draw.text((px + 2, py + 2 + li * 12), text, fill=fc)
+
+    # Ores
+    for p in grid.ti_ores:
+        px, py = txy(p)
+        draw.rectangle(
+            [px + 1, py + 1, px + TILE_PX - 1, py + TILE_PX - 1],
+            fill=(40, 60, 120),
+            outline=COLORS["ti"],
+        )
+        draw.text((px + TILE_PX // 4, py + TILE_PX // 3), "Ti", fill=(200, 220, 255))
+
+    for p in grid.ax_ores:
+        px, py = txy(p)
+        draw.rectangle(
+            [px + 1, py + 1, px + TILE_PX - 1, py + TILE_PX - 1],
+            fill=(100, 60, 20),
+            outline=COLORS["ax"],
+        )
+        draw.text((px + TILE_PX // 4, py + TILE_PX // 3), "Ax", fill=(255, 220, 180))
+
+    # Foundries
+    for pos, ent in network.entities.items():
+        if ent.etype == EntityType.FOUNDRY:
+            px, py = txy(pos)
+            draw.rectangle(
+                [px + 1, py + 1, px + TILE_PX - 1, py + TILE_PX - 1],
+                fill=(120, 30, 120),
+                outline=(200, 100, 200),
+                width=2,
+            )
+            draw.text((px + 4, py + TILE_PX // 3), "Fnd", fill=(255, 200, 255))
+
+    # Core
+    for t in ct:
+        px, py = txy(t)
+        draw.rectangle(
+            [px + 1, py + 1, px + TILE_PX - 1, py + TILE_PX - 1],
+            fill=(30, 100, 50),
+            outline=(80, 200, 100),
+            width=2,
+        )
+    cx, cy = tcen(grid.core)
+    draw.text((cx - 12, cy - 6), "Core", fill=(200, 255, 200))
+
+    img.save(out_path)
+    print(f"Saved to {out_path}")
+
+
+# ── Validation ────────────────────────────────────────────────────────────
+
+
+def validate(
+    network: Network,
+    tile_commodity: dict[Pos, str],
+    flow: dict[Pos, Flow],
+    grid: MapGrid,
+) -> list[str]:
+    errors: list[str] = []
+    ct = core_3x3(grid.core, grid.w, grid.h)
+
+    # 1. Congestion: no tile (except core) should exceed capacity
+    for pos, f in flow.items():
+        total = sum(f)
+        if total > CAPACITY + 0.01 and pos not in ct:
+            errors.append(f"CONGESTION: {pos} flow={total:.2f}")
+
+    # 2. Leakage: no tile should receive incompatible commodity from a neighbour
+    for pos, ent in network.entities.items():
+        if ent.etype in (EntityType.FOUNDRY, EntityType.CORE):
+            continue  # foundries and core accept all commodities
+        my_commodity = tile_commodity.get(pos)
+        if my_commodity is None:
+            continue
+        for target in network.output_targets(pos):
+            target_ent = network.entities.get(target)
+            if target_ent and target_ent.etype in (EntityType.FOUNDRY, EntityType.CORE):
+                continue
+            target_commodity = tile_commodity.get(target)
+            if (
+                target_commodity is not None
+                and target_commodity != my_commodity
+                and target in network.outputs(pos)
+            ):
+                errors.append(
+                    f"LEAKAGE: {pos}({my_commodity}) -> {target}({target_commodity})",
+                )
+
+    # 3. Delivered flow
+    ti_at_core = sum(flow.get(t, (0.0, 0.0, 0.0))[0] for t in ct)
+    ax_at_core = sum(flow.get(t, (0.0, 0.0, 0.0))[1] for t in ct)
+    rax_at_core = sum(flow.get(t, (0.0, 0.0, 0.0))[2] for t in ct)
+    max_ti = len(grid.ti_ores) * 0.25
+    max_ax = len(grid.ax_ores) * 0.25
+    max_rax = min(max_ti, max_ax)
+
+    errors.append(f"INFO: Ti at core = {ti_at_core:.2f} / {max_ti:.2f}")
+    errors.append(f"INFO: RAx at core = {rax_at_core:.2f} / {max_rax:.2f}")
+    if ax_at_core > 0.01:
+        errors.append(f"WARNING: raw Ax at core = {ax_at_core:.2f} (destroyed)")
+
+    return errors
+
+
+# ── Build full network ────────────────────────────────────────────────────
+
+
+def build_network(k_foundries: int, grid: MapGrid) -> tuple[Network, dict[Pos, str]]:
+    n_ti = len(grid.ti_ores)
+    n_ax = len(grid.ax_ores)
+
+    network = Network(entities={})
+    tile_commodity: dict[Pos, str] = {}
+
+    # Place core
+    ct = core_3x3(grid.core, grid.w, grid.h)
+    for t in ct:
+        network.entities[t] = Entity(etype=EntityType.CORE, pos=t)
+
+    # Place harvesters
+    for p in grid.ti_ores:
+        network.entities[p] = Entity(etype=EntityType.HARVESTER_TI, pos=p)
+        tile_commodity[p] = "ti"
+    for p in grid.ax_ores:
+        network.entities[p] = Entity(etype=EntityType.HARVESTER_AX, pos=p)
+        tile_commodity[p] = "ax"
+
+    occupied = frozenset(network.entities.keys())
+
+    if k_foundries == 0 or n_ax == 0:
+        connect_sources(grid, network, tile_commodity, list(grid.ti_ores), ct, "ti")
+        return network, tile_commodity
+
+    # Cluster Ax, assign Ti, place foundries
+    k = min(k_foundries, n_ax)
+    ax_assign, _centres = kmeans(
+        list(grid.ax_ores),
+        k,
+        manhattan,
+        pos_mean,
+    )
+
+    ax_groups: dict[int, list[int]] = {}
+    for i, ci in enumerate(ax_assign):
+        ax_groups.setdefault(ci, []).append(i)
+
+    foundry_ax: list[list[int]] = []
+    centres: list[Pos] = []
+    for ci in range(k):
+        members = ax_groups.get(ci, [])
+        if not members:
+            continue
+        foundry_ax.append(members)
+        centres.append(pos_mean([grid.ax_ores[i] for i in members]))
+
+    actual_k = len(centres)
+    if actual_k == 0:
+        return build_network(0, grid)
+
+    ti_used: set[int] = set()
+    foundry_ti: list[list[int]] = []
+    for fi in range(actual_k):
+        need = len(foundry_ax[fi])
+        cands = sorted(
+            [
+                (manhattan(grid.ti_ores[i], centres[fi]), i)
+                for i in range(n_ti)
+                if i not in ti_used
+            ],
+        )
+        assigned = [idx for _, idx in cands[:need]]
+        foundry_ti.append(assigned)
+        ti_used.update(assigned)
+
+    unpaired_ti = [i for i in range(n_ti) if i not in ti_used]
+
+    foundry_positions: list[Pos] = []
+    for fi in range(actual_k):
+        ax_pts = [grid.ax_ores[i] for i in foundry_ax[fi]]
+        ti_pts = [grid.ti_ores[i] for i in foundry_ti[fi]]
+        fp = place_foundry(grid, ax_pts, ti_pts, occupied)
+        if fp is None:
+            return build_network(0, grid)
+        foundry_positions.append(fp)
+        network.entities[fp] = Entity(etype=EntityType.FOUNDRY, pos=fp)
+        tile_commodity[fp] = "foundry"
+        occupied = frozenset(network.entities.keys())
+
+    # 1. Ti -> foundries
+    for fi in range(actual_k):
+        fp = foundry_positions[fi]
+        ti_pts = [grid.ti_ores[i] for i in foundry_ti[fi]]
+        connect_sources(grid, network, tile_commodity, ti_pts, frozenset({fp}), "ti")
+
+    # 2. Ax -> foundries
+    for fi in range(actual_k):
+        fp = foundry_positions[fi]
+        ax_pts = [grid.ax_ores[i] for i in foundry_ax[fi]]
+        connect_sources(grid, network, tile_commodity, ax_pts, frozenset({fp}), "ax")
+
+    # 3. RAx: foundries -> core
+    connect_sources(
+        grid,
+        network,
+        tile_commodity,
+        foundry_positions,
+        ct,
+        "rax",
+    )
+
+    # 4. Unpaired Ti -> core
+    unpaired_ti_pos = [grid.ti_ores[i] for i in unpaired_ti]
+    connect_sources(grid, network, tile_commodity, unpaired_ti_pos, ct, "ti")
+
+    return network, tile_commodity
+
+
+def main() -> None:
+    map_file = sys.argv[1]
+    out_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
+
+    grid = load_map(map_file)
+    n_ax = len(grid.ax_ores)
+    print(f"Map: {grid.w}x{grid.h}, Ti={len(grid.ti_ores)}, Ax={n_ax}")
+
+    best_network: Network | None = None
+    best_commodity: dict[Pos, str] | None = None
+    best_rax = -1.0
+    best_cost = float("inf")
+
+    for k in range(n_ax + 1):
+        network, tile_commodity = build_network(k, grid)
+        flow = compute_flow(network)
+        ct = core_3x3(grid.core, grid.w, grid.h)
+
+        rax = sum(flow.get(t, (0.0, 0.0, 0.0))[2] for t in ct)
+        ti = sum(flow.get(t, (0.0, 0.0, 0.0))[0] for t in ct)
+        n_conv = sum(
+            1 for e in network.entities.values() if e.etype == EntityType.CONVEYOR
+        )
+        n_bridge = sum(
+            1 for e in network.entities.values() if e.etype == EntityType.BRIDGE
+        )
+        n_foundry = sum(
+            1 for e in network.entities.values() if e.etype == EntityType.FOUNDRY
+        )
+        cost = n_foundry * FOUNDRY_COST + n_conv * CONV_COST + n_bridge * BRIDGE_COST
+        congestion = sum(
+            1 for p, f in flow.items() if sum(f) > CAPACITY + 0.01 and p not in ct
+        )
+
+        print(
+            f"k={k:2d}: RAx={rax:.2f} Ti={ti:.2f} cost={cost:8.1f} "
+            f"conv={n_conv} bridge={n_bridge} congestion={congestion}",
+        )
+
+        if rax > best_rax or (rax == best_rax and cost < best_cost):
+            best_rax = rax
+            best_cost = cost
+            best_network = network
+            best_commodity = tile_commodity
+
+    assert best_network is not None
+    assert best_commodity is not None
+
+    flow = compute_flow(best_network)
+    errors = validate(best_network, best_commodity, flow, grid)
+    for e in errors:
+        print(e)
+
+    draw_network(best_network, best_commodity, flow, grid, out_file)
 
 
 if __name__ == "__main__":
