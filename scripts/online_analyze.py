@@ -1,5 +1,4 @@
 import json
-import sys
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
@@ -7,11 +6,10 @@ from pathlib import Path
 from cambc.api import api_get
 from cambc.auth import get_token, load_credentials
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts"))
+from scripts.analysis.parse import extract_map_meta, parse
+from scripts.analysis.scan import scan_replay
 
-from analysis.parse import extract_map_meta, parse
-from analysis.scan import scan_replay
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def fetch_my_matches(

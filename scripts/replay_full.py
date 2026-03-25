@@ -1,15 +1,12 @@
 """Run all analysis sections on a replay."""
 
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from analysis.parse import extract_map_meta, parse
-from analysis.scan import scan_replay
-from analysis.sections import SECTIONS
-from analysis.snapshot import replay_snapshots, sample_turns
-from analysis.types import Context
+from scripts.analysis.parse import extract_map_meta, parse
+from scripts.analysis.scan import scan_replay
+from scripts.analysis.sections import SECTIONS
+from scripts.analysis.snapshot import replay_snapshots, sample_turns
+from scripts.analysis.types import Context
 
 
 def main() -> None:

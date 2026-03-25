@@ -2,11 +2,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from analysis.constants import TEAM_LABEL
-from analysis.parse import extract_map_meta, parse
-from analysis.scan import scan_replay
+from scripts.analysis.constants import TEAM_LABEL
+from scripts.analysis.parse import extract_map_meta, parse
+from scripts.analysis.scan import scan_replay
 
 
 def main() -> None:

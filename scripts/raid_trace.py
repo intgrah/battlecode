@@ -3,11 +3,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from analysis.constants import CONVEYOR_KINDS, TURRET_KINDS, Pos
-from analysis.parse import extract_map_meta, parse
-from analysis.snapshot import entity_kind
+from scripts.analysis.constants import CONVEYOR_KINDS, TURRET_KINDS, Pos
+from scripts.analysis.parse import extract_map_meta, parse
+from scripts.analysis.snapshot import entity_kind
 
 
 def chebyshev(a: Pos, b: Pos) -> int:
@@ -113,10 +111,14 @@ def trace(path: str) -> None:
         print(f"  ... and {len(events) - 80} more")
 
 
-if __name__ == "__main__":
+def main() -> None:
     paths = sys.argv[1:] if len(sys.argv) > 1 else []
     if not paths:
         print("usage: python raid_trace.py <replay.replay26> ...")
         sys.exit(1)
     for p in paths:
         trace(p)
+
+
+if __name__ == "__main__":
+    main()

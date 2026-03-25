@@ -35,32 +35,6 @@ class Network:
     n_foundries: int
 
 
-replay_file = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
-output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
-
-with Path(replay_file).open("rb") as f:
-    replay = cambc_pb2.Replay()
-    replay.ParseFromString(f.read())
-
-mm = replay.map
-W, H = mm.width, mm.height
-
-ti_ores: list[Pos] = []
-ax_ores: list[Pos] = []
-walls: set[Pos] = set()
-for y, row in enumerate(mm.rows):
-    for x, tile in enumerate(row.tiles):
-        if tile == 2:
-            ti_ores.append((x, y))
-        elif tile == 3:
-            ax_ores.append((x, y))
-        elif tile == 1:
-            walls.add((x, y))
-
-core = (11, 24)
-n_ax = len(ax_ores)
-n_ti = len(ti_ores)
-
 CAPACITY = 1.0
 FOUNDRY_COST = 120.0
 CONV_COST_PER_TILE = 3.0
@@ -184,7 +158,15 @@ def compute_edge_flows(
     return flows
 
 
-def build_network(k_foundries: int) -> Network:
+def build_network(
+    k_foundries: int,
+    ti_ores: list[Pos],
+    ax_ores: list[Pos],
+    core: Pos,
+) -> Network:
+    n_ti = len(ti_ores)
+    n_ax = len(ax_ores)
+
     if k_foundries == 0:
         occupied: set[Pos] = {core}
         edges, occupied = steiner_tree(ti_ores, core, occupied)
@@ -228,7 +210,7 @@ def build_network(k_foundries: int) -> Network:
 
     actual_k = len(foundry_positions)
     if actual_k == 0:
-        return build_network(0)
+        return build_network(0, ti_ores, ax_ores, core)
 
     ti_assigned: set[int] = set()
     foundry_ti_indices: list[list[int]] = []
@@ -331,62 +313,58 @@ def build_network(k_foundries: int) -> Network:
     )
 
 
-print(f"Map: {W}x{H}, Ti={n_ti}, Ax={n_ax}")
-
-best: Network | None = None
-for k in range(n_ax + 1):
-    result = build_network(k)
-    print(
-        f"k={k:2d}: foundries={result.n_foundries:2d} RAx={result.rax:.2f} Ti={result.ti_del:.2f} "
-        f"cost={result.cost:8.1f} max_flow={result.max_flow:.2f} over_cap={result.over_cap}",
-    )
-    if result.over_cap > 0:
-        continue
-    if (
-        best is None
-        or result.rax > best.rax
-        or (result.rax == best.rax and result.cost < best.cost)
-    ):
-        best = result
-
-if best is None:
-    best = build_network(0)
-
-print(
-    f"\nBest: foundries={best.n_foundries} RAx={best.rax:.2f} "
-    f"Ti={best.ti_del:.2f} cost={best.cost:.0f}",
-)
-
-scale = 40
-pad = 60
-img_w = W * scale + pad * 2
-img_h = H * scale + pad * 2
-img = Image.new("RGB", (img_w, img_h), (30, 25, 25))
-draw = ImageDraw.Draw(img)
-
-
-def tx(x: int, y: int) -> tuple[int, int]:
-    return x * scale + pad, y * scale + pad
-
-
-for wx, wy in walls:
-    px, py = tx(wx, wy)
-    draw.rectangle(
-        [px - scale // 3, py - scale // 3, px + scale // 3, py + scale // 3],
-        fill=(60, 45, 40),
-    )
-
-COLORS = {"ti": (80, 140, 255), "ax": (255, 160, 40), "rax": (200, 130, 255)}
-
-
-def draw_edges(
-    edges: list[Edge],
-    flows: FlowMap,
-    commodity: str,
+def draw_network(
+    best: Network,
+    ti_ores: list[Pos],
+    ax_ores: list[Pos],
+    walls: set[Pos],
+    core: Pos,
+    w: int,
+    h: int,
+    output_file: str,
 ) -> None:
-    color = COLORS[commodity]
-    for u, v in edges:
-        f = flows.get((u, v), flows.get((v, u), 0))
+    scale = 40
+    pad = 60
+    img_w = w * scale + pad * 2
+    img_h = h * scale + pad * 2
+    img = Image.new("RGB", (img_w, img_h), (30, 25, 25))
+    draw = ImageDraw.Draw(img)
+
+    def tx(x: int, y: int) -> tuple[int, int]:
+        return x * scale + pad, y * scale + pad
+
+    for wx, wy in walls:
+        px, py = tx(wx, wy)
+        draw.rectangle(
+            [px - scale // 3, py - scale // 3, px + scale // 3, py + scale // 3],
+            fill=(60, 45, 40),
+        )
+
+    colors = {"ti": (80, 140, 255), "ax": (255, 160, 40), "rax": (200, 130, 255)}
+
+    def draw_edges(
+        edges: list[Edge],
+        flows: FlowMap,
+        commodity: str,
+    ) -> None:
+        color = colors[commodity]
+        for u, v in edges:
+            f = flows.get((u, v), flows.get((v, u), 0))
+            width = max(1, min(6, int(f * 8)))
+            a = tx(u[0], u[1])
+            b = tx(v[0], v[1])
+            draw.line([a, b], fill=color, width=width)
+            mx = (a[0] + b[0]) // 2
+            my = (a[1] + b[1]) // 2
+            fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
+            draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
+
+    fp_set = set(best.foundry_positions)
+    for u, v in best.main_edges:
+        f = best.main_flows.get((u, v), best.main_flows.get((v, u), 0))
+        is_rax = u in fp_set or v in fp_set
+        commodity = "rax" if is_rax else "ti"
+        color = colors[commodity]
         width = max(1, min(6, int(f * 8)))
         a = tx(u[0], u[1])
         b = tx(v[0], v[1])
@@ -396,66 +374,96 @@ def draw_edges(
         fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
         draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
 
+    for ax_edges, ax_flows, _ in best.foundry_ax:
+        draw_edges(ax_edges, ax_flows, "ax")
 
-unpaired_ti_set = {
-    ti_ores[i]
-    for i in range(n_ti)
-    if i
-    not in {
-        idx
-        for fl in [best.foundry_ti]
-        for _, _, s in fl
-        for idx in range(n_ti)
-        if ti_ores[idx] in s
-    }
-}
+    for ti_edges, ti_flows, _ in best.foundry_ti:
+        draw_edges(ti_edges, ti_flows, "ti")
 
-for u, v in best.main_edges:
-    f = best.main_flows.get((u, v), best.main_flows.get((v, u), 0))
-    fp_set = set(best.foundry_positions)
-    is_rax = u in fp_set or v in fp_set
-    commodity = "rax" if is_rax else "ti"
-    color = COLORS[commodity]
-    width = max(1, min(6, int(f * 8)))
-    a = tx(u[0], u[1])
-    b = tx(v[0], v[1])
-    draw.line([a, b], fill=color, width=width)
-    mx = (a[0] + b[0]) // 2
-    my = (a[1] + b[1]) // 2
-    fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
-    draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
+    for x, y in ti_ores:
+        px, py = tx(x, y)
+        draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=colors["ti"])
 
-for ax_edges, ax_flows, _ in best.foundry_ax:
-    draw_edges(ax_edges, ax_flows, "ax")
+    for x, y in ax_ores:
+        px, py = tx(x, y)
+        draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=colors["ax"])
 
-for ti_edges, ti_flows, _ in best.foundry_ti:
-    draw_edges(ti_edges, ti_flows, "ti")
+    for fp in best.foundry_positions:
+        px, py = tx(fp[0], fp[1])
+        draw.rectangle([px - 7, py - 7, px + 7, py + 7], fill=(200, 50, 200))
 
-for x, y in ti_ores:
-    px, py = tx(x, y)
-    draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=COLORS["ti"])
+    cpx, cpy = tx(core[0], core[1])
+    draw.ellipse([cpx - 10, cpy - 10, cpx + 10, cpy + 10], fill=(50, 200, 80))
 
-for x, y in ax_ores:
-    px, py = tx(x, y)
-    draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=COLORS["ax"])
+    draw.text(
+        (pad, 5),
+        f"Best: k={best.n_foundries} RAx={best.rax:.2f} Ti={best.ti_del:.2f} cost={best.cost:.0f}",
+        fill=(255, 255, 255),
+    )
+    draw.text(
+        (pad, img_h - 25),
+        "Blue=Ti  Orange=Ax  Purple=RAx  Square=Foundry  Green=Core",
+        fill=(180, 180, 180),
+    )
 
-for fp in best.foundry_positions:
-    px, py = tx(fp[0], fp[1])
-    draw.rectangle([px - 7, py - 7, px + 7, py + 7], fill=(200, 50, 200))
+    img.save(output_file)
+    print(f"Saved to {output_file}")
 
-cpx, cpy = tx(core[0], core[1])
-draw.ellipse([cpx - 10, cpy - 10, cpx + 10, cpy + 10], fill=(50, 200, 80))
 
-draw.text(
-    (pad, 5),
-    f"Best: k={best.n_foundries} RAx={best.rax:.2f} Ti={best.ti_del:.2f} cost={best.cost:.0f}",
-    fill=(255, 255, 255),
-)
-draw.text(
-    (pad, img_h - 25),
-    "Blue=Ti  Orange=Ax  Purple=RAx  Square=Foundry  Green=Core",
-    fill=(180, 180, 180),
-)
+def main() -> None:
+    map_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
 
-img.save(output_file)
-print(f"Saved to {output_file}")
+    with Path(map_file).open("rb") as f:
+        mm = cambc_pb2.Map()
+        mm.ParseFromString(f.read())
+
+    w, h = mm.width, mm.height
+
+    ti_ores: list[Pos] = []
+    ax_ores: list[Pos] = []
+    walls: set[Pos] = set()
+    for y, row in enumerate(mm.rows):
+        for x, tile in enumerate(row.tiles):
+            if tile == 2:
+                ti_ores.append((x, y))
+            elif tile == 3:
+                ax_ores.append((x, y))
+            elif tile == 1:
+                walls.add((x, y))
+
+    core: Pos = next((c.position.x, c.position.y) for c in mm.cores if c.team == 0)
+    n_ax = len(ax_ores)
+    n_ti = len(ti_ores)
+
+    print(f"Map: {w}x{h}, Ti={n_ti}, Ax={n_ax}")
+
+    best: Network | None = None
+    for k in range(n_ax + 1):
+        result = build_network(k, ti_ores, ax_ores, core)
+        print(
+            f"k={k:2d}: foundries={result.n_foundries:2d} RAx={result.rax:.2f} Ti={result.ti_del:.2f} "
+            f"cost={result.cost:8.1f} max_flow={result.max_flow:.2f} over_cap={result.over_cap}",
+        )
+        if result.over_cap > 0:
+            continue
+        if (
+            best is None
+            or result.rax > best.rax
+            or (result.rax == best.rax and result.cost < best.cost)
+        ):
+            best = result
+
+    if best is None:
+        best = build_network(0, ti_ores, ax_ores, core)
+
+    print(
+        f"\nBest: foundries={best.n_foundries} RAx={best.rax:.2f} "
+        f"Ti={best.ti_del:.2f} cost={best.cost:.0f}",
+    )
+
+    draw_network(best, ti_ores, ax_ores, walls, core, w, h, output_file)
+
+
+if __name__ == "__main__":
+    main()

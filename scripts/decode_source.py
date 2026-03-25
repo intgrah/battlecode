@@ -3,17 +3,15 @@
 Usage: python scripts/decode_source.py <match_id> [out_file]
 """
 
+import json
 import sys
+import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "proto"))
-
-import json
-import urllib.request
-
-import cambc_pb2
 from cambc.api import api_get
 from cambc.auth import get_api_url, get_token
+
+from proto import cambc_pb2
 
 STRIDE = 256
 
