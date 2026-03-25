@@ -179,7 +179,9 @@ class FixExcessMixin(BuilderBase):
             leak = self._leakage_mask[pi]
             if leak & banned != 0:
                 pent = self.belief.entity[pi]
-                print(f"LEAKAGE VIOLATION: tile ({x},{y}) leak={leak} banned={banned} ent={pent}")
+                print(
+                    f"LEAKAGE VIOLATION: tile ({x},{y}) leak={leak} banned={banned} ent={pent}",
+                )
 
             pent = self.belief.entity[pi]
             if pent is not None and pent[1] == self.belief.my_team:

@@ -8,6 +8,7 @@ dependencies = [
     "networkx>=3.6.1",
     "pillow>=12.1.1",
     "protobuf>=7.34.0",
+    "scipy>=1.17.1",
 ]
 
 [dependency-groups]
