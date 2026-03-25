@@ -60,12 +60,11 @@ class FixExcessMixin(BuilderBase):
         rnd = ct.get_current_round()
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
-        allowed = self._commodity_of(idx)
         return self._build_chain_to_core(
             ct,
             pos,
             best_tile,
-            banned_leakage=(TI | AX | RAX) & ~allowed,
+            banned_leakage=AX,
         )
 
     def _fix_excess_ax(
@@ -124,6 +123,7 @@ class FixExcessMixin(BuilderBase):
         ent = self.belief.entity[si]
         if ent is not None and ent[0] in (EntityType.HARVESTER, EntityType.FOUNDRY):
             best_start = None
+            banned = TI | RAX
             for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = sx + ddx, sy + ddy
                 if not self.belief.in_bounds(nx, ny):
@@ -138,6 +138,8 @@ class FixExcessMixin(BuilderBase):
                     continue
                 nent = self.belief.entity[ni]
                 if nent is not None and nent[0] in _TRANSPORT:
+                    continue
+                if self._leakage_mask[ni] & banned != 0:
                     continue
                 best_start = (nx, ny)
                 break
@@ -167,12 +169,18 @@ class FixExcessMixin(BuilderBase):
             self._ax_cached_path = None
             return None
 
+        banned = TI | RAX
         w = self.belief.w
         for k in range(len(path) - 1):
             x, y = path[k] % w, path[k] // w
             nx, ny = path[k + 1] % w, path[k + 1] // w
 
             pi = path[k]
+            leak = self._leakage_mask[pi]
+            if leak & banned != 0:
+                pent = self.belief.entity[pi]
+                print(f"LEAKAGE VIOLATION: tile ({x},{y}) leak={leak} banned={banned} ent={pent}")
+
             pent = self.belief.entity[pi]
             if pent is not None and pent[1] == self.belief.my_team:
                 ptype = pent[0]

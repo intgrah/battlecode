@@ -1,0 +1,443 @@
+import math
+import sys
+from collections import defaultdict
+
+sys.path.insert(0, "proto")
+import cambc_pb2
+import numpy as np
+from PIL import Image, ImageDraw
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
+
+replay_file = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
+output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
+
+with open(replay_file, "rb") as f:
+    replay = cambc_pb2.Replay()
+    replay.ParseFromString(f.read())
+
+mm = replay.map
+W, H = mm.width, mm.height
+
+ti_ores: list[tuple[int, int]] = []
+ax_ores: list[tuple[int, int]] = []
+walls: set[tuple[int, int]] = set()
+for y, row in enumerate(mm.rows):
+    for x, tile in enumerate(row.tiles):
+        if tile == 2:
+            ti_ores.append((x, y))
+        elif tile == 3:
+            ax_ores.append((x, y))
+        elif tile == 1:
+            walls.add((x, y))
+
+core = (11, 24)
+n_ax = len(ax_ores)
+n_ti = len(ti_ores)
+
+CAPACITY = 1.0
+FOUNDRY_COST = 120.0
+CONV_COST_PER_TILE = 3.0
+
+
+def dist(a: tuple[int, int], b: tuple[int, int]) -> float:
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def kmeans(
+    points: list[tuple[int, int]], k: int
+) -> tuple[list[int], list[tuple[int, int]]]:
+    if k >= len(points):
+        return list(range(len(points))), list(points)
+    rng = np.random.RandomState(42)
+    indices = rng.choice(len(points), k, replace=False)
+    centers = [points[i] for i in indices]
+    assignments = [0] * len(points)
+    for _ in range(50):
+        for i, p in enumerate(points):
+            assignments[i] = min(range(k), key=lambda c: dist(p, centers[c]))
+        for ci in range(k):
+            members = [points[i] for i in range(len(points)) if assignments[i] == ci]
+            if members:
+                centers[ci] = (
+                    round(sum(m[0] for m in members) / len(members)),
+                    round(sum(m[1] for m in members) / len(members)),
+                )
+    return assignments, centers
+
+
+def steiner_tree(
+    sources: list[tuple[int, int]],
+    root: tuple[int, int],
+    occupied: set[tuple[int, int]],
+    source_flow: float = 0.25,
+) -> tuple[list[tuple[tuple[int, int], tuple[int, int]]], set[tuple[int, int]]]:
+    if not sources:
+        return [], occupied
+
+    max_per_branch = int(CAPACITY / source_flow)
+
+    if len(sources) <= max_per_branch:
+        points = [*sources, root]
+        n = len(points)
+        d = np.zeros((n, n))
+        for i in range(n):
+            for j in range(n):
+                d[i][j] = dist(points[i], points[j])
+        mst = minimum_spanning_tree(csr_matrix(d))
+        edges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        used: set[tuple[int, int]] = set()
+        cx = mst.tocoo()
+        for i, j, _ in zip(cx.row, cx.col, cx.data, strict=True):
+            edges.append((points[i], points[j]))
+            used.add(points[i])
+            used.add(points[j])
+        return edges, occupied | used
+
+    sorted_sources = sorted(sources, key=lambda s: dist(s, root))
+    chunks = []
+    for i in range(0, len(sorted_sources), max_per_branch):
+        chunks.append(sorted_sources[i : i + max_per_branch])
+
+    all_edges: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    all_used: set[tuple[int, int]] = set()
+    for chunk in chunks:
+        edges, occupied = steiner_tree(chunk, root, occupied, source_flow)
+        all_edges.extend(edges)
+        all_used.update(t for e in edges for t in e)
+
+    return all_edges, occupied | all_used
+
+
+def compute_edge_flows(
+    edges: list[tuple[tuple[int, int], tuple[int, int]]],
+    source_flows: dict[tuple[int, int], float],
+    root: tuple[int, int],
+) -> dict[tuple[tuple[int, int], tuple[int, int]], float]:
+    adj: dict[tuple[int, int], list[tuple[int, int]]] = defaultdict(list)
+    for u, v in edges:
+        adj[u].append(v)
+        adj[v].append(u)
+
+    parent: dict[tuple[int, int], tuple[int, int] | None] = {root: None}
+    children: dict[tuple[int, int], list[tuple[int, int]]] = defaultdict(list)
+    visited = {root}
+    queue = [root]
+    order = [root]
+    while queue:
+        n = queue.pop(0)
+        for nb in adj[n]:
+            if nb not in visited:
+                visited.add(nb)
+                parent[nb] = n
+                children[n].append(nb)
+                queue.append(nb)
+                order.append(nb)
+
+    subtree: dict[tuple[int, int], float] = {}
+    for n in reversed(order):
+        child_flow = sum(subtree.get(c, 0) for c in children.get(n, []))
+        own = source_flows.get(n, 0)
+        subtree[n] = child_flow + own
+
+    flows: dict[tuple[tuple[int, int], tuple[int, int]], float] = {}
+    for n, p in parent.items():
+        if p is None:
+            continue
+        edge_key = (n, p)
+        rev_key = (p, n)
+        if edge_key in [(u, v) for u, v in edges]:
+            flows[edge_key] = subtree[n]
+        elif rev_key in [(u, v) for u, v in edges]:
+            flows[rev_key] = subtree[n]
+        else:
+            flows[edge_key] = subtree[n]
+
+    return flows
+
+
+def build_network(k_foundries: int):
+    if k_foundries == 0:
+        occupied: set[tuple[int, int]] = {core}
+        edges, occupied = steiner_tree(ti_ores, core, occupied)
+        source_flows = {p: 0.25 for p in ti_ores}
+        flows = compute_edge_flows(edges, source_flows, core)
+        max_f = max(flows.values()) if flows else 0
+        over_cap = sum(1 for f in flows.values() if f > CAPACITY + 0.01)
+        total_length = sum(dist(u, v) for u, v in edges)
+        cost = total_length * CONV_COST_PER_TILE
+        return {
+            "main_edges": edges,
+            "main_flows": flows,
+            "main_sources": source_flows,
+            "main_commodity": "ti",
+            "foundry_ax": [],
+            "foundry_ti": [],
+            "foundry_rax_edges": [],
+            "foundry_positions": [],
+            "rax": 0.0,
+            "ti_del": n_ti * 0.25,
+            "cost": cost,
+            "max_flow": max_f,
+            "over_cap": over_cap,
+            "n_foundries": 0,
+        }
+
+    k = min(k_foundries, n_ax)
+    ax_assignments, ax_centers = kmeans(ax_ores, k)
+
+    ax_per_foundry: dict[int, list[int]] = defaultdict(list)
+    for i, ci in enumerate(ax_assignments):
+        ax_per_foundry[ci].append(i)
+
+    foundry_positions: list[tuple[int, int]] = []
+    foundry_ax_indices: list[list[int]] = []
+    for ci in range(k):
+        members = ax_per_foundry.get(ci, [])
+        if not members:
+            continue
+        foundry_positions.append(ax_centers[ci])
+        foundry_ax_indices.append(members)
+
+    actual_k = len(foundry_positions)
+    if actual_k == 0:
+        return build_network(0)
+
+    ti_assigned: set[int] = set()
+    foundry_ti_indices: list[list[int]] = []
+    for fi in range(actual_k):
+        needed = len(foundry_ax_indices[fi])
+        fp = foundry_positions[fi]
+        candidates = sorted(
+            [(dist(ti_ores[i], fp), i) for i in range(n_ti) if i not in ti_assigned]
+        )
+        assigned = [idx for _, idx in candidates[:needed]]
+        foundry_ti_indices.append(assigned)
+        ti_assigned.update(assigned)
+
+    unpaired_ti = [i for i in range(n_ti) if i not in ti_assigned]
+
+    occupied: set[tuple[int, int]] = set()
+    occupied.add(core)
+    for p in ti_ores:
+        occupied.add(p)
+    for p in ax_ores:
+        occupied.add(p)
+    for p in foundry_positions:
+        occupied.add(p)
+
+    unpaired_ti_positions = [ti_ores[i] for i in unpaired_ti]
+
+    ti_to_core_edges, occupied = steiner_tree(unpaired_ti_positions, core, occupied)
+    ti_source_flows_main = {p: 0.25 for p in unpaired_ti_positions}
+    ti_to_core_flows = compute_edge_flows(ti_to_core_edges, ti_source_flows_main, core)
+
+    rax_to_core_sources = list(foundry_positions)
+    rax_source_flows: dict[tuple[int, int], float] = {}
+    for fi in range(actual_k):
+        fp = foundry_positions[fi]
+        n_matched = min(len(foundry_ax_indices[fi]), len(foundry_ti_indices[fi]))
+        rax_source_flows[fp] = n_matched * 0.25
+
+    rax_to_core_edges, occupied = steiner_tree(rax_to_core_sources, core, occupied)
+    rax_to_core_flows = compute_edge_flows(rax_to_core_edges, rax_source_flows, core)
+
+    main_edges = ti_to_core_edges + rax_to_core_edges
+    main_flows = {**ti_to_core_flows, **rax_to_core_flows}
+    main_source_flows = {**ti_source_flows_main, **rax_source_flows}
+
+    foundry_ax_data = []
+    foundry_ti_data = []
+    for fi in range(actual_k):
+        fp = foundry_positions[fi]
+        ax_positions = [ax_ores[i] for i in foundry_ax_indices[fi]]
+        ax_edges, occupied = steiner_tree(ax_positions, fp, occupied)
+        ax_source_flows = {p: 0.25 for p in ax_positions}
+        ax_flows = compute_edge_flows(ax_edges, ax_source_flows, fp)
+        foundry_ax_data.append((ax_edges, ax_flows, ax_source_flows))
+
+        ti_positions = [ti_ores[i] for i in foundry_ti_indices[fi]]
+        ti_edges, occupied = steiner_tree(ti_positions, fp, occupied)
+        ti_source_flows = {p: 0.25 for p in ti_positions}
+        ti_flows = compute_edge_flows(ti_edges, ti_source_flows, fp)
+        foundry_ti_data.append((ti_edges, ti_flows, ti_source_flows))
+
+    all_flows = list(main_flows.values())
+    for ax_e, ax_f, _ in foundry_ax_data:
+        all_flows.extend(ax_f.values())
+    for ti_e, ti_f, _ in foundry_ti_data:
+        all_flows.extend(ti_f.values())
+
+    max_f = max(all_flows) if all_flows else 0
+    over_cap = sum(1 for f in all_flows if f > CAPACITY + 0.01)
+
+    total_length = sum(dist(u, v) for u, v in main_edges)
+    for ax_e, _, _ in foundry_ax_data:
+        total_length += sum(dist(u, v) for u, v in ax_e)
+    for ti_e, _, _ in foundry_ti_data:
+        total_length += sum(dist(u, v) for u, v in ti_e)
+
+    cost = actual_k * FOUNDRY_COST + total_length * CONV_COST_PER_TILE
+    rax_del = (
+        sum(
+            min(len(foundry_ax_indices[fi]), len(foundry_ti_indices[fi]))
+            for fi in range(actual_k)
+        )
+        * 0.25
+    )
+    ti_del = len(unpaired_ti) * 0.25
+
+    return {
+        "main_edges": main_edges,
+        "main_flows": main_flows,
+        "main_sources": main_source_flows,
+        "main_commodity": "mixed",
+        "foundry_ax": foundry_ax_data,
+        "foundry_ti": foundry_ti_data,
+        "foundry_positions": foundry_positions,
+        "rax": rax_del,
+        "ti_del": ti_del,
+        "cost": cost,
+        "max_flow": max_f,
+        "over_cap": over_cap,
+        "n_foundries": actual_k,
+    }
+
+
+print(f"Map: {W}x{H}, Ti={n_ti}, Ax={n_ax}")
+
+best = None
+for k in range(0, n_ax + 1):
+    result = build_network(k)
+    rax = result["rax"]
+    ti = result["ti_del"]
+    cost = result["cost"]
+    mf = result["max_flow"]
+    oc = result["over_cap"]
+    nf = result["n_foundries"]
+    print(
+        f"k={k:2d}: foundries={nf:2d} RAx={rax:.2f} Ti={ti:.2f} "
+        f"cost={cost:8.1f} max_flow={mf:.2f} over_cap={oc}"
+    )
+    if oc > 0:
+        continue
+    if (
+        best is None
+        or rax > best["rax"]
+        or (rax == best["rax"] and cost < best["cost"])
+    ):
+        best = result
+
+if best is None:
+    best = build_network(0)
+
+print(
+    f"\nBest: foundries={best['n_foundries']} RAx={best['rax']:.2f} "
+    f"Ti={best['ti_del']:.2f} cost={best['cost']:.0f}"
+)
+
+scale = 40
+pad = 60
+img_w = W * scale + pad * 2
+img_h = H * scale + pad * 2
+img = Image.new("RGB", (img_w, img_h), (30, 25, 25))
+draw = ImageDraw.Draw(img)
+
+
+def tx(x: int, y: int) -> tuple[int, int]:
+    return x * scale + pad, y * scale + pad
+
+
+for wx, wy in walls:
+    px, py = tx(wx, wy)
+    draw.rectangle(
+        [px - scale // 3, py - scale // 3, px + scale // 3, py + scale // 3],
+        fill=(60, 45, 40),
+    )
+
+COLORS = {"ti": (80, 140, 255), "ax": (255, 160, 40), "rax": (200, 130, 255)}
+
+
+def draw_edges(
+    edges: list[tuple[tuple[int, int], tuple[int, int]]],
+    flows: dict[tuple[tuple[int, int], tuple[int, int]], float],
+    commodity: str,
+):
+    color = COLORS[commodity]
+    for u, v in edges:
+        f = flows.get((u, v), flows.get((v, u), 0))
+        width = max(1, min(6, int(f * 8)))
+        a = tx(u[0], u[1])
+        b = tx(v[0], v[1])
+        draw.line([a, b], fill=color, width=width)
+        mx = (a[0] + b[0]) // 2
+        my = (a[1] + b[1]) // 2
+        fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
+        draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
+
+
+# Main tree: unpaired Ti (blue) + foundry RAx (purple) share edges
+# Determine commodity per edge by checking which sources are in subtree
+unpaired_ti_set = set(
+    ti_ores[i]
+    for i in range(n_ti)
+    if i
+    not in {
+        idx
+        for fl in [best.get("foundry_ti", [])]
+        for _, _, s in fl
+        for idx in range(n_ti)
+        if ti_ores[idx] in s
+    }
+)
+
+for u, v in best["main_edges"]:
+    f = best["main_flows"].get((u, v), best["main_flows"].get((v, u), 0))
+    # Determine if edge is Ti or RAx based on endpoints
+    fp_set = set(best["foundry_positions"])
+    is_rax = u in fp_set or v in fp_set
+    commodity = "rax" if is_rax else "ti"
+    color = COLORS[commodity]
+    width = max(1, min(6, int(f * 8)))
+    a = tx(u[0], u[1])
+    b = tx(v[0], v[1])
+    draw.line([a, b], fill=color, width=width)
+    mx = (a[0] + b[0]) // 2
+    my = (a[1] + b[1]) // 2
+    fc = (255, 80, 80) if f > CAPACITY else (200, 200, 200)
+    draw.text((mx + 2, my - 8), f"{f:.2f}", fill=fc)
+
+for ax_edges, ax_flows, _ in best["foundry_ax"]:
+    draw_edges(ax_edges, ax_flows, "ax")
+
+for ti_edges, ti_flows, _ in best["foundry_ti"]:
+    draw_edges(ti_edges, ti_flows, "ti")
+
+for x, y in ti_ores:
+    px, py = tx(x, y)
+    draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=COLORS["ti"])
+
+for x, y in ax_ores:
+    px, py = tx(x, y)
+    draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=COLORS["ax"])
+
+for fp in best["foundry_positions"]:
+    px, py = tx(fp[0], fp[1])
+    draw.rectangle([px - 7, py - 7, px + 7, py + 7], fill=(200, 50, 200))
+
+cpx, cpy = tx(core[0], core[1])
+draw.ellipse([cpx - 10, cpy - 10, cpx + 10, cpy + 10], fill=(50, 200, 80))
+
+draw.text(
+    (pad, 5),
+    f"Best: k={best['n_foundries']} RAx={best['rax']:.2f} Ti={best['ti_del']:.2f} cost={best['cost']:.0f}",
+    fill=(255, 255, 255),
+)
+draw.text(
+    (pad, img_h - 25),
+    "Blue=Ti  Orange=Ax  Purple=RAx  Square=Foundry  Green=Core",
+    fill=(180, 180, 180),
+)
+
+img.save(output_file)
+print(f"Saved to {output_file}")
