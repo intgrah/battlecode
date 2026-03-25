@@ -108,7 +108,7 @@ dev = [
 [[package]]
 name = "bot-adgato"
 version = "0.0.0"
-source = { editable = "bots/adgato" }
+source = { virtual = "bots/adgato" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -119,7 +119,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-astar-test"
 version = "0.0.0"
-source = { editable = "bots/astar_test" }
+source = { virtual = "bots/astar_test" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -130,7 +130,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-beacon"
 version = "0.0.0"
-source = { editable = "bots/beacon" }
+source = { virtual = "bots/beacon" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -141,7 +141,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-beacon2"
 version = "0.0.0"
-source = { editable = "bots/beacon2" }
+source = { virtual = "bots/beacon2" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -152,7 +152,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-beacon3"
 version = "0.0.0"
-source = { editable = "bots/beacon3" }
+source = { virtual = "bots/beacon3" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -163,7 +163,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-beacon4"
 version = "0.0.0"
-source = { editable = "bots/beacon4" }
+source = { virtual = "bots/beacon4" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -174,7 +174,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-bugnav-test"
 version = "0.0.0"
-source = { editable = "bots/bugnav_test" }
+source = { virtual = "bots/bugnav_test" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -185,7 +185,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-cheese"
 version = "0.0.0"
-source = { editable = "bots/cheese" }
+source = { virtual = "bots/cheese" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -196,7 +196,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-exploit-posix"
 version = "0.0.0"
-source = { editable = "bots/exploit_posix" }
+source = { virtual = "bots/exploit_posix" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -207,7 +207,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-exploit-shellmod"
 version = "0.0.0"
-source = { editable = "bots/exploit_shellmod" }
+source = { virtual = "bots/exploit_shellmod" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -218,7 +218,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-exploit-uaf"
 version = "0.0.0"
-source = { editable = "bots/exploit_uaf" }
+source = { virtual = "bots/exploit_uaf" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -229,7 +229,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-nothing"
 version = "0.0.0"
-source = { editable = "bots/nothing" }
+source = { virtual = "bots/nothing" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -240,7 +240,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-nothing100"
 version = "0.0.0"
-source = { editable = "bots/nothing100" }
+source = { virtual = "bots/nothing100" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -251,7 +251,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-nothing200"
 version = "0.0.0"
-source = { editable = "bots/nothing200" }
+source = { virtual = "bots/nothing200" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -262,7 +262,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-nothing50"
 version = "0.0.0"
-source = { editable = "bots/nothing50" }
+source = { virtual = "bots/nothing50" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -273,7 +273,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-nothing500"
 version = "0.0.0"
-source = { editable = "bots/nothing500" }
+source = { virtual = "bots/nothing500" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -284,7 +284,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-pd"
 version = "0.0.0"
-source = { editable = "bots/pd" }
+source = { virtual = "bots/pd" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -295,7 +295,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-rug"
 version = "0.0.0"
-source = { editable = "bots/rug" }
+source = { virtual = "bots/rug" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -306,7 +306,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-se"
 version = "0.0.0"
-source = { editable = "bots/se" }
+source = { virtual = "bots/se" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -317,7 +317,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-starter"
 version = "0.0.0"
-source = { editable = "bots/starter" }
+source = { virtual = "bots/starter" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -328,7 +328,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v0"
 version = "0.0.0"
-source = { editable = "bots/v0" }
+source = { virtual = "bots/v0" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -339,7 +339,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v1"
 version = "0.0.0"
-source = { editable = "bots/v1" }
+source = { virtual = "bots/v1" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -350,7 +350,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v10"
 version = "0.0.0"
-source = { editable = "bots/v10" }
+source = { virtual = "bots/v10" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -361,7 +361,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v11"
 version = "0.0.0"
-source = { editable = "bots/v11" }
+source = { virtual = "bots/v11" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -372,7 +372,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v12"
 version = "0.0.0"
-source = { editable = "bots/v12" }
+source = { virtual = "bots/v12" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -383,7 +383,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v13"
 version = "0.0.0"
-source = { editable = "bots/v13" }
+source = { virtual = "bots/v13" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -394,7 +394,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v14"
 version = "0.0.0"
-source = { editable = "bots/v14" }
+source = { virtual = "bots/v14" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -405,7 +405,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v15"
 version = "0.0.0"
-source = { editable = "bots/v15" }
+source = { virtual = "bots/v15" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -416,7 +416,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v16"
 version = "0.0.0"
-source = { editable = "bots/v16" }
+source = { virtual = "bots/v16" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -427,7 +427,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v17"
 version = "0.0.0"
-source = { editable = "bots/v17" }
+source = { virtual = "bots/v17" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -438,7 +438,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v18"
 version = "0.0.0"
-source = { editable = "bots/v18" }
+source = { virtual = "bots/v18" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -449,7 +449,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v19"
 version = "0.0.0"
-source = { editable = "bots/v19" }
+source = { virtual = "bots/v19" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -460,7 +460,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v2"
 version = "0.0.0"
-source = { editable = "bots/v2" }
+source = { virtual = "bots/v2" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -471,7 +471,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v20"
 version = "0.0.0"
-source = { editable = "bots/v20" }
+source = { virtual = "bots/v20" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -482,7 +482,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v21"
 version = "0.0.0"
-source = { editable = "bots/v21" }
+source = { virtual = "bots/v21" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -493,7 +493,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v22"
 version = "0.0.0"
-source = { editable = "bots/v22" }
+source = { virtual = "bots/v22" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -504,7 +504,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v23"
 version = "0.0.0"
-source = { editable = "bots/v23" }
+source = { virtual = "bots/v23" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -515,7 +515,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v24"
 version = "0.0.0"
-source = { editable = "bots/v24" }
+source = { virtual = "bots/v24" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -526,7 +526,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v25"
 version = "0.0.0"
-source = { editable = "bots/v25" }
+source = { virtual = "bots/v25" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -537,7 +537,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v26"
 version = "0.0.0"
-source = { editable = "bots/v26" }
+source = { virtual = "bots/v26" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -548,7 +548,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v27"
 version = "0.0.0"
-source = { editable = "bots/v27" }
+source = { virtual = "bots/v27" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -559,7 +559,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v28"
 version = "0.0.0"
-source = { editable = "bots/v28" }
+source = { virtual = "bots/v28" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -570,7 +570,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v29a"
 version = "0.0.0"
-source = { editable = "bots/v29a" }
+source = { virtual = "bots/v29a" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -581,7 +581,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v29b"
 version = "0.0.0"
-source = { editable = "bots/v29b" }
+source = { virtual = "bots/v29b" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -592,7 +592,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v29c"
 version = "0.0.0"
-source = { editable = "bots/v29c" }
+source = { virtual = "bots/v29c" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -603,7 +603,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v3"
 version = "0.0.0"
-source = { editable = "bots/v3" }
+source = { virtual = "bots/v3" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -614,7 +614,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v30"
 version = "0.0.0"
-source = { editable = "bots/v30" }
+source = { virtual = "bots/v30" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -625,7 +625,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v31"
 version = "0.0.0"
-source = { editable = "bots/v31" }
+source = { virtual = "bots/v31" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -636,7 +636,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v32"
 version = "0.0.0"
-source = { editable = "bots/v32" }
+source = { virtual = "bots/v32" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -647,7 +647,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v33"
 version = "0.0.0"
-source = { editable = "bots/v33" }
+source = { virtual = "bots/v33" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -658,7 +658,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v34"
 version = "0.0.0"
-source = { editable = "bots/v34" }
+source = { virtual = "bots/v34" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -669,7 +669,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v35"
 version = "0.0.0"
-source = { editable = "bots/v35" }
+source = { virtual = "bots/v35" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -680,7 +680,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v36"
 version = "0.0.0"
-source = { editable = "bots/v36" }
+source = { virtual = "bots/v36" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -691,7 +691,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v37"
 version = "0.0.0"
-source = { editable = "bots/v37" }
+source = { virtual = "bots/v37" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -702,7 +702,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v38"
 version = "0.0.0"
-source = { editable = "bots/v38" }
+source = { virtual = "bots/v38" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -713,7 +713,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v39"
 version = "0.0.0"
-source = { editable = "bots/v39" }
+source = { virtual = "bots/v39" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -724,7 +724,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v4"
 version = "0.0.0"
-source = { editable = "bots/v4" }
+source = { virtual = "bots/v4" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -735,7 +735,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v40"
 version = "0.0.0"
-source = { editable = "bots/v40" }
+source = { virtual = "bots/v40" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -746,7 +746,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v41"
 version = "0.0.0"
-source = { editable = "bots/v41" }
+source = { virtual = "bots/v41" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -757,7 +757,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v42"
 version = "0.0.0"
-source = { editable = "bots/v42" }
+source = { virtual = "bots/v42" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -768,7 +768,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v5"
 version = "0.0.0"
-source = { editable = "bots/v5" }
+source = { virtual = "bots/v5" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -779,7 +779,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v6"
 version = "0.0.0"
-source = { editable = "bots/v6" }
+source = { virtual = "bots/v6" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -790,7 +790,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v7"
 version = "0.0.0"
-source = { editable = "bots/v7" }
+source = { virtual = "bots/v7" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -801,7 +801,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v8"
 version = "0.0.0"
-source = { editable = "bots/v8" }
+source = { virtual = "bots/v8" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -812,7 +812,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-v9"
 version = "0.0.0"
-source = { editable = "bots/v9" }
+source = { virtual = "bots/v9" }
 dependencies = [
     { name = "cambc" },
 ]
