@@ -10,7 +10,7 @@ from proto import cambc_pb2
 CAPACITY = 1.0
 
 
-def dist(a, b):
+def dist(a: tuple[int, int], b: tuple[int, int]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
@@ -206,10 +206,9 @@ def main() -> None:
             fp -= 0.1 * grad
         foundries.append((float(fp[0]), float(fp[1])))
 
-    sources = []
-    for ui in range(n_ti):
-        if ui not in paired_ti_set:
-            sources.append((ti_ores[ui], 0.25, "ti"))
+    sources = [
+        (ti_ores[ui], 0.25, "ti") for ui in range(n_ti) if ui not in paired_ti_set
+    ]
 
     for fi, (ai, ti) in enumerate(zip(ax_matched, ti_matched, strict=False)):
         sources.append((ti_ores[ti], 0.25, "ti_paired"))

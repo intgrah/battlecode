@@ -72,19 +72,19 @@ proto:
 lint:
     ruff check --fix bots/ scripts/
 
-typecheck:
+ty:
     #!/usr/bin/env bash
     set -euo pipefail
     ty check
-    for d in bots/*/ty.toml; do
+    for d in bots/*/pyproject.toml; do
         d=$(dirname "$d")
-        ty check --project "$d"
+        ty check --project "$d" "$d"
     done
 
 fmt:
     ruff format bots/ scripts/
 
-f: lint fmt
+f: ty lint fmt
 
 tournament *args:
     python scripts/tournament.py run {{args}}

@@ -80,7 +80,7 @@ ignore = [
 extra-paths = [".", "scripts", "proto"]
 
 [tool.ty.src]
-exclude = ["ref/"]
+exclude = ["ref/", "bots/"]
 
 [tool.uv.workspace]
-members = ["test"]
+members = ["bots/*"]
