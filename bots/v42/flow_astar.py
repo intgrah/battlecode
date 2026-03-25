@@ -57,9 +57,6 @@ def build_leakage_mask(belief: MapBelief) -> list[int]:
                     mask[ny * w + nx] |= commodity
 
     for i in range(n):
-        ent = belief.entity[i]
-        if ent is None or ent[0] != EntityType.HARVESTER:
-            continue
         e = belief.env[i]
         if e == Environment.ORE_TITANIUM:
             commodity = TI
@@ -135,6 +132,8 @@ class FlowAstar(Astar[int]):
         ent = entity[node]
         if ent is not None and ent[1] != self._my_team:
             return []
+        if leakage_mask[node] & banned_leakage != 0:
+            return []
 
         cx, cy = node % w, node // w
         result: list[tuple[int, int]] = []
@@ -156,8 +155,10 @@ class FlowAstar(Astar[int]):
                     bx, by = bt
                     if 0 <= bx < w and 0 <= by < h:
                         ni = by * w + bx
-                        if not blocked[ni] and (
-                            env[ni] is None or env[ni] not in _IMPASSABLE_ENV
+                        if (
+                            not blocked[ni]
+                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                            and leakage_mask[ni] & banned_leakage == 0
                         ):
                             result.append((ni, COST_REUSE))
 
@@ -173,8 +174,10 @@ class FlowAstar(Astar[int]):
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         ni = ny * w + nx
-                        if not blocked[ni] and (
-                            env[ni] is None or env[ni] not in _IMPASSABLE_ENV
+                        if (
+                            not blocked[ni]
+                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                            and leakage_mask[ni] & banned_leakage == 0
                         ):
                             result.append((ni, COST_REUSE))
 
@@ -226,4 +229,10 @@ class FlowAstar(Astar[int]):
                         ):
                             result.append((ni, COST_BRIDGE))
 
+        if banned_leakage:
+            for ni, c in result:
+                if leakage_mask[ni] & banned_leakage != 0:
+                    nx, ny = ni % w, ni // w
+                    cx, cy = node % w, node // w
+                    print(f"EDGE TO LEAKY: ({cx},{cy})->({nx},{ny}) leak={leakage_mask[ni]} banned={banned_leakage} cost={c} ent={entity[node]}")
         return result
