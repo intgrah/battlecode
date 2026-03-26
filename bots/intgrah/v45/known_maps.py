@@ -10,6 +10,9 @@ import base64
 
 from cambc import Environment
 
+__all__ = ["MAPS", "decode"]
+
+
 _TILE_TO_ENV: dict[int, Environment] = {
     0: Environment.EMPTY,
     1: Environment.WALL,
