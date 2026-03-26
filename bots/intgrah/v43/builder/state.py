@@ -7,7 +7,15 @@ from known_maps import MAPS
 from known_maps import decode as decode_known_map
 from marker import Eureka, TaskClaim, is_stale
 from marker import decode as decode_marker
-from util import DIR4_DELTA
+from util import (
+    DELTA_TO_DIR,
+    DIR4_DELTA,
+    DIRECTED_BUILDINGS,
+    TRANSPORT,
+    TURRETS,
+    WALKABLE_BUILDINGS,
+    tiles_3x3,
+)
 
 # A* walkability costs. Lower = preferred by pathfinder.
 COST_ROAD = 2  # walkable buildings (roads, conveyors, splitters, allied core)
@@ -52,49 +60,6 @@ class Symmetry(Enum):
     ROT = auto()  # 180° rotational: (x,y) <-> (w-1-x, h-1-y)
     HOR = auto()  # horizontal reflection: (x,y) <-> (x, h-1-y)
     VER = auto()  # vertical reflection: (x,y) <-> (w-1-x, y)
-
-
-_WALKABLE_BUILDINGS = frozenset(
-    (
-        EntityType.ROAD,
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-    ),
-)
-
-_DIRECTED_BUILDINGS = frozenset(
-    (
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-    ),
-)
-
-_TRANSPORT = frozenset(
-    (
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-        EntityType.BRIDGE,
-    ),
-)
-
-_TURRETS = frozenset(
-    (
-        EntityType.GUNNER,
-        EntityType.SENTINEL,
-        EntityType.BREACH,
-        EntityType.LAUNCHER,
-    ),
-)
-
-_DELTA_TO_DIR = {
-    (0, -1): Direction.NORTH,
-    (0, 1): Direction.SOUTH,
-    (1, 0): Direction.EAST,
-    (-1, 0): Direction.WEST,
-}
 
 
 class State:
@@ -183,39 +148,33 @@ class State:
         self._sym_candidates = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
 
         # -- Internal --
-        cx, cy = core_pos
-        self.my_core_tiles: set[int] = set()
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                nx, ny = cx + dx, cy + dy
-                if 0 <= nx < w and 0 <= ny < h:
-                    self.my_core_tiles.add(ny * w + nx)
+        self.my_core_tiles: set[int] = tiles_3x3(*core_pos, w, h)
         self._out_target: dict[int, list[int]] = {}
         self._out_target_dirty = True
 
-        key = (w, h, core_pos[0], core_pos[1])
+        self._try_load_known_map(core_pos)
 
-        # Harcoded maps
+    def _try_load_known_map(self, core_pos: tuple[int, int]) -> None:
+        key = (self.w, self.h, core_pos[0], core_pos[1])
         known = MAPS.get(key)
-        if known is not None:
-            encoded, en_core = known
-            tiles = decode_known_map(encoded, n)
-            for i in range(n):
-                self.env[i] = tiles[i]
-                x, y = i % w, i // w
-                match tiles[i]:
-                    case Environment.ORE_TITANIUM:
-                        self.ore_ti.add((x, y))
-                    case Environment.ORE_AXIONITE:
-                        self.ore_ax.add((x, y))
-            self.en_core = en_core
-            ecx, ecy = en_core
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    nx, ny = ecx + dx, ecy + dy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        self.en_core_tiles.add(ny * w + nx)
-            self._sym_candidates.clear()
+        if known is None:
+            return
+        encoded, en_core = known
+        tiles = decode_known_map(encoded, self.w * self.h)
+        for i in range(self.w * self.h):
+            self.env[i] = tiles[i]
+            x, y = i % self.w, i // self.w
+            match tiles[i]:
+                case Environment.ORE_TITANIUM:
+                    self.ore_ti.add((x, y))
+                case Environment.ORE_AXIONITE:
+                    self.ore_ax.add((x, y))
+        self._set_en_core(en_core)
+        self._sym_candidates.clear()
+
+    def _set_en_core(self, en_core: tuple[int, int]) -> None:
+        self.en_core = en_core
+        self.en_core_tiles = tiles_3x3(*en_core, self.w, self.h)
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -279,7 +238,7 @@ class State:
                 if new_ent != old_ent or env != old_env:
                     changed.append((x, y))
 
-                if etype in _DIRECTED_BUILDINGS:
+                if etype in DIRECTED_BUILDINGS:
                     self.direction[i] = ct.get_direction(bid)
                     self.bridge_target[i] = None
                 elif etype == EntityType.BRIDGE:
@@ -296,7 +255,7 @@ class State:
                         self.my_harvesters.add(i)
                         self.my_transport.discard(i)
                         self.my_foundries.discard(i)
-                    elif etype in _TRANSPORT:
+                    elif etype in TRANSPORT:
                         self.my_transport.add(i)
                         self.my_harvesters.discard(i)
                         self.my_foundries.discard(i)
@@ -304,7 +263,7 @@ class State:
                         self.my_foundries.add(i)
                         self.my_transport.discard(i)
                         self.my_harvesters.discard(i)
-                    elif etype in _TURRETS:
+                    elif etype in TURRETS:
                         self.my_turrets.add(i)
                     elif etype == EntityType.MARKER:
                         msg = decode_marker(ct.get_marker_value(bid))
@@ -326,7 +285,7 @@ class State:
                         self.en_harvesters.add(i)
                         self.en_transport.discard(i)
                         self.en_foundries.discard(i)
-                    elif etype in _TRANSPORT:
+                    elif etype in TRANSPORT:
                         self.en_transport.add(i)
                         self.en_harvesters.discard(i)
                         self.en_foundries.discard(i)
@@ -334,7 +293,7 @@ class State:
                         self.en_foundries.add(i)
                         self.en_transport.discard(i)
                         self.en_harvesters.discard(i)
-                    elif etype in _TURRETS:
+                    elif etype in TURRETS:
                         self.en_turrets.add(i)
                     else:
                         self.en_transport.discard(i)
@@ -350,7 +309,7 @@ class State:
                     and team != self.my_team
                 ):
                     center = ct.get_position(bid)
-                    self.en_core = (center.x, center.y)
+                    self._set_en_core((center.x, center.y))
             else:
                 self.entity[i] = None
                 self.direction[i] = None
@@ -503,7 +462,7 @@ class State:
                 return COST_EMPTY
             case (EntityType.CORE, team) if team == self.my_team:
                 return COST_ROAD
-            case (etype, _) if etype in _WALKABLE_BUILDINGS:
+            case (etype, _) if etype in WALKABLE_BUILDINGS:
                 return COST_ROAD
             case _:
                 return COST_IMPASSABLE
@@ -554,21 +513,12 @@ class State:
         )
 
     def recompute_enemy_flow(self) -> None:
-        en_core_tiles: set[int] = set()
-        if self.en_core is not None:
-            ex, ey = self.en_core
-            w, h = self.w, self.h
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    nx, ny = ex + dx, ey + dy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        en_core_tiles.add(ny * w + nx)
         self._recompute_flow_impl(
             self.en_flow,
             self.en_harvesters,
             self.en_transport,
             self.en_foundries,
-            en_core_tiles,
+            self.en_core_tiles,
         )
 
     def _recompute_flow_impl(
@@ -643,7 +593,7 @@ class State:
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
                     if ni in in_degree:
-                        from_dir = _DELTA_TO_DIR.get((ddx, ddy))
+                        from_dir = DELTA_TO_DIR.get((ddx, ddy))
                         if from_dir is not None and self._accepts_input_from(
                             ni,
                             from_dir,
@@ -662,7 +612,7 @@ class State:
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
                     if ni in receivers:
-                        from_dir = _DELTA_TO_DIR.get((ddx, ddy))
+                        from_dir = DELTA_TO_DIR.get((ddx, ddy))
                         if from_dir is not None and self._accepts_input_from(
                             ni,
                             from_dir,
@@ -722,7 +672,7 @@ class State:
                         queue.append(oi)
                 total_out = rax_out
                 f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
-            elif etype in _TRANSPORT:
+            elif etype in TRANSPORT:
                 ti_in = f.ti[ci]
                 ax_in = f.ax[ci]
                 rax_in = f.rax[ci]

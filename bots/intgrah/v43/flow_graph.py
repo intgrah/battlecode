@@ -16,7 +16,7 @@ Blocked tiles (congested subtree) are completely removed from the graph.
 from algorithms.ramalingam_reps import INF, RamalingamReps
 from builder.state import State
 from cambc import EntityType, Environment
-from util import DIR4_DELTA
+from util import DIR4_DELTA, TRANSPORT
 
 _BRIDGE_DELTAS = [
     (dx, dy)
@@ -24,15 +24,6 @@ _BRIDGE_DELTAS = [
     for dy in range(-3, 4)
     if 0 < dx * dx + dy * dy <= 9 and abs(dx) + abs(dy) != 1
 ]
-
-_TRANSPORT = frozenset(
-    (
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-        EntityType.BRIDGE,
-    ),
-)
 
 COST_REUSE = 1
 COST_CONV = 3
@@ -142,7 +133,7 @@ class FlowGraph:
                             result[ti] = 0
                 return result
 
-            if etype in _TRANSPORT:
+            if etype in TRANSPORT:
                 return self._transport_targets(x, y, fi, etype)
 
             if etype == EntityType.ROAD:
@@ -226,7 +217,7 @@ class FlowGraph:
                 if bt == (tx, ty):
                     return COST_REUSE
                 return INF
-            if etype in _TRANSPORT:
+            if etype in TRANSPORT:
                 d = b.direction[fi]
                 if d is not None:
                     dx, dy = d.delta()

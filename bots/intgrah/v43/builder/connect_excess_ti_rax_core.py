@@ -8,10 +8,10 @@ the flow A* with Ax leakage banned to prevent mixing.
 from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import AX, FlowAstar
 from marker import TaskClaim, TaskKind
+from util import TRANSPORT
 
 from .base import BuilderBase
 from .build import Action, PlaceBridge, PlaceConveyor
-from .state import _TRANSPORT
 
 
 class ConnectExcessTiRaxCoreMixin(BuilderBase):
@@ -75,7 +75,7 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
                     ):
                         continue
                     nent = self.state.entity[ni]
-                    if nent is not None and nent[0] in _TRANSPORT:
+                    if nent is not None and nent[0] in TRANSPORT:
                         continue
                     d = (nx - cx) ** 2 + (ny - cy) ** 2
                     if d < best_d:
@@ -84,7 +84,7 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
                 if start is None:
                     return None
                 sx, sy = start
-            elif etype in _TRANSPORT:
+            elif etype in TRANSPORT:
                 d = self.state.direction[si]
                 bt = self.state.bridge_target[si]
                 if d is not None:
@@ -127,7 +127,7 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
                 ptype = pent[0]
                 if ptype == EntityType.CORE:
                     continue
-                if ptype in _TRANSPORT:
+                if ptype in TRANSPORT:
                     td = self.state.direction[pi]
                     bt = self.state.bridge_target[pi]
                     if td is not None:

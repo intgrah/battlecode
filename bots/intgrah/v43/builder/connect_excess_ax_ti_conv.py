@@ -12,10 +12,10 @@ from ax_chain_astar import AxChainAstar
 from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import RAX, TI
 from marker import TaskClaim, TaskKind
+from util import TRANSPORT
 
 from .base import BuilderBase
 from .build import Action, PlaceBridge, PlaceConveyor
-from .state import _TRANSPORT
 
 
 class ConnectExcessAxTiConvMixin(BuilderBase):
@@ -75,7 +75,7 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
                 ):
                     continue
                 nent = self.state.entity[ni]
-                if nent is not None and nent[0] in _TRANSPORT:
+                if nent is not None and nent[0] in TRANSPORT:
                     continue
                 if self._leakage_mask[ni] & banned != 0:
                     continue
@@ -115,7 +115,7 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
             pent = self.state.entity[pi]
             if pent is not None and pent[1] == self.state.my_team:
                 ptype = pent[0]
-                if ptype in _TRANSPORT or ptype == EntityType.CORE:
+                if ptype in TRANSPORT or ptype == EntityType.CORE:
                     continue
 
             build_at = Position(x, y)
