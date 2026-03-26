@@ -1,10 +1,22 @@
+"""Marker encoding/decoding protocol.
+
+Markers are u32 values placed on tiles for inter-builder communication.
+The raw value is encrypted with a Feistel cipher to prevent enemy bots
+from reading our markers.
+
+Marker types (4-bit tag):
+  0 = TaskClaim — a builder claims a task (ore, excess, explore target)
+  1 = Eureka    — broadcasts confirmed map symmetry
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum, auto
 
-CIPHER = 0x2120B7E8
-CLAIM_TTL = 8  # TO DO: investigate TTL trends
+from feistel_symmetric_encryption import decrypt, encrypt
+
+CLAIM_TTL = 8
 
 _TAG_SHIFT = 28
 _TAG_MASK = 0xF
@@ -23,10 +35,8 @@ class TaskClaim:
     turn: int
 
     def encode(self) -> int:
-        val = (
-            (0 << _TAG_SHIFT) | (self.kind << 23) | (self.tile_index << 11) | self.turn
-        )
-        return val ^ CIPHER
+        val = (0 << _TAG_SHIFT) | (self.kind << 23) | (self.tile_index << 11) | self.turn
+        return encrypt(val)
 
     @staticmethod
     def decode(payload: int) -> TaskClaim:
@@ -43,7 +53,7 @@ class Eureka:
 
     def encode(self) -> int:
         val = (1 << _TAG_SHIFT) | self.symmetry
-        return val ^ CIPHER
+        return encrypt(val)
 
     @staticmethod
     def decode(payload: int) -> Eureka:
@@ -54,7 +64,7 @@ Marker = TaskClaim | Eureka
 
 
 def decode(encrypted: int) -> Marker | None:
-    raw = encrypted ^ CIPHER
+    raw = decrypt(encrypted)
     tag = (raw >> _TAG_SHIFT) & _TAG_MASK
     payload = raw & 0x0FFFFFFF
     match tag:
