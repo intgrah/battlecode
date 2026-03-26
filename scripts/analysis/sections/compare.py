@@ -154,6 +154,58 @@ def analyze(ctx: Context, _teams: list[int]) -> CompareReport:
     )
     metrics.append(
         Metric(
+            "Barriers built",
+            placed_a.get("barrier", 0),
+            placed_b.get("barrier", 0),
+        ),
+    )
+
+    turrets_a = s.turrets_built.get(0, {})
+    turrets_b = s.turrets_built.get(1, {})
+    metrics.append(
+        Metric(
+            "Gunners built",
+            turrets_a.get("gunner", 0),
+            turrets_b.get("gunner", 0),
+        ),
+    )
+    metrics.append(
+        Metric(
+            "Sentinels built",
+            turrets_a.get("sentinel", 0),
+            turrets_b.get("sentinel", 0),
+        ),
+    )
+    metrics.append(
+        Metric(
+            "Launchers built",
+            placed_a.get("launcher", 0),
+            placed_b.get("launcher", 0),
+        ),
+    )
+    metrics.append(
+        Metric(
+            "Foundries built",
+            placed_a.get("foundry", 0),
+            placed_b.get("foundry", 0),
+        ),
+    )
+    metrics.append(
+        Metric(
+            "Bridges built",
+            placed_a.get("bridge", 0),
+            placed_b.get("bridge", 0),
+        ),
+    )
+
+    shots_a = s.turret_shots.get(0, {})
+    shots_b = s.turret_shots.get(1, {})
+    total_shots_a = sum(shots_a.values())
+    total_shots_b = sum(shots_b.values())
+    metrics.append(Metric("Turret shots", total_shots_a, total_shots_b))
+
+    metrics.append(
+        Metric(
             "Builder losses",
             s.builder_losses.get(0, 0),
             s.builder_losses.get(1, 0),
