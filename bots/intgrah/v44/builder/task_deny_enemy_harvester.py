@@ -54,8 +54,13 @@ def _best_deny_target(
     pos = state.pos
     best = None
     best_dist = 999999
+    cx, cy = state.my_core
+    half = (state.w + state.h) // 4
     for ox, oy in unharvested:
         if exclude is not None and (ox, oy) == exclude:
+            continue
+        core_dist = abs(ox - cx) + abs(oy - cy)
+        if core_dist <= half:
             continue
         oi = state.idx(ox, oy)
         if is_claimed(state, oi, TaskKind.NAV_ORE):
@@ -64,8 +69,14 @@ def _best_deny_target(
         if ent is not None and ent[0] == EntityType.BARRIER and ent[1] == state.my_team:
             continue
         dist = abs(pos.x - ox) + abs(pos.y - oy)
-        if dist < best_dist:
-            best_dist = dist
+        en_core = state.en_core
+        if en_core is not None:
+            en_dist = abs(en_core[0] - ox) + abs(en_core[1] - oy)
+            score = en_dist * 2 + dist
+        else:
+            score = dist
+        if score < best_dist:
+            best_dist = score
             best = (ox, oy)
     return best
 
