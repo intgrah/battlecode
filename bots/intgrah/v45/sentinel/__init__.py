@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, EntityType
+from cambc import Controller, Direction, EntityType, Environment
 from entity import Entity
 
 _ALL_DIRS = [
@@ -22,7 +22,6 @@ class Sentinel(Entity):
         pos = ct.get_position()
         my_team = ct.get_team()
         facing = _DIR_IDX[ct.get_direction()]
-        has_target = False
 
         for bid in ct.get_nearby_buildings():
             if ct.get_entity_type(bid) != EntityType.HARVESTER:
@@ -32,13 +31,11 @@ class Sentinel(Entity):
             hp = ct.get_position(bid)
             if pos.distance_squared(hp) > 1:
                 continue
+            if ct.get_tile_env(hp) != Environment.ORE_TITANIUM:
+                continue
             direction = _DIR_IDX[pos.direction_to(hp)]
             if (direction - facing + 8) % 8 > 1:
                 continue
-            has_target = True
             if ct.can_fire(hp):
                 ct.fire(hp)
                 return
-
-        if not has_target:
-            ct.self_destruct()

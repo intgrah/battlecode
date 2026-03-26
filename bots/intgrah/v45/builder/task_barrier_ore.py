@@ -1,11 +1,28 @@
 from cambc import Controller, Direction, EntityType, Position
+from util import DIR8_DELTA
 
 from .build import Action, PlaceBarrier
 from .helpers import move_toward_with_road
 from .state import State
 
 
-def _best_unbarriered_ore(state: State) -> tuple[int, int] | None:
+def _has_friendly_sentinel_adjacent(state: State, ox: int, oy: int) -> bool:
+    for dx, dy in DIR8_DELTA:
+        nx, ny = ox + dx, oy + dy
+        if not state.in_bounds(nx, ny):
+            continue
+        ni = state.idx(nx, ny)
+        ent = state.entity[ni]
+        if (
+            ent is not None
+            and ent[0] == EntityType.SENTINEL
+            and ent[1] == state.my_team
+        ):
+            return True
+    return False
+
+
+def _best_denied_ore(state: State) -> tuple[int, int] | None:
     unharvested = state.ore_ti - state.my_harvested - state.en_harvested
     if not unharvested:
         return None
@@ -19,6 +36,8 @@ def _best_unbarriered_ore(state: State) -> tuple[int, int] | None:
         ent = state.entity[oi]
         if ent is not None and ent[0] == EntityType.HARVESTER:
             continue
+        if not _has_friendly_sentinel_adjacent(state, ox, oy):
+            continue
         dist = abs(pos.x - ox) + abs(pos.y - oy)
         if dist < best_dist:
             best_dist = dist
@@ -30,7 +49,7 @@ def barrier_ore(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    target = _best_unbarriered_ore(state)
+    target = _best_denied_ore(state)
     if target is None:
         return None
     ox, oy = target

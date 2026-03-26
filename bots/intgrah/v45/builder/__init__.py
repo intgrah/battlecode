@@ -15,7 +15,7 @@ from .build import Action, PlaceRoad, Task, execute
 from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
-from .task_barrier_ore import _best_unbarriered_ore, barrier_ore
+from .task_barrier_ore import _best_denied_ore, barrier_ore
 from .task_connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
 from .task_connect_excess_ti_bridge_core import connect_excess_ti_bridge_core
 from .task_connect_excess_ti_rax_core import connect_excess_ti_rax_core
@@ -192,6 +192,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     )
     scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE_CORE))
 
+    has_denied_ore = _best_denied_ore(state) is not None
+    scores.append((110.0 if has_denied_ore else 0.0, Task.BARRIER_ORE))
+
     visible_ore = _secure_best_ore(state)
     scores.append((100.0 if visible_ore is not None else 0.0, Task.SECURE_ORE))
 
@@ -200,9 +203,6 @@ def _policy(state: State) -> list[tuple[float, Task]]:
 
     has_sentinel_target = _find_sentinel_target(state) is not None
     scores.append((70.0 if has_sentinel_target else 0.0, Task.PLACE_SENTINEL))
-
-    has_barrier_target = _best_unbarriered_ore(state) is not None
-    scores.append((55.0 if has_barrier_target else 0.0, Task.BARRIER_ORE))
 
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))

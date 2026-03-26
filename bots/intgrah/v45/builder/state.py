@@ -159,7 +159,7 @@ class State:
         self.out_target_dirty: bool = True
 
         # -- Load known map if available --
-        self._try_load_known_map(core_pos)
+        _try_load_known_map(self, core_pos)
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -191,21 +191,22 @@ class State:
             case _:
                 return COST_IMPASSABLE
 
-    def _try_load_known_map(self, core_pos: tuple[int, int]) -> None:
-        key = (self.w, self.h, core_pos[0], core_pos[1])
-        known = MAPS.get(key)
-        if known is None:
-            return
-        encoded, en_core = known
-        tiles = decode_known_map(encoded, self.w * self.h)
-        for i in range(self.w * self.h):
-            self.env[i] = tiles[i]
-            x, y = i % self.w, i // self.w
-            match tiles[i]:
-                case Environment.ORE_TITANIUM:
-                    self.ore_ti.add((x, y))
-                case Environment.ORE_AXIONITE:
-                    self.ore_ax.add((x, y))
-        self.en_core = en_core
-        self.en_core_tiles = tiles_3x3(*en_core, self.w, self.h)
-        self.sym_candidates.clear()
+
+def _try_load_known_map(state: State, core_pos: tuple[int, int]) -> None:
+    key = (state.w, state.h, core_pos[0], core_pos[1])
+    known = MAPS.get(key)
+    if known is None:
+        return
+    encoded, en_core = known
+    tiles = decode_known_map(encoded, state.w * state.h)
+    for i in range(state.w * state.h):
+        state.env[i] = tiles[i]
+        x, y = i % state.w, i // state.w
+        match tiles[i]:
+            case Environment.ORE_TITANIUM:
+                state.ore_ti.add((x, y))
+            case Environment.ORE_AXIONITE:
+                state.ore_ax.add((x, y))
+    state.en_core = en_core
+    state.en_core_tiles = tiles_3x3(*en_core, state.w, state.h)
+    state.sym_candidates.clear()

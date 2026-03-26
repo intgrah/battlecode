@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, Position
+from cambc import Controller, Direction, Environment, Position
 from util import DIR4_DELTA, TRANSPORT
 
 from .build import Action, Fire
@@ -12,6 +12,8 @@ def _find_target(state: State) -> tuple[tuple[int, int], tuple[int, int]] | None
     best = None
     best_dist = 999999
     for hi in state.en_harvesters:
+        if state.env[hi] != Environment.ORE_TITANIUM:
+            continue
         hx, hy = hi % w, hi // w
         for dx, dy in DIR4_DELTA:
             nx, ny = hx + dx, hy + dy
