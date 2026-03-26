@@ -8,23 +8,21 @@ infrastructure.
 
 from cambc import Controller, Direction, Position
 
-from .base import BuilderBase
 from .build import Action
+from .helpers import move_toward_with_road
+from .state import State
 
 
-class NavEnemyCoreMixin(BuilderBase):
-
-    def _nav_enemy_core(
-        self,
-        ct: Controller,
-        pos: Position,
-    ) -> tuple[Direction, Action | None] | None:
-        en_core = self.state.en_core
-        if en_core is None:
-            return None
-        target = Position(en_core[0], en_core[1])
-        move, build = self._move_toward_with_road(ct, pos, target)
-        if move == Direction.CENTRE and build is None:
-            return None
-        self._debug_target = (target, 255, 0, 0)
-        return move, build
+def nav_enemy_core(
+    state: State,
+    ct: Controller,
+) -> tuple[Direction, Action | None] | None:
+    en_core = state.en_core
+    if en_core is None:
+        return None
+    target = Position(en_core[0], en_core[1])
+    move, build = move_toward_with_road(state, ct, target)
+    if move == Direction.CENTRE and build is None:
+        return None
+    state.debug_target = (target, 255, 0, 0)
+    return move, build
