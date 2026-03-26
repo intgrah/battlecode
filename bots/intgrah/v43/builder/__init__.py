@@ -62,10 +62,10 @@ class Builder(
     def run(self, ct: Controller) -> None:
         _, needs_reflow = self.state.update(ct)
         if needs_reflow or not hasattr(self, "_leakage_mask"):
-            self._flow_search = None
-            self._cached_chain_path = None
-            self._ax_flow_search = None
-            self._ax_cached_path = None
+            self.state.ti_flow_search = None
+            self.state.ti_cached_path = None
+            self.state.ax_flow_search = None
+            self.state.ax_cached_path = None
             self._leakage_mask = build_leakage_mask(self.state)
 
         pos = ct.get_position()
@@ -101,7 +101,7 @@ class Builder(
             "round": ct.get_current_round(),
             "eid": ct.get_id(),
             "pos": [pos.x, pos.y],
-            "explore_radius": self._explore_radius,
+            "explore_radius": self.state.explore_radius,
             "env": [b.env[i].value if b.env[i] is not None else None for i in range(n)],
             "entity": [
                 [b.entity[i][0].value, b.entity[i][1].value]

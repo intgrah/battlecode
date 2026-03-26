@@ -18,39 +18,35 @@ from .build import Action
 
 
 class ExploreMixin(BuilderBase):
-
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
-        self._explore_target: Position | None = None
-        self._explore_radius = 0
-
     def _explore(
         self,
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
+        s = self.state
         self._advance_frontier()
-        if self._explore_target is not None and not self.state.is_unseen(
-            self._explore_target.x,
-            self._explore_target.y,
+        if s.explore_target is not None and not s.is_unseen(
+            s.explore_target.x,
+            s.explore_target.y,
         ):
-            self._explore_target = None
-        if self._explore_target is None:
-            self._explore_target = self._pick_frontier_target(pos)
-        if self._explore_target is None:
+            s.explore_target = None
+        if s.explore_target is None:
+            s.explore_target = self._pick_frontier_target(pos)
+        if s.explore_target is None:
             return None
-        move, build = self._move_toward_with_road(ct, pos, self._explore_target)
-        self._debug_target = (self._explore_target, 0, 0, 255)
+        move, build = self._move_toward_with_road(ct, pos, s.explore_target)
+        self._debug_target = (s.explore_target, 0, 0, 255)
         return move, build
 
     def _advance_frontier(self) -> None:
-        cx, cy = self.state.my_core
+        s = self.state
+        cx, cy = s.my_core
         limit = max(self.w, self.h)
-        while self._explore_radius < limit:
-            r = self._explore_radius + 1
+        while s.explore_radius < limit:
+            r = s.explore_radius + 1
             if self._ring_has_unseen(cx, cy, r):
                 break
-            self._explore_radius = r
+            s.explore_radius = r
 
     def _ring_has_unseen(self, cx: int, cy: int, r: int) -> bool:
         x0, x1 = max(0, cx - r), min(self.w - 1, cx + r)
@@ -69,7 +65,7 @@ class ExploreMixin(BuilderBase):
 
     def _pick_frontier_target(self, pos: Position) -> Position | None:
         cx, cy = self.state.my_core
-        r = self._explore_radius + 3
+        r = self.state.explore_radius + 3
         x0, x1 = max(0, cx - r), min(self.state.w - 1, cx + r)
         y0, y1 = max(0, cy - r), min(self.state.h - 1, cy + r)
         candidates: list[tuple[int, int]] = []
@@ -85,6 +81,6 @@ class ExploreMixin(BuilderBase):
                 candidates.append((x1, y))
         if not candidates:
             return None
-        rng = Random(hash((pos.x, pos.y, self._explore_radius)))
+        rng = Random(hash((pos.x, pos.y, self.state.explore_radius)))
         c = candidates[rng.randrange(len(candidates))]
         return Position(c[0], c[1])
