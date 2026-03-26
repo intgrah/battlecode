@@ -1,10 +1,17 @@
 """Launcher unit logic for v5."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from main import Player
+
 from cambc import Controller, EntityType, Position
 from utils import decode_waypoint, is_waypoint_marker, king_dist
 
 
-def run_launcher(player, ct: Controller) -> None:
+def run_launcher(player: Player, ct: Controller) -> None:
     """Throw adjacent allied builder toward team core (scout return) or enemy core (assault)."""
     pos = ct.get_position()
     my_team = ct.get_team()

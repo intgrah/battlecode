@@ -1,5 +1,12 @@
 """Builder bot unit logic for v5."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from main import Player
+
 from cambc import Controller, Direction, EntityType, Environment, Position
 from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step, has_line_of_sight
 from utils import (
@@ -26,7 +33,7 @@ def _is_buildable(ct: Controller, tile: Position) -> bool:
 # ── Comms ─────────────────────────────────────────────────────────────
 
 
-def _check_comms(player, ct: Controller) -> None:
+def _check_comms(player: Player, ct: Controller) -> None:
     if player.core_pos is None:
         return
     sym, _phase, epos, _ = read_comms(ct, player.core_pos)
@@ -38,7 +45,7 @@ def _check_comms(player, ct: Controller) -> None:
 # ── Symmetry detection ───────────────────────────────────────────────
 
 
-def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
+def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
     if player.sym_resolved:
         return
     if player.sym_candidates is None:
@@ -116,7 +123,7 @@ def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
 # ── Pathfinding helpers ──────────────────────────────────────────────
 
 
-def _pf_draw_debug(player, ct: Controller, walkable: set) -> None:
+def _pf_draw_debug(player: Player, ct: Controller, walkable: set) -> None:
     """Draw debug indicators for Bug2 pathfinding state."""
     a = player.pf_agent
 
@@ -159,7 +166,7 @@ def _pf_draw_debug(player, ct: Controller, walkable: set) -> None:
     ct.draw_indicator_dot(a.current, 0, 200, 0)
 
 
-def _pf_step(player, ct: Controller, pos: Position) -> bool:
+def _pf_step(player: Player, ct: Controller, pos: Position) -> bool:
     """Execute one Bug2 step via AgentState/bug2_step. Returns True if moved."""
     # Build walkable set from visible tiles
     walkable = build_walkable(ct)
@@ -219,7 +226,7 @@ def _pf_step(player, ct: Controller, pos: Position) -> bool:
 # ── Ore scanning (runs every turn for all builders) ──────────────────
 
 
-def _scan_ore(player, ct: Controller) -> None:
+def _scan_ore(player: Player, ct: Controller) -> None:
     """Record any ore tiles visible this turn."""
     for tile in ct.get_nearby_tiles():
         env = ct.get_tile_env(tile)
@@ -234,7 +241,7 @@ def _scan_ore(player, ct: Controller) -> None:
 
 
 def _start_bridge_chain(
-    player,
+    player: Player,
     ct: Controller,
     pos: Position,
     source_pos: Position,
@@ -277,7 +284,7 @@ def _start_bridge_chain(
         print(f"Bridge E{ct.get_id()}: chain start, first bridge at {best}")
 
 
-def _bridge(player, ct: Controller, pos: Position) -> None:
+def _bridge(player: Player, ct: Controller, pos: Position) -> None:
     """Build a chain of bridges from harvester to core."""
     if player.bridge_target is None or player.core_pos is None:
         player.state = "economy"
@@ -470,7 +477,7 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
 # ── Wander ──────────────────────────────────────────────────────────
 
 
-def _wander(player, ct: Controller, pos: Position) -> None:
+def _wander(player: Player, ct: Controller, pos: Position) -> None:
     """Wander without a target: prefer away from friendly builders, maintain
     momentum from last step, and stay away from map borders."""
     w, h = ct.get_map_width(), ct.get_map_height()
@@ -580,7 +587,7 @@ def _has_adjacent_conveyorable(ct: Controller, tile: Position) -> bool:
     return False
 
 
-def update_claimed_ore(player, ct: Controller) -> None:
+def update_claimed_ore(player: Player, ct: Controller) -> None:
     # Check current ore target — abort if already harvested
     if player.target is not None and ct.is_in_vision(player.target):
         bid = ct.get_tile_building_id(player.target)
@@ -611,7 +618,7 @@ def update_claimed_ore(player, ct: Controller) -> None:
             player.target = None
 
 
-def update_advance_ore(player, ct: Controller) -> None:
+def update_advance_ore(player: Player, ct: Controller) -> None:
     # Check current ore target — abort if already harvested
     if player.target is not None and ct.is_in_vision(player.target):
         bid = ct.get_tile_building_id(player.target)
@@ -639,7 +646,7 @@ def update_advance_ore(player, ct: Controller) -> None:
                 player.target = None
 
 
-def _economy(player, ct: Controller, pos: Position) -> None:
+def _economy(player: Player, ct: Controller, pos: Position) -> None:
     """Economy mode: harvest nearest ore, opportunistically switch to LOS ore,
     or wander to discover more."""
 
@@ -913,7 +920,7 @@ def _has_adjacent_friendly_builder(ct: Controller, tile: Position) -> bool:
     return False
 
 
-def _base_builder(player, ct: Controller, pos: Position) -> None:
+def _base_builder(player: Player, ct: Controller, pos: Position) -> None:
     """Move one step cardinally away from core, then place barriers in all 8
     directions before hibernating."""
     if player.core_pos is None:
@@ -1147,7 +1154,7 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
 # ── Advance state ────────────────────────────────────────────────────
 
 
-def _advance(player, ct: Controller, pos: Position) -> None:
+def _advance(player: Player, ct: Controller, pos: Position) -> None:
     """Pathfind toward the enemy base, diverting to ore if any is known.
     Once the enemy base is visible, switch to hibernate."""
 
@@ -1424,7 +1431,7 @@ def _advance(player, ct: Controller, pos: Position) -> None:
 # ── Suicide state ─────────────────────────────────────────────────
 
 
-def _suicide(player, ct: Controller, pos: Position) -> None:
+def _suicide(player: Player, ct: Controller, pos: Position) -> None:
     """Pathfind to enemy base, then find an enemy bridge/conveyor to self-destruct on."""
 
     # Track resources on visible enemy conveyors
@@ -1608,7 +1615,7 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
 # ── Idle state ────────────────────────────────────────────────────
 
 
-def _idle(player, ct: Controller, pos: Position) -> None:
+def _idle(player: Player, ct: Controller, pos: Position) -> None:
     # If adjacent to an enemy launcher, build our own launcher next to it
     my_team = ct.get_team()
     for bid in ct.get_nearby_buildings():
@@ -1730,7 +1737,7 @@ def _idle(player, ct: Controller, pos: Position) -> None:
 # ── Heal state ────────────────────────────────────────────────────
 
 
-def _heal(player, ct: Controller, pos: Position) -> None:
+def _heal(player: Player, ct: Controller, pos: Position) -> None:
     # Check if enemy harvester and friendly gunner still adjacent to builder
 
     bid = ct.get_tile_building_id(player.target)
@@ -1768,7 +1775,7 @@ def _heal(player, ct: Controller, pos: Position) -> None:
 # ── Destroy conveyor state ────────────────────────────────────────────
 
 
-def _destroy_conveyor(player, ct: Controller, pos: Position) -> None:
+def _destroy_conveyor(player: Player, ct: Controller, pos: Position) -> None:
     """Walk onto enemy conveyors and self-destruct."""
     my_team = ct.get_team()
 
@@ -1793,7 +1800,7 @@ def _destroy_conveyor(player, ct: Controller, pos: Position) -> None:
 # ── Protect state ─────────────────────────────────────────────────────
 
 
-def _protect(player, ct: Controller, pos: Position) -> None:
+def _protect(player: Player, ct: Controller, pos: Position) -> None:
     """Pathfind to nearest ore visible to enemy sentinel, destroy friendly harvester on it."""
     my_team = ct.get_team()
 
@@ -1852,7 +1859,7 @@ def _protect(player, ct: Controller, pos: Position) -> None:
 # ── Main entry point ─────────────────────────────────────────────────
 
 
-def run_builder(player, ct: Controller) -> None:
+def run_builder(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     w, h = ct.get_map_width(), ct.get_map_height()
 
