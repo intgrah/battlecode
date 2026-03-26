@@ -1,0 +1,335 @@
+Skip to main content <#content-area>
+Cambridge Battlecode home pagelight logodark logo <https://
+docs.battlecode.cam/>
+
+Search...
+Ctrl K
+
+  *
+
+    Platform <https://game.battlecode.cam/>
+  *
+
+    Discord <https://discord.gg/xHCygPeAq8>
+
+
+          API
+
+  *
+    Controller
+     <https://docs.battlecode.cam/api/controller>
+  *
+    Types & Enums
+     <https://docs.battlecode.cam/api/types>
+  *
+    Game Constants
+     <https://docs.battlecode.cam/api/constants>
+
+  *
+    Platform
+
+    <https://game.battlecode.cam/>
+  *
+
+Cambridge Battlecode home pagelight logodark logo <https://
+docs.battlecode.cam/>
+
+Search...
+Ctrl K
+
+Ask AI
+
+  * Platform <https://game.battlecode.cam/>
+
+Search...
+
+Navigation
+
+API
+
+Types & Enums
+Getting Started
+<https://docs.battlecode.cam/>Game Rules
+<https://docs.battlecode.cam/spec/overview>API Reference
+<https://docs.battlecode.cam/api/controller>Changelog
+<https://docs.battlecode.cam/>
+Getting Started
+<https://docs.battlecode.cam/>Game Rules
+<https://docs.battlecode.cam/spec/overview>API Reference
+<https://docs.battlecode.cam/api/controller>Changelog
+<https://docs.battlecode.cam/>
+API
+
+
+  Types & Enums
+
+All game types available from |from cambc import *|.
+
+All types are imported from the |cambc| module:
+
+Copy
+
+Ask AI
+
+|from cambc import *
+
+|
+
+This gives you: |Team|, |EntityType|, |ResourceType|, |Environment|, |
+Direction|, |Position|, |GameConstants| <https://docs.battlecode.cam/
+api/constants>, |GameError|, and |Controller| <https://
+docs.battlecode.cam/api/controller>.
+
+
+    ​
+
+     <#team>
+    Team
+
+Copy
+
+Ask AI
+
+|class Team(Enum):
+    A = "a"
+    B = "b"
+
+|
+
+
+    ​
+
+     <#entitytype>
+    EntityType
+
+Copy
+
+Ask AI
+
+|class EntityType(Enum):
+    BUILDER_BOT = "builder_bot"
+    CORE = "core"
+    GUNNER = "gunner"
+    SENTINEL = "sentinel"
+    BREACH = "breach"
+    LAUNCHER = "launcher"
+    CONVEYOR = "conveyor"
+    SPLITTER = "splitter"
+    ARMOURED_CONVEYOR = "armoured_conveyor"
+    BRIDGE = "bridge"
+    HARVESTER = "harvester"
+    FOUNDRY = "foundry"
+    ROAD = "road"
+    BARRIER = "barrier"
+    MARKER = "marker"
+
+|
+
+
+    ​
+
+     <#resourcetype>
+    ResourceType
+
+Copy
+
+Ask AI
+
+|class ResourceType(Enum):
+    TITANIUM = "titanium"
+    RAW_AXIONITE = "raw_axionite"
+    REFINED_AXIONITE = "refined_axionite"
+
+|
+
+
+    ​
+
+     <#environment>
+    Environment
+
+Copy
+
+Ask AI
+
+|class Environment(Enum):
+    EMPTY = "empty"
+    WALL = "wall"
+    ORE_TITANIUM = "ore_titanium"
+    ORE_AXIONITE = "ore_axionite"
+
+|
+
+
+    ​
+
+     <#direction>
+    Direction
+
+Copy
+
+Ask AI
+
+|class Direction(Enum):
+    NORTH = "north"
+    NORTHEAST = "northeast"
+    EAST = "east"
+    SOUTHEAST = "southeast"
+    SOUTH = "south"
+    SOUTHWEST = "southwest"
+    WEST = "west"
+    NORTHWEST = "northwest"
+    CENTRE = "centre"
+
+|
+
+
+      ​
+
+       <#direction-methods>
+      Direction methods
+
+​
+
+<#param-delta>
+delta()
+tuple[int, int]
+Return the |(dx, dy)| step for this direction. North is |(0, -1)|, East
+is |(1, 0)|, etc.
+​
+
+<#param-rotate-left>
+rotate_left()
+Direction
+Return the direction rotated 45° counterclockwise.
+​
+
+<#param-rotate-right>
+rotate_right()
+Direction
+Return the direction rotated 45° clockwise.
+​
+
+<#param-opposite>
+opposite()
+Direction
+Return the opposite direction (180°).
+
+
+    ​
+
+     <#position>
+    Position
+
+A named tuple with |x| and |y| integer fields.
+
+Copy
+
+Ask AI
+
+|class Position(NamedTuple):
+    x: int
+    y: int
+
+|
+
+
+      ​
+
+       <#position-methods>
+      Position methods
+
+​
+
+<#param-add-direction>
+add(direction)
+Position
+Return a new position offset by the direction delta.
+​
+
+<#param-distance-squared-other>
+distance_squared(other)
+int
+Return the squared Euclidean distance to another position.
+​
+
+<#param-direction-to-other>
+direction_to(other)
+Direction
+Return the closest 45° Direction approximation toward other.
+
+
+      ​
+
+       <#usage>
+      Usage
+
+Copy
+
+Ask AI
+
+|pos = Position(5, 10)
+new_pos = pos.add(Direction.NORTH)      # Position(5, 9)
+dist = pos.distance_squared(new_pos)    # 1
+dir = pos.direction_to(Position(8, 7))  # Direction.NORTHEAST
+
+|
+
+
+    ​
+
+     <#gameerror>
+    GameError
+
+Copy
+
+Ask AI
+
+|class GameError(Exception):
+    pass
+
+|
+
+Raised when a player issues an invalid action (e.g., building on an
+occupied tile, moving with cooldown > 0).
+
+Previous <https://docs.battlecode.cam/api/controller>
+Game ConstantsAll numeric constants available via GameConstants.
+Next
+
+<https://docs.battlecode.cam/api/constants>
+Ctrl+I
+
+discord
+
+<https://discord.gg/xHCygPeAq8>website
+
+<https://battlecode.cam/>
+Powered by
+
+This documentation is built and hosted on Mintlify, a developer
+documentation platform <https://www.mintlify.com/?
+utm_campaign=poweredBy&utm_medium=referral&utm_source=cambridgebattlecode>
+
+On this page
+
+  * Team <#team>
+  * EntityType <#entitytype>
+  * ResourceType <#resourcetype>
+  * Environment <#environment>
+  * Direction <#direction>
+  * Direction methods <#direction-methods>
+  * Position <#position>
+  * Position methods <#position-methods>
+  * Usage <#usage>
+  * GameError <#gameerror>
+
+Assistant
+
+Responses are generated using AI and may contain mistakes.
+
+Contact support
+
+<mailto:support@battlecode.cam>
+x
+

@@ -1,0 +1,306 @@
+CAMBRIDGE BATTLECODE - GAME REFERENCE
+=====================================
+Quick-reference for bot development. For full details see docs/*.html
+For Controller/type stubs see venv/lib/python3.12/site-packages/cambc/_types.py
+
+
+OBJECTIVE
+---------
+Destroy the enemy core. If both cores survive 2000 rounds, tiebreakers:
+  1. Total refined axionite delivered to core
+  2. Total titanium delivered to core
+  3. Harvesters alive
+  4. Axionite stored
+  5. Titanium stored
+  6. Coinflip
+
+
+MAP
+---
+- 20x20 to 50x50 grid. Origin (0,0) is top-left (northwest).
+- Guaranteed symmetric (reflection or rotation).
+- Tile types: Empty, Wall (impassable), Titanium ore, Axionite ore.
+
+
+TURN STRUCTURE
+--------------
+Each round:
+  1. All units take turns in spawn order. Each unit gets 2ms CPU (+5% buffer).
+  2. After all units act, resource distribution happens (buildings output stacks).
+Cooldowns decrease by 1 at end of each round.
+
+
+RESOURCES
+---------
+- Titanium: primary resource. Start with 1000. Mined from titanium ore.
+- Raw axionite: mined from axionite ore. Decays to titanium if fed to turret/core.
+  Must be refined first for advanced use.
+- Refined axionite: produced by foundry (1 stack Ti + 1 stack raw Ax -> 1 stack refined Ax).
+  Used for breach turrets, armoured conveyors, and turret ammo upgrades.
+- Resources move in STACKS OF 10.
+- Resources CAN be sent to enemy buildings -- watch conveyor placement!
+
+
+COST SCALING
+------------
+cost = floor(scale * base_cost)
+
+Scale starts at 1.0 (100%) and increases ADDITIVELY per entity built:
+  +0.5%   Road
+  +1%     Conveyor, splitter, armoured conveyor, bridge, barrier
+  +10%    Builder bot, harvester, gunner, sentinel, breach, launcher
+  +100%   Foundry
+
+When an entity is destroyed, its scaling contribution is REMOVED.
+
+
+CORE (3x3 building, 500 HP)
+----------------------------
+- Vision r^2 = 36, action r^2 = 8 (from centre).
+- Spawns one builder bot per round on any of its 9 tiles (costs 1 action cooldown).
+- Resources delivered to core via conveyors go to global pool.
+- If destroyed, you LOSE.
+
+
+BUILDER BOT (30 HP, 10 Ti, +10% scale)
+---------------------------------------
+Only mobile unit. Vision r^2 = 20, action r^2 = 2.
+Move cooldown and action cooldown are separate.
+
+Movement:
+- Can only walk on: conveyors (any variant/team), roads (either team), allied core.
+- Moving costs 1 move cooldown.
+
+Actions (require action cooldown == 0):
+- BUILD any building/turret on adjacent tile within action radius.
+  Only walkable buildings (conveyors, roads) can be built under a builder bot.
+- HEAL all friendly entities on a tile by 10 HP.
+
+Free actions (no cooldown cost):
+- DESTROY any allied building within action radius. UNLIMITED per round. This is often forgotten, but it means you can destroy then build in one turn.
+- PLACE MARKER (1 per round, all units can do this).
+- SELF-DESTRUCT: kills self, deals 20 damage to building on same tile.
+
+
+RESOURCE PRODUCTION
+-------------------
+Harvester (30 HP, 80 Ti, +10% scale):
+- Must be built on ore tile. Outputs 1 stack every 4 rounds.
+- First output happens immediately on build round.
+- Prioritises output directions used least recently.
+
+Foundry (50 HP, 120 Ti, +100% scale):
+- Accepts Ti + raw Ax -> outputs refined Ax.
+- Accepts/outputs from any side.
+- HUGE scaling cost. Plan carefully.
+
+
+CONVEYOR NETWORK
+----------------
+All conveyors hold 1 stack. Resources distributed at end of round.
+
+Conveyor (20 HP, 3 Ti, +1%):
+- Accepts from 3 non-output sides. Outputs in facing direction.
+
+Splitter (20 HP, 6 Ti, +1%):
+- Accepts from back ONLY. Rotates output between 3 forward directions.
+- Prioritises least-recently-used direction.
+
+Bridge (20 HP, 10 Ti, +1%):
+- Outputs to specific tile within dist^2 <= 9 (chosen at build time).
+- Accepts from all directions. Bypasses directional restrictions.
+
+Armoured Conveyor (50 HP, 10 Ti + 5 Ax, +1%):
+- Same as conveyor but much more HP.
+
+
+TURRETS
+-------
+All turrets except launcher face a direction (8 directions).
+Ammo fed via conveyors from any side EXCEPT the facing direction.
+Diagonal turrets can be fed from all 4 sides.
+Turrets only accept resources when completely empty.
+If a tile has both building + unit, BOTH take full damage.
+
+Gunner (40 HP, 10 Ti, +10%):
+- Vision/attack r^2 = 13.
+- Hits closest non-empty tile in facing direction.
+- 10 damage (20 with refined axionite ammo). 2 ammo/shot. 1 round reload.
+
+Sentinel (30 HP, 15 Ti, +10%):
+- Vision/attack r^2 = 32.
+- Hits tiles within 1 king-move of the line in facing direction.
+- 20 damage. 10 ammo/shot. 4 round reload.
+- STUN with refined axionite ammo: +3 to action AND move cooldown of hit unit.
+
+Breach (60 HP, 30 Ti + 10 Ax, +10%):
+- Vision r^2 = 10, attack r^2 = 5.
+- 180-degree cone in facing direction.
+- 40 direct + 20 splash to 8 surrounding tiles.
+- FRIENDLY FIRE on splash. Refined axionite ammo only. 5 ammo/shot. 1 round reload.
+
+Launcher (30 HP, 20 Ti, +10%):
+- Vision/throw r^2 = 26.
+- NO facing direction, NO ammo.
+- Picks up adjacent allied builder bot and throws to any passable tile in range.
+- 1 round reload.
+
+
+UTILITY BUILDINGS
+-----------------
+Road (10 HP, 1 Ti, +0.5%):
+- Walkable by builder bots. Cheapest building.
+
+Barrier (30 HP, 3 Ti, +1%):
+- Blocks space. Good for defence.
+
+Marker (1 HP, FREE, no cooldown):
+- Stores a u32 integer readable by allied units.
+- ONLY form of inter-unit communication (each Player instance is isolated).
+- Any team can build over enemy markers, destroying them.
+- All units (not just builders) can place 1 marker/round.
+
+
+COMMUNICATION
+-------------
+Units do NOT share memory. Each unit runs its own Player instance.
+Markers are the only way to coordinate:
+  - Scout reports (write enemy positions near core)
+  - Build orders (use marker values as flags/state)
+  - Territory claims (prevent duplicate work)
+
+Read markers:
+  building_id = ct.get_tile_building_id(pos)
+  if building_id and ct.get_entity_type(building_id) == EntityType.MARKER:
+      value = ct.get_marker_value(building_id)
+
+
+DISTANCES (squared, for reference)
+----------------------------------
+Adjacent (incl diagonal) = 1 or 2
+Action radius (most units) = 2  (i.e. adjacent tiles)
+Core action radius = 8  (from centre)
+Breach attack = 5
+Bridge output max = 9
+Breach vision = 10
+Gunner vision/attack = 13
+Builder bot vision = 20
+Launcher vision/throw = 26
+Sentinel vision/attack = 32
+Core vision = 36
+
+
+KEY FILES
+---------
+Bot code (simple):  bots/* (each bot in its own folder)
+Config:             cambc.toml
+Maps:               maps/*.map26  (6 maps: 2 small, 2 medium, 2 large)
+API type stubs:     venv/lib/python3.12/site-packages/cambc/_types.py
+Full docs:          docs/*.html
+Replay parser:      parse_replay.py
+Run locally:        cambc run <botA> <botB>  (no time limit)
+Test on real HW:    cambc test-run (2ms enforced)
+
+
+RUNNING GAMES & ANALYSING REPLAYS
+----------------------------------
+Run a match:    cambc run v3 starter
+                cambc run v3 v3
+Config:         cambc.toml sets map, seed, replay path (default: replay.replay26)
+Parse replay:   python3 parse_replay.py replay.replay26
+
+The replay parser outputs:
+  - Winner and turn count
+  - Periodic resource snapshots (Ti/Ax stored and delivered, every 100 turns)
+  - Entity count timeline (what each team has alive over time)
+  - Total buildings constructed / lost by type
+  - Bot stdout output (print() from bot code appears here)
+  - TLE (time limit exceeded) occurrences
+
+
+BOT ARCHITECTURE PATTERN
+-------------------------
+The engine creates a separate Player() instance per unit. Player.__init__() is
+called once when the unit spawns. Player.run(ct: Controller) is called each round.
+
+Typical structure:
+  class Player:
+      def __init__(self):
+          # Per-unit persistent state (survives across rounds for THIS unit)
+          self.core_pos = None
+          self.phase = "explore"
+          ...
+
+      def run(self, ct: Controller) -> None:
+          etype = ct.get_entity_type()
+          if etype == EntityType.CORE:
+              self._run_core(ct)
+          elif etype == EntityType.BUILDER_BOT:
+              self._run_builder(ct)
+          # Turrets/harvesters can also have run() logic (e.g. fire control)
+
+Key API patterns:
+  - ct.get_position() / ct.get_id() / ct.get_team()  -- who am I?
+  - ct.get_action_cooldown() / ct.get_move_cooldown() -- can I act/move?
+  - ct.get_nearby_tiles() / ct.get_nearby_buildings()  -- what's around me?
+  - ct.get_tile_env(pos) -- check for ore, wall, empty
+  - ct.get_tile_building_id(pos) -- check what's built on a tile
+  - ct.get_global_resources() -> (titanium, axionite) -- team resource pool
+  - ct.get_scale_percent() -> float -- current cost multiplier (100.0 = base)
+  - ct.can_build_X(pos, ...) / ct.build_X(pos, ...) -- always check can_ first
+  - ct.can_move(dir) / ct.move(dir) -- movement
+  - print() -- output appears in replay (useful for debugging)
+
+
+COMMON PITFALLS (learned from testing)
+---------------------------------------
+1. HARVESTERS WITHOUT CONVEYORS = USELESS. The starter bot builds harvesters
+   and roads but ZERO conveyors, so no resources ever reach the core. This
+   results in 0 Ti delivered and a flatlined economy by turn ~200. Always
+   connect harvesters to core via conveyor chains.
+
+2. CONVEYORS HAVE DIRECTIONALITY. A conveyor accepts input from 3 sides (all
+   except its facing/output direction). When building a chain from harvester
+   back to core, each conveyor must face TOWARD the core (the next hop).
+   The first conveyor next to the harvester must NOT face toward the harvester
+   (or it won't accept the harvester's output).
+
+3. ROADS vs CONVEYORS. Builders walk on both roads and conveyors. The explore
+   -> lay conveyors pattern is: explore outward building roads, find ore, build
+   harvester, retrace path replacing roads with conveyors pointing toward core.
+
+4. BUILDER BOTS ARE EXPENSIVE IN SCALE. Each builder adds +10% to cost scale.
+   8 builders = +80% scaling. Spawn incrementally (e.g. 2 early, more as
+   economy grows). v3 uses: max_spawned = min(2 + round // 100, 8).
+
+5. COST SCALING SNOWBALLS. With 8 bots, 11 harvesters, 144 conveyors, 393
+   roads the scale reaches ~558%. A harvester that costs 80 Ti at base now
+   costs ~446 Ti. Build efficiently; every road costs +0.5% permanently
+   (until destroyed).
+
+6. RESOURCE OUTPUT RATE. Each harvester outputs 1 stack (10 resources) every
+   4 rounds = 2.5 Ti/round per harvester. With 11 harvesters delivering,
+   that's ~27.5 Ti/round steady-state income (~2250 Ti per 100 rounds,
+   matching observed data).
+
+7. MARKERS ADD NO SCALING. They're free (0 cost, 0 scale). Use them liberally
+   for coordination. But they have 1 HP so enemies can overwrite them easily.
+
+8. DESTROY REMOVES SCALE. Destroying your own roads (to replace with conveyors)
+   gives back that scaling cost. The v3 bot exploits this: explore with roads,
+   then destroy roads and replace with conveyors during the return phase.
+
+
+STRATEGIC NOTES
+---------------
+- Economy is king early: 80 Ti harvesters are expensive but pay back over time.
+  With 1000 starting Ti you can afford ~12 builder bots or 1 harvester + change.
+- Conveyor networks must connect harvesters -> core. Plan routes.
+- Cost scaling is additive and affects ALL future builds. Be efficient.
+  Foundry doubles your costs (+100%). Only build if you need refined axionite.
+- Refined axionite upgrades are powerful: gunner double damage, sentinel stun.
+- Launchers enable aggressive plays: throw builders behind enemy lines.
+- Builder self-destruct (20 dmg) can assassinate low-HP buildings.
+- Maps are symmetric: scout one direction, mirror for the other.
+- Markers are your only coordination tool. Design a communication protocol.
+- 2ms CPU limit is tight. Avoid expensive loops over large areas.

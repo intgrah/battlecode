@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source /home/adgato/projects/console/python/cambc_src/venv/bin/activate)",
+      "Bash(python3 -c \":*)",
+      "Bash(source venv/bin/activate)",
+      "Bash(cambc run:*)",
+      "Bash(python3 parse_replay.py)",
+      "Bash(python3:*)",
+      "Bash(done)",
+      "Bash(./run_test.sh v5:*)",
+      "Bash(for map:*)",
+      "Bash(do echo:*)",
+      "Bash(./venv/bin/cambc run:*)",
+      "Bash(./venv/bin/python3 parse_replay.py replay.replay26 --all-output)",
+      "Bash(ls:*)",
+      "Bash(venv/bin/cambc run:*)"
+    ]
+  }
+}
