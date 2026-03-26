@@ -9,8 +9,16 @@ Strategy:
 """
 
 import random
+from enum import Enum
 
 from cambc import Controller, Direction, EntityType, Environment, Position
+
+
+class Phase(Enum):
+    EXPLORE = "explore"
+    LAY_CONVEYORS = "lay_conveyors"
+    IDLE = "idle"
+
 
 CARDINAL_DIRS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 ALL_DIRS = [d for d in Direction if d != Direction.CENTRE]
@@ -54,7 +62,7 @@ class Player:
         self.spawned = 0
         # Builder
         self.core_pos: Position | None = None
-        self.phase = "explore"
+        self.phase: Phase = Phase.EXPLORE
         self.path: list[Position] = []  # positions visited during explore
         self.return_path: list[Position] = []  # reversed path for laying conveyors
         self.return_idx = 0
@@ -98,12 +106,13 @@ class Player:
         if self.core_pos is None:
             self.core_pos = self._find_core(ct)
 
-        if self.phase == "explore":
-            self._explore(ct, pos)
-        elif self.phase == "lay_conveyors":
-            self._lay_conveyors(ct, pos)
-        elif self.phase == "idle":
-            self._explore(ct, pos)
+        match self.phase:
+            case Phase.EXPLORE:
+                self._explore(ct, pos)
+            case Phase.LAY_CONVEYORS:
+                self._lay_conveyors(ct, pos)
+            case Phase.IDLE:
+                self._explore(ct, pos)
 
     def _find_core(self, ct: Controller) -> Position | None:
         my_team = ct.get_team()
@@ -210,7 +219,7 @@ class Player:
         # The return path is the reverse
         self.return_path = list(reversed(simplified))
         self.return_idx = 0
-        self.phase = "lay_conveyors"
+        self.phase = Phase.LAY_CONVEYORS
 
     def _lay_conveyors(self, ct: Controller, pos: Position) -> None:
         # Find where we are in the return path
@@ -222,8 +231,8 @@ class Player:
 
         if self.return_idx >= len(self.return_path) - 1:
             # We've reached the core (or close enough)
-            print("Conveyor chain complete, going idle")
-            self.phase = "idle"
+            print(f"Conveyor chain complete, going {Phase.IDLE.value}")
+            self.phase = Phase.IDLE
             self.path = []
             return
 
@@ -243,7 +252,7 @@ class Player:
                 if etype == EntityType.CORE:
                     # On core, just move on
                     self.return_idx += 1
-                    self.phase = "idle"
+                    self.phase = Phase.IDLE
                     self.path = []
                     return
 

@@ -22,6 +22,8 @@ from pathfinding import AgentState
 from utils import (
     PHASE_SCOUTING,
     SYM_TYPES,
+    BuilderState,
+    Symmetry,
 )
 
 
@@ -30,9 +32,9 @@ class Player:
         # Shared
         self.core_pos: Position | None = None
         self.enemy_core: Position | None = None
-        self.sym_resolved: str | None = None
-        self.sym_candidates: dict[str, Position] | None = None
-        self.sym_eliminated: set[str] = set()
+        self.sym_resolved: Symmetry | None = None
+        self.sym_candidates: dict[Symmetry, Position] | None = None
+        self.sym_eliminated: set[Symmetry] = set()
         self.known_env: dict[Position, Environment] = {}
 
         # Core
@@ -59,9 +61,7 @@ class Player:
         # Builder
         self.economy_wandering: int = 0
         self.base_round: int = 0
-        self.state: str | None = (
-            None  # base_builder, hibernate, advance, idle, economy, bridge
-        )
+        self.state: BuilderState | None = None
         self.target: Position | None = None
         self.base_phase: int = 0
         self.base_wait: int = 0
@@ -78,7 +78,7 @@ class Player:
         )
         self.can_patch: bool = False
         self.state_turns: int = 0  # turns spent in current state
-        self.prev_state: str | None = None  # for detecting state changes
+        self.prev_state: BuilderState | None = None
 
         # Economy
         self.known_ore: set[Position] = set()  # ore tiles seen by this builder
@@ -104,8 +104,8 @@ class Player:
         if self.sym_candidates is None:
             return False
         remaining = [s for s in SYM_TYPES if s not in self.sym_eliminated]
-        resolved_sym = None
-        resolved_pos = None
+        resolved_sym: Symmetry | None = None
+        resolved_pos: Position | None = None
         if len(remaining) == 1:
             resolved_sym = remaining[0]
             resolved_pos = self.sym_candidates[remaining[0]]
@@ -119,7 +119,7 @@ class Player:
             self.sym_resolved = resolved_sym
             self.enemy_core = resolved_pos
             print(
-                f"{tag}: resolved [{resolved_sym}] -> "
+                f"{tag}: resolved [{resolved_sym.value}] -> "
                 f"({resolved_pos.x},{resolved_pos.y})",
             )
             return True

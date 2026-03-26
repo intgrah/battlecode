@@ -12,6 +12,8 @@ from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step, has_line_of_sight
 from utils import (
     PHASE_FOUND,
     SYM_TYPES,
+    BuilderState,
+    Symmetry,
     build_walkable,
     encode_comms,
     encode_waypoint,
@@ -31,7 +33,6 @@ def _check_comms(player: Player, ct: Controller) -> None:
     if player.core_pos is None:
         return
     sym, _phase, epos, scout_idx = read_comms(ct, player.core_pos)
-    # On first run, read scout assignment from core's marker
     if player.state is None and 0 < scout_idx <= 3:
         player.scout_idx = scout_idx - 1
     if sym is not None and player.enemy_core is None:
@@ -42,16 +43,16 @@ def _check_comms(player: Player, ct: Controller) -> None:
 def _write_comms(
     player: Player,
     ct: Controller,
-    sym_name: str,
+    sym: Symmetry,
     enemy_pos: Position,
 ) -> None:
     if player.comms_written or player.core_pos is None:
         return
-    value = encode_comms(sym_name, PHASE_FOUND, enemy_pos.x, enemy_pos.y)
+    value = encode_comms(sym, PHASE_FOUND, enemy_pos.x, enemy_pos.y)
     if place_comms(ct, player.core_pos, value):
         player.comms_written = True
         print(
-            f"Scout {player.scout_idx}: wrote comms [{sym_name}] "
+            f"Scout {player.scout_idx}: wrote comms [{sym.value}] "
             f"({enemy_pos.x},{enemy_pos.y})",
         )
 
@@ -68,7 +69,6 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
     w, h = ct.get_map_width(), ct.get_map_height()
     my_team = ct.get_team()
 
-    # Direct vision of candidate core tiles
     for s in SYM_TYPES:
         if s in player.sym_eliminated:
             continue
@@ -84,14 +84,12 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                 player.sym_resolved = s
                 player.enemy_core = epos
                 print(
-                    f"Scout {player.scout_idx}: FOUND enemy core at ({epos.x},{epos.y}) [{s}]",
+                    f"Scout {player.scout_idx}: FOUND enemy core at ({epos.x},{epos.y}) [{s.value}]",
                 )
                 _write_comms(player, ct, s, epos)
                 return
             player.sym_eliminated.add(s)
         else:
-            # No building at candidate centre — core is 3x3 so also
-            # check tiles within 1 of the candidate for the core
             found_core = False
             for dx in range(-1, 2):
                 for dy in range(-1, 2):
@@ -108,7 +106,7 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                         player.enemy_core = actual_pos
                         print(
                             f"Scout {player.scout_idx}: FOUND enemy core at "
-                            f"({actual_pos.x},{actual_pos.y}) [{s}]",
+                            f"({actual_pos.x},{actual_pos.y}) [{s.value}]",
                         )
                         _write_comms(player, ct, s, actual_pos)
                         found_core = True
@@ -117,10 +115,8 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                     break
             if found_core:
                 return
-            # Candidate area visible, no core found — eliminate
             player.sym_eliminated.add(s)
 
-    # Environment mismatch elimination
     for tile in ct.get_nearby_tiles():
         if tile not in player.known_env:
             env = ct.get_tile_env(tile)
@@ -145,26 +141,20 @@ def _pf_draw_debug(player: Player, ct: Controller, walkable: set) -> None:
     """Draw debug indicators for Bug2 pathfinding state."""
     a = player.pf_agent
 
-    # Walkable set — dark grey
     for p in walkable:
         ct.draw_indicator_dot(p, 60, 60, 60)
 
-    # Goal — red
     ct.draw_indicator_dot(a.goal, 255, 0, 0)
 
-    # Obstacle start position — yellow
     if a.obstacle_start_pos is not None:
         ct.draw_indicator_dot(a.obstacle_start_pos, 255, 255, 0)
 
-    # Last open (lookahead) — blue
     if a.dbg_last_open is not None:
         ct.draw_indicator_dot(a.dbg_last_open, 80, 120, 255)
 
-    # First wall — dark red
     if a.dbg_first_wall is not None:
         ct.draw_indicator_dot(a.dbg_first_wall, 200, 40, 40)
 
-    # Trace heads
     if a.trace_heads is not None:
         lp = a.trace_heads[0][0]
         ll = a.trace_heads[0][2]
@@ -177,36 +167,29 @@ def _pf_draw_debug(player: Player, ct: Controller, walkable: set) -> None:
         if rl != a.current:
             ct.draw_indicator_dot(rl, 200, 120, 0)
 
-    # Current position — green (drawn last so it's on top)
     ct.draw_indicator_dot(a.current, 0, 200, 0)
 
 
 def _pf_step(player: Player, ct: Controller, pos: Position) -> bool:
     """Execute one Bug2 step via AgentState/bug2_step. Returns True if moved."""
-    # Build walkable set from visible tiles
     walkable = build_walkable(ct)
     walkable.add(pos)
 
-    # Build occupied set (other allied builders)
     occupied = set()
     my_id = ct.get_id()
     for uid in ct.get_nearby_units():
         if uid != my_id and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
             occupied.add(ct.get_position(uid))
 
-    # Run bug2_step — returns desired next Position
     next_pos = bug2_step(player.pf_agent, pos, walkable, occupied)
 
-    # Debug indicators
     _pf_draw_debug(player, ct, walkable)
 
     if next_pos == pos:
         return False
 
-    # Execute the move in the game
     direction = pos.direction_to(next_pos)
     if direction == Direction.CENTRE:
-        # bug2_step returned a non-adjacent cell — shouldn't happen
         player.pf_agent.current = pos
         return False
 
@@ -215,7 +198,6 @@ def _pf_step(player: Player, ct: Controller, pos: Position) -> bool:
         player.last_dir = direction
         return True
 
-    # Move failed — revert agent position so it retries next turn
     player.pf_agent.current = pos
     return False
 
@@ -260,7 +242,7 @@ def _start_bridge_chain(
             best_dist = dist
             best = bp
     if best is not None:
-        player.state = "bridge"
+        player.state = BuilderState.BRIDGE
         player.bridge_target = best
         player.pf_agent.retarget(pos, best)
         print(f"Bridge E{ct.get_id()}: chain start, first bridge at {best}")
@@ -269,27 +251,24 @@ def _start_bridge_chain(
 def _bridge(player: Player, ct: Controller, pos: Position) -> None:
     """Build a chain of bridges from harvester to core."""
     if player.bridge_target is None or player.core_pos is None:
-        player.state = "economy"
+        player.state = BuilderState.ECONOMY
         player.target = None
         return
 
-    # If adjacent to bridge_target, try to build
     if pos.distance_squared(player.bridge_target) <= 2:
         if ct.get_action_cooldown() > 0:
             return
 
-        # Destroy road on bridge tile if present
         bt = player.bridge_target
         bid = ct.get_tile_building_id(bt)
         if bid is not None:
             if ct.can_destroy(bt):
                 ct.destroy(bt)
             else:
-                player.state = "economy"
+                player.state = BuilderState.ECONOMY
                 player.target = None
-            return  # action used, try building next turn
+            return
 
-        # Scan bridge-range tiles: look for core shortcut, existing bridge, or normal candidates
         bt_core_dist = king_dist(bt, player.core_pos)
         core_target = None
         bridge_shortcut = None
@@ -303,12 +282,10 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
                     continue
                 if not in_bounds(ct, t) or not ct.is_in_vision(t):
                     continue
-                # Direct to core?
                 if player.core_pos.distance_squared(t) <= 2:
                     if core_target is None:
                         core_target = t
                     continue
-                # Existing friendly bridge closer to core?
                 tbid = ct.get_tile_building_id(t)
                 if tbid is not None:
                     td = king_dist(t, player.core_pos)
@@ -324,34 +301,30 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
                     if friendly and etype != EntityType.MARKER:
                         candidates.append((king_dist(t, player.core_pos), t))
                     continue
-                # Normal candidate (empty, walkable)
                 if ct.get_tile_env(t) == Environment.WALL:
                     continue
                 candidates.append((king_dist(t, player.core_pos), t))
 
-        # Priority 1: direct to core
         if core_target is not None and ct.can_build_bridge(bt, core_target):
             ct.build_bridge(bt, core_target)
             print(
                 f"Bridge E{ct.get_id()}: built at {bt} -> {core_target} (direct to core)",
             )
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.bridge_target = None
             return
 
-        # Priority 2: shortcut to existing bridge
         if bridge_shortcut is not None and ct.can_build_bridge(bt, bridge_shortcut):
             ct.build_bridge(bt, bridge_shortcut)
             print(
                 f"Bridge E{ct.get_id()}: built at {bt} -> {bridge_shortcut} (shortcut)",
             )
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.bridge_target = None
             return
 
-        # Priority 3: closest to core
         candidates.sort()
         candidates.sort()
 
@@ -360,9 +333,8 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
             if ct.can_build_bridge(bt, target):
                 ct.build_bridge(bt, target)
                 print(f"Bridge E{ct.get_id()}: built at {bt} -> {target}")
-                # Check if output lands on core
                 if player.core_pos.distance_squared(target) <= 2:
-                    player.state = "idle"
+                    player.state = BuilderState.IDLE
                     player.bridge_target = None
                     print(f"Bridge E{ct.get_id()}: chain complete")
                     return
@@ -372,18 +344,15 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
                 break
 
         if not built:
-            # If tile is empty, wait (probably just need resources/cooldown)
             bid2 = ct.get_tile_building_id(bt)
             if bid2 is None:
                 return
-            # Tile blocked by something we can't remove — abort
             print(f"Bridge E{ct.get_id()}: can't build at {bt}, aborting")
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.bridge_target = None
         return
 
-    # Pathfind to bridge_target
     if ct.get_move_cooldown() > 0:
         return
     if player.pf_agent.goal != player.bridge_target:
@@ -428,16 +397,13 @@ def _wander(player: Player, ct: Controller, pos: Position) -> None:
         ):
             continue
 
-        # Away from friendly builders
         score = king_dist(tile, near_friend) * 4
 
-        # Momentum: prefer similar direction to last step
         if player.last_dir is not None:
             diff = abs(_DIR_IDX[d] - _DIR_IDX[player.last_dir])
             diff = min(diff, 8 - diff)
             score -= diff * 2
 
-        # Away from border
         score += min(tile.x, tile.y, w - 1 - tile.x, h - 1 - tile.y, 5)
 
         if score > best_score:
@@ -452,7 +418,6 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
     """Economy mode: harvest nearest ore, opportunistically switch to LOS ore,
     or wander to discover more."""
 
-    # Check current ore target — abort if already harvested
     if player.target is not None:
         if ct.is_in_vision(player.target):
             bid = ct.get_tile_building_id(player.target)
@@ -464,7 +429,6 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
                 elif etype == EntityType.ROAD and ct.can_destroy(player.target):
                     ct.destroy(player.target)
 
-        # Move off ore if standing on it
         if player.target is not None and pos == player.target:
             if ct.get_move_cooldown() == 0:
                 for d in _ALL_DIRS:
@@ -476,25 +440,21 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
                         return
             return
 
-        # Build harvester if adjacent to ore target
         if player.target is not None and pos.distance_squared(player.target) <= 2:
             if ct.get_action_cooldown() == 0 and ct.can_build_harvester(player.target):
                 ct.build_harvester(player.target)
                 print(f"Econ E{ct.get_id()}: built harvester at {player.target}")
                 player.claimed_ore.add(player.target)
                 ore_pos = player.target
-                # Enter bridge mode: connect harvester to core
                 _start_bridge_chain(player, ct, pos, ore_pos)
                 return
-            return  # wait until we can build or ore is claimed
+            return
 
-    # Look for opportunistic ore switches
     has_ore_target = player.target is not None and player.target in player.known_ore
     best_ore = None
     best_ore_dist = 999999
 
     if has_ore_target:
-        # Only switch to visible ore we have line-of-sight to
         walkable = build_walkable(ct)
         walkable.add(pos)
         if not has_line_of_sight(pos, player.target, walkable):
@@ -515,7 +475,6 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
                     best_ore_dist = d
                     best_ore = ore
     else:
-        # No ore target — any visible ore is good enough
         for ore in player.known_ore:
             if ore in player.claimed_ore:
                 continue
@@ -537,7 +496,6 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
         player.target = best_ore
         player.pf_agent.retarget(pos, best_ore)
 
-    # If still no target, pick nearest known unclaimed ore
     if player.target is None:
         best = None
         best_dist = 999999
@@ -555,7 +513,6 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
     if ct.get_move_cooldown() > 0:
         return
 
-    # Pathfind to ore, or wander if no ore known
     if player.target is not None:
         if player.pf_agent.goal != player.target:
             player.pf_agent.retarget(pos, player.target)
@@ -594,21 +551,19 @@ def _scout_out(player: Player, ct: Controller, pos: Position) -> None:
     if not player.path or player.path[-1] != pos:
         player.path.append(pos)
 
-    # Check if we've found the enemy core (detected by _detect_symmetry)
     if player.enemy_core and player.sym_resolved == player.candidate_sym:
         player.target = player.enemy_core
         if ct.is_in_vision(player.enemy_core):
             print(
                 f"Scout {player.scout_idx}: enemy core in sight, entering report phase",
             )
-            player.state = "scout_report"
+            player.state = BuilderState.SCOUT_REPORT
             player.pf_agent.retarget(pos, player.core_pos)
             return
 
     if ct.get_move_cooldown() > 0:
         return
 
-    # Re-target Bug2 if goal changed
     if player.pf_agent.goal != player.target:
         player.pf_agent.retarget(pos, player.target)
 
@@ -623,24 +578,20 @@ def _try_build_launcher(player: Player, ct: Controller, pos: Position) -> bool:
     if ct.get_action_cooldown() > 0:
         return False
 
-    # Don't build if we're already close to core
     if pos.distance_squared(player.core_pos) <= 20:
         return False
 
-    # Don't build if we haven't moved far enough from the last launcher
     if (
         player.last_launcher_pos is not None
         and pos.distance_squared(player.last_launcher_pos) <= 20
     ):
         return False
 
-    # Prefer launcher toward enemy core, marker away from it
     enemy_dir = pos.direction_to(player.enemy_core)
     if enemy_dir == Direction.CENTRE:
         enemy_dir = Direction.NORTH
     enemy_idx = _DIR_IDX[enemy_dir]
 
-    # Try launcher tiles: closest to enemy direction first
     launcher_tile = None
     for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
         d = _ALL_DIRS[(enemy_idx + offset) % 8]
@@ -655,14 +606,13 @@ def _try_build_launcher(player: Player, ct: Controller, pos: Position) -> bool:
     ct.build_launcher(launcher_tile)
     player.last_launcher_pos = launcher_tile
 
-    # Place waypoint marker: prefer opposite direction from enemy (toward core)
     wp_value = encode_waypoint(
         player.core_pos.x,
         player.core_pos.y,
         player.enemy_core.x,
         player.enemy_core.y,
     )
-    core_idx = (enemy_idx + 4) % 8  # opposite direction
+    core_idx = (enemy_idx + 4) % 8
     for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
         d = _ALL_DIRS[(core_idx + offset) % 8]
         wp_tile = pos.add(d)
@@ -681,14 +631,12 @@ def _scout_report(player: Player, ct: Controller, pos: Position) -> None:
     if player.core_pos is None:
         return
 
-    # Write comms if we can (in case we haven't yet)
     if player.sym_resolved and player.enemy_core:
         _write_comms(player, ct, player.sym_resolved, player.enemy_core)
 
-    # Check if we're back at core
     if pos.distance_squared(player.core_pos) <= 2:
         print(f"Scout {player.scout_idx}: returned to core, entering economy")
-        player.state = "economy"
+        player.state = BuilderState.ECONOMY
         player.target = None
         return
 
@@ -699,9 +647,8 @@ def _scout_report(player: Player, ct: Controller, pos: Position) -> None:
     if ct.get_move_cooldown() > 0:
         return
 
-    # Try to build a launcher for a speed boost
     if _try_build_launcher(player, ct, pos):
-        return  # wait for throw next turn
+        return
 
     if player.pf_agent.goal != player.core_pos:
         player.pf_agent.retarget(pos, player.core_pos)
@@ -716,7 +663,6 @@ def run_builder(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     w, h = ct.get_map_width(), ct.get_map_height()
 
-    # Init core position
     if player.core_pos is None:
         my_team = ct.get_team()
         for eid in ct.get_nearby_buildings():
@@ -727,65 +673,58 @@ def run_builder(player: Player, ct: Controller) -> None:
                 player.core_pos = ct.get_position(eid)
                 break
 
-    # Init symmetry candidates
     if player.sym_candidates is None and player.core_pos:
         player.sym_candidates = get_symmetry_candidates(player.core_pos, w, h)
         for s, epos in player.sym_candidates.items():
             if epos == player.core_pos:
                 player.sym_eliminated.add(s)
 
-    # Scan for ore every turn
     _scan_ore(player, ct)
 
-    # Check comms markers for enemy core info from other scouts
     _check_comms(player, ct)
 
-    # Symmetry elimination from vision
     _detect_symmetry(player, ct, pos)
 
-    # Init state on first run — scout_idx was set by _check_comms above
     if player.state is None:
-        player.state = "scout_out"
+        player.state = BuilderState.SCOUT_OUT
         if player.scout_idx < 0 or player.scout_idx >= 3:
             player.scout_idx = player.scout_idx % 3
         player.candidate_sym = SYM_TYPES[player.scout_idx]
         _pick_target(player, pos)
         print(
-            f"Scout {player.scout_idx} (E{ct.get_id()}): assigned [{player.candidate_sym}] "
-            f"target={player.target} elim={player.sym_eliminated}",
+            f"Scout {player.scout_idx} (E{ct.get_id()}): assigned [{player.candidate_sym.value}] "
+            f"target={player.target} elim={{{', '.join(repr(s.value) for s in player.sym_eliminated)}}}",
         )
 
-    # Handle scout target changes
-    if player.state == "scout_out":
+    if player.state == BuilderState.SCOUT_OUT:
         if player.sym_resolved:
             if player.sym_resolved == player.candidate_sym:
                 player.target = player.enemy_core
             else:
                 print(
                     f"Scout {player.scout_idx}: candidate "
-                    f"[{player.candidate_sym}] not needed "
-                    f"(resolved={player.sym_resolved}), going economy",
+                    f"[{player.candidate_sym.value}] not needed "
+                    f"(resolved={player.sym_resolved.value}), going economy",
                 )
-                player.state = "economy"
+                player.state = BuilderState.ECONOMY
                 player.target = None
         elif player.candidate_sym in player.sym_eliminated:
             print(
-                f"Scout {player.scout_idx}: [{player.candidate_sym}] "
+                f"Scout {player.scout_idx}: [{player.candidate_sym.value}] "
                 f"eliminated, going economy",
             )
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
 
-    # Idle -> economy transition
-    if player.state == "idle":
+    if player.state == BuilderState.IDLE:
         pass
 
-    # Run state
-    if player.state == "scout_out":
-        _scout_out(player, ct, pos)
-    elif player.state == "scout_report":
-        _scout_report(player, ct, pos)
-    elif player.state == "bridge":
-        _bridge(player, ct, pos)
-    elif player.state == "economy":
-        _economy(player, ct, pos)
+    match player.state:
+        case BuilderState.SCOUT_OUT:
+            _scout_out(player, ct, pos)
+        case BuilderState.SCOUT_REPORT:
+            _scout_report(player, ct, pos)
+        case BuilderState.BRIDGE:
+            _bridge(player, ct, pos)
+        case BuilderState.ECONOMY:
+            _economy(player, ct, pos)

@@ -9,6 +9,7 @@ from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
     PHASE_FOUND,
     SYM_TYPES,
+    Symmetry,
     comms_tiles,
     encode_comms,
     get_symmetry_candidates,
@@ -49,7 +50,7 @@ def _read_comms(player: Player, ct: Controller, pos: Position) -> None:
         player.sym_resolved = sym
         player.enemy_core = epos
         player.core_phase = max(player.core_phase, phase)
-        print(f"Core: enemy at {epos} [{sym}] phase={phase}")
+        print(f"Core: enemy at {epos} [{sym.value}] phase={phase}")
 
 
 def _eliminate_symmetry(
@@ -76,10 +77,10 @@ def _eliminate_symmetry(
 
 
 def _write_comms(player: Player, ct: Controller, pos: Position) -> None:
-    sym_name = player.sym_resolved or "unknown"
+    sym = player.sym_resolved
     ex = player.enemy_core.x if player.enemy_core else 0
     ey = player.enemy_core.y if player.enemy_core else 0
-    value = encode_comms(sym_name, player.core_phase, ex, ey, player.spawned)
+    value = encode_comms(sym, player.core_phase, ex, ey, player.spawned)
     has_current = False
     for tile in comms_tiles(ct, pos):
         bid = ct.get_tile_building_id(tile)
@@ -111,7 +112,7 @@ def _debug_output(player: Player, ct: Controller, _rnd: int) -> None:
 def _spawn_initial(player: Player, ct: Controller, pos: Position) -> None:
     """Spawn first builders. First 3 toward enemy core, rest at cardinal offsets."""
     enemy_pos = player.enemy_core or (
-        player.sym_candidates["rotational"] if player.sym_candidates else None
+        player.sym_candidates[Symmetry.ROTATIONAL] if player.sym_candidates else None
     )
     if enemy_pos is None:
         return

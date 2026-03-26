@@ -19,7 +19,22 @@ Marker protocol for symmetry type:
   Only 2 bits needed since there are only 3 possible symmetry types.
 """
 
+from enum import Enum
+
 from cambc import Controller, Direction, EntityType, Environment, Position
+
+
+class Phase(Enum):
+    EXPLORE = "explore"
+    LAY_CONVEYORS = "lay_conveyors"
+    BROADCAST = "broadcast"
+
+
+class Symmetry(Enum):
+    ROTATIONAL = "rotational"
+    HORIZONTAL = "horizontal"
+    VERTICAL = "vertical"
+
 
 CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 ALL_DIRS = [d for d in Direction if d != Direction.CENTRE]
@@ -35,8 +50,12 @@ SECTOR_DIRS = [
     Direction.NORTHWEST,
 ]
 
-SYM_NAMES = ["rotational", "horizontal", "vertical", "unknown"]
-SYM_INDEX = {name: i for i, name in enumerate(SYM_NAMES)}
+SYM_NAMES: tuple[Symmetry, ...] = (
+    Symmetry.ROTATIONAL,
+    Symmetry.HORIZONTAL,
+    Symmetry.VERTICAL,
+)
+SYM_INDEX: dict[Symmetry, int] = {sym: i for i, sym in enumerate(SYM_NAMES)}
 SYM_UNKNOWN = 3
 
 # Offsets from core centre for candidate comms tiles (outside 3x3, within action r^2=8)
@@ -184,40 +203,39 @@ def clean_path(path: list[Position]) -> list[Position]:
 # ── Symmetry helpers ─────────────────────────────────────────────────
 
 
-def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[str, Position]:
-    """Return the 3 possible enemy core positions, one per symmetry type."""
+def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[Symmetry, Position]:
     cx, cy = core.x, core.y
     return {
-        "rotational": Position(w - 1 - cx, h - 1 - cy),
-        "horizontal": Position(w - 1 - cx, cy),
-        "vertical": Position(cx, h - 1 - cy),
+        Symmetry.ROTATIONAL: Position(w - 1 - cx, h - 1 - cy),
+        Symmetry.HORIZONTAL: Position(w - 1 - cx, cy),
+        Symmetry.VERTICAL: Position(cx, h - 1 - cy),
     }
 
 
-def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
+def mirror_pos(pos: Position, sym: Symmetry, w: int, h: int) -> Position:
     x, y = pos.x, pos.y
-    if sym == "rotational":
-        return Position(w - 1 - x, h - 1 - y)
-    if sym == "horizontal":
-        return Position(w - 1 - x, y)
-    # vertical
-    return Position(x, h - 1 - y)
+    match sym:
+        case Symmetry.ROTATIONAL:
+            return Position(w - 1 - x, h - 1 - y)
+        case Symmetry.HORIZONTAL:
+            return Position(w - 1 - x, y)
+        case Symmetry.VERTICAL:
+            return Position(x, h - 1 - y)
 
 
-def encode_symmetry(sym_name: str) -> int:
-    """Encode symmetry type as a 2-bit marker value."""
-    return SYM_INDEX[sym_name]
+def encode_symmetry(sym: Symmetry) -> int:
+    return SYM_INDEX[sym]
 
 
-def decode_symmetry(value: int) -> str:
-    """Decode symmetry type from marker value."""
+def decode_symmetry(value: int) -> Symmetry | None:
     idx = value & 0x3
-    return SYM_NAMES[idx]
+    if idx < len(SYM_NAMES):
+        return SYM_NAMES[idx]
+    return None
 
 
-def resolve_enemy_core(core_pos: Position, sym_name: str, w: int, h: int) -> Position:
-    """Given our core position and the symmetry type, compute enemy core position."""
-    return mirror_pos(core_pos, sym_name, w, h)
+def resolve_enemy_core(core_pos: Position, sym: Symmetry, w: int, h: int) -> Position:
+    return mirror_pos(core_pos, sym, w, h)
 
 
 def get_comms_candidates(ct: Controller, core_pos: Position) -> list[Position]:
@@ -231,9 +249,7 @@ def get_comms_candidates(ct: Controller, core_pos: Position) -> list[Position]:
     return result
 
 
-def read_comms_marker(ct: Controller, marker_pos: Position) -> str | None:
-    """Read the symmetry type from the team comms marker at a known position.
-    Returns the symmetry name, or None if no marker exists there."""
+def read_comms_marker(ct: Controller, marker_pos: Position) -> Symmetry | None:
     bid = ct.get_tile_building_id(marker_pos)
     if bid is None:
         return None
@@ -254,7 +270,7 @@ class Player:
         self.comms_tile: Position | None = None  # current comms marker tile
         self.comms_candidates: list[Position] = []  # all valid comms tile candidates
         self.comms_idx = 0  # index into comms_candidates
-        self.phase = "explore"  # explore | lay_conveyors | broadcast
+        self.phase: Phase = Phase.EXPLORE
         self.sector: Direction | None = None
         self.path: list[Position] = []
         self.return_path: list[Position] = []
@@ -265,9 +281,9 @@ class Player:
         self.explore_stale = 0
 
         # Symmetry detection state
-        self.sym_candidates: dict[str, Position] | None = None
-        self.sym_eliminated: set[str] = set()
-        self.sym_resolved: str | None = None  # the winning symmetry name
+        self.sym_candidates: dict[Symmetry, Position] | None = None
+        self.sym_eliminated: set[Symmetry] = set()
+        self.sym_resolved: Symmetry | None = None
         self.enemy_core: Position | None = None
         self.known_env: dict[Position, Environment] = {}
         self.learned_from_marker = (
@@ -323,11 +339,11 @@ class Player:
         if self.sym_resolved is None:
             for candidate in self.comms_candidates:
                 sym = read_comms_marker(ct, candidate)
-                if sym is not None and sym != "unknown":
+                if sym is not None:
                     self.sym_resolved = sym
                     self.enemy_core = resolve_enemy_core(pos, sym, w, h)
                     print(
-                        f"Core learned: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{sym}]",
+                        f"Core learned: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{sym.value}]",
                     )
                     break
 
@@ -356,7 +372,7 @@ class Player:
                 self.sym_resolved = remaining[0]
                 self.enemy_core = self.sym_candidates[remaining[0]]
                 print(
-                    f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                    f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved.value}]",
                 )
             elif len(remaining) > 1:
                 positions = {self.sym_candidates[s] for s in remaining}
@@ -364,12 +380,11 @@ class Player:
                     self.sym_resolved = remaining[0]
                     self.enemy_core = positions.pop()
                     print(
-                        f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                        f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved.value}]",
                     )
 
-        # Place/refresh comms marker every round
-        if self.comms_tile is not None:
-            value = encode_symmetry(self.sym_resolved or "unknown")
+        if self.comms_tile is not None and self.sym_resolved is not None:
+            value = encode_symmetry(self.sym_resolved)
             if ct.can_place_marker(self.comms_tile):
                 ct.place_marker(self.comms_tile, value)
 
@@ -434,25 +449,28 @@ class Player:
                 if pos.distance_squared(candidate) <= 2:
                     if ct.can_place_marker(candidate):
                         ct.place_marker(candidate, encode_symmetry(self.sym_resolved))
-                        print(f"Broadcast: wrote [{self.sym_resolved}] to comms tile")
+                        print(
+                            f"Broadcast: wrote [{self.sym_resolved.value}] to comms tile",
+                        )
                         self.has_broadcast = True
                         break
 
         # Switch to broadcast phase if we detected symmetry during explore
         if (
-            self.phase == "explore"
+            self.phase == Phase.EXPLORE
             and self.sym_resolved
             and not self.learned_from_marker
             and not self.has_broadcast
         ):
             self._start_broadcast(pos)
 
-        if self.phase == "explore":
-            self._explore(ct, pos)
-        elif self.phase == "lay_conveyors":
-            self._lay_conveyors(ct, pos)
-        elif self.phase == "broadcast":
-            self._broadcast(ct, pos)
+        match self.phase:
+            case Phase.EXPLORE:
+                self._explore(ct, pos)
+            case Phase.LAY_CONVEYORS:
+                self._lay_conveyors(ct, pos)
+            case Phase.BROADCAST:
+                self._broadcast(ct, pos)
 
     # ── Symmetry detection ────────────────────────────────────────────
 
@@ -470,10 +488,10 @@ class Player:
         for candidate in self.comms_candidates:
             if ct.is_in_vision(candidate):
                 sym = read_comms_marker(ct, candidate)
-                if sym is not None and sym != "unknown":
+                if sym is not None:
                     self.sym_resolved = sym
                     self.enemy_core = resolve_enemy_core(self.core_pos, sym, w, h)
-                    self.comms_tile = candidate  # track where the marker actually is
+                    self.comms_tile = candidate
                     self.learned_from_marker = True
                     return
 
@@ -501,7 +519,7 @@ class Player:
                     ):
                         self.sym_resolved = s
                         self.enemy_core = epos
-                        print(f"Enemy core at ({epos.x},{epos.y}) [{s}]")
+                        print(f"Enemy core at ({epos.x},{epos.y}) [{s.value}]")
                         return
                     self.sym_eliminated.add(s)
                 else:
@@ -543,17 +561,16 @@ class Player:
             self.sym_resolved = remaining[0]
             self.enemy_core = self.sym_candidates[remaining[0]]
             print(
-                f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved.value}]",
             )
             return True
         if len(remaining) > 1:
             positions = {self.sym_candidates[s] for s in remaining}
             if len(positions) == 1:
-                # All remaining symmetries agree on the same position
-                self.sym_resolved = remaining[0]  # pick any, they all give same answer
+                self.sym_resolved = remaining[0]
                 self.enemy_core = positions.pop()
                 print(
-                    f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                    f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved.value}]",
                 )
                 return True
         return False
@@ -569,7 +586,7 @@ class Player:
         self.return_path = list(reversed(cleaned))
         self.return_idx = 0
         self.stuck_turns = 0
-        self.phase = "broadcast"
+        self.phase = Phase.BROADCAST
 
     def _broadcast(self, ct: Controller, pos: Position) -> None:
         """Retrace explore path back to core to deliver symmetry info."""
@@ -699,7 +716,7 @@ class Player:
         self.return_idx = 0
         self.stuck_turns = 0
         self.harvester_dir = harvester_dir
-        self.phase = "lay_conveyors"
+        self.phase = Phase.LAY_CONVEYORS
 
     def _lay_conveyors(self, ct: Controller, pos: Position) -> None:
         while self.return_idx < len(self.return_path):
@@ -774,7 +791,7 @@ class Player:
                 self.stuck_turns = 0
 
     def _finish_return(self) -> None:
-        self.phase = "explore"
+        self.phase = Phase.EXPLORE
         self.path = []
         self.return_path = []
         self.return_idx = 0

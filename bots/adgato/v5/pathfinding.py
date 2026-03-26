@@ -4,7 +4,7 @@ All functions operate on Position (NamedTuple) and Direction (Enum)
 from the cambc engine, avoiding raw tuple/int-index overhead.
 """
 
-from cambc import Direction, Position, GameConstants
+from cambc import Direction, GameConstants, Position
 
 # ── Direction utilities ─────────────────────────────────────────────
 
