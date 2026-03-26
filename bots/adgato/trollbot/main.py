@@ -42,6 +42,7 @@ class Player:
         self.bridge_target: Position | None = None
         self.launcher_target: Position | None = None
         self.launcher_failed: Position | None = None
+        self.heal_target: Position | None = None
         self.nearest_ore: Position | None = None
         self.small_map: bool = False
         self.pos_history: list[Position] = []
