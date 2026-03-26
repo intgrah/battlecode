@@ -3,7 +3,6 @@
 from collections import deque
 
 from cambc import EntityType, Environment
-
 from util import DELTA_TO_DIR, DIR4_DELTA, TRANSPORT
 
 from .state import FlowState, State

@@ -3,7 +3,7 @@
 from cambc import Direction, EntityType, Environment
 from util import WALKABLE_BUILDINGS
 
-from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State
+from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State, Symmetry
 
 
 def walkable(state: State, x: int, y: int) -> int:
@@ -41,7 +41,6 @@ def is_unseen(state: State, x: int, y: int) -> bool:
 
 
 def mirror(state: State, x: int, y: int) -> tuple[int, int]:
-    from .state import Symmetry
 
     match state.symmetry:
         case Symmetry.ROT:

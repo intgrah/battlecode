@@ -15,7 +15,10 @@ DIR8 = [
 DIR8_DELTA = [c.delta() for c in DIR8]
 
 BRIDGE_DELTAS = [
-    (dx, dy) for dx in range(-3, 4) for dy in range(-3, 4) if 2 < dx * dx + dy * dy <= 9
+    (dx, dy)
+    for dx in range(-3, 4)
+    for dy in range(-3, 4)
+    if 0 < dx * dx + dy * dy <= 9 and abs(dx) + abs(dy) != 1
 ]
 
 DELTA_TO_DIR = {
