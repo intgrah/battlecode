@@ -1470,7 +1470,7 @@ def _suicide(player: Player, ct: Controller, pos: Position) -> None:
             and rnd - player.tile_resource_seen.get(pos, -999) <= 5
         ):
             print(f"Suicide E{ct.get_id()}: self-destructing on {pos_etype} at {pos}")
-            ct.self_destruct()
+            if ct.can_fire(pos): ct.fire(pos)
             return
 
     enemy = player.enemy_core
