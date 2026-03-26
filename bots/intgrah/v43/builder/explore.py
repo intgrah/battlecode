@@ -1,3 +1,14 @@
+"""Expanding-ring exploration.
+
+Maintains a Chebyshev-distance ring centered on the core. The ring
+advances (by 3) when all perimeter tiles have been seen. The builder
+navigates to a random unseen tile on the ring's frontier.
+
+Commitment: once a target is picked, it persists until the tile is seen
+(builder walks close enough for it to enter vision). This prevents
+oscillation between candidates.
+"""
+
 from random import Random
 
 from cambc import Controller, Direction, Position
@@ -7,16 +18,6 @@ from .build import Action
 
 
 class ExploreMixin(BuilderBase):
-    """Expanding-ring exploration.
-
-    Maintains a Chebyshev-distance ring centered on the core. The ring
-    advances when all perimeter tiles have been seen. The builder navigates
-    to a random unseen tile on the ring's frontier.
-
-    Commitment: once a target is picked, it persists until the tile is seen
-    (builder walks close enough for it to enter vision). This prevents
-    oscillation between candidates.
-    """
 
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)

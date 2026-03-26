@@ -1,7 +1,9 @@
-"""
-SELF DESTRUCT DAMAGE FROM BUILDERS WAS REMOVED. RAIDING SHOULD NOT USE SELF DESTRUCT ANYMORE.
+"""Raid enemy transport by walking onto it and attacking.
 
-TODO: USE ACTUAL ATTACK STRATS, NOT SELF DESTRUCTION.
+The builder navigates to the highest-flow enemy transport tile, walks onto
+it, and uses the attack action (2 Ti for 2 damage). Targets conveyors,
+bridges, and splitters. Self-destruct damage was removed in the balance
+patch — only the attack action works now.
 """
 
 from cambc import Controller, Direction, EntityType, Position
