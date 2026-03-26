@@ -8,12 +8,13 @@ class Core(Entity):
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
         self.spawned = 0
+        self.max_builders = 2
 
     def run(self, ct: Controller) -> None:
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
         h_cost, _ = ct.get_harvester_cost()
-        if self.spawned >= 5:
+        if self.spawned >= self.max_builders:
             return
         multiplier = 3.0 + self.spawned * 0.5
         if ti >= cost * multiplier + h_cost:
