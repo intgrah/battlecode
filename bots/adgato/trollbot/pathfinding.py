@@ -251,7 +251,10 @@ def bug2_step(agent: AgentState, pos, walkable):
             # Fall through to non-tracing
         else:
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable,
+                current,
+                agent.tracing_dir,
+                agent.trace_left,
+                walkable,
             )
             if next_pos is None:
                 return current  # stuck
@@ -331,7 +334,10 @@ def bug2_step(agent: AgentState, pos, walkable):
             agent.prev_target = target
 
         next_cell, blocked, agent.line_state = _step_along_line(
-            current, target, walkable, agent.line_state,
+            current,
+            target,
+            walkable,
+            agent.line_state,
         )
 
         if blocked is not None:
@@ -348,7 +354,10 @@ def bug2_step(agent: AgentState, pos, walkable):
                 agent.trace_left = left_diff <= right_diff
 
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable,
+                current,
+                agent.tracing_dir,
+                agent.trace_left,
+                walkable,
             )
             agent.is_tracing = True
         else:
