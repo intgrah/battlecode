@@ -15,15 +15,16 @@ def run_launcher(_player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     my_team = ct.get_team()
 
+    print("running launcher")
+
     for uid in ct.get_nearby_units():
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
         if ct.get_team(uid) == my_team:
             continue
         bp = ct.get_position(uid)
-        if bp.distance_squared(pos) > 2:
-            continue
 
+        print(f"bot found at {bp}")
         best = None
         best_dist = 0
         for tile in ct.get_nearby_tiles():
@@ -39,4 +40,4 @@ def run_launcher(_player: Player, ct: Controller) -> None:
 
         if best is not None:
             ct.launch(bp, best)
-        return
+            return

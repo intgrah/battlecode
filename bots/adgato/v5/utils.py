@@ -100,12 +100,7 @@ def build_walkable(ct: Controller) -> set:
                 continue
             if etype == EntityType.CORE and eteam != my_team:
                 continue
-            if (
-                etype == EntityType.MARKER
-                and eteam == my_team
-                and not is_waypoint_marker(ct.get_marker_value(bid))
-            ):
-                continue
+
         walkable.add(tile)
     return walkable
 
