@@ -1,5 +1,6 @@
 """Run bug2 on a specific case and generate debug frames in frames/."""
-from bug2 import load_map, bug2, dijkstra
+
+from bug2 import bug2, dijkstra, load_map
 
 img, walkable, w, h = load_map("testmap3.png")
 s, g = (8, 7), (12, 16)
@@ -12,5 +13,6 @@ path, reached = bug2(s, g, walkable, debug_img=(img, w, h))
 print(f"Bug2: {len(path) - 1} steps, reached={reached}")
 
 import os
+
 frames = sorted(os.listdir("frames"))
 print(f"Generated {len(frames)} frames in frames/")

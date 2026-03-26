@@ -3,7 +3,6 @@
 import random
 
 from cambc import Controller, EntityType
-
 from utils import king_dist
 
 
@@ -57,7 +56,12 @@ def run_launcher(player, ct: Controller) -> None:
             # Find enemy conveyor we can launch onto
             for bid in ct.get_nearby_buildings():
                 etype = ct.get_entity_type(bid)
-                if etype not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER, EntityType.BRIDGE):
+                if etype not in (
+                    EntityType.CONVEYOR,
+                    EntityType.ARMOURED_CONVEYOR,
+                    EntityType.SPLITTER,
+                    EntityType.BRIDGE,
+                ):
                     continue
                 if ct.get_team(bid) == my_team:
                     continue

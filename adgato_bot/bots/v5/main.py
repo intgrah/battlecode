@@ -13,20 +13,19 @@ candidates are eliminated go idle.
 Phases 2-3 (Assault, Economy): not yet implemented.
 """
 
-from cambc import Controller, Direction, EntityType, Environment, Position
-
-from utils import (
-    SYM_TYPES, PHASE_SCOUTING,
-    get_symmetry_candidates,
-)
-from pathfinding import AgentState
-from core import run_core
 from builder import run_builder
+from cambc import Controller, Direction, EntityType, Environment, Position
+from core import run_core
 from launcher import run_launcher
+from pathfinding import AgentState
+from utils import (
+    PHASE_SCOUTING,
+    SYM_TYPES,
+)
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         # Shared
         self.core_pos: Position | None = None
         self.enemy_core: Position | None = None
@@ -48,13 +47,19 @@ class Player:
         self.path: list[Position] = []
         self.visited: set[Position] = set()
         self.comms_written = False
-        self.built_launcher = False  # True after building a launcher (wait to be thrown)
+        self.built_launcher = (
+            False  # True after building a launcher (wait to be thrown)
+        )
         self.last_launcher_pos: Position | None = None
 
         # Economy
         self.known_ore: set[Position] = set()  # ore tiles seen by this builder
-        self.claimed_ore: set[Position] = set()  # ore tiles we've already harvested/skipped
-        self.last_dir: Direction | None = None  # last move direction (for wander momentum)
+        self.claimed_ore: set[Position] = (
+            set()
+        )  # ore tiles we've already harvested/skipped
+        self.last_dir: Direction | None = (
+            None  # last move direction (for wander momentum)
+        )
         self.bridge_target: Position | None = None  # where to place next bridge
 
         # Bug2 pathfinding
@@ -83,7 +88,7 @@ class Player:
             self.enemy_core = resolved_pos
             print(
                 f"{tag}: resolved [{resolved_sym}] -> "
-                f"({resolved_pos.x},{resolved_pos.y})"
+                f"({resolved_pos.x},{resolved_pos.y})",
             )
             return True
         return False

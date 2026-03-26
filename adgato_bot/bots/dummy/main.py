@@ -7,13 +7,13 @@ Exists so v5 has something to run against.
 
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Position
 
 DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:
@@ -45,7 +45,9 @@ class Player:
                         if ct.can_destroy(pos):
                             ct.destroy(pos)
                         ct.move(d)
-                        print(f"Build at move source after move: {ct.can_build_road(pos)}")
+                        print(
+                            f"Build at move source after move: {ct.can_build_road(pos)}",
+                        )
                         return
                     target = pos.add(d)
                     if ct.get_action_cooldown() == 0 and ct.can_build_road(target):
@@ -62,7 +64,7 @@ class Player:
         pos = ct.get_position()
         tiles = ct.get_nearby_tiles()
         # Sort by distance descending, pick the farthest tile we can place a marker on
-        tiles.sort(key=lambda t: pos.distance_squared(t), reverse=True)
+        tiles.sort(key=pos.distance_squared, reverse=True)
         for tile in tiles:
             if ct.can_place_marker(tile):
                 value = random.getrandbits(32)

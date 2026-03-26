@@ -1,11 +1,25 @@
 """Compare bug2: old find_detour_target (all perimeter) vs new (two adjacent dirs)."""
+
 import random
 import time
-from bug2 import (load_map, bug2, dijkstra, dist, direction_to,
-                  step_along_line, create_thin_line, visible_from,
-                  furthest_visible_on_line, create_line,
-                  can_move, move, rotate_left, rotate_right,
-                  _simulate_trace, VISION_PERIMETER, DIRS)
+
+from bug2 import (
+    VISION_PERIMETER,
+    _simulate_trace,
+    bug2,
+    can_move,
+    create_line,
+    create_thin_line,
+    dijkstra,
+    dist,
+    furthest_visible_on_line,
+    load_map,
+    move,
+    rotate_left,
+    rotate_right,
+    step_along_line,
+    visible_from,
+)
 
 bug2_new = bug2
 
@@ -30,7 +44,6 @@ def find_detour_target_old(pos, goal, walkable):
 
 def bug2_old(start, goal, walkable, max_steps=5000):
     """bug2 with old find_detour_target (all perimeter cells)."""
-    line_set = set()
     path = [start]
     current = start
     prev = None
@@ -65,18 +78,40 @@ def bug2_old(start, goal, walkable, max_steps=5000):
                 is_tracing = True
                 obstacle_start_dist = dist(current, goal)
                 tracing_dir = blocked
-                line_set, _ = create_line(goal, current)
+                _line_set, _ = create_line(goal, current)
                 vision = visible_from(current)
                 left_steps, left_end = _simulate_trace(
-                    current, blocked, True, walkable, vision)
+                    current,
+                    blocked,
+                    True,
+                    walkable,
+                    vision,
+                )
                 right_steps, right_end = _simulate_trace(
-                    current, blocked, False, walkable, vision)
+                    current,
+                    blocked,
+                    False,
+                    walkable,
+                    vision,
+                )
                 sim_steps = min(left_steps, right_steps)
                 if sim_steps > 0:
                     _, left_end = _simulate_trace(
-                        current, blocked, True, walkable, vision, sim_steps)
+                        current,
+                        blocked,
+                        True,
+                        walkable,
+                        vision,
+                        sim_steps,
+                    )
                     _, right_end = _simulate_trace(
-                        current, blocked, False, walkable, vision, sim_steps)
+                        current,
+                        blocked,
+                        False,
+                        walkable,
+                        vision,
+                        sim_steps,
+                    )
                     trace_left = dist(left_end, goal) <= dist(right_end, goal)
                 else:
                     trace_left = True
@@ -118,12 +153,12 @@ def bug2_old(start, goal, walkable, max_steps=5000):
     return path, current == goal
 
 
-def run_comparison(map_path, num_trials=5000, seed=42):
-    print(f"\n{'='*60}")
+def run_comparison(map_path, num_trials=5000, seed=42) -> None:
+    print(f"\n{'=' * 60}")
     print(f"Map: {map_path}  |  Trials: {num_trials}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
-    img, walkable, w, h = load_map(map_path)
+    _img, walkable, _w, _h = load_map(map_path)
     walkable_list = list(walkable)
     rng = random.Random(seed)
 

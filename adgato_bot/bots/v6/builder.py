@@ -1,13 +1,16 @@
 """Builder bot unit logic for v5."""
 
 from cambc import Controller, Direction, EntityType, Environment, Position
-
-from pathfinding import bug2_step, has_line_of_sight, _ALL_DIRS, _DIR_IDX
+from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step, has_line_of_sight
 from utils import (
     SYM_TYPES,
-    get_symmetry_candidates, mirror_pos,
+    build_walkable,
+    get_symmetry_candidates,
+    in_bounds,
+    king_dist,
+    mirror_pos,
     read_comms,
-    king_dist, in_bounds, try_move_smart, build_walkable,
+    try_move_smart,
 )
 
 
@@ -17,24 +20,23 @@ def _is_buildable(ct: Controller, tile: Position) -> bool:
     if env == Environment.EMPTY:
         return True
     bid = ct.get_tile_building_id(tile)
-    if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER:
-        return True
-    return False
+    return bool(bid is not None and ct.get_entity_type(bid) == EntityType.MARKER)
 
 
 # ── Comms ─────────────────────────────────────────────────────────────
 
+
 def _check_comms(player, ct: Controller) -> None:
     if player.core_pos is None:
         return
-    sym, phase, epos, _ = read_comms(ct, player.core_pos)
+    sym, _phase, epos, _ = read_comms(ct, player.core_pos)
     if sym is not None and player.enemy_core is None:
         player.sym_resolved = sym
         player.enemy_core = epos
 
 
-
 # ── Symmetry detection ───────────────────────────────────────────────
+
 
 def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
     if player.sym_resolved:
@@ -60,10 +62,11 @@ def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
             ):
                 player.sym_resolved = s
                 player.enemy_core = epos
-                print(f"Scout {ct.get_id()}: FOUND enemy core at ({epos.x},{epos.y}) [{s}]")
+                print(
+                    f"Scout {ct.get_id()}: FOUND enemy core at ({epos.x},{epos.y}) [{s}]",
+                )
                 return
-            else:
-                player.sym_eliminated.add(s)
+            player.sym_eliminated.add(s)
         else:
             # No building at candidate centre — core is 3x3 so also
             # check tiles within 1 of the candidate for the core
@@ -74,20 +77,19 @@ def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
                     if not ct.is_in_vision(cp):
                         continue
                     cbid = ct.get_tile_building_id(cp)
-                    if cbid is not None:
-                        if (
-                            ct.get_entity_type(cbid) == EntityType.CORE
-                            and ct.get_team(cbid) != my_team
-                        ):
-                            actual_pos = ct.get_position(cbid)
-                            player.sym_resolved = s
-                            player.enemy_core = actual_pos
-                            print(
-                                f"Scout {ct.get_id()}: FOUND enemy core at "
-                                f"({actual_pos.x},{actual_pos.y}) [{s}]"
-                            )
-                            found_core = True
-                            break
+                    if cbid is not None and (
+                        ct.get_entity_type(cbid) == EntityType.CORE
+                        and ct.get_team(cbid) != my_team
+                    ):
+                        actual_pos = ct.get_position(cbid)
+                        player.sym_resolved = s
+                        player.enemy_core = actual_pos
+                        print(
+                            f"Scout {ct.get_id()}: FOUND enemy core at "
+                            f"({actual_pos.x},{actual_pos.y}) [{s}]",
+                        )
+                        found_core = True
+                        break
                 if found_core:
                     break
             if found_core:
@@ -112,6 +114,7 @@ def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
 
 
 # ── Pathfinding helpers ──────────────────────────────────────────────
+
 
 def _pf_draw_debug(player, ct: Controller, walkable: set) -> None:
     """Draw debug indicators for Bug2 pathfinding state."""
@@ -181,7 +184,7 @@ def _pf_step(player, ct: Controller, pos: Position) -> bool:
     next_pos = bug2_step(player.pf_agent, pos, walkable, occupied)
 
     # Debug indicators
-    #_pf_draw_debug(player, ct, walkable)
+    # _pf_draw_debug(player, ct, walkable)
 
     if next_pos == pos:
         player.pf_stuck += 1
@@ -198,7 +201,7 @@ def _pf_step(player, ct: Controller, pos: Position) -> bool:
     if try_move_smart(ct, pos, direction):
         player.pf_agent.current = next_pos
         player.last_dir = direction
-        if next_pos == player.pf_prev_pos or next_pos == player.pf_prev_pos2 or next_pos == player.pf_prev_pos3:
+        if next_pos in (player.pf_prev_pos, player.pf_prev_pos2, player.pf_prev_pos3):
             player.pf_stuck += 1
         else:
             player.pf_stuck = max(0, player.pf_stuck - 1)
@@ -215,11 +218,12 @@ def _pf_step(player, ct: Controller, pos: Position) -> bool:
 
 # ── Ore scanning (runs every turn for all builders) ──────────────────
 
+
 def _scan_ore(player, ct: Controller) -> None:
     """Record any ore tiles visible this turn."""
     for tile in ct.get_nearby_tiles():
         env = ct.get_tile_env(tile)
-        if env == Environment.ORE_TITANIUM or env == Environment.ORE_AXIONITE:
+        if env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             player.known_ore.add(tile)
 
 
@@ -228,13 +232,18 @@ def _scan_ore(player, ct: Controller) -> None:
 
 # ── Bridge chain ────────────────────────────────────────────────────
 
-def _start_bridge_chain(player, ct: Controller, pos: Position, source_pos: Position) -> None:
+
+def _start_bridge_chain(
+    player,
+    ct: Controller,
+    pos: Position,
+    source_pos: Position,
+) -> None:
     """Enter bridge state: pick first bridge tile adjacent to source, closest to core."""
 
     print(f"Looking for bridges. core: {player.core_pos}")
     if player.core_pos is None:
         return
-
 
     best = None
     best_dist = 999999
@@ -251,7 +260,10 @@ def _start_bridge_chain(player, ct: Controller, pos: Position, source_pos: Posit
         if bid is not None:
             etype = ct.get_entity_type(bid)
             friendly = ct.get_team() == ct.get_team(bid)
-            if not (friendly and etype == EntityType.ROAD) and etype != EntityType.MARKER:
+            if (
+                not (friendly and etype == EntityType.ROAD)
+                and etype != EntityType.MARKER
+            ):
                 continue
         dist = king_dist(bp, player.core_pos)
         if dist < best_dist:
@@ -283,16 +295,17 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
             if ct.get_team(bid) == my_team:
                 has_friendly_bridge = True
                 break
-            else:
-                has_enemy_bridge = True
+            has_enemy_bridge = True
     if has_enemy_bridge and not has_friendly_bridge:
-        print(f"Bridge E{ct.get_id()}: no friendly bridge but enemy bridge visible, entering suicide")
+        print(
+            f"Bridge E{ct.get_id()}: no friendly bridge but enemy bridge visible, entering suicide",
+        )
         player.state = "suicide"
         player.state_seen_enemy = False
         player.target = None
         player.bridge_target = None
         return
-    
+
     # If bridge_target already has a bridge, chain is connected — return to economy
     bt = player.bridge_target
     if ct.is_in_vision(bt):
@@ -337,14 +350,15 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
                     continue
                 tbid = ct.get_tile_building_id(t)
 
-
                 if tbid is not None:
-
                     if not _is_buildable(ct, t):
                         continue
 
                     # Core tile?
-                    if ct.get_entity_type(tbid) == EntityType.CORE and ct.get_team(tbid) == ct.get_team():
+                    if (
+                        ct.get_entity_type(tbid) == EntityType.CORE
+                        and ct.get_team(tbid) == ct.get_team()
+                    ):
                         if core_target is None:
                             core_target = t
                         continue
@@ -364,7 +378,12 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
                         splitter_dist = td
 
                     # Existing friendly bridge closer to core?
-                    elif can_patch and etype == EntityType.BRIDGE and friendly and td < bridge_shortcut_dist:
+                    elif (
+                        can_patch
+                        and etype == EntityType.BRIDGE
+                        and friendly
+                        and td < bridge_shortcut_dist
+                    ):
                         bridge_shortcut = t
                         bridge_shortcut_dist = td
 
@@ -379,25 +398,39 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
         # Priority 1: bridge to nearest splitter
         if splitter_target is not None and ct.can_build_bridge(bt, splitter_target):
             ct.build_bridge(bt, splitter_target)
-            print(f"Bridge E{ct.get_id()}: built at {bt} -> {splitter_target} (splitter)")
+            print(
+                f"Bridge E{ct.get_id()}: built at {bt} -> {splitter_target} (splitter)",
+            )
             player.state = "idle"
             player.bridge_target = None
             _pf_step(player, ct, pos)
             return
 
         # Priority 2: direct to core (if no splitters)
-        if splitter_target is None and core_target is not None and ct.can_build_bridge(bt, core_target):
+        if (
+            splitter_target is None
+            and core_target is not None
+            and ct.can_build_bridge(bt, core_target)
+        ):
             ct.build_bridge(bt, core_target)
-            print(f"Bridge E{ct.get_id()}: built at {bt} -> {core_target} (direct to core)")
+            print(
+                f"Bridge E{ct.get_id()}: built at {bt} -> {core_target} (direct to core)",
+            )
             player.state = "idle"
             player.bridge_target = None
             _pf_step(player, ct, pos)
             return
 
         # Priority 3: shortcut to existing bridge
-        if can_patch and bridge_shortcut is not None and ct.can_build_bridge(bt, bridge_shortcut):
+        if (
+            can_patch
+            and bridge_shortcut is not None
+            and ct.can_build_bridge(bt, bridge_shortcut)
+        ):
             ct.build_bridge(bt, bridge_shortcut)
-            print(f"Bridge E{ct.get_id()}: built at {bt} -> {bridge_shortcut} (shortcut)")
+            print(
+                f"Bridge E{ct.get_id()}: built at {bt} -> {bridge_shortcut} (shortcut)",
+            )
             player.state = "economy"
             player.target = None
             player.bridge_target = None
@@ -436,6 +469,7 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
 
 # ── Wander ──────────────────────────────────────────────────────────
 
+
 def _wander(player, ct: Controller, pos: Position) -> None:
     """Wander without a target: prefer away from friendly builders, maintain
     momentum from last step, and stay away from map borders."""
@@ -465,7 +499,9 @@ def _wander(player, ct: Controller, pos: Position) -> None:
     for d in _ALL_DIRS:
         tile = pos.add(d)
 
-        if not in_bounds(ct, tile) or not ct.can_move(d) and ct.get_tile_env(tile) != Environment.EMPTY:
+        if not in_bounds(ct, tile) or (
+            not ct.can_move(d) and ct.get_tile_env(tile) != Environment.EMPTY
+        ):
             continue
 
         # Away from friendly builders
@@ -492,9 +528,15 @@ def _wander(player, ct: Controller, pos: Position) -> None:
                 player.last_dir = d
                 break
 
+
 def _has_adjacent_gunner(ct: Controller, tile: Position) -> bool:
     """Check if any enemy gunner is cardinally adjacent to tile."""
-    for d in (Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST):
+    for d in (
+        Direction.NORTHEAST,
+        Direction.SOUTHEAST,
+        Direction.SOUTHWEST,
+        Direction.NORTHWEST,
+    ):
         adj = tile.add(d)
         if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
             continue
@@ -503,12 +545,21 @@ def _has_adjacent_gunner(ct: Controller, tile: Position) -> bool:
             return True
     return False
 
+
 def _is_conveyorable(ct: Controller, tile: Position) -> bool:
     """Check if a tile is empty, has a friendly building, or has a marker."""
-    if not in_bounds(ct, tile) or not ct.is_in_vision(tile) or ct.get_tile_env(tile) != Environment.EMPTY:
+    if (
+        not in_bounds(ct, tile)
+        or not ct.is_in_vision(tile)
+        or ct.get_tile_env(tile) != Environment.EMPTY
+    ):
         return False
     bid = ct.get_tile_building_id(tile)
-    return bid is None or ct.get_team(bid) == ct.get_team() or ct.get_entity_type(bid) == EntityType.MARKER
+    return (
+        bid is None
+        or ct.get_team(bid) == ct.get_team()
+        or ct.get_entity_type(bid) == EntityType.MARKER
+    )
 
 
 _CARDINAL_WITH_DIAGS = {
@@ -522,62 +573,71 @@ _CARDINAL_WITH_DIAGS = {
 def _has_adjacent_conveyorable(ct: Controller, tile: Position) -> bool:
     """Check if any cardinal neighbor and its two adjacent diagonals are all conveyorable."""
     for d, (d1, d2) in _CARDINAL_WITH_DIAGS.items():
-        if _is_conveyorable(ct, tile.add(d)) and (_is_conveyorable(ct, tile.add(d1)) or _is_conveyorable(ct, tile.add(d2))):
+        if _is_conveyorable(ct, tile.add(d)) and (
+            _is_conveyorable(ct, tile.add(d1)) or _is_conveyorable(ct, tile.add(d2))
+        ):
             return True
     return False
 
-def update_claimed_ore(player, ct: Controller):
-    # Check current ore target — abort if already harvested
-    if player.target is not None:
-        if ct.is_in_vision(player.target):
-            bid = ct.get_tile_building_id(player.target)
-            bbid = ct.get_tile_builder_bot_id(player.target)
 
-            if bbid is not None and bbid != ct.get_id():
+def update_claimed_ore(player, ct: Controller) -> None:
+    # Check current ore target — abort if already harvested
+    if player.target is not None and ct.is_in_vision(player.target):
+        bid = ct.get_tile_building_id(player.target)
+        bbid = ct.get_tile_builder_bot_id(player.target)
+
+        if bbid is not None and bbid != ct.get_id():
+            player.claimed_ore.add(player.target)
+            player.target = None
+        elif bid is not None:
+            etype = ct.get_entity_type(bid)
+            near_core = (
+                player.core_pos is None
+                or king_dist(player.core_pos, player.target) <= 3
+            )
+            if (
+                (etype == EntityType.HARVESTER and not player.can_patch)
+                or ct.get_team(bid) != ct.get_team()
+                or (etype == EntityType.BARRIER and not near_core)
+            ):
                 player.claimed_ore.add(player.target)
                 player.target = None
-            elif bid is not None:
-                etype = ct.get_entity_type(bid)
-                near_core = player.core_pos is None or king_dist(player.core_pos, player.target) <= 3
-                if (etype == EntityType.HARVESTER and not player.can_patch) or ct.get_team(bid) != ct.get_team():
-                    player.claimed_ore.add(player.target)
-                    player.target = None
-                elif etype == EntityType.BARRIER and not near_core:
-                    player.claimed_ore.add(player.target)
-                    player.target = None
-                elif (etype == EntityType.ROAD or etype == EntityType.BARRIER and near_core) and ct.can_destroy(player.target):
-                    ct.destroy(player.target)
-            elif _has_adjacent_gunner(ct, player.target):
-                player.claimed_ore.add(player.target)
-                player.target = None
+            elif (
+                etype == EntityType.ROAD or (etype == EntityType.BARRIER and near_core)
+            ) and ct.can_destroy(player.target):
+                ct.destroy(player.target)
+        elif _has_adjacent_gunner(ct, player.target):
+            player.claimed_ore.add(player.target)
+            player.target = None
 
-def update_advance_ore(player, ct: Controller):
+
+def update_advance_ore(player, ct: Controller) -> None:
     # Check current ore target — abort if already harvested
-    if player.target is not None:
-        if ct.is_in_vision(player.target):
-            bid = ct.get_tile_building_id(player.target)
-            bbid = ct.get_tile_builder_bot_id(player.target)
+    if player.target is not None and ct.is_in_vision(player.target):
+        bid = ct.get_tile_building_id(player.target)
+        bbid = ct.get_tile_builder_bot_id(player.target)
 
-            if bbid is not None:
+        if (
+            bbid is not None
+            or _has_adjacent_gunner(ct, player.target)
+            or not _has_adjacent_conveyorable(ct, player.target)
+        ):
+            player.advance_ore.add(player.target)
+            player.target = None
+
+        elif bid is not None:
+            etype = ct.get_entity_type(bid)
+            same_team = ct.get_team(bid) == ct.get_team()
+            if (
+                (etype == EntityType.HARVESTER) == same_team
+                or etype != EntityType.HARVESTER
+            ) and (
+                (etype == EntityType.FOUNDRY) == same_team
+                or etype != EntityType.FOUNDRY
+            ):
                 player.advance_ore.add(player.target)
                 player.target = None
-            
-            elif _has_adjacent_gunner(ct, player.target):
-                player.advance_ore.add(player.target)
-                player.target = None
-            
-            elif not _has_adjacent_conveyorable(ct, player.target):
-                player.advance_ore.add(player.target)
-                player.target = None
-            
-            elif bid is not None:
-                etype = ct.get_entity_type(bid)
-                same_team = ct.get_team(bid) == ct.get_team()
-                if ((etype == EntityType.HARVESTER) == same_team or etype != EntityType.HARVESTER) and \
-                    ((etype == EntityType.FOUNDRY) == same_team or etype != EntityType.FOUNDRY):
-                    player.advance_ore.add(player.target)
-                    player.target = None
-                
+
 
 def _economy(player, ct: Controller, pos: Position) -> None:
     """Economy mode: harvest nearest ore, opportunistically switch to LOS ore,
@@ -586,7 +646,11 @@ def _economy(player, ct: Controller, pos: Position) -> None:
     update_claimed_ore(player, ct)
 
     # Early game: rush away from friendly core
-    if player.core_pos is not None and king_dist(pos, player.core_pos) <= 4 and ct.get_current_round() < 10:
+    if (
+        player.core_pos is not None
+        and king_dist(pos, player.core_pos) <= 4
+        and ct.get_current_round() < 10
+    ):
         print("rush away")
         away_dir = player.core_pos.direction_to(pos)
         if away_dir == Direction.CENTRE:
@@ -598,7 +662,7 @@ def _economy(player, ct: Controller, pos: Position) -> None:
                 player.last_dir = d
                 break
         return
-        
+
     # Check current ore target — abort if already harvested
     if player.target is not None:
         if ct.is_in_vision(player.target):
@@ -610,37 +674,48 @@ def _economy(player, ct: Controller, pos: Position) -> None:
                 player.target = None
             elif bid is not None:
                 etype = ct.get_entity_type(bid)
-                near_core = player.core_pos is None or king_dist(player.core_pos, player.target) <= 3
+                near_core = (
+                    player.core_pos is None
+                    or king_dist(player.core_pos, player.target) <= 3
+                )
                 if etype == EntityType.HARVESTER or ct.get_team(bid) != ct.get_team():
                     player.claimed_ore.add(player.target)
                     player.target = None
-                elif (etype == EntityType.ROAD or etype == EntityType.BARRIER and near_core) and ct.can_destroy(player.target):
+                elif (
+                    etype == EntityType.ROAD
+                    or (etype == EntityType.BARRIER and near_core)
+                ) and ct.can_destroy(player.target):
                     ct.destroy(player.target)
 
         # Build harvester if adjacent to ore target
         if player.target is not None and pos.distance_squared(player.target) <= 2:
-
             (ti, _) = ct.get_global_resources()
             (h_ti, _) = ct.get_harvester_cost()
             # Check every empty cardinal neighbour of the ore has a building
             cardinal_covered = True
-            for cd in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
+            for cd in (
+                Direction.NORTH,
+                Direction.EAST,
+                Direction.SOUTH,
+                Direction.WEST,
+            ):
                 adj = player.target.add(cd)
                 if in_bounds(ct, adj):
                     env = ct.get_tile_env(adj)
                     bid = ct.get_tile_building_id(adj)
-                    if env == Environment.EMPTY and (bid is None or ct.get_entity_type(bid) == EntityType.MARKER):
+                    if env == Environment.EMPTY and (
+                        bid is None or ct.get_entity_type(bid) == EntityType.MARKER
+                    ):
                         cardinal_covered = False
                         break
             if 100 + h_ti <= ti and cardinal_covered:
                 player.economy_wait_turns = 0
 
                 # Move off ore if standing on it
-                if pos == player.target:
-                    if ct.get_move_cooldown() == 0:
-                        for d in _ALL_DIRS:
-                            if try_move_smart(ct, pos, d):
-                                return
+                if pos == player.target and ct.get_move_cooldown() == 0:
+                    for d in _ALL_DIRS:
+                        if try_move_smart(ct, pos, d):
+                            return
 
                 if ct.can_build_harvester(player.target):
                     ct.build_harvester(player.target)
@@ -650,26 +725,30 @@ def _economy(player, ct: Controller, pos: Position) -> None:
                     # Enter bridge mode: connect harvester to core
                     _start_bridge_chain(player, ct, pos, ore_pos)
                 return
-            else:
-                # wait until we can build or ore is claimed
-                player.economy_wait_turns += 1
-                if player.economy_wait_turns >= 250:
-                    player.economy_wait_turns = 0
-                    player.state = "advance"
-                    player.target = None
-                    player.state_seen_enemy = False
-                    player.state_turns = 0
-                    print(f"Econ E{ct.get_id()}: waited 250 turns, switching to advance")
-                    return
-                try_move_smart(ct, pos, pos.direction_to(player.target))
-                if pos == player.target:
-                    # While waiting, build roads on adjacent tiles
-                    for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
-                        tile = pos.add(d)
-                        if ct.can_build_road(tile):
-                            ct.build_road(tile)
-                            break
+            # wait until we can build or ore is claimed
+            player.economy_wait_turns += 1
+            if player.economy_wait_turns >= 250:
+                player.economy_wait_turns = 0
+                player.state = "advance"
+                player.target = None
+                player.state_seen_enemy = False
+                player.state_turns = 0
+                print(f"Econ E{ct.get_id()}: waited 250 turns, switching to advance")
                 return
+            try_move_smart(ct, pos, pos.direction_to(player.target))
+            if pos == player.target:
+                # While waiting, build roads on adjacent tiles
+                for d in (
+                    Direction.NORTH,
+                    Direction.EAST,
+                    Direction.SOUTH,
+                    Direction.WEST,
+                ):
+                    tile = pos.add(d)
+                    if ct.can_build_road(tile):
+                        ct.build_road(tile)
+                        break
+            return
 
     # Look for opportunistic ore switches
     has_ore_target = player.target is not None and player.target in player.known_ore
@@ -687,8 +766,10 @@ def _economy(player, ct: Controller, pos: Position) -> None:
                 if not ct.is_in_vision(ore):
                     continue
                 bid = ct.get_tile_building_id(ore)
-                if bid is not None and (ct.get_entity_type(bid) == EntityType.HARVESTER
-                                        or ct.get_team(bid) != ct.get_team()):
+                if bid is not None and (
+                    ct.get_entity_type(bid) == EntityType.HARVESTER
+                    or ct.get_team(bid) != ct.get_team()
+                ):
                     player.claimed_ore.add(ore)
                     continue
                 d = king_dist(pos, ore)
@@ -703,8 +784,10 @@ def _economy(player, ct: Controller, pos: Position) -> None:
             if not ct.is_in_vision(ore):
                 continue
             bid = ct.get_tile_building_id(ore)
-            if bid is not None and (ct.get_entity_type(bid) == EntityType.HARVESTER
-                                    or ct.get_team(bid) != ct.get_team()):
+            if bid is not None and (
+                ct.get_entity_type(bid) == EntityType.HARVESTER
+                or ct.get_team(bid) != ct.get_team()
+            ):
                 player.claimed_ore.add(ore)
                 continue
             d = king_dist(pos, ore)
@@ -743,7 +826,9 @@ def _economy(player, ct: Controller, pos: Position) -> None:
         if not ct.is_in_vision(bt):
             continue
         tbid = ct.get_tile_building_id(bt)
-        if tbid is None or ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team:
+        if tbid is None or (
+            ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team
+        ):
             player.state = "bridge"
             player.bridge_target = bt
             player.pf_agent.retarget(pos, bt)
@@ -752,7 +837,10 @@ def _economy(player, ct: Controller, pos: Position) -> None:
 
     # Check for friendly harvesters without adjacent bridges
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.HARVESTER or ct.get_team(bid) != my_team:
+        if (
+            ct.get_entity_type(bid) != EntityType.HARVESTER
+            or ct.get_team(bid) != my_team
+        ):
             continue
         hp = ct.get_position(bid)
         has_bridge = False
@@ -761,13 +849,19 @@ def _economy(player, ct: Controller, pos: Position) -> None:
             if not ct.is_in_vision(adj):
                 continue
             abid = ct.get_tile_building_id(adj)
-            if abid is not None and ct.get_entity_type(abid) == EntityType.BRIDGE and ct.get_team(abid) == my_team:
+            if (
+                abid is not None
+                and ct.get_entity_type(abid) == EntityType.BRIDGE
+                and ct.get_team(abid) == my_team
+            ):
                 has_bridge = True
                 break
         if not has_bridge:
             _start_bridge_chain(player, ct, pos, hp)
             if player.state == "bridge":
-                print(f"Bridge E{ct.get_id()}: starting chain for unconnected harvester at {hp}")
+                print(
+                    f"Bridge E{ct.get_id()}: starting chain for unconnected harvester at {hp}",
+                )
                 return
 
     if player.target is not None:
@@ -776,7 +870,6 @@ def _economy(player, ct: Controller, pos: Position) -> None:
             player.pf_agent.retarget(pos, player.target)
         _pf_step(player, ct, pos)
     else:
-
         player.economy_wandering += 1
         if player.economy_wandering > 200:
             # If no friendly bridge is visible, switch to advance (or suicide if enemy bridge visible)
@@ -788,20 +881,22 @@ def _economy(player, ct: Controller, pos: Position) -> None:
                     if ct.get_team(bid) == my_team:
                         has_friendly_bridge = True
                         break
-                    else:
-                        has_enemy_bridge = True
+                    has_enemy_bridge = True
             if has_enemy_bridge and not has_friendly_bridge:
-                print(f"Bridge E{ct.get_id()}: no friendly bridge but enemy bridge visible, entering suicide")
+                print(
+                    f"Bridge E{ct.get_id()}: no friendly bridge but enemy bridge visible, entering suicide",
+                )
                 player.state = "suicide"
                 player.state_seen_enemy = False
                 player.target = None
                 player.bridge_target = None
                 return
-        
+
         _wander(player, ct, pos)
 
 
 # ── Base builder state ───────────────────────────────────────────────
+
 
 def _has_adjacent_friendly_builder(ct: Controller, tile: Position) -> bool:
     """Check if a tile is adjacent to any friendly builder bot."""
@@ -810,9 +905,11 @@ def _has_adjacent_friendly_builder(ct: Controller, tile: Position) -> bool:
     for uid in ct.get_nearby_units():
         if uid == my_id:
             continue
-        if ct.get_entity_type(uid) == EntityType.BUILDER_BOT and ct.get_team(uid) == my_team:
-            if tile.distance_squared(ct.get_position(uid)) <= 2:
-                return True
+        if (
+            ct.get_entity_type(uid) == EntityType.BUILDER_BOT
+            and ct.get_team(uid) == my_team
+        ) and tile.distance_squared(ct.get_position(uid)) <= 2:
+            return True
     return False
 
 
@@ -821,17 +918,18 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
     directions before hibernating."""
     if player.core_pos is None:
         return
-    
+
     if ct.is_in_vision(player.core_pos):
         core_id = ct.get_tile_building_id(player.core_pos)
-        if ct.get_hp() < ct.get_max_hp() or core_id is not None and ct.get_hp(core_id) < ct.get_max_hp(core_id):
-            if ct.can_heal(player.core_pos):
-                print("healing")
-                ct.heal(player.core_pos)
-                player.base_phase = 100
-                return
+        if (
+            ct.get_hp() < ct.get_max_hp()
+            or (core_id is not None and ct.get_hp(core_id) < ct.get_max_hp(core_id))
+        ) and ct.can_heal(player.core_pos):
+            print("healing")
+            ct.heal(player.core_pos)
+            player.base_phase = 100
+            return
 
-            
     print(f"phase {player.base_phase}")
 
     # Phase 0: move one step away from core
@@ -853,9 +951,8 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
                 is_splitter = ct.get_entity_type(bid) == EntityType.SPLITTER
                 if is_splitter:
                     player.base_phase = 16
-                else:
-                    if ct.can_destroy(split_pos):
-                        ct.destroy(split_pos)
+                elif ct.can_destroy(split_pos):
+                    ct.destroy(split_pos)
 
             if player.base_phase == 1:
                 if ct.can_build_splitter(split_pos, away_dir.opposite()):
@@ -874,19 +971,23 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
             if in_bounds(ct, tile):
                 bid = ct.get_tile_building_id(tile)
                 if bid is not None:
-                    hurt = ct.get_entity_type(bid) == EntityType.BARRIER and ct.get_hp(bid) < ct.get_max_hp(bid)
-                    if (ct.get_entity_type(bid) == EntityType.ROAD or hurt) and ct.can_destroy(tile):
+                    hurt = ct.get_entity_type(bid) == EntityType.BARRIER and ct.get_hp(
+                        bid,
+                    ) < ct.get_max_hp(bid)
+                    if (
+                        ct.get_entity_type(bid) == EntityType.ROAD or hurt
+                    ) and ct.can_destroy(tile):
                         ct.destroy(tile)
             if ct.can_build_barrier(tile):
                 ct.build_barrier(tile)
                 built = True
                 break
-        
+
         init_mode = ct.get_current_round() < 20
         player.base_wait += 1
-        if built or init_mode and player.base_wait < 8:
+        if built or (init_mode and player.base_wait < 8):
             return
-        
+
         if not init_mode:
             player.base_phase = 6
         else:
@@ -931,7 +1032,11 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
             if king_dist(tile, player.core_pos) > 2 or not in_bounds(ct, tile):
                 continue
             bid = ct.get_tile_building_id(tile)
-            if bid is not None and ct.get_entity_type(bid) == EntityType.ROAD and ct.can_destroy(tile):
+            if (
+                bid is not None
+                and ct.get_entity_type(bid) == EntityType.ROAD
+                and ct.can_destroy(tile)
+            ):
                 ct.destroy(tile)
 
             if not player.seen_launcher and ct.can_build_launcher(tile):
@@ -955,14 +1060,20 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
         walk_target = None
         if player.seen_launcher:
             for bid in ct.get_nearby_buildings():
-                if ct.get_entity_type(bid) == EntityType.LAUNCHER and ct.get_team(bid) == ct.get_team():
+                if (
+                    ct.get_entity_type(bid) == EntityType.LAUNCHER
+                    and ct.get_team(bid) == ct.get_team()
+                ):
                     walk_target = ct.get_position(bid)
                     break
         if walk_target is None:
             enemy = player.sym_candidates["rotational"]
             best_key = (999999, 999999, 999999)
             for bid in ct.get_nearby_buildings():
-                if ct.get_entity_type(bid) == EntityType.SPLITTER and ct.get_team(bid) == ct.get_team():
+                if (
+                    ct.get_entity_type(bid) == EntityType.SPLITTER
+                    and ct.get_team(bid) == ct.get_team()
+                ):
                     sp = ct.get_position(bid)
                     ed = king_dist(sp, enemy) if enemy else 999999
                     key = (ed, sp.x, sp.y)
@@ -970,7 +1081,7 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
                         best_key = key
                         walk_target = sp
 
-        player.base_phase += 1        
+        player.base_phase += 1
         if walk_target is None:
             return
         preferred = pos.direction_to(walk_target)
@@ -1020,7 +1131,11 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
                 if player.core_pos is None or king_dist(tile, player.core_pos) > 2:
                     continue
                 bid = ct.get_tile_building_id(tile)
-                if bid is not None and ct.get_entity_type(bid) == EntityType.BARRIER and ct.can_destroy(tile):
+                if (
+                    bid is not None
+                    and ct.get_entity_type(bid) == EntityType.BARRIER
+                    and ct.can_destroy(tile)
+                ):
                     ct.destroy(tile)
                 if ct.can_build_foundry(tile):
                     ct.build_foundry(tile)
@@ -1031,6 +1146,7 @@ def _base_builder(player, ct: Controller, pos: Position) -> None:
 
 # ── Advance state ────────────────────────────────────────────────────
 
+
 def _advance(player, ct: Controller, pos: Position) -> None:
     """Pathfind toward the enemy base, diverting to ore if any is known.
     Once the enemy base is visible, switch to hibernate."""
@@ -1038,7 +1154,11 @@ def _advance(player, ct: Controller, pos: Position) -> None:
     update_advance_ore(player, ct)
 
     # Early game: rush away from friendly core
-    if player.core_pos is not None and king_dist(pos, player.core_pos) <= 4 and ct.get_current_round() < 10:
+    if (
+        player.core_pos is not None
+        and king_dist(pos, player.core_pos) <= 4
+        and ct.get_current_round() < 10
+    ):
         print("rush away")
         away_dir = player.core_pos.direction_to(pos)
         if away_dir == Direction.CENTRE:
@@ -1058,7 +1178,11 @@ def _advance(player, ct: Controller, pos: Position) -> None:
     my_team = ct.get_team()
 
     # If we can see enemy core, barrier, and conveyor — build launcher and switch to destroy_conveyor
-    if not player.built_launcher and player.enemy_core is not None and ct.is_in_vision(player.enemy_core):
+    if (
+        not player.built_launcher
+        and player.enemy_core is not None
+        and ct.is_in_vision(player.enemy_core)
+    ):
         sees_barrier = False
         sees_conveyor = False
         for bid in ct.get_nearby_buildings():
@@ -1098,23 +1222,34 @@ def _advance(player, ct: Controller, pos: Position) -> None:
                         ct.build_launcher(tile)
                         player.built_launcher = True
                         player.state = "destroy_conveyor"
-                        print(f"Advance E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor")
+                        print(
+                            f"Advance E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
+                        )
                         return
 
     print(f"target ore {player.advance_targeting_ore} {player.target}")
 
-
     # If targeting enemy harvester, try to place a gunner diagonally adjacent to it
-    if player.advance_targeting_ore and player.target is not None and ct.is_in_vision(player.target):
+    if (
+        player.advance_targeting_ore
+        and player.target is not None
+        and ct.is_in_vision(player.target)
+    ):
         bid = ct.get_tile_building_id(player.target)
 
         print(f"{bid} {ct.get_entity_type(bid)} {ct.get_team(bid)}")
 
-        if bid is not None and (ct.get_entity_type(bid) == EntityType.HARVESTER or ct.get_entity_type(bid) == EntityType.FOUNDRY) \
-            and ct.get_team(bid) != my_team:
+        if (
+            bid is not None
+            and (
+                ct.get_entity_type(bid) == EntityType.HARVESTER
+                or ct.get_entity_type(bid) == EntityType.FOUNDRY
+            )
+            and ct.get_team(bid) != my_team
+        ):
             hp = player.target
 
-            print(f"found harvester")
+            print("found harvester")
 
             # Step 1: if cardinally adjacent to harvester, place conveyor under self facing a diagonal gunner spot
             if pos.distance_squared(hp) == 1:
@@ -1134,21 +1269,30 @@ def _advance(player, ct: Controller, pos: Position) -> None:
                             ct.build_gunner(bp, facing)
                             player.state = "heal"
                             player.suicide_countdown = 0
-                            print(f"Advance E{ct.get_id()}: built gunner at {bp} facing {facing}")
+                            print(
+                                f"Advance E{ct.get_id()}: built gunner at {bp} facing {facing}",
+                            )
                             return
-                        #player.advance_ore.add(hp)
+                        # player.advance_ore.add(hp)
 
                         player.suicide_countdown += 5
                         if player.suicide_countdown >= 25:
                             player.state = "suicide"
                             player.state_seen_enemy = False
-                            print(f"Advance E{ct.get_id()}: suicide countdown reached, entering suicide mode")
-                            
+                            print(
+                                f"Advance E{ct.get_id()}: suicide countdown reached, entering suicide mode",
+                            )
+
                         return
 
                 # Replace road with conveyor facing a valid diagonal gunner spot
                 if pos_etype == EntityType.ROAD and ct.get_team(pos_bid) == my_team:
-                    for gd in (Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST):
+                    for gd in (
+                        Direction.NORTH,
+                        Direction.SOUTH,
+                        Direction.EAST,
+                        Direction.WEST,
+                    ):
                         bp = pos.add(gd)
                         if bp.distance_squared(hp) != 2:
                             continue
@@ -1160,7 +1304,10 @@ def _advance(player, ct: Controller, pos: Position) -> None:
                         if tbid is not None:
                             etype = ct.get_entity_type(tbid)
                             friendly = ct.get_team(tbid) == my_team
-                            if not (friendly and etype == EntityType.ROAD) and etype != EntityType.MARKER:
+                            if (
+                                not (friendly and etype == EntityType.ROAD)
+                                and etype != EntityType.MARKER
+                            ):
                                 continue
                         # Valid gunner spot found — destroy road and build conveyor facing it
                         if ct.can_destroy(pos):
@@ -1168,10 +1315,11 @@ def _advance(player, ct: Controller, pos: Position) -> None:
                         if ct.can_build_conveyor(pos, gd):
                             ct.build_conveyor(pos, gd)
 
-                            print(f"Advance E{ct.get_id()}: placed conveyor at {pos} facing {gd}")
+                            print(
+                                f"Advance E{ct.get_id()}: placed conveyor at {pos} facing {gd}",
+                            )
                             player.suicide_countdown = 0
                         return
-
 
     if player.advance_targeting_ore:
         # Ore target was claimed — switch back
@@ -1216,18 +1364,15 @@ def _advance(player, ct: Controller, pos: Position) -> None:
             if d < best_foundry_dist:
                 best_foundry_dist = d
                 best_foundry = fp
-        else:
-            if d < best_foundry_no_los_dist:
-                best_foundry_no_los_dist = d
-                best_foundry_no_los = fp
+        elif d < best_foundry_no_los_dist:
+            best_foundry_no_los_dist = d
+            best_foundry_no_los = fp
 
     # Priority: foundry LOS > ore LOS > foundry no-LOS > ore no-LOS
     best_target = best_foundry or best_los or best_foundry_no_los or best_any
-    if best_target is not None and best_target != player.target:
-        player.target = best_target
-        player.advance_targeting_ore = True
-        print(f"Advance E{ct.get_id()}: diverting to target at {best_target}")
-    elif best_target is not None and not player.advance_targeting_ore:
+    if (best_target is not None and best_target != player.target) or (
+        best_target is not None and not player.advance_targeting_ore
+    ):
         player.target = best_target
         player.advance_targeting_ore = True
         print(f"Advance E{ct.get_id()}: diverting to target at {best_target}")
@@ -1243,9 +1388,15 @@ def _advance(player, ct: Controller, pos: Position) -> None:
             if player.enemy_core is not None:
                 player.target = player.enemy_core
             elif player.sym_candidates:
-                remaining = [s for s in SYM_TYPES if s not in player.sym_eliminated and s in player.sym_candidates]
+                remaining = [
+                    s
+                    for s in SYM_TYPES
+                    if s not in player.sym_eliminated and s in player.sym_candidates
+                ]
                 if len(remaining) > 0:
-                    player.target = player.sym_candidates[remaining[ct.get_current_round() % len(remaining)]]
+                    player.target = player.sym_candidates[
+                        remaining[ct.get_current_round() % len(remaining)]
+                    ]
             # Update if enemy core resolved while targeting old candidate
         elif player.enemy_core is not None and player.target != player.enemy_core:
             player.target = player.enemy_core
@@ -1254,21 +1405,24 @@ def _advance(player, ct: Controller, pos: Position) -> None:
             if player.pf_agent.goal != player.target:
                 player.pf_agent.retarget(pos, player.target)
             _pf_step(player, ct, pos)
-    else: 
+    else:
         player.advance_targeting_ore = False
         print("wandering")
         _wander(player, ct, pos)
-    
 
     if not player.advance_targeting_ore:
         player.suicide_countdown += 1
         if player.suicide_countdown >= 25:
             player.state = "suicide"
             player.state_seen_enemy = False
-            print(f"Advance E{ct.get_id()}: suicide countdown reached, entering suicide mode")
+            print(
+                f"Advance E{ct.get_id()}: suicide countdown reached, entering suicide mode",
+            )
             return
 
+
 # ── Suicide state ─────────────────────────────────────────────────
+
 
 def _suicide(player, ct: Controller, pos: Position) -> None:
     """Pathfind to enemy base, then find an enemy bridge/conveyor to self-destruct on."""
@@ -1278,7 +1432,12 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
     my_team = ct.get_team()
     for bid in ct.get_nearby_buildings():
         etype = ct.get_entity_type(bid)
-        if etype not in (EntityType.BRIDGE, EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER):
+        if etype not in (
+            EntityType.BRIDGE,
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+        ):
             continue
         if ct.get_team(bid) == my_team:
             continue
@@ -1290,17 +1449,29 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
     pos_bid = ct.get_tile_building_id(pos)
     if pos_bid is not None:
         pos_etype = ct.get_entity_type(pos_bid)
-        if pos_etype in (EntityType.BRIDGE, EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER) \
-                and ct.get_team(pos_bid) != my_team \
-                and rnd - player.tile_resource_seen.get(pos, -999) <= 5:
+        if (
+            pos_etype
+            in (
+                EntityType.BRIDGE,
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+            )
+            and ct.get_team(pos_bid) != my_team
+            and rnd - player.tile_resource_seen.get(pos, -999) <= 5
+        ):
             print(f"Suicide E{ct.get_id()}: self-destructing on {pos_etype} at {pos}")
             ct.self_destruct()
             return
-        
+
     enemy = player.enemy_core
     if enemy is None:
         if player.sym_candidates:
-            remaining = [s for s in SYM_TYPES if s not in player.sym_eliminated and s in player.sym_candidates]
+            remaining = [
+                s
+                for s in SYM_TYPES
+                if s not in player.sym_eliminated and s in player.sym_candidates
+            ]
             if remaining:
                 enemy = player.sym_candidates[remaining[0]]
         if enemy is None:
@@ -1348,7 +1519,9 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
                         ct.build_launcher(tile)
                         player.built_launcher = True
                         player.state = "destroy_conveyor"
-                        print(f"Suicide E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor")
+                        print(
+                            f"Suicide E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
+                        )
                         return
 
     # Find nearest enemy bridge/conveyor without a builder bot on it
@@ -1362,7 +1535,6 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
     my_team = ct.get_team()
     walkable = build_walkable(ct) - occupied
     walkable.add(pos)
-    
 
     if player.target is not None:
         # Already have a target — only check if there's a closer one in line of sight
@@ -1370,7 +1542,12 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
         best_dist = king_dist(best, enemy)
         for bid in ct.get_nearby_buildings():
             etype = ct.get_entity_type(bid)
-            if etype not in (EntityType.BRIDGE, EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER):
+            if etype not in (
+                EntityType.BRIDGE,
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+            ):
                 continue
             if ct.get_team(bid) == my_team:
                 continue
@@ -1392,7 +1569,12 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
         best_no_los_dist = 999999
         for bid in ct.get_nearby_buildings():
             etype = ct.get_entity_type(bid)
-            if etype not in (EntityType.BRIDGE, EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER):
+            if etype not in (
+                EntityType.BRIDGE,
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+            ):
                 continue
             if ct.get_team(bid) == my_team:
                 continue
@@ -1407,10 +1589,9 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
                 if d < best_los_dist:
                     best_los_dist = d
                     best_los = bp
-            else:
-                if d < best_no_los_dist:
-                    best_no_los_dist = d
-                    best_no_los = bp
+            elif d < best_no_los_dist:
+                best_no_los_dist = d
+                best_no_los = bp
         best = best_los if best_los is not None else best_no_los
 
     if best is not None:
@@ -1426,14 +1607,22 @@ def _suicide(player, ct: Controller, pos: Position) -> None:
 
 # ── Idle state ────────────────────────────────────────────────────
 
+
 def _idle(player, ct: Controller, pos: Position) -> None:
     # If adjacent to an enemy launcher, build our own launcher next to it
     my_team = ct.get_team()
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) == EntityType.LAUNCHER and ct.get_team(bid) != my_team:
+        if (
+            ct.get_entity_type(bid) == EntityType.LAUNCHER
+            and ct.get_team(bid) != my_team
+        ):
             if pos.distance_squared(ct.get_position(bid)) <= 2:
                 # Try to build launcher in direction of enemy launcher
-                pref_dir = pos.direction_to(player.core_pos if player.core_pos is not None else ct.get_position(bid))
+                pref_dir = pos.direction_to(
+                    player.core_pos
+                    if player.core_pos is not None
+                    else ct.get_position(bid),
+                )
                 pref_idx = _DIR_IDX[pref_dir]
                 for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
                     d = _ALL_DIRS[(pref_idx + offset) % 8]
@@ -1447,7 +1636,9 @@ def _idle(player, ct: Controller, pos: Position) -> None:
                         ct.build_launcher(tile)
                         pref_dir = pos.direction_to(ct.get_position(bid)).opposite()
                         pref_idx = _DIR_IDX[pref_dir]
-                        print(f"Idle E{ct.get_id()}: built launcher at {tile} near enemy launcher")
+                        print(
+                            f"Idle E{ct.get_id()}: built launcher at {tile} near enemy launcher",
+                        )
 
                 for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
                     d = _ALL_DIRS[(pref_idx + offset) % 8]
@@ -1463,7 +1654,12 @@ def _idle(player, ct: Controller, pos: Position) -> None:
     pos_bid = ct.get_tile_building_id(pos)
     if pos_bid is not None:
         pos_etype = ct.get_entity_type(pos_bid)
-        if pos_etype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.BRIDGE, EntityType.SPLITTER):
+        if pos_etype in (
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.BRIDGE,
+            EntityType.SPLITTER,
+        ):
             if ct.get_stored_resource(pos_bid) is not None:
                 player.idle_empty_turns = 0
             else:
@@ -1495,7 +1691,9 @@ def _idle(player, ct: Controller, pos: Position) -> None:
         if not ct.is_in_vision(bt):
             continue
         tbid = ct.get_tile_building_id(bt)
-        if tbid is None or (ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team):
+        if tbid is None or (
+            ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team
+        ):
             player.state = "economy"
             player.target = None
             player.idle_empty_turns = 0
@@ -1505,7 +1703,10 @@ def _idle(player, ct: Controller, pos: Position) -> None:
     # Opportunistic bridge: if adjacent to an incomplete bridge target, build one bridge
     if ct.get_action_cooldown() == 0:
         for bid in ct.get_nearby_buildings():
-            if ct.get_entity_type(bid) != EntityType.BRIDGE or ct.get_team(bid) != my_team:
+            if (
+                ct.get_entity_type(bid) != EntityType.BRIDGE
+                or ct.get_team(bid) != my_team
+            ):
                 continue
             bt = ct.get_bridge_target(bid)
             if pos.distance_squared(bt) > 2:
@@ -1513,7 +1714,10 @@ def _idle(player, ct: Controller, pos: Position) -> None:
             if not ct.is_in_vision(bt):
                 continue
             tbid = ct.get_tile_building_id(bt)
-            if tbid is None or (ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team):
+            if tbid is None or (
+                ct.get_entity_type(tbid) == EntityType.ROAD
+                and ct.get_team(tbid) == my_team
+            ):
                 old_target = player.bridge_target
                 player.bridge_target = bt
                 _bridge(player, ct, pos)
@@ -1522,14 +1726,19 @@ def _idle(player, ct: Controller, pos: Position) -> None:
                 return
     _pf_step(player, ct, pos)
 
+
 # ── Heal state ────────────────────────────────────────────────────
+
 
 def _heal(player, ct: Controller, pos: Position) -> None:
     # Check if enemy harvester and friendly gunner still adjacent to builder
 
     bid = ct.get_tile_building_id(player.target)
-    has_harvester = bid is not None and (ct.get_entity_type(bid) == EntityType.HARVESTER or ct.get_entity_type(bid) == EntityType.FOUNDRY)
-    is_enemy =  bid is not None and ct.get_team(bid) != ct.get_team()
+    has_harvester = bid is not None and (
+        ct.get_entity_type(bid) == EntityType.HARVESTER
+        or ct.get_entity_type(bid) == EntityType.FOUNDRY
+    )
+    is_enemy = bid is not None and ct.get_team(bid) != ct.get_team()
 
     if has_harvester and is_enemy:
         if ct.can_heal(pos):
@@ -1558,21 +1767,31 @@ def _heal(player, ct: Controller, pos: Position) -> None:
 
 # ── Destroy conveyor state ────────────────────────────────────────────
 
+
 def _destroy_conveyor(player, ct: Controller, pos: Position) -> None:
     """Walk onto enemy conveyors and self-destruct."""
     my_team = ct.get_team()
 
     # If standing on an enemy conveyor, self-destruct
     pos_bid = ct.get_tile_building_id(pos)
-    if pos_bid is not None:
-        if ct.get_entity_type(pos_bid) in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER, EntityType.BRIDGE) \
-                and ct.get_team(pos_bid) != my_team:
-            print(f"DestroyConveyor E{ct.get_id()}: self-destructing on conveyor at {pos}")
-            ct.self_destruct()
-
+    if pos_bid is not None and (
+        ct.get_entity_type(pos_bid)
+        in (
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+            EntityType.BRIDGE,
+        )
+        and ct.get_team(pos_bid) != my_team
+    ):
+        print(
+            f"DestroyConveyor E{ct.get_id()}: self-destructing on conveyor at {pos}",
+        )
+        ct.self_destruct()
 
 
 # ── Protect state ─────────────────────────────────────────────────────
+
 
 def _protect(player, ct: Controller, pos: Position) -> None:
     """Pathfind to nearest ore visible to enemy sentinel, destroy friendly harvester on it."""
@@ -1581,10 +1800,12 @@ def _protect(player, ct: Controller, pos: Position) -> None:
     # Find enemy sentinel position
     sentinel_pos = None
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) == EntityType.SENTINEL and ct.get_team(bid) != my_team:
+        if (
+            ct.get_entity_type(bid) == EntityType.SENTINEL
+            and ct.get_team(bid) != my_team
+        ):
             sentinel_pos = ct.get_position(bid)
             break
-
 
     # Find nearest ore in vision of sentinel (r^2 = 32)
     best_ore = None
@@ -1593,7 +1814,11 @@ def _protect(player, ct: Controller, pos: Position) -> None:
         env = ct.get_tile_env(tile)
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
-        d = king_dist(tile, sentinel_pos) if sentinel_pos is not None else king_dist(pos, tile)
+        d = (
+            king_dist(tile, sentinel_pos)
+            if sentinel_pos is not None
+            else king_dist(pos, tile)
+        )
         if sentinel_pos is None and d > 3:
             continue
         if d < best_dist:
@@ -1608,11 +1833,15 @@ def _protect(player, ct: Controller, pos: Position) -> None:
     # If adjacent to the ore, destroy any friendly harvester on it
     if pos.distance_squared(best_ore) <= 2:
         bid = ct.get_tile_building_id(best_ore)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.HARVESTER and ct.get_team(bid) == my_team:
-            if ct.can_destroy(best_ore):
-                ct.destroy(best_ore)
-                print(f"Protect E{ct.get_id()}: destroyed friendly harvester at {best_ore}")
-
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.HARVESTER
+            and ct.get_team(bid) == my_team
+        ) and ct.can_destroy(best_ore):
+            ct.destroy(best_ore)
+            print(
+                f"Protect E{ct.get_id()}: destroyed friendly harvester at {best_ore}",
+            )
 
     # Pathfind to the ore
     if player.pf_agent.goal != best_ore:
@@ -1621,6 +1850,7 @@ def _protect(player, ct: Controller, pos: Position) -> None:
 
 
 # ── Main entry point ─────────────────────────────────────────────────
+
 
 def run_builder(player, ct: Controller) -> None:
     pos = ct.get_position()
@@ -1647,7 +1877,10 @@ def run_builder(player, ct: Controller) -> None:
     # Check for friendly launchers
     if not player.seen_launcher:
         for bid in ct.get_nearby_buildings():
-            if ct.get_entity_type(bid) == EntityType.LAUNCHER and ct.get_team(bid) == ct.get_team():
+            if (
+                ct.get_entity_type(bid) == EntityType.LAUNCHER
+                and ct.get_team(bid) == ct.get_team()
+            ):
                 player.seen_launcher = True
                 break
 
@@ -1673,14 +1906,13 @@ def run_builder(player, ct: Controller) -> None:
         else:
             is_cardinal = False
             is_centre = False
-        
+
         if cur_round <= 1:
             player.state = "advance"
+        elif is_centre:
+            player.state = "advance" if ct.get_current_round() % 2 == 0 else "economy"
         else:
-            if is_centre:
-                player.state = "advance" if ct.get_current_round() % 2 == 0 else "economy"
-            else:
-                player.state = "base_builder" if is_cardinal else "hibernate"
+            player.state = "base_builder" if is_cardinal else "hibernate"
 
     print(player.state)
 
@@ -1691,27 +1923,31 @@ def run_builder(player, ct: Controller) -> None:
 
     # If standing on a splitter (non-base_builder), stay still unless a friendly bot is near core
     if player.state != "base_builder" and player.core_pos is not None:
-
         if ct.get_hp() < ct.get_max_hp() and ct.can_heal(pos):
             ct.heal(pos)
 
         my_team = ct.get_team()
         for bid_here in ct.get_nearby_buildings():
             if ct.get_position(bid_here) == pos:
-                if ct.get_entity_type(bid_here) == EntityType.SPLITTER and ct.get_team(bid_here) == my_team:
+                if (
+                    ct.get_entity_type(bid_here) == EntityType.SPLITTER
+                    and ct.get_team(bid_here) == my_team
+                ):
                     for uid in ct.get_nearby_units():
                         if uid == ct.get_id():
                             continue
                         if ct.get_team(uid) == my_team:
                             upos = ct.get_position(uid)
-                            if ct.get_tile_builder_bot_id(upos) is not None and king_dist(upos, player.core_pos) <= 1:
+                            if (
+                                ct.get_tile_builder_bot_id(upos) is not None
+                                and king_dist(upos, player.core_pos) <= 1
+                            ):
                                 break
                     else:
                         if ct.can_heal(pos):
                             ct.heal(pos)
                         return
                 break
-
 
     # Run state
     if player.state == "heal":
@@ -1725,7 +1961,10 @@ def run_builder(player, ct: Controller) -> None:
         player.state_turns += 1
         has_enemy_barrier = False
         for bid in ct.get_nearby_buildings():
-            if ct.get_entity_type(bid) == EntityType.BARRIER and ct.get_team(bid) != ct.get_team():
+            if (
+                ct.get_entity_type(bid) == EntityType.BARRIER
+                and ct.get_team(bid) != ct.get_team()
+            ):
                 has_enemy_barrier = True
                 break
         if player.state_turns >= 100 and not has_enemy_barrier:

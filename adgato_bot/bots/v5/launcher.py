@@ -1,7 +1,6 @@
 """Launcher unit logic for v5."""
 
 from cambc import Controller, EntityType, Position
-
 from utils import decode_waypoint, is_waypoint_marker, king_dist
 
 
@@ -41,9 +40,15 @@ def run_launcher(player, ct: Controller) -> None:
 
         # 3. Infer the missing core as the rotational mirror
         if player.core_pos is not None and player.enemy_core is None:
-            player.enemy_core = Position(w - 1 - player.core_pos.x, h - 1 - player.core_pos.y)
+            player.enemy_core = Position(
+                w - 1 - player.core_pos.x,
+                h - 1 - player.core_pos.y,
+            )
         elif player.enemy_core is not None and player.core_pos is None:
-            player.core_pos = Position(w - 1 - player.enemy_core.x, h - 1 - player.enemy_core.y)
+            player.core_pos = Position(
+                w - 1 - player.enemy_core.x,
+                h - 1 - player.enemy_core.y,
+            )
 
     if player.core_pos is None or ct.get_action_cooldown() > 0:
         return

@@ -1,13 +1,10 @@
 import heapq
-import math
 import random
+
 import matplotlib.pyplot as plt
 from PIL import Image
 
-
-NEIGHBORS = [(-1, -1), (0, -1), (1, -1),
-             (-1,  0),          (1,  0),
-             (-1,  1), (0,  1), (1,  1)]
+NEIGHBORS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 
 
 def load_map(path):
@@ -17,7 +14,7 @@ def load_map(path):
     walkable = set()
     for y in range(h):
         for x in range(w):
-            r, g, b, a = pixels[x, y]
+            r, g, b, _a = pixels[x, y]
             if r > 128 and g > 128 and b > 128:
                 walkable.add((x, y))
     return img, walkable, w, h
@@ -43,8 +40,9 @@ VISION_OFFSETS = build_visibility_mask()
 def get_visible(pos, walkable):
     """Return the set of walkable cells visible from pos."""
     x, y = pos
-    return {(x + dx, y + dy) for dx, dy in VISION_OFFSETS
-            if (x + dx, y + dy) in walkable}
+    return {
+        (x + dx, y + dy) for dx, dy in VISION_OFFSETS if (x + dx, y + dy) in walkable
+    }
 
 
 def dist_sq(a, b):
@@ -88,8 +86,7 @@ def create_line(a, b):
 
 
 # 8 directions in clockwise order
-DIRS = [(0, -1), (1, -1), (1, 0), (1, 1),
-        (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+DIRS = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
 
 DIR_INDEX = {d: i for i, d in enumerate(DIRS)}
 
@@ -146,26 +143,24 @@ def bug2(start, goal, walkable, max_steps=5000):
                 obstacle_start_dist = dist_sq(current, goal)
                 tracing_dir = dir_idx
                 line = create_line(goal, current)
+        elif current in line and dist_sq(current, goal) < obstacle_start_dist:
+            is_tracing = False
+        elif can_move(current, tracing_dir, walkable):
+            current = move(current, tracing_dir)
+            path.append(current)
+            tracing_dir = rotate_right(rotate_right(tracing_dir))
         else:
-            if current in line and dist_sq(current, goal) < obstacle_start_dist:
-                is_tracing = False
-            else:
+            moved = False
+            for _ in range(8):
+                tracing_dir = rotate_left(tracing_dir)
                 if can_move(current, tracing_dir, walkable):
                     current = move(current, tracing_dir)
                     path.append(current)
                     tracing_dir = rotate_right(rotate_right(tracing_dir))
-                else:
-                    moved = False
-                    for _ in range(8):
-                        tracing_dir = rotate_left(tracing_dir)
-                        if can_move(current, tracing_dir, walkable):
-                            current = move(current, tracing_dir)
-                            path.append(current)
-                            tracing_dir = rotate_right(rotate_right(tracing_dir))
-                            moved = True
-                            break
-                    if not moved:
-                        return path, False
+                    moved = True
+                    break
+            if not moved:
+                return path, False
 
     return path, current == goal
 
@@ -221,7 +216,7 @@ def draw_paths(img, dijkstra_path, bug2_path, start, goal):
     return img
 
 
-def main():
+def main() -> None:
     img, walkable, w, h = load_map("testmap1.png")
     walkable_list = list(walkable)
 

@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, EntityType, Position
-
 from pathfinding import chebyshev
 
 
@@ -41,7 +40,7 @@ def run_core(player: Player, ct: Controller) -> None:
     bridge_destroyed = player.nearest_bridge_id is not None and best_bridge is None
 
     print(
-        f"resource turn {rnd - player.last_resource_turn} bridge_destroyed {bridge_destroyed}"
+        f"resource turn {rnd - player.last_resource_turn} bridge_destroyed {bridge_destroyed}",
     )
     # Spawn a builder if bridge has had no resources for 5+ turns, or bridge was destroyed
     if player.nearest_bridge_id is not None and (
@@ -66,19 +65,18 @@ def run_core(player: Player, ct: Controller) -> None:
             if (
                 ct.get_entity_type(bid) == EntityType.BRIDGE
                 and ct.get_team(bid) == my_team
-            ):
-                if ct.get_bridge_target(bid).distance_squared(ct.get_position()) <= 2:
-                    player.expansion_cooldown += 1
-                    if player.expansion_cooldown > 5 and can_afford:
-                        for dx in range(-1, 2):
-                            for dy in range(-1, 2):
-                                p = Position(pos.x + dx, pos.y + dy)
-                                if ct.can_spawn(p):
-                                    ct.spawn_builder(p)
-                                    player.spawned += 1
-                                    player.seen_bridge = True
-                                    return
-                    break
+            ) and ct.get_bridge_target(bid).distance_squared(ct.get_position()) <= 2:
+                player.expansion_cooldown += 1
+                if player.expansion_cooldown > 5 and can_afford:
+                    for dx in range(-1, 2):
+                        for dy in range(-1, 2):
+                            p = Position(pos.x + dx, pos.y + dy)
+                            if ct.can_spawn(p):
+                                ct.spawn_builder(p)
+                                player.spawned += 1
+                                player.seen_bridge = True
+                                return
+                break
 
     imminent = player.spawned < 2 or ct.get_hp() < ct.get_max_hp()
     if imminent:

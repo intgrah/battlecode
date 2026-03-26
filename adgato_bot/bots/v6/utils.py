@@ -2,8 +2,6 @@
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 
-from pathfinding import _ALL_DIRS, _DIR_IDX
-
 # ── Constants ─────────────────────────────────────────────────────────
 
 SYM_TYPES = ["rotational", "horizontal", "vertical"]
@@ -16,22 +14,30 @@ PHASE_ASSAULT_READY = 2
 PHASE_BLOCKED = 3
 
 # Buildings that permanently block movement (can't walk on or build over)
-BLOCKED_BUILDINGS = frozenset({
-    EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH,
-    EntityType.LAUNCHER, EntityType.HARVESTER, EntityType.FOUNDRY,
-    EntityType.BARRIER
-})
+BLOCKED_BUILDINGS = frozenset(
+    {
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+        EntityType.HARVESTER,
+        EntityType.FOUNDRY,
+        EntityType.BARRIER,
+    },
+)
 
 # Tiles adjacent to core (outside 3x3, within action r²=8 from centre)
 _COMMS_OFFSETS = [
     Position(dx, dy)
-    for dx in range(-2, 3) for dy in range(-2, 3)
+    for dx in range(-2, 3)
+    for dy in range(-2, 3)
     if max(abs(dx), abs(dy)) == 2  # ring just outside the 3x3
-    and dx * dx + dy * dy <= 8     # within core action radius
+    and dx * dx + dy * dy <= 8  # within core action radius
 ]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def king_dist(a: Position, b: Position) -> int:
     """Chebyshev (king-move) distance between two positions."""
@@ -42,7 +48,12 @@ def in_bounds(ct: Controller, p: Position) -> bool:
     return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
 
 
-def try_move_smart(ct: Controller, pos: Position, direction: Direction, destroy_standing: bool = False) -> bool:
+def try_move_smart(
+    ct: Controller,
+    pos: Position,
+    direction: Direction,
+    destroy_standing: bool = False,
+) -> bool:
     """Move in direction. Uses existing walkable tile if possible, else builds road."""
     if direction == Direction.CENTRE:
         return True
@@ -57,7 +68,7 @@ def try_move_smart(ct: Controller, pos: Position, direction: Direction, destroy_
         pos_bid = ct.get_tile_building_id(pos)
         if pos_bid is not None and ct.get_entity_type(pos_bid) == EntityType.ROAD:
             env = ct.get_tile_env(pos)
-            if env != Environment.ORE_TITANIUM and env != Environment.ORE_AXIONITE:
+            if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
                 if ct.can_destroy(pos):
                     ct.destroy(pos)
     # Already walkable (enemy/friendly conveyor, road, allied core)
@@ -89,13 +100,18 @@ def build_walkable(ct: Controller) -> set:
                 continue
             if etype == EntityType.CORE and eteam != my_team:
                 continue
-            if etype == EntityType.MARKER and eteam == my_team and not is_waypoint_marker(ct.get_marker_value(bid)):
+            if (
+                etype == EntityType.MARKER
+                and eteam == my_team
+                and not is_waypoint_marker(ct.get_marker_value(bid))
+            ):
                 continue
         walkable.add(tile)
     return walkable
 
 
 # ── Symmetry ──────────────────────────────────────────────────────────
+
 
 def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[str, Position]:
     cx, cy = core.x, core.y
@@ -110,10 +126,9 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
     x, y = pos.x, pos.y
     if sym == "rotational":
         return Position(w - 1 - x, h - 1 - y)
-    elif sym == "horizontal":
+    if sym == "horizontal":
         return Position(w - 1 - x, y)
-    else:
-        return Position(x, h - 1 - y)
+    return Position(x, h - 1 - y)
 
 
 # ── Marker protocol ──────────────────────────────────────────────────
@@ -133,7 +148,13 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
 #   Bits 18-23: enemy core y
 
 
-def encode_comms(sym_name: str, phase: int, ex: int = 0, ey: int = 0, scout_idx: int = 0) -> int:
+def encode_comms(
+    sym_name: str,
+    phase: int,
+    ex: int = 0,
+    ey: int = 0,
+    scout_idx: int = 0,
+) -> int:
     sym = SYM_TO_IDX.get(sym_name, 3)
     return (min(scout_idx, 3) << 16) | (ey << 10) | (ex << 4) | (phase << 2) | sym
 
@@ -165,6 +186,7 @@ def is_waypoint_marker(value: int) -> bool:
 
 # ── Comms helpers ─────────────────────────────────────────────────────
 
+
 def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
     """Return candidate comms tile positions adjacent to core (in vision only)."""
     result = []
@@ -179,7 +201,11 @@ def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
         result.append(p)
     return result
 
-def read_comms(ct: Controller, core_pos: Position) -> tuple[str | None, int, Position | None, int]:
+
+def read_comms(
+    ct: Controller,
+    core_pos: Position,
+) -> tuple[str | None, int, Position | None, int]:
     """Read best comms marker near core.
     Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found."""
     my_team = ct.get_team()
