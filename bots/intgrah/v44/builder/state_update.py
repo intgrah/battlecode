@@ -353,6 +353,8 @@ def _update_flow(state: State, changed: list[tuple[int, int]]) -> None:
         state.ti_cached_path = None
         state.ax_flow_search = None
         state.ax_cached_path = None
+        state.bridge_flow_search = None
+        state.bridge_cached_path = None
         state.leakage_mask = build_leakage_mask(state)
     elif state.leakage_mask is None:
         state.leakage_mask = build_leakage_mask(state)

@@ -12,10 +12,11 @@ from entity import Entity
 from marker import Eureka
 
 from .build import Action, PlaceRoad, Task, execute
-from .state import State
+from .state import Role, State
 from .state_dump import dump
 from .state_update import update as state_update
 from .task_connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
+from .task_connect_excess_ti_bridge_core import connect_excess_ti_bridge_core
 from .task_connect_excess_ti_rax_core import connect_excess_ti_rax_core
 from .task_deny_enemy_harvester import _best_deny_target as _deny_best_target
 from .task_deny_enemy_harvester import deny_enemy_harvester
@@ -39,6 +40,7 @@ type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | No
 
 TASK_FNS: dict[Task, TaskFn] = {
     Task.CONNECT_EXCESS_TI_RAX_CORE: connect_excess_ti_rax_core,
+    Task.CONNECT_EXCESS_TI_BRIDGE_CORE: connect_excess_ti_bridge_core,
     Task.HARVEST_TI: harvest_ti,
     Task.HARVEST_AX: harvest_ax,
     Task.EXPLORE: explore,
@@ -59,6 +61,13 @@ class Builder(Entity):
     def __init__(self, ct: Controller) -> None:
         core_pos = _find_core(ct)
         self.state = State(ct, (core_pos.x, core_pos.y))
+        rnd = ct.get_current_round()
+        if rnd <= 1:
+            self.state.role = Role.ADVANCE
+        elif rnd == 2:
+            self.state.role = Role.SECURE
+        else:
+            self.state.role = Role.ADVANCE
 
     def run(self, ct: Controller) -> None:
         s = self.state
@@ -167,21 +176,6 @@ def _has_undefended_bridge(state: State) -> bool:
     return False
 
 
-def _has_unguarded_enemy_harvester(state: State) -> bool:
-    w = state.w
-    for hi in state.en_harvesters:
-        if any(
-            state.in_bounds((hi % w) + dx, (hi // w) + dy)
-            and state.entity[ni := state.idx((hi % w) + dx, (hi // w) + dy)] is not None
-            and state.entity[ni][0] == EntityType.SENTINEL
-            and state.entity[ni][1] == state.my_team
-            for dx, dy in _NEIGHBOR_DELTAS
-        ):
-            continue
-        return True
-    return False
-
-
 def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
     pos = state.pos
@@ -189,10 +183,22 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     core_damaged = state.my_core_hp < state.my_core_max_hp
     scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
 
+    if state.role == Role.SECURE:
+        return _policy_secure(state, scores, pos)
+    return _policy_advance(state, scores, pos)
+
+
+def _policy_secure(
+    state: State,
+    scores: list[tuple[float, Task]],
+    pos: Position,
+) -> list[tuple[float, Task]]:
     has_excess = any(
         state.my_flow.excess[i] > 0.01 for i in state.my_harvesters | state.my_transport
     )
-    scores.append((200.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_RAX_CORE))
+    scores.append(
+        (200.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE_CORE),
+    )
 
     visible_ore = _secure_best_ore(state, pos)
     if visible_ore is not None:
@@ -214,22 +220,27 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     else:
         scores.append((0.0, Task.SECURE_ORE))
 
-    has_deny_target = _deny_best_target(state, exclude=visible_ore) is not None
-    scores.append((55.0 if has_deny_target else 0.0, Task.DENY_ENEMY_HARVESTER))
-
     scores.append(
         (45.0 if _has_undefended_bridge(state) else 0.0, Task.PLACE_LAUNCHER),
     )
-
-    scores.append((0.0, Task.HARVEST_TI))
-    scores.append((0.0, Task.HARVEST_AX))
-    scores.append((0.0, Task.PLACE_FOUNDRY_MIXED_CONV))
-    scores.append((0.0, Task.PLACE_SPLITTER_FOUNDRY))
-    scores.append((0.0, Task.CONNECT_EXCESS_AX_TI_CONV))
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
-    scores.append((0.0, Task.NAV_ENEMY_CORE))
-    scores.append((0.0, Task.RAID))
+
+    scores.sort(key=lambda t: t[0], reverse=True)
+    return scores
+
+
+def _policy_advance(
+    state: State,
+    scores: list[tuple[float, Task]],
+    pos: Position,
+) -> list[tuple[float, Task]]:
+    visible_ore = _secure_best_ore(state, pos)
+    has_deny_target = _deny_best_target(state, exclude=visible_ore) is not None
+    scores.append((55.0 if has_deny_target else 0.0, Task.DENY_ENEMY_HARVESTER))
+
+    scores.append((20.0, Task.EXPLORE))
+    scores.append((5.0, Task.PATROL))
 
     scores.sort(key=lambda t: t[0], reverse=True)
     return scores
