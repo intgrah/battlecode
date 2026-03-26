@@ -101,7 +101,7 @@ def deny_enemy_harvester(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    secure_target = _secure_best_ore(state, state.pos)
+    secure_target = _secure_best_ore(state)
     target = _best_deny_target(state, exclude=secure_target)
     if target is None:
         return None

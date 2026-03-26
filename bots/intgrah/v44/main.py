@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from builder import Builder
 from cambc import Controller, EntityType
 from core import Core
+from launcher import Launcher
 from sentinel import Sentinel
 
 if TYPE_CHECKING:
@@ -22,6 +23,8 @@ class Player:
                     self.unit = Builder(ct)
                 case EntityType.SENTINEL:
                     self.unit = Sentinel(ct)
+                case EntityType.LAUNCHER:
+                    self.unit = Launcher(ct)
                 case _:
                     return
         self.unit.run(ct)
