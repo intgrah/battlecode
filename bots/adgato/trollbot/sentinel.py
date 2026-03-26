@@ -1,17 +1,9 @@
 """Sentinel turret logic for trollbot — shoot the nearest enemy harvester."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from main import Player
-
 from cambc import Controller, EntityType
-from utils import _DIR_IDX
+from utils import _ALL_DIRS, _DIR_IDX
 
-
-def run_sentinel(_player: Player, ct: Controller) -> None:
+def run_sentinel(player, ct: Controller) -> None:
     pos = ct.get_position()
     my_team = ct.get_team()
 
@@ -40,4 +32,5 @@ def run_sentinel(_player: Player, ct: Controller) -> None:
             return
 
     if not any_adjacent:
-        ct.self_destruct()
+       ct.self_destruct()
+        
