@@ -1,0 +1,224 @@
+Skip to main content <#content-area>
+Cambridge Battlecode home pagelight logodark logo <https://
+docs.battlecode.cam/>
+
+Search...
+Ctrl K
+
+  *
+
+    Platform <https://game.battlecode.cam/>
+  *
+
+    Discord <https://discord.gg/xHCygPeAq8>
+
+
+          Overview
+
+  *
+    Game Overview
+     <https://docs.battlecode.cam/spec/overview>
+  *
+    Resources
+     <https://docs.battlecode.cam/spec/resources>
+
+
+          Units
+
+  *
+    Core
+     <https://docs.battlecode.cam/spec/core>
+  *
+    Builder Bot
+     <https://docs.battlecode.cam/spec/builder-bot>
+
+
+          Buildings
+
+  *
+    Conveyors
+     <https://docs.battlecode.cam/spec/conveyors>
+  *
+    Harvester & Foundry
+     <https://docs.battlecode.cam/spec/harvester-and-foundry>
+  *
+    Road, Barrier & Marker
+     <https://docs.battlecode.cam/spec/other-buildings>
+
+
+          Combat
+
+  *
+    Turrets
+     <https://docs.battlecode.cam/spec/turrets>
+
+
+          Reference
+
+  *
+    Reference Tables
+     <https://docs.battlecode.cam/spec/reference>
+
+  *
+    Platform
+
+    <https://game.battlecode.cam/>
+  *
+
+Cambridge Battlecode home pagelight logodark logo <https://
+docs.battlecode.cam/>
+
+Search...
+Ctrl K
+
+Ask AI
+
+  * Platform <https://game.battlecode.cam/>
+
+Search...
+
+Navigation
+
+Overview
+
+Resources
+Getting Started
+<https://docs.battlecode.cam/>Game Rules
+<https://docs.battlecode.cam/spec/overview>API Reference
+<https://docs.battlecode.cam/api/controller>Changelog
+<https://docs.battlecode.cam/>
+Getting Started
+<https://docs.battlecode.cam/>Game Rules
+<https://docs.battlecode.cam/spec/overview>API Reference
+<https://docs.battlecode.cam/api/controller>Changelog
+<https://docs.battlecode.cam/>
+Overview
+
+
+  Resources
+
+Titanium, axionite, and the cost scaling formula.
+
+
+    ​
+
+     <#titanium>
+    Titanium
+
+Titanium
+
+The primary resource used to construct most buildings. Each team starts
+with *1000 titanium*. Titanium is harvested from titanium ore deposits
+and delivered to the core via conveyors.
+
+
+    ​
+
+     <#axionite>
+    Axionite
+
+Axionite comes in two forms:
+
+
+    Raw axionite
+
+Raw axionite
+
+Mined from axionite ore deposits. When fed to a turret or core, it
+*decays into titanium*. Must be refined first for advanced uses.
+
+
+    Refined axionite
+
+Refined axionite
+
+Produced by axionite foundries <https://docs.battlecode.cam/spec/
+harvester-and-foundry#axionite-foundry> from raw axionite + titanium.
+Used for powerful units and advanced infrastructure.
+
+Whenever “axionite” is mentioned in the spec without qualification, it
+refers to *refined axionite*.
+
+
+    ​
+
+     <#resource-distribution>
+    Resource distribution
+
+Resources are stored and moved in *stacks of 10*. At the end of each
+round, buildings that output resources send them to adjacent buildings
+that accept them.
+
+Resources can be outputted to buildings belonging to the *opposing team*.
+See conveyors <https://docs.battlecode.cam/spec/conveyors>, harvester &
+foundry <https://docs.battlecode.cam/spec/harvester-and-foundry>, and
+turrets <https://docs.battlecode.cam/spec/turrets> for details on input/
+output directions.
+
+
+    ​
+
+     <#cost-scaling>
+    Cost scaling
+
+Every building and unit you construct increases the cost of future
+builds. The cost of every building and unit is:
+cost=⌊scale×base cost⌋\text{cost} = \lfloor \text{scale} \times
+\text{base cost} \rfloor
+
+cost=⌊scale×base cost⌋ Where scale starts at 1.0 and increases
+*additively* with each entity built — two builder bots at +10% each
+gives 1.2x, not 1.21x. You can query the current scale with |
+c.get_scale_percent()| which returns it as a percentage (100.0 at base).
+Entity	Scale increase
+Road	+0.5%
+Conveyor, splitter, armoured conveyor, bridge, barrier	+1%
+Builder bot, harvester, gunner, sentinel, breach, launcher	+10%
+Axionite foundry	+100%
+
+When an entity is destroyed, its scaling contribution is removed — costs
+go back down.
+
+Every entity you build makes the next one more expensive. Be efficient
+with what you build!
+
+Previous <https://docs.battlecode.cam/spec/overview>
+CoreYour central building — if it's destroyed, you lose.
+Next
+
+<https://docs.battlecode.cam/spec/core>
+Ctrl+I
+
+discord
+
+<https://discord.gg/xHCygPeAq8>website
+
+<https://battlecode.cam/>
+Powered by
+
+This documentation is built and hosted on Mintlify, a developer
+documentation platform <https://www.mintlify.com/?
+utm_campaign=poweredBy&utm_medium=referral&utm_source=cambridgebattlecode>
+
+On this page
+
+  * Titanium <#titanium>
+  * Axionite <#axionite>
+  * Resource distribution <#resource-distribution>
+  * Cost scaling <#cost-scaling>
+
+Assistant
+
+Responses are generated using AI and may contain mistakes.
+
+Contact support
+
+<mailto:support@battlecode.cam>
+x
+
+Titanium
+
+Raw axionite
+
+Refined axionite
+
