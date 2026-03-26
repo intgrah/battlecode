@@ -35,7 +35,9 @@ class TaskClaim:
     turn: int
 
     def encode(self) -> int:
-        val = (0 << _TAG_SHIFT) | (self.kind << 23) | (self.tile_index << 11) | self.turn
+        val = (
+            (0 << _TAG_SHIFT) | (self.kind << 23) | (self.tile_index << 11) | self.turn
+        )
         return encrypt(val)
 
     @staticmethod

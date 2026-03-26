@@ -12,19 +12,19 @@ from entity import Entity
 from marker import Eureka
 
 from .build import Action, PlaceRoad, Task, execute
-from .connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
-from .connect_excess_ti_rax_core import connect_excess_ti_rax_core
 from .dump import dump
-from .explore import explore
-from .harvest_ax import harvest_ax
-from .harvest_ti import harvest_ti
-from .nav_enemy_core import nav_enemy_core
-from .patrol import patrol
-from .place_foundry_mixed_conv import place_foundry_mixed_conv
-from .place_splitter_foundry import place_splitter_foundry
-from .raid import raid
 from .state import State
 from .state_update import update as state_update
+from .task_connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
+from .task_connect_excess_ti_rax_core import connect_excess_ti_rax_core
+from .task_explore import explore
+from .task_harvest_ax import harvest_ax
+from .task_harvest_ti import harvest_ti
+from .task_nav_enemy_core import nav_enemy_core
+from .task_patrol import patrol
+from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
+from .task_place_splitter_foundry import place_splitter_foundry
+from .task_raid import raid
 
 DEBUG_DUMP = False
 
