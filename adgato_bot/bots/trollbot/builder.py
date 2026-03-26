@@ -306,45 +306,60 @@ def run_builder(player: Player, ct: Controller) -> None:
             if player.mode not in ("heal", "bridge"):
                 player.mode = "heal"
 
-    #if player.mode == "advance" and player.core_pos is not None and player.nearest_ore is not None:
-    #    ti, _ = ct.get_global_resources()
-    #    h_ti, _ = ct.get_harvester_cost()
-    #    b_ti, _ = ct.get_bridge_cost()
-    #    r_ti, _ = ct.get_road_cost()
-    #    bonus = 500 if (w, h) in ((21, 50), (27, 45)) else 150
-    #    coverage = 0.2 if (w, h) == (27, 45) else 0.95
-    #    bridge_dist = chebyshev(player.core_pos, player.nearest_ore)
-    #    if len(player.known_env) >= coverage * w * h or ti <= h_ti + bridge_dist / 3 * b_ti + chebyshev(pos, player.core_pos) * r_ti + bonus:
-    #        player.mode = "return"
-    #        player.wander_target = None
+    if player.mode == "advance" and player.core_pos is not None and player.nearest_ore is not None:
+        coverage = 0.95
+        if len(player.known_env) >= coverage * w * h:
+            player.mode = "protect"
+            player.wander_target = None
 
-    # ── Broken bridge detection: fix bridges whose target isn't a friendly bridge or core
+    # ── Broken bridge / orphan harvester detection ──────────────────
     if player.mode not in ("bridge", "heal"):
         my_team = ct.get_team()
         for bid in ct.get_nearby_buildings():
-            if ct.get_entity_type(bid) != EntityType.BRIDGE or ct.get_team(bid) != my_team:
+            etype = ct.get_entity_type(bid)
+            if ct.get_team(bid) != my_team:
                 continue
-            bt = ct.get_bridge_target(bid)
-            if not ct.is_in_vision(bt):
-                continue
-            target_bid = ct.get_tile_building_id(bt)
-            if target_bid is not None:
-                ttype = ct.get_entity_type(target_bid)
-                tteam = ct.get_team(target_bid)
-                if ttype == EntityType.BRIDGE and tteam == my_team:
-                    print("bridge leads to bridge, okay")
-                    continue
-                if ttype == EntityType.CORE and tteam == my_team:
-                    print("bridge leads to core, okay")
-                    continue
-            print("bridge leads to bridge, empty, panic!")
-            player.mode = "bridge"
-            player.bridge_target = bt
-            player.launcher_target = None
-            player.launcher_failed = None
-            found_broken = True
-            break
 
+            if etype == EntityType.BRIDGE:
+                bt = ct.get_bridge_target(bid)
+                if not ct.is_in_vision(bt):
+                    continue
+                target_bid = ct.get_tile_building_id(bt)
+                if target_bid is not None:
+                    ttype = ct.get_entity_type(target_bid)
+                    tteam = ct.get_team(target_bid)
+                    if ttype == EntityType.BRIDGE and tteam == my_team:
+                        continue
+                    if ttype == EntityType.CORE and tteam == my_team:
+                        continue
+                print("bridge leads nowhere, panic!")
+                player.mode = "bridge"
+                player.bridge_target = bt
+                player.launcher_target = None
+                player.launcher_failed = None
+                break
+
+            if etype == EntityType.HARVESTER:
+                hp = ct.get_position(bid)
+                has_adj_bridge = False
+                for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
+                    adj = hp.add(d)
+                    if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
+                        has_adj_bridge = True
+                        break
+                    adj_bid = ct.get_tile_building_id(adj)
+                    if adj_bid is not None and ct.get_entity_type(adj_bid) == EntityType.BRIDGE and ct.get_team(adj_bid) == my_team:
+                        has_adj_bridge = True
+                        break
+                if not has_adj_bridge:
+                    bt = _pick_bridge_start(ct, hp)
+                    if bt is not None:
+                        print("orphan harvester, entering bridge mode")
+                        player.mode = "bridge"
+                        player.bridge_target = bt
+                        player.launcher_target = None
+                        player.launcher_failed = None
+                        break
 
     # ── Advance: explore map and pathfind to unclaimed ore ─────────
     if player.mode == "advance":
@@ -514,11 +529,13 @@ def run_builder(player: Player, ct: Controller) -> None:
 
         if player.wander_target is not None:
             pf_move(player, ct, player.wander_target)
-        elif ct.get_current_round() > 1000 and core is not None and king_dist(pos, core) <= 1:
-                player.mode = "secure"
-                player.target = None
-                player.wander_target = None
-                return
+        elif core is not None:
+            pf_move(player, ct, core)
+        #elif ct.get_current_round() > 1000 and core is not None and king_dist(pos, core) <= 1:
+        #        player.mode = "secure"
+        #        player.target = None
+        #        player.wander_target = None
+        #        return
         return
 
 def _pick_frontier_target(player: Player, pos: Position, prev_target: Position | None, w: int, h: int) -> Position | None:
@@ -684,19 +701,23 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
                 
         if ct.can_build_harvester(player.secure_target):
             ct.build_harvester(player.secure_target)
-            player.bridge_target = _pick_bridge_start(ct, player.secure_target, player.core_pos)
+            player.bridge_target = _pick_bridge_start(ct, player.secure_target)
             player.secure_target = None
             player.mode = "bridge"
     
     return True
 
 
-def _pick_bridge_start(ct: Controller, harvester_pos: Position, core_pos: Position) -> Position | None:
+def _pick_bridge_start(ct: Controller, harvester_pos: Position) -> Position | None:
     """Pick the best cardinal-adjacent tile to a harvester to start a bridge chain.
-    Returns the buildable tile closest to core, or None."""
-    best = None
+    Returns the buildable tile closest to the bot, or None.
+    If prefer_empty, tries tiles with no building first."""
     pos = ct.get_position()
+    best = None
     best_dist = 999999
+    fallback = None
+    fallback_dist = 999999
+    team = ct.get_team()
     for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
         bp = harvester_pos.add(d)
         if not in_bounds(ct, bp) or not ct.is_in_vision(bp):
@@ -704,10 +725,18 @@ def _pick_bridge_start(ct: Controller, harvester_pos: Position, core_pos: Positi
         if not _is_buildable(ct, bp):
             continue
         dist = king_dist(bp, pos)
-        if dist < best_dist:
-            best_dist = dist
-            best = bp
-    return best
+        bid = ct.get_tile_building_id(bp)
+        if (bid is None or ct.get_team(bid) == team and ct.get_entity_type(bid) == EntityType.ROAD):
+            if dist < best_dist:
+                best_dist = dist
+                best = bp
+        else:
+            if dist < fallback_dist:
+                fallback_dist = dist
+                fallback = bp
+    if best is not None:
+        return best
+    return fallback if best is None else best
 
 
 def _finish_bridge_chain(player: Player, ct: Controller, pos: Position) -> None:
