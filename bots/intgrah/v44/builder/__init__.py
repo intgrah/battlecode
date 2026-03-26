@@ -15,12 +15,13 @@ from .build import Action, PlaceRoad, Task, execute
 from .state import Role, State
 from .state_dump import dump
 from .state_update import update as state_update
+from .task_barrier_ore import _best_unbarriered_ore, barrier_ore
 from .task_connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
 from .task_connect_excess_ti_bridge_core import connect_excess_ti_bridge_core
 from .task_connect_excess_ti_rax_core import connect_excess_ti_rax_core
-from .task_deny_enemy_harvester import _best_deny_target as _deny_best_target
-from .task_deny_enemy_harvester import deny_enemy_harvester
 from .task_explore import explore
+from .task_fire_enemy_transport import _find_target as _find_fire_target
+from .task_fire_enemy_transport import fire_enemy_transport
 from .task_harvest_ax import harvest_ax
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
@@ -28,6 +29,8 @@ from .task_nav_enemy_core import nav_enemy_core
 from .task_patrol import patrol
 from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
 from .task_place_launcher import place_launcher
+from .task_place_sentinel import _find_target as _find_sentinel_target
+from .task_place_sentinel import place_sentinel
 from .task_place_splitter_foundry import place_splitter_foundry
 from .task_raid import raid
 from .task_repair_bridge import _find_broken_bridge, repair_bridge
@@ -53,9 +56,10 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
     Task.SECURE_ORE: secure_ore,
     Task.PLACE_LAUNCHER: place_launcher,
-    Task.DENY_ENEMY_HARVESTER: deny_enemy_harvester,
-    Task.CONNECT_EXCESS_TI_BRIDGE_CORE: connect_excess_ti_bridge_core,
     Task.REPAIR_BRIDGE: repair_bridge,
+    Task.BARRIER_ORE: barrier_ore,
+    Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
+    Task.PLACE_SENTINEL: place_sentinel,
 }
 
 
@@ -218,10 +222,13 @@ def _policy_advance(
     state: State,
     scores: list[tuple[float, Task]],
 ) -> list[tuple[float, Task]]:
-    visible_ore = _secure_best_ore(state)
-    has_deny_target = _deny_best_target(state, exclude=visible_ore) is not None
+    has_barrier_target = _best_unbarriered_ore(state) is not None
+    has_fire_target = _find_fire_target(state) is not None
+    has_sentinel_target = _find_sentinel_target(state) is not None
 
-    scores.append((55.0 * has_deny_target, Task.DENY_ENEMY_HARVESTER))
+    scores.append((80.0 if has_barrier_target else 0.0, Task.BARRIER_ORE))
+    scores.append((75.0 if has_fire_target else 0.0, Task.FIRE_ENEMY_TRANSPORT))
+    scores.append((70.0 if has_sentinel_target else 0.0, Task.PLACE_SENTINEL))
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
 

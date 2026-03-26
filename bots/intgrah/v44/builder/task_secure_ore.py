@@ -1,11 +1,10 @@
 from cambc import Controller, Direction, EntityType, Environment, Position
 from marker import TaskClaim, TaskKind
+from util import DIR4_DELTA, DIR8_DELTA
 
 from .build import Action, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
-
-_CARDINAL = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 _SECURED = frozenset(
     {
@@ -22,9 +21,9 @@ _SECURED = frozenset(
 
 def _core_side(state: State, ox: int, oy: int) -> tuple[int, int]:
     cx, cy = state.my_core
-    best = _CARDINAL[0]
+    best = DIR4_DELTA[0]
     best_dist = 999999
-    for dx, dy in _CARDINAL:
+    for dx, dy in DIR4_DELTA:
         ax, ay = ox + dx, oy + dy
         if not state.in_bounds(ax, ay):
             continue
@@ -35,10 +34,17 @@ def _core_side(state: State, ox: int, oy: int) -> tuple[int, int]:
     return best
 
 
+def _is_ore(state: State, x: int, y: int) -> bool:
+    if not state.in_bounds(x, y):
+        return False
+    env = state.env[state.idx(x, y)]
+    return env == Environment.ORE_TITANIUM
+
+
 def _needs_barrier(state: State, ox: int, oy: int) -> list[tuple[int, int]]:
     open_side = _core_side(state, ox, oy)
     result: list[tuple[int, int]] = []
-    for dx, dy in _CARDINAL:
+    for dx, dy in DIR4_DELTA:
         if (dx, dy) == open_side:
             continue
         ax, ay = ox + dx, oy + dy
@@ -46,6 +52,8 @@ def _needs_barrier(state: State, ox: int, oy: int) -> list[tuple[int, int]]:
             continue
         env = state.env[state.idx(ax, ay)]
         if env is None or env == Environment.WALL:
+            continue
+        if _is_ore(state, ax, ay):
             continue
         ent = state.entity[state.idx(ax, ay)]
         if ent is not None and ent[0] in _SECURED and ent[1] == state.my_team:
@@ -58,7 +66,7 @@ def _ore_is_visible(state: State, ox: int, oy: int) -> bool:
     oi = state.idx(ox, oy)
     if state.env[oi] is None:
         return False
-    for dx, dy in _CARDINAL:
+    for dx, dy in DIR4_DELTA:
         ax, ay = ox + dx, oy + dy
         if state.in_bounds(ax, ay) and state.env[state.idx(ax, ay)] is None:
             return False
@@ -76,7 +84,7 @@ def _best_ore(state: State) -> tuple[int, int] | None:
         if not _ore_is_visible(state, ox, oy):
             continue
         oi = state.idx(ox, oy)
-        if oi in state.my_barriers or oi in state.en_barriers:
+        if oi in state.en_barriers:
             continue
         core_dist = abs(ox - cx) + abs(oy - cy)
         key = (core_dist,)
@@ -84,18 +92,6 @@ def _best_ore(state: State) -> tuple[int, int] | None:
             best_key = key
             best = (ox, oy)
     return best
-
-
-_ACTION_DELTAS = [
-    (-1, 0),
-    (1, 0),
-    (0, -1),
-    (0, 1),
-    (-1, -1),
-    (-1, 1),
-    (1, -1),
-    (1, 1),
-]
 
 
 def _reachable_adjacent(
@@ -106,7 +102,7 @@ def _reachable_adjacent(
 ) -> Position | None:
     best = None
     best_dist = 999999
-    for dx, dy in _ACTION_DELTAS:
+    for dx, dy in DIR8_DELTA:
         ax, ay = ox + dx, oy + dy
         if not state.in_bounds(ax, ay):
             continue
@@ -136,6 +132,19 @@ def secure_ore(
     rnd = ct.get_current_round()
     state.claim = TaskClaim(TaskKind.NAV_ORE, oi, rnd)
 
+    ore_pos = Position(ox, oy)
+
+    if oi in state.my_barriers:
+        if pos.distance_squared(ore_pos) <= 2:
+            ct.destroy(ore_pos)
+        else:
+            adj = _reachable_adjacent(state, pos, ox, oy)
+            if adj is None:
+                return None
+            move, build = move_toward_with_road(state, ct, adj)
+            state.debug_target = (ore_pos, 255, 255, 0)
+            return move, build
+
     needs = _needs_barrier(state, ox, oy)
 
     if needs:
@@ -161,8 +170,6 @@ def secure_ore(
                 build = PlaceBarrier(barrier_pos)
         state.debug_target = (barrier_pos, 0, 255, 255)
         return move, build
-
-    ore_pos = Position(ox, oy)
 
     if pos.distance_squared(ore_pos) <= 2:
         bid = ct.get_tile_building_id(ore_pos)

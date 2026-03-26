@@ -24,6 +24,9 @@ class Task(Enum):
     DENY_ENEMY_HARVESTER = auto()
     CONNECT_EXCESS_TI_BRIDGE_CORE = auto()
     REPAIR_BRIDGE = auto()
+    BARRIER_ORE = auto()
+    FIRE_ENEMY_TRANSPORT = auto()
+    PLACE_SENTINEL = auto()
 
 
 # Low level Actions (one per turn)
@@ -88,6 +91,11 @@ class PlaceLauncher:
     pos: Position
 
 
+@dataclass(frozen=True, slots=True)
+class Fire:
+    pos: Position
+
+
 type Action = (
     PlaceHarvester
     | PlaceConveyor
@@ -100,6 +108,7 @@ type Action = (
     | PlaceBarrier
     | PlaceSentinel
     | PlaceLauncher
+    | Fire
 )
 
 
@@ -169,3 +178,6 @@ def execute(action: Action, ct: Controller) -> None:
                 _destroy_friendly(ct, pos)
                 if ct.can_build_launcher(pos):
                     ct.build_launcher(pos)
+        case Fire(pos):
+            if ct.can_fire(pos):
+                ct.fire(pos)
