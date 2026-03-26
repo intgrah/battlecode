@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
+    from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
     from marker import TaskClaim
     from nav_astar import NavAstar
@@ -64,6 +65,11 @@ class Symmetry(Enum):
     ROT = auto()
     HOR = auto()
     VER = auto()
+
+
+class Role(Enum):
+    ADVANCE = auto()
+    SECURE = auto()
 
 
 class State:
@@ -122,6 +128,9 @@ class State:
         self.symmetry: Symmetry | None = None
         self.sym_candidates: set[Symmetry] = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
 
+        # -- Role (set once at init) --
+        self.role: Role | None = None
+
         # -- Position (updated each turn) --
         self.pos: Position = Position(core_pos[0], core_pos[1])
 
@@ -134,6 +143,9 @@ class State:
         self.ax_flow_search: AxChainAstar | None = None
         self.ax_cached_source: tuple[int, int] | None = None
         self.ax_cached_path: list[int] | None = None
+        self.bridge_flow_search: BridgeFlowAstar | None = None
+        self.bridge_cached_source: tuple[int, int] | None = None
+        self.bridge_cached_path: list[int] | None = None
         self.nav_target_key: tuple[int, int] | None = None
         self.nav_search: NavAstar | None = None
         self.nav_path: list[int] | None = None
