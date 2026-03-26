@@ -48,12 +48,12 @@ class Player:
         self.small_map: bool = False
 
     def run(self, ct: Controller) -> None:
-        etype = ct.get_entity_type()
-        if etype == EntityType.CORE:
-            run_core(self, ct)
-        elif etype == EntityType.BUILDER_BOT:
-            run_builder(self, ct)
-        elif etype == EntityType.SENTINEL:
-            run_sentinel(self, ct)
-        elif etype == EntityType.LAUNCHER:
-            run_launcher(self, ct)
+        match ct.get_entity_type():
+            case EntityType.CORE:
+                run_core(self, ct)
+            case EntityType.BUILDER_BOT:
+                run_builder(self, ct)
+            case EntityType.SENTINEL:
+                run_sentinel(self, ct)
+            case EntityType.LAUNCHER:
+                run_launcher(self, ct)
