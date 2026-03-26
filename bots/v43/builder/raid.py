@@ -20,17 +20,17 @@ class RaidMixin(BuilderBase):
     ) -> tuple[Direction, Action | None] | None:
         best_tile = None
         best_flow = 0.0
-        w = self.belief.w
-        for i in self.belief.en_transport:
-            if self.belief.en_flow.total[i] <= 0:
+        w = self.state.w
+        for i in self.state.en_transport:
+            if self.state.en_flow.total[i] <= 0:
                 continue
-            ent = self.belief.entity[i]
+            ent = self.state.entity[i]
             if ent is None or ent[0] not in _RAIDABLE:
                 continue
-            if i in self.belief.unit_tiles:
+            if i in self.state.unit_tiles:
                 continue
-            if self.belief.en_flow.total[i] > best_flow:
-                best_flow = self.belief.en_flow.total[i]
+            if self.state.en_flow.total[i] > best_flow:
+                best_flow = self.state.en_flow.total[i]
                 best_tile = (i % w, i // w)
         if best_tile is None:
             return None

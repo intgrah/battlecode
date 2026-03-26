@@ -9,7 +9,7 @@ Unlike place_foundry_ti_conv, this preserves the original conveyor until
 the splitter replaces it, keeping the Ti chain intact.
 """
 
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 
 from .base import BuilderBase
 from .build import Action, PlaceFoundry
@@ -21,14 +21,14 @@ class PlaceFoundryMixedConvMixin(BuilderBase):
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
-        w = self.belief.w
-        f = self.belief.my_flow
+        w = self.state.w
+        f = self.state.my_flow
         best_conv: int | None = None
         best_score = 0.0
         best_dist = 999999
 
-        for i in self.belief.my_transport:
-            ent = self.belief.entity[i]
+        for i in self.state.my_transport:
+            ent = self.state.entity[i]
             if ent is None:
                 continue
             if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
@@ -53,15 +53,20 @@ class PlaceFoundryMixedConvMixin(BuilderBase):
         foundry_dist = 999999
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = cx + dx, cy + dy
-            if not self.belief.in_bounds(nx, ny):
+            if not self.state.in_bounds(nx, ny):
                 continue
-            ni = self.belief.idx(nx, ny)
-            env = self.belief.env[ni]
-            if env is None or env != env.EMPTY:
+            ni = self.state.idx(nx, ny)
+            env = self.state.env[ni]
+            if env is None or env != Environment.EMPTY:
                 continue
-            ent = self.belief.entity[ni]
+            ent = self.state.entity[ni]
             if ent is not None:
-                continue
+                etype, eteam = ent
+                if not (
+                    etype == EntityType.MARKER
+                    or (etype == EntityType.ROAD and eteam == self.state.my_team)
+                ):
+                    continue
             d = (pos.x - nx) ** 2 + (pos.y - ny) ** 2
             if d < foundry_dist:
                 foundry_dist = d

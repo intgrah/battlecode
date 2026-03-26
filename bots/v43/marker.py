@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, auto
 
 CIPHER = 0x2120B7E8
 CLAIM_TTL = 8  # TO DO: investigate TTL trends
@@ -11,9 +11,9 @@ _TAG_MASK = 0xF
 
 
 class TaskKind(IntEnum):
-    NAV_ORE = 0
-    FIX_EXCESS = 1
-    EXPLORE = 2
+    NAV_ORE = auto()
+    FIX_EXCESS = auto()
+    EXPLORE = auto()
 
 
 @dataclass(frozen=True)

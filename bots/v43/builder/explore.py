@@ -29,7 +29,7 @@ class ExploreMixin(BuilderBase):
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
         self._advance_frontier()
-        if self._explore_target is not None and not self.belief.is_unseen(
+        if self._explore_target is not None and not self.state.is_unseen(
             self._explore_target.x,
             self._explore_target.y,
         ):
@@ -43,7 +43,7 @@ class ExploreMixin(BuilderBase):
         return move, build
 
     def _advance_frontier(self) -> None:
-        cx, cy = self.belief.my_core
+        cx, cy = self.state.my_core
         limit = max(self.w, self.h)
         while self._explore_radius < limit:
             r = self._explore_radius + 1
@@ -55,32 +55,32 @@ class ExploreMixin(BuilderBase):
         x0, x1 = max(0, cx - r), min(self.w - 1, cx + r)
         y0, y1 = max(0, cy - r), min(self.h - 1, cy + r)
         for x in range(x0, x1 + 1):
-            if self.belief.is_unseen(x, y0):
+            if self.state.is_unseen(x, y0):
                 return True
-            if self.belief.is_unseen(x, y1):
+            if self.state.is_unseen(x, y1):
                 return True
         for y in range(y0 + 1, y1):
-            if self.belief.is_unseen(x0, y):
+            if self.state.is_unseen(x0, y):
                 return True
-            if self.belief.is_unseen(x1, y):
+            if self.state.is_unseen(x1, y):
                 return True
         return False
 
     def _pick_frontier_target(self, pos: Position) -> Position | None:
-        cx, cy = self.belief.my_core
+        cx, cy = self.state.my_core
         r = self._explore_radius + 3
-        x0, x1 = max(0, cx - r), min(self.belief.w - 1, cx + r)
-        y0, y1 = max(0, cy - r), min(self.belief.h - 1, cy + r)
+        x0, x1 = max(0, cx - r), min(self.state.w - 1, cx + r)
+        y0, y1 = max(0, cy - r), min(self.state.h - 1, cy + r)
         candidates: list[tuple[int, int]] = []
         for x in range(x0, x1 + 1):
-            if self.belief.is_unseen(x, y0):
+            if self.state.is_unseen(x, y0):
                 candidates.append((x, y0))
-            if self.belief.is_unseen(x, y1):
+            if self.state.is_unseen(x, y1):
                 candidates.append((x, y1))
         for y in range(y0 + 1, y1):
-            if self.belief.is_unseen(x0, y):
+            if self.state.is_unseen(x0, y):
                 candidates.append((x0, y))
-            if self.belief.is_unseen(x1, y):
+            if self.state.is_unseen(x1, y):
                 candidates.append((x1, y))
         if not candidates:
             return None

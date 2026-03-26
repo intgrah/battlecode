@@ -1,3 +1,12 @@
+"""Navigate to unharvested Ti ore and place a harvester.
+
+If the builder is already cardinally adjacent to Ti ore, it places the
+harvester immediately. Otherwise, it navigates to the nearest unharvested
+Ti ore, sorted by Euclidean distance, skipping claimed and enemy-occupied
+tiles. If the move places the builder adjacent to the ore, it places the
+harvester in the same turn (move + build).
+"""
+
 from cambc import Controller, Direction, Position
 from marker import TaskClaim, TaskKind
 
@@ -5,53 +14,15 @@ from .base import BuilderBase
 from .build import Action, PlaceHarvester
 
 
-class HarvestMixin(BuilderBase):
-    """Navigate to unharvested ore and place a harvester.
-
-    Two variants: Ti and Ax. Ti harvests unconditionally. Ax only harvests
-    when Ti flow exists in the network (to ensure a future foundry has Ti
-    input).
-
-    If the builder is already cardinally adjacent to ore, it places the
-    harvester immediately (same turn, no movement). Otherwise, it navigates
-    to the nearest unharvested ore, sorted by Euclidean distance, skipping
-    claimed and enemy-occupied tiles. If the move places the builder adjacent
-    to the ore, it places the harvester in the same turn (move + build).
-    """
-
+class HarvestTiMixin(BuilderBase):
     def _harvest_ti(
         self,
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
-        return self._harvest_impl(
-            ct,
-            pos,
-            self.belief.ore_ti - self.belief.my_harvested - self.belief.en_harvested,
+        unharvested = (
+            self.state.ore_ti - self.state.my_harvested - self.state.en_harvested
         )
-
-    def _harvest_ax(
-        self,
-        ct: Controller,
-        pos: Position,
-    ) -> tuple[Direction, Action | None] | None:
-        has_ti_flow = any(
-            self.belief.my_flow.ti[i] > 0 for i in self.belief.my_transport
-        )
-        if not has_ti_flow:
-            return None
-        return self._harvest_impl(
-            ct,
-            pos,
-            self.belief.ore_ax - self.belief.my_harvested - self.belief.en_harvested,
-        )
-
-    def _harvest_impl(
-        self,
-        ct: Controller,
-        pos: Position,
-        unharvested: set[tuple[int, int]],
-    ) -> tuple[Direction, Action | None] | None:
         if not unharvested:
             return None
 
@@ -70,7 +41,7 @@ class HarvestMixin(BuilderBase):
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     return Direction.CENTRE, PlaceHarvester(ore_pos)
 
-        w = self.belief.w
+        w = self.state.w
         rnd = ct.get_current_round()
         candidates = sorted(
             unharvested,
@@ -78,8 +49,8 @@ class HarvestMixin(BuilderBase):
         )
         for ore in candidates:
             oi = ore[1] * w + ore[0]
-            ent = self.belief.entity[oi]
-            if ent is not None and ent[1] != self.belief.my_team:
+            ent = self.state.entity[oi]
+            if ent is not None and ent[1] != self.state.my_team:
                 continue
             if self._is_claimed(oi, TaskKind.NAV_ORE):
                 continue

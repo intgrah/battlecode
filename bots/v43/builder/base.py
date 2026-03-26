@@ -1,14 +1,14 @@
 from cambc import Controller, Direction, Position
 from entity import Entity
-from map_belief import COST_IMPASSABLE, MapBelief
 from marker import TaskClaim, TaskKind
 from nav_astar import NavAstar
 
 from .build import Action, PlaceRoad
+from .state import COST_IMPASSABLE, State
 
 
 class BuilderBase(Entity):
-    belief: MapBelief
+    state: State
     _last_claim: TaskClaim | None
     _claim: TaskClaim | None
     _debug_target: tuple[Position, int, int, int] | None
@@ -24,13 +24,13 @@ class BuilderBase(Entity):
     ) -> Direction:
         if pos == target:
             return Direction.CENTRE
-        search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
+        search = NavAstar(self.state, pos.x, pos.y, target.x, target.y)
         search.set_budget(ct, 5000)
         search.compute()
         raw = search.get_path()
         if raw is None or len(raw) < 2:
             return Direction.CENTRE
-        w = self.belief.w
+        w = self.state.w
         nx, ny = raw[1] % w, raw[1] // w
         nxt = Position(nx, ny)
         d = pos.direction_to(nxt)
@@ -55,7 +55,7 @@ class BuilderBase(Entity):
 
         # If we have a cached path, follow it
         if self._nav_path is not None:
-            w = self.belief.w
+            w = self.state.w
             pi = pos.y * w + pos.x
             if pi in self._nav_path:
                 idx = self._nav_path.index(pi)
@@ -76,7 +76,7 @@ class BuilderBase(Entity):
 
         # Compute or resume A*
         if self._nav_search is None:
-            self._nav_search = NavAstar(self.belief, pos.x, pos.y, target.x, target.y)
+            self._nav_search = NavAstar(self.state, pos.x, pos.y, target.x, target.y)
         self._nav_search.set_budget(ct, 1800)
         self._nav_search.compute()
         if not self._nav_search.done:
@@ -86,7 +86,7 @@ class BuilderBase(Entity):
             return Direction.CENTRE, None
         self._nav_path = raw
         self._nav_search = None
-        w = self.belief.w
+        w = self.state.w
         nx, ny = raw[1] % w, raw[1] // w
         nxt = Position(nx, ny)
         d = pos.direction_to(nxt)
@@ -103,9 +103,9 @@ class BuilderBase(Entity):
         best_dist = 999999
         for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             ax, ay = target.x + ddx, target.y + ddy
-            if not self.belief.in_bounds(ax, ay):
+            if not self.state.in_bounds(ax, ay):
                 continue
-            if self.belief.walkable(ax, ay) >= COST_IMPASSABLE:
+            if self.state.walkable(ax, ay) >= COST_IMPASSABLE:
                 continue
             dist = (pos.x - ax) ** 2 + (pos.y - ay) ** 2
             if dist < best_dist:
@@ -114,7 +114,7 @@ class BuilderBase(Entity):
         return best
 
     def _is_claimed(self, tile_index: int, kind: TaskKind) -> bool:
-        for c in self.belief.claims:
+        for c in self.state.claims:
             if c.tile_index == tile_index and c.kind == kind:
                 if (
                     self._last_claim is not None

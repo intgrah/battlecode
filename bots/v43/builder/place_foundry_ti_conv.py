@@ -20,14 +20,14 @@ class PlaceFoundryTiConvMixin(BuilderBase):
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
-        w = self.belief.w
-        f = self.belief.my_flow
+        w = self.state.w
+        f = self.state.my_flow
         best_tile: int | None = None
         best_score = 0.0
         best_dist = 999999
 
-        for i in self.belief.my_transport:
-            ent = self.belief.entity[i]
+        for i in self.state.my_transport:
+            ent = self.state.entity[i]
             if ent is None:
                 continue
             if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):

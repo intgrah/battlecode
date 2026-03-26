@@ -5,15 +5,22 @@ from cambc import Controller, Direction, Position
 
 
 class Task(Enum):
-    FIX_EXCESS = auto()
+    """High level Tasks"""
+
+    CONNECT_EXCESS_TI_RAX_CORE = auto()
     HARVEST_TI = auto()
     HARVEST_AX = auto()
     RAID = auto()
     EXPLORE = auto()
     PATROL = auto()
     NAV_ENEMY_CORE = auto()
-    PLACE_FOUNDRY = auto()
-    FIX_EXCESS_AX = auto()
+    PLACE_FOUNDRY_TI_CONV = auto()
+    PLACE_FOUNDRY_MIXED_CONV = auto()
+    PLACE_SPLITTER_FOUNDRY = auto()
+    CONNECT_EXCESS_AX_TI_CONV = auto()
+
+
+# Low level Actions (one per turn)
 
 
 @dataclass(frozen=True, slots=True)

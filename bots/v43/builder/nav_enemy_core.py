@@ -18,7 +18,7 @@ class NavEnemyCoreMixin(BuilderBase):
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
-        en_core = self.belief.en_core
+        en_core = self.state.en_core
         if en_core is None:
             return None
         target = Position(en_core[0], en_core[1])

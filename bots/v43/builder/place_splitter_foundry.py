@@ -22,22 +22,22 @@ class PlaceSplitterFoundryMixin(BuilderBase):
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
-        w = self.belief.w
-        for fi in self.belief.my_foundries:
+        w = self.state.w
+        for fi in self.state.my_foundries:
             fx, fy = fi % w, fi // w
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = fx + dx, fy + dy
-                if not self.belief.in_bounds(nx, ny):
+                if not self.state.in_bounds(nx, ny):
                     continue
-                ni = self.belief.idx(nx, ny)
-                ent = self.belief.entity[ni]
+                ni = self.state.idx(nx, ny)
+                ent = self.state.entity[ni]
                 if ent is None:
                     continue
                 if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
                     continue
-                if ent[1] != self.belief.my_team:
+                if ent[1] != self.state.my_team:
                     continue
-                d = self.belief.direction[ni]
+                d = self.state.direction[ni]
                 if d is None:
                     continue
                 target = Position(nx, ny)

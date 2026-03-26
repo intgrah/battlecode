@@ -11,11 +11,11 @@ stays pure.
 from ax_chain_astar import AxChainAstar
 from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import RAX, TI
-from map_belief import _TRANSPORT
 from marker import TaskClaim, TaskKind
 
 from .base import BuilderBase
 from .build import Action, PlaceBridge, PlaceConveyor
+from .state import _TRANSPORT
 
 
 class ConnectExcessAxTiConvMixin(BuilderBase):
@@ -32,9 +32,9 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
     ) -> tuple[Direction, Action | None] | None:
         best_tile: tuple[int, int] | None = None
         best_dist = 999999
-        w = self.belief.w
-        f = self.belief.my_flow
-        for i in self.belief.my_harvesters | self.belief.my_transport:
+        w = self.state.w
+        f = self.state.my_flow
+        for i in self.state.my_harvesters | self.state.my_transport:
             if f.ax_excess[i] > 0.01 and not self._is_claimed(
                 i,
                 TaskKind.FIX_EXCESS,
@@ -51,30 +51,30 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
         if not ti_goals:
             return None
 
-        ti_idx = self.belief.idx(best_tile[0], best_tile[1])
+        ti_idx = self.state.idx(best_tile[0], best_tile[1])
         rnd = ct.get_current_round()
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, ti_idx, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 255)
 
         sx, sy = best_tile
-        si = self.belief.idx(sx, sy)
-        ent = self.belief.entity[si]
+        si = self.state.idx(sx, sy)
+        ent = self.state.entity[si]
         if ent is not None and ent[0] in (EntityType.HARVESTER, EntityType.FOUNDRY):
             banned = TI | RAX
             start = None
             for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = sx + ddx, sy + ddy
-                if not self.belief.in_bounds(nx, ny):
+                if not self.state.in_bounds(nx, ny):
                     continue
-                ni = self.belief.idx(nx, ny)
-                env = self.belief.env[ni]
+                ni = self.state.idx(nx, ny)
+                env = self.state.env[ni]
                 if env in (
                     Environment.WALL,
                     Environment.ORE_TITANIUM,
                     Environment.ORE_AXIONITE,
                 ):
                     continue
-                nent = self.belief.entity[ni]
+                nent = self.state.entity[ni]
                 if nent is not None and nent[0] in _TRANSPORT:
                     continue
                 if self._leakage_mask[ni] & banned != 0:
@@ -90,7 +90,7 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
         if path is None or self._ax_cached_source != start:
             if self._ax_flow_search is None or self._ax_cached_source != start:
                 self._ax_flow_search = AxChainAstar(
-                    self.belief,
+                    self.state,
                     sx,
                     sy,
                     ti_goals,
@@ -112,8 +112,8 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
             nx, ny = path[k + 1] % w, path[k + 1] // w
 
             pi = path[k]
-            pent = self.belief.entity[pi]
-            if pent is not None and pent[1] == self.belief.my_team:
+            pent = self.state.entity[pi]
+            if pent is not None and pent[1] == self.state.my_team:
                 ptype = pent[0]
                 if ptype in _TRANSPORT or ptype == EntityType.CORE:
                     continue
@@ -146,12 +146,12 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
         return None
 
     def _find_ti_conveyor_goals(self) -> set[int]:
-        f = self.belief.my_flow
+        f = self.state.my_flow
         goals: set[int] = set()
-        for i in self.belief.my_transport:
+        for i in self.state.my_transport:
             if f.ti[i] <= 0:
                 continue
-            ent = self.belief.entity[i]
+            ent = self.state.entity[i]
             if ent is None:
                 continue
             if ent[0] in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):

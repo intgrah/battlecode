@@ -7,11 +7,11 @@ the flow A* with Ax leakage banned to prevent mixing.
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import AX, FlowAstar
-from map_belief import _TRANSPORT
 from marker import TaskClaim, TaskKind
 
 from .base import BuilderBase
 from .build import Action, PlaceBridge, PlaceConveyor
+from .state import _TRANSPORT
 
 
 class ConnectExcessTiRaxCoreMixin(BuilderBase):
@@ -28,12 +28,10 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
     ) -> tuple[Direction, Action | None] | None:
         best_tile: tuple[int, int] | None = None
         best_dist = 999999
-        w = self.belief.w
-        f = self.belief.my_flow
+        w = self.state.w
+        f = self.state.my_flow
         for i in (
-            self.belief.my_harvesters
-            | self.belief.my_transport
-            | self.belief.my_foundries
+            self.state.my_harvesters | self.state.my_transport | self.state.my_foundries
         ):
             ti_ex = f.ti_excess[i]
             rax_ex = f.rax_excess[i]
@@ -49,34 +47,34 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
         if best_tile is None:
             return None
 
-        idx = self.belief.idx(best_tile[0], best_tile[1])
+        idx = self.state.idx(best_tile[0], best_tile[1])
         rnd = ct.get_current_round()
         self._claim = TaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
         self._debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 0)
 
         sx, sy = best_tile
-        si = self.belief.idx(sx, sy)
-        ent = self.belief.entity[si]
+        si = self.state.idx(sx, sy)
+        ent = self.state.entity[si]
 
         if ent is not None:
             etype = ent[0]
             if etype in (EntityType.HARVESTER, EntityType.FOUNDRY):
-                cx, cy = self.belief.my_core
+                cx, cy = self.state.my_core
                 start = None
                 best_d = 999999
                 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = sx + ddx, sy + ddy
-                    if not self.belief.in_bounds(nx, ny):
+                    if not self.state.in_bounds(nx, ny):
                         continue
-                    ni = self.belief.idx(nx, ny)
-                    env = self.belief.env[ni]
+                    ni = self.state.idx(nx, ny)
+                    env = self.state.env[ni]
                     if env in (
                         Environment.WALL,
                         Environment.ORE_TITANIUM,
                         Environment.ORE_AXIONITE,
                     ):
                         continue
-                    nent = self.belief.entity[ni]
+                    nent = self.state.entity[ni]
                     if nent is not None and nent[0] in _TRANSPORT:
                         continue
                     d = (nx - cx) ** 2 + (ny - cy) ** 2
@@ -87,12 +85,12 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
                     return None
                 sx, sy = start
             elif etype in _TRANSPORT:
-                d = self.belief.direction[si]
-                bt = self.belief.bridge_target[si]
+                d = self.state.direction[si]
+                bt = self.state.bridge_target[si]
                 if d is not None:
                     ddx, ddy = d.delta()
                     ox, oy = sx + ddx, sy + ddy
-                    if self.belief.in_bounds(ox, oy):
+                    if self.state.in_bounds(ox, oy):
                         sx, sy = ox, oy
                 elif bt is not None:
                     sx, sy = bt
@@ -102,10 +100,10 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
         if path is None or self._ti_cached_source != start:
             if self._ti_flow_search is None or self._ti_cached_source != start:
                 self._ti_flow_search = FlowAstar(
-                    self.belief,
+                    self.state,
                     sx,
                     sy,
-                    self.belief.my_core_tiles,
+                    self.state.my_core_tiles,
                     AX,
                 )
                 self._ti_cached_source = start
@@ -124,14 +122,14 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
             nx, ny = path[k + 1] % w, path[k + 1] // w
 
             pi = path[k]
-            pent = self.belief.entity[pi]
-            if pent is not None and pent[1] == self.belief.my_team:
+            pent = self.state.entity[pi]
+            if pent is not None and pent[1] == self.state.my_team:
                 ptype = pent[0]
                 if ptype == EntityType.CORE:
                     continue
                 if ptype in _TRANSPORT:
-                    td = self.belief.direction[pi]
-                    bt = self.belief.bridge_target[pi]
+                    td = self.state.direction[pi]
+                    bt = self.state.bridge_target[pi]
                     if td is not None:
                         ddx, ddy = td.delta()
                         if (x + ddx, y + ddy) == (nx, ny):

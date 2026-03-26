@@ -13,8 +13,8 @@ to core. Existing transport creates cheap edges that Dijkstra naturally prefers.
 Blocked tiles (congested subtree) are completely removed from the graph.
 """
 
+from builder.state import State
 from cambc import EntityType, Environment
-from map_belief import MapBelief
 from ramalingam_reps import INF, RamalingamReps
 
 _CARDINAL = [(-1, 0), (1, 0), (0, -1), (0, 1)]
@@ -42,14 +42,14 @@ COST_ROAD_REPLACE = 3
 
 
 class FlowGraph:
-    def __init__(self, belief: MapBelief) -> None:
-        self.belief = belief
-        n = belief.w * belief.h
+    def __init__(self, state: State) -> None:
+        self.state = state
+        n = state.w * state.h
         self.sp = RamalingamReps(n)
         self._out_edges: list[dict[int, int]] = [{} for _ in range(n)]
 
     def initialize(self, core_x: int, core_y: int) -> None:
-        b = self.belief
+        b = self.state
         for y in range(b.h):
             for x in range(b.w):
                 fi = b.idx(x, y)
@@ -68,7 +68,7 @@ class FlowGraph:
         self.sp.set_sources(core_tiles)
 
     def on_tile_changed(self, x: int, y: int) -> None:
-        b = self.belief
+        b = self.state
         self._rebuild_node(x, y)
         for dx, dy in _CARDINAL:
             nx, ny = x + dx, y + dy
@@ -81,7 +81,7 @@ class FlowGraph:
         self.sp.propagate()
 
     def _rebuild_node(self, x: int, y: int) -> None:
-        b = self.belief
+        b = self.state
         fi = b.idx(x, y)
 
         new_map = self._compute_targets(x, y, fi)
@@ -103,7 +103,7 @@ class FlowGraph:
                 self.sp.update_edge(ti, fi, old_cost, cost)
 
     def _sync_edge(self, fx: int, fy: int, tx: int, ty: int) -> None:
-        b = self.belief
+        b = self.state
         fi = b.idx(fx, fy)
         ti = b.idx(tx, ty)
 
@@ -122,7 +122,7 @@ class FlowGraph:
             self.sp.update_edge(ti, fi, old_cost, cost)
 
     def _compute_targets(self, x: int, y: int, fi: int) -> dict[int, int]:
-        b = self.belief
+        b = self.state
 
         if b.my_flow.blocked[fi] or self._is_impassable(fi):
             return {}
@@ -160,7 +160,7 @@ class FlowGraph:
         fi: int,
         etype: EntityType,
     ) -> dict[int, int]:
-        b = self.belief
+        b = self.state
         d = b.direction[fi]
         bt = b.bridge_target[fi]
 
@@ -184,7 +184,7 @@ class FlowGraph:
         return {}
 
     def _buildable_targets(self, x: int, y: int) -> dict[int, int]:
-        b = self.belief
+        b = self.state
         result: dict[int, int] = {}
         for dx, dy in _CARDINAL:
             nx, ny = x + dx, y + dy
@@ -209,7 +209,7 @@ class FlowGraph:
         fi: int,
         ti: int,
     ) -> int:
-        b = self.belief
+        b = self.state
         if b.my_flow.blocked[fi] or b.my_flow.blocked[ti]:
             return INF
         if self._is_impassable(fi) or self._is_impassable(ti):
@@ -243,7 +243,7 @@ class FlowGraph:
         return COST_BRIDGE if is_bridge else COST_CONV
 
     def _is_impassable(self, i: int) -> bool:
-        b = self.belief
+        b = self.state
         env = b.env[i]
         if env is not None and env in (
             Environment.WALL,
@@ -255,13 +255,13 @@ class FlowGraph:
         return bool(ent is not None and ent[1] != b.my_team)
 
     def dist(self, x: int, y: int) -> int:
-        return self.sp.dist[self.belief.idx(x, y)]
+        return self.sp.dist[self.state.idx(x, y)]
 
     def get_path_from(self, x: int, y: int) -> list[tuple[int, int]] | None:
-        idx_path = self.sp.get_path(self.belief.idx(x, y))
+        idx_path = self.sp.get_path(self.state.idx(x, y))
         if idx_path is None:
             return None
-        b = self.belief
+        b = self.state
         path = [(i % b.w, i // b.w) for i in idx_path]
         path.reverse()
         return path

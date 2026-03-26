@@ -1,19 +1,19 @@
+from builder.state import State
 from cambc import EntityType
 from flow_astar import COST_REUSE, RAX, TI, FlowAstar
-from map_belief import MapBelief
 
 
 class AxChainAstar(FlowAstar):
     def __init__(
         self,
-        belief: MapBelief,
+        state: State,
         sx: int,
         sy: int,
         goal_tiles: set[int],
     ) -> None:
-        w = belief.w
+        w = state.w
         self._goal_positions = [(i % w, i // w) for i in goal_tiles]
-        super().__init__(belief, sx, sy, goal_tiles, TI | RAX)
+        super().__init__(state, sx, sy, goal_tiles, TI | RAX)
 
     def heuristic(self, node: int) -> int:
         x, y = node % self._w, node // self._w
