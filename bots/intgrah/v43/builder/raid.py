@@ -1,4 +1,7 @@
-"""Raid enemy transport by walking onto it and attacking.
+"""
+DO NOT USE
+
+Raid enemy transport by walking onto it and attacking.
 
 The builder navigates to the highest-flow enemy transport tile, walks onto
 it, and uses the attack action (2 Ti for 2 damage). Targets conveyors,
