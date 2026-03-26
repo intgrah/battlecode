@@ -83,4 +83,16 @@ extra-paths = [".", "scripts", "proto"]
 exclude = ["ref/", "bots/"]
 
 [tool.uv.workspace]
-members = ["bots/*"]
+members = [
+    "bots/astar_test",
+    "bots/bugnav_test",
+    "bots/cheese",
+    "bots/pd",
+    "bots/rug",
+    "bots/se",
+    "bots/starter",
+    "bots/intgrah/*",
+    "bots/beacon/*",
+    "bots/exploit/*",
+    "bots/adgato/*",
+]

@@ -13,11 +13,10 @@ to core. Existing transport creates cheap edges that Dijkstra naturally prefers.
 Blocked tiles (congested subtree) are completely removed from the graph.
 """
 
+from algorithms.ramalingam_reps import INF, RamalingamReps
 from builder.state import State
 from cambc import EntityType, Environment
-from ramalingam_reps import INF, RamalingamReps
-
-_CARDINAL = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+from util import DIR4_DELTA
 
 _BRIDGE_DELTAS = [
     (dx, dy)
@@ -70,7 +69,7 @@ class FlowGraph:
     def on_tile_changed(self, x: int, y: int) -> None:
         b = self.state
         self._rebuild_node(x, y)
-        for dx, dy in _CARDINAL:
+        for dx, dy in DIR4_DELTA:
             nx, ny = x + dx, y + dy
             if b.in_bounds(nx, ny):
                 self._rebuild_node(nx, ny)
@@ -135,7 +134,7 @@ class FlowGraph:
 
             if etype == EntityType.CORE:
                 result: dict[int, int] = {}
-                for dx, dy in _CARDINAL:
+                for dx, dy in DIR4_DELTA:
                     nx, ny = x + dx, y + dy
                     if b.in_bounds(nx, ny):
                         ti = b.idx(nx, ny)
@@ -186,7 +185,7 @@ class FlowGraph:
     def _buildable_targets(self, x: int, y: int) -> dict[int, int]:
         b = self.state
         result: dict[int, int] = {}
-        for dx, dy in _CARDINAL:
+        for dx, dy in DIR4_DELTA:
             nx, ny = x + dx, y + dy
             if b.in_bounds(nx, ny):
                 ti = b.idx(nx, ny)

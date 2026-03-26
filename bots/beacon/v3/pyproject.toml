@@ -1,5 +1,5 @@
 [project]
-name = "bot-adgato-launcher-test"
+name = "bot-beacon-v3"
 version = "0.0.0"
 requires-python = ">=3.12"
 dependencies = ["cambc>=1.4.6"]

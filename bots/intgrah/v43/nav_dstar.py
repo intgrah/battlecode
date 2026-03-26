@@ -1,7 +1,6 @@
 from algorithms.dstar import DStarLite
 from builder.state import COST_EMPTY, COST_IMPASSABLE, State
-
-WALK_8 = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+from util import DIR8_DELTA
 
 
 class NavDStar:
@@ -11,7 +10,7 @@ class NavDStar:
 
         def successors(x: int, y: int) -> list[tuple[int, int, int]]:
             result: list[tuple[int, int, int]] = []
-            for dx, dy in WALK_8:
+            for dx, dy in DIR8_DELTA:
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < w and 0 <= ny < h:
                     wt = state.walkable(nx, ny)
