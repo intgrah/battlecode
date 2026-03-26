@@ -65,6 +65,7 @@ members = [
     "bot-v40",
     "bot-v41",
     "bot-v42",
+    "bot-v43",
     "bot-v5",
     "bot-v6",
     "bot-v7",
@@ -758,6 +759,17 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-v42"
 version = "0.0.0"
 source = { virtual = "bots/v42" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-v43"
+version = "0.0.0"
+source = { virtual = "bots/v43" }
 dependencies = [
     { name = "cambc" },
 ]
