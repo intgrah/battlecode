@@ -1,15 +1,13 @@
 """Core unit logic for trollbot — spawn one builder bot."""
 
 from __future__ import annotations
-
 from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, EntityType, Position
-from pathfinding import chebyshev
 
+from pathfinding import chebyshev
 
 def run_core(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
@@ -52,6 +50,7 @@ def run_core(player: Player, ct: Controller) -> None:
                     player.last_resource_turn = rnd
                     return
 
+    
     (funds, _) = ct.get_global_resources()
     (builder_cost, _) = ct.get_builder_bot_cost()
 
