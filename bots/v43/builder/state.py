@@ -1,12 +1,13 @@
 from collections import deque
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, auto
 
 from cambc import Controller, Direction, EntityType, Environment, Team
 from known_maps import MAPS
 from known_maps import decode as decode_known_map
 from marker import Eureka, TaskClaim, is_stale
 from marker import decode as decode_marker
+from util import DIR4_DELTA
 
 # A* walkability costs. Lower = preferred by pathfinder.
 COST_ROAD = 2  # walkable buildings (roads, conveyors, splitters, allied core)
@@ -48,9 +49,9 @@ class Symmetry(Enum):
     or all three hold. Exactly two is impossible.
     """
 
-    ROT = 0  # 180° rotational: (x,y) <-> (w-1-x, h-1-y)
-    HOR = 1  # horizontal reflection: (x,y) <-> (x, h-1-y)
-    VER = 2  # vertical reflection: (x,y) <-> (w-1-x, y)
+    ROT = auto()  # 180° rotational: (x,y) <-> (w-1-x, h-1-y)
+    HOR = auto()  # horizontal reflection: (x,y) <-> (x, h-1-y)
+    VER = auto()  # vertical reflection: (x,y) <-> (w-1-x, y)
 
 
 _WALKABLE_BUILDINGS = frozenset(
@@ -88,7 +89,6 @@ _TURRETS = frozenset(
     ),
 )
 
-_CARDINALS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 _DELTA_TO_DIR = {
     (0, -1): Direction.NORTH,
     (0, 1): Direction.SOUTH,
@@ -97,7 +97,7 @@ _DELTA_TO_DIR = {
 }
 
 
-class MapBelief:
+class State:
     """Persistent per-builder map knowledge, updated incrementally from vision.
 
     Stores ground truth for all tiles ever seen, and derives A* costs on the fly.
@@ -108,7 +108,7 @@ class MapBelief:
                         Permanent once set — terrain never changes.
                         Also set by symmetry reflection (inferred, not directly observed).
         entity:         building per tile. None = no building or never seen.
-                        (EntityType, Team) if a building was observed. Stale belief —
+                        (EntityType, Team) if a building was observed. Stale state —
                         buildings can be destroyed while out of vision.
                         NOT reflected by symmetry (players build differently).
         direction:      output direction of conveyors/splitters. None if not applicable.
@@ -155,7 +155,7 @@ class MapBelief:
         self.ore_ti: set[tuple[int, int]] = set()
         self.ore_ax: set[tuple[int, int]] = set()
 
-        # -- Friendly beliefs --
+        # -- Friendly states --
         self.my_core: tuple[int, int] = core_pos
         self.my_harvested: set[tuple[int, int]] = set()
         self.my_harvesters: set[int] = set()
@@ -164,7 +164,7 @@ class MapBelief:
         self.my_turrets: set[int] = set()
         self.my_flow = FlowState(n)
 
-        # -- Enemy beliefs --
+        # -- Enemy states --
         self.en_core: tuple[int, int] | None = None
         self.en_core_tiles: set[int] = set()
         self.en_harvested: set[tuple[int, int]] = set()
@@ -237,7 +237,7 @@ class MapBelief:
     # -- Per-turn update --
 
     def update(self, ct: Controller) -> tuple[list[tuple[int, int]], bool]:
-        """Incorporate all visible tiles into the belief. Call once per turn.
+        """Incorporate all visible tiles into the state. Call once per turn.
 
         Returns list of (x, y) tiles whose entity/walkability changed.
         """
@@ -638,7 +638,7 @@ class MapBelief:
         for i in foundries:
             ix, iy = i % w, i // w
             outs: list[int] = []
-            for ddx, ddy in _CARDINALS:
+            for ddx, ddy in DIR4_DELTA:
                 nx, ny = ix + ddx, iy + ddy
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
@@ -657,7 +657,7 @@ class MapBelief:
         for i in harvesters:
             ix, iy = i % w, i // w
             outs: list[int] = []
-            for ddx, ddy in _CARDINALS:
+            for ddx, ddy in DIR4_DELTA:
                 nx, ny = ix + ddx, iy + ddy
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx

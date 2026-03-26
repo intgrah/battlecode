@@ -10,7 +10,7 @@ class PatrolMixin(BuilderBase):
         ct: Controller,
         pos: Position,
     ) -> tuple[Direction, Action | None] | None:
-        b = self.belief
+        b = self.state
         infra = (
             b.my_harvesters
             | b.my_transport

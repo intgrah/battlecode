@@ -1,20 +1,20 @@
 from algorithms.dstar import DStarLite
-from map_belief import COST_EMPTY, COST_IMPASSABLE, MapBelief
+from builder.state import COST_EMPTY, COST_IMPASSABLE, State
 
 WALK_8 = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
 
 
 class NavDStar:
-    def __init__(self, belief: MapBelief) -> None:
-        self.belief = belief
-        w, h = belief.w, belief.h
+    def __init__(self, state: State) -> None:
+        self.state = state
+        w, h = state.w, state.h
 
         def successors(x: int, y: int) -> list[tuple[int, int, int]]:
             result: list[tuple[int, int, int]] = []
             for dx, dy in WALK_8:
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    wt = belief.walkable(nx, ny)
+                    wt = state.walkable(nx, ny)
                     if wt < COST_IMPASSABLE:
                         result.append((nx, ny, wt))
             return result

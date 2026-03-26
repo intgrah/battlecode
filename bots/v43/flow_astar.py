@@ -1,6 +1,6 @@
 from algorithms import Astar
+from builder.state import State
 from cambc import Controller, EntityType, Environment
-from map_belief import MapBelief
 from util import BRIDGE_DELTAS, DIR4_DELTA
 
 COST_REUSE = 0
@@ -18,16 +18,16 @@ AX = 0b010
 RAX = 0b100
 
 
-def build_leakage_mask(belief: MapBelief) -> list[int]:
-    w, h = belief.w, belief.h
+def build_leakage_mask(state: State) -> list[int]:
+    w, h = state.w, state.h
     n = w * h
     mask = [0] * n
     for i in range(n):
-        ent = belief.entity[i]
+        ent = state.entity[i]
         if ent is None:
             continue
         etype, team = ent
-        if team != belief.my_team:
+        if team != state.my_team:
             continue
         if etype == EntityType.FOUNDRY:
             ix, iy = i % w, i // w
@@ -36,13 +36,13 @@ def build_leakage_mask(belief: MapBelief) -> list[int]:
                 if 0 <= nx < w and 0 <= ny < h:
                     mask[ny * w + nx] |= RAX
         elif etype == EntityType.SPLITTER:
-            d = belief.direction[i]
+            d = state.direction[i]
             if d is None:
                 continue
             ix, iy = i % w, i // w
             dx, dy = d.delta()
             commodity = 0
-            f = belief.my_flow
+            f = state.my_flow
             if f.ti[i] > 0:
                 commodity |= TI
             if f.ax[i] > 0:
@@ -57,7 +57,7 @@ def build_leakage_mask(belief: MapBelief) -> list[int]:
                     mask[ny * w + nx] |= commodity
 
     for i in range(n):
-        e = belief.env[i]
+        e = state.env[i]
         if e == Environment.ORE_TITANIUM:
             commodity = TI
         elif e == Environment.ORE_AXIONITE:
@@ -76,25 +76,25 @@ def build_leakage_mask(belief: MapBelief) -> list[int]:
 class FlowAstar(Astar[int]):
     def __init__(
         self,
-        belief: MapBelief,
+        state: State,
         sx: int,
         sy: int,
         goals: set[int],
         banned_leakage: int,
     ) -> None:
-        self._w = belief.w
-        self._h = belief.h
-        core_x, core_y = belief.my_core
+        self._w = state.w
+        self._h = state.h
+        core_x, core_y = state.my_core
         self._gx = core_x
         self._gy = core_y
         self._banned_leakage = banned_leakage
-        self._leakage_mask = build_leakage_mask(belief)
-        self._blocked = belief.my_flow.blocked
-        self._env = belief.env
-        self._entity = belief.entity
-        self._direction = belief.direction
-        self._bridge_target = belief.bridge_target
-        self._my_team = belief.my_team
+        self._leakage_mask = build_leakage_mask(state)
+        self._blocked = state.my_flow.blocked
+        self._env = state.env
+        self._entity = state.entity
+        self._direction = state.direction
+        self._bridge_target = state.bridge_target
+        self._my_team = state.my_team
         self._core_x = core_x
         self._core_y = core_y
         self._ct: Controller | None = None
