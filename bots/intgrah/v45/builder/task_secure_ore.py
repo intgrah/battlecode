@@ -2,7 +2,7 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from marker import TaskClaim, TaskKind
 from util import DIR4_DELTA, DIR8_DELTA
 
-from .build import Action, PlaceBarrier, PlaceHarvester
+from .build import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
 
@@ -171,8 +171,21 @@ def secure_ore(
         state.debug_target = (barrier_pos, 0, 255, 255)
         return move, build
 
+    bid = ct.get_tile_building_id(ore_pos)
+    has_enemy_building = bid is not None and ct.get_team(bid) != ct.get_team()
+
+    if has_enemy_building:
+        if pos == ore_pos:
+            return Direction.CENTRE, Fire(ore_pos)
+        move, build = move_toward_with_road(state, ct, ore_pos)
+        if move != Direction.CENTRE and build is None:
+            new_pos = pos.add(move)
+            if new_pos == ore_pos:
+                build = Fire(ore_pos)
+        state.debug_target = (ore_pos, 255, 0, 0)
+        return move, build
+
     if pos.distance_squared(ore_pos) <= 2:
-        bid = ct.get_tile_building_id(ore_pos)
         if bid is not None and ct.can_destroy(ore_pos):
             ct.destroy(ore_pos)
         h_cost, _ = ct.get_harvester_cost()

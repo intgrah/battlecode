@@ -100,7 +100,7 @@ class BridgeFlowAstar(Astar[int]):
                         ):
                             result.append((ni, COST_REUSE))
 
-            case None | (EntityType.ROAD | EntityType.MARKER | EntityType.BARRIER, _):
+            case None | (EntityType.ROAD | EntityType.MARKER, _):
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:

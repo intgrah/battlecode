@@ -1,17 +1,8 @@
-from cambc import Controller, Direction, EntityType, Environment
+from cambc import Controller, EntityType, Environment
 from entity import Entity
+from util import DIR8
 
-_ALL_DIRS = [
-    Direction.NORTH,
-    Direction.NORTHEAST,
-    Direction.EAST,
-    Direction.SOUTHEAST,
-    Direction.SOUTH,
-    Direction.SOUTHWEST,
-    Direction.WEST,
-    Direction.NORTHWEST,
-]
-_DIR_IDX = {d: i for i, d in enumerate(_ALL_DIRS)}
+_DIR_IDX = {d: i for i, d in enumerate(DIR8)}
 
 
 class Sentinel(Entity):

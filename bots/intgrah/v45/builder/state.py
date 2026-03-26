@@ -117,16 +117,14 @@ class State:
         self.en_foundries: set[int] = set()
         self.en_flow = FlowState(n)
 
-        # -- Ephemeral (rebuilt each turn) --
+        # -- Ephemeral --
         self.unit_tiles: set[int] = set()
         self.claims: set[TaskClaim] = set()
+        self.pos: Position = Position(core_pos[0], core_pos[1])
 
         # -- Symmetry --
         self.symmetry: Symmetry | None = None
         self.sym_candidates: set[Symmetry] = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
-
-        # -- Position (updated each turn) --
-        self.pos: Position = Position(core_pos[0], core_pos[1])
 
         # -- Task caches --
         self.explore_target: Position | None = None

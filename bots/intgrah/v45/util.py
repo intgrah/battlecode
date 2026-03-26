@@ -23,9 +23,13 @@ BRIDGE_DELTAS = [
 
 DELTA_TO_DIR = {
     (0, -1): Direction.NORTH,
-    (0, 1): Direction.SOUTH,
+    (1, -1): Direction.NORTHEAST,
     (1, 0): Direction.EAST,
+    (1, 1): Direction.SOUTHEAST,
+    (0, 1): Direction.SOUTH,
+    (-1, 1): Direction.SOUTHWEST,
     (-1, 0): Direction.WEST,
+    (-1, -1): Direction.NORTHWEST,
 }
 
 WALKABLE_BUILDINGS = frozenset(

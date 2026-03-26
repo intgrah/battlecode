@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from cambc import Controller, Direction, Position
+from cambc import Controller, Direction, EntityType, Position
 
 
 class Task(Enum):
@@ -114,7 +114,11 @@ type Action = (
 
 def _destroy_friendly(ct: Controller, pos: Position) -> None:
     bid = ct.get_tile_building_id(pos)
-    if bid is not None and ct.get_team(bid) == ct.get_team():
+    if bid is None:
+        return
+    if ct.get_team(bid) != ct.get_team():
+        return
+    if ct.get_entity_type(bid) in (EntityType.ROAD, EntityType.MARKER):
         ct.destroy(pos)
 
 
