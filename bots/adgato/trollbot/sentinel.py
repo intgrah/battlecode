@@ -11,7 +11,7 @@ from cambc import Controller, EntityType
 from utils import _DIR_IDX
 
 
-def run_sentinel(player: Player, ct: Controller) -> None:
+def run_sentinel(_player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     my_team = ct.get_team()
 
