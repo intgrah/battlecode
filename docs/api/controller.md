@@ -40,7 +40,8 @@ class Player:
 </ResponseField>
 
 <ResponseField name="get_hp(id: int | None = None)" type="int">
-  Return the current HP of the entity with the given id, or this unit if omitted.
+  Return the current HP of the entity with the given id, or this unit if
+  omitted.
 </ResponseField>
 
 <ResponseField name="get_max_hp(id: int | None = None)" type="int">
@@ -48,11 +49,13 @@ class Player:
 </ResponseField>
 
 <ResponseField name="get_entity_type(id: int | None = None)" type="EntityType">
-  Return the EntityType of the entity with the given id, or this unit if omitted.
+  Return the EntityType of the entity with the given id, or this unit if
+  omitted.
 </ResponseField>
 
 <ResponseField name="get_direction(id: int | None = None)" type="Direction">
-  Return the facing direction of a conveyor, splitter, armoured conveyor, or turret. Raises `GameError` if the entity has no direction.
+  Return the facing direction of a conveyor, splitter, armoured conveyor, or
+  turret. Raises `GameError` if the entity has no direction.
 </ResponseField>
 
 <ResponseField name="get_vision_radius_sq(id: int | None = None)" type="int">
@@ -70,21 +73,28 @@ class Player:
 </ResponseField>
 
 <ResponseField name="get_gunner_target()" type="Position | None">
-  Return the position of the gunner's current target tile in its facing direction, or None if nothing is in range. Markers remain targetable, but they do not shield occupied tiles behind them. Only valid on gunners.
+  Return the position of the gunner's current target tile in its facing
+  direction, or None if nothing is in range. Markers remain targetable, but they
+  do not shield occupied tiles behind them. Only valid on gunners.
 </ResponseField>
 
 ### Building info
 
 <ResponseField name="get_bridge_target(id: int)" type="Position">
-  Return the output target position of a bridge. Raises `GameError` if not a bridge.
+  Return the output target position of a bridge. Raises `GameError` if not a
+  bridge.
 </ResponseField>
 
 <ResponseField name="get_stored_resource(id: int | None = None)" type="ResourceType | None">
-  Return the resource stored in a conveyor/splitter/armoured conveyor/bridge/foundry, or None if empty. Raises `GameError` if the entity has no storage.
+  Return the resource stored in a conveyor/splitter/armoured
+  conveyor/bridge/foundry, or None if empty. Raises `GameError` if the entity
+  has no storage.
 </ResponseField>
 
 <ResponseField name="get_stored_resource_id(id: int | None = None)" type="int | None">
-  Return the id of the resource stack stored in a conveyor/splitter/armoured conveyor/bridge/foundry, or None if empty. Raises `GameError` if the entity has no storage.
+  Return the id of the resource stack stored in a conveyor/splitter/armoured
+  conveyor/bridge/foundry, or None if empty. Raises `GameError` if the entity
+  has no storage.
 </ResponseField>
 
 ### Tile queries
@@ -106,7 +116,8 @@ class Player:
 </ResponseField>
 
 <ResponseField name="is_tile_passable(pos: Position)" type="bool">
-  Return True if a builder bot belonging to this team could stand on the tile (conveyor, road, or allied core, and no other builder bot).
+  Return True if a builder bot belonging to this team could stand on the tile
+  (conveyor, road, or allied core, and no other builder bot).
 </ResponseField>
 
 <ResponseField name="is_in_vision(pos: Position)" type="bool">
@@ -116,11 +127,13 @@ class Player:
 ### Nearby queries
 
 <ResponseField name="get_nearby_tiles(dist_sq: int | None = None)" type="list[Position]">
-  Return all in-bounds tile positions within dist\_sq of this unit (defaults to vision radius). dist\_sq must not exceed the vision radius.
+  Return all in-bounds tile positions within dist\_sq of this unit (defaults to
+  vision radius). dist\_sq must not exceed the vision radius.
 </ResponseField>
 
 <ResponseField name="get_nearby_entities(dist_sq: int | None = None)" type="list[int]">
-  Return ids of all entities on tiles within dist\_sq (defaults to vision radius).
+  Return ids of all entities on tiles within dist\_sq (defaults to vision
+  radius).
 </ResponseField>
 
 <ResponseField name="get_nearby_buildings(dist_sq: int | None = None)" type="list[int]">
@@ -233,15 +246,22 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
-  Heal all friendly entities on the builder bot's own tile by 4 HP. If both a builder bot and a friendly building share the tile, both are healed. Costs 1 titanium and one action cooldown. Position must equal the builder bot's current position.
+  Heal all friendly entities on this builder bot's own tile by 4 HP. If both a
+  builder bot and a friendly building share the tile, both are healed. Costs 1
+  titanium and one action cooldown. Position must equal the builder bot's current
+  position.
 </ResponseField>
 
 <ResponseField name="can_heal(position: Position)" type="bool">
-  Return True if this builder bot can heal the tile at position this round. Position must equal the builder bot's current position. Requires action cooldown == 0, enough titanium, and at least one damaged friendly entity on the tile.
+  Return True if this builder bot can heal the tile at position this round.
+  Position must equal the builder bot's current position. Requires action
+  cooldown == 0, enough titanium, and at least one damaged friendly entity on
+  the tile.
 </ResponseField>
 
 <ResponseField name="destroy(building_pos: Position)" type="None">
-  Destroy the allied building at building\_pos. Does **not** cost action cooldown.
+  Destroy the allied building at building\_pos. Does **not** cost action
+  cooldown.
 </ResponseField>
 
 <ResponseField name="can_destroy(building_pos: Position)" type="bool">
@@ -249,17 +269,22 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 </ResponseField>
 
 <ResponseField name="self_destruct()" type="None">
-  Destroy this unit. Builder bots no longer deal damage on self-destruct. **Terminates this unit's execution immediately** — no code after `self_destruct()` will run.
+  Destroy this unit. Builder bots no longer deal damage on self-destruct.
+  **Terminates this unit's execution immediately** — no code after
+  `self_destruct()` will run.
 </ResponseField>
 
 <ResponseField name="resign()" type="None">
-  Forfeit the game immediately. Destroys this team's core, ending the game as a loss. **Terminates this unit's execution immediately** — no code after `resign()` will run.
+  Forfeit the game immediately. Destroys this team's core, ending the game as a
+  loss. **Terminates this unit's execution immediately** — no code after
+  `resign()` will run.
 </ResponseField>
 
 ## Markers
 
 <ResponseField name="place_marker(position: Position, value: int)" type="None">
-  Place a marker with the given u32 value. Does not cost action cooldown. Max one per round.
+  Place a marker with the given u32 value. Does not cost action cooldown. Max
+  one per round.
 </ResponseField>
 
 <ResponseField name="can_place_marker(position: Position)" type="bool">
@@ -273,11 +298,14 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Combat
 
 <ResponseField name="fire(target: Position)" type="None">
-  Fire this turret at target, or perform the builder bot's own-tile attack. Builder bots spend 2 titanium to deal 2 damage to the building on their current tile. Use `launch()` for launchers.
+  Fire this turret at target, or perform the builder bot's own-tile attack.
+  Builder bots spend 2 titanium to deal 2 damage to the building on their
+  current tile. Use `launch()` for launchers.
 </ResponseField>
 
 <ResponseField name="can_fire(target: Position)" type="bool">
-  Return True if this turret can fire at target this round, or if this builder bot can use its own-tile attack on target.
+  Return True if this turret can fire at target this round, or if this builder
+  bot can use its own-tile attack on target.
 </ResponseField>
 
 <ResponseField name="launch(bot_pos: Position, target: Position)" type="None">
@@ -291,11 +319,13 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Core
 
 <ResponseField name="spawn_builder(position: Position)" type="int">
-  Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown and requires room under the global unit cap. Returns the new entity's id.
+  Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown and
+  requires room under the global unit cap. Returns the new entity's id.
 </ResponseField>
 
 <ResponseField name="can_spawn(position: Position)" type="bool">
-  Return True if the core can spawn a builder at position this round, including the unit-cap check.
+  Return True if the core can spawn a builder at position this round, including
+  the unit-cap check.
 </ResponseField>
 
 ## Debug indicators
