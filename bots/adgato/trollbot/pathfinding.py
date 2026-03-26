@@ -6,13 +6,18 @@ from the cambc engine, avoiding raw tuple/int-index overhead.
 
 from cambc import Direction, Position
 
-
 # ── Direction utilities ─────────────────────────────────────────────
 
 # 8 directions in clockwise order (matching engine convention)
 _ALL_DIRS = [
-    Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST,
-    Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.NORTHEAST,
+    Direction.EAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTH,
+    Direction.SOUTHWEST,
+    Direction.WEST,
+    Direction.NORTHWEST,
 ]
 _DIR_IDX = {d: i for i, d in enumerate(_ALL_DIRS)}
 
@@ -26,6 +31,7 @@ def _rotate(d, steps):
 
 
 # ── Core helpers ────────────────────────────────────────────────────
+
 
 def chebyshev(a, b):
     """Chebyshev (king-move) distance between two Positions."""
@@ -146,7 +152,7 @@ def _trace_move(current, tracing_dir, trace_left, walkable):
 class AgentState:
     """Holds all mutable state for one Bug2 agent."""
 
-    def __init__(self, start, goal):
+    def __init__(self, start, goal) -> None:
         self.start = start
         self.goal = goal
         self.current = start
@@ -169,7 +175,7 @@ class AgentState:
     def done(self):
         return self.reached
 
-    def retarget(self, current, goal):
+    def retarget(self, current, goal) -> None:
         """Reset state for a new goal while keeping the agent at current."""
         self.start = current
         self.goal = goal
@@ -221,18 +227,18 @@ def bug2_step(agent: AgentState, pos, walkable):
     agent.dbg_last_open = last_open
     agent.dbg_first_wall = first_wall
 
-    not_adj_to_wall = all(
-        current.add(d) in walkable for d in _NEIGHBOR_DIRS
-    )
+    not_adj_to_wall = all(current.add(d) in walkable for d in _NEIGHBOR_DIRS)
 
     target = goal
 
     if agent.is_tracing:
         lookahead = last_open
         exit_trace = not_adj_to_wall
-        if (lookahead is not None
-                and chebyshev(lookahead, prev) > 0
-                and chebyshev(lookahead, goal) < agent.checkpoint_dist):
+        if (
+            lookahead is not None
+            and chebyshev(lookahead, prev) > 0
+            and chebyshev(lookahead, goal) < agent.checkpoint_dist
+        ):
             agent.checkpoint_dist = chebyshev(lookahead, goal)
             agent.obstacle_start_pos = lookahead
             exit_trace = True
@@ -245,7 +251,8 @@ def bug2_step(agent: AgentState, pos, walkable):
             # Fall through to non-tracing
         else:
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable)
+                current, agent.tracing_dir, agent.trace_left, walkable,
+            )
             if next_pos is None:
                 return current  # stuck
 
@@ -266,7 +273,7 @@ def bug2_step(agent: AgentState, pos, walkable):
         if agent.trace_heads is not None:
             for side in range(2):
                 pos_h, dir_h, los_h = agent.trace_heads[side]
-                is_left = (side == 0)
+                is_left = side == 0
                 for _ in range(5):
                     result = _trace_step(pos_h, dir_h, is_left, walkable, current)
                     if result is None:
@@ -324,7 +331,8 @@ def bug2_step(agent: AgentState, pos, walkable):
             agent.prev_target = target
 
         next_cell, blocked, agent.line_state = _step_along_line(
-            current, target, walkable, agent.line_state)
+            current, target, walkable, agent.line_state,
+        )
 
         if blocked is not None:
             if cur_dist < agent.checkpoint_dist:
@@ -340,7 +348,8 @@ def bug2_step(agent: AgentState, pos, walkable):
                 agent.trace_left = left_diff <= right_diff
 
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable)
+                current, agent.tracing_dir, agent.trace_left, walkable,
+            )
             agent.is_tracing = True
         else:
             next_pos = next_cell

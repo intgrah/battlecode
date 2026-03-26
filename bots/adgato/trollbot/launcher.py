@@ -1,7 +1,6 @@
 """Launcher unit logic for trollbot — yeet enemy builders as far away as possible."""
 
 from cambc import Controller, EntityType
-
 from utils import king_dist
 
 
