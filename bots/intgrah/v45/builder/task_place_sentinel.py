@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
 
 from .build import Action, PlaceSentinel
@@ -46,6 +46,8 @@ def _find_target(
     best = None
     best_dist = 999999
     for hi in state.en_harvesters:
+        if state.env[hi] != Environment.ORE_TITANIUM:
+            continue
         hx, hy = hi % w, hi // w
         if _has_friendly_sentinel_near(state, hx, hy):
             continue
