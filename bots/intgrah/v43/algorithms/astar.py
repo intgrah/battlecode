@@ -54,15 +54,12 @@ class Astar[T]:
         parent = self.parent
         heap = self.heap
         goals = self.goals
-        heuristic = self.heuristic
-        get_neighbors = self.get_neighbors
-        should_continue = self.should_continue
 
         expanded = 0
         while heap:
             f_val, _, node = heapq.heappop(heap)
 
-            if f_val > g.get(node, INF) + heuristic(node):
+            if f_val > g.get(node, INF) + self.heuristic(node):
                 continue
 
             if node in goals:
@@ -72,17 +69,17 @@ class Astar[T]:
 
             expanded += 1
             self.total_expanded += 1
-            if expanded & 15 == 0 and not should_continue():
+            if expanded & 15 == 0 and not self.should_continue():
                 return
 
             g_node = g[node]
-            for neighbor, cost in get_neighbors(node):
+            for neighbor, cost in self.get_neighbors(node):
                 nd = g_node + cost
                 if nd >= g.get(neighbor, INF):
                     continue
                 g[neighbor] = nd
                 parent[neighbor] = node
-                hval = heuristic(neighbor)
+                hval = self.heuristic(neighbor)
                 heapq.heappush(heap, (nd + hval, hval, neighbor))
                 if hval < self._best_h:
                     self._best_h = hval
