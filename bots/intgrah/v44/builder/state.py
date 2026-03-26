@@ -109,12 +109,14 @@ class State:
 
         self.my_core_hp: int = 500
         self.my_core_max_hp: int = 500
+        self.my_barriers: set[int] = set()
 
         # -- Enemy --
         self.en_core: tuple[int, int] | None = None
         self.en_core_tiles: set[int] = set()
         self.en_harvested: set[tuple[int, int]] = set()
         self.en_harvesters: set[int] = set()
+        self.en_barriers: set[int] = set()
         self.en_transport: set[int] = set()
         self.en_turrets: set[int] = set()
         self.en_foundries: set[int] = set()
