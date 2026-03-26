@@ -239,9 +239,11 @@ def _process_empty(
     state.my_transport.discard(i)
     state.my_harvesters.discard(i)
     state.my_turrets.discard(i)
+    state.my_barriers.discard(i)
     state.en_transport.discard(i)
     state.en_harvesters.discard(i)
     state.en_turrets.discard(i)
+    state.en_barriers.discard(i)
     if old_ent is not None or env != old_env:
         changed.append((x, y))
 

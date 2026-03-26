@@ -65,8 +65,7 @@ def _best_deny_target(
         oi = state.idx(ox, oy)
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             continue
-        ent = state.entity[oi]
-        if ent is not None and ent[0] == EntityType.BARRIER and ent[1] == state.my_team:
+        if oi in state.my_barriers or oi in state.en_barriers:
             continue
         dist = abs(pos.x - ox) + abs(pos.y - oy)
         en_core = state.en_core

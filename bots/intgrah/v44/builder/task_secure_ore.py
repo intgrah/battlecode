@@ -75,6 +75,9 @@ def _best_ore(state: State) -> tuple[int, int] | None:
     for ox, oy in unharvested:
         if not _ore_is_visible(state, ox, oy):
             continue
+        oi = state.idx(ox, oy)
+        if oi in state.my_barriers or oi in state.en_barriers:
+            continue
         core_dist = abs(ox - cx) + abs(oy - cy)
         key = (core_dist,)
         if key < best_key:
