@@ -5,7 +5,7 @@ and walks toward unvisited titanium ore deposits.
 """
 
 from builder import run_builder
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from core import run_core
 from launcher import run_launcher
 from pathfinding import AgentState
@@ -20,7 +20,7 @@ class Player:
         self.sym_eliminated: set[str] = set()
         self.sym_resolved: str | None = None
         self.enemy_core: Position | None = None
-        self.known_env: dict = {}
+        self.known_env: dict[Position, Environment] = {}
 
         # Core
         self.spawned: int = 0

@@ -25,7 +25,7 @@ _DIR_IDX = {d: i for i, d in enumerate(_ALL_DIRS)}
 _NEIGHBOR_DIRS = _ALL_DIRS
 
 
-def _rotate(d, steps):
+def _rotate(d: Direction, steps: int) -> Direction:
     """Rotate direction by steps * 45° clockwise (negative = CCW)."""
     return _ALL_DIRS[(_DIR_IDX[d] + steps) % 8]
 
@@ -33,17 +33,25 @@ def _rotate(d, steps):
 # ── Core helpers ────────────────────────────────────────────────────
 
 
-def chebyshev(a, b):
+def chebyshev(a: Position, b: Position) -> int:
     """Chebyshev (king-move) distance between two Positions."""
     return max(abs(a.x - b.x), abs(a.y - b.y))
 
 
-def in_vision(origin, cell):
+def in_vision(origin: Position, cell: Position) -> bool:
     """Check if cell is within builder bot vision radius (r² <= 20)."""
     return origin.distance_squared(cell) <= 20
 
 
-def _bresenham_step(x, y, err, adx, ady, sx, sy):
+def _bresenham_step(
+    x: int,
+    y: int,
+    err: int,
+    adx: int,
+    ady: int,
+    sx: int,
+    sy: int,
+) -> tuple[int, int, int]:
     """Advance one Bresenham step. Returns (x, y, err)."""
     e2 = 2 * err
     if e2 > -ady:
@@ -55,7 +63,7 @@ def _bresenham_step(x, y, err, adx, ady, sx, sy):
     return x, y, err
 
 
-def _make_line_state(pos, target):
+def _make_line_state(pos: Position, target: Position) -> tuple[int, int, int, int, int]:
     """Compute Bresenham parameters for a line from pos toward target.
     Returns (adx, ady, sx, sy, err)."""
     adx = abs(target.x - pos.x)
@@ -65,7 +73,11 @@ def _make_line_state(pos, target):
     return adx, ady, sx, sy, adx - ady
 
 
-def scan_line(pos, target, walkable):
+def scan_line(
+    pos: Position,
+    target: Position,
+    walkable: set[Position],
+) -> tuple[Position | None, Position | None]:
     """Walk a Bresenham line from pos toward target within vision.
     Returns (furthest_walkable, first_wall).
     furthest_walkable: last walkable cell before a wall or vision edge, or None.
@@ -88,7 +100,12 @@ def scan_line(pos, target, walkable):
     return furthest, None
 
 
-def _step_along_line(current, target, walkable, line_state):
+def _step_along_line(
+    current: Position,
+    target: Position,
+    walkable: set[Position],
+    line_state: tuple[int, int, int, int, int],
+) -> tuple[Position, Direction | None, tuple[int, int, int, int, int] | None]:
     """Take one Bresenham step from current toward target.
     Returns (next_cell, blocked_direction_or_None, new_line_state)."""
     if current == target:
@@ -103,7 +120,7 @@ def _step_along_line(current, target, walkable, line_state):
     return cell, None, new_state
 
 
-def has_line_of_sight(pos, target, walkable):
+def has_line_of_sight(pos: Position, target: Position, walkable: set[Position]) -> bool:
     """Check if target is reachable from pos along a clear Bresenham line."""
     if pos == target:
         return True
@@ -111,7 +128,13 @@ def has_line_of_sight(pos, target, walkable):
     return furthest == target
 
 
-def _trace_step(sim_pos, sim_dir, trace_left, walkable, origin):
+def _trace_step(
+    sim_pos: Position,
+    sim_dir: Direction,
+    trace_left: bool,
+    walkable: set[Position],
+    origin: Position,
+) -> tuple[Position, Direction] | None:
     """Take one wall-following step. Returns (new_pos, new_dir) or None if stuck/out of vision."""
     next_pos = sim_pos.add(sim_dir)
     if not in_vision(origin, next_pos):
@@ -131,7 +154,12 @@ def _trace_step(sim_pos, sim_dir, trace_left, walkable, origin):
     return None
 
 
-def _trace_move(current, tracing_dir, trace_left, walkable):
+def _trace_move(
+    current: Position,
+    tracing_dir: Direction,
+    trace_left: bool,
+    walkable: set[Position],
+) -> tuple[Position | None, Direction]:
     """Take one wall-following move. Returns (next_pos, new_dir) or (None, dir)."""
     next_pos = current.add(tracing_dir)
     if next_pos in walkable:
@@ -152,30 +180,29 @@ def _trace_move(current, tracing_dir, trace_left, walkable):
 class AgentState:
     """Holds all mutable state for one Bug2 agent."""
 
-    def __init__(self, start, goal) -> None:
-        self.start = start
-        self.goal = goal
-        self.current = start
-        self.prev = start
-        self.is_tracing = False
-        self.checkpoint_dist = chebyshev(start, goal)
-        self.detour_dist = self.checkpoint_dist
-        self.obstacle_start_pos = None
-        self.tracing_dir = Direction.NORTH
-        self.trace_left = None
-        self.trace_heads = None
-        self.line_state = _make_line_state(start, goal)
-        self.prev_target = goal
-        self.reached = False
-        # Debug: last scan_line results (set by bug2_step each call)
-        self.dbg_last_open = None
-        self.dbg_first_wall = None
+    def __init__(self, start: Position, goal: Position) -> None:
+        self.start: Position = start
+        self.goal: Position = goal
+        self.current: Position = start
+        self.prev: Position = start
+        self.is_tracing: bool = False
+        self.checkpoint_dist: int = chebyshev(start, goal)
+        self.detour_dist: int = self.checkpoint_dist
+        self.obstacle_start_pos: Position | None = None
+        self.tracing_dir: Direction = Direction.NORTH
+        self.trace_left: bool | None = None
+        self.trace_heads: list[list[Position | Direction]] | None = None
+        self.line_state: tuple[int, int, int, int, int] = _make_line_state(start, goal)
+        self.prev_target: Position = goal
+        self.reached: bool = False
+        self.dbg_last_open: Position | None = None
+        self.dbg_first_wall: Position | None = None
 
     @property
-    def done(self):
+    def done(self) -> bool:
         return self.reached
 
-    def retarget(self, current, goal) -> None:
+    def retarget(self, current: Position, goal: Position) -> None:
         """Reset state for a new goal while keeping the agent at current."""
         self.start = current
         self.goal = goal
@@ -193,7 +220,7 @@ class AgentState:
         self.reached = False
 
 
-def bug2_step(agent: AgentState, pos, walkable):
+def bug2_step(agent: AgentState, pos: Position, walkable: set[Position]) -> Position:
     """Advance one Bug2 step for a single agent.
     Returns the new Position (may be unchanged if blocked by another agent)."""
 
