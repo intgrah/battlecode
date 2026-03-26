@@ -30,8 +30,8 @@ from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
 from .task_place_launcher import place_launcher
 from .task_place_splitter_foundry import place_splitter_foundry
 from .task_raid import raid
+from .task_repair_bridge import _find_broken_bridge, repair_bridge
 from .task_secure_ore import _best_ore as _secure_best_ore
-from .task_secure_ore import _needs_barrier as _secure_needs_barrier
 from .task_secure_ore import secure_ore
 
 DEBUG_DUMP = False
@@ -54,6 +54,8 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.SECURE_ORE: secure_ore,
     Task.PLACE_LAUNCHER: place_launcher,
     Task.DENY_ENEMY_HARVESTER: deny_enemy_harvester,
+    Task.CONNECT_EXCESS_TI_BRIDGE_CORE: connect_excess_ti_bridge_core,
+    Task.REPAIR_BRIDGE: repair_bridge,
 }
 
 
@@ -178,51 +180,33 @@ def _has_undefended_bridge(state: State) -> bool:
 
 def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
-    pos = state.pos
 
     core_damaged = state.my_core_hp < state.my_core_max_hp
     scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
 
-    if state.role == Role.SECURE:
-        return _policy_secure(state, scores, pos)
-    return _policy_advance(state, scores, pos)
+    match state.role:
+        case Role.SECURE:
+            return _policy_secure(state, scores)
+        case Role.ADVANCE:
+            return _policy_advance(state, scores)
 
 
 def _policy_secure(
     state: State,
     scores: list[tuple[float, Task]],
-    pos: Position,
 ) -> list[tuple[float, Task]]:
+    has_ud_bridge = _has_undefended_bridge(state)
     has_excess = any(
         state.my_flow.excess[i] > 0.01 for i in state.my_harvesters | state.my_transport
     )
-    scores.append(
-        (200.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE_CORE),
-    )
+    visible_ore = _secure_best_ore(state)
 
-    visible_ore = _secure_best_ore(state, pos)
-    if visible_ore is not None:
-        ox, oy = visible_ore
-        needs = _secure_needs_barrier(state, ox, oy)
-        oi = state.idx(ox, oy)
-        harvester_placed = (
-            state.entity[oi] is not None
-            and state.entity[oi][0] == EntityType.HARVESTER
-            and state.entity[oi][1] == state.my_team
-        )
-        mid_sequence = len(needs) < 3 and not harvester_placed
-        if mid_sequence:
-            scores.append((500.0, Task.SECURE_ORE))
-        else:
-            cx, cy = state.my_core
-            core_dist = abs(cx - ox) + abs(cy - oy)
-            scores.append((max(60.0, 120.0 - core_dist), Task.SECURE_ORE))
-    else:
-        scores.append((0.0, Task.SECURE_ORE))
+    has_broken = _find_broken_bridge(state) is not None
 
-    scores.append(
-        (45.0 if _has_undefended_bridge(state) else 0.0, Task.PLACE_LAUNCHER),
-    )
+    scores.append((200.0 if has_ud_bridge else 0.0, Task.PLACE_LAUNCHER))
+    scores.append((175.0 if has_broken else 0.0, Task.REPAIR_BRIDGE))
+    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE_CORE))
+    scores.append((100.0 if visible_ore is not None else 0.0, Task.SECURE_ORE))
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
 
@@ -233,12 +217,11 @@ def _policy_secure(
 def _policy_advance(
     state: State,
     scores: list[tuple[float, Task]],
-    pos: Position,
 ) -> list[tuple[float, Task]]:
-    visible_ore = _secure_best_ore(state, pos)
+    visible_ore = _secure_best_ore(state)
     has_deny_target = _deny_best_target(state, exclude=visible_ore) is not None
-    scores.append((55.0 if has_deny_target else 0.0, Task.DENY_ENEMY_HARVESTER))
 
+    scores.append((55.0 * has_deny_target, Task.DENY_ENEMY_HARVESTER))
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
 

@@ -23,6 +23,7 @@ class Task(Enum):
     PLACE_LAUNCHER = auto()
     DENY_ENEMY_HARVESTER = auto()
     CONNECT_EXCESS_TI_BRIDGE_CORE = auto()
+    REPAIR_BRIDGE = auto()
 
 
 # Low level Actions (one per turn)
