@@ -1,0 +1,14 @@
+there are only three possible positions for a candidate core.
+send runner bots to each candidate enemy core (greedy pathfinding trace around walls).
+if found core is visible, backtrack to base core, placing launchers along the way (signalling with markers where to throw to, and also possibly destroying the road behind the builder).
+if candidate core is not visible, or determined from symmetry that this candidate is incorrect, backtrack to base core (or nearest ore, with conveyers back to base).
+then these builders guard the base by self destructing on any conveyors leading into enemy turrets. (always keep a couple on guard).
+but since we're not placing the conveyors at this point, its fairly safe.
+each builder informs base core of this result with marker state.
+every fixed number of steps, if the core hasn't got the acknowledgement of the correct core, send another builder to look at current candidates.
+once an acknowledgement of path has been established, core spawns builders very frequently (maybe every step).
+builders know the core location, and do the same greedy pathfinding to get to it. along the way, they are sped up by launchers.
+final launcher puts builders in a good position to add walls surrounding the base.
+if final launcher doesn't exist or can't launch, builders just try and get as close as possible, and place a barrier on a free tile, or self destruct if an enemy walkable path is in the way.
+once builder doesn't sees that the enemy core is blocked (and perhaps has done a full loop around), it backtracks to any ore its seen near to base, and adds conveyers back to base.
+if it didn't see any ore, just backtrack to base. the idea at this stage it to get a material advantage over the enemy, which should be fairly easy.
