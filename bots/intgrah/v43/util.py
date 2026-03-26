@@ -34,6 +34,7 @@ WALKABLE_BUILDINGS = frozenset(
         EntityType.CONVEYOR,
         EntityType.ARMOURED_CONVEYOR,
         EntityType.SPLITTER,
+        EntityType.BRIDGE,
     ),
 )
 
