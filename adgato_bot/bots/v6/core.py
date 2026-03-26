@@ -1,14 +1,18 @@
 """Core unit logic for v6."""
 
 from cambc import Controller, Direction, EntityType, Position, ResourceType
-
 from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
-    SYM_TYPES, PHASE_SCOUTING, PHASE_FOUND,
-    get_symmetry_candidates, mirror_pos,
-    encode_comms, is_waypoint_marker,
-    comms_tiles, read_comms, place_comms,
+    PHASE_FOUND,
+    SYM_TYPES,
+    comms_tiles,
+    encode_comms,
+    get_symmetry_candidates,
+    is_waypoint_marker,
     king_dist,
+    mirror_pos,
+    place_comms,
+    read_comms,
 )
 
 
@@ -18,9 +22,7 @@ def _init_symmetry(player, ct: Controller, pos: Position, w: int, h: int) -> Non
     player.sym_candidates = get_symmetry_candidates(pos, w, h)
     seen: dict[Position, str] = {}
     for s, epos in player.sym_candidates.items():
-        if epos == pos:
-            player.sym_eliminated.add(s)
-        elif epos in seen:
+        if epos == pos or epos in seen:
             player.sym_eliminated.add(s)
         else:
             seen[epos] = s
@@ -63,8 +65,11 @@ def _write_comms(player, ct: Controller, pos: Position) -> None:
     has_current = False
     for tile in comms_tiles(ct, pos):
         bid = ct.get_tile_building_id(tile)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER \
-                and ct.get_team(bid) == ct.get_team():
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.MARKER
+            and ct.get_team(bid) == ct.get_team()
+        ):
             old_val = ct.get_marker_value(bid)
             if not is_waypoint_marker(old_val):
                 if old_val == value:
@@ -78,11 +83,12 @@ def _write_comms(player, ct: Controller, pos: Position) -> None:
 
 def _debug_output(player, ct: Controller, rnd: int) -> None:
     for bid, counts in player.splitter_resource_counts.items():
-        sp = player.known_splitters.get(bid) if player.known_splitters else None                                              
-        d = ct.get_position().direction_to(sp) if sp else "?"                
-        ti_count = counts.get(ResourceType.TITANIUM, 0)        
-        ax_count = counts.get(ResourceType.RAW_AXIONITE, 0)    
+        sp = player.known_splitters.get(bid) if player.known_splitters else None
+        d = ct.get_position().direction_to(sp) if sp else "?"
+        ti_count = counts.get(ResourceType.TITANIUM, 0)
+        ax_count = counts.get(ResourceType.RAW_AXIONITE, 0)
         print(f"{d}, TI {ti_count} AX {ax_count}")
+
 
 def _spawn_initial(player, ct: Controller, pos: Position) -> None:
     """Spawn first builders. First 3 toward enemy core, rest at cardinal offsets."""
@@ -133,18 +139,19 @@ def _spawn_economy(player, ct: Controller, pos: Position, rnd: int) -> None:
     builder_cost, _ = ct.get_builder_bot_cost()
     harvester_cost, _ = ct.get_harvester_cost()
 
-    if spawn_advance:
-        if ti - builder_cost < 400 + rnd // 2:
-            return
-    if not spawn_advance:
-        if ti - builder_cost - harvester_cost < 400 + rnd // 2:
-            return
+    if spawn_advance and ti - builder_cost < 400 + rnd // 2:
+        return
+    if not spawn_advance and ti - builder_cost - harvester_cost < 400 + rnd // 2:
+        return
 
     best_pos = None
     best_dist = 999999
     my_team = ct.get_team()
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.LAUNCHER or ct.get_team(bid) != my_team:
+        if (
+            ct.get_entity_type(bid) != EntityType.LAUNCHER
+            or ct.get_team(bid) != my_team
+        ):
             continue
         lp = ct.get_position(bid)
         d = lp.distance_squared(pos)
@@ -172,7 +179,6 @@ def run_core(player, ct: Controller) -> None:
     if player.core_pos is None:
         player.core_pos = pos
 
-
     print(f"spawn economy {player.spawned_economy}")
     print(f"spawn advance {player.spawned_advance}")
 
@@ -184,11 +190,17 @@ def run_core(player, ct: Controller) -> None:
 
     # Detect damage — queue emergency spawns based on damage taken
     cur_hp = ct.get_hp()
-    if cur_hp < ct.get_max_hp() * 0.6 and player.last_hp is not None and cur_hp < player.last_hp:
+    if (
+        cur_hp < ct.get_max_hp() * 0.6
+        and player.last_hp is not None
+        and cur_hp < player.last_hp
+    ):
         damage = player.last_hp - cur_hp
         spawns = (damage + 9) // 10  # ceil(damage / 10)
         player.damage_spawns_remaining += spawns
-        print(f"Core: taking damage! HP {player.last_hp} -> {cur_hp}, queuing {spawns} spawns")
+        print(
+            f"Core: taking damage! HP {player.last_hp} -> {cur_hp}, queuing {spawns} spawns",
+        )
     player.last_hp = cur_hp
     if cur_hp == ct.get_max_hp():
         player.max_hp_turns += 1
@@ -202,14 +214,19 @@ def run_core(player, ct: Controller) -> None:
                 ct.spawn_builder(spawn_pos)
                 player.spawned += 1
                 player.damage_spawns_remaining -= 1
-                print(f"Core: emergency spawn {d} ({player.damage_spawns_remaining} remaining)")
+                print(
+                    f"Core: emergency spawn {d} ({player.damage_spawns_remaining} remaining)",
+                )
                 break
 
     # Track splitters near core and spawn replacements for destroyed ones
     my_team = ct.get_team()
     current_splitters = {}
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) == EntityType.SPLITTER and ct.get_team(bid) == my_team:
+        if (
+            ct.get_entity_type(bid) == EntityType.SPLITTER
+            and ct.get_team(bid) == my_team
+        ):
             sp = ct.get_position(bid)
             if king_dist(sp, pos) <= 2:
                 current_splitters[bid] = sp
@@ -221,7 +238,9 @@ def run_core(player, ct: Controller) -> None:
                 d = pos.direction_to(old_pos)
                 if d != Direction.CENTRE:
                     player.splitter_respawn_queue.append(d)
-                    print(f"Core: splitter {old_bid} destroyed at {old_pos}, queuing spawn {d}")
+                    print(
+                        f"Core: splitter {old_bid} destroyed at {old_pos}, queuing spawn {d}",
+                    )
     player.known_splitters = current_splitters
 
     # Track resource contents of each splitter every turn
@@ -259,17 +278,26 @@ def run_core(player, ct: Controller) -> None:
     ti, _ = ct.get_global_resources()
     builder_cost, _ = ct.get_builder_bot_cost()
     foundary_cost, _ = ct.get_foundry_cost()
-    should_spawn = (ti - builder_cost - foundary_cost > max(0, 250 - rnd)) and player.max_hp_turns >= 1000
+    should_spawn = (
+        ti - builder_cost - foundary_cost > max(0, 250 - rnd)
+    ) and player.max_hp_turns >= 1000
     if should_spawn:
         print("wants to spawn foundry")
     if should_spawn and current_splitters:
-        best_sp = None
-        has_both = [bid for bid, sp in current_splitters.items()
-                    if bid in player.splitter_resource_counts
-                    and player.splitter_resource_counts[bid].get(ResourceType.TITANIUM, 0) > 0
-                    and player.splitter_resource_counts[bid].get(ResourceType.RAW_AXIONITE, 0) > 0]
+        has_both = [
+            bid
+            for bid, sp in current_splitters.items()
+            if bid in player.splitter_resource_counts
+            and player.splitter_resource_counts[bid].get(ResourceType.TITANIUM, 0) > 0
+            and player.splitter_resource_counts[bid].get(ResourceType.RAW_AXIONITE, 0)
+            > 0
+        ]
         if has_both:
-            ranked = sorted(has_both, key=lambda b: min(player.splitter_resource_counts[b].values()), reverse=True)
+            ranked = sorted(
+                has_both,
+                key=lambda b: min(player.splitter_resource_counts[b].values()),
+                reverse=True,
+            )
             for bid in ranked:
                 sp = current_splitters[bid]
                 d = pos.direction_to(sp)
@@ -279,7 +307,9 @@ def run_core(player, ct: Controller) -> None:
                 if ct.can_spawn(spawn_pos):
                     ct.spawn_builder(spawn_pos)
                     player.spawned += 1
-                    player.busiest_spawned_dirs[d] = player.busiest_spawned_dirs.get(d, 0) + 1
+                    player.busiest_spawned_dirs[d] = (
+                        player.busiest_spawned_dirs.get(d, 0) + 1
+                    )
                     print(f"Core: spawned economy builder toward splitter at {sp}")
                     return
 

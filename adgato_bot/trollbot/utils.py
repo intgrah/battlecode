@@ -1,13 +1,14 @@
 """Shared constants, helpers, symmetry, marker protocol, and comms for v5."""
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, Direction, EntityType, Environment, Position
-
-from pathfinding import AgentState, _ALL_DIRS, _DIR_IDX, bug2_step
+from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step
 
 # ── Constants ─────────────────────────────────────────────────────────
 
@@ -21,22 +22,30 @@ PHASE_ASSAULT_READY = 2
 PHASE_BLOCKED = 3
 
 # Buildings that permanently block movement (can't walk on or build over)
-BLOCKED_BUILDINGS = frozenset({
-    EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH,
-    EntityType.LAUNCHER, EntityType.HARVESTER, EntityType.FOUNDRY,
-    EntityType.BARRIER
-})
+BLOCKED_BUILDINGS = frozenset(
+    {
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+        EntityType.HARVESTER,
+        EntityType.FOUNDRY,
+        EntityType.BARRIER,
+    },
+)
 
 # Tiles adjacent to core (outside 3x3, within action r²=8 from centre)
 _COMMS_OFFSETS = [
     Position(dx, dy)
-    for dx in range(-2, 3) for dy in range(-2, 3)
+    for dx in range(-2, 3)
+    for dy in range(-2, 3)
     if max(abs(dx), abs(dy)) == 2  # ring just outside the 3x3
-    and dx * dx + dy * dy <= 8     # within core action radius
+    and dx * dx + dy * dy <= 8  # within core action radius
 ]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def king_dist(a: Position, b: Position) -> int:
     """Chebyshev (king-move) distance between two positions."""
@@ -68,6 +77,7 @@ def try_move_smart(ct: Controller, pos: Position, direction: Direction) -> bool:
             return True
     return False
 
+
 def build_walkable(ct: Controller) -> set:
     """Build walkable set from visible tiles. Includes empty tiles
     (where roads can be built) and tiles with walkable buildings."""
@@ -91,7 +101,10 @@ def build_walkable(ct: Controller) -> set:
 
     # Mark tiles adjacent to enemy launchers as unwalkable
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.LAUNCHER or ct.get_team(bid) == my_team:
+        if (
+            ct.get_entity_type(bid) != EntityType.LAUNCHER
+            or ct.get_team(bid) == my_team
+        ):
             continue
         lp = ct.get_position(bid)
         for d in _ALL_DIRS:
@@ -101,7 +114,7 @@ def build_walkable(ct: Controller) -> set:
     return walkable
 
 
-def pf_move(player: Player, ct: Controller, target: Position):
+def pf_move(player: Player, ct: Controller, target: Position) -> None:
 
     current = ct.get_position()
 
@@ -109,7 +122,7 @@ def pf_move(player: Player, ct: Controller, target: Position):
         return
 
     # Track position history for stuck detection
-    if not hasattr(player, 'pos_history'):
+    if not hasattr(player, "pos_history"):
         player.pos_history = []
         player.stuck_count = 0
     player.pos_history.append(current)
@@ -157,7 +170,9 @@ def pf_move(player: Player, ct: Controller, target: Position):
 
     ct.draw_indicator_line(player.agent.current, player.agent.goal, 255, 255, 0)
 
+
 # ── Symmetry ──────────────────────────────────────────────────────────
+
 
 def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[str, Position]:
     cx, cy = core.x, core.y
@@ -172,10 +187,9 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
     x, y = pos.x, pos.y
     if sym == "rotational":
         return Position(w - 1 - x, h - 1 - y)
-    elif sym == "horizontal":
+    if sym == "horizontal":
         return Position(w - 1 - x, y)
-    else:
-        return Position(x, h - 1 - y)
+    return Position(x, h - 1 - y)
 
 
 # ── Marker protocol ──────────────────────────────────────────────────
@@ -195,7 +209,13 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
 #   Bits 18-23: enemy core y
 
 
-def encode_comms(sym_name: str, phase: int, ex: int = 0, ey: int = 0, scout_idx: int = 0) -> int:
+def encode_comms(
+    sym_name: str,
+    phase: int,
+    ex: int = 0,
+    ey: int = 0,
+    scout_idx: int = 0,
+) -> int:
     sym = SYM_TO_IDX.get(sym_name, 3)
     return (min(scout_idx, 3) << 16) | (ey << 10) | (ex << 4) | (phase << 2) | sym
 
@@ -227,6 +247,7 @@ def is_waypoint_marker(value: int) -> bool:
 
 # ── Comms helpers ─────────────────────────────────────────────────────
 
+
 def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
     """Return candidate comms tile positions adjacent to core (in vision only)."""
     result = []
@@ -241,7 +262,11 @@ def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
         result.append(p)
     return result
 
-def read_comms(ct: Controller, core_pos: Position) -> tuple[str | None, int, Position | None, int]:
+
+def read_comms(
+    ct: Controller,
+    core_pos: Position,
+) -> tuple[str | None, int, Position | None, int]:
     """Read best comms marker near core.
     Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found."""
     my_team = ct.get_team()

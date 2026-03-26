@@ -8,13 +8,19 @@ Strategy:
 
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, Position, GameConstants
+from cambc import (
+    Controller,
+    Direction,
+    EntityType,
+    Environment,
+    Position,
+)
 
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.spawned = 0
         self.has_target = False
         self.target: Position | None = None
@@ -33,7 +39,9 @@ class Player:
         round_num = ct.get_current_round()
         if round_num % 100 == 1:
             ti, ax = ct.get_global_resources()
-            print(f"R{round_num} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%")
+            print(
+                f"R{round_num} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%",
+            )
 
         # Spawn more builders over time, but not too fast
         max_spawned = min(3 + round_num // 50, 12)
@@ -79,14 +87,22 @@ class Player:
         """Find our core's position."""
         my_team = ct.get_team()
         for eid in ct.get_nearby_buildings():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == my_team:
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == my_team
+            ):
                 return ct.get_position(eid)
         return None
 
     def _in_bounds(self, ct: Controller, p: Position) -> bool:
         return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
 
-    def _try_build_conveyor_near_harvester(self, ct: Controller, pos: Position, core_pos: Position) -> None:
+    def _try_build_conveyor_near_harvester(
+        self,
+        ct: Controller,
+        pos: Position,
+        core_pos: Position,
+    ) -> None:
         """If adjacent to a tile that could use a conveyor toward core, build one."""
         for d in DIRECTIONS:
             build_pos = pos.add(d)
@@ -102,7 +118,12 @@ class Player:
                 ct.build_conveyor(build_pos, conv_dir)
                 return
 
-    def _explore(self, ct: Controller, pos: Position, core_pos: Position | None) -> None:
+    def _explore(
+        self,
+        ct: Controller,
+        pos: Position,
+        core_pos: Position | None,
+    ) -> None:
         """Move toward nearest visible ore, or wander randomly."""
         if ct.get_move_cooldown() > 0:
             return
@@ -123,14 +144,13 @@ class Player:
 
         if best_ore:
             direction = pos.direction_to(best_ore)
-        else:
-            # Wander away from core to explore
-            if core_pos:
-                direction = core_pos.direction_to(pos)
-                if direction == Direction.CENTRE:
-                    direction = random.choice(DIRECTIONS)
-            else:
+        # Wander away from core to explore
+        elif core_pos:
+            direction = core_pos.direction_to(pos)
+            if direction == Direction.CENTRE:
                 direction = random.choice(DIRECTIONS)
+        else:
+            direction = random.choice(DIRECTIONS)
 
         # Try to move, building a road if needed
         move_pos = pos.add(direction)

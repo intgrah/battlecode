@@ -9,6 +9,7 @@ Strategy:
 """
 
 import random
+
 from cambc import Controller, Direction, EntityType, Environment, Position
 
 CARDINAL_DIRS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
@@ -36,15 +37,19 @@ def cardinal_steps(from_pos: Position, to_pos: Position) -> list[Direction]:
     dx = to_pos.x - from_pos.x
     dy = to_pos.y - from_pos.y
     steps = []
-    if dx > 0: steps.append(Direction.EAST)
-    elif dx < 0: steps.append(Direction.WEST)
-    if dy > 0: steps.append(Direction.SOUTH)
-    elif dy < 0: steps.append(Direction.NORTH)
-    return steps if steps else [Direction.NORTH]
+    if dx > 0:
+        steps.append(Direction.EAST)
+    elif dx < 0:
+        steps.append(Direction.WEST)
+    if dy > 0:
+        steps.append(Direction.SOUTH)
+    elif dy < 0:
+        steps.append(Direction.NORTH)
+    return steps or [Direction.NORTH]
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         # Core
         self.spawned = 0
         # Builder
@@ -67,7 +72,9 @@ class Player:
         round_num = ct.get_current_round()
         if round_num % 200 == 1:
             ti, ax = ct.get_global_resources()
-            print(f"R{round_num} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%")
+            print(
+                f"R{round_num} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%",
+            )
 
         max_spawned = min(2 + round_num // 100, 8)
         if self.spawned >= max_spawned:
@@ -101,7 +108,10 @@ class Player:
     def _find_core(self, ct: Controller) -> Position | None:
         my_team = ct.get_team()
         for eid in ct.get_nearby_buildings():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == my_team:
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == my_team
+            ):
                 return ct.get_position(eid)
         return None
 
@@ -133,7 +143,11 @@ class Player:
         if target_dir is None and self.core_pos:
             # Wander away from core
             away = self.core_pos.direction_to(pos)
-            target_dir = snap_to_cardinal(away) if away != Direction.CENTRE else random.choice(CARDINAL_DIRS)
+            target_dir = (
+                snap_to_cardinal(away)
+                if away != Direction.CENTRE
+                else random.choice(CARDINAL_DIRS)
+            )
 
         if target_dir is None:
             target_dir = random.choice(CARDINAL_DIRS)
@@ -208,7 +222,7 @@ class Player:
 
         if self.return_idx >= len(self.return_path) - 1:
             # We've reached the core (or close enough)
-            print(f"Conveyor chain complete, going idle")
+            print("Conveyor chain complete, going idle")
             self.phase = "idle"
             self.path = []
             return

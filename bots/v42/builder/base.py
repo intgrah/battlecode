@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, Position
 from entity import Entity
 from map_belief import COST_IMPASSABLE, MapBelief
 from marker import TaskClaim, TaskKind

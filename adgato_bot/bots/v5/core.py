@@ -1,13 +1,17 @@
 """Core unit logic for v5."""
 
 from cambc import Controller, Direction, EntityType, Position
-
 from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
-    SYM_TYPES, PHASE_SCOUTING, PHASE_FOUND,
-    get_symmetry_candidates, mirror_pos,
-    encode_comms, is_waypoint_marker,
-    comms_tiles, read_comms, place_comms,
+    PHASE_FOUND,
+    SYM_TYPES,
+    comms_tiles,
+    encode_comms,
+    get_symmetry_candidates,
+    is_waypoint_marker,
+    mirror_pos,
+    place_comms,
+    read_comms,
 )
 
 
@@ -24,9 +28,7 @@ def run_core(player, ct: Controller) -> None:
         player.sym_candidates = get_symmetry_candidates(pos, w, h)
         seen: dict[Position, str] = {}
         for s, epos in player.sym_candidates.items():
-            if epos == pos:
-                player.sym_eliminated.add(s)
-            elif epos in seen:
+            if epos == pos or epos in seen:
                 player.sym_eliminated.add(s)
             else:
                 seen[epos] = s
@@ -64,8 +66,11 @@ def run_core(player, ct: Controller) -> None:
     has_current = False
     for tile in comms_tiles(ct, pos):
         bid = ct.get_tile_building_id(tile)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.MARKER \
-                and ct.get_team(bid) == ct.get_team():
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.MARKER
+            and ct.get_team(bid) == ct.get_team()
+        ):
             old_val = ct.get_marker_value(bid)
             if not is_waypoint_marker(old_val):
                 if old_val == value:
@@ -87,7 +92,7 @@ def run_core(player, ct: Controller) -> None:
         )
         print(
             f"R{rnd} Ti:{ti} Ax:{ax} spawned:{player.spawned} "
-            f"sym:{sym_str} enemy:{ec_str} phase:{player.core_phase}"
+            f"sym:{sym_str} enemy:{ec_str} phase:{player.core_phase}",
         )
 
     # Spawning
@@ -95,7 +100,9 @@ def run_core(player, ct: Controller) -> None:
         return
 
     # Spawn scout biased toward its candidate direction
-    candidates_list = list(player.sym_candidates.items()) if player.sym_candidates else []
+    candidates_list = (
+        list(player.sym_candidates.items()) if player.sym_candidates else []
+    )
     if player.spawned < len(candidates_list):
         _, target_pos = candidates_list[player.spawned]
     else:

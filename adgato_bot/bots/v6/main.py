@@ -13,21 +13,20 @@ candidates are eliminated go idle.
 Phases 2-3 (Assault, Economy): not yet implemented.
 """
 
-from cambc import Controller, Direction, EntityType, Environment, Position
-
-from utils import (
-    SYM_TYPES, PHASE_SCOUTING,
-    get_symmetry_candidates,
-)
-from pathfinding import AgentState
-from core import run_core
 from builder import run_builder
-from launcher import run_launcher
+from cambc import Controller, Direction, EntityType, Environment, Position
+from core import run_core
 from gunner import run_gunner
+from launcher import run_launcher
+from pathfinding import AgentState
+from utils import (
+    PHASE_SCOUTING,
+    SYM_TYPES,
+)
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         # Shared
         self.core_pos: Position | None = None
         self.enemy_core: Position | None = None
@@ -44,7 +43,9 @@ class Player:
         self.launch_wait: int = 0
         self.launch_bot_id: int | None = None
         self.next_spawn_economy: bool = False  # alternates advance/economy spawns
-        self.known_splitters: dict | None = None  # {bid: Position} of splitters near core
+        self.known_splitters: dict | None = (
+            None  # {bid: Position} of splitters near core
+        )
         self.splitter_resource_counts: dict = {}  # {bid: {ResourceType: int}} observed resource counts
         self.splitter_respawn_queue: list = []  # directions to spawn replacement builders
         self.busiest_spawned_dirs: dict = {}  # direction -> count for busiest-splitter spawns
@@ -59,7 +60,9 @@ class Player:
         self.economy_wandering: int = 0
         self.economy_wait_turns: int = 0
         self.base_round: int = 0
-        self.state: str | None = None  # base_builder, hibernate, advance, idle, economy, bridge
+        self.state: str | None = (
+            None  # base_builder, hibernate, advance, idle, economy, bridge
+        )
         self.target: Position | None = None
         self.base_phase: int = 0
         self.base_wait: int = 0
@@ -69,17 +72,25 @@ class Player:
         self.state_seen_enemy: bool = False  # True once enemy core is visible
         self.suicide_countdown: int = 0  # increments toward suicide mode
         self.built_launcher: bool = False  # True once suicide bot has built a launcher
-        self.idle_empty_turns: int = 0  # consecutive turns with no resource on conveyor/bridge
+        self.idle_empty_turns: int = (
+            0  # consecutive turns with no resource on conveyor/bridge
+        )
         self.tile_resource_seen: dict = {}  # {Position: last round resource was seen}
-        self.heal_no_harvester_turns: int = 0  # turns since harvester disappeared in heal mode
+        self.heal_no_harvester_turns: int = (
+            0  # turns since harvester disappeared in heal mode
+        )
         self.can_patch: bool = False
         self.state_turns: int = 0  # turns spent in current state
         self.prev_state: str | None = None  # for detecting state changes
 
         # Economy
         self.known_ore: set[Position] = set()  # ore tiles seen by this builder
-        self.claimed_ore: set[Position] = set()  # ore tiles we've already harvested/skipped
-        self.last_dir: Direction | None = None  # last move direction (for wander momentum)
+        self.claimed_ore: set[Position] = (
+            set()
+        )  # ore tiles we've already harvested/skipped
+        self.last_dir: Direction | None = (
+            None  # last move direction (for wander momentum)
+        )
         self.bridge_target: Position | None = None  # where to place next bridge
 
         # Bug2 pathfinding
@@ -112,7 +123,7 @@ class Player:
             self.enemy_core = resolved_pos
             print(
                 f"{tag}: resolved [{resolved_sym}] -> "
-                f"({resolved_pos.x},{resolved_pos.y})"
+                f"({resolved_pos.x},{resolved_pos.y})",
             )
             return True
         return False

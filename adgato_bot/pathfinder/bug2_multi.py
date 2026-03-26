@@ -4,26 +4,32 @@ the agent waits that turn."""
 
 import os
 import random
+
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from PIL import Image
-
 from bug2 import (
-    load_map, dist, scan_line, step_along_line, make_line_state, has_line_of_sight,
-    direction_to, _trace_move, _trace_step, can_move, move,
-    in_vision, NEIGHBORS, DIRS, DIR_INDEX,
-    dijkstra,
+    DIR_INDEX,
+    NEIGHBORS,
+    _trace_move,
+    _trace_step,
+    direction_to,
+    dist,
+    has_line_of_sight,
+    in_vision,
+    load_map,
+    make_line_state,
+    move,
+    scan_line,
+    step_along_line,
 )
-
 
 # Per-agent colors (RGBA for drawing, RGB01 for legend)
 AGENT_COLORS = [
-    ((255, 0, 255, 255), (1, 0, 1),       "magenta"),
-    ((0, 200, 255, 255), (0, 0.78, 1),    "cyan"),
-    ((255, 165, 0, 255), (1, 0.65, 0),    "orange"),
-    ((180, 0, 255, 255), (0.71, 0, 1),    "purple"),
-    ((0, 255, 100, 255), (0, 1, 0.39),    "green"),
-    ((255, 255, 0, 255), (1, 1, 0),       "yellow"),
+    ((255, 0, 255, 255), (1, 0, 1), "magenta"),
+    ((0, 200, 255, 255), (0, 0.78, 1), "cyan"),
+    ((255, 165, 0, 255), (1, 0.65, 0), "orange"),
+    ((180, 0, 255, 255), (0.71, 0, 1), "purple"),
+    ((0, 255, 100, 255), (0, 1, 0.39), "green"),
+    ((255, 255, 0, 255), (1, 1, 0), "yellow"),
 ]
 
 GOAL_COLORS = [
@@ -31,7 +37,7 @@ GOAL_COLORS = [
     ((0, 150, 200, 255), (0, 0.59, 0.78), "cyan goal"),
     ((200, 120, 0, 255), (0.78, 0.47, 0), "orange goal"),
     ((130, 0, 200, 255), (0.51, 0, 0.78), "purple goal"),
-    ((0, 200, 70, 255),  (0, 0.78, 0.27), "green goal"),
+    ((0, 200, 70, 255), (0, 0.78, 0.27), "green goal"),
     ((200, 200, 0, 255), (0.78, 0.78, 0), "yellow goal"),
 ]
 
@@ -39,7 +45,7 @@ GOAL_COLORS = [
 class AgentState:
     """Holds all mutable state for one Bug2 agent."""
 
-    def __init__(self, start, goal):
+    def __init__(self, start, goal) -> None:
         self.start = start
         self.goal = goal
         self.current = start
@@ -83,16 +89,17 @@ def bug2_step(agent, walkable, occupied):
     last_open, first_wall = scan_line(current, goal, walkable)
 
     not_adj_to_wall = all(
-        (current[0] + dx, current[1] + dy) in walkable
-        for dx, dy in NEIGHBORS
+        (current[0] + dx, current[1] + dy) in walkable for dx, dy in NEIGHBORS
     )
 
     if agent.is_tracing:
         lookahead = last_open
         exit_trace = not_adj_to_wall
-        if (lookahead is not None
-                and dist(lookahead, prev) > 0
-                and dist(lookahead, goal) < agent.checkpoint_dist):
+        if (
+            lookahead is not None
+            and dist(lookahead, prev) > 0
+            and dist(lookahead, goal) < agent.checkpoint_dist
+        ):
             agent.checkpoint_dist = dist(lookahead, goal)
             agent.obstacle_start_pos = lookahead
             exit_trace = True
@@ -105,7 +112,11 @@ def bug2_step(agent, walkable, occupied):
             # Fall through to non-tracing
         else:
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable)
+                current,
+                agent.tracing_dir,
+                agent.trace_left,
+                walkable,
+            )
             if next_pos is None:
                 return current  # stuck
 
@@ -123,12 +134,12 @@ def bug2_step(agent, walkable, occupied):
         elif not wall_visible:
             agent.trace_heads = None
 
-        line_dist = dist(last_open, goal) if last_open is not None else cur_dist
+        dist(last_open, goal) if last_open is not None else cur_dist
 
         if agent.trace_heads is not None:
             for side in range(2):
                 pos_h, dir_h, los_h = agent.trace_heads[side]
-                is_left = (side == 0)
+                is_left = side == 0
                 for _ in range(5):
                     if not in_vision(current, pos_h):
                         break
@@ -191,7 +202,11 @@ def bug2_step(agent, walkable, occupied):
             agent.prev_target = target
 
         next_cell, blocked, agent.line_state = step_along_line(
-            current, target, walkable, agent.line_state)
+            current,
+            target,
+            walkable,
+            agent.line_state,
+        )
 
         if blocked is not None:
             if cur_dist < agent.checkpoint_dist:
@@ -207,7 +222,11 @@ def bug2_step(agent, walkable, occupied):
                 agent.trace_left = left_diff <= right_diff
 
             next_pos, agent.tracing_dir = _trace_move(
-                current, agent.tracing_dir, agent.trace_left, walkable)
+                current,
+                agent.tracing_dir,
+                agent.trace_left,
+                walkable,
+            )
             agent.is_tracing = True
         else:
             next_pos = next_cell
@@ -238,13 +257,13 @@ def bug2_step(agent, walkable, occupied):
     return agent.current
 
 
-def _draw_multi_frame(img, step, agents, temp_walls, w, h):
+def _draw_multi_frame(img, step, agents, temp_walls, w, h) -> None:
     """Draw one debug frame showing all agents."""
     frame = img.copy()
     px = frame.load()
 
     # Draw temporary walls in dark red
-    for (wx, wy) in temp_walls:
+    for wx, wy in temp_walls:
         if 0 <= wx < w and 0 <= wy < h:
             px[wx, wy] = (180, 40, 40, 255)
 
@@ -264,8 +283,14 @@ def _draw_multi_frame(img, step, agents, temp_walls, w, h):
     plt.close()
 
 
-def run_multi(agent_configs, walkable, max_steps=80, debug_img=None,
-              temp_wall_count=5, rng=None):
+def run_multi(
+    agent_configs,
+    walkable,
+    max_steps=80,
+    debug_img=None,
+    temp_wall_count=5,
+    rng=None,
+):
     """Run multiple independent Bug2 agents.
     agent_configs: list of (start, goal) tuples.
     temp_wall_count: number of temporary walls active at any time.
@@ -330,7 +355,7 @@ def run_multi(agent_configs, walkable, max_steps=80, debug_img=None,
     return [(a.path, a.reached) for a in agents]
 
 
-def main():
+def main() -> None:
     img, walkable, w, h = load_map("testmap3.png")
 
     n_agents = 30
@@ -353,13 +378,18 @@ def main():
     print(f"Map: ({w}x{h}, {len(walkable)} walkable)")
     print(f"Running {len(agent_configs)} agents...")
 
-    results = run_multi(agent_configs, walkable, max_steps=80, temp_wall_count=temp_wall_count,
-                        debug_img=(img, w, h))
+    results = run_multi(
+        agent_configs,
+        walkable,
+        max_steps=80,
+        temp_wall_count=temp_wall_count,
+        debug_img=(img, w, h),
+    )
 
     for i, (path, reached) in enumerate(results):
         s, g = agent_configs[i]
         status = "REACHED" if reached else "FAILED"
-        print(f"  Agent {i}: {s}->{g} | {status} | {len(path)-1} steps")
+        print(f"  Agent {i}: {s}->{g} | {status} | {len(path) - 1} steps")
 
 
 if __name__ == "__main__":

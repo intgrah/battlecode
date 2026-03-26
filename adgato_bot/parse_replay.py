@@ -42,8 +42,8 @@ Schema (relevant fields):
 import sys
 from collections import defaultdict
 
-
 # ── Protobuf wire format helpers ──────────────────────────────────────
+
 
 def decode_varint(data: bytes, pos: int) -> tuple[int, int]:
     result = 0
@@ -76,15 +76,15 @@ def iter_fields(data: bytes, start: int = 0, end: int | None = None):
             yield field_num, wire_type, value, pos
         elif wire_type == 2:  # length-delimited
             length, pos = decode_varint(data, pos)
-            value = data[pos:pos + length]
+            value = data[pos : pos + length]
             pos += length
             yield field_num, wire_type, value, pos
         elif wire_type == 5:  # 32-bit
-            value = data[pos:pos + 4]
+            value = data[pos : pos + 4]
             pos += 4
             yield field_num, wire_type, value, pos
         elif wire_type == 1:  # 64-bit
-            value = data[pos:pos + 8]
+            value = data[pos : pos + 8]
             pos += 8
             yield field_num, wire_type, value, pos
         else:
@@ -94,34 +94,58 @@ def iter_fields(data: bytes, start: int = 0, end: int | None = None):
 # ── Entity kind mapping ───────────────────────────────────────────────
 
 ENTITY_KINDS = {
-    10: "builder_bot", 11: "conveyor", 12: "splitter", 13: "armoured_conveyor",
-    14: "bridge", 15: "harvester", 16: "foundry", 17: "road", 18: "barrier",
-    19: "marker", 20: "core", 21: "gunner", 22: "sentinel", 23: "breach",
+    10: "builder_bot",
+    11: "conveyor",
+    12: "splitter",
+    13: "armoured_conveyor",
+    14: "bridge",
+    15: "harvester",
+    16: "foundry",
+    17: "road",
+    18: "barrier",
+    19: "marker",
+    20: "core",
+    21: "gunner",
+    22: "sentinel",
+    23: "breach",
     24: "launcher",
 }
 
 
 # ── Parsing helpers ───────────────────────────────────────────────────
 
+
 def parse_player(data: bytes) -> dict:
-    p = {"titanium": 0, "axionite": 0, "resources_collected": 0,
-         "titanium_collected": 0, "axionite_collected": 0}
+    p = {
+        "titanium": 0,
+        "axionite": 0,
+        "resources_collected": 0,
+        "titanium_collected": 0,
+        "axionite_collected": 0,
+    }
     for fnum, wtype, val, _ in iter_fields(data):
         if wtype == 0:
             val = to_signed(val)
-            if fnum == 1: p["titanium"] = val
-            elif fnum == 2: p["axionite"] = val
-            elif fnum == 3: p["resources_collected"] = val
-            elif fnum == 4: p["titanium_collected"] = val
-            elif fnum == 5: p["axionite_collected"] = val
+            if fnum == 1:
+                p["titanium"] = val
+            elif fnum == 2:
+                p["axionite"] = val
+            elif fnum == 3:
+                p["resources_collected"] = val
+            elif fnum == 4:
+                p["titanium_collected"] = val
+            elif fnum == 5:
+                p["axionite_collected"] = val
     return p
 
 
 def parse_players(data: bytes) -> tuple[dict, dict]:
     a, b = {}, {}
     for fnum, wtype, val, _ in iter_fields(data):
-        if fnum == 1 and wtype == 2: a = parse_player(val)
-        elif fnum == 2 and wtype == 2: b = parse_player(val)
+        if fnum == 1 and wtype == 2:
+            a = parse_player(val)
+        elif fnum == 2 and wtype == 2:
+            b = parse_player(val)
     return a, b
 
 
@@ -129,8 +153,10 @@ def parse_position(data: bytes) -> tuple[int, int]:
     """Extract (x, y) from a Pos message."""
     x, y = 0, 0
     for fnum, wtype, val, _ in iter_fields(data):
-        if fnum == 1 and wtype == 0: x = to_signed(val)
-        elif fnum == 2 and wtype == 0: y = to_signed(val)
+        if fnum == 1 and wtype == 0:
+            x = to_signed(val)
+        elif fnum == 2 and wtype == 0:
+            y = to_signed(val)
     return (x, y)
 
 
@@ -138,24 +164,33 @@ def parse_entity(data: bytes) -> dict:
     """Extract id, team, position, and kind from an Entity message."""
     ent = {"id": 0, "team": "A", "kind": "unknown", "pos": (0, 0)}
     for fnum, wtype, val, _ in iter_fields(data):
-        if fnum == 1 and wtype == 0: ent["id"] = val
-        elif fnum == 2 and wtype == 0: ent["team"] = "A" if val == 0 else "B"
-        elif fnum == 3 and wtype == 2: ent["pos"] = parse_position(val)
-        elif fnum in ENTITY_KINDS: ent["kind"] = ENTITY_KINDS[fnum]
+        if fnum == 1 and wtype == 0:
+            ent["id"] = val
+        elif fnum == 2 and wtype == 0:
+            ent["team"] = "A" if val == 0 else "B"
+        elif fnum == 3 and wtype == 2:
+            ent["pos"] = parse_position(val)
+        elif fnum in ENTITY_KINDS:
+            ent["kind"] = ENTITY_KINDS[fnum]
     return ent
 
 
 def parse_bot_output(data: bytes) -> dict:
     out = {"id": 0, "stdout": "", "exec_time_us": 0, "tled": False}
     for fnum, wtype, val, _ in iter_fields(data):
-        if fnum == 1 and wtype == 0: out["id"] = val
-        elif fnum == 2 and wtype == 2: out["stdout"] = val.decode("utf-8", errors="replace")
-        elif fnum == 3 and wtype == 0: out["exec_time_us"] = val
-        elif fnum == 4 and wtype == 0: out["tled"] = bool(val)
+        if fnum == 1 and wtype == 0:
+            out["id"] = val
+        elif fnum == 2 and wtype == 2:
+            out["stdout"] = val.decode("utf-8", errors="replace")
+        elif fnum == 3 and wtype == 0:
+            out["exec_time_us"] = val
+        elif fnum == 4 and wtype == 0:
+            out["tled"] = bool(val)
     return out
 
 
 # ── Main replay parser ────────────────────────────────────────────────
+
 
 def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
     with open(path, "rb") as f:
@@ -166,13 +201,13 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
         "winner": None,
         "map_width": 0,
         "map_height": 0,
-        "snapshots": [],       # periodic stats snapshots
+        "snapshots": [],  # periodic stats snapshots
         "final_a": None,
         "final_b": None,
         "entities_built": {"A": defaultdict(int), "B": defaultdict(int)},
         "entities_lost": {"A": defaultdict(int), "B": defaultdict(int)},
-        "bot_stdout": [],      # (turn, entity_id, text)
-        "tles": [],            # (turn, entity_id)
+        "bot_stdout": [],  # (turn, entity_id, text)
+        "tles": [],  # (turn, entity_id)
         "turret_fires": 0,
         "core_positions": {},  # team -> (x, y)
     }
@@ -186,13 +221,17 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
     for fnum, wtype, val, _ in iter_fields(data):
         if fnum == 1 and wtype == 2:  # Map
             for mf, mw, mv, _ in iter_fields(val):
-                if mf == 1 and mw == 0: result["map_width"] = mv
-                elif mf == 2 and mw == 0: result["map_height"] = mv
+                if mf == 1 and mw == 0:
+                    result["map_width"] = mv
+                elif mf == 2 and mw == 0:
+                    result["map_height"] = mv
                 elif mf == 4 and mw == 2:  # Initial core placement
                     team_num, pos = 0, (0, 0)
                     for sf, sw, sv, _ in iter_fields(mv):
-                        if sf == 1 and sw == 0: team_num = sv
-                        elif sf == 3 and sw == 2: pos = parse_position(sv)
+                        if sf == 1 and sw == 0:
+                            team_num = sv
+                        elif sf == 3 and sw == 2:
+                            pos = parse_position(sv)
                     team = "A" if team_num == 1 else "B"
                     result["core_positions"][team] = pos
 
@@ -207,7 +246,10 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
                         for pf, pw, pv, _ in iter_fields(kv):
                             if pf == 1 and pw == 2:
                                 ent = parse_entity(pv)
-                                live_entities[ent["id"]] = {"team": ent["team"], "kind": ent["kind"]}
+                                live_entities[ent["id"]] = {
+                                    "team": ent["team"],
+                                    "kind": ent["kind"],
+                                }
                                 result["entities_built"][ent["team"]][ent["kind"]] += 1
                                 if ent["kind"] == "core":
                                     result["core_positions"][ent["team"]] = ent["pos"]
@@ -215,7 +257,8 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
                     elif kf == 3 and kw == 2:  # removeEntity
                         eid = 0
                         for rf, rw, rv, _ in iter_fields(kv):
-                            if rf == 1 and rw == 0: eid = rv
+                            if rf == 1 and rw == 0:
+                                eid = rv
                         if eid in live_entities:
                             info = live_entities.pop(eid)
                             result["entities_lost"][info["team"]][info["kind"]] += 1
@@ -228,7 +271,9 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
                     elif kf == 9 and kw == 2:  # botOutput
                         out = parse_bot_output(kv)
                         if out["stdout"].strip():
-                            result["bot_stdout"].append((turn, out["id"], out["stdout"].strip()))
+                            result["bot_stdout"].append(
+                                (turn, out["id"], out["stdout"].strip()),
+                            )
                         if out["tled"]:
                             result["tles"].append((turn, out["id"]))
 
@@ -241,12 +286,17 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
                 counts = {"A": defaultdict(int), "B": defaultdict(int)}
                 for info in live_entities.values():
                     counts[info["team"]][info["kind"]] += 1
-                result["snapshots"].append({
-                    "turn": turn,
-                    "player_a": dict(current_a) if current_a else {},
-                    "player_b": dict(current_b) if current_b else {},
-                    "entity_counts": {"A": dict(counts["A"]), "B": dict(counts["B"])},
-                })
+                result["snapshots"].append(
+                    {
+                        "turn": turn,
+                        "player_a": dict(current_a) if current_a else {},
+                        "player_b": dict(current_b) if current_b else {},
+                        "entity_counts": {
+                            "A": dict(counts["A"]),
+                            "B": dict(counts["B"]),
+                        },
+                    },
+                )
 
         elif fnum == 4 and wtype == 0:  # winner
             result["winner"] = "A" if val == 0 else "B"
@@ -262,6 +312,7 @@ def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
 
 # ── Display ───────────────────────────────────────────────────────────
 
+
 def fmt_player_line(p: dict) -> str:
     if not p:
         return "no data"
@@ -276,34 +327,57 @@ def fmt_entity_counts(counts: dict) -> str:
     if not counts:
         return "-"
     # Show interesting entities, skip markers and roads for brevity
-    important = ["core", "builder_bot", "harvester", "conveyor", "splitter",
-                 "bridge", "armoured_conveyor", "foundry", "gunner", "sentinel",
-                 "breach", "launcher", "barrier"]
+    important = [
+        "core",
+        "builder_bot",
+        "harvester",
+        "conveyor",
+        "splitter",
+        "bridge",
+        "armoured_conveyor",
+        "foundry",
+        "gunner",
+        "sentinel",
+        "breach",
+        "launcher",
+        "barrier",
+    ]
     parts = []
     for k in important:
         v = counts.get(k, 0)
         if v > 0:
-            short = {"builder_bot": "bot", "harvester": "harv", "conveyor": "conv",
-                     "armoured_conveyor": "a.conv", "sentinel": "sent",
-                     "launcher": "lncr", "barrier": "barr", "foundry": "fndy"}.get(k, k)
+            short = {
+                "builder_bot": "bot",
+                "harvester": "harv",
+                "conveyor": "conv",
+                "armoured_conveyor": "a.conv",
+                "sentinel": "sent",
+                "launcher": "lncr",
+                "barrier": "barr",
+                "foundry": "fndy",
+            }.get(k, k)
             parts.append(f"{short}:{v}")
     # Add road/marker counts compactly
     roads = counts.get("road", 0)
     markers = counts.get("marker", 0)
-    if roads: parts.append(f"road:{roads}")
-    if markers: parts.append(f"mrkr:{markers}")
+    if roads:
+        parts.append(f"road:{roads}")
+    if markers:
+        parts.append(f"mrkr:{markers}")
     return "  ".join(parts) if parts else "-"
 
 
 def print_results(r: dict) -> None:
     w = 70
     print(f"\n{'=' * w}")
-    print(f"  MATCH RESULT — {r['map_width']}x{r['map_height']} map, {r['turns']} turns")
+    print(
+        f"  MATCH RESULT — {r['map_width']}x{r['map_height']} map, {r['turns']} turns",
+    )
     winner = r["winner"]
     if winner:
         print(f"  Winner: Team {winner}")
     else:
-        print(f"  Winner: DRAW / unknown")
+        print("  Winner: DRAW / unknown")
     print(f"  Turret shots fired: {r['turret_fires']}")
     cores = r.get("core_positions", {})
     if cores:
@@ -323,7 +397,7 @@ def print_results(r: dict) -> None:
         print()
 
         # Entity count timeline
-        print(f"  ENTITY COUNTS (alive)")
+        print("  ENTITY COUNTS (alive)")
         print(f"  {'TURN':>6}  {'Team A':^30}  |  {'Team B':^30}")
         print(f"  {'-' * 6}  {'-' * 30}  |  {'-' * 30}")
         for snap in r["snapshots"]:
@@ -334,7 +408,7 @@ def print_results(r: dict) -> None:
         print()
 
     # ── Totals ──
-    print(f"  BUILDINGS CONSTRUCTED")
+    print("  BUILDINGS CONSTRUCTED")
     for label, team in [("A", "A"), ("B", "B")]:
         built = r["entities_built"].get(team, {})
         lost = r["entities_lost"].get(team, {})
@@ -348,7 +422,7 @@ def print_results(r: dict) -> None:
     print()
 
     # ── Final state ──
-    print(f"  FINAL STATE")
+    print("  FINAL STATE")
     for label, p in [("A", r["final_a"]), ("B", r["final_b"])]:
         if p:
             print(f"    Team {label}: {fmt_player_line(p)}")

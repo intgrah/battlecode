@@ -1,14 +1,12 @@
 import heapq
 import os
 import random
-import matplotlib.pyplot as plt
+
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 from PIL import Image
 
-
-NEIGHBORS = [(-1, -1), (0, -1), (1, -1),
-             (-1,  0),          (1,  0),
-             (-1,  1), (0,  1), (1,  1)]
+NEIGHBORS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 
 
 def load_map(path):
@@ -18,7 +16,7 @@ def load_map(path):
     walkable = set()
     for y in range(h):
         for x in range(w):
-            r, g, b, a = pixels[x, y]
+            r, g, b, _a = pixels[x, y]
             if r > 128 and g > 128 and b > 128:
                 walkable.add((x, y))
     return img, walkable, w, h
@@ -48,8 +46,7 @@ def dist(a, b):
 
 
 # 8 directions in clockwise order
-DIRS = [(0, -1), (1, -1), (1, 0), (1, 1),
-        (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+DIRS = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
 
 DIR_INDEX = {d: i for i, d in enumerate(DIRS)}
 
@@ -73,7 +70,6 @@ def can_move(pos, dir_idx, walkable):
 def move(pos, dir_idx):
     dx, dy = DIRS[dir_idx]
     return (pos[0] + dx, pos[1] + dy)
-
 
 
 def in_vision(origin, cell):
@@ -124,6 +120,7 @@ def scan_line(pos, target, walkable):
         if cell == target:
             break
     return furthest, None
+
 
 def step_along_line(current, target, walkable, line_state):
     """Take one Bresenham step from current toward target.
@@ -182,8 +179,20 @@ def _trace_move(current, tracing_dir, trace_left, walkable):
     return None, tracing_dir
 
 
-def _draw_frame(img, step, current, goal, path, is_tracing, trace_heads,
-                 obstacle_start_pos, lookahead, state, w, h):
+def _draw_frame(
+    img,
+    step,
+    current,
+    goal,
+    path,
+    is_tracing,
+    trace_heads,
+    obstacle_start_pos,
+    lookahead,
+    state,
+    w,
+    h,
+) -> None:
     """Draw a debug frame and save to frames/."""
     frame = img.copy()
     px = frame.load()
@@ -230,28 +239,30 @@ def _draw_frame(img, step, current, goal, path, is_tracing, trace_heads,
 
     info = f"Step {step}: {current} d={dist(current, goal)} | {state}"
     if is_tracing:
-        info += f" | tracing"
+        info += " | tracing"
     if trace_heads:
-        info += (f"\nL_head={trace_heads[0][0]} L_los={trace_heads[0][2]}"
-                 f" | R_head={trace_heads[1][0]} R_los={trace_heads[1][2]}")
+        info += (
+            f"\nL_head={trace_heads[0][0]} L_los={trace_heads[0][2]}"
+            f" | R_head={trace_heads[1][0]} R_los={trace_heads[1][2]}"
+        )
 
     patches = [
-        mpatches.Patch(color=(0, 0.78, 0), label='Current'),
-        mpatches.Patch(color=(1, 0, 0), label='Goal'),
-        mpatches.Patch(color=(1, 0, 1), label='Path'),
-        mpatches.Patch(color=(1, 1, 0), label='Obstacle start'),
+        mpatches.Patch(color=(0, 0.78, 0), label="Current"),
+        mpatches.Patch(color=(1, 0, 0), label="Goal"),
+        mpatches.Patch(color=(1, 0, 1), label="Path"),
+        mpatches.Patch(color=(1, 1, 0), label="Obstacle start"),
     ]
     if trace_heads:
         patches += [
-            mpatches.Patch(color=(0, 1, 1), label='L head'),
-            mpatches.Patch(color=(1, 0.65, 0), label='R head'),
-            mpatches.Patch(color=(0, 0.71, 0.71), label='L LOS'),
-            mpatches.Patch(color=(0.78, 0.47, 0), label='R LOS'),
+            mpatches.Patch(color=(0, 1, 1), label="L head"),
+            mpatches.Patch(color=(1, 0.65, 0), label="R head"),
+            mpatches.Patch(color=(0, 0.71, 0.71), label="L LOS"),
+            mpatches.Patch(color=(0.78, 0.47, 0), label="R LOS"),
         ]
     if lookahead is not None:
-        patches.append(mpatches.Patch(color=(0.31, 0.47, 1), label='Lookahead'))
+        patches.append(mpatches.Patch(color=(0.31, 0.47, 1), label="Lookahead"))
 
-    ax.legend(handles=patches, loc='upper right', fontsize=7)
+    ax.legend(handles=patches, loc="upper right", fontsize=7)
     ax.set_title(info, fontsize=9)
     plt.savefig(f"frames/step_{step:03d}.png", dpi=150, bbox_inches="tight")
     plt.close()
@@ -279,7 +290,7 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
         frame_count = 0
         max_frames = 80
 
-    for step_num in range(max_steps):
+    for _step_num in range(max_steps):
         if current == goal:
             break
 
@@ -292,14 +303,17 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
         last_open, first_wall = scan_line(current, goal, walkable)
 
         not_adj_to_wall = all(
-            (current[0] + dx, current[1] + dy) in walkable
-            for dx, dy in NEIGHBORS
+            (current[0] + dx, current[1] + dy) in walkable for dx, dy in NEIGHBORS
         )
 
         if is_tracing:
             lookahead = last_open
             exit_trace = not_adj_to_wall
-            if lookahead is not None and dist(lookahead, prev) > 0 and dist(lookahead, goal) < checkpoint_dist:
+            if (
+                lookahead is not None
+                and dist(lookahead, prev) > 0
+                and dist(lookahead, goal) < checkpoint_dist
+            ):
                 checkpoint_dist = dist(lookahead, goal)
                 obstacle_start_pos = lookahead
                 exit_trace = True
@@ -313,7 +327,12 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
                 # Fall through to non-tracing movement below
             else:
                 state = "tracing"
-                next_pos, tracing_dir = _trace_move(current, tracing_dir, trace_left, walkable)
+                next_pos, tracing_dir = _trace_move(
+                    current,
+                    tracing_dir,
+                    trace_left,
+                    walkable,
+                )
                 if next_pos is None:
                     return path, False
 
@@ -333,12 +352,11 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
             elif not wall_visible:
                 trace_heads = None
 
-
             # Advance trace heads as far as possible within vision (max 5 per step each)
             if trace_heads is not None:
                 for side in range(2):
                     pos_h, dir_h, los_h = trace_heads[side]
-                    is_left = (side == 0)
+                    is_left = side == 0
                     for _ in range(5):
                         result = _trace_step(pos_h, dir_h, is_left, walkable, current)
                         if result is None:
@@ -369,7 +387,6 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
                 r_dy = r_los[1] - current[1]
                 r_valid = (r_dx != 0 or r_dy != 0) and r_dx * gx + r_dy * gy >= -3
 
-
                 # Pick the head that has gone around the obstacle
                 if l_gone > r_gone and l_valid:
                     if not_adj_to_wall:
@@ -396,14 +413,18 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
                 elif r_valid and not l_valid:
                     trace_left = False
 
-
             # Reset line_state if target changed
             if target != prev_target:
                 line_state = make_line_state(current, target)
                 prev_target = target
 
             # Take one step toward target
-            next_cell, blocked, line_state = step_along_line(current, target, walkable, line_state)
+            next_cell, blocked, line_state = step_along_line(
+                current,
+                target,
+                walkable,
+                line_state,
+            )
 
             if blocked is not None:
                 # Enter tracing and take the first trace step immediately
@@ -422,16 +443,32 @@ def bug2(start, goal, walkable, max_steps=100, debug_img=None):
                     right_diff = (goal_dir - blocked) % 8
                     trace_left = left_diff <= right_diff
 
-                next_pos, tracing_dir = _trace_move(current, tracing_dir, trace_left, walkable)
+                next_pos, tracing_dir = _trace_move(
+                    current,
+                    tracing_dir,
+                    trace_left,
+                    walkable,
+                )
                 is_tracing = True
             else:
                 next_pos = next_cell
 
         # Draw debug frame
         if debug_img is not None and frame_count < max_frames:
-            _draw_frame(d_img, frame_count, current, goal, path,
-                        is_tracing, trace_heads, obstacle_start_pos,
-                        lookahead, state, d_w, d_h)
+            _draw_frame(
+                d_img,
+                frame_count,
+                current,
+                goal,
+                path,
+                is_tracing,
+                trace_heads,
+                obstacle_start_pos,
+                lookahead,
+                state,
+                d_w,
+                d_h,
+            )
             frame_count += 1
 
         # Position update
@@ -496,8 +533,9 @@ def draw_paths(img, dijkstra_path, bug2_path, start, goal):
     return img
 
 
-def main():
+def main() -> None:
     import time
+
     img, walkable, w, h = load_map("testmap3.png")
     walkable_list = list(walkable)
     rng = random.Random(24)
@@ -514,10 +552,11 @@ def main():
     worst_ratio = 0
     worst_case = None
 
-    bug2((4, 15), (46, 16), walkable, debug_img=(img, w, h)); return
+    bug2((4, 15), (46, 16), walkable, debug_img=(img, w, h))
+    return
 
     t0 = time.time()
-    for i in range(n_trials):
+    for _i in range(n_trials):
         s = rng.choice(walkable_list)
         g = rng.choice(walkable_list)
         while g == s:
@@ -548,7 +587,7 @@ def main():
             worst_case = (s, g, b_len, d_len)
 
     elapsed = time.time() - t0
-    total = wins + losses + ties
+    wins + losses + ties
 
     print(f"\nResults ({elapsed:.1f}s):")
     print(f"  Trials:  {n_trials} ({fails} failures)")
@@ -560,7 +599,9 @@ def main():
         median = sorted(ratios)[len(ratios) // 2]
         print(f"  Avg ratio:    {avg:.3f}")
         print(f"  Median ratio: {median:.3f}")
-        print(f"  Worst ratio:  {worst_ratio:.2f} ({worst_case[0]}->{worst_case[1]}: bug2={worst_case[2]} dij={worst_case[3]})")
+        print(
+            f"  Worst ratio:  {worst_ratio:.2f} ({worst_case[0]}->{worst_case[1]}: bug2={worst_case[2]} dij={worst_case[3]})",
+        )
 
 
 if __name__ == "__main__":

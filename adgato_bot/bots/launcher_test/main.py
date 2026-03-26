@@ -1,10 +1,12 @@
 """Test launcher — dump tile state from launcher's perspective."""
 
-from cambc import Controller, EntityType, Position, Direction
 import sys
 
+from cambc import Controller, Direction, EntityType, Position
+
+
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.phase = 0
         self.spawned = 0
         self.roads_built = 0
@@ -29,8 +31,16 @@ class Player:
             if self.phase == 0:
                 if ct.get_move_cooldown() > 0 or ct.get_action_cooldown() > 0:
                     return
-                for d in [Direction.EAST, Direction.SOUTH, Direction.NORTH, Direction.WEST,
-                          Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHEAST, Direction.NORTHWEST]:
+                for d in [
+                    Direction.EAST,
+                    Direction.SOUTH,
+                    Direction.NORTH,
+                    Direction.WEST,
+                    Direction.SOUTHEAST,
+                    Direction.SOUTHWEST,
+                    Direction.NORTHEAST,
+                    Direction.NORTHWEST,
+                ]:
                     tp = pos.add(d)
                     if ct.can_build_road(tp):
                         ct.build_road(tp)
@@ -40,7 +50,7 @@ class Player:
                         if self.roads_built >= 5:
                             self.phase = 1
                         return
-                    elif ct.can_move(d):
+                    if ct.can_move(d):
                         ct.move(d)
                         self.roads_built += 1
                         if self.roads_built >= 5:
@@ -95,4 +105,6 @@ class Player:
                 print(f"{t} d2={d2} {bt} cl={cl}", file=sys.stderr)
 
             n = sum(1 for t in tiles if ct.can_launch(bot_pos, t)) > 0
-            print(f"R{rnd} bot_pos={bot_pos} can_launch={n} cooldown={ct.get_action_cooldown()}")
+            print(
+                f"R{rnd} bot_pos={bot_pos} can_launch={n} cooldown={ct.get_action_cooldown()}",
+            )

@@ -1,5 +1,6 @@
 import heapq
 import random
+
 import matplotlib.pyplot as plt
 from PIL import Image
 
@@ -11,16 +12,14 @@ def load_map(path):
     walkable = set()
     for y in range(h):
         for x in range(w):
-            r, g, b, a = pixels[x, y]
+            r, g, b, _a = pixels[x, y]
             if r > 128 and g > 128 and b > 128:
                 walkable.add((x, y))
     return img, walkable, w, h
 
 
 def dijkstra(start, goal, walkable):
-    NEIGHBORS = [(-1, -1), (0, -1), (1, -1),
-                 (-1,  0),          (1,  0),
-                 (-1,  1), (0,  1), (1,  1)]
+    NEIGHBORS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
 
     dist = {start: 0}
     prev = {}
@@ -68,7 +67,7 @@ def draw_path(img, path, start, goal):
     return img
 
 
-def main():
+def main() -> None:
     img, walkable, w, h = load_map("testmap1.png")
     walkable_list = list(walkable)
 

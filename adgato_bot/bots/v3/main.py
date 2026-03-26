@@ -14,12 +14,19 @@ CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 ALL_DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 SECTOR_DIRS = [
-    Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
-    Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
 ]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def in_bounds(ct: Controller, p: Position) -> bool:
     return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
@@ -28,10 +35,14 @@ def in_bounds(ct: Controller, p: Position) -> bool:
 def snap_cardinal(d: Direction) -> Direction:
     """Snap any direction to the nearest cardinal."""
     return {
-        Direction.NORTH: Direction.NORTH, Direction.SOUTH: Direction.SOUTH,
-        Direction.EAST: Direction.EAST, Direction.WEST: Direction.WEST,
-        Direction.NORTHEAST: Direction.EAST, Direction.NORTHWEST: Direction.NORTH,
-        Direction.SOUTHEAST: Direction.SOUTH, Direction.SOUTHWEST: Direction.WEST,
+        Direction.NORTH: Direction.NORTH,
+        Direction.SOUTH: Direction.SOUTH,
+        Direction.EAST: Direction.EAST,
+        Direction.WEST: Direction.WEST,
+        Direction.NORTHEAST: Direction.EAST,
+        Direction.NORTHWEST: Direction.NORTH,
+        Direction.SOUTHEAST: Direction.SOUTH,
+        Direction.SOUTHWEST: Direction.WEST,
         Direction.CENTRE: Direction.NORTH,
     }[d]
 
@@ -48,11 +59,16 @@ def cardinal_toward(src: Position, dst: Position) -> Direction:
 def cardinal_priority(preferred: Direction) -> list[Direction]:
     """All 4 cardinals ordered by similarity to preferred (opposite last)."""
     opp = preferred.opposite()
-    perps = [d for d in CARDINAL if d != preferred and d != opp]
-    return [preferred] + perps + [opp]
+    perps = [d for d in CARDINAL if d not in (preferred, opp)]
+    return [preferred, *perps, opp]
 
 
-def try_move(ct: Controller, pos: Position, direction: Direction, build_road: bool = True) -> bool:
+def try_move(
+    ct: Controller,
+    pos: Position,
+    direction: Direction,
+    build_road: bool = True,
+) -> bool:
     """Try to move in direction, building a road if needed. Returns True if moved."""
     target = pos.add(direction)
     if not in_bounds(ct, target):
@@ -101,7 +117,11 @@ def is_on_core(pos: Position, core_pos: Position) -> bool:
     return abs(pos.x - core_pos.x) <= 1 and abs(pos.y - core_pos.y) <= 1
 
 
-CONVEYOR_TYPES = {EntityType.CONVEYOR, EntityType.SPLITTER, EntityType.ARMOURED_CONVEYOR}
+CONVEYOR_TYPES = {
+    EntityType.CONVEYOR,
+    EntityType.SPLITTER,
+    EntityType.ARMOURED_CONVEYOR,
+}
 
 
 def tile_has_friendly_conveyor(ct: Controller, pos: Position) -> bool:
@@ -152,8 +172,9 @@ def clean_path(path: list[Position]) -> list[Position]:
 
 # ── Player ────────────────────────────────────────────────────────────
 
+
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.spawned = 0
         self.core_pos: Position | None = None
         self.phase = "explore"
@@ -180,7 +201,9 @@ class Player:
         rnd = ct.get_current_round()
         if rnd % 200 == 1:
             ti, ax = ct.get_global_resources()
-            print(f"R{rnd} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%")
+            print(
+                f"R{rnd} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%",
+            )
 
         max_spawned = min(2 + rnd // 100, 8)
         if self.spawned >= max_spawned:
@@ -315,7 +338,7 @@ class Player:
 
         # Reached core?
         if self.core_pos and is_on_core(pos, self.core_pos):
-            print(f"Chain complete (core)")
+            print("Chain complete (core)")
             self._finish_return()
             return
 

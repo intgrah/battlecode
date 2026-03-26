@@ -25,8 +25,14 @@ CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 ALL_DIRS = [d for d in Direction if d != Direction.CENTRE]
 
 SECTOR_DIRS = [
-    Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST,
-    Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
 ]
 
 SYM_NAMES = ["rotational", "horizontal", "vertical", "unknown"]
@@ -34,11 +40,11 @@ SYM_INDEX = {name: i for i, name in enumerate(SYM_NAMES)}
 SYM_UNKNOWN = 3
 
 # Offsets from core centre for candidate comms tiles (outside 3x3, within action r^2=8)
-COMMS_OFFSETS = [(0, -2), (2, 0), (0, 2), (-2, 0),
-                 (-2, -2), (2, -2), (2, 2), (-2, 2)]
+COMMS_OFFSETS = [(0, -2), (2, 0), (0, 2), (-2, 0), (-2, -2), (2, -2), (2, 2), (-2, 2)]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def in_bounds(ct: Controller, p: Position) -> bool:
     return 0 <= p.x < ct.get_map_width() and 0 <= p.y < ct.get_map_height()
@@ -46,10 +52,14 @@ def in_bounds(ct: Controller, p: Position) -> bool:
 
 def snap_cardinal(d: Direction) -> Direction:
     return {
-        Direction.NORTH: Direction.NORTH, Direction.SOUTH: Direction.SOUTH,
-        Direction.EAST: Direction.EAST, Direction.WEST: Direction.WEST,
-        Direction.NORTHEAST: Direction.EAST, Direction.NORTHWEST: Direction.NORTH,
-        Direction.SOUTHEAST: Direction.SOUTH, Direction.SOUTHWEST: Direction.WEST,
+        Direction.NORTH: Direction.NORTH,
+        Direction.SOUTH: Direction.SOUTH,
+        Direction.EAST: Direction.EAST,
+        Direction.WEST: Direction.WEST,
+        Direction.NORTHEAST: Direction.EAST,
+        Direction.NORTHWEST: Direction.NORTH,
+        Direction.SOUTHEAST: Direction.SOUTH,
+        Direction.SOUTHWEST: Direction.WEST,
         Direction.CENTRE: Direction.NORTH,
     }[d]
 
@@ -64,16 +74,26 @@ def cardinal_toward(src: Position, dst: Position) -> Direction:
 
 def cardinal_priority(preferred: Direction) -> list[Direction]:
     opp = preferred.opposite()
-    perps = [d for d in CARDINAL if d != preferred and d != opp]
-    return [preferred] + perps + [opp]
+    perps = [d for d in CARDINAL if d not in (preferred, opp)]
+    return [preferred, *perps, opp]
 
 
-def try_move(ct: Controller, pos: Position, direction: Direction,
-             build_road: bool = True, reserved: Position | None = None) -> bool:
+def try_move(
+    ct: Controller,
+    pos: Position,
+    direction: Direction,
+    build_road: bool = True,
+    reserved: Position | None = None,
+) -> bool:
     target = pos.add(direction)
     if not in_bounds(ct, target):
         return False
-    if build_road and target != reserved and ct.get_action_cooldown() == 0 and ct.can_build_road(target):
+    if (
+        build_road
+        and target != reserved
+        and ct.get_action_cooldown() == 0
+        and ct.can_build_road(target)
+    ):
         ct.build_road(target)
     if ct.can_move(direction):
         ct.move(direction)
@@ -81,8 +101,12 @@ def try_move(ct: Controller, pos: Position, direction: Direction,
     return False
 
 
-def try_move_toward(ct: Controller, pos: Position, target: Position,
-                    reserved: Position | None = None) -> bool:
+def try_move_toward(
+    ct: Controller,
+    pos: Position,
+    target: Position,
+    reserved: Position | None = None,
+) -> bool:
     if ct.get_move_cooldown() > 0:
         return False
     for d in cardinal_priority(cardinal_toward(pos, target)):
@@ -116,7 +140,11 @@ def is_on_core(pos: Position, core_pos: Position) -> bool:
     return abs(pos.x - core_pos.x) <= 1 and abs(pos.y - core_pos.y) <= 1
 
 
-CONVEYOR_TYPES = {EntityType.CONVEYOR, EntityType.SPLITTER, EntityType.ARMOURED_CONVEYOR}
+CONVEYOR_TYPES = {
+    EntityType.CONVEYOR,
+    EntityType.SPLITTER,
+    EntityType.ARMOURED_CONVEYOR,
+}
 
 
 def tile_has_friendly_conveyor(ct: Controller, pos: Position) -> bool:
@@ -155,13 +183,14 @@ def clean_path(path: list[Position]) -> list[Position]:
 
 # ── Symmetry helpers ─────────────────────────────────────────────────
 
+
 def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[str, Position]:
     """Return the 3 possible enemy core positions, one per symmetry type."""
     cx, cy = core.x, core.y
     return {
         "rotational": Position(w - 1 - cx, h - 1 - cy),
         "horizontal": Position(w - 1 - cx, cy),
-        "vertical":   Position(cx, h - 1 - cy),
+        "vertical": Position(cx, h - 1 - cy),
     }
 
 
@@ -169,10 +198,10 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
     x, y = pos.x, pos.y
     if sym == "rotational":
         return Position(w - 1 - x, h - 1 - y)
-    elif sym == "horizontal":
+    if sym == "horizontal":
         return Position(w - 1 - x, y)
-    else:  # vertical
-        return Position(x, h - 1 - y)
+    # vertical
+    return Position(x, h - 1 - y)
 
 
 def encode_symmetry(sym_name: str) -> int:
@@ -217,8 +246,9 @@ def read_comms_marker(ct: Controller, marker_pos: Position) -> str | None:
 
 # ── Player ────────────────────────────────────────────────────────────
 
+
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.spawned = 0
         self.core_pos: Position | None = None
         self.comms_tile: Position | None = None  # current comms marker tile
@@ -240,7 +270,9 @@ class Player:
         self.sym_resolved: str | None = None  # the winning symmetry name
         self.enemy_core: Position | None = None
         self.known_env: dict[Position, Environment] = {}
-        self.learned_from_marker = False  # True if we learned from a marker (no need to broadcast)
+        self.learned_from_marker = (
+            False  # True if we learned from a marker (no need to broadcast)
+        )
         self.has_broadcast = False  # True once we've successfully broadcast
 
     def run(self, ct: Controller) -> None:
@@ -260,7 +292,9 @@ class Player:
 
         if rnd % 200 == 1:
             ti, ax = ct.get_global_resources()
-            print(f"R{rnd} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%")
+            print(
+                f"R{rnd} Ti:{ti} Ax:{ax} spawned:{self.spawned} scale:{ct.get_scale_percent():.0f}%",
+            )
 
         # Build comms candidate list once
         if not self.comms_candidates:
@@ -273,8 +307,10 @@ class Player:
         if self.comms_tile is not None:
             bid = ct.get_tile_building_id(self.comms_tile)
             if bid is not None:
-                is_our_marker = (ct.get_entity_type(bid) == EntityType.MARKER
-                                 and ct.get_team(bid) == ct.get_team())
+                is_our_marker = (
+                    ct.get_entity_type(bid) == EntityType.MARKER
+                    and ct.get_team(bid) == ct.get_team()
+                )
                 if not is_our_marker:
                     # Enemy built something over our marker — pick next candidate
                     self.comms_idx += 1
@@ -290,7 +326,9 @@ class Player:
                 if sym is not None and sym != "unknown":
                     self.sym_resolved = sym
                     self.enemy_core = resolve_enemy_core(pos, sym, w, h)
-                    print(f"Core learned: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{sym}]")
+                    print(
+                        f"Core learned: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{sym}]",
+                    )
                     break
 
         # Core symmetry detection via environment mismatch (vision r^2=36)
@@ -308,19 +346,26 @@ class Player:
                         if s in self.sym_eliminated:
                             continue
                         mirrored = mirror_pos(tile, s, w, h)
-                        if mirrored in self.known_env and self.known_env[mirrored] != env:
+                        if (
+                            mirrored in self.known_env
+                            and self.known_env[mirrored] != env
+                        ):
                             self.sym_eliminated.add(s)
             remaining = [s for s in self.sym_candidates if s not in self.sym_eliminated]
             if len(remaining) == 1:
                 self.sym_resolved = remaining[0]
                 self.enemy_core = self.sym_candidates[remaining[0]]
-                print(f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]")
+                print(
+                    f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                )
             elif len(remaining) > 1:
                 positions = {self.sym_candidates[s] for s in remaining}
                 if len(positions) == 1:
                     self.sym_resolved = remaining[0]
                     self.enemy_core = positions.pop()
-                    print(f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]")
+                    print(
+                        f"Core detected: enemy at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                    )
 
         # Place/refresh comms marker every round
         if self.comms_tile is not None:
@@ -380,7 +425,11 @@ class Player:
         self._detect_symmetry(ct, pos)
 
         # Opportunistic broadcast: if we know the answer, write to any nearby comms tile
-        if self.sym_resolved and not self.learned_from_marker and not self.has_broadcast:
+        if (
+            self.sym_resolved
+            and not self.learned_from_marker
+            and not self.has_broadcast
+        ):
             for candidate in self.comms_candidates:
                 if pos.distance_squared(candidate) <= 2:
                     if ct.can_place_marker(candidate):
@@ -390,8 +439,12 @@ class Player:
                         break
 
         # Switch to broadcast phase if we detected symmetry during explore
-        if (self.phase == "explore" and self.sym_resolved
-                and not self.learned_from_marker and not self.has_broadcast):
+        if (
+            self.phase == "explore"
+            and self.sym_resolved
+            and not self.learned_from_marker
+            and not self.has_broadcast
+        ):
             self._start_broadcast(pos)
 
         if self.phase == "explore":
@@ -442,7 +495,10 @@ class Player:
             if ct.is_in_vision(epos):
                 bid = ct.get_tile_building_id(epos)
                 if bid is not None:
-                    if ct.get_entity_type(bid) == EntityType.CORE and ct.get_team(bid) != my_team:
+                    if (
+                        ct.get_entity_type(bid) == EntityType.CORE
+                        and ct.get_team(bid) != my_team
+                    ):
                         self.sym_resolved = s
                         self.enemy_core = epos
                         print(f"Enemy core at ({epos.x},{epos.y}) [{s}]")
@@ -486,7 +542,9 @@ class Player:
         if len(remaining) == 1:
             self.sym_resolved = remaining[0]
             self.enemy_core = self.sym_candidates[remaining[0]]
-            print(f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]")
+            print(
+                f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+            )
             return True
         if len(remaining) > 1:
             positions = {self.sym_candidates[s] for s in remaining}
@@ -494,7 +552,9 @@ class Player:
                 # All remaining symmetries agree on the same position
                 self.sym_resolved = remaining[0]  # pick any, they all give same answer
                 self.enemy_core = positions.pop()
-                print(f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]")
+                print(
+                    f"Enemy core at ({self.enemy_core.x},{self.enemy_core.y}) [{self.sym_resolved}]",
+                )
                 return True
         return False
 
@@ -542,16 +602,21 @@ class Player:
             self.stuck_turns += 1
             if self.stuck_turns > 3:
                 for alt in cardinal_priority(cardinal_toward(pos, next_pos)):
-                    if try_move(ct, pos, alt, build_road=True, reserved=self.comms_tile):
+                    if try_move(
+                        ct,
+                        pos,
+                        alt,
+                        build_road=True,
+                        reserved=self.comms_tile,
+                    ):
                         self.stuck_turns = 0
                         return
             if self.stuck_turns > 10:
                 self.return_idx += 1
                 self.stuck_turns = 0
-        else:
-            # End of path — walk directly toward core
-            if self.core_pos:
-                try_move_toward(ct, pos, self.core_pos, reserved=self.comms_tile)
+        # End of path — walk directly toward core
+        elif self.core_pos:
+            try_move_toward(ct, pos, self.core_pos, reserved=self.comms_tile)
 
     # ── Explore ───────────────────────────────────────────────────────
 
@@ -650,14 +715,22 @@ class Player:
             prev_pos = self.return_path[max(0, self.return_idx - 1)]
             if can_feed_into(ct, prev_pos, pos):
                 # If we have a pending broadcast, keep walking toward core
-                pending_broadcast = (self.sym_resolved and not self.learned_from_marker
-                                     and not self.has_broadcast)
+                pending_broadcast = (
+                    self.sym_resolved
+                    and not self.learned_from_marker
+                    and not self.has_broadcast
+                )
                 if not pending_broadcast:
                     self._finish_return()
                     return
 
         if self.return_idx >= len(self.return_path) - 1:
-            if self.core_pos and try_move_toward(ct, pos, self.core_pos, reserved=self.comms_tile):
+            if self.core_pos and try_move_toward(
+                ct,
+                pos,
+                self.core_pos,
+                reserved=self.comms_tile,
+            ):
                 return
             self._finish_return()
             return
@@ -665,7 +738,9 @@ class Player:
         next_pos = self.return_path[self.return_idx + 1]
 
         if ct.get_action_cooldown() == 0:
-            skip = (self.core_pos and is_on_core(pos, self.core_pos)) or pos == self.comms_tile
+            skip = (
+                self.core_pos and is_on_core(pos, self.core_pos)
+            ) or pos == self.comms_tile
             if not skip:
                 conv_dir = cardinal_toward(pos, next_pos)
                 if self.return_idx == 0 and conv_dir == self.harvester_dir:

@@ -4,18 +4,16 @@ Core spawns one builder bot. Builder bot performs symmetry detection
 and walks toward unvisited titanium ore deposits.
 """
 
-from cambc import Controller, Direction, EntityType, Position
-
-from utils import SYM_TYPES
-from pathfinding import AgentState
-from core import run_core
 from builder import run_builder
-from sentinel import run_sentinel
+from cambc import Controller, Direction, EntityType, Position
+from core import run_core
 from launcher import run_launcher
+from pathfinding import AgentState
+from sentinel import run_sentinel
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         # Shared
         self.core_pos: Position | None = None
         self.sym_candidates: dict[str, Position] | None = None
@@ -41,7 +39,7 @@ class Player:
         self.prev_pos: Position | None = None
         self.wander_target: Position | None = None
         self.secure_target: Position | None = None
-        self.mode: str = None # "advance", "return", "secure", "bridge", "protect"
+        self.mode: str = None  # "advance", "return", "secure", "bridge", "protect"
         self.visited_bridges: set[Position] = set()
         self.bridge_target: Position | None = None
         self.launcher_target: Position | None = None
