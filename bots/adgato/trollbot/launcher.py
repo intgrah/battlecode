@@ -1,17 +1,11 @@
 """Launcher unit logic for trollbot — yeet enemy builders as far away as possible."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from main import Player
-
 from cambc import Controller, EntityType
+
 from utils import king_dist
 
 
-def run_launcher(_player: Player, ct: Controller) -> None:
+def run_launcher(player, ct: Controller) -> None:
     pos = ct.get_position()
     my_team = ct.get_team()
 
