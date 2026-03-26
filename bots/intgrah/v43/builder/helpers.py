@@ -4,7 +4,7 @@ These operate on State + Controller without any class instances.
 """
 
 from cambc import Controller, Direction, Position
-from marker import TaskClaim, TaskKind
+from marker import TaskKind
 from nav_astar import NavAstar
 
 from .build import Action, PlaceRoad
