@@ -23,6 +23,9 @@ def run_launcher(player, ct: Controller) -> None:
         for tile in ct.get_nearby_tiles():
             if not ct.can_launch(bp, tile):
                 continue
+            bid = ct.get_tile_building_id(tile)
+            if bid is not None and ct.get_entity_type(bid) == EntityType.BRIDGE:
+                continue
             d = king_dist(tile, pos)
             if d > best_dist:
                 best_dist = d
