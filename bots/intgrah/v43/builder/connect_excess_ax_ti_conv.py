@@ -19,11 +19,6 @@ from .build import Action, PlaceBridge, PlaceConveyor
 
 
 class ConnectExcessAxTiConvMixin(BuilderBase):
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
-        self._ax_flow_search: AxChainAstar | None = None
-        self._ax_cached_source: tuple[int, int] | None = None
-        self._ax_cached_path: list[int] | None = None
 
     def _connect_excess_ax_ti_conv(
         self,
@@ -86,24 +81,24 @@ class ConnectExcessAxTiConvMixin(BuilderBase):
             sx, sy = start
 
         start = (sx, sy)
-        path = self._ax_cached_path
-        if path is None or self._ax_cached_source != start:
-            if self._ax_flow_search is None or self._ax_cached_source != start:
-                self._ax_flow_search = AxChainAstar(
+        path = self.state.ax_cached_path
+        if path is None or self.state.ax_cached_source != start:
+            if self.state.ax_flow_search is None or self.state.ax_cached_source != start:
+                self.state.ax_flow_search = AxChainAstar(
                     self.state,
                     sx,
                     sy,
                     ti_goals,
                 )
-                self._ax_cached_source = start
-            self._ax_flow_search.set_budget(ct, 1200)
-            self._ax_flow_search.compute()
-            path = self._ax_flow_search.get_path()
-            if self._ax_flow_search.done:
-                self._ax_flow_search = None
-            self._ax_cached_path = path
+                self.state.ax_cached_source = start
+            self.state.ax_flow_search.set_budget(ct, 1200)
+            self.state.ax_flow_search.compute()
+            path = self.state.ax_flow_search.get_path()
+            if self.state.ax_flow_search.done:
+                self.state.ax_flow_search = None
+            self.state.ax_cached_path = path
         if path is None or len(path) < 2:
-            self._ax_cached_path = None
+            self.state.ax_cached_path = None
             return None
 
         banned = TI | RAX

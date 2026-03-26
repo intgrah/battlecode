@@ -15,11 +15,6 @@ from .build import Action, PlaceBridge, PlaceConveyor
 
 
 class ConnectExcessTiRaxCoreMixin(BuilderBase):
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
-        self._ti_flow_search: FlowAstar | None = None
-        self._ti_cached_source: tuple[int, int] | None = None
-        self._ti_cached_path: list[int] | None = None
 
     def _connect_excess_ti_rax_core(
         self,
@@ -96,25 +91,25 @@ class ConnectExcessTiRaxCoreMixin(BuilderBase):
                     sx, sy = bt
 
         start = (sx, sy)
-        path = self._ti_cached_path
-        if path is None or self._ti_cached_source != start:
-            if self._ti_flow_search is None or self._ti_cached_source != start:
-                self._ti_flow_search = FlowAstar(
+        path = self.state.ti_cached_path
+        if path is None or self.state.ti_cached_source != start:
+            if self.state.ti_flow_search is None or self.state.ti_cached_source != start:
+                self.state.ti_flow_search = FlowAstar(
                     self.state,
                     sx,
                     sy,
                     self.state.my_core_tiles,
                     AX,
                 )
-                self._ti_cached_source = start
-            self._ti_flow_search.set_budget(ct, 1200)
-            self._ti_flow_search.compute()
-            path = self._ti_flow_search.get_path()
-            if self._ti_flow_search.done:
-                self._ti_flow_search = None
-            self._ti_cached_path = path
+                self.state.ti_cached_source = start
+            self.state.ti_flow_search.set_budget(ct, 1200)
+            self.state.ti_flow_search.compute()
+            path = self.state.ti_flow_search.get_path()
+            if self.state.ti_flow_search.done:
+                self.state.ti_flow_search = None
+            self.state.ti_cached_path = path
         if path is None or len(path) < 2:
-            self._ti_cached_path = None
+            self.state.ti_cached_path = None
             return None
 
         for k in range(len(path) - 1):

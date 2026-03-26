@@ -1,8 +1,15 @@
+from __future__ import annotations
+
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from typing import TYPE_CHECKING
 
-from cambc import Controller, Direction, EntityType, Environment, Team
+if TYPE_CHECKING:
+    from ax_chain_astar import AxChainAstar
+    from flow_astar import FlowAstar
+
+from cambc import Controller, Direction, EntityType, Environment, Position, Team
 from known_maps import MAPS
 from known_maps import decode as decode_known_map
 from marker import Eureka, TaskClaim, is_stale
@@ -122,6 +129,7 @@ class State:
 
         # -- Friendly states --
         self.my_core: tuple[int, int] = core_pos
+        self.my_core_tiles: set[int] = tiles_3x3(*core_pos, w, h)
         self.my_harvested: set[tuple[int, int]] = set()
         self.my_harvesters: set[int] = set()
         self.my_transport: set[int] = set()
@@ -147,8 +155,23 @@ class State:
         self.symmetry: Symmetry | None = None
         self._sym_candidates = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
 
+        # -- Position (updated each turn) --
+        self.pos: Position = Position(core_pos[0], core_pos[1])
+
+        # -- Task caches --
+        self.explore_target: Position | None = None
+        self.explore_radius: int = 0
+        self.ti_flow_search: FlowAstar | None = None
+        self.ti_cached_source: tuple[int, int] | None = None
+        self.ti_cached_path: list[int] | None = None
+        self.ax_flow_search: AxChainAstar | None = None
+        self.ax_cached_source: tuple[int, int] | None = None
+        self.ax_cached_path: list[int] | None = None
+        self.nav_cache: tuple[int, int, int, int] | None = None
+        self.nav_search: object | None = None
+        self.nav_path: list[tuple[int, int]] | None = None
+
         # -- Internal --
-        self.my_core_tiles: set[int] = tiles_3x3(*core_pos, w, h)
         self._out_target: dict[int, list[int]] = {}
         self._out_target_dirty = True
 
@@ -201,6 +224,7 @@ class State:
         Returns list of (x, y) tiles whose entity/walkability changed.
         """
         self.age += 1
+        self.pos = ct.get_position()
         rnd = ct.get_current_round()
         new_tiles: list[tuple[int, int, Environment]] = []
         changed: list[tuple[int, int]] = []
