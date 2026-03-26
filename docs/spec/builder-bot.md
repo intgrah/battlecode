@@ -8,7 +8,7 @@
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/builder-bot.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=b0b8f534c879d31c95e22691fccade5b" alt="Builder bot" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/builder-bot.png" />
 
-Builder bots are the **only mobile unit**. They construct buildings, repair friendly entities on a tile, and can make a weak attack against the building under them.
+Builder bots are the **only mobile unit**. They construct buildings, heal friendly entities on a chosen tile, and can make a weak attack against the building under them.
 
 ## Properties
 
@@ -52,12 +52,13 @@ When action cooldown is 0, a builder bot can perform one of:
 Build any building or turret on a tile within action radius that doesn't already have a building.
 
 <Info>
-  Only walkable buildings (conveyors and roads) can be built on a tile that contains a builder bot.
+  Only walkable buildings (conveyors and roads) can be built on a tile that
+  contains a builder bot.
 </Info>
 
 ### Heal
 
-Spend **1 Ti** to heal **4 HP** to all friendly entities on the builder bot's own tile. If a friendly builder bot and a friendly building share that tile, both are healed. The action fails if nothing on the tile would gain HP.
+Spend **1 Ti** to heal **4 HP** to all friendly entities on the builder bot's own tile. If a friendly builder bot and a friendly building share the tile, both are healed. The action fails if nothing on that tile would gain HP.
 
 ```python  theme={"dark"}
 if c.can_heal(target_pos):

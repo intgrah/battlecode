@@ -22,7 +22,7 @@ Ammo-based turrets can hold up to one stack of one resource type and only accept
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/gunner.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=62439f66dff4e5aa36645340d4daad02" alt="Gunner" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/gunner.png" />
 
-Has a vision radius of √13. Can only target the **closest non-empty tile** in the direction it is facing. Using refined axionite as ammo deals double damage.
+Has a vision radius of √13. Can target **any occupied tile** in the direction it is facing. Using refined axionite as ammo deals double damage.
 
 <Info>
   Markers remain targetable, but they do **not** shield occupied tiles behind them.
