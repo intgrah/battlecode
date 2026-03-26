@@ -1,7 +1,8 @@
 """Sentinel turret logic for trollbot — shoot the nearest enemy harvester."""
 
 from cambc import Controller, EntityType
-from utils import _ALL_DIRS, _DIR_IDX
+from utils import _DIR_IDX
+
 
 def run_sentinel(player, ct: Controller) -> None:
     pos = ct.get_position()
@@ -32,5 +33,4 @@ def run_sentinel(player, ct: Controller) -> None:
             return
 
     if not any_adjacent:
-       ct.self_destruct()
-        
+        ct.self_destruct()
