@@ -135,11 +135,13 @@ def _process_building(
         state.en_transport.discard(i)
         state.en_harvesters.discard(i)
         state.en_turrets.discard(i)
+        state.en_barriers.discard(i)
     else:
         _classify_enemy(state, i, x, y, etype)
         state.my_transport.discard(i)
         state.my_harvesters.discard(i)
         state.my_turrets.discard(i)
+        state.my_barriers.discard(i)
 
     if state.en_core is None and etype == EntityType.CORE and team != state.my_team:
         center = ct.get_position(bid)
@@ -173,6 +175,8 @@ def _classify_friendly(
             state.my_harvesters.discard(i)
         case _ if etype in TURRETS:
             state.my_turrets.add(i)
+        case EntityType.BARRIER:
+            state.my_barriers.add(i)
         case EntityType.MARKER:
             msg = decode_marker(ct.get_marker_value(bid))
             if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
@@ -209,6 +213,8 @@ def _classify_enemy(
             state.en_harvesters.discard(i)
         case _ if etype in TURRETS:
             state.en_turrets.add(i)
+        case EntityType.BARRIER:
+            state.en_barriers.add(i)
         case _:
             state.en_transport.discard(i)
             state.en_harvesters.discard(i)
