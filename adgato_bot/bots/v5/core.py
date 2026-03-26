@@ -1,5 +1,12 @@
 """Core unit logic for v5."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from main import Player
+
 from cambc import Controller, Direction, EntityType, Position
 from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
@@ -15,7 +22,7 @@ from utils import (
 )
 
 
-def run_core(player, ct: Controller) -> None:
+def run_core(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     w, h = ct.get_map_width(), ct.get_map_height()
     rnd = ct.get_current_round()

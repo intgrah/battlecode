@@ -1,5 +1,12 @@
 """Builder bot unit logic for v5."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from main import Player
+
 from cambc import Controller, Direction, EntityType, Environment, Position
 from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step, has_line_of_sight
 from utils import (
@@ -20,7 +27,7 @@ from utils import (
 # ── Comms ─────────────────────────────────────────────────────────────
 
 
-def _check_comms(player, ct: Controller) -> None:
+def _check_comms(player: Player, ct: Controller) -> None:
     if player.core_pos is None:
         return
     sym, _phase, epos, scout_idx = read_comms(ct, player.core_pos)
@@ -32,7 +39,12 @@ def _check_comms(player, ct: Controller) -> None:
         player.enemy_core = epos
 
 
-def _write_comms(player, ct: Controller, sym_name: str, enemy_pos: Position) -> None:
+def _write_comms(
+    player: Player,
+    ct: Controller,
+    sym_name: str,
+    enemy_pos: Position,
+) -> None:
     if player.comms_written or player.core_pos is None:
         return
     value = encode_comms(sym_name, PHASE_FOUND, enemy_pos.x, enemy_pos.y)
@@ -47,7 +59,7 @@ def _write_comms(player, ct: Controller, sym_name: str, enemy_pos: Position) -> 
 # ── Symmetry detection ───────────────────────────────────────────────
 
 
-def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
+def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
     if player.sym_resolved:
         return
     if player.sym_candidates is None:
@@ -129,7 +141,7 @@ def _detect_symmetry(player, ct: Controller, pos: Position) -> None:
 # ── Pathfinding helpers ──────────────────────────────────────────────
 
 
-def _pf_draw_debug(player, ct: Controller, walkable: set) -> None:
+def _pf_draw_debug(player: Player, ct: Controller, walkable: set) -> None:
     """Draw debug indicators for Bug2 pathfinding state."""
     a = player.pf_agent
 
@@ -169,7 +181,7 @@ def _pf_draw_debug(player, ct: Controller, walkable: set) -> None:
     ct.draw_indicator_dot(a.current, 0, 200, 0)
 
 
-def _pf_step(player, ct: Controller, pos: Position) -> bool:
+def _pf_step(player: Player, ct: Controller, pos: Position) -> bool:
     """Execute one Bug2 step via AgentState/bug2_step. Returns True if moved."""
     # Build walkable set from visible tiles
     walkable = build_walkable(ct)
@@ -211,7 +223,7 @@ def _pf_step(player, ct: Controller, pos: Position) -> bool:
 # ── Ore scanning (runs every turn for all builders) ──────────────────
 
 
-def _scan_ore(player, ct: Controller) -> None:
+def _scan_ore(player: Player, ct: Controller) -> None:
     """Record any ore tiles visible this turn."""
     for tile in ct.get_nearby_tiles():
         env = ct.get_tile_env(tile)
@@ -226,7 +238,7 @@ def _scan_ore(player, ct: Controller) -> None:
 
 
 def _start_bridge_chain(
-    player,
+    player: Player,
     ct: Controller,
     pos: Position,
     source_pos: Position,
@@ -254,7 +266,7 @@ def _start_bridge_chain(
         print(f"Bridge E{ct.get_id()}: chain start, first bridge at {best}")
 
 
-def _bridge(player, ct: Controller, pos: Position) -> None:
+def _bridge(player: Player, ct: Controller, pos: Position) -> None:
     """Build a chain of bridges from harvester to core."""
     if player.bridge_target is None or player.core_pos is None:
         player.state = "economy"
@@ -382,7 +394,7 @@ def _bridge(player, ct: Controller, pos: Position) -> None:
 # ── Wander ──────────────────────────────────────────────────────────
 
 
-def _wander(player, ct: Controller, pos: Position) -> None:
+def _wander(player: Player, ct: Controller, pos: Position) -> None:
     """Wander without a target: prefer away from friendly builders, maintain
     momentum from last step, and stay away from map borders."""
     w, h = ct.get_map_width(), ct.get_map_height()
@@ -436,7 +448,7 @@ def _wander(player, ct: Controller, pos: Position) -> None:
         player.last_dir = best_dir
 
 
-def _economy(player, ct: Controller, pos: Position) -> None:
+def _economy(player: Player, ct: Controller, pos: Position) -> None:
     """Economy mode: harvest nearest ore, opportunistically switch to LOS ore,
     or wander to discover more."""
 
@@ -555,7 +567,7 @@ def _economy(player, ct: Controller, pos: Position) -> None:
 # ── Scout states ─────────────────────────────────────────────────────
 
 
-def _pick_target(player, pos: Position) -> None:
+def _pick_target(player: Player, pos: Position) -> None:
     """Set target based on assigned candidate."""
     if player.enemy_core and player.sym_resolved == player.candidate_sym:
         player.target = player.enemy_core
@@ -566,7 +578,7 @@ def _pick_target(player, pos: Position) -> None:
         player.target = player.sym_candidates[player.candidate_sym]
 
 
-def _scout_out(player, ct: Controller, pos: Position) -> None:
+def _scout_out(player: Player, ct: Controller, pos: Position) -> None:
     if player.target is None:
         return
 
@@ -603,7 +615,7 @@ def _scout_out(player, ct: Controller, pos: Position) -> None:
     _pf_step(player, ct, pos)
 
 
-def _try_build_launcher(player, ct: Controller, pos: Position) -> bool:
+def _try_build_launcher(player: Player, ct: Controller, pos: Position) -> bool:
     """Try to build a launcher + waypoint marker to speed return to core.
     Returns True if a launcher was built (builder should wait to be thrown)."""
     if player.core_pos is None or player.enemy_core is None:
@@ -664,7 +676,7 @@ def _try_build_launcher(player, ct: Controller, pos: Position) -> bool:
     return True
 
 
-def _scout_report(player, ct: Controller, pos: Position) -> None:
+def _scout_report(player: Player, ct: Controller, pos: Position) -> None:
     """Walk back toward own core using Bug2, building launchers to speed the trip."""
     if player.core_pos is None:
         return
@@ -700,7 +712,7 @@ def _scout_report(player, ct: Controller, pos: Position) -> None:
 # ── Main entry point ─────────────────────────────────────────────────
 
 
-def run_builder(player, ct: Controller) -> None:
+def run_builder(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     w, h = ct.get_map_width(), ct.get_map_height()
 

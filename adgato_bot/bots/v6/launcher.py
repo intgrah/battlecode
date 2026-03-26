@@ -1,12 +1,19 @@
 """Launcher unit logic for v6."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from main import Player
+
 import random
 
 from cambc import Controller, EntityType
 from utils import king_dist
 
 
-def run_launcher(player, ct: Controller) -> None:
+def run_launcher(player: Player, ct: Controller) -> None:
     pos = ct.get_position()
     my_team = ct.get_team()
 
