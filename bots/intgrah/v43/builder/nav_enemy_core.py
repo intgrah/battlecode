@@ -1,3 +1,11 @@
+"""Navigate toward the enemy core.
+
+Succeeds only when the enemy core position is known (from symmetry or
+direct observation) and A* finds a path. Used for rush/cheese strategies
+where builders need to reach enemy territory to place turrets or disrupt
+infrastructure.
+"""
+
 from cambc import Controller, Direction, Position
 
 from .base import BuilderBase
@@ -5,13 +13,6 @@ from .build import Action
 
 
 class NavEnemyCoreMixin(BuilderBase):
-    """Navigate toward the enemy core.
-
-    Succeeds only when the enemy core position is known (from symmetry or
-    direct observation) and A* finds a path. Used for rush/cheese strategies
-    where builders need to reach enemy territory to place turrets or disrupt
-    infrastructure.
-    """
 
     def _nav_enemy_core(
         self,

@@ -1,3 +1,10 @@
+"""Patrol friendly infrastructure.
+
+Navigates to the least-recently-seen tile that has friendly infrastructure
+(harvesters, transport, foundries, turrets, or core). Keeps the builder's
+belief about its own network fresh and detects enemy disruption.
+"""
+
 from cambc import Controller, Direction, Position
 
 from .base import BuilderBase
