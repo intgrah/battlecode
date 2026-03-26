@@ -11,6 +11,8 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step, has_line_of_sight
 from utils import (
     SYM_TYPES,
+    BuilderState,
+    Symmetry,
     build_walkable,
     get_symmetry_candidates,
     in_bounds,
@@ -70,7 +72,7 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                 player.sym_resolved = s
                 player.enemy_core = epos
                 print(
-                    f"Scout {ct.get_id()}: FOUND enemy core at ({epos.x},{epos.y}) [{s}]",
+                    f"Scout {ct.get_id()}: FOUND enemy core at ({epos.x},{epos.y}) [{s.value}]",
                 )
                 return
             player.sym_eliminated.add(s)
@@ -93,7 +95,7 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                         player.enemy_core = actual_pos
                         print(
                             f"Scout {ct.get_id()}: FOUND enemy core at "
-                            f"({actual_pos.x},{actual_pos.y}) [{s}]",
+                            f"({actual_pos.x},{actual_pos.y}) [{s.value}]",
                         )
                         found_core = True
                         break
@@ -277,7 +279,7 @@ def _start_bridge_chain(
             best_dist = dist
             best = bp
     if best is not None:
-        player.state = "bridge"
+        player.state = BuilderState.BRIDGE
         player.bridge_target = best
         player.pf_agent.retarget(pos, best)
         _pf_step(player, ct, pos)
@@ -287,7 +289,7 @@ def _start_bridge_chain(
 def _bridge(player: Player, ct: Controller, pos: Position) -> None:
     """Build a chain of bridges from harvester to core."""
     if player.bridge_target is None or player.core_pos is None:
-        player.state = "economy"
+        player.state = BuilderState.ECONOMY
         player.target = None
         return
 
@@ -307,7 +309,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
         print(
             f"Bridge E{ct.get_id()}: no friendly bridge but enemy bridge visible, entering suicide",
         )
-        player.state = "suicide"
+        player.state = BuilderState.SUICIDE
         player.state_seen_enemy = False
         player.target = None
         player.bridge_target = None
@@ -318,7 +320,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
     if ct.is_in_vision(bt):
         bid = ct.get_tile_building_id(bt)
         if bid is not None and ct.get_entity_type(bid) == EntityType.BRIDGE:
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.bridge_target = None
             return
@@ -335,7 +337,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
             if ct.can_destroy(bt):
                 ct.destroy(bt)
             else:
-                player.state = "economy"
+                player.state = BuilderState.ECONOMY
                 player.target = None
                 return
 
@@ -408,7 +410,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
             print(
                 f"Bridge E{ct.get_id()}: built at {bt} -> {splitter_target} (splitter)",
             )
-            player.state = "idle"
+            player.state = BuilderState.IDLE
             player.bridge_target = None
             _pf_step(player, ct, pos)
             return
@@ -423,7 +425,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
             print(
                 f"Bridge E{ct.get_id()}: built at {bt} -> {core_target} (direct to core)",
             )
-            player.state = "idle"
+            player.state = BuilderState.IDLE
             player.bridge_target = None
             _pf_step(player, ct, pos)
             return
@@ -438,7 +440,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
             print(
                 f"Bridge E{ct.get_id()}: built at {bt} -> {bridge_shortcut} (shortcut)",
             )
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.bridge_target = None
             return
@@ -463,7 +465,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
                 return
             # Tile blocked by something we can't remove — abort
             print(f"Bridge E{ct.get_id()}: can't build at {bt}, aborting")
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.bridge_target = None
             return
@@ -736,7 +738,7 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
             player.economy_wait_turns += 1
             if player.economy_wait_turns >= 250:
                 player.economy_wait_turns = 0
-                player.state = "advance"
+                player.state = BuilderState.ADVANCE
                 player.target = None
                 player.state_seen_enemy = False
                 player.state_turns = 0
@@ -836,7 +838,7 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
         if tbid is None or (
             ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team
         ):
-            player.state = "bridge"
+            player.state = BuilderState.BRIDGE
             player.bridge_target = bt
             player.pf_agent.retarget(pos, bt)
             print(f"Bridge E{ct.get_id()}: resuming chain at {bt}")
@@ -865,7 +867,7 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
                 break
         if not has_bridge:
             _start_bridge_chain(player, ct, pos, hp)
-            if player.state == "bridge":
+            if player.state == BuilderState.BRIDGE:
                 print(
                     f"Bridge E{ct.get_id()}: starting chain for unconnected harvester at {hp}",
                 )
@@ -893,7 +895,7 @@ def _economy(player: Player, ct: Controller, pos: Position) -> None:
                 print(
                     f"Bridge E{ct.get_id()}: no friendly bridge but enemy bridge visible, entering suicide",
                 )
-                player.state = "suicide"
+                player.state = BuilderState.SUICIDE
                 player.state_seen_enemy = False
                 player.target = None
                 player.bridge_target = None
@@ -1057,9 +1059,9 @@ def _base_builder(player: Player, ct: Controller, pos: Position) -> None:
     if player.base_phase >= 6 and player.base_phase < 15:
         if king_dist(pos, player.core_pos) > 2:
             if player.base_round == 1:
-                player.state = "advance"
+                player.state = BuilderState.ADVANCE
             else:
-                player.state = "economy"
+                player.state = BuilderState.ECONOMY
             player.target = None
             return
 
@@ -1074,7 +1076,7 @@ def _base_builder(player: Player, ct: Controller, pos: Position) -> None:
                     walk_target = ct.get_position(bid)
                     break
         if walk_target is None:
-            enemy = player.sym_candidates["rotational"]
+            enemy = player.sym_candidates[Symmetry.ROTATIONAL]
             best_key = (999999, 999999, 999999)
             for bid in ct.get_nearby_buildings():
                 if (
@@ -1102,13 +1104,13 @@ def _base_builder(player: Player, ct: Controller, pos: Position) -> None:
 
     # Phase 11+: walk toward enemy base, destroying barriers in the way
     if player.base_phase == 15:
-        enemy = player.sym_candidates["rotational"]
+        enemy = player.sym_candidates[Symmetry.ROTATIONAL]
         preferred = pos.direction_to(enemy)
         if king_dist(pos, player.core_pos) > 2 or preferred == Direction.CENTRE:
             if player.base_round == 1:
-                player.state = "advance"
+                player.state = BuilderState.ADVANCE
             else:
-                player.state = "economy"
+                player.state = BuilderState.ECONOMY
             player.target = None
             return
         pref_idx = _DIR_IDX[preferred]
@@ -1228,7 +1230,7 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
                     if ct.can_build_launcher(tile):
                         ct.build_launcher(tile)
                         player.built_launcher = True
-                        player.state = "destroy_conveyor"
+                        player.state = BuilderState.DESTROY_CONVEYOR
                         print(
                             f"Advance E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
                         )
@@ -1274,7 +1276,7 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
                             ct.destroy(bp)
                         if ct.can_build_gunner(bp, facing):
                             ct.build_gunner(bp, facing)
-                            player.state = "heal"
+                            player.state = BuilderState.HEAL
                             player.suicide_countdown = 0
                             print(
                                 f"Advance E{ct.get_id()}: built gunner at {bp} facing {facing}",
@@ -1284,7 +1286,7 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
 
                         player.suicide_countdown += 5
                         if player.suicide_countdown >= 25:
-                            player.state = "suicide"
+                            player.state = BuilderState.SUICIDE
                             player.state_seen_enemy = False
                             print(
                                 f"Advance E{ct.get_id()}: suicide countdown reached, entering suicide mode",
@@ -1420,7 +1422,7 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
     if not player.advance_targeting_ore:
         player.suicide_countdown += 1
         if player.suicide_countdown >= 25:
-            player.state = "suicide"
+            player.state = BuilderState.SUICIDE
             player.state_seen_enemy = False
             print(
                 f"Advance E{ct.get_id()}: suicide countdown reached, entering suicide mode",
@@ -1525,7 +1527,7 @@ def _suicide(player: Player, ct: Controller, pos: Position) -> None:
                     if ct.can_build_launcher(tile):
                         ct.build_launcher(tile)
                         player.built_launcher = True
-                        player.state = "destroy_conveyor"
+                        player.state = BuilderState.DESTROY_CONVEYOR
                         print(
                             f"Suicide E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
                         )
@@ -1651,7 +1653,7 @@ def _idle(player: Player, ct: Controller, pos: Position) -> None:
                     d = _ALL_DIRS[(pref_idx + offset) % 8]
                     if try_move_smart(ct, pos, d):
                         break
-                player.state = "protect"
+                player.state = BuilderState.PROTECT
                 player.target = None
                 player.state_turns = 0
                 return
@@ -1672,19 +1674,19 @@ def _idle(player: Player, ct: Controller, pos: Position) -> None:
             else:
                 player.idle_empty_turns += 1
                 if player.idle_empty_turns >= 5:
-                    player.state = "economy"
+                    player.state = BuilderState.ECONOMY
                     player.target = None
                     player.can_patch = True
                     player.idle_empty_turns = 0
                     return
         else:
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.can_patch = True
             player.idle_empty_turns = 0
             return
     else:
-        player.state = "economy"
+        player.state = BuilderState.ECONOMY
         player.target = None
         player.idle_empty_turns = 0
         return
@@ -1701,7 +1703,7 @@ def _idle(player: Player, ct: Controller, pos: Position) -> None:
         if tbid is None or (
             ct.get_entity_type(tbid) == EntityType.ROAD and ct.get_team(tbid) == my_team
         ):
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.idle_empty_turns = 0
             print(f"Idle E{ct.get_id()}: spotted incomplete bridge, entering economy")
@@ -1729,7 +1731,7 @@ def _idle(player: Player, ct: Controller, pos: Position) -> None:
                 player.bridge_target = bt
                 _bridge(player, ct, pos)
                 player.bridge_target = old_target
-                player.state = "idle"
+                player.state = BuilderState.IDLE
                 return
     _pf_step(player, ct, pos)
 
@@ -1768,7 +1770,7 @@ def _heal(player: Player, ct: Controller, pos: Position) -> None:
         ct.build_barrier(player.target)
         player.advance_ore.add(player.target)
 
-    player.state = "suicide"
+    player.state = BuilderState.SUICIDE
     player.state_seen_enemy = False
 
 
@@ -1833,7 +1835,7 @@ def _protect(player: Player, ct: Controller, pos: Position) -> None:
             best_ore = tile
 
     if best_ore is None:
-        player.state = "economy"
+        player.state = BuilderState.ECONOMY
         player.target = None
         return
 
@@ -1915,13 +1917,19 @@ def run_builder(player: Player, ct: Controller) -> None:
             is_centre = False
 
         if cur_round <= 1:
-            player.state = "advance"
+            player.state = BuilderState.ADVANCE
         elif is_centre:
-            player.state = "advance" if ct.get_current_round() % 2 == 0 else "economy"
+            player.state = (
+                BuilderState.ADVANCE
+                if ct.get_current_round() % 2 == 0
+                else BuilderState.ECONOMY
+            )
         else:
-            player.state = "base_builder" if is_cardinal else "hibernate"
+            player.state = (
+                BuilderState.BASE_BUILDER if is_cardinal else BuilderState.HIBERNATE
+            )
 
-    print(player.state)
+    print(player.state.value if player.state else None)
 
     # Reset state_turns on state change
     if player.state != player.prev_state:
@@ -1929,7 +1937,7 @@ def run_builder(player: Player, ct: Controller) -> None:
         player.prev_state = player.state
 
     # If standing on a splitter (non-base_builder), stay still unless a friendly bot is near core
-    if player.state != "base_builder" and player.core_pos is not None:
+    if player.state != BuilderState.BASE_BUILDER and player.core_pos is not None:
         if ct.get_hp() < ct.get_max_hp() and ct.can_heal(pos):
             ct.heal(pos)
 
@@ -1957,14 +1965,18 @@ def run_builder(player: Player, ct: Controller) -> None:
                 break
 
     # Run state
-    if player.state == "heal":
+    if player.state == BuilderState.HEAL:
         _heal(player, ct, pos)
-    if player.state == "base_builder":
+    if player.state == BuilderState.BASE_BUILDER:
         _base_builder(player, ct, pos)
-    elif player.state == "hibernate":
+    elif player.state == BuilderState.HIBERNATE:
         if player.core_pos is not None and king_dist(pos, player.core_pos) > 1:
-            player.state = "advance" if ct.get_current_round() % 2 == 0 else "economy"
-    elif player.state == "idle":
+            player.state = (
+                BuilderState.ADVANCE
+                if ct.get_current_round() % 2 == 0
+                else BuilderState.ECONOMY
+            )
+    elif player.state == BuilderState.IDLE:
         player.state_turns += 1
         has_enemy_barrier = False
         for bid in ct.get_nearby_buildings():
@@ -1975,35 +1987,35 @@ def run_builder(player: Player, ct: Controller) -> None:
                 has_enemy_barrier = True
                 break
         if player.state_turns >= 100 and not has_enemy_barrier:
-            player.state = "economy"
+            player.state = BuilderState.ECONOMY
             player.target = None
             player.can_patch = True
             player.state_turns = 0
             return
         _idle(player, ct, pos)
-    elif player.state == "advance":
+    elif player.state == BuilderState.ADVANCE:
         player.state_turns += 1
         if player.state_turns >= 150:
-            player.state = "suicide"
+            player.state = BuilderState.SUICIDE
             player.state_seen_enemy = False
             player.state_turns = 0
             return
         _advance(player, ct, pos)
-    elif player.state == "bridge":
+    elif player.state == BuilderState.BRIDGE:
         _bridge(player, ct, pos)
-    elif player.state == "economy":
+    elif player.state == BuilderState.ECONOMY:
         _economy(player, ct, pos)
-    elif player.state == "suicide":
+    elif player.state == BuilderState.SUICIDE:
         player.state_turns += 1
         print(player.state_turns)
         if player.state_turns >= 50:
-            player.state = "advance"
+            player.state = BuilderState.ADVANCE
             player.state_seen_enemy = False
             player.target = None
             player.state_turns = 0
             return
         _suicide(player, ct, pos)
-    elif player.state == "destroy_conveyor":
+    elif player.state == BuilderState.DESTROY_CONVEYOR:
         _destroy_conveyor(player, ct, pos)
-    elif player.state == "protect":
+    elif player.state == BuilderState.PROTECT:
         _protect(player, ct, pos)

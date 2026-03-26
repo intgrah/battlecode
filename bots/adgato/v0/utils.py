@@ -1,12 +1,36 @@
 """Shared constants, helpers, symmetry, marker protocol, and comms for v5."""
 
+from enum import Enum
+
 from cambc import Controller, Direction, EntityType, Environment, Position
+
+
+class Symmetry(Enum):
+    ROTATIONAL = "rotational"
+    HORIZONTAL = "horizontal"
+    VERTICAL = "vertical"
+
+
+class BuilderState(Enum):
+    BASE_BUILDER = "base_builder"
+    HIBERNATE = "hibernate"
+    ADVANCE = "advance"
+    IDLE = "idle"
+    ECONOMY = "economy"
+    BRIDGE = "bridge"
+    SUICIDE = "suicide"
+    HEAL = "heal"
+
 
 # ── Constants ─────────────────────────────────────────────────────────
 
-SYM_TYPES = ["rotational", "horizontal", "vertical"]
-SYM_TO_IDX = {"rotational": 0, "horizontal": 1, "vertical": 2, "unknown": 3}
-IDX_TO_SYM = {v: k for k, v in SYM_TO_IDX.items()}
+SYM_TYPES = (Symmetry.ROTATIONAL, Symmetry.HORIZONTAL, Symmetry.VERTICAL)
+_SYM_TO_IDX: dict[Symmetry, int] = {
+    Symmetry.ROTATIONAL: 0,
+    Symmetry.HORIZONTAL: 1,
+    Symmetry.VERTICAL: 2,
+}
+_IDX_TO_SYM: dict[int, Symmetry] = {v: k for k, v in _SYM_TO_IDX.items()}
 
 PHASE_SCOUTING = 0
 PHASE_FOUND = 1
@@ -100,22 +124,24 @@ def build_walkable(ct: Controller) -> set:
 # ── Symmetry ──────────────────────────────────────────────────────────
 
 
-def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[str, Position]:
+def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[Symmetry, Position]:
     cx, cy = core.x, core.y
     return {
-        "rotational": Position(w - 1 - cx, h - 1 - cy),
-        "horizontal": Position(w - 1 - cx, cy),
-        "vertical": Position(cx, h - 1 - cy),
+        Symmetry.ROTATIONAL: Position(w - 1 - cx, h - 1 - cy),
+        Symmetry.HORIZONTAL: Position(w - 1 - cx, cy),
+        Symmetry.VERTICAL: Position(cx, h - 1 - cy),
     }
 
 
-def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
+def mirror_pos(pos: Position, sym: Symmetry, w: int, h: int) -> Position:
     x, y = pos.x, pos.y
-    if sym == "rotational":
-        return Position(w - 1 - x, h - 1 - y)
-    if sym == "horizontal":
-        return Position(w - 1 - x, y)
-    return Position(x, h - 1 - y)
+    match sym:
+        case Symmetry.ROTATIONAL:
+            return Position(w - 1 - x, h - 1 - y)
+        case Symmetry.HORIZONTAL:
+            return Position(w - 1 - x, y)
+        case Symmetry.VERTICAL:
+            return Position(x, h - 1 - y)
 
 
 # ── Marker protocol ──────────────────────────────────────────────────
@@ -136,35 +162,23 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
 
 
 def encode_comms(
-    sym_name: str,
+    sym: Symmetry | None,
     phase: int,
     ex: int = 0,
     ey: int = 0,
     scout_idx: int = 0,
 ) -> int:
-    sym = SYM_TO_IDX.get(sym_name, 3)
-    return (min(scout_idx, 3) << 16) | (ey << 10) | (ex << 4) | (phase << 2) | sym
+    sym_idx = _SYM_TO_IDX.get(sym, 3) if sym is not None else 3
+    return (min(scout_idx, 3) << 16) | (ey << 10) | (ex << 4) | (phase << 2) | sym_idx
 
 
-def decode_comms(value: int) -> tuple[str, int, int, int, int]:
+def decode_comms(value: int) -> tuple[Symmetry | None, int, int, int, int]:
     sym_idx = value & 0x3
     phase = (value >> 2) & 0x3
     ex = (value >> 4) & 0x3F
     ey = (value >> 10) & 0x3F
     scout_idx = (value >> 16) & 0x3
-    return IDX_TO_SYM.get(sym_idx, "unknown"), phase, ex, ey, scout_idx
-
-
-def encode_waypoint(team_x: int, team_y: int, enemy_x: int, enemy_y: int) -> int:
-    return (1 << 31) | (enemy_y << 18) | (enemy_x << 12) | (team_y << 6) | team_x
-
-
-def decode_waypoint(value: int) -> tuple[int, int, int, int]:
-    tx = value & 0x3F
-    ty = (value >> 6) & 0x3F
-    ex = (value >> 12) & 0x3F
-    ey = (value >> 18) & 0x3F
-    return tx, ty, ex, ey
+    return _IDX_TO_SYM.get(sym_idx), phase, ex, ey, scout_idx
 
 
 def is_waypoint_marker(value: int) -> bool:
@@ -192,12 +206,12 @@ def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
 def read_comms(
     ct: Controller,
     core_pos: Position,
-) -> tuple[str | None, int, Position | None, int]:
+) -> tuple[Symmetry | None, int, Position | None, int]:
     """Read best comms marker near core.
     Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found."""
     my_team = ct.get_team()
     best_phase = -1
-    best = (None, -1, None, 0)
+    best: tuple[Symmetry | None, int, Position | None, int] = (None, -1, None, 0)
     for tile in comms_tiles(ct, core_pos):
         bid = ct.get_tile_building_id(tile)
         if bid is None:
@@ -212,8 +226,8 @@ def read_comms(
         sym, phase, ex, ey, scout_idx = decode_comms(val)
         if phase > best_phase:
             best_phase = phase
-            epos = Position(ex, ey) if sym != "unknown" else None
-            best = (sym if sym != "unknown" else None, phase, epos, scout_idx)
+            epos = Position(ex, ey) if sym is not None else None
+            best = (sym, phase, epos, scout_idx)
     return best
 
 

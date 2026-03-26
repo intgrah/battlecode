@@ -13,6 +13,8 @@ candidates are eliminated go idle.
 Phases 2-3 (Assault, Economy): not yet implemented.
 """
 
+from __future__ import annotations
+
 from builder import run_builder
 from cambc import Controller, Direction, EntityType, Environment, Position
 from core import run_core
@@ -21,6 +23,8 @@ from pathfinding import AgentState
 from utils import (
     PHASE_SCOUTING,
     SYM_TYPES,
+    BuilderState,
+    Symmetry,
 )
 
 
@@ -29,9 +33,9 @@ class Player:
         # Shared
         self.core_pos: Position | None = None
         self.enemy_core: Position | None = None
-        self.sym_resolved: str | None = None
-        self.sym_candidates: dict[str, Position] | None = None
-        self.sym_eliminated: set[str] = set()
+        self.sym_resolved: Symmetry | None = None
+        self.sym_candidates: dict[Symmetry, Position] | None = None
+        self.sym_eliminated: set[Symmetry] = set()
         self.known_env: dict[Position, Environment] = {}
 
         # Core
@@ -40,27 +44,21 @@ class Player:
         self.no_report_rounds = 0
 
         # Builder
-        self.state: str | None = None  # scout_out, scout_report, idle, economy, bridge
+        self.state: BuilderState | None = None
         self.target: Position | None = None
-        self.candidate_sym: str | None = None
-        self.scout_idx: int = -1  # assigned candidate index (0-2)
+        self.candidate_sym: Symmetry | None = None
+        self.scout_idx: int = -1
         self.path: list[Position] = []
         self.visited: set[Position] = set()
         self.comms_written = False
-        self.built_launcher = (
-            False  # True after building a launcher (wait to be thrown)
-        )
+        self.built_launcher = False
         self.last_launcher_pos: Position | None = None
 
         # Economy
-        self.known_ore: set[Position] = set()  # ore tiles seen by this builder
-        self.claimed_ore: set[Position] = (
-            set()
-        )  # ore tiles we've already harvested/skipped
-        self.last_dir: Direction | None = (
-            None  # last move direction (for wander momentum)
-        )
-        self.bridge_target: Position | None = None  # where to place next bridge
+        self.known_ore: set[Position] = set()
+        self.claimed_ore: set[Position] = set()
+        self.last_dir: Direction | None = None
+        self.bridge_target: Position | None = None
 
         # Bug2 pathfinding
         self.pf_agent: AgentState = AgentState(Position(0, 0), Position(0, 0))
@@ -87,7 +85,7 @@ class Player:
             self.sym_resolved = resolved_sym
             self.enemy_core = resolved_pos
             print(
-                f"{tag}: resolved [{resolved_sym}] -> "
+                f"{tag}: resolved [{resolved_sym.value}] -> "
                 f"({resolved_pos.x},{resolved_pos.y})",
             )
             return True

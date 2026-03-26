@@ -1,8 +1,6 @@
-"""Trollbot - clean slate.
+from __future__ import annotations
 
-Core spawns one builder bot. Builder bot performs symmetry detection
-and walks toward unvisited titanium ore deposits.
-"""
+from typing import TYPE_CHECKING
 
 from builder import run_builder
 from cambc import Controller, Direction, EntityType, Environment, Position
@@ -11,25 +9,25 @@ from launcher import run_launcher
 from pathfinding import AgentState
 from sentinel import run_sentinel
 
+if TYPE_CHECKING:
+    from utils import BuilderMode, Symmetry
+
 
 class Player:
     def __init__(self) -> None:
-        # Shared
         self.core_pos: Position | None = None
-        self.sym_candidates: dict[str, Position] | None = None
-        self.sym_eliminated: set[str] = set()
-        self.sym_resolved: str | None = None
+        self.sym_candidates: dict[Symmetry, Position] | None = None
+        self.sym_eliminated: set[Symmetry] = set()
+        self.sym_resolved: Symmetry | None = None
         self.enemy_core: Position | None = None
         self.known_env: dict[Position, Environment] = {}
 
-        # Core
         self.spawned: int = 0
         self.seen_bridge: bool = False
         self.expansion_cooldown: int = 0
         self.nearest_bridge_id: int | None = None
         self.last_resource_turn: int = 0
 
-        # Builder
         self.walkable: set[Position] = set()
         self.known_ore: set[Position] = set()
         self.claimed_ore: set[Position] = set()
@@ -39,13 +37,15 @@ class Player:
         self.prev_pos: Position | None = None
         self.wander_target: Position | None = None
         self.secure_target: Position | None = None
-        self.mode: str = None  # "advance", "return", "secure", "bridge", "protect"
+        self.mode: BuilderMode | None = None
         self.visited_bridges: set[Position] = set()
         self.bridge_target: Position | None = None
         self.launcher_target: Position | None = None
         self.launcher_failed: Position | None = None
         self.nearest_ore: Position | None = None
         self.small_map: bool = False
+        self.pos_history: list[Position] = []
+        self.stuck_count: int = 0
 
     def run(self, ct: Controller) -> None:
         match ct.get_entity_type():

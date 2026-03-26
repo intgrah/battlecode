@@ -12,6 +12,7 @@ from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
     PHASE_FOUND,
     SYM_TYPES,
+    Symmetry,
     comms_tiles,
     encode_comms,
     get_symmetry_candidates,
@@ -30,26 +31,23 @@ def run_core(player: Player, ct: Controller) -> None:
     if player.core_pos is None:
         player.core_pos = pos
 
-    # Init symmetry candidates
     if player.sym_candidates is None:
         player.sym_candidates = get_symmetry_candidates(pos, w, h)
-        seen: dict[Position, str] = {}
+        seen: dict[Position, Symmetry] = {}
         for s, epos in player.sym_candidates.items():
             if epos == pos or epos in seen:
                 player.sym_eliminated.add(s)
             else:
                 seen[epos] = s
 
-    # Read comms markers from scouts
     if player.sym_resolved is None:
         sym, phase, epos, _ = read_comms(ct, pos)
         if sym is not None:
             player.sym_resolved = sym
             player.enemy_core = epos
             player.core_phase = max(player.core_phase, phase)
-            print(f"Core: enemy at {epos} [{sym}] phase={phase}")
+            print(f"Core: enemy at {epos} [{sym.value}] phase={phase}")
 
-    # Core's own symmetry elimination via vision (r²=36)
     if player.sym_resolved is None:
         for tile in ct.get_nearby_tiles():
             if tile not in player.known_env:
@@ -65,11 +63,10 @@ def run_core(player: Player, ct: Controller) -> None:
         if player.try_resolve(w, h, "Core"):
             player.core_phase = PHASE_FOUND
 
-    # Write/refresh all comms markers — overwrite any with stale phase
-    sym_name = player.sym_resolved or "unknown"
+    sym_for_comms = player.sym_resolved
     ex = player.enemy_core.x if player.enemy_core else 0
     ey = player.enemy_core.y if player.enemy_core else 0
-    value = encode_comms(sym_name, player.core_phase, ex, ey, player.spawned)
+    value = encode_comms(sym_for_comms, player.core_phase, ex, ey, player.spawned)
     has_current = False
     for tile in comms_tiles(ct, pos):
         bid = ct.get_tile_building_id(tile)
@@ -88,10 +85,9 @@ def run_core(player: Player, ct: Controller) -> None:
     if not has_current:
         place_comms(ct, pos, value)
 
-    # Debug output
     if rnd % 100 == 1:
         ti, ax = ct.get_global_resources()
-        sym_str = player.sym_resolved or "?"
+        sym_str = player.sym_resolved.value if player.sym_resolved else "?"
         ec_str = (
             f"({player.enemy_core.x},{player.enemy_core.y})"
             if player.enemy_core
@@ -102,11 +98,9 @@ def run_core(player: Player, ct: Controller) -> None:
             f"sym:{sym_str} enemy:{ec_str} phase:{player.core_phase}",
         )
 
-    # Spawning
     if ct.get_action_cooldown() > 0:
         return
 
-    # Spawn scout biased toward its candidate direction
     candidates_list = (
         list(player.sym_candidates.items()) if player.sym_candidates else []
     )
@@ -115,7 +109,6 @@ def run_core(player: Player, ct: Controller) -> None:
     else:
         return
 
-    # Try spawn tiles in order of direction similarity to target
     target_dir = pos.direction_to(target_pos)
     if target_dir == Direction.CENTRE:
         target_dir = Direction.NORTH

@@ -12,6 +12,7 @@ from pathfinding import _ALL_DIRS, _DIR_IDX
 from utils import (
     PHASE_FOUND,
     SYM_TYPES,
+    Symmetry,
     comms_tiles,
     encode_comms,
     get_symmetry_candidates,
@@ -33,7 +34,7 @@ def _init_symmetry(
     if player.sym_candidates is not None:
         return
     player.sym_candidates = get_symmetry_candidates(pos, w, h)
-    seen: dict[Position, str] = {}
+    seen: dict[Position, Symmetry] = {}
     for s, epos in player.sym_candidates.items():
         if epos == pos or epos in seen:
             player.sym_eliminated.add(s)
@@ -49,7 +50,7 @@ def _read_comms(player: Player, ct: Controller, pos: Position) -> None:
         player.sym_resolved = sym
         player.enemy_core = epos
         player.core_phase = max(player.core_phase, phase)
-        print(f"Core: enemy at {epos} [{sym}] phase={phase}")
+        print(f"Core: enemy at {epos} [{sym.value}] phase={phase}")
 
 
 def _eliminate_symmetry(
@@ -77,7 +78,7 @@ def _eliminate_symmetry(
 
 
 def _write_comms(player: Player, ct: Controller, pos: Position) -> None:
-    sym_name = player.sym_resolved or "unknown"
+    sym_name: Symmetry | str = player.sym_resolved or "unknown"
     ex = player.enemy_core.x if player.enemy_core else 0
     ey = player.enemy_core.y if player.enemy_core else 0
     value = encode_comms(sym_name, player.core_phase, ex, ey, player.spawned)
@@ -112,7 +113,7 @@ def _debug_output(player: Player, ct: Controller, rnd: int) -> None:
 def _spawn_initial(player: Player, ct: Controller, pos: Position) -> None:
     """Spawn first builders. First 3 toward enemy core, rest at cardinal offsets."""
     enemy_pos = player.enemy_core or (
-        player.sym_candidates["rotational"] if player.sym_candidates else None
+        player.sym_candidates[Symmetry.ROTATIONAL] if player.sym_candidates else None
     )
     if enemy_pos is None:
         return

@@ -8,7 +8,15 @@ Strategy:
   - Robust stuck handling during conveyor laying
 """
 
+from enum import Enum
+
 from cambc import Controller, Direction, EntityType, Environment, Position
+
+
+class Phase(Enum):
+    EXPLORE = "explore"
+    LAY_CONVEYORS = "lay_conveyors"
+
 
 CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 ALL_DIRS = [d for d in Direction if d != Direction.CENTRE]
@@ -177,7 +185,7 @@ class Player:
     def __init__(self) -> None:
         self.spawned = 0
         self.core_pos: Position | None = None
-        self.phase = "explore"
+        self.phase: Phase = Phase.EXPLORE
         self.sector: Direction | None = None
         self.path: list[Position] = []
         self.return_path: list[Position] = []
@@ -234,10 +242,11 @@ class Player:
             if self.sector == Direction.NORTH:
                 self.sector = SECTOR_DIRS[ct.get_id() % len(SECTOR_DIRS)]
 
-        if self.phase == "explore":
-            self._explore(ct, pos)
-        elif self.phase == "lay_conveyors":
-            self._lay_conveyors(ct, pos)
+        match self.phase:
+            case Phase.EXPLORE:
+                self._explore(ct, pos)
+            case Phase.LAY_CONVEYORS:
+                self._lay_conveyors(ct, pos)
 
     # ── Explore ───────────────────────────────────────────────────────
 
@@ -325,7 +334,7 @@ class Player:
         self.return_idx = 0
         self.stuck_turns = 0
         self.harvester_dir = harvester_dir
-        self.phase = "lay_conveyors"
+        self.phase = Phase.LAY_CONVEYORS
 
     # ── Lay conveyors ─────────────────────────────────────────────────
 
@@ -401,7 +410,7 @@ class Player:
                 self.stuck_turns = 0
 
     def _finish_return(self) -> None:
-        self.phase = "explore"
+        self.phase = Phase.EXPLORE
         self.path = []
         self.return_path = []
         self.return_idx = 0

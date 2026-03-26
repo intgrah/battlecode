@@ -1,19 +1,41 @@
-"""Shared constants, helpers, symmetry, marker protocol, and comms for v5."""
+from __future__ import annotations
+
+from enum import Enum
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 
-# ── Constants ─────────────────────────────────────────────────────────
 
-SYM_TYPES = ["rotational", "horizontal", "vertical"]
-SYM_TO_IDX = {"rotational": 0, "horizontal": 1, "vertical": 2, "unknown": 3}
-IDX_TO_SYM = {v: k for k, v in SYM_TO_IDX.items()}
+class Symmetry(Enum):
+    ROTATIONAL = "rotational"
+    HORIZONTAL = "horizontal"
+    VERTICAL = "vertical"
+
+
+class BuilderState(Enum):
+    BASE_BUILDER = "base_builder"
+    HIBERNATE = "hibernate"
+    ADVANCE = "advance"
+    IDLE = "idle"
+    ECONOMY = "economy"
+    BRIDGE = "bridge"
+    SUICIDE = "suicide"
+    DESTROY_CONVEYOR = "destroy_conveyor"
+    PROTECT = "protect"
+    HEAL = "heal"
+
+
+SYM_TYPES = tuple(Symmetry)
+SYM_TO_IDX = {
+    Symmetry.ROTATIONAL: 0,
+    Symmetry.HORIZONTAL: 1,
+    Symmetry.VERTICAL: 2,
+    "unknown": 3,
+}
+IDX_TO_SYM: dict[int, Symmetry | str] = {v: k for k, v in SYM_TO_IDX.items()}
 
 PHASE_SCOUTING = 0
 PHASE_FOUND = 1
-PHASE_ASSAULT_READY = 2
-PHASE_BLOCKED = 3
 
-# Buildings that permanently block movement (can't walk on or build over)
 BLOCKED_BUILDINGS = frozenset(
     {
         EntityType.GUNNER,
@@ -26,21 +48,15 @@ BLOCKED_BUILDINGS = frozenset(
     },
 )
 
-# Tiles adjacent to core (outside 3x3, within action r²=8 from centre)
 _COMMS_OFFSETS = [
     Position(dx, dy)
     for dx in range(-2, 3)
     for dy in range(-2, 3)
-    if max(abs(dx), abs(dy)) == 2  # ring just outside the 3x3
-    and dx * dx + dy * dy <= 8  # within core action radius
+    if max(abs(dx), abs(dy)) == 2 and dx * dx + dy * dy <= 8
 ]
 
 
-# ── Helpers ───────────────────────────────────────────────────────────
-
-
 def king_dist(a: Position, b: Position) -> int:
-    """Chebyshev (king-move) distance between two positions."""
     return max(abs(a.x - b.x), abs(a.y - b.y))
 
 
@@ -54,7 +70,6 @@ def try_move_smart(
     direction: Direction,
     destroy_standing: bool = False,
 ) -> bool:
-    """Move in direction. Uses existing walkable tile if possible, else builds road."""
     if direction == Direction.CENTRE:
         return True
 
@@ -63,7 +78,6 @@ def try_move_smart(
         return False
     if ct.get_tile_env(target) == Environment.WALL:
         return False
-    # Destroy road under us before placing another (to reduce scale)
     if False:
         pos_bid = ct.get_tile_building_id(pos)
         if pos_bid is not None and ct.get_entity_type(pos_bid) == EntityType.ROAD:
@@ -71,11 +85,9 @@ def try_move_smart(
             if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
                 if ct.can_destroy(pos):
                     ct.destroy(pos)
-    # Already walkable (enemy/friendly conveyor, road, allied core)
     if ct.can_move(direction):
         ct.move(direction)
         return True
-    # Build road if action available
     if ct.can_build_road(target):
         ct.build_road(target)
         if ct.can_move(direction):
@@ -85,8 +97,6 @@ def try_move_smart(
 
 
 def build_walkable(ct: Controller) -> set:
-    """Build walkable set from visible tiles. Includes empty tiles
-    (where roads can be built) and tiles with walkable buildings."""
     walkable = set()
     my_team = ct.get_team()
     for tile in ct.get_nearby_tiles():
@@ -110,46 +120,32 @@ def build_walkable(ct: Controller) -> set:
     return walkable
 
 
-# ── Symmetry ──────────────────────────────────────────────────────────
-
-
-def get_symmetry_candidates(core: Position, w: int, h: int) -> dict[str, Position]:
+def get_symmetry_candidates(
+    core: Position,
+    w: int,
+    h: int,
+) -> dict[Symmetry, Position]:
     cx, cy = core.x, core.y
     return {
-        "rotational": Position(w - 1 - cx, h - 1 - cy),
-        "horizontal": Position(w - 1 - cx, cy),
-        "vertical": Position(cx, h - 1 - cy),
+        Symmetry.ROTATIONAL: Position(w - 1 - cx, h - 1 - cy),
+        Symmetry.HORIZONTAL: Position(w - 1 - cx, cy),
+        Symmetry.VERTICAL: Position(cx, h - 1 - cy),
     }
 
 
-def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
+def mirror_pos(pos: Position, sym: Symmetry, w: int, h: int) -> Position:
     x, y = pos.x, pos.y
-    if sym == "rotational":
-        return Position(w - 1 - x, h - 1 - y)
-    if sym == "horizontal":
-        return Position(w - 1 - x, y)
-    return Position(x, h - 1 - y)
-
-
-# ── Marker protocol ──────────────────────────────────────────────────
-#
-# COMMS marker (near own core):
-#   Bits 0-1:   symmetry (0=rot, 1=horiz, 2=vert, 3=unknown)
-#   Bits 2-3:   phase (0=scouting, 1=found, 2=assault_ready, 3=blocked)
-#   Bits 4-9:   enemy core x
-#   Bits 10-15: enemy core y
-#   Bits 16-17: next scout index (0-2, used by newly spawned builders)
-#
-# WAYPOINT marker (adjacent to launcher):
-#   Bit  31:    1 (distinguishes from comms marker, which has bit 31 = 0)
-#   Bits 0-5:   team core x
-#   Bits 6-11:  team core y
-#   Bits 12-17: enemy core x
-#   Bits 18-23: enemy core y
+    match sym:
+        case Symmetry.ROTATIONAL:
+            return Position(w - 1 - x, h - 1 - y)
+        case Symmetry.HORIZONTAL:
+            return Position(w - 1 - x, y)
+        case Symmetry.VERTICAL:
+            return Position(x, h - 1 - y)
 
 
 def encode_comms(
-    sym_name: str,
+    sym_name: Symmetry | str,
     phase: int,
     ex: int = 0,
     ey: int = 0,
@@ -159,7 +155,7 @@ def encode_comms(
     return (min(scout_idx, 3) << 16) | (ey << 10) | (ex << 4) | (phase << 2) | sym
 
 
-def decode_comms(value: int) -> tuple[str, int, int, int, int]:
+def decode_comms(value: int) -> tuple[Symmetry | str, int, int, int, int]:
     sym_idx = value & 0x3
     phase = (value >> 2) & 0x3
     ex = (value >> 4) & 0x3F
@@ -168,27 +164,11 @@ def decode_comms(value: int) -> tuple[str, int, int, int, int]:
     return IDX_TO_SYM.get(sym_idx, "unknown"), phase, ex, ey, scout_idx
 
 
-def encode_waypoint(team_x: int, team_y: int, enemy_x: int, enemy_y: int) -> int:
-    return (1 << 31) | (enemy_y << 18) | (enemy_x << 12) | (team_y << 6) | team_x
-
-
-def decode_waypoint(value: int) -> tuple[int, int, int, int]:
-    tx = value & 0x3F
-    ty = (value >> 6) & 0x3F
-    ex = (value >> 12) & 0x3F
-    ey = (value >> 18) & 0x3F
-    return tx, ty, ex, ey
-
-
 def is_waypoint_marker(value: int) -> bool:
     return bool(value & (1 << 31))
 
 
-# ── Comms helpers ─────────────────────────────────────────────────────
-
-
 def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
-    """Return candidate comms tile positions adjacent to core (in vision only)."""
     result = []
     for o in _COMMS_OFFSETS:
         p = Position(core_pos.x + o.x, core_pos.y + o.y)
@@ -205,12 +185,10 @@ def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
 def read_comms(
     ct: Controller,
     core_pos: Position,
-) -> tuple[str | None, int, Position | None, int]:
-    """Read best comms marker near core.
-    Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found."""
+) -> tuple[Symmetry | None, int, Position | None, int]:
     my_team = ct.get_team()
     best_phase = -1
-    best = (None, -1, None, 0)
+    best: tuple[Symmetry | None, int, Position | None, int] = (None, -1, None, 0)
     for tile in comms_tiles(ct, core_pos):
         bid = ct.get_tile_building_id(tile)
         if bid is None:
@@ -225,17 +203,17 @@ def read_comms(
         sym, phase, ex, ey, scout_idx = decode_comms(val)
         if phase > best_phase:
             best_phase = phase
-            epos = Position(ex, ey) if sym != "unknown" else None
-            best = (sym if sym != "unknown" else None, phase, epos, scout_idx)
+            if isinstance(sym, Symmetry):
+                epos = Position(ex, ey)
+                best = (sym, phase, epos, scout_idx)
+            else:
+                best = (None, phase, None, scout_idx)
     return best
 
 
 def place_comms(ct: Controller, core_pos: Position, value: int) -> bool:
-    """Place a comms marker adjacent to core.
-    Strategy: merge with existing friendly comms marker > free tile > destroy road and place."""
     tiles = comms_tiles(ct, core_pos)
 
-    # 1. Try to overwrite an existing friendly comms marker
     for tile in tiles:
         bid = ct.get_tile_building_id(tile)
         if bid is None:
@@ -246,14 +224,12 @@ def place_comms(ct: Controller, core_pos: Position, value: int) -> bool:
                 ct.place_marker(tile, value)
                 return True
 
-    # 2. Try a tile with no building
     for tile in tiles:
         if ct.can_place_marker(tile):
             print(f"empty at {tile} w/ {value}")
             ct.place_marker(tile, value)
             return True
 
-    # 3. Destroy a friendly road and place
     for tile in tiles:
         bid = ct.get_tile_building_id(tile)
         if bid is None:

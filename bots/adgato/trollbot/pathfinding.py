@@ -4,7 +4,7 @@ All functions operate on Position (NamedTuple) and Direction (Enum)
 from the cambc engine, avoiding raw tuple/int-index overhead.
 """
 
-from cambc import Direction, Position
+from cambc import Direction, GameConstants, Position
 
 # ── Direction utilities ─────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ def chebyshev(a: Position, b: Position) -> int:
 
 def in_vision(origin: Position, cell: Position) -> bool:
     """Check if cell is within builder bot vision radius (r² <= 20)."""
-    return origin.distance_squared(cell) <= 20
+    return origin.distance_squared(cell) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ
 
 
 def _bresenham_step(
