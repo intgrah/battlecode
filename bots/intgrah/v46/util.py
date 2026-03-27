@@ -1,4 +1,12 @@
+from enum import Enum, auto
+
 from cambc import Direction, EntityType, Position
+
+
+class Symmetry(Enum):
+    ROT = auto()
+    HOR = auto()
+    VER = auto()
 
 DIR4 = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIR4_DELTA = [c.delta() for c in DIR4]

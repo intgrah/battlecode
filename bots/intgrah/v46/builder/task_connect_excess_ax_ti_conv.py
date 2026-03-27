@@ -104,8 +104,7 @@ def connect_excess_ax_ti_conv(
                 ti_goals,
             )
             state.ax_cached_source = start
-        state.ax_flow_search.set_budget(ct, 1200)
-        path = state.ax_flow_search.compute()
+        path = state.ax_flow_search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
         if state.ax_flow_search.exhausted:
             state.ax_flow_search = None
         state.ax_cached_path = path

@@ -1,14 +1,13 @@
-"""Free helper functions for builder tasks.
-
-These operate on State + Controller without any class instances.
-"""
-
 from cambc import Controller, Direction, Position
 from marker import TaskKind
 from nav_astar import NavAstar
 
 from .build import Action, PlaceRoad
 from .state import COST_IMPASSABLE, State
+
+
+def _budget(ct: Controller, limit_us: int):
+    return lambda: ct.get_cpu_time_elapsed() < limit_us
 
 
 def move_toward(
@@ -20,8 +19,7 @@ def move_toward(
     if pos == target:
         return Direction.CENTRE
     search = NavAstar(state, pos.x, pos.y, target.x, target.y)
-    search.set_budget(ct, 5000)
-    raw = search.compute()
+    raw = search.compute(_budget(ct, 5000))
     if raw is None or len(raw) < 2:
         return Direction.CENTRE
     w = state.w
@@ -68,8 +66,7 @@ def move_toward_with_road(
 
     if state.nav_search is None:
         state.nav_search = NavAstar(state, pos.x, pos.y, target.x, target.y)
-    state.nav_search.set_budget(ct, 1800)
-    raw = state.nav_search.compute()
+    raw = state.nav_search.compute(_budget(ct, 1800))
     if not state.nav_search.exhausted:
         return Direction.CENTRE, None
     if raw is None or len(raw) < 2:

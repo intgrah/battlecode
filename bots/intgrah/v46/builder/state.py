@@ -8,7 +8,6 @@ free functions in state_helpers.py.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -34,9 +33,9 @@ from cambc import (
     GameConstants,
     Position,
 )
-from known_maps import MAPS
-from known_maps import decode as decode_known_map
-from util import tiles_3x3
+from hardcode.map import MAPS
+from hardcode.map import decode as decode_known_map
+from util import Symmetry, tiles_3x3
 
 COST_ROAD = 2
 COST_EMPTY = 10
@@ -69,17 +68,6 @@ class Economy:
         self.excess = [0.0] * n
         self.blocked = [False] * n
 
-
-class Symmetry(Enum):
-    """Map symmetry type. Maps are guaranteed to have at least one.
-
-    Any two symmetries imply the third, so either exactly one holds
-    or all three hold. Exactly two is impossible.
-    """
-
-    ROT = auto()
-    HOR = auto()
-    VER = auto()
 
 
 class State:

@@ -23,7 +23,9 @@ from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import tiles_3x3
 
-from .state import State, Symmetry
+from util import Symmetry
+
+from .state import State
 from .state_helpers import mirror
 from .state_update_flow import recompute_enemy_flow, recompute_flow
 

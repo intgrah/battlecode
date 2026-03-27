@@ -1,4 +1,5 @@
 import heapq
+from collections.abc import Callable
 
 INF = 1_000_000
 
@@ -27,9 +28,6 @@ class Astar[T]:
     def heuristic(self, node: T) -> int:
         raise NotImplementedError
 
-    def should_continue(self) -> bool:
-        return True
-
     def _extract_path(self, node: T) -> list[T]:
         path: list[T] = []
         current: T | None = node
@@ -39,7 +37,7 @@ class Astar[T]:
         path.reverse()
         return path
 
-    def compute(self) -> list[T] | None:
+    def compute(self, within_budget: Callable[[], bool] = lambda: True) -> list[T] | None:
         if self._done:
             return self._result
 
@@ -61,7 +59,7 @@ class Astar[T]:
                 return self._result
 
             expanded += 1
-            if expanded & 15 == 0 and not self.should_continue():
+            if expanded & 15 == 0 and not within_budget():
                 break
 
             g_node = g[node]
