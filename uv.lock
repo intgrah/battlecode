@@ -8,7 +8,9 @@ members = [
     "bot-adgato-dummy",
     "bot-adgato-launcher-test",
     "bot-adgato-trollbot",
+    "bot-adgato-trollbot-expand",
     "bot-adgato-trollbot-hc",
+    "bot-adgato-trollbot-maybe",
     "bot-adgato-v0",
     "bot-adgato-v1",
     "bot-adgato-v2",
@@ -147,9 +149,31 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 
 [[package]]
+name = "bot-adgato-trollbot-expand"
+version = "0.0.0"
+source = { virtual = "bots/adgato/trollbot_expand" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
 name = "bot-adgato-trollbot-hc"
 version = "0.0.0"
 source = { virtual = "bots/adgato/trollbot_hc" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-adgato-trollbot-maybe"
+version = "0.0.0"
+source = { virtual = "bots/adgato/trollbot_maybe" }
 dependencies = [
     { name = "cambc" },
 ]
