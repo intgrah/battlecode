@@ -1,6 +1,7 @@
 __all__ = ["update"]
 
 from building import (
+    ETYPE_BUILDING,
     Building,
     BuildingArmouredConveyor,
     BuildingBarrier,
@@ -13,7 +14,6 @@ from building import (
     BuildingHarvester,
     BuildingLauncher,
     BuildingMarker,
-    BuildingRoad,
     BuildingSentinel,
     BuildingSplitter,
 )
@@ -27,39 +27,22 @@ from .state import State
 from .state_helpers import mirror
 from .state_update_econ import update_en_econ, update_my_econ
 
-_ETYPE_TO_BUILDING: dict[EntityType, type] = {
-    EntityType.CORE: BuildingCore,
-    EntityType.HARVESTER: BuildingHarvester,
-    EntityType.CONVEYOR: BuildingConveyor,
-    EntityType.ARMOURED_CONVEYOR: BuildingArmouredConveyor,
-    EntityType.SPLITTER: BuildingSplitter,
-    EntityType.BRIDGE: BuildingBridge,
-    EntityType.FOUNDRY: BuildingFoundry,
-    EntityType.BARRIER: BuildingBarrier,
-    EntityType.ROAD: BuildingRoad,
-    EntityType.MARKER: BuildingMarker,
-    EntityType.GUNNER: BuildingGunner,
-    EntityType.SENTINEL: BuildingSentinel,
-    EntityType.BREACH: BuildingBreach,
-    EntityType.LAUNCHER: BuildingLauncher,
-}
-
 
 def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
     team = ct.get_team(bid)
     match etype:
         case EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR | EntityType.SPLITTER:
-            cls = _ETYPE_TO_BUILDING[etype]
+            cls = ETYPE_BUILDING[etype]
             return cls(team, ct.get_direction(bid))
         case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
-            cls = _ETYPE_TO_BUILDING[etype]
+            cls = ETYPE_BUILDING[etype]
             return cls(team, ct.get_direction(bid))
         case EntityType.BRIDGE:
             return BuildingBridge(team, ct.get_bridge_target(bid))
         case EntityType.MARKER:
             return BuildingMarker(team, ct.get_marker_value(bid))
         case _:
-            cls = _ETYPE_TO_BUILDING.get(etype)
+            cls = ETYPE_BUILDING.get(etype)
             if cls is None:
                 return None
             return cls(team)
