@@ -43,15 +43,17 @@ fn main() -> io::Result<()> {
         proto::Replay::decode(&*data).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
     let exe_path = env::current_exe().unwrap_or_default();
-    let assets_dir = exe_path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("../assets");
-    let assets_dir = if assets_dir.exists() {
-        assets_dir
-    } else {
-        Path::new("assets").to_path_buf()
-    };
+    let exe_dir = exe_path.parent().unwrap_or_else(|| Path::new("."));
+    let candidates = [
+        exe_dir.join("../../assets"),
+        exe_dir.join("../assets"),
+        Path::new("assets").to_path_buf(),
+    ];
+    let assets_dir = candidates
+        .iter()
+        .find(|p| p.exists())
+        .cloned()
+        .unwrap_or_else(|| Path::new("assets").to_path_buf());
 
     let atlas = sprites::SpriteAtlas::load(&assets_dir);
     let mut app = ui::App::new(replay, atlas);
