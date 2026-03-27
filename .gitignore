@@ -13,3 +13,5 @@ wheels/
 *_pb2.py
 *.zip
 results/
+
+.DS_Store
