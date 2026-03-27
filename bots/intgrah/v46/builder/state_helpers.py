@@ -10,7 +10,9 @@ from building import (
 )
 from cambc import Direction, Environment, Position
 
-from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State, Symmetry
+from util import Symmetry
+
+from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State
 
 
 def walkable(state: State, x: int, y: int) -> int:

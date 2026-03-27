@@ -10,7 +10,7 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, Environment
+from cambc import Environment
 from util import BRIDGE_DELTAS, DIR4_DELTA
 
 COST_REUSE = 0
@@ -101,19 +101,8 @@ class FlowAstar(Astar[int]):
         self._my_team = state.my_team
         self._core_x = state.my_core.x
         self._core_y = state.my_core.y
-        self._ct: Controller | None = None
-        self._budget_us = 0
         si = sy * self._w + sx
         super().__init__(si, goals)
-
-    def set_budget(self, ct: Controller, budget_us: int) -> None:
-        self._ct = ct
-        self._budget_us = budget_us
-
-    def should_continue(self) -> bool:
-        if self._ct is None:
-            return True
-        return self._ct.get_cpu_time_elapsed() < self._budget_us
 
     def heuristic(self, node: int) -> int:
         return abs(node % self._w - self._gx) + abs(node // self._w - self._gy)

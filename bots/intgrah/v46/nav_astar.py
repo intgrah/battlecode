@@ -1,6 +1,5 @@
 from algorithms import Astar
 from builder.state import COST_IMPASSABLE, COST_ROAD, State
-from cambc import Controller
 from util import DIR8_DELTA
 
 
@@ -18,20 +17,9 @@ class NavAstar(Astar[int]):
         self._h = state.h
         self._gx = gx
         self._gy = gy
-        self._ct: Controller | None = None
-        self._budget_us = 0
         si = sy * state.w + sx
         gi = gy * state.w + gx
         super().__init__(si, {gi})
-
-    def set_budget(self, ct: Controller, budget_us: int) -> None:
-        self._ct = ct
-        self._budget_us = budget_us
-
-    def should_continue(self) -> bool:
-        if self._ct is None:
-            return True
-        return self._ct.get_cpu_time_elapsed() < self._budget_us
 
     def heuristic(self, node: int) -> int:
         y, x = divmod(node, self._w)

@@ -118,8 +118,7 @@ def connect_excess_ti_rax_core(
                 AX,
             )
             state.ti_cached_source = start
-        state.ti_flow_search.set_budget(ct, 1200)
-        path = state.ti_flow_search.compute()
+        path = state.ti_flow_search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
         if state.ti_flow_search.exhausted:
             state.ti_flow_search = None
         state.ti_cached_path = path
