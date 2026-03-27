@@ -41,7 +41,6 @@ def is_unseen(state: State, x: int, y: int) -> bool:
 
 
 def mirror(state: State, x: int, y: int) -> tuple[int, int]:
-
     match state.symmetry:
         case Symmetry.ROT:
             return state.w - 1 - x, state.h - 1 - y
@@ -49,7 +48,7 @@ def mirror(state: State, x: int, y: int) -> tuple[int, int]:
             return x, state.h - 1 - y
         case Symmetry.VER:
             return state.w - 1 - x, y
-        case _:
+        case None:
             return x, y
 
 

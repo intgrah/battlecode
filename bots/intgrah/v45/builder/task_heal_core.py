@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, Position
+from cambc import Controller, Direction, GameConstants, Position
 
 from .build import Action, Heal
 from .helpers import move_toward_with_road
@@ -9,7 +9,7 @@ def heal_core(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    if state.my_core_hp >= state.my_core_max_hp:
+    if state.my_core_hp >= GameConstants.CORE_MAX_HP:
         return None
 
     core = Position(state.my_core[0], state.my_core[1])

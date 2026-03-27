@@ -1,10 +1,9 @@
 from cambc import Controller, Direction, EntityType, Position
+from util import DIR8_DELTA
 
 from .build import Action, PlaceLauncher
 from .helpers import move_toward_with_road
 from .state import COST_IMPASSABLE, State
-
-_ALL_DIRS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
 
 def _undefended_bridge(state: State) -> tuple[int, int] | None:
@@ -15,7 +14,7 @@ def _undefended_bridge(state: State) -> tuple[int, int] | None:
             continue
         bx, by = bi % w, bi // w
         has_launcher = False
-        for dx, dy in _ALL_DIRS:
+        for dx, dy in DIR8_DELTA:
             nx, ny = bx + dx, by + dy
             if not state.in_bounds(nx, ny):
                 continue
@@ -38,7 +37,7 @@ def _find_placement(
     bx: int,
     by: int,
 ) -> tuple[int, int] | None:
-    for dx, dy in _ALL_DIRS:
+    for dx, dy in DIR8_DELTA:
         ax, ay = bx + dx, by + dy
         if not state.in_bounds(ax, ay):
             continue

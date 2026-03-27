@@ -171,6 +171,14 @@ def secure_ore(
         state.debug_target = (barrier_pos, 0, 255, 255)
         return move, build
 
+    if not ct.is_in_vision(ore_pos):
+        adj = _reachable_adjacent(state, pos, ox, oy)
+        if adj is None:
+            return None
+        move, build = move_toward_with_road(state, ct, adj)
+        state.debug_target = (ore_pos, 0, 255, 0)
+        return move, build
+
     bid = ct.get_tile_building_id(ore_pos)
     has_enemy_building = bid is not None and ct.get_team(bid) != ct.get_team()
 
