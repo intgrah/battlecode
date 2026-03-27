@@ -228,10 +228,11 @@ def _update_symmetry(
             mi = m.y * w + m.x
             if state.env[mi] is None:
                 state.env[mi] = env
-                if env == Environment.ORE_TITANIUM:
-                    state.ore_ti.add(m)
-                elif env == Environment.ORE_AXIONITE:
-                    state.ore_ax.add(m)
+                match env:
+                    case Environment.ORE_TITANIUM:
+                        state.ore_ti.add(m)
+                    case Environment.ORE_AXIONITE:
+                        state.ore_ax.add(m)
 
 
 def _eliminate_symmetries(
@@ -301,10 +302,11 @@ def _reflect_all(state: State) -> None:
         mi = m.y * w + m.x
         if state.env[mi] is None:
             state.env[mi] = env
-            if env == Environment.ORE_TITANIUM:
-                state.ore_ti.add(m)
-            elif env == Environment.ORE_AXIONITE:
-                state.ore_ax.add(m)
+            match env:
+                case Environment.ORE_TITANIUM:
+                    state.ore_ti.add(m)
+                case Environment.ORE_AXIONITE:
+                    state.ore_ax.add(m)
 
 
 def _update_flow(state: State, changed: list[Position]) -> None:
