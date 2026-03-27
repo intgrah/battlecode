@@ -2,7 +2,7 @@ use image::{Rgba, RgbaImage, imageops};
 
 use crate::proto;
 use crate::sprites::SpriteAtlas;
-use crate::state::{Entity, EntityKind, GameState, TurnState};
+use crate::state::{Entity, EntityKind, GameState, Indicator, TurnState};
 
 const BG_COLOR: Rgba<u8> = Rgba([0x1d, 0x15, 0x0f, 0xff]);
 const CURSOR_COLOR: Rgba<u8> = Rgba([0xff, 0xff, 0x00, 0x80]);
@@ -14,6 +14,7 @@ pub fn render_map(
     atlas: &SpriteAtlas,
     cursor: (i32, i32),
     selected_entity: Option<i32>,
+    show_indicators: bool,
 ) -> RgbaImage {
     let ts = atlas.tile_size;
     let w = game.width as u32;
@@ -120,6 +121,31 @@ pub fn render_map(
                     f64::from(target.1 as u32 * ts + ts / 2),
                 );
                 overlay_beam(&mut img, beam, from, to, f64::from(ts) * 0.6);
+            }
+        }
+    }
+
+    if show_indicators {
+        for ind in &turn_state.indicators {
+            match *ind {
+                Indicator::Line {
+                    pos_a,
+                    pos_b,
+                    r,
+                    g,
+                    b,
+                } => {
+                    let x0 = pos_a.0 as u32 * ts + ts / 2;
+                    let y0 = pos_a.1 as u32 * ts + ts / 2;
+                    let x1 = pos_b.0 as u32 * ts + ts / 2;
+                    let y1 = pos_b.1 as u32 * ts + ts / 2;
+                    draw_line(&mut img, x0, y0, x1, y1, Rgba([r, g, b, 0xc0]));
+                }
+                Indicator::Dot { pos, r, g, b } => {
+                    let cx = pos.0 as u32 * ts + ts / 2;
+                    let cy = pos.1 as u32 * ts + ts / 2;
+                    fill_circle(&mut img, cx, cy, ts / 4, Rgba([r, g, b, 0xc0]));
+                }
             }
         }
     }
@@ -271,6 +297,27 @@ fn fill_rect_alpha(img: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, color: R
             if px < img.width() && py < img.height() {
                 let bg = img.get_pixel(px, py);
                 let a = f32::from(color.0[3]) / 255.0;
+                let blended = Rgba([
+                    blend_channel(bg.0[0], color.0[0], a),
+                    blend_channel(bg.0[1], color.0[1], a),
+                    blend_channel(bg.0[2], color.0[2], a),
+                    255,
+                ]);
+                img.put_pixel(px, py, blended);
+            }
+        }
+    }
+}
+
+fn fill_circle(img: &mut RgbaImage, cx: u32, cy: u32, radius: u32, color: Rgba<u8>) {
+    let r2 = (radius * radius) as i64;
+    let a = f32::from(color.0[3]) / 255.0;
+    for py in cy.saturating_sub(radius)..=(cy + radius).min(img.height() - 1) {
+        for px in cx.saturating_sub(radius)..=(cx + radius).min(img.width() - 1) {
+            let dx = i64::from(px) - i64::from(cx);
+            let dy = i64::from(py) - i64::from(cy);
+            if dx * dx + dy * dy <= r2 {
+                let bg = img.get_pixel(px, py);
                 let blended = Rgba([
                     blend_channel(bg.0[0], color.0[0], a),
                     blend_channel(bg.0[1], color.0[1], a),
