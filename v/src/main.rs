@@ -16,7 +16,7 @@ mod sprites;
 mod state;
 mod ui;
 
-use std::{env, fs, io, path::Path, process, time::Duration};
+use std::{env, fs, io, path::Path, process, time::{Duration, SystemTime}};
 
 use crossterm::{
     ExecutableCommand,
@@ -32,7 +32,8 @@ fn main() -> io::Result<()> {
         process::exit(1);
     });
 
-    let data = fs::read(&path)?;
+    let replay_path = Path::new(&path);
+    let data = fs::read(replay_path)?;
     let replay =
         proto::Replay::decode(&*data).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
@@ -49,6 +50,9 @@ fn main() -> io::Result<()> {
 
     let atlas = sprites::SpriteAtlas::load(&assets_dir);
     let mut app = ui::App::new(replay, atlas);
+    let mut last_modified = fs::metadata(replay_path)
+        .and_then(|m| m.modified())
+        .unwrap_or(SystemTime::UNIX_EPOCH);
 
     io::stdout()
         .execute(EnterAlternateScreen)?
@@ -57,6 +61,18 @@ fn main() -> io::Result<()> {
     let mut term = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
     'main: loop {
+        if let Ok(meta) = fs::metadata(replay_path)
+            && let Ok(modified) = meta.modified()
+            && modified != last_modified
+        {
+            if let Ok(new_data) = fs::read(replay_path)
+                && let Ok(new_replay) = proto::Replay::decode(&*new_data)
+            {
+                app.reload(new_replay);
+                last_modified = modified;
+            }
+        }
+
         term.draw(|f| app.render(f))?;
         app.render_map_if_needed();
 
