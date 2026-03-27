@@ -166,7 +166,9 @@ def pf_move(player: Player, ct: Controller, target: Position) -> None:
     (bc, _) = ct.get_bridge_cost()
     economy_mode = funds < 5 * bc
     has_cooldown = ct.get_action_cooldown() == 0
-    player.walkable = build_walkable(ct, allow_empty=(not economy_mode and not has_cooldown))
+    player.walkable = build_walkable(
+        ct, allow_empty=(not economy_mode and not has_cooldown)
+    )
     next_pos = bug2_step(player.agent, current, player.walkable)
     if try_move_smart(ct, current, current.direction_to(next_pos)):
         player.agent.current = next_pos

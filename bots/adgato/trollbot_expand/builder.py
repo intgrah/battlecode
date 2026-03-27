@@ -381,10 +381,7 @@ def run_builder(player: Player, ct: Controller) -> None:
     # Opportunistic: place launcher next to any friendly bridge missing one
     my_team = ct.get_team()
     for bid in ct.get_nearby_buildings():
-        if (
-            ct.get_entity_type(bid) != EntityType.BRIDGE
-            or ct.get_team(bid) != my_team
-        ):
+        if ct.get_entity_type(bid) != EntityType.BRIDGE or ct.get_team(bid) != my_team:
             continue
         bp = ct.get_position(bid)
         if _has_launcher_adjacent(ct, bp):
@@ -471,8 +468,6 @@ def run_builder(player: Player, ct: Controller) -> None:
 
     # ── Advance: explore map and pathfind to unclaimed ore ─────────
     if player.mode == "advance":
-
-
         if player.target is not None:
             player.wander_target = None
             pf_move(player, ct, player.target)
@@ -510,21 +505,23 @@ def run_builder(player: Player, ct: Controller) -> None:
 
     # ── Secure: barrier cardinal neighbors of ore before placing harvester
     if player.mode == "secure":
-        
         another_claimed_ore = False
         harvester_on_ore = False
 
         if player.secure_target is not None and ct.is_in_vision(player.secure_target):
             bbid = ct.get_tile_builder_bot_id(player.secure_target)
-            harvester_on_ore = ct.get_entity_type(ct.get_tile_building_id(player.secure_target)) == EntityType.HARVESTER
+            harvester_on_ore = (
+                ct.get_entity_type(ct.get_tile_building_id(player.secure_target))
+                == EntityType.HARVESTER
+            )
             another_claimed_ore = bbid is not None and bbid != ct.get_id()
 
         print(f"h_on_ore {harvester_on_ore} b_on_ore {another_claimed_ore}")
-            
+
         if (
             player.secure_target is not None
             or player.secure_target not in player.known_ore
-            or harvester_on_ore 
+            or harvester_on_ore
             or another_claimed_ore
         ):
             # Pick ore if available, otherwise wander to explore
@@ -551,7 +548,9 @@ def run_builder(player: Player, ct: Controller) -> None:
                     _random_walk(ct, pos, prev)
                 return
         if _secure(player, ct, pos):
-            if player.secure_target is not None and ct.can_destroy(player.secure_target):
+            if player.secure_target is not None and ct.can_destroy(
+                player.secure_target
+            ):
                 ct.destroy(player.secure_target)
             pf_move(player, ct, player.secure_target)
         return
@@ -869,14 +868,16 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
     if not all_secured:
         return True
 
-
     # All cardinal neighbors secured — clear ore tile and place harvester
     if player.secure_target is not None and ct.is_in_vision(player.secure_target):
-
         (h_cost, _) = ct.get_harvester_cost()
         (funds, _) = ct.get_global_resources()
         if pos == player.secure_target and h_cost <= funds:
-            core_dir = pos.direction_to(player.core_pos) if player.core_pos is not None else Direction.NORTH
+            core_dir = (
+                pos.direction_to(player.core_pos)
+                if player.core_pos is not None
+                else Direction.NORTH
+            )
             for rot in (0, 1, -1, 2, -2, 3, -3, 4):
                 if try_move_smart(ct, pos, _rotate(core_dir, rot)):
                     break
@@ -955,23 +956,20 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
     # Adjacent to bridge_target — try to build the next bridge
     if pos.distance_squared(bt) <= 2:
         # Place launcher adjacent to bridge_target before building the bridge
-        if (
-            not _has_launcher_adjacent(ct, bt)
-            and player.launcher_failed != bt
-        ):
+        if not _has_launcher_adjacent(ct, bt) and player.launcher_failed != bt:
             result = _place_launcher_by_bridge(player, ct, pos, bt)
             if result is None:
                 player.launcher_failed = bt
             elif result is not True:
                 player.launcher_target = bt
                 return False
-    
+
         (funds, _) = ct.get_global_resources()
         (bc, _) = ct.get_bridge_cost()
         if bc > funds:
             print("can't afford bridge")
             return False
-        
+
         # Destroy whatever is on the bridge tile (road, marker, etc.)
         if ct.can_destroy(bt):
             ct.destroy(bt)
@@ -1091,7 +1089,7 @@ def _place_launcher_by_bridge(
     if not ct.is_in_vision(bridge_pos):
         pf_move(player, ct, bridge_pos)
         return False
-    
+
     (funds, _) = ct.get_global_resources()
     (lc, _) = ct.get_launcher_cost()
     if lc > funds:
@@ -1113,8 +1111,8 @@ def _place_launcher_by_bridge(
             and ct.get_team(bid) == my_team
         ):
             return True
-    
-    #try without destroying first
+
+    # try without destroying first
     for d in _ALL_DIRS:
         adj = bridge_pos.add(d)
         if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
@@ -1122,7 +1120,7 @@ def _place_launcher_by_bridge(
         if ct.can_build_launcher(adj):
             ct.build_launcher(adj)
             return True
-        
+
     for d in _ALL_DIRS:
         adj = bridge_pos.add(d)
         if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
