@@ -101,7 +101,9 @@ def connect_excess_ti_bridge_core(
                 AX,
             )
             state.bridge_cached_source = start
-        path = state.bridge_flow_search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
+        path = state.bridge_flow_search.compute(
+            lambda: ct.get_cpu_time_elapsed() < 1200
+        )
         if state.bridge_flow_search.exhausted:
             state.bridge_flow_search = None
         state.bridge_cached_path = path

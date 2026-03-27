@@ -8,6 +8,7 @@ class Symmetry(Enum):
     HOR = auto()
     VER = auto()
 
+
 DIR4 = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIR4_DELTA = [c.delta() for c in DIR4]
 DIR8 = [

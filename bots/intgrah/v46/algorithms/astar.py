@@ -37,7 +37,9 @@ class Astar[T]:
         path.reverse()
         return path
 
-    def compute(self, within_budget: Callable[[], bool] = lambda: True) -> list[T] | None:
+    def compute(
+        self, within_budget: Callable[[], bool] = lambda: True
+    ) -> list[T] | None:
         if self._done:
             return self._result
 
