@@ -8,7 +8,8 @@ This is Method 1 of RAx refining: the foundry directly replaces a conveyor
 on the Ti chain, breaking the Ti passthrough but producing RAx instead.
 """
 
-from cambc import Controller, Direction, EntityType, Position
+from building import ArmouredConveyor, Conveyor
+from cambc import Controller, Direction, Position
 
 from .build import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -27,11 +28,12 @@ def place_foundry_ti_conv(
 
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
-        ent = state.entity[i]
-        if ent is None:
-            continue
-        if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-            continue
+        bld = state.building[i]
+        match bld:
+            case Conveyor() | ArmouredConveyor():
+                pass
+            case _:
+                continue
         ti_f = f.ti[i]
         ax_f = f.ax[i]
         if ti_f <= 0 or ax_f <= 0:

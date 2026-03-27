@@ -1,6 +1,8 @@
 from algorithms import Astar
 from builder.state import State
-from cambc import Controller, EntityType, Environment, Position
+from building import Bridge, Marker, Road
+from building import Core as CoreBuilding
+from cambc import Controller, Environment
 from flow_astar import build_leakage_mask
 from util import BRIDGE_DELTAS
 
@@ -29,8 +31,7 @@ class BridgeFlowAstar(Astar[int]):
         self._leakage_mask = build_leakage_mask(state)
         self._blocked = state.my_flow.blocked
         self._env = state.env
-        self._entity = state.entity
-        self._bridge_target = state.bridge_target
+        self._building = state.building
         self._my_team = state.my_team
         self._ct: Controller | None = None
         self._budget_us = 0
@@ -56,8 +57,7 @@ class BridgeFlowAstar(Astar[int]):
         w, h = self._w, self._h
         blocked = self._blocked
         env = self._env
-        entity = self._entity
-        bridge_target = self._bridge_target
+        building = self._building
         leakage_mask = self._leakage_mask
         banned_leakage = self._banned_leakage
 
@@ -66,17 +66,17 @@ class BridgeFlowAstar(Astar[int]):
         e = env[node]
         if e is not None and e in _IMPASSABLE_ENV:
             return []
-        ent = entity[node]
-        if ent is not None and ent[1] != self._my_team:
+        bld = building[node]
+        if bld is not None and bld.team != self._my_team:
             return []
         if leakage_mask[node] & banned_leakage != 0:
             return []
 
         cx, cy = node % w, node // w
-        result: list[Position] = []
+        result: list[tuple[int, int]] = []
 
-        match ent:
-            case (EntityType.CORE, _):
+        match bld:
+            case CoreBuilding():
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
@@ -86,20 +86,18 @@ class BridgeFlowAstar(Astar[int]):
                         ):
                             result.append((ni, 0))
 
-            case (EntityType.BRIDGE, _):
-                bt = bridge_target[node]
-                if bt is not None:
-                    bx, by = bt
-                    if 0 <= bx < w and 0 <= by < h:
-                        ni = by * w + bx
-                        if (
-                            not blocked[ni]
-                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and leakage_mask[ni] & banned_leakage == 0
-                        ):
-                            result.append((ni, COST_REUSE))
+            case Bridge(target=bt):
+                bx, by = bt.x, bt.y
+                if 0 <= bx < w and 0 <= by < h:
+                    ni = by * w + bx
+                    if (
+                        not blocked[ni]
+                        and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                        and leakage_mask[ni] & banned_leakage == 0
+                    ):
+                        result.append((ni, COST_REUSE))
 
-            case None | (EntityType.ROAD | EntityType.MARKER, _):
+            case None | Road() | Marker():
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:

@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, EntityType
+from cambc import Controller, Direction
 from entity import Entity
 
 _ALL_DIRS = [

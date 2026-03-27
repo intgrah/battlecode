@@ -1,4 +1,6 @@
-from cambc import Controller, Direction, EntityType, Position
+from building import Harvester, Marker, Road
+from building import Sentinel as SentinelBuilding
+from cambc import Controller, Direction, Position
 from marker import TaskKind
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
 
@@ -59,13 +61,10 @@ def _has_friendly_sentinel_near(state: State, ox: int, oy: int) -> bool:
         if not state.in_bounds(nx, ny):
             continue
         ni = state.idx(nx, ny)
-        ent = state.entity[ni]
-        if (
-            ent is not None
-            and ent[0] == EntityType.SENTINEL
-            and ent[1] == state.my_team
-        ):
-            return True
+        bld = state.building[ni]
+        match bld:
+            case SentinelBuilding(team=team) if team == state.my_team:
+                return True
     return False
 
 
@@ -82,10 +81,8 @@ def deny_enemy_harvester(
     ore_pos = Position(ox, oy)
     pos = state.pos
 
-    ent = state.entity[oi]
-    has_enemy_harvester = (
-        ent is not None and ent[0] == EntityType.HARVESTER and ent[1] != state.my_team
-    )
+    bld = state.building[oi]
+    has_enemy_harvester = isinstance(bld, Harvester) and bld.team != state.my_team
 
     if has_enemy_harvester and not _has_friendly_sentinel_near(state, ox, oy):
         for dx, dy in DIR4_DELTA:
@@ -93,18 +90,18 @@ def deny_enemy_harvester(
             if not state.in_bounds(sx, sy):
                 continue
             si = state.idx(sx, sy)
-            sent = state.entity[si]
-            if sent is not None and sent[0] not in (EntityType.ROAD, EntityType.MARKER):
-                continue
-            if state.walkable(sx, sy) >= COST_IMPASSABLE:
-                if (
-                    sent is not None
-                    and sent[0] == EntityType.ROAD
-                    and sent[1] == state.my_team
-                ):
+            sbld = state.building[si]
+            match sbld:
+                case None | Road() | Marker():
                     pass
-                else:
+                case _:
                     continue
+            if state.walkable(sx, sy) >= COST_IMPASSABLE:
+                match sbld:
+                    case Road(team=team) if team == state.my_team:
+                        pass
+                    case _:
+                        continue
             sentinel_pos = Position(sx, sy)
             card_dir = DELTA_TO_DIR[(dx, dy)]
             facing_cw3 = _rotate_cw(card_dir, 3)

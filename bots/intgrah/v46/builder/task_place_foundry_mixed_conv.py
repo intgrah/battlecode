@@ -9,7 +9,8 @@ Unlike place_foundry_ti_conv, this preserves the original conveyor until
 the splitter replaces it, keeping the Ti chain intact.
 """
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from building import ArmouredConveyor, Conveyor, Marker, Road
+from cambc import Controller, Direction, Environment, Position
 
 from .build import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -28,11 +29,12 @@ def place_foundry_mixed_conv(
 
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
-        ent = state.entity[i]
-        if ent is None:
-            continue
-        if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-            continue
+        bld = state.building[i]
+        match bld:
+            case Conveyor() | ArmouredConveyor():
+                pass
+            case _:
+                continue
         ti_f = f.ti[i]
         ax_f = f.ax[i]
         if ti_f <= 0 or ax_f <= 0:
@@ -58,13 +60,13 @@ def place_foundry_mixed_conv(
         env = state.env[ni]
         if env is None or env != Environment.EMPTY:
             continue
-        ent = state.entity[ni]
-        if ent is not None:
-            etype, eteam = ent
-            if not (
-                etype == EntityType.MARKER
-                or (etype == EntityType.ROAD and eteam == state.my_team)
-            ):
+        bld = state.building[ni]
+        match bld:
+            case None | Marker():
+                pass
+            case Road(team=team) if team == state.my_team:
+                pass
+            case _:
                 continue
         d = (pos.x - nx) ** 2 + (pos.y - ny) ** 2
         if d < foundry_dist:

@@ -1,7 +1,15 @@
 from collections import deque
 
-from cambc import EntityType, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA, TRANSPORT
+from building import (
+    ArmouredConveyor,
+    Bridge,
+    Conveyor,
+    Foundry,
+    Harvester,
+    Splitter,
+)
+from cambc import Environment, Position
+from util import DELTA_TO_DIR, DIR4_DELTA
 
 from .state import Economy, State
 from .state_helpers import accepts_input_from, harvester_ore_type
@@ -63,41 +71,39 @@ def _recompute_flow_impl(
 
     for p in transport:
         i = idx(p)
-        ent = state.entity[i]
-        if ent is None:
+        bld = state.building[i]
+        if bld is None:
             continue
-        etype = ent[0]
-        bt = state.bridge_target[i]
-        d = state.direction[i]
-        if etype == EntityType.BRIDGE and bt is not None:
-            if 0 <= bt.x < w and 0 <= bt.y < h:
-                tgt = idx(bt)
-                if tgt in in_degree:
-                    in_degree[tgt] += 1
-                    out_target[i] = [tgt]
-                    in_reverse.setdefault(tgt, []).append(i)
-        elif etype == EntityType.SPLITTER and d is not None:
-            dx, dy = d.delta()
-            outs: list[int] = []
-            for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
-                nx, ny = p.x + odx, p.y + ody
+        match bld:
+            case Bridge(target=bt):
+                if 0 <= bt.x < w and 0 <= bt.y < h:
+                    tgt = idx(bt)
+                    if tgt in in_degree:
+                        in_degree[tgt] += 1
+                        out_target[i] = [tgt]
+                        in_reverse.setdefault(tgt, []).append(i)
+            case Splitter(direction=d):
+                dx, dy = d.delta()
+                outs: list[int] = []
+                for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
+                    nx, ny = p.x + odx, p.y + ody
+                    if 0 <= nx < w and 0 <= ny < h:
+                        tgt = ny * w + nx
+                        if tgt in in_degree:
+                            outs.append(tgt)
+                            in_degree[tgt] += 1
+                            in_reverse.setdefault(tgt, []).append(i)
+                if outs:
+                    out_target[i] = outs
+            case Conveyor(direction=d) | ArmouredConveyor(direction=d):
+                dx, dy = d.delta()
+                nx, ny = p.x + dx, p.y + dy
                 if 0 <= nx < w and 0 <= ny < h:
                     tgt = ny * w + nx
                     if tgt in in_degree:
-                        outs.append(tgt)
                         in_degree[tgt] += 1
+                        out_target[i] = [tgt]
                         in_reverse.setdefault(tgt, []).append(i)
-            if outs:
-                out_target[i] = outs
-        elif d is not None:
-            dx, dy = d.delta()
-            nx, ny = p.x + dx, p.y + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                tgt = ny * w + nx
-                if tgt in in_degree:
-                    in_degree[tgt] += 1
-                    out_target[i] = [tgt]
-                    in_reverse.setdefault(tgt, []).append(i)
 
     for p in foundries:
         i = idx(p)
@@ -137,73 +143,73 @@ def _recompute_flow_impl(
 
     while queue:
         ci = queue.popleft()
-        ent = state.entity[ci]
-        if ent is None:
+        bld = state.building[ci]
+        if bld is None:
             continue
-        etype = ent[0]
         outs = out_target.get(ci, [])
 
-        if etype == EntityType.HARVESTER:
-            ore = harvester_ore_type(state, ci)
-            n_out = max(len(outs), 1)
-            push = 0.25 / n_out
-            excess = 0.25 - push * len(outs)
-            for oi in outs:
+        match bld:
+            case Harvester():
+                ore = harvester_ore_type(state, ci)
+                n_out = max(len(outs), 1)
+                push = 0.25 / n_out
+                excess = 0.25 - push * len(outs)
+                for oi in outs:
+                    if ore == Environment.ORE_TITANIUM:
+                        f.ti[oi] += push
+                    elif ore == Environment.ORE_AXIONITE:
+                        f.ax[oi] += push
+                    f.total[oi] += push
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
                 if ore == Environment.ORE_TITANIUM:
-                    f.ti[oi] += push
+                    f.ti_excess[ci] = excess
                 elif ore == Environment.ORE_AXIONITE:
-                    f.ax[oi] += push
-                f.total[oi] += push
-                in_degree[oi] -= 1
-                if in_degree[oi] <= 0:
-                    queue.append(oi)
-            if ore == Environment.ORE_TITANIUM:
-                f.ti_excess[ci] = excess
-            elif ore == Environment.ORE_AXIONITE:
-                f.ax_excess[ci] = excess
-            f.excess[ci] = excess
-        elif etype == EntityType.FOUNDRY:
-            ti_in = f.ti[ci]
-            ax_in = f.ax[ci]
-            refined = min(ti_in, ax_in)
-            f.ti_excess[ci] = ti_in - refined
-            f.ax_excess[ci] = ax_in - refined
-            rax_in = f.rax[ci]
-            rax_out = rax_in + refined
-            n_outs = len(outs)
-            push = rax_out / n_outs if n_outs > 0 else 0.0
-            for oi in outs:
-                f.rax[oi] += push
-                f.total[oi] += push
-                in_degree[oi] -= 1
-                if in_degree[oi] <= 0:
-                    queue.append(oi)
-            total_out = rax_out
-            f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
-        elif etype in TRANSPORT:
-            ti_in = f.ti[ci]
-            ax_in = f.ax[ci]
-            rax_in = f.rax[ci]
-            divisor = 3 if etype == EntityType.SPLITTER else 1
-            ti_push = ti_in / divisor
-            ax_push = ax_in / divisor
-            rax_push = rax_in / divisor
-            total_push = ti_push + ax_push + rax_push
-            total_out = 0.0
-            for oi in outs:
-                f.ti[oi] += ti_push
-                f.ax[oi] += ax_push
-                f.rax[oi] += rax_push
-                f.total[oi] += total_push
-                total_out += total_push
-                in_degree[oi] -= 1
-                if in_degree[oi] <= 0:
-                    queue.append(oi)
-            incoming = ti_in + ax_in + rax_in
-            f.ti_excess[ci] = ti_in - ti_push * len(outs)
-            f.ax_excess[ci] = ax_in - ax_push * len(outs)
-            f.rax_excess[ci] = rax_in - rax_push * len(outs)
-            f.excess[ci] = incoming - total_out
+                    f.ax_excess[ci] = excess
+                f.excess[ci] = excess
+            case Foundry():
+                ti_in = f.ti[ci]
+                ax_in = f.ax[ci]
+                refined = min(ti_in, ax_in)
+                f.ti_excess[ci] = ti_in - refined
+                f.ax_excess[ci] = ax_in - refined
+                rax_in = f.rax[ci]
+                rax_out = rax_in + refined
+                n_outs = len(outs)
+                push = rax_out / n_outs if n_outs > 0 else 0.0
+                for oi in outs:
+                    f.rax[oi] += push
+                    f.total[oi] += push
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
+                total_out = rax_out
+                f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
+            case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                ti_in = f.ti[ci]
+                ax_in = f.ax[ci]
+                rax_in = f.rax[ci]
+                divisor = 3 if isinstance(bld, Splitter) else 1
+                ti_push = ti_in / divisor
+                ax_push = ax_in / divisor
+                rax_push = rax_in / divisor
+                total_push = ti_push + ax_push + rax_push
+                total_out = 0.0
+                for oi in outs:
+                    f.ti[oi] += ti_push
+                    f.ax[oi] += ax_push
+                    f.rax[oi] += rax_push
+                    f.total[oi] += total_push
+                    total_out += total_push
+                    in_degree[oi] -= 1
+                    if in_degree[oi] <= 0:
+                        queue.append(oi)
+                incoming = ti_in + ax_in + rax_in
+                f.ti_excess[ci] = ti_in - ti_push * len(outs)
+                f.ax_excess[ci] = ax_in - ax_push * len(outs)
+                f.rax_excess[ci] = rax_in - rax_push * len(outs)
+                f.excess[ci] = incoming - total_out
 
     for i in receiver_indices:
         f.blocked[i] = False

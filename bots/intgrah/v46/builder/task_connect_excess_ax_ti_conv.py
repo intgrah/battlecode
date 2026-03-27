@@ -9,10 +9,18 @@ stays pure.
 """
 
 from ax_chain_astar import AxChainAstar
-from cambc import Controller, Direction, EntityType, Environment, Position
+from building import (
+    ArmouredConveyor,
+    Bridge,
+    Conveyor,
+    Core,
+    Foundry,
+    Harvester,
+    Splitter,
+)
+from cambc import Controller, Direction, Environment, Position
 from flow_astar import RAX, TI
 from marker import TaskClaim, TaskKind
-from util import TRANSPORT
 
 from .build import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -49,32 +57,36 @@ def connect_excess_ax_ti_conv(
 
     sx, sy = best_tile.x, best_tile.y
     si = state.idx(sx, sy)
-    ent = state.entity[si]
-    if ent is not None and ent[0] in (EntityType.HARVESTER, EntityType.FOUNDRY):
-        banned = TI | RAX
-        start = None
-        for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nx, ny = sx + ddx, sy + ddy
-            if not state.in_bounds(nx, ny):
-                continue
-            ni = state.idx(nx, ny)
-            env = state.env[ni]
-            if env in (
-                Environment.WALL,
-                Environment.ORE_TITANIUM,
-                Environment.ORE_AXIONITE,
-            ):
-                continue
-            nent = state.entity[ni]
-            if nent is not None and nent[0] in TRANSPORT:
-                continue
-            if state.leakage_mask is not None and state.leakage_mask[ni] & banned != 0:
-                continue
-            start = Position(nx, ny)
-            break
-        if start is None:
-            return None
-        sx, sy = start.x, start.y
+    bld = state.building[si]
+    match bld:
+        case Harvester() | Foundry():
+            banned = TI | RAX
+            start = None
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = sx + ddx, sy + ddy
+                if not state.in_bounds(nx, ny):
+                    continue
+                ni = state.idx(nx, ny)
+                env = state.env[ni]
+                if env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
+                    continue
+                match state.building[ni]:
+                    case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                        continue
+                if (
+                    state.leakage_mask is not None
+                    and state.leakage_mask[ni] & banned != 0
+                ):
+                    continue
+                start = Position(nx, ny)
+                break
+            if start is None:
+                return None
+            sx, sy = start.x, start.y
 
     start = Position(sx, sy)
     path = state.ax_cached_path
@@ -102,11 +114,13 @@ def connect_excess_ax_ti_conv(
         nx, ny = path[k + 1] % w, path[k + 1] // w
 
         pi = path[k]
-        pent = state.entity[pi]
-        if pent is not None and pent[1] == state.my_team:
-            ptype = pent[0]
-            if ptype in TRANSPORT or ptype == EntityType.CORE:
-                continue
+        pbld = state.building[pi]
+        if (
+            pbld is not None
+            and pbld.team == state.my_team
+            and isinstance(pbld, (Conveyor, ArmouredConveyor, Splitter, Bridge, Core))
+        ):
+            continue
 
         build_at = Position(x, y)
         dx, dy = nx - x, ny - y
@@ -143,9 +157,8 @@ def _find_ti_conveyor_goals(state: State) -> set[int]:
         i = state.idx(p.x, p.y)
         if f.ti[i] <= 0:
             continue
-        ent = state.entity[i]
-        if ent is None:
-            continue
-        if ent[0] in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-            goals.add(i)
+        bld = state.building[i]
+        match bld:
+            case Conveyor() | ArmouredConveyor():
+                goals.add(i)
     return goals

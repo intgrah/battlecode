@@ -5,10 +5,18 @@ and builds a conveyor/bridge chain from the excess tile to the core. Uses
 the flow A* with Ax leakage banned to prevent mixing.
 """
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from building import (
+    ArmouredConveyor,
+    Bridge,
+    Conveyor,
+    Core,
+    Foundry,
+    Harvester,
+    Splitter,
+)
+from cambc import Controller, Direction, Environment, Position
 from flow_astar import AX, FlowAstar
 from marker import TaskClaim, TaskKind
-from util import TRANSPORT
 
 from .build import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -47,45 +55,46 @@ def connect_excess_ti_rax_core(
 
     sx, sy = best_tile.x, best_tile.y
     si = state.idx(sx, sy)
-    ent = state.entity[si]
+    bld = state.building[si]
 
-    if ent is not None:
-        etype = ent[0]
-        if etype in (EntityType.HARVESTER, EntityType.FOUNDRY):
-            cx, cy = state.my_core
-            start: Position | None = None
-            best_d = 999999
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nx, ny = sx + ddx, sy + ddy
-                if not state.in_bounds(nx, ny):
-                    continue
-                ni = state.idx(nx, ny)
-                env = state.env[ni]
-                if env in (
-                    Environment.WALL,
-                    Environment.ORE_TITANIUM,
-                    Environment.ORE_AXIONITE,
-                ):
-                    continue
-                nent = state.entity[ni]
-                if nent is not None and nent[0] in TRANSPORT:
-                    continue
-                d = (nx - cx) ** 2 + (ny - cy) ** 2
-                if d < best_d:
-                    best_d = d
-                    start = Position(nx, ny)
-            if start is None:
-                return None
-            sx, sy = start
-        elif etype in TRANSPORT:
-            d = state.direction[si]
-            bt = state.bridge_target[si]
-            if d is not None:
+    if bld is not None:
+        match bld:
+            case Harvester() | Foundry():
+                cx, cy = state.my_core
+                start: Position | None = None
+                best_d = 999999
+                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = sx + ddx, sy + ddy
+                    if not state.in_bounds(nx, ny):
+                        continue
+                    ni = state.idx(nx, ny)
+                    env = state.env[ni]
+                    if env in (
+                        Environment.WALL,
+                        Environment.ORE_TITANIUM,
+                        Environment.ORE_AXIONITE,
+                    ):
+                        continue
+                    nbld = state.building[ni]
+                    if isinstance(nbld, (Conveyor, ArmouredConveyor, Splitter, Bridge)):
+                        continue
+                    d = (nx - cx) ** 2 + (ny - cy) ** 2
+                    if d < best_d:
+                        best_d = d
+                        start = Position(nx, ny)
+                if start is None:
+                    return None
+                sx, sy = start
+            case (
+                Conveyor(direction=d)
+                | ArmouredConveyor(direction=d)
+                | Splitter(direction=d)
+            ):
                 ddx, ddy = d.delta()
                 ox, oy = sx + ddx, sy + ddy
                 if state.in_bounds(ox, oy):
                     sx, sy = ox, oy
-            elif bt is not None:
+            case Bridge(target=bt):
                 sx, sy = bt
 
     start = Position(sx, sy)
@@ -116,19 +125,20 @@ def connect_excess_ti_rax_core(
         nx, ny = path[k + 1] % w, path[k + 1] // w
 
         pi = path[k]
-        pent = state.entity[pi]
-        if pent is not None and pent[1] == state.my_team:
-            ptype = pent[0]
-            if ptype == EntityType.CORE:
-                continue
-            if ptype in TRANSPORT:
-                td = state.direction[pi]
-                bt = state.bridge_target[pi]
-                if td is not None:
+        pbld = state.building[pi]
+        if pbld is not None and pbld.team == state.my_team:
+            match pbld:
+                case Core():
+                    continue
+                case (
+                    Conveyor(direction=td)
+                    | ArmouredConveyor(direction=td)
+                    | Splitter(direction=td)
+                ):
                     ddx, ddy = td.delta()
                     if (x + ddx, y + ddy) == (nx, ny):
                         continue
-                elif bt is not None and bt == (nx, ny):
+                case Bridge(target=bt) if bt == (nx, ny):
                     continue
 
         build_at = Position(x, y)

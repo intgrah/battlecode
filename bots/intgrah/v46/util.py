@@ -42,14 +42,6 @@ WALKABLE_BUILDINGS = frozenset(
     ),
 )
 
-DIRECTED_BUILDINGS = frozenset(
-    (
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-    ),
-)
-
 TRANSPORT = frozenset(
     (
         EntityType.CONVEYOR,

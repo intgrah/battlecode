@@ -1,8 +1,8 @@
-from cambc import Controller, EntityType, GameConstants
-from entity import Entity
+from cambc import Controller, EntityType
+from unit import Unit
 
 
-class Sentinel(Entity):
+class Sentinel(Unit):
     def __init__(self, ct: Controller) -> None:
         pass
 

@@ -327,8 +327,12 @@ def run_builder(player: Player, ct: Controller) -> None:
                 bid = ct.get_tile_building_id(o)
                 bbid = ct.get_tile_builder_bot_id(o)
                 if bid is not None and ct.get_entity_type(bid) == EntityType.HARVESTER:
-                    continue                
-                if bid is not None and ct.get_entity_type(bid) in BLOCKED_BUILDINGS and ct.get_team() != ct.get_team(bid):
+                    continue
+                if (
+                    bid is not None
+                    and ct.get_entity_type(bid) in BLOCKED_BUILDINGS
+                    and ct.get_team() != ct.get_team(bid)
+                ):
                     continue
                 if bbid is not None and bbid != ct.get_id():
                     continue
@@ -857,7 +861,6 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
     # Try to barrier or fire on every cardinal neighbor each turn
     my_team = ct.get_team()
     all_secured = True
-    target_adj = False
     for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
         adj = player.secure_target.add(d)
         if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
@@ -1033,10 +1036,8 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
 
                 # Enemy building we can clear
                 if tbid is not None and (
-                    (ct.get_entity_type(tbid) == EntityType.LAUNCHER
-                    and same_team)
-                    or (ct.get_entity_type(tbid) in SHOULD_FIRE_AT
-                    and not same_team)
+                    (ct.get_entity_type(tbid) == EntityType.LAUNCHER and same_team)
+                    or (ct.get_entity_type(tbid) in SHOULD_FIRE_AT and not same_team)
                 ):
                     enemy_candidates.append((king_dist(t, player.core_pos), t))
                     continue

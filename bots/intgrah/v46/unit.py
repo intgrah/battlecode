@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from cambc import Controller
 
 
-class Entity(ABC):
+class Unit(ABC):
     @abstractmethod
     def __init__(self, ct: Controller) -> None: ...
 

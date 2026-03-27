@@ -1,7 +1,14 @@
 """Pure query functions on State. No mutation."""
 
-from cambc import Direction, EntityType, Environment, Position
-from util import WALKABLE_BUILDINGS
+from building import (
+    ArmouredConveyor,
+    Conveyor,
+    Core,
+    Marker,
+    Road,
+    Splitter,
+)
+from cambc import Direction, Environment, Position
 
 from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State, Symmetry
 
@@ -15,14 +22,12 @@ def walkable(state: State, x: int, y: int) -> int:
             return COST_UNSEEN
         case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
             return COST_IMPASSABLE
-    match state.entity[i]:
-        case None:
+    match state.building[i]:
+        case None | Marker():
             return COST_EMPTY
-        case (EntityType.MARKER, _):
-            return COST_EMPTY
-        case (EntityType.CORE, team) if team == state.my_team:
+        case Core(team) if team == state.my_team:
             return COST_ROAD
-        case (etype, _) if etype in WALKABLE_BUILDINGS:
+        case Road() | Conveyor() | ArmouredConveyor() | Splitter():
             return COST_ROAD
         case _:
             return COST_IMPASSABLE
@@ -54,19 +59,14 @@ def mirror(state: State, p: Position) -> Position:
 
 
 def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
-    ent = state.entity[ti]
-    if ent is None:
+    bld = state.building[ti]
+    if bld is None:
         return True
-    etype = ent[0]
-    d = state.direction[ti]
-    if etype == EntityType.SPLITTER:
-        if d is None:
-            return False
-        return from_dir == d
-    if etype in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-        if d is None:
-            return True
-        return from_dir != d.opposite()
+    match bld:
+        case Splitter(direction=d):
+            return from_dir == d
+        case Conveyor(direction=d) | ArmouredConveyor(direction=d):
+            return from_dir != d.opposite()
     return True
 
 

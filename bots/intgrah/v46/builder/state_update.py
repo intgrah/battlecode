@@ -1,24 +1,77 @@
 __all__ = ["update"]
 
+from building import (
+    ArmouredConveyor,
+    Barrier,
+    Bridge,
+    Building,
+    Conveyor,
+    Foundry,
+    Harvester,
+    Launcher,
+    Marker,
+    Road,
+    Splitter,
+)
+from building import Breach as BreachBuilding
+from building import Core as CoreBuilding
+from building import Gunner as GunnerBuilding
+from building import Sentinel as SentinelBuilding
 from cambc import Controller, EntityType, Environment, Position
 from flow_astar import build_leakage_mask
 from marker import Eureka, TaskClaim, is_stale
 from marker import decode as decode_marker
-from util import DIRECTED_BUILDINGS, TRANSPORT, TURRETS, tiles_3x3
+from util import tiles_3x3
 
 from .state import State, Symmetry
 from .state_helpers import mirror
 from .state_update_flow import recompute_enemy_flow, recompute_flow
 
+_ETYPE_TO_BUILDING: dict[EntityType, type] = {
+    EntityType.CORE: CoreBuilding,
+    EntityType.HARVESTER: Harvester,
+    EntityType.CONVEYOR: Conveyor,
+    EntityType.ARMOURED_CONVEYOR: ArmouredConveyor,
+    EntityType.SPLITTER: Splitter,
+    EntityType.BRIDGE: Bridge,
+    EntityType.FOUNDRY: Foundry,
+    EntityType.BARRIER: Barrier,
+    EntityType.ROAD: Road,
+    EntityType.MARKER: Marker,
+    EntityType.GUNNER: GunnerBuilding,
+    EntityType.SENTINEL: SentinelBuilding,
+    EntityType.BREACH: BreachBuilding,
+    EntityType.LAUNCHER: Launcher,
+}
+
+
+def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
+    team = ct.get_team(bid)
+    match etype:
+        case EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR | EntityType.SPLITTER:
+            cls = _ETYPE_TO_BUILDING[etype]
+            return cls(team, ct.get_direction(bid))
+        case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
+            cls = _ETYPE_TO_BUILDING[etype]
+            return cls(team, ct.get_direction(bid))
+        case EntityType.BRIDGE:
+            return Bridge(team, ct.get_bridge_target(bid))
+        case EntityType.MARKER:
+            return Marker(team, ct.get_marker_value(bid))
+        case _:
+            cls = _ETYPE_TO_BUILDING.get(etype)
+            if cls is None:
+                return None
+            return cls(team)
+
 
 def update(state: State, ct: Controller) -> None:
     state.age += 1
     state.pos = ct.get_position()
-    rnd = ct.get_current_round()
 
-    _update_ephemeral(state, ct, rnd)
     _update_core_hp(state, ct)
-    changed = _scan_vision(state, ct, rnd)
+    _update_ephemeral(state, ct)
+    changed = _scan_vision(state, ct)
     _rebuild_sets(state)
     _update_flow(state, changed)
 
@@ -33,7 +86,8 @@ def _update_core_hp(state: State, ct: Controller) -> None:
     state.my_core_hp = ct.get_hp(bid)
 
 
-def _update_ephemeral(state: State, ct: Controller, rnd: int) -> None:
+def _update_ephemeral(state: State, ct: Controller) -> None:
+    rnd = ct.get_current_round()
     state.unit_tiles.clear()
     my_id = ct.get_id()
     for uid in ct.get_nearby_units():
@@ -43,69 +97,51 @@ def _update_ephemeral(state: State, ct: Controller, rnd: int) -> None:
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
 
 
-def _scan_vision(
-    state: State,
-    ct: Controller,
-    rnd: int,
-) -> list[Position]:
+def _scan_vision(state: State, ct: Controller) -> list[Position]:
     w = state.w
     changed: list[Position] = []
     new_tiles: list[tuple[Position, Environment]] = []
+    rnd = ct.get_current_round()
 
     for t in ct.get_nearby_tiles():
         i = t.y * w + t.x
         state.last_seen[i] = rnd
 
         old_env = state.env[i]
-        old_ent = state.entity[i]
-        env = ct.get_tile_env(t)
-        state.env[i] = env
+        old_bld = state.building[i]
+        state.env[i] = env = ct.get_tile_env(t)
 
-        if env == Environment.ORE_TITANIUM:
-            state.ore_ti.add(t)
-        elif env == Environment.ORE_AXIONITE:
-            state.ore_ax.add(t)
+        match env:
+            case Environment.ORE_TITANIUM:
+                state.ore_ti.add(t)
+            case Environment.ORE_AXIONITE:
+                state.ore_ax.add(t)
 
         bid = ct.get_tile_building_id(t)
         if bid is not None:
             etype = ct.get_entity_type(bid)
-            team = ct.get_team(bid)
-            new_ent = (etype, team)
-            state.entity[i] = new_ent
-            if new_ent != old_ent or env != old_env:
+            bld = _make_building(ct, bid, etype)
+            state.building[i] = bld
+            if bld != old_bld or env != old_env:
                 changed.append(t)
 
-            if etype in DIRECTED_BUILDINGS:
-                state.direction[i] = ct.get_direction(bid)
-                state.bridge_target[i] = None
-            elif etype == EntityType.BRIDGE:
-                state.direction[i] = None
-                state.bridge_target[i] = ct.get_bridge_target(bid)
-            elif etype == EntityType.MARKER and team == state.my_team:
-                state.direction[i] = None
-                state.bridge_target[i] = None
-                msg = decode_marker(ct.get_marker_value(bid))
-                if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
-                    state.claims.add(msg)
-                elif isinstance(msg, Eureka) and state.symmetry is None:
-                    state.symmetry = Symmetry(msg.symmetry)
-                    _reflect_all(state)
-            else:
-                state.direction[i] = None
-                state.bridge_target[i] = None
-
-            if (
-                state.en_core is None
-                and etype == EntityType.CORE
-                and team != state.my_team
-            ):
-                state.en_core = t
-                state.en_core_tiles = tiles_3x3(t, state.w, state.h)
+            match bld:
+                case Marker(team) if team == state.my_team:
+                    msg = decode_marker(bld.value)
+                    match msg:
+                        case TaskClaim() if not is_stale(msg, rnd):
+                            state.claims.add(msg)
+                        case Eureka() if state.symmetry is None:
+                            state.symmetry = Symmetry(msg.symmetry)
+                            _reflect_all(state)
+                case CoreBuilding(team) if (
+                    team != state.my_team and state.en_core is None
+                ):
+                    state.en_core = t
+                    state.en_core_tiles = tiles_3x3(t, state.w, state.h)
         else:
-            state.entity[i] = None
-            state.direction[i] = None
-            state.bridge_target[i] = None
-            if old_ent is not None or env != old_env:
+            state.building[i] = None
+            if old_bld is not None or env != old_env:
                 changed.append(t)
 
         new_tiles.append((t, env))
@@ -133,37 +169,46 @@ def _rebuild_sets(state: State) -> None:
     state.en_barriers.clear()
 
     for i in range(n):
-        ent = state.entity[i]
-        if ent is None:
+        bld = state.building[i]
+        if bld is None:
             continue
-        etype, team = ent
         p = Position(i % w, i // w)
 
-        if team == my_team:
-            match etype:
-                case EntityType.HARVESTER:
+        if bld.team == my_team:
+            match bld:
+                case Harvester():
                     state.my_harvested.add(p)
                     state.my_harvesters.add(p)
-                case _ if etype in TRANSPORT:
+                case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
                     state.my_transport.add(p)
-                case EntityType.FOUNDRY:
+                case Foundry():
                     state.my_foundries.add(p)
-                case _ if etype in TURRETS:
+                case (
+                    GunnerBuilding()
+                    | SentinelBuilding()
+                    | BreachBuilding()
+                    | Launcher()
+                ):
                     state.my_turrets.add(p)
-                case EntityType.BARRIER:
+                case Barrier():
                     state.my_barriers.add(p)
         else:
-            match etype:
-                case EntityType.HARVESTER:
+            match bld:
+                case Harvester():
                     state.en_harvested.add(p)
                     state.en_harvesters.add(p)
-                case _ if etype in TRANSPORT:
+                case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
                     state.en_transport.add(p)
-                case EntityType.FOUNDRY:
+                case Foundry():
                     state.en_foundries.add(p)
-                case _ if etype in TURRETS:
+                case (
+                    GunnerBuilding()
+                    | SentinelBuilding()
+                    | BreachBuilding()
+                    | Launcher()
+                ):
                     state.en_turrets.add(p)
-                case EntityType.BARRIER:
+                case Barrier():
                     state.en_barriers.add(p)
 
 

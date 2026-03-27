@@ -1,4 +1,6 @@
-from cambc import Controller, Direction, EntityType, Position
+from building import Harvester
+from building import Sentinel as SentinelBuilding
+from cambc import Controller, Direction, Position
 from util import DIR8_DELTA
 
 from .build import Action, PlaceBarrier
@@ -12,13 +14,10 @@ def _has_friendly_sentinel_adjacent(state: State, ox: int, oy: int) -> bool:
         if not state.in_bounds(nx, ny):
             continue
         ni = state.idx(nx, ny)
-        ent = state.entity[ni]
-        if (
-            ent is not None
-            and ent[0] == EntityType.SENTINEL
-            and ent[1] == state.my_team
-        ):
-            return True
+        bld = state.building[ni]
+        match bld:
+            case SentinelBuilding(team=team) if team == state.my_team:
+                return True
     return False
 
 
@@ -34,9 +33,10 @@ def _best_denied_ore(state: State) -> Position | None:
         op = Position(ox, oy)
         if op in state.my_barriers or op in state.en_barriers:
             continue
-        ent = state.entity[oi]
-        if ent is not None and ent[0] == EntityType.HARVESTER:
-            continue
+        bld = state.building[oi]
+        match bld:
+            case Harvester():
+                continue
         if not _has_friendly_sentinel_adjacent(state, ox, oy):
             continue
         dist = abs(pos.x - ox) + abs(pos.y - oy)
