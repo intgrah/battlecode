@@ -67,7 +67,8 @@ impl App {
 
     pub fn reload(&mut self, replay: proto::Replay) {
         self.game = GameState::from_replay(&replay);
-        self.turn = self.turn.min(self.game.turn_count());
+        self.turn = 0;
+        self.playing = false;
         self.selected_entity = None;
         self.follow_entity = false;
         self.needs_redraw = true;
