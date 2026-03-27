@@ -616,20 +616,21 @@ def run_builder(player: Player, ct: Controller) -> None:
         ht = player.heal_target
         if ht is not None:
             # If another builder is already on our bridge target, give up
-            if ht != player.core_pos and ct.is_in_vision(ht):
-                other = ct.get_tile_builder_bot_id(ht)
-                if other is not None and other != ct.get_id():
-                    player.mode = player.original_mode
-                    player.target = None
-                    player.wander_target = None
-                    player.heal_target = None
-                    return
+            #if ht != player.core_pos and ct.is_in_vision(ht):
+            #    other = ct.get_tile_builder_bot_id(ht)
+            #    if other is not None and other != ct.get_id():
+            #        player.mode = player.original_mode
+            #        player.target = None
+            #        player.wander_target = None
+            #        player.heal_target = None
+            #        return
             if ct.is_in_vision(ht):
                 bid = ct.get_tile_building_id(ht)
                 if bid is not None and ct.get_hp(bid) < ct.get_max_hp(bid):
                     if ct.can_heal(pos):
                         ct.heal(pos)
-                elif ht == player.core_pos:
+                        return
+                elif pos == player.heal_target:
                     player.mode = player.original_mode
                     player.target = None
                     player.wander_target = None
