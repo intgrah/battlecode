@@ -16,7 +16,12 @@ mod sprites;
 mod state;
 mod ui;
 
-use std::{env, fs, io, path::Path, process, time::{Duration, SystemTime}};
+use std::{
+    env, fs, io,
+    path::Path,
+    process,
+    time::{Duration, SystemTime},
+};
 
 use crossterm::{
     ExecutableCommand,
