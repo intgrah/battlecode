@@ -5,6 +5,9 @@ _analysis := "cd scripts && python -m analysis"
 run a b map=default_map:
     cambc run {{a}} {{b}} {{map}}
 
+v replay="replay.replay26":
+    v/target/release/v {{replay}}
+
 w replay="replay.replay26":
     cambc watch {{replay}}
 
