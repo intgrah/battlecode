@@ -21,8 +21,7 @@ def move_toward(
         return Direction.CENTRE
     search = NavAstar(state, pos.x, pos.y, target.x, target.y)
     search.set_budget(ct, 5000)
-    search.compute()
-    raw = search.get_path()
+    raw = search.compute()
     if raw is None or len(raw) < 2:
         return Direction.CENTRE
     w = state.w
@@ -70,10 +69,9 @@ def move_toward_with_road(
     if state.nav_search is None:
         state.nav_search = NavAstar(state, pos.x, pos.y, target.x, target.y)
     state.nav_search.set_budget(ct, 1800)
-    state.nav_search.compute()
-    if not state.nav_search.done:
+    raw = state.nav_search.compute()
+    if not state.nav_search.exhausted:
         return Direction.CENTRE, None
-    raw = state.nav_search.get_path()
     if raw is None or len(raw) < 2:
         return Direction.CENTRE, None
     state.nav_path = raw

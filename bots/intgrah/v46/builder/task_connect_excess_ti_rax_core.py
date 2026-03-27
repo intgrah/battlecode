@@ -119,9 +119,8 @@ def connect_excess_ti_rax_core(
             )
             state.ti_cached_source = start
         state.ti_flow_search.set_budget(ct, 1200)
-        state.ti_flow_search.compute()
-        path = state.ti_flow_search.get_path()
-        if state.ti_flow_search.done:
+        path = state.ti_flow_search.compute()
+        if state.ti_flow_search.exhausted:
             state.ti_flow_search = None
         state.ti_cached_path = path
     if path is None or len(path) < 2:

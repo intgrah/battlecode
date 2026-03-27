@@ -1,9 +1,3 @@
-"""
-A*.
-
-Heuristic-guided single source shortest path (SSSP).
-"""
-
 import heapq
 
 INF = 1_000_000
@@ -11,22 +5,21 @@ INF = 1_000_000
 
 class Astar[T]:
     def __init__(self, source: T, goals: set[T]) -> None:
-        self.done = False
+        self._done = False
         self._result: list[T] | None = None
-        self.goals = goals
+        self._goals = goals
 
         if source in goals:
-            self.done = True
+            self._done = True
             self._result = [source]
             return
 
-        self.g: dict[T, int] = {source: 0}
-        self.parent: dict[T, T | None] = {source: None}
+        self._g: dict[T, int] = {source: 0}
+        self._parent: dict[T, T | None] = {source: None}
         self._best_h = INF
         self._best_node = source
-        self.total_expanded = 0
         h0 = self.heuristic(source)
-        self.heap: list[tuple[int, int, T]] = [(h0, 0, source)]
+        self._heap: list[tuple[int, int, T]] = [(h0, 0, source)]
 
     def get_neighbors(self, node: T) -> list[tuple[T, int]]:
         raise NotImplementedError
@@ -42,18 +35,18 @@ class Astar[T]:
         current: T | None = node
         while current is not None:
             path.append(current)
-            current = self.parent.get(current)
+            current = self._parent.get(current)
         path.reverse()
         return path
 
-    def compute(self) -> None:
-        if self.done:
-            return
+    def compute(self) -> list[T] | None:
+        if self._done:
+            return self._result
 
-        g = self.g
-        parent = self.parent
-        heap = self.heap
-        goals = self.goals
+        g = self._g
+        parent = self._parent
+        heap = self._heap
+        goals = self._goals
 
         expanded = 0
         while heap:
@@ -64,13 +57,12 @@ class Astar[T]:
 
             if node in goals:
                 self._result = self._extract_path(node)
-                self.done = True
-                return
+                self._done = True
+                return self._result
 
             expanded += 1
-            self.total_expanded += 1
             if expanded & 15 == 0 and not self.should_continue():
-                return
+                break
 
             g_node = g[node]
             for neighbor, cost in self.get_neighbors(node):
@@ -86,11 +78,14 @@ class Astar[T]:
                     self._best_node = neighbor
 
         if not heap:
-            self.done = True
+            self._done = True
 
-    def get_path(self) -> list[T] | None:
         if self._result is not None:
             return self._result
         if self._best_h < INF:
             return self._extract_path(self._best_node)
         return None
+
+    @property
+    def exhausted(self) -> bool:
+        return self._done
