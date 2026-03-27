@@ -70,8 +70,7 @@ def repair_bridge(
     core_goals = {state.idx(p.x, p.y) for p in state.my_core_tiles}
     search = BridgeFlowAstar(state, bx, by, core_goals, AX)
     search.set_budget(ct, 800)
-    search.compute()
-    path = search.get_path()
+    path = search.compute()
     if path is None or len(path) < 2:
         return None
     w = state.w

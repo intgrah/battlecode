@@ -1,5 +1,5 @@
 from builder.state import State
-from cambc import EntityType, Position
+from cambc import EntityType
 from flow_astar import COST_REUSE, RAX, TI, FlowAstar
 
 

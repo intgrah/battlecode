@@ -105,9 +105,8 @@ def connect_excess_ax_ti_conv(
             )
             state.ax_cached_source = start
         state.ax_flow_search.set_budget(ct, 1200)
-        state.ax_flow_search.compute()
-        path = state.ax_flow_search.get_path()
-        if state.ax_flow_search.done:
+        path = state.ax_flow_search.compute()
+        if state.ax_flow_search.exhausted:
             state.ax_flow_search = None
         state.ax_cached_path = path
     if path is None or len(path) < 2:

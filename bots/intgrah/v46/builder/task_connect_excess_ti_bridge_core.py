@@ -102,9 +102,8 @@ def connect_excess_ti_bridge_core(
             )
             state.bridge_cached_source = start
         state.bridge_flow_search.set_budget(ct, 1200)
-        state.bridge_flow_search.compute()
-        path = state.bridge_flow_search.get_path()
-        if state.bridge_flow_search.done:
+        path = state.bridge_flow_search.compute()
+        if state.bridge_flow_search.exhausted:
             state.bridge_flow_search = None
         state.bridge_cached_path = path
     if path is None or len(path) < 2:
