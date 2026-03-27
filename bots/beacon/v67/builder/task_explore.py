@@ -1,0 +1,97 @@
+"""Expanding-ring exploration.
+
+Maintains a Chebyshev-distance ring centered on the core. The ring
+advances (by 3) when all perimeter tiles have been seen. The builder
+navigates to a random unseen tile on the ring's frontier.
+
+Commitment: once a target is picked, it persists until the tile is seen
+(builder walks close enough for it to enter vision). This prevents
+oscillation between candidates.
+"""
+
+from random import Random
+
+from cambc import Controller, Direction, Position
+
+from .build import Action
+from .helpers import move_toward_with_road
+from .state import State
+
+
+def _physically_unseen(state: State, x: int, y: int) -> bool:
+    """True if tile has never been in any unit's vision."""
+    return state.last_seen[y * state.w + x] == 0
+
+
+def explore(
+    state: State,
+    ct: Controller,
+) -> tuple[Direction, Action | None] | None:
+    _advance_frontier(state)
+    if state.explore_target is not None and not _physically_unseen(
+        state,
+        state.explore_target.x,
+        state.explore_target.y,
+    ):
+        state.explore_target = None
+    if state.explore_target is None:
+        state.explore_target = _pick_frontier_target(state)
+    if state.explore_target is None:
+        # All tiles explored — reset radius to re-patrol unseen areas
+        state.explore_radius = 0
+        state.explore_target = _pick_frontier_target(state)
+    if state.explore_target is None:
+        return None
+    move, build = move_toward_with_road(state, ct, state.explore_target)
+    state.debug_target = (state.explore_target, 0, 0, 255)
+    return move, build
+
+
+def _advance_frontier(state: State) -> None:
+    cx, cy = state.my_core
+    limit = max(state.w, state.h)
+    while state.explore_radius < limit:
+        r = state.explore_radius + 1
+        if _ring_has_unseen(state, cx, cy, r):
+            break
+        state.explore_radius = r
+
+
+def _ring_has_unseen(state: State, cx: int, cy: int, r: int) -> bool:
+    x0, x1 = max(0, cx - r), min(state.w - 1, cx + r)
+    y0, y1 = max(0, cy - r), min(state.h - 1, cy + r)
+    for x in range(x0, x1 + 1):
+        if _physically_unseen(state, x, y0):
+            return True
+        if _physically_unseen(state, x, y1):
+            return True
+    for y in range(y0 + 1, y1):
+        if _physically_unseen(state, x0, y):
+            return True
+        if _physically_unseen(state, x1, y):
+            return True
+    return False
+
+
+def _pick_frontier_target(state: State) -> Position | None:
+    cx, cy = state.my_core
+    pos = state.pos
+    r = state.explore_radius + 3
+    x0, x1 = max(0, cx - r), min(state.w - 1, cx + r)
+    y0, y1 = max(0, cy - r), min(state.h - 1, cy + r)
+    candidates: list[tuple[int, int]] = []
+    for x in range(x0, x1 + 1):
+        if _physically_unseen(state, x, y0):
+            candidates.append((x, y0))
+        if _physically_unseen(state, x, y1):
+            candidates.append((x, y1))
+    for y in range(y0 + 1, y1):
+        if _physically_unseen(state, x0, y):
+            candidates.append((x0, y))
+        if _physically_unseen(state, x1, y):
+            candidates.append((x1, y))
+    if not candidates:
+        return None
+    rng = Random(hash((pos.x, pos.y, state.explore_radius)))
+    c = candidates[rng.randrange(len(candidates))]
+    return Position(c[0], c[1])
