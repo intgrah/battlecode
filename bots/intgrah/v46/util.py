@@ -41,34 +41,6 @@ DELTA_TO_DIR = {
     (-1, -1): Direction.NORTHWEST,
 }
 
-WALKABLE_BUILDINGS = frozenset(
-    (
-        EntityType.ROAD,
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-        EntityType.BRIDGE,
-    ),
-)
-
-TRANSPORT = frozenset(
-    (
-        EntityType.CONVEYOR,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.SPLITTER,
-        EntityType.BRIDGE,
-    ),
-)
-
-TURRETS = frozenset(
-    (
-        EntityType.GUNNER,
-        EntityType.SENTINEL,
-        EntityType.BREACH,
-        EntityType.LAUNCHER,
-    ),
-)
-
 
 def tiles_3x3(core: Position, w: int, h: int) -> set[Position]:
     return {
