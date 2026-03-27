@@ -1,4 +1,5 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::terminal;
 use ratatui::{
     prelude::*,
     widgets::{Block, Borders, Gauge, Paragraph, Wrap},
@@ -9,6 +10,18 @@ use crate::proto;
 use crate::renderer;
 use crate::sprites::SpriteAtlas;
 use crate::state::{Entity, EntityKind, GameState};
+
+fn query_cell_size() -> (u16, u16) {
+    terminal::window_size().map_or((8, 16), |ws| {
+        let cw = if ws.columns > 0 {
+            ws.width / ws.columns
+        } else {
+            8
+        };
+        let ch = if ws.rows > 0 { ws.height / ws.rows } else { 16 };
+        (cw, ch)
+    })
+}
 
 pub struct App {
     game: GameState,
@@ -26,6 +39,7 @@ pub struct App {
     needs_redraw: bool,
     map_area: Option<Rect>,
     scrubber_area: Option<Rect>,
+    cell_size: (u16, u16),
 }
 
 impl App {
@@ -47,6 +61,7 @@ impl App {
             needs_redraw: true,
             map_area: None,
             scrubber_area: None,
+            cell_size: query_cell_size(),
         }
     }
 
@@ -69,7 +84,7 @@ impl App {
         }
     }
 
-    fn step_backward(&mut self, n: usize) {
+    const fn step_backward(&mut self, n: usize) {
         let old = self.turn;
         self.turn = self.turn.saturating_sub(n);
         if self.turn != old {
@@ -99,8 +114,8 @@ impl App {
             KeyCode::Char(' ') => self.playing = !self.playing,
             KeyCode::Right => self.step_forward(1),
             KeyCode::Left => self.step_backward(1),
-            KeyCode::Char('L') | KeyCode::Char('>') => self.step_forward(10),
-            KeyCode::Char('H') | KeyCode::Char('<') => self.step_backward(10),
+            KeyCode::Up | KeyCode::Char('L' | '>') => self.step_forward(10),
+            KeyCode::Down | KeyCode::Char('H' | '<') => self.step_backward(10),
             KeyCode::Home | KeyCode::Char('g') => {
                 self.turn = 0;
                 self.needs_redraw = true;
@@ -112,11 +127,11 @@ impl App {
             KeyCode::Char('+' | '=') => self.speed = (self.speed + 1).min(8),
             KeyCode::Char('-') if !shift => self.speed = (self.speed - 1).max(0),
 
-            KeyCode::Char('k') | KeyCode::Up => {
+            KeyCode::Char('k') => {
                 self.cursor.1 = (self.cursor.1 - 1).max(0);
                 self.needs_redraw = true;
             }
-            KeyCode::Char('j') | KeyCode::Down => {
+            KeyCode::Char('j') => {
                 self.cursor.1 = (self.cursor.1 + 1).min(self.game.height - 1);
                 self.needs_redraw = true;
             }
@@ -178,40 +193,38 @@ impl App {
 
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) | MouseEventKind::Drag(MouseButton::Left) => {
-                if let Some(scrub) = self.scrubber_area {
-                    if row >= scrub.y
-                        && row < scrub.y + scrub.height
-                        && col >= scrub.x
-                        && col < scrub.x + scrub.width
-                    {
-                        let frac = f64::from(col - scrub.x) / f64::from(scrub.width);
-                        self.turn = (frac * self.game.turn_count() as f64) as usize;
-                        self.turn = self.turn.min(self.game.turn_count());
-                        self.needs_redraw = true;
-                        return;
-                    }
+                if let Some(scrub) = self.scrubber_area
+                    && row >= scrub.y
+                    && row < scrub.y + scrub.height
+                    && col >= scrub.x
+                    && col < scrub.x + scrub.width
+                {
+                    let frac = f64::from(col - scrub.x) / f64::from(scrub.width);
+                    self.turn = (frac * self.game.turn_count() as f64) as usize;
+                    self.turn = self.turn.min(self.game.turn_count());
+                    self.needs_redraw = true;
+                    return;
                 }
 
-                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
-                    if let Some(map) = self.map_area {
-                        if row >= map.y
-                            && row < map.y + map.height
-                            && col >= map.x
-                            && col < map.x + map.width
-                        {
-                            let ts = self.atlas.tile_size;
-                            let chars_per_tile_x = ts / 2;
-                            let chars_per_tile_y = ts / 4;
-                            if chars_per_tile_x > 0 && chars_per_tile_y > 0 {
-                                let gx = i32::from(col - map.x) / chars_per_tile_x as i32;
-                                let gy = i32::from(row - map.y) / chars_per_tile_y as i32;
-                                let gx = gx.clamp(0, self.game.width - 1);
-                                let gy = gy.clamp(0, self.game.height - 1);
-                                self.cursor = (gx, gy);
-                                self.select_at_cursor();
-                                self.needs_redraw = true;
-                            }
-                        }
+                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
+                    && let Some(map) = self.map_area
+                    && row >= map.y
+                    && row < map.y + map.height
+                    && col >= map.x
+                    && col < map.x + map.width
+                {
+                    let ts = self.atlas.tile_size;
+                    let (cw, ch) = self.cell_size;
+                    if cw > 0 && ch > 0 {
+                        let px = u32::from(col - map.x) * u32::from(cw);
+                        let py = u32::from(row - map.y) * u32::from(ch);
+                        let gx = (px / ts) as i32;
+                        let gy = (py / ts) as i32;
+                        let gx = gx.clamp(0, self.game.width - 1);
+                        let gy = gy.clamp(0, self.game.height - 1);
+                        self.cursor = (gx, gy);
+                        self.select_at_cursor();
+                        self.needs_redraw = true;
                     }
                 }
             }
@@ -256,15 +269,15 @@ impl App {
             return;
         }
 
-        if self.follow_entity {
-            if let Some(id) = self.selected_entity {
-                let state = &self.game.turns[self.turn];
-                if let Some(e) = state.entities.get(&id) {
-                    if self.cursor != e.pos {
-                        self.cursor = e.pos;
-                        self.needs_redraw = true;
-                    }
-                }
+        if self.follow_entity
+            && let Some(id) = self.selected_entity
+        {
+            let state = &self.game.turns[self.turn];
+            if let Some(e) = state.entities.get(&id)
+                && self.cursor != e.pos
+            {
+                self.cursor = e.pos;
+                self.needs_redraw = true;
             }
         }
 
@@ -331,21 +344,19 @@ impl App {
             .wrap(Wrap { trim: false });
         frame.render_widget(status_widget, chunks[0]);
 
-        let inspector_text = if let Some(id) = self.selected_entity {
-            if let Some(e) = state.entities.get(&id) {
-                format_entity_info(e)
-            } else {
-                format_tile_info(&self.game, self.cursor)
-            }
-        } else {
-            format_tile_info(&self.game, self.cursor)
-        };
+        let inspector_text = self
+            .selected_entity
+            .and_then(|id| state.entities.get(&id))
+            .map_or_else(
+                || format_tile_info(&self.game, self.cursor),
+                format_entity_info,
+            );
         let inspector = Paragraph::new(inspector_text)
             .block(Block::default().borders(Borders::ALL).title(" Inspector "))
             .wrap(Wrap { trim: false });
         frame.render_widget(inspector, chunks[1]);
 
-        let log_text: String = if let Some(id) = self.selected_entity {
+        let log_text: String = self.selected_entity.map_or_else(String::new, |id| {
             state
                 .outputs
                 .iter()
@@ -353,9 +364,7 @@ impl App {
                 .map(|(_, s)| s.as_str())
                 .collect::<Vec<_>>()
                 .join("\n")
-        } else {
-            String::new()
-        };
+        });
         let log = Paragraph::new(log_text)
             .block(Block::default().borders(Borders::ALL).title(" Log "))
             .wrap(Wrap { trim: false });
@@ -383,14 +392,14 @@ impl App {
 }
 
 fn format_entity_info(e: &Entity) -> String {
+    use std::fmt::Write;
     let team = match e.team {
         proto::Team::A => "A",
         proto::Team::B => "B",
     };
     let kind_name = match &e.kind {
         EntityKind::BuilderBot { .. } => "Builder Bot",
-        EntityKind::Core { .. } => "Core",
-        EntityKind::CoreEdge { .. } => "Core",
+        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } => "Core",
         EntityKind::Conveyor { .. } => "Conveyor",
         EntityKind::ArmouredConveyor { .. } => "Armoured Conv",
         EntityKind::Splitter { .. } => "Splitter",
@@ -411,27 +420,28 @@ fn format_entity_info(e: &Entity) -> String {
     );
     match &e.kind {
         EntityKind::BuilderBot { action_cd, move_cd } => {
-            s.push_str(&format!("\nAct CD: {action_cd}\nMov CD: {move_cd}"));
+            let _ = write!(s, "\nAct CD: {action_cd}\nMov CD: {move_cd}");
         }
         EntityKind::Bridge { target, stored } => {
-            s.push_str(&format!(
+            let _ = write!(
+                s,
                 "\nTarget: ({},{})\nStored: {stored:?}",
                 target.0, target.1
-            ));
+            );
         }
         EntityKind::Conveyor { dir, stored }
         | EntityKind::ArmouredConveyor { dir, stored }
         | EntityKind::Splitter { dir, stored } => {
-            s.push_str(&format!("\nDir: {dir:?}\nStored: {stored:?}"));
+            let _ = write!(s, "\nDir: {dir:?}\nStored: {stored:?}");
         }
         EntityKind::Harvester {
             cooldown,
             resource_type,
         } => {
-            s.push_str(&format!("\nCD: {cooldown}\nRes: {resource_type:?}"));
+            let _ = write!(s, "\nCD: {cooldown}\nRes: {resource_type:?}");
         }
         EntityKind::Marker { value } => {
-            s.push_str(&format!("\nValue: {value:#010x}"));
+            let _ = write!(s, "\nValue: {value:#010x}");
         }
         EntityKind::Gunner {
             dir,
@@ -448,7 +458,7 @@ fn format_entity_info(e: &Entity) -> String {
             ammo_type,
             ammo,
         } => {
-            s.push_str(&format!("\nDir: {dir:?}\nAmmo: {ammo} {ammo_type:?}"));
+            let _ = write!(s, "\nDir: {dir:?}\nAmmo: {ammo} {ammo_type:?}");
         }
         _ => {}
     }

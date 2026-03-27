@@ -39,7 +39,7 @@ fn main() -> io::Result<()> {
     let exe_path = env::current_exe().unwrap_or_default();
     let assets_dir = exe_path
         .parent()
-        .unwrap_or(Path::new("."))
+        .unwrap_or_else(|| Path::new("."))
         .join("../assets");
     let assets_dir = if assets_dir.exists() {
         assets_dir
@@ -56,7 +56,7 @@ fn main() -> io::Result<()> {
     terminal::enable_raw_mode()?;
     let mut term = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
-    loop {
+    'main: loop {
         term.draw(|f| app.render(f))?;
         app.render_map_if_needed();
 
@@ -67,10 +67,15 @@ fn main() -> io::Result<()> {
         };
 
         if event::poll(timeout)? {
-            match event::read()? {
-                Event::Key(key) if app.handle_key(key) => break,
-                Event::Mouse(mouse) => app.handle_mouse(mouse),
-                _ => {}
+            loop {
+                match event::read()? {
+                    Event::Key(key) if app.handle_key(key) => break 'main,
+                    Event::Mouse(mouse) => app.handle_mouse(mouse),
+                    _ => {}
+                }
+                if !event::poll(Duration::ZERO)? {
+                    break;
+                }
             }
         } else if app.playing {
             app.step_forward(1);

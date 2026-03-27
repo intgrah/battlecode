@@ -317,7 +317,7 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
     }
 }
 
-fn get_stored_resource(kind: &EntityKind) -> Option<proto::ResourceType> {
+const fn get_stored_resource(kind: &EntityKind) -> Option<proto::ResourceType> {
     match kind {
         EntityKind::Conveyor { stored, .. }
         | EntityKind::ArmouredConveyor { stored, .. }
@@ -329,7 +329,7 @@ fn get_stored_resource(kind: &EntityKind) -> Option<proto::ResourceType> {
     }
 }
 
-fn set_stored_resource(kind: &mut EntityKind, res: proto::ResourceType) {
+const fn set_stored_resource(kind: &mut EntityKind, res: proto::ResourceType) {
     match kind {
         EntityKind::Conveyor { stored, .. }
         | EntityKind::ArmouredConveyor { stored, .. }

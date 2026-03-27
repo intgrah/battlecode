@@ -95,14 +95,12 @@ pub fn render_map(
         if !matches!(
             e.kind,
             EntityKind::Core { .. } | EntityKind::CoreEdge { .. }
-        ) {
-            if let Some(res_name) = entity_resource_sprite(e) {
-                if let Some(res_sprite) = atlas.get(res_name) {
-                    let rpx = e.pos.0 as u32 * ts;
-                    let rpy = e.pos.1 as u32 * ts;
-                    imageops::overlay(&mut img, res_sprite, i64::from(rpx), i64::from(rpy));
-                }
-            }
+        ) && let Some(res_name) = entity_resource_sprite(e)
+            && let Some(res_sprite) = atlas.get(res_name)
+        {
+            let rpx = e.pos.0 as u32 * ts;
+            let rpy = e.pos.1 as u32 * ts;
+            imageops::overlay(&mut img, res_sprite, i64::from(rpx), i64::from(rpy));
         }
     }
 
@@ -126,19 +124,19 @@ pub fn render_map(
         }
     }
 
-    if let Some(sel_id) = selected_entity {
-        if let Some(e) = turn_state.entities.get(&sel_id) {
-            let px = e.pos.0 as u32 * ts;
-            let py = e.pos.1 as u32 * ts;
-            draw_border(&mut img, px, py, ts, ts, SELECTED_COLOR, 2);
+    if let Some(sel_id) = selected_entity
+        && let Some(e) = turn_state.entities.get(&sel_id)
+    {
+        let px = e.pos.0 as u32 * ts;
+        let py = e.pos.1 as u32 * ts;
+        draw_border(&mut img, px, py, ts, ts, SELECTED_COLOR, 2);
 
-            if let EntityKind::Bridge { target, .. } = &e.kind {
-                let tx = target.0 as u32 * ts + ts / 2;
-                let ty = target.1 as u32 * ts + ts / 2;
-                let sx = px + ts / 2;
-                let sy = py + ts / 2;
-                draw_line(&mut img, sx, sy, tx, ty, Rgba([0x00, 0xff, 0x00, 0xc0]));
-            }
+        if let EntityKind::Bridge { target, .. } = &e.kind {
+            let tx = target.0 as u32 * ts + ts / 2;
+            let ty = target.1 as u32 * ts + ts / 2;
+            let sx = px + ts / 2;
+            let sy = py + ts / 2;
+            draw_line(&mut img, sx, sy, tx, ty, Rgba([0x00, 0xff, 0x00, 0xc0]));
         }
     }
 
@@ -158,8 +156,7 @@ fn entity_sprite_name(e: &Entity) -> String {
     };
     match &e.kind {
         EntityKind::BuilderBot { .. } => format!("builderbot_front_{team}"),
-        EntityKind::Core { .. } => format!("base_{team}"),
-        EntityKind::CoreEdge { .. } => format!("base_{team}"),
+        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } => format!("base_{team}"),
         EntityKind::Conveyor { .. } => format!("conveyor_{team}"),
         EntityKind::ArmouredConveyor { .. } => format!("armoured_conveyor_{team}"),
         EntityKind::Splitter { dir, .. } => {
@@ -188,9 +185,9 @@ fn entity_sprite_name(e: &Entity) -> String {
     }
 }
 
-fn dir_suffix(dir: proto::Direction) -> &'static str {
+const fn dir_suffix(dir: proto::Direction) -> &'static str {
     match dir {
-        proto::Direction::DirNorth => "n",
+        proto::Direction::DirNorth | proto::Direction::DirCentre => "n",
         proto::Direction::DirNortheast => "ne",
         proto::Direction::DirEast => "e",
         proto::Direction::DirSoutheast => "se",
@@ -198,11 +195,10 @@ fn dir_suffix(dir: proto::Direction) -> &'static str {
         proto::Direction::DirSouthwest => "sw",
         proto::Direction::DirWest => "w",
         proto::Direction::DirNorthwest => "nw",
-        proto::Direction::DirCentre => "n",
     }
 }
 
-fn entity_resource_sprite(e: &Entity) -> Option<&'static str> {
+const fn entity_resource_sprite(e: &Entity) -> Option<&'static str> {
     let res = match &e.kind {
         EntityKind::Conveyor { stored, .. }
         | EntityKind::ArmouredConveyor { stored, .. }
@@ -219,7 +215,7 @@ fn entity_resource_sprite(e: &Entity) -> Option<&'static str> {
     }
 }
 
-fn entity_z_order(kind: &EntityKind) -> i32 {
+const fn entity_z_order(kind: &EntityKind) -> i32 {
     match kind {
         EntityKind::Road => 0,
         EntityKind::Marker { .. } => 1,
@@ -288,7 +284,7 @@ fn fill_rect_alpha(img: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, color: R
 }
 
 fn blend_channel(bg: u8, fg: u8, a: f32) -> u8 {
-    (f32::from(bg) * (1.0 - a) + f32::from(fg) * a) as u8
+    f32::from(bg).mul_add(1.0 - a, f32::from(fg) * a) as u8
 }
 
 #[allow(
@@ -305,7 +301,7 @@ fn overlay_beam(
 ) {
     let dx = to.0 - from.0;
     let dy = to.1 - from.1;
-    let length = (dx * dx + dy * dy).sqrt();
+    let length = dx.hypot(dy);
     if length < 0.5 {
         return;
     }
@@ -315,15 +311,15 @@ fn overlay_beam(
     let vx = -uy;
     let vy = ux;
 
-    let beam_w = beam.width() as f64;
-    let beam_h = beam.height() as f64;
+    let beam_w = f64::from(beam.width());
+    let beam_h = f64::from(beam.height());
     let half_w = width / 2.0;
 
     let corners = [
-        (from.0 - vx * half_w, from.1 - vy * half_w),
-        (from.0 + vx * half_w, from.1 + vy * half_w),
-        (to.0 - vx * half_w, to.1 - vy * half_w),
-        (to.0 + vx * half_w, to.1 + vy * half_w),
+        (vx.mul_add(-half_w, from.0), vy.mul_add(-half_w, from.1)),
+        (vx.mul_add(half_w, from.0), vy.mul_add(half_w, from.1)),
+        (vx.mul_add(-half_w, to.0), vy.mul_add(-half_w, to.1)),
+        (vx.mul_add(half_w, to.0), vy.mul_add(half_w, to.1)),
     ];
     let min_x = corners.iter().map(|c| c.0).fold(f64::MAX, f64::min).floor() as i32;
     let max_x = corners.iter().map(|c| c.0).fold(f64::MIN, f64::max).ceil() as i32;
@@ -335,11 +331,11 @@ fn overlay_beam(
 
     for py in min_y.max(0)..max_y.min(img_h) {
         for px in min_x.max(0)..max_x.min(img_w) {
-            let rel_x = px as f64 - from.0;
-            let rel_y = py as f64 - from.1;
+            let rel_x = f64::from(px) - from.0;
+            let rel_y = f64::from(py) - from.1;
 
-            let along = rel_x * ux + rel_y * uy;
-            let across = rel_x * vx + rel_y * vy;
+            let along = rel_x.mul_add(ux, rel_y * uy);
+            let across = rel_x.mul_add(vx, rel_y * vy);
 
             let src_y = along / length * beam_h;
             let src_x = (across / width + 0.5) * beam_w;
@@ -350,7 +346,7 @@ fn overlay_beam(
                 let src_pixel = beam.get_pixel(sx, sy);
                 if src_pixel.0[3] > 0 {
                     let bg = img.get_pixel(px as u32, py as u32);
-                    let a = src_pixel.0[3] as f32 / 255.0;
+                    let a = f32::from(src_pixel.0[3]) / 255.0;
                     let blended = Rgba([
                         blend_channel(bg.0[0], src_pixel.0[0], a),
                         blend_channel(bg.0[1], src_pixel.0[1], a),
