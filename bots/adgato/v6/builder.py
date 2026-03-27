@@ -1797,7 +1797,7 @@ def _destroy_conveyor(player: Player, ct: Controller, pos: Position) -> None:
         print(
             f"DestroyConveyor E{ct.get_id()}: self-destructing on conveyor at {pos}",
         )
-        ct.self_destruct()
+        if ct.can_fire(): ct.fire()
 
 
 # ── Protect state ─────────────────────────────────────────────────────

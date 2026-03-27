@@ -109,7 +109,7 @@ def run_core(player: Player, ct: Controller) -> None:
 
     can_afford = funds > builder_cost * 2 + harvester_cost + 100
 
-    if can_afford:
+    if can_afford and ct.get_current_round() > 100:
         for bid in ct.get_nearby_buildings():
             if (
                 ct.get_entity_type(bid) == EntityType.BRIDGE
