@@ -1,18 +1,12 @@
 from building import BuildingHarvester, BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Position
 from marker import TaskKind
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, rotate_cw
 
 from .build import Action, PlaceBarrier, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
 from .task_secure_ore import _best_ore as _secure_best_ore
-
-DIR8_IDX = {d: i for i, d in enumerate(DIR8)}
-
-
-def _rotate_cw(d: Direction, steps: int) -> Direction:
-    return DIR8[(DIR8_IDX[d] + steps) % 8]
 
 
 def _best_deny_target(
@@ -105,8 +99,8 @@ def deny_enemy_harvester(
                         continue
             sentinel_pos = Position(sx, sy)
             card_dir = DELTA_TO_DIR[(dx, dy)]
-            facing_cw3 = _rotate_cw(card_dir, 3)
-            facing_cw5 = _rotate_cw(card_dir, 5)
+            facing_cw3 = rotate_cw(card_dir, 3)
+            facing_cw5 = rotate_cw(card_dir, 5)
 
             if pos.distance_squared(sentinel_pos) <= 2 and pos != sentinel_pos:
                 bid = ct.get_tile_building_id(sentinel_pos)
