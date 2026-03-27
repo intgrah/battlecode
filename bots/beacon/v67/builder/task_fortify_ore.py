@@ -3,7 +3,6 @@ on the cardinal sides facing toward the enemy, and barriers on the other 2.
 Waits for resources if needed.
 """
 
-from random import Random
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 from marker import TaskClaim, TaskKind
@@ -38,7 +37,11 @@ def _sentinel_dirs(state: State, ox: int, oy: int) -> set[tuple[int, int]]:
         if not state.in_bounds(ax, ay):
             continue
         env = state.env[state.idx(ax, ay)]
-        if env == Environment.WALL or env == Environment.ORE_TITANIUM or env == Environment.ORE_AXIONITE:
+        if (
+            env == Environment.WALL
+            or env == Environment.ORE_TITANIUM
+            or env == Environment.ORE_AXIONITE
+        ):
             continue
         # Lower distance to target = more toward enemy = higher priority
         dist = abs(ax - tx) + abs(ay - ty)
@@ -47,9 +50,7 @@ def _sentinel_dirs(state: State, ox: int, oy: int) -> set[tuple[int, int]]:
     return {d for _, d in scored[:2]}
 
 
-def _needs_work(
-    state: State, ox: int, oy: int
-) -> tuple[int, int, bool] | None:
+def _needs_work(state: State, ox: int, oy: int) -> tuple[int, int, bool] | None:
     """Return the first cardinal neighbor that needs a sentinel or barrier.
 
     Returns (ax, ay, is_sentinel) or None if fully fortified.
@@ -61,7 +62,11 @@ def _needs_work(
         if not state.in_bounds(ax, ay):
             continue
         env = state.env[state.idx(ax, ay)]
-        if env == Environment.WALL or env == Environment.ORE_TITANIUM or env == Environment.ORE_AXIONITE:
+        if (
+            env == Environment.WALL
+            or env == Environment.ORE_TITANIUM
+            or env == Environment.ORE_AXIONITE
+        ):
             continue
         ent = state.entity[state.idx(ax, ay)]
         # Skip if any friendly defensive building already here

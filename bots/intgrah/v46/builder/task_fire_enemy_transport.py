@@ -1,5 +1,4 @@
 from cambc import Controller, Direction, Position
-from util import TRANSPORT
 
 from .build import Action, Fire
 from .helpers import move_toward_with_road

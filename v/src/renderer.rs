@@ -310,7 +310,7 @@ fn fill_rect_alpha(img: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, color: R
 }
 
 fn fill_circle(img: &mut RgbaImage, cx: u32, cy: u32, radius: u32, color: Rgba<u8>) {
-    let r2 = (radius * radius) as i64;
+    let r2 = i64::from(radius * radius);
     let a = f32::from(color.0[3]) / 255.0;
     for py in cy.saturating_sub(radius)..=(cy + radius).min(img.height() - 1) {
         for px in cx.saturating_sub(radius)..=(cx + radius).min(img.width() - 1) {

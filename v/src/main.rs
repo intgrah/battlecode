@@ -71,14 +71,12 @@ fn main() -> io::Result<()> {
         if let Ok(meta) = fs::metadata(replay_path)
             && let Ok(modified) = meta.modified()
             && modified != last_modified
-        {
-            if let Ok(new_data) = fs::read(replay_path)
+            && let Ok(new_data) = fs::read(replay_path)
                 && let Ok(new_replay) = proto::Replay::decode(&*new_data)
             {
                 app.reload(new_replay);
                 last_modified = modified;
             }
-        }
 
         term.draw(|f| app.render(f))?;
         app.render_map_if_needed();
