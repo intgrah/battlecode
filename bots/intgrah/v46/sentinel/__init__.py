@@ -7,7 +7,7 @@ class Sentinel(Entity):
         pass
 
     def run(self, ct: Controller) -> None:
-        pos = ct.get_position()
+        ct.get_position()
         my_team = ct.get_team()
         best_target = None
         best_priority = -1

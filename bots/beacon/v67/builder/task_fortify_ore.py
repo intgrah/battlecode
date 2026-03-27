@@ -38,9 +38,7 @@ def _sentinel_dirs(state: State, ox: int, oy: int) -> set[tuple[int, int]]:
             continue
         env = state.env[state.idx(ax, ay)]
         if (
-            env == Environment.WALL
-            or env == Environment.ORE_TITANIUM
-            or env == Environment.ORE_AXIONITE
+            env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
         ):
             continue
         # Lower distance to target = more toward enemy = higher priority
@@ -63,9 +61,7 @@ def _needs_work(state: State, ox: int, oy: int) -> tuple[int, int, bool] | None:
             continue
         env = state.env[state.idx(ax, ay)]
         if (
-            env == Environment.WALL
-            or env == Environment.ORE_TITANIUM
-            or env == Environment.ORE_AXIONITE
+            env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
         ):
             continue
         ent = state.entity[state.idx(ax, ay)]
