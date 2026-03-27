@@ -103,7 +103,10 @@ def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
 
     # Mark tiles adjacent to enemy launchers as unwalkable
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.LAUNCHER or ct.get_team(bid) == my_team:
+        if (
+            ct.get_entity_type(bid) != EntityType.LAUNCHER
+            or ct.get_team(bid) == my_team
+        ):
             continue
         lp = ct.get_position(bid)
         for d in _ALL_DIRS:
@@ -167,7 +170,8 @@ def pf_move(player: Player, ct: Controller, target: Position) -> None:
     economy_mode = funds < 5 * bc
     has_cooldown = ct.get_action_cooldown() == 0
     player.walkable = build_walkable(
-        ct, allow_empty=(not economy_mode and not has_cooldown),
+        ct,
+        allow_empty=(not economy_mode and not has_cooldown),
     )
     next_pos = bug2_step(player.agent, current, player.walkable)
     if try_move_smart(ct, current, current.direction_to(next_pos)):

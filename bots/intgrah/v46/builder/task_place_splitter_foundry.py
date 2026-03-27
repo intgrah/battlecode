@@ -10,7 +10,8 @@ The splitter preserves the original direction of the conveyor it replaces,
 ensuring downstream flow continues uninterrupted.
 """
 
-from cambc import Controller, Direction, EntityType, Position
+from building import ArmouredConveyor, Conveyor
+from cambc import Controller, Direction, Position
 
 from .build import Action, PlaceSplitter
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -29,16 +30,16 @@ def place_splitter_foundry(
             if not state.in_bounds(nx, ny):
                 continue
             ni = state.idx(nx, ny)
-            ent = state.entity[ni]
-            if ent is None:
-                continue
-            if ent[0] not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
-                continue
-            if ent[1] != state.my_team:
-                continue
-            d = state.direction[ni]
-            if d is None:
-                continue
+            bld = state.building[ni]
+            match bld:
+                case (
+                    Conveyor(team=team, direction=d)
+                    | ArmouredConveyor(team=team, direction=d)
+                ):
+                    if team != state.my_team:
+                        continue
+                case _:
+                    continue
             target = Position(nx, ny)
 
             if pos.distance_squared(target) <= 2 and pos != target:

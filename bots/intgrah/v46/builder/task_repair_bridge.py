@@ -1,5 +1,6 @@
 from bridge_astar import BridgeFlowAstar
-from cambc import Controller, Direction, EntityType, Position
+from building import Bridge, Core
+from cambc import Controller, Direction, Position
 from flow_astar import AX
 
 from .build import Action, PlaceBridge
@@ -11,18 +12,16 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
     w = state.w
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
-        ent = state.entity[i]
-        if ent is None or ent[0] != EntityType.BRIDGE:
-            continue
-        bt = state.bridge_target[i]
-        if bt is None:
-            continue
-        ti = bt[1] * w + bt[0]
-        tent = state.entity[ti]
-        if tent is not None:
-            if tent[0] == EntityType.BRIDGE and tent[1] == state.my_team:
+        bld = state.building[i]
+        match bld:
+            case Bridge(target=bt):
+                pass
+            case _:
                 continue
-            if tent[0] == EntityType.CORE and tent[1] == state.my_team:
+        ti = bt[1] * w + bt[0]
+        tbld = state.building[ti]
+        match tbld:
+            case Bridge(team=team) | Core(team=team) if team == state.my_team:
                 continue
         return bt
     for hp in state.my_harvesters:
@@ -33,14 +32,11 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
             if not state.in_bounds(nx, ny):
                 continue
             ni = state.idx(nx, ny)
-            nent = state.entity[ni]
-            if (
-                nent is not None
-                and nent[0] == EntityType.BRIDGE
-                and nent[1] == state.my_team
-            ):
-                has_adj_bridge = True
-                break
+            nbld = state.building[ni]
+            match nbld:
+                case Bridge(team=team) if team == state.my_team:
+                    has_adj_bridge = True
+                    break
         if not has_adj_bridge:
             cx, cy = state.my_core
             best_d = 999999

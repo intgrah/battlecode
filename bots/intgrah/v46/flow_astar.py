@@ -1,6 +1,16 @@
 from algorithms import Astar
 from builder.state import State
-from cambc import Controller, EntityType, Environment
+from building import (
+    ArmouredConveyor,
+    Bridge,
+    Conveyor,
+    Core,
+    Foundry,
+    Marker,
+    Road,
+    Splitter,
+)
+from cambc import Controller, Environment
 from util import BRIDGE_DELTAS, DIR4_DELTA
 
 COST_REUSE = 0
@@ -23,38 +33,35 @@ def build_leakage_mask(state: State) -> list[int]:
     n = w * h
     mask = [0] * n
     for i in range(n):
-        ent = state.entity[i]
-        if ent is None:
+        bld = state.building[i]
+        if bld is None:
             continue
-        etype, team = ent
-        if team != state.my_team:
+        if bld.team != state.my_team:
             continue
-        if etype == EntityType.FOUNDRY:
-            ix, iy = i % w, i // w
-            for ddx, ddy in DIR4_DELTA:
-                nx, ny = ix + ddx, iy + ddy
-                if 0 <= nx < w and 0 <= ny < h:
-                    mask[ny * w + nx] |= RAX
-        elif etype == EntityType.SPLITTER:
-            d = state.direction[i]
-            if d is None:
-                continue
-            ix, iy = i % w, i // w
-            dx, dy = d.delta()
-            commodity = 0
-            f = state.my_flow
-            if f.ti[i] > 0:
-                commodity |= TI
-            if f.ax[i] > 0:
-                commodity |= AX
-            if f.rax[i] > 0:
-                commodity |= RAX
-            if commodity == 0:
-                continue
-            for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
-                nx, ny = ix + odx, iy + ody
-                if 0 <= nx < w and 0 <= ny < h:
-                    mask[ny * w + nx] |= commodity
+        match bld:
+            case Foundry():
+                ix, iy = i % w, i // w
+                for ddx, ddy in DIR4_DELTA:
+                    nx, ny = ix + ddx, iy + ddy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        mask[ny * w + nx] |= RAX
+            case Splitter(direction=d):
+                ix, iy = i % w, i // w
+                dx, dy = d.delta()
+                commodity = 0
+                f = state.my_flow
+                if f.ti[i] > 0:
+                    commodity |= TI
+                if f.ax[i] > 0:
+                    commodity |= AX
+                if f.rax[i] > 0:
+                    commodity |= RAX
+                if commodity == 0:
+                    continue
+                for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
+                    nx, ny = ix + odx, iy + ody
+                    if 0 <= nx < w and 0 <= ny < h:
+                        mask[ny * w + nx] |= commodity
 
     for i in range(n):
         e = state.env[i]
@@ -90,9 +97,7 @@ class FlowAstar(Astar[int]):
         self._leakage_mask = build_leakage_mask(state)
         self._blocked = state.my_flow.blocked
         self._env = state.env
-        self._entity = state.entity
-        self._direction = state.direction
-        self._bridge_target = state.bridge_target
+        self._building = state.building
         self._my_team = state.my_team
         self._core_x = state.my_core.x
         self._core_y = state.my_core.y
@@ -117,9 +122,7 @@ class FlowAstar(Astar[int]):
         w, h = self._w, self._h
         blocked = self._blocked
         env = self._env
-        entity = self._entity
-        direction = self._direction
-        bridge_target = self._bridge_target
+        building = self._building
         leakage_mask = self._leakage_mask
         banned_leakage = self._banned_leakage
 
@@ -128,8 +131,8 @@ class FlowAstar(Astar[int]):
         e = env[node]
         if e is not None and e in _IMPASSABLE_ENV:
             return []
-        ent = entity[node]
-        if ent is not None and ent[1] != self._my_team:
+        bld = building[node]
+        if bld is not None and bld.team != self._my_team:
             return []
         if leakage_mask[node] & banned_leakage != 0:
             return []
@@ -137,8 +140,8 @@ class FlowAstar(Astar[int]):
         cx, cy = node % w, node // w
         result: list[tuple[int, int]] = []
 
-        match ent:
-            case (EntityType.CORE, _):
+        match bld:
+            case Core():
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
@@ -148,39 +151,34 @@ class FlowAstar(Astar[int]):
                         ):
                             result.append((ni, 0))
 
-            case (EntityType.BRIDGE, _):
-                bt = bridge_target[node]
-                if bt is not None:
-                    bx, by = bt
-                    if 0 <= bx < w and 0 <= by < h:
-                        ni = by * w + bx
-                        if (
-                            not blocked[ni]
-                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and leakage_mask[ni] & banned_leakage == 0
-                        ):
-                            result.append((ni, COST_REUSE))
+            case Bridge(target=bt):
+                bx, by = bt
+                if 0 <= bx < w and 0 <= by < h:
+                    ni = by * w + bx
+                    if (
+                        not blocked[ni]
+                        and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                        and leakage_mask[ni] & banned_leakage == 0
+                    ):
+                        result.append((ni, COST_REUSE))
 
             case (
-                EntityType.CONVEYOR
-                | EntityType.ARMOURED_CONVEYOR
-                | EntityType.SPLITTER,
-                _,
+                Conveyor(direction=d)
+                | ArmouredConveyor(direction=d)
+                | Splitter(direction=d)
             ):
-                d = direction[node]
-                if d is not None:
-                    ddx, ddy = d.delta()
-                    nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        ni = ny * w + nx
-                        if (
-                            not blocked[ni]
-                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and leakage_mask[ni] & banned_leakage == 0
-                        ):
-                            result.append((ni, COST_REUSE))
+                ddx, ddy = d.delta()
+                nx, ny = cx + ddx, cy + ddy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if (
+                        not blocked[ni]
+                        and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                        and leakage_mask[ni] & banned_leakage == 0
+                    ):
+                        result.append((ni, COST_REUSE))
 
-            case (EntityType.ROAD, _):
+            case Road():
                 core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
                 if core_dist_sq > CONV_CUTOFF_SQ:
                     for ddx, ddy in DIR4_DELTA:
@@ -204,7 +202,7 @@ class FlowAstar(Astar[int]):
                         ):
                             result.append((ni, COST_BRIDGE))
 
-            case None | (EntityType.MARKER, _):
+            case None | Marker():
                 core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
                 if core_dist_sq > CONV_CUTOFF_SQ:
                     for ddx, ddy in DIR4_DELTA:
@@ -234,6 +232,6 @@ class FlowAstar(Astar[int]):
                     nx, ny = ni % w, ni // w
                     cx, cy = node % w, node // w
                     print(
-                        f"EDGE TO LEAKY: ({cx},{cy})->({nx},{ny}) leak={leakage_mask[ni]} banned={banned_leakage} cost={c} ent={entity[node]}",
+                        f"EDGE TO LEAKY: ({cx},{cy})->({nx},{ny}) leak={leakage_mask[ni]} banned={banned_leakage} cost={c} bld={building[node]}",
                     )
         return result

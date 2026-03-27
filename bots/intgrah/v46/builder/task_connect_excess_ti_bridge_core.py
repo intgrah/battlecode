@@ -1,8 +1,16 @@
 from bridge_astar import BridgeFlowAstar
-from cambc import Controller, Direction, EntityType, Environment, Position
+from building import (
+    ArmouredConveyor,
+    Bridge,
+    Conveyor,
+    Core,
+    Foundry,
+    Harvester,
+    Splitter,
+)
+from cambc import Controller, Direction, Environment, Position
 from flow_astar import AX
 from marker import TaskClaim, TaskKind
-from util import TRANSPORT
 
 from .build import Action, PlaceBridge
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -41,39 +49,39 @@ def connect_excess_ti_bridge_core(
 
     sx, sy = best_tile.x, best_tile.y
     si = state.idx(sx, sy)
-    ent = state.entity[si]
+    bld = state.building[si]
 
-    if ent is not None:
-        etype = ent[0]
-        if etype in (EntityType.HARVESTER, EntityType.FOUNDRY):
-            start = None
-            best_d = 999999
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nx, ny = sx + ddx, sy + ddy
-                if not state.in_bounds(nx, ny):
-                    continue
-                ni = state.idx(nx, ny)
-                env = state.env[ni]
-                if env in (
-                    Environment.WALL,
-                    Environment.ORE_TITANIUM,
-                    Environment.ORE_AXIONITE,
-                ):
-                    continue
-                nent = state.entity[ni]
-                if nent is not None and nent[0] in TRANSPORT:
-                    continue
-                d = (nx - state.my_core.x) ** 2 + (ny - state.my_core.y) ** 2
-                if d < best_d:
-                    best_d = d
-                    start = Position(nx, ny)
-            if start is None:
-                return None
-            sx, sy = start.x, start.y
-        elif etype in TRANSPORT:
-            bt = state.bridge_target[si]
-            if bt is not None:
+    if bld is not None:
+        match bld:
+            case Harvester() | Foundry():
+                start = None
+                best_d = 999999
+                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = sx + ddx, sy + ddy
+                    if not state.in_bounds(nx, ny):
+                        continue
+                    ni = state.idx(nx, ny)
+                    env = state.env[ni]
+                    if env in (
+                        Environment.WALL,
+                        Environment.ORE_TITANIUM,
+                        Environment.ORE_AXIONITE,
+                    ):
+                        continue
+                    match state.building[ni]:
+                        case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                            continue
+                    d = (nx - state.my_core.x) ** 2 + (ny - state.my_core.y) ** 2
+                    if d < best_d:
+                        best_d = d
+                        start = Position(nx, ny)
+                if start is None:
+                    return None
+                sx, sy = start.x, start.y
+            case Bridge(target=bt):
                 sx, sy = bt.x, bt.y
+            case Conveyor() | ArmouredConveyor() | Splitter():
+                pass
 
     start = Position(sx, sy)
     path = state.bridge_cached_path
@@ -103,14 +111,12 @@ def connect_excess_ti_bridge_core(
         nx, ny = path[k + 1] % w, path[k + 1] // w
 
         pi = path[k]
-        pent = state.entity[pi]
-        if pent is not None and pent[1] == state.my_team:
-            ptype = pent[0]
-            if ptype == EntityType.CORE:
-                continue
-            if ptype == EntityType.BRIDGE:
-                bt = state.bridge_target[pi]
-                if bt is not None and bt.x == nx and bt.y == ny:
+        pbld = state.building[pi]
+        if pbld is not None and pbld.team == state.my_team:
+            match pbld:
+                case Core():
+                    continue
+                case Bridge(target=bt) if bt.x == nx and bt.y == ny:
                     continue
 
         build_at = Position(x, y)

@@ -1,10 +1,10 @@
 from cambc import Controller, Direction, EntityType, Position
-from entity import Entity
+from unit import Unit
 
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
 
-class Core(Entity):
+class Core(Unit):
     def __init__(self, ct: Controller) -> None:
         self.spawned = 0
         self.core_pos: Position = ct.get_position()

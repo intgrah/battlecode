@@ -53,8 +53,8 @@ def harvest_ax(
     )
     for ore in candidates:
         oi = ore[1] * w + ore[0]
-        ent = state.entity[oi]
-        if ent is not None and ent[1] != state.my_team:
+        bld = state.building[oi]
+        if bld is not None and bld.team != state.my_team:
             continue
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             continue

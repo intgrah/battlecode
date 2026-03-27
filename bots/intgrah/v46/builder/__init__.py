@@ -1,5 +1,7 @@
 from collections.abc import Callable
 
+from building import Bridge
+from building import Launcher as LauncherBuilding
 from cambc import (
     Controller,
     Direction,
@@ -8,8 +10,8 @@ from cambc import (
     GameConstants,
     Position,
 )
-from entity import Entity
 from marker import Eureka
+from unit import Unit
 from util import DIR8_DELTA
 
 from .build import Action, PlaceRoad, Task, execute
@@ -21,7 +23,6 @@ from .task_connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
 from .task_connect_excess_ti_bridge_core import connect_excess_ti_bridge_core
 from .task_connect_excess_ti_rax_core import connect_excess_ti_rax_core
 from .task_explore import explore
-from .task_fire_enemy_transport import _find_target as _find_fire_target
 from .task_fire_enemy_transport import fire_enemy_transport
 from .task_harvest_ax import harvest_ax
 from .task_harvest_ti import harvest_ti
@@ -64,7 +65,7 @@ TASK_FNS: dict[Task, TaskFn] = {
 }
 
 
-class Builder(Entity):
+class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
         core_pos = _find_core(ct)
         self.state = State(ct, core_pos)
@@ -149,14 +150,19 @@ def _find_core(ct: Controller) -> Position:
 def _has_undefended_bridge(state: State) -> bool:
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
-        ent = state.entity[i]
-        if ent is None or ent[0] != EntityType.BRIDGE:
-            continue
+        bld = state.building[i]
+        match bld:
+            case Bridge():
+                pass
+            case _:
+                continue
         if any(
             state.in_bounds(p.x + dx, p.y + dy)
-            and state.entity[ni := state.idx(p.x + dx, p.y + dy)] is not None
-            and state.entity[ni][0] == EntityType.LAUNCHER
-            and state.entity[ni][1] == state.my_team
+            and isinstance(
+                state.building[state.idx(p.x + dx, p.y + dy)],
+                LauncherBuilding,
+            )
+            and state.building[state.idx(p.x + dx, p.y + dy)].team == state.my_team
             for dx, dy in DIR8_DELTA
         ):
             continue

@@ -1,4 +1,6 @@
-from cambc import Controller, Direction, EntityType, Position
+from building import Bridge, Marker, Road
+from building import Launcher as LauncherBuilding
+from cambc import Controller, Direction, Position
 from util import DIR8_DELTA
 
 from .build import Action, PlaceLauncher
@@ -9,9 +11,12 @@ from .state import COST_IMPASSABLE, State
 def _undefended_bridge(state: State) -> tuple[int, int] | None:
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
-        ent = state.entity[i]
-        if ent is None or ent[0] != EntityType.BRIDGE:
-            continue
+        bld = state.building[i]
+        match bld:
+            case Bridge():
+                pass
+            case _:
+                continue
         bx, by = p.x, p.y
         has_launcher = False
         for dx, dy in DIR8_DELTA:
@@ -19,14 +24,11 @@ def _undefended_bridge(state: State) -> tuple[int, int] | None:
             if not state.in_bounds(nx, ny):
                 continue
             ni = state.idx(nx, ny)
-            nent = state.entity[ni]
-            if (
-                nent is not None
-                and nent[0] == EntityType.LAUNCHER
-                and nent[1] == state.my_team
-            ):
-                has_launcher = True
-                break
+            nbld = state.building[ni]
+            match nbld:
+                case LauncherBuilding(team=team) if team == state.my_team:
+                    has_launcher = True
+                    break
         if not has_launcher:
             return (bx, by)
     return None
@@ -42,9 +44,12 @@ def _find_placement(
         if not state.in_bounds(ax, ay):
             continue
         ai = state.idx(ax, ay)
-        ent = state.entity[ai]
-        if ent is not None and ent[0] not in (EntityType.ROAD, EntityType.MARKER):
-            continue
+        bld = state.building[ai]
+        match bld:
+            case None | Road() | Marker():
+                pass
+            case _:
+                continue
         if state.walkable(ax, ay) >= COST_IMPASSABLE:
             continue
         return Position(ax, ay)

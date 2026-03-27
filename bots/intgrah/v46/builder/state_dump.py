@@ -2,6 +2,8 @@
 
 import json
 
+from building import ArmouredConveyor, Breach, Bridge, Conveyor, Gunner, Splitter
+from building import Sentinel as SentinelBuilding
 from cambc import Controller
 
 from .state import State
@@ -20,19 +22,32 @@ def dump(state: State, ct: Controller) -> None:
             state.env[i].value if state.env[i] is not None else None for i in range(n)
         ],
         "entity": [
-            [state.entity[i][0].value, state.entity[i][1].value]
-            if state.entity[i] is not None
+            [type(state.building[i]).__name__, state.building[i].team.value]
+            if state.building[i] is not None
             else None
             for i in range(n)
         ],
         "direction": [
-            state.direction[i].value if state.direction[i] is not None else None
+            state.building[i].direction.value
+            if state.building[i] is not None
+            and isinstance(
+                state.building[i],
+                (
+                    Conveyor,
+                    ArmouredConveyor,
+                    Splitter,
+                    Gunner,
+                    SentinelBuilding,
+                    Breach,
+                ),
+            )
+            else None
             for i in range(n)
         ],
         "bridge_target": {
-            str(i): [state.bridge_target[i][0], state.bridge_target[i][1]]
+            str(i): [state.building[i].target[0], state.building[i].target[1]]
             for i in range(n)
-            if state.bridge_target[i] is not None
+            if isinstance(state.building[i], Bridge)
         },
         "my_core": list(state.my_core),
         "ore_ti": list(state.ore_ti),

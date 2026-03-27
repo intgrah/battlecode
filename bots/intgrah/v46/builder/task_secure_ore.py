@@ -1,4 +1,13 @@
-from cambc import Controller, Direction, EntityType, Environment, Position
+from building import (
+    Barrier,
+    Breach,
+    Foundry,
+    Gunner,
+    Harvester,
+)
+from building import Launcher as LauncherBuilding
+from building import Sentinel as SentinelBuilding
+from cambc import Controller, Direction, Environment, Position
 from marker import TaskClaim, TaskKind
 from util import DIR4_DELTA, DIR8_DELTA
 
@@ -6,16 +15,14 @@ from .build import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
 
-_SECURED = frozenset(
-    {
-        EntityType.BARRIER,
-        EntityType.GUNNER,
-        EntityType.SENTINEL,
-        EntityType.BREACH,
-        EntityType.LAUNCHER,
-        EntityType.HARVESTER,
-        EntityType.FOUNDRY,
-    },
+_SECURED = (
+    Barrier,
+    Gunner,
+    SentinelBuilding,
+    Breach,
+    LauncherBuilding,
+    Harvester,
+    Foundry,
 )
 
 
@@ -55,8 +62,8 @@ def _needs_barrier(state: State, ox: int, oy: int) -> list[tuple[int, int]]:
             continue
         if _is_ore(state, ax, ay):
             continue
-        ent = state.entity[state.idx(ax, ay)]
-        if ent is not None and ent[0] in _SECURED and ent[1] == state.my_team:
+        bld = state.building[state.idx(ax, ay)]
+        if bld is not None and isinstance(bld, _SECURED) and bld.team == state.my_team:
             continue
         result.append((ax, ay))
     return result

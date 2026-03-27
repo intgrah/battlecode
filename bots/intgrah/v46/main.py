@@ -7,12 +7,12 @@ from launcher import Launcher
 from sentinel import Sentinel
 
 if TYPE_CHECKING:
-    from entity import Entity
+    from unit import Unit
 
 
 class Player:
     def __init__(self) -> None:
-        self.unit: Entity | None = None
+        self.unit: Unit | None = None
 
     def run(self, ct: Controller) -> None:
         if self.unit is None:

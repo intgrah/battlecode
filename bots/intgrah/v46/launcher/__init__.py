@@ -1,8 +1,8 @@
 from cambc import Controller, EntityType
-from entity import Entity
+from unit import Unit
 
 
-class Launcher(Entity):
+class Launcher(Unit):
     def __init__(self, ct: Controller) -> None:
         pass
 

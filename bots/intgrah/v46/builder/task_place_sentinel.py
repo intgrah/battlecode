@@ -1,4 +1,6 @@
-from cambc import Controller, Direction, EntityType, Environment, Position
+from building import Marker, Road
+from building import Sentinel as SentinelBuilding
+from cambc import Controller, Direction, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
 
 from .build import Action, PlaceSentinel
@@ -18,13 +20,10 @@ def _has_friendly_sentinel_near(state: State, hx: int, hy: int) -> bool:
         if not state.in_bounds(nx, ny):
             continue
         ni = state.idx(nx, ny)
-        ent = state.entity[ni]
-        if (
-            ent is not None
-            and ent[0] == EntityType.SENTINEL
-            and ent[1] == state.my_team
-        ):
-            return True
+        bld = state.building[ni]
+        match bld:
+            case SentinelBuilding(team=team) if team == state.my_team:
+                return True
     return False
 
 
@@ -46,14 +45,13 @@ def _find_target(
             if not state.in_bounds(sx, sy):
                 continue
             si = state.idx(sx, sy)
-            ent = state.entity[si]
-            if ent is not None:
-                if (
-                    ent[0] in (EntityType.ROAD, EntityType.MARKER)
-                    and ent[1] == state.my_team
-                ) or ent[0] is None:
+            bld = state.building[si]
+            match bld:
+                case None:
                     pass
-                else:
+                case Road(team=team) | Marker(team=team) if team == state.my_team:
+                    pass
+                case _:
                     continue
             card_dir = DELTA_TO_DIR[(dx, dy)]
             facing = _rotate_cw(card_dir, 3)

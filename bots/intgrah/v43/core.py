@@ -5,7 +5,7 @@ DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
 
 class Core(Entity):
-    def __init__(self, ct: Controller) -> None:
+    def __init__(self, _ct: Controller) -> None:
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:

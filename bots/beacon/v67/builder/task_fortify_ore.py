@@ -3,10 +3,9 @@ on the cardinal sides facing toward the enemy, and barriers on the other 2.
 Waits for resources if needed.
 """
 
-
 from cambc import Controller, Direction, EntityType, Environment, Position
 from marker import TaskClaim, TaskKind
-from util import DIR4_DELTA
+from util import DIR4_DELTA, DIR8_DELTA
 
 from .build import Action, PlaceBarrier, PlaceHarvester, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
@@ -37,8 +36,10 @@ def _sentinel_dirs(state: State, ox: int, oy: int) -> set[tuple[int, int]]:
         if not state.in_bounds(ax, ay):
             continue
         env = state.env[state.idx(ax, ay)]
-        if (
-            env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+        if env in (
+            Environment.WALL,
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
         ):
             continue
         # Lower distance to target = more toward enemy = higher priority
@@ -60,8 +61,10 @@ def _needs_work(state: State, ox: int, oy: int) -> tuple[int, int, bool] | None:
         if not state.in_bounds(ax, ay):
             continue
         env = state.env[state.idx(ax, ay)]
-        if (
-            env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+        if env in (
+            Environment.WALL,
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
         ):
             continue
         ent = state.entity[state.idx(ax, ay)]
@@ -113,7 +116,6 @@ def _reachable_adjacent(
     tx: int,
     ty: int,
 ) -> Position | None:
-    from util import DIR8_DELTA
 
     best: Position | None = None
     best_dist = 999999

@@ -18,18 +18,25 @@ if TYPE_CHECKING:
     from marker import TaskClaim
     from nav_astar import NavAstar
 
+from building import (
+    ArmouredConveyor,
+    Bridge,
+    Building,
+    Conveyor,
+    Core,
+    Marker,
+    Road,
+    Splitter,
+)
 from cambc import (
     Controller,
-    Direction,
-    EntityType,
     Environment,
     GameConstants,
     Position,
-    Team,
 )
 from known_maps import MAPS
 from known_maps import decode as decode_known_map
-from util import WALKABLE_BUILDINGS, tiles_3x3
+from util import tiles_3x3
 
 COST_ROAD = 2
 COST_EMPTY = 10
@@ -91,9 +98,7 @@ class State:
 
         # -- Per-tile arrays (indexed by y * w + x) --
         self.env: list[Environment | None] = [None] * n
-        self.entity: list[tuple[EntityType, Team] | None] = [None] * n
-        self.direction: list[Direction | None] = [None] * n
-        self.bridge_target: list[Position | None] = [None] * n
+        self.building: list[Building | None] = [None] * n
         self.last_seen: list[int] = [0] * n
 
         # -- Resources --
@@ -184,14 +189,12 @@ class State:
                 return COST_UNSEEN
             case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
                 return COST_IMPASSABLE
-        match self.entity[i]:
-            case None:
+        match self.building[i]:
+            case None | Marker():
                 return COST_EMPTY
-            case (EntityType.MARKER, _):
-                return COST_EMPTY
-            case (EntityType.CORE, team) if team == self.my_team:
+            case Core(team) if team == self.my_team:
                 return COST_ROAD
-            case (etype, _) if etype in WALKABLE_BUILDINGS:
+            case Road() | Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
                 return COST_ROAD
             case _:
                 return COST_IMPASSABLE
