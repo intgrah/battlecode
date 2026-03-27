@@ -65,15 +65,6 @@ impl App {
         }
     }
 
-    pub fn reload(&mut self, replay: proto::Replay) {
-        self.game = GameState::from_replay(&replay);
-        self.turn = 0;
-        self.playing = false;
-        self.selected_entity = None;
-        self.follow_entity = false;
-        self.needs_redraw = true;
-    }
-
     pub const fn tick_ms(&self) -> u64 {
         500 / (1u64 << self.speed as u64)
     }
