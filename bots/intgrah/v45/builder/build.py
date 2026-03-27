@@ -10,7 +10,7 @@ class Task(IntEnum):
     CONNECT_EXCESS_TI_RAX_CORE = auto()
     HARVEST_TI = auto()
     HARVEST_AX = auto()
-    RAID = auto()
+    SELF_DESTRUCT = auto()
     EXPLORE = auto()
     PATROL = auto()
     NAV_ENEMY_CORE = auto()

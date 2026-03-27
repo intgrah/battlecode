@@ -207,7 +207,11 @@ def mirror_pos(pos: Position, sym: str, w: int, h: int) -> Position:
 
 
 def encode_comms(
-    sym_name: str, phase: int, ex: int = 0, ey: int = 0, scout_idx: int = 0,
+    sym_name: str,
+    phase: int,
+    ex: int = 0,
+    ey: int = 0,
+    scout_idx: int = 0,
 ) -> int:
     sym = SYM_TO_IDX.get(sym_name, 3)
     return (min(scout_idx, 3) << 16) | (ey << 10) | (ex << 4) | (phase << 2) | sym
@@ -257,7 +261,8 @@ def comms_tiles(ct: Controller, core_pos: Position) -> list[Position]:
 
 
 def read_comms(
-    ct: Controller, core_pos: Position,
+    ct: Controller,
+    core_pos: Position,
 ) -> tuple[str | None, int, Position | None, int]:
     """Read best comms marker near core.
     Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found."""

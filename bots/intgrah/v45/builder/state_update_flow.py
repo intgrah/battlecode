@@ -5,7 +5,7 @@ from collections import deque
 from cambc import EntityType, Environment
 from util import DELTA_TO_DIR, DIR4_DELTA, TRANSPORT
 
-from .state import FlowState, State
+from .state import Economy, State
 from .state_helpers import accepts_input_from, harvester_ore_type
 
 
@@ -33,7 +33,7 @@ def recompute_enemy_flow(state: State) -> None:
 
 def _recompute_flow_impl(
     state: State,
-    f: FlowState,
+    f: Economy,
     harvesters: set[int],
     transport: set[int],
     foundries: set[int],

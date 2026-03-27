@@ -33,10 +33,10 @@ from .task_place_launcher import place_launcher
 from .task_place_sentinel import _find_target as _find_sentinel_target
 from .task_place_sentinel import place_sentinel
 from .task_place_splitter_foundry import place_splitter_foundry
-from .task_raid import raid
 from .task_repair_bridge import _find_broken_bridge, repair_bridge
 from .task_secure_ore import _best_ore as _secure_best_ore
 from .task_secure_ore import secure_ore
+from .task_self_destruct import self_destruct
 
 DEBUG_DUMP = False
 
@@ -50,7 +50,7 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.EXPLORE: explore,
     Task.PATROL: patrol,
     Task.NAV_ENEMY_CORE: nav_enemy_core,
-    Task.RAID: raid,
+    Task.SELF_DESTRUCT: self_destruct,
     Task.PLACE_FOUNDRY_MIXED_CONV: place_foundry_mixed_conv,
     Task.PLACE_SPLITTER_FOUNDRY: place_splitter_foundry,
     Task.CONNECT_EXCESS_AX_TI_CONV: connect_excess_ax_ti_conv,
@@ -67,7 +67,7 @@ TASK_FNS: dict[Task, TaskFn] = {
 class Builder(Entity):
     def __init__(self, ct: Controller) -> None:
         core_pos = _find_core(ct)
-        self.state = State(ct, (core_pos.x, core_pos.y))
+        self.state = State(ct, core_pos)
 
     def run(self, ct: Controller) -> None:
         s = self.state

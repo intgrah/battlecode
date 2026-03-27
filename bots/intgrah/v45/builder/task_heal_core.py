@@ -1,3 +1,5 @@
+"""Heal the core."""
+
 from cambc import Controller, Direction, GameConstants, Position
 
 from .build import Action, Heal
@@ -15,7 +17,9 @@ def heal_core(
     core = Position(state.my_core[0], state.my_core[1])
     pos = state.pos
 
-    if pos.distance_squared(core) <= 2 and ct.can_heal(core):
+    if pos.distance_squared(core) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
+        core,
+    ):
         return Direction.CENTRE, Heal(core)
 
     move, build = move_toward_with_road(state, ct, core)

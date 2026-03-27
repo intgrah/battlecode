@@ -5,21 +5,11 @@ from .build import Action, PlaceSentinel
 from .helpers import move_toward_with_road
 from .state import State
 
-_DIRS_CW = [
-    Direction.NORTH,
-    Direction.NORTHEAST,
-    Direction.EAST,
-    Direction.SOUTHEAST,
-    Direction.SOUTH,
-    Direction.SOUTHWEST,
-    Direction.WEST,
-    Direction.NORTHWEST,
-]
-_DIRS_CW_IDX = {d: i for i, d in enumerate(_DIRS_CW)}
+DIR8_IDX = {d: i for i, d in enumerate(DIR8)}
 
 
 def _rotate_cw(d: Direction, steps: int) -> Direction:
-    return _DIRS_CW[(_DIRS_CW_IDX[d] + steps) % 8]
+    return DIR8[(DIR8_IDX[d] + steps) % 8]
 
 
 def _has_friendly_sentinel_near(state: State, hx: int, hy: int) -> bool:
