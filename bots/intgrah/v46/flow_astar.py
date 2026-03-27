@@ -65,12 +65,13 @@ def build_leakage_mask(state: State) -> list[int]:
 
     for i in range(n):
         e = state.env[i]
-        if e == Environment.ORE_TITANIUM:
-            commodity = TI
-        elif e == Environment.ORE_AXIONITE:
-            commodity = AX
-        else:
-            continue
+        match e:
+            case Environment.ORE_TITANIUM:
+                commodity = TI
+            case Environment.ORE_AXIONITE:
+                commodity = AX
+            case _:
+                continue
         ix, iy = i % w, i // w
         for ddx, ddy in DIR4_DELTA:
             nx, ny = ix + ddx, iy + ddy
