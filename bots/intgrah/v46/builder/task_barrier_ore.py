@@ -21,7 +21,7 @@ def _has_friendly_sentinel_adjacent(state: State, ox: int, oy: int) -> bool:
 
 
 def _best_denied_ore(state: State) -> Position | None:
-    unharvested = state.ore_ti - state.my_harvested - state.en_harvested
+    unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
     if not unharvested:
         return None
     pos = state.pos

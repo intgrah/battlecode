@@ -7,7 +7,6 @@ free functions in state_helpers.py.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -44,21 +43,8 @@ COST_UNSEEN = 12
 COST_IMPASSABLE = 1_000_000
 
 
-@dataclass(slots=True)
 class Economy:
-    n: int
-    ti: list[float] = field(init=False)
-    ax: list[float] = field(init=False)
-    rax: list[float] = field(init=False)
-    total: list[float] = field(init=False)
-    ti_excess: list[float] = field(init=False)
-    ax_excess: list[float] = field(init=False)
-    rax_excess: list[float] = field(init=False)
-    excess: list[float] = field(init=False)
-    blocked: list[bool] = field(init=False)
-
-    def __post_init__(self) -> None:
-        n = self.n
+    def __init__(self, n: int) -> None:
         self.ti = [0.0] * n
         self.ax = [0.0] * n
         self.rax = [0.0] * n
@@ -96,25 +82,23 @@ class State:
         # -- Friendly --
         self.my_core: Position = core_pos  # known from birth
         self.my_core_tiles: set[Position] = tiles_3x3(core_pos)  # known from birth
-        self.my_harvested: set[Position] = set()  # derived from self.building
         self.my_harvesters: set[Position] = set()  # derived from self.building
+        self.my_barriers: set[Position] = set()  # derived from self.buildings
         self.my_transport: set[Position] = set()  # derived from self.building
         self.my_foundries: set[Position] = set()  # derived from self.building
         self.my_turrets: set[Position] = set()  # derived from self.building
-        self.my_flow = Economy(n)
+        self.my_flow = Economy(n)  # computed using state_update_econ
 
         self.my_core_hp: int = GameConstants.CORE_MAX_HP
-        self.my_barriers: set[Position] = set()
 
         # -- Enemy --
         self.en_core_tiles: set[Position] = set()  # derived from self.building
-        self.en_harvested: set[Position] = set()  # derived from self.building
         self.en_harvesters: set[Position] = set()  # derived from self.building
         self.en_barriers: set[Position] = set()  # derived from self.building
         self.en_transport: set[Position] = set()  # derived from self.building
         self.en_turrets: set[Position] = set()  # derived from self.building
         self.en_foundries: set[Position] = set()  # derived from self.building
-        self.en_flow = Economy(n)
+        self.en_flow = Economy(n)  # computed using state_update_econ
 
         # -- Ephemeral --
         self.unit_tiles: set[Position] = set()
