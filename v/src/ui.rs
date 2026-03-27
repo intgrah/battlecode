@@ -112,10 +112,10 @@ impl App {
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return true,
 
             KeyCode::Char(' ') => self.playing = !self.playing,
+            KeyCode::Right if shift => self.step_forward(10),
+            KeyCode::Left if shift => self.step_backward(10),
             KeyCode::Right => self.step_forward(1),
             KeyCode::Left => self.step_backward(1),
-            KeyCode::Up | KeyCode::Char('L' | '>') => self.step_forward(10),
-            KeyCode::Down | KeyCode::Char('H' | '<') => self.step_backward(10),
             KeyCode::Home | KeyCode::Char('g') => {
                 self.turn = 0;
                 self.needs_redraw = true;
@@ -489,8 +489,8 @@ fn render_help(frame: &mut Frame) {
 Space       Play/Pause
 Right       Step +1
 Left        Step -1
-> / L       Step +10
-< / H       Step -10
+S-Right     Step +10
+S-Left      Step -10
 g / Home    Turn 0
 G / End     Last turn
 + / -       Speed up/down
