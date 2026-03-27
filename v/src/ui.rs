@@ -25,6 +25,7 @@ pub struct App {
     follow_entity: bool,
     needs_redraw: bool,
     map_area: Option<Rect>,
+    scrubber_area: Option<Rect>,
 }
 
 impl App {
@@ -45,6 +46,7 @@ impl App {
             follow_entity: false,
             needs_redraw: true,
             map_area: None,
+            scrubber_area: None,
         }
     }
 
@@ -95,10 +97,10 @@ impl App {
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return true,
 
             KeyCode::Char(' ') => self.playing = !self.playing,
-            KeyCode::Char('l') => self.step_forward(1),
-            KeyCode::Char('h') => self.step_backward(1),
-            KeyCode::Char('L') => self.step_forward(10),
-            KeyCode::Char('H') => self.step_backward(10),
+            KeyCode::Right => self.step_forward(1),
+            KeyCode::Left => self.step_backward(1),
+            KeyCode::Char('L') | KeyCode::Char('>') => self.step_forward(10),
+            KeyCode::Char('H') | KeyCode::Char('<') => self.step_backward(10),
             KeyCode::Home | KeyCode::Char('g') => {
                 self.turn = 0;
                 self.needs_redraw = true;
@@ -110,19 +112,19 @@ impl App {
             KeyCode::Char('+' | '=') => self.speed = (self.speed + 1).min(8),
             KeyCode::Char('-') if !shift => self.speed = (self.speed - 1).max(0),
 
-            KeyCode::Up => {
+            KeyCode::Char('k') | KeyCode::Up => {
                 self.cursor.1 = (self.cursor.1 - 1).max(0);
                 self.needs_redraw = true;
             }
-            KeyCode::Down => {
+            KeyCode::Char('j') | KeyCode::Down => {
                 self.cursor.1 = (self.cursor.1 + 1).min(self.game.height - 1);
                 self.needs_redraw = true;
             }
-            KeyCode::Left => {
+            KeyCode::Char('h') => {
                 self.cursor.0 = (self.cursor.0 - 1).max(0);
                 self.needs_redraw = true;
             }
-            KeyCode::Right => {
+            KeyCode::Char('l') => {
                 self.cursor.0 = (self.cursor.0 + 1).min(self.game.width - 1);
                 self.needs_redraw = true;
             }
@@ -163,6 +165,58 @@ impl App {
             _ => {}
         }
         false
+    }
+
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss
+    )]
+    pub fn handle_mouse(&mut self, mouse: MouseEvent) {
+        let col = mouse.column;
+        let row = mouse.row;
+
+        match mouse.kind {
+            MouseEventKind::Down(MouseButton::Left) | MouseEventKind::Drag(MouseButton::Left) => {
+                if let Some(scrub) = self.scrubber_area {
+                    if row >= scrub.y
+                        && row < scrub.y + scrub.height
+                        && col >= scrub.x
+                        && col < scrub.x + scrub.width
+                    {
+                        let frac = f64::from(col - scrub.x) / f64::from(scrub.width);
+                        self.turn = (frac * self.game.turn_count() as f64) as usize;
+                        self.turn = self.turn.min(self.game.turn_count());
+                        self.needs_redraw = true;
+                        return;
+                    }
+                }
+
+                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) {
+                    if let Some(map) = self.map_area {
+                        if row >= map.y
+                            && row < map.y + map.height
+                            && col >= map.x
+                            && col < map.x + map.width
+                        {
+                            let ts = self.atlas.tile_size;
+                            let chars_per_tile_x = ts / 2;
+                            let chars_per_tile_y = ts / 4;
+                            if chars_per_tile_x > 0 && chars_per_tile_y > 0 {
+                                let gx = i32::from(col - map.x) / chars_per_tile_x as i32;
+                                let gy = i32::from(row - map.y) / chars_per_tile_y as i32;
+                                let gx = gx.clamp(0, self.game.width - 1);
+                                let gy = gy.clamp(0, self.game.height - 1);
+                                self.cursor = (gx, gy);
+                                self.select_at_cursor();
+                                self.needs_redraw = true;
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
     }
 
     fn select_at_cursor(&mut self) {
@@ -214,13 +268,14 @@ impl App {
             }
         }
 
-        let outer = Layout::vertical([Constraint::Min(10), Constraint::Length(3)])
-            .split(frame.area());
+        let outer =
+            Layout::vertical([Constraint::Min(10), Constraint::Length(3)]).split(frame.area());
 
-        let main = Layout::horizontal([Constraint::Min(20), Constraint::Length(30)])
-            .split(outer[0]);
+        let main =
+            Layout::horizontal([Constraint::Min(20), Constraint::Length(30)]).split(outer[0]);
 
         self.map_area = Some(main[0]);
+        self.scrubber_area = Some(outer[1]);
         self.render_info(frame, main[1]);
         self.render_scrubber(frame, outer[1]);
     }
@@ -245,9 +300,12 @@ impl App {
     fn render_info(&self, frame: &mut Frame, area: Rect) {
         let state = &self.game.turns[self.turn];
 
-        let chunks =
-            Layout::vertical([Constraint::Length(8), Constraint::Min(8), Constraint::Min(6)])
-                .split(area);
+        let chunks = Layout::vertical([
+            Constraint::Length(8),
+            Constraint::Min(8),
+            Constraint::Min(6),
+        ])
+        .split(area);
 
         let a = &state.players[0];
         let b = &state.players[1];
@@ -419,20 +477,23 @@ fn format_tile_info(game: &GameState, pos: (i32, i32)) -> String {
 fn render_help(frame: &mut Frame) {
     let text = "\
 Space       Play/Pause
-l           Step +1
-h           Step -1
-L           Step +10
-H           Step -10
+Right       Step +1
+Left        Step -1
+> / L       Step +10
+< / H       Step -10
 g / Home    Turn 0
 G / End     Last turn
 + / -       Speed up/down
 1-9         Jump to 10-90%
 
-Arrows      Move cursor
+hjkl        Move cursor
 Enter       Select entity
 Tab         Cycle entities
 f           Follow entity
 Esc/q       Deselect/Quit
+
+Click       Select tile/entity
+Drag        Scrub timeline
 
 i           Indicators
 n           Network

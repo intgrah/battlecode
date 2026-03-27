@@ -18,7 +18,10 @@ impl SpriteAtlas {
         if let Ok(entries) = std::fs::read_dir(assets_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().is_some_and(|e| e == "png" || e == "jpg" || e == "jpeg") {
+                if path
+                    .extension()
+                    .is_some_and(|e| e == "png" || e == "jpg" || e == "jpeg")
+                {
                     if let Ok(img) = image::open(&path) {
                         let name = path
                             .file_stem()
@@ -28,8 +31,8 @@ impl SpriteAtlas {
                         if BEAM_SPRITES.contains(&name.as_str()) {
                             let rgba = img.to_rgba8();
                             let frame_w = rgba.height();
-                            let frame = imageops::crop_imm(&rgba, 0, 0, frame_w, frame_w)
-                                .to_image();
+                            let frame =
+                                imageops::crop_imm(&rgba, 0, 0, frame_w, frame_w).to_image();
                             sprites.insert(name, frame);
                         } else {
                             let size = if CORE_SPRITES.contains(&name.as_str()) {
