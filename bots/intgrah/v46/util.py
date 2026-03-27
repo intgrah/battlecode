@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from cambc import Direction, EntityType, Position
+from cambc import Direction, Position
 
 
 class Symmetry(Enum):
@@ -22,6 +22,7 @@ DIR8 = [
     Direction.NORTHWEST,
 ]
 DIR8_DELTA = [c.delta() for c in DIR8]
+DIR8_IDX = {d: i for i, d in enumerate(DIR8)}
 
 BRIDGE_DELTAS = [
     (dx, dy)
@@ -40,6 +41,10 @@ DELTA_TO_DIR = {
     (-1, 0): Direction.WEST,
     (-1, -1): Direction.NORTHWEST,
 }
+
+
+def rotate_cw(d: Direction, steps: int) -> Direction:
+    return DIR8[(DIR8_IDX[d] + steps) % 8]
 
 
 def tiles_3x3(core: Position, w: int, h: int) -> set[Position]:

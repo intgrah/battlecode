@@ -1,16 +1,10 @@
 from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, rotate_cw
 
 from .build import Action, PlaceSentinel
 from .helpers import move_toward_with_road
 from .state import State
-
-DIR8_IDX = {d: i for i, d in enumerate(DIR8)}
-
-
-def _rotate_cw(d: Direction, steps: int) -> Direction:
-    return DIR8[(DIR8_IDX[d] + steps) % 8]
 
 
 def _has_friendly_sentinel_near(state: State, hx: int, hy: int) -> bool:
@@ -55,8 +49,8 @@ def _find_target(
                 case _:
                     continue
             card_dir = DELTA_TO_DIR[(dx, dy)]
-            facing = _rotate_cw(card_dir, 3)
-            facing_alt = _rotate_cw(card_dir, 5)
+            facing = rotate_cw(card_dir, 3)
+            facing_alt = rotate_cw(card_dir, 5)
             dist = abs(pos.x - sx) + abs(pos.y - sy)
             if dist < best_dist:
                 best_dist = dist
