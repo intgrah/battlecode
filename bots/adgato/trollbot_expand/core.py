@@ -107,7 +107,7 @@ def run_core(player: Player, ct: Controller) -> None:
 
     print(f"funds {funds}. bb {builder_cost}")
 
-    can_afford = funds > builder_cost * 2 + harvester_cost + 100
+    can_afford = funds > builder_cost * 3 + harvester_cost + 100
 
     if can_afford and ct.get_current_round() > 100:
         for bid in ct.get_nearby_buildings():
