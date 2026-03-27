@@ -21,7 +21,7 @@ from cambc import Controller, EntityType, Environment, Position
 from flow_astar import build_leakage_mask
 from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
-from util import Symmetry, tiles_3x3
+from util import Symmetry
 
 from .state import State
 from .state_helpers import mirror
@@ -134,11 +134,8 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
                         case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
                             _reflect_all(state)
-                case BuildingCore(team) if (
-                    team != state.my_team and state.en_core is None
-                ):
-                    state.en_core = t
-                    state.en_core_tiles = tiles_3x3(t, state.w, state.h)
+                case BuildingCore(team) if team != state.my_team:
+                    state.en_core_tiles.add(t)
         else:
             state.building[i] = None
             if old_bld is not None or env != old_env:
@@ -249,8 +246,7 @@ def _eliminate_symmetries(
     to_remove: set[Symmetry] = set()
     cx, cy = state.my_core.x, state.my_core.y
 
-    if state.en_core is not None:
-        ex, ey = state.en_core.x, state.en_core.y
+    if state.en_core_tiles:
         for sym in state.sym_candidates:
             match sym:
                 case Symmetry.ROT:
@@ -259,7 +255,7 @@ def _eliminate_symmetries(
                     px, py = cx, h - 1 - cy
                 case Symmetry.VER:
                     px, py = w - 1 - cx, cy
-            if (px, py) != (ex, ey):
+            if Position(px, py) not in state.en_core_tiles:
                 to_remove.add(sym)
     else:
         for sym in state.sym_candidates:
