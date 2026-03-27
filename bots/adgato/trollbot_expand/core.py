@@ -13,7 +13,9 @@ from utils import in_bounds
 
 
 def _best_spawn_pos(
-    player: Player, ct: Controller, pos: Position,
+    player: Player,
+    ct: Controller,
+    pos: Position,
 ) -> Position | None:
     """Pick the best spawnable tile around the core.
 
