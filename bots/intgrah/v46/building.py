@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from cambc import EntityType
+
 if TYPE_CHECKING:
     from cambc import Direction, Position, Team
 
@@ -101,3 +103,21 @@ type Building = (
     | BuildingBreach
     | BuildingLauncher
 )
+
+
+ETYPE_BUILDING: dict[EntityType, type] = {
+    EntityType.CORE: BuildingCore,
+    EntityType.HARVESTER: BuildingHarvester,
+    EntityType.CONVEYOR: BuildingConveyor,
+    EntityType.ARMOURED_CONVEYOR: BuildingArmouredConveyor,
+    EntityType.SPLITTER: BuildingSplitter,
+    EntityType.BRIDGE: BuildingBridge,
+    EntityType.FOUNDRY: BuildingFoundry,
+    EntityType.BARRIER: BuildingBarrier,
+    EntityType.ROAD: BuildingRoad,
+    EntityType.MARKER: BuildingMarker,
+    EntityType.GUNNER: BuildingGunner,
+    EntityType.SENTINEL: BuildingSentinel,
+    EntityType.BREACH: BuildingBreach,
+    EntityType.LAUNCHER: BuildingLauncher,
+}
