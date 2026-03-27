@@ -306,18 +306,10 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                     .and_then(|e| get_stored_resource(&e.kind))
                     .unwrap_or(proto::ResourceType::ResourceTitanium);
 
-                if let Some(src) = state
-                    .entities
-                    .values_mut()
-                    .find(|e| e.pos == from_pos)
-                {
+                if let Some(src) = state.entities.values_mut().find(|e| e.pos == from_pos) {
                     set_stored_resource(&mut src.kind, proto::ResourceType::ResourceNone);
                 }
-                if let Some(dst) = state
-                    .entities
-                    .values_mut()
-                    .find(|e| e.pos == to_pos)
-                {
+                if let Some(dst) = state.entities.values_mut().find(|e| e.pos == to_pos) {
                     set_stored_resource(&mut dst.kind, resource);
                 }
             }

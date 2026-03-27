@@ -25,7 +25,8 @@ pub fn render_map(
             let px = gx as u32 * ts;
             let py = gy as u32 * ts;
 
-            let env = game.env
+            let env = game
+                .env
                 .get(gy as usize)
                 .and_then(|row| row.get(gx as usize))
                 .copied()
@@ -79,7 +80,10 @@ pub fn render_map(
         }
 
         let (px, py) = if matches!(e.kind, EntityKind::Core { .. }) {
-            ((e.pos.0 - 1).max(0) as u32 * ts, (e.pos.1 - 1).max(0) as u32 * ts)
+            (
+                (e.pos.0 - 1).max(0) as u32 * ts,
+                (e.pos.1 - 1).max(0) as u32 * ts,
+            )
         } else {
             (e.pos.0 as u32 * ts, e.pos.1 as u32 * ts)
         };
@@ -88,7 +92,10 @@ pub fn render_map(
             imageops::overlay(&mut img, sprite, i64::from(px), i64::from(py));
         }
 
-        if !matches!(e.kind, EntityKind::Core { .. } | EntityKind::CoreEdge { .. }) {
+        if !matches!(
+            e.kind,
+            EntityKind::Core { .. } | EntityKind::CoreEdge { .. }
+        ) {
             if let Some(res_name) = entity_resource_sprite(e) {
                 if let Some(res_sprite) = atlas.get(res_name) {
                     let rpx = e.pos.0 as u32 * ts;
@@ -237,12 +244,16 @@ fn tint_rect(img: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, tint: Rgba<u8>
         for px in x..x + w {
             if px < img.width() && py < img.height() {
                 let p = img.get_pixel(px, py);
-                img.put_pixel(px, py, Rgba([
-                    (u16::from(p.0[0]) * u16::from(tint.0[0]) / 255) as u8,
-                    (u16::from(p.0[1]) * u16::from(tint.0[1]) / 255) as u8,
-                    (u16::from(p.0[2]) * u16::from(tint.0[2]) / 255) as u8,
-                    p.0[3],
-                ]));
+                img.put_pixel(
+                    px,
+                    py,
+                    Rgba([
+                        (u16::from(p.0[0]) * u16::from(tint.0[0]) / 255) as u8,
+                        (u16::from(p.0[1]) * u16::from(tint.0[1]) / 255) as u8,
+                        (u16::from(p.0[2]) * u16::from(tint.0[2]) / 255) as u8,
+                        p.0[3],
+                    ]),
+                );
             }
         }
     }
@@ -314,26 +325,10 @@ fn overlay_beam(
         (to.0 - vx * half_w, to.1 - vy * half_w),
         (to.0 + vx * half_w, to.1 + vy * half_w),
     ];
-    let min_x = corners
-        .iter()
-        .map(|c| c.0)
-        .fold(f64::MAX, f64::min)
-        .floor() as i32;
-    let max_x = corners
-        .iter()
-        .map(|c| c.0)
-        .fold(f64::MIN, f64::max)
-        .ceil() as i32;
-    let min_y = corners
-        .iter()
-        .map(|c| c.1)
-        .fold(f64::MAX, f64::min)
-        .floor() as i32;
-    let max_y = corners
-        .iter()
-        .map(|c| c.1)
-        .fold(f64::MIN, f64::max)
-        .ceil() as i32;
+    let min_x = corners.iter().map(|c| c.0).fold(f64::MAX, f64::min).floor() as i32;
+    let max_x = corners.iter().map(|c| c.0).fold(f64::MIN, f64::max).ceil() as i32;
+    let min_y = corners.iter().map(|c| c.1).fold(f64::MAX, f64::min).floor() as i32;
+    let max_y = corners.iter().map(|c| c.1).fold(f64::MIN, f64::max).ceil() as i32;
 
     let img_w = img.width() as i32;
     let img_h = img.height() as i32;
@@ -369,7 +364,15 @@ fn overlay_beam(
     }
 }
 
-fn draw_border(img: &mut RgbaImage, x: u32, y: u32, w: u32, h: u32, color: Rgba<u8>, thickness: u32) {
+fn draw_border(
+    img: &mut RgbaImage,
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+    color: Rgba<u8>,
+    thickness: u32,
+) {
     for t in 0..thickness {
         for px in x..x + w {
             if px < img.width() {

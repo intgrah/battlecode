@@ -20,7 +20,7 @@ use std::{env, fs, io, path::Path, process, time::Duration};
 
 use crossterm::{
     ExecutableCommand,
-    event::{self, Event},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event},
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use prost::Message;
@@ -50,7 +50,9 @@ fn main() -> io::Result<()> {
     let atlas = sprites::SpriteAtlas::load(&assets_dir);
     let mut app = ui::App::new(replay, atlas);
 
-    io::stdout().execute(EnterAlternateScreen)?;
+    io::stdout()
+        .execute(EnterAlternateScreen)?
+        .execute(EnableMouseCapture)?;
     terminal::enable_raw_mode()?;
     let mut term = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
@@ -65,10 +67,10 @@ fn main() -> io::Result<()> {
         };
 
         if event::poll(timeout)? {
-            if let Event::Key(key) = event::read()?
-                && app.handle_key(key)
-            {
-                break;
+            match event::read()? {
+                Event::Key(key) if app.handle_key(key) => break,
+                Event::Mouse(mouse) => app.handle_mouse(mouse),
+                _ => {}
             }
         } else if app.playing {
             app.step_forward(1);
@@ -77,6 +79,8 @@ fn main() -> io::Result<()> {
 
     kitty::delete_image(1)?;
     terminal::disable_raw_mode()?;
-    io::stdout().execute(LeaveAlternateScreen)?;
+    io::stdout()
+        .execute(DisableMouseCapture)?
+        .execute(LeaveAlternateScreen)?;
     Ok(())
 }
