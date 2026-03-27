@@ -6,32 +6,11 @@ from pathlib import Path
 
 from cambc import Environment, Position
 
+from .known import KnownMap
 from .map import MAPS, decode
 
-MAP_NAMES: dict[tuple[int, int, Position], str] = {
-    (25, 25, Position(8, 10)): "arena",
-    (21, 29, Position(4, 4)): "battlebot",
-    (40, 40, Position(14, 23)): "chemistry_class",
-    (30, 30, Position(2, 27)): "cinnamon_roll",
-    (31, 31, Position(5, 15)): "corridors",
-    (40, 40, Position(11, 25)): "default_large1",
-    (50, 30, Position(3, 16)): "default_large2",
-    (30, 30, Position(10, 19)): "default_medium1",
-    (30, 30, Position(3, 3)): "default_medium2",
-    (20, 20, Position(1, 1)): "default_small1",
-    (21, 21, Position(10, 1)): "default_small2",
-    (21, 50, Position(10, 48)): "dna",
-    (20, 20, Position(5, 7)): "face",
-    (40, 40, Position(4, 35)): "galaxy",
-    (31, 31, Position(3, 22)): "hooks",
-    (27, 45, Position(13, 43)): "hourglass",
-    (30, 30, Position(3, 2)): "landscape",
-    (25, 25, Position(1, 23)): "minimaze",
-    (49, 49, Position(13, 17)): "pls_buy_cucats_merch",
-    (20, 20, Position(2, 2)): "shish_kebab",
-    (20, 20, Position(3, 16)): "thread_of_connection",
-    (39, 30, Position(4, 22)): "tree_of_life",
-    (40, 40, Position(3, 36)): "wasteland",
+_KEY_TO_ATTR: dict[tuple[int, int, Position], str] = {
+    getattr(KnownMap, attr): attr for attr in dir(KnownMap) if not attr.startswith("_")
 }
 
 
@@ -127,15 +106,16 @@ def main() -> None:
     line_len = 100
 
     with out.open("w") as f:
-        f.write("from cambc import Position\n")
         f.write("from util import Symmetry\n\n")
+        f.write("from .known import KnownMap, MapKey\n\n")
         f.write(
-            "APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {\n",
+            "APSP: dict[MapKey, tuple[Symmetry, str, str]] = {\n",
         )
 
         for key, (encoded, core_b) in MAPS.items():
             w, h, core_a = key
-            name = MAP_NAMES.get(key, f"{w}x{h}")
+            attr = _KEY_TO_ATTR.get(key)
+            name = attr.lower() if attr else f"{w}x{h}"
             n = w * h
             env = decode(encoded, n)
             sym = _determine_symmetry(w, h, core_a, core_b)
@@ -147,7 +127,10 @@ def main() -> None:
             print(f"zlib={len(compressed)}, b64={len(b64)}", file=sys.stderr)
 
             f.write(f"    # {name}\n")
-            f.write(f"    ({w}, {h}, Position({core_a.x}, {core_a.y})): (\n")
+            if attr:
+                f.write(f"    KnownMap.{attr}: (\n")
+            else:
+                f.write(f"    ({w}, {h}, Position({core_a.x}, {core_a.y})): (\n")
             f.write(f"        Symmetry.{sym},\n")
 
             lines = [b64[i : i + line_len] for i in range(0, len(b64), line_len)]
