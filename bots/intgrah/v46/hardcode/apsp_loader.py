@@ -1,56 +1,49 @@
-import base64
-import zlib
-
 from util import Symmetry
-
-from .apsp import APSP
-from .known import MapKey
 
 
 class ApspTable:
-    def __init__(
-        self, w: int, h: int, sym: Symmetry, data: bytearray, stored: list[int],
-    ) -> None:
+    def __init__(self, w: int, h: int, sym: Symmetry, data: bytes) -> None:
         self._w = w
         self._h = h
         self._n = w * h
         self._sym = sym
         self._data = data
-        self._index_map = {idx: pos for pos, idx in enumerate(stored)}
+        self._half_w = (w + 1) // 2
+        self._half_h = (h + 1) // 2
+        self._half_n = (w * h + 1) // 2
 
     def _mirror(self, i: int) -> int:
-        x, y = i % self._w, i // self._w
         match self._sym:
             case Symmetry.ROT:
-                return (self._h - 1 - y) * self._w + (self._w - 1 - x)
+                return self._n - 1 - i
             case Symmetry.HOR:
+                x, y = i % self._w, i // self._w
                 return (self._h - 1 - y) * self._w + x
             case Symmetry.VER:
+                x, y = i % self._w, i // self._w
                 return y * self._w + (self._w - 1 - x)
         return i
 
+    def _row(self, i: int) -> int:
+        match self._sym:
+            case Symmetry.ROT | Symmetry.HOR:
+                return i
+            case Symmetry.VER:
+                x, y = i % self._w, i // self._w
+                return y * self._half_w + x
+
+    def _is_stored(self, i: int) -> bool:
+        match self._sym:
+            case Symmetry.ROT:
+                return i < self._half_n
+            case Symmetry.HOR:
+                return i // self._w < self._half_h
+            case Symmetry.VER:
+                return i % self._w < self._half_w
+
     def dist(self, a: int, b: int) -> int:
-        if a in self._index_map:
-            row = self._index_map[a]
-            return self._data[row * self._n + b]
+        if self._is_stored(a):
+            return self._data[self._row(a) * self._n + b]
         ma = self._mirror(a)
         mb = self._mirror(b)
-        if ma in self._index_map:
-            row = self._index_map[ma]
-            return self._data[row * self._n + mb]
-        return 255
-
-
-def load(key: MapKey) -> ApspTable | None:
-    entry = APSP.get(key)
-    if entry is None:
-        return None
-    w, h, _ = key
-    sym, data_b64, stored_b64 = entry
-    data = bytearray(zlib.decompress(base64.b64decode(data_b64)))
-    stored_raw = zlib.decompress(base64.b64decode(stored_b64))
-    stored = [
-        int.from_bytes(stored_raw[i : i + 2], "little")
-        for i in range(0, len(stored_raw), 2)
-    ]
-    return ApspTable(w, h, sym, data, stored)
+        return self._data[self._row(ma) * self._n + mb]

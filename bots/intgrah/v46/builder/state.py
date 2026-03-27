@@ -69,7 +69,6 @@ class Economy:
         self.blocked = [False] * n
 
 
-
 class State:
     """Pure data container for builder belief state.
 
