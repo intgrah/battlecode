@@ -1,6 +1,6 @@
 from cambc import Controller, Direction, EntityType, Position
 from marker import TaskKind
-from util import DELTA_TO_DIR, DIR4_DELTAS, DIR8, DIR8_DELTA
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
 
 from .build import Action, PlaceBarrier, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
@@ -85,7 +85,7 @@ def deny_enemy_harvester(
     )
 
     if has_enemy_harvester and not _has_friendly_sentinel_near(state, ox, oy):
-        for dx, dy in DIR4_DELTAS:
+        for dx, dy in DIR4_DELTA:
             sx, sy = ox + dx, oy + dy
             if not state.in_bounds(sx, sy):
                 continue

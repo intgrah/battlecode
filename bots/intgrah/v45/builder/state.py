@@ -38,7 +38,7 @@ COST_IMPASSABLE = 1_000_000
 
 
 @dataclass(slots=True)
-class FlowState:
+class Economy:
     n: int
     ti: list[float] = field(init=False)
     ax: list[float] = field(init=False)
@@ -82,7 +82,7 @@ class State:
     by free functions (state_update, state_update_flow), not methods.
     """
 
-    def __init__(self, ct: Controller, core_pos: tuple[int, int]) -> None:
+    def __init__(self, ct: Controller, core_pos: Position) -> None:
         self.w = ct.get_map_width()
         self.h = ct.get_map_height()
         self.my_team = ct.get_team()
@@ -101,14 +101,14 @@ class State:
         self.ore_ax: set[tuple[int, int]] = set()
 
         # -- Friendly --
-        self.my_core: tuple[int, int] = core_pos
+        self.my_core: Position = core_pos
         self.my_core_tiles: set[int] = tiles_3x3(*core_pos, self.w, self.h)
         self.my_harvested: set[tuple[int, int]] = set()
         self.my_harvesters: set[int] = set()
         self.my_transport: set[int] = set()
         self.my_foundries: set[int] = set()
         self.my_turrets: set[int] = set()
-        self.my_flow = FlowState(n)
+        self.my_flow = Economy(n)
 
         self.my_core_hp: int = GameConstants.CORE_MAX_HP
         self.my_barriers: set[int] = set()
@@ -122,7 +122,7 @@ class State:
         self.en_transport: set[int] = set()
         self.en_turrets: set[int] = set()
         self.en_foundries: set[int] = set()
-        self.en_flow = FlowState(n)
+        self.en_flow = Economy(n)
 
         # -- Ephemeral --
         self.unit_tiles: set[int] = set()
