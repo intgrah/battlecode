@@ -1,7 +1,7 @@
-from cambc import Controller, EntityType
+from cambc import Controller
 
 
 class Player:
     def run(self, ct: Controller) -> None:
-        if ct.get_entity_type() == EntityType.CORE and ct.get_current_round() >= 50:
-            ct.destroy(ct.get_position())
+        if ct.get_current_round() >= 50:
+            ct.resign()
