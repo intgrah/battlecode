@@ -2,26 +2,12 @@ import sys
 from collections import deque
 from pathlib import Path
 
-from cambc import Environment, Position
+from cambc import Environment
 
 from .known import KnownMap
-from .map import MAPS, decode
-
-_KEY_TO_ATTR: dict[tuple[int, int, Position], str] = {
-    getattr(KnownMap, attr): attr for attr in dir(KnownMap) if not attr.startswith("_")
-}
+from .map import DIMENSIONS, SYMMETRY, TILES, decode
 
 _BYTES_PER_LINE = 60
-
-
-def _determine_symmetry(w: int, h: int, core_a: Position, core_b: Position) -> str:
-    ax, ay = core_a.x, core_a.y
-    bx, by = core_b.x, core_b.y
-    if ax == bx and ay + by == h - 1:
-        return "HOR"
-    if ay == by and ax + bx == w - 1:
-        return "VER"
-    return "ROT"
 
 
 def _stored_tiles(w: int, h: int, sym: str) -> list[int]:
@@ -115,33 +101,18 @@ def main() -> None:
     out = Path(__file__).parent / "apsp.py"
 
     with out.open("w") as f:
-        f.write("from util import Symmetry\n\n")
-        f.write("from .known import KnownMap, MapKey\n\n")
-        f.write("SYMMETRY: dict[MapKey, Symmetry] = {\n")
+        f.write("from collections.abc import Callable\n\n")
+        f.write("from .known import KnownMap\n\n\n")
 
-        syms: dict[tuple[int, int, Position], str] = {}
-        for key, (_, core_b) in MAPS.items():
-            w, h, core_a = key
-            attr = _KEY_TO_ATTR.get(key)
-            sym = _determine_symmetry(w, h, core_a, core_b)
-            syms[key] = sym
-            if attr:
-                f.write(f"    KnownMap.{attr}: Symmetry.{sym},\n")
-        f.write("}\n\n")
-
-        for key, (encoded, _) in MAPS.items():
-            w, h, core_a = key
-            attr = _KEY_TO_ATTR.get(key)
-            if attr is None:
-                continue
-            name = attr.lower()
+        for km in KnownMap:
+            w, h = DIMENSIONS[km]
             n = w * h
-            env = decode(encoded, n)
-            sym = syms[key]
+            env = decode(TILES[km](), n)
+            sym = SYMMETRY[km].name
 
             tiles = _stored_tiles(w, h, sym)
             print(
-                f"  {name} ({w}x{h}): {sym}, {len(tiles)} rows...",
+                f"  {km.value} ({w}x{h}): {sym}, {len(tiles)} rows...",
                 end=" ",
                 flush=True,
                 file=sys.stderr,
@@ -149,10 +120,15 @@ def main() -> None:
             raw = _compute_half_apsp(w, h, env, sym)
             print(f"{len(raw)} bytes", file=sys.stderr)
 
-            f.write(f"\n\ndef {name}() -> bytes:\n")
+            f.write(f"def _{km.value}() -> bytes:\n")
             f.write("    return (\n")
             f.write(_bytes_literal(raw) + "\n")
-            f.write("    )\n")
+            f.write("    )\n\n\n")
+
+        f.write("DATA: dict[KnownMap, Callable[[], bytes]] = {\n")
+        for km in KnownMap:
+            f.write(f"    KnownMap.{km.name}: _{km.value},\n")
+        f.write("}\n")
 
     print(f"Wrote {out}", file=sys.stderr)
 

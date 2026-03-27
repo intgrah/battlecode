@@ -33,8 +33,9 @@ from cambc import (
     GameConstants,
     Position,
 )
-from hardcode.map import MAPS
-from hardcode.map import decode as decode_known_map
+from hardcode.apsp import DATA as APSP_DATA
+from hardcode.apsp_loader import ApspTable
+from hardcode.map import CANDIDATES, CORE_B, SYMMETRY, TILES, decode
 from util import Symmetry, tiles_3x3
 
 COST_ROAD = 2
@@ -155,6 +156,9 @@ class State:
         self.out_target: dict[int, list[int]] = {}
         self.out_target_dirty: bool = True
 
+        # -- APSP --
+        self.apsp: ApspTable | None = None
+
         # -- Load known map if available --
         _try_load_known_map(self, core_pos)
 
@@ -195,12 +199,13 @@ class State:
 
 def _try_load_known_map(state: State, core_pos: Position) -> None:
     key = (state.w, state.h, core_pos)
-    known = MAPS.get(key)
-    if known is None:
+    candidates = CANDIDATES.get(key)
+    if candidates is None or len(candidates) != 1:
         return
-    encoded, en_core = known
-    tiles = decode_known_map(encoded, state.w * state.h)
-    for i in range(state.w * state.h):
+    km = candidates[0]
+    n = state.w * state.h
+    tiles = decode(TILES[km](), n)
+    for i in range(n):
         state.env[i] = tiles[i]
         p = Position(i % state.w, i // state.w)
         match tiles[i]:
@@ -208,6 +213,10 @@ def _try_load_known_map(state: State, core_pos: Position) -> None:
                 state.ore_ti.add(p)
             case Environment.ORE_AXIONITE:
                 state.ore_ax.add(p)
-    state.en_core = en_core
-    state.en_core_tiles = tiles_3x3(en_core, state.w, state.h)
+    state.en_core = CORE_B[km]
+    state.en_core_tiles = tiles_3x3(state.en_core, state.w, state.h)
     state.sym_candidates.clear()
+
+    apsp_fn = APSP_DATA.get(km)
+    if apsp_fn is not None:
+        state.apsp = ApspTable(state.w, state.h, SYMMETRY[km], apsp_fn())

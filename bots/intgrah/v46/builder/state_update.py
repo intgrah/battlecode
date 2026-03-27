@@ -21,9 +21,7 @@ from cambc import Controller, EntityType, Environment, Position
 from flow_astar import build_leakage_mask
 from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
-from util import tiles_3x3
-
-from util import Symmetry
+from util import Symmetry, tiles_3x3
 
 from .state import State
 from .state_helpers import mirror
