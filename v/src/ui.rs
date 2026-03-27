@@ -306,6 +306,7 @@ impl App {
             &self.atlas,
             self.cursor,
             self.selected_entity,
+            self.show_indicators,
         );
         let _ = kitty::display_image(&img, 1, area.x, area.y);
     }
