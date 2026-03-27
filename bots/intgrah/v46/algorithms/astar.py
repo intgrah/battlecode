@@ -38,7 +38,7 @@ class Astar[T]:
         return path
 
     def compute(
-        self, within_budget: Callable[[], bool] = lambda: True
+        self, within_budget: Callable[[], bool] = lambda: True,
     ) -> list[T] | None:
         if self._done:
             return self._result
