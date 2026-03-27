@@ -8,7 +8,7 @@ navigate to nearest and place on arrival.
 """
 
 from cambc import Controller, Direction, Position
-from marker import TaskClaim, TaskKind
+from marker import MarkerTaskClaim, TaskKind
 
 from .build import Action, PlaceHarvester
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -73,7 +73,7 @@ def harvest_ax(
                 ti, _ = ct.get_global_resources()
                 if ti >= h_cost:
                     build = PlaceHarvester(ore_pos)
-        state.claim = TaskClaim(TaskKind.NAV_ORE, oi, rnd)
+        state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
         state.debug_target = (Position(ore[0], ore[1]), 255, 165, 0)
         return move, build
     return None

@@ -1,7 +1,6 @@
 from algorithms import Astar
 from builder.state import State
-from building import Bridge, Marker, Road
-from building import Core as CoreBuilding
+from building import BuildingBridge, BuildingCore, BuildingMarker, BuildingRoad
 from cambc import Controller, Environment
 from flow_astar import build_leakage_mask
 from util import BRIDGE_DELTAS
@@ -76,7 +75,7 @@ class BridgeFlowAstar(Astar[int]):
         result: list[tuple[int, int]] = []
 
         match bld:
-            case CoreBuilding():
+            case BuildingCore():
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
@@ -86,7 +85,7 @@ class BridgeFlowAstar(Astar[int]):
                         ):
                             result.append((ni, 0))
 
-            case Bridge(target=bt):
+            case BuildingBridge(target=bt):
                 bx, by = bt.x, bt.y
                 if 0 <= bx < w and 0 <= by < h:
                     ni = by * w + bx
@@ -97,7 +96,7 @@ class BridgeFlowAstar(Astar[int]):
                     ):
                         result.append((ni, COST_REUSE))
 
-            case None | Road() | Marker():
+            case None | BuildingRoad() | BuildingMarker():
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:

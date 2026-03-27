@@ -1,14 +1,14 @@
 from building import (
-    Barrier,
-    Breach,
-    Foundry,
-    Gunner,
-    Harvester,
+    BuildingBarrier,
+    BuildingBreach,
+    BuildingFoundry,
+    BuildingGunner,
+    BuildingHarvester,
+    BuildingLauncher,
+    BuildingSentinel,
 )
-from building import Launcher as LauncherBuilding
-from building import Sentinel as SentinelBuilding
 from cambc import Controller, Direction, Environment, Position
-from marker import TaskClaim, TaskKind
+from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, DIR8_DELTA
 
 from .build import Action, Fire, PlaceBarrier, PlaceHarvester
@@ -16,13 +16,13 @@ from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
 
 _SECURED = (
-    Barrier,
-    Gunner,
-    SentinelBuilding,
-    Breach,
-    LauncherBuilding,
-    Harvester,
-    Foundry,
+    BuildingBarrier,
+    BuildingGunner,
+    BuildingSentinel,
+    BuildingBreach,
+    BuildingLauncher,
+    BuildingHarvester,
+    BuildingFoundry,
 )
 
 
@@ -136,7 +136,7 @@ def secure_ore(
         return None
 
     rnd = ct.get_current_round()
-    state.claim = TaskClaim(TaskKind.NAV_ORE, oi, rnd)
+    state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
 
     ore_pos = Position(ox, oy)
 

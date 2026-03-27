@@ -2,8 +2,15 @@
 
 import json
 
-from building import ArmouredConveyor, Breach, Bridge, Conveyor, Gunner, Splitter
-from building import Sentinel as SentinelBuilding
+from building import (
+    BuildingArmouredConveyor,
+    BuildingBreach,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingGunner,
+    BuildingSentinel,
+    BuildingSplitter,
+)
 from cambc import Controller
 
 from .state import State
@@ -33,12 +40,12 @@ def dump(state: State, ct: Controller) -> None:
             and isinstance(
                 state.building[i],
                 (
-                    Conveyor,
-                    ArmouredConveyor,
-                    Splitter,
-                    Gunner,
-                    SentinelBuilding,
-                    Breach,
+                    BuildingConveyor,
+                    BuildingArmouredConveyor,
+                    BuildingSplitter,
+                    BuildingGunner,
+                    BuildingSentinel,
+                    BuildingBreach,
                 ),
             )
             else None
@@ -47,7 +54,7 @@ def dump(state: State, ct: Controller) -> None:
         "bridge_target": {
             str(i): [state.building[i].target[0], state.building[i].target[1]]
             for i in range(n)
-            if isinstance(state.building[i], Bridge)
+            if isinstance(state.building[i], BuildingBridge)
         },
         "my_core": list(state.my_core),
         "ore_ti": list(state.ore_ti),

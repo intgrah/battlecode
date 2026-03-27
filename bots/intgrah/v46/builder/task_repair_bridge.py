@@ -1,5 +1,5 @@
 from bridge_astar import BridgeFlowAstar
-from building import Bridge, Core
+from building import BuildingBridge, BuildingCore
 from cambc import Controller, Direction, Position
 from flow_astar import AX
 
@@ -14,14 +14,16 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
         i = state.idx(p.x, p.y)
         bld = state.building[i]
         match bld:
-            case Bridge(target=bt):
+            case BuildingBridge(target=bt):
                 pass
             case _:
                 continue
         ti = bt[1] * w + bt[0]
         tbld = state.building[ti]
         match tbld:
-            case Bridge(team=team) | Core(team=team) if team == state.my_team:
+            case BuildingBridge(team=team) | BuildingCore(team=team) if (
+                team == state.my_team
+            ):
                 continue
         return bt
     for hp in state.my_harvesters:
@@ -34,7 +36,7 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
             ni = state.idx(nx, ny)
             nbld = state.building[ni]
             match nbld:
-                case Bridge(team=team) if team == state.my_team:
+                case BuildingBridge(team=team) if team == state.my_team:
                     has_adj_bridge = True
                     break
         if not has_adj_bridge:

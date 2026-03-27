@@ -9,7 +9,12 @@ Unlike place_foundry_ti_conv, this preserves the original conveyor until
 the splitter replaces it, keeping the Ti chain intact.
 """
 
-from building import ArmouredConveyor, Conveyor, Marker, Road
+from building import (
+    BuildingArmouredConveyor,
+    BuildingConveyor,
+    BuildingMarker,
+    BuildingRoad,
+)
 from cambc import Controller, Direction, Environment, Position
 
 from .build import Action, PlaceFoundry
@@ -31,7 +36,7 @@ def place_foundry_mixed_conv(
         i = state.idx(p.x, p.y)
         bld = state.building[i]
         match bld:
-            case Conveyor() | ArmouredConveyor():
+            case BuildingConveyor() | BuildingArmouredConveyor():
                 pass
             case _:
                 continue
@@ -62,9 +67,9 @@ def place_foundry_mixed_conv(
             continue
         bld = state.building[ni]
         match bld:
-            case None | Marker():
+            case None | BuildingMarker():
                 pass
-            case Road(team=team) if team == state.my_team:
+            case BuildingRoad(team=team) if team == state.my_team:
                 pass
             case _:
                 continue

@@ -8,96 +8,96 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, slots=True)
-class Core:
+class BuildingCore:
     team: Team
 
 
 @dataclass(frozen=True, slots=True)
-class Harvester:
+class BuildingHarvester:
     team: Team
 
 
 @dataclass(frozen=True, slots=True)
-class Conveyor:
-    team: Team
-    direction: Direction
-
-
-@dataclass(frozen=True, slots=True)
-class ArmouredConveyor:
+class BuildingConveyor:
     team: Team
     direction: Direction
 
 
 @dataclass(frozen=True, slots=True)
-class Splitter:
+class BuildingArmouredConveyor:
     team: Team
     direction: Direction
 
 
 @dataclass(frozen=True, slots=True)
-class Bridge:
+class BuildingSplitter:
+    team: Team
+    direction: Direction
+
+
+@dataclass(frozen=True, slots=True)
+class BuildingBridge:
     team: Team
     target: Position
 
 
 @dataclass(frozen=True, slots=True)
-class Foundry:
+class BuildingFoundry:
     team: Team
 
 
 @dataclass(frozen=True, slots=True)
-class Barrier:
+class BuildingBarrier:
     team: Team
 
 
 @dataclass(frozen=True, slots=True)
-class Road:
+class BuildingRoad:
     team: Team
 
 
 @dataclass(frozen=True, slots=True)
-class Marker:
+class BuildingMarker:
     team: Team
     value: int
 
 
 @dataclass(frozen=True, slots=True)
-class Gunner:
+class BuildingGunner:
     team: Team
     direction: Direction
 
 
 @dataclass(frozen=True, slots=True)
-class Sentinel:
+class BuildingSentinel:
     team: Team
     direction: Direction
 
 
 @dataclass(frozen=True, slots=True)
-class Breach:
+class BuildingBreach:
     team: Team
     direction: Direction
 
 
 @dataclass(frozen=True, slots=True)
-class Launcher:
+class BuildingLauncher:
     team: Team
 
 
 type Building = (
-    Core
-    | Harvester
-    | Conveyor
-    | ArmouredConveyor
-    | Splitter
-    | Bridge
-    | Foundry
-    | Barrier
-    | Road
-    | Marker
-    | Gunner
-    | Sentinel
-    | Breach
-    | Launcher
+    BuildingCore
+    | BuildingHarvester
+    | BuildingConveyor
+    | BuildingArmouredConveyor
+    | BuildingSplitter
+    | BuildingBridge
+    | BuildingFoundry
+    | BuildingBarrier
+    | BuildingRoad
+    | BuildingMarker
+    | BuildingGunner
+    | BuildingSentinel
+    | BuildingBreach
+    | BuildingLauncher
 )

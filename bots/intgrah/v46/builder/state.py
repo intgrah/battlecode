@@ -15,18 +15,18 @@ if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
-    from marker import TaskClaim
+    from marker import MarkerTaskClaim
     from nav_astar import NavAstar
 
 from building import (
-    ArmouredConveyor,
-    Bridge,
     Building,
-    Conveyor,
-    Core,
-    Marker,
-    Road,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingMarker,
+    BuildingRoad,
+    BuildingSplitter,
 )
 from cambc import (
     Controller,
@@ -131,7 +131,7 @@ class State:
 
         # -- Ephemeral --
         self.unit_tiles: set[Position] = set()
-        self.claims: set[TaskClaim] = set()
+        self.claims: set[MarkerTaskClaim] = set()
         self.pos: Position = core_pos
 
         # -- Symmetry --
@@ -155,8 +155,8 @@ class State:
         self.nav_path: list[int] | None = None
 
         # -- Marker --
-        self.last_claim: TaskClaim | None = None
-        self.claim: TaskClaim | None = None
+        self.last_claim: MarkerTaskClaim | None = None
+        self.claim: MarkerTaskClaim | None = None
 
         # -- Debug --
         self.debug_target: tuple[Position, int, int, int] | None = None
@@ -190,11 +190,17 @@ class State:
             case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
                 return COST_IMPASSABLE
         match self.building[i]:
-            case None | Marker():
+            case None | BuildingMarker():
                 return COST_EMPTY
-            case Core(team) if team == self.my_team:
+            case BuildingCore(team) if team == self.my_team:
                 return COST_ROAD
-            case Road() | Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+            case (
+                BuildingRoad()
+                | BuildingConveyor()
+                | BuildingArmouredConveyor()
+                | BuildingSplitter()
+                | BuildingBridge()
+            ):
                 return COST_ROAD
             case _:
                 return COST_IMPASSABLE

@@ -10,7 +10,7 @@ The splitter preserves the original direction of the conveyor it replaces,
 ensuring downstream flow continues uninterrupted.
 """
 
-from building import ArmouredConveyor, Conveyor
+from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller, Direction, Position
 
 from .build import Action, PlaceSplitter
@@ -33,8 +33,8 @@ def place_splitter_foundry(
             bld = state.building[ni]
             match bld:
                 case (
-                    Conveyor(team=team, direction=d)
-                    | ArmouredConveyor(team=team, direction=d)
+                    BuildingConveyor(team=team, direction=d)
+                    | BuildingArmouredConveyor(team=team, direction=d)
                 ):
                     if team != state.my_team:
                         continue

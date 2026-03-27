@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
-from building import Bridge
-from building import Launcher as LauncherBuilding
+from building import BuildingBridge
+from building import BuildingLauncher as BuildingLauncher
 from cambc import (
     Controller,
     Direction,
@@ -10,7 +10,7 @@ from cambc import (
     GameConstants,
     Position,
 )
-from marker import Eureka
+from marker import MarkerEureka
 from unit import Unit
 from util import DIR8_DELTA
 
@@ -112,7 +112,7 @@ class Builder(Unit):
             s.last_claim = s.claim
             marker_val = s.claim.encode()
         elif s.symmetry is not None:
-            marker_val = Eureka(s.symmetry.value).encode()
+            marker_val = MarkerEureka(s.symmetry.value).encode()
         if marker_val is None:
             return
         pos = ct.get_position()
@@ -152,7 +152,7 @@ def _has_undefended_bridge(state: State) -> bool:
         i = state.idx(p.x, p.y)
         bld = state.building[i]
         match bld:
-            case Bridge():
+            case BuildingBridge():
                 pass
             case _:
                 continue
@@ -160,7 +160,7 @@ def _has_undefended_bridge(state: State) -> bool:
             state.in_bounds(p.x + dx, p.y + dy)
             and isinstance(
                 state.building[state.idx(p.x + dx, p.y + dy)],
-                LauncherBuilding,
+                BuildingLauncher,
             )
             and state.building[state.idx(p.x + dx, p.y + dy)].team == state.my_team
             for dx, dy in DIR8_DELTA

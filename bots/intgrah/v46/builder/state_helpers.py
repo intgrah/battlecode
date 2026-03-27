@@ -1,12 +1,12 @@
 """Pure query functions on State. No mutation."""
 
 from building import (
-    ArmouredConveyor,
-    Conveyor,
-    Core,
-    Marker,
-    Road,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingMarker,
+    BuildingRoad,
+    BuildingSplitter,
 )
 from cambc import Direction, Environment, Position
 
@@ -23,11 +23,16 @@ def walkable(state: State, x: int, y: int) -> int:
         case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
             return COST_IMPASSABLE
     match state.building[i]:
-        case None | Marker():
+        case None | BuildingMarker():
             return COST_EMPTY
-        case Core(team) if team == state.my_team:
+        case BuildingCore(team) if team == state.my_team:
             return COST_ROAD
-        case Road() | Conveyor() | ArmouredConveyor() | Splitter():
+        case (
+            BuildingRoad()
+            | BuildingConveyor()
+            | BuildingArmouredConveyor()
+            | BuildingSplitter()
+        ):
             return COST_ROAD
         case _:
             return COST_IMPASSABLE
@@ -63,9 +68,9 @@ def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
     if bld is None:
         return True
     match bld:
-        case Splitter(direction=d):
+        case BuildingSplitter(direction=d):
             return from_dir == d
-        case Conveyor(direction=d) | ArmouredConveyor(direction=d):
+        case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
             return from_dir != d.opposite()
     return True
 

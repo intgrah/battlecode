@@ -1,5 +1,4 @@
-from building import Harvester
-from building import Sentinel as SentinelBuilding
+from building import BuildingHarvester, BuildingSentinel
 from cambc import Controller, Direction, Position
 from util import DIR8_DELTA
 
@@ -16,7 +15,7 @@ def _has_friendly_sentinel_adjacent(state: State, ox: int, oy: int) -> bool:
         ni = state.idx(nx, ny)
         bld = state.building[ni]
         match bld:
-            case SentinelBuilding(team=team) if team == state.my_team:
+            case BuildingSentinel(team=team) if team == state.my_team:
                 return True
     return False
 
@@ -35,7 +34,7 @@ def _best_denied_ore(state: State) -> Position | None:
             continue
         bld = state.building[oi]
         match bld:
-            case Harvester():
+            case BuildingHarvester():
                 continue
         if not _has_friendly_sentinel_adjacent(state, ox, oy):
             continue

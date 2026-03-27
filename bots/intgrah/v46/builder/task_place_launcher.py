@@ -1,5 +1,4 @@
-from building import Bridge, Marker, Road
-from building import Launcher as LauncherBuilding
+from building import BuildingBridge, BuildingLauncher, BuildingMarker, BuildingRoad
 from cambc import Controller, Direction, Position
 from util import DIR8_DELTA
 
@@ -13,7 +12,7 @@ def _undefended_bridge(state: State) -> tuple[int, int] | None:
         i = state.idx(p.x, p.y)
         bld = state.building[i]
         match bld:
-            case Bridge():
+            case BuildingBridge():
                 pass
             case _:
                 continue
@@ -26,7 +25,7 @@ def _undefended_bridge(state: State) -> tuple[int, int] | None:
             ni = state.idx(nx, ny)
             nbld = state.building[ni]
             match nbld:
-                case LauncherBuilding(team=team) if team == state.my_team:
+                case BuildingLauncher(team=team) if team == state.my_team:
                     has_launcher = True
                     break
         if not has_launcher:
@@ -46,7 +45,7 @@ def _find_placement(
         ai = state.idx(ax, ay)
         bld = state.building[ai]
         match bld:
-            case None | Road() | Marker():
+            case None | BuildingRoad() | BuildingMarker():
                 pass
             case _:
                 continue
