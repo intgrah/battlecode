@@ -8,7 +8,7 @@ const CHUNK_SIZE: usize = 4096;
 pub fn display_image(img: &RgbaImage, id: u32, col: u16, row: u16) -> io::Result<()> {
     let mut png_buf = Vec::new();
     img.write_to(&mut io::Cursor::new(&mut png_buf), image::ImageFormat::Png)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(io::Error::other)?;
 
     let encoded = base64::engine::general_purpose::STANDARD.encode(&png_buf);
     let mut stdout = io::stdout().lock();
