@@ -25,7 +25,7 @@ from util import Symmetry
 
 from .state import State
 from .state_helpers import mirror
-from .state_update_flow import recompute_enemy_flow, recompute_flow
+from .state_update_econ import update_en_econ, update_my_econ
 
 _ETYPE_TO_BUILDING: dict[EntityType, type] = {
     EntityType.CORE: BuildingCore,
@@ -152,13 +152,11 @@ def _rebuild_sets(state: State) -> None:
     n = w * state.h
     my_team = state.my_team
 
-    state.my_harvested.clear()
     state.my_harvesters.clear()
     state.my_transport.clear()
     state.my_foundries.clear()
     state.my_turrets.clear()
     state.my_barriers.clear()
-    state.en_harvested.clear()
     state.en_harvesters.clear()
     state.en_transport.clear()
     state.en_foundries.clear()
@@ -174,7 +172,6 @@ def _rebuild_sets(state: State) -> None:
         if bld.team == my_team:
             match bld:
                 case BuildingHarvester():
-                    state.my_harvested.add(p)
                     state.my_harvesters.add(p)
                 case (
                     BuildingConveyor()
@@ -197,7 +194,6 @@ def _rebuild_sets(state: State) -> None:
         else:
             match bld:
                 case BuildingHarvester():
-                    state.en_harvested.add(p)
                     state.en_harvesters.add(p)
                 case (
                     BuildingConveyor()
@@ -320,7 +316,7 @@ def _update_flow(state: State, changed: list[Position]) -> None:
         p in state.en_transport or p in state.en_harvesters for p in changed
     )
     if needs_reflow:
-        recompute_flow(state)
+        update_my_econ(state)
         state.ti_flow_search = None
         state.ti_cached_path = None
         state.ax_flow_search = None
@@ -331,4 +327,4 @@ def _update_flow(state: State, changed: list[Position]) -> None:
     elif state.leakage_mask is None:
         state.leakage_mask = build_leakage_mask(state)
     if needs_enemy_reflow:
-        recompute_enemy_flow(state)
+        update_en_econ(state)

@@ -81,7 +81,7 @@ def _ore_is_visible(state: State, ox: int, oy: int) -> bool:
 
 
 def _best_ore(state: State) -> tuple[int, int] | None:
-    unharvested = state.ore_ti - state.my_harvested - state.en_harvested
+    unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
     if not unharvested:
         return None
     cx, cy = state.my_core

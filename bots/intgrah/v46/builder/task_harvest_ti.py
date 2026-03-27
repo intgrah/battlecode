@@ -20,7 +20,7 @@ def harvest_ti(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
-    unharvested = state.ore_ti - state.my_harvested - state.en_harvested
+    unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
     if not unharvested:
         return None
 

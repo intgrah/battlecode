@@ -26,7 +26,7 @@ def harvest_ax(
         return None
 
     pos = state.pos
-    unharvested = state.ore_ax - state.my_harvested - state.en_harvested
+    unharvested = state.ore_ax - state.my_harvesters - state.en_harvesters
     if not unharvested:
         return None
 

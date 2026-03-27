@@ -13,7 +13,7 @@ def _best_deny_target(
     state: State,
     exclude: tuple[int, int] | None = None,
 ) -> tuple[int, int] | None:
-    unharvested = state.ore_ti - state.my_harvested
+    unharvested = state.ore_ti - state.my_harvesters
     if not unharvested:
         return None
     pos = state.pos
