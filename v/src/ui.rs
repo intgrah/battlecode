@@ -95,6 +95,7 @@ impl App {
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         if self.show_help {
             self.show_help = false;
+            self.needs_redraw = true;
             return false;
         }
 
@@ -166,7 +167,10 @@ impl App {
                 self.show_vision = !self.show_vision;
                 self.needs_redraw = true;
             }
-            KeyCode::Char('?') => self.show_help = true,
+            KeyCode::Char('?') => {
+                self.show_help = true;
+                self.needs_redraw = true;
+            }
 
             KeyCode::Char(c @ '1'..='9') => {
                 let frac = f64::from(c as u8 - b'0') / 10.0;
@@ -265,6 +269,10 @@ impl App {
 
     pub fn render(&mut self, frame: &mut Frame) {
         if self.show_help {
+            if self.needs_redraw {
+                let _ = kitty::delete_image(1);
+                self.needs_redraw = false;
+            }
             render_help(frame);
             return;
         }
