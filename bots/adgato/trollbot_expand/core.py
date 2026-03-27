@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from main import Player
 
-from cambc import Controller, Direction, EntityType, Environment, Position
-from pathfinding import _ALL_DIRS, _rotate, chebyshev
+from cambc import Controller, EntityType, Environment, Position
+from pathfinding import _rotate, chebyshev
 from utils import in_bounds
 
 

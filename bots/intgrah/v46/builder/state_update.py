@@ -18,8 +18,8 @@ def update(state: State, ct: Controller) -> None:
 
     _update_ephemeral(state, ct, rnd)
     _update_core_hp(state, ct)
-    changed, new_tiles = _scan_vision(state, ct, rnd)
-    _update_symmetry(state, new_tiles)
+    changed = _scan_vision(state, ct, rnd)
+    _rebuild_sets(state)
     _update_flow(state, changed)
 
 
@@ -47,7 +47,7 @@ def _scan_vision(
     state: State,
     ct: Controller,
     rnd: int,
-) -> tuple[list[Position], list[tuple[Position, Environment]]]:
+) -> list[Position]:
     w = state.w
     changed: list[Position] = []
     new_tiles: list[tuple[Position, Environment]] = []
@@ -68,155 +68,103 @@ def _scan_vision(
 
         bid = ct.get_tile_building_id(t)
         if bid is not None:
-            _process_building(state, ct, i, t, bid, old_ent, old_env, env, rnd, changed)
+            etype = ct.get_entity_type(bid)
+            team = ct.get_team(bid)
+            new_ent = (etype, team)
+            state.entity[i] = new_ent
+            if new_ent != old_ent or env != old_env:
+                changed.append(t)
+
+            if etype in DIRECTED_BUILDINGS:
+                state.direction[i] = ct.get_direction(bid)
+                state.bridge_target[i] = None
+            elif etype == EntityType.BRIDGE:
+                state.direction[i] = None
+                state.bridge_target[i] = ct.get_bridge_target(bid)
+            elif etype == EntityType.MARKER and team == state.my_team:
+                state.direction[i] = None
+                state.bridge_target[i] = None
+                msg = decode_marker(ct.get_marker_value(bid))
+                if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
+                    state.claims.add(msg)
+                elif isinstance(msg, Eureka) and state.symmetry is None:
+                    state.symmetry = Symmetry(msg.symmetry)
+                    _reflect_all(state)
+            else:
+                state.direction[i] = None
+                state.bridge_target[i] = None
+
+            if (
+                state.en_core is None
+                and etype == EntityType.CORE
+                and team != state.my_team
+            ):
+                state.en_core = t
+                state.en_core_tiles = tiles_3x3(t, state.w, state.h)
         else:
-            _process_empty(state, i, t, old_ent, old_env, env, changed)
+            state.entity[i] = None
+            state.direction[i] = None
+            state.bridge_target[i] = None
+            if old_ent is not None or env != old_env:
+                changed.append(t)
 
         new_tiles.append((t, env))
 
-    return changed, new_tiles
+    _update_symmetry(state, new_tiles)
+    return changed
 
 
-def _process_building(
-    state: State,
-    ct: Controller,
-    i: int,
-    pos: Position,
-    bid: int,
-    old_ent: tuple[EntityType, ...] | None,
-    old_env: Environment | None,
-    env: Environment,
-    rnd: int,
-    changed: list[Position],
-) -> None:
-    etype = ct.get_entity_type(bid)
-    team = ct.get_team(bid)
-    new_ent = (etype, team)
-    state.entity[i] = new_ent
-    if new_ent != old_ent or env != old_env:
-        changed.append(pos)
+def _rebuild_sets(state: State) -> None:
+    w = state.w
+    n = w * state.h
+    my_team = state.my_team
 
-    if etype in DIRECTED_BUILDINGS:
-        state.direction[i] = ct.get_direction(bid)
-        state.bridge_target[i] = None
-    elif etype == EntityType.BRIDGE:
-        state.direction[i] = None
-        state.bridge_target[i] = ct.get_bridge_target(bid)
-    else:
-        state.direction[i] = None
-        state.bridge_target[i] = None
+    state.my_harvested.clear()
+    state.my_harvesters.clear()
+    state.my_transport.clear()
+    state.my_foundries.clear()
+    state.my_turrets.clear()
+    state.my_barriers.clear()
+    state.en_harvested.clear()
+    state.en_harvesters.clear()
+    state.en_transport.clear()
+    state.en_foundries.clear()
+    state.en_turrets.clear()
+    state.en_barriers.clear()
 
-    if team == state.my_team:
-        _classify_friendly(state, ct, pos, bid, etype, rnd)
-        state.en_transport.discard(pos)
-        state.en_harvesters.discard(pos)
-        state.en_turrets.discard(pos)
-        state.en_barriers.discard(pos)
-    else:
-        _classify_enemy(state, pos, etype)
-        state.my_transport.discard(pos)
-        state.my_harvesters.discard(pos)
-        state.my_turrets.discard(pos)
-        state.my_barriers.discard(pos)
+    for i in range(n):
+        ent = state.entity[i]
+        if ent is None:
+            continue
+        etype, team = ent
+        p = Position(i % w, i // w)
 
-    if state.en_core is None and etype == EntityType.CORE and team != state.my_team:
-        center = ct.get_position(bid)
-        state.en_core = center
-        state.en_core_tiles = tiles_3x3(center, state.w, state.h)
-
-
-def _classify_friendly(
-    state: State,
-    ct: Controller,
-    pos: Position,
-    bid: int,
-    etype: EntityType,
-    rnd: int,
-) -> None:
-    match etype:
-        case EntityType.HARVESTER:
-            state.my_harvested.add(pos)
-            state.my_harvesters.add(pos)
-            state.my_transport.discard(pos)
-            state.my_foundries.discard(pos)
-        case _ if etype in TRANSPORT:
-            state.my_transport.add(pos)
-            state.my_harvesters.discard(pos)
-            state.my_foundries.discard(pos)
-        case EntityType.FOUNDRY:
-            state.my_foundries.add(pos)
-            state.my_transport.discard(pos)
-            state.my_harvesters.discard(pos)
-        case _ if etype in TURRETS:
-            state.my_turrets.add(pos)
-        case EntityType.BARRIER:
-            state.my_barriers.add(pos)
-        case EntityType.MARKER:
-            msg = decode_marker(ct.get_marker_value(bid))
-            if isinstance(msg, TaskClaim) and not is_stale(msg, rnd):
-                state.claims.add(msg)
-            elif isinstance(msg, Eureka) and state.symmetry is None:
-                state.symmetry = Symmetry(msg.symmetry)
-                _reflect_all(state)
-        case _:
-            state.my_transport.discard(pos)
-            state.my_harvesters.discard(pos)
-            state.my_foundries.discard(pos)
-
-
-def _classify_enemy(
-    state: State,
-    pos: Position,
-    etype: EntityType,
-) -> None:
-    match etype:
-        case EntityType.HARVESTER:
-            state.en_harvested.add(pos)
-            state.en_harvesters.add(pos)
-            state.en_transport.discard(pos)
-            state.en_foundries.discard(pos)
-        case _ if etype in TRANSPORT:
-            state.en_transport.add(pos)
-            state.en_harvesters.discard(pos)
-            state.en_foundries.discard(pos)
-        case EntityType.FOUNDRY:
-            state.en_foundries.add(pos)
-            state.en_transport.discard(pos)
-            state.en_harvesters.discard(pos)
-        case _ if etype in TURRETS:
-            state.en_turrets.add(pos)
-        case EntityType.BARRIER:
-            state.en_barriers.add(pos)
-        case _:
-            state.en_transport.discard(pos)
-            state.en_harvesters.discard(pos)
-            state.en_foundries.discard(pos)
-
-
-def _process_empty(
-    state: State,
-    i: int,
-    pos: Position,
-    old_ent: tuple[EntityType, ...] | None,
-    old_env: Environment | None,
-    env: Environment,
-    changed: list[Position],
-) -> None:
-    state.entity[i] = None
-    state.direction[i] = None
-    state.bridge_target[i] = None
-    state.my_harvested.discard(pos)
-    state.en_harvested.discard(pos)
-    state.my_transport.discard(pos)
-    state.my_harvesters.discard(pos)
-    state.my_turrets.discard(pos)
-    state.my_barriers.discard(pos)
-    state.en_transport.discard(pos)
-    state.en_harvesters.discard(pos)
-    state.en_turrets.discard(pos)
-    state.en_barriers.discard(pos)
-    if old_ent is not None or env != old_env:
-        changed.append(pos)
+        if team == my_team:
+            match etype:
+                case EntityType.HARVESTER:
+                    state.my_harvested.add(p)
+                    state.my_harvesters.add(p)
+                case _ if etype in TRANSPORT:
+                    state.my_transport.add(p)
+                case EntityType.FOUNDRY:
+                    state.my_foundries.add(p)
+                case _ if etype in TURRETS:
+                    state.my_turrets.add(p)
+                case EntityType.BARRIER:
+                    state.my_barriers.add(p)
+        else:
+            match etype:
+                case EntityType.HARVESTER:
+                    state.en_harvested.add(p)
+                    state.en_harvesters.add(p)
+                case _ if etype in TRANSPORT:
+                    state.en_transport.add(p)
+                case EntityType.FOUNDRY:
+                    state.en_foundries.add(p)
+                case _ if etype in TURRETS:
+                    state.en_turrets.add(p)
+                case EntityType.BARRIER:
+                    state.en_barriers.add(p)
 
 
 def _update_symmetry(
