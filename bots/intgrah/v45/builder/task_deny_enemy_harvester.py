@@ -35,7 +35,10 @@ def _best_deny_target(
         oi = state.idx(ox, oy)
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             continue
-        if oi in state.my_barriers or oi in state.en_barriers:
+        if (
+            Position(ox, oy) in state.my_barriers
+            or Position(ox, oy) in state.en_barriers
+        ):
             continue
         dist = abs(pos.x - ox) + abs(pos.y - oy)
         en_core = state.en_core

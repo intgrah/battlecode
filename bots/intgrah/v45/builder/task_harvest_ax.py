@@ -19,7 +19,9 @@ def harvest_ax(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    has_ti_flow = any(state.my_flow.ti[i] > 0 for i in state.my_transport)
+    has_ti_flow = any(
+        state.my_flow.ti[state.idx(p.x, p.y)] > 0 for p in state.my_transport
+    )
     if not has_ti_flow:
         return None
 

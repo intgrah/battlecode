@@ -21,13 +21,13 @@ def place_foundry_mixed_conv(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
-    w = state.w
     f = state.my_flow
-    best_conv: int | None = None
+    best_conv: Position | None = None
     best_score = 0.0
     best_dist = 999999
 
-    for i in state.my_transport:
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
         ent = state.entity[i]
         if ent is None:
             continue
@@ -38,17 +38,16 @@ def place_foundry_mixed_conv(
         if ti_f <= 0 or ax_f <= 0:
             continue
         score = min(ti_f, ax_f)
-        cx, cy = i % w, i // w
-        dist = (pos.x - cx) ** 2 + (pos.y - cy) ** 2
+        dist = (pos.x - p.x) ** 2 + (pos.y - p.y) ** 2
         if score > best_score or (score == best_score and dist < best_dist):
             best_score = score
             best_dist = dist
-            best_conv = i
+            best_conv = p
 
     if best_conv is None:
         return None
 
-    cx, cy = best_conv % w, best_conv // w
+    cx, cy = best_conv.x, best_conv.y
     foundry_pos: Position | None = None
     foundry_dist = 999999
     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:

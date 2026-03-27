@@ -25,16 +25,16 @@ def patrol(
     )
     if not infra:
         return None
-    best_tile: int | None = None
+    best_tile: Position | None = None
     best_freshness = state.age + 1
-    for i in infra:
+    for p in infra:
+        i = state.idx(p.x, p.y)
         if state.last_seen[i] < best_freshness:
             best_freshness = state.last_seen[i]
-            best_tile = i
+            best_tile = p
     if best_tile is None:
         return None
-    x, y = best_tile % state.w, best_tile // state.w
-    target = Position(x, y)
+    target = best_tile
     move, build = move_toward_with_road(state, ct, target)
     state.debug_target = (target, 255, 255, 0)
     return move, build

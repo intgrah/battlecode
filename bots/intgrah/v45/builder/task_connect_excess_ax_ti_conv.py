@@ -24,17 +24,17 @@ def connect_excess_ax_ti_conv(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
-    best_tile: tuple[int, int] | None = None
+    best_tile: Position | None = None
     best_dist = 999999
     w = state.w
     f = state.my_flow
-    for i in state.my_harvesters | state.my_transport:
+    for p in state.my_harvesters | state.my_transport:
+        i = state.idx(p.x, p.y)
         if f.ax_excess[i] > 0.01 and not is_claimed(state, i, TaskKind.FIX_EXCESS):
-            x, y = i % w, i // w
-            dist = (pos.x - x) ** 2 + (pos.y - y) ** 2
+            dist = (pos.x - p.x) ** 2 + (pos.y - p.y) ** 2
             if dist < best_dist:
                 best_dist = dist
-                best_tile = (x, y)
+                best_tile = p
     if best_tile is None:
         return None
 
@@ -42,12 +42,12 @@ def connect_excess_ax_ti_conv(
     if not ti_goals:
         return None
 
-    ti_idx = state.idx(best_tile[0], best_tile[1])
+    ti_idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
     state.claim = TaskClaim(TaskKind.FIX_EXCESS, ti_idx, rnd)
-    state.debug_target = (Position(best_tile[0], best_tile[1]), 255, 0, 255)
+    state.debug_target = (best_tile, 255, 0, 255)
 
-    sx, sy = best_tile
+    sx, sy = best_tile.x, best_tile.y
     si = state.idx(sx, sy)
     ent = state.entity[si]
     if ent is not None and ent[0] in (EntityType.HARVESTER, EntityType.FOUNDRY):
@@ -70,13 +70,13 @@ def connect_excess_ax_ti_conv(
                 continue
             if state.leakage_mask is not None and state.leakage_mask[ni] & banned != 0:
                 continue
-            start = (nx, ny)
+            start = Position(nx, ny)
             break
         if start is None:
             return None
-        sx, sy = start
+        sx, sy = start.x, start.y
 
-    start = (sx, sy)
+    start = Position(sx, sy)
     path = state.ax_cached_path
     if path is None or state.ax_cached_source != start:
         if state.ax_flow_search is None or state.ax_cached_source != start:
@@ -139,7 +139,8 @@ def connect_excess_ax_ti_conv(
 def _find_ti_conveyor_goals(state: State) -> set[int]:
     f = state.my_flow
     goals: set[int] = set()
-    for i in state.my_transport:
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
         if f.ti[i] <= 0:
             continue
         ent = state.entity[i]

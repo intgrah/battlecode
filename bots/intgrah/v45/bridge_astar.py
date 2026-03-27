@@ -1,6 +1,6 @@
 from algorithms import Astar
 from builder.state import State
-from cambc import Controller, EntityType, Environment
+from cambc import Controller, EntityType, Environment, Position
 from flow_astar import build_leakage_mask
 from util import BRIDGE_DELTAS
 
@@ -23,9 +23,8 @@ class BridgeFlowAstar(Astar[int]):
     ) -> None:
         self._w = state.w
         self._h = state.h
-        core_x, core_y = state.my_core
-        self._gx = core_x
-        self._gy = core_y
+        self._gx = state.my_core.x
+        self._gy = state.my_core.y
         self._banned_leakage = banned_leakage
         self._leakage_mask = build_leakage_mask(state)
         self._blocked = state.my_flow.blocked
@@ -74,7 +73,7 @@ class BridgeFlowAstar(Astar[int]):
             return []
 
         cx, cy = node % w, node // w
-        result: list[tuple[int, int]] = []
+        result: list[Position] = []
 
         match ent:
             case (EntityType.CORE, _):

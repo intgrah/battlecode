@@ -147,14 +147,14 @@ def _find_core(ct: Controller) -> Position:
 
 
 def _has_undefended_bridge(state: State) -> bool:
-    w = state.w
-    for bi in state.my_transport:
-        ent = state.entity[bi]
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
+        ent = state.entity[i]
         if ent is None or ent[0] != EntityType.BRIDGE:
             continue
         if any(
-            state.in_bounds((bi % w) + dx, (bi // w) + dy)
-            and state.entity[ni := state.idx((bi % w) + dx, (bi // w) + dy)] is not None
+            state.in_bounds(p.x + dx, p.y + dy)
+            and state.entity[ni := state.idx(p.x + dx, p.y + dy)] is not None
             and state.entity[ni][0] == EntityType.LAUNCHER
             and state.entity[ni][1] == state.my_team
             for dx, dy in DIR8_DELTA
@@ -177,7 +177,8 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     scores.append((175.0 if has_broken else 0.0, Task.REPAIR_BRIDGE))
 
     has_excess = any(
-        state.my_flow.excess[i] > 0.01 for i in state.my_harvesters | state.my_transport
+        state.my_flow.excess[state.idx(p.x, p.y)] > 0.01
+        for p in state.my_harvesters | state.my_transport
     )
     scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE_CORE))
 

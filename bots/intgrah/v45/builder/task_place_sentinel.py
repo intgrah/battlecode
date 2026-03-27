@@ -30,15 +30,15 @@ def _has_friendly_sentinel_near(state: State, hx: int, hy: int) -> bool:
 
 def _find_target(
     state: State,
-) -> tuple[tuple[int, int], tuple[int, int], Direction, Direction] | None:
-    w = state.w
+) -> tuple[Position, Position, Direction, Direction] | None:
     pos = state.pos
     best = None
     best_dist = 999999
-    for hi in state.en_harvesters:
+    for hp in state.en_harvesters:
+        hi = state.idx(hp.x, hp.y)
         if state.env[hi] != Environment.ORE_TITANIUM:
             continue
-        hx, hy = hi % w, hi // w
+        hx, hy = hp.x, hp.y
         if _has_friendly_sentinel_near(state, hx, hy):
             continue
         for dx, dy in DIR4_DELTA:
@@ -61,17 +61,16 @@ def _find_target(
             dist = abs(pos.x - sx) + abs(pos.y - sy)
             if dist < best_dist:
                 best_dist = dist
-                best = ((hx, hy), (sx, sy), facing, facing_alt)
+                best = (Position(hx, hy), Position(sx, sy), facing, facing_alt)
     return best
 
 
 def _is_in_sentinel_arc(
-    sentinel_pos: tuple[int, int],
+    sentinel_pos: Position,
     facing: Direction,
     pos: Position,
 ) -> bool:
-    sx, sy = sentinel_pos
-    dx, dy = pos.x - sx, pos.y - sy
+    dx, dy = pos.x - sentinel_pos.x, pos.y - sentinel_pos.y
     if dx == 0 and dy == 0:
         return True
     fdx, fdy = facing.delta()
@@ -89,8 +88,7 @@ def place_sentinel(
     target = _find_target(state)
     if target is None:
         return None
-    _, (sx, sy), facing, facing_alt = target
-    sentinel_pos = Position(sx, sy)
+    _, sentinel_pos, facing, facing_alt = target
     pos = state.pos
 
     if pos == sentinel_pos:
@@ -98,9 +96,9 @@ def place_sentinel(
             if not ct.can_move(d):
                 continue
             new_pos = pos.add(d)
-            if _is_in_sentinel_arc((sx, sy), facing, new_pos):
+            if _is_in_sentinel_arc(sentinel_pos, facing, new_pos):
                 continue
-            if _is_in_sentinel_arc((sx, sy), facing_alt, new_pos):
+            if _is_in_sentinel_arc(sentinel_pos, facing_alt, new_pos):
                 continue
             if ct.can_build_sentinel(sentinel_pos, facing):
                 return d, PlaceSentinel(sentinel_pos, facing)

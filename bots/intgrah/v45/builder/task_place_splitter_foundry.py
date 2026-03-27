@@ -22,9 +22,8 @@ def place_splitter_foundry(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
-    w = state.w
-    for fi in state.my_foundries:
-        fx, fy = fi % w, fi // w
+    for fp in state.my_foundries:
+        fx, fy = fp.x, fp.y
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = fx + dx, fy + dy
             if not state.in_bounds(nx, ny):

@@ -37,9 +37,9 @@ def dump(state: State, ct: Controller) -> None:
         "my_core": list(state.my_core),
         "ore_ti": list(state.ore_ti),
         "ore_ax": list(state.ore_ax),
-        "my_harvesters": list(state.my_harvesters),
-        "my_transport": list(state.my_transport),
-        "my_foundries": list(state.my_foundries),
+        "my_harvesters": [[p.x, p.y] for p in state.my_harvesters],
+        "my_transport": [[p.x, p.y] for p in state.my_transport],
+        "my_foundries": [[p.x, p.y] for p in state.my_foundries],
         "flow_ti": {
             i: round(state.my_flow.ti[i], 3)
             for i in range(n)
@@ -76,7 +76,7 @@ def dump(state: State, ct: Controller) -> None:
             for i in range(n)
             if state.leakage_mask is not None and state.leakage_mask[i] != 0
         },
-        "unit_tiles": list(state.unit_tiles),
+        "unit_tiles": [[p.x, p.y] for p in state.unit_tiles],
         "symmetry": state.symmetry.name if state.symmetry is not None else None,
     }
     print("BELIEF:" + json.dumps(data, separators=(",", ":")))

@@ -7,12 +7,12 @@ from .state import COST_IMPASSABLE, State
 
 
 def _undefended_bridge(state: State) -> tuple[int, int] | None:
-    w = state.w
-    for bi in state.my_transport:
-        ent = state.entity[bi]
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
+        ent = state.entity[i]
         if ent is None or ent[0] != EntityType.BRIDGE:
             continue
-        bx, by = bi % w, bi // w
+        bx, by = p.x, p.y
         has_launcher = False
         for dx, dy in DIR8_DELTA:
             nx, ny = bx + dx, by + dy
@@ -36,7 +36,7 @@ def _find_placement(
     state: State,
     bx: int,
     by: int,
-) -> tuple[int, int] | None:
+) -> Position | None:
     for dx, dy in DIR8_DELTA:
         ax, ay = bx + dx, by + dy
         if not state.in_bounds(ax, ay):
@@ -47,7 +47,7 @@ def _find_placement(
             continue
         if state.walkable(ax, ay) >= COST_IMPASSABLE:
             continue
-        return (ax, ay)
+        return Position(ax, ay)
     return None
 
 
@@ -74,6 +74,8 @@ def place_launcher(
             return Direction.CENTRE, PlaceLauncher(adj)
 
     move, build = move_toward_with_road(state, ct, adj)
+    if move == Direction.CENTRE and build is None:
+        return None
     if move != Direction.CENTRE and build is None:
         new_pos = pos.add(move)
         if new_pos.distance_squared(adj) <= 2:

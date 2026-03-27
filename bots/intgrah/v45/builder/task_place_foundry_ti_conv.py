@@ -20,13 +20,13 @@ def place_foundry_ti_conv(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
-    w = state.w
     f = state.my_flow
-    best_tile: int | None = None
+    best_tile: Position | None = None
     best_score = 0.0
     best_dist = 999999
 
-    for i in state.my_transport:
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
         ent = state.entity[i]
         if ent is None:
             continue
@@ -37,18 +37,16 @@ def place_foundry_ti_conv(
         if ti_f <= 0 or ax_f <= 0:
             continue
         score = min(ti_f, ax_f)
-        cx, cy = i % w, i // w
-        dist = (pos.x - cx) ** 2 + (pos.y - cy) ** 2
+        dist = (pos.x - p.x) ** 2 + (pos.y - p.y) ** 2
         if score > best_score or (score == best_score and dist < best_dist):
             best_score = score
             best_dist = dist
-            best_tile = i
+            best_tile = p
 
     if best_tile is None:
         return None
 
-    tx, ty = best_tile % w, best_tile // w
-    target = Position(tx, ty)
+    target = best_tile
 
     if pos.distance_squared(target) <= 2 and pos != target:
         state.debug_target = (target, 255, 128, 0)
