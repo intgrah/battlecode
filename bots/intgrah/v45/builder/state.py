@@ -18,7 +18,15 @@ if TYPE_CHECKING:
     from marker import TaskClaim
     from nav_astar import NavAstar
 
-from cambc import Controller, Direction, EntityType, Environment, Position, Team
+from cambc import (
+    Controller,
+    Direction,
+    EntityType,
+    Environment,
+    GameConstants,
+    Position,
+    Team,
+)
 from known_maps import MAPS
 from known_maps import decode as decode_known_map
 from util import WALKABLE_BUILDINGS, tiles_3x3
@@ -102,8 +110,7 @@ class State:
         self.my_turrets: set[int] = set()
         self.my_flow = FlowState(n)
 
-        self.my_core_hp: int = 500
-        self.my_core_max_hp: int = 500
+        self.my_core_hp: int = GameConstants.CORE_MAX_HP
         self.my_barriers: set[int] = set()
 
         # -- Enemy --

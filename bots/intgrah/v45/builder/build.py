@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import IntEnum, auto
 
 from cambc import Controller, Direction, EntityType, Position
 
 
-class Task(Enum):
+class Task(IntEnum):
     """High level Tasks"""
 
     CONNECT_EXCESS_TI_RAX_CORE = auto()

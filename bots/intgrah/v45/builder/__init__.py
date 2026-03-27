@@ -10,6 +10,7 @@ from cambc import (
 )
 from entity import Entity
 from marker import Eureka
+from util import DIR8_DELTA
 
 from .build import Action, PlaceRoad, Task, execute
 from .state import State
@@ -145,18 +146,6 @@ def _find_core(ct: Controller) -> Position:
     raise RuntimeError
 
 
-_NEIGHBOR_DELTAS = [
-    (-1, -1),
-    (-1, 0),
-    (-1, 1),
-    (0, -1),
-    (0, 1),
-    (1, -1),
-    (1, 0),
-    (1, 1),
-]
-
-
 def _has_undefended_bridge(state: State) -> bool:
     w = state.w
     for bi in state.my_transport:
@@ -168,7 +157,7 @@ def _has_undefended_bridge(state: State) -> bool:
             and state.entity[ni := state.idx((bi % w) + dx, (bi // w) + dy)] is not None
             and state.entity[ni][0] == EntityType.LAUNCHER
             and state.entity[ni][1] == state.my_team
-            for dx, dy in _NEIGHBOR_DELTAS
+            for dx, dy in DIR8_DELTA
         ):
             continue
         return True
@@ -178,7 +167,7 @@ def _has_undefended_bridge(state: State) -> bool:
 def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
 
-    core_damaged = state.my_core_hp < state.my_core_max_hp
+    core_damaged = state.my_core_hp < GameConstants.CORE_MAX_HP
     scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
 
     has_ud_bridge = _has_undefended_bridge(state)

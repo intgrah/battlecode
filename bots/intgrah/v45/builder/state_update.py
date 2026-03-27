@@ -37,7 +37,6 @@ def _update_core_hp(state: State, ct: Controller) -> None:
     if bid is None:
         return
     state.my_core_hp = ct.get_hp(bid)
-    state.my_core_max_hp = ct.get_max_hp(bid)
 
 
 def _update_ephemeral(state: State, ct: Controller, rnd: int) -> None:

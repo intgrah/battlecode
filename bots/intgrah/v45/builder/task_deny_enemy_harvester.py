@@ -1,47 +1,17 @@
 from cambc import Controller, Direction, EntityType, Position
 from marker import TaskKind
+from util import DELTA_TO_DIR, DIR4_DELTAS, DIR8, DIR8_DELTA
 
 from .build import Action, PlaceBarrier, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
 from .task_secure_ore import _best_ore as _secure_best_ore
 
-_CARDINAL = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-_ALL_DIRS_DELTA = [
-    (-1, -1),
-    (-1, 0),
-    (-1, 1),
-    (0, -1),
-    (0, 1),
-    (1, -1),
-    (1, 0),
-    (1, 1),
-]
-
-_DIR_MAP = {
-    (-1, 0): Direction.WEST,
-    (1, 0): Direction.EAST,
-    (0, -1): Direction.NORTH,
-    (0, 1): Direction.SOUTH,
-}
-
-
-_DIRS_CW = [
-    Direction.NORTH,
-    Direction.NORTHEAST,
-    Direction.EAST,
-    Direction.SOUTHEAST,
-    Direction.SOUTH,
-    Direction.SOUTHWEST,
-    Direction.WEST,
-    Direction.NORTHWEST,
-]
-_DIRS_CW_IDX = {d: i for i, d in enumerate(_DIRS_CW)}
+DIR8_IDX = {d: i for i, d in enumerate(DIR8)}
 
 
 def _rotate_cw(d: Direction, steps: int) -> Direction:
-    return _DIRS_CW[(_DIRS_CW_IDX[d] + steps) % 8]
+    return DIR8[(DIR8_IDX[d] + steps) % 8]
 
 
 def _best_deny_target(
@@ -81,7 +51,7 @@ def _best_deny_target(
 
 
 def _has_friendly_sentinel_near(state: State, ox: int, oy: int) -> bool:
-    for dx, dy in _ALL_DIRS_DELTA:
+    for dx, dy in DIR8_DELTA:
         nx, ny = ox + dx, oy + dy
         if not state.in_bounds(nx, ny):
             continue
@@ -115,7 +85,7 @@ def deny_enemy_harvester(
     )
 
     if has_enemy_harvester and not _has_friendly_sentinel_near(state, ox, oy):
-        for dx, dy in _CARDINAL:
+        for dx, dy in DIR4_DELTAS:
             sx, sy = ox + dx, oy + dy
             if not state.in_bounds(sx, sy):
                 continue
@@ -133,7 +103,7 @@ def deny_enemy_harvester(
                 else:
                     continue
             sentinel_pos = Position(sx, sy)
-            card_dir = _DIR_MAP[(dx, dy)]
+            card_dir = DELTA_TO_DIR[(dx, dy)]
             facing_cw3 = _rotate_cw(card_dir, 3)
             facing_cw5 = _rotate_cw(card_dir, 5)
 
