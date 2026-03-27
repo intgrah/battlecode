@@ -47,10 +47,5 @@ def rotate_cw(d: Direction, steps: int) -> Direction:
     return DIR8[(DIR8_IDX[d] + steps) % 8]
 
 
-def tiles_3x3(core: Position, w: int, h: int) -> set[Position]:
-    return {
-        Position(core.x + dx, core.y + dy)
-        for dx in range(-1, 2)
-        for dy in range(-1, 2)
-        if 0 <= core.x + dx < w and 0 <= core.y + dy < h
-    }
+def tiles_3x3(core: Position) -> set[Position]:
+    return {core} | {core.add(d) for d in DIR8}

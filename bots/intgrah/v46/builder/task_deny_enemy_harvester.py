@@ -36,9 +36,10 @@ def _best_deny_target(
         ):
             continue
         dist = abs(pos.x - ox) + abs(pos.y - oy)
-        en_core = state.en_core
-        if en_core is not None:
-            en_dist = abs(en_core[0] - ox) + abs(en_core[1] - oy)
+        if state.en_core_tiles:
+            en_dist = min(
+                abs(ep.x - ox) + abs(ep.y - oy) for ep in state.en_core_tiles
+            )
             score = en_dist * 2 + dist
         else:
             score = dist

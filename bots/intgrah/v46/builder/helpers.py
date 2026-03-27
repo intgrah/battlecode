@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from cambc import Controller, Direction, Position
 from marker import TaskKind
 from nav_astar import NavAstar
@@ -6,7 +8,7 @@ from .build import Action, PlaceRoad
 from .state import COST_IMPASSABLE, State
 
 
-def _budget(ct: Controller, limit_us: int):
+def _budget(ct: Controller, limit_us: int) -> Callable[[], bool]:
     return lambda: ct.get_cpu_time_elapsed() < limit_us
 
 

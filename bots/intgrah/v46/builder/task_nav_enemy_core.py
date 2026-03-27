@@ -6,7 +6,7 @@ where builders need to reach enemy territory to place turrets or disrupt
 infrastructure.
 """
 
-from cambc import Controller, Direction, Position
+from cambc import Controller, Direction
 
 from .build import Action
 from .helpers import move_toward_with_road
@@ -17,10 +17,9 @@ def nav_enemy_core(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    en_core = state.en_core
-    if en_core is None:
+    if not state.en_core_tiles:
         return None
-    target = Position(en_core[0], en_core[1])
+    target = min(state.en_core_tiles, key=lambda p: p.distance_squared(state.pos))
     move, build = move_toward_with_road(state, ct, target)
     if move == Direction.CENTRE and build is None:
         return None

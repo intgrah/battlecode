@@ -90,31 +90,30 @@ class State:
         self.last_seen: list[int] = [0] * n
 
         # -- Resources --
-        self.ore_ti: set[Position] = set()
-        self.ore_ax: set[Position] = set()
+        self.ore_ti: set[Position] = set()  # derived from self.env
+        self.ore_ax: set[Position] = set()  # derived from self.env
 
         # -- Friendly --
-        self.my_core: Position = core_pos
-        self.my_core_tiles: set[Position] = tiles_3x3(core_pos, self.w, self.h)
-        self.my_harvested: set[Position] = set()
-        self.my_harvesters: set[Position] = set()
-        self.my_transport: set[Position] = set()
-        self.my_foundries: set[Position] = set()
-        self.my_turrets: set[Position] = set()
+        self.my_core: Position = core_pos  # known from birth
+        self.my_core_tiles: set[Position] = tiles_3x3(core_pos)  # known from birth
+        self.my_harvested: set[Position] = set()  # derived from self.building
+        self.my_harvesters: set[Position] = set()  # derived from self.building
+        self.my_transport: set[Position] = set()  # derived from self.building
+        self.my_foundries: set[Position] = set()  # derived from self.building
+        self.my_turrets: set[Position] = set()  # derived from self.building
         self.my_flow = Economy(n)
 
         self.my_core_hp: int = GameConstants.CORE_MAX_HP
         self.my_barriers: set[Position] = set()
 
         # -- Enemy --
-        self.en_core: Position | None = None
-        self.en_core_tiles: set[Position] = set()
-        self.en_harvested: set[Position] = set()
-        self.en_harvesters: set[Position] = set()
-        self.en_barriers: set[Position] = set()
-        self.en_transport: set[Position] = set()
-        self.en_turrets: set[Position] = set()
-        self.en_foundries: set[Position] = set()
+        self.en_core_tiles: set[Position] = set()  # derived from self.building
+        self.en_harvested: set[Position] = set()  # derived from self.building
+        self.en_harvesters: set[Position] = set()  # derived from self.building
+        self.en_barriers: set[Position] = set()  # derived from self.building
+        self.en_transport: set[Position] = set()  # derived from self.building
+        self.en_turrets: set[Position] = set()  # derived from self.building
+        self.en_foundries: set[Position] = set()  # derived from self.building
         self.en_flow = Economy(n)
 
         # -- Ephemeral --
@@ -213,8 +212,7 @@ def _try_load_known_map(state: State, core_pos: Position) -> None:
                 state.ore_ti.add(p)
             case Environment.ORE_AXIONITE:
                 state.ore_ax.add(p)
-    state.en_core = CORE_B[km]
-    state.en_core_tiles = tiles_3x3(state.en_core, state.w, state.h)
+    state.en_core_tiles = tiles_3x3(CORE_B[km])
     state.sym_candidates.clear()
 
     apsp_fn = APSP_DATA.get(km)
