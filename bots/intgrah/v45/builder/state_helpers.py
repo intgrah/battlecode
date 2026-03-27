@@ -1,6 +1,6 @@
 """Pure query functions on State. No mutation."""
 
-from cambc import Direction, EntityType, Environment
+from cambc import Direction, EntityType, Environment, Position
 from util import WALKABLE_BUILDINGS
 
 from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State, Symmetry
@@ -8,7 +8,7 @@ from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State, S
 
 def walkable(state: State, x: int, y: int) -> int:
     i = y * state.w + x
-    if i in state.unit_tiles:
+    if Position(x, y) in state.unit_tiles:
         return COST_IMPASSABLE
     match state.env[i]:
         case None:
@@ -40,16 +40,17 @@ def is_unseen(state: State, x: int, y: int) -> bool:
     return state.env[y * state.w + x] is None
 
 
-def mirror(state: State, x: int, y: int) -> tuple[int, int]:
+def mirror(state: State, p: Position) -> Position:
+    x, y = p
     match state.symmetry:
         case Symmetry.ROT:
-            return state.w - 1 - x, state.h - 1 - y
+            return Position(state.w - 1 - x, state.h - 1 - y)
         case Symmetry.HOR:
-            return x, state.h - 1 - y
+            return Position(x, state.h - 1 - y)
         case Symmetry.VER:
-            return state.w - 1 - x, y
+            return Position(state.w - 1 - x, y)
         case None:
-            return x, y
+            return Position(x, y)
 
 
 def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
@@ -70,9 +71,9 @@ def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
 
 
 def harvester_ore_type(state: State, i: int) -> Environment | None:
-    x, y = i % state.w, i // state.w
-    if (x, y) in state.ore_ti:
+    p = Position(i % state.w, i // state.w)
+    if p in state.ore_ti:
         return Environment.ORE_TITANIUM
-    if (x, y) in state.ore_ax:
+    if p in state.ore_ax:
         return Environment.ORE_AXIONITE
     return None

@@ -9,11 +9,12 @@ from .state import State
 
 def _find_broken_bridge(state: State) -> tuple[int, int] | None:
     w = state.w
-    for bi in state.my_transport:
-        ent = state.entity[bi]
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
+        ent = state.entity[i]
         if ent is None or ent[0] != EntityType.BRIDGE:
             continue
-        bt = state.bridge_target[bi]
+        bt = state.bridge_target[i]
         if bt is None:
             continue
         ti = bt[1] * w + bt[0]
@@ -24,8 +25,8 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
             if tent[0] == EntityType.CORE and tent[1] == state.my_team:
                 continue
         return bt
-    for hi in state.my_harvesters:
-        hx, hy = hi % w, hi // w
+    for hp in state.my_harvesters:
+        hx, hy = hp.x, hp.y
         has_adj_bridge = False
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = hx + dx, hy + dy
@@ -68,7 +69,8 @@ def repair_bridge(
     bridge_pos = Position(bx, by)
     pos = state.pos
 
-    search = BridgeFlowAstar(state, bx, by, state.my_core_tiles, AX)
+    core_goals = {state.idx(p.x, p.y) for p in state.my_core_tiles}
+    search = BridgeFlowAstar(state, bx, by, core_goals, AX)
     search.set_budget(ct, 800)
     search.compute()
     path = search.get_path()
@@ -88,6 +90,8 @@ def repair_bridge(
     if adj is None:
         return None
     move, build = move_toward_with_road(state, ct, adj)
+    if move == Direction.CENTRE and build is None:
+        return None
     if move != Direction.CENTRE and build is None:
         new_pos = pos.add(move)
         if new_pos.distance_squared(bridge_pos) <= 2 and new_pos != bridge_pos:

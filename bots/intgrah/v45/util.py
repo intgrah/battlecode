@@ -1,4 +1,4 @@
-from cambc import Direction, EntityType
+from cambc import Direction, EntityType, Position
 
 DIR4 = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 DIR4_DELTA = [c.delta() for c in DIR4]
@@ -69,10 +69,10 @@ TURRETS = frozenset(
 )
 
 
-def tiles_3x3(cx: int, cy: int, w: int, h: int) -> set[int]:
+def tiles_3x3(core: Position, w: int, h: int) -> set[Position]:
     return {
-        (cy + dy) * w + (cx + dx)
+        Position(core.x + dx, core.y + dy)
         for dx in range(-1, 2)
         for dy in range(-1, 2)
-        if 0 <= cx + dx < w and 0 <= cy + dy < h
+        if 0 <= core.x + dx < w and 0 <= core.y + dy < h
     }

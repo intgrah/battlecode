@@ -22,16 +22,17 @@ def _has_friendly_sentinel_adjacent(state: State, ox: int, oy: int) -> bool:
     return False
 
 
-def _best_denied_ore(state: State) -> tuple[int, int] | None:
+def _best_denied_ore(state: State) -> Position | None:
     unharvested = state.ore_ti - state.my_harvested - state.en_harvested
     if not unharvested:
         return None
     pos = state.pos
-    best = None
+    best: Position | None = None
     best_dist = 999999
     for ox, oy in unharvested:
         oi = state.idx(ox, oy)
-        if oi in state.my_barriers or oi in state.en_barriers:
+        op = Position(ox, oy)
+        if op in state.my_barriers or op in state.en_barriers:
             continue
         ent = state.entity[oi]
         if ent is not None and ent[0] == EntityType.HARVESTER:
@@ -41,7 +42,7 @@ def _best_denied_ore(state: State) -> tuple[int, int] | None:
         dist = abs(pos.x - ox) + abs(pos.y - oy)
         if dist < best_dist:
             best_dist = dist
-            best = (ox, oy)
+            best = Position(ox, oy)
     return best
 
 

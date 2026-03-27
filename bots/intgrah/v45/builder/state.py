@@ -93,41 +93,41 @@ class State:
         self.env: list[Environment | None] = [None] * n
         self.entity: list[tuple[EntityType, Team] | None] = [None] * n
         self.direction: list[Direction | None] = [None] * n
-        self.bridge_target: list[tuple[int, int] | None] = [None] * n
+        self.bridge_target: list[Position | None] = [None] * n
         self.last_seen: list[int] = [0] * n
 
         # -- Resources --
-        self.ore_ti: set[tuple[int, int]] = set()
-        self.ore_ax: set[tuple[int, int]] = set()
+        self.ore_ti: set[Position] = set()
+        self.ore_ax: set[Position] = set()
 
         # -- Friendly --
         self.my_core: Position = core_pos
-        self.my_core_tiles: set[int] = tiles_3x3(*core_pos, self.w, self.h)
-        self.my_harvested: set[tuple[int, int]] = set()
-        self.my_harvesters: set[int] = set()
-        self.my_transport: set[int] = set()
-        self.my_foundries: set[int] = set()
-        self.my_turrets: set[int] = set()
+        self.my_core_tiles: set[Position] = tiles_3x3(core_pos, self.w, self.h)
+        self.my_harvested: set[Position] = set()
+        self.my_harvesters: set[Position] = set()
+        self.my_transport: set[Position] = set()
+        self.my_foundries: set[Position] = set()
+        self.my_turrets: set[Position] = set()
         self.my_flow = Economy(n)
 
         self.my_core_hp: int = GameConstants.CORE_MAX_HP
-        self.my_barriers: set[int] = set()
+        self.my_barriers: set[Position] = set()
 
         # -- Enemy --
-        self.en_core: tuple[int, int] | None = None
-        self.en_core_tiles: set[int] = set()
-        self.en_harvested: set[tuple[int, int]] = set()
-        self.en_harvesters: set[int] = set()
-        self.en_barriers: set[int] = set()
-        self.en_transport: set[int] = set()
-        self.en_turrets: set[int] = set()
-        self.en_foundries: set[int] = set()
+        self.en_core: Position | None = None
+        self.en_core_tiles: set[Position] = set()
+        self.en_harvested: set[Position] = set()
+        self.en_harvesters: set[Position] = set()
+        self.en_barriers: set[Position] = set()
+        self.en_transport: set[Position] = set()
+        self.en_turrets: set[Position] = set()
+        self.en_foundries: set[Position] = set()
         self.en_flow = Economy(n)
 
         # -- Ephemeral --
-        self.unit_tiles: set[int] = set()
+        self.unit_tiles: set[Position] = set()
         self.claims: set[TaskClaim] = set()
-        self.pos: Position = Position(core_pos[0], core_pos[1])
+        self.pos: Position = core_pos
 
         # -- Symmetry --
         self.symmetry: Symmetry | None = None
@@ -137,15 +137,15 @@ class State:
         self.explore_target: Position | None = None
         self.explore_radius: int = 0
         self.ti_flow_search: FlowAstar | None = None
-        self.ti_cached_source: tuple[int, int] | None = None
+        self.ti_cached_source: Position | None = None
         self.ti_cached_path: list[int] | None = None
         self.ax_flow_search: AxChainAstar | None = None
-        self.ax_cached_source: tuple[int, int] | None = None
+        self.ax_cached_source: Position | None = None
         self.ax_cached_path: list[int] | None = None
         self.bridge_flow_search: BridgeFlowAstar | None = None
-        self.bridge_cached_source: tuple[int, int] | None = None
+        self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
-        self.nav_target_key: tuple[int, int] | None = None
+        self.nav_target_key: Position | None = None
         self.nav_search: NavAstar | None = None
         self.nav_path: list[int] | None = None
 
@@ -176,9 +176,9 @@ class State:
         return self.env[y * self.w + x] is None
 
     def walkable(self, x: int, y: int) -> int:
-        i = y * self.w + x
-        if i in self.unit_tiles:
+        if Position(x, y) in self.unit_tiles:
             return COST_IMPASSABLE
+        i = y * self.w + x
         match self.env[i]:
             case None:
                 return COST_UNSEEN
@@ -197,8 +197,8 @@ class State:
                 return COST_IMPASSABLE
 
 
-def _try_load_known_map(state: State, core_pos: tuple[int, int]) -> None:
-    key = (state.w, state.h, core_pos[0], core_pos[1])
+def _try_load_known_map(state: State, core_pos: Position) -> None:
+    key = (state.w, state.h, core_pos)
     known = MAPS.get(key)
     if known is None:
         return
@@ -206,12 +206,12 @@ def _try_load_known_map(state: State, core_pos: tuple[int, int]) -> None:
     tiles = decode_known_map(encoded, state.w * state.h)
     for i in range(state.w * state.h):
         state.env[i] = tiles[i]
-        x, y = i % state.w, i // state.w
+        p = Position(i % state.w, i // state.w)
         match tiles[i]:
             case Environment.ORE_TITANIUM:
-                state.ore_ti.add((x, y))
+                state.ore_ti.add(p)
             case Environment.ORE_AXIONITE:
-                state.ore_ax.add((x, y))
+                state.ore_ax.add(p)
     state.en_core = en_core
-    state.en_core_tiles = tiles_3x3(*en_core, state.w, state.h)
+    state.en_core_tiles = tiles_3x3(en_core, state.w, state.h)
     state.sym_candidates.clear()

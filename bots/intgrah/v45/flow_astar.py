@@ -84,9 +84,8 @@ class FlowAstar(Astar[int]):
     ) -> None:
         self._w = state.w
         self._h = state.h
-        core_x, core_y = state.my_core
-        self._gx = core_x
-        self._gy = core_y
+        self._gx = state.my_core.x
+        self._gy = state.my_core.y
         self._banned_leakage = banned_leakage
         self._leakage_mask = build_leakage_mask(state)
         self._blocked = state.my_flow.blocked
@@ -95,8 +94,8 @@ class FlowAstar(Astar[int]):
         self._direction = state.direction
         self._bridge_target = state.bridge_target
         self._my_team = state.my_team
-        self._core_x = core_x
-        self._core_y = core_y
+        self._core_x = state.my_core.x
+        self._core_y = state.my_core.y
         self._ct: Controller | None = None
         self._budget_us = 0
         si = sy * self._w + sx

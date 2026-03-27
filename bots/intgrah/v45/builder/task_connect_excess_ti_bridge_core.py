@@ -14,11 +14,12 @@ def connect_excess_ti_bridge_core(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
-    best_tile: tuple[int, int] | None = None
+    best_tile: Position | None = None
     best_dist = 999999
     w = state.w
     f = state.my_flow
-    for i in state.my_harvesters | state.my_transport | state.my_foundries:
+    for p in state.my_harvesters | state.my_transport | state.my_foundries:
+        i = state.idx(p.x, p.y)
         ti_ex = f.ti_excess[i]
         rax_ex = f.rax_excess[i]
         if (ti_ex > 0.01 or rax_ex > 0.01) and not is_claimed(
@@ -26,27 +27,25 @@ def connect_excess_ti_bridge_core(
             i,
             TaskKind.FIX_EXCESS,
         ):
-            x, y = i % w, i // w
-            dist = (pos.x - x) ** 2 + (pos.y - y) ** 2
+            dist = (pos.x - p.x) ** 2 + (pos.y - p.y) ** 2
             if dist < best_dist:
                 best_dist = dist
-                best_tile = (x, y)
+                best_tile = p
     if best_tile is None:
         return None
 
-    idx = state.idx(best_tile[0], best_tile[1])
+    idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
     state.claim = TaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
-    state.debug_target = (Position(best_tile[0], best_tile[1]), 255, 128, 0)
+    state.debug_target = (best_tile, 255, 128, 0)
 
-    sx, sy = best_tile
+    sx, sy = best_tile.x, best_tile.y
     si = state.idx(sx, sy)
     ent = state.entity[si]
 
     if ent is not None:
         etype = ent[0]
         if etype in (EntityType.HARVESTER, EntityType.FOUNDRY):
-            cx, cy = state.my_core
             start = None
             best_d = 999999
             for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -64,27 +63,28 @@ def connect_excess_ti_bridge_core(
                 nent = state.entity[ni]
                 if nent is not None and nent[0] in TRANSPORT:
                     continue
-                d = (nx - cx) ** 2 + (ny - cy) ** 2
+                d = (nx - state.my_core.x) ** 2 + (ny - state.my_core.y) ** 2
                 if d < best_d:
                     best_d = d
-                    start = (nx, ny)
+                    start = Position(nx, ny)
             if start is None:
                 return None
-            sx, sy = start
+            sx, sy = start.x, start.y
         elif etype in TRANSPORT:
             bt = state.bridge_target[si]
             if bt is not None:
-                sx, sy = bt
+                sx, sy = bt.x, bt.y
 
-    start = (sx, sy)
+    start = Position(sx, sy)
     path = state.bridge_cached_path
     if path is None or state.bridge_cached_source != start:
         if state.bridge_flow_search is None or state.bridge_cached_source != start:
+            core_goals = {state.idx(p.x, p.y) for p in state.my_core_tiles}
             state.bridge_flow_search = BridgeFlowAstar(
                 state,
                 sx,
                 sy,
-                state.my_core_tiles,
+                core_goals,
                 AX,
             )
             state.bridge_cached_source = start

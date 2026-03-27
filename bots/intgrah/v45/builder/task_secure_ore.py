@@ -83,8 +83,7 @@ def _best_ore(state: State) -> tuple[int, int] | None:
     for ox, oy in unharvested:
         if not _ore_is_visible(state, ox, oy):
             continue
-        oi = state.idx(ox, oy)
-        if oi in state.en_barriers:
+        if Position(ox, oy) in state.en_barriers:
             continue
         core_dist = abs(ox - cx) + abs(oy - cy)
         key = (core_dist,)
@@ -134,7 +133,7 @@ def secure_ore(
 
     ore_pos = Position(ox, oy)
 
-    if oi in state.my_barriers:
+    if ore_pos in state.my_barriers:
         if pos.distance_squared(ore_pos) <= 2:
             ct.destroy(ore_pos)
         else:

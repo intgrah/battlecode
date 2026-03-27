@@ -43,9 +43,8 @@ def move_toward_with_road(
     if pos == target:
         return Direction.CENTRE, None
 
-    target_key = (target.x, target.y)
-    if state.nav_target_key != target_key:
-        state.nav_target_key = target_key
+    if state.nav_target_key != target:
+        state.nav_target_key = target
         state.nav_path = None
         state.nav_search = None
 

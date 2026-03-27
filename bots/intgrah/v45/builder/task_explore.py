@@ -69,19 +69,18 @@ def _pick_frontier_target(state: State) -> Position | None:
     r = state.explore_radius + 3
     x0, x1 = max(0, cx - r), min(state.w - 1, cx + r)
     y0, y1 = max(0, cy - r), min(state.h - 1, cy + r)
-    candidates: list[tuple[int, int]] = []
+    candidates: list[Position] = []
     for x in range(x0, x1 + 1):
         if state.is_unseen(x, y0):
-            candidates.append((x, y0))
+            candidates.append(Position(x, y0))
         if state.is_unseen(x, y1):
-            candidates.append((x, y1))
+            candidates.append(Position(x, y1))
     for y in range(y0 + 1, y1):
         if state.is_unseen(x0, y):
-            candidates.append((x0, y))
+            candidates.append(Position(x0, y))
         if state.is_unseen(x1, y):
-            candidates.append((x1, y))
+            candidates.append(Position(x1, y))
     if not candidates:
         return None
     rng = Random(hash((pos.x, pos.y, state.explore_radius)))
-    c = candidates[rng.randrange(len(candidates))]
-    return Position(c[0], c[1])
+    return candidates[rng.randrange(len(candidates))]

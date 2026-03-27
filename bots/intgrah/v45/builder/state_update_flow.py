@@ -1,8 +1,6 @@
-"""Flow computation via Kahn's topological sort. Mutates state flow arrays."""
-
 from collections import deque
 
-from cambc import EntityType, Environment
+from cambc import EntityType, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, TRANSPORT
 
 from .state import Economy, State
@@ -34,15 +32,22 @@ def recompute_enemy_flow(state: State) -> None:
 def _recompute_flow_impl(
     state: State,
     f: Economy,
-    harvesters: set[int],
-    transport: set[int],
-    foundries: set[int],
-    core_tiles: set[int],
+    harvesters: set[Position],
+    transport: set[Position],
+    foundries: set[Position],
+    core_tiles: set[Position],
 ) -> None:
-    receivers = transport | foundries | core_tiles
     w, h = state.w, state.h
 
-    for i in harvesters | receivers:
+    def idx(p: Position) -> int:
+        return p.y * w + p.x
+
+    receiver_positions = transport | foundries | core_tiles
+    receiver_indices = {idx(p) for p in receiver_positions}
+
+    all_positions = harvesters | receiver_positions
+    for p in all_positions:
+        i = idx(p)
         f.ti[i] = 0.0
         f.ax[i] = 0.0
         f.rax[i] = 0.0
@@ -52,11 +57,12 @@ def _recompute_flow_impl(
         f.rax_excess[i] = 0.0
         f.excess[i] = 0.0
 
-    in_degree: dict[int, int] = dict.fromkeys(receivers, 0)
+    in_degree: dict[int, int] = dict.fromkeys(receiver_indices, 0)
     out_target: dict[int, list[int]] = {}
     in_reverse: dict[int, list[int]] = {}
 
-    for i in transport:
+    for p in transport:
+        i = idx(p)
         ent = state.entity[i]
         if ent is None:
             continue
@@ -64,19 +70,17 @@ def _recompute_flow_impl(
         bt = state.bridge_target[i]
         d = state.direction[i]
         if etype == EntityType.BRIDGE and bt is not None:
-            bx, by = bt
-            if 0 <= bx < w and 0 <= by < h:
-                tgt = by * w + bx
+            if 0 <= bt.x < w and 0 <= bt.y < h:
+                tgt = idx(bt)
                 if tgt in in_degree:
                     in_degree[tgt] += 1
                     out_target[i] = [tgt]
                     in_reverse.setdefault(tgt, []).append(i)
         elif etype == EntityType.SPLITTER and d is not None:
-            ix, iy = i % w, i // w
             dx, dy = d.delta()
             outs: list[int] = []
             for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
-                nx, ny = ix + odx, iy + ody
+                nx, ny = p.x + odx, p.y + ody
                 if 0 <= nx < w and 0 <= ny < h:
                     tgt = ny * w + nx
                     if tgt in in_degree:
@@ -87,7 +91,7 @@ def _recompute_flow_impl(
                 out_target[i] = outs
         elif d is not None:
             dx, dy = d.delta()
-            nx, ny = i % w + dx, i // w + dy
+            nx, ny = p.x + dx, p.y + dy
             if 0 <= nx < w and 0 <= ny < h:
                 tgt = ny * w + nx
                 if tgt in in_degree:
@@ -95,11 +99,11 @@ def _recompute_flow_impl(
                     out_target[i] = [tgt]
                     in_reverse.setdefault(tgt, []).append(i)
 
-    for i in foundries:
-        ix, iy = i % w, i // w
+    for p in foundries:
+        i = idx(p)
         outs: list[int] = []
         for ddx, ddy in DIR4_DELTA:
-            nx, ny = ix + ddx, iy + ddy
+            nx, ny = p.x + ddx, p.y + ddy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
                 if ni in in_degree:
@@ -111,14 +115,14 @@ def _recompute_flow_impl(
         out_target[i] = outs
 
     queue: deque[int] = deque()
-    for i in harvesters:
-        ix, iy = i % w, i // w
+    for p in harvesters:
+        i = idx(p)
         outs: list[int] = []
         for ddx, ddy in DIR4_DELTA:
-            nx, ny = ix + ddx, iy + ddy
+            nx, ny = p.x + ddx, p.y + ddy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
-                if ni in receivers:
+                if ni in receiver_indices:
                     from_dir = DELTA_TO_DIR.get((ddx, ddy))
                     if from_dir is not None and accepts_input_from(state, ni, from_dir):
                         outs.append(ni)
@@ -201,16 +205,16 @@ def _recompute_flow_impl(
             f.rax_excess[ci] = rax_in - rax_push * len(outs)
             f.excess[ci] = incoming - total_out
 
-    for i in receivers:
+    for i in receiver_indices:
         f.blocked[i] = False
     seeds: deque[int] = deque()
-    for i in receivers:
+    for i in receiver_indices:
         if f.total[i] > 0.75:
             f.blocked[i] = True
             seeds.append(i)
     while seeds:
         bi = seeds.popleft()
         for fi in in_reverse.get(bi, []):
-            if fi in receivers and not f.blocked[fi]:
+            if fi in receiver_indices and not f.blocked[fi]:
                 f.blocked[fi] = True
                 seeds.append(fi)

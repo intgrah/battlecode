@@ -1,5 +1,5 @@
 from builder.state import State
-from cambc import EntityType
+from cambc import EntityType, Position
 from flow_astar import COST_REUSE, RAX, TI, FlowAstar
 
 
@@ -35,6 +35,8 @@ class AxChainAstar(FlowAstar):
             banned = self._banned_leakage
             mask = self._leakage_mask
             result = [
-                (ni, c) for ni, c in result if c != COST_REUSE or mask[ni] & banned == 0
+                Position(ni, c)
+                for ni, c in result
+                if c != COST_REUSE or mask[ni] & banned == 0
             ]
         return result

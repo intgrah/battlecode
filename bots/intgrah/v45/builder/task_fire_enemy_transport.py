@@ -6,15 +6,15 @@ from .helpers import move_toward_with_road
 from .state import State
 
 
-def _find_target(state: State) -> tuple[tuple[int, int], tuple[int, int]] | None:
-    w = state.w
+def _find_target(state: State) -> tuple[Position, Position] | None:
     pos = state.pos
-    best = None
+    best: tuple[Position, Position] | None = None
     best_dist = 999999
-    for hi in state.en_harvesters:
+    for hp in state.en_harvesters:
+        hi = state.idx(hp.x, hp.y)
         if state.env[hi] != Environment.ORE_TITANIUM:
             continue
-        hx, hy = hi % w, hi // w
+        hx, hy = hp.x, hp.y
         for dx, dy in DIR4_DELTA:
             nx, ny = hx + dx, hy + dy
             if not state.in_bounds(nx, ny):
@@ -30,7 +30,7 @@ def _find_target(state: State) -> tuple[tuple[int, int], tuple[int, int]] | None
             dist = abs(pos.x - nx) + abs(pos.y - ny)
             if dist < best_dist:
                 best_dist = dist
-                best = ((hx, hy), (nx, ny))
+                best = (Position(hx, hy), Position(nx, ny))
     return best
 
 
@@ -41,8 +41,7 @@ def fire_enemy_transport(
     target = _find_target(state)
     if target is None:
         return None
-    _, (tx, ty) = target
-    fire_pos = Position(tx, ty)
+    _, fire_pos = target
     pos = state.pos
 
     if pos == fire_pos:
