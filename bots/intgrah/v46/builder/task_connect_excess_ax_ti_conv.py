@@ -10,17 +10,17 @@ stays pure.
 
 from ax_chain_astar import AxChainAstar
 from building import (
-    ArmouredConveyor,
-    Bridge,
-    Conveyor,
-    Core,
-    Foundry,
-    Harvester,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingHarvester,
+    BuildingSplitter,
 )
 from cambc import Controller, Direction, Environment, Position
 from flow_astar import RAX, TI
-from marker import TaskClaim, TaskKind
+from marker import MarkerTaskClaim, TaskKind
 
 from .build import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -52,14 +52,14 @@ def connect_excess_ax_ti_conv(
 
     ti_idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
-    state.claim = TaskClaim(TaskKind.FIX_EXCESS, ti_idx, rnd)
+    state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, ti_idx, rnd)
     state.debug_target = (best_tile, 255, 0, 255)
 
     sx, sy = best_tile.x, best_tile.y
     si = state.idx(sx, sy)
     bld = state.building[si]
     match bld:
-        case Harvester() | Foundry():
+        case BuildingHarvester() | BuildingFoundry():
             banned = TI | RAX
             start = None
             for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -75,7 +75,12 @@ def connect_excess_ax_ti_conv(
                 ):
                     continue
                 match state.building[ni]:
-                    case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                    case (
+                        BuildingConveyor()
+                        | BuildingArmouredConveyor()
+                        | BuildingSplitter()
+                        | BuildingBridge()
+                    ):
                         continue
                 if (
                     state.leakage_mask is not None
@@ -118,7 +123,16 @@ def connect_excess_ax_ti_conv(
         if (
             pbld is not None
             and pbld.team == state.my_team
-            and isinstance(pbld, (Conveyor, ArmouredConveyor, Splitter, Bridge, Core))
+            and isinstance(
+                pbld,
+                (
+                    BuildingConveyor,
+                    BuildingArmouredConveyor,
+                    BuildingSplitter,
+                    BuildingBridge,
+                    BuildingCore,
+                ),
+            )
         ):
             continue
 
@@ -159,6 +173,6 @@ def _find_ti_conveyor_goals(state: State) -> set[int]:
             continue
         bld = state.building[i]
         match bld:
-            case Conveyor() | ArmouredConveyor():
+            case BuildingConveyor() | BuildingArmouredConveyor():
                 goals.add(i)
     return goals

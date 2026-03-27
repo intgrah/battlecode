@@ -1,12 +1,12 @@
 from collections import deque
 
 from building import (
-    ArmouredConveyor,
-    Bridge,
-    Conveyor,
-    Foundry,
-    Harvester,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingFoundry,
+    BuildingHarvester,
+    BuildingSplitter,
 )
 from cambc import Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA
@@ -75,14 +75,14 @@ def _recompute_flow_impl(
         if bld is None:
             continue
         match bld:
-            case Bridge(target=bt):
+            case BuildingBridge(target=bt):
                 if 0 <= bt.x < w and 0 <= bt.y < h:
                     tgt = idx(bt)
                     if tgt in in_degree:
                         in_degree[tgt] += 1
                         out_target[i] = [tgt]
                         in_reverse.setdefault(tgt, []).append(i)
-            case Splitter(direction=d):
+            case BuildingSplitter(direction=d):
                 dx, dy = d.delta()
                 outs: list[int] = []
                 for odx, ody in [(dx, dy), (-dy, dx), (dy, -dx)]:
@@ -95,7 +95,7 @@ def _recompute_flow_impl(
                             in_reverse.setdefault(tgt, []).append(i)
                 if outs:
                     out_target[i] = outs
-            case Conveyor(direction=d) | ArmouredConveyor(direction=d):
+            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 dx, dy = d.delta()
                 nx, ny = p.x + dx, p.y + dy
                 if 0 <= nx < w and 0 <= ny < h:
@@ -149,7 +149,7 @@ def _recompute_flow_impl(
         outs = out_target.get(ci, [])
 
         match bld:
-            case Harvester():
+            case BuildingHarvester():
                 ore = harvester_ore_type(state, ci)
                 n_out = max(len(outs), 1)
                 push = 0.25 / n_out
@@ -168,7 +168,7 @@ def _recompute_flow_impl(
                 elif ore == Environment.ORE_AXIONITE:
                     f.ax_excess[ci] = excess
                 f.excess[ci] = excess
-            case Foundry():
+            case BuildingFoundry():
                 ti_in = f.ti[ci]
                 ax_in = f.ax[ci]
                 refined = min(ti_in, ax_in)
@@ -186,11 +186,16 @@ def _recompute_flow_impl(
                         queue.append(oi)
                 total_out = rax_out
                 f.excess[ci] = (ti_in + ax_in + rax_in) - total_out
-            case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+            case (
+                BuildingConveyor()
+                | BuildingArmouredConveyor()
+                | BuildingSplitter()
+                | BuildingBridge()
+            ):
                 ti_in = f.ti[ci]
                 ax_in = f.ax[ci]
                 rax_in = f.rax[ci]
-                divisor = 3 if isinstance(bld, Splitter) else 1
+                divisor = 3 if isinstance(bld, BuildingSplitter) else 1
                 ti_push = ti_in / divisor
                 ax_push = ax_in / divisor
                 rax_push = rax_in / divisor

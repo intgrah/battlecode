@@ -1,14 +1,14 @@
 from algorithms import Astar
 from builder.state import State
 from building import (
-    ArmouredConveyor,
-    Bridge,
-    Conveyor,
-    Core,
-    Foundry,
-    Marker,
-    Road,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingMarker,
+    BuildingRoad,
+    BuildingSplitter,
 )
 from cambc import Controller, Environment
 from util import BRIDGE_DELTAS, DIR4_DELTA
@@ -39,13 +39,13 @@ def build_leakage_mask(state: State) -> list[int]:
         if bld.team != state.my_team:
             continue
         match bld:
-            case Foundry():
+            case BuildingFoundry():
                 ix, iy = i % w, i // w
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = ix + ddx, iy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         mask[ny * w + nx] |= RAX
-            case Splitter(direction=d):
+            case BuildingSplitter(direction=d):
                 ix, iy = i % w, i // w
                 dx, dy = d.delta()
                 commodity = 0
@@ -141,7 +141,7 @@ class FlowAstar(Astar[int]):
         result: list[tuple[int, int]] = []
 
         match bld:
-            case Core():
+            case BuildingCore():
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
@@ -151,7 +151,7 @@ class FlowAstar(Astar[int]):
                         ):
                             result.append((ni, 0))
 
-            case Bridge(target=bt):
+            case BuildingBridge(target=bt):
                 bx, by = bt
                 if 0 <= bx < w and 0 <= by < h:
                     ni = by * w + bx
@@ -163,9 +163,9 @@ class FlowAstar(Astar[int]):
                         result.append((ni, COST_REUSE))
 
             case (
-                Conveyor(direction=d)
-                | ArmouredConveyor(direction=d)
-                | Splitter(direction=d)
+                BuildingConveyor(direction=d)
+                | BuildingArmouredConveyor(direction=d)
+                | BuildingSplitter(direction=d)
             ):
                 ddx, ddy = d.delta()
                 nx, ny = cx + ddx, cy + ddy
@@ -178,7 +178,7 @@ class FlowAstar(Astar[int]):
                     ):
                         result.append((ni, COST_REUSE))
 
-            case Road():
+            case BuildingRoad():
                 core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
                 if core_dist_sq > CONV_CUTOFF_SQ:
                     for ddx, ddy in DIR4_DELTA:
@@ -202,7 +202,7 @@ class FlowAstar(Astar[int]):
                         ):
                             result.append((ni, COST_BRIDGE))
 
-            case None | Marker():
+            case None | BuildingMarker():
                 core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
                 if core_dist_sq > CONV_CUTOFF_SQ:
                     for ddx, ddy in DIR4_DELTA:

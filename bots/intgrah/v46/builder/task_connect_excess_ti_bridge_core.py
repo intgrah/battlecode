@@ -1,16 +1,16 @@
 from bridge_astar import BridgeFlowAstar
 from building import (
-    ArmouredConveyor,
-    Bridge,
-    Conveyor,
-    Core,
-    Foundry,
-    Harvester,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingHarvester,
+    BuildingSplitter,
 )
 from cambc import Controller, Direction, Environment, Position
 from flow_astar import AX
-from marker import TaskClaim, TaskKind
+from marker import MarkerTaskClaim, TaskKind
 
 from .build import Action, PlaceBridge
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -44,7 +44,7 @@ def connect_excess_ti_bridge_core(
 
     idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
-    state.claim = TaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
+    state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
     state.debug_target = (best_tile, 255, 128, 0)
 
     sx, sy = best_tile.x, best_tile.y
@@ -53,7 +53,7 @@ def connect_excess_ti_bridge_core(
 
     if bld is not None:
         match bld:
-            case Harvester() | Foundry():
+            case BuildingHarvester() | BuildingFoundry():
                 start = None
                 best_d = 999999
                 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -69,7 +69,12 @@ def connect_excess_ti_bridge_core(
                     ):
                         continue
                     match state.building[ni]:
-                        case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                        case (
+                            BuildingConveyor()
+                            | BuildingArmouredConveyor()
+                            | BuildingSplitter()
+                            | BuildingBridge()
+                        ):
                             continue
                     d = (nx - state.my_core.x) ** 2 + (ny - state.my_core.y) ** 2
                     if d < best_d:
@@ -78,9 +83,9 @@ def connect_excess_ti_bridge_core(
                 if start is None:
                     return None
                 sx, sy = start.x, start.y
-            case Bridge(target=bt):
+            case BuildingBridge(target=bt):
                 sx, sy = bt.x, bt.y
-            case Conveyor() | ArmouredConveyor() | Splitter():
+            case BuildingConveyor() | BuildingArmouredConveyor() | BuildingSplitter():
                 pass
 
     start = Position(sx, sy)
@@ -114,9 +119,9 @@ def connect_excess_ti_bridge_core(
         pbld = state.building[pi]
         if pbld is not None and pbld.team == state.my_team:
             match pbld:
-                case Core():
+                case BuildingCore():
                     continue
-                case Bridge(target=bt) if bt.x == nx and bt.y == ny:
+                case BuildingBridge(target=bt) if bt.x == nx and bt.y == ny:
                     continue
 
         build_at = Position(x, y)

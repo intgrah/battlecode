@@ -1,5 +1,4 @@
-from building import Harvester, Marker, Road
-from building import Sentinel as SentinelBuilding
+from building import BuildingHarvester, BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Position
 from marker import TaskKind
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
@@ -63,7 +62,7 @@ def _has_friendly_sentinel_near(state: State, ox: int, oy: int) -> bool:
         ni = state.idx(nx, ny)
         bld = state.building[ni]
         match bld:
-            case SentinelBuilding(team=team) if team == state.my_team:
+            case BuildingSentinel(team=team) if team == state.my_team:
                 return True
     return False
 
@@ -82,7 +81,9 @@ def deny_enemy_harvester(
     pos = state.pos
 
     bld = state.building[oi]
-    has_enemy_harvester = isinstance(bld, Harvester) and bld.team != state.my_team
+    has_enemy_harvester = (
+        isinstance(bld, BuildingHarvester) and bld.team != state.my_team
+    )
 
     if has_enemy_harvester and not _has_friendly_sentinel_near(state, ox, oy):
         for dx, dy in DIR4_DELTA:
@@ -92,13 +93,13 @@ def deny_enemy_harvester(
             si = state.idx(sx, sy)
             sbld = state.building[si]
             match sbld:
-                case None | Road() | Marker():
+                case None | BuildingRoad() | BuildingMarker():
                     pass
                 case _:
                     continue
             if state.walkable(sx, sy) >= COST_IMPASSABLE:
                 match sbld:
-                    case Road(team=team) if team == state.my_team:
+                    case BuildingRoad(team=team) if team == state.my_team:
                         pass
                     case _:
                         continue

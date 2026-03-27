@@ -8,7 +8,7 @@ This is Method 1 of RAx refining: the foundry directly replaces a conveyor
 on the Ti chain, breaking the Ti passthrough but producing RAx instead.
 """
 
-from building import ArmouredConveyor, Conveyor
+from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller, Direction, Position
 
 from .build import Action, PlaceFoundry
@@ -30,7 +30,7 @@ def place_foundry_ti_conv(
         i = state.idx(p.x, p.y)
         bld = state.building[i]
         match bld:
-            case Conveyor() | ArmouredConveyor():
+            case BuildingConveyor() | BuildingArmouredConveyor():
                 pass
             case _:
                 continue

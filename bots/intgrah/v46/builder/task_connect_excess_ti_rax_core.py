@@ -6,17 +6,17 @@ the flow A* with Ax leakage banned to prevent mixing.
 """
 
 from building import (
-    ArmouredConveyor,
-    Bridge,
-    Conveyor,
-    Core,
-    Foundry,
-    Harvester,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingHarvester,
+    BuildingSplitter,
 )
 from cambc import Controller, Direction, Environment, Position
 from flow_astar import AX, FlowAstar
-from marker import TaskClaim, TaskKind
+from marker import MarkerTaskClaim, TaskKind
 
 from .build import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -50,7 +50,7 @@ def connect_excess_ti_rax_core(
 
     idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
-    state.claim = TaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
+    state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
     state.debug_target = (best_tile, 255, 0, 0)
 
     sx, sy = best_tile.x, best_tile.y
@@ -59,7 +59,7 @@ def connect_excess_ti_rax_core(
 
     if bld is not None:
         match bld:
-            case Harvester() | Foundry():
+            case BuildingHarvester() | BuildingFoundry():
                 cx, cy = state.my_core
                 start: Position | None = None
                 best_d = 999999
@@ -76,7 +76,15 @@ def connect_excess_ti_rax_core(
                     ):
                         continue
                     nbld = state.building[ni]
-                    if isinstance(nbld, (Conveyor, ArmouredConveyor, Splitter, Bridge)):
+                    if isinstance(
+                        nbld,
+                        (
+                            BuildingConveyor,
+                            BuildingArmouredConveyor,
+                            BuildingSplitter,
+                            BuildingBridge,
+                        ),
+                    ):
                         continue
                     d = (nx - cx) ** 2 + (ny - cy) ** 2
                     if d < best_d:
@@ -86,15 +94,15 @@ def connect_excess_ti_rax_core(
                     return None
                 sx, sy = start
             case (
-                Conveyor(direction=d)
-                | ArmouredConveyor(direction=d)
-                | Splitter(direction=d)
+                BuildingConveyor(direction=d)
+                | BuildingArmouredConveyor(direction=d)
+                | BuildingSplitter(direction=d)
             ):
                 ddx, ddy = d.delta()
                 ox, oy = sx + ddx, sy + ddy
                 if state.in_bounds(ox, oy):
                     sx, sy = ox, oy
-            case Bridge(target=bt):
+            case BuildingBridge(target=bt):
                 sx, sy = bt
 
     start = Position(sx, sy)
@@ -128,17 +136,17 @@ def connect_excess_ti_rax_core(
         pbld = state.building[pi]
         if pbld is not None and pbld.team == state.my_team:
             match pbld:
-                case Core():
+                case BuildingCore():
                     continue
                 case (
-                    Conveyor(direction=td)
-                    | ArmouredConveyor(direction=td)
-                    | Splitter(direction=td)
+                    BuildingConveyor(direction=td)
+                    | BuildingArmouredConveyor(direction=td)
+                    | BuildingSplitter(direction=td)
                 ):
                     ddx, ddy = td.delta()
                     if (x + ddx, y + ddy) == (nx, ny):
                         continue
-                case Bridge(target=bt) if bt == (nx, ny):
+                case BuildingBridge(target=bt) if bt == (nx, ny):
                     continue
 
         build_at = Position(x, y)

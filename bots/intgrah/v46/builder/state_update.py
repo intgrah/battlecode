@@ -1,25 +1,25 @@
 __all__ = ["update"]
 
 from building import (
-    ArmouredConveyor,
-    Barrier,
-    Bridge,
     Building,
-    Conveyor,
-    Foundry,
-    Harvester,
-    Launcher,
-    Marker,
-    Road,
-    Splitter,
+    BuildingArmouredConveyor,
+    BuildingBarrier,
+    BuildingBreach,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingGunner,
+    BuildingHarvester,
+    BuildingLauncher,
+    BuildingMarker,
+    BuildingRoad,
+    BuildingSentinel,
+    BuildingSplitter,
 )
-from building import Breach as BreachBuilding
-from building import Core as CoreBuilding
-from building import Gunner as GunnerBuilding
-from building import Sentinel as SentinelBuilding
 from cambc import Controller, EntityType, Environment, Position
 from flow_astar import build_leakage_mask
-from marker import Eureka, TaskClaim, is_stale
+from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import tiles_3x3
 
@@ -28,20 +28,20 @@ from .state_helpers import mirror
 from .state_update_flow import recompute_enemy_flow, recompute_flow
 
 _ETYPE_TO_BUILDING: dict[EntityType, type] = {
-    EntityType.CORE: CoreBuilding,
-    EntityType.HARVESTER: Harvester,
-    EntityType.CONVEYOR: Conveyor,
-    EntityType.ARMOURED_CONVEYOR: ArmouredConveyor,
-    EntityType.SPLITTER: Splitter,
-    EntityType.BRIDGE: Bridge,
-    EntityType.FOUNDRY: Foundry,
-    EntityType.BARRIER: Barrier,
-    EntityType.ROAD: Road,
-    EntityType.MARKER: Marker,
-    EntityType.GUNNER: GunnerBuilding,
-    EntityType.SENTINEL: SentinelBuilding,
-    EntityType.BREACH: BreachBuilding,
-    EntityType.LAUNCHER: Launcher,
+    EntityType.CORE: BuildingCore,
+    EntityType.HARVESTER: BuildingHarvester,
+    EntityType.CONVEYOR: BuildingConveyor,
+    EntityType.ARMOURED_CONVEYOR: BuildingArmouredConveyor,
+    EntityType.SPLITTER: BuildingSplitter,
+    EntityType.BRIDGE: BuildingBridge,
+    EntityType.FOUNDRY: BuildingFoundry,
+    EntityType.BARRIER: BuildingBarrier,
+    EntityType.ROAD: BuildingRoad,
+    EntityType.MARKER: BuildingMarker,
+    EntityType.GUNNER: BuildingGunner,
+    EntityType.SENTINEL: BuildingSentinel,
+    EntityType.BREACH: BuildingBreach,
+    EntityType.LAUNCHER: BuildingLauncher,
 }
 
 
@@ -55,9 +55,9 @@ def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | No
             cls = _ETYPE_TO_BUILDING[etype]
             return cls(team, ct.get_direction(bid))
         case EntityType.BRIDGE:
-            return Bridge(team, ct.get_bridge_target(bid))
+            return BuildingBridge(team, ct.get_bridge_target(bid))
         case EntityType.MARKER:
-            return Marker(team, ct.get_marker_value(bid))
+            return BuildingMarker(team, ct.get_marker_value(bid))
         case _:
             cls = _ETYPE_TO_BUILDING.get(etype)
             if cls is None:
@@ -126,15 +126,15 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
                 changed.append(t)
 
             match bld:
-                case Marker(team) if team == state.my_team:
+                case BuildingMarker(team) if team == state.my_team:
                     msg = decode_marker(bld.value)
                     match msg:
-                        case TaskClaim() if not is_stale(msg, rnd):
+                        case MarkerTaskClaim() if not is_stale(msg, rnd):
                             state.claims.add(msg)
-                        case Eureka() if state.symmetry is None:
+                        case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
                             _reflect_all(state)
-                case CoreBuilding(team) if (
+                case BuildingCore(team) if (
                     team != state.my_team and state.en_core is None
                 ):
                     state.en_core = t
@@ -176,39 +176,49 @@ def _rebuild_sets(state: State) -> None:
 
         if bld.team == my_team:
             match bld:
-                case Harvester():
+                case BuildingHarvester():
                     state.my_harvested.add(p)
                     state.my_harvesters.add(p)
-                case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                case (
+                    BuildingConveyor()
+                    | BuildingArmouredConveyor()
+                    | BuildingSplitter()
+                    | BuildingBridge()
+                ):
                     state.my_transport.add(p)
-                case Foundry():
+                case BuildingFoundry():
                     state.my_foundries.add(p)
                 case (
-                    GunnerBuilding()
-                    | SentinelBuilding()
-                    | BreachBuilding()
-                    | Launcher()
+                    BuildingGunner()
+                    | BuildingSentinel()
+                    | BuildingBreach()
+                    | BuildingLauncher()
                 ):
                     state.my_turrets.add(p)
-                case Barrier():
+                case BuildingBarrier():
                     state.my_barriers.add(p)
         else:
             match bld:
-                case Harvester():
+                case BuildingHarvester():
                     state.en_harvested.add(p)
                     state.en_harvesters.add(p)
-                case Conveyor() | ArmouredConveyor() | Splitter() | Bridge():
+                case (
+                    BuildingConveyor()
+                    | BuildingArmouredConveyor()
+                    | BuildingSplitter()
+                    | BuildingBridge()
+                ):
                     state.en_transport.add(p)
-                case Foundry():
+                case BuildingFoundry():
                     state.en_foundries.add(p)
                 case (
-                    GunnerBuilding()
-                    | SentinelBuilding()
-                    | BreachBuilding()
-                    | Launcher()
+                    BuildingGunner()
+                    | BuildingSentinel()
+                    | BuildingBreach()
+                    | BuildingLauncher()
                 ):
                     state.en_turrets.add(p)
-                case Barrier():
+                case BuildingBarrier():
                     state.en_barriers.add(p)
 
 

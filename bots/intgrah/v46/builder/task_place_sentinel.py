@@ -1,5 +1,4 @@
-from building import Marker, Road
-from building import Sentinel as SentinelBuilding
+from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA
 
@@ -22,7 +21,7 @@ def _has_friendly_sentinel_near(state: State, hx: int, hy: int) -> bool:
         ni = state.idx(nx, ny)
         bld = state.building[ni]
         match bld:
-            case SentinelBuilding(team=team) if team == state.my_team:
+            case BuildingSentinel(team=team) if team == state.my_team:
                 return True
     return False
 
@@ -49,7 +48,9 @@ def _find_target(
             match bld:
                 case None:
                     pass
-                case Road(team=team) | Marker(team=team) if team == state.my_team:
+                case BuildingRoad(team=team) | BuildingMarker(team=team) if (
+                    team == state.my_team
+                ):
                     pass
                 case _:
                     continue
