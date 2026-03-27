@@ -471,6 +471,8 @@ def run_builder(player: Player, ct: Controller) -> None:
         if player.target is not None:
             player.wander_target = None
             pf_move(player, ct, player.target)
+            if pos == player.target:
+                destroy_enemy_road(player, ct, pos)
             return
 
         # Pathfind toward unexplored territory
@@ -486,6 +488,7 @@ def run_builder(player: Player, ct: Controller) -> None:
             pf_move(player, ct, player.wander_target)
         else:
             _random_walk(ct, pos, prev)
+
         return
 
     # ── Return: go to nearest ore to core and place a harvester ───
@@ -506,21 +509,23 @@ def run_builder(player: Player, ct: Controller) -> None:
     # ── Secure: barrier cardinal neighbors of ore before placing harvester
     if player.mode == "secure":
         another_claimed_ore = False
+        enemy_barrier_on_ore = False
         harvester_on_ore = False
 
         if player.secure_target is not None and ct.is_in_vision(player.secure_target):
             bbid = ct.get_tile_builder_bot_id(player.secure_target)
-            harvester_on_ore = (
-                ct.get_entity_type(ct.get_tile_building_id(player.secure_target))
-                == EntityType.HARVESTER
-            )
+            bid = ct.get_tile_building_id(player.secure_target)
+            harvester_on_ore = bid is not None and ct.get_entity_type(bid) == EntityType.HARVESTER
+            enemy_barrier_on_ore = bid is not None and ct.get_entity_type(bid) == EntityType.BARRIER and ct.get_team(bid) != ct.get_team()
+            another_claimed_ore = bbid is not None and bbid != ct.get_id()
             another_claimed_ore = bbid is not None and bbid != ct.get_id()
 
-        print(f"h_on_ore {harvester_on_ore} b_on_ore {another_claimed_ore}")
+        print(f"h_on_ore {harvester_on_ore} b_on_ore {enemy_barrier_on_ore} bb_on_ore {another_claimed_ore}")
 
         if (
             player.secure_target is not None
             or player.secure_target not in player.known_ore
+            or enemy_barrier_on_ore
             or harvester_on_ore
             or another_claimed_ore
         ):
@@ -707,6 +712,10 @@ def run_builder(player: Player, ct: Controller) -> None:
         #        player.target = None
         #        player.wander_target = None
         #        return
+
+        if ct.can_heal(ct.get_position()):
+            ct.heal(ct.get_position())
+            
         return
 
 
@@ -824,7 +833,7 @@ def _is_buildable(ct: Controller, tile: Position) -> bool:
         return True
     etype = ct.get_entity_type(bid)
     return (
-        etype in (EntityType.ROAD, EntityType.BARRIER, EntityType.LAUNCHER)
+        etype in (EntityType.ROAD, EntityType.BARRIER)
     ) and ct.get_team(bid) == ct.get_team()
 
 
@@ -989,14 +998,16 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
                     continue
                 if not in_bounds(ct, t) or not ct.is_in_vision(t):
                     continue
+                
 
                 tbid = ct.get_tile_building_id(t)
+                same_team = tbid is not None and ct.get_team(tbid) == ct.get_team()
 
                 # Core tile — direct bridge target
                 if (
                     tbid is not None
                     and ct.get_entity_type(tbid) == EntityType.CORE
-                    and ct.get_team(tbid) == ct.get_team()
+                    and same_team
                 ):
                     core_target = t
                     continue
@@ -1005,7 +1016,7 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
                 if (
                     tbid is not None
                     and ct.get_entity_type(tbid) == EntityType.BRIDGE
-                    and ct.get_team(tbid) == ct.get_team()
+                    and same_team
                 ):
                     if king_dist(t, player.core_pos) < king_dist(bt, player.core_pos):
                         bridge_candidates.append((king_dist(t, player.core_pos), t))
@@ -1014,8 +1025,10 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
                 # Enemy building we can clear
                 if (
                     tbid is not None
-                    and ct.get_entity_type(tbid) in SHOULD_FIRE_AT
-                    and ct.get_team(tbid) != ct.get_team()
+                    and (
+                        ct.get_entity_type(tbid) == EntityType.LAUNCHER and same_team 
+                        or ct.get_entity_type(tbid) in SHOULD_FIRE_AT and not same_team
+                    )
                 ):
                     enemy_candidates.append((king_dist(t, player.core_pos), t))
                     continue
