@@ -1,15 +1,15 @@
 import base64
 import zlib
 
-from cambc import Position
 from util import Symmetry
 
 from .apsp import APSP
+from .known import MapKey
 
 
 class ApspTable:
     def __init__(
-        self, w: int, h: int, sym: Symmetry, data: bytearray, stored: list[int]
+        self, w: int, h: int, sym: Symmetry, data: bytearray, stored: list[int],
     ) -> None:
         self._w = w
         self._h = h
@@ -41,16 +41,11 @@ class ApspTable:
         return 255
 
 
-_cache: dict[tuple[int, int, Position], ApspTable] = {}
-
-
-def get_apsp(w: int, h: int, core_a: Position) -> ApspTable | None:
-    key = (w, h, core_a)
-    if key in _cache:
-        return _cache[key]
+def load(key: MapKey) -> ApspTable | None:
     entry = APSP.get(key)
     if entry is None:
         return None
+    w, h, _ = key
     sym, data_b64, stored_b64 = entry
     data = bytearray(zlib.decompress(base64.b64decode(data_b64)))
     stored_raw = zlib.decompress(base64.b64decode(stored_b64))
@@ -58,6 +53,4 @@ def get_apsp(w: int, h: int, core_a: Position) -> ApspTable | None:
         int.from_bytes(stored_raw[i : i + 2], "little")
         for i in range(0, len(stored_raw), 2)
     ]
-    table = ApspTable(w, h, sym, data, stored)
-    _cache[key] = table
-    return table
+    return ApspTable(w, h, sym, data, stored)

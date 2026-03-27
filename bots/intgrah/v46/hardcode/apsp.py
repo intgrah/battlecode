@@ -1,9 +1,10 @@
-from cambc import Position
 from util import Symmetry
 
-APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
+from .known import KnownMap, MapKey
+
+APSP: dict[MapKey, tuple[Symmetry, str, str]] = {
     # arena
-    (25, 25, Position(8, 10)): (
+    KnownMap.ARENA: (
         Symmetry.ROT,
         "eNrt3Yl220iTrW3JEmeCMyXVd/77v838gRxjR+wAAZeHsptcq/scdxbNQa/BQfkgXl6/vb0vlqv1Zrvbd4fj6Xy53u4fn1+v3sK3"
         "b3UhpEteeOsveI0Q4sL7cFF/VRgWFvFCFpbpgjce+oVVvuDC5+fXulxg4evra1Mvw0J/b8s1tu2Ct7ETlyAf+V5cwkEsdOISjse2"
@@ -356,7 +357,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "FEVxlERpdImyKI+u0S26R0VURlVUR03URl3UR0PsBySUhfY=",
     ),
     # battlebot
-    (21, 29, Position(4, 4)): (
+    KnownMap.BATTLEBOT: (
         Symmetry.VER,
         "eNrsnQl7XDeOaCXVvq+qRfsu2Ul3T3fPPu///y08YiEIkLAnSceZOF33k8oSUynJ1hHJi0MAZ+cXnW6vPxiOxpPpbL5Yrtab7Tm0"
         "1/YC/l5fcNmBv9UX7Lrw1/qCfQ/+pb7g0Ie//OUv+M4XfXYcwJ///Gd854s+uxrCn9JFD/lPuB7Bj+mih/wn3IzhB7wgv+HHtxP4"
@@ -783,7 +784,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "XbSP1EiL9OgRPaNX9I4+0Tf6Rf/IiMzIiuExIkbGqMiJ3BgdYyIv8qMg/gF2cI98",
     ),
     # chemistry_class
-    (40, 40, Position(14, 23)): (
+    KnownMap.CHEMISTRY_CLASS: (
         Symmetry.VER,
         "eNrs3Yl23Da2qOF0dxLbkizPs53J85Rz3//l6pIACGID/x6kE59OTGC142outJxIlf11sVj8f/jXv//z408/37h56+z84vblnbv3"
         "7j94+Ojxk6fPnr94+eqXX3/7/Y/Xb96+e/+v4L5//zu27z/Liuz7cV2BfT+l5e/7OS93342yvH03t+Xsu1WXve9sX+a+82ZZ+y7a"
@@ -2212,7 +2213,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "JA9SBCmDVEHqIE2QNkgXpA8yBBmDTEFoEBaEBxHB/+g6i2A=",
     ),
     # cinnamon_roll
-    (30, 30, Position(2, 27)): (
+    KnownMap.CINNAMON_ROLL: (
         Symmetry.ROT,
         "eNrs3Yma2zaaqGHJtVepVm2125lz/9fIQ/z7BrSeTtLpTsiZZDxBZMmxPoMSQbyr9Y+z84vLq+ub27vN/cPj0/PLdrc/HF/f3j8+"
         "v9bD0R8/eHTiw4yezUcbnSZ57DTJ6Hk7Li4n9zNPE41ewDHF551w9LIdE7wqelp8VROMXs3HNP91PU302GnS0ev5mNpf5meGVzW1"
@@ -2948,7 +2949,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "wIUucrFLXOoyl7vCla5ytWtc6zrXu8GNbnKzW9zqNre7w53ucrd73Os+93vA/17OyWQ=",
     ),
     # corridors
-    (31, 31, Position(5, 15)): (
+    KnownMap.CORRIDORS: (
         Symmetry.VER,
         "eNrtned2I0ezBAWs997SrJX30vf+r9a3i0CBhWZlNJe8EghtzTn6o16y4WISCVRwvlksr12/cfPW7Tt3791/8PDR4ydPnz1/8fLV"
         "6zdvDw6Pjhe8vFzi8rVr11pfbn259eXWl1tfbn259eXr16+3G335Tl9+0Jef9OUXfflNXz46Or5x40a7efNmu3v3bnv48GF7+vRp"
@@ -3377,7 +3378,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "epZne46jvMZrvc7rvcEbvcnR3uwt3upt3u4d3ulvcWruIQ==",
     ),
     # default_large1
-    (40, 40, Position(11, 25)): (
+    KnownMap.DEFAULT_LARGE1: (
         Symmetry.ROT,
         "eNrs3el6I7mRLuDqrirtVVopape4q7p99vu/tjiJJYBYAczjmbHdzvhhleSvU0yKjJe5APjy2+9fv30/Oj45PTu/+PHz8ur65vZu"
         "cb98eHx6fnl9e/9YrTfb3f7w22Du9995DljV3Nepag6AbW9KYu5bqJybfnx9LX4vQMp9jxVzAOHR3YjHBxBzR6mmHEDai1uxHwAh"
@@ -5614,7 +5615,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "EDeIF8QPEgQJg0RB4uA/3Z6D4A==",
     ),
     # default_large2
-    (50, 30, Position(3, 16)): (
+    KnownMap.DEFAULT_LARGE2: (
         Symmetry.VER,
         "eNrsvYd2HTuutdvbVpZWUFpZlqMc5CT5/Z+NtxgATBIgV9Hdp8d/7hHH6GDtPV2qgG8yAv/659Xrg8Oj45PTs/OLyXQ2v7y6vrld"
         "LFfrzXZ39+b+7bv3Hz5+evj85eu3x+8/fv76/fRPt+LVq17F66H1KQ58GxTOtRXOkeIwNK9wLcXwjx+T4ii24xPnLqLCZY0V34cW"
@@ -7538,7 +7539,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "j9WxJtbGulgfG2JjbIrNsSW2xrZIj/8Bzt94PA==",
     ),
     # default_medium1
-    (30, 30, Position(10, 19)): (
+    KnownMap.DEFAULT_MEDIUM1: (
         Symmetry.ROT,
         "eNrs3el620iyrm3SmjiTEqmJpFzVa3/nf4r4iMyMzBjeCNkWUXZ3AT/2vlZnSYJEPqYEMOOeTL/d3N7dP8zmi+VqvdnuHp/2h+eX"
         "17f34+n8MQ1Xv32LVm8uh796e3vb9YdY7Wj17nJcPrKbi9WurN73x2V1seCfuevy6kM6Zt3ycrCv272n1Vk+ustHrvhqf5w/5uXo"
@@ -8174,7 +8175,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "wIUucrFLXOoyl7vCla5ytWtc6zrXu8GNbnKzW9zqNre7w53ucrd73Os+93vA/17OyWQ=",
     ),
     # default_medium2
-    (30, 30, Position(3, 3)): (
+    KnownMap.DEFAULT_MEDIUM2: (
         Symmetry.VER,
         "eNrs3eli20iybWHZ1sSZmiUPXee+/0PmJXLcEbEjQIlyVbmb+NE+RyiKE5ZIIvNjXnz5+u3y6vrmdrFcrTfb3f7u/uHx6fnl9e37"
         "j5+/voy9qexNsPfr17F3U/Y+jr3fDlvbu93mvU9Pfe/ltLl7r/Lm/ebrsjm36qZu/B7dto3uXfSN7V1OW8r/K/amvHc1bSn/r9z7"
@@ -8782,7 +8783,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "ibbRLtpHh+gYnaJzdImu0S1SYkikxtAYFsNjRIyMUTE6xsTYGBfjY0L8B2Vi0y0=",
     ),
     # default_small1
-    (20, 20, Position(1, 1)): (
+    KnownMap.DEFAULT_SMALL1: (
         Symmetry.ROT,
         "eNrtnema27iSbdOpgYNIje73f9R9RYwxbJDMa7uOq77kj65utKSUsAwNWIgdHz8+D8fTueuH8TLN19v98Xz9IGOfn37s8L7wHsNy"
         "pbHj8Qic9e1O7+vcdXEMcey8XF3fxzGEsS5c/TCI+/bxGsYxjeH5GtI1Xi5lbBwxhusyTfm+lwsu8ZrmOY1N9Zqv1zg2L9f7Fczh"
@@ -8945,7 +8946,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "UuG2SnfcdU+V+x6o9lCNRx6r9USdp5557oV6LzV45bVGb7z1zntNPvjok8+++Oqb75r90OKnX1r99sdf/7Rp9x+0UE29",
     ),
     # default_small2
-    (21, 21, Position(10, 1)): (
+    KnownMap.DEFAULT_SMALL2: (
         Symmetry.HOR,
         "eNrtnYlyIzmSBSmJh0iKN6uP+f//xBKI6z1ksJhpLZvtmkqY9WwJKyIBuPICnBGLt/eP5Wq9+dzu9l+H4+l8ud7ub1nl+3tS+fEo"
         "y+KVpVUuaylFK4tUrloppVWWIh9fSylStM3No5THf3agUis/Px+/8PkoVlnK7b7dbnfbVqBLuyhRuYfilV+PfpQvLdbm4fAYxsGK"
@@ -9134,7 +9135,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "VopU77z3wUeffPZFmq+++e6Hn3757Y+/0v3zXwa3IGfG",
     ),
     # dna
-    (21, 50, Position(10, 48)): (
+    KnownMap.DNA: (
         Symmetry.HOR,
         "eNrs3edi28qWbeHtIDGTAEhF57DDyaf7vv+z9SVRYc25ahKkLdiW5cKPPm5sSSQhYAgEqj7+9uz5i5cXl5PpbL5Yrtabpu22u2dq"
         "5fPnYuWL/VKsfHlYLv4vLWHlRb+4r7wMC6+cxKX/5rRymhb8ylleYOXcFlu5gCWvXMaFHmiVlvVms17Hleu8bPqlXxn+mV9m069s"
@@ -9798,7 +9799,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "AiEDoQKhA2ECYQP/AczAAHg=",
     ),
     # face
-    (20, 20, Position(5, 7)): (
+    KnownMap.FACE: (
         Symmetry.VER,
         "eNrtndlC5LiyRYEc7Jwn6P//Ux1bimFHKJR2Fu7q6tPooS/HFyjwwsNSKLbe3j9W682263f7w/F0vlxv98d7cOzj4yONYzyWPxiO"
         "rVYpf17a7VP+vHR/rMfhvnaThz22LcMc62jgsZ5HSnJsxyOlIx/b80jpdKJjBxrjj3s+l2NHHsPnjGM8NnzBafyq/HXXaxqPDZ9/"
@@ -9954,7 +9955,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "jjnuhJNOecMDWTlSOw==",
     ),
     # galaxy
-    (40, 40, Position(4, 35)): (
+    KnownMap.GALAXY: (
         Symmetry.ROT,
         "eNrs3QmXGzfOLuBJHK+9Sr1r32Vn/v/vwyUJLiAJgLDj707iiOdMZ2K/KamqW3iaZBX5n99+f/fH+w8fP33+cnV9c3t3P5k+PD49"
         "v7y+zeaL5Wq92e72h+Pp/Jsx9/vvttw71yy5P3yrcgBc7n1oJQcA7PE+YIs5lxJe92NsIQcgvr9PqbkcgHwen3NzOeV8v5QG2nW5"
@@ -12344,7 +12345,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "EDeIF8QPEgQJg0RB4uA/3Z6D4A==",
     ),
     # hooks
-    (31, 31, Position(3, 22)): (
+    KnownMap.HOOKS: (
         Symmetry.ROT,
         "eNrs3YmW5DaSrWv3yJjdPeZ5SFVpqD73/R8QlwDMDDZsQ5zT1WpVpsi1VJIK6YqJX5BOgvg326NvxyenZ+cXl7v94er65vbu/uHx"
         "6fnl9e394/P7dgwXMHx0NIYPcfjbsvHw1RUPl7Ytw8d1C68u73Vbhk/a1v/0/lD/tw2/LVsdPu0bfebl4eH+vg6/vvaPfUYbDd/X"
@@ -13121,7 +13122,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "r3vDm97ytne86z3v+x9CU+LS",
     ),
     # hourglass
-    (27, 45, Position(13, 43)): (
+    KnownMap.HOURGLASS: (
         Symmetry.HOR,
         "eNrs3Yd2I0mWpWsKaICaTFFZulrM3J73f719CTd11HZWohFMiuPr3o5hnsWVkazAF+YOg/0XoNclH13x0TUfLfhouaSj1YqO1ms6"
         "2mzoaLvdstFut2Oj/X7PRofXi4xuXi8yun29yOjueMWj++MVjx6mKxw9lisaPdUrGD23y49e+uVGP43Ljn7ul/uuX9rl/12/1iv4"
@@ -13637,7 +13638,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "o0N0jE7RObpE1+gW3aNH9Ixe0Tv6RN/oF/1jQAyMQTE4hsTQGBbDY0SMjP8Ax+kX6A==",
     ),
     # landscape
-    (30, 30, Position(3, 2)): (
+    KnownMap.LANDSCAPE: (
         Symmetry.HOR,
         "eNrs3eli47aWRWGpPGieZ1tOv/9TssUBwBn22eWkblIsm/iT7ovYlkmuSJYIfKPxj6fnl9fJdDZfLFfrzXa3PxxP58v19vZ+/xjT"
         "2R8/2OzTY8Szz/UIZ1+aEc2+1qPqhpudTB7/a/rKqjKz02o6m07z9338q3K2mrWj/NSqSrNVNU9DPKb0MO4fizz8I/74WJbhZv/6"
@@ -14156,7 +14157,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "wIUucrFLXOoyl7vCla5ytWtc6zrXu8GNbnKzW9zqNre7w53ucrd73Os+93vA/17OyWQ=",
     ),
     # minimaze
-    (25, 25, Position(1, 23)): (
+    KnownMap.MINIMAZE: (
         Symmetry.VER,
         "eNrtnYl2HLmObTM1z7OUmgfbVf3+/wf5iIOBAMi4bVfbvraLXLVuVytKyhh2MkhsAlytt7Z3dvf2Dw6Pjssltavrm9u7zf3aH7io"
         "TQ8UNDlwfn5eD/CP7mt7KPv7hQ6cnZ2XeuDTR22bzaYeODgoR/XAaT1wRQfe39/v7ko9cHhYjo+PT+jA9XU9UN7ebm/Lw0P9z8tJ"
@@ -14480,7 +14481,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "kqJxNImm0SyaR4toGa2idbSJttEukqN39Im+0S/6x4AYGINicAyJoTEsUuIfIQSTbQ==",
     ),
     # pls_buy_cucats_merch
-    (49, 49, Position(13, 17)): (
+    KnownMap.PLS_BUY_CUCATS_MERCH: (
         Symmetry.ROT,
         "eNrs3YmCHLmNJuBxt646VPd93/clqdtjz/u/FzZIkCBAAgxw197xeJItlTQa/2JGZFbwE8lA/Mdffvv90+cvX78tLa+sfl9b39jc"
         "2t7Z3ds/ODw6Pjk9O7+4vLq+ub27f3h8en55fXv/+Mto4Lff9ACEACiB36emBOAAjo7hFNrAp9CUwCEcw/SSoAl8jq0NHB3FY4DL"
@@ -19764,7 +19765,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "41Scjv8AnRFDuw==",
     ),
     # shish_kebab
-    (20, 20, Position(2, 2)): (
+    KnownMap.SHISH_KEBAB: (
         Symmetry.ROT,
         "eNrtnediIzmuhR1kS6Vsye657/+idYuI54CUu2eng2dX/NOzXFkBXwWJHwE8PD49r15e15tpu9sfjqfz2+X6WObm+XJ9eqK5eb5e"
         "r8/L8Ll5GZfL5bpqQ+fm9ri35fleZOjcYZlrr/GqY5lrfznL665tbOblNeaTzG18zLtlTt/f5KP9pb3nrQ55ruNR53Yy5uX9Lk92"
@@ -19937,7 +19938,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "UuG2SnfcdU+V+x6o9lCNRx6r9USdp5557oV6LzV45bVGb7z1zntNPvjok8+++Oqb75r90OKnX1r99sdf/7Rp9x+0UE29",
     ),
     # thread_of_connection
-    (20, 20, Position(3, 16)): (
+    KnownMap.THREAD_OF_CONNECTION: (
         Symmetry.ROT,
         "eNrtnYly40qORW1JJCV5K5dde9Xbu+f/v5DDTAD3XmSylumJibBHzIiujkDoWVIecQFOInl1vdsfhnE6ns438zcb14zN81cbux1j"
         "X2x83S/DYvP8uY4vXw9lWOxTHUtsqKPGPpZRYuMy5rnGPixj+QNfvk5lzHP9e++XMS/jWMfyf8v7vvNxqmOeT+XzPds425jn8/I9"
@@ -20084,7 +20085,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "UuG2SnfcdU+V+x6o9lCNRx6r9USdp5557oV6LzV45bVGb7z1zntNPvjok8+++Oqb75r90OKnX1r99sdf/7Rp9x+0UE29",
     ),
     # tree_of_life
-    (39, 30, Position(4, 22)): (
+    KnownMap.TREE_OF_LIFE: (
         Symmetry.VER,
         "eNrs3Yly40iStW0yte9r7lmVlbV1//d/gfhJBALhyznunpyWfb0QZlMzUwoTCUh4CyKJxzfbdyenZ+cXl1fXN7d39w+PT88vr+8/"
         "fPz0+cvXb7/8+v23H7//8edff29ry969Ky072W1i2bQsm8yy0/2WLzubt2m/zQ86zcum+UHnf9uWnbdt/92maf/cpt2yaf/cpkl8"
@@ -21026,7 +21027,7 @@ APSP: dict[tuple[int, int, Position], tuple[Symmetry, str, str]] = {
         "FtWietSImlErakedqBv14vmoHw2iYTSKxtEkmkazaB4tomf0it7RJ/pGv+gfA+LlGBiDYnAMiaExLIbHiBgZo2J0/A+M0x7h",
     ),
     # wasteland
-    (40, 40, Position(3, 36)): (
+    KnownMap.WASTELAND: (
         Symmetry.ROT,
         "eNrsnQeD4ziSpacrvbey6TMlZVbN/f+/F4d4LwIIUHQ3czO7O0t2ua5mgwRFxYcXDn/769fBoRyfnJ6dy+XV9Y3c3T88zuaLpazl"
         "5eVV3j8+vzbb3fdf6Tw5wnkXet6t2HkrkWd5ffPz5Fcaz84TSedhPJHlav30/CJvYucdpOPwSPS4iNeV1boe7zAdR3JyKum6guuK"
