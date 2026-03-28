@@ -296,27 +296,27 @@ def _find_core(ct: Controller) -> Position:
     raise RuntimeError
 
 
-_MARKER_OFFSET = (-2, -2)
+_MARKER_OFFSETS = ((-2, -2), (2, 2), (-2, 2), (2, -2))
 
 
 def _read_opening(
-    ct: Controller, core_pos: Position
+    ct: Controller, core_pos: Position,
 ) -> tuple[Opening | None, KnownMap | None]:
-    mx = core_pos.x + _MARKER_OFFSET[0]
-    my = core_pos.y + _MARKER_OFFSET[1]
-    marker_pos = Position(mx, my)
-    bid = ct.get_tile_building_id(marker_pos)
-    if bid is None:
-        return None, None
-    if ct.get_entity_type(bid) != EntityType.MARKER:
-        return None, None
-    if ct.get_team(bid) != ct.get_team():
-        return None, None
-    marker_val = ct.get_marker_value(bid)
-    km_list = list(KnownMap)
-    if 0 <= marker_val < len(km_list):
-        km = km_list[marker_val]
-        return get_opening(km), km
+    for odx, ody in _MARKER_OFFSETS:
+        mx, my = core_pos.x + odx, core_pos.y + ody
+        mp = Position(mx, my)
+        bid = ct.get_tile_building_id(mp)
+        if bid is None:
+            continue
+        if ct.get_entity_type(bid) != EntityType.MARKER:
+            continue
+        if ct.get_team(bid) != ct.get_team():
+            continue
+        marker_val = ct.get_marker_value(bid)
+        km_list = list(KnownMap)
+        if 0 <= marker_val < len(km_list):
+            km = km_list[marker_val]
+            return get_opening(km), km
     return None, None
 
 

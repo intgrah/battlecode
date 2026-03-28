@@ -126,8 +126,8 @@ def mirror_opening(opening: Opening, w: int, h: int, sym: Symmetry) -> Opening:
         return s
 
     mirrored_spawns = [
-        mirror_offset(dx, dy, sym) if (dx, dy) is not None else None
-        for dx, dy in opening.core_spawns
+        mirror_offset(s[0], s[1], sym) if s is not None else None
+        for s in opening.core_spawns
     ]
     mirrored_scripts = [
         [mirror_step(s) for s in script] for script in opening.builder_scripts
