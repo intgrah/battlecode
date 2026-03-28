@@ -1,7 +1,6 @@
 from collections.abc import Callable
 
-from building import BuildingBridge
-from building import BuildingLauncher as BuildingLauncher
+from building import BuildingBridge, BuildingLauncher
 from cambc import (
     Controller,
     Direction,
