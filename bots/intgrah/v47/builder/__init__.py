@@ -1,0 +1,255 @@
+from collections.abc import Callable
+
+from building import BuildingBridge
+from building import BuildingLauncher as BuildingLauncher
+from cambc import (
+    Controller,
+    Direction,
+    EntityType,
+    Environment,
+    GameConstants,
+    Position,
+)
+from marker import MarkerEureka
+from unit import Unit
+from util import DIR8_DELTA
+
+from .build import Action, PlaceRoad, Task, execute
+from .state import State
+from .state_dump import dump
+from .state_update import update as state_update
+from .task_barrier_ore import _best_denied_ore, barrier_ore
+from .task_bridge_chain import _find_disconnected_harvester, bridge_chain
+from .task_connect_excess import ExcessKind, SearchKind, connect_excess
+from .task_explore import explore
+from .task_fire_enemy_transport import fire_enemy_transport
+from .task_harvest_ax import harvest_ax
+from .task_harvest_ti import harvest_ti
+from .task_heal_bridge import find_damaged_bridge, heal_bridge
+from .task_heal_core import heal_core
+from .task_nav_enemy_core import nav_enemy_core
+from .task_patrol import patrol
+from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
+from .task_place_launcher import place_launcher
+from .task_place_sentinel import _find_target as _find_sentinel_target
+from .task_place_sentinel import place_sentinel
+from .task_place_splitter_foundry import place_splitter_foundry
+from .task_repair_bridge import _find_broken_bridge, repair_bridge
+from .task_secure_ore import _best_ore as _secure_best_ore
+from .task_secure_ore import secure_ore
+from .task_self_destruct import self_destruct
+
+DEBUG_DUMP = False
+
+type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
+
+TASK_FNS: dict[Task, TaskFn] = {
+    Task.CONNECT_EXCESS_TI: lambda s, c: connect_excess(
+        s,
+        c,
+        ExcessKind.TI_RAX,
+        SearchKind.MIXED,
+    ),
+    Task.CONNECT_EXCESS_TI_BRIDGE: lambda s, c: connect_excess(
+        s,
+        c,
+        ExcessKind.TI_RAX,
+        SearchKind.BRIDGE,
+    ),
+    Task.CONNECT_EXCESS_AX: lambda s, c: connect_excess(
+        s,
+        c,
+        ExcessKind.AX,
+        SearchKind.AX_CHAIN,
+    ),
+    Task.HARVEST_TI: harvest_ti,
+    Task.HARVEST_AX: harvest_ax,
+    Task.EXPLORE: explore,
+    Task.PATROL: patrol,
+    Task.NAV_ENEMY_CORE: nav_enemy_core,
+    Task.SELF_DESTRUCT: self_destruct,
+    Task.PLACE_FOUNDRY_MIXED_CONV: place_foundry_mixed_conv,
+    Task.PLACE_SPLITTER_FOUNDRY: place_splitter_foundry,
+    Task.HEAL_CORE: heal_core,
+    Task.SECURE_ORE: secure_ore,
+    Task.PLACE_LAUNCHER: place_launcher,
+    Task.REPAIR_BRIDGE: repair_bridge,
+    Task.BARRIER_ORE: barrier_ore,
+    Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
+    Task.PLACE_SENTINEL: place_sentinel,
+    Task.HEAL_BRIDGE: heal_bridge,
+    Task.BRIDGE_CHAIN: bridge_chain,
+}
+
+
+class Builder(Unit):
+    def __init__(self, ct: Controller) -> None:
+        core_pos = _find_core(ct)
+        self.state = State(ct, core_pos)
+
+    def run(self, ct: Controller) -> None:
+        s = self.state
+        state_update(s, ct)
+
+        if DEBUG_DUMP:
+            dump(s, ct)
+        s.debug_target = None
+        s.claim = None
+
+        move, build = self._run_policy(ct)
+
+        if move != Direction.CENTRE:
+            if ct.can_move(move):
+                ct.move(move)
+            elif isinstance(build, PlaceRoad):
+                execute(build, ct)
+                if ct.can_move(move):
+                    ct.move(move)
+                build = None
+        if build is not None:
+            execute(build, ct)
+
+        if s.debug_target is not None:
+            ct.draw_indicator_line(ct.get_position(), *s.debug_target)
+        self._write_marker(ct)
+
+    def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
+        s = self.state
+        for _, task in _policy(s, ct):
+            fn = TASK_FNS[task]
+            result = fn(s, ct)
+            if result is not None:
+                return result
+        return Direction.CENTRE, None
+
+    def _write_marker(self, ct: Controller) -> None:
+        s = self.state
+        marker_val = None
+        if s.claim is not None:
+            s.last_claim = s.claim
+            marker_val = s.claim.encode()
+        elif s.symmetry is not None:
+            marker_val = MarkerEureka(s.symmetry.value).encode()
+        if marker_val is None:
+            return
+        pos = ct.get_position()
+        for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
+            if t == pos:
+                continue
+            env = ct.get_tile_env(t)
+            if env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+                continue
+            if ct.can_place_marker(t):
+                ct.place_marker(t, marker_val)
+                return
+        for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
+            if t == pos:
+                continue
+            bid = ct.get_tile_building_id(t)
+            if (
+                bid is not None
+                and ct.get_entity_type(bid) == EntityType.MARKER
+                and ct.get_team(bid) == ct.get_team()
+            ):
+                ct.destroy(t)
+                ct.place_marker(t, marker_val)
+                return
+
+
+# Tasks that should be "sticky" — once started, complete before switching
+_STICKY_TASKS = frozenset(
+    {
+        Task.SECURE_ORE,
+        Task.CONNECT_EXCESS_TI_BRIDGE,
+        Task.EXPLORE,
+        Task.REPAIR_BRIDGE,
+        Task.HEAL_BRIDGE,
+    },
+)
+
+
+def _find_core(ct: Controller) -> Position:
+    my = ct.get_team()
+    for bid in ct.get_nearby_buildings():
+        if ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CORE:
+            return ct.get_position(bid)
+    raise RuntimeError
+
+
+def _has_undefended_bridge(state: State) -> bool:
+    for p in state.my_transport:
+        i = state.idx(p.x, p.y)
+        bld = state.building[i]
+        match bld:
+            case BuildingBridge():
+                pass
+            case _:
+                continue
+        if any(
+            state.in_bounds(p.x + dx, p.y + dy)
+            and isinstance(
+                state.building[state.idx(p.x + dx, p.y + dy)],
+                BuildingLauncher,
+            )
+            and state.building[state.idx(p.x + dx, p.y + dy)].team == state.my_team
+            for dx, dy in DIR8_DELTA
+        ):
+            continue
+        return True
+    return False
+
+
+def _policy(state: State, ct: Controller) -> list[tuple[float, Task]]:
+    scores: list[tuple[float, Task]] = []
+
+    # Highest priority: heal core if damaged
+    core_damaged = state.my_core_hp < GameConstants.CORE_MAX_HP
+    scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
+
+    # Heal damaged bridges (trollbot_expand prioritizes this)
+    has_damaged_bridge = find_damaged_bridge(ct) is not None
+    scores.append((250.0 if has_damaged_bridge else 0.0, Task.HEAL_BRIDGE))
+
+    # Repair broken bridge chains (trollbot_expand: orphan harvester/dead bridge)
+    has_broken = _find_broken_bridge(state) is not None
+    scores.append((200.0 if has_broken else 0.0, Task.REPAIR_BRIDGE))
+
+    # Build bridge chains from disconnected harvesters to core (greedy, fast)
+    has_disconnected = _find_disconnected_harvester(state) is not None
+    scores.append((175.0 if has_disconnected else 0.0, Task.BRIDGE_CHAIN))
+
+    # Fallback: connect excess via A* bridge search (handles edge cases)
+    has_excess = any(
+        state.my_flow.excess[state.idx(p.x, p.y)] > 0.01
+        for p in state.my_harvesters | state.my_transport
+    )
+    scores.append((160.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE))
+
+    # Place launchers on undefended bridges — AFTER economy is connected
+    has_ud_bridge = _has_undefended_bridge(state)
+    scores.append((140.0 if has_ud_bridge else 0.0, Task.PLACE_LAUNCHER))
+
+    # Deny ore near friendly sentinel
+    has_denied_ore = _best_denied_ore(state) is not None
+    scores.append((110.0 if has_denied_ore else 0.0, Task.BARRIER_ORE))
+
+    # Secure visible ore (barrier + harvest) - core trollbot_expand behavior
+    visible_ore = _secure_best_ore(state)
+    scores.append((100.0 if visible_ore is not None else 0.0, Task.SECURE_ORE))
+
+    # Fire enemy transport
+    has_fire_target = len(state.en_transport) > 0
+    scores.append((75.0 if has_fire_target else 0.0, Task.FIRE_ENEMY_TRANSPORT))
+
+    # Place sentinel near enemy harvesters
+    has_sentinel_target = _find_sentinel_target(state) is not None
+    scores.append((70.0 if has_sentinel_target else 0.0, Task.PLACE_SENTINEL))
+
+    # Explore to discover more ore
+    scores.append((20.0, Task.EXPLORE))
+
+    # Patrol infrastructure
+    scores.append((5.0, Task.PATROL))
+
+    scores.sort(key=lambda t: t[0], reverse=True)
+    return scores
