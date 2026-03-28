@@ -1,6 +1,6 @@
 from building import BuildingHarvester, BuildingSentinel
 from cambc import Controller, Direction, Position
-from util import DIR8_DELTA
+from util import DIR8_DELTA, INF
 
 from .build import Action, PlaceBarrier
 from .helpers import move_toward_with_road
@@ -26,7 +26,7 @@ def _best_denied_ore(state: State) -> Position | None:
         return None
     pos = state.pos
     best: Position | None = None
-    best_dist = 999999
+    best_dist = INF
     for ox, oy in unharvested:
         oi = state.idx(ox, oy)
         op = Position(ox, oy)

@@ -10,6 +10,7 @@ on the Ti chain, breaking the Ti passthrough but producing RAx instead.
 
 from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller, Direction, Position
+from util import INF
 
 from .build import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -24,7 +25,7 @@ def place_foundry_ti_conv(
     f = state.my_flow
     best_tile: Position | None = None
     best_score = 0.0
-    best_dist = 999999
+    best_dist = INF
 
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
