@@ -23,11 +23,16 @@ type. Key information:
 
 ### 2. Decide strategy: rush or econ
 
-**Rush** — viable when a sentinel can be placed within r²=32 of an enemy core
-tile, fed by a harvester. The sentinel fires at the core and destroys it.
+**Rush** — ONLY viable when cores are close (Chebyshev distance ≤ 12) AND
+there are contested ores between the cores that you can reach first. The
+sentinel must be fed by a harvester on YOUR side's ore, not the opponent's.
+Do NOT rush by walking 20+ tiles to the enemy side — a real opponent will
+kill your lone builder.
 
-**Econ** — when rush is not viable (core too far from ores, too many walls).
-Build harvesters, foundries, and deliver refined axionite to the core.
+**Econ** — the default for most maps. Build multiple harvesters, foundries,
+and deliver refined axionite to the core. Grab ALL obvious nearby ores, not
+just one. Set up a complete foundry pipeline (Ti + Ax → foundry → core).
+Continue developing after basics are done.
 
 ### 3. Decide builder count
 
@@ -59,7 +64,20 @@ parallelism:
 - **Builders can only walk on roads, conveyors, and allied core.** Every tile
   the builder needs to walk on must have a road (or conveyor) placed first.
 
-Target ~20 steps total across all builders. Front-load the critical path.
+Target **minimum 20 steps per builder**. Do NOT stop at the bare minimum. If
+there are obvious ores nearby, grab them. If you can place more barriers, do
+it. If you can set up a second harvester, do it. The opening should develop
+as much as hardcoded micro allows — every wasted turn is a turn the opponent
+gets ahead.
+
+When low on Ti, use `x, x` (wait) steps. The harvester will deliver more Ti
+and the builder can resume building. This is acceptable and expected.
+
+Prefer **bridges over conveyors** for transport. Bridges jump over obstacles
+and are more flexible. Conveyors are only for short cardinal runs.
+
+**Do NOT stop after placing one harvester.** Continue: place barriers, place
+launcher, grab more ores, set up foundry if applicable. Use every turn.
 
 ## DSL Reference
 

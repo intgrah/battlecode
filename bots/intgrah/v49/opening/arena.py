@@ -10,8 +10,9 @@ _B1 = parse_script(
     x, n; ne rd, ne; ne rd, ne; n rd, n; n h, s
     n c s, n; s br 5 8, x; ne rd, ne; ne rd, ne
     e rd, e; e rd, e
-    x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x
-    e h, w; e br 9 3, x
+    x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x; x, x
+    e h, x; se rd, se; ne ba, nw; se ba, w
+    e br 9 3, x
     w br 7 5, x; se ln, w; x, sw; x, sw; se ln, s
     x, sw; x, sw;
     se ln, s
@@ -21,7 +22,7 @@ _B1 = parse_script(
 _B2 = parse_script(
     7,
     11,
-    """sw sp e, sw; s rd, s; s rd, s; sw h, x
+    """sw sp e, sw; s br 7 11, s; s rd, s; sw h, x
         w br 6 12, w; e ln 8 12, x; sw ba, x; se rd, se; sw ba, nw; se ba, x
         """,
 )

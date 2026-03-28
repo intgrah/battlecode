@@ -8,7 +8,7 @@ from unit import Unit
 from util import INF
 
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
-_MARKER_OFFSET = (-2, -2)
+_MARKER_OFFSETS = ((-2, -2), (2, 2), (-2, 2), (2, -2))
 
 
 class Core(Unit):
@@ -29,17 +29,21 @@ class Core(Unit):
                 opening = mirror_opening(opening, w, h, SYMMETRY[km])
             self.opening = opening
 
-            mx = self.core_pos.x + _MARKER_OFFSET[0]
-            my = self.core_pos.y + _MARKER_OFFSET[1]
-            marker_pos = Position(mx, my)
-            if ct.can_place_marker(marker_pos):
-                ct.place_marker(marker_pos, list(KnownMap).index(km))
+            marker_val = list(KnownMap).index(km)
+            for odx, ody in _MARKER_OFFSETS:
+                mp = Position(self.core_pos.x + odx, self.core_pos.y + ody)
+                if ct.can_place_marker(mp):
+                    ct.place_marker(mp, marker_val)
+                    break
 
     def run(self, ct: Controller) -> None:
         rnd = ct.get_current_round()
 
         if self.opening is not None and rnd < len(self.opening.core_spawns):
             self._run_opening(ct, rnd)
+            return
+
+        if self.opening is not None:
             return
 
         self._run_default(ct, rnd)
