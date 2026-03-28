@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from main import Player
 
-from cambc import Controller, EntityType, Position
+from cambc import Controller, Position
 from utils import pf_move
 
 # One ring inside launcher action r²=26

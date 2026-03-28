@@ -25,8 +25,7 @@ def run_launcher(player: Player, ct: Controller) -> None:
         if ct.get_entity_type(bid) != EntityType.MARKER or ct.get_team(bid) != my_team:
             continue
         val = ct.get_marker_value(bid)
-        if val > max_val:
-            max_val = val
+        max_val = max(max_val, val)
 
     # Write max value to our own marker
     for d in _ALL_DIRS:

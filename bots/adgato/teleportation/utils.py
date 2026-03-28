@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, Direction, EntityType, Environment, Position
-from pathfinding import _ALL_DIRS, _DIR_IDX, bug2_step
+from pathfinding import bug2_step
 
 # ── Constants ─────────────────────────────────────────────────────────
 

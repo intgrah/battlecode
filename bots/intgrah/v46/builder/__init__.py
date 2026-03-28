@@ -220,7 +220,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     return scores
 
 
-def _policy_econ_only(state: State) -> list[tuple[float, Task]]:
+def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
 
     has_excess = any(
