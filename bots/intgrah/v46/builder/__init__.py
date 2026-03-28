@@ -88,7 +88,6 @@ class Builder(Unit):
 
         if DEBUG_DUMP:
             dump(s, ct)
-        s.debug_target = None
         s.claim = None
 
         move, build = self._run_policy(ct)
@@ -106,6 +105,7 @@ class Builder(Unit):
 
         if s.debug_target is not None:
             ct.draw_indicator_line(ct.get_position(), *s.debug_target)
+        s.debug_target = None
         self._write_marker(ct)
 
     def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:

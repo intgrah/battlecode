@@ -44,7 +44,7 @@ verify-network = "scripts.verify_network:main"
 wait-match = "scripts.wait_match:main"
 
 [dependency-groups]
-dev = ["ruff>=0.15.6", "ty>=0.0.22"]
+dev = ["pyright", "ruff", "ty"]
 
 [tool.uv.build-backend]
 module-root = ""

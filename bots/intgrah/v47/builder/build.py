@@ -29,6 +29,7 @@ class Task(IntEnum):
     PLACE_SENTINEL = auto()
     HEAL_BRIDGE = auto()
     BRIDGE_CHAIN = auto()
+    RUSH = auto()
 
 
 # Low level Actions (one per turn)
@@ -94,6 +95,12 @@ class PlaceLauncher:
 
 
 @dataclass(frozen=True, slots=True)
+class PlaceGunner:
+    pos: Position
+    direction: Direction
+
+
+@dataclass(frozen=True, slots=True)
 class Fire:
     pos: Position
 
@@ -110,6 +117,7 @@ type Action = (
     | PlaceBarrier
     | PlaceSentinel
     | PlaceLauncher
+    | PlaceGunner
     | Fire
 )
 
@@ -184,6 +192,12 @@ def execute(action: Action, ct: Controller) -> None:
                 _destroy_friendly(ct, pos)
                 if ct.can_build_launcher(pos):
                     ct.build_launcher(pos)
+        case PlaceGunner(pos, direction):
+            cost, _ = ct.get_gunner_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_gunner(pos, direction):
+                    ct.build_gunner(pos, direction)
         case Fire(pos):
             if ct.can_fire(pos):
                 ct.fire(pos)
