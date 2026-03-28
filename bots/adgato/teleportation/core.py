@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, EntityType, Position
-from utils import in_bounds
 
 # Launcher action r²=26
 _LAUNCHER_ACTION_R2 = 26
@@ -34,7 +33,10 @@ def run_core(player: Player, ct: Controller) -> None:
     best_launcher = None
     best_dist = float("inf")
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.LAUNCHER or ct.get_team(bid) != my_team:
+        if (
+            ct.get_entity_type(bid) != EntityType.LAUNCHER
+            or ct.get_team(bid) != my_team
+        ):
             continue
         lp = ct.get_position(bid)
         d = pos.distance_squared(lp)
@@ -48,6 +50,8 @@ def run_core(player: Player, ct: Controller) -> None:
     # Place a marker on a tile within the launcher's action range
     rnd = ct.get_current_round()
     for tile in ct.get_nearby_tiles():
-        if tile.distance_squared(best_launcher) <= _LAUNCHER_ACTION_R2 and ct.can_place_marker(tile):
+        if tile.distance_squared(
+            best_launcher,
+        ) <= _LAUNCHER_ACTION_R2 and ct.can_place_marker(tile):
             ct.place_marker(tile, rnd)
             return

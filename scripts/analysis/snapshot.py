@@ -49,7 +49,7 @@ def sample_turns(total: int) -> list[int]:
 
 
 def replay_snapshots(replay: object, turns: list[int] | None = None) -> list[GameState]:
-    m = replay.map  # type: ignore[attr-defined]
+    m = replay.map
     w, h = m.width, m.height
     tiles: list[list[int]] = [[0] * w for _ in range(h)]
     for y, row in enumerate(m.rows):
@@ -67,7 +67,7 @@ def replay_snapshots(replay: object, turns: list[int] | None = None) -> list[Gam
         1: ResourceSnapshot(0, 1000, 0, 0, 0),
     }
 
-    all_turns = replay.turns  # type: ignore[attr-defined]
+    all_turns = replay.turns
     total = len(all_turns)
     if turns is None:
         turns = sample_turns(total)

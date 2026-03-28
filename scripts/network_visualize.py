@@ -10,12 +10,14 @@ from proto import cambc_pb2
 
 CAPACITY = 1.0
 
+type Pt = tuple[float, float]
 
-def dist(a: tuple[int, int], b: tuple[int, int]) -> float:
+
+def dist(a: Pt, b: Pt) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-def point_on_segment(p, a, b):
+def point_on_segment(p: Pt, a: Pt, b: Pt) -> tuple[Pt, float]:
     dx, dy = b[0] - a[0], b[1] - a[1]
     len_sq = dx * dx + dy * dy
     if len_sq < 1e-8:
@@ -34,14 +36,14 @@ class Tree:
         self.adj = {0: []}
         self.next_id = 1
 
-    def add_node(self, pos):
+    def add_node(self, pos: Pt) -> int:
         nid = self.next_id
         self.next_id += 1
         self.nodes[nid] = pos
         self.adj[nid] = []
         return nid
 
-    def add_edge(self, u, v, flow, commodity):
+    def add_edge(self, u, v, flow: float, commodity):
         eidx = len(self.edges)
         self.edges.append((u, v))
         self.edge_flow.append(flow)
@@ -74,7 +76,7 @@ class Tree:
         for eidx in path:
             self.edge_flow[eidx] += amount
 
-    def find_nearest_point(self, pos):
+    def find_nearest_point(self, pos: Pt):
         best_dist = 1e18
         best_point = None
         best_edge = None
@@ -99,7 +101,7 @@ class Tree:
                 best_t = nid
         return best_point, best_edge, best_t, best_dist
 
-    def insert_on_edge(self, eidx, pos):
+    def insert_on_edge(self, eidx, pos: Pt):
         u, v = self.edges[eidx]
         old_flow = self.edge_flow[eidx]
         old_commodity = self.edge_commodity[eidx]
@@ -112,7 +114,7 @@ class Tree:
         self.add_edge(new_node, v, old_flow, old_commodity)
         return new_node
 
-    def connect_source(self, pos, flow, commodity) -> bool:
+    def connect_source(self, pos: Pt, flow: float, commodity) -> bool:
         if not self.edges:
             src = self.add_node(pos)
             self.add_edge(src, 0, flow, commodity)
@@ -139,7 +141,7 @@ class Tree:
         return True
 
 
-def compute_metrics(t, label):
+def compute_metrics(t):
     total_length = 0
     max_flow = 0
     over_cap = 0
@@ -314,10 +316,8 @@ def main() -> None:
     total_max_flow = 0
     total_over_cap = 0
 
-    for label, t in [("core_tree", tree_core)] + [
-        (f"foundry_{i}", ft) for i, ft in enumerate(tree_foundries)
-    ]:
-        length, mf, oc = compute_metrics(t, label)
+    for t in [tree_core, *list(tree_foundries)]:
+        length, mf, oc = compute_metrics(t)
         total_cost += length
         total_max_flow = max(total_max_flow, mf)
         total_over_cap += oc
