@@ -57,6 +57,7 @@ exclude = ["ref"]
 select = ["ALL"]
 ignore = [
     "C901",
+    "COM812",
     "D",
     "E501",
     "INP001",
@@ -74,7 +75,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/analysis/*" = ["E402", "TID252", "TC001", "TC003", "PLC0415"]
-"proto/*.pyi" = ["N802", "PYI021"]
+"proto/*.pyi" = ["A002", "ANN003", "N802", "PYI021"]
 
 [tool.ty.environment]
 extra-paths = [".", "scripts", "proto"]

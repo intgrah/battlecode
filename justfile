@@ -70,7 +70,9 @@ match a b map=default_map:
     {{_analysis}} ../replay.replay26 -s summary
 
 proto:
-    protoc --python_out=proto --proto_path=proto proto/cambc.proto
+    protoc --python_out=proto --pyi_out=proto --proto_path=proto proto/cambc.proto
+    ruff check --fix proto/
+    ruff format proto/
 
 lint:
     ruff check --fix bots/ scripts/
