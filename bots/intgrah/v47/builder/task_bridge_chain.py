@@ -2,20 +2,22 @@
 
 Finds harvesters with excess (disconnected from core), then greedily
 builds a bridge chain from harvester toward core by scanning r²≤9 tiles
-and picking the best target closest to core.
+and picking the best target closest to core. Builder follows the chain
+tip, building bridges one hop at a time.
 """
 
 from building import (
     BuildingBarrier,
     BuildingBridge,
     BuildingCore,
+    BuildingLauncher,
     BuildingMarker,
     BuildingRoad,
 )
 from cambc import Controller, Direction, Environment, Position
-from util import DIR4_DELTA, INF
+from util import DIR4_DELTA, DIR8_DELTA, INF
 
-from .build import Action, PlaceBridge
+from .build import Action, PlaceBridge, PlaceLauncher
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -39,7 +41,8 @@ def _find_disconnected_harvester(state: State) -> Position | None:
 
 
 def _pick_bridge_start(state: State, harvester: Position) -> Position | None:
-    """Pick the best cardinal-adjacent tile to start a bridge chain."""
+    """Pick the best cardinal-adjacent tile to start a bridge chain.
+    Prefers the side closest to core."""
     cx, cy = state.my_core
     best: Position | None = None
     best_dist = INF
@@ -59,6 +62,8 @@ def _pick_bridge_start(state: State, harvester: Position) -> Position | None:
         match bld:
             case None | BuildingRoad() | BuildingBarrier() | BuildingMarker():
                 pass
+            case BuildingBridge(team=team) if team == state.my_team:
+                pass  # Existing bridge is fine as start
             case _:
                 continue
         dist = abs(nx - cx) + abs(ny - cy)
@@ -69,7 +74,6 @@ def _pick_bridge_start(state: State, harvester: Position) -> Position | None:
 
 
 def _is_buildable(state: State, x: int, y: int) -> bool:
-    """Check if tile can have a bridge placed on it."""
     if not state.in_bounds(x, y):
         return False
     i = state.idx(x, y)
@@ -89,6 +93,18 @@ def _chebyshev(a: Position, b: Position) -> int:
     return max(abs(a.x - b.x), abs(a.y - b.y))
 
 
+def _has_launcher_adjacent(state: State, pos: Position) -> bool:
+    for dx, dy in DIR8_DELTA:
+        nx, ny = pos.x + dx, pos.y + dy
+        if not state.in_bounds(nx, ny):
+            continue
+        ni = state.idx(nx, ny)
+        bld = state.building[ni]
+        if isinstance(bld, BuildingLauncher) and bld.team == state.my_team:
+            return True
+    return False
+
+
 def bridge_chain(
     state: State,
     ct: Controller,
@@ -98,19 +114,16 @@ def bridge_chain(
     if harvester is None:
         return None
 
-    # Find or reuse the bridge chain start point
     start = _pick_bridge_start(state, harvester)
     if start is None:
         return None
 
-    # Walk from start toward core, building bridges greedily
-    # Find the furthest bridge in our partial chain (closest to core)
+    # Follow existing bridge chain to find the tip
     chain_tip = start
     visited: set[Position] = {start}
     core = state.my_core
     core_tiles = state.my_core_tiles
 
-    # Follow existing bridges toward core
     for _ in range(50):
         i = state.idx(chain_tip.x, chain_tip.y)
         bld = state.building[i]
@@ -120,24 +133,33 @@ def bridge_chain(
                 if target_pos in visited:
                     break
                 visited.add(target_pos)
-                # Check if target is core
                 if target_pos in core_tiles:
-                    return None  # Chain already complete!
+                    return None  # Chain complete!
                 chain_tip = target_pos
             case _:
                 break
 
-    # chain_tip is where we need to build the next bridge
     pos = state.pos
-
-    # If chain_tip already has a bridge pointing to core, we're done
     ti_i = state.idx(chain_tip.x, chain_tip.y)
     tip_bld = state.building[ti_i]
     match tip_bld:
-        case BuildingBridge(team=team) if team == state.my_team:
-            return None  # Already has a bridge, chain should be followed above
         case BuildingCore(team=team) if team == state.my_team:
-            return None  # We're at core, done
+            return None
+
+    # Opportunistic launcher: if we're near a bridge without launcher, place one
+    if pos.distance_squared(chain_tip) <= 8:
+        for bp in visited:
+            bi = state.idx(bp.x, bp.y)
+            bbld = state.building[bi]
+            if not isinstance(bbld, BuildingBridge) or bbld.team != state.my_team:
+                continue
+            if _has_launcher_adjacent(state, bp):
+                continue
+            for dx, dy in DIR8_DELTA:
+                adj = Position(bp.x + dx, bp.y + dy)
+                if ct.can_build_launcher(adj):
+                    return Direction.CENTRE, PlaceLauncher(adj)
+            break  # Only try first undefended bridge
 
     # Navigate to chain_tip if not adjacent
     if pos.distance_squared(chain_tip) > 2:
@@ -145,7 +167,7 @@ def bridge_chain(
         state.debug_target = (chain_tip, 0, 128, 255)
         return move, build
 
-    # We're adjacent to chain_tip (or on it). Scan r²≤9 for best bridge target.
+    # At chain_tip: scan r²≤9 for best bridge target
     core_target: Position | None = None
     bridge_candidates: list[tuple[int, Position]] = []
     empty_candidates: list[tuple[int, Position]] = []
@@ -162,7 +184,6 @@ def bridge_chain(
             ti = state.idx(tx, ty)
             bld = state.building[ti]
 
-            # Core tile — direct bridge target (highest priority)
             match bld:
                 case BuildingCore(team=team) if team == state.my_team:
                     core_target = t
@@ -177,7 +198,7 @@ def bridge_chain(
                 d = _chebyshev(t, core)
                 empty_candidates.append((d, t))
 
-    # Destroy any building on chain_tip to build bridge
+    # Destroy building on chain_tip to place bridge
     bid = ct.get_tile_building_id(chain_tip)
     if bid is not None and ct.can_destroy(chain_tip):
         ct.destroy(chain_tip)
@@ -194,14 +215,14 @@ def bridge_chain(
             state.debug_target = (target, 0, 200, 255)
             return Direction.CENTRE, PlaceBridge(chain_tip, target)
 
-    # Priority 3: bridge to closest empty tile to core
+    # Priority 3: bridge to closest empty tile to core, then navigate there
     empty_candidates.sort()
     for _, target in empty_candidates:
         if ct.can_build_bridge(chain_tip, target):
             state.debug_target = (target, 0, 128, 255)
             return Direction.CENTRE, PlaceBridge(chain_tip, target)
 
-    # Can't build bridge — try to move closer to chain_tip
+    # Can't build — move closer
     move, build = move_toward_with_road(state, ct, chain_tip)
     state.debug_target = (chain_tip, 128, 128, 255)
     return move, build
