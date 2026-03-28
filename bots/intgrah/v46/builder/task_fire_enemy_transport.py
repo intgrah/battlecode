@@ -1,4 +1,5 @@
 from cambc import Controller, Direction, Position
+from util import INF
 
 from .build import Action, Fire
 from .helpers import move_toward_with_road
@@ -8,7 +9,7 @@ from .state import State
 def _find_target(state: State) -> Position | None:
     pos = state.pos
     best: Position | None = None
-    best_dist = 999999
+    best_dist = INF
     for tp in state.en_transport:
         dist = abs(pos.x - tp.x) + abs(pos.y - tp.y)
         if dist < best_dist:

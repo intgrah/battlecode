@@ -17,6 +17,7 @@ from building import (
 from cambc import Controller, Direction, Environment, Position
 from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
+from util import INF
 
 from .build import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -72,7 +73,7 @@ def connect_excess(
 def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
     pos = state.pos
     best: Position | None = None
-    best_dist = 999999
+    best_dist = INF
     f = state.my_flow
     match kind:
         case ExcessKind.TI_RAX:
@@ -150,7 +151,7 @@ def _find_adjacent_empty(
 ) -> tuple[int, int]:
     banned = TI | RAX if search_kind == SearchKind.AX_CHAIN else 0
     best_pos = (-1, -1)
-    best_d = 999999
+    best_d = INF
     for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
         nx, ny = sx + ddx, sy + ddy
         if not state.in_bounds(nx, ny):

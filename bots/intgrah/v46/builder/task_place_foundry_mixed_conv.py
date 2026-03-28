@@ -16,6 +16,7 @@ from building import (
     BuildingRoad,
 )
 from cambc import Controller, Direction, Environment, Position
+from util import INF
 
 from .build import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -30,7 +31,7 @@ def place_foundry_mixed_conv(
     f = state.my_flow
     best_conv: Position | None = None
     best_score = 0.0
-    best_dist = 999999
+    best_dist = INF
 
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
@@ -56,7 +57,7 @@ def place_foundry_mixed_conv(
 
     cx, cy = best_conv.x, best_conv.y
     foundry_pos: Position | None = None
-    foundry_dist = 999999
+    foundry_dist = INF
     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
         nx, ny = cx + dx, cy + dy
         if not state.in_bounds(nx, ny):
