@@ -246,15 +246,15 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
-  Heal all friendly entities on this builder bot's own tile by 4 HP. If both a
-  builder bot and a friendly building share the tile, both are healed. Costs 1
-  titanium and one action cooldown. Position must equal the builder bot's current
-  position.
+  Heal all friendly entities on the tile at position by 4 HP. If both a
+  builder bot and a friendly building share that tile, both are healed. Costs 1
+  titanium and one action cooldown. Position must be within the builder bot's
+  action radius.
 </ResponseField>
 
 <ResponseField name="can_heal(position: Position)" type="bool">
   Return True if this builder bot can heal the tile at position this round.
-  Position must equal the builder bot's current position. Requires action
+  Position must be within the builder bot's action radius. Requires action
   cooldown == 0, enough titanium, and at least one damaged friendly entity on
   the tile.
 </ResponseField>
