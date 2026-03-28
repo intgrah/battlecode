@@ -7,7 +7,9 @@ from cambc import Controller, Direction, EntityType, Position
 class Task(IntEnum):
     """High level Tasks"""
 
-    CONNECT_EXCESS_TI_RAX_CORE = auto()
+    CONNECT_EXCESS_TI = auto()
+    CONNECT_EXCESS_TI_BRIDGE = auto()
+    CONNECT_EXCESS_AX = auto()
     HARVEST_TI = auto()
     HARVEST_AX = auto()
     SELF_DESTRUCT = auto()
@@ -17,12 +19,10 @@ class Task(IntEnum):
     PLACE_FOUNDRY_TI_CONV = auto()
     PLACE_FOUNDRY_MIXED_CONV = auto()
     PLACE_SPLITTER_FOUNDRY = auto()
-    CONNECT_EXCESS_AX_TI_CONV = auto()
     HEAL_CORE = auto()
     SECURE_ORE = auto()
     PLACE_LAUNCHER = auto()
     DENY_ENEMY_HARVESTER = auto()
-    CONNECT_EXCESS_TI_BRIDGE_CORE = auto()
     REPAIR_BRIDGE = auto()
     BARRIER_ORE = auto()
     FIRE_ENEMY_TRANSPORT = auto()

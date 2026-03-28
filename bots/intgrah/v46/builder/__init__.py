@@ -19,9 +19,7 @@ from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
 from .task_barrier_ore import _best_denied_ore, barrier_ore
-from .task_connect_excess_ax_ti_conv import connect_excess_ax_ti_conv
-from .task_connect_excess_ti_bridge_core import connect_excess_ti_bridge_core
-from .task_connect_excess_ti_rax_core import connect_excess_ti_rax_core
+from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
 from .task_fire_enemy_transport import fire_enemy_transport
 from .task_harvest_ax import harvest_ax
@@ -44,8 +42,24 @@ DEBUG_DUMP = False
 type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
 
 TASK_FNS: dict[Task, TaskFn] = {
-    Task.CONNECT_EXCESS_TI_RAX_CORE: connect_excess_ti_rax_core,
-    Task.CONNECT_EXCESS_TI_BRIDGE_CORE: connect_excess_ti_bridge_core,
+    Task.CONNECT_EXCESS_TI: lambda s, c: connect_excess(
+        s,
+        c,
+        ExcessKind.TI_RAX,
+        SearchKind.MIXED,
+    ),
+    Task.CONNECT_EXCESS_TI_BRIDGE: lambda s, c: connect_excess(
+        s,
+        c,
+        ExcessKind.TI_RAX,
+        SearchKind.BRIDGE,
+    ),
+    Task.CONNECT_EXCESS_AX: lambda s, c: connect_excess(
+        s,
+        c,
+        ExcessKind.AX,
+        SearchKind.AX_CHAIN,
+    ),
     Task.HARVEST_TI: harvest_ti,
     Task.HARVEST_AX: harvest_ax,
     Task.EXPLORE: explore,
@@ -54,7 +68,6 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.SELF_DESTRUCT: self_destruct,
     Task.PLACE_FOUNDRY_MIXED_CONV: place_foundry_mixed_conv,
     Task.PLACE_SPLITTER_FOUNDRY: place_splitter_foundry,
-    Task.CONNECT_EXCESS_AX_TI_CONV: connect_excess_ax_ti_conv,
     Task.HEAL_CORE: heal_core,
     Task.SECURE_ORE: secure_ore,
     Task.PLACE_LAUNCHER: place_launcher,
@@ -186,7 +199,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
         state.my_flow.excess[state.idx(p.x, p.y)] > 0.01
         for p in state.my_harvesters | state.my_transport
     )
-    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE_CORE))
+    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE))
 
     has_denied_ore = _best_denied_ore(state) is not None
     scores.append((110.0 if has_denied_ore else 0.0, Task.BARRIER_ORE))
@@ -200,6 +213,22 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     has_sentinel_target = _find_sentinel_target(state) is not None
     scores.append((70.0 if has_sentinel_target else 0.0, Task.PLACE_SENTINEL))
 
+    scores.append((20.0, Task.EXPLORE))
+    scores.append((5.0, Task.PATROL))
+
+    scores.sort(key=lambda t: t[0], reverse=True)
+    return scores
+
+
+def _policy_econ_only(state: State) -> list[tuple[float, Task]]:
+    scores: list[tuple[float, Task]] = []
+
+    has_excess = any(
+        state.my_flow.excess[state.idx(p.x, p.y)] > 0.01
+        for p in state.my_harvesters | state.my_transport
+    )
+    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI))
+    scores.append((100.0, Task.HARVEST_TI))
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
 
