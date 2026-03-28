@@ -9,7 +9,7 @@ from building import (
 )
 from cambc import Controller, Direction, Environment, Position
 from marker import MarkerTaskClaim, TaskKind
-from util import DIR4_DELTA, DIR8_DELTA
+from util import DIR4_DELTA, DIR8_DELTA, INF
 
 from .build import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
@@ -29,7 +29,7 @@ _SECURED = (
 def _core_side(state: State, ox: int, oy: int) -> tuple[int, int]:
     cx, cy = state.my_core
     best = DIR4_DELTA[0]
-    best_dist = 999999
+    best_dist = INF
     for dx, dy in DIR4_DELTA:
         ax, ay = ox + dx, oy + dy
         if not state.in_bounds(ax, ay):
@@ -86,7 +86,7 @@ def _best_ore(state: State) -> tuple[int, int] | None:
         return None
     cx, cy = state.my_core
     best = None
-    best_key = (999999,)
+    best_key = (INF,)
     for ox, oy in unharvested:
         if not _ore_is_visible(state, ox, oy):
             continue
@@ -107,7 +107,7 @@ def _reachable_adjacent(
     oy: int,
 ) -> Position | None:
     best = None
-    best_dist = 999999
+    best_dist = INF
     for dx, dy in DIR8_DELTA:
         ax, ay = ox + dx, oy + dy
         if not state.in_bounds(ax, ay):

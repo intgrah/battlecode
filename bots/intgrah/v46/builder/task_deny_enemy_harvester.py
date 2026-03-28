@@ -1,7 +1,7 @@
 from building import BuildingHarvester, BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Position
 from marker import TaskKind
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, rotate_cw
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, INF, rotate_cw
 
 from .build import Action, PlaceBarrier, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
@@ -18,7 +18,7 @@ def _best_deny_target(
         return None
     pos = state.pos
     best = None
-    best_dist = 999999
+    best_dist = INF
     cx, cy = state.my_core
     half = (state.w + state.h) // 4
     for ox, oy in unharvested:

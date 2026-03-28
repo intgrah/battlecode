@@ -1,6 +1,6 @@
 from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, rotate_cw
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, INF, rotate_cw
 
 from .build import Action, PlaceSentinel
 from .helpers import move_toward_with_road
@@ -25,7 +25,7 @@ def _find_target(
 ) -> tuple[Position, Position, Direction, Direction] | None:
     pos = state.pos
     best = None
-    best_dist = 999999
+    best_dist = INF
     for hp in state.en_harvesters:
         hi = state.idx(hp.x, hp.y)
         if state.env[hi] != Environment.ORE_TITANIUM:

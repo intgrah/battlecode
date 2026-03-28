@@ -2,6 +2,7 @@ from bridge_astar import BridgeFlowAstar
 from building import BuildingBridge, BuildingCore
 from cambc import Controller, Direction, Position
 from flow_astar import AX
+from util import INF
 
 from .build import Action, PlaceBridge
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -41,7 +42,7 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
                     break
         if not has_adj_bridge:
             cx, cy = state.my_core
-            best_d = 999999
+            best_d = INF
             best_spot = None
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = hx + dx, hy + dy

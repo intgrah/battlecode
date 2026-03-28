@@ -41,6 +41,8 @@ Schema (relevant fields):
 
 import sys
 from collections import defaultdict
+from collections.abc import Iterator
+from pathlib import Path
 
 # ── Protobuf wire format helpers ──────────────────────────────────────
 
@@ -62,7 +64,9 @@ def to_signed(val: int) -> int:
     return val if val <= 0x7FFFFFFF else val - 0x100000000
 
 
-def iter_fields(data: bytes, start: int = 0, end: int | None = None):
+def iter_fields(
+    data: bytes, start: int = 0, end: int | None = None
+) -> Iterator[tuple[int, int, int, int]]:
     """Yield (field_number, wire_type, value, next_pos) for each field."""
     if end is None:
         end = len(data)
@@ -123,9 +127,9 @@ def parse_player(data: bytes) -> dict:
         "titanium_collected": 0,
         "axionite_collected": 0,
     }
-    for fnum, wtype, val, _ in iter_fields(data):
+    for fnum, wtype, raw_val, _ in iter_fields(data):
         if wtype == 0:
-            val = to_signed(val)
+            val = to_signed(raw_val)
             if fnum == 1:
                 p["titanium"] = val
             elif fnum == 2:
@@ -193,7 +197,7 @@ def parse_bot_output(data: bytes) -> dict:
 
 
 def parse_replay(path: str, snapshot_interval: int = 100) -> dict:
-    with open(path, "rb") as f:
+    with Path(path).open("rb") as f:
         data = f.read()
 
     result = {
@@ -416,8 +420,8 @@ def print_results(r: dict) -> None:
             print(f"    Team {label}:")
             for kind in sorted(set(list(built.keys()) + list(lost.keys()))):
                 b = built.get(kind, 0)
-                l = lost.get(kind, 0)
-                lost_str = f"  (lost {l})" if l else ""
+                lost_count = lost.get(kind, 0)
+                lost_str = f"  (lost {lost_count})" if lost_count else ""
                 print(f"      {kind:<20} built: {b:>4}{lost_str}")
     print()
 

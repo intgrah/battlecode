@@ -1,5 +1,6 @@
 from cambc import Controller, Direction, EntityType, Position
 from unit import Unit
+from util import INF
 
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
@@ -19,7 +20,7 @@ class Core(Unit):
         cost, _ = ct.get_builder_bot_cost()
 
         best_bridge = None
-        best_bridge_dist = 999999
+        best_bridge_dist = INF
         for bid in ct.get_nearby_buildings():
             if (
                 ct.get_entity_type(bid) != EntityType.BRIDGE
