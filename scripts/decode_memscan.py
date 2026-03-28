@@ -1,11 +1,11 @@
 import sys
 from pathlib import Path
 
-from proto import cambc_pb2
+from proto.cambc_pb2 import Replay
 
 
 def decode(replay_path: str) -> bytes:
-    r = cambc_pb2.Replay()
+    r = Replay()
     r.ParseFromString(Path(replay_path).read_bytes())
 
     # Track per-entity streams: eid -> (file_size, [u32 values])

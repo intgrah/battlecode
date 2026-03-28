@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from scipy.optimize import linear_sum_assignment
 
-from proto import cambc_pb2
+from proto.cambc_pb2 import Replay
 
 CAPACITY = 1.0
 
@@ -76,7 +76,7 @@ class Tree:
         for eidx in path:
             self.edge_flow[eidx] += amount
 
-    def find_nearest_point(self, pos: Pt) -> tuple[Pt | None, int | None, int, float]:
+    def find_nearest_point(self, pos: Pt) -> tuple[Pt, int | None, int, float]:
         best_dist = 1e18
         best_point: Pt | None = None
         best_edge: int | None = None
@@ -99,6 +99,7 @@ class Tree:
                 best_point = npos
                 best_edge = None
                 best_t = nid
+        assert best_point is not None
         return best_point, best_edge, best_t, best_dist
 
     def insert_on_edge(self, eidx: int, pos: Pt) -> int:
@@ -164,7 +165,7 @@ def main() -> None:
     output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
 
     with Path(replay_file).open("rb") as f:
-        replay = cambc_pb2.Replay()
+        replay = Replay()
         replay.ParseFromString(f.read())
 
     mm = replay.map
