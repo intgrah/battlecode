@@ -7,6 +7,7 @@ members = [
     "battlecode",
     "bot-adgato-dummy",
     "bot-adgato-launcher-test",
+    "bot-adgato-teleportation",
     "bot-adgato-trollbot",
     "bot-adgato-trollbot-expand",
     "bot-adgato-trollbot-hc",
@@ -77,6 +78,7 @@ members = [
     "bot-v44",
     "bot-v45",
     "bot-v46",
+    "bot-v47",
     "bot-v5",
     "bot-v6",
     "bot-v7",
@@ -104,7 +106,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.5.1" },
+    { name = "cambc", specifier = ">=1.5.2" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "protobuf", specifier = ">=7.34.0" },
@@ -132,6 +134,17 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-adgato-launcher-test"
 version = "0.0.0"
 source = { virtual = "bots/adgato/launcher_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-adgato-teleportation"
+version = "0.0.0"
+source = { virtual = "bots/adgato/teleportation" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -910,6 +923,17 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 
 [[package]]
+name = "bot-v47"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v47" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
 name = "bot-v5"
 version = "0.0.0"
 source = { virtual = "bots/intgrah/v5" }
@@ -966,23 +990,23 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 
 [[package]]
 name = "cambc"
-version = "1.5.1"
+version = "1.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "rich" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/12/708e99d020beaaca3cdaf6edde879a7da7a3684046d5564e27fc328aace8/cambc-1.5.1-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:65e67f81896205f61c51b560652160daccd1eabdf10e39f1d2a57e98f3467d6f", size = 12644580, upload-time = "2026-03-27T19:27:54.675Z" },
-    { url = "https://files.pythonhosted.org/packages/15/aa/e4fcffbd4e6aedab7e5dd34db276177b50e7a76aa8d53944d9f4b41bb062/cambc-1.5.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:49033cb94c99f9c1559347e0a092ca7202e0629bb1e6c0d7cd874991d083d724", size = 12622642, upload-time = "2026-03-27T19:27:57.722Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/c7/85022d03e13fb5e6f9d7edb69dc400afda113cdae9f6507dcb0d6c16011c/cambc-1.5.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2742cdd38769e3c9db601ef4fa3bc9c6ea24634b3e97f94c32ae17ba3617ee52", size = 12697810, upload-time = "2026-03-27T19:28:00.998Z" },
-    { url = "https://files.pythonhosted.org/packages/86/37/27b7e867461af9da6d8c28754a3a09f8c1743217194df167c20e880514c8/cambc-1.5.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:592093c3bbb00623dfc5e9db037b50e30d87a1455d0c3ce4a5c4ee411d7a8ea5", size = 12715588, upload-time = "2026-03-27T19:28:03.93Z" },
-    { url = "https://files.pythonhosted.org/packages/7d/db/afa65f336975bff79be10ef99db6bebb47b54db4b72001ed862688abab0b/cambc-1.5.1-cp312-cp312-win_amd64.whl", hash = "sha256:95b1cb6d4e5108f0c57818473df268fd56fe22395abfffe82be218a38166aeeb", size = 12537385, upload-time = "2026-03-27T19:28:07.106Z" },
-    { url = "https://files.pythonhosted.org/packages/ad/55/0347230347d7045f0ebff8f4c28e1287eeeb5d857c72257772c4cb8792d5/cambc-1.5.1-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:4e28ddfc914dba3e73d5c266809bf98b2a05b2c6a5d5890c7c2344fc873812e4", size = 12644431, upload-time = "2026-03-27T19:28:10.334Z" },
-    { url = "https://files.pythonhosted.org/packages/27/5a/6837624e949745801a64355f7aad1e452c4cdda746c78cabc90ca2091df6/cambc-1.5.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:38d8177e646060d66421cae68cf25120609cfbbc400333b93f116b7861e85ad8", size = 12622417, upload-time = "2026-03-27T19:28:13.077Z" },
-    { url = "https://files.pythonhosted.org/packages/2c/30/3482e53b97bdbea69d9301d62b30ecc6fcc226e641d99863de29fd3373c0/cambc-1.5.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7d501994374f2d3b6a47497a6c4a635812324b490e70ae12334c0653edb930d2", size = 12697064, upload-time = "2026-03-27T19:28:15.985Z" },
-    { url = "https://files.pythonhosted.org/packages/c6/c9/b10557d2839a529ba6cbaf6bae6ec3875bfce9f87f0eaeadc25010f1144b/cambc-1.5.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e8f4fe03b7d19150c9a04ac45c4448193f1f446b4fc40adcf159bd8f476d315", size = 12715217, upload-time = "2026-03-27T19:28:18.974Z" },
-    { url = "https://files.pythonhosted.org/packages/9b/f8/24a65b052f7b6fec4cb1cebf9cc82d517ceb98eb9ed9390da5d71977c4ab/cambc-1.5.1-cp313-cp313-win_amd64.whl", hash = "sha256:f097c5cce3e86259d6f1a2cced1ef566addc4767eca70b48b8202e9c47f9748c", size = 12536993, upload-time = "2026-03-27T19:28:21.966Z" },
+    { url = "https://files.pythonhosted.org/packages/58/02/70671fc04174b146cec9da4ea3b5583a8e35eec561aa9846353f68a5c3f0/cambc-1.5.2-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:442bbb87859a5975130dbb77594fddfd567c37bda0dfe30a26824a237d394d76", size = 12644507, upload-time = "2026-03-28T01:12:09.245Z" },
+    { url = "https://files.pythonhosted.org/packages/26/19/739212147b827e9d65ecb270ad29106ee93c409de428f375cca8515e4ad1/cambc-1.5.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5703913b5b44c353b904d5ec79105d07b7b9dfbb94c23b71dbcd71c1786e255e", size = 12622611, upload-time = "2026-03-28T01:12:11.689Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/71/841deb770137c66edb1ae08f0c0b2b3e153bcde422874db3bbe69dea6fbe/cambc-1.5.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:03052333d8ca2226d356cbebb93a3a77bfe117e229fee19a435fce32b507ebcb", size = 12697735, upload-time = "2026-03-28T01:12:14.08Z" },
+    { url = "https://files.pythonhosted.org/packages/76/d8/a6bf8389ca98d8aaf46b282bf1c419ee24af3ea6fd38d7dbb42d2435b0ec/cambc-1.5.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fb66ceb031eddb63614166c4eb9a7e9e6ca0af7d2f0e5971449d2c1ea0f77f1b", size = 12715661, upload-time = "2026-03-28T01:12:16.311Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/b3/99312554b8abfb5b12415dc0ab40e8707a082727642beb6401b448bf2edd/cambc-1.5.2-cp312-cp312-win_amd64.whl", hash = "sha256:ed996b25e027f9011bec216f4aaa00cac96e45ebe8888781a5f9127ce2473493", size = 12537403, upload-time = "2026-03-28T01:12:18.763Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/0c/ce9d923dd5f664ca28288582316001740a892b0b91d55bb710e5a46f6b62/cambc-1.5.2-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:fb61d3ee8999db867432a2f128709c06b616a780c89bf6cbd150380547628f3e", size = 12644412, upload-time = "2026-03-28T01:12:21.192Z" },
+    { url = "https://files.pythonhosted.org/packages/e2/22/69150dc59da72b4a2cbbd693a4f968ca230eaa519caee6c2081ef9fa0232/cambc-1.5.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:e55a16d96a00b2312a5425b2e4bbacfa11f0a51d8ebea4b418bafc2e83e486bd", size = 12622414, upload-time = "2026-03-28T01:12:23.479Z" },
+    { url = "https://files.pythonhosted.org/packages/93/23/7c243d657ad5e2f8ca7eb221585b9f7e3829b85afb8d55f2e9d04bba0f34/cambc-1.5.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3a74e7f5ee09d7b5bcec7faeae52f5ebde946a8162a180f447286d7297814ff1", size = 12697044, upload-time = "2026-03-28T01:12:25.863Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/67/e381722ad3ab702a613a13eab5c66894769f430f29664250679095a8479e/cambc-1.5.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5dd67cc718891a6d85a80247d6190c45fa07c9b86ea540d2cb87a341846b7f9a", size = 12715174, upload-time = "2026-03-28T01:12:28.222Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/8c/eb96ca1ea6b17b3ffbb0b0ed65828cac99813793e06d9832ad112c42d506/cambc-1.5.2-cp313-cp313-win_amd64.whl", hash = "sha256:39f029bb63004084c24e846acfed15380688503a2b1e4f61bba94f7c09a746c0", size = 12536915, upload-time = "2026-03-28T01:12:30.6Z" },
 ]
 
 [[package]]
