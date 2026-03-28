@@ -2,11 +2,11 @@ import base64
 import sys
 from pathlib import Path
 
-from proto import cambc_pb2
+from proto.cambc_pb2 import Replay
 
 
 def extract_markers(replay_path: str) -> list[int]:
-    r = cambc_pb2.Replay()
+    r = Replay()
     r.ParseFromString(Path(replay_path).read_bytes())
 
     markers = []

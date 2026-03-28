@@ -11,13 +11,13 @@ from pathlib import Path
 from cambc.api import api_get
 from cambc.auth import get_api_url, get_token
 
-from proto import cambc_pb2
+from proto.cambc_pb2 import Replay
 
 STRIDE = 256
 
 
 def extract(replay_data: bytes) -> tuple[bytes, int, int, int] | None:
-    r = cambc_pb2.Replay()
+    r = Replay()
     r.ParseFromString(replay_data)
 
     streams: dict[int, tuple[int, list[int]]] = {}
