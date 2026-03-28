@@ -58,7 +58,7 @@ Build any building or turret on a tile within action radius that doesn't already
 
 ### Heal
 
-Spend **1 Ti** to heal **4 HP** to all friendly entities on the builder bot's own tile. If a friendly builder bot and a friendly building share the tile, both are healed. The action fails if nothing on that tile would gain HP.
+Spend **1 Ti** to heal **4 HP** to all friendly entities on a tile within action radius. If a friendly builder bot and a friendly building share the chosen tile, both are healed. The action fails if nothing on that tile would gain HP.
 
 ```python  theme={"dark"}
 if c.can_heal(target_pos):
