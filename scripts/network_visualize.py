@@ -1,5 +1,6 @@
 import math
 import sys
+from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -160,7 +161,7 @@ def main() -> None:
     replay_file = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
 
-    with open(replay_file, "rb") as f:
+    with Path(replay_file).open("rb") as f:
         replay = cambc_pb2.Replay()
         replay.ParseFromString(f.read())
 

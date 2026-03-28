@@ -3,6 +3,7 @@ from collections.abc import Callable
 from cambc import Controller, Direction, Position
 from marker import TaskKind
 from nav_astar import NavAstar
+from util import INF
 
 from .build import Action, PlaceRoad
 from .state import COST_IMPASSABLE, State
@@ -90,7 +91,7 @@ def move_toward_with_road(
 
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:
     best = None
-    best_dist = 999999
+    best_dist = INF
     for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
         ax, ay = target.x + ddx, target.y + ddy
         if not state.in_bounds(ax, ay):
