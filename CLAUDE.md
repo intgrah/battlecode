@@ -35,7 +35,7 @@ Win condition tiebreakers (in order): refined axionite delivered, titanium deliv
 - Harvester (30 HP, 80 Ti, 10%): auto-mines, outputs every 4 rounds. NOT a unit.
 - Foundry (50 HP, 120 Ti, 100%): Ti + raw ax -> refined ax
 
-Cost scaling: additive. Each entity built increases scale by its % contribution. cost = floor(scale * base_cost). Scale starts at 1.0x.
+Cost scaling: additive. Each entity built increases scale by its % contribution. cost = floor(scale \* base_cost). Scale starts at 1.0x.
 
 Turrets face a direction, receive ammo from non-facing sides. Diagonal turrets can be fed from all four sides. Turrets hold max one stack, only accept when empty. Raw axionite fed to turrets is destroyed.
 
@@ -48,6 +48,7 @@ Resources can be sent to enemy buildings — careful with conveyor placement nea
 Bots live in `bots/<name>/`. Each bot folder is a self-contained package with a `main.py` containing the `Player` class. Versioned as `v1`, `v2`, ... `v39`. The latest version is the active development target.
 
 Typical bot module layout (v39 style):
+
 - `main.py` — `Player` class, dispatches to `Core` or `Builder` based on `EntityType`
 - `core.py` — core spawning logic
 - `builder.py` — builder bot decision-making
@@ -85,7 +86,7 @@ Always run `ruff check --fix --unsafe-fixes` and `ruff format` before committing
 
 - Annotate all function signatures and non-trivial variables.
 - Use lowercase generics from `collections.abc` and builtins: `list[int]`, `dict[str, int]`, `tuple[int, ...]`, `set[str]`, `Sequence`, `Mapping`, `Iterable`. Never use `typing.List`, `typing.Dict`, `typing.Tuple`, etc.
-- Use `dict` only for partial-function mappings (e.g., lookup tables, caches). For structured data with known fields, use `NamedTuple` or `dataclass` instead.
+- Use `dict` only for partial-function mappings (e.g., lookup tables, caches). For structured data with known fields, use `dataclass` instead (or rarely, `NamedTuple`).
 - Use `X | Y` union syntax, not `Union[X, Y]` or `Optional[X]`. Write `X | None` instead of `Optional[X]`.
 - Use `TYPE_CHECKING` guard for imports only needed by type checkers.
 

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from random import Random
 
+from PIL import Image, ImageDraw
+
 from proto import cambc_pb2
 
 type Pos = tuple[int, int]
@@ -625,8 +627,6 @@ def draw_network(
     grid: MapGrid,
     out_path: str,
 ) -> None:
-    from PIL import Image, ImageDraw
-
     iw = grid.w * TILE_PX + PAD * 2
     ih = grid.h * TILE_PX + PAD * 2
     img = Image.new("RGB", (iw, ih), (30, 25, 25))
@@ -654,7 +654,7 @@ def draw_network(
     # Transport tiles
     ct = core_3x3(grid.core, grid.w, grid.h)
     fp_set = {p for p, e in network.entities.items() if e.etype == EntityType.FOUNDRY}
-    for pos, ent in network.entities.items():
+    for pos in network.entities:
         if pos in grid.ore_set or pos in ct or pos in fp_set:
             continue
         c = COLORS.get(tile_commodity.get(pos, ""), (180, 180, 180))

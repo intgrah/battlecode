@@ -28,12 +28,12 @@ def point_on_segment(p: Pt, a: Pt, b: Pt) -> tuple[Pt, float]:
 
 
 class Tree:
-    def __init__(self, root) -> None:
-        self.nodes = {0: root}
-        self.edges = []
-        self.edge_flow = []
-        self.edge_commodity = []
-        self.adj = {0: []}
+    def __init__(self, root: Pt) -> None:
+        self.nodes: dict[int, Pt] = {0: root}
+        self.edges: list[tuple[int, int]] = []
+        self.edge_flow: list[float] = []
+        self.edge_commodity: list[str] = []
+        self.adj: dict[int, list[int]] = {0: []}
         self.next_id = 1
 
     def add_node(self, pos: Pt) -> int:
@@ -43,7 +43,7 @@ class Tree:
         self.adj[nid] = []
         return nid
 
-    def add_edge(self, u, v, flow: float, commodity):
+    def add_edge(self, u: int, v: int, flow: float, commodity: str) -> int:
         eidx = len(self.edges)
         self.edges.append((u, v))
         self.edge_flow.append(flow)
@@ -52,8 +52,8 @@ class Tree:
         self.adj[v].append(eidx)
         return eidx
 
-    def path_to_root(self, node):
-        visited = set()
+    def path_to_root(self, node: int) -> list[int] | None:
+        visited: set[int] = set()
         queue = [(node, [])]
         while queue:
             n, path = queue.pop(0)
@@ -69,17 +69,17 @@ class Tree:
                     queue.append((nb, [*path, eidx]))
         return None
 
-    def can_add_flow(self, path, amount) -> bool:
+    def can_add_flow(self, path: list[int], amount: float) -> bool:
         return all(self.edge_flow[eidx] + amount <= CAPACITY + 0.01 for eidx in path)
 
-    def increase_flow(self, path, amount) -> None:
+    def increase_flow(self, path: list[int], amount: float) -> None:
         for eidx in path:
             self.edge_flow[eidx] += amount
 
-    def find_nearest_point(self, pos: Pt):
+    def find_nearest_point(self, pos: Pt) -> tuple[Pt | None, int | None, int, float]:
         best_dist = 1e18
-        best_point = None
-        best_edge = None
+        best_point: Pt | None = None
+        best_edge: int | None = None
         best_t = 0
         for eidx, (u, v) in enumerate(self.edges):
             if u == -1:
@@ -101,7 +101,7 @@ class Tree:
                 best_t = nid
         return best_point, best_edge, best_t, best_dist
 
-    def insert_on_edge(self, eidx, pos: Pt):
+    def insert_on_edge(self, eidx: int, pos: Pt) -> int:
         u, v = self.edges[eidx]
         old_flow = self.edge_flow[eidx]
         old_commodity = self.edge_commodity[eidx]
@@ -114,7 +114,7 @@ class Tree:
         self.add_edge(new_node, v, old_flow, old_commodity)
         return new_node
 
-    def connect_source(self, pos: Pt, flow: float, commodity) -> bool:
+    def connect_source(self, pos: Pt, flow: float, commodity: str) -> bool:
         if not self.edges:
             src = self.add_node(pos)
             self.add_edge(src, 0, flow, commodity)
@@ -141,9 +141,9 @@ class Tree:
         return True
 
 
-def compute_metrics(t):
-    total_length = 0
-    max_flow = 0
+def compute_metrics(t: Tree) -> tuple[float, float, int]:
+    total_length = 0.0
+    max_flow = 0.0
     over_cap = 0
     for eidx, (u, v) in enumerate(t.edges):
         if u == -1:
@@ -168,11 +168,11 @@ def main() -> None:
         replay.ParseFromString(f.read())
 
     mm = replay.map
-    W, H = mm.width, mm.height
+    w, h = mm.width, mm.height
 
-    ti_ores = []
-    ax_ores = []
-    walls = set()
+    ti_ores: list[Pt] = []
+    ax_ores: list[Pt] = []
+    walls: set[tuple[int, int]] = set()
     for y, row in enumerate(mm.rows):
         for x, tile in enumerate(row.tiles):
             if tile == 2:
@@ -193,7 +193,7 @@ def main() -> None:
     ax_matched, ti_matched = linear_sum_assignment(cost_matrix)
     paired_ti_set = set(ti_matched)
 
-    foundries = []
+    foundries: list[Pt] = []
     for ai, ti in zip(ax_matched, ti_matched, strict=False):
         ax_p = np.array(ax_ores[ai])
         ti_p = np.array(ti_ores[ti])
@@ -203,9 +203,9 @@ def main() -> None:
             grad = np.zeros(2)
             for target in [ax_p, ti_p, core_p]:
                 d = fp - target
-                dist = np.linalg.norm(d)
-                if dist > 0.01:
-                    grad += d / dist
+                d_norm = np.linalg.norm(d)
+                if d_norm > 0.01:
+                    grad += d / d_norm
             fp -= 0.1 * grad
         foundries.append((float(fp[0]), float(fp[1])))
 
@@ -213,9 +213,9 @@ def main() -> None:
         (ti_ores[ui], 0.25, "ti") for ui in range(n_ti) if ui not in paired_ti_set
     ]
 
-    for fi, (ai, ti) in enumerate(zip(ax_matched, ti_matched, strict=False)):
+    for fi, (_ai, ti) in enumerate(zip(ax_matched, ti_matched, strict=False)):
         sources.append((ti_ores[ti], 0.25, "ti_paired"))
-        sources.append((ax_ores[ai], 0.25, "ax"))
+        sources.append((ax_ores[_ai], 0.25, "ax"))
         sources.append((foundries[fi], 0.25, "rax"))
 
     sorted(sources, key=lambda s: dist(s[0], core))
@@ -230,7 +230,7 @@ def main() -> None:
         if ui not in paired_ti_set:
             tree_core.connect_source(ti_ores[ui], 0.25, "ti")
 
-    for fi, (ai, ti) in enumerate(zip(ax_matched, ti_matched, strict=False)):
+    for fi, (_ai, _ti) in enumerate(zip(ax_matched, ti_matched, strict=False)):
         tree_core.connect_source(foundries[fi], 0.25, "rax")
 
     tree_foundries = []
@@ -242,12 +242,12 @@ def main() -> None:
 
     scale = 20
     pad = 50
-    img_w = W * scale + pad * 2
-    img_h = H * scale + pad * 2
+    img_w = w * scale + pad * 2
+    img_h = h * scale + pad * 2
     img = Image.new("RGB", (img_w, img_h), (30, 25, 25))
     draw = ImageDraw.Draw(img)
 
-    def tx(x, y):
+    def tx(x: float, y: float) -> tuple[int, int]:
         return int(x * scale + pad), int(y * scale + pad)
 
     for wx, wy in walls:
@@ -264,7 +264,7 @@ def main() -> None:
         "rax": (200, 130, 255),
     }
 
-    def draw_tree(t) -> None:
+    def draw_tree(t: Tree) -> None:
         for eidx, (u, v) in enumerate(t.edges):
             if u == -1:
                 continue
@@ -287,7 +287,7 @@ def main() -> None:
     for ft in tree_foundries:
         draw_tree(ft)
 
-    for i, (x, y) in enumerate(ti_ores):
+    for x, y in ti_ores:
         px, py = tx(x, y)
         draw.ellipse([px - 5, py - 5, px + 5, py + 5], fill=(80, 140, 255))
 
@@ -312,8 +312,8 @@ def main() -> None:
     n_unpaired_ti = n_ti - len(paired_ti_set)
     ti_delivered = n_unpaired_ti * 0.25
 
-    total_cost = 0
-    total_max_flow = 0
+    total_cost = 0.0
+    total_max_flow = 0.0
     total_over_cap = 0
 
     for t in [tree_core, *list(tree_foundries)]:
