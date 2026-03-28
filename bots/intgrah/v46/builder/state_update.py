@@ -40,7 +40,9 @@ def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | No
         case EntityType.BRIDGE:
             return BuildingBridge(team, ct.get_bridge_target(bid))
         case EntityType.MARKER:
-            return BuildingMarker(team, ct.get_marker_value(bid))
+            if team == ct.get_team():
+                return BuildingMarker(team, ct.get_marker_value(bid))
+            return BuildingMarker(team, 0)
         case _:
             cls = ETYPE_BUILDING.get(etype)
             if cls is None:
