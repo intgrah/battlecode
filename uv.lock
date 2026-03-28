@@ -276,7 +276,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-astar-test"
 version = "0.0.0"
-source = { virtual = "bots/astar_test" }
+source = { virtual = "bots/test/astar_test" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -342,7 +342,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-bugnav-test"
 version = "0.0.0"
-source = { virtual = "bots/bugnav_test" }
+source = { virtual = "bots/test/bugnav_test" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -353,7 +353,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-cheese"
 version = "0.0.0"
-source = { virtual = "bots/cheese" }
+source = { virtual = "bots/misc/cheese" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -397,7 +397,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-pd"
 version = "0.0.0"
-source = { virtual = "bots/pd" }
+source = { virtual = "bots/misc/pd" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -408,7 +408,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-rug"
 version = "0.0.0"
-source = { virtual = "bots/rug" }
+source = { virtual = "bots/misc/rug" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -419,7 +419,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-se"
 version = "0.0.0"
-source = { virtual = "bots/se" }
+source = { virtual = "bots/misc/se" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -430,7 +430,7 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 [[package]]
 name = "bot-starter"
 version = "0.0.0"
-source = { virtual = "bots/starter" }
+source = { virtual = "bots/misc/starter" }
 dependencies = [
     { name = "cambc" },
 ]

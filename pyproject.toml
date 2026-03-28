@@ -84,13 +84,8 @@ exclude = ["ref/", "bots/"]
 
 [tool.uv.workspace]
 members = [
-    "bots/astar_test",
-    "bots/bugnav_test",
-    "bots/cheese",
-    "bots/pd",
-    "bots/rug",
-    "bots/se",
-    "bots/starter",
+    "bots/misc/*",
+    "bots/test/*",
     "bots/intgrah/*",
     "bots/beacon/*",
     "bots/exploit/*",
