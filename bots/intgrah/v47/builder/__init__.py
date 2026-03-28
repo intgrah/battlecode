@@ -156,18 +156,6 @@ class Builder(Unit):
                 return
 
 
-# Tasks that should be "sticky" — once started, complete before switching
-_STICKY_TASKS = frozenset(
-    {
-        Task.SECURE_ORE,
-        Task.CONNECT_EXCESS_TI_BRIDGE,
-        Task.EXPLORE,
-        Task.REPAIR_BRIDGE,
-        Task.HEAL_BRIDGE,
-    },
-)
-
-
 def _find_core(ct: Controller) -> Position:
     my = ct.get_team()
     for bid in ct.get_nearby_buildings():
