@@ -342,7 +342,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>Builder bot heal</td>
 
         <td>
-          4 HP for 1 Ti to all friendly entities on own tile
+          4 HP for 1 Ti to all friendly entities on a tile within action radius
         </td>
       </tr>
 
