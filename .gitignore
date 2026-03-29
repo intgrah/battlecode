@@ -14,4 +14,4 @@ wheels/
 *.zip
 results/
 
-.DS_Store
+.DS_Store.claude/worktrees/
