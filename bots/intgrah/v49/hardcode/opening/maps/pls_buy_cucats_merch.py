@@ -1,79 +1,75 @@
 from hardcode.known import KnownMap
 from hardcode.opening import Opening, register
-from hardcode.opening.parse import parse_script
+from hardcode.opening.dsl import (
+    NE,
+    SE,
+    SW,
+    DslTurn,
+    E,
+    N,
+    S,
+    W,
+    ba,
+    br,
+    c,
+    f,
+    h,
+    ln,
+    wait,
+)
 
 # pls_buy_cucats_merch: 49x49 ROT, Core A at (13,17), Core B at (35,31)
-#
-# Ti ore at (7,21) dist=6 from core. Ax ore at (10,25) dist=8.
-# Fortress walls surround core. SW exit gap: (9,18)->(8,19).
-#
-# Pipeline -- all Ti to foundry for max Ax production:
-#   Ti harv at 7,21 -> conv 8,21 S -> 8,22 E -> 9,22 E -> 10,22 E -> foundry 11,22
-#   Ax harv at 10,25 -> conv 10,24 N -> 10,23 E -> 11,23 N -> foundry 11,22
-#   Foundry 11,22 -> bridge 12,22 target 12,19 -> conv 12,19 N -> core
-#   Launcher at 13,22 defends bridge+foundry area
 
 # B1: spawn offset (-1,1) = (12,18). Ti harvester + full pipeline + foundry.
-_B1 = parse_script(
-    12,
-    18,
-    """
-    w rd, w
-    w rd, w
-    w rd, w
-    sw rd, sw
-    sw rd, sw
-    se c s, se
-    w h, x
-    s c e, s
-    e c e, e
-    e c e, e
-    se c n, se
-    e rd, e
-    n br 12 19, x
-    ne ln, x
-    x, w
-    n f, x
-    se ba, x
-    s ba, x
-    """,
-)
+_B1: list[DslTurn] = [
+    W.rd(),
+    W.rd(),
+    W.rd(),
+    SW.rd(),
+    SW.rd(),
+    c(SE, S) | SE,
+    h(W) | None,
+    c(S, E) | S,
+    c(E, E) | E,
+    c(E, E) | E,
+    c(SE, N) | SE,
+    E.rd(),
+    # bridge at N=(12,22), target (12,19), vec=(0,-3)
+    br(N, (0, -3)) | None,
+    ln(NE) | None,
+    W.turn(),
+    f(N) | None,
+    ba(SE) | None,
+    ba(S) | None,
+]
 
 # B2: spawn offset (0,1) = (13,18). Ax harvester + barriers.
-_B2 = parse_script(
-    13,
-    18,
-    """
-    x, w
-    x, w
-    x, w
-    x, w
-    x, sw
-    x, sw
-    x, x
-    x, se
-    x, s
-    x, e
-    x, e
-    s c e, s
-    s c n, s
-    s h, x
-    se ba, x
-    sw ba, x
-    w ba, x
-    """,
-)
+_B2: list[DslTurn] = [
+    W.turn(),
+    W.turn(),
+    W.turn(),
+    W.turn(),
+    SW.turn(),
+    SW.turn(),
+    wait,
+    SE.turn(),
+    S.turn(),
+    E.turn(),
+    E.turn(),
+    c(S, E) | S,
+    c(S, N) | S,
+    h(S) | None,
+    ba(SE) | None,
+    ba(SW) | None,
+    ba(W) | None,
+]
 
 # B3: spawn offset (-1,-1) = (12,16). Conveyor inside fortress for delivery.
-_B3 = parse_script(
-    12,
-    16,
-    """
-    x, s
-    x, s
-    s c n, x
-    """,
-)
+_B3: list[DslTurn] = [
+    S.turn(),
+    S.turn(),
+    c(S, N) | None,
+]
 
 register(
     KnownMap.PLS_BUY_CUCATS_MERCH,

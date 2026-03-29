@@ -32,20 +32,12 @@ from hardcode.opening.dsl import (
 # B1: Ti harvester. Spawn (1,-1)=(11,47).
 # Goes E then NE to avoid marker at (12,46), builds conveyor chain.
 _B1: list[DslTurn] = [
-    # Turn 0 (r1): road E at (12,47), move E
-    E.rd(),
-    # Turn 1 (r2): conv NE at (13,46)→W, move NE to (13,46)
     c(NE, W) | NE,
-    # Turn 2 (r3): conv E at (14,46)→W, move E to (14,46)
     c(E, W) | E,
-    # Turn 3 (r4): conv E at (15,46)→W, move E to (15,46)
     c(E, W) | E,
-    # Turn 4 (r5): harvester N at (15,45) = Ti ore. Output S to conv.
+    c(E, W) | E,
     h(N) | None,
-    # Turn 5 (r6): barrier NE at (16,45) [E of harvester, on Ti ore]
     ba(NE) | None,
-    # Done with core build, wait
-    *[wait] * 14,
 ]
 
 # B3: Infrastructure. Spawn (0,-1)=(10,47). Script index 1.
