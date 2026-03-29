@@ -1,73 +1,80 @@
 from hardcode.known import KnownMap
-
 from hardcode.opening import Opening, register
-from .parse import parse_script
-
-_B1 = parse_script(
-    5,
-    34,
-    """
-    e c w, e
-    e rd, e
-    se h, x
-    s br 9 33, x
-    sw ln, x
-    x, n
-    e c w, x
-    se c n, x
-    w c s, x
-    x, n
-    x, ne
-    s rd, s
-    e ln, x
-    se f, x
-    x, s
-    se ba, x
-    x, n
-    x, ne
-    se rd, se
-    s rd, s
-    s rd, s
-    sw ba, x
-    s rd, s
-    s rd, s
-    w rd, w
-    w ba, x
-    """,
+from hardcode.opening.dsl import (
+    NE,
+    NW,
+    SE,
+    SW,
+    DslTurn,
+    E,
+    N,
+    S,
+    W,
+    ba,
+    br,
+    c,
+    f,
+    h,
+    ln,
 )
 
-_B2 = parse_script(
-    5,
-    35,
-    """
-    x, ne
-    ne c w, ne
-    n rd, n
-    ne rd, ne
-    e rd, e
-    ne rd, ne
-    ne rd, ne
-    e rd, e
-    se rd, se
-    s br 11 31, x
-    se c w, se
-    e h, x
-    n rd, n
-    e ba, s
-    s rd, s
-    e ba, x
-    se rd, se
-    ne rd, ne
-    n ba, x
-    x, sw
-    x, nw
-    x, n
-    x, nw
-    sw ln, x
-    w rd, w
-    sw br 9 33, x
-    """,
-)
+_B1: list[DslTurn] = [
+    c(E, W) | E,
+    E.rd(),
+    h(SE) | None,
+    br(S, (2, -2)) | None,
+    ln(SW) | None,
+    N.turn(),
+    c(E, W) | None,
+    c(SE, N) | None,
+    c(W, S) | None,
+    N.turn(),
+    NE.turn(),
+    S.rd(),
+    ln(E) | None,
+    f(SE) | None,
+    S.turn(),
+    ba(SE) | None,
+    N.turn(),
+    NE.turn(),
+    SE.rd(),
+    S.rd(),
+    S.rd(),
+    ba(SW) | None,
+    S.rd(),
+    S.rd(),
+    W.rd(),
+    ba(W) | None,
+]
+
+_B2: list[DslTurn] = [
+    NE.turn(),
+    c(NE, W) | NE,
+    N.rd(),
+    NE.rd(),
+    E.rd(),
+    NE.rd(),
+    NE.rd(),
+    E.rd(),
+    SE.rd(),
+    br(S, (-2, 0)) | None,
+    c(SE, W) | SE,
+    h(E) | None,
+    N.rd(),
+    ba(E) | S,
+    S.rd(),
+    ba(E) | None,
+    SE.rd(),
+    NE.rd(),
+    ba(N) | None,
+    SW.turn(),
+    NW.turn(),
+    N.turn(),
+    NW.turn(),
+    ln(SW) | None,
+    W.rd(),
+    br(SW, (-2, 2)) | None,
+]
 
 register(
     KnownMap.GALAXY,

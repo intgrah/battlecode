@@ -20,7 +20,8 @@ from hardcode.opening.compiler import (
     dsl_compile,
 )
 from hardcode.opening.mirror import mirror_opening
-from marker import MarkerEureka
+from marker import MarkerEureka, MarkerOpeningBook
+from marker import decode as decode_marker
 from unit import Unit
 from util import DIR8_DELTA
 
@@ -164,7 +165,10 @@ class Builder(Unit):
         if opening is not None and km is not None:
             if ct.get_team() == Team.B:
                 opening = mirror_opening(opening, SYMMETRY[km])
-            spawn_order = self.state.birthday - 1
+            spawn_turn = self.state.birthday - 1
+            spawn_order = sum(
+                1 for s in opening.core_spawns[:spawn_turn] if s is not None
+            )
             if 0 <= spawn_order < len(opening.builder_scripts):
                 self._compiled = dsl_compile(
                     ct.get_position(),
@@ -311,10 +315,13 @@ def _read_opening(
         if ct.get_team(bid) != ct.get_team():
             continue
         marker_val = ct.get_marker_value(bid)
-        km_list = list(KnownMap)
-        if 0 <= marker_val < len(km_list):
-            km = km_list[marker_val]
-            return get_opening(km), km
+        msg = decode_marker(marker_val)
+        if isinstance(msg, MarkerOpeningBook):
+            km_list = list(KnownMap)
+            idx = msg.map_index
+            if 0 <= idx < len(km_list):
+                km = km_list[idx]
+                return get_opening(km), km
     return None, None
 
 
