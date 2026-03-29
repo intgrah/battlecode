@@ -1,15 +1,15 @@
 from hardcode.known import KnownMap
 from hardcode.opening import Opening, register
 from hardcode.opening.dsl import (
-    E,
-    N,
     NE,
     NW,
-    S,
     SE,
     SW,
-    W,
     DslTurn,
+    E,
+    N,
+    S,
+    W,
     ba,
     c,
     f,
@@ -33,29 +33,29 @@ from hardcode.opening.dsl import (
 #   Out: foundry→splitter(7,12)N→core(7,11) + sentinel(8,12)
 
 _B1: list[DslTurn] = [
-    c(NW, E) | NW,        # 0: conv (6,8)E, move to (6,8)
-    c(W, E) | W,           # 1: conv (5,8)E, move to (5,8)
-    ba(SW) | None,         # 2: barrier (4,9)
-    h(W) | None,           # 3: harvester (4,8)
-    NW.rd(),               # 4: road (4,7), move to (4,7)
-    ba(SW) | None,         # 5: barrier (3,8)
-    SE | ba(NW),           # 6: move to (5,8), barrier (4,7) [replaces road]
-    N.rd(),                # 7: road (5,7), move to (5,7)
-    ln(NE) | None,         # 8: launcher (6,6)
+    c(NW, E) | NW,  # 0: conv (6,8)E, move to (6,8)
+    c(W, E) | W,  # 1: conv (5,8)E, move to (5,8)
+    ba(SW) | None,  # 2: barrier (4,9)
+    h(W) | None,  # 3: harvester (4,8)
+    NW.rd(),  # 4: road (4,7), move to (4,7)
+    ba(SW) | None,  # 5: barrier (3,8)
+    SE | ba(NW),  # 6: move to (5,8), barrier (4,7) [replaces road]
+    N.rd(),  # 7: road (5,7), move to (5,7)
+    ln(NE) | None,  # 8: launcher (6,6)
 ]
 
 _B2: list[DslTurn] = [
-    c(NW, S) | NW,        # 0:  conv (7,8)S, move to (7,8)
-    c(N, S) | N,           # 1:  conv (7,7)S, move to (7,7)
-    c(N, S) | N,           # 2:  conv (7,6)S, move to (7,6)
-    c(N, S) | N,           # 3:  conv (7,5)S, move to (7,5)
-    h(N) | None,           # 4:  harvester (7,4)
-    NW.rd(),               # 5:  road (6,4), move to (6,4)
-    ba(NE) | SE,           # 6:  barrier (7,3), move back to (7,5)
-    ba(NW) | None,         # 7:  barrier (6,4) [replaces road]
-    ba(NE) | None,         # 8:  barrier (8,4)
-    ba(E) | None,          # 9:  barrier (8,5)
-    ba(SE) | None,         # 10: barrier (8,6)
+    c(NW, S) | NW,  # 0:  conv (7,8)S, move to (7,8)
+    c(N, S) | N,  # 1:  conv (7,7)S, move to (7,7)
+    c(N, S) | N,  # 2:  conv (7,6)S, move to (7,6)
+    c(N, S) | N,  # 3:  conv (7,5)S, move to (7,5)
+    h(N) | None,  # 4:  harvester (7,4)
+    NW.rd(),  # 5:  road (6,4), move to (6,4)
+    ba(NE) | SE,  # 6:  barrier (7,3), move back to (7,5)
+    ba(NW) | None,  # 7:  barrier (6,4) [replaces road]
+    ba(NE) | None,  # 8:  barrier (8,4)
+    ba(E) | None,  # 9:  barrier (8,5)
+    ba(SE) | None,  # 10: barrier (8,6)
 ]
 
 # Build order: harvesters + sentinel → defense → long wait → foundry LAST.
@@ -64,24 +64,24 @@ _B2: list[DslTurn] = [
 # Temp conv at (7,13) routes Ti to core during wait, auto-destroyed by foundry.
 _B3: list[DslTurn] = [
     # --- Phase 1: infrastructure + income (8 turns) ---
-    S.rd(),                # 0:  road (7,12), move to (7,12)
-    h(SE) | None,          # 1:  Ax harvester (8,13)
-    sn(E, SE) | None,      # 2:  sentinel (8,12)SE — east of splitter
-    c(SW, E) | SW,         # 3:  conv (6,13)E, move diagonal to (6,13)
-    c(S, N) | S,           # 4:  conv (6,14)N, move to (6,14)
-    c(S, N) | None,        # 5:  conv (6,15)N
-    h(SW) | None,          # 6:  Ti harvester (5,15)
-    c(NE, N) | N,          # 7:  TEMP conv (7,13)N + move to (6,13)
+    S.rd(),  # 0:  road (7,12), move to (7,12)
+    h(SE) | None,  # 1:  Ax harvester (8,13)
+    sn(E, SE) | None,  # 2:  sentinel (8,12)SE — east of splitter
+    c(SW, E) | SW,  # 3:  conv (6,13)E, move diagonal to (6,13)
+    c(S, N) | S,  # 4:  conv (6,14)N, move to (6,14)
+    c(S, N) | None,  # 5:  conv (6,15)N
+    h(SW) | None,  # 6:  Ti harvester (5,15)
+    c(NE, N) | N,  # 7:  TEMP conv (7,13)N + move to (6,13)
     # --- Phase 2: defense (8 turns, before foundry) ---
-    ba(SW) | None,         # 8:  barrier (5,14) [from (6,13)]
-    sp(NE, N) | S,         # 9:  splitter (7,12)N, move to (6,14)
-    ln(NW) | S,            # 10: launcher (5,13), move to (6,15)
-    ba(SW) | N,            # 11: barrier (5,16), move to (6,14)
-    wait,                  # 12: wait 1 round for gunner affordability
-    gn(E, E) | None,       # 13: gunner (7,14)E
+    ba(SW) | None,  # 8:  barrier (5,14) [from (6,13)]
+    sp(NE, N) | S,  # 9:  splitter (7,12)N, move to (6,14)
+    ln(NW) | S,  # 10: launcher (5,13), move to (6,15)
+    ba(SW) | N,  # 11: barrier (5,16), move to (6,14)
+    wait,  # 12: wait 1 round for gunner affordability
+    gn(E, E) | None,  # 13: gunner (7,14)E
     # --- Phase 3: accumulate Ti for foundry ---
-    *[wait] * 42,          # 14-55: wait for income
-    f(NE) | None,          # 56: foundry (7,13) — LAST build
+    *[wait] * 42,  # 14-55: wait for income
+    f(NE) | None,  # 56: foundry (7,13) — LAST build
 ]
 
 register(

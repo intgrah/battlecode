@@ -336,6 +336,10 @@ const fn set_stored_resource(kind: &mut EntityKind, res: proto::ResourceType) {
         | EntityKind::Splitter { stored, .. }
         | EntityKind::Bridge { stored, .. }
         | EntityKind::Foundry { stored } => *stored = res,
+        EntityKind::Gunner { ammo_type, .. }
+        | EntityKind::Sentinel { ammo_type, .. }
+        | EntityKind::Breach { ammo_type, .. }
+        | EntityKind::Launcher { ammo_type, .. } => *ammo_type = res,
         _ => {}
     }
 }
