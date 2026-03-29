@@ -293,7 +293,7 @@ def _find_core(ct: Controller) -> Position:
     raise RuntimeError
 
 
-_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2))
+_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
 
 
 def _read_opening(
