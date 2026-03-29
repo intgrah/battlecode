@@ -29,4 +29,5 @@ def register(key: KnownMap, opening: Opening) -> None:
 
 
 from .maps import arena as _arena  # noqa: E402, F401
+from .maps import battlebot as _battlebot  # noqa: E402, F401
 from .maps import chemistry_class as _chemistry_class  # noqa: E402, F401
