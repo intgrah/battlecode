@@ -24,9 +24,9 @@ from hardcode.opening.dsl import (
 # Arena: 25x25, ROT symmetry
 # Core A at (8, 10), core tiles (7-9, 9-11)
 #
-# B1 (9 turns): NW to (6,8), west to Ti(4,8), 3 barriers, launcher(6,6)
-# B2 (9 turns): conv chain (7,8)S→(7,5)S, harvester(7,4), east blockade
-# B3 (24 turns): harvesters first, foundry before defense (lower scale)
+# B1 (9t): NW to (6,8), west to Ti(4,8), 3 barriers, launcher(6,6)
+# B2 (9t): conv chain (7,8)S→(7,5)S, harvester(7,4), east blockade
+# B3: ALL defense before foundry (foundry +100% scale makes later builds impossible)
 #   Ti: (5,15)→(6,15)N→(6,14)N→(6,13)E→foundry(7,13)
 #   Ax: (8,13)→W→foundry(7,13)
 #   Out: foundry→splitter(7,12)N→core + sentinel(6,12)SE
@@ -55,10 +55,10 @@ _B2: list[DslTurn] = [
     ba(SE) | None,         # 8: barrier (8,6)
 ]
 
-# Build order: harvesters + conveyors first (income), foundry second
-# (while scale is still low), then defense buildings last.
+# Build order: harvesters → defense → long wait → foundry (LAST)
+# Foundry +100% scale makes anything after it unaffordable.
 _B3: list[DslTurn] = [
-    # --- Phase 1: infrastructure + income (7 turns) ---
+    # --- Phase 1: infrastructure + income ---
     S.rd(),                # 0:  road (7,12), move to (7,12)
     h(SE) | None,          # 1:  Ax harvester (8,13)
     W.rd(),                # 2:  road (6,12), move to (6,12)
@@ -66,16 +66,17 @@ _B3: list[DslTurn] = [
     c(S, N) | S,           # 4:  conv (6,14)N, move to (6,14)
     c(S, N) | None,        # 5:  conv (6,15)N
     h(SW) | None,          # 6:  Ti harvester (5,15)
-    # --- Phase 2: accumulate Ti, then foundry (scale ~2.2) ---
-    *[wait] * 35,          # 7-41: wait for income
-    f(NE) | None,          # 17: foundry (7,13) — before defense = cheaper
-    # --- Phase 3: defense buildings ---
-    ba(W) | None,          # 18: barrier (5,14)
-    N | sn(N, SE),         # 19: move to (6,13), sentinel (6,12)SE
-    sp(NE, N) | S,         # 20: splitter (7,12)N, move to (6,14)
-    ln(NW) | None,         # 21: launcher (5,13)
-    gn(E, E) | S,          # 22: gunner (7,14)E, move to (6,15)
-    ba(SW) | N,            # 23: barrier (5,16), move to (6,14)
+    # --- Phase 2: defense (before foundry to keep scale low) ---
+    ba(W) | None,          # 7:  barrier (5,14)
+    N | sn(N, SE),         # 8:  move to (6,13), sentinel (6,12)SE
+    sp(NE, N) | S,         # 9:  splitter (7,12)N, move to (6,14)
+    ln(NW) | None,         # 10: launcher (5,13)
+    wait,                  # 11: wait for Ti to afford gunner
+    gn(E, E) | S,          # 12: gunner (7,14)E, move to (6,15)
+    ba(SW) | N,            # 12: barrier (5,16), move to (6,14)
+    # --- Phase 3: accumulate Ti for foundry (scale ~2.6, cost ~310) ---
+    *[wait] * 63,          # 13-54: wait for income (~5 Ti/round)
+    f(NE) | None,          # 55: foundry (7,13) — LAST build
 ]
 
 register(
