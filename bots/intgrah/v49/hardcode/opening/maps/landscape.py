@@ -1,7 +1,7 @@
 from hardcode.known import KnownMap
 
 from hardcode.opening import Opening, register
-from .parse import parse_script
+from hardcode.opening.parse import parse_script
 
 _B1 = parse_script(
     2,
