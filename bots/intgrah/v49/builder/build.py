@@ -27,6 +27,7 @@ class Task(IntEnum):
     BARRIER_ORE = auto()
     FIRE_ENEMY_TRANSPORT = auto()
     PLACE_SENTINEL = auto()
+    HEAL_TURRET = auto()
 
 
 # Low level Actions (one per turn)

@@ -48,13 +48,13 @@ class Sentinel(Unit):
 
 def _target_priority(etype: EntityType) -> int:
     match etype:
-        case EntityType.CORE:
-            return 10
-        case EntityType.HARVESTER:
+        case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
+            return 4
+        case EntityType.HARVESTER | EntityType.BRIDGE | EntityType.CONVEYOR | EntityType.SPLITTER | EntityType.ARMOURED_CONVEYOR:
             return 3
         case EntityType.BUILDER_BOT:
             return 2
-        case EntityType.CONVEYOR | EntityType.SPLITTER | EntityType.BRIDGE:
+        case EntityType.CORE:
             return 1
         case _:
             return 0

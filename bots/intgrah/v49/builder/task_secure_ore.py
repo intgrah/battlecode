@@ -7,13 +7,26 @@ from building import (
     BuildingLauncher,
     BuildingSentinel,
 )
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, DIR8_DELTA, INF
 
 from .build import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
+
+_NO_DESTROY = frozenset((
+    EntityType.CONVEYOR,
+    EntityType.ARMOURED_CONVEYOR,
+    EntityType.BRIDGE,
+    EntityType.SPLITTER,
+    EntityType.HARVESTER,
+    EntityType.FOUNDRY,
+    EntityType.LAUNCHER,
+    EntityType.GUNNER,
+    EntityType.SENTINEL,
+    EntityType.BREACH,
+))
 
 _SECURED = (
     BuildingBarrier,
@@ -159,8 +172,12 @@ def secure_ore(
 
         if pos.distance_squared(barrier_pos) <= 2 and pos != barrier_pos:
             bid = ct.get_tile_building_id(barrier_pos)
-            if bid is not None and ct.can_destroy(barrier_pos):
-                ct.destroy(barrier_pos)
+            if bid is not None:
+                etype = ct.get_entity_type(bid)
+                if etype in _NO_DESTROY:
+                    pass
+                elif ct.can_destroy(barrier_pos):
+                    ct.destroy(barrier_pos)
             return Direction.CENTRE, PlaceBarrier(barrier_pos)
 
         target = _reachable_adjacent(state, pos, ax, ay)
@@ -171,8 +188,10 @@ def secure_ore(
             new_pos = pos.add(move)
             if new_pos.distance_squared(barrier_pos) <= 2 and new_pos != barrier_pos:
                 bid = ct.get_tile_building_id(barrier_pos)
-                if bid is not None and ct.can_destroy(barrier_pos):
-                    ct.destroy(barrier_pos)
+                if bid is not None:
+                    etype = ct.get_entity_type(bid)
+                    if etype not in _NO_DESTROY and ct.can_destroy(barrier_pos):
+                        ct.destroy(barrier_pos)
                 build = PlaceBarrier(barrier_pos)
         state.debug_target = (barrier_pos, 0, 255, 255)
         return move, build
