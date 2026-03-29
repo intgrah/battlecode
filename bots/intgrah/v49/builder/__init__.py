@@ -300,8 +300,11 @@ def _read_opening(
     ct: Controller,
     core_pos: Position,
 ) -> tuple[Opening | None, KnownMap | None]:
+    w, h = ct.get_map_width(), ct.get_map_height()
     for odx, ody in _MARKER_OFFSETS:
         mx, my = core_pos.x + odx, core_pos.y + ody
+        if not (0 <= mx < w and 0 <= my < h):
+            continue
         mp = Position(mx, my)
         bid = ct.get_tile_building_id(mp)
         if bid is None:
