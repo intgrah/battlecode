@@ -39,7 +39,8 @@ class Launcher(Unit):
 
 
 def _find_jail_cell(
-    ct: Controller, my_team: Team,
+    ct: Controller,
+    my_team: Team,
 ) -> Position | None:
     for tile in ct.get_nearby_tiles():
         bid = ct.get_tile_building_id(tile)
@@ -56,7 +57,11 @@ def _find_jail_cell(
                     continue
                 np = Position(tile.x + dx, tile.y + dy)
                 nbid = ct.get_tile_building_id(np)
-                if nbid is not None and ct.get_entity_type(nbid) == EntityType.CORE and ct.get_team(nbid) == my_team:
+                if (
+                    nbid is not None
+                    and ct.get_entity_type(nbid) == EntityType.CORE
+                    and ct.get_team(nbid) == my_team
+                ):
                     core_adj += 1
         if core_adj >= 2:
             return tile
@@ -64,7 +69,9 @@ def _find_jail_cell(
 
 
 def _find_upstream_launcher(
-    ct: Controller, pos: Position, my_team: Team,
+    ct: Controller,
+    pos: Position,
+    my_team: Team,
 ) -> Position | None:
     best: Position | None = None
     best_id = -1

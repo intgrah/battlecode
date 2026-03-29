@@ -67,9 +67,7 @@ def _compile_action(dsl: DslAction, pos: Position) -> Action:
         case DslPlaceConveyor(direction, building_direction):
             return PlaceConveyor(pos.add(direction), building_direction)
         case DslPlaceArmouredConveyor(direction, building_direction):
-            return PlaceArmouredConveyor(
-                pos.add(direction), building_direction
-            )
+            return PlaceArmouredConveyor(pos.add(direction), building_direction)
         case DslPlaceBridge(direction, target_vector):
             build_pos = pos.add(direction)
             target = Position(

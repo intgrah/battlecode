@@ -1,6 +1,5 @@
 from hardcode.known import KnownMap
 from hardcode.opening import Opening, register
-
 from hardcode.opening.parse import parse_script
 
 # pls_buy_cucats_merch: 49x49 ROT, Core A at (13,17), Core B at (35,31)

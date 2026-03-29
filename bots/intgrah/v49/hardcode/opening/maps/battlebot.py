@@ -2,23 +2,16 @@ from hardcode.known import KnownMap
 from hardcode.opening import Opening, register
 from hardcode.opening.dsl import (
     NE,
-    NW,
     SE,
-    SW,
     DslTurn,
     E,
     N,
     S,
     W,
-    ba,
-    br,
     c,
-    f,
-    gn,
     h,
     ln,
     sn,
-    sp,
     wait,
 )
 

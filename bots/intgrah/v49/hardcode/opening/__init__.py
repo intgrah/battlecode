@@ -5,10 +5,10 @@ __all__ = ["Opening", "get_opening", "register"]
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .dsl import DslTurn
-
 if TYPE_CHECKING:
     from hardcode.known import KnownMap
+
+    from .dsl import DslTurn
 
 
 @dataclass(frozen=True, slots=True)
