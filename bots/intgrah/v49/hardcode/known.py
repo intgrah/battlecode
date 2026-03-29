@@ -1,5 +1,7 @@
 from enum import StrEnum
 
+__all__ = ["KnownMap"]
+
 
 class KnownMap(StrEnum):
     ARENA = "arena"

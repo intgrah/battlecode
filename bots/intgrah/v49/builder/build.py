@@ -44,6 +44,12 @@ class PlaceConveyor:
 
 
 @dataclass(frozen=True, slots=True)
+class PlaceArmouredConveyor:
+    pos: Position
+    direction: Direction
+
+
+@dataclass(frozen=True, slots=True)
 class PlaceBridge:
     pos: Position
     target: Position
@@ -99,12 +105,13 @@ class PlaceGunner:
 
 @dataclass(frozen=True, slots=True)
 class Fire:
-    pos: Position
+    pass
 
 
 type Action = (
     PlaceHarvester
     | PlaceConveyor
+    | PlaceArmouredConveyor
     | PlaceBridge
     | PlaceRoad
     | PlaceFoundry
@@ -144,6 +151,12 @@ def execute(action: Action, ct: Controller) -> None:
                 _destroy_friendly(ct, pos)
                 if ct.can_build_conveyor(pos, direction):
                     ct.build_conveyor(pos, direction)
+        case PlaceArmouredConveyor(pos, direction):
+            cost, _ = ct.get_armoured_conveyor_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_armoured_conveyor(pos, direction):
+                    ct.build_armoured_conveyor(pos, direction)
         case PlaceBridge(pos, target):
             cost, _ = ct.get_bridge_cost()
             if ti >= cost:
@@ -189,6 +202,7 @@ def execute(action: Action, ct: Controller) -> None:
                 _destroy_friendly(ct, pos)
                 if ct.can_build_launcher(pos):
                     ct.build_launcher(pos)
-        case Fire(pos):
+        case Fire():
+            pos = ct.get_position()
             if ct.can_fire(pos):
                 ct.fire(pos)

@@ -1,6 +1,6 @@
 from hardcode.known import KnownMap
 
-from . import Opening, register
+from hardcode.opening import Opening, register
 from .parse import parse_script
 
 # battlebot: 21x29, core A at (4,4), core E at (16,4)

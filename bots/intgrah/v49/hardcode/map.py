@@ -131,7 +131,6 @@ CANDIDATES: dict[tuple[int, int, Position], list[KnownMap]] = {}
 for _km in KnownMap:
     _key = (*DIMENSIONS[_km], CORE_A[_km])
     CANDIDATES.setdefault(_key, []).append(_km)
-del _km, _key
 
 
 def _arena() -> bytes:

@@ -12,9 +12,15 @@ from cambc import (
 )
 from hardcode.known import KnownMap
 from hardcode.map import SYMMETRY
+from hardcode.opening import Opening, get_opening
+from hardcode.opening.compiler import (
+    CompiledActionMove,
+    CompiledMoveAction,
+    CompiledTurn,
+    dsl_compile,
+)
+from hardcode.opening.mirror import mirror_opening
 from marker import MarkerEureka
-from opening import Build, Move, Opening, Step, Wait, get_opening
-from opening.mirror import mirror_opening
 from unit import Unit
 from util import DIR8_DELTA
 
@@ -150,22 +156,20 @@ class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
         core_pos = _find_core(ct)
         self.state = State(ct, core_pos)
-        self._script: list[Step] | None = None
+        self._compiled: list[CompiledTurn] | None = None
         self._script_idx: int = 0
         self._off_script: bool = False
 
         opening, km = _read_opening(ct, core_pos)
         if opening is not None and km is not None:
             if ct.get_team() == Team.B:
-                opening = mirror_opening(
-                    opening,
-                    ct.get_map_width(),
-                    ct.get_map_height(),
-                    SYMMETRY[km],
-                )
+                opening = mirror_opening(opening, SYMMETRY[km])
             spawn_order = self.state.birthday - 1
             if 0 <= spawn_order < len(opening.builder_scripts):
-                self._script = opening.builder_scripts[spawn_order]
+                self._compiled = dsl_compile(
+                    ct.get_position(),
+                    opening.builder_scripts[spawn_order],
+                )
 
     def run(self, ct: Controller) -> None:
         s = self.state
@@ -175,55 +179,48 @@ class Builder(Unit):
             dump(s, ct)
         s.claim = None
 
-        if self._script is not None and not self._off_script:
+        if self._compiled is not None and not self._off_script:
             self._run_script(ct)
             return
 
-        if self._script is not None:
+        if self._compiled is not None:
             return
 
         move, build = self._run_policy(ct)
         self._execute(ct, move, build)
 
     def _run_script(self, ct: Controller) -> None:
-        assert self._script is not None
-        if self._script_idx >= len(self._script):
+        assert self._compiled is not None
+        if self._script_idx >= len(self._compiled):
             self._off_script = True
             return
 
-        build_step: Build | None = None
-        move_step: Move | None = None
-
-        while self._script_idx < len(self._script):
-            step = self._script[self._script_idx]
-            match step:
-                case Move():
-                    if move_step is not None:
-                        break
-                    move_step = step
-                    self._script_idx += 1
-                case Build():
-                    if build_step is not None:
-                        break
-                    build_step = step
-                    self._script_idx += 1
-                case Wait():
-                    self._script_idx += 1
-                    break
-
+        turn = self._compiled[self._script_idx]
+        self._script_idx += 1
         pos = ct.get_position()
-        if build_step is not None:
-            _exec_build(ct, build_step.action)
-        if move_step is not None:
-            if ct.can_move(move_step.direction):
-                ct.move(move_step.direction)
-            else:
-                ct.draw_indicator_dot(pos, 255, 0, 0)
-                print(
-                    f"[SCRIPT] T{ct.get_current_round()} id={ct.get_id()} FAIL move {move_step.direction.name} at {pos}"
-                )
-                self._off_script = True
-        if self._script_idx >= len(self._script):
+
+        match turn:
+            case CompiledActionMove(action, move):
+                if action is not None:
+                    _exec_build(ct, action)
+                if move is not None:
+                    if ct.can_move(move):
+                        ct.move(move)
+                    else:
+                        ct.draw_indicator_dot(pos, 255, 0, 0)
+                        self._off_script = True
+            case CompiledMoveAction(move, action):
+                if move is not None:
+                    if ct.can_move(move):
+                        ct.move(move)
+                    else:
+                        ct.draw_indicator_dot(pos, 255, 0, 0)
+                        self._off_script = True
+                        return
+                if action is not None:
+                    _exec_build(ct, action)
+
+        if self._script_idx >= len(self._compiled):
             ct.draw_indicator_dot(ct.get_position(), 0, 255, 0)
             self._off_script = True
 
@@ -300,7 +297,8 @@ _MARKER_OFFSETS = ((-2, -2), (2, 2), (-2, 2), (2, -2))
 
 
 def _read_opening(
-    ct: Controller, core_pos: Position,
+    ct: Controller,
+    core_pos: Position,
 ) -> tuple[Opening | None, KnownMap | None]:
     for odx, ody in _MARKER_OFFSETS:
         mx, my = core_pos.x + odx, core_pos.y + ody
