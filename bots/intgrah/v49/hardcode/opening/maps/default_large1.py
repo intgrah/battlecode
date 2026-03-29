@@ -1,6 +1,5 @@
 from hardcode.known import KnownMap
 from hardcode.opening import Opening, register
-
 from hardcode.opening.parse import parse_script
 
 # default_large1: 40x40, ROT symmetry

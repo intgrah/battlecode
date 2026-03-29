@@ -47,7 +47,8 @@ def _parse_dir(s: str) -> Direction | None:
         return None
     d = _DIR_MAP.get(s)
     if d is None:
-        raise ValueError(f"Unknown direction: {s!r}")
+        msg = f"Unknown direction: {s!r}"
+        raise ValueError(msg)
     return d
 
 
@@ -68,7 +69,8 @@ def parse_script(start_x: int, start_y: int, script: str) -> list[DslTurn]:
 
     for step in steps_raw:
         if "," not in step:
-            raise ValueError(f"Missing comma in step: {step!r}")
+            msg = f"Missing comma in step: {step!r}"
+            raise ValueError(msg)
         build_str, move_str = step.split(",", 1)
         build_tokens = build_str.strip().split()
         move_dir = _parse_dir(move_str.strip())
@@ -78,10 +80,12 @@ def parse_script(start_x: int, start_y: int, script: str) -> list[DslTurn]:
             build_dir_str = build_tokens[0]
             build_dir = _parse_dir(build_dir_str)
             if build_dir is None:
-                raise ValueError(f"Invalid build direction: {build_dir_str!r}")
+                msg = f"Invalid build direction: {build_dir_str!r}"
+                raise ValueError(msg)
 
             if len(build_tokens) < 2:
-                raise ValueError(f"Missing building type in step: {step!r}")
+                msg = f"Missing building type in step: {step!r}"
+                raise ValueError(msg)
             building = build_tokens[1]
 
             match building:
@@ -94,22 +98,26 @@ def parse_script(start_x: int, start_y: int, script: str) -> list[DslTurn]:
                 case "c":
                     facing = _parse_dir(build_tokens[2])
                     if facing is None:
-                        raise ValueError(f"Conveyor needs facing: {step!r}")
+                        msg = f"Conveyor needs facing: {step!r}"
+                        raise ValueError(msg)
                     action = DslPlaceConveyor(build_dir, facing)
                 case "sp":
                     facing = _parse_dir(build_tokens[2])
                     if facing is None:
-                        raise ValueError(f"Splitter needs facing: {step!r}")
+                        msg = f"Splitter needs facing: {step!r}"
+                        raise ValueError(msg)
                     action = DslPlaceSplitter(build_dir, facing)
                 case "sn":
                     facing = _parse_dir(build_tokens[2])
                     if facing is None:
-                        raise ValueError(f"Sentinel needs facing: {step!r}")
+                        msg = f"Sentinel needs facing: {step!r}"
+                        raise ValueError(msg)
                     action = DslPlaceSentinel(build_dir, facing)
                 case "gn":
                     facing = _parse_dir(build_tokens[2])
                     if facing is None:
-                        raise ValueError(f"Gunner needs facing: {step!r}")
+                        msg = f"Gunner needs facing: {step!r}"
+                        raise ValueError(msg)
                     action = DslPlaceGunner(build_dir, facing)
                 case "ln":
                     action = DslPlaceLauncher(build_dir)
@@ -123,7 +131,8 @@ def parse_script(start_x: int, start_y: int, script: str) -> list[DslTurn]:
                     tv = (target_x - bx, target_y - by)
                     action = DslPlaceBridge(build_dir, tv)
                 case _:
-                    raise ValueError(f"Unknown building: {building!r}")
+                    msg = f"Unknown building: {building!r}"
+                    raise ValueError(msg)
 
         result.append(DslActionMove(action, move_dir))
 

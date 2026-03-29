@@ -168,7 +168,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
     en_builds = [b for b in builds if b.team != bd_team]
 
     # Build order (first 25, skip markers)
-    print(f"\n  Build order (first 25):")
+    print("\n  Build order (first 25):")
     shown = 0
     for b in bd_builds:
         if b.etype == "marker":
@@ -203,7 +203,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
               f" {c.get('foundry',0):5d} {c.get('launcher',0):5d}")
 
     # Spending per 100-turn window
-    print(f"\n  Spending per window:")
+    print("\n  Spending per window:")
     by_window: dict[int, list[BuildEvent]] = defaultdict(list)
     for b in bd_builds:
         if b.etype != "marker":
@@ -235,7 +235,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
 
     # Harvester spacing
     if len(bd_harvesters) >= 2:
-        print(f"  Harvester intervals: ", end="")
+        print("  Harvester intervals: ", end="")
         for i in range(1, min(len(bd_harvesters), 8)):
             gap = bd_harvesters[i].turn - bd_harvesters[i-1].turn
             print(f"+{gap}", end=" ")
@@ -255,7 +255,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
                 if dist <= 10:
                     bd_aggro_builds.append((b, dist))
     if bd_aggro_builds:
-        print(f"\n  Aggro builds near enemy core (dist<=10):")
+        print("\n  Aggro builds near enemy core (dist<=10):")
         for b, d in bd_aggro_builds[:10]:
             print(f"    T{b.turn:4d}  {ETYPE_DISPLAY.get(b.etype,b.etype):12s} dist={d}")
 
@@ -337,14 +337,14 @@ def main() -> None:
     print(f"  Aggro near core:    {avg_field('aggro_builds_near_core')}")
 
     # Build order patterns: what is the first non-builder, non-road build?
-    print(f"\n  === Common opening patterns ===")
-    openers: dict[str, int] = defaultdict(int)
+    print("\n  === Common opening patterns ===")
+    defaultdict(int)
     for r in results:
         # Already encoded in per-game output, but let's aggregate
         pass
 
     # Per-opponent stats
-    print(f"\n  === Per-opponent ===")
+    print("\n  === Per-opponent ===")
     by_opp: dict[str, list[dict]] = defaultdict(list)
     for r in results:
         by_opp[r["opponent"]].append(r)

@@ -13,12 +13,10 @@ from hardcode.opening.dsl import (
     ba,
     br,
     c,
-    f,
     h,
     ln,
     sn,
     sp,
-    wait,
 )
 
 _B1: list[DslTurn] = [

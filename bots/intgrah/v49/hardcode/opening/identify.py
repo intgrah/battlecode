@@ -1,4 +1,5 @@
 from cambc import Controller, GameConstants, Position
+
 from hardcode.known import KnownMap
 from hardcode.map import CANDIDATES, CORE_B, DIMENSIONS, TILES, decode
 

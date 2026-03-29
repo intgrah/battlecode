@@ -8,9 +8,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from proto.cambc_pb2 import Map
-
 from PIL import Image, ImageDraw, ImageFont
+
+from proto.cambc_pb2 import Map
 
 # Environment enum values
 ENV_EMPTY = 0
@@ -66,17 +66,23 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
     draw = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 10)
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 10
+        )
     except Exception:
         font = ImageFont.load_default()
 
     # Draw coordinate labels
     for x in range(w):
         if x % 5 == 0:
-            draw.text((margin + x * CELL + 2, 2), str(x), fill=(120, 120, 120), font=font)
+            draw.text(
+                (margin + x * CELL + 2, 2), str(x), fill=(120, 120, 120), font=font
+            )
     for y in range(h):
         if y % 5 == 0:
-            draw.text((1, margin + y * CELL + 2), str(y), fill=(120, 120, 120), font=font)
+            draw.text(
+                (1, margin + y * CELL + 2), str(y), fill=(120, 120, 120), font=font
+            )
 
     # Draw tiles
     for y in range(h):
@@ -98,12 +104,22 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
             else:
                 bg = COL_EMPTY
 
-            draw.rectangle([px, py, px + CELL - 1, py + CELL - 1], fill=bg, outline=COL_GRID)
+            draw.rectangle(
+                [px, py, px + CELL - 1, py + CELL - 1], fill=bg, outline=COL_GRID
+            )
 
             # Label ore tiles
-            if tile == ENV_ORE_TITANIUM and (x, y) not in core_tiles_a and (x, y) not in core_tiles_b:
+            if (
+                tile == ENV_ORE_TITANIUM
+                and (x, y) not in core_tiles_a
+                and (x, y) not in core_tiles_b
+            ):
                 draw.text((px + 7, py + 5), "T", fill=(150, 180, 230), font=font)
-            elif tile == ENV_ORE_AXIONITE and (x, y) not in core_tiles_a and (x, y) not in core_tiles_b:
+            elif (
+                tile == ENV_ORE_AXIONITE
+                and (x, y) not in core_tiles_a
+                and (x, y) not in core_tiles_b
+            ):
                 draw.text((px + 7, py + 5), "A", fill=(230, 170, 90), font=font)
 
     # Label cores
@@ -132,7 +148,12 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
     new_img.paste(img, (0, 0))
     draw2 = ImageDraw.Draw(new_img)
     draw2.text((5, img_h + 3), title, fill=(200, 200, 200), font=font)
-    draw2.text((5, img_h + 15), "T=Titanium  A=Axionite  Blue=CoreA  Red=CoreB  Brown=Wall", fill=(140, 140, 140), font=font)
+    draw2.text(
+        (5, img_h + 15),
+        "T=Titanium  A=Axionite  Blue=CoreA  Red=CoreB  Brown=Wall",
+        fill=(140, 140, 140),
+        font=font,
+    )
 
     if output_path is None:
         output_path = f"/tmp/{map_name}.png"
