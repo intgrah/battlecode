@@ -9,7 +9,7 @@ from unit import Unit
 from util import INF
 
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
-_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2))
+_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
 
 
 class Core(Unit):
