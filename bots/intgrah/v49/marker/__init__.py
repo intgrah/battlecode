@@ -51,7 +51,20 @@ class MarkerEureka:
         return MarkerEureka(symmetry=payload & 0x3)
 
 
-type Marker = MarkerTaskClaim | MarkerEureka
+@dataclass(frozen=True)
+class MarkerOpeningBook:
+    map_index: int
+
+    def encode(self) -> int:
+        val = (2 << _TAG_SHIFT) | self.map_index
+        return encrypt(val)
+
+    @staticmethod
+    def decode(payload: int) -> MarkerOpeningBook:
+        return MarkerOpeningBook(map_index=payload & 0xFFFF)
+
+
+type Marker = MarkerTaskClaim | MarkerEureka | MarkerOpeningBook
 
 
 def decode(encrypted: int) -> Marker | None:
@@ -63,6 +76,8 @@ def decode(encrypted: int) -> Marker | None:
             return MarkerTaskClaim.decode(payload)
         case 1:
             return MarkerEureka.decode(payload)
+        case 2:
+            return MarkerOpeningBook.decode(payload)
         case _:
             return None
 

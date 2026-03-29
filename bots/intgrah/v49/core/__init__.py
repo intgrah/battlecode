@@ -4,6 +4,7 @@ from hardcode.map import SYMMETRY
 from hardcode.opening import Opening, get_opening
 from hardcode.opening.identify import identify_map
 from hardcode.opening.mirror import mirror_opening
+from marker import MarkerOpeningBook
 from unit import Unit
 from util import INF
 
@@ -27,7 +28,7 @@ class Core(Unit):
                 opening = mirror_opening(opening, SYMMETRY[km])
             self.opening = opening
 
-            marker_val = list(KnownMap).index(km)
+            marker_val = MarkerOpeningBook(list(KnownMap).index(km)).encode()
             for odx, ody in _MARKER_OFFSETS:
                 mp = Position(self.core_pos.x + odx, self.core_pos.y + ody)
                 if ct.can_place_marker(mp):
