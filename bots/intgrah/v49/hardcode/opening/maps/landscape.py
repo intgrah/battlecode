@@ -1,28 +1,74 @@
 from hardcode.known import KnownMap
 from hardcode.opening import Opening, register
-from hardcode.opening.parse import parse_script
-
-_B1 = parse_script(
-    2,
-    2,
-    """
-    w c e, w; s c n, s; s c n, s; s c n, s; s c n, s; s c n, s
-    se rd, se; s rd, s; w c n, w
-    s br 1 7, e; s rd, s; sw c n, sw
-    se h, x; s c n, x; nw ln, x; e ba, x; x, s; se ba, x
-    """,
+from hardcode.opening.dsl import (
+    NW,
+    SE,
+    SW,
+    DslTurn,
+    E,
+    N,
+    S,
+    W,
+    ba,
+    br,
+    c,
+    f,
+    h,
+    ln,
 )
 
-_B2 = parse_script(
-    4,
-    2,
-    """
-    se c w, se; e c w, e; e c w, e; e c w, e; e c w, e; e c w, e
-    e c w, e; e c w, e; e c w, e; e c w, e; e c w, e
-    se h, x; s c w, s; s c n, s; se h, x; s c n, x
-    x, n; w f, x; sw ln, x; x, n; e ba, x; x, s; se ba, x
-    """,
-)
+# landscape
+# Core A at (3, 1)
+
+# B1: spawn (-1,0) => (2,2) [sic, offset from core center]
+_B1: list[DslTurn] = [
+    c(W, E) | W,
+    c(S, N) | S,
+    c(S, N) | S,
+    c(S, N) | S,
+    c(S, N) | S,
+    c(S, N) | S,
+    SE.rd(),
+    S.rd(),
+    c(W, N) | W,
+    # bridge at S=(1,10), target (1,7), vec=(0,-3)
+    br(S, (0, -3)) | E,
+    S.rd(),
+    c(SW, N) | SW,
+    h(SE) | None,
+    c(S, N) | None,
+    ln(NW) | None,
+    ba(E) | None,
+    S.turn(),
+    ba(SE) | None,
+]
+
+# B2: spawn (1,0) => (4,2) [sic]
+_B2: list[DslTurn] = [
+    c(SE, W) | SE,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    c(E, W) | E,
+    h(SE) | None,
+    c(S, W) | S,
+    c(S, N) | S,
+    h(SE) | None,
+    c(S, N) | None,
+    N.turn(),
+    f(W) | None,
+    ln(SW) | None,
+    N.turn(),
+    ba(E) | None,
+    S.turn(),
+    ba(SE) | None,
+]
 
 register(
     KnownMap.LANDSCAPE,

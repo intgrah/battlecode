@@ -16,12 +16,16 @@ from hardcode.opening.dsl import (
 )
 
 _B1: list[DslTurn] = [
+    # Rush the Ti ore
     c(E, W) | E,
     c(E, W) | E,
     c(E, W) | E,
     c(SE, N) | SE,
-    sn(E, E) | None,
+    # Harvester first
     h(SE) | None,
+    # Sentinel
+    sn(E, E) | None,
+    # Move down to grab the other one
     c(S, N) | S,
     SE.rd(),
     ln(NE) | None,
