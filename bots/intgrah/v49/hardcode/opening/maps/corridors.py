@@ -31,32 +31,30 @@ from hardcode.opening.dsl import (
 
 # B1 spawns at (5,14), goes north
 _B1: list[DslTurn] = [
-    c(N, S) | N,            # 0:  conv (5,13)S, move to (5,13)
-    c(N, S) | N,            # 1:  conv (5,12)S, move to (5,12)
-    h(N) | None,            # 2:  harvester (5,11)
-    NW.rd(),                # 3:  road (4,11), move to (4,11) [sidestep W]
-    br(NE, (0, 2)) | None,  # 4:  bridge (5,10) → (5,12) [over harvester]
-    N.rd(),                 # 5:  road (4,10), move to (4,10)
-    c(NE, S) | NE,         # 6:  conv (5,9)S, move to (5,9) [back in corridor]
-    c(N, S) | N,            # 7:  conv (5,8)S, move to (5,8)
-    h(N) | None,            # 8:  harvester (5,7)
-    NW.rd(),                # 9:  road (4,7), move to (4,7) [sidestep]
-    sn(NE, N) | None,       # 10: sentinel (5,6)N [guards north entry]
+    c(N, S) | N,            # 0: conv (5,13)S, move to (5,13)
+    c(N, S) | N,            # 1: conv (5,12)S, move to (5,12)
+    h(N) | None,            # 2: harvester (5,11)
+    NW.rd(),                # 3: road (4,11), move to (4,11) [sidestep W]
+    br(NE, (0, 2)) | NE,   # 4: bridge (5,10)→(5,12), walk onto bridge
+    c(N, S) | N,            # 5: conv (5,9)S, move to (5,9)
+    c(N, S) | N,            # 6: conv (5,8)S, move to (5,8)
+    h(N) | None,            # 7: harvester (5,7)
+    NW.rd(),                # 8: road (4,7), move to (4,7) [sidestep]
+    sn(NE, N) | None,       # 9: sentinel (5,6)N [guards north entry]
 ]
 
 # B2 spawns at (5,16), goes south (symmetric)
 _B2: list[DslTurn] = [
-    c(S, N) | S,            # 0:  conv (5,17)N, move to (5,17)
-    c(S, N) | S,            # 1:  conv (5,18)N, move to (5,18)
-    h(S) | None,            # 2:  harvester (5,19)
-    SW.rd(),                # 3:  road (4,19), move to (4,19) [sidestep W]
-    br(SE, (0, -2)) | None,  # 4: bridge (5,20) → (5,18) [over harvester]
-    S.rd(),                 # 5:  road (4,20), move to (4,20)
-    c(SE, N) | SE,          # 6:  conv (5,21)N, move to (5,21) [back in corridor]
-    c(S, N) | S,            # 7:  conv (5,22)N, move to (5,22)
-    h(S) | None,            # 8:  harvester (5,23)
-    SW.rd(),                # 9:  road (4,23), move to (4,23) [sidestep]
-    sn(SE, S) | None,       # 10: sentinel (5,24)S [guards south entry]
+    c(S, N) | S,            # 0: conv (5,17)N, move to (5,17)
+    c(S, N) | S,            # 1: conv (5,18)N, move to (5,18)
+    h(S) | None,            # 2: harvester (5,19)
+    SW.rd(),                # 3: road (4,19), move to (4,19) [sidestep W]
+    br(SE, (0, -2)) | SE,  # 4: bridge (5,20)→(5,18), walk onto bridge
+    c(S, N) | S,            # 5: conv (5,21)N, move to (5,21)
+    c(S, N) | S,            # 6: conv (5,22)N, move to (5,22)
+    h(S) | None,            # 7: harvester (5,23)
+    SW.rd(),                # 8: road (4,23), move to (4,23) [sidestep]
+    sn(SE, S) | None,       # 9: sentinel (5,24)S [guards south entry]
 ]
 
 register(
