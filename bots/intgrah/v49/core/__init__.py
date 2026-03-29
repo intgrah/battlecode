@@ -1,9 +1,9 @@
 from cambc import Controller, Direction, EntityType, Position, Team
 from hardcode.known import KnownMap
 from hardcode.map import SYMMETRY
-from opening import Opening, get_opening
-from opening.identify import identify_map
-from opening.mirror import mirror_opening
+from hardcode.opening import Opening, get_opening
+from hardcode.opening.identify import identify_map
+from hardcode.opening.mirror import mirror_opening
 from unit import Unit
 from util import INF
 
@@ -24,9 +24,7 @@ class Core(Unit):
         if km is not None:
             opening = get_opening(km)
             if opening is not None and ct.get_team() == Team.B:
-                w = ct.get_map_width()
-                h = ct.get_map_height()
-                opening = mirror_opening(opening, w, h, SYMMETRY[km])
+                opening = mirror_opening(opening, SYMMETRY[km])
             self.opening = opening
 
             marker_val = list(KnownMap).index(km)

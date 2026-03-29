@@ -1,6 +1,6 @@
 from hardcode.known import KnownMap
 
-from . import Opening, register
+from hardcode.opening import Opening, register
 from .parse import parse_script
 
 _WALK_N = "n rd, n; " * 35

@@ -1,6 +1,6 @@
 from hardcode.known import KnownMap
 
-from . import Opening, register
+from hardcode.opening import Opening, register
 from .parse import parse_script
 
 # default_large2: 50x30, VER symmetry
