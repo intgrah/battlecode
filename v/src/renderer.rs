@@ -4,6 +4,16 @@ use crate::proto;
 use crate::sprites::SpriteAtlas;
 use crate::state::{Entity, EntityKind, GameState, Indicator, TurnState};
 
+fn rotate_sprite(sprite: &RgbaImage, dir: proto::Direction) -> RgbaImage {
+    match dir {
+        proto::Direction::DirWest | proto::Direction::DirCentre => sprite.clone(),
+        proto::Direction::DirSouth => imageops::rotate270(sprite),
+        proto::Direction::DirEast => imageops::rotate180(sprite),
+        proto::Direction::DirNorth => imageops::rotate90(sprite),
+        _ => sprite.clone(),
+    }
+}
+
 const BG_COLOR: Rgba<u8> = Rgba([0x1d, 0x15, 0x0f, 0xff]);
 const CURSOR_COLOR: Rgba<u8> = Rgba([0xff, 0xff, 0x00, 0x80]);
 const SELECTED_COLOR: Rgba<u8> = Rgba([0x00, 0xff, 0x00, 0x80]);
@@ -90,7 +100,15 @@ pub fn render_map(
         };
 
         if let Some(sprite) = atlas.get(&sprite_name) {
-            imageops::overlay(&mut img, sprite, i64::from(px), i64::from(py));
+            match &e.kind {
+                EntityKind::Conveyor { dir, .. } | EntityKind::ArmouredConveyor { dir, .. } => {
+                    let rotated = rotate_sprite(sprite, *dir);
+                    imageops::overlay(&mut img, &rotated, i64::from(px), i64::from(py));
+                }
+                _ => {
+                    imageops::overlay(&mut img, sprite, i64::from(px), i64::from(py));
+                }
+            }
         }
 
         if !matches!(
