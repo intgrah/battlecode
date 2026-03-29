@@ -60,27 +60,28 @@ _B2: list[DslTurn] = [
 
 # Build order: harvesters + sentinel → defense → long wait → foundry LAST.
 # Sentinel at (8,12) = east of splitter, receives refined Ax from east output.
+# Optimization: skip (6,12) road — go diagonal (7,12)→(6,13) directly.
+# Temp conv at (7,13) routes Ti to core during wait, auto-destroyed by foundry.
 _B3: list[DslTurn] = [
-    # --- Phase 1: infrastructure + income ---
+    # --- Phase 1: infrastructure + income (8 turns) ---
     S.rd(),                # 0:  road (7,12), move to (7,12)
     h(SE) | None,          # 1:  Ax harvester (8,13)
     sn(E, SE) | None,      # 2:  sentinel (8,12)SE — east of splitter
-    W.rd(),                # 3:  road (6,12), move to (6,12)
-    c(S, E) | S,           # 4:  conv (6,13)E, move to (6,13)
-    c(S, N) | S,           # 5:  conv (6,14)N, move to (6,14)
-    c(S, N) | None,        # 6:  conv (6,15)N
-    h(SW) | None,          # 7:  Ti harvester (5,15)
-    c(NE, N) | None,       # 8:  TEMP conv (7,13)N — routes Ti to core during wait
-    # --- Phase 2: defense (before foundry to keep scale manageable) ---
-    ba(W) | None,          # 9:  barrier (5,14)
-    N | sp(NE, N),         # 9:  move to (6,13), splitter (7,12)N [replaces road]
-    ln(W) | S,             # 10: launcher (5,13), move to (6,14)
-    wait,                  # 11: wait 1 round for gunner affordability
-    gn(E, E) | S,          # 12: gunner (7,14)E, move to (6,15)
-    ba(SW) | N,            # 13: barrier (5,16), move to (6,14)
+    c(SW, E) | SW,         # 3:  conv (6,13)E, move diagonal to (6,13)
+    c(S, N) | S,           # 4:  conv (6,14)N, move to (6,14)
+    c(S, N) | None,        # 5:  conv (6,15)N
+    h(SW) | None,          # 6:  Ti harvester (5,15)
+    c(NE, N) | N,          # 7:  TEMP conv (7,13)N + move to (6,13)
+    # --- Phase 2: defense (8 turns, before foundry) ---
+    ba(SW) | None,         # 8:  barrier (5,14) [from (6,13)]
+    sp(NE, N) | S,         # 9:  splitter (7,12)N, move to (6,14)
+    ln(NW) | S,            # 10: launcher (5,13), move to (6,15)
+    ba(SW) | N,            # 11: barrier (5,16), move to (6,14)
+    wait,                  # 12: wait 1 round for gunner affordability
+    gn(E, E) | None,       # 13: gunner (7,14)E
     # --- Phase 3: accumulate Ti for foundry ---
-    *[wait] * 42,          # 14-76: wait for income (~5 Ti/round)
-    f(NE) | None,          # 77: foundry (7,13) — LAST build
+    *[wait] * 42,          # 14-55: wait for income
+    f(NE) | None,          # 56: foundry (7,13) — LAST build
 ]
 
 register(
