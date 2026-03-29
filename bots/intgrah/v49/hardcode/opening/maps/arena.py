@@ -70,15 +70,16 @@ _B3: list[DslTurn] = [
     c(S, N) | S,           # 5:  conv (6,14)N, move to (6,14)
     c(S, N) | None,        # 6:  conv (6,15)N
     h(SW) | None,          # 7:  Ti harvester (5,15)
+    c(NE, N) | None,       # 8:  TEMP conv (7,13)N — routes Ti to core during wait
     # --- Phase 2: defense (before foundry to keep scale manageable) ---
-    ba(W) | None,          # 8:  barrier (5,14)
+    ba(W) | None,          # 9:  barrier (5,14)
     N | sp(NE, N),         # 9:  move to (6,13), splitter (7,12)N [replaces road]
     ln(W) | S,             # 10: launcher (5,13), move to (6,14)
     wait,                  # 11: wait 1 round for gunner affordability
     gn(E, E) | S,          # 12: gunner (7,14)E, move to (6,15)
     ba(SW) | N,            # 13: barrier (5,16), move to (6,14)
     # --- Phase 3: accumulate Ti for foundry ---
-    *[wait] * 63,          # 14-76: wait for income (~5 Ti/round)
+    *[wait] * 42,          # 14-76: wait for income (~5 Ti/round)
     f(NE) | None,          # 77: foundry (7,13) — LAST build
 ]
 
