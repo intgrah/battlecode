@@ -79,6 +79,8 @@ members = [
     "bot-v45",
     "bot-v46",
     "bot-v47",
+    "bot-v48",
+    "bot-v49",
     "bot-v5",
     "bot-v6",
     "bot-v7",
@@ -928,6 +930,28 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-v47"
 version = "0.0.0"
 source = { virtual = "bots/intgrah/v47" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-v48"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v48" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-v49"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v49" }
 dependencies = [
     { name = "cambc" },
 ]
