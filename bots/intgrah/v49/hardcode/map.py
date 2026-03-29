@@ -95,7 +95,7 @@ SYMMETRY: dict[KnownMap, Symmetry] = {
     KnownMap.DEFAULT_MEDIUM2: Symmetry.VER,
     KnownMap.DEFAULT_SMALL1: Symmetry.ROT,
     KnownMap.DEFAULT_SMALL2: Symmetry.HOR,
-    KnownMap.DNA: Symmetry.HOR,
+    KnownMap.DNA: Symmetry.ROT,
     KnownMap.FACE: Symmetry.VER,
     KnownMap.GALAXY: Symmetry.ROT,
     KnownMap.HOOKS: Symmetry.ROT,

@@ -28,12 +28,12 @@ def fire_enemy_transport(
     pos = state.pos
 
     if pos == fire_pos:
-        return Direction.CENTRE, Fire(fire_pos)
+        return Direction.CENTRE, Fire()
 
     move, build = move_toward_with_road(state, ct, fire_pos)
     if move != Direction.CENTRE and build is None:
         new_pos = pos.add(move)
         if new_pos == fire_pos:
-            build = Fire(fire_pos)
+            build = Fire()
     state.debug_target = (fire_pos, 255, 128, 0)
     return move, build

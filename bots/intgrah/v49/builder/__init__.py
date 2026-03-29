@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from building import BuildingBridge, BuildingLauncher
+from building import BuildingLauncher
 from cambc import (
     Controller,
     Direction,
@@ -23,7 +23,7 @@ from hardcode.opening.mirror import mirror_opening
 from marker import MarkerEureka, MarkerOpeningBook
 from marker import decode as decode_marker
 from unit import Unit
-from util import DIR8_DELTA
+from util import DIR8_DELTA, OPENING_ONLY
 
 from .build import (
     Action,
@@ -50,6 +50,7 @@ from .task_fire_enemy_transport import fire_enemy_transport
 from .task_harvest_ax import harvest_ax
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
+from .task_heal_turret import heal_turret
 from .task_nav_enemy_core import nav_enemy_core
 from .task_patrol import patrol
 from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
@@ -100,6 +101,7 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.BARRIER_ORE: barrier_ore,
     Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
     Task.PLACE_SENTINEL: place_sentinel,
+    Task.HEAL_TURRET: heal_turret,
 }
 
 
@@ -187,7 +189,7 @@ class Builder(Unit):
             self._run_script(ct)
             return
 
-        if self._compiled is not None:
+        if OPENING_ONLY and self._compiled is not None:
             return
 
         move, build = self._run_policy(ct)
@@ -230,7 +232,9 @@ class Builder(Unit):
 
     def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
         s = self.state
-        for _, task in _policy(s):
+        for score, task in _policy(s):
+            if score <= 0:
+                continue
             fn = TASK_FNS[task]
             result = fn(s, ct)
             if result is not None:
@@ -328,15 +332,8 @@ def _read_opening(
     return None, None
 
 
-def _has_undefended_bridge(state: State) -> bool:
+def _has_undefended_transport(state: State) -> bool:
     for p in state.my_transport:
-        i = state.idx(p.x, p.y)
-        bld = state.building[i]
-        match bld:
-            case BuildingBridge():
-                pass
-            case _:
-                continue
         if any(
             state.in_bounds(p.x + dx, p.y + dy)
             and isinstance(
@@ -354,11 +351,13 @@ def _has_undefended_bridge(state: State) -> bool:
 def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
 
+    scores.append((1000.0, Task.HEAL_TURRET))
+
     core_damaged = state.my_core_hp < GameConstants.CORE_MAX_HP
     scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
 
-    has_ud_bridge = _has_undefended_bridge(state)
-    scores.append((200.0 if has_ud_bridge else 0.0, Task.PLACE_LAUNCHER))
+    has_ud_transport = _has_undefended_transport(state)
+    scores.append((200.0 if has_ud_transport else 0.0, Task.PLACE_LAUNCHER))
 
     has_broken = _find_broken_bridge(state) is not None
     scores.append((175.0 if has_broken else 0.0, Task.REPAIR_BRIDGE))
@@ -367,7 +366,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
         state.my_flow.excess[state.idx(p.x, p.y)] > 0.01
         for p in state.my_harvesters | state.my_transport
     )
-    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI_BRIDGE))
+    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI))
 
     has_denied_ore = _best_denied_ore(state) is not None
     scores.append((110.0 if has_denied_ore else 0.0, Task.BARRIER_ORE))

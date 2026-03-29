@@ -1,4 +1,4 @@
-from building import BuildingBridge, BuildingLauncher, BuildingMarker, BuildingRoad
+from building import BuildingLauncher, BuildingMarker, BuildingRoad
 from cambc import Controller, Direction, Position
 from util import DIR8_DELTA
 
@@ -7,15 +7,8 @@ from .helpers import move_toward_with_road
 from .state import COST_IMPASSABLE, State
 
 
-def _undefended_bridge(state: State) -> tuple[int, int] | None:
+def _undefended_transport(state: State) -> tuple[int, int] | None:
     for p in state.my_transport:
-        i = state.idx(p.x, p.y)
-        bld = state.building[i]
-        match bld:
-            case BuildingBridge():
-                pass
-            case _:
-                continue
         bx, by = p.x, p.y
         has_launcher = False
         for dx, dy in DIR8_DELTA:
@@ -59,7 +52,7 @@ def place_launcher(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    bridge = _undefended_bridge(state)
+    bridge = _undefended_transport(state)
     if bridge is None:
         return None
     bx, by = bridge

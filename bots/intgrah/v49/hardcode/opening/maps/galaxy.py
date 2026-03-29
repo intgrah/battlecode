@@ -16,75 +16,70 @@ from hardcode.opening.dsl import (
     f,
     h,
     ln,
-    wait,
 )
 
-# galaxy (40x40), ROT symmetry
-# Core A: (4, 35), Core B: (35, 4)
-# Ti: (8,35) dist=4, (6,29) dist=6
-# Ax: (15,31) dist=11
-#
-# Econ opening with full foundry pipeline.
-# B2 (turn 1): walks NE to Ax (15,31) via conveyors along row 31.
-# B1 (turn 2): Ti harvester (8,35) bridges to core; Ti (6,29) bridges to foundry.
-# Foundry at (5,31); refined Ax bridges to core (4,34).
-
-_B2: list[DslTurn] = [
-    NE.rd(),
-    NE.rd(),
-    E.rd(),
-    c(NE, W) | NE,
-    c(E, W) | E,
-    c(E, W) | E,
-    c(E, W) | E,
-    c(E, W) | E,
-    c(E, W) | E,
-    c(E, W) | E,
-    h(E) | None,
-    ba(NE) | None,
-    ba(SE) | None,
-    W.turn(),
-    ba(S) | None,
-    W.turn(),
-    W.turn(),
-    ba(S) | None,
-    W.turn(),
-    W.turn(),
-    ba(S) | None,
-    W.turn(),
-    SW.turn(),
-    ba(E) | None,
-    ba(SE) | None,
-    ba(SW) | None,
-    *[wait] * 10,
-]
-
 _B1: list[DslTurn] = [
-    E.rd(),
-    br(SE, (-2, 0)) | None,
+    c(E, W) | E,
     E.rd(),
     h(SE) | None,
+    br(S, (2, -2)) | None,
     ln(SW) | None,
-    N.rd(),
     N.turn(),
-    br(N, (-2, 0)) | None,
-    NW.rd(),
-    NW.rd(),
-    br(N, (0, 2)) | None,
-    h(NE) | None,
-    br(SW, (0, 3)) | None,
-    *[wait] * 6,
-    f(S) | None,
-    ba(E) | None,
-    ba(NW) | None,
+    c(E, W) | None,
+    c(SE, N) | None,
+    c(W, S) | None,
+    N.turn(),
+    NE.turn(),
+    S.rd(),
+    ln(E) | None,
+    f(SE) | None,
+    S.turn(),
+    ba(SE) | None,
+    N.turn(),
+    NE.turn(),
+    SE.rd(),
+    S.rd(),
+    S.rd(),
+    ba(SW) | None,
+    S.rd(),
+    S.rd(),
+    W.rd(),
     ba(W) | None,
-    *[wait] * 12,
+]
+
+_B2: list[DslTurn] = [
+    NE.turn(),
+    c(NE, W) | NE,
+    N.rd(),
+    NE.rd(),
+    E.rd(),
+    NE.rd(),
+    NE.rd(),
+    E.rd(),
+    SE.rd(),
+    br(S, (-2, 0)) | None,
+    c(SE, W) | SE,
+    h(E) | None,
+    N.rd(),
+    ba(E) | S,
+    S.rd(),
+    ba(E) | None,
+    SE.rd(),
+    NE.rd(),
+    ba(N) | None,
+    SW.turn(),
+    NW.turn(),
+    N.turn(),
+    NW.turn(),
+    ln(SW) | None,
+    W.rd(),
+    br(SW, (-2, 2)) | None,
 ]
 
 register(
     KnownMap.GALAXY,
     Opening(
-        core_spawns=[(0, -1), (1, -1)],
-        builder_scripts=[_B2, _B1],
+        core_spawns=[(1, -1), (1, 0)],
+        builder_scripts=[_B1, _B2],
     ),
 )
