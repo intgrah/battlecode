@@ -12,6 +12,7 @@ _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 class GatewayGraph:
     __slots__ = (
+        "_boundary_dirty",
         "_ch",
         "_cluster_gws",
         "_cost",
@@ -52,14 +53,12 @@ class GatewayGraph:
         self._ch = (h + cluster_size - 1) // cluster_size
         self._tile_cost = tile_cost
 
-        # Flat cost array: cost[tile] = tile_cost(x, y), precomputed once.
         n = self._n
         cost = [0] * n
         for i in range(n):
             cost[i] = tile_cost(i % w, i // w)
         self._cost: list[int] = cost
 
-        # Precompute neighbor lists per tile (with diagonal flag).
         neighbors: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
         for i in range(n):
             cx, cy = i % w, i // w
@@ -76,14 +75,13 @@ class GatewayGraph:
         self._gw_parent: list[dict[int, int | None]] = []
         self._cluster_gws: list[list[int]] = [[] for _ in range(self._cw * self._ch)]
         self._dirty: set[int] = set()
+        self._boundary_dirty: bool = False
 
-        # Source cluster Dijkstra cache (keyed by (cluster, tile)).
         self._src_cache_ci: int = -1
         self._src_cache_tile: int = -1
         self._src_cache_dist: dict[int, int] = {}
         self._src_cache_parent: dict[int, int | None] = {}
 
-        # Reusable flat arrays for _fast_dijkstra (avoid per-call allocation).
         self._fd_dist: list[int] = [_INF] * n
         self._fd_parent: list[int] = [-1] * n
         self._fd_touched: list[int] = []
@@ -91,7 +89,7 @@ class GatewayGraph:
         self._build_all()
 
     # -----------------------------------------------------------------------
-    # Cost / cluster helpers
+    # Helpers
     # -----------------------------------------------------------------------
 
     def _cluster_of(self, x: int, y: int) -> int:
@@ -109,8 +107,13 @@ class GatewayGraph:
     def _is_passable(self, x: int, y: int) -> bool:
         return self._cost[y * self._w + x] < _INF
 
+    def _is_on_boundary(self, x: int, y: int) -> bool:
+        """True if tile (x,y) is on a cluster boundary edge."""
+        cs = self._cs
+        return x % cs == 0 or (x + 1) % cs == 0 or y % cs == 0 or (y + 1) % cs == 0
+
     # -----------------------------------------------------------------------
-    # Build
+    # Full build
     # -----------------------------------------------------------------------
 
     def _build_all(self) -> None:
@@ -157,29 +160,24 @@ class GatewayGraph:
 
     def _find_gateways(self) -> None:
         w, h, cs, cw = self._w, self._h, self._cs, self._cw
-
         for cy in range(self._ch):
             for cx in range(self._cw):
                 x0 = cx * cs
                 y0 = cy * cs
                 x1 = min(x0 + cs, w)
                 y1 = min(y0 + cs, h)
-
                 if cx + 1 < cw:
                     bx = x1
                     if bx < w:
                         self._scan_boundary_v(bx - 1, bx, y0, y1)
-
                 if cy + 1 < self._ch:
                     by = y1
                     if by < h:
                         self._scan_boundary_h(x0, x1, by - 1, by)
-
                 if cx + 1 < cw:
                     bx = x1
                     if bx < w:
                         self._scan_diagonal_v(bx - 1, bx, y0, y1)
-
                 if cy + 1 < self._ch:
                     by = y1
                     if by < h:
@@ -244,7 +242,7 @@ class GatewayGraph:
             self._add_gateway(x_end - 1, ya, x_end - 1, yb)
 
     # -----------------------------------------------------------------------
-    # Cluster Dijkstra — flat-array version
+    # Intra-cluster edges
     # -----------------------------------------------------------------------
 
     def _compute_intra_edges(self) -> None:
@@ -266,11 +264,33 @@ class GatewayGraph:
                     self._gw_adj[gi].append((gj, d))
                     self._gw_adj[gj].append((gi, d))
 
+    def _recompute_cluster_edges(self, ci: int) -> None:
+        """Recompute intra-edges for a single cluster, clearing old ones first."""
+        gws = self._cluster_gws[ci]
+        # Clear intra-edges (edges where both endpoints are in this cluster).
+        gws_set = set(gws)
+        for gi in gws:
+            self._gw_adj[gi] = [
+                (nb, c) for nb, c in self._gw_adj[gi] if nb not in gws_set
+            ]
+            self._gw_parent[gi] = {}
+        # Recompute.
+        if len(gws) < 2:
+            return
+        x0, y0, x1, y1 = self._cluster_bounds(ci)
+        for i, gi in enumerate(gws):
+            dist, parent = self._cluster_dijkstra(self._gw_tile[gi], x0, y0, x1, y1)
+            self._gw_parent[gi] = parent
+            for gj in gws[i + 1 :]:
+                tj = self._gw_tile[gj]
+                d = dist.get(tj, _INF)
+                if d < _INF:
+                    self._gw_adj[gi].append((gj, d))
+                    self._gw_adj[gj].append((gi, d))
+
     def _cluster_dijkstra(
         self, start: int, x0: int, y0: int, x1: int, y1: int
     ) -> tuple[dict[int, int], dict[int, int | None]]:
-        """Dijkstra within a rectangular region. Returns (dist, parent) as dicts
-        (only containing tiles reached within the region)."""
         w = self._w
         cost = self._cost
         dist: dict[int, int] = {start: 0}
@@ -299,27 +319,20 @@ class GatewayGraph:
         return dist, parent
 
     # -----------------------------------------------------------------------
-    # Fast Dijkstra using precomputed neighbor lists and flat arrays
+    # Fast Dijkstra (reusable flat arrays, for query-time local search)
     # -----------------------------------------------------------------------
 
     def _fast_dijkstra(
         self, start: int, goal: int, x0: int, y0: int, x1: int, y1: int
     ) -> list[int] | None:
-        """Dijkstra within a rectangular region, optimised for single queries.
-        Uses precomputed neighbor lists, flat cost array, and reusable
-        distance/parent arrays to avoid per-call allocation."""
         w = self._w
         cost = self._cost
         neighbors = self._neighbors
-
         dist = self._fd_dist
         parent = self._fd_parent
         touched = self._fd_touched
-
-        # Initialise start.
         dist[start] = 0
         touched.append(start)
-
         heap: list[tuple[int, int]] = [(0, start)]
         result: list[int] | None = None
         while heap:
@@ -352,22 +365,23 @@ class GatewayGraph:
                     dist[ni] = nd
                     parent[ni] = node
                     heapq.heappush(heap, (nd, ni))
-
-        # Reset touched entries for next call.
         for ti in touched:
             dist[ti] = _INF
             parent[ti] = -1
         touched.clear()
-
         return result
 
     # -----------------------------------------------------------------------
-    # Tile invalidation
+    # Incremental rebuild
     # -----------------------------------------------------------------------
 
-    def invalidate_tile(self, x: int, y: int) -> None:
+    def invalidate_tile(self, x: int, y: int, passability_changed: bool = False) -> None:
+        """Mark tile as changed.  Set passability_changed=True if the tile
+        went from passable to impassable or vice versa (not just cost change)."""
         ci = self._cluster_of(x, y)
         self._dirty.add(ci)
+        if passability_changed and self._is_on_boundary(x, y):
+            self._boundary_dirty = True
         cs = self._cs
         if x % cs == 0 and x > 0:
             self._dirty.add(self._cluster_of(x - 1, y))
@@ -381,18 +395,32 @@ class GatewayGraph:
     def rebuild_dirty(self, tile_cost: Callable[[int, int], int]) -> None:
         if not self._dirty:
             return
+        dirty = self._dirty
         self._tile_cost = tile_cost
-        # Refresh flat cost array.
+
+        # 1. Refresh flat cost array for dirty clusters only.
         w = self._w
         cost = self._cost
-        for ci in self._dirty:
+        for ci in dirty:
             x0, y0, x1, y1 = self._cluster_bounds(ci)
             for yy in range(y0, y1):
+                base = yy * w
                 for xx in range(x0, x1):
-                    cost[yy * w + xx] = tile_cost(xx, yy)
+                    cost[base + xx] = tile_cost(xx, yy)
+
+        if self._boundary_dirty:
+            # Gateway positions may have changed — full rebuild required.
+            self._build_all()
+        else:
+            # Only interior tiles changed — gateway positions are stable.
+            # Just recompute intra-cluster edge weights for dirty clusters.
+            for ci in dirty:
+                self._recompute_cluster_edges(ci)
+
         self._src_cache_ci = -1
-        self._build_all()
-        self._dirty.clear()
+        self._src_cache_tile = -1
+        self._boundary_dirty = False
+        dirty.clear()
 
     # -----------------------------------------------------------------------
     # Path finding
@@ -408,14 +436,12 @@ class GatewayGraph:
         sci = self._cluster_of(sx, sy)
         gci = self._cluster_of(gx, gy)
 
-        # Same cluster — fast local search.
         if sci == gci:
             x0, y0, x1, y1 = self._cluster_bounds(sci)
             result = self._fast_dijkstra(si, gi, x0, y0, x1, y1)
             if result is not None:
                 return result
 
-        # Adjacent clusters — merge bounding boxes and search locally.
         scx, scy = divmod(sci, self._cw)
         gcx, gcy = divmod(gci, self._cw)
         if abs(scy - gcy) <= 1 and abs(scx - gcx) <= 1:
@@ -429,7 +455,6 @@ class GatewayGraph:
             if local is not None:
                 return local
 
-        # Full abstract search through gateway graph.
         src_dist, src_parent = self._get_src_temp(si, sci)
         dst_dist, dst_parent = self._insert_temp(gi, gci)
 
@@ -463,14 +488,12 @@ class GatewayGraph:
                 break
             if d > g.get(node, _INF):
                 continue
-
             if node in dst_dist:
                 total = d + dst_dist[node]
                 if total < best_total:
                     best_total = total
                     g[dst_node] = total
                     ab_parent[dst_node] = node
-
             for nb, ec in gw_adj[node]:
                 nd = d + ec
                 if nd < g.get(nb, _INF):
@@ -497,7 +520,6 @@ class GatewayGraph:
     def _get_src_temp(
         self, tile: int, ci: int
     ) -> tuple[dict[int, int], dict[int, int | None]]:
-        """Like _insert_temp but caches the source cluster Dijkstra."""
         if ci == self._src_cache_ci and tile == self._src_cache_tile:
             dist = self._src_cache_dist
             parent = self._src_cache_parent
@@ -577,20 +599,15 @@ class GatewayGraph:
         w = self._w
         sx, sy = node % w, node // w
         gx, gy = goal % w, goal // w
-
         sci = self._cluster_of(sx, sy)
         gci = self._cluster_of(gx, gy)
         if sci == gci:
             return max(abs(sx - gx), abs(sy - gy)) * 2
-
         src_dist, _ = self._insert_temp(node, sci)
         dst_dist, _ = self._insert_temp(goal, gci)
-
         if not src_dist or not dst_dist:
             return _INF
-
         gw_dist = self._abstract_dijkstra_weighted(src_dist, set(dst_dist))
-
         best = _INF
         for dgi, dc in dst_dist.items():
             d = gw_dist.get(dgi, _INF)
