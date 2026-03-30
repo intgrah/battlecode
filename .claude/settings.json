@@ -9,7 +9,8 @@
       "Bash(ruff check:*)",
       "Bash(cambc run:*)",
       "Bash(uv tool:*)",
-      "Bash(uv pip:*)"
+      "Bash(uv pip:*)",
+      "Bash(gh pr:*)"
     ]
   }
 }
