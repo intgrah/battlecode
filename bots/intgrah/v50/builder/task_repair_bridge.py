@@ -1,8 +1,8 @@
 from bridge_astar import BridgeFlowAstar
 from building import BuildingBridge, BuildingCore
 from cambc import Controller, Direction, Position
-from config import INF
 from flow_astar import AX
+from util import INF
 
 from .action import Action, PlaceBridge
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -96,5 +96,5 @@ def repair_bridge(
             if bid is not None and ct.can_destroy(bridge_pos):
                 ct.destroy(bridge_pos)
             build = PlaceBridge(bridge_pos, target_pos)
-    state.debug_target = (bridge_pos, 255, 0, 255)
+    ct.draw_indicator_line(state.pos, bridge_pos, 255, 0, 255)
     return move, build

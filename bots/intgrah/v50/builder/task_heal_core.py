@@ -23,5 +23,5 @@ def heal_core(
         return Direction.CENTRE, Heal(core)
 
     move, build = move_toward_with_road(state, ct, core)
-    state.debug_target = (core, 255, 0, 0)
+    ct.draw_indicator_line(state.pos, core, 255, 0, 0)
     return move, build

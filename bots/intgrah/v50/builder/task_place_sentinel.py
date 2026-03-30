@@ -1,7 +1,6 @@
 from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
-from config import INF
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, rotate_cw
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, INF, rotate_cw
 
 from .action import Action, PlaceSentinel
 from .helpers import move_toward_with_road
@@ -126,5 +125,5 @@ def place_sentinel(
                 build = PlaceSentinel(sentinel_pos, facing)
             elif ct.can_build_sentinel(sentinel_pos, facing_alt):
                 build = PlaceSentinel(sentinel_pos, facing_alt)
-    state.debug_target = (sentinel_pos, 255, 0, 0)
+    ct.draw_indicator_line(state.pos, sentinel_pos, 255, 0, 0)
     return move, build

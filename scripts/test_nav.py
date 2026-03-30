@@ -16,7 +16,7 @@ class _Env:
 class _Pos:
     __slots__ = ("x", "y")
 
-    def __init__(self, x, y):
+    def __init__(self, x, y) -> None:
         self.x = x
         self.y = y
 
@@ -47,9 +47,8 @@ _util.Symmetry = type(
 )()
 sys.modules["util"] = _util
 
-from nav import find_path_raw as py_find
-
 from _nav_c import find_path_raw as c_find
+from nav import find_path_raw as py_find
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
@@ -70,7 +69,7 @@ def path_cost(w, cost, path):
     return t
 
 
-def main():
+def main() -> None:
     maps_dir = ROOT / "maps"
     maps = sorted(maps_dir.glob("*.map26"))
 

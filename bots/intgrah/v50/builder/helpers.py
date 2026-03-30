@@ -1,9 +1,9 @@
 import itertools
 
 from cambc import Controller, Direction, EntityType, Position
-from config import COST_IMPASSABLE, INF
 from marker import TaskKind
 from navigation import find_path
+from util import COST_IMPASSABLE, INF
 
 from .action import (
     Action,
@@ -68,7 +68,7 @@ def _draw_path(ct: Controller, w: int, path: list[int]) -> None:
     for u, v in itertools.pairwise(path):
         y0, x0 = divmod(u, w)
         y1, x1 = divmod(v, w)
-        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 0, 200, 0)
+        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 0, 0, 0)
 
 
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:

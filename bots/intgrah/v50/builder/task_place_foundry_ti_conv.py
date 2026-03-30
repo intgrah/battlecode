@@ -10,7 +10,7 @@ on the Ti chain, breaking the Ti passthrough but producing RAx instead.
 
 from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller, Direction, Position
-from config import INF
+from util import INF
 
 from .action import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -52,7 +52,7 @@ def place_foundry_ti_conv(
     target = best_tile
 
     if pos.distance_squared(target) <= 2 and pos != target:
-        state.debug_target = (target, 255, 128, 0)
+        ct.draw_indicator_line(state.pos, target, 255, 128, 0)
         return Direction.CENTRE, PlaceFoundry(target)
 
     adj = cardinal_adjacent(state, pos, target)
@@ -63,5 +63,5 @@ def place_foundry_ti_conv(
         new_pos = pos.add(move)
         if new_pos.distance_squared(target) <= 2 and new_pos != target:
             build = PlaceFoundry(target)
-    state.debug_target = (target, 255, 128, 0)
+    ct.draw_indicator_line(state.pos, target, 255, 128, 0)
     return move, build

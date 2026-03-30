@@ -68,6 +68,5 @@ def harvest_ti(
                 if ti >= h_cost:
                     build = PlaceHarvester(ore_pos)
         state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
-        state.debug_target = (Position(ore[0], ore[1]), 0, 255, 0)
         return move, build
     return None

@@ -23,5 +23,5 @@ def nav_enemy_core(
     move, build = move_toward_with_road(state, ct, target)
     if move == Direction.CENTRE and build is None:
         return None
-    state.debug_target = (target, 255, 0, 0)
+    ct.draw_indicator_line(state.pos, target, 255, 0, 0)
     return move, build

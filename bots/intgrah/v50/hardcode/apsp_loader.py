@@ -22,7 +22,6 @@ class ApspTable:
             case Symmetry.VER:
                 x, y = i % self._w, i // self._w
                 return y * self._w + (self._w - 1 - x)
-        return i
 
     def _row(self, i: int) -> int:
         match self._sym:

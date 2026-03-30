@@ -1,8 +1,7 @@
 from building import BuildingHarvester, BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Position
-from config import COST_IMPASSABLE, INF
 from marker import TaskKind
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, rotate_cw
+from util import COST_IMPASSABLE, DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, INF, rotate_cw
 
 from .action import Action, PlaceBarrier, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
@@ -125,7 +124,7 @@ def deny_enemy_harvester(
                         build = PlaceSentinel(sentinel_pos, facing_cw3)
                     elif ct.can_build_sentinel(sentinel_pos, facing_cw5):
                         build = PlaceSentinel(sentinel_pos, facing_cw5)
-            state.debug_target = (sentinel_pos, 255, 0, 0)
+            ct.draw_indicator_line(state.pos, sentinel_pos, 255, 0, 0)
             return move, build
         return None
 
@@ -145,5 +144,5 @@ def deny_enemy_harvester(
                 ct.destroy(ore_pos)
             if ct.can_build_barrier(ore_pos):
                 build = PlaceBarrier(ore_pos)
-    state.debug_target = (ore_pos, 255, 128, 0)
+    ct.draw_indicator_line(state.pos, ore_pos, 255, 128, 0)
     return move, build

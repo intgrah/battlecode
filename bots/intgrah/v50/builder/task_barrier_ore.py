@@ -1,7 +1,6 @@
 from building import BuildingHarvester, BuildingSentinel
 from cambc import Controller, Direction, Position
-from config import INF
-from util import DIR8_DELTA
+from util import DIR8_DELTA, INF
 
 from .action import Action, PlaceBarrier
 from .helpers import move_toward_with_road
@@ -71,5 +70,5 @@ def barrier_ore(
             if bid is not None and ct.can_destroy(ore_pos):
                 ct.destroy(ore_pos)
             build = PlaceBarrier(ore_pos)
-    state.debug_target = (ore_pos, 128, 128, 128)
+    ct.draw_indicator_line(state.pos, ore_pos, 128, 128, 128)
     return move, build

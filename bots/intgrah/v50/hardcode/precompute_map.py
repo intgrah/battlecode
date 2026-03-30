@@ -2,19 +2,15 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "proto"))
-
-import cambc_pb2
+from proto import cambc_pb2
 
 from .known import KnownMap
 
-_ENV_MAP = {
-    0: "Environment.EMPTY",
-    1: "Environment.WALL",
-    2: "Environment.ORE_TITANIUM",
-    3: "Environment.ORE_AXIONITE",
-}
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 _MAPS_DIR = Path(__file__).resolve().parents[4] / "maps"
 _BYTES_PER_LINE = 60
 
@@ -24,7 +20,7 @@ def _determine_symmetry(
     h: int,
     tiles: list[int],
 ) -> str:
-    def _check(transform: callable) -> bool:
+    def _check(transform: Callable[[int, int], tuple[int, int]]) -> bool:
         for y in range(h):
             for x in range(w):
                 mx, my = transform(x, y)
@@ -137,7 +133,6 @@ def main() -> None:
         f.write("for _km in KnownMap:\n")
         f.write("    _key = (*DIMENSIONS[_km], CORE_A[_km])\n")
         f.write("    CANDIDATES.setdefault(_key, []).append(_km)\n")
-        f.write("del _km, _key\n\n\n")
 
         for km, _, _, _, _, _, _, _, packed in entries:
             f.write(f"def _{km.value}() -> bytes:\n")

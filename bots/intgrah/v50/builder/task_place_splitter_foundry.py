@@ -43,7 +43,7 @@ def place_splitter_foundry(
             target = Position(nx, ny)
 
             if pos.distance_squared(target) <= 2 and pos != target:
-                state.debug_target = (target, 255, 200, 0)
+                ct.draw_indicator_line(state.pos, target, 255, 200, 0)
                 return Direction.CENTRE, PlaceSplitter(target, d)
 
             adj = cardinal_adjacent(state, pos, target)
@@ -54,6 +54,6 @@ def place_splitter_foundry(
                 new_pos = pos.add(move)
                 if new_pos.distance_squared(target) <= 2 and new_pos != target:
                     build = PlaceSplitter(target, d)
-            state.debug_target = (target, 255, 200, 0)
+            ct.draw_indicator_line(state.pos, target, 255, 200, 0)
             return move, build
     return None

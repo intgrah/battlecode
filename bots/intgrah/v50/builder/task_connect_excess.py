@@ -17,9 +17,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, Environment, Position
-from config import INF
 from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
+from util import INF
 
 from .action import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -58,7 +58,7 @@ def connect_excess(
     idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
     state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
-    state.debug_target = (best_tile, 255, 128, 0)
+    ct.draw_indicator_line(state.pos, best_tile, 255, 128, 0)
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:

@@ -8,9 +8,8 @@ from building import (
     BuildingSentinel,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
-from config import COST_IMPASSABLE, INF
 from marker import MarkerTaskClaim, TaskKind
-from util import DIR4_DELTA, DIR8_DELTA
+from util import COST_IMPASSABLE, DIR4_DELTA, DIR8_DELTA, INF
 
 from .action import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
@@ -164,7 +163,6 @@ def secure_ore(
             if adj is None:
                 return None
             move, build = move_toward_with_road(state, ct, adj)
-            state.debug_target = (ore_pos, 255, 255, 0)
             return move, build
 
     needs = _needs_barrier(state, ox, oy)
@@ -196,7 +194,6 @@ def secure_ore(
                     if etype not in _NO_DESTROY and ct.can_destroy(barrier_pos):
                         ct.destroy(barrier_pos)
                 build = PlaceBarrier(barrier_pos)
-        state.debug_target = (barrier_pos, 0, 255, 255)
         return move, build
 
     if not ct.is_in_vision(ore_pos):
@@ -204,7 +201,6 @@ def secure_ore(
         if adj is None:
             return None
         move, build = move_toward_with_road(state, ct, adj)
-        state.debug_target = (ore_pos, 0, 255, 0)
         return move, build
 
     bid = ct.get_tile_building_id(ore_pos)
@@ -218,7 +214,6 @@ def secure_ore(
             new_pos = pos.add(move)
             if new_pos == ore_pos:
                 build = Fire(ore_pos)
-        state.debug_target = (ore_pos, 255, 0, 0)
         return move, build
 
     if pos.distance_squared(ore_pos) <= 2:
@@ -243,5 +238,4 @@ def secure_ore(
             ti, _ = ct.get_global_resources()
             if ti >= h_cost:
                 build = PlaceHarvester(ore_pos)
-    state.debug_target = (ore_pos, 0, 255, 0)
     return move, build

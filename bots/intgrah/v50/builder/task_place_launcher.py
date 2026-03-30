@@ -1,7 +1,6 @@
 from building import BuildingLauncher, BuildingMarker, BuildingRoad
 from cambc import Controller, Direction, Position
-from config import COST_IMPASSABLE
-from util import DIR8_DELTA
+from util import COST_IMPASSABLE, DIR8_DELTA
 
 from .action import Action, PlaceLauncher
 from .helpers import move_toward_with_road
@@ -82,5 +81,5 @@ def place_launcher(
                 ct.destroy(adj)
             if ct.can_build_launcher(adj):
                 build = PlaceLauncher(adj)
-    state.debug_target = (adj, 255, 165, 0)
+    ct.draw_indicator_line(state.pos, adj, 255, 165, 0)
     return move, build

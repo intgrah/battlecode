@@ -36,5 +36,5 @@ def patrol(
         return None
     target = best_tile
     move, build = move_toward_with_road(state, ct, target)
-    state.debug_target = (target, 255, 255, 0)
+    ct.draw_indicator_line(state.pos, target, 255, 255, 0)
     return move, build

@@ -5,20 +5,26 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from builder.state import State
 
-from config import USE_C_NAV
+from config import NAV, NavMode
 
-from navigation.astar_bucket import find_path_raw as _py_find_path_raw
+from navigation.astar_apsp import find_path_raw as _apsp
+from navigation.astar_bucket import find_path_raw as _bucket_py
+from navigation.astar_landmarks import find_path_raw as _landmarks
 
-find_path_raw = _py_find_path_raw
-if USE_C_NAV:
+_bucket_c = _bucket_py
+if NAV == NavMode.ASTAR_BUCKET_C:
     try:
-        from navigation._astar_bucket_c import find_path_raw as _c_find_path_raw
+        from navigation._astar_bucket_c import find_path_raw as _bucket_c
 
-        find_path_raw = _c_find_path_raw
+        _BACKEND = NavMode.ASTAR_BUCKET_C
     except ImportError:
-        pass
+        _BACKEND = NavMode.ASTAR_BUCKET_PYTHON
+else:
+    _BACKEND = NAV
 
-__all__ = ["find_path", "find_path_raw"]
+print(f"[nav] {_BACKEND.name}")
+
+__all__ = ["find_path"]
 
 
 def find_path(state: State, gx: int, gy: int) -> list[int] | None:
@@ -27,4 +33,32 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
     cost = [0] * n
     for i in range(n):
         cost[i] = state.walkable(i % w, i // w)
-    return find_path_raw(w, h, cost, state.pos.x, state.pos.y, gx, gy)
+    sx, sy = state.pos.x, state.pos.y
+
+    match _BACKEND:
+        case NavMode.ASTAR_BUCKET_C:
+            return _bucket_c(w, h, cost, sx, sy, gx, gy)
+        case NavMode.ASTAR_BUCKET_PYTHON:
+            return _bucket_py(w, h, cost, sx, sy, gx, gy)
+        case NavMode.ASTAR_LANDMARKS:
+            lm = state.landmarks
+            if lm is not None:
+                landmarks, n_tiles, lm_data = lm
+                return _landmarks(
+                    w,
+                    h,
+                    cost,
+                    sx,
+                    sy,
+                    gx,
+                    gy,
+                    landmarks,
+                    lm_data,
+                    n_tiles,
+                )
+            return _bucket_py(w, h, cost, sx, sy, gx, gy)
+        case NavMode.ASTAR_APSP:
+            apsp = state.apsp
+            if apsp is not None:
+                return _apsp(w, h, cost, sx, sy, gx, gy, apsp)
+            return _bucket_py(w, h, cost, sx, sy, gx, gy)
