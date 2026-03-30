@@ -261,6 +261,35 @@ class GatewayGraph:
         self._build_all()
         self._dirty.clear()
 
+    def _local_dijkstra(
+        self, si: int, gi: int, x0: int, y0: int, x1: int, y1: int
+    ) -> list[int] | None:
+        """Dijkstra within an arbitrary rectangular region."""
+        w = self._w
+        dist: dict[int, int] = {si: 0}
+        parent: dict[int, int | None] = {si: None}
+        heap: list[tuple[int, int]] = [(0, si)]
+        while heap:
+            d, node = heapq.heappop(heap)
+            if node == gi:
+                return _extract(parent, gi)
+            if d > dist.get(node, _INF):
+                continue
+            nx_base, ny_base = node % w, node // w
+            for dx, dy in _DIR8:
+                nx, ny = nx_base + dx, ny_base + dy
+                if nx < x0 or nx >= x1 or ny < y0 or ny >= y1:
+                    continue
+                nd = d + self._step_cost(nx_base, ny_base, nx, ny)
+                if nd >= _INF:
+                    continue
+                ni = ny * w + nx
+                if nd < dist.get(ni, _INF):
+                    dist[ni] = nd
+                    parent[ni] = node
+                    heapq.heappush(heap, (nd, ni))
+        return None
+
     def find_path(self, sx: int, sy: int, gx: int, gy: int) -> list[int] | None:
         w = self._w
         si = sy * w + sx
@@ -277,10 +306,27 @@ class GatewayGraph:
             if gi in parent:
                 return _extract(parent, gi)
 
+        # Local search for nearby points in adjacent clusters.
+        # Merge the bounding boxes of both clusters (clamped to map) and
+        # run a single Dijkstra.  Cheap because the region is at most
+        # 2×cluster_size in each dimension.
+        scx, scy = divmod(sci, self._cw)
+        gcx, gcy = divmod(gci, self._cw)
+        if abs(scy - gcy) <= 1 and abs(scx - gcx) <= 1:
+            sx0, sy0, sx1, sy1 = self._cluster_bounds(sci)
+            gx0, gy0, gx1, gy1 = self._cluster_bounds(gci)
+            lx0 = min(sx0, gx0)
+            ly0 = min(sy0, gy0)
+            lx1 = max(sx1, gx1)
+            ly1 = max(sy1, gy1)
+            local = self._local_dijkstra(si, gi, lx0, ly0, lx1, ly1)
+            if local is not None:
+                return local
+
         src_dist, src_parent = self._insert_temp(si, sci)
         dst_dist, dst_parent = self._insert_temp(gi, gci)
 
-        if not src_dist and not dst_dist:
+        if not src_dist or not dst_dist:
             return None
 
         n_gw = len(self._gw_tile)
@@ -299,14 +345,18 @@ class GatewayGraph:
             h = max(abs(tx - gx_f), abs(ty - gy_f)) * 2
             heapq.heappush(heap, (cost + h, gi_idx, cost))
 
+        best_total = _INF
         while heap:
-            _, node, d = heapq.heappop(heap)
+            f_val, node, d = heapq.heappop(heap)
+            if f_val >= best_total:
+                break
             if d > g.get(node, _INF):
                 continue
 
             if node in dst_dist:
                 total = d + dst_dist[node]
-                if total < g.get(dst_node, _INF):
+                if total < best_total:
+                    best_total = total
                     g[dst_node] = total
                     ab_parent[dst_node] = node
 
