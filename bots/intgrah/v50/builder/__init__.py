@@ -56,7 +56,6 @@ from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
 from .task_place_launcher import place_launcher
 from .task_place_sentinel import place_sentinel
 from .task_place_splitter_foundry import place_splitter_foundry
-from .task_repair_bridge import _find_broken_bridge, repair_bridge
 from .task_secure_ore import _best_ore as _secure_best_ore
 from .task_secure_ore import secure_ore
 from .task_self_destruct import self_destruct
@@ -93,7 +92,6 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
     Task.SECURE_ORE: secure_ore,
     Task.PLACE_LAUNCHER: place_launcher,
-    Task.REPAIR_BRIDGE: repair_bridge,
     Task.BARRIER_ORE: barrier_ore,
     Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
     Task.PLACE_SENTINEL: place_sentinel,
@@ -325,26 +323,12 @@ def _read_opening(
     return None, None
 
 
-def _policy(state: State) -> list[tuple[float, Task]]:
+def _policy(_state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
-
-    core_damaged = state.my_core_hp < GameConstants.CORE_MAX_HP
-    scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
-
-    has_broken = _find_broken_bridge(state) is not None
-    scores.append((175.0 if has_broken else 0.0, Task.REPAIR_BRIDGE))
-
-    has_excess = any(
-        state.my_flow.excess[state.idx(p.x, p.y)] > 0.01
-        for p in state.my_harvesters | state.my_transport
-    )
-    scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI))
-
-    # visible_ore = _secure_best_ore(state)
+    scores.append((999.0, Task.HEAL_CORE))
+    scores.append((150.0, Task.CONNECT_EXCESS_TI))
     scores.append((100.0, Task.HARVEST_TI))
-
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
-
     scores.sort(key=lambda t: t[0], reverse=True)
     return scores

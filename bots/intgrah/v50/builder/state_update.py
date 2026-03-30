@@ -59,6 +59,7 @@ def update(state: State, ct: Controller) -> None:
     changed = _scan_vision(state, ct)
     _rebuild_sets(state)
     _update_flow(state, changed)
+    _update_infra_staleness(state)
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -315,3 +316,21 @@ def _update_flow(state: State, changed: list[Position]) -> None:
         state.leakage_mask = build_leakage_mask(state)
     if needs_enemy_reflow:
         update_en_econ(state)
+
+
+def _update_infra_staleness(state: State) -> None:
+    age = state.age
+    worst = 0
+    for p in state.my_transport:
+        s = age - state.last_seen[state.idx(p.x, p.y)]
+        if s > worst:
+            worst = s
+    for p in state.my_turrets:
+        s = age - state.last_seen[state.idx(p.x, p.y)]
+        if s > worst:
+            worst = s
+    for p in state.my_core_tiles:
+        s = age - state.last_seen[state.idx(p.x, p.y)]
+        if s > worst:
+            worst = s
+    state.infra_max_staleness = worst

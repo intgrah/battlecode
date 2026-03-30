@@ -134,7 +134,8 @@ class State:
         self.last_claim: MarkerTaskClaim | None = None
         self.claim: MarkerTaskClaim | None = None
 
-        # -- Debug --
+        # -- Derived beliefs --
+        self.infra_max_staleness: int = 0
 
         # -- Leakage mask (recomputed on reflow) --
         self.leakage_mask: list[int] | None = None
