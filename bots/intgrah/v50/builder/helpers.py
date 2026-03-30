@@ -3,7 +3,7 @@ import itertools
 from cambc import Controller, Direction, EntityType, Position
 from config import COST_IMPASSABLE, INF
 from marker import TaskKind
-from nav import find_path
+from navigation import find_path
 
 from .action import (
     Action,

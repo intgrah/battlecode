@@ -1,31 +1,33 @@
-from __future__ import annotations
-
 from collections import deque
-from typing import TYPE_CHECKING
 
-from config import COST_IMPASSABLE, COST_ROAD, INF
-
-if TYPE_CHECKING:
-    from builder.state import State
-
-__all__ = ["find_path"]
-
+_INF = 1_000_000
+_COST_ROAD = 2
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 _DIAL_MOD = 14
 _NODE_BUDGET = 700
 
 
-def find_path(state: State, gx: int, gy: int) -> list[int] | None:
-    w, h = state.w, state.h
+def find_path_raw(
+    w: int,
+    h: int,
+    cost: list[int],
+    sx: int,
+    sy: int,
+    gx: int,
+    gy: int,
+) -> list[int] | None:
     n = w * h
-    si = state.pos.y * w + state.pos.x
+    si = sy * w + sx
     gi = gy * w + gx
     if si == gi:
         return [si]
 
-    ht = _build_h(n, w, gx, gy)
-    nb = _build_nb(state, w, h, n)
-    dist = [INF] * n
+    ht = [0] * n
+    for i in range(n):
+        ht[i] = max(abs(i % w - gx), abs(i // w - gy)) * _COST_ROAD
+
+    nb = _build_nb(w, h, n, cost)
+    dist = [_INF] * n
     parent = [-1] * n
 
     dist[si] = 0
@@ -35,7 +37,7 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
     cur_f = f0
     emp = 0
     exp = 0
-    best_h = INF
+    best_h = _INF
     best_node = si
 
     while emp < _DIAL_MOD:
@@ -66,31 +68,20 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
                 parent[ni] = node
                 bk[(nd + ht[ni]) % _DIAL_MOD].append(ni)
 
-    if best_h < INF:
+    if best_h < _INF:
         return _extract(parent, si, best_node)
     return None
 
 
-def _build_h(n: int, w: int, gx: int, gy: int) -> list[int]:
-    h = [0] * n
-    for i in range(n):
-        h[i] = max(abs(i % w - gx), abs(i // w - gy)) * COST_ROAD
-    return h
-
-
-def _build_cost(state: State, n: int) -> list[int]:
-    cost = [0] * n
-    w = state.w
-    for i in range(n):
-        cost[i] = state.walkable(i % w, i // w)
-    return cost
-
-
-def _build_nb(state: State, w: int, h: int, n: int) -> list[list[tuple[int, int]]]:
-    cost = _build_cost(state, n)
+def _build_nb(
+    w: int,
+    h: int,
+    n: int,
+    cost: list[int],
+) -> list[list[tuple[int, int]]]:
     nb: list[list[tuple[int, int]]] = [[] for _ in range(n)]
     for i in range(n):
-        if cost[i] >= COST_IMPASSABLE:
+        if cost[i] >= _INF:
             continue
         cx, cy = i % w, i // w
         for dx, dy in _DIR8:
@@ -98,7 +89,7 @@ def _build_nb(state: State, w: int, h: int, n: int) -> list[list[tuple[int, int]
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
                 c = cost[ni]
-                if c < COST_IMPASSABLE:
+                if c < _INF:
                     if dx != 0 and dy != 0:
                         c += 1
                     nb[i].append((ni, c))
