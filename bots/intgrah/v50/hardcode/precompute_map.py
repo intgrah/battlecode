@@ -22,16 +22,24 @@ _BYTES_PER_LINE = 60
 def _determine_symmetry(
     w: int,
     h: int,
-    ax: int,
-    ay: int,
-    bx: int,
-    by: int,
+    tiles: list[int],
 ) -> str:
-    if ax == bx and ay + by == h - 1:
+    def _check(transform: callable) -> bool:
+        for y in range(h):
+            for x in range(w):
+                mx, my = transform(x, y)
+                if tiles[y * w + x] != tiles[my * w + mx]:
+                    return False
+        return True
+
+    if _check(lambda x, y: (x, h - 1 - y)):
         return "HOR"
-    if ay == by and ax + bx == w - 1:
+    if _check(lambda x, y: (w - 1 - x, y)):
         return "VER"
-    return "ROT"
+    if _check(lambda x, y: (w - 1 - x, h - 1 - y)):
+        return "ROT"
+    msg = "no symmetry detected"
+    raise ValueError(msg)
 
 
 def _pack_tiles(tiles: list[int]) -> bytes:
@@ -79,7 +87,7 @@ def main() -> None:
     entries: list[tuple[KnownMap, int, int, int, int, int, int, str, bytes]] = []
     for km in KnownMap:
         w, h, ax, ay, bx, by, tiles = _parse_map(km.value)
-        sym = _determine_symmetry(w, h, ax, ay, bx, by)
+        sym = _determine_symmetry(w, h, tiles)
         packed = _pack_tiles(tiles)
         entries.append((km, w, h, ax, ay, bx, by, sym, packed))
 

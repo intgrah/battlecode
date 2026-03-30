@@ -43,7 +43,7 @@ from .build import (
 from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
-from .task_barrier_ore import _best_denied_ore, barrier_ore
+from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
 from .task_fire_enemy_transport import fire_enemy_transport
@@ -55,7 +55,6 @@ from .task_nav_enemy_core import nav_enemy_core
 from .task_patrol import patrol
 from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
 from .task_place_launcher import place_launcher
-from .task_place_sentinel import _find_target as _find_sentinel_target
 from .task_place_sentinel import place_sentinel
 from .task_place_splitter_foundry import place_splitter_foundry
 from .task_repair_bridge import _find_broken_bridge, repair_bridge
@@ -351,13 +350,8 @@ def _has_undefended_transport(state: State) -> bool:
 def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
 
-    scores.append((1000.0, Task.HEAL_TURRET))
-
     core_damaged = state.my_core_hp < GameConstants.CORE_MAX_HP
     scores.append((999.0 if core_damaged else 0.0, Task.HEAL_CORE))
-
-    has_ud_transport = _has_undefended_transport(state)
-    scores.append((200.0 if has_ud_transport else 0.0, Task.PLACE_LAUNCHER))
 
     has_broken = _find_broken_bridge(state) is not None
     scores.append((175.0 if has_broken else 0.0, Task.REPAIR_BRIDGE))
@@ -368,17 +362,8 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     )
     scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI))
 
-    has_denied_ore = _best_denied_ore(state) is not None
-    scores.append((110.0 if has_denied_ore else 0.0, Task.BARRIER_ORE))
-
     visible_ore = _secure_best_ore(state)
     scores.append((100.0 if visible_ore is not None else 0.0, Task.SECURE_ORE))
-
-    has_fire_target = len(state.en_transport) > 0
-    scores.append((75.0 if has_fire_target else 0.0, Task.FIRE_ENEMY_TRANSPORT))
-
-    has_sentinel_target = _find_sentinel_target(state) is not None
-    scores.append((70.0 if has_sentinel_target else 0.0, Task.PLACE_SENTINEL))
 
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
