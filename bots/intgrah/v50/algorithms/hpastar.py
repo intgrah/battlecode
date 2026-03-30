@@ -22,6 +22,7 @@ class GatewayGraph:
         "_fd_dist",
         "_fd_parent",
         "_fd_touched",
+        "_free_gw",
         "_gateways",
         "_gw_adj",
         "_gw_cluster",
@@ -74,6 +75,7 @@ class GatewayGraph:
         self._gw_adj: list[list[tuple[int, int]]] = []
         self._gw_parent: list[dict[int, int | None]] = []
         self._cluster_gws: list[list[int]] = [[] for _ in range(self._cw * self._ch)]
+        self._free_gw: list[int] = []  # recycled gateway slot indices
         self._dirty: set[int] = set()
         self._boundary_dirty: bool = False
 
@@ -107,6 +109,19 @@ class GatewayGraph:
     def _is_passable(self, x: int, y: int) -> bool:
         return self._cost[y * self._w + x] < _INF
 
+    def _cluster_neighbors(self, ci: int) -> list[int]:
+        cw, ch = self._cw, self._ch
+        cy, cx = divmod(ci, cw)
+        result: list[int] = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < cw and 0 <= ny < ch:
+                    result.append(ny * cw + nx)
+        return result
+
     def _is_on_boundary(self, x: int, y: int) -> bool:
         """True if tile (x,y) is on a cluster boundary edge."""
         cs = self._cs
@@ -124,11 +139,26 @@ class GatewayGraph:
         self._gw_parent.clear()
         for cg in self._cluster_gws:
             cg.clear()
+        self._free_gw.clear()
         self._src_cache_ci = -1
         self._src_cache_tile = -1
 
         self._find_gateways()
         self._compute_intra_edges()
+
+    def _alloc_gw_slot(self) -> int:
+        """Get a gateway slot index, reusing freed slots or appending."""
+        if self._free_gw:
+            gi = self._free_gw.pop()
+            self._gw_adj[gi] = []
+            self._gw_parent[gi] = {}
+            return gi
+        gi = len(self._gw_tile)
+        self._gw_tile.append(0)
+        self._gw_cluster.append((0, 0))
+        self._gw_adj.append([])
+        self._gw_parent.append({})
+        return gi
 
     def _add_gateway(self, x0: int, y0: int, x1: int, y1: int) -> None:
         w = self._w
@@ -137,17 +167,13 @@ class GatewayGraph:
         ci_b = self._cluster_of(x1, y1)
         t0 = y0 * w + x0
         t1 = y1 * w + x1
-        gi_a = len(self._gw_tile)
-        self._gw_tile.append(t0)
-        self._gw_cluster.append((ci_a, ci_b))
-        self._gw_adj.append([])
-        self._gw_parent.append({})
+        gi_a = self._alloc_gw_slot()
+        self._gw_tile[gi_a] = t0
+        self._gw_cluster[gi_a] = (ci_a, ci_b)
         self._cluster_gws[ci_a].append(gi_a)
-        gi_b = len(self._gw_tile)
-        self._gw_tile.append(t1)
-        self._gw_cluster.append((ci_b, ci_a))
-        self._gw_adj.append([])
-        self._gw_parent.append({})
+        gi_b = self._alloc_gw_slot()
+        self._gw_tile[gi_b] = t1
+        self._gw_cluster[gi_b] = (ci_b, ci_a)
         self._cluster_gws[ci_b].append(gi_b)
         c = cost[t1]
         if c >= _INF:
@@ -409,8 +435,97 @@ class GatewayGraph:
                     cost[base + xx] = tile_cost(xx, yy)
 
         if self._boundary_dirty:
-            # Gateway positions may have changed — full rebuild required.
-            self._build_all()
+            # Gateway positions may have changed on boundaries involving
+            # dirty clusters.  Surgically remove affected gateways and
+            # re-scan only those boundaries, keeping stable indices.
+            affected: set[int] = set(dirty)
+            for ci in dirty:
+                for ni in self._cluster_neighbors(ci):
+                    affected.add(ni)
+
+            # Kill gateways owned by affected clusters, recycle their slots.
+            dead_gws: set[int] = set()
+            for ci in affected:
+                for gi in self._cluster_gws[ci]:
+                    dead_gws.add(gi)
+                    self._free_gw.append(gi)
+                self._cluster_gws[ci] = []
+
+            self._gateways = [
+                (a, b) for a, b in self._gateways if a not in dead_gws
+            ]
+
+            # Purge edges from clean gateways that pointed to dead ones.
+            for gi in range(len(self._gw_adj)):
+                if gi not in dead_gws and self._gw_adj[gi]:
+                    self._gw_adj[gi] = [
+                        (nb, c) for nb, c in self._gw_adj[gi]
+                        if nb not in dead_gws
+                    ]
+
+            # Re-scan boundaries for affected clusters (adds new gateways
+            # that reuse the freed slots, keeping indices stable for
+            # non-affected clusters).
+            cs, cw, ch = self._cs, self._cw, self._ch
+            scanned: set[tuple[int, int]] = set()
+            for ci in affected:
+                cy_c, cx_c = divmod(ci, cw)
+                x0 = cx_c * cs
+                y0 = cy_c * cs
+                x1 = min(x0 + cs, self._w)
+                y1 = min(y0 + cs, self._h)
+
+                if cx_c + 1 < cw:
+                    right = cy_c * cw + (cx_c + 1)
+                    key = (min(ci, right), max(ci, right))
+                    if key not in scanned:
+                        scanned.add(key)
+                        bx = x1
+                        if bx < self._w:
+                            self._scan_boundary_v(bx - 1, bx, y0, y1)
+                            self._scan_diagonal_v(bx - 1, bx, y0, y1)
+
+                if cx_c > 0:
+                    left = cy_c * cw + (cx_c - 1)
+                    key = (min(ci, left), max(ci, left))
+                    if key not in scanned:
+                        scanned.add(key)
+                        bx = x0
+                        ly0 = cy_c * cs
+                        ly1 = min(ly0 + cs, self._h)
+                        self._scan_boundary_v(bx - 1, bx, ly0, ly1)
+                        self._scan_diagonal_v(bx - 1, bx, ly0, ly1)
+
+                if cy_c + 1 < ch:
+                    below = (cy_c + 1) * cw + cx_c
+                    key = (min(ci, below), max(ci, below))
+                    if key not in scanned:
+                        scanned.add(key)
+                        by = y1
+                        if by < self._h:
+                            self._scan_boundary_h(x0, x1, by - 1, by)
+                            self._scan_diagonal_h(x0, x1, by - 1, by)
+
+                if cy_c > 0:
+                    above = (cy_c - 1) * cw + cx_c
+                    key = (min(ci, above), max(ci, above))
+                    if key not in scanned:
+                        scanned.add(key)
+                        by = y0
+                        self._scan_boundary_h(x0, x1, by - 1, by)
+                        self._scan_diagonal_h(x0, x1, by - 1, by)
+
+            # Recompute intra-edges for all clusters that had gateways
+            # added or removed.  This includes affected clusters and any
+            # non-affected clusters that border affected clusters (they
+            # received new boundary gateways from the re-scan).
+            recompute: set[int] = set(affected)
+            for ci in affected:
+                for ni in self._cluster_neighbors(ci):
+                    if ni not in affected and self._cluster_gws[ni]:
+                        recompute.add(ni)
+            for ci in recompute:
+                self._recompute_cluster_edges(ci)
         else:
             # Only interior tiles changed — gateway positions are stable.
             # Just recompute intra-cluster edge weights for dirty clusters.
