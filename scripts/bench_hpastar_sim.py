@@ -118,11 +118,11 @@ class Belief:
         self.env: list[int | None] = [None] * self.n
         self.true_env: list[int] = true_tiles
 
-    def reveal(self, bx: int, by: int) -> list[tuple[int, int]]:
-        """Reveal tiles in vision from (bx, by).  Returns list of (x, y)
-        whose cost changed (newly seen or changed from unseen to wall)."""
+    def reveal(self, bx: int, by: int) -> list[tuple[int, int, bool]]:
+        """Reveal tiles in vision from (bx, by).  Returns list of
+        (x, y, passability_changed) for tiles whose cost changed."""
         w, h = self.w, self.h
-        changed: list[tuple[int, int]] = []
+        changed: list[tuple[int, int, bool]] = []
         for dx, dy in _VIS_OFFSETS:
             x, y = bx + dx, by + dy
             if 0 <= x < w and 0 <= y < h:
@@ -131,12 +131,14 @@ class Belief:
                 old_val = self.env[i]
                 if old_val is None:
                     self.env[i] = true_val
-                    # Cost changed: was COST_UNSEEN, now COST_EMPTY or _INF.
-                    changed.append((x, y))
+                    # Unseen was treated as passable (COST_UNSEEN).
+                    # Passability changes only if the true tile is a wall.
+                    changed.append((x, y, true_val == 1))
                 elif old_val != true_val:
-                    # Shouldn't happen with static maps, but be safe.
+                    old_pass = old_val != 1
+                    new_pass = true_val != 1
                     self.env[i] = true_val
-                    changed.append((x, y))
+                    changed.append((x, y, old_pass != new_pass))
         return changed
 
     def tile_cost(self, x: int, y: int) -> int:
@@ -279,8 +281,8 @@ def simulate_map(
         changed = hpa_belief.reveal(bx, by)
 
         # 2. Dirty changed clusters and rebuild.
-        for cx, cy in changed:
-            gg.invalidate_tile(cx, cy)
+        for cx, cy, pass_changed in changed:
+            gg.invalidate_tile(cx, cy, passability_changed=pass_changed)
         # Update flat cost array for dirtied tiles.
         if changed:
             gg.rebuild_dirty(cost_fn_hpa)
