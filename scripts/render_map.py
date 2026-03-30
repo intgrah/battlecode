@@ -27,7 +27,7 @@ COL_CORE_A = (70, 70, 180)
 COL_CORE_B = (180, 60, 60)
 COL_GRID = (30, 30, 30)
 
-CELL = 24  # pixels per tile
+CELL = 48  # pixels per tile
 
 
 def render_map(map_path: str, output_path: str | None = None) -> str:
@@ -57,7 +57,7 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
                 core_tiles_b.add((cx + dx, cy + dy))
 
     # Create image with margin for coords
-    margin = 20
+    margin = 36
     img_w = w * CELL + margin
     img_h = h * CELL + margin
     img = Image.new("RGB", (img_w, img_h), (20, 20, 20))
@@ -65,21 +65,25 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
 
     try:
         font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 10
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16
+        )
+        font_sm = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12
         )
     except Exception:
         font = ImageFont.load_default()
+        font_sm = font
 
     # Draw coordinate labels
     for x in range(w):
         if x % 5 == 0:
             draw.text(
-                (margin + x * CELL + 2, 2), str(x), fill=(120, 120, 120), font=font
+                (margin + x * CELL + 4, 8), str(x), fill=(120, 120, 120), font=font_sm
             )
     for y in range(h):
         if y % 5 == 0:
             draw.text(
-                (1, margin + y * CELL + 2), str(y), fill=(120, 120, 120), font=font
+                (2, margin + y * CELL + 14), str(y), fill=(120, 120, 120), font=font_sm
             )
 
     # Draw tiles
@@ -112,25 +116,25 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
                 and (x, y) not in core_tiles_a
                 and (x, y) not in core_tiles_b
             ):
-                draw.text((px + 7, py + 5), "T", fill=(150, 180, 230), font=font)
+                draw.text((px + 16, py + 14), "T", fill=(150, 180, 230), font=font)
             elif (
                 tile == ENV_ORE_AXIONITE
                 and (x, y) not in core_tiles_a
                 and (x, y) not in core_tiles_b
             ):
-                draw.text((px + 7, py + 5), "A", fill=(230, 170, 90), font=font)
+                draw.text((px + 16, py + 14), "A", fill=(230, 170, 90), font=font)
 
     # Label cores
     if 0 in cores:
         cx, cy = cores[0]
         px = margin + cx * CELL
         py = margin + cy * CELL
-        draw.text((px + 2, py + 5), "C:A", fill=(200, 200, 255), font=font)
+        draw.text((px + 6, py + 14), "C:A", fill=(200, 200, 255), font=font)
     if 1 in cores:
         cx, cy = cores[1]
         px = margin + cx * CELL
         py = margin + cy * CELL
-        draw.text((px + 2, py + 5), "C:B", fill=(255, 200, 200), font=font)
+        draw.text((px + 6, py + 14), "C:B", fill=(255, 200, 200), font=font)
 
     # Legend
     map_name = Path(map_path).stem.replace(".map26", "")
@@ -141,16 +145,16 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
         title += f"  B@{cores[1]}"
 
     # Add legend bar at bottom
-    legend_h = 30
+    legend_h = 50
     new_img = Image.new("RGB", (img_w, img_h + legend_h), (20, 20, 20))
     new_img.paste(img, (0, 0))
     draw2 = ImageDraw.Draw(new_img)
-    draw2.text((5, img_h + 3), title, fill=(200, 200, 200), font=font)
+    draw2.text((8, img_h + 5), title, fill=(200, 200, 200), font=font)
     draw2.text(
-        (5, img_h + 15),
+        (8, img_h + 26),
         "T=Titanium  A=Axionite  Blue=CoreA  Red=CoreB  Brown=Wall",
         fill=(140, 140, 140),
-        font=font,
+        font=font_sm,
     )
 
     if output_path is None:
