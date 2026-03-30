@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use crossterm::terminal;
 use ratatui::{
@@ -367,7 +369,7 @@ impl App {
             .and_then(|id| state.entities.get(&id))
             .map_or_else(
                 || format_tile_info(&self.game, self.cursor),
-                format_entity_info,
+                |e| format_entity_info(e, &state.cpu_time_us),
             );
         let inspector = Paragraph::new(inspector_text)
             .block(Block::default().borders(Borders::ALL).title(" Inspector "))
@@ -409,7 +411,7 @@ impl App {
     }
 }
 
-fn format_entity_info(e: &Entity) -> String {
+fn format_entity_info(e: &Entity, cpu_time_us: &HashMap<i32, u32>) -> String {
     use std::fmt::Write;
     let team = match e.team {
         proto::Team::A => "A",
@@ -479,6 +481,9 @@ fn format_entity_info(e: &Entity) -> String {
             let _ = write!(s, "\nDir: {dir:?}\nAmmo: {ammo} {ammo_type:?}");
         }
         _ => {}
+    }
+    if let Some(&us) = cpu_time_us.get(&e.id) {
+        let _ = write!(s, "\nCPU: {us}\u{00b5}s");
     }
     s
 }
