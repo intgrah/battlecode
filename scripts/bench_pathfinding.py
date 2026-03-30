@@ -186,7 +186,10 @@ def bench_map(
         if path is not None:
             hpa_cost, err = _validate_path(w, h, tiles, path, sx, sy, gx, gy)
             if err is not None:
-                print(f"  INVALID PATH on {map_path.stem} ({sx},{sy})->({gx},{gy}): {err}", file=sys.stderr)
+                print(
+                    f"  INVALID PATH on {map_path.stem} ({sx},{sy})->({gx},{gy}): {err}",
+                    file=sys.stderr,
+                )
             hpa_costs.append(hpa_cost)
         else:
             hpa_costs.append(_INF)
@@ -202,9 +205,15 @@ def bench_map(
         if is_reachable == found:
             reachable_correct += 1
         elif is_reachable and not found:
-            print(f"  FALSE NEG on {map_path.stem} ({sx},{sy})->({gx},{gy})", file=sys.stderr)
+            print(
+                f"  FALSE NEG on {map_path.stem} ({sx},{sy})->({gx},{gy})",
+                file=sys.stderr,
+            )
         elif not is_reachable and found:
-            print(f"  FALSE POS on {map_path.stem} ({sx},{sy})->({gx},{gy})", file=sys.stderr)
+            print(
+                f"  FALSE POS on {map_path.stem} ({sx},{sy})->({gx},{gy})",
+                file=sys.stderr,
+            )
 
         if 0 < optimal < _INF and hpa_costs[-1] < _INF:
             optimality_ratios.append(hpa_costs[-1] / optimal)
@@ -238,7 +247,14 @@ def bench_map(
 
 
 def _validate_path(
-    w: int, h: int, tiles: list[int], path: list[int], sx: int, sy: int, gx: int, gy: int,
+    w: int,
+    h: int,
+    tiles: list[int],
+    path: list[int],
+    sx: int,
+    sy: int,
+    gx: int,
+    gy: int,
 ) -> tuple[int, str | None]:
     if not path:
         return _INF, "empty path"

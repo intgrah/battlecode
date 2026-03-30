@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from hardcode.known import KnownMap
 
 
-
 @dataclass(frozen=True, slots=True)
 class Move:
     direction: Direction

@@ -15,18 +15,20 @@ from .build import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
 from .state import COST_IMPASSABLE, State
 
-_NO_DESTROY = frozenset((
-    EntityType.CONVEYOR,
-    EntityType.ARMOURED_CONVEYOR,
-    EntityType.BRIDGE,
-    EntityType.SPLITTER,
-    EntityType.HARVESTER,
-    EntityType.FOUNDRY,
-    EntityType.LAUNCHER,
-    EntityType.GUNNER,
-    EntityType.SENTINEL,
-    EntityType.BREACH,
-))
+_NO_DESTROY = frozenset(
+    (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.BRIDGE,
+        EntityType.SPLITTER,
+        EntityType.HARVESTER,
+        EntityType.FOUNDRY,
+        EntityType.LAUNCHER,
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+    )
+)
 
 _SECURED = (
     BuildingBarrier,

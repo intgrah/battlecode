@@ -65,7 +65,9 @@ def to_signed(val: int) -> int:
 
 
 def iter_fields(
-    data: bytes, start: int = 0, end: int | None = None,
+    data: bytes,
+    start: int = 0,
+    end: int | None = None,
 ) -> Iterator[tuple[int, int, int, int]]:
     """Yield (field_number, wire_type, value, next_pos) for each field."""
     if end is None:

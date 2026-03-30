@@ -143,7 +143,16 @@ def _step_off_source(
             if state.in_bounds(ox, oy):
                 oi = state.idx(ox, oy)
                 obld = state.building[oi]
-                if obld is None or isinstance(obld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge, BuildingCore)):
+                if obld is None or isinstance(
+                    obld,
+                    (
+                        BuildingConveyor,
+                        BuildingArmouredConveyor,
+                        BuildingSplitter,
+                        BuildingBridge,
+                        BuildingCore,
+                    ),
+                ):
                     return ox, oy
             return _find_adjacent_empty(state, sx, sy, search_kind)
     return sx, sy
@@ -171,7 +180,9 @@ def _find_adjacent_empty(
         ):
             continue
         bld_ni = state.building[ni]
-        if bld_ni is not None and not isinstance(bld_ni, (BuildingRoad, BuildingMarker)):
+        if bld_ni is not None and not isinstance(
+            bld_ni, (BuildingRoad, BuildingMarker)
+        ):
             continue
         if (
             banned
