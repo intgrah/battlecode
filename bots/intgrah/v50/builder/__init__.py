@@ -1,6 +1,5 @@
 from collections.abc import Callable
 
-from building import BuildingLauncher
 from cambc import (
     Controller,
     Direction,
@@ -10,6 +9,7 @@ from cambc import (
     Position,
     Team,
 )
+from config import DEBUG_DUMP, OPENING, OpeningMode
 from hardcode.known import KnownMap
 from hardcode.map import SYMMETRY
 from hardcode.opening import Opening, get_opening
@@ -23,9 +23,8 @@ from hardcode.opening.mirror import mirror_opening
 from marker import MarkerEureka, MarkerOpeningBook
 from marker import decode as decode_marker
 from unit import Unit
-from util import DIR8_DELTA, OPENING_ONLY
 
-from .build import (
+from .action import (
     Action,
     PlaceBarrier,
     PlaceBridge,
@@ -37,12 +36,12 @@ from .build import (
     PlaceRoad,
     PlaceSentinel,
     PlaceSplitter,
-    Task,
-    execute,
 )
+from .helpers import execute
 from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
+from .task import Task
 from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
@@ -61,9 +60,6 @@ from .task_repair_bridge import _find_broken_bridge, repair_bridge
 from .task_secure_ore import _best_ore as _secure_best_ore
 from .task_secure_ore import secure_ore
 from .task_self_destruct import self_destruct
-
-DEBUG_DUMP = False
-USE_OPENING = False
 
 type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
 
@@ -185,12 +181,13 @@ class Builder(Unit):
             dump(s, ct)
         s.claim = None
 
-        if self._compiled is not None and not self._off_script and USE_OPENING:
+        has_script = self._compiled is not None and not self._off_script
+        if OPENING != OpeningMode.OFF and has_script:
             self._run_script(ct)
-            return
-
-        if OPENING_ONLY and self._compiled is not None:
-            return
+            if OPENING == OpeningMode.OPENING_ONLY:
+                return
+            if not self._off_script:
+                return
 
         move, build = self._run_policy(ct)
         self._execute(ct, move, build)

@@ -10,7 +10,7 @@ harvester in the same turn (move + build).
 from cambc import Controller, Direction, Position
 from marker import MarkerTaskClaim, TaskKind
 
-from .build import Action, PlaceHarvester
+from .action import Action, PlaceHarvester
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
 from .state import State
 

@@ -1,6 +1,6 @@
 from cambc import Controller, Direction
 
-from .build import Action, SelfDestruct
+from .action import Action, SelfDestruct
 from .state import State
 
 

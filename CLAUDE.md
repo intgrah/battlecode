@@ -10,7 +10,7 @@ Reference materials from previous MIT Battlecode years are in `ref/`.
 
 Set on Titan. Objective: destroy enemy core (3x3, 500 HP). Max 2000 rounds. Maps 20x20 to 50x50, guaranteed symmetric (reflection or rotation). Max 50 living units per team (including core).
 
-Resources: titanium (start 1000) and axionite (raw/refined). Move in stacks of 10 via conveyors and bridges. Raw axionite delivered to core is destroyed — refine it first.
+Resources: titanium (start 500) and axionite (raw/refined). Move in stacks of 10 via conveyors and bridges. Raw axionite delivered to core is destroyed — refine it first.
 
 Win condition tiebreakers (in order): refined axionite delivered, titanium delivered, harvesters alive, axionite stored, titanium stored, coinflip.
 

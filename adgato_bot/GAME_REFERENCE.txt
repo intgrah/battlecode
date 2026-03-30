@@ -294,7 +294,7 @@ COMMON PITFALLS (learned from testing)
 STRATEGIC NOTES
 ---------------
 - Economy is king early: 80 Ti harvesters are expensive but pay back over time.
-  With 1000 starting Ti you can afford ~12 builder bots or 1 harvester + change.
+  With 500 starting Ti you can afford ~12 builder bots or 1 harvester + change.
 - Conveyor networks must connect harvesters -> core. Plan routes.
 - Cost scaling is additive and affects ALL future builds. Be efficient.
   Foundry doubles your costs (+100%). Only build if you need refined axionite.

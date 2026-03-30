@@ -16,9 +16,9 @@ from building import (
     BuildingRoad,
 )
 from cambc import Controller, Direction, Environment, Position
-from util import INF
+from config import INF
 
-from .build import Action, PlaceFoundry
+from .action import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
 from .state import State
 

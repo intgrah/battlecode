@@ -13,7 +13,7 @@ from random import Random
 
 from cambc import Controller, Direction, Position
 
-from .build import Action
+from .action import Action
 from .helpers import move_toward_with_road
 from .state import State
 

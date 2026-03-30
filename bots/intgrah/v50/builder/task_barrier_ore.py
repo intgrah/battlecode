@@ -1,8 +1,9 @@
 from building import BuildingHarvester, BuildingSentinel
 from cambc import Controller, Direction, Position
-from util import DIR8_DELTA, INF
+from config import INF
+from util import DIR8_DELTA
 
-from .build import Action, PlaceBarrier
+from .action import Action, PlaceBarrier
 from .helpers import move_toward_with_road
 from .state import State
 

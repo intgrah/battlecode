@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from collections import deque
+from typing import TYPE_CHECKING
 
-from builder.state import COST_IMPASSABLE, COST_ROAD, State
+from config import COST_IMPASSABLE, COST_ROAD, INF
 
-_INF = 1_000_000
+if TYPE_CHECKING:
+    from builder.state import State
+
+__all__ = ["find_path"]
+
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 _DIAL_MOD = 14
 _NODE_BUDGET = 700
@@ -20,7 +25,7 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
 
     ht = _build_h(n, w, gx, gy)
     nb = _build_nb(state, w, h, n)
-    dist = [_INF] * n
+    dist = [INF] * n
     parent = [-1] * n
 
     dist[si] = 0
@@ -30,7 +35,7 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
     cur_f = f0
     emp = 0
     exp = 0
-    best_h = _INF
+    best_h = INF
     best_node = si
 
     while emp < _DIAL_MOD:
@@ -61,7 +66,7 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
                 parent[ni] = node
                 bk[(nd + ht[ni]) % _DIAL_MOD].append(ni)
 
-    if best_h < _INF:
+    if best_h < INF:
         return _extract(parent, si, best_node)
     return None
 
@@ -81,9 +86,7 @@ def _build_cost(state: State, n: int) -> list[int]:
     return cost
 
 
-def _build_nb(
-    state: State, w: int, h: int, n: int
-) -> list[list[tuple[int, int]]]:
+def _build_nb(state: State, w: int, h: int, n: int) -> list[list[tuple[int, int]]]:
     cost = _build_cost(state, n)
     nb: list[list[tuple[int, int]]] = [[] for _ in range(n)]
     for i in range(n):
