@@ -18,7 +18,6 @@ class Task(IntEnum):
     SECURE_ORE = auto()
     PLACE_LAUNCHER = auto()
     DENY_ENEMY_HARVESTER = auto()
-    REPAIR_BRIDGE = auto()
     BARRIER_ORE = auto()
     FIRE_ENEMY_TRANSPORT = auto()
     PLACE_SENTINEL = auto()

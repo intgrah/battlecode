@@ -467,9 +467,16 @@ fn draw_line(img: &mut RgbaImage, x0: u32, y0: u32, x1: u32, y1: u32, color: Rgb
     let mut cx = i64::from(x0);
     let mut cy = i64::from(y0);
 
+    let thick_dx: i64 = if dy >= dx { 1 } else { 0 };
+    let thick_dy: i64 = if dy >= dx { 0 } else { 1 };
+
     loop {
-        if cx >= 0 && cy >= 0 && (cx as u32) < img.width() && (cy as u32) < img.height() {
-            img.put_pixel(cx as u32, cy as u32, color);
+        for off in -1..=1_i64 {
+            let px = cx + off * thick_dx;
+            let py = cy + off * thick_dy;
+            if px >= 0 && py >= 0 && (px as u32) < img.width() && (py as u32) < img.height() {
+                img.put_pixel(px as u32, py as u32, color);
+            }
         }
         if cx == i64::from(x1) && cy == i64::from(y1) {
             break;

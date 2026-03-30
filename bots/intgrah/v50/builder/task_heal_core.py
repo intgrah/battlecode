@@ -15,9 +15,10 @@ def heal_core(
         return None
 
     core = Position(state.my_core[0], state.my_core[1])
-    pos = state.pos
 
-    if pos.distance_squared(core) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
+    if state.pos.distance_squared(
+        core
+    ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         core,
     ):
         return Direction.CENTRE, Heal(core)
