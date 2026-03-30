@@ -91,6 +91,7 @@ fmt:
 
 f: ty lint fmt
 
+
 tournament *args:
     python scripts/tournament.py run {{args}}
 
@@ -111,6 +112,7 @@ submit bot="":
         bot="{{bot}}"
     fi
     find "bots/$bot" -type d -name __pycache__ -exec rm -rf {} +
+    find "bots/$bot" -name "*.so" -delete
     echo "Submitting $bot"
     cambc submit "bots/$bot"
 

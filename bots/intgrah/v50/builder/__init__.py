@@ -344,8 +344,8 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     )
     scores.append((150.0 if has_excess else 0.0, Task.CONNECT_EXCESS_TI))
 
-    visible_ore = _secure_best_ore(state)
-    scores.append((100.0 if visible_ore is not None else 0.0, Task.SECURE_ORE))
+    # visible_ore = _secure_best_ore(state)
+    scores.append((100.0, Task.HARVEST_TI))
 
     scores.append((20.0, Task.EXPLORE))
     scores.append((5.0, Task.PATROL))
