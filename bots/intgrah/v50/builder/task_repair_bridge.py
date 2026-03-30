@@ -2,7 +2,7 @@ from bridge_astar import BridgeFlowAstar
 from building import BuildingBridge, BuildingCore
 from cambc import Controller, Direction, Position
 from flow_astar import AX
-from util import INF
+from util import DIR4_DELTA, INF
 
 from .action import Action, PlaceBridge
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -30,7 +30,7 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
     for hp in state.my_harvesters:
         hx, hy = hp.x, hp.y
         has_adj_bridge = False
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        for dx, dy in DIR4_DELTA:
             nx, ny = hx + dx, hy + dy
             if not state.in_bounds(nx, ny):
                 continue
@@ -44,7 +44,7 @@ def _find_broken_bridge(state: State) -> tuple[int, int] | None:
             cx, cy = state.my_core
             best_d = INF
             best_spot = None
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            for dx, dy in DIR4_DELTA:
                 nx, ny = hx + dx, hy + dy
                 if not state.in_bounds(nx, ny):
                     continue

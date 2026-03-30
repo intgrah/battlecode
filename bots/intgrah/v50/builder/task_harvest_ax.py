@@ -9,6 +9,7 @@ navigate to nearest and place on arrival.
 
 from cambc import Controller, Direction, Position
 from marker import MarkerTaskClaim, TaskKind
+from util import DIR4_DELTA
 
 from .action import Action, PlaceHarvester
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -30,7 +31,7 @@ def harvest_ax(
     if not unharvested:
         return None
 
-    for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+    for ddx, ddy in DIR4_DELTA:
         p = (pos.x + ddx, pos.y + ddy)
         if p in unharvested:
             ore_pos = Position(p[0], p[1])
