@@ -99,6 +99,7 @@ pub struct TurnState {
     pub players: [PlayerState; 2],
     pub indicators: Vec<Indicator>,
     pub outputs: Vec<(i32, String)>,
+    pub cpu_time_us: HashMap<i32, u32>,
     pub fire_events: Vec<((i32, i32), (i32, i32))>,
 }
 
@@ -150,6 +151,7 @@ impl GameState {
             players: [PlayerState::default(), PlayerState::default()],
             indicators: Vec::new(),
             outputs: Vec::new(),
+            cpu_time_us: HashMap::new(),
             fire_events: Vec::new(),
         };
 
@@ -176,6 +178,7 @@ impl GameState {
         for turn in &replay.turns {
             current.indicators.clear();
             current.outputs.clear();
+            current.cpu_time_us.clear();
             current.fire_events.clear();
 
             for update in &turn.updates {
@@ -264,6 +267,7 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
             if !o.stdout.is_empty() {
                 state.outputs.push((o.id, o.stdout.clone()));
             }
+            state.cpu_time_us.insert(o.id, o.exec_time_us);
         }
         Kind::IndicatorLine(l) => {
             if let (Some(a), Some(b)) = (&l.pos_a, &l.pos_b) {
