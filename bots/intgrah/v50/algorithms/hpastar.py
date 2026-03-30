@@ -18,6 +18,9 @@ class GatewayGraph:
         "_cs",
         "_cw",
         "_dirty",
+        "_fd_dist",
+        "_fd_parent",
+        "_fd_touched",
         "_gateways",
         "_gw_adj",
         "_gw_cluster",
@@ -79,6 +82,11 @@ class GatewayGraph:
         self._src_cache_tile: int = -1
         self._src_cache_dist: dict[int, int] = {}
         self._src_cache_parent: dict[int, int | None] = {}
+
+        # Reusable flat arrays for _fast_dijkstra (avoid per-call allocation).
+        self._fd_dist: list[int] = [_INF] * n
+        self._fd_parent: list[int] = [-1] * n
+        self._fd_touched: list[int] = []
 
         self._build_all()
 
@@ -298,36 +306,35 @@ class GatewayGraph:
         self, start: int, goal: int, x0: int, y0: int, x1: int, y1: int
     ) -> list[int] | None:
         """Dijkstra within a rectangular region, optimised for single queries.
-        Uses precomputed neighbor lists and flat cost array.  Returns tile path
-        or None."""
+        Uses precomputed neighbor lists, flat cost array, and reusable
+        distance/parent arrays to avoid per-call allocation."""
         w = self._w
         cost = self._cost
         neighbors = self._neighbors
-        n = self._n
 
-        # Flat arrays — indexed by tile id.  Only tiles inside the region
-        # are meaningful, but the arrays span the whole map to avoid
-        # index translation overhead.
-        dist = [_INF] * n
-        parent = [-1] * n
+        dist = self._fd_dist
+        parent = self._fd_parent
+        touched = self._fd_touched
+
+        # Initialise start.
         dist[start] = 0
+        touched.append(start)
 
         heap: list[tuple[int, int]] = [(0, start)]
+        result: list[int] | None = None
         while heap:
             d, node = heapq.heappop(heap)
             if node == goal:
-                # Extract path.
                 path: list[int] = []
                 cur = goal
                 while cur != -1:
                     path.append(cur)
                     cur = parent[cur]
                 path.reverse()
-                return path
+                result = path
+                break
             if d > dist[node]:
                 continue
-            ny_base = node // w
-            nx_base = node - ny_base * w
             for ni, diag in neighbors[node]:
                 ny = ni // w
                 nx = ni - ny * w
@@ -340,10 +347,19 @@ class GatewayGraph:
                     c += 1
                 nd = d + c
                 if nd < dist[ni]:
+                    if dist[ni] == _INF:
+                        touched.append(ni)
                     dist[ni] = nd
                     parent[ni] = node
                     heapq.heappush(heap, (nd, ni))
-        return None
+
+        # Reset touched entries for next call.
+        for ti in touched:
+            dist[ti] = _INF
+            parent[ti] = -1
+        touched.clear()
+
+        return result
 
     # -----------------------------------------------------------------------
     # Tile invalidation
