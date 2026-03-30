@@ -1,16 +1,10 @@
-from collections.abc import Callable
-
 from cambc import Controller, Direction, Position
 from marker import TaskKind
-from nav_astar import NavAstar
+from nav import find_path
 from util import INF
 
 from .build import Action, PlaceRoad
 from .state import COST_IMPASSABLE, State
-
-
-def _budget(ct: Controller, limit_us: int) -> Callable[[], bool]:
-    return lambda: ct.get_cpu_time_elapsed() < limit_us
 
 
 def move_toward(
@@ -21,12 +15,12 @@ def move_toward(
     pos = state.pos
     if pos == target:
         return Direction.CENTRE
-    search = NavAstar(state, pos.x, pos.y, target.x, target.y)
-    raw = search.compute(_budget(ct, 5000))
-    if raw is None or len(raw) < 2:
+    path = find_path(state, target.x, target.y)
+    if path is None or len(path) < 2:
         return Direction.CENTRE
+    _draw_path(ct, state.w, path)
     w = state.w
-    nx, ny = raw[1] % w, raw[1] // w
+    nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
     d = pos.direction_to(nxt)
     if ct.can_move(d):
@@ -42,42 +36,12 @@ def move_toward_with_road(
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
-
-    if state.nav_target_key != target:
-        state.nav_target_key = target
-        state.nav_path = None
-        state.nav_search = None
-
-    if state.nav_path is not None:
-        w = state.w
-        pi = pos.y * w + pos.x
-        if pi in state.nav_path:
-            idx = state.nav_path.index(pi)
-            if idx + 1 < len(state.nav_path):
-                nxt_i = state.nav_path[idx + 1]
-                nx, ny = nxt_i % w, nxt_i // w
-                nxt = Position(nx, ny)
-                d = pos.direction_to(nxt)
-                if ct.can_move(d):
-                    return d, None
-                road_cost, _ = ct.get_road_cost()
-                ti, _ = ct.get_global_resources()
-                if ti >= road_cost and ct.can_build_road(nxt):
-                    return d, PlaceRoad(nxt)
-        state.nav_path = None
-        state.nav_search = None
-
-    if state.nav_search is None:
-        state.nav_search = NavAstar(state, pos.x, pos.y, target.x, target.y)
-    raw = state.nav_search.compute(_budget(ct, 1800))
-    if not state.nav_search.exhausted:
+    path = find_path(state, target.x, target.y)
+    if path is None or len(path) < 2:
         return Direction.CENTRE, None
-    if raw is None or len(raw) < 2:
-        return Direction.CENTRE, None
-    state.nav_path = raw
-    state.nav_search = None
+    _draw_path(ct, state.w, path)
     w = state.w
-    nx, ny = raw[1] % w, raw[1] // w
+    nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
     d = pos.direction_to(nxt)
     if ct.can_move(d):
@@ -87,6 +51,13 @@ def move_toward_with_road(
     if ti >= road_cost and ct.can_build_road(nxt):
         return d, PlaceRoad(nxt)
     return Direction.CENTRE, None
+
+
+def _draw_path(ct: Controller, w: int, path: list[int]) -> None:
+    for i in range(len(path) - 1):
+        x0, y0 = path[i] % w, path[i] // w
+        x1, y1 = path[i + 1] % w, path[i + 1] // w
+        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 0, 200, 0)
 
 
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:
