@@ -19,7 +19,7 @@ from building import (
 from cambc import Controller, Direction, Environment, Position
 from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
-from util import INF
+from util import DIR4_DELTA, INF
 
 from .action import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
@@ -167,7 +167,7 @@ def _find_adjacent_empty(
     banned = TI | RAX if search_kind == SearchKind.AX_CHAIN else 0
     best_pos = (-1, -1)
     best_d = INF
-    for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+    for ddx, ddy in DIR4_DELTA:
         nx, ny = sx + ddx, sy + ddy
         if not state.in_bounds(nx, ny):
             continue

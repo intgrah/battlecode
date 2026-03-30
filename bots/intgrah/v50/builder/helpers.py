@@ -3,7 +3,7 @@ import itertools
 from cambc import Controller, Direction, EntityType, Position
 from marker import TaskKind
 from navigation import find_path
-from util import COST_IMPASSABLE, INF
+from util import COST_IMPASSABLE, DIR4_DELTA, INF
 
 from .action import (
     Action,
@@ -74,7 +74,7 @@ def _draw_path(ct: Controller, w: int, path: list[int]) -> None:
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:
     best = None
     best_dist = INF
-    for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+    for ddx, ddy in DIR4_DELTA:
         ax, ay = target.x + ddx, target.y + ddy
         if not state.in_bounds(ax, ay):
             continue

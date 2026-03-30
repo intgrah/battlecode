@@ -16,7 +16,7 @@ from building import (
     BuildingRoad,
 )
 from cambc import Controller, Direction, Environment, Position
-from util import INF
+from util import DIR4_DELTA, INF
 
 from .action import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -58,7 +58,7 @@ def place_foundry_mixed_conv(
     cx, cy = best_conv.x, best_conv.y
     foundry_pos: Position | None = None
     foundry_dist = INF
-    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+    for dx, dy in DIR4_DELTA:
         nx, ny = cx + dx, cy + dy
         if not state.in_bounds(nx, ny):
             continue

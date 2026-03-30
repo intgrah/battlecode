@@ -12,6 +12,7 @@ ensuring downstream flow continues uninterrupted.
 
 from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller, Direction, Position
+from util import DIR4_DELTA
 
 from .action import Action, PlaceSplitter
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -25,7 +26,7 @@ def place_splitter_foundry(
     pos = state.pos
     for fp in state.my_foundries:
         fx, fy = fp.x, fp.y
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        for dx, dy in DIR4_DELTA:
             nx, ny = fx + dx, fy + dy
             if not state.in_bounds(nx, ny):
                 continue
