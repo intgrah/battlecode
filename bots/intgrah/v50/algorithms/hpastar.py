@@ -401,7 +401,9 @@ class GatewayGraph:
     # Incremental rebuild
     # -----------------------------------------------------------------------
 
-    def invalidate_tile(self, x: int, y: int, passability_changed: bool = False) -> None:
+    def invalidate_tile(
+        self, x: int, y: int, passability_changed: bool = False
+    ) -> None:
         """Mark tile as changed.  Set passability_changed=True if the tile
         went from passable to impassable or vice versa (not just cost change)."""
         ci = self._cluster_of(x, y)
@@ -451,16 +453,13 @@ class GatewayGraph:
                     self._free_gw.append(gi)
                 self._cluster_gws[ci] = []
 
-            self._gateways = [
-                (a, b) for a, b in self._gateways if a not in dead_gws
-            ]
+            self._gateways = [(a, b) for a, b in self._gateways if a not in dead_gws]
 
             # Purge edges from clean gateways that pointed to dead ones.
             for gi in range(len(self._gw_adj)):
                 if gi not in dead_gws and self._gw_adj[gi]:
                     self._gw_adj[gi] = [
-                        (nb, c) for nb, c in self._gw_adj[gi]
-                        if nb not in dead_gws
+                        (nb, c) for nb, c in self._gw_adj[gi] if nb not in dead_gws
                     ]
 
             # Re-scan boundaries for affected clusters (adds new gateways

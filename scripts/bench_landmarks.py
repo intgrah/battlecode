@@ -406,15 +406,19 @@ def bench_map(
             total_tested += 1
 
             if hname == "manhattan":
+
                 def hfunc(node, _gi=gi, _w=w):
                     return h_manhattan(node, _gi, _w)
             elif hname == "chebyshev":
+
                 def hfunc(node, _gi=gi, _w=w):
                     return h_chebyshev(node, _gi, _w)
             elif hname == "apsp":
+
                 def hfunc(node, _gi=gi, _a=hdata):
                     return h_apsp(node, _gi, _a)
             else:
+
                 def hfunc(node, _gi=gi, _t=hdata):
                     return h_landmark(node, _gi, _t)
 

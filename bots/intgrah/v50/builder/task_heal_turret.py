@@ -4,12 +4,14 @@ from .build import Action, Heal
 from .helpers import move_toward_with_road
 from .state import State
 
-_TURRET_TYPES = frozenset((
-    EntityType.GUNNER,
-    EntityType.SENTINEL,
-    EntityType.BREACH,
-    EntityType.LAUNCHER,
-))
+_TURRET_TYPES = frozenset(
+    (
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+    )
+)
 
 
 def _find_damaged_turret(ct: Controller) -> Position | None:
@@ -41,7 +43,9 @@ def heal_turret(
         return None
 
     pos = state.pos
-    if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(target):
+    if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
+        target
+    ):
         return Direction.CENTRE, Heal(target)
 
     move, build = move_toward_with_road(state, ct, target)

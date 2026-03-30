@@ -50,7 +50,13 @@ def _target_priority(etype: EntityType) -> int:
     match etype:
         case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
             return 4
-        case EntityType.HARVESTER | EntityType.BRIDGE | EntityType.CONVEYOR | EntityType.SPLITTER | EntityType.ARMOURED_CONVEYOR:
+        case (
+            EntityType.HARVESTER
+            | EntityType.BRIDGE
+            | EntityType.CONVEYOR
+            | EntityType.SPLITTER
+            | EntityType.ARMOURED_CONVEYOR
+        ):
             return 3
         case EntityType.BUILDER_BOT:
             return 2

@@ -1,7 +1,14 @@
 from cambc import Controller, EntityType, Position
 from unit import Unit
 
-_WALKABLE = frozenset((EntityType.ROAD, EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER))
+_WALKABLE = frozenset(
+    (
+        EntityType.ROAD,
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+    )
+)
 
 
 class Launcher(Unit):
@@ -14,7 +21,10 @@ class Launcher(Unit):
 
         if self._core_pos is None:
             for bid in ct.get_nearby_buildings():
-                if ct.get_entity_type(bid) == EntityType.CORE and ct.get_team(bid) == my_team:
+                if (
+                    ct.get_entity_type(bid) == EntityType.CORE
+                    and ct.get_team(bid) == my_team
+                ):
                     self._core_pos = ct.get_position(bid)
                     break
 
@@ -38,11 +48,17 @@ class Launcher(Unit):
             if bid is None:
                 continue
             etype = ct.get_entity_type(bid)
-            if etype not in _WALKABLE and not (etype == EntityType.CORE and ct.get_team(bid) == my_team):
+            if etype not in _WALKABLE and not (
+                etype == EntityType.CORE and ct.get_team(bid) == my_team
+            ):
                 continue
             if ct.get_tile_builder_bot_id(tile) is not None:
                 continue
-            d = (tile.x - core.x) ** 2 + (tile.y - core.y) ** 2 if core is not None else 0
+            d = (
+                (tile.x - core.x) ** 2 + (tile.y - core.y) ** 2
+                if core is not None
+                else 0
+            )
             targets.append((d, tile))
 
         targets.sort(reverse=True)

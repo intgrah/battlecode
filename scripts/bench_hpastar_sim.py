@@ -270,8 +270,10 @@ def simulate_map(
 
     # -- HPA* simulation --
     hpa_belief = Belief(w, h, true_tiles)
+
     def cost_fn_hpa(x, y):
         return hpa_belief.tile_cost(x, y)
+
     gg = GatewayGraph(w, h, cost_fn_hpa, cluster_size=cluster_size)
 
     bx, by = start_x, start_y
