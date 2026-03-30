@@ -3,7 +3,11 @@ import heapq
 import random
 import sys
 import types
+from collections.abc import Generator
 from pathlib import Path
+
+from hardcode.known import KnownMap
+from hardcode.map import CORE_A, CORE_B, DIMENSIONS, TILES, decode
 
 cambc_mod = types.ModuleType("cambc")
 
@@ -18,14 +22,14 @@ class _E:
 class _P:
     __slots__ = ("x", "y")
 
-    def __init__(self, x, y) -> None:
+    def __init__(self, x: int, y: int) -> None:
         self.x = x
         self.y = y
 
-    def __eq__(self, o):
+    def __eq__(self, o) -> bool:
         return isinstance(o, _P) and self.x == o.x and self.y == o.y
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.x, self.y))
 
 
@@ -46,8 +50,6 @@ sys.modules["util"] = _u
 sys.path.insert(
     0, str(Path(__file__).resolve().parent.parent / "bots" / "intgrah" / "v50")
 )
-from hardcode.known import KnownMap
-from hardcode.map import CORE_A, CORE_B, DIMENSIONS, TILES, decode
 
 _INF = 1_000_000
 _CR = 2
@@ -136,7 +138,7 @@ def place_roads(base_cost, nb, n, w, h, tt, ca, cb):
     return cost, len(roads)
 
 
-def astar_w(cost, nb, n, w, si, gi, weight):
+def astar_w(cost, nb, n, w, si, gi, weight) -> tuple[int, int]:
     if si == gi:
         return 0, 0
     gx, gy = gi % w, gi // w
@@ -182,7 +184,7 @@ def astar_w(cost, nb, n, w, si, gi, weight):
     return _INF, exp
 
 
-def main():
+def main() -> Generator[dict]:
     for km in KnownMap:
         w, h = DIMENSIONS[km]
         n = w * h
