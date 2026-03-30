@@ -2,7 +2,7 @@ __all__ = ["CompiledActionMove", "CompiledMoveAction", "CompiledTurn", "dsl_comp
 
 from dataclasses import dataclass
 
-from builder.build import (
+from builder.action import (
     Action,
     Fire,
     Heal,

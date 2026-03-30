@@ -16,6 +16,6 @@ class OpeningMode(Enum):
 
 
 OPENING: Final[OpeningMode] = OpeningMode.OFF
-USE_HARDCODED_MAPS: Final[bool] = True
+USE_HARDCODED_MAPS: Final[bool] = False
 USE_APSP: Final[bool] = False
 DEBUG_DUMP: Final[bool] = False
