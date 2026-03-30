@@ -1,4 +1,5 @@
 from cambc import Controller, Direction, EntityType, Position, Team
+from config import OPENING, OpeningMode
 from hardcode.known import KnownMap
 from hardcode.map import SYMMETRY
 from hardcode.opening import Opening, get_opening
@@ -6,7 +7,6 @@ from hardcode.opening.identify import identify_map
 from hardcode.opening.mirror import mirror_opening
 from marker import MarkerOpeningBook
 from unit import Unit
-from util import OPENING_ONLY
 
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 _MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
@@ -34,16 +34,13 @@ class Core(Unit):
     def run(self, ct: Controller) -> None:
         rnd = ct.get_current_round()
 
-        if self.opening is not None and rnd < len(self.opening.core_spawns):
-            self._run_opening(ct, rnd)
-            return
-
-        if self.opening is not None and rnd <= len(self.opening.core_spawns) + 1:
-            self._place_marker(ct)
-            return
-
-        if OPENING_ONLY and self.opening is not None:
-            return
+        if OPENING != OpeningMode.OFF and self.opening is not None:
+            if rnd < len(self.opening.core_spawns):
+                self._run_opening(ct, rnd)
+                return
+            if rnd <= len(self.opening.core_spawns) + 1:
+                self._place_marker(ct)
+                return
 
         self._run_default(ct, rnd)
 

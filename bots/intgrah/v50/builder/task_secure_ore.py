@@ -8,12 +8,13 @@ from building import (
     BuildingSentinel,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
+from config import COST_IMPASSABLE, INF
 from marker import MarkerTaskClaim, TaskKind
-from util import DIR4_DELTA, DIR8_DELTA, INF
+from util import DIR4_DELTA, DIR8_DELTA
 
-from .build import Action, Fire, PlaceBarrier, PlaceHarvester
+from .action import Action, Fire, PlaceBarrier, PlaceHarvester
 from .helpers import is_claimed, move_toward_with_road
-from .state import COST_IMPASSABLE, State
+from .state import State
 
 _NO_DESTROY = frozenset(
     (

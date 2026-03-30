@@ -1,7 +1,7 @@
 from cambc import Controller, Direction, Position
-from util import INF
+from config import INF
 
-from .build import Action, Fire
+from .action import Action, Fire
 from .helpers import move_toward_with_road
 from .state import State
 

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
+    from hardcode.known import KnownMap
     from marker import MarkerTaskClaim
 
 
@@ -32,15 +33,18 @@ from cambc import (
     GameConstants,
     Position,
 )
+from config import (
+    COST_EMPTY,
+    COST_IMPASSABLE,
+    COST_ROAD,
+    COST_UNSEEN,
+    USE_APSP,
+    USE_HARDCODED_MAPS,
+)
 from hardcode.apsp import DATA as APSP_DATA
 from hardcode.apsp_loader import ApspTable
 from hardcode.map import CANDIDATES, CORE_B, SYMMETRY, TILES, decode
 from util import Symmetry, tiles_3x3
-
-COST_ROAD = 2
-COST_EMPTY = 10
-COST_UNSEEN = 12
-COST_IMPASSABLE = 1_000_000
 
 
 class Economy:
@@ -142,8 +146,12 @@ class State:
         # -- APSP --
         self.apsp: ApspTable | None = None
 
-        # -- Load known map if available --
-        _try_load_known_map(self, core_pos)
+        km = _try_identify_map(self, core_pos)
+        if km is not None:
+            if USE_HARDCODED_MAPS:
+                _load_map_tiles(self, km)
+            if USE_APSP:
+                _load_apsp(self, km)
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -180,12 +188,15 @@ class State:
                 return COST_IMPASSABLE
 
 
-def _try_load_known_map(state: State, core_pos: Position) -> None:
+def _try_identify_map(state: State, core_pos: Position) -> KnownMap | None:
     key = (state.w, state.h, core_pos)
     candidates = CANDIDATES.get(key)
     if candidates is None or len(candidates) != 1:
-        return
-    km = candidates[0]
+        return None
+    return candidates[0]
+
+
+def _load_map_tiles(state: State, km: KnownMap) -> None:
     n = state.w * state.h
     tiles = decode(TILES[km](), n)
     for i in range(n):
@@ -199,6 +210,8 @@ def _try_load_known_map(state: State, core_pos: Position) -> None:
     state.en_core_tiles = tiles_3x3(CORE_B[km])
     state.sym_candidates.clear()
 
+
+def _load_apsp(state: State, km: KnownMap) -> None:
     apsp_fn = APSP_DATA.get(km)
     if apsp_fn is not None:
         state.apsp = ApspTable(state.w, state.h, SYMMETRY[km], apsp_fn())

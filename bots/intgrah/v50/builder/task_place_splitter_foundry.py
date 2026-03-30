@@ -13,7 +13,7 @@ ensuring downstream flow continues uninterrupted.
 from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller, Direction, Position
 
-from .build import Action, PlaceSplitter
+from .action import Action, PlaceSplitter
 from .helpers import cardinal_adjacent, move_toward_with_road
 from .state import State
 

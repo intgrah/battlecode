@@ -85,7 +85,7 @@ pub struct PlayerState {
 impl Default for PlayerState {
     fn default() -> Self {
         Self {
-            titanium: 1000,
+            titanium: 500,
             axionite: 0,
             ti_collected: 0,
             ax_collected: 0,

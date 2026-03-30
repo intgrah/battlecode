@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from algorithms import Astar
-from builder.state import COST_IMPASSABLE, COST_ROAD, State
+from config import COST_IMPASSABLE, COST_ROAD, INF
 from util import DIR8_DELTA
 
 if TYPE_CHECKING:
+    from builder.state import State
     from hardcode.apsp_loader import ApspTable
 
 
@@ -33,7 +34,7 @@ class NavAstar(Astar[int]):
         apsp = self._apsp
         if apsp is not None:
             d = apsp.dist(node, self._gi)
-            return d * COST_ROAD if d < 255 else 1_000_000
+            return d * COST_ROAD if d < 255 else INF
         y, x = divmod(node, self._w)
         dx = abs(x - self._gx)
         dy = abs(y - self._gy)

@@ -9,9 +9,10 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Direction, Environment, Position
+from config import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
 from util import Symmetry
 
-from .state import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, State
+from .state import State
 
 
 def walkable(state: State, x: int, y: int) -> int:

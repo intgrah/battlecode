@@ -17,11 +17,11 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, Environment, Position
+from config import INF
 from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
-from util import INF
 
-from .build import Action, PlaceBridge, PlaceConveyor
+from .action import Action, PlaceBridge, PlaceConveyor
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
 
 if TYPE_CHECKING:

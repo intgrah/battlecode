@@ -1,10 +1,6 @@
 from enum import Enum, auto
-from typing import Final
 
 from cambc import Direction, Position
-
-INF: Final[int] = 999_999
-OPENING_ONLY: Final[bool] = False
 
 
 class Symmetry(Enum):

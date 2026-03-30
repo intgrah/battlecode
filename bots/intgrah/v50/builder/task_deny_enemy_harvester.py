@@ -1,11 +1,12 @@
 from building import BuildingHarvester, BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Position
+from config import COST_IMPASSABLE, INF
 from marker import TaskKind
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, INF, rotate_cw
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA, rotate_cw
 
-from .build import Action, PlaceBarrier, PlaceSentinel
+from .action import Action, PlaceBarrier, PlaceSentinel
 from .helpers import is_claimed, move_toward_with_road
-from .state import COST_IMPASSABLE, State
+from .state import State
 from .task_secure_ore import _best_ore as _secure_best_ore
 
 

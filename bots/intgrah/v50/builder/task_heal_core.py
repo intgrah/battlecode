@@ -2,7 +2,7 @@
 
 from cambc import Controller, Direction, GameConstants, Position
 
-from .build import Action, Heal
+from .action import Action, Heal
 from .helpers import move_toward_with_road
 from .state import State
 

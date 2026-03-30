@@ -292,8 +292,7 @@ def adaptive_astar(
     min_cost: int,
 ) -> list[int] | None:
     w = min(5, _COST_EMPTY // max(min_cost, 1))
-    if w < 1:
-        w = 1
+    w = max(w, 1)
     return w_astar(cost, nb, n, si, gi, ht, g, p, w)
 
 
@@ -538,8 +537,7 @@ def fringe_search(
             node = now.pop()
             fn = g[node] + ht[node]
             if fn > threshold:
-                if fn < f_min:
-                    f_min = fn
+                f_min = min(f_min, fn)
                 later.append(node)
                 continue
             if node == gi:
@@ -572,7 +570,9 @@ def fringe_search(
     return None
 
 
-def road_bfs_h(cost: list[int], nb: list[list[tuple[int, bool]]], n: int, w: int, gi: int) -> list[int]:
+def road_bfs_h(
+    cost: list[int], nb: list[list[tuple[int, bool]]], n: int, w: int, gi: int
+) -> list[int]:
     """BFS backward from goal through roads only, combined with Chebyshev."""
     gx, gy = gi % w, gi // w
     cheb = [max(abs(i % w - gx), abs(i // w - gy)) * _COST_ROAD for i in range(n)]
@@ -855,8 +855,12 @@ def run_tech(
 
 
 def _place_roads(
-    cost: list[int], nb: list[list[tuple[int, bool]]], n: int, rng: random.Random,
-    passable: list[int], n_paths: int,
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    rng: random.Random,
+    passable: list[int],
+    n_paths: int,
 ) -> None:
     for _ in range(n_paths):
         si = rng.choice(passable)
@@ -889,7 +893,7 @@ def _place_roads(
                     parent[ni] = node
                     heapq.heappush(heap, (nd, ni))
         cur = gi
-        while cur != si and cur != -1:
+        while cur not in (si, -1):
             if cost[cur] == _COST_EMPTY:
                 cost[cur] = _COST_ROAD
             cur = parent[cur]
@@ -961,7 +965,9 @@ def plot(csv_path: Path) -> None:
     n_techs = len(techs)
 
     fig, axes = plt.subplots(2, n_techs, figsize=(5 * n_techs, 8), squeeze=False)
-    fig.suptitle("Pathfinding Benchmark: Per-Query Distributions (all 38 maps)", fontsize=14)
+    fig.suptitle(
+        "Pathfinding Benchmark: Per-Query Distributions (all 38 maps)", fontsize=14
+    )
 
     for col, tech in enumerate(techs):
         rows = data.get(tech, [])
@@ -971,12 +977,17 @@ def plot(csv_path: Path) -> None:
         ax_t = axes[0][col]
         if times:
             ax_t.hist(times, bins=80, color="steelblue", edgecolor="none", alpha=0.8)
-            ax_t.axvline(2000, color="red", linestyle="--", linewidth=1, label="2ms budget")
+            ax_t.axvline(
+                2000, color="red", linestyle="--", linewidth=1, label="2ms budget"
+            )
             over = sum(1 for t in times if t > 2000)
             total = len(times)
             p50 = sorted(times)[total // 2]
             p99 = sorted(times)[int(total * 0.99)]
-            ax_t.set_title(f"{tech}\np50={p50:.0f}us  p99={p99:.0f}us  max={max(times):.0f}us\n>{'{'}2ms: {over}/{total}", fontsize=9)
+            ax_t.set_title(
+                f"{tech}\np50={p50:.0f}us  p99={p99:.0f}us  max={max(times):.0f}us\n>{'{'}2ms: {over}/{total}",
+                fontsize=9,
+            )
             ax_t.legend(fontsize=7)
         ax_t.set_xlabel("Time (us)")
         ax_t.set_ylabel("Count")
@@ -984,11 +995,15 @@ def plot(csv_path: Path) -> None:
         ax_o = axes[1][col]
         if opts:
             ax_o.hist(opts, bins=80, color="darkorange", edgecolor="none", alpha=0.8)
-            ax_o.axvline(1.0, color="green", linestyle="--", linewidth=1, label="optimal")
+            ax_o.axvline(
+                1.0, color="green", linestyle="--", linewidth=1, label="optimal"
+            )
             mean_o = sum(opts) / len(opts)
             max_o = max(opts)
             p95_o = sorted(opts)[int(len(opts) * 0.95)]
-            ax_o.set_title(f"mean={mean_o:.3f}x  p95={p95_o:.3f}x  max={max_o:.3f}x", fontsize=9)
+            ax_o.set_title(
+                f"mean={mean_o:.3f}x  p95={p95_o:.3f}x  max={max_o:.3f}x", fontsize=9
+            )
             ax_o.legend(fontsize=7)
         ax_o.set_xlabel("Optimality ratio (path / optimal)")
         ax_o.set_ylabel("Count")
@@ -1021,8 +1036,12 @@ def plot(csv_path: Path) -> None:
     maps_sorted = sorted(all_maps, key=lambda m: median_max[m], reverse=True)
     n_maps = len(maps_sorted)
 
-    fig2, axes2 = plt.subplots(1, n_techs, figsize=(5 * n_techs, max(8, n_maps * 0.28)), squeeze=False)
-    fig2.suptitle("Per-Map Query Time (box: IQR, whiskers: min/max)", fontsize=14, y=0.995)
+    fig2, axes2 = plt.subplots(
+        1, n_techs, figsize=(5 * n_techs, max(8, n_maps * 0.28)), squeeze=False
+    )
+    fig2.suptitle(
+        "Per-Map Query Time (box: IQR, whiskers: min/max)", fontsize=14, y=0.995
+    )
 
     for col, tech in enumerate(techs):
         ax = axes2[0][col]
@@ -1030,7 +1049,7 @@ def plot(csv_path: Path) -> None:
         labels = []
         for m in maps_sorted:
             ts = map_times[m].get(tech, [])
-            bp_data.append(ts if ts else [0])
+            bp_data.append(ts or [0])
             labels.append(m[:18])
 
         bp = ax.boxplot(
@@ -1067,8 +1086,12 @@ def plot(csv_path: Path) -> None:
     print(f"Wrote {out2}", file=sys.stderr)
     plt.close(fig2)
 
-    fig3, axes3 = plt.subplots(1, n_techs, figsize=(5 * n_techs, max(8, n_maps * 0.28)), squeeze=False)
-    fig3.suptitle("Per-Map Optimality Ratio (box: IQR, whiskers: min/max)", fontsize=14, y=0.995)
+    fig3, axes3 = plt.subplots(
+        1, n_techs, figsize=(5 * n_techs, max(8, n_maps * 0.28)), squeeze=False
+    )
+    fig3.suptitle(
+        "Per-Map Optimality Ratio (box: IQR, whiskers: min/max)", fontsize=14, y=0.995
+    )
 
     for col, tech in enumerate(techs):
         ax = axes3[0][col]
@@ -1076,7 +1099,7 @@ def plot(csv_path: Path) -> None:
         labels = []
         for m in maps_sorted:
             os = map_opts[m].get(tech, [])
-            bp_data.append(os if os else [1.0])
+            bp_data.append(os or [1.0])
             labels.append(m[:18])
 
         bp = ax.boxplot(
@@ -1088,7 +1111,11 @@ def plot(csv_path: Path) -> None:
             whis=(0, 100),
             showfliers=False,
             medianprops={"color": "black", "linewidth": 1.2},
-            boxprops={"facecolor": "darkorange", "alpha": 0.7, "edgecolor": "darkorange"},
+            boxprops={
+                "facecolor": "darkorange",
+                "alpha": 0.7,
+                "edgecolor": "darkorange",
+            },
             whiskerprops={"color": "darkorange", "linewidth": 0.8},
             capprops={"color": "darkorange", "linewidth": 0.8},
         )

@@ -8,7 +8,7 @@ infrastructure.
 
 from cambc import Controller, Direction
 
-from .build import Action
+from .action import Action
 from .helpers import move_toward_with_road
 from .state import State
 

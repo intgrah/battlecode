@@ -1,17 +1,30 @@
-from cambc import Controller, Direction, Position
+import itertools
+
+from cambc import Controller, Direction, EntityType, Position
+from config import COST_IMPASSABLE, INF
 from marker import TaskKind
 from nav import find_path
-from util import INF
 
-from .build import Action, PlaceRoad
-from .state import COST_IMPASSABLE, State
+from .action import (
+    Action,
+    Fire,
+    Heal,
+    PlaceArmouredConveyor,
+    PlaceBarrier,
+    PlaceBridge,
+    PlaceConveyor,
+    PlaceFoundry,
+    PlaceHarvester,
+    PlaceLauncher,
+    PlaceRoad,
+    PlaceSentinel,
+    PlaceSplitter,
+    SelfDestruct,
+)
+from .state import State
 
 
-def move_toward(
-    state: State,
-    ct: Controller,
-    target: Position,
-) -> Direction:
+def move_toward(state: State, ct: Controller, target: Position) -> Direction:
     pos = state.pos
     if pos == target:
         return Direction.CENTRE
@@ -29,9 +42,7 @@ def move_toward(
 
 
 def move_toward_with_road(
-    state: State,
-    ct: Controller,
-    target: Position,
+    state: State, ct: Controller, target: Position
 ) -> tuple[Direction, Action | None]:
     pos = state.pos
     if pos == target:
@@ -54,9 +65,9 @@ def move_toward_with_road(
 
 
 def _draw_path(ct: Controller, w: int, path: list[int]) -> None:
-    for i in range(len(path) - 1):
-        x0, y0 = path[i] % w, path[i] // w
-        x1, y1 = path[i + 1] % w, path[i + 1] // w
+    for u, v in itertools.pairwise(path):
+        y0, x0 = divmod(u, w)
+        y1, x1 = divmod(v, w)
         ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 0, 200, 0)
 
 
@@ -87,3 +98,85 @@ def is_claimed(state: State, tile_index: int, kind: TaskKind) -> bool:
                 continue
             return True
     return False
+
+
+def _destroy_friendly(ct: Controller, pos: Position) -> None:
+    bid = ct.get_tile_building_id(pos)
+    if bid is None:
+        return
+    if ct.get_team(bid) != ct.get_team():
+        return
+    if ct.get_entity_type(bid) in (EntityType.ROAD, EntityType.MARKER):
+        ct.destroy(pos)
+
+
+def execute(action: Action, ct: Controller) -> None:
+    ti, _ = ct.get_global_resources()
+    match action:
+        case PlaceHarvester(pos):
+            cost, _ = ct.get_harvester_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_harvester(pos):
+                    ct.build_harvester(pos)
+        case PlaceConveyor(pos, direction):
+            cost, _ = ct.get_conveyor_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_conveyor(pos, direction):
+                    ct.build_conveyor(pos, direction)
+        case PlaceArmouredConveyor(pos, direction):
+            cost, _ = ct.get_armoured_conveyor_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_armoured_conveyor(pos, direction):
+                    ct.build_armoured_conveyor(pos, direction)
+        case PlaceBridge(pos, target):
+            cost, _ = ct.get_bridge_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_bridge(pos, target):
+                    ct.build_bridge(pos, target)
+        case PlaceRoad(pos):
+            cost, _ = ct.get_road_cost()
+            if ti >= cost and ct.can_build_road(pos):
+                ct.build_road(pos)
+        case PlaceFoundry(pos):
+            cost, _ = ct.get_foundry_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_foundry(pos):
+                    ct.build_foundry(pos)
+        case PlaceSplitter(pos, direction):
+            cost, _ = ct.get_splitter_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_splitter(pos, direction):
+                    ct.build_splitter(pos, direction)
+        case SelfDestruct():
+            ct.self_destruct()
+        case Heal(pos):
+            if ct.can_heal(pos):
+                ct.heal(pos)
+        case PlaceBarrier(pos):
+            cost, _ = ct.get_barrier_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_barrier(pos):
+                    ct.build_barrier(pos)
+        case PlaceSentinel(pos, direction):
+            cost, _ = ct.get_sentinel_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_sentinel(pos, direction):
+                    ct.build_sentinel(pos, direction)
+        case PlaceLauncher(pos):
+            cost, _ = ct.get_launcher_cost()
+            if ti >= cost:
+                _destroy_friendly(ct, pos)
+                if ct.can_build_launcher(pos):
+                    ct.build_launcher(pos)
+        case Fire():
+            pos = ct.get_position()
+            if ct.can_fire(pos):
+                ct.fire(pos)

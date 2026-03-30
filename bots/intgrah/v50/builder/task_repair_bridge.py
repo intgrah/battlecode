@@ -1,10 +1,10 @@
 from bridge_astar import BridgeFlowAstar
 from building import BuildingBridge, BuildingCore
 from cambc import Controller, Direction, Position
+from config import INF
 from flow_astar import AX
-from util import INF
 
-from .build import Action, PlaceBridge
+from .action import Action, PlaceBridge
 from .helpers import cardinal_adjacent, move_toward_with_road
 from .state import State
 
