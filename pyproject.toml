@@ -42,6 +42,16 @@ tournament = "scripts.tournament:main"
 trace-builder = "scripts.trace_builder:main"
 verify-network = "scripts.verify_network:main"
 wait-match = "scripts.wait_match:main"
+render-map = "scripts.render_map:main"
+bench-histograms = "scripts.bench_histograms:main"
+bench-hpastar = "scripts.bench_hpastar:main"
+bench-hpastar-ab = "scripts.bench_hpastar_ab:main"
+bench-hpastar-sim = "scripts.bench_hpastar_sim:main"
+bench-landmarks = "scripts.bench_landmarks:main"
+bench-pathfinding = "scripts.bench_pathfinding:main"
+bench-pathfinding-final = "scripts.bench_pathfinding_final:main"
+bench-pathfinding-techniques = "scripts.bench_pathfinding_techniques:main"
+bench-tortuosity = "scripts.bench_tortuosity:main"
 
 [dependency-groups]
 dev = ["pyright", "ruff", "ty"]
