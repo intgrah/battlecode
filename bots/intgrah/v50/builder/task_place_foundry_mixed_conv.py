@@ -16,7 +16,7 @@ from building import (
     BuildingRoad,
 )
 from cambc import Controller, Direction, Environment, Position
-from config import INF
+from util import INF
 
 from .action import Action, PlaceFoundry
 from .helpers import cardinal_adjacent, move_toward_with_road
@@ -83,7 +83,7 @@ def place_foundry_mixed_conv(
         return None
 
     if pos.distance_squared(foundry_pos) <= 2 and pos != foundry_pos:
-        state.debug_target = (foundry_pos, 255, 128, 0)
+        ct.draw_indicator_line(state.pos, foundry_pos, 255, 128, 0)
         return Direction.CENTRE, PlaceFoundry(foundry_pos)
 
     adj = cardinal_adjacent(state, pos, foundry_pos)
@@ -94,5 +94,5 @@ def place_foundry_mixed_conv(
         new_pos = pos.add(move)
         if new_pos.distance_squared(foundry_pos) <= 2 and new_pos != foundry_pos:
             build = PlaceFoundry(foundry_pos)
-    state.debug_target = (foundry_pos, 255, 128, 0)
+    ct.draw_indicator_line(state.pos, foundry_pos, 255, 128, 0)
     return move, build

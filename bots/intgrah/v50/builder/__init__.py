@@ -239,7 +239,6 @@ class Builder(Unit):
         return Direction.CENTRE, None
 
     def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
-        s = self.state
         if move != Direction.CENTRE:
             if ct.can_move(move):
                 ct.move(move)
@@ -251,9 +250,6 @@ class Builder(Unit):
         if build is not None:
             execute(build, ct)
 
-        if s.debug_target is not None:
-            ct.draw_indicator_line(ct.get_position(), *s.debug_target)
-        s.debug_target = None
         self._write_marker(ct)
 
     def _write_marker(self, ct: Controller) -> None:

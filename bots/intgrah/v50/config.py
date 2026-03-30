@@ -1,13 +1,6 @@
 from enum import Enum, auto
 from typing import Final
 
-INF: Final[int] = 1_000_000
-
-COST_ROAD: Final[int] = 2
-COST_EMPTY: Final[int] = 10
-COST_UNSEEN: Final[int] = 12
-COST_IMPASSABLE: Final[int] = INF
-
 
 class OpeningMode(Enum):
     OFF = auto()
@@ -15,8 +8,14 @@ class OpeningMode(Enum):
     OPENING_AND_FALLBACK = auto()
 
 
+class NavMode(Enum):
+    ASTAR_BUCKET_C = auto()
+    ASTAR_BUCKET_PYTHON = auto()
+    ASTAR_LANDMARKS = auto()
+    ASTAR_APSP = auto()
+
+
 OPENING: Final[OpeningMode] = OpeningMode.OFF
-USE_HARDCODED_MAPS: Final[bool] = False
-USE_APSP: Final[bool] = False
+NAV: Final[NavMode] = NavMode.ASTAR_APSP
+USE_HARDCODED_MAPS: Final[bool] = True
 DEBUG_DUMP: Final[bool] = False
-USE_C_NAV: Final[bool] = True

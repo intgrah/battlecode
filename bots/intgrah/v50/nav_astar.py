@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from algorithms import Astar
-from config import COST_IMPASSABLE, COST_ROAD, INF
-from util import DIR8_DELTA
+from util import COST_IMPASSABLE, COST_ROAD, DIR8_DELTA, INF
 
 if TYPE_CHECKING:
     from builder.state import State

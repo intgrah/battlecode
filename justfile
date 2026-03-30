@@ -111,10 +111,13 @@ submit bot="":
     else
         bot="{{bot}}"
     fi
-    find "bots/$bot" -type d -name __pycache__ -exec rm -rf {} +
-    find "bots/$bot" -name "*.so" -delete
+    tmp=$(mktemp -d)
+    cp -r "bots/$bot" "$tmp/bot"
+    find "$tmp/bot" -type d \( -name __pycache__ -o -name .cache \) -exec rm -rf {} +
+    find "$tmp/bot" -type f \( -name "*.so" -o -name "*.c" -o -name "*.o" -o -name "*.pyi" -o -name "*.idx" -o -name "compile_commands.json" -o -name "justfile" \) -delete
     echo "Submitting $bot"
-    cambc submit "bots/$bot"
+    cambc submit "$tmp/bot"
+    rm -rf "$tmp"
 
 challenge bot opponent:
     #!/usr/bin/env bash

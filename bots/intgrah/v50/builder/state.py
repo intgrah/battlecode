@@ -33,18 +33,19 @@ from cambc import (
     GameConstants,
     Position,
 )
-from config import (
+from config import NAV, USE_HARDCODED_MAPS, NavMode
+from hardcode.apsp import DATA as APSP_DATA
+from hardcode.apsp_loader import ApspTable
+from hardcode.landmarks import DATA as LANDMARK_DATA
+from hardcode.map import CANDIDATES, CORE_B, SYMMETRY, TILES, decode
+from util import (
     COST_EMPTY,
     COST_IMPASSABLE,
     COST_ROAD,
     COST_UNSEEN,
-    USE_APSP,
-    USE_HARDCODED_MAPS,
+    Symmetry,
+    tiles_3x3,
 )
-from hardcode.apsp import DATA as APSP_DATA
-from hardcode.apsp_loader import ApspTable
-from hardcode.map import CANDIDATES, CORE_B, SYMMETRY, TILES, decode
-from util import Symmetry, tiles_3x3
 
 
 class Economy:
@@ -134,7 +135,6 @@ class State:
         self.claim: MarkerTaskClaim | None = None
 
         # -- Debug --
-        self.debug_target: tuple[Position, int, int, int] | None = None
 
         # -- Leakage mask (recomputed on reflow) --
         self.leakage_mask: list[int] | None = None
@@ -146,12 +146,17 @@ class State:
         # -- APSP --
         self.apsp: ApspTable | None = None
 
+        # -- Landmarks --
+        self.landmarks: tuple[list[int], int, bytes] | None = None
+
         km = _try_identify_map(self, core_pos)
         if km is not None:
             if USE_HARDCODED_MAPS:
                 _load_map_tiles(self, km)
-            if USE_APSP:
+            if NAV == NavMode.ASTAR_APSP:
                 _load_apsp(self, km)
+            if NAV == NavMode.ASTAR_LANDMARKS:
+                _load_landmarks(self, km)
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -215,3 +220,9 @@ def _load_apsp(state: State, km: KnownMap) -> None:
     apsp_fn = APSP_DATA.get(km)
     if apsp_fn is not None:
         state.apsp = ApspTable(state.w, state.h, SYMMETRY[km], apsp_fn())
+
+
+def _load_landmarks(state: State, km: KnownMap) -> None:
+    lm_fn = LANDMARK_DATA.get(km)
+    if lm_fn is not None:
+        state.landmarks = lm_fn()

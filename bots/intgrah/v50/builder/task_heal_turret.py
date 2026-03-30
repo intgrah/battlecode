@@ -49,5 +49,5 @@ def heal_turret(
         return Direction.CENTRE, Heal(target)
 
     move, build = move_toward_with_road(state, ct, target)
-    state.debug_target = (target, 255, 0, 0)
+    ct.draw_indicator_line(state.pos, target, 255, 0, 0)
     return move, build

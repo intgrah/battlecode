@@ -1,5 +1,5 @@
 from cambc import Controller, Direction, Position
-from config import INF
+from util import INF
 
 from .action import Action, Fire
 from .helpers import move_toward_with_road
@@ -35,5 +35,5 @@ def fire_enemy_transport(
         new_pos = pos.add(move)
         if new_pos == fire_pos:
             build = Fire()
-    state.debug_target = (fire_pos, 255, 128, 0)
+    ct.draw_indicator_line(state.pos, fire_pos, 255, 128, 0)
     return move, build
