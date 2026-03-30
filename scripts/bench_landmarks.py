@@ -154,8 +154,7 @@ def select_landmarks(
     for lm in landmarks:
         d = bfs(n, passable_mask, neighbors, lm)
         for i in range(n):
-            if d[i] < min_dist[i]:
-                min_dist[i] = d[i]
+            min_dist[i] = min(min_dist[i], d[i])
 
     while len(landmarks) < k:
         best_i = -1
@@ -169,8 +168,7 @@ def select_landmarks(
         landmarks.append(best_i)
         d = bfs(n, passable_mask, neighbors, best_i)
         for i in range(n):
-            if d[i] < min_dist[i]:
-                min_dist[i] = d[i]
+            min_dist[i] = min(min_dist[i], d[i])
 
     return landmarks
 
@@ -209,8 +207,7 @@ def h_landmark(node: int, goal: int, table: list[bytearray]) -> int:
         if dn == 0xFF or dg == 0xFF:
             continue
         diff = dn - dg if dn > dg else dg - dn
-        if diff > best:
-            best = diff
+        best = max(best, diff)
     return best * _COST_EMPTY
 
 
@@ -250,9 +247,8 @@ def astar(
         if node == gi:
             return g_node, expanded, False
         expanded += 1
-        if expanded & 63 == 0:
-            if time.monotonic_ns() - t_start > timeout_ns:
-                return _INF, expanded, True
+        if expanded & 63 == 0 and time.monotonic_ns() - t_start > timeout_ns:
+            return _INF, expanded, True
         cx, cy = node % w, node // w
         for dx, dy in _DIR8:
             nx, ny = cx + dx, cy + dy
@@ -344,7 +340,12 @@ def bench_map(
     timeout_ns = int(timeout_ms * 1_000_000)
 
     # Precompute APSP
-    print(f"  {name} ({w}x{h}, {n_passable} passable): APSP...", end="", file=sys.stderr, flush=True)
+    print(
+        f"  {name} ({w}x{h}, {n_passable} passable): APSP...",
+        end="",
+        file=sys.stderr,
+        flush=True,
+    )
     t0 = time.perf_counter()
     apsp = compute_apsp(w, h, passable_mask, neighbors)
     apsp_ms = (time.perf_counter() - t0) * 1000
@@ -354,7 +355,9 @@ def bench_map(
     max_k = max(K_VALUES)
     print(f"  {name}: {max_k} landmarks...", end="", file=sys.stderr, flush=True)
     t0 = time.perf_counter()
-    all_landmarks = select_landmarks(w, h, passable_mask, neighbors, max_k, core_a_i, core_b_i)
+    all_landmarks = select_landmarks(
+        w, h, passable_mask, neighbors, max_k, core_a_i, core_b_i
+    )
     all_tables = build_landmark_table(n, passable_mask, neighbors, all_landmarks)
     lm_ms = (time.perf_counter() - t0) * 1000
     print(f" {lm_ms:.0f}ms", file=sys.stderr, flush=True)
@@ -367,7 +370,11 @@ def bench_map(
             ref_costs.append(_INF)
         else:
             cost, _, _ = astar(
-                w, h, tiles, si, gi,
+                w,
+                h,
+                tiles,
+                si,
+                gi,
                 lambda node, _gi=gi, _a=apsp: h_apsp(node, _gi, _a),
                 timeout_ns * 1000,  # generous timeout for reference
             )
@@ -399,13 +406,17 @@ def bench_map(
             total_tested += 1
 
             if hname == "manhattan":
-                hfunc = lambda node, _gi=gi, _w=w: h_manhattan(node, _gi, _w)
+                def hfunc(node, _gi=gi, _w=w):
+                    return h_manhattan(node, _gi, _w)
             elif hname == "chebyshev":
-                hfunc = lambda node, _gi=gi, _w=w: h_chebyshev(node, _gi, _w)
+                def hfunc(node, _gi=gi, _w=w):
+                    return h_chebyshev(node, _gi, _w)
             elif hname == "apsp":
-                hfunc = lambda node, _gi=gi, _a=hdata: h_apsp(node, _gi, _a)
+                def hfunc(node, _gi=gi, _a=hdata):
+                    return h_apsp(node, _gi, _a)
             else:
-                hfunc = lambda node, _gi=gi, _t=hdata: h_landmark(node, _gi, _t)
+                def hfunc(node, _gi=gi, _t=hdata):
+                    return h_landmark(node, _gi, _t)
 
             t0 = time.perf_counter()
             cost, exp, tle = astar(w, h, tiles, si, gi, hfunc, timeout_ns)
@@ -443,7 +454,11 @@ def bench_map(
             row[f"exp_{key}"] = round(val, 1)
 
         results.append(row)
-        print(f" tles={tles} bad={incorrect} mean_exp={mean_exp:.0f}", file=sys.stderr, flush=True)
+        print(
+            f" tles={tles} bad={incorrect} mean_exp={mean_exp:.0f}",
+            file=sys.stderr,
+            flush=True,
+        )
 
     return results
 
@@ -452,8 +467,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark landmark heuristics for A*")
     parser.add_argument("--pairs", type=int, default=200, help="Random pairs per map")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--timeout-ms", type=float, default=5.0, help="A* timeout in ms")
-    parser.add_argument("--output", default=None, help="Output CSV path (default: stdout)")
+    parser.add_argument(
+        "--timeout-ms", type=float, default=5.0, help="A* timeout in ms"
+    )
+    parser.add_argument(
+        "--output", default=None, help="Output CSV path (default: stdout)"
+    )
     args = parser.parse_args()
 
     print(

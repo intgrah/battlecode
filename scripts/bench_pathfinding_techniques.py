@@ -75,7 +75,7 @@ _COST_EMPTY = 10
 _COST_UNSEEN = 12
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 _VIS_RSQ = 20
-_r = int(math.isqrt(_VIS_RSQ))
+_r = math.isqrt(_VIS_RSQ)
 _VIS_OFFSETS = [
     (dx, dy)
     for dx in range(-_r, _r + 1)
@@ -90,7 +90,7 @@ _VIS_OFFSETS = [
 
 
 class Belief:
-    __slots__ = ("w", "h", "n", "env", "true_env", "cost", "neighbors")
+    __slots__ = ("cost", "env", "h", "n", "neighbors", "true_env", "w")
 
     def __init__(self, w: int, h: int, true_tiles: list[int]) -> None:
         self.w = w
@@ -175,7 +175,6 @@ def validate_path(
 def ground_truth_dijkstra(belief: Belief, goal: int) -> list[int]:
     """Dijkstra from goal over belief state. Returns dist[tile]."""
     n = belief.n
-    w = belief.w
     cost = belief.cost
     nb = belief.neighbors
     dist = [_INF] * n
@@ -203,9 +202,7 @@ def ground_truth_dijkstra(belief: Belief, goal: int) -> list[int]:
 # ---------------------------------------------------------------------------
 
 
-def astar_baseline(
-    belief: Belief, si: int, gi: int
-) -> list[int] | None:
+def astar_baseline(belief: Belief, si: int, gi: int) -> list[int] | None:
     w = belief.w
     cost = belief.cost
     gx, gy = gi % w, gi // w
@@ -254,7 +251,7 @@ def astar_baseline(
 
 
 class FlatAstar:
-    __slots__ = ("_n", "_g", "_parent", "_touched")
+    __slots__ = ("_g", "_n", "_parent", "_touched")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -321,7 +318,7 @@ class FlatAstar:
 
 
 class FlatAstarPrecomp:
-    __slots__ = ("_n", "_g", "_parent", "_touched")
+    __slots__ = ("_g", "_n", "_parent", "_touched")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -387,7 +384,7 @@ class FlatAstarPrecomp:
 
 
 class BackwardBfsAstar:
-    __slots__ = ("_n", "_g", "_parent", "_touched", "_h_table", "_h_valid")
+    __slots__ = ("_g", "_h_table", "_h_valid", "_n", "_parent", "_touched")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -425,7 +422,6 @@ class BackwardBfsAstar:
     ) -> list[int] | None:
         if not self._h_valid or walls_discovered:
             self._build_h_table(belief, gi)
-        w = belief.w
         cost = belief.cost
         nb = belief.neighbors
         h_table = self._h_table
@@ -478,7 +474,7 @@ class BackwardBfsAstar:
 
 
 class BackwardDijkstraAstar:
-    __slots__ = ("_n", "_g", "_parent", "_touched", "_h_table", "_h_valid")
+    __slots__ = ("_g", "_h_table", "_h_valid", "_n", "_parent", "_touched")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -571,7 +567,7 @@ class BackwardDijkstraAstar:
 
 
 class BackwardDijkstraOnly:
-    __slots__ = ("_n", "_dist", "_parent", "_valid")
+    __slots__ = ("_dist", "_n", "_parent", "_valid")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -648,7 +644,7 @@ class BackwardDijkstraOnly:
 
 
 class IncrementalDijkstra:
-    __slots__ = ("_n", "_dist", "_pred", "_valid", "_nb")
+    __slots__ = ("_dist", "_n", "_nb", "_pred", "_valid")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -782,7 +778,7 @@ class IncrementalDijkstra:
 
 
 class BoundedAstar:
-    __slots__ = ("_n", "_g", "_parent", "_touched")
+    __slots__ = ("_g", "_n", "_parent", "_touched")
 
     def __init__(self, n: int) -> None:
         self._n = n
@@ -889,7 +885,7 @@ def simulate_map(
 
     results: list[dict] = []
 
-    for tech_name, tech_type in techniques:
+    for tech_name, _tech_type in techniques:
         belief = Belief(w, h, true_tiles)
         bx, by = ca.x, ca.y
         si = by * w + bx
@@ -935,7 +931,7 @@ def simulate_map(
                 # Actually, unseen→empty changes cost from 12→10, which could
                 # create shorter paths. Need to handle cost decreases too.
                 # For simplicity, recompute on any change initially.
-                all_changed = [ti for ti, _ in changed]
+                [ti for ti, _ in changed]
                 path = searcher.search(belief, si, gi, walls if any_walls else [])
             elif tech_name == "dijkstra_only":
                 path = searcher.search(belief, si, gi, any_walls)
@@ -969,20 +965,22 @@ def simulate_map(
 
         s = sorted(turn_times)
         nt = len(s)
-        results.append({
-            "map": name,
-            "w": w,
-            "h": h,
-            "tech": tech_name,
-            "turns": nt,
-            "arrived": arrived,
-            "errors": errors,
-            "p50": round(s[nt // 2]),
-            "p95": round(s[int(nt * 0.95)]),
-            "p99": round(s[min(int(nt * 0.99), nt - 1)]),
-            "max": round(s[-1]),
-            "mean": round(sum(s) / nt),
-        })
+        results.append(
+            {
+                "map": name,
+                "w": w,
+                "h": h,
+                "tech": tech_name,
+                "turns": nt,
+                "arrived": arrived,
+                "errors": errors,
+                "p50": round(s[nt // 2]),
+                "p95": round(s[int(nt * 0.95)]),
+                "p99": round(s[min(int(nt * 0.99), nt - 1)]),
+                "max": round(s[-1]),
+                "mean": round(sum(s) / nt),
+            }
+        )
 
     return results
 
@@ -1044,7 +1042,7 @@ def main() -> None:
         print(
             f"{tech:<22} "
             f"{arrive:>5}/{nm} {errs:>5} "
-            f"{all_p50s[nm//2]:>6}u {all_p95s[nm//2]:>6}u {all_p95s[int(nm*0.95)]:>6}u {max(all_maxes):>6}u "
+            f"{all_p50s[nm // 2]:>6}u {all_p95s[nm // 2]:>6}u {all_p95s[int(nm * 0.95)]:>6}u {max(all_maxes):>6}u "
             f"{over_2ms:>5}/{nm} {over_1ms:>5}/{nm} {over_500:>5}/{nm}"
         )
 
