@@ -53,7 +53,7 @@ Outputs its contents to a **specific tile within Euclidean distance 3** (distanc
 | --------- | ----- |
 | HP        | 20    |
 | Base cost | 20 Ti |
-| Scaling   | 5%    |
+| Scaling   | 10%   |
 
 ```python  theme={"dark"}
 # Build a bridge that outputs to a target position
@@ -66,11 +66,11 @@ c.build_bridge(bridge_pos, target_pos)
 
 Same function as a basic conveyor but with **much more HP**. Requires refined axionite to build.
 
-| Property  | Value       |
-| --------- | ----------- |
-| HP        | 50          |
-| Base cost | 10 Ti, 5 Ax |
-| Scaling   | 1%          |
+| Property  | Value      |
+| --------- | ---------- |
+| HP        | 50         |
+| Base cost | 5 Ti, 5 Ax |
+| Scaling   | 1%         |
 
 ## Resource distribution
 

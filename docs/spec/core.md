@@ -46,5 +46,17 @@ Resources must be transferred to the core via [conveyors](/spec/conveyors) to be
 
 Raw axionite delivered to the core is **destroyed**, so refine it first if you want to keep it.
 
+## Conversion
+
+The core can convert refined axionite from the global resource pool into
+titanium with `c.convert(amount)`.
+
+$$
+1 \text{ Ax} \rightarrow 4 \text{ Ti}
+$$
+
+Converted axionite is removed from the Ax collected stat and added to the Ti
+collected stat.
+
 
 Built with [Mintlify](https://mintlify.com).

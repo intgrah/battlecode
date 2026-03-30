@@ -44,7 +44,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         </td>
 
         <td>30</td>
-        <td>50 Ti</td>
+        <td>30 Ti</td>
         <td>20%</td>
         <td>Mobile; build, heal, attack, destroy</td>
       </tr>
@@ -84,7 +84,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
 
         <td>20</td>
         <td>20 Ti</td>
-        <td>5%</td>
+        <td>10%</td>
         <td>Output to tile within dist 3</td>
       </tr>
 
@@ -96,7 +96,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         </td>
 
         <td>50</td>
-        <td>10 Ti, 5 Ax</td>
+        <td>5 Ti, 5 Ax</td>
         <td>1%</td>
         <td>Conveyor with more HP</td>
       </tr>
@@ -109,8 +109,8 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         </td>
 
         <td>30</td>
-        <td>80 Ti</td>
-        <td>10%</td>
+        <td>20 Ti</td>
+        <td>5%</td>
         <td>Outputs every 4 rounds</td>
       </tr>
 
@@ -122,7 +122,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         </td>
 
         <td>50</td>
-        <td>120 Ti</td>
+        <td>40 Ti</td>
         <td>100%</td>
         <td>Ti + raw Ax → refined Ax</td>
       </tr>
@@ -134,7 +134,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
           Road
         </td>
 
-        <td>10</td>
+        <td>5</td>
         <td>1 Ti</td>
         <td>0.5%</td>
         <td>Walkable</td>
@@ -176,7 +176,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>40</td>
         <td>10 Ti</td>
         <td>10%</td>
-        <td>Any occupied tile in facing dir; markers do not block</td>
+        <td>Any occupied tile in facing dir; can rotate 45 degrees for 10 Ti</td>
       </tr>
 
       <tr>
@@ -200,7 +200,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         </td>
 
         <td>60</td>
-        <td>30 Ti, 10 Ax</td>
+        <td>15 Ti, 10 Ax</td>
         <td>10%</td>
         <td>180° cone; friendly fire</td>
       </tr>
@@ -263,7 +263,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>13</td>
         <td>2</td>
         <td>13</td>
-        <td>10 (+10 with Ax)</td>
+        <td>10 (30 with Ax)</td>
         <td>1</td>
         <td>2</td>
       </tr>
@@ -274,7 +274,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>2</td>
         <td>32</td>
         <td>10</td>
-        <td>2</td>
+        <td>3</td>
         <td>5</td>
       </tr>
 
@@ -330,12 +330,17 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
 
       <tr>
         <td>Starting titanium</td>
-        <td>1000</td>
+        <td>500</td>
       </tr>
 
       <tr>
         <td>Starting axionite</td>
         <td>0</td>
+      </tr>
+
+      <tr>
+        <td>Passive titanium income</td>
+        <td>10 every 4 rounds</td>
       </tr>
 
       <tr>
@@ -405,11 +410,16 @@ Every entity you build increases the cost multiplier. Scale starts at 1.0x (100%
 
       <tr>
         <td>Bridge</td>
+        <td>+10%</td>
+      </tr>
+
+      <tr>
+        <td>Harvester</td>
         <td>+5%</td>
       </tr>
 
       <tr>
-        <td>Harvester, gunner, breach, launcher</td>
+        <td>Gunner, breach, launcher</td>
         <td>+10%</td>
       </tr>
 
