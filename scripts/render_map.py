@@ -164,9 +164,13 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
     return output_path
 
 
-if __name__ == "__main__":
+def main() -> None:
     if len(sys.argv) < 2:
         print("Usage: python scripts/render_map.py maps/<name>.map26 [output.png]")
         sys.exit(1)
     out = sys.argv[2] if len(sys.argv) > 2 else None
     render_map(sys.argv[1], out)
+
+
+if __name__ == "__main__":
+    main()
