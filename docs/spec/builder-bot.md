@@ -15,7 +15,7 @@ Builder bots are the **only mobile unit**. They construct buildings, heal friend
 | Property             | Value |
 | -------------------- | ----- |
 | HP                   | 30    |
-| Base cost            | 50 Ti |
+| Base cost            | 30 Ti |
 | Scaling contribution | 20%   |
 | Vision radius²       | 20    |
 | Action radius²       | 2     |
@@ -49,11 +49,12 @@ When action cooldown is 0, a builder bot can perform one of:
 
 ### Build
 
-Build any building or turret on a tile within action radius that doesn't already have a building.
+Build any building or turret on a tile within action radius that doesn't
+already have a building.
 
 <Info>
-  Only walkable buildings (conveyors and roads) can be built on a tile that
-  contains a builder bot.
+  If a tile already contains a builder bot, only walkable buildings
+  (conveyors and roads) can be built on that tile.
 </Info>
 
 ### Heal

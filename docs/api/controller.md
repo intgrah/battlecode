@@ -78,6 +78,11 @@ class Player:
   do not shield occupied tiles behind them. Only valid on gunners.
 </ResponseField>
 
+<ResponseField name="get_attackable_tiles()" type="list[Position]">
+  Return the tiles in this turret's current attack pattern. Only valid on
+  turrets.
+</ResponseField>
+
 ### Building info
 
 <ResponseField name="get_bridge_target(id: int)" type="Position">
@@ -210,6 +215,9 @@ Every buildable entity has `can_build_*` and `build_*` methods. All require acti
 
 If a `can_build_*` method would create a living unit, it also accounts for the global unit cap.
 
+If a tile already contains a builder bot, only walkable buildings (conveyors and
+roads) may be built on that tile.
+
 ### Directional buildings
 
 These take `(position: Position, direction: Direction)` — the direction the building faces:
@@ -246,10 +254,10 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
-  Heal all friendly entities on the tile at position by 4 HP. If both a
-  builder bot and a friendly building share that tile, both are healed. Costs 1
-  titanium and one action cooldown. Position must be within the builder bot's
-  action radius.
+  Heal all friendly entities on a tile within this builder bot's action radius
+  by 4 HP. If both a friendly builder bot and a friendly building share the
+  tile, both are healed. Costs 1 titanium and one action cooldown. Raises
+  `GameError` if not legal.
 </ResponseField>
 
 <ResponseField name="can_heal(position: Position)" type="bool">
@@ -300,12 +308,19 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 <ResponseField name="fire(target: Position)" type="None">
   Fire this turret at target, or perform the builder bot's own-tile attack.
   Builder bots spend 2 titanium to deal 2 damage to the building on their
-  current tile. Use `launch()` for launchers.
+  current tile. If a turret attacks a tile containing both a building and a
+  builder bot, only the builder bot is hit. Use `launch()` for launchers.
 </ResponseField>
 
 <ResponseField name="can_fire(target: Position)" type="bool">
   Return True if this turret can fire at target this round, or if this builder
   bot can use its own-tile attack on target.
+</ResponseField>
+
+<ResponseField name="rotate(direction: Direction)" type="None">
+  Rotate this gunner 45 degrees to an adjacent facing direction. Costs 10
+  titanium from the global resource pool and applies a 1-turn cooldown. Raises
+  `GameError` if not legal. Only valid on gunners.
 </ResponseField>
 
 <ResponseField name="launch(bot_pos: Position, target: Position)" type="None">
@@ -317,6 +332,13 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 </ResponseField>
 
 ## Core
+
+<ResponseField name="convert(amount: int)" type="None">
+  Convert `amount` refined axionite from this team's global resource pool into
+  titanium at a rate of 1 Ax to 4 Ti. Converted axionite is removed from the Ax
+  collected stat and added to the Ti collected stat. Raises `GameError` if not
+  legal. Only valid on cores.
+</ResponseField>
 
 <ResponseField name="spawn_builder(position: Position)" type="int">
   Spawn a builder bot on one of the 9 core tiles. Costs one action cooldown and

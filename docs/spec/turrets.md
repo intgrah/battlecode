@@ -10,8 +10,11 @@ Every turret **except the launcher** faces in one of **8 directions**. Ammo must
 
 Ammo-based turrets can hold up to one stack of one resource type and only accept incoming resources when completely empty.
 
+You can inspect a turret's full attack pattern with `c.get_attackable_tiles()`.
+
 <Info>
-  If a tile containing both a building and a unit is hit, **both** take full damage.
+  If a builder bot is standing on a building, turret attacks on that tile hit
+  **only the builder bot**.
 </Info>
 
 <Info>
@@ -22,10 +25,17 @@ Ammo-based turrets can hold up to one stack of one resource type and only accept
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/gunner.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=62439f66dff4e5aa36645340d4daad02" alt="Gunner" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/gunner.png" />
 
-Has a vision radius of √13. Can target **any occupied tile** in the direction it is facing. Using refined axionite as ammo deals double damage.
+Has a vision radius of √13. Can target **any occupied tile** in the direction it
+is facing. Using refined axionite as ammo deals **30 damage** instead of 10.
 
 <Info>
   Markers remain targetable, but they do **not** shield occupied tiles behind them.
+</Info>
+
+<Info>
+  Gunners can rotate 45 degrees to an adjacent facing direction with
+  `c.rotate(direction)`. This costs **10 Ti** from the global pool and applies a
+  **1-turn cooldown**.
 </Info>
 
 | Property      | Value                         |
@@ -33,7 +43,7 @@ Has a vision radius of √13. Can target **any occupied tile** in the direction 
 | HP            | 40                            |
 | Base cost     | 10 Ti                         |
 | Scaling       | 10%                           |
-| Damage        | 10 (20 with refined axionite) |
+| Damage        | 10 (30 with refined axionite) |
 | Reload        | 1 round                       |
 | Ammo per shot | 2                             |
 | Vision r²     | 13                            |
@@ -63,7 +73,7 @@ Using refined axionite instead of titanium as ammo adds **+2 to the action and m
 | Base cost     | 15 Ti               |
 | Scaling       | 20%                 |
 | Damage        | 10                  |
-| Reload        | 2 rounds            |
+| Reload        | 3 rounds            |
 | Ammo per shot | 5                   |
 | Vision r²     | 32                  |
 | Attack r²     | 32 (same as vision) |
@@ -91,7 +101,7 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 | Property      | Value                                       |
 | ------------- | ------------------------------------------- |
 | HP            | 60                                          |
-| Base cost     | 30 Ti, 10 Ax                                |
+| Base cost     | 15 Ti, 10 Ax                                |
 | Scaling       | 10%                                         |
 | Damage        | 40 direct + 20 splash (8 surrounding tiles) |
 | Reload        | 1 round                                     |

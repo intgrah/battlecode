@@ -52,6 +52,11 @@ If both cores are still alive after **2000 rounds**, the winner is decided by ti
   </Step>
 </Steps>
 
+<Info>
+  Axionite converted by the core with `c.convert(...)` is removed from the Ax
+  collected stat and added to the Ti collected stat.
+</Info>
+
 ## Map
 
 The map is a rectangular grid between **20×20** and **50×50** inclusive. The top-left (northwest) corner is position `(0, 0)`.
