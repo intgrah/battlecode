@@ -36,9 +36,7 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
     w, h = m.width, m.height
 
     # Parse tiles
-    tiles: list[list[int]] = []
-    for row in m.rows:
-        tiles.append(list(row.tiles))
+    tiles: list[list[int]] = [list(row.tiles) for row in m.rows]
 
     # Core positions
     cores: dict[int, tuple[int, int]] = {}
