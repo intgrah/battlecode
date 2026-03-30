@@ -280,7 +280,546 @@ def w_astar(
     return result
 
 
-TECHNIQUES = ["dial_exact", "astar_heap", "weighted_3", "weighted_5"]
+def adaptive_astar(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    g: list[int],
+    p: list[int],
+    min_cost: int,
+) -> list[int] | None:
+    w = min(5, _COST_EMPTY // max(min_cost, 1))
+    if w < 1:
+        w = 1
+    return w_astar(cost, nb, n, si, gi, ht, g, p, w)
+
+
+def dial_budget(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    dist: list[int],
+    p: list[int],
+    budget: int,
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    dist[si] = 0
+    touched = [si]
+    bk: list[deque[int]] = [deque() for _ in range(_MAX_EDGE)]
+    bk[0].append(si)
+    cur = 0
+    result = None
+    emp = 0
+    exp = 0
+    best_h = _INF
+    best_node = si
+    while emp < _MAX_EDGE:
+        bi = cur % _MAX_EDGE
+        if not bk[bi]:
+            cur += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bk[bi].popleft()
+        if dist[node] != cur:
+            continue
+        if node == gi:
+            result = extr(p, si, gi)
+            break
+        exp += 1
+        hv = ht[node]
+        if hv < best_h:
+            best_h = hv
+            best_node = node
+        if exp >= budget:
+            result = extr(p, si, best_node)
+            break
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF:
+                continue
+            if diag:
+                c += 1
+            nd = cur + c
+            if nd < dist[ni]:
+                if dist[ni] == _INF:
+                    touched.append(ni)
+                dist[ni] = nd
+                p[ni] = node
+                bk[nd % _MAX_EDGE].append(ni)
+    for ti in touched:
+        dist[ti] = _INF
+        p[ti] = -1
+    return result
+
+
+def focal_astar(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    g: list[int],
+    p: list[int],
+    w: int,
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    g[si] = 0
+    touched = [si]
+    f_min = ht[si]
+    heap: list[tuple[int, int, int]] = [(ht[si], ht[si], si)]
+    result = None
+    while heap:
+        _, h_val, node = heapq.heappop(heap)
+        gn = g[node]
+        fn = gn + ht[node]
+        if fn > f_min * w:
+            heapq.heappush(heap, (fn, h_val, node))
+            f_min += 1
+            continue
+        if node == gi:
+            result = extr(p, si, gi)
+            break
+        if gn > g[node]:
+            continue
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF:
+                continue
+            if diag:
+                c += 1
+            nd = gn + c
+            if nd < g[ni]:
+                if g[ni] == _INF:
+                    touched.append(ni)
+                g[ni] = nd
+                p[ni] = node
+                fni = nd + ht[ni]
+                heapq.heappush(heap, (fni, ht[ni], ni))
+    for ti in touched:
+        g[ti] = _INF
+        p[ti] = -1
+    return result
+
+
+def ida_star(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    si: int,
+    gi: int,
+    ht: list[int],
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    threshold = ht[si]
+    path = [si]
+    path_set = {si}
+
+    def search(node: int, g_val: int, threshold: int) -> tuple[bool, int]:
+        f = g_val + ht[node]
+        if f > threshold:
+            return False, f
+        if node == gi:
+            return True, f
+        min_t = _INF
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF:
+                continue
+            if ni in path_set:
+                continue
+            if diag:
+                c += 1
+            path.append(ni)
+            path_set.add(ni)
+            found, t = search(ni, g_val + c, threshold)
+            if found:
+                return True, t
+            min_t = min(min_t, t)
+            path.pop()
+            path_set.discard(ni)
+        return False, min_t
+
+    for _ in range(200):
+        found, t = search(si, 0, threshold)
+        if found:
+            return list(path)
+        if t >= _INF:
+            return None
+        threshold = t
+    return None
+
+
+def ara_star(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    g: list[int],
+    p: list[int],
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    best_path = None
+    touched_all: list[int] = []
+    for w in (5, 3, 2, 1):
+        g[si] = 0
+        touched = [si]
+        heap: list[tuple[int, int]] = [(ht[si] * w, si)]
+        while heap:
+            f, node = heapq.heappop(heap)
+            if node == gi:
+                best_path = extr(p, si, gi)
+                break
+            if f > g[node] + ht[node] * w:
+                continue
+            gn = g[node]
+            for ni, diag in nb[node]:
+                c = cost[ni]
+                if c >= _INF:
+                    continue
+                if diag:
+                    c += 1
+                nd = gn + c
+                if nd < g[ni]:
+                    if g[ni] == _INF:
+                        touched.append(ni)
+                    g[ni] = nd
+                    p[ni] = node
+                    heapq.heappush(heap, (nd + ht[ni] * w, ni))
+        touched_all.extend(touched)
+        if best_path is not None and w == 1:
+            break
+        if best_path is not None:
+            for ti in touched:
+                g[ti] = _INF
+                p[ti] = -1
+            continue
+        break
+    for ti in touched_all:
+        g[ti] = _INF
+        p[ti] = -1
+    return best_path
+
+
+def fringe_search(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    g: list[int],
+    p: list[int],
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    g[si] = 0
+    touched = [si]
+    threshold = ht[si]
+    now: list[int] = [si]
+    for _iteration in range(n):
+        if not now:
+            break
+        f_min = _INF
+        later: list[int] = []
+        while now:
+            node = now.pop()
+            fn = g[node] + ht[node]
+            if fn > threshold:
+                if fn < f_min:
+                    f_min = fn
+                later.append(node)
+                continue
+            if node == gi:
+                result = extr(p, si, gi)
+                for ti in touched:
+                    g[ti] = _INF
+                    p[ti] = -1
+                return result
+            gn = g[node]
+            for ni, diag in nb[node]:
+                c = cost[ni]
+                if c >= _INF:
+                    continue
+                if diag:
+                    c += 1
+                nd = gn + c
+                if nd < g[ni]:
+                    if g[ni] == _INF:
+                        touched.append(ni)
+                    g[ni] = nd
+                    p[ni] = node
+                    now.append(ni)
+        if f_min >= _INF:
+            break
+        threshold = f_min
+        now = later
+    for ti in touched:
+        g[ti] = _INF
+        p[ti] = -1
+    return None
+
+
+def road_bfs_h(cost: list[int], nb: list[list[tuple[int, bool]]], n: int, w: int, gi: int) -> list[int]:
+    """BFS backward from goal through roads only, combined with Chebyshev."""
+    gx, gy = gi % w, gi // w
+    cheb = [max(abs(i % w - gx), abs(i // w - gy)) * _COST_ROAD for i in range(n)]
+    rd = [_INF] * n
+    rd[gi] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(gi)
+    cur = 0
+    emp = 0
+    while emp < 4:
+        bi = cur % 4
+        if not bk[bi]:
+            cur += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bk[bi].popleft()
+        if rd[node] != cur:
+            continue
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF or c > _COST_ROAD:
+                continue
+            if diag:
+                c += 1
+            nd = cur + c
+            if nd < rd[ni]:
+                rd[ni] = nd
+                bk[nd % 4].append(ni)
+    h = [0] * n
+    for i in range(n):
+        h[i] = min(cheb[i], rd[i])
+    return h
+
+
+def astar_road_h(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    g: list[int],
+    p: list[int],
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    g[si] = 0
+    touched = [si]
+    heap: list[tuple[int, int]] = [(ht[si], si)]
+    result = None
+    while heap:
+        f, node = heapq.heappop(heap)
+        if node == gi:
+            result = extr(p, si, gi)
+            break
+        if f > g[node] + ht[node]:
+            continue
+        gn = g[node]
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF:
+                continue
+            if diag:
+                c += 1
+            nd = gn + c
+            if nd < g[ni]:
+                if g[ni] == _INF:
+                    touched.append(ni)
+                g[ni] = nd
+                p[ni] = node
+                heapq.heappush(heap, (nd + ht[ni], ni))
+    for ti in touched:
+        g[ti] = _INF
+        p[ti] = -1
+    return result
+
+
+def bidir_dial(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    dist_f: list[int],
+    dist_b: list[int],
+    p_f: list[int],
+    p_b: list[int],
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    dist_f[si] = 0
+    dist_b[gi] = 0
+    touched_f = [si]
+    touched_b = [gi]
+    bk_f: list[deque[int]] = [deque() for _ in range(_MAX_EDGE)]
+    bk_b: list[deque[int]] = [deque() for _ in range(_MAX_EDGE)]
+    bk_f[0].append(si)
+    bk_b[0].append(gi)
+    cur_f = 0
+    cur_b = 0
+    mu = _INF
+    meet = -1
+    emp_f = 0
+    emp_b = 0
+
+    while emp_f < _MAX_EDGE or emp_b < _MAX_EDGE:
+        if cur_f + cur_b >= mu:
+            break
+        # forward step
+        if emp_f < _MAX_EDGE:
+            bi = cur_f % _MAX_EDGE
+            if not bk_f[bi]:
+                cur_f += 1
+                emp_f += 1
+            else:
+                emp_f = 0
+                node = bk_f[bi].popleft()
+                if dist_f[node] == cur_f:
+                    if dist_b[node] < _INF and dist_f[node] + dist_b[node] < mu:
+                        mu = dist_f[node] + dist_b[node]
+                        meet = node
+                    for ni, diag in nb[node]:
+                        c = cost[ni]
+                        if c >= _INF:
+                            continue
+                        if diag:
+                            c += 1
+                        nd = cur_f + c
+                        if nd < dist_f[ni]:
+                            if dist_f[ni] == _INF:
+                                touched_f.append(ni)
+                            dist_f[ni] = nd
+                            p_f[ni] = node
+                            bk_f[nd % _MAX_EDGE].append(ni)
+        # backward step
+        if emp_b < _MAX_EDGE:
+            bi = cur_b % _MAX_EDGE
+            if not bk_b[bi]:
+                cur_b += 1
+                emp_b += 1
+            else:
+                emp_b = 0
+                node = bk_b[bi].popleft()
+                if dist_b[node] == cur_b:
+                    if dist_f[node] < _INF and dist_f[node] + dist_b[node] < mu:
+                        mu = dist_f[node] + dist_b[node]
+                        meet = node
+                    for ni, diag in nb[node]:
+                        c = cost[node]
+                        if c >= _INF:
+                            continue
+                        if diag:
+                            c += 1
+                        nd = cur_b + c
+                        if nd < dist_b[ni]:
+                            if dist_b[ni] == _INF:
+                                touched_b.append(ni)
+                            dist_b[ni] = nd
+                            p_b[ni] = node
+                            bk_b[nd % _MAX_EDGE].append(ni)
+
+    result = None
+    if meet >= 0:
+        fwd = []
+        cur = meet
+        while cur != -1:
+            fwd.append(cur)
+            cur = p_f[cur] if cur != si else -1
+        fwd.reverse()
+        bwd = []
+        cur = p_b[meet] if meet != gi else -1
+        while cur != -1:
+            bwd.append(cur)
+            cur = p_b[cur] if cur != gi else -1
+        bwd.append(gi) if meet != gi else None
+        result = fwd + bwd
+
+    for ti in touched_f:
+        dist_f[ti] = _INF
+        p_f[ti] = -1
+    for ti in touched_b:
+        dist_b[ti] = _INF
+        p_b[ti] = -1
+    return result
+
+
+def dial_astar(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    si: int,
+    gi: int,
+    ht: list[int],
+    dist: list[int],
+    p: list[int],
+) -> list[int] | None:
+    if si == gi:
+        return [si]
+    dist[si] = 0
+    touched = [si]
+    max_f = n * _MAX_EDGE
+    n_bk = max_f + _MAX_EDGE
+    bk: list[deque[int]] = [deque() for _ in range(n_bk)]
+    f0 = ht[si]
+    bk[f0 % n_bk].append(si)
+    cur = f0
+    result = None
+    while cur < max_f:
+        bi = cur % n_bk
+        if not bk[bi]:
+            cur += 1
+            continue
+        node = bk[bi].popleft()
+        if dist[node] + ht[node] != cur:
+            continue
+        if node == gi:
+            result = extr(p, si, gi)
+            break
+        gn = dist[node]
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF:
+                continue
+            if diag:
+                c += 1
+            nd = gn + c
+            if nd < dist[ni]:
+                if dist[ni] == _INF:
+                    touched.append(ni)
+                dist[ni] = nd
+                p[ni] = node
+                fn = nd + ht[ni]
+                bk[fn % n_bk].append(ni)
+    for ti in touched:
+        dist[ti] = _INF
+        p[ti] = -1
+    return result
+
+
+TECHNIQUES = [
+    "dial_exact",
+    "dial_astar",
+    "astar_heap",
+    "weighted_2",
+    "weighted_3",
+]
 
 
 def run_tech(
@@ -295,11 +834,21 @@ def run_tech(
     g: list[int],
     p: list[int],
     d: list[int],
+    extra: dict,
 ) -> list[int] | None:
     if tech == "astar_heap":
         return astar_heap(cost, nb, n, si, gi, ht, g, p)
     if tech == "dial_exact":
         return dial_ex(cost, nb, n, si, gi, d, p)
+    if tech == "dial_astar":
+        return dial_astar(cost, nb, n, si, gi, ht, d, p)
+    if tech == "astar_road_h":
+        rh = extra.get("road_h")
+        return astar_road_h(cost, nb, n, si, gi, rh, g, p)
+    if tech == "bidir_dial":
+        d2 = extra.setdefault("d2", [_INF] * n)
+        p2 = extra.setdefault("p2", [-1] * n)
+        return bidir_dial(cost, nb, n, si, gi, d, d2, p, p2)
     if tech.startswith("weighted_"):
         return w_astar(cost, nb, n, si, gi, ht, g, p, int(tech.split("_")[1]))
     return None
@@ -355,7 +904,7 @@ def bench_map(km: KnownMap, seed: int, n_pairs: int) -> list[dict]:
     nb = build_nb(w, h)
     ps = [i for i in range(n) if cost[i] < _INF]
     rng = random.Random(seed)
-    _place_roads(cost, nb, n, rng, ps, n_paths=10)
+    _place_roads(cost, nb, n, rng, ps, n_paths=50)
     n_roads = sum(1 for c in cost if c == _COST_ROAD)
     pairs = [(rng.choice(ps), rng.choice(ps)) for _ in range(n_pairs)]
     gt_cache: dict[int, list[int]] = {}
@@ -363,7 +912,9 @@ def bench_map(km: KnownMap, seed: int, n_pairs: int) -> list[dict]:
     p = [-1] * n
     d = [_INF] * n
     rows: list[dict] = []
+    extra: dict = {}
     for tech in TECHNIQUES:
+        extra.clear()
         for si, gi in pairs:
             if si == gi:
                 continue
@@ -373,8 +924,11 @@ def bench_map(km: KnownMap, seed: int, n_pairs: int) -> list[dict]:
             if gd >= _INF:
                 continue
             ht = build_h(n, w, gi)
+            if tech == "astar_road_h" and extra.get("road_h_gi") != gi:
+                extra["road_h"] = road_bfs_h(cost, nb, n, w, gi)
+                extra["road_h_gi"] = gi
             t0 = time.perf_counter()
-            path = run_tech(tech, cost, nb, n, w, si, gi, ht, g, p, d)
+            path = run_tech(tech, cost, nb, n, w, si, gi, ht, g, p, d, extra)
             elapsed = (time.perf_counter() - t0) * 1e6
             opt = 0.0
             if path and path[-1] == gi:

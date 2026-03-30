@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
     from marker import MarkerTaskClaim
-    from nav_astar import NavAstar
+
 
 from building import (
     Building,
@@ -123,7 +123,6 @@ class State:
         self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
         self.nav_target_key: Position | None = None
-        self.nav_search: NavAstar | None = None
         self.nav_path: list[int] | None = None
 
         # -- Marker --

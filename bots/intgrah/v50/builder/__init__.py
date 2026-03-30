@@ -63,6 +63,7 @@ from .task_secure_ore import secure_ore
 from .task_self_destruct import self_destruct
 
 DEBUG_DUMP = False
+USE_OPENING = False
 
 type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
 
@@ -184,7 +185,7 @@ class Builder(Unit):
             dump(s, ct)
         s.claim = None
 
-        if self._compiled is not None and not self._off_script:
+        if self._compiled is not None and not self._off_script and USE_OPENING:
             self._run_script(ct)
             return
 
@@ -329,22 +330,6 @@ def _read_opening(
                 km = km_list[idx]
                 return get_opening(km), km
     return None, None
-
-
-def _has_undefended_transport(state: State) -> bool:
-    for p in state.my_transport:
-        if any(
-            state.in_bounds(p.x + dx, p.y + dy)
-            and isinstance(
-                state.building[state.idx(p.x + dx, p.y + dy)],
-                BuildingLauncher,
-            )
-            and state.building[state.idx(p.x + dx, p.y + dy)].team == state.my_team
-            for dx, dy in DIR8_DELTA
-        ):
-            continue
-        return True
-    return False
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:

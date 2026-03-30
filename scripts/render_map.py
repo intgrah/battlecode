@@ -4,7 +4,8 @@ Usage: python scripts/render_map.py maps/<name>.map26 [output.png]
 """
 
 from __future__ import annotations
-
+from heapq import heapify
+from _heapq import heapify
 import sys
 from pathlib import Path
 
