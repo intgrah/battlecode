@@ -93,8 +93,13 @@ def _vision_offsets(rsq: int) -> list[tuple[int, int]]:
     """All (dx, dy) within squared distance rsq."""
     import math
 
-    r = int(math.isqrt(rsq))
-    return [(dx, dy) for dx in range(-r, r + 1) for dy in range(-r, r + 1) if dx * dx + dy * dy <= rsq]
+    r = math.isqrt(rsq)
+    return [
+        (dx, dy)
+        for dx in range(-r, r + 1)
+        for dy in range(-r, r + 1)
+        if dx * dx + dy * dy <= rsq
+    ]
 
 
 _VIS_OFFSETS = _vision_offsets(_VISION_RSQ)
@@ -108,7 +113,7 @@ _VIS_OFFSETS = _vision_offsets(_VISION_RSQ)
 class Belief:
     """What a single builder knows about the map."""
 
-    __slots__ = ("w", "h", "n", "env", "true_env")
+    __slots__ = ("env", "h", "n", "true_env", "w")
 
     def __init__(self, w: int, h: int, true_tiles: list[int]) -> None:
         self.w = w
@@ -222,9 +227,9 @@ def validate_path(
     if not path:
         return "empty"
     if path[0] != sy * w + sx:
-        return f"start mismatch"
+        return "start mismatch"
     if path[-1] != gy * w + gx:
-        return f"goal mismatch"
+        return "goal mismatch"
     for i in range(len(path) - 1):
         x0, y0 = path[i] % w, path[i] // w
         x1, y1 = path[i + 1] % w, path[i + 1] // w
@@ -261,11 +266,12 @@ def simulate_map(
     if true_tiles[start_y * w + start_x] == 1 or true_tiles[goal_y * w + goal_x] == 1:
         return None
 
-    belief = Belief(w, h, true_tiles)
+    Belief(w, h, true_tiles)
 
     # -- HPA* simulation --
     hpa_belief = Belief(w, h, true_tiles)
-    cost_fn_hpa = lambda x, y: hpa_belief.tile_cost(x, y)
+    def cost_fn_hpa(x, y):
+        return hpa_belief.tile_cost(x, y)
     gg = GatewayGraph(w, h, cost_fn_hpa, cluster_size=cluster_size)
 
     bx, by = start_x, start_y

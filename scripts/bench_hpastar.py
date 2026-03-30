@@ -85,9 +85,7 @@ _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 # ---------------------------------------------------------------------------
 
 
-def dijkstra_full(
-    w: int, h: int, tiles: list[int], sx: int, sy: int
-) -> list[int]:
+def dijkstra_full(w: int, h: int, tiles: list[int], sx: int, sy: int) -> list[int]:
     n = w * h
     dist = [_INF] * n
     si = sy * w + sx
@@ -280,7 +278,7 @@ def bench_map(
 
         # Baseline A*
         t0 = time.perf_counter()
-        bl_cost, _ = astar_chebyshev(w, h, tiles, sx, sy, gx, gy)
+        _bl_cost, _ = astar_chebyshev(w, h, tiles, sx, sy, gx, gy)
         bl_times.append((time.perf_counter() - t0) * 1e6)
 
         # HPA*

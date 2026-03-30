@@ -99,9 +99,7 @@ _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 # ---------------------------------------------------------------------------
 
 
-def dijkstra_full(
-    w: int, h: int, tiles: list[int], sx: int, sy: int
-) -> list[int]:
+def dijkstra_full(w: int, h: int, tiles: list[int], sx: int, sy: int) -> list[int]:
     n = w * h
     dist = [_INF] * n
     si = sy * w + sx
@@ -127,7 +125,14 @@ def dijkstra_full(
 
 
 def validate_path(
-    w: int, h: int, tiles: list[int], path: list[int], sx: int, sy: int, gx: int, gy: int
+    w: int,
+    h: int,
+    tiles: list[int],
+    path: list[int],
+    sx: int,
+    sy: int,
+    gx: int,
+    gy: int,
 ) -> tuple[int, str | None]:
     if not path:
         return _INF, "empty"
@@ -158,7 +163,7 @@ def wilcoxon_signed_rank(x: list[float], y: list[float]) -> tuple[float, float]:
     Uses normal approximation for n >= 10."""
     import math
 
-    diffs = [a - b for a, b in zip(x, y) if a != b]
+    diffs = [a - b for a, b in zip(x, y, strict=False) if a != b]
     n = len(diffs)
     if n < 10:
         return 0.0, 1.0  # too few samples
@@ -196,7 +201,13 @@ def _norm_cdf(z: float) -> float:
         return 1.0
     if z < -6:
         return 0.0
-    a1, a2, a3, a4, a5 = 0.254829592, -0.284496736, 1.421413741, -1.453152027, 1.061405429
+    a1, a2, a3, a4, a5 = (
+        0.254829592,
+        -0.284496736,
+        1.421413741,
+        -1.453152027,
+        1.061405429,
+    )
     p = 0.3275911
     sign = 1 if z >= 0 else -1
     x = abs(z) / math.sqrt(2)
@@ -213,6 +224,7 @@ def _norm_cdf(z: float) -> float:
 def tile_cost_fn(tiles: list[int], w: int):  # noqa: ANN201
     def cost(x: int, y: int) -> int:
         return _INF if tiles[y * w + x] == 1 else _COST_EMPTY
+
     return cost
 
 
@@ -283,7 +295,7 @@ def bench_map(
                 new_wrong_cost += 1
 
     # Statistics.
-    t_stat, p_val = wilcoxon_signed_rank(old_times, new_times)
+    _t_stat, p_val = wilcoxon_signed_rank(old_times, new_times)
     old_median = median(old_times)
     new_median = median(new_times)
     old_max = max(old_times)
@@ -291,7 +303,15 @@ def bench_map(
     old_p95 = sorted(old_times)[int(len(old_times) * 0.95)]
     new_p95 = sorted(new_times)[int(len(new_times) * 0.95)]
     speedup = old_median / new_median if new_median > 0 else 0
-    sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else ""
+    sig = (
+        "***"
+        if p_val < 0.001
+        else "**"
+        if p_val < 0.01
+        else "*"
+        if p_val < 0.05
+        else ""
+    )
 
     return {
         "map": name,
@@ -316,7 +336,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pairs", type=int, default=200)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--rounds", type=int, default=5, help="Repeat each pair N times")
+    parser.add_argument(
+        "--rounds", type=int, default=5, help="Repeat each pair N times"
+    )
     parser.add_argument("--cluster-size", type=int, default=7)
     args = parser.parse_args()
 
@@ -348,8 +370,12 @@ def main() -> None:
     print("=" * 140)
 
     # Overall.
-    sig_improved = sum(1 for r in all_results if r["p_value"] < 0.01 and r["speedup"] > 1)
-    sig_regressed = sum(1 for r in all_results if r["p_value"] < 0.01 and r["speedup"] < 1)
+    sig_improved = sum(
+        1 for r in all_results if r["p_value"] < 0.01 and r["speedup"] > 1
+    )
+    sig_regressed = sum(
+        1 for r in all_results if r["p_value"] < 0.01 and r["speedup"] < 1
+    )
     tot_invalid = sum(r["new_invalid"] for r in all_results)
     tot_old_invalid = sum(r["old_invalid"] for r in all_results)
     avg_speedup = mean(r["speedup"] for r in all_results)
