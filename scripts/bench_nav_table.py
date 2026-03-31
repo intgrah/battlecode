@@ -11,7 +11,7 @@ import pandas as pd
 
 
 def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
-    algos = list(dict.fromkeys(df["algo"]))
+    algos: list[str] = list(dict.fromkeys(df["algo"]))
 
     hdr = (
         f"{'Algorithm':<50}"
@@ -59,7 +59,8 @@ def main() -> None:
         sys.exit(1)
 
     df = pd.read_csv(path)
-    for scenario in sorted(df["scenario"].unique()):
+    scenarios: list[str] = sorted(df["scenario"].unique())
+    for scenario in scenarios:
         _print_scenario(df[df["scenario"] == scenario], scenario)
 
 
