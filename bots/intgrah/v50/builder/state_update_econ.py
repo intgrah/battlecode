@@ -255,7 +255,7 @@ def update_flow(state: State) -> None:
 
     _t3 = _t()
     # Backward pass: attribute flow to friendly/enemy sinks
-    sink_set = set(turret_idx + core_idx)
+    sink_set = set(turret_idx) | set(core_idx)
     for i in sink_set:
         bld = building[i]
         if bld is not None and bld.team == my_team:
