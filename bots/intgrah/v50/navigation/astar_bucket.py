@@ -28,9 +28,6 @@ def find_path_raw(
     if si == gi:
         return [si]
 
-    offsets_card = (-w, -1, 1, w)
-    offsets_diag = (-w - 1, -w + 1, w - 1, w + 1)
-
     if state is not None and state.nav_dist is not None:
         dist: list[int] = state.nav_dist
         parent: list[int] = state.nav_parent  # type: ignore[assignment]
@@ -65,6 +62,8 @@ def find_path_raw(
     best_h = INF
     best_node = si
 
+    nb = state.pnb if state is not None else None
+
     while emp < _DIAL_MOD:
         bi = cur_f % _DIAL_MOD
         if not bk[bi]:
@@ -89,53 +88,68 @@ def find_path_raw(
                 state.nav_touched = touched
             return _extract(parent, si, best_node)
         gn = dist[node]
-        cx = node % w
-        at_left = cx == 0
-        at_right = cx == w - 1
 
-        for off in offsets_card:
-            ni = node + off
-            if 0 <= ni < n:
-                if off == -1 and at_left:
-                    continue
-                if off == 1 and at_right:
-                    continue
+        if nb is not None:
+            for ni in nb[node]:
                 c = cost[ni]
-                if c < INF:
-                    nd = gn + c
-                    if nd < dist[ni]:
-                        if dist[ni] == INF:
-                            touched.append(ni)
-                        dist[ni] = nd
-                        parent[ni] = node
-                        h_ni = ht[ni]
-                        if h_ni < 0:
-                            nx = ni % w
-                            h_ni = max(abs(nx - gx), abs(ni // w - gy)) * COST_ROAD
-                            ht[ni] = h_ni
-                        bk[(nd + h_ni) % _DIAL_MOD].append(ni)
-
-        for off in offsets_diag:
-            ni = node + off
-            if 0 <= ni < n:
-                if (off == -w - 1 or off == w - 1) and at_left:
-                    continue
-                if (off == -w + 1 or off == w + 1) and at_right:
-                    continue
-                c = cost[ni]
-                if c < INF:
-                    nd = gn + c
-                    if nd < dist[ni]:
-                        if dist[ni] == INF:
-                            touched.append(ni)
-                        dist[ni] = nd
-                        parent[ni] = node
-                        h_ni = ht[ni]
-                        if h_ni < 0:
-                            nx = ni % w
-                            h_ni = max(abs(nx - gx), abs(ni // w - gy)) * COST_ROAD
-                            ht[ni] = h_ni
-                        bk[(nd + h_ni) % _DIAL_MOD].append(ni)
+                nd = gn + c
+                if nd < dist[ni]:
+                    if dist[ni] == INF:
+                        touched.append(ni)
+                    dist[ni] = nd
+                    parent[ni] = node
+                    h_ni = ht[ni]
+                    if h_ni < 0:
+                        nx = ni % w
+                        h_ni = max(abs(nx - gx), abs(ni // w - gy)) * COST_ROAD
+                        ht[ni] = h_ni
+                    bk[(nd + h_ni) % _DIAL_MOD].append(ni)
+        else:
+            cx = node % w
+            at_left = cx == 0
+            at_right = cx == w - 1
+            for off in (-w, -1, 1, w):
+                ni = node + off
+                if 0 <= ni < n:
+                    if off == -1 and at_left:
+                        continue
+                    if off == 1 and at_right:
+                        continue
+                    c = cost[ni]
+                    if c < INF:
+                        nd = gn + c
+                        if nd < dist[ni]:
+                            if dist[ni] == INF:
+                                touched.append(ni)
+                            dist[ni] = nd
+                            parent[ni] = node
+                            h_ni = ht[ni]
+                            if h_ni < 0:
+                                nx = ni % w
+                                h_ni = max(abs(nx - gx), abs(ni // w - gy)) * COST_ROAD
+                                ht[ni] = h_ni
+                            bk[(nd + h_ni) % _DIAL_MOD].append(ni)
+            for off in (-w - 1, -w + 1, w - 1, w + 1):
+                ni = node + off
+                if 0 <= ni < n:
+                    if (off == -w - 1 or off == w - 1) and at_left:
+                        continue
+                    if (off == -w + 1 or off == w + 1) and at_right:
+                        continue
+                    c = cost[ni]
+                    if c < INF:
+                        nd = gn + c
+                        if nd < dist[ni]:
+                            if dist[ni] == INF:
+                                touched.append(ni)
+                            dist[ni] = nd
+                            parent[ni] = node
+                            h_ni = ht[ni]
+                            if h_ni < 0:
+                                nx = ni % w
+                                h_ni = max(abs(nx - gx), abs(ni // w - gy)) * COST_ROAD
+                                ht[ni] = h_ni
+                            bk[(nd + h_ni) % _DIAL_MOD].append(ni)
 
     if state is not None:
         state.nav_touched = touched

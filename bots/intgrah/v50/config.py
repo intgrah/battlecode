@@ -13,9 +13,11 @@ class NavMode(Enum):
     ASTAR_BUCKET_PYTHON = auto()
     ASTAR_LANDMARKS = auto()
     ASTAR_APSP = auto()
+    BFS = auto()
+    HPA = auto()
 
 
 OPENING: Final[OpeningMode] = OpeningMode.OFF
-NAV: Final[NavMode] = NavMode.ASTAR_APSP
-USE_HARDCODED_MAPS: Final[bool] = True
+NAV: Final[NavMode] = NavMode.BFS
+USE_HARDCODED_MAPS: Final[bool] = False
 DEBUG_DUMP: Final[bool] = False
