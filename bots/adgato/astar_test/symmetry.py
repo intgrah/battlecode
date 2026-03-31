@@ -5,7 +5,6 @@ from __future__ import annotations
 from enum import Enum
 
 from cambc import Environment, Position
-from utils import chebyshev
 
 
 class Symmetry(Enum):
@@ -15,12 +14,14 @@ class Symmetry(Enum):
     VERTICAL = 3
 
 
-def mirror(a: Position, sym: Symmetry, w: int, h: int) -> Position:
+def mirror_idx(i: int, sym: Symmetry, w: int, h: int) -> int:
+    y = i // w
+    x = i - y * w
     if sym is Symmetry.HORIZONTAL:
-        return Position(w - 1 - a.x, a.y)
+        return y * w + (w - 1 - x)
     if sym is Symmetry.VERTICAL:
-        return Position(a.x, h - 1 - a.y)
-    return Position(w - 1 - a.x, h - 1 - a.y)
+        return (h - 1 - y) * w + x
+    return (h - 1 - y) * w + (w - 1 - x)
 
 
 class SymmetryDetector:
@@ -35,11 +36,14 @@ class SymmetryDetector:
         self._enemy_core: Position | None = None
 
         # Only keep symmetries that don't map the core onto itself
-        self._candidates: list[Symmetry] = [
-            sym
-            for sym in (Symmetry.HORIZONTAL, Symmetry.VERTICAL, Symmetry.ROTATIONAL)
-            if chebyshev(mirror(core, sym, w, h), core) > 1
-        ]
+        ci = core.y * w + core.x
+        cx, cy = core.x, core.y
+        self._candidates: list[Symmetry] = []
+        for sym in (Symmetry.HORIZONTAL, Symmetry.VERTICAL, Symmetry.ROTATIONAL):
+            mi = mirror_idx(ci, sym, w, h)
+            mx, my = mi % w, mi // w
+            if max(abs(mx - cx), abs(my - cy)) > 1:
+                self._candidates.append(sym)
 
     @property
     def resolved(self) -> Symmetry:
@@ -66,19 +70,21 @@ class SymmetryDetector:
         w, h = self.w, self.h
         remaining: list[Symmetry] = []
         for sym in self._candidates:
-            m = mirror(tile, sym, w, h)
-            mi = m.y * w + m.x
+            mi = mirror_idx(tile_idx, sym, w, h)
             if mi in known and known[mi] != env:
                 continue
             remaining.append(sym)
         self._candidates = remaining
 
         # Check for resolution
+        ci = self._core.y * w + self._core.x
         if len(self._candidates) == 1:
             self._resolved = self._candidates[0]
-            self._enemy_core = mirror(self._core, self._resolved, w, h)
+            ei = mirror_idx(ci, self._resolved, w, h)
+            self._enemy_core = Position(ei % w, ei // w)
         elif len(self._candidates) > 1:
-            positions = {mirror(self._core, sym, w, h) for sym in self._candidates}
+            positions = {mirror_idx(ci, sym, w, h) for sym in self._candidates}
             if len(positions) == 1:
                 self._resolved = self._candidates[0]
-                self._enemy_core = positions.pop()
+                ei = positions.pop()
+                self._enemy_core = Position(ei % w, ei // w)

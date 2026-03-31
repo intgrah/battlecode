@@ -1,4 +1,8 @@
-"""Weighted A* (w=2) pathfinding for builder bots, based on bench_histograms.py."""
+"""Anytime weighted A* pathfinding for builder bots.
+
+Runs successive passes with decreasing heuristic weights (W=5 then W=2).
+The first pass finds a suboptimal path quickly; later passes refine it.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,7 @@ import heapq
 from typing import TYPE_CHECKING
 
 from cambc import Direction, EntityType, Environment, Position
-from symmetry import Symmetry, mirror
+from symmetry import Symmetry, mirror_idx
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -14,13 +18,13 @@ if TYPE_CHECKING:
 INF = 1_000_000
 
 COST_ROAD = 2
-COST_EMPTY = 10
-COST_UNSEEN = 8
+COST_EMPTY = 6
+COST_UNSEEN = 6
 COST_BUILDER = 1_000
 COST_BUILT_IMPASSABLE = 10_000
 COST_IMPASSABLE = INF
 
-W_HEURISTIC = 2
+W_SCHEDULE: tuple[int, ...] = (5, 2)
 
 DIR8_DELTA: tuple[tuple[int, int], ...] = tuple(
     d.delta()
@@ -75,11 +79,11 @@ def _extract_path(p: list[int], si: int, gi: int) -> list[int]:
 
 
 class NavAstar:
-    """Weighted A* (w=2) navigation for builder bots.
+    """Anytime weighted A* navigation for builder bots.
 
     Uses flat arrays for g/parent, precomputed neighbor and heuristic tables.
     Maintains a persistent cost grid updated each round from vision.
-    Waits until search exhausts before following the path.
+    Runs successive passes with decreasing W to refine the path.
     """
 
     def __init__(self, w: int, h: int) -> None:
@@ -97,6 +101,10 @@ class NavAstar:
         self._path: list[int] | None = None
         self._path_idx = 0
         self._path_set: set[int] = set()
+
+        # Anytime state
+        self._w_idx = 0
+        self._incumbent_cost = INF
 
         # A* state — flat arrays
         self._done = False
@@ -140,10 +148,7 @@ class NavAstar:
         self._set_cost(i, cost)
         # Mirror environment via symmetry
         if sym is not Symmetry.UNKNOWN:
-            w = self.w
-            y = i // w
-            m = mirror(Position(i - y * w, y), sym, w, self.h)
-            mi = m.y * w + m.x
+            mi = mirror_idx(i, sym, self.w, self.h)
             if self._cost_grid[mi] is None:
                 env_cost = COST_IMPASSABLE if env == Environment.WALL else COST_EMPTY
                 self._set_cost(mi, env_cost)
@@ -166,8 +171,7 @@ class NavAstar:
         w, h = self.w, self.h
         grid = self._cost_grid
         for i, env in known_env.items():
-            m = mirror(Position(i % w, i // w), sym, w, h)
-            mi = m.y * w + m.x
+            mi = mirror_idx(i, sym, w, h)
             if grid[mi] is None:
                 cost = COST_IMPASSABLE if env == Environment.WALL else COST_EMPTY
                 grid[mi] = cost
@@ -196,7 +200,7 @@ class NavAstar:
         self._gi = goal.y * self.w + goal.x
         self._dirty = True
 
-    def _reset_search(self, source: int) -> None:
+    def _reset_search(self, source: int, w_heuristic: int) -> None:
         """Reset A* search state from a new source, keeping the cost grid."""
         # Clean up previous search
         g = self._g
@@ -214,10 +218,12 @@ class NavAstar:
         self._best_node = source
         g[source] = 0
         sx, sy = source % self.w, source // self.w
-        h0 = (max(abs(sx - self._gx), abs(sy - self._gy)) * COST_ROAD) * W_HEURISTIC
+        h0 = max(abs(sx - self._gx), abs(sy - self._gy)) * COST_ROAD * w_heuristic
         self._heap = [(h0, source)]
 
-    def _compute(self, within_budget: Callable[[], bool]) -> None:
+    def _compute(
+        self, within_budget: Callable[[], bool], w_heuristic: int
+    ) -> None:
         """Run weighted A* within budget. Sets _done and _result when complete."""
         if self._done:
             return
@@ -235,13 +241,14 @@ class NavAstar:
         touched = self._touched
         best_h = self._best_h
         best_node = self._best_node
+        incumbent_cost = self._incumbent_cost
         _heappush = heapq.heappush
         _heappop = heapq.heappop
         _COST_UNSEEN = COST_UNSEEN
         _COST_ROAD = COST_ROAD
         _COST_IMPASSABLE = COST_IMPASSABLE
         _INF = INF
-        _W = W_HEURISTIC
+        _W = w_heuristic
 
         expanded = 0
         while heap:
@@ -257,6 +264,10 @@ class NavAstar:
             ny = node // w
             node_h = max(abs(node - ny * w - gx), abs(ny - gy)) * _COST_ROAD
             if f > g[node] + node_h * _W:
+                continue
+
+            # Prune with incumbent solution cost
+            if g[node] + node_h >= incumbent_cost:
                 continue
 
             expanded += 1
@@ -277,6 +288,9 @@ class NavAstar:
                     p[ni] = node
                     niy = ni // w
                     hval = max(abs(ni - niy * w - gx), abs(niy - gy)) * _COST_ROAD
+                    # Prune: no point expanding if can't beat incumbent
+                    if nd + hval >= incumbent_cost:
+                        continue
                     _heappush(heap, (nd + hval * _W, ni))
                     if hval < best_h:
                         best_h = hval
@@ -291,40 +305,67 @@ class NavAstar:
         if self._done and best_h < _INF:
             self._result = _extract_path(p, self._si, best_node)
 
+    def _adopt_result(self) -> None:
+        """Adopt the current search result as the incumbent path."""
+        result = self._result
+        if result is not None and len(result) >= 2:
+            # Compute true path cost (sum of edge weights)
+            grid = self._cost_grid
+            cost = 0
+            for idx in result[1:]:
+                c = grid[idx]
+                cost += COST_UNSEEN if c is None else c
+            if cost < self._incumbent_cost:
+                self._incumbent_cost = cost
+                self._path = result
+                self._path_idx = 1
+                self._path_set = set(result)
+
+    def _advance_pass(self, source: int) -> bool:
+        """Start the next refinement pass. Returns False if schedule exhausted."""
+        self._w_idx += 1
+        if self._w_idx >= len(W_SCHEDULE):
+            self._searching = False
+            return False
+        self._reset_search(source, W_SCHEDULE[self._w_idx])
+        return True
+
     def step(
         self,
         pos: Position,
         within_budget: Callable[[], bool] = lambda: True,
     ) -> Position | None:
-        """Advance one step. Returns the next Position to move to, or None if still searching."""
+        """Advance one step. Returns the next Position to move to, or None if no path."""
         w = self.w
         cur_idx = pos.y * w + pos.x
 
-        # If we have a cached path, try to follow it
+        print(f"w idx: {self._w_idx}")
+
+        # If we have a cached path and it's not dirty, try to follow it
         if self._path is not None and not self._dirty:
             path = self._path
             idx = self._path_idx
             # Fast check: are we at the expected position?
             if idx < len(path) and path[idx] == cur_idx:
-                if idx + 1 < len(path):
-                    self._path_idx = idx + 1
-                    self._path_set.discard(cur_idx)
-                    nxt = path[idx + 1]
-                    return Position(nxt % w, nxt // w)
+                next_step = self._follow_path(idx, cur_idx)
+                if next_step is not None:
+                    self._try_refine(cur_idx, within_budget)
+                    return next_step
             # Slow fallback: search for our position
             elif cur_idx in self._path_set:
                 new_idx = path.index(cur_idx)
-                if new_idx + 1 < len(path):
-                    self._path_idx = new_idx + 1
-                    self._path_set = set(path[new_idx + 1 :])
-                    nxt = path[new_idx + 1]
-                    return Position(nxt % w, nxt // w)
+                next_step = self._follow_path(new_idx, cur_idx)
+                if next_step is not None:
+                    self._try_refine(cur_idx, within_budget)
+                    return next_step
             # Off the path — need to re-search
             self._dirty = True
 
         # Start or restart search if dirty
         if self._dirty:
-            self._reset_search(cur_idx)
+            self._w_idx = 0
+            self._incumbent_cost = INF
+            self._reset_search(cur_idx, W_SCHEDULE[0])
             self._path = None
             self._path_idx = 0
             self._path_set = set()
@@ -332,17 +373,44 @@ class NavAstar:
 
         # Continue incremental search
         if self._searching:
-            self._compute(within_budget)
+            self._compute(within_budget, W_SCHEDULE[self._w_idx])
             if self._done:
-                self._searching = False
-                if self._result is not None and len(self._result) >= 2:
-                    self._path = self._result
-                    self._path_idx = 1
-                    self._path_set = set(self._result)
-                    nxt = self._result[1]
-                    return Position(nxt % w, nxt // w)
+                self._adopt_result()
+                self._advance_pass(cur_idx)
+        # Return from incumbent if we have one
+        if self._path is not None:
+            return self._follow_path_unchecked()
 
         return None
+
+    def _follow_path(self, idx: int, cur_idx: int) -> Position | None:
+        """Follow the cached path from the given index. Returns next Position."""
+        path = self._path
+        assert path is not None
+        if idx + 1 < len(path):
+            self._path_idx = idx + 1
+            self._path_set.discard(cur_idx)
+            nxt = path[idx + 1]
+            return Position(nxt % self.w, nxt // self.w)
+        return None
+
+    def _follow_path_unchecked(self) -> Position | None:
+        """Return the next step from the incumbent path without position checks."""
+        path = self._path
+        if path is not None and self._path_idx < len(path):
+            nxt = path[self._path_idx]
+            return Position(nxt % self.w, nxt // self.w)
+        return None
+
+    def _try_refine(self, cur_idx: int, within_budget: Callable[[], bool]) -> None:
+        """If still searching a refinement pass, spend remaining budget on it."""
+        if not self._searching:
+            return
+        self._compute(within_budget, W_SCHEDULE[self._w_idx])
+        if self._done:
+            self._adopt_result()
+            if not self._advance_pass(cur_idx):
+                pass  # schedule exhausted
 
     def get_remaining_path(self) -> list[Position]:
         """Return remaining path as Positions."""
