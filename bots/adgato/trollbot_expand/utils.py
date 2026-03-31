@@ -118,7 +118,10 @@ def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
 
 
 def pf_move(
-    player: Player, ct: Controller, target: Position, destroy_road: bool = False,
+    player: Player,
+    ct: Controller,
+    target: Position,
+    destroy_road: bool = False,
 ) -> None:
 
     current = ct.get_position()
@@ -181,7 +184,8 @@ def pf_move(
     economy_mode = funds < 5 * bc
     has_cooldown = ct.get_action_cooldown() == 0
     player.walkable = build_walkable(
-        ct, allow_empty=(not economy_mode and not has_cooldown),
+        ct,
+        allow_empty=(not economy_mode and not has_cooldown),
     )
     next_pos = bug2_step(player.agent, current, player.walkable)
     if try_move_smart(ct, current, current.direction_to(next_pos)):

@@ -130,7 +130,12 @@ def main() -> None:
 
             t0 = time.perf_counter()
             landmarks, raw = _compute_landmarks(
-                w, h, env, ca_idx, cb_idx, _NUM_LANDMARKS,
+                w,
+                h,
+                env,
+                ca_idx,
+                cb_idx,
+                _NUM_LANDMARKS,
             )
             elapsed = time.perf_counter() - t0
             lm_coords = [(lm % w, lm // w) for lm in landmarks]

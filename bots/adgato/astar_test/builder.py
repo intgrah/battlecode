@@ -47,7 +47,11 @@ class Builder(Unit):
             my_team = ct.get_team()
             for tile in ct.get_nearby_tiles():
                 bid = ct.get_tile_building_id(tile)
-                if bid is not None and ct.get_entity_type(bid) == EntityType.CORE and ct.get_team(bid) == my_team:
+                if (
+                    bid is not None
+                    and ct.get_entity_type(bid) == EntityType.CORE
+                    and ct.get_team(bid) == my_team
+                ):
                     self.core_pos = tile
                     self.sym = SymmetryDetector(self.w, self.h, tile)
                     break
@@ -60,11 +64,17 @@ class Builder(Unit):
 
         # Pick a new random target when needed
         if self.target is None or pos == self.target:
-            self.target = Position(random.randint(0, self.w - 1), random.randint(0, self.h - 1))
+            self.target = Position(
+                random.randint(0, self.w - 1),
+                random.randint(0, self.h - 1),
+            )
         # Re-pick if target is known to be impassable
         cost = self.nav.get_cost(self.target)
         if cost is not None and cost >= COST_IMPASSABLE:
-            self.target = Position(random.randint(0, self.w - 1), random.randint(0, self.h - 1))
+            self.target = Position(
+                random.randint(0, self.w - 1),
+                random.randint(0, self.h - 1),
+            )
 
         self.nav.set_goal(self.target)
 

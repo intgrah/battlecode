@@ -1,4 +1,4 @@
-"""Main Bot AI"""
+"""Main Bot AI."""
 
 import heapq
 import random
@@ -2018,7 +2018,7 @@ ENCRYPTION_KEYS = [
 
 
 class KnownMap:
-    """Data for known maps"""
+    """Data for known maps."""
 
     def __init__(
         self,
@@ -8137,14 +8137,14 @@ def get_next_move(
 
 
 class Core:
-    """Controller for core building"""
+    """Controller for core building."""
 
     def __init__(self, _ct: Controller) -> None:
         self.num_spawned = 0
         self.cooldown = 10
 
     def run(self, ct: Controller) -> None:
-        """Exectues once each round"""
+        """Exectues once each round."""
         spawn_pos = ct.get_position()
 
         # Need to tweak these values, balance of early game econ -> constant pressure on enemy base
@@ -8166,13 +8166,13 @@ class Core:
 
 
 class Gunner:
-    """Controller for gunner building"""
+    """Controller for gunner building."""
 
     def __init__(self, ct: Controller) -> None:
         pass
 
     def run(self, ct: Controller) -> None:
-        """Exectues once each round"""
+        """Exectues once each round."""
         direction = ct.get_direction(ct.get_id())
 
         pos = ct.get_position().add(direction)
@@ -8192,7 +8192,7 @@ class Gunner:
 
 
 class BuilderBot:
-    """Controller for builder bots"""
+    """Controller for builder bots."""
 
     def __init__(self, ct: Controller) -> None:
         self.id = ct.get_id()
@@ -8272,7 +8272,7 @@ class BuilderBot:
         return pos.y * self.width + pos.x
 
     def run(self, ct: Controller) -> None:
-        """Exectues once each round"""
+        """Exectues once each round."""
         self.update_map(ct)
         if self.builder_id < 4 and len(self.candidate_maps) == 1:
             # We know what map we are on
@@ -8599,7 +8599,7 @@ class BuilderBot:
             return
 
     def debug_map(self) -> None:
-        """Debug the environment map"""
+        """Debug the environment map."""
         for i in range(self.height):
             row = ""
             for j in range(self.width):
@@ -8615,7 +8615,7 @@ class BuilderBot:
             print(row)
 
     def debug_ally_buildings(self) -> None:
-        """Debug the ally building map"""
+        """Debug the ally building map."""
         for i in range(self.height):
             row = ""
             for j in range(self.width):
@@ -8629,7 +8629,7 @@ class BuilderBot:
             print(row)
 
     def debug_walkable(self, ct: Controller) -> None:
-        """Debug the walkable map"""
+        """Debug the walkable map."""
         pos = ct.get_position()
         for i in range(self.height):
             row = ""
@@ -8644,7 +8644,7 @@ class BuilderBot:
             print(row)
 
     def debug_ally_bots(self) -> None:
-        """Debug the ally bot map"""
+        """Debug the ally bot map."""
         for i in range(self.height):
             row = ""
             for j in range(self.width):
@@ -8656,8 +8656,7 @@ class BuilderBot:
             print(row)
 
     def update_map(self, ct: Controller) -> None:
-        """Updates the builder bots internal map based on their vision.
-        """
+        """Updates the builder bots internal map based on their vision."""
         known_map = len(self.candidate_maps) == 1
         if known_map:
             candidate = self.candidate_maps[0]
@@ -8752,7 +8751,7 @@ class BuilderBot:
         max_depth: int = 0,
     ) -> Direction | None:
         """Get direction to move to goal, most costly method
-        - need to watch A* calc timings and optimize as hard as possible
+        - need to watch A* calc timings and optimize as hard as possible.
 
         - probably can add a simple thing like conveyer follow and branch out when distance to a ore is near enough for A* to take over...
         """
@@ -8840,7 +8839,7 @@ controller_map = {
 
 
 class Player:
-    """Main entry point"""
+    """Main entry point."""
 
     def __init__(self) -> None:
         self.first_turn = True

@@ -5,7 +5,7 @@ from cambc import Controller, Direction, EntityType, Position
 
 
 class Task(Enum):
-    """High level Tasks"""
+    """High level Tasks."""
 
     CONNECT_EXCESS_TI_RAX_CORE = auto()
     HARVEST_TI = auto()

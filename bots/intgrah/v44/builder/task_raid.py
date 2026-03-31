@@ -1,4 +1,4 @@
-"""DO NOT USE
+"""DO NOT USE.
 
 Raid enemy transport by walking onto it and attacking.
 

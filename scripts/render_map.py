@@ -66,10 +66,12 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
 
     try:
         font = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 16,
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            16,
         )
         font_sm = ImageFont.truetype(
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12,
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            12,
         )
     except OSError:
         font = ImageFont.load_default()
@@ -79,12 +81,18 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
     for x in range(w):
         if x % 5 == 0:
             draw.text(
-                (margin + x * CELL + 4, 8), str(x), fill=(120, 120, 120), font=font_sm,
+                (margin + x * CELL + 4, 8),
+                str(x),
+                fill=(120, 120, 120),
+                font=font_sm,
             )
     for y in range(h):
         if y % 5 == 0:
             draw.text(
-                (2, margin + y * CELL + 14), str(y), fill=(120, 120, 120), font=font_sm,
+                (2, margin + y * CELL + 14),
+                str(y),
+                fill=(120, 120, 120),
+                font=font_sm,
             )
 
     # Draw tiles
@@ -108,7 +116,9 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
                 bg = COL_EMPTY
 
             draw.rectangle(
-                [px, py, px + CELL - 1, py + CELL - 1], fill=bg, outline=COL_GRID,
+                [px, py, px + CELL - 1, py + CELL - 1],
+                fill=bg,
+                outline=COL_GRID,
             )
 
             # Label ore tiles

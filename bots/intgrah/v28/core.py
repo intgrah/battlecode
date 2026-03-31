@@ -9,7 +9,7 @@ class CoreBot:
         self.spoke_idx = 0
 
     def _try_spawn(self, ct: Controller) -> bool:
-        """Spawn builders in NESW directions"""
+        """Spawn builders in NESW directions."""
         pos = ct.get_position()
         spoke = SPOKES[self.spoke_idx % len(SPOKES)]
         for d in [spoke, spoke.rotate_left(), spoke.rotate_right(), *DIRS]:

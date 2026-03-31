@@ -114,7 +114,11 @@ def parse_replay(
                 e = update.place_entity.entity
                 etype = detect_etype(e)
                 entities[e.id] = EntityInfo(
-                    etype, e.team, e.position.x, e.position.y, turn_num,
+                    etype,
+                    e.team,
+                    e.position.x,
+                    e.position.y,
+                    turn_num,
                 )
                 builds.append(
                     BuildEvent(turn_num, e.team, etype, e.position.x, e.position.y),

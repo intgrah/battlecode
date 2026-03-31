@@ -78,7 +78,8 @@ class Core(Unit):
         if ti < cost:
             return
         sp = Position(
-            self.core_pos.x + spawn_offset[0], self.core_pos.y + spawn_offset[1],
+            self.core_pos.x + spawn_offset[0],
+            self.core_pos.y + spawn_offset[1],
         )
         if ct.can_spawn(sp):
             ct.spawn_builder(sp)
