@@ -1,26 +1,23 @@
-"""Core unit logic — spawn one builder bot."""
+"""Core unit logic — spawn builder bots."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from main import Player
-
 from cambc import Controller, Position
+from unit import Unit
 
 
-def run_core(player: Player, ct: Controller) -> None:
-    pos = ct.get_position()
+class Core(Unit):
+    def __init__(self, ct: Controller) -> None:
+        self.pos = ct.get_position()
+        self.spawned = 0
 
-    if player.core_pos is None:
-        player.core_pos = pos
-
-    if player.spawned < 1:
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                p = Position(pos.x + dx, pos.y + dy)
-                if ct.can_spawn(p):
-                    ct.spawn_builder(p)
-                    player.spawned += 1
-                    return
+    def run(self, ct: Controller) -> None:
+        if self.spawned < 1:
+            pos = self.pos
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    p = Position(pos.x + dx, pos.y + dy)
+                    if ct.can_spawn(p):
+                        ct.spawn_builder(p)
+                        self.spawned += 1
+                        return
