@@ -21,7 +21,7 @@ from cambc import Controller, EntityType, Environment, Position
 from flow_astar import build_leakage_mask
 from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
-from util import Symmetry
+from util import COST_IMPASSABLE, Symmetry
 
 from .state import State
 from .state_helpers import mirror
@@ -60,6 +60,7 @@ def update(state: State, ct: Controller) -> None:
     _update_ephemeral(state, ct)
     t1 = t()
     changed = _scan_vision(state, ct)
+    _stamp_unit_tiles(state)
     t2 = t()
     _update_flow(state, ct, changed)
     t3 = t()
@@ -83,13 +84,26 @@ def _update_core_hp(state: State, ct: Controller) -> None:
 
 def _update_ephemeral(state: State, ct: Controller) -> None:
     rnd = ct.get_current_round()
+    w = state.w
+
+    for p in state.unit_tiles:
+        state.update_cost(p.y * w + p.x)
     state.unit_tiles.clear()
+
     my_id = ct.get_id()
     for uid in ct.get_nearby_units():
         if uid == my_id:
             continue
         state.unit_tiles.add(ct.get_position(uid))
+
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
+
+
+def _stamp_unit_tiles(state: State) -> None:
+    w = state.w
+    cost = state.cost
+    for p in state.unit_tiles:
+        cost[p.y * w + p.x] = COST_IMPASSABLE
 
 
 def _scan_vision(state: State, ct: Controller) -> list[int]:
@@ -165,6 +179,7 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                 changed.append(i)
             t_rest += _g() - _s1
 
+        state.update_cost(i)
         new_tiles.append((t, env))
 
     _ss = _g()
