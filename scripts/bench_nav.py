@@ -234,7 +234,11 @@ def _extract(parent: list[int], si: int, node: int) -> Path_:
 
 
 def algo_astar_heap(
-    md: MapData, si: int, gi: int, weight: int = 1, budget: int = 0,
+    md: MapData,
+    si: int,
+    gi: int,
+    weight: int = 1,
+    budget: int = 0,
 ) -> Path_:
     w, n, cost, nb = md.w, md.n, md.cost, md.nb
     if si == gi:
@@ -280,7 +284,11 @@ def algo_astar_heap(
 
 
 def algo_astar_bucket(
-    md: MapData, si: int, gi: int, weight: int = 1, budget: int = 0,
+    md: MapData,
+    si: int,
+    gi: int,
+    weight: int = 1,
+    budget: int = 0,
 ) -> Path_:
     w, n, cost = md.w, md.n, md.cost
     if si == gi:
@@ -601,7 +609,11 @@ def precompute_apsp(md: MapData) -> None:
 
 
 def algo_astar_apsp(
-    md: MapData, si: int, gi: int, weight: int = 1, budget: int = 0,
+    md: MapData,
+    si: int,
+    gi: int,
+    weight: int = 1,
+    budget: int = 0,
 ) -> Path_:
     w, n, cost = md.w, md.n, md.cost
     apsp = md.apsp
@@ -712,7 +724,11 @@ def _make_algos() -> list[AlgoEntry]:
                 (
                     f"a*heap cheb w={w} b={bname}",
                     lambda md, si, gi, _w=w, _b=b: algo_astar_heap(
-                        md, si, gi, weight=_w, budget=_b,
+                        md,
+                        si,
+                        gi,
+                        weight=_w,
+                        budget=_b,
                     ),
                     False,
                 ),
@@ -725,7 +741,11 @@ def _make_algos() -> list[AlgoEntry]:
                 (
                     f"a*bucket cheb w={w} b={bname}",
                     lambda md, si, gi, _w=w, _b=b: algo_astar_bucket(
-                        md, si, gi, weight=_w, budget=_b,
+                        md,
+                        si,
+                        gi,
+                        weight=_w,
+                        budget=_b,
                     ),
                     False,
                 ),
@@ -738,7 +758,11 @@ def _make_algos() -> list[AlgoEntry]:
                 (
                     f"a*heap apsp w={w} b={bname}",
                     lambda md, si, gi, _w=w, _b=b: algo_astar_apsp(
-                        md, si, gi, weight=_w, budget=_b,
+                        md,
+                        si,
+                        gi,
+                        weight=_w,
+                        budget=_b,
                     ),
                     True,
                 ),
@@ -884,7 +908,10 @@ def main() -> None:
                 key = (si, gi)
                 if key not in first_moves_cache:
                     first_moves_cache[key] = optimal_first_moves(
-                        md, si, gi, gt_cache[si],
+                        md,
+                        si,
+                        gi,
+                        gt_cache[si],
                     )
 
             done += 1

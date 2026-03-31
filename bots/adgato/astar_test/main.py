@@ -9,6 +9,7 @@ from core import Core
 if TYPE_CHECKING:
     from unit import Unit
 
+
 class Player:
     def __init__(self) -> None:
         self.unit: Unit | None = None

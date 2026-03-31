@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import heapq
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from cambc import Direction, EntityType, Environment, Position
 from symmetry import Symmetry, mirror
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 INF = 1_000_000
 
@@ -69,7 +72,6 @@ def _extract_path(p: list[int], si: int, gi: int) -> list[int]:
         path.append(node)
     path.reverse()
     return path
-
 
 
 class NavAstar:
@@ -151,7 +153,11 @@ class NavAstar:
         old_cost = self._cost_grid[i]
         if old_cost != cost:
             self._cost_grid[i] = cost
-            if self._has_path and cost > (old_cost or COST_UNSEEN) and i in self._path_set:
+            if (
+                self._has_path
+                and cost > (old_cost or COST_UNSEEN)
+                and i in self._path_set
+            ):
                 self._dirty = True
                 self._has_path = False
 
@@ -286,7 +292,9 @@ class NavAstar:
             self._result = _extract_path(p, self._si, best_node)
 
     def step(
-        self, pos: Position, within_budget: Callable[[], bool] = lambda: True,
+        self,
+        pos: Position,
+        within_budget: Callable[[], bool] = lambda: True,
     ) -> Position | None:
         """Advance one step. Returns the next Position to move to, or None if still searching."""
         w = self.w

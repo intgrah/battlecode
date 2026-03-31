@@ -44,7 +44,9 @@ def move_toward(state: State, ct: Controller, target: Position) -> Direction:
 
 
 def move_toward_with_road(
-    state: State, ct: Controller, target: Position,
+    state: State,
+    ct: Controller,
+    target: Position,
 ) -> tuple[Direction, Action | None]:
     pos = state.pos
     if pos == target:
