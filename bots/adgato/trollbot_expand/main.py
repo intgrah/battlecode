@@ -40,7 +40,9 @@ class Player:
         self.prev_pos: Position | None = None
         self.wander_target: Position | None = None
         self.secure_target: Position | None = None
-        self.mode: str = None  # "advance", "return", "secure", "bridge", "builder", "guard"
+        self.mode: str = (
+            None  # "advance", "return", "secure", "bridge", "builder", "guard"
+        )
         self.builder_targets: list[Position] = []
         self.builder_target_idx: int = 0
 

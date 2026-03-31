@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, EntityType, Environment, Position
-from pathfinding import _ALL_DIRS, _rotate, chebyshev
+from pathfinding import _rotate
 from utils import in_bounds
 
 
@@ -93,11 +93,18 @@ def run_core(player: Player, ct: Controller) -> None:
     # Emergency spawn if enemy builder on a friendly conveyor
     enemy_builder_dir = None
     for uid in ct.get_nearby_units():
-        if ct.get_entity_type(uid) != EntityType.BUILDER_BOT or ct.get_team(uid) == my_team:
+        if (
+            ct.get_entity_type(uid) != EntityType.BUILDER_BOT
+            or ct.get_team(uid) == my_team
+        ):
             continue
         bp = ct.get_position(uid)
         bid = ct.get_tile_building_id(bp)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.CONVEYOR and ct.get_team(bid) == my_team:
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.CONVEYOR
+            and ct.get_team(bid) == my_team
+        ):
             enemy_builder_dir = pos.direction_to(bp)
             break
     if enemy_builder_dir is not None:
@@ -125,7 +132,11 @@ def run_core(player: Player, ct: Controller) -> None:
                 return
             break
 
-    imminent = player.spawned < 1 or player.spawned < 2 and rnd > 10 or ct.get_hp() < ct.get_max_hp()
+    imminent = (
+        player.spawned < 1
+        or (player.spawned < 2 and rnd > 10)
+        or ct.get_hp() < ct.get_max_hp()
+    )
     if imminent:
         sp = _best_spawn_pos(player, ct, pos)
         if sp is not None:

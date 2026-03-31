@@ -375,7 +375,10 @@ def run_builder(player: Player, ct: Controller) -> None:
                 break
         if not should_guard:
             for bid in ct.get_nearby_buildings():
-                if ct.get_entity_type(bid) != EntityType.GUNNER or ct.get_team(bid) != my_team:
+                if (
+                    ct.get_entity_type(bid) != EntityType.GUNNER
+                    or ct.get_team(bid) != my_team
+                ):
                     continue
                 gp = ct.get_position(bid)
                 facing = ct.get_direction(bid)
@@ -383,7 +386,10 @@ def run_builder(player: Player, ct: Controller) -> None:
                 if not in_bounds(ct, front) or not ct.is_in_vision(front):
                     continue
                 front_bid = ct.get_tile_building_id(front)
-                if front_bid is None or ct.get_entity_type(front_bid) == EntityType.ROAD:
+                if (
+                    front_bid is None
+                    or ct.get_entity_type(front_bid) == EntityType.ROAD
+                ):
                     should_guard = True
                     break
         if should_guard:
@@ -405,7 +411,7 @@ def run_builder(player: Player, ct: Controller) -> None:
                 player.heal_target = player.core_pos
 
     # Friendly bridge damaged — heal it (skip if another builder is already on it)
-    #if player.mode not in ("heal", "bridge", "guard"):
+    # if player.mode not in ("heal", "bridge", "guard"):
     #    my_team = ct.get_team()
     #    for bid in ct.get_nearby_buildings():
     #        if (
@@ -439,7 +445,7 @@ def run_builder(player: Player, ct: Controller) -> None:
             continue
         break
 
-    #if player.mode == "advance" and ct.get_current_round() > 100:
+    # if player.mode == "advance" and ct.get_current_round() > 100:
     #    player.mode = "secure"
     #    player.wander_target = None
 
@@ -469,7 +475,9 @@ def run_builder(player: Player, ct: Controller) -> None:
                 if target_bid is not None:
                     ttype = ct.get_entity_type(target_bid)
                     tteam = ct.get_team(target_bid)
-                    if (ttype == EntityType.BRIDGE or ttype == EntityType.SPLITTER) and tteam == my_team:
+                    if (
+                        ttype in (EntityType.BRIDGE, EntityType.SPLITTER)
+                    ) and tteam == my_team:
                         continue
                     if ttype == EntityType.CORE and tteam == my_team:
                         continue
@@ -712,7 +720,6 @@ def run_builder(player: Player, ct: Controller) -> None:
         return
 
 
-
 def _guard(player: Player, ct: Controller, pos: Position) -> None:
     """Defend core from enemy builder bot."""
 
@@ -721,7 +728,9 @@ def _guard(player: Player, ct: Controller, pos: Position) -> None:
         if not in_bounds(ct, t) or not ct.is_in_vision(t):
             continue
         bbid = ct.get_tile_builder_bot_id(t)
-        if (bbid is None or ct.get_team(bbid) == ct.get_team()) and ct.can_build_conveyor(t, Direction.NORTH):
+        if (
+            bbid is None or ct.get_team(bbid) == ct.get_team()
+        ) and ct.can_build_conveyor(t, Direction.NORTH):
             ct.build_conveyor(t, Direction.NORTH)
 
 
@@ -743,7 +752,8 @@ def _builder(player: Player, ct: Controller, pos: Position, w: int, h: int) -> N
             Position(core.x - 2, core.y),
         ]
         valid = [
-            p for p in candidates
+            p
+            for p in candidates
             if in_bounds(ct, p)
             and (not ct.is_in_vision(p) or ct.get_tile_env(p) != Environment.WALL)
         ]
@@ -758,7 +768,10 @@ def _builder(player: Player, ct: Controller, pos: Position, w: int, h: int) -> N
         sp_dir: Direction | None = None
         has_splitter = False
         for bid in ct.get_nearby_buildings():
-            if ct.get_entity_type(bid) == EntityType.GUNNER and ct.get_team(bid) == my_team:
+            if (
+                ct.get_entity_type(bid) == EntityType.GUNNER
+                and ct.get_team(bid) == my_team
+            ):
                 gp = ct.get_position(bid)
                 facing = ct.get_direction(bid)
                 sp_target = gp.add(facing.opposite())
@@ -766,14 +779,20 @@ def _builder(player: Player, ct: Controller, pos: Position, w: int, h: int) -> N
                 break
         # Check if we can already see a friendly splitter
         for bid in ct.get_nearby_buildings():
-            if ct.get_entity_type(bid) == EntityType.SPLITTER and ct.get_team(bid) == my_team:
+            if (
+                ct.get_entity_type(bid) == EntityType.SPLITTER
+                and ct.get_team(bid) == my_team
+            ):
                 has_splitter = True
                 break
 
         if has_splitter:
             # Bridge from a tile adjacent to a launcher into the core
             for bid in ct.get_nearby_buildings():
-                if ct.get_entity_type(bid) != EntityType.LAUNCHER or ct.get_team(bid) != my_team:
+                if (
+                    ct.get_entity_type(bid) != EntityType.LAUNCHER
+                    or ct.get_team(bid) != my_team
+                ):
                     continue
                 lp = ct.get_position(bid)
                 for d in _CARDINAL_FIRST:
@@ -781,7 +800,11 @@ def _builder(player: Player, ct: Controller, pos: Position, w: int, h: int) -> N
                     if not in_bounds(ct, bp) or not ct.is_in_vision(bp):
                         continue
                     fbid = ct.get_tile_building_id(bp)
-                    if fbid is not None and ct.get_entity_type(fbid) == EntityType.ROAD and ct.can_destroy(bp):
+                    if (
+                        fbid is not None
+                        and ct.get_entity_type(fbid) == EntityType.ROAD
+                        and ct.can_destroy(bp)
+                    ):
                         ct.destroy(bp)
                     for dx in range(-1, 2):
                         for dy in range(-1, 2):
@@ -814,12 +837,16 @@ def _builder(player: Player, ct: Controller, pos: Position, w: int, h: int) -> N
     target = player.builder_targets[player.builder_target_idx]
 
     fbid = ct.get_tile_building_id(target)
-    if fbid is not None and ct.get_entity_type(fbid) != EntityType.CONVEYOR and ct.can_destroy(target):
+    if (
+        fbid is not None
+        and ct.get_entity_type(fbid) != EntityType.CONVEYOR
+        and ct.can_destroy(target)
+    ):
         ct.destroy(target)
 
     if ct.can_build_conveyor(target, Direction.NORTH):
         ct.build_conveyor(target, Direction.NORTH)
-            
+
     if pos == target:
         tx = player.nearest_ore.x if player.nearest_ore is not None else w / 2
         ty = player.nearest_ore.y if player.nearest_ore is not None else h / 2
@@ -844,11 +871,17 @@ def _builder(player: Player, ct: Controller, pos: Position, w: int, h: int) -> N
                 if in_bounds(ct, adj) and ct.can_build_gunner(adj, d.opposite()):
                     ct.build_gunner(adj, d.opposite())
                     splitter_pos = adj.add(d)
-                    if not in_bounds(ct, splitter_pos) or ct.get_tile_env(splitter_pos) == Environment.WALL:
+                    if (
+                        not in_bounds(ct, splitter_pos)
+                        or ct.get_tile_env(splitter_pos) == Environment.WALL
+                    ):
                         player.mode = player.original_mode
                         return
                     sp_bid = ct.get_tile_building_id(splitter_pos)
-                    if sp_bid is not None and ct.get_entity_type(sp_bid) in BLOCKED_BUILDINGS:
+                    if (
+                        sp_bid is not None
+                        and ct.get_entity_type(sp_bid) in BLOCKED_BUILDINGS
+                    ):
                         player.mode = player.original_mode
                         return
                     break
@@ -975,7 +1008,9 @@ def _is_buildable(ct: Controller, tile: Position, core: Position) -> bool:
         return True
     etype = ct.get_entity_type(bid)
     near_core = core is not None and king_dist(tile, core) <= 2
-    return (etype == EntityType.ROAD or etype == EntityType.BARRIER and not near_core) and ct.get_team(
+    return (
+        etype == EntityType.ROAD or (etype == EntityType.BARRIER and not near_core)
+    ) and ct.get_team(
         bid,
     ) == ct.get_team()
 
@@ -1005,10 +1040,14 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
             if etype == EntityType.BRIDGE and my_team == ct.get_team(bid):
                 continue
             if my_team != ct.get_team(bid) and ct.is_tile_passable(adj):
-                if king_dist(pos, adj) <= 1 and try_move_smart(ct, pos, pos.direction_to(adj)):
-                    if ct.get_position() == adj and ct.can_fire(adj):
-                        ct.fire(adj)
-                        return False
+                if (
+                    king_dist(pos, adj) <= 1
+                    and try_move_smart(ct, pos, pos.direction_to(adj))
+                    and ct.get_position() == adj
+                    and ct.can_fire(adj)
+                ):
+                    ct.fire(adj)
+                    return False
                 continue
 
         all_secured = False
@@ -1018,9 +1057,14 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
         if ct.can_build_barrier(adj):
             ct.build_barrier(adj)
             return False
-    
+
     bid = ct.get_tile_building_id(pos)
-    if bid is not None and my_team != ct.get_team(bid) and pos == player.secure_target and ct.can_fire(pos):
+    if (
+        bid is not None
+        and my_team != ct.get_team(bid)
+        and pos == player.secure_target
+        and ct.can_fire(pos)
+    ):
         ct.fire(pos)
         return False
 
@@ -1035,7 +1079,7 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
 
         if pos == player.secure_target:
             destroy_enemy_road(player, ct, pos, move_after=False)
-        
+
         if pos == player.secure_target and h_cost <= funds:
             core_dir = (
                 pos.direction_to(player.core_pos)
@@ -1050,7 +1094,6 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
         if bid is not None and ct.can_destroy(player.secure_target):
             ct.destroy(player.secure_target)
 
-
         if ct.can_build_harvester(player.secure_target):
             ct.build_harvester(player.secure_target)
             player.bridge_target = _pick_bridge_start(ct, player.secure_target)
@@ -1061,7 +1104,11 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
             d = pos.direction_to(player.secure_target)
             adj = pos.add(d)
             bar_bid = ct.get_tile_building_id(adj)
-            if bar_bid is not None and ct.get_entity_type(bar_bid) == EntityType.BARRIER and ct.can_destroy(adj):
+            if (
+                bar_bid is not None
+                and ct.get_entity_type(bar_bid) == EntityType.BARRIER
+                and ct.can_destroy(adj)
+            ):
                 ct.destroy(adj)
             try_move_smart(ct, pos, pos.direction_to(player.secure_target))
             return False

@@ -1,9 +1,13 @@
 """A* test bot — core spawns one builder that walks to the opposite corner."""
 
-from astar import NavAstar
+from typing import TYPE_CHECKING
+
 from builder import run_builder
 from cambc import Controller, EntityType, Position
 from core import run_core
+
+if TYPE_CHECKING:
+    from astar import NavAstar
 
 
 class Player:

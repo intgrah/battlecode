@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 import random
 
 from astar import COST_IMPASSABLE, NavAstar
-from cambc import Controller, Position, Environment, EntityType
+from cambc import Controller, Position
 from utils import try_move_smart
 
 
@@ -30,7 +30,6 @@ def run_builder(player: Player, ct: Controller) -> None:
         cost = player.nav.get_cost(player.target)
         if cost is not None and cost >= COST_IMPASSABLE:
             player.target = Position(random.randint(0, w - 1), random.randint(0, h - 1))
-        
 
     # Create NavAstar on first run, then update cost grid each round
     if player.nav is None:
