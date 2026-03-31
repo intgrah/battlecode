@@ -1,4 +1,6 @@
+import time
 from collections import deque
+from itertools import chain
 
 from building import (
     BuildingArmouredConveyor,
@@ -23,30 +25,19 @@ __all__ = ["update_flow"]
 
 
 def update_flow(state: State) -> None:
-    import time as _time
-    _t = _time.perf_counter
+    _t = time.perf_counter
 
     _t0 = _t()
     w, h = state.w, state.h
-    n = w * h
     building = state.building
     my_team = state.my_team
     f = state.flow
 
-    all_harv = state.my_harvesters | state.en_harvesters
-    all_trans = state.my_transport | state.en_transport
-    all_found = state.my_foundries | state.en_foundries
-    all_turrets = state.my_turrets | state.en_turrets
-    all_cores = state.my_core_tiles | state.en_core_tiles
-
-    harv_idx = [p.y * w + p.x for p in all_harv]
-    trans_idx = [p.y * w + p.x for p in all_trans]
-    found_idx = [p.y * w + p.x for p in all_found]
-    turret_idx = [p.y * w + p.x for p in all_turrets]
-    core_idx = [p.y * w + p.x for p in all_cores]
-
-    recv_idx = trans_idx + found_idx + turret_idx + core_idx
-    all_idx = harv_idx + recv_idx
+    harv_idx = list(state.harvesters)
+    trans_idx = list(state.transport)
+    found_idx = list(state.foundries)
+    turret_idx = list(state.turrets)
+    core_idx = list(state.my_core_tiles | state.en_core_tiles)
 
     f_ti = f.ti
     f_ax = f.ax
@@ -62,7 +53,18 @@ def update_flow(state: State) -> None:
     f_excess = f.excess
     f_blocked = f.blocked
 
-    for i in all_idx:
+    _recv = (trans_idx, found_idx, turret_idx, core_idx)
+    _all = (harv_idx, *_recv)
+
+    in_degree = f._in_degree
+    out_edges = f._out_edges
+    is_recv = f._is_recv
+    in_rev_head = f._in_rev_head
+    in_rev_next = f._in_rev_next
+    in_rev_src = f._in_rev_src
+    edge_push = f._edge_push
+
+    for i in chain(*f._prev_all):
         f_ti[i] = 0.0
         f_ax[i] = 0.0
         f_rax[i] = 0.0
@@ -75,18 +77,18 @@ def update_flow(state: State) -> None:
         f_ax_excess[i] = 0.0
         f_rax_excess[i] = 0.0
         f_excess[i] = 0.0
+        in_degree[i] = 0
+        out_edges[i].clear()
+        in_rev_head[i] = -1
+    for i in chain(*f._prev_recv):
+        is_recv[i] = False
+        f_blocked[i] = False
 
-    in_degree = [0] * n
-    out_edges: list[list[tuple[int, int]]] = [[] for _ in range(n)]
-    is_recv = [False] * n
-    max_edges = len(all_idx) * 8
-    in_rev_head = [-1] * n
-    in_rev_next = [0] * max_edges
-    in_rev_src = [0] * max_edges
-    edge_push = [0.0] * max_edges
-
-    for i in recv_idx:
+    for i in chain(*_recv):
         is_recv[i] = True
+
+    f._prev_all = _all
+    f._prev_recv = _recv
 
     _t1 = _t()
 
@@ -153,7 +155,7 @@ def update_flow(state: State) -> None:
                         add_edge(i, ni)
         queue.append(i)
 
-    for i in recv_idx:
+    for i in chain(*_recv):
         if in_degree[i] == 0:
             queue.append(i)
 
@@ -278,15 +280,15 @@ def update_flow(state: State) -> None:
             f_my_frac[ci] = my_w / total_w
             f_en_frac[ci] = en_w / total_w
 
-    for i in all_idx:
+    for i in chain(*_all):
         f_my_total[i] = f_total[i] * f_my_frac[i]
         f_en_total[i] = f_total[i] * f_en_frac[i]
 
     # Blocked propagation
-    for i in recv_idx:
+    for i in chain(*_recv):
         f_blocked[i] = False
     seeds: deque[int] = deque()
-    for i in recv_idx:
+    for i in chain(*_recv):
         if f_total[i] > 0.75:
             f_blocked[i] = True
             seeds.append(i)
@@ -301,7 +303,7 @@ def update_flow(state: State) -> None:
             ri = in_rev_next[ri]
     _t4 = _t()
     print(
-        f"    econ: setup={int((_t1-_t0)*1e6)}us edges={int((_t2-_t1)*1e6)}us"
-        f" fwd={int((_t3-_t2)*1e6)}us bwd={int((_t4-_t3)*1e6)}us"
-        f" total={int((_t4-_t0)*1e6)}us nodes={len(all_idx)} edges={rev_ptr}"
+        f"    econ: setup={int((_t1 - _t0) * 1e6)}us edges={int((_t2 - _t1) * 1e6)}us"
+        f" fwd={int((_t3 - _t2) * 1e6)}us bwd={int((_t4 - _t3) * 1e6)}us"
+        f" total={int((_t4 - _t0) * 1e6)}us"
     )

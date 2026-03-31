@@ -54,18 +54,12 @@ def dump(state: State, ct: Controller) -> None:
         "my_core": list(state.my_core),
         "ore_ti": list(state.ore_ti),
         "ore_ax": list(state.ore_ax),
-        "my_harvesters": [[p.x, p.y] for p in state.my_harvesters],
-        "my_transport": [[p.x, p.y] for p in state.my_transport],
-        "my_foundries": [[p.x, p.y] for p in state.my_foundries],
-        "flow_ti": {
-            i: round(v, 3) for i, v in enumerate(state.flow.ti) if v > 0.001
-        },
-        "flow_ax": {
-            i: round(v, 3) for i, v in enumerate(state.flow.ax) if v > 0.001
-        },
-        "flow_rax": {
-            i: round(v, 3) for i, v in enumerate(state.flow.rax) if v > 0.001
-        },
+        "my_harvesters": [[i % state.w, i // state.w] for i in state.my_harvesters],
+        "my_transport": [[i % state.w, i // state.w] for i in state.my_transport],
+        "my_foundries": [[i % state.w, i // state.w] for i in state.my_foundries],
+        "flow_ti": {i: round(v, 3) for i, v in enumerate(state.flow.ti) if v > 0.001},
+        "flow_ax": {i: round(v, 3) for i, v in enumerate(state.flow.ax) if v > 0.001},
+        "flow_rax": {i: round(v, 3) for i, v in enumerate(state.flow.rax) if v > 0.001},
         "blocked": [i for i, b in enumerate(state.flow.blocked) if b],
         "excess_ti": {
             i: round(v, 3) for i, v in enumerate(state.flow.ti_excess) if v > 0.001

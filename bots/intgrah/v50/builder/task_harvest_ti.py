@@ -21,14 +21,15 @@ def harvest_ti(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     pos = state.pos
+    w = state.w
     unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
     if not unharvested:
         return None
 
     for ddx, ddy in DIR4_DELTA:
-        p = (pos.x + ddx, pos.y + ddy)
-        if p in unharvested:
-            ore_pos = Position(p[0], p[1])
+        ni = (pos.y + ddy) * w + (pos.x + ddx)
+        if ni in unharvested:
+            ore_pos = Position(pos.x + ddx, pos.y + ddy)
             bid = ct.get_tile_building_id(ore_pos)
             if bid is not None:
                 if ct.can_destroy(ore_pos):
@@ -40,26 +41,24 @@ def harvest_ti(
             if ti >= h_cost and ct.can_build_harvester(ore_pos):
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
 
-    w = state.w
     rnd = ct.get_current_round()
     candidates = sorted(
         unharvested,
-        key=lambda o: (pos.x - o[0]) ** 2 + (pos.y - o[1]) ** 2,
+        key=lambda oi: (pos.x - oi % w) ** 2 + (pos.y - oi // w) ** 2,
     )
-    for ore in candidates:
-        oi = ore[1] * w + ore[0]
+    for oi in candidates:
         bld = state.building[oi]
         if bld is not None and bld.team != state.my_team:
             continue
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             continue
-        adj = cardinal_adjacent(state, pos, Position(ore[0], ore[1]))
+        ore_pos = Position(oi % w, oi // w)
+        adj = cardinal_adjacent(state, pos, ore_pos)
         if adj is None:
             continue
         move, build = move_toward_with_road(state, ct, adj)
         if move != Direction.CENTRE and build is None:
             new_pos = pos.add(move)
-            ore_pos = Position(ore[0], ore[1])
             if new_pos.distance_squared(ore_pos) == 1:
                 bid = ct.get_tile_building_id(ore_pos)
                 if bid is not None and ct.can_destroy(ore_pos):

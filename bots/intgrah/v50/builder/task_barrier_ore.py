@@ -24,13 +24,13 @@ def _best_denied_ore(state: State) -> Position | None:
     unharvested = state.ore_ti - state.my_harvesters
     if not unharvested:
         return None
+    w = state.w
     pos = state.pos
     best: Position | None = None
     best_dist = INF
-    for ox, oy in unharvested:
-        oi = state.idx(ox, oy)
-        op = Position(ox, oy)
-        if op in state.barriers or op in state.barriers:
+    for oi in unharvested:
+        ox, oy = oi % w, oi // w
+        if oi in state.barriers:
             continue
         bld = state.building[oi]
         match bld:
