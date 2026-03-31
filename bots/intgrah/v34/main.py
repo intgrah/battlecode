@@ -549,7 +549,8 @@ class BuilderAgent:
         ct: Controller,
     ) -> tuple[Position | None, Position | None]:
         """Find enemy turrets and builders near our core.
-        Returns (closest_turret, closest_builder)."""
+        Returns (closest_turret, closest_builder).
+        """
         if self.core is None:
             return None, None
         my = ct.get_team()
@@ -686,7 +687,8 @@ class BuilderAgent:
     def _find_frontline_conv(self, ct: Controller) -> Position | None:
         """Find a conveyor to fortify (replace with splitter + gunner).
         Looks for a conveyor on our network that's closest to the midpoint
-        between cores, but not too close to our core."""
+        between cores, but not too close to our core.
+        """
         if self.core is None or self.enemy_core is None:
             return None
         my = ct.get_team()
@@ -1058,7 +1060,8 @@ class BuilderAgent:
     def _do_fortify(self, ct: Controller, pos: Position) -> None:
         """Replace a conveyor with a splitter, then build gunner adjacent.
         The splitter continues the resource chain while the gunner
-        gets ammo from the splitter's side outputs."""
+        gets ammo from the splitter's side outputs.
+        """
         if self.core is None or self.enemy_core is None:
             self.state = MAINTAIN
             self.idle_turns = 0

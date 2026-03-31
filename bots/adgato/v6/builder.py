@@ -249,7 +249,6 @@ def _start_bridge_chain(
     source_pos: Position,
 ) -> None:
     """Enter bridge state: pick first bridge tile adjacent to source, closest to core."""
-
     print(f"Looking for bridges. core: {player.core_pos}")
     if player.core_pos is None:
         return
@@ -481,7 +480,8 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
 
 def _wander(player: Player, ct: Controller, pos: Position) -> None:
     """Wander without a target: prefer away from friendly builders, maintain
-    momentum from last step, and stay away from map borders."""
+    momentum from last step, and stay away from map borders.
+    """
     w, h = ct.get_map_width(), ct.get_map_height()
     my_id = ct.get_id()
     my_team = ct.get_team()
@@ -650,8 +650,8 @@ def update_advance_ore(player: Player, ct: Controller) -> None:
 
 def _economy(player: Player, ct: Controller, pos: Position) -> None:
     """Economy mode: harvest nearest ore, opportunistically switch to LOS ore,
-    or wander to discover more."""
-
+    or wander to discover more.
+    """
     update_claimed_ore(player, ct)
 
     # Early game: rush away from friendly core
@@ -924,7 +924,8 @@ def _has_adjacent_friendly_builder(ct: Controller, tile: Position) -> bool:
 
 def _base_builder(player: Player, ct: Controller, pos: Position) -> None:
     """Move one step cardinally away from core, then place barriers in all 8
-    directions before hibernating."""
+    directions before hibernating.
+    """
     if player.core_pos is None:
         return
 
@@ -1158,8 +1159,8 @@ def _base_builder(player: Player, ct: Controller, pos: Position) -> None:
 
 def _advance(player: Player, ct: Controller, pos: Position) -> None:
     """Pathfind toward the enemy base, diverting to ore if any is known.
-    Once the enemy base is visible, switch to hibernate."""
-
+    Once the enemy base is visible, switch to hibernate.
+    """
     update_advance_ore(player, ct)
 
     # Early game: rush away from friendly core
@@ -1436,7 +1437,6 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
 
 def _suicide(player: Player, ct: Controller, pos: Position) -> None:
     """Pathfind to enemy base, then find an enemy bridge/conveyor to self-destruct on."""
-
     # Track resources on visible enemy conveyors
     rnd = ct.get_current_round()
     my_team = ct.get_team()

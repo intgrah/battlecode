@@ -43,7 +43,7 @@ def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
             f"{algo:<50}"
             f" {t50:>7.0f} {t100:>7.0f}"
             f" {o50:>7.3f} {o100:>7.3f}"
-            f" {reach_pct:>6.1f}% {fm_pct:>6.1f}%"
+            f" {reach_pct:>6.1f}% {fm_pct:>6.1f}%",
         )
 
 

@@ -41,7 +41,7 @@ def _plot_row(
         v = times.quantile(p) if len(times) > 0 else 0
         plabel = f"p{int(p * 100)}"
         ax.axvline(
-            v, color=color, linestyle=ls, linewidth=0.8, label=f"{plabel}={v:.0f}"
+            v, color=color, linestyle=ls, linewidth=0.8, label=f"{plabel}={v:.0f}",
         )
     ax.legend(fontsize=5, loc="upper right")
     ax.tick_params(labelsize=5)

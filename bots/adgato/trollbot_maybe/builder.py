@@ -91,7 +91,6 @@ def scan_ore(player: Player, ct: Controller, w: int, h: int) -> None:
 
 def update_claimed_ore(player: Player, ct: Controller, pos: Position) -> None:
     """Claim ore we're standing on, and mark visible ore as claimed if already taken."""
-
     my_team = ct.get_team()
     for ore in list(player.known_ore):
         if not ct.is_in_vision(ore):
@@ -127,7 +126,6 @@ def update_claimed_ore(player: Player, ct: Controller, pos: Position) -> None:
 
 def pick_ore_target(player: Player, ct: Controller, pos: Position) -> None:
     """Pick nearest unclaimed ore, preferring tiles with line of sight."""
-
     best_los = None
     best_los_dist = 999999
     best_any = None
@@ -672,7 +670,8 @@ def _pick_frontier_target(
 ) -> Position | None:
     """Pick the best unexplored tile to pathfind toward.
     Biased toward the previous wander direction for continuity; falls back to
-    map-centre bias when there is no previous direction."""
+    map-centre bias when there is no previous direction.
+    """
     cx, cy = w / 2.0, h / 2.0
     centre = Position(cx, cy)
 
@@ -745,7 +744,8 @@ def _pick_frontier_near_core(
 
 def _random_walk(ct: Controller, pos: Position, prev: Position) -> None:
     """Random walk, avoiding stepping back to the previous tile.
-    Prefers tiles reachable via can_move (no road building)."""
+    Prefers tiles reachable via can_move (no road building).
+    """
     dirs = list(_ALL_DIRS)
     random.shuffle(dirs)
     # 1. Prefer can_move (already walkable), skip prev
@@ -783,8 +783,8 @@ def _is_buildable(ct: Controller, tile: Position) -> bool:
 
 def _secure(player: Player, ct: Controller, pos: Position) -> bool:
     """Barrier all cardinal neighbors of wander_target, firing to clear
-    obstacles if standing on one. Then place harvester and enter bridge mode."""
-
+    obstacles if standing on one. Then place harvester and enter bridge mode.
+    """
     if player.secure_target is None:
         return False
 
@@ -850,7 +850,8 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
 def _pick_bridge_start(ct: Controller, harvester_pos: Position) -> Position | None:
     """Pick the best cardinal-adjacent tile to a harvester to start a bridge chain.
     Returns the buildable tile closest to the bot, or None.
-    If prefer_empty, tries tiles with no building first."""
+    If prefer_empty, tries tiles with no building first.
+    """
     pos = ct.get_position()
     best = None
     best_dist = 999999
@@ -889,7 +890,8 @@ def _finish_bridge_chain(player: Player, ct: Controller, pos: Position) -> None:
 
 def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
     """Build a chain of bridges from the last bridge_target toward the core.
-    Returns True if the chain has reached the core."""
+    Returns True if the chain has reached the core.
+    """
     bt = player.bridge_target
     if bt is None or player.core_pos is None:
         player.bridge_target = None

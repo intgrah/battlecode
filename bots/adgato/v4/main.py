@@ -409,7 +409,8 @@ class Player:
 
     def _find_comms_tile(self, ct: Controller) -> None:
         """Locate the team's comms marker tile by scanning candidates.
-        Prefers a tile that already has our team's marker; falls back to first candidate."""
+        Prefers a tile that already has our team's marker; falls back to first candidate.
+        """
         if self.core_pos is None:
             return
         if not self.comms_candidates:

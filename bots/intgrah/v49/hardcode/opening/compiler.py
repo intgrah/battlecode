@@ -71,7 +71,7 @@ def _compile_action(dsl: DslAction, pos: Position) -> Action:
         case DslPlaceBridge(direction, target_vector):
             build_pos = pos.add(direction)
             target = Position(
-                build_pos.x + target_vector[0], build_pos.y + target_vector[1]
+                build_pos.x + target_vector[0], build_pos.y + target_vector[1],
             )
             return PlaceBridge(build_pos, target)
         case DslPlaceFoundry(direction):

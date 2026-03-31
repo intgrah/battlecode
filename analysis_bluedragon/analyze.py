@@ -114,10 +114,10 @@ def parse_replay(
                 e = update.place_entity.entity
                 etype = detect_etype(e)
                 entities[e.id] = EntityInfo(
-                    etype, e.team, e.position.x, e.position.y, turn_num
+                    etype, e.team, e.position.x, e.position.y, turn_num,
                 )
                 builds.append(
-                    BuildEvent(turn_num, e.team, etype, e.position.x, e.position.y)
+                    BuildEvent(turn_num, e.team, etype, e.position.x, e.position.y),
                 )
             elif kind == "remove_entity":
                 entities.pop(update.remove_entity.id, None)
@@ -154,7 +154,7 @@ def parse_replay(
                 ax_collected_b=ax_col_b,
                 counts_a=dict(counts_a),
                 counts_b=dict(counts_b),
-            )
+            ),
         )
 
     winner = replay.winner if replay.HasField("winner") else None
@@ -199,7 +199,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
     replay, snapshots, builds, winner = parse_replay(rf)
     bd_won = (winner == bd_team) if winner is not None else False
     print(
-        f"  Result: {'BD WIN' if bd_won else 'BD LOSS'}  |  Turns: {len(snapshots)}  |  Map: {replay.map.width}x{replay.map.height}"
+        f"  Result: {'BD WIN' if bd_won else 'BD LOSS'}  |  Turns: {len(snapshots)}  |  Map: {replay.map.width}x{replay.map.height}",
     )
 
     bd_builds = [b for b in builds if b.team == bd_team]
@@ -212,7 +212,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
         if b.etype == "marker":
             continue
         print(
-            f"    T{b.turn:4d}  {ETYPE_DISPLAY.get(b.etype, b.etype):12s} ({b.x},{b.y})"
+            f"    T{b.turn:4d}  {ETYPE_DISPLAY.get(b.etype, b.etype):12s} ({b.x},{b.y})",
         )
         shown += 1
         if shown >= 25:
@@ -230,12 +230,12 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
         if t == "marker":
             continue
         print(
-            f"                 {ETYPE_DISPLAY.get(t, t):15s} {bd_c.get(t, 0):5d} {en_c.get(t, 0):5d}"
+            f"                 {ETYPE_DISPLAY.get(t, t):15s} {bd_c.get(t, 0):5d} {en_c.get(t, 0):5d}",
         )
 
     # Economy every 100 turns
     print(
-        f"\n  Economy (BD):  {'Turn':>5s} {'Ti':>6s} {'Ax':>5s} {'TiCol':>6s} {'Harv':>5s} {'Conv':>5s} {'Brdg':>5s} {'Barr':>5s} {'Sent':>5s} {'Bldr':>5s} {'Fndy':>5s} {'Lncr':>5s}"
+        f"\n  Economy (BD):  {'Turn':>5s} {'Ti':>6s} {'Ax':>5s} {'TiCol':>6s} {'Harv':>5s} {'Conv':>5s} {'Brdg':>5s} {'Barr':>5s} {'Sent':>5s} {'Bldr':>5s} {'Fndy':>5s} {'Lncr':>5s}",
     )
     for snap in snapshots:
         if snap.turn % 100 != 0 and snap.turn != 1 and snap.turn != len(snapshots):
@@ -245,7 +245,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
             f"                 {snap.turn:5d} {bd_ti(snap, bd_team):6d} {bd_ax(snap, bd_team):5d} {bd_ti_collected(snap, bd_team):6d}"
             f" {c.get('harvester', 0):5d} {c.get('conveyor', 0):5d} {c.get('bridge', 0):5d}"
             f" {c.get('barrier', 0):5d} {c.get('sentinel', 0):5d} {c.get('builder_bot', 0):5d}"
-            f" {c.get('foundry', 0):5d} {c.get('launcher', 0):5d}"
+            f" {c.get('foundry', 0):5d} {c.get('launcher', 0):5d}",
         )
 
     # Spending per 100-turn window
@@ -260,7 +260,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
             types[ETYPE_DISPLAY.get(b.etype, b.etype)] += 1
         s = ", ".join(f"{v}x{k}" for k, v in sorted(types.items(), key=lambda x: -x[1]))
         print(
-            f"    T{w * 100 + 1:4d}-{(w + 1) * 100:4d}: {len(by_window[w]):3d} builds  [{s}]"
+            f"    T{w * 100 + 1:4d}-{(w + 1) * 100:4d}: {len(by_window[w]):3d} builds  [{s}]",
         )
 
     # First harvester context
@@ -306,7 +306,7 @@ def analyze_one(rf: Path, meta: dict, bd_team: int) -> dict:
         print("\n  Aggro builds near enemy core (dist<=10):")
         for b, d in bd_aggro_builds[:10]:
             print(
-                f"    T{b.turn:4d}  {ETYPE_DISPLAY.get(b.etype, b.etype):12s} dist={d}"
+                f"    T{b.turn:4d}  {ETYPE_DISPLAY.get(b.etype, b.etype):12s} dist={d}",
             )
 
     return {
@@ -364,7 +364,7 @@ def main() -> None:
 
     wins = sum(1 for r in results if r["bd_won"])
     print(
-        f"\n  Win rate: {wins}/{len(results)} ({100 * wins / max(len(results), 1):.0f}%)"
+        f"\n  Win rate: {wins}/{len(results)} ({100 * wins / max(len(results), 1):.0f}%)",
     )
 
     # First harvester
@@ -372,10 +372,10 @@ def main() -> None:
     h_tis = [r["first_h_ti"] for r in results if r["first_h_ti"] is not None]
     if h_turns:
         print(
-            f"\n  First harvester turn:  min={min(h_turns)} avg={sum(h_turns) / len(h_turns):.0f} max={max(h_turns)} median={sorted(h_turns)[len(h_turns) // 2]}"
+            f"\n  First harvester turn:  min={min(h_turns)} avg={sum(h_turns) / len(h_turns):.0f} max={max(h_turns)} median={sorted(h_turns)[len(h_turns) // 2]}",
         )
         print(
-            f"  First harvester Ti:    min={min(h_tis)} avg={sum(h_tis) / len(h_tis):.0f} max={max(h_tis)} median={sorted(h_tis)[len(h_tis) // 2]}"
+            f"  First harvester Ti:    min={min(h_tis)} avg={sum(h_tis) / len(h_tis):.0f} max={max(h_tis)} median={sorted(h_tis)[len(h_tis) // 2]}",
         )
 
     # Average building counts
@@ -413,7 +413,7 @@ def main() -> None:
         avg_h = sum(g["total_harvesters"] for g in games) / len(games)
         avg_b = sum(g["total_barriers"] for g in games) / len(games)
         print(
-            f"    {opp:20s}  {w}/{len(games)} wins  avg_harv={avg_h:.1f}  avg_barr={avg_b:.1f}"
+            f"    {opp:20s}  {w}/{len(games)} wins  avg_harv={avg_h:.1f}  avg_barr={avg_b:.1f}",
         )
 
 

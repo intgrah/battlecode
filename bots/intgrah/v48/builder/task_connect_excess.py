@@ -67,7 +67,7 @@ def connect_excess(
     start = Position(sx, sy)
     path = _get_or_compute_path(state, ct, start, goals, search_kind)
     print(
-        f"  excess={best_tile} start={start} goals={goals} path={path[:5] if path else None} kind={search_kind}"
+        f"  excess={best_tile} start={start} goals={goals} path={path[:5] if path else None} kind={search_kind}",
     )
     if path is None or len(path) < 2:
         return None
@@ -214,7 +214,7 @@ def _get_or_compute_path(
 
     path = search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
     print(
-        f"    search exhausted={search.exhausted} path={path[:5] if path else None} heap_size={len(search._heap)}"
+        f"    search exhausted={search.exhausted} path={path[:5] if path else None} heap_size={len(search._heap)}",
     )
     if search.exhausted:
         search = None

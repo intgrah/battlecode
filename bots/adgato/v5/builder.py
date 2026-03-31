@@ -365,7 +365,8 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> None:
 
 def _wander(player: Player, ct: Controller, pos: Position) -> None:
     """Wander without a target: prefer away from friendly builders, maintain
-    momentum from last step, and stay away from map borders."""
+    momentum from last step, and stay away from map borders.
+    """
     w, h = ct.get_map_width(), ct.get_map_height()
     my_id = ct.get_id()
     my_team = ct.get_team()
@@ -416,8 +417,8 @@ def _wander(player: Player, ct: Controller, pos: Position) -> None:
 
 def _economy(player: Player, ct: Controller, pos: Position) -> None:
     """Economy mode: harvest nearest ore, opportunistically switch to LOS ore,
-    or wander to discover more."""
-
+    or wander to discover more.
+    """
     if player.target is not None:
         if ct.is_in_vision(player.target):
             bid = ct.get_tile_building_id(player.target)
@@ -572,7 +573,8 @@ def _scout_out(player: Player, ct: Controller, pos: Position) -> None:
 
 def _try_build_launcher(player: Player, ct: Controller, pos: Position) -> bool:
     """Try to build a launcher + waypoint marker to speed return to core.
-    Returns True if a launcher was built (builder should wait to be thrown)."""
+    Returns True if a launcher was built (builder should wait to be thrown).
+    """
     if player.core_pos is None or player.enemy_core is None:
         return False
     if ct.get_action_cooldown() > 0:

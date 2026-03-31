@@ -10,7 +10,7 @@ _TURRET_TYPES = frozenset(
         EntityType.SENTINEL,
         EntityType.BREACH,
         EntityType.LAUNCHER,
-    )
+    ),
 )
 
 
@@ -44,7 +44,7 @@ def heal_turret(
 
     pos = state.pos
     if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
-        target
+        target,
     ):
         return Direction.CENTRE, Heal(target)
 

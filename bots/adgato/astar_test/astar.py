@@ -286,7 +286,7 @@ class NavAstar:
             self._result = _extract_path(p, self._si, best_node)
 
     def step(
-        self, pos: Position, within_budget: Callable[[], bool] = lambda: True
+        self, pos: Position, within_budget: Callable[[], bool] = lambda: True,
     ) -> Position | None:
         """Advance one step. Returns the next Position to move to, or None if still searching."""
         w = self.w

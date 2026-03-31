@@ -7,7 +7,7 @@ _WALKABLE = frozenset(
         EntityType.CONVEYOR,
         EntityType.ARMOURED_CONVEYOR,
         EntityType.SPLITTER,
-    )
+    ),
 )
 
 

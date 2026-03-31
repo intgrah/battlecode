@@ -27,7 +27,7 @@ _NO_DESTROY = frozenset(
         EntityType.GUNNER,
         EntityType.SENTINEL,
         EntityType.BREACH,
-    )
+    ),
 )
 
 _SECURED = (

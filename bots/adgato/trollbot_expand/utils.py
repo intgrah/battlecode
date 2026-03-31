@@ -80,7 +80,8 @@ def try_move_smart(ct: Controller, pos: Position, direction: Direction) -> bool:
 
 def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
     """Build walkable set from visible tiles. Includes empty tiles
-    (where roads can be built) and tiles with walkable buildings."""
+    (where roads can be built) and tiles with walkable buildings.
+    """
     walkable = set()
     my_team = ct.get_team()
     for tile in ct.get_nearby_tiles():
@@ -117,7 +118,7 @@ def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
 
 
 def pf_move(
-    player: Player, ct: Controller, target: Position, destroy_road: bool = False
+    player: Player, ct: Controller, target: Position, destroy_road: bool = False,
 ) -> None:
 
     current = ct.get_position()
@@ -180,7 +181,7 @@ def pf_move(
     economy_mode = funds < 5 * bc
     has_cooldown = ct.get_action_cooldown() == 0
     player.walkable = build_walkable(
-        ct, allow_empty=(not economy_mode and not has_cooldown)
+        ct, allow_empty=(not economy_mode and not has_cooldown),
     )
     next_pos = bug2_step(player.agent, current, player.walkable)
     if try_move_smart(ct, current, current.direction_to(next_pos)):
@@ -286,7 +287,8 @@ def read_comms(
     core_pos: Position,
 ) -> tuple[str | None, int, Position | None, int]:
     """Read best comms marker near core.
-    Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found."""
+    Returns (sym, phase, enemy_pos, scout_idx). sym is None if nothing found.
+    """
     my_team = ct.get_team()
     best_phase = -1
     best = (None, -1, None, 0)
@@ -311,7 +313,8 @@ def read_comms(
 
 def place_comms(ct: Controller, core_pos: Position, value: int) -> bool:
     """Place a comms marker adjacent to core.
-    Strategy: merge with existing friendly comms marker > free tile > destroy road and place."""
+    Strategy: merge with existing friendly comms marker > free tile > destroy road and place.
+    """
     tiles = comms_tiles(ct, core_pos)
 
     # 1. Try to overwrite an existing friendly comms marker

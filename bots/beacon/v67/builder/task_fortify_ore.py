@@ -23,7 +23,8 @@ _OUTWARD_DIR: dict[tuple[int, int], Direction] = {
 def _sentinel_dirs(state: State, ox: int, oy: int) -> set[tuple[int, int]]:
     """Pick 2 cardinal directions for sentinels — the 2 facing most toward
     the enemy core (or map center if enemy core unknown). Deterministic
-    per ore tile."""
+    per ore tile.
+    """
     if state.en_core is not None:
         tx, ty = state.en_core
     else:

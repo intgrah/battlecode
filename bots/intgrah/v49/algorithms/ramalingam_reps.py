@@ -1,5 +1,4 @@
-"""
-Incremental multi-source shortest path (Ramalingam-Reps).
+"""Incremental multi-source shortest path (Ramalingam-Reps).
 
 Reference: Ramalingam & Reps, 1996.
 

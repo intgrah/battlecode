@@ -17,7 +17,7 @@ def heal_core(
     core = Position(state.my_core[0], state.my_core[1])
 
     if state.pos.distance_squared(
-        core
+        core,
     ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         core,
     ):

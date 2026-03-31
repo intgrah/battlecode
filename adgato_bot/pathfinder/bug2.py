@@ -91,7 +91,8 @@ def _bresenham_step(x, y, err, adx, ady, sx, sy):
 
 def make_line_state(pos, target):
     """Compute Bresenham parameters for a line from pos toward target.
-    Returns (adx, ady, sx, sy, err)."""
+    Returns (adx, ady, sx, sy, err).
+    """
     adx = abs(target[0] - pos[0])
     ady = abs(target[1] - pos[1])
     sx = 1 if pos[0] < target[0] else -1 if pos[0] > target[0] else 0
@@ -103,7 +104,8 @@ def scan_line(pos, target, walkable):
     """Walk a Bresenham line from pos toward target within vision.
     Returns (furthest_walkable, first_wall).
     furthest_walkable: last walkable cell before a wall or vision edge, or None.
-    first_wall: first non-walkable cell within vision, or None."""
+    first_wall: first non-walkable cell within vision, or None.
+    """
     if pos == target:
         return None, None
     x, y = pos
@@ -125,7 +127,8 @@ def scan_line(pos, target, walkable):
 def step_along_line(current, target, walkable, line_state):
     """Take one Bresenham step from current toward target.
     line_state must be set up by the caller via make_line_state.
-    Returns (next_cell, blocked_dir_idx_or_None, new_line_state)."""
+    Returns (next_cell, blocked_dir_idx_or_None, new_line_state).
+    """
     if current == target:
         return current, None, line_state
     ls_adx, ls_ady, ls_sx, ls_sy, ls_err = line_state
@@ -270,7 +273,8 @@ def _draw_frame(
 
 def bug2(start, goal, walkable, max_steps=100, debug_img=None):
     """Bug2 pathfinding with visibility-enhanced tracing exit.
-    Pass debug_img=(img, w, h) to save per-step frames to frames/."""
+    Pass debug_img=(img, w, h) to save per-step frames to frames/.
+    """
     path = [start]
     current = start
     prev = start

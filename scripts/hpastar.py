@@ -315,7 +315,7 @@ class GatewayGraph:
                     self._gw_adj[gj].append((gi, d))
 
     def _cluster_dijkstra(
-        self, start: int, x0: int, y0: int, x1: int, y1: int
+        self, start: int, x0: int, y0: int, x1: int, y1: int,
     ) -> tuple[dict[int, int], dict[int, int | None]]:
         w = self._w
         cost = self._cost
@@ -349,7 +349,7 @@ class GatewayGraph:
     # -----------------------------------------------------------------------
 
     def _fast_dijkstra(
-        self, start: int, goal: int, x0: int, y0: int, x1: int, y1: int
+        self, start: int, goal: int, x0: int, y0: int, x1: int, y1: int,
     ) -> list[int] | None:
         w = self._w
         cost = self._cost
@@ -402,10 +402,11 @@ class GatewayGraph:
     # -----------------------------------------------------------------------
 
     def invalidate_tile(
-        self, x: int, y: int, *, passability_changed: bool = False
+        self, x: int, y: int, *, passability_changed: bool = False,
     ) -> None:
         """Mark tile as changed.  Set passability_changed=True if the tile
-        went from passable to impassable or vice versa (not just cost change)."""
+        went from passable to impassable or vice versa (not just cost change).
+        """
         ci = self._cluster_of(x, y)
         self._dirty.add(ci)
         if passability_changed and self._is_on_boundary(x, y):
@@ -632,7 +633,7 @@ class GatewayGraph:
         return self._refine_path(abstract_path, si, gi, src_parent, dst_parent)
 
     def _get_src_temp(
-        self, tile: int, ci: int
+        self, tile: int, ci: int,
     ) -> tuple[dict[int, int], dict[int, int | None]]:
         if ci == self._src_cache_ci and tile == self._src_cache_tile:
             dist = self._src_cache_dist
@@ -652,7 +653,7 @@ class GatewayGraph:
         return gw_dist, parent
 
     def _insert_temp(
-        self, tile: int, ci: int
+        self, tile: int, ci: int,
     ) -> tuple[dict[int, int], dict[int, int | None]]:
         x0, y0, x1, y1 = self._cluster_bounds(ci)
         dist, parent = self._cluster_dijkstra(tile, x0, y0, x1, y1)
@@ -731,7 +732,7 @@ class GatewayGraph:
         return best
 
     def _abstract_dijkstra_weighted(
-        self, sources: dict[int, int], targets: set[int]
+        self, sources: dict[int, int], targets: set[int],
     ) -> dict[int, int]:
         dist: dict[int, int] = {}
         heap: list[tuple[int, int]] = []
