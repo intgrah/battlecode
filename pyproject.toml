@@ -44,15 +44,9 @@ trace-builder = "scripts.trace_builder:main"
 verify-network = "scripts.verify_network:main"
 wait-match = "scripts.wait_match:main"
 render-map = "scripts.render_map:main"
-bench-histograms = "scripts.bench_histograms:main"
-bench-hpastar = "scripts.bench_hpastar:main"
-bench-hpastar-ab = "scripts.bench_hpastar_ab:main"
-bench-hpastar-sim = "scripts.bench_hpastar_sim:main"
-bench-landmarks = "scripts.bench_landmarks:main"
-bench-pathfinding = "scripts.bench_pathfinding:main"
-bench-pathfinding-final = "scripts.bench_pathfinding_final:main"
-bench-pathfinding-techniques = "scripts.bench_pathfinding_techniques:main"
-bench-tortuosity = "scripts.bench_tortuosity:main"
+bench-nav = "scripts.bench_nav:main"
+bench-nav-table = "scripts.bench_nav_table:main"
+bench-nav-plot = "scripts.bench_nav_plot:main"
 
 [dependency-groups]
 dev = ["pyright", "ruff", "ty"]
@@ -67,26 +61,38 @@ exclude = ["ref"]
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "C901",
-    "COM812",
-    "D",
-    "E501",
-    "INP001",
-    "PLR0911",
-    "PLR0912",
-    "PLR0913",
-    "PLR0915",
-    "PLR2004",
-    "S101",
-    "S310",
-    "S311",
-    "S603",
-    "T201",
+    "C901",    # complex-structure
+    "COM812",  # missing-trailing-comma
+    "D",       # documentation
+    "E501",    # line-too-long
+    "ERA001",  # commented-out-code
+    "INP001",  # implicit-namespace-package
+    "PLR0911", # too-many-return-statements
+    "PLR0912", # too-many-branches
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+    "PLR2004", # magic-value-comparison
+    "S101",    # assert
+    "S310",    # suspicious-url-open-usage
+    "S311",    # suspicious-non-cryptographic-random-usage
+    "S603",    # subprocess-without-shell-equals-true
+    "T201",    # print
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/analysis/*" = ["E402", "TID252", "TC001", "TC003", "PLC0415"]
-"proto/*.pyi" = ["A002", "ANN003", "N802", "PYI021"]
+"scripts/analysis/*" = [
+    "E402",    # module-import-not-at-top-of-file
+    "TID252",  # relative-imports
+    "TC001",   # typing-only-first-party-import
+    "TC003",   # typing-only-standard-library-import
+    "PLC0415", # import-outside-top-level
+]
+"proto/*.pyi" = [
+    "A002",   # builtin-argument-shadowing
+    "ANN003", # missing-type-kwargs
+    "N802",   # invalid-function-name
+    "PYI021", # docstring-in-stub
+]
 
 [tool.ty.environment]
 extra-paths = [".", "scripts", "proto"]
