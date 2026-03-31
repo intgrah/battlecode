@@ -7,6 +7,7 @@ and walks toward unvisited titanium ore deposits.
 from builder import run_builder
 from cambc import Controller, Direction, EntityType, Position
 from core import run_core
+from gunner import run_gunner
 from launcher import run_launcher
 from pathfinding import AgentState
 from sentinel import run_sentinel
@@ -39,16 +40,22 @@ class Player:
         self.prev_pos: Position | None = None
         self.wander_target: Position | None = None
         self.secure_target: Position | None = None
-        self.mode: str = None  # "advance", "return", "secure", "bridge", "protect"
+        self.mode: str = None  # "advance", "return", "secure", "bridge", "builder", "guard"
+        self.builder_targets: list[Position] = []
+        self.builder_target_idx: int = 0
+
         self.original_mode: str | None = None
-        self.visited_bridges: set[Position] = set()
+
         self.bridge_target: Position | None = None
         self.launcher_target: Position | None = None
         self.launcher_failed: Position | None = None
         self.bridge_chain_starter: bool = False
         self.heal_target: Position | None = None
+
         self.nearest_ore: Position | None = None
         self.small_map: bool = False
+        self.pos_history: list[Position] = []
+        self.stuck_count: int = 0
 
     def run(self, ct: Controller) -> None:
         etype = ct.get_entity_type()
@@ -56,6 +63,8 @@ class Player:
             run_core(self, ct)
         elif etype == EntityType.BUILDER_BOT:
             run_builder(self, ct)
+        elif etype == EntityType.GUNNER:
+            run_gunner(self, ct)
         elif etype == EntityType.SENTINEL:
             run_sentinel(self, ct)
         elif etype == EntityType.LAUNCHER:
