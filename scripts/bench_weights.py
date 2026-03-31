@@ -4,7 +4,9 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "bots" / "intgrah" / "v50"))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parent.parent / "bots" / "intgrah" / "v50")
+)
 
 from cambc import Environment, Position
 from hardcode.known import KnownMap
@@ -16,6 +18,7 @@ _CE = 10
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 WEIGHTS = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 50]
+ALGOS: list[str] = [f"w={w}" for w in WEIGHTS] + ["gbfs"]
 
 
 def build_nb(w: int, h: int) -> list[list[tuple[int, bool]]]:
@@ -64,7 +67,11 @@ def place_roads(
 ) -> tuple[list[int], int]:
     cost = list(base_cost)
     cai = ca.y * w + ca.x
-    ores = [i for i in range(n) if env[i] in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)]
+    ores = [
+        i
+        for i in range(n)
+        if env[i] in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+    ]
     ore_adj = set()
     for oi in ores:
         for ni, _ in nb[oi]:
@@ -158,6 +165,53 @@ def astar_w(
     return _INF, exp, (time.perf_counter() - t0) * 1e6
 
 
+def gbfs(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    w: int,
+    si: int,
+    gi: int,
+) -> tuple[int, int, float]:
+    t0 = time.perf_counter()
+    if si == gi:
+        return 0, 0, (time.perf_counter() - t0) * 1e6
+    gx, gy = gi % w, gi // w
+    g = [_INF] * n
+    g[si] = 0
+    touched = [si]
+    h_si = max(abs(si % w - gx), abs(si // w - gy)) * _CR
+    heap = [(h_si, si)]
+    exp = 0
+    while heap:
+        _h_node, node = heapq.heappop(heap)
+        if node == gi:
+            rc = g[gi]
+            for ti in touched:
+                g[ti] = _INF
+            return rc, exp, (time.perf_counter() - t0) * 1e6
+        if g[node] == _INF:
+            continue
+        exp += 1
+        gn = g[node]
+        for ni, diag in nb[node]:
+            c = cost[ni]
+            if c >= _INF:
+                continue
+            if diag:
+                c += 1
+            nd = gn + c
+            if nd < g[ni]:
+                if g[ni] == _INF:
+                    touched.append(ni)
+                g[ni] = nd
+                h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * _CR
+                heapq.heappush(heap, (h_ni, ni))
+    for ti in touched:
+        g[ti] = _INF
+    return _INF, exp, (time.perf_counter() - t0) * 1e6
+
+
 def pct(vals: list[float], p: float) -> float:
     if not vals:
         return 0.0
@@ -168,9 +222,9 @@ def pct(vals: list[float], p: float) -> float:
 
 
 def main() -> None:
-    all_opts: dict[str, dict[int, list[float]]] = {}
-    all_exps: dict[str, dict[int, list[int]]] = {}
-    all_times: dict[str, dict[int, list[float]]] = {}
+    all_opts: dict[str, dict[str, list[float]]] = {}
+    all_exps: dict[str, dict[str, list[int]]] = {}
+    all_times: dict[str, dict[str, list[float]]] = {}
 
     for km in KnownMap:
         mw, mh = DIMENSIONS[km]
@@ -196,22 +250,26 @@ def main() -> None:
                     gt_cache[si] = dijk(cost, nb, n, si)
 
             key = f"{km.value}/{scenario}"
-            all_opts[key] = {wt: [] for wt in WEIGHTS}
-            all_exps[key] = {wt: [] for wt in WEIGHTS}
-            all_times[key] = {wt: [] for wt in WEIGHTS}
+            all_opts[key] = {a: [] for a in ALGOS}
+            all_exps[key] = {a: [] for a in ALGOS}
+            all_times[key] = {a: [] for a in ALGOS}
 
-            for wt in WEIGHTS:
+            for algo in ALGOS:
                 for si, gi in pairs:
                     gd = gt_cache[si][gi]
                     if gd >= _INF or gd == 0:
                         continue
-                    pc, exp, us = astar_w(cost, nb, n, mw, si, gi, wt)
-                    if pc < _INF:
-                        all_opts[key][wt].append(pc / gd)
+                    if algo == "gbfs":
+                        pc, exp, us = gbfs(cost, nb, n, mw, si, gi)
                     else:
-                        all_opts[key][wt].append(float("inf"))
-                    all_exps[key][wt].append(exp)
-                    all_times[key][wt].append(us)
+                        wt = int(algo.split("=")[1])
+                        pc, exp, us = astar_w(cost, nb, n, mw, si, gi, wt)
+                    if pc < _INF:
+                        all_opts[key][algo].append(pc / gd)
+                    else:
+                        all_opts[key][algo].append(float("inf"))
+                    all_exps[key][algo].append(exp)
+                    all_times[key][algo].append(us)
 
         print(f"  {km.value}", file=sys.stderr, flush=True)
 
@@ -220,60 +278,37 @@ def main() -> None:
         print(f"  {scenario.upper()}")
         print(f"{'=' * 200}")
 
-        global_opts: dict[int, list[float]] = {wt: [] for wt in WEIGHTS}
-        global_exps: dict[int, list[int]] = {wt: [] for wt in WEIGHTS}
-        global_times: dict[int, list[float]] = {wt: [] for wt in WEIGHTS}
+        global_opts: dict[str, list[float]] = {a: [] for a in ALGOS}
+        global_exps: dict[str, list[int]] = {a: [] for a in ALGOS}
+        global_times: dict[str, list[float]] = {a: [] for a in ALGOS}
 
         for km in KnownMap:
             key = f"{km.value}/{scenario}"
             if key not in all_opts:
                 continue
-            for wt in WEIGHTS:
-                global_opts[wt].extend(all_opts[key][wt])
-                global_exps[wt].extend(all_exps[key][wt])
-                global_times[wt].extend(all_times[key][wt])
+            for algo in ALGOS:
+                global_opts[algo].extend(all_opts[key][algo])
+                global_exps[algo].extend(all_exps[key][algo])
+                global_times[algo].extend(all_times[key][algo])
 
-        print(f"\n  OPTIMALITY (path_cost / optimal_cost)")
-        hdr = f"  {'w':>4}"
-        for label in ["p50", "p75", "p95", "p100"]:
-            hdr += f"  {label:>8}"
-        print(hdr)
-        print(f"  {'-' * 40}")
-        for wt in WEIGHTS:
-            vals = global_opts[wt]
-            line = f"  {wt:>4}"
-            for p in [50, 75, 95, 100]:
-                v = pct(vals, p)
-                line += f"  {v:>8.4f}"
-            print(line)
-
-        print(f"\n  EXPANSIONS")
-        hdr = f"  {'w':>4}"
-        for label in ["p50", "p75", "p95", "p100"]:
-            hdr += f"  {label:>8}"
-        print(hdr)
-        print(f"  {'-' * 40}")
-        for wt in WEIGHTS:
-            vals = [float(e) for e in global_exps[wt]]
-            line = f"  {wt:>4}"
-            for p in [50, 75, 95, 100]:
-                v = pct(vals, p)
-                line += f"  {v:>8.0f}"
-            print(line)
-
-        print(f"\n  TIME (us)")
-        hdr = f"  {'w':>4}"
-        for label in ["p50", "p75", "p95", "p100"]:
-            hdr += f"  {label:>8}"
-        print(hdr)
-        print(f"  {'-' * 40}")
-        for wt in WEIGHTS:
-            vals = global_times[wt]
-            line = f"  {wt:>4}"
-            for p in [50, 75, 95, 100]:
-                v = pct(vals, p)
-                line += f"  {v:>8.0f}"
-            print(line)
+        for metric, label, src, fmt in [
+            ("OPTIMALITY", "path_cost / optimal_cost", global_opts, ".4f"),
+            ("EXPANSIONS", "", global_exps, ".0f"),
+            ("TIME (us)", "", global_times, ".0f"),
+        ]:
+            print(f"\n  {metric}" + (f" ({label})" if label else ""))
+            hdr = f"  {'algo':>6}"
+            for pl in ["p50", "p75", "p95", "p100"]:
+                hdr += f"  {pl:>8}"
+            print(hdr)
+            print(f"  {'-' * 42}")
+            for algo in ALGOS:
+                vals = [float(v) for v in src[algo]]
+                line = f"  {algo:>6}"
+                for p in [50, 75, 95, 100]:
+                    v = pct(vals, p)
+                    line += f"  {v:>8{fmt}}"
+                print(line)
 
 
 if __name__ == "__main__":
