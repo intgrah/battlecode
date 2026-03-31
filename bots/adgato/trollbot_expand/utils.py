@@ -116,17 +116,21 @@ def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
     return walkable
 
 
-def pf_move(player: Player, ct: Controller, target: Position) -> None:
+def pf_move(player: Player, ct: Controller, target: Position, destroy_road: bool = False) -> None:
 
     current = ct.get_position()
 
     if target is None:
         return
+    
+    bid = ct.get_tile_building_id(current)
+    if destroy_road and ct.can_destroy(current) and bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
+        if player.core_pos is not None:
+            dist_to_core = king_dist(current, player.core_pos)
+            if dist_to_core > 7:
+                ct.destroy(current)
 
     # Track position history for stuck detection
-    if not hasattr(player, "pos_history"):
-        player.pos_history = []
-        player.stuck_count = 0
     player.pos_history.append(current)
     if len(player.pos_history) > 5:
         player.pos_history.pop(0)
@@ -170,8 +174,7 @@ def pf_move(player: Player, ct: Controller, target: Position) -> None:
     economy_mode = funds < 5 * bc
     has_cooldown = ct.get_action_cooldown() == 0
     player.walkable = build_walkable(
-        ct,
-        allow_empty=(not economy_mode and not has_cooldown),
+        ct, allow_empty=(not economy_mode and not has_cooldown)
     )
     next_pos = bug2_step(player.agent, current, player.walkable)
     if try_move_smart(ct, current, current.direction_to(next_pos)):

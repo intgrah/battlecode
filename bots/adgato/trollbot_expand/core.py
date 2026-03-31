@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from main import Player
 
 from cambc import Controller, EntityType, Environment, Position
-from pathfinding import _rotate, chebyshev
+from pathfinding import _ALL_DIRS, _rotate, chebyshev
 from utils import in_bounds
 
 
@@ -65,42 +65,6 @@ def run_core(player: Player, ct: Controller) -> None:
 
     my_team = ct.get_team()
 
-    # Track nearest friendly bridge and whether it's carrying resources
-    best_bridge = None
-    best_bridge_dist = 999999
-    for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.BRIDGE or ct.get_team(bid) != my_team:
-            continue
-        d = chebyshev(ct.get_position(bid), pos)
-        if d < best_bridge_dist:
-            best_bridge_dist = d
-            best_bridge = bid
-
-    if best_bridge is not None:
-        player.nearest_bridge_id = best_bridge
-        if ct.get_stored_resource(best_bridge) is not None:
-            player.last_resource_turn = rnd
-
-    # Check if the tracked bridge has been destroyed or damaged
-    bridge_destroyed = player.nearest_bridge_id is not None and best_bridge is None
-    bridge_damaged = best_bridge is not None and ct.get_hp(best_bridge) < ct.get_max_hp(
-        best_bridge,
-    )
-
-    print(
-        f"resource turn {rnd - player.last_resource_turn} bridge_destroyed {bridge_destroyed} bridge_damaged {bridge_damaged}",
-    )
-    # Spawn a builder if bridge has had no resources for 5+ turns, bridge was destroyed, or bridge is damaged
-    if player.nearest_bridge_id is not None and (
-        rnd - player.last_resource_turn >= 5 or bridge_destroyed or bridge_damaged
-    ):
-        sp = _best_spawn_pos(player, ct, pos)
-        if sp is not None:
-            ct.spawn_builder(sp)
-            player.spawned += 1
-            player.last_resource_turn = rnd
-            return
-
     (funds, _) = ct.get_global_resources()
     (builder_cost, _) = ct.get_builder_bot_cost()
     (harvester_cost, _) = ct.get_builder_bot_cost()
@@ -109,14 +73,14 @@ def run_core(player: Player, ct: Controller) -> None:
 
     can_afford = funds > builder_cost * 3 + harvester_cost + 100
 
-    if can_afford and ct.get_current_round() > 100:
+    if can_afford and ct.get_current_round() > 300:
         for bid in ct.get_nearby_buildings():
             if (
                 ct.get_entity_type(bid) == EntityType.BRIDGE
                 and ct.get_team(bid) == my_team
             ) and ct.get_bridge_target(bid).distance_squared(ct.get_position()) <= 2:
                 player.expansion_cooldown += 1
-                if player.expansion_cooldown > 5 and can_afford:
+                if player.expansion_cooldown > 50 and can_afford:
                     sp = _best_spawn_pos(player, ct, pos)
                     if sp is not None:
                         ct.spawn_builder(sp)
@@ -126,7 +90,42 @@ def run_core(player: Player, ct: Controller) -> None:
                         return
                 break
 
-    imminent = player.spawned < 2 or ct.get_hp() < ct.get_max_hp()
+    # Emergency spawn if enemy builder on a friendly conveyor
+    enemy_builder_dir = None
+    for uid in ct.get_nearby_units():
+        if ct.get_entity_type(uid) != EntityType.BUILDER_BOT or ct.get_team(uid) == my_team:
+            continue
+        bp = ct.get_position(uid)
+        bid = ct.get_tile_building_id(bp)
+        if bid is not None and ct.get_entity_type(bid) == EntityType.CONVEYOR and ct.get_team(bid) == my_team:
+            enemy_builder_dir = pos.direction_to(bp)
+            break
+    if enemy_builder_dir is not None:
+        sp = pos.add(enemy_builder_dir)
+        if ct.can_spawn(sp):
+            ct.spawn_builder(sp)
+            player.spawned += 1
+            return
+
+    # Spawn builder if a friendly gunner is facing an empty tile
+    for bid in ct.get_nearby_buildings():
+        if ct.get_entity_type(bid) != EntityType.GUNNER or ct.get_team(bid) != my_team:
+            continue
+        gp = ct.get_position(bid)
+        facing = ct.get_direction(bid)
+        front = gp.add(facing)
+        if not in_bounds(ct, front) or not ct.is_in_vision(front):
+            continue
+        front_bid = ct.get_tile_building_id(front)
+        if front_bid is None or ct.get_entity_type(front_bid) == EntityType.ROAD:
+            sp = pos.add(pos.direction_to(front))
+            if ct.can_spawn(sp):
+                ct.spawn_builder(sp)
+                player.spawned += 1
+                return
+            break
+
+    imminent = player.spawned < 1 or player.spawned < 2 and rnd > 10 or ct.get_hp() < ct.get_max_hp()
     if imminent:
         sp = _best_spawn_pos(player, ct, pos)
         if sp is not None:
