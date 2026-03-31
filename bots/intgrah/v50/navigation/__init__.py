@@ -29,10 +29,7 @@ __all__ = ["find_path"]
 
 def find_path(state: State, gx: int, gy: int) -> list[int] | None:
     w, h = state.w, state.h
-    n = w * h
-    cost = [0] * n
-    for i in range(n):
-        cost[i] = state.walkable(i % w, i // w)
+    cost = state.cost
     sx, sy = state.pos.x, state.pos.y
 
     match _BACKEND:

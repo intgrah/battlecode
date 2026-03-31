@@ -118,6 +118,7 @@ class State:
         self.env: list[Environment | None] = [None] * n
         self.building: list[Building | None] = [None] * n
         self.last_seen: list[int] = [0] * n
+        self.cost: list[int] = [COST_UNSEEN] * n
 
         # -- Resources (indexed as y * w + x) --
         self.ore_ti: set[int] = set()
@@ -219,6 +220,30 @@ class State:
     def is_unseen(self, x: int, y: int) -> bool:
         return self.env[y * self.w + x] is None
 
+    def update_cost(self, i: int) -> None:
+        match self.env[i]:
+            case None:
+                self.cost[i] = COST_UNSEEN
+                return
+            case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+                self.cost[i] = COST_IMPASSABLE
+                return
+        match self.building[i]:
+            case None | BuildingMarker():
+                self.cost[i] = COST_EMPTY
+            case BuildingCore(team) if team == self.my_team:
+                self.cost[i] = COST_ROAD
+            case (
+                BuildingRoad()
+                | BuildingConveyor()
+                | BuildingArmouredConveyor()
+                | BuildingSplitter()
+                | BuildingBridge()
+            ):
+                self.cost[i] = COST_ROAD
+            case _:
+                self.cost[i] = COST_IMPASSABLE
+
     def walkable(self, x: int, y: int) -> int:
         if Position(x, y) in self.unit_tiles:
             return COST_IMPASSABLE
@@ -258,6 +283,7 @@ def _load_map_tiles(state: State, km: KnownMap) -> None:
     tiles = decode(TILES[km](), n)
     for i in range(n):
         state.env[i] = tiles[i]
+        state.update_cost(i)
         match tiles[i]:
             case Environment.ORE_TITANIUM:
                 state.ore_ti.add(i)
