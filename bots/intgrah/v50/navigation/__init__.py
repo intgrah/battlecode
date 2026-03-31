@@ -36,7 +36,7 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
         case NavMode.ASTAR_BUCKET_C:
             return _bucket_c(w, h, cost, sx, sy, gx, gy)
         case NavMode.ASTAR_BUCKET_PYTHON:
-            return _bucket_py(w, h, cost, sx, sy, gx, gy)
+            return _bucket_py(w, h, cost, sx, sy, gx, gy, state)
         case NavMode.ASTAR_LANDMARKS:
             lm = state.landmarks
             if lm is not None:
