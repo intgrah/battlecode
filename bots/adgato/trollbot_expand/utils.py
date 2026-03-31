@@ -116,19 +116,25 @@ def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
     return walkable
 
 
-def pf_move(player: Player, ct: Controller, target: Position, destroy_road: bool = False) -> None:
+def pf_move(
+    player: Player, ct: Controller, target: Position, destroy_road: bool = False
+) -> None:
 
     current = ct.get_position()
 
     if target is None:
         return
-    
+
     bid = ct.get_tile_building_id(current)
-    if destroy_road and ct.can_destroy(current) and bid is not None and ct.get_entity_type(bid) == EntityType.ROAD:
-        if player.core_pos is not None:
-            dist_to_core = king_dist(current, player.core_pos)
-            if dist_to_core > 7:
-                ct.destroy(current)
+    if (
+        destroy_road
+        and ct.can_destroy(current)
+        and bid is not None
+        and ct.get_entity_type(bid) == EntityType.ROAD
+    ) and player.core_pos is not None:
+        dist_to_core = king_dist(current, player.core_pos)
+        if dist_to_core > 7:
+            ct.destroy(current)
 
     # Track position history for stuck detection
     player.pos_history.append(current)

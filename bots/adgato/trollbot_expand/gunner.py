@@ -1,6 +1,6 @@
 """Gunner turret logic for trollbot — fire at enemy builder bots in front."""
 
-from cambc import Controller, EntityType
+from cambc import Controller
 
 
 def run_gunner(player, ct: Controller) -> None:

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import heapq
-from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 INF = 1_000_000
 
@@ -135,7 +138,11 @@ class NavAstar:
                 else:
                     etype = ct.get_entity_type(bid)
                     if etype == EntityType.CORE:
-                        new_cost = COST_ROAD if ct.get_team(bid) == my_team else COST_IMPASSABLE
+                        new_cost = (
+                            COST_ROAD
+                            if ct.get_team(bid) == my_team
+                            else COST_IMPASSABLE
+                        )
                     elif etype == EntityType.MARKER:
                         new_cost = COST_EMPTY
                     elif etype in _WALKABLE_BUILDINGS:
@@ -272,7 +279,9 @@ class NavAstar:
         if self._done and best_h < _INF:
             self._result = _extract_path(p, self._si, best_node)
 
-    def step(self, pos: Position, within_budget: Callable[[], bool] = lambda: True) -> Position | None:
+    def step(
+        self, pos: Position, within_budget: Callable[[], bool] = lambda: True
+    ) -> Position | None:
         """Advance one step. Returns the next Position to move to, or None if still searching."""
         w = self.w
         cur_idx = pos.y * w + pos.x
@@ -293,7 +302,7 @@ class NavAstar:
                 new_idx = path.index(cur_idx)
                 if new_idx + 1 < len(path):
                     self._path_idx = new_idx + 1
-                    self._path_set = set(path[new_idx + 1:])
+                    self._path_set = set(path[new_idx + 1 :])
                     nxt = path[new_idx + 1]
                     return Position(nxt % w, nxt // w)
             # Off the path — need to re-search
@@ -326,4 +335,4 @@ class NavAstar:
         if self._path is None:
             return []
         w = self.w
-        return [Position(i % w, i // w) for i in self._path[self._path_idx:]]
+        return [Position(i % w, i // w) for i in self._path[self._path_idx :]]
