@@ -11,7 +11,7 @@ import pandas as pd
 
 
 def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
-    algos = sorted(df["algo"].unique())
+    algos = list(dict.fromkeys(df["algo"]))
 
     hdr = (
         f"{'Algorithm':<50}"

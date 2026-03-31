@@ -48,7 +48,5 @@ class NavAstar(Astar[int]):
             if 0 <= nx < w and 0 <= ny < h:
                 wt = self._state.walkable(nx, ny)
                 if wt < COST_IMPASSABLE:
-                    if dx != 0 and dy != 0:
-                        wt += 1
                     result.append((ny * w + nx, wt))
         return result

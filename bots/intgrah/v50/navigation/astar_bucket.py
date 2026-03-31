@@ -8,7 +8,7 @@ from util import COST_ROAD, INF
 if TYPE_CHECKING:
     from builder.state import State
 
-_DIAL_MOD = 14
+_DIAL_MOD = 5
 _NODE_BUDGET = 700
 
 
@@ -124,7 +124,7 @@ def find_path_raw(
                     continue
                 c = cost[ni]
                 if c < INF:
-                    nd = gn + c + 1
+                    nd = gn + c
                     if nd < dist[ni]:
                         if dist[ni] == INF:
                             touched.append(ni)

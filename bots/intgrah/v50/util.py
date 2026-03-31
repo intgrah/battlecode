@@ -5,9 +5,9 @@ from cambc import Direction, Position
 
 INF: Final[int] = 1_000_000
 
-COST_ROAD: Final[int] = 2
-COST_EMPTY: Final[int] = 10
-COST_UNSEEN: Final[int] = 12
+COST_ROAD: Final[int] = 1
+COST_EMPTY: Final[int] = 3
+COST_UNSEEN: Final[int] = 3
 COST_IMPASSABLE: Final[int] = INF
 
 
