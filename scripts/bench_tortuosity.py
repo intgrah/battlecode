@@ -2,55 +2,12 @@ import csv
 import heapq
 import random
 import sys
-import types
 from collections.abc import Generator
 from pathlib import Path
 
-from cambc import Position
+from cambc import Environment, Position
 from hardcode.known import KnownMap
 from hardcode.map import CORE_A, CORE_B, DIMENSIONS, TILES, decode
-
-cambc_mod = types.ModuleType("cambc")
-
-
-class _E:
-    EMPTY = 0
-    WALL = 1
-    ORE_TITANIUM = 2
-    ORE_AXIONITE = 3
-
-
-class _P:
-    __slots__ = ("x", "y")
-
-    def __init__(self, x: int, y: int) -> None:
-        self.x = x
-        self.y = y
-
-    def __eq__(self, o) -> bool:
-        return isinstance(o, _P) and self.x == o.x and self.y == o.y
-
-    def __hash__(self) -> int:
-        return hash((self.x, self.y))
-
-
-cambc_mod.Environment = _E
-cambc_mod.Position = _P
-sys.modules["cambc"] = cambc_mod
-_u = types.ModuleType("util")
-_u.Symmetry = type(
-    "S",
-    (),
-    {
-        "ROT": type("S", (), {"name": "ROT"})(),
-        "HOR": type("S", (), {"name": "HOR"})(),
-        "VER": type("S", (), {"name": "VER"})(),
-    },
-)()
-sys.modules["util"] = _u
-sys.path.insert(
-    0, str(Path(__file__).resolve().parent.parent / "bots" / "intgrah" / "v50")
-)
 
 _INF = 1_000_000
 _CR = 2
@@ -58,9 +15,9 @@ _CE = 10
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 
-def build_nb(w: int, h: int) -> list[list[int]]:
+def build_nb(w: int, h: int) -> list[list[tuple[int, bool]]]:
     n = w * h
-    nb = [[] for _ in range(n)]
+    nb: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
     for i in range(n):
         cx, cy = i % w, i // w
         for dx, dy in _DIR8:
@@ -70,7 +27,9 @@ def build_nb(w: int, h: int) -> list[list[int]]:
     return nb
 
 
-def dijk(cost: list[int], nb, n: int, si) -> list[int]:
+def dijk(
+    cost: list[int], nb: list[list[tuple[int, bool]]], n: int, si: int
+) -> list[int]:
     dist = [_INF] * n
     dist[si] = 0
     heap = [(0, si)]
@@ -93,10 +52,9 @@ def dijk(cost: list[int], nb, n: int, si) -> list[int]:
 
 def place_roads(
     base_cost: list[int],
-    nb: list,
+    nb: list[list[tuple[int, bool]]],
     n: int,
     w: int,
-    h,
     tt: list[int],
     ca: Position,
     cb: Position,
@@ -149,7 +107,13 @@ def place_roads(
 
 
 def astar_w(
-    cost: list[int], nb: list[int], n: int, w: int, si: int, gi: int, weight: int
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    w: int,
+    si: int,
+    gi: int,
+    weight: int,
 ) -> tuple[int, int]:
     if si == gi:
         return 0, 0
@@ -201,8 +165,9 @@ def main() -> Generator[dict]:
         w, h = DIMENSIONS[km]
         n = w * h
         env = decode(TILES[km](), n)
-        tt = [int(e) for e in env]
-        base_cost = [_INF if tt[i] in (1, 2, 3) else _CE for i in range(n)]
+        impass = (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+        base_cost = [_INF if env[i] in impass else _CE for i in range(n)]
+        tt = [1 if env[i] in impass else 0 for i in range(n)]
         nb = build_nb(w, h)
         passable = [i for i in range(n) if base_cost[i] < _INF]
         wall_pct = 100 * (1 - len(passable) / n)
@@ -219,7 +184,7 @@ def main() -> Generator[dict]:
                 cost = list(base_cost)
                 nr = 0
             else:
-                cost, nr = place_roads(base_cost, nb, n, w, h, tt, ca, cb)
+                cost, nr = place_roads(base_cost, nb, n, w, tt, ca, cb)
             road_frac = nr / len(passable)
             gt_cache = {}
             torts = []
