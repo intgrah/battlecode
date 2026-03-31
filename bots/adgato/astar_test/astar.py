@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import heapq
 from typing import TYPE_CHECKING
-
 from cambc import Direction, EntityType, Environment, Position
 from symmetry import Symmetry, mirror_idx
 
@@ -52,17 +51,20 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
 )
 
 
-def _build_nb(w: int, h: int) -> list[list[int]]:
-    """Precompute neighbor table: nb[i] = [neighbor_idx, ...]."""
+def _build_nb_chunk(
+    nb: list[list[int]], w: int, h: int, start: int, within_budget: Callable[[], bool]
+) -> int:
+    """Compute neighbor table incrementally. Returns next index to resume from."""
     n = w * h
-    nb: list[list[int]] = [[] for _ in range(n)]
-    for i in range(n):
+    for i in range(start, n):
         cx, cy = i % w, i // w
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 nb[i].append(ny * w + nx)
-    return nb
+        if i & 15 == 0 and not within_budget():
+            return i + 1
+    return n
 
 
 def _extract_path(p: list[int], si: int, gi: int) -> list[int]:
@@ -95,7 +97,8 @@ class NavAstar:
         self._gi = 0
         self._si = 0
         self._cost_grid: list[int | None] = [None] * (w * h)
-        self._nb = _build_nb(w, h)
+        self._nb: list[list[int]] = [[] for _ in range(w * h)]
+        self._nb_progress = 0
         self._dirty = True
         self._searching = False
         self._path: list[int] | None = None
@@ -336,10 +339,15 @@ class NavAstar:
         within_budget: Callable[[], bool] = lambda: True,
     ) -> Position | None:
         """Advance one step. Returns the next Position to move to, or None if no path."""
+        # Continue building neighbor table if not done
+        if self._nb_progress < self._n:
+            self._nb_progress = _build_nb_chunk(
+                self._nb, self.w, self.h, self._nb_progress, within_budget
+            )
+            return None
+
         w = self.w
         cur_idx = pos.y * w + pos.x
-
-        print(f"w idx: {self._w_idx}")
 
         # If we have a cached path and it's not dirty, try to follow it
         if self._path is not None and not self._dirty:
