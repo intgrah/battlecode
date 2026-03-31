@@ -1218,23 +1218,24 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
                         conv_pos = bp
             if conv_pos is not None:
                 pref_dir = pos.direction_to(conv_pos)
-                pref_idx = _DIR_IDX[pref_dir]
-                for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
-                    d = _ALL_DIRS[(pref_idx + offset) % 8]
-                    tile = pos.add(d)
-                    if not in_bounds(ct, tile) or not _is_buildable(ct, tile):
-                        continue
-                    tbid = ct.get_tile_building_id(tile)
-                    if tbid is not None and ct.can_destroy(tile):
-                        ct.destroy(tile)
-                    if ct.can_build_launcher(tile):
-                        ct.build_launcher(tile)
-                        player.built_launcher = True
-                        player.state = BuilderState.DESTROY_CONVEYOR
-                        print(
-                            f"Advance E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
-                        )
-                        return
+                if pref_dir != Direction.CENTRE:
+                    pref_idx = _DIR_IDX[pref_dir]
+                    for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
+                        d = _ALL_DIRS[(pref_idx + offset) % 8]
+                        tile = pos.add(d)
+                        if not in_bounds(ct, tile) or not _is_buildable(ct, tile):
+                            continue
+                        tbid = ct.get_tile_building_id(tile)
+                        if tbid is not None and ct.can_destroy(tile):
+                            ct.destroy(tile)
+                        if ct.can_build_launcher(tile):
+                            ct.build_launcher(tile)
+                            player.built_launcher = True
+                            player.state = BuilderState.DESTROY_CONVEYOR
+                            print(
+                                f"Advance E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
+                            )
+                            return
 
     print(f"target ore {player.advance_targeting_ore} {player.target}")
 
@@ -1516,23 +1517,24 @@ def _suicide(player: Player, ct: Controller, pos: Position) -> None:
                         conv_pos = bp
             if conv_pos is not None:
                 pref_dir = pos.direction_to(conv_pos)
-                pref_idx = _DIR_IDX[pref_dir]
-                for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
-                    d = _ALL_DIRS[(pref_idx + offset) % 8]
-                    tile = pos.add(d)
-                    if not in_bounds(ct, tile) or not _is_buildable(ct, tile):
-                        continue
-                    tbid = ct.get_tile_building_id(tile)
-                    if tbid is not None and ct.can_destroy(tile):
-                        ct.destroy(tile)
-                    if ct.can_build_launcher(tile):
-                        ct.build_launcher(tile)
-                        player.built_launcher = True
-                        player.state = BuilderState.DESTROY_CONVEYOR
-                        print(
-                            f"Suicide E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
-                        )
-                        return
+                if pref_dir != Direction.CENTRE:
+                    pref_idx = _DIR_IDX[pref_dir]
+                    for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
+                        d = _ALL_DIRS[(pref_idx + offset) % 8]
+                        tile = pos.add(d)
+                        if not in_bounds(ct, tile) or not _is_buildable(ct, tile):
+                            continue
+                        tbid = ct.get_tile_building_id(tile)
+                        if tbid is not None and ct.can_destroy(tile):
+                            ct.destroy(tile)
+                        if ct.can_build_launcher(tile):
+                            ct.build_launcher(tile)
+                            player.built_launcher = True
+                            player.state = BuilderState.DESTROY_CONVEYOR
+                            print(
+                                f"Suicide E{ct.get_id()}: built launcher at {tile}, switching to destroy_conveyor",
+                            )
+                            return
 
     # Find nearest enemy bridge/conveyor without a builder bot on it
 
@@ -1797,8 +1799,8 @@ def _destroy_conveyor(player: Player, ct: Controller, pos: Position) -> None:
         print(
             f"DestroyConveyor E{ct.get_id()}: self-destructing on conveyor at {pos}",
         )
-        if ct.can_fire():
-            ct.fire()
+        if ct.can_fire(pos):
+            ct.fire(pos)
 
 
 # ── Protect state ─────────────────────────────────────────────────────
