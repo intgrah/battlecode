@@ -2,108 +2,100 @@ from collections import deque
 
 from building import (
     BuildingArmouredConveyor,
+    BuildingBreach,
     BuildingBridge,
     BuildingConveyor,
+    BuildingCore,
     BuildingFoundry,
+    BuildingGunner,
     BuildingHarvester,
+    BuildingLauncher,
+    BuildingSentinel,
     BuildingSplitter,
 )
-from cambc import Environment, Position
+from cambc import Environment
 from util import DELTA_TO_DIR, DIR4_DELTA
 
-from .state import Economy, State
+from .state import State
 from .state_helpers import accepts_input_from, harvester_ore_type
 
-__all__ = ["update_en_econ", "update_my_econ"]
+__all__ = ["update_flow"]
 
 
-def update_my_econ(state: State) -> None:
-    _update_econ(
-        state,
-        state.my_flow,
-        state.my_harvesters,
-        state.my_transport,
-        state.my_foundries,
-        state.my_core_tiles,
-    )
+def update_flow(state: State) -> None:
+    import time as _time
+    _t = _time.perf_counter
 
-
-def update_en_econ(state: State) -> None:
-    _update_econ(
-        state,
-        state.en_flow,
-        state.en_harvesters,
-        state.en_transport,
-        state.en_foundries,
-        state.en_core_tiles,
-    )
-
-
-def _update_econ(
-    state: State,
-    f: Economy,
-    harvesters: set[Position],
-    transport: set[Position],
-    foundries: set[Position],
-    core_tiles: set[Position],
-) -> None:
+    _t0 = _t()
     w, h = state.w, state.h
-    building = state.building
-
-    harv_idx: list[int] = [p.y * w + p.x for p in harvesters]
-    trans_idx: list[int] = [p.y * w + p.x for p in transport]
-    found_idx: list[int] = [p.y * w + p.x for p in foundries]
-    core_idx: list[int] = [p.y * w + p.x for p in core_tiles]
-
-    recv_idx: list[int] = trans_idx + found_idx + core_idx
-    all_idx: list[int] = harv_idx + recv_idx
-
     n = w * h
+    building = state.building
+    my_team = state.my_team
+    f = state.flow
+
+    all_harv = state.my_harvesters | state.en_harvesters
+    all_trans = state.my_transport | state.en_transport
+    all_found = state.my_foundries | state.en_foundries
+    all_turrets = state.my_turrets | state.en_turrets
+    all_cores = state.my_core_tiles | state.en_core_tiles
+
+    harv_idx = [p.y * w + p.x for p in all_harv]
+    trans_idx = [p.y * w + p.x for p in all_trans]
+    found_idx = [p.y * w + p.x for p in all_found]
+    turret_idx = [p.y * w + p.x for p in all_turrets]
+    core_idx = [p.y * w + p.x for p in all_cores]
+
+    recv_idx = trans_idx + found_idx + turret_idx + core_idx
+    all_idx = harv_idx + recv_idx
+
     f_ti = f.ti
     f_ax = f.ax
     f_rax = f.rax
     f_total = f.total
+    f_my_frac = f.my_frac
+    f_en_frac = f.en_frac
+    f_my_total = f.my_total
+    f_en_total = f.en_total
     f_ti_excess = f.ti_excess
     f_ax_excess = f.ax_excess
     f_rax_excess = f.rax_excess
     f_excess = f.excess
     f_blocked = f.blocked
 
-    in_degree = [0] * n
-    out_a = [0] * n
-    out_b = [0] * n
-    out_c = [0] * n
-    out_n = [0] * n
-    is_recv = [False] * n
-    in_rev_head = [-1] * n
-    in_rev_next = [0] * (len(all_idx) * 4)
-    in_rev_src = [0] * (len(all_idx) * 4)
-
     for i in all_idx:
         f_ti[i] = 0.0
         f_ax[i] = 0.0
         f_rax[i] = 0.0
         f_total[i] = 0.0
+        f_my_frac[i] = 0.0
+        f_en_frac[i] = 0.0
+        f_my_total[i] = 0.0
+        f_en_total[i] = 0.0
         f_ti_excess[i] = 0.0
         f_ax_excess[i] = 0.0
         f_rax_excess[i] = 0.0
         f_excess[i] = 0.0
 
+    in_degree = [0] * n
+    out_edges: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+    is_recv = [False] * n
+    max_edges = len(all_idx) * 8
+    in_rev_head = [-1] * n
+    in_rev_next = [0] * max_edges
+    in_rev_src = [0] * max_edges
+    edge_push = [0.0] * max_edges
+
     for i in recv_idx:
         is_recv[i] = True
+
+    _t1 = _t()
 
     rev_ptr = 0
 
     def add_edge(src: int, tgt: int) -> None:
         nonlocal rev_ptr
-        n_out = out_n[src]
-        if n_out == 0:
-            out_a[src] = tgt
-        elif n_out == 1:
-            out_b[src] = tgt
-        elif n_out == 2:
-            out_c[src] = tgt
-        out_n[src] = n_out + 1
+        eidx = rev_ptr
+        out_edges[src].append((tgt, eidx))
         in_degree[tgt] += 1
         in_rev_src[rev_ptr] = src
         in_rev_next[rev_ptr] = in_rev_head[tgt]
@@ -165,21 +157,26 @@ def _update_econ(
         if in_degree[i] == 0:
             queue.append(i)
 
+    _t2 = _t()
+    topo_order: list[int] = []
+
     while queue:
         ci = queue.popleft()
         bld = building[ci]
         if bld is None:
             continue
-        n_out = out_n[ci]
+        topo_order.append(ci)
+        edges_ci = out_edges[ci]
+        no = len(edges_ci)
 
         match bld:
             case BuildingHarvester():
                 ore = harvester_ore_type(state, ci)
-                denom = max(n_out, 1)
+                denom = max(no, 1)
                 push = 0.25 / denom
-                excess = 0.25 - push * n_out
-                for k in range(n_out):
-                    oi = out_a[ci] if k == 0 else out_b[ci] if k == 1 else out_c[ci]
+                excess = 0.25 - push * no
+                for oi, eidx in edges_ci:
+                    edge_push[eidx] = push
                     match ore:
                         case Environment.ORE_TITANIUM:
                             f_ti[oi] += push
@@ -195,6 +192,7 @@ def _update_econ(
                     case Environment.ORE_AXIONITE:
                         f_ax_excess[ci] = excess
                 f_excess[ci] = excess
+
             case BuildingFoundry():
                 ti_in = f_ti[ci]
                 ax_in = f_ax[ci]
@@ -203,15 +201,16 @@ def _update_econ(
                 f_ax_excess[ci] = ax_in - refined
                 rax_in = f_rax[ci]
                 rax_out = rax_in + refined
-                push = rax_out / n_out if n_out > 0 else 0.0
-                for k in range(n_out):
-                    oi = out_a[ci] if k == 0 else out_b[ci] if k == 1 else out_c[ci]
+                push = rax_out / no if no > 0 else 0.0
+                for oi, eidx in edges_ci:
+                    edge_push[eidx] = push
                     f_rax[oi] += push
                     f_total[oi] += push
                     in_degree[oi] -= 1
                     if in_degree[oi] <= 0:
                         queue.append(oi)
                 f_excess[ci] = (ti_in + ax_in + rax_in) - rax_out
+
             case (
                 BuildingConveyor()
                 | BuildingArmouredConveyor()
@@ -227,8 +226,8 @@ def _update_econ(
                 rax_push = rax_in / divisor
                 total_push = ti_push + ax_push + rax_push
                 total_out = 0.0
-                for k in range(n_out):
-                    oi = out_a[ci] if k == 0 else out_b[ci] if k == 1 else out_c[ci]
+                for oi, eidx in edges_ci:
+                    edge_push[eidx] = total_push
                     f_ti[oi] += ti_push
                     f_ax[oi] += ax_push
                     f_rax[oi] += rax_push
@@ -238,11 +237,52 @@ def _update_econ(
                     if in_degree[oi] <= 0:
                         queue.append(oi)
                 incoming = ti_in + ax_in + rax_in
-                f_ti_excess[ci] = ti_in - ti_push * n_out
-                f_ax_excess[ci] = ax_in - ax_push * n_out
-                f_rax_excess[ci] = rax_in - rax_push * n_out
+                f_ti_excess[ci] = ti_in - ti_push * no
+                f_ax_excess[ci] = ax_in - ax_push * no
+                f_rax_excess[ci] = rax_in - rax_push * no
                 f_excess[ci] = incoming - total_out
 
+            case (
+                BuildingCore()
+                | BuildingGunner()
+                | BuildingSentinel()
+                | BuildingBreach()
+                | BuildingLauncher()
+            ):
+                pass
+
+    _t3 = _t()
+    # Backward pass: attribute flow to friendly/enemy sinks
+    sink_set = set(turret_idx + core_idx)
+    for i in sink_set:
+        bld = building[i]
+        if bld is not None and bld.team == my_team:
+            f_my_frac[i] = 1.0
+        elif bld is not None:
+            f_en_frac[i] = 1.0
+
+    for ci in reversed(topo_order):
+        edges_ci = out_edges[ci]
+        no = len(edges_ci)
+        if ci in sink_set or no == 0:
+            continue
+        my_w = 0.0
+        en_w = 0.0
+        total_w = 0.0
+        for oi, eidx in edges_ci:
+            ep = edge_push[eidx]
+            my_w += ep * f_my_frac[oi]
+            en_w += ep * f_en_frac[oi]
+            total_w += ep
+        if total_w > 0:
+            f_my_frac[ci] = my_w / total_w
+            f_en_frac[ci] = en_w / total_w
+
+    for i in all_idx:
+        f_my_total[i] = f_total[i] * f_my_frac[i]
+        f_en_total[i] = f_total[i] * f_en_frac[i]
+
+    # Blocked propagation
     for i in recv_idx:
         f_blocked[i] = False
     seeds: deque[int] = deque()
@@ -259,3 +299,9 @@ def _update_econ(
                 f_blocked[fi] = True
                 seeds.append(fi)
             ri = in_rev_next[ri]
+    _t4 = _t()
+    print(
+        f"    econ: setup={int((_t1-_t0)*1e6)}us edges={int((_t2-_t1)*1e6)}us"
+        f" fwd={int((_t3-_t2)*1e6)}us bwd={int((_t4-_t3)*1e6)}us"
+        f" total={int((_t4-_t0)*1e6)}us nodes={len(all_idx)} edges={rev_ptr}"
+    )

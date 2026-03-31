@@ -28,7 +28,9 @@ def move_toward(state: State, ct: Controller, target: Position) -> Direction:
     pos = state.pos
     if pos == target:
         return Direction.CENTRE
+    t0 = ct.get_cpu_time_elapsed()
     path = find_path(state, target.x, target.y)
+    print(f"nav={ct.get_cpu_time_elapsed() - t0}us")
     if path is None or len(path) < 2:
         return Direction.CENTRE
     _draw_path(ct, state.w, path)
@@ -47,7 +49,9 @@ def move_toward_with_road(
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
+    t0 = ct.get_cpu_time_elapsed()
     path = find_path(state, target.x, target.y)
+    print(f"nav={ct.get_cpu_time_elapsed() - t0}us")
     if path is None or len(path) < 2:
         return Direction.CENTRE, None
     _draw_path(ct, state.w, path)
@@ -68,7 +72,7 @@ def _draw_path(ct: Controller, w: int, path: list[int]) -> None:
     for u, v in itertools.pairwise(path):
         y0, x0 = divmod(u, w)
         y1, x1 = divmod(v, w)
-        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 0, 0, 0)
+        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 255, 255, 255)
 
 
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:

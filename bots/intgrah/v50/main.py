@@ -1,7 +1,8 @@
+import traceback
 from typing import TYPE_CHECKING
 
 from builder import Builder
-from cambc import Controller, EntityType
+from cambc import Controller, EntityType, GameError
 from core import Core
 from launcher import Launcher
 from sentinel import Sentinel
@@ -27,4 +28,11 @@ class Player:
                     self.unit = Launcher(ct)
                 case _:
                     return
-        self.unit.run(ct)
+        try:
+            self.unit.run(ct)
+        except GameError as e:
+            print(traceback.format_exc())
+            print(f"GAME_ERROR: {e}")
+        except Exception as e:  # noqa: BLE001
+            print(traceback.format_exc())
+            print(f"EXCEPTION: {e}")

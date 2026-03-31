@@ -58,7 +58,7 @@ def connect_excess(
     idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
     state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
-    ct.draw_indicator_line(state.pos, best_tile, 255, 128, 0)
+    ct.draw_indicator_dot(best_tile, 255, 128, 0)
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:
@@ -76,7 +76,7 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
     pos = state.pos
     best: Position | None = None
     best_dist = INF
-    f = state.my_flow
+    f = state.flow
     match kind:
         case ExcessKind.TI_RAX:
             sources = state.my_harvesters | state.my_transport | state.my_foundries
@@ -106,7 +106,7 @@ def _make_goals(state: State, kind: SearchKind) -> set[int]:
 
 
 def _find_ti_conveyor_goals(state: State) -> set[int]:
-    f = state.my_flow
+    f = state.flow
     goals: set[int] = set()
     for p in state.my_transport:
         i = state.idx(p.x, p.y)
@@ -213,7 +213,9 @@ def _get_or_compute_path(
         search = _make_search(state, start.x, start.y, goals, kind)
         set_cache(start, search, None)
 
+    t0 = ct.get_cpu_time_elapsed()
     path = search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
+    print(f"flow_astar={ct.get_cpu_time_elapsed() - t0}us exhausted={search.exhausted}")
     if search.exhausted:
         search = None
     set_cache(start, search, path)

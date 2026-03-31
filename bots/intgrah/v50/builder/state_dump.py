@@ -58,23 +58,35 @@ def dump(state: State, ct: Controller) -> None:
         "my_transport": [[p.x, p.y] for p in state.my_transport],
         "my_foundries": [[p.x, p.y] for p in state.my_foundries],
         "flow_ti": {
-            i: round(v, 3) for i, v in enumerate(state.my_flow.ti) if v > 0.001
+            i: round(v, 3) for i, v in enumerate(state.flow.ti) if v > 0.001
         },
         "flow_ax": {
-            i: round(v, 3) for i, v in enumerate(state.my_flow.ax) if v > 0.001
+            i: round(v, 3) for i, v in enumerate(state.flow.ax) if v > 0.001
         },
         "flow_rax": {
-            i: round(v, 3) for i, v in enumerate(state.my_flow.rax) if v > 0.001
+            i: round(v, 3) for i, v in enumerate(state.flow.rax) if v > 0.001
         },
-        "blocked": [i for i, b in enumerate(state.my_flow.blocked) if b],
+        "blocked": [i for i, b in enumerate(state.flow.blocked) if b],
         "excess_ti": {
-            i: round(v, 3) for i, v in enumerate(state.my_flow.ti_excess) if v > 0.001
+            i: round(v, 3) for i, v in enumerate(state.flow.ti_excess) if v > 0.001
         },
         "excess_ax": {
-            i: round(v, 3) for i, v in enumerate(state.my_flow.ax_excess) if v > 0.001
+            i: round(v, 3) for i, v in enumerate(state.flow.ax_excess) if v > 0.001
         },
         "excess_rax": {
-            i: round(v, 3) for i, v in enumerate(state.my_flow.rax_excess) if v > 0.001
+            i: round(v, 3) for i, v in enumerate(state.flow.rax_excess) if v > 0.001
+        },
+        "my_frac": {
+            i: round(v, 3) for i, v in enumerate(state.flow.my_frac) if v > 0.001
+        },
+        "en_frac": {
+            i: round(v, 3) for i, v in enumerate(state.flow.en_frac) if v > 0.001
+        },
+        "my_total": {
+            i: round(v, 3) for i, v in enumerate(state.flow.my_total) if v > 0.001
+        },
+        "en_total": {
+            i: round(v, 3) for i, v in enumerate(state.flow.en_total) if v > 0.001
         },
         "leakage": {i: v for i, v in enumerate(state.leakage_mask or []) if v != 0},
         "unit_tiles": [[p.x, p.y] for p in state.unit_tiles],
