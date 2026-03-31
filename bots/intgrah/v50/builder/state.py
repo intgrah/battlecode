@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections import deque
+
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar

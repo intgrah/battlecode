@@ -115,11 +115,10 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                 if s in player.sym_eliminated:
                     continue
                 mirrored = mirror_pos(tile, s, w, h)
-                if mirrored in player.known_env:
-                    if player.known_env[mirrored] != env:
-                        player.sym_eliminated.add(s)
+                if mirrored in player.known_env and player.known_env[mirrored] != env:
+                    player.sym_eliminated.add(s)
 
-    player.try_resolve(w, h, f"Scout {ct.get_id()}")
+    player.try_resolve(f"Scout {ct.get_id()}")
 
 
 # ── Pathfinding helpers ──────────────────────────────────────────────

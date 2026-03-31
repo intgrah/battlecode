@@ -59,9 +59,7 @@ def _pick_landmarks(
     k: int,
 ) -> list[int]:
     landmarks = [core_a, core_b]
-    dists: list[bytearray] = []
-    for lm in landmarks:
-        dists.append(_bfs(n, passable, neighbors, lm))
+    dists: list[bytearray] = [_bfs(n, passable, neighbors, lm) for lm in landmarks]
 
     while len(landmarks) < k:
         best = -1

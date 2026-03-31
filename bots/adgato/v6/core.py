@@ -70,10 +70,9 @@ def _eliminate_symmetry(
                 if s in player.sym_eliminated:
                     continue
                 mirrored = mirror_pos(tile, s, w, h)
-                if mirrored in player.known_env:
-                    if player.known_env[mirrored] != env:
-                        player.sym_eliminated.add(s)
-    if player.try_resolve(w, h, "Core"):
+                if mirrored in player.known_env and player.known_env[mirrored] != env:
+                    player.sym_eliminated.add(s)
+    if player.try_resolve("Core"):
         player.core_phase = PHASE_FOUND
 
 

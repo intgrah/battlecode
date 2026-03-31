@@ -72,7 +72,7 @@ class Player:
         self.pf_prev_pos2: Position | None = None
         self.pf_prev_pos3: Position | None = None
 
-    def try_resolve(self, w: int, h: int, tag: str) -> bool:
+    def try_resolve(self, tag: str) -> bool:
         if self.sym_resolved:
             return True
         if self.sym_candidates is None:
