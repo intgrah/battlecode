@@ -77,9 +77,8 @@ def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
 
 
 def harvester_ore_type(state: State, i: int) -> Environment | None:
-    p = Position(i % state.w, i // state.w)
-    if p in state.ore_ti:
+    if i in state.ore_ti:
         return Environment.ORE_TITANIUM
-    if p in state.ore_ax:
+    if i in state.ore_ax:
         return Environment.ORE_AXIONITE
     return None

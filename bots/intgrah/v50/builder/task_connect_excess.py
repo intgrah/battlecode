@@ -53,6 +53,7 @@ def connect_excess(
 
     goals = _make_goals(state, search_kind)
     if not goals:
+        print("  CE: no goals")
         return None
 
     idx = state.idx(best_tile.x, best_tile.y)
@@ -62,11 +63,14 @@ def connect_excess(
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:
+        print(f"  CE: step_off failed ({best_tile.x},{best_tile.y})")
         return None
 
     start = Position(sx, sy)
     path = _get_or_compute_path(state, ct, start, goals, search_kind)
     if path is None or len(path) < 2:
+        print(f"  CE: no path from ({sx},{sy})")
+
         return None
 
     return _walk_path(state, ct, path, search_kind)
@@ -82,25 +86,29 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
             sources = state.my_harvesters | state.my_transport | state.my_foundries
         case ExcessKind.AX:
             sources = state.my_harvesters | state.my_transport
-    for p in sources:
-        i = state.idx(p.x, p.y)
+    w = state.w
+    print(
+        f"  excess_check: sources={len(sources)} ti_ex={[f.ti_excess[i] for i in sources]} rax_ex={[f.rax_excess[i] for i in sources]} excess={[f.excess[i] for i in sources]}"
+    )
+    for i in sources:
         match kind:
             case ExcessKind.TI_RAX:
                 has_excess = f.ti_excess[i] > 0.01 or f.rax_excess[i] > 0.01
             case ExcessKind.AX:
                 has_excess = f.ax_excess[i] > 0.01
         if has_excess and not is_claimed(state, i, TaskKind.FIX_EXCESS):
-            dist = (pos.x - p.x) ** 2 + (pos.y - p.y) ** 2
+            px, py = i % w, i // w
+            dist = (pos.x - px) ** 2 + (pos.y - py) ** 2
             if dist < best_dist:
                 best_dist = dist
-                best = p
+                best = Position(px, py)
     return best
 
 
 def _make_goals(state: State, kind: SearchKind) -> set[int]:
     match kind:
         case SearchKind.MIXED | SearchKind.BRIDGE:
-            return {state.idx(p.x, p.y) for p in state.my_core_tiles}
+            return set(state.my_core_tiles)
         case SearchKind.AX_CHAIN:
             return _find_ti_conveyor_goals(state)
 
@@ -108,8 +116,7 @@ def _make_goals(state: State, kind: SearchKind) -> set[int]:
 def _find_ti_conveyor_goals(state: State) -> set[int]:
     f = state.flow
     goals: set[int] = set()
-    for p in state.my_transport:
-        i = state.idx(p.x, p.y)
+    for i in state.my_transport:
         if f.ti[i] > 0:
             match state.building[i]:
                 case BuildingConveyor() | BuildingArmouredConveyor():

@@ -44,11 +44,35 @@ from util import (
     COST_ROAD,
     COST_UNSEEN,
     Symmetry,
-    tiles_3x3,
 )
 
 
 class UnifiedFlow:
+    __slots__ = (
+        "_edge_push",
+        "_in_degree",
+        "_in_rev_head",
+        "_in_rev_next",
+        "_in_rev_src",
+        "_is_recv",
+        "_out_edges",
+        "_prev_all",
+        "_prev_recv",
+        "ax",
+        "ax_excess",
+        "blocked",
+        "en_frac",
+        "en_total",
+        "excess",
+        "my_frac",
+        "my_total",
+        "rax",
+        "rax_excess",
+        "ti",
+        "ti_excess",
+        "total",
+    )
+
     def __init__(self, n: int) -> None:
         self.ti = [0.0] * n
         self.ax = [0.0] * n
@@ -63,6 +87,16 @@ class UnifiedFlow:
         self.rax_excess = [0.0] * n
         self.excess = [0.0] * n
         self.blocked = [False] * n
+        self._in_degree = [0] * n
+        self._is_recv = [False] * n
+        self._in_rev_head = [-1] * n
+        max_scratch = n * 8
+        self._in_rev_next = [0] * max_scratch
+        self._in_rev_src = [0] * max_scratch
+        self._edge_push = [0.0] * max_scratch
+        self._out_edges: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+        self._prev_all: tuple[list[int], ...] = ()
+        self._prev_recv: tuple[list[int], ...] = ()
 
 
 class State:
@@ -85,28 +119,40 @@ class State:
         self.building: list[Building | None] = [None] * n
         self.last_seen: list[int] = [0] * n
 
-        # -- Resources --
-        self.ore_ti: set[Position] = set()  # derived from self.env
-        self.ore_ax: set[Position] = set()  # derived from self.env
+        # -- Resources (indexed as y * w + x) --
+        self.ore_ti: set[int] = set()
+        self.ore_ax: set[int] = set()
 
         # -- Friendly --
-        self.my_core: Position = core_pos  # known from birth
-        self.my_core_tiles: set[Position] = tiles_3x3(core_pos)  # known from birth
-        self.my_harvesters: set[Position] = set()  # derived from self.building
-        self.my_barriers: set[Position] = set()  # derived from self.buildings
-        self.my_transport: set[Position] = set()  # derived from self.building
-        self.my_foundries: set[Position] = set()  # derived from self.building
-        self.my_turrets: set[Position] = set()  # derived from self.building
+        self.my_core: Position = core_pos
+        self.my_core_tiles: set[int] = {
+            (core_pos.y + dy) * self.w + (core_pos.x + dx)
+            for dx in range(-1, 2)
+            for dy in range(-1, 2)
+            if 0 <= core_pos.x + dx < self.w and 0 <= core_pos.y + dy < self.h
+        }
+        self.my_harvesters: set[int] = set()
+        self.my_barriers: set[int] = set()
+        self.my_transport: set[int] = set()
+        self.my_foundries: set[int] = set()
+        self.my_turrets: set[int] = set()
 
         self.my_core_hp: int = GameConstants.CORE_MAX_HP
 
         # -- Enemy --
-        self.en_core_tiles: set[Position] = set()  # derived from self.building
-        self.en_harvesters: set[Position] = set()  # derived from self.building
-        self.en_barriers: set[Position] = set()  # derived from self.building
-        self.en_transport: set[Position] = set()  # derived from self.building
-        self.en_turrets: set[Position] = set()  # derived from self.building
-        self.en_foundries: set[Position] = set()  # derived from self.building
+        self.en_core_tiles: set[int] = set()
+        self.en_harvesters: set[int] = set()
+        self.en_barriers: set[int] = set()
+        self.en_transport: set[int] = set()
+        self.en_turrets: set[int] = set()
+        self.en_foundries: set[int] = set()
+
+        # -- Both teams (unions, maintained incrementally) --
+        self.harvesters: set[int] = set()
+        self.barriers: set[int] = set()
+        self.transport: set[int] = set()
+        self.foundries: set[int] = set()
+        self.turrets: set[int] = set()
 
         # -- Unified flow --
         self.flow = UnifiedFlow(n)
@@ -212,13 +258,19 @@ def _load_map_tiles(state: State, km: KnownMap) -> None:
     tiles = decode(TILES[km](), n)
     for i in range(n):
         state.env[i] = tiles[i]
-        p = Position(i % state.w, i // state.w)
         match tiles[i]:
             case Environment.ORE_TITANIUM:
-                state.ore_ti.add(p)
+                state.ore_ti.add(i)
             case Environment.ORE_AXIONITE:
-                state.ore_ax.add(p)
-    state.en_core_tiles = tiles_3x3(CORE_B[km])
+                state.ore_ax.add(i)
+    cb = CORE_B[km]
+    w = state.w
+    state.en_core_tiles = {
+        (cb.y + dy) * w + (cb.x + dx)
+        for dx in range(-1, 2)
+        for dy in range(-1, 2)
+        if 0 <= cb.x + dx < w and 0 <= cb.y + dy < state.h
+    }
     state.sym_candidates.clear()
 
 

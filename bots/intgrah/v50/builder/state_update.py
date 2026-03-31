@@ -65,10 +65,10 @@ def update(state: State, ct: Controller) -> None:
     t3 = t()
     _update_infra_staleness(state)
     t4 = t()
-    print(
-        f"  ephemeral={t1 - t0}us scan={t2 - t1}us"
-        f" flow={t3 - t2}us stale={t4 - t3}us"
-    )
+    print(f"  ephemeral={t1 - t0}us")
+    print(f"  scan={t2 - t1}us")
+    print(f"  flow={t3 - t2}us")
+    print(f"  stale={t4 - t3}us")
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -92,13 +92,27 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
 
 
-def _scan_vision(state: State, ct: Controller) -> list[Position]:
+def _scan_vision(state: State, ct: Controller) -> list[int]:
     w = state.w
-    changed: list[Position] = []
+    changed: list[int] = []
     new_tiles: list[tuple[Position, Environment]] = []
     rnd = ct.get_current_round()
 
+    _g = ct.get_cpu_time_elapsed
+    t_api = 0
+    t_make = 0
+    t_sets = 0
+    t_eq = 0
+    t_marker = 0
+    t_sym = 0
+    t_rest = 0
+    n_tiles = 0
+    n_bld = 0
+    n_markers = 0
+
     for t in ct.get_nearby_tiles():
+        n_tiles += 1
+        _s0 = _g()
         i = t.y * w + t.x
         state.last_seen[i] = rnd
 
@@ -108,21 +122,32 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
 
         match env:
             case Environment.ORE_TITANIUM:
-                state.ore_ti.add(t)
+                state.ore_ti.add(i)
             case Environment.ORE_AXIONITE:
-                state.ore_ax.add(t)
+                state.ore_ax.add(i)
 
         bid = ct.get_tile_building_id(t)
+        _s1 = _g()
+        t_api += _s1 - _s0
         if bid is not None:
+            n_bld += 1
             etype = ct.get_entity_type(bid)
             bld = _make_building(ct, bid, etype)
+            _s2 = _g()
+            t_make += _s2 - _s1
             state.building[i] = bld
-            _update_sets(state, t, old_bld, bld)
-            if bld != old_bld or env != old_env:
-                changed.append(t)
+            _update_sets(state, i, old_bld, bld)
+            _s3 = _g()
+            t_sets += _s3 - _s2
+            _eq = bld != old_bld or env != old_env
+            _s4 = _g()
+            t_eq += _s4 - _s3
+            if _eq:
+                changed.append(i)
 
             match bld:
                 case BuildingMarker(team) if team == state.my_team:
+                    n_markers += 1
                     msg = decode_marker(bld.value)
                     match msg:
                         case MarkerTaskClaim() if not is_stale(msg, rnd):
@@ -131,79 +156,79 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
                             state.symmetry = Symmetry(msg.symmetry)
                             _reflect_all(state)
                 case BuildingCore(team) if team != state.my_team:
-                    state.en_core_tiles.add(t)
+                    state.en_core_tiles.add(i)
+            t_marker += _g() - _s4
         else:
             state.building[i] = None
-            _update_sets(state, t, old_bld, None)
+            _update_sets(state, i, old_bld, None)
             if old_bld is not None or env != old_env:
-                changed.append(t)
+                changed.append(i)
+            t_rest += _g() - _s1
 
         new_tiles.append((t, env))
 
+    _ss = _g()
     _update_symmetry(state, new_tiles)
+    t_sym = _g() - _ss
+    print(
+        f"    scan: tiles={n_tiles} bld={n_bld} markers={n_markers}"
+        f" api={t_api}us make={t_make}us sets={t_sets}us"
+        f" eq={t_eq}us marker={t_marker}us sym={t_sym}us rest={t_rest}us"
+    )
     return changed
 
 
-def _classify(bld: Building | None, my_team: object) -> str | None:
+def _classify(bld: Building | None) -> str | None:
     if bld is None:
         return None
-    if bld.team == my_team:
-        match bld:
-            case BuildingHarvester():
-                return "my_harvesters"
-            case (
-                BuildingConveyor()
-                | BuildingArmouredConveyor()
-                | BuildingSplitter()
-                | BuildingBridge()
-            ):
-                return "my_transport"
-            case BuildingFoundry():
-                return "my_foundries"
-            case (
-                BuildingGunner()
-                | BuildingSentinel()
-                | BuildingBreach()
-                | BuildingLauncher()
-            ):
-                return "my_turrets"
-            case BuildingBarrier():
-                return "my_barriers"
-    else:
-        match bld:
-            case BuildingHarvester():
-                return "en_harvesters"
-            case (
-                BuildingConveyor()
-                | BuildingArmouredConveyor()
-                | BuildingSplitter()
-                | BuildingBridge()
-            ):
-                return "en_transport"
-            case BuildingFoundry():
-                return "en_foundries"
-            case (
-                BuildingGunner()
-                | BuildingSentinel()
-                | BuildingBreach()
-                | BuildingLauncher()
-            ):
-                return "en_turrets"
-            case BuildingBarrier():
-                return "en_barriers"
+    match bld:
+        case BuildingHarvester():
+            return "harvesters"
+        case (
+            BuildingConveyor()
+            | BuildingArmouredConveyor()
+            | BuildingSplitter()
+            | BuildingBridge()
+        ):
+            return "transport"
+        case BuildingFoundry():
+            return "foundries"
+        case (
+            BuildingGunner()
+            | BuildingSentinel()
+            | BuildingBreach()
+            | BuildingLauncher()
+        ):
+            return "turrets"
+        case BuildingBarrier():
+            return "barriers"
     return None
 
 
-def _update_sets(state: State, p: Position, old_bld: Building | None, new_bld: Building | None) -> None:
+def _update_sets(
+    state: State,
+    idx: int,
+    old_bld: Building | None,
+    new_bld: Building | None,
+) -> None:
+    p = idx
     my_team = state.my_team
-    old_cat = _classify(old_bld, my_team)
-    new_cat = _classify(new_bld, my_team)
-    if old_cat == new_cat:
+    old_cat = _classify(old_bld)
+    new_cat = _classify(new_bld)
+    if old_cat == new_cat and (
+        old_bld is None or new_bld is None or old_bld.team == new_bld.team
+    ):
         return
-    if old_cat is not None:
+
+    if old_cat is not None and old_bld is not None:
         getattr(state, old_cat).discard(p)
-    if new_cat is not None:
+        prefix = "my_" if old_bld.team == my_team else "en_"
+        getattr(state, prefix + old_cat).discard(p)
+
+    if new_cat is not None and new_bld is not None:
         getattr(state, new_cat).add(p)
+        prefix = "my_" if new_bld.team == my_team else "en_"
+        getattr(state, prefix + new_cat).add(p)
 
 
 def _update_symmetry(
@@ -221,9 +246,9 @@ def _update_symmetry(
                 state.env[mi] = env
                 match env:
                     case Environment.ORE_TITANIUM:
-                        state.ore_ti.add(m)
+                        state.ore_ti.add(mi)
                     case Environment.ORE_AXIONITE:
-                        state.ore_ax.add(m)
+                        state.ore_ax.add(mi)
 
 
 def _eliminate_symmetries(
@@ -295,19 +320,16 @@ def _reflect_all(state: State) -> None:
             state.env[mi] = env
             match env:
                 case Environment.ORE_TITANIUM:
-                    state.ore_ti.add(m)
+                    state.ore_ti.add(mi)
                 case Environment.ORE_AXIONITE:
-                    state.ore_ax.add(m)
+                    state.ore_ax.add(mi)
 
 
-def _update_flow(state: State, ct: Controller, changed: list[Position]) -> None:
-    infra = (
-        state.my_transport | state.my_harvesters | state.my_foundries
-        | state.my_turrets | state.my_core_tiles
-        | state.en_transport | state.en_harvesters | state.en_foundries
-        | state.en_turrets | state.en_core_tiles
-    )
-    needs_reflow = any(p in infra for p in changed)
+def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
+    infra = state.transport | state.harvesters | state.foundries | state.turrets
+    needs_reflow = any(i in infra for i in changed)
+    if not needs_reflow and changed:
+        print(f"  no_reflow: changed={len(changed)} infra={len(infra)}")
     if needs_reflow:
         t0 = ct.get_cpu_time_elapsed()
         update_flow(state)
@@ -326,16 +348,13 @@ def _update_flow(state: State, ct: Controller, changed: list[Position]) -> None:
 def _update_infra_staleness(state: State) -> None:
     age = state.age
     worst = 0
-    for p in state.my_transport:
-        s = age - state.last_seen[state.idx(p.x, p.y)]
-        if s > worst:
-            worst = s
-    for p in state.my_turrets:
-        s = age - state.last_seen[state.idx(p.x, p.y)]
-        if s > worst:
-            worst = s
-    for p in state.my_core_tiles:
-        s = age - state.last_seen[state.idx(p.x, p.y)]
-        if s > worst:
-            worst = s
+    for i in state.my_transport:
+        s = age - state.last_seen[i]
+        worst = max(worst, s)
+    for i in state.my_turrets:
+        s = age - state.last_seen[i]
+        worst = max(worst, s)
+    for i in state.my_core_tiles:
+        s = age - state.last_seen[i]
+        worst = max(worst, s)
     state.infra_max_staleness = worst

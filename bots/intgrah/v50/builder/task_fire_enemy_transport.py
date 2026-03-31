@@ -10,11 +10,13 @@ def _find_target(state: State) -> Position | None:
     pos = state.pos
     best: Position | None = None
     best_dist = INF
-    for tp in state.en_transport:
-        dist = abs(pos.x - tp.x) + abs(pos.y - tp.y)
+    w = state.w
+    for idx in state.en_transport:
+        tx, ty = idx % w, idx // w
+        dist = abs(pos.x - tx) + abs(pos.y - ty)
         if dist < best_dist:
             best_dist = dist
-            best = tp
+            best = Position(tx, ty)
     return best
 
 

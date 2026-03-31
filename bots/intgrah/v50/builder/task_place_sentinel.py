@@ -26,11 +26,11 @@ def _find_target(
     pos = state.pos
     best = None
     best_dist = INF
-    for hp in state.en_harvesters:
-        hi = state.idx(hp.x, hp.y)
+    w = state.w
+    for hi in state.en_harvesters:
         if state.env[hi] != Environment.ORE_TITANIUM:
             continue
-        hx, hy = hp.x, hp.y
+        hx, hy = hi % w, hi // w
         if _has_friendly_sentinel_near(state, hx, hy):
             continue
         for dx, dy in DIR4_DELTA:
