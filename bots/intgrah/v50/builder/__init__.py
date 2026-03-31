@@ -50,15 +50,9 @@ from .task_harvest_ax import harvest_ax
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
 from .task_heal_turret import heal_turret
-from .task_nav_enemy_core import nav_enemy_core
 from .task_patrol import patrol
-from .task_place_foundry_mixed_conv import place_foundry_mixed_conv
 from .task_place_launcher import place_launcher
 from .task_place_sentinel import place_sentinel
-from .task_place_splitter_foundry import place_splitter_foundry
-from .task_secure_ore import _best_ore as _secure_best_ore
-from .task_secure_ore import secure_ore
-from .task_self_destruct import self_destruct
 
 type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
 
@@ -68,12 +62,6 @@ TASK_FNS: dict[Task, TaskFn] = {
         c,
         ExcessKind.TI_RAX,
         SearchKind.MIXED,
-    ),
-    Task.CONNECT_EXCESS_TI_BRIDGE: lambda s, c: connect_excess(
-        s,
-        c,
-        ExcessKind.TI_RAX,
-        SearchKind.BRIDGE,
     ),
     Task.CONNECT_EXCESS_AX: lambda s, c: connect_excess(
         s,
@@ -85,12 +73,7 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.HARVEST_AX: harvest_ax,
     Task.EXPLORE: explore,
     Task.PATROL: patrol,
-    Task.NAV_ENEMY_CORE: nav_enemy_core,
-    Task.SELF_DESTRUCT: self_destruct,
-    Task.PLACE_FOUNDRY_MIXED_CONV: place_foundry_mixed_conv,
-    Task.PLACE_SPLITTER_FOUNDRY: place_splitter_foundry,
     Task.HEAL_CORE: heal_core,
-    Task.SECURE_ORE: secure_ore,
     Task.PLACE_LAUNCHER: place_launcher,
     Task.BARRIER_ORE: barrier_ore,
     Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
@@ -173,7 +156,10 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
+        t0 = ct.get_cpu_time_elapsed()
         state_update(s, ct)
+        t1 = ct.get_cpu_time_elapsed()
+        print(f"update={t1 - t0}us")
 
         if DEBUG_DUMP:
             dump(s, ct)
@@ -188,6 +174,8 @@ class Builder(Unit):
                 return
 
         move, build = self._run_policy(ct)
+        t2 = ct.get_cpu_time_elapsed()
+        print(f"policy={t2 - t1}us total={t2 - t0}us")
         self._execute(ct, move, build)
 
     def _run_script(self, ct: Controller) -> None:
@@ -230,10 +218,15 @@ class Builder(Unit):
         for score, task in _policy(s):
             if score <= 0:
                 continue
+            t0 = ct.get_cpu_time_elapsed()
             fn = TASK_FNS[task]
             result = fn(s, ct)
+            elapsed = ct.get_cpu_time_elapsed() - t0
             if result is not None:
+                print(f"task={task.name} {elapsed}us OK")
                 return result
+            print(f"task={task.name} {elapsed}us FAIL")
+        print("task=NONE")
         return Direction.CENTRE, None
 
     def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
@@ -323,12 +316,12 @@ def _read_opening(
     return None, None
 
 
-def _policy(_state: State) -> list[tuple[float, Task]]:
+def _policy(state: State) -> list[tuple[float, Task]]:
     scores: list[tuple[float, Task]] = []
     scores.append((999.0, Task.HEAL_CORE))
     scores.append((150.0, Task.CONNECT_EXCESS_TI))
     scores.append((100.0, Task.HARVEST_TI))
     scores.append((20.0, Task.EXPLORE))
-    scores.append((5.0, Task.PATROL))
+    scores.append((25.0 if state.infra_max_staleness > 50 else 15.0, Task.PATROL))
     scores.sort(key=lambda t: t[0], reverse=True)
     return scores

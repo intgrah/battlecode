@@ -48,12 +48,16 @@ from util import (
 )
 
 
-class Economy:
+class UnifiedFlow:
     def __init__(self, n: int) -> None:
         self.ti = [0.0] * n
         self.ax = [0.0] * n
         self.rax = [0.0] * n
         self.total = [0.0] * n
+        self.my_frac = [0.0] * n
+        self.en_frac = [0.0] * n
+        self.my_total = [0.0] * n
+        self.en_total = [0.0] * n
         self.ti_excess = [0.0] * n
         self.ax_excess = [0.0] * n
         self.rax_excess = [0.0] * n
@@ -93,7 +97,6 @@ class State:
         self.my_transport: set[Position] = set()  # derived from self.building
         self.my_foundries: set[Position] = set()  # derived from self.building
         self.my_turrets: set[Position] = set()  # derived from self.building
-        self.my_flow = Economy(n)  # computed using state_update_econ
 
         self.my_core_hp: int = GameConstants.CORE_MAX_HP
 
@@ -104,7 +107,9 @@ class State:
         self.en_transport: set[Position] = set()  # derived from self.building
         self.en_turrets: set[Position] = set()  # derived from self.building
         self.en_foundries: set[Position] = set()  # derived from self.building
-        self.en_flow = Economy(n)  # computed using state_update_econ
+
+        # -- Unified flow --
+        self.flow = UnifiedFlow(n)
 
         # -- Ephemeral --
         self.unit_tiles: set[Position] = set()

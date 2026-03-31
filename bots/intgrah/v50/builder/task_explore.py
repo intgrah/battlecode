@@ -33,7 +33,7 @@ def explore(
     if state.explore_target is None:
         return None
     move, build = move_toward_with_road(state, ct, state.explore_target)
-    ct.draw_indicator_line(state.pos, state.explore_target, 0, 0, 255)
+    ct.draw_indicator_dot(state.explore_target, 0, 0, 255)
     return move, build
 
 

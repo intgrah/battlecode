@@ -25,7 +25,7 @@ from util import Symmetry
 
 from .state import State
 from .state_helpers import mirror
-from .state_update_econ import update_en_econ, update_my_econ
+from .state_update_econ import update_flow
 
 
 def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
@@ -54,12 +54,21 @@ def update(state: State, ct: Controller) -> None:
     state.age += 1
     state.pos = ct.get_position()
 
+    t = ct.get_cpu_time_elapsed
+    t0 = t()
     _update_core_hp(state, ct)
     _update_ephemeral(state, ct)
+    t1 = t()
     changed = _scan_vision(state, ct)
-    _rebuild_sets(state)
-    _update_flow(state, changed)
+    t2 = t()
+    _update_flow(state, ct, changed)
+    t3 = t()
     _update_infra_staleness(state)
+    t4 = t()
+    print(
+        f"  ephemeral={t1 - t0}us scan={t2 - t1}us"
+        f" flow={t3 - t2}us stale={t4 - t3}us"
+    )
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -108,6 +117,7 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
             etype = ct.get_entity_type(bid)
             bld = _make_building(ct, bid, etype)
             state.building[i] = bld
+            _update_sets(state, t, old_bld, bld)
             if bld != old_bld or env != old_env:
                 changed.append(t)
 
@@ -124,6 +134,7 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
                     state.en_core_tiles.add(t)
         else:
             state.building[i] = None
+            _update_sets(state, t, old_bld, None)
             if old_bld is not None or env != old_env:
                 changed.append(t)
 
@@ -133,72 +144,66 @@ def _scan_vision(state: State, ct: Controller) -> list[Position]:
     return changed
 
 
-def _rebuild_sets(state: State) -> None:
-    w = state.w
-    n = w * state.h
+def _classify(bld: Building | None, my_team: object) -> str | None:
+    if bld is None:
+        return None
+    if bld.team == my_team:
+        match bld:
+            case BuildingHarvester():
+                return "my_harvesters"
+            case (
+                BuildingConveyor()
+                | BuildingArmouredConveyor()
+                | BuildingSplitter()
+                | BuildingBridge()
+            ):
+                return "my_transport"
+            case BuildingFoundry():
+                return "my_foundries"
+            case (
+                BuildingGunner()
+                | BuildingSentinel()
+                | BuildingBreach()
+                | BuildingLauncher()
+            ):
+                return "my_turrets"
+            case BuildingBarrier():
+                return "my_barriers"
+    else:
+        match bld:
+            case BuildingHarvester():
+                return "en_harvesters"
+            case (
+                BuildingConveyor()
+                | BuildingArmouredConveyor()
+                | BuildingSplitter()
+                | BuildingBridge()
+            ):
+                return "en_transport"
+            case BuildingFoundry():
+                return "en_foundries"
+            case (
+                BuildingGunner()
+                | BuildingSentinel()
+                | BuildingBreach()
+                | BuildingLauncher()
+            ):
+                return "en_turrets"
+            case BuildingBarrier():
+                return "en_barriers"
+    return None
+
+
+def _update_sets(state: State, p: Position, old_bld: Building | None, new_bld: Building | None) -> None:
     my_team = state.my_team
-
-    state.my_harvesters.clear()
-    state.my_transport.clear()
-    state.my_foundries.clear()
-    state.my_turrets.clear()
-    state.my_barriers.clear()
-    state.en_harvesters.clear()
-    state.en_transport.clear()
-    state.en_foundries.clear()
-    state.en_turrets.clear()
-    state.en_barriers.clear()
-
-    for i in range(n):
-        bld = state.building[i]
-        if bld is None:
-            continue
-        p = Position(i % w, i // w)
-
-        if bld.team == my_team:
-            match bld:
-                case BuildingHarvester():
-                    state.my_harvesters.add(p)
-                case (
-                    BuildingConveyor()
-                    | BuildingArmouredConveyor()
-                    | BuildingSplitter()
-                    | BuildingBridge()
-                ):
-                    state.my_transport.add(p)
-                case BuildingFoundry():
-                    state.my_foundries.add(p)
-                case (
-                    BuildingGunner()
-                    | BuildingSentinel()
-                    | BuildingBreach()
-                    | BuildingLauncher()
-                ):
-                    state.my_turrets.add(p)
-                case BuildingBarrier():
-                    state.my_barriers.add(p)
-        else:
-            match bld:
-                case BuildingHarvester():
-                    state.en_harvesters.add(p)
-                case (
-                    BuildingConveyor()
-                    | BuildingArmouredConveyor()
-                    | BuildingSplitter()
-                    | BuildingBridge()
-                ):
-                    state.en_transport.add(p)
-                case BuildingFoundry():
-                    state.en_foundries.add(p)
-                case (
-                    BuildingGunner()
-                    | BuildingSentinel()
-                    | BuildingBreach()
-                    | BuildingLauncher()
-                ):
-                    state.en_turrets.add(p)
-                case BuildingBarrier():
-                    state.en_barriers.add(p)
+    old_cat = _classify(old_bld, my_team)
+    new_cat = _classify(new_bld, my_team)
+    if old_cat == new_cat:
+        return
+    if old_cat is not None:
+        getattr(state, old_cat).discard(p)
+    if new_cat is not None:
+        getattr(state, new_cat).add(p)
 
 
 def _update_symmetry(
@@ -295,16 +300,18 @@ def _reflect_all(state: State) -> None:
                     state.ore_ax.add(m)
 
 
-def _update_flow(state: State, changed: list[Position]) -> None:
-    needs_reflow = any(
-        p in state.my_transport or p in state.my_harvesters or p in state.my_foundries
-        for p in changed
+def _update_flow(state: State, ct: Controller, changed: list[Position]) -> None:
+    infra = (
+        state.my_transport | state.my_harvesters | state.my_foundries
+        | state.my_turrets | state.my_core_tiles
+        | state.en_transport | state.en_harvesters | state.en_foundries
+        | state.en_turrets | state.en_core_tiles
     )
-    needs_enemy_reflow = any(
-        p in state.en_transport or p in state.en_harvesters for p in changed
-    )
+    needs_reflow = any(p in infra for p in changed)
     if needs_reflow:
-        update_my_econ(state)
+        t0 = ct.get_cpu_time_elapsed()
+        update_flow(state)
+        print(f"  econ={ct.get_cpu_time_elapsed() - t0}us")
         state.ti_flow_search = None
         state.ti_cached_path = None
         state.ax_flow_search = None
@@ -314,8 +321,6 @@ def _update_flow(state: State, changed: list[Position]) -> None:
         state.leakage_mask = build_leakage_mask(state)
     elif state.leakage_mask is None:
         state.leakage_mask = build_leakage_mask(state)
-    if needs_enemy_reflow:
-        update_en_econ(state)
 
 
 def _update_infra_staleness(state: State) -> None:

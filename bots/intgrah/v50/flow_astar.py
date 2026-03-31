@@ -49,7 +49,7 @@ def build_leakage_mask(state: State) -> list[int]:
                 ix, iy = i % w, i // w
                 dx, dy = d.delta()
                 commodity = 0
-                f = state.my_flow
+                f = state.flow
                 if f.ti[i] > 0:
                     commodity |= TI
                 if f.ax[i] > 0:
@@ -96,7 +96,7 @@ class FlowAstar(Astar[int]):
         self._gy = state.my_core.y
         self._banned_leakage = banned_leakage
         self._leakage_mask = build_leakage_mask(state)
-        self._blocked = state.my_flow.blocked
+        self._blocked = state.flow.blocked
         self._env = state.env
         self._building = state.building
         self._my_team = state.my_team

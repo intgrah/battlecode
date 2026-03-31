@@ -21,7 +21,7 @@ def _has_friendly_sentinel_adjacent(state: State, ox: int, oy: int) -> bool:
 
 
 def _best_denied_ore(state: State) -> Position | None:
-    unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
+    unharvested = state.ore_ti - state.my_harvesters
     if not unharvested:
         return None
     pos = state.pos
@@ -30,7 +30,7 @@ def _best_denied_ore(state: State) -> Position | None:
     for ox, oy in unharvested:
         oi = state.idx(ox, oy)
         op = Position(ox, oy)
-        if op in state.my_barriers or op in state.en_barriers:
+        if op in state.barriers or op in state.barriers:
             continue
         bld = state.building[oi]
         match bld:
@@ -70,5 +70,5 @@ def barrier_ore(
             if bid is not None and ct.can_destroy(ore_pos):
                 ct.destroy(ore_pos)
             build = PlaceBarrier(ore_pos)
-    ct.draw_indicator_line(state.pos, ore_pos, 128, 128, 128)
+    ct.draw_indicator_dot(ore_pos, 128, 128, 128)
     return move, build

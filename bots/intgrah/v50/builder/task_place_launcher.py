@@ -8,7 +8,7 @@ from .state import State
 
 
 def _undefended_transport(state: State) -> tuple[int, int] | None:
-    for p in state.my_transport:
+    for p in state.transport:
         bx, by = p.x, p.y
         has_launcher = False
         for dx, dy in DIR8_DELTA:
