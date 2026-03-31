@@ -11,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import csv
 import heapq
 import random
@@ -363,22 +364,16 @@ def algo_astar_bucket(
     return None
 
 
-def algo_bfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
+def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
     n, cost, nb = md.n, md.cost, md.nb
     if si == gi:
         return [si]
     parent: list[int] = [-1] * n
     parent[si] = si
     q: deque[int] = deque([si])
-    exp = 0
     found = False
-    best_node = si
     while q:
         node = q.popleft()
-        exp += 1
-        if budget > 0 and exp >= budget:
-            best_node = node
-            break
         for ni in nb[node]:
             if cost[ni] >= INF:
                 continue
@@ -391,16 +386,136 @@ def algo_bfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
             q.append(ni)
         if found:
             break
-    target = gi if found else (best_node if budget > 0 and best_node != si else -1)
-    if target < 0:
+    if not found:
         return None
     path: list[int] = []
-    cur = target
+    cur = gi
     while cur != si:
         path.append(cur)
         cur = parent[cur]
     path.append(si)
     path.reverse()
+    return path
+
+
+def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
+    n, cost, nb = md.n, md.cost, md.nb
+    if si == gi:
+        return [si]
+    parent: list[int] = [-1] * n
+    parent[si] = si
+    q: deque[int] = deque([si])
+    found = False
+    while q:
+        node = q.popleft()
+        for ni in nb[node]:
+            if cost[ni] >= INF:
+                continue
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            if ni == gi:
+                found = True
+                break
+            q.append(ni)
+        if found:
+            break
+    if not found:
+        return None
+    path: list[int] = []
+    cur = gi
+    while cur != si:
+        path.append(cur)
+        cur = parent[cur]
+    path.append(si)
+    path.reverse()
+    if len(path) < 3:
+        return path
+    next_next = path[2]
+    best_ni = path[1]
+    best_cost = cost[best_ni]
+    for ni in nb[si]:
+        if cost[ni] >= best_cost or parent[ni] != si:
+            continue
+        adjacent_to_next = False
+        for ni2 in nb[ni]:
+            if ni2 == next_next:
+                adjacent_to_next = True
+                break
+        if adjacent_to_next:
+            best_ni = ni
+            best_cost = cost[ni]
+    path[1] = best_ni
+    return path
+
+
+def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
+    n, cost, nb = md.n, md.cost, md.nb
+    if si == gi:
+        return [si]
+    parent_f: list[int] = [-1] * n
+    parent_b: list[int] = [-1] * n
+    dist_f: list[int] = [INF] * n
+    dist_b: list[int] = [INF] * n
+    parent_f[si] = si
+    parent_b[gi] = gi
+    dist_f[si] = 0
+    dist_b[gi] = 0
+    qf: deque[int] = deque([si])
+    qb: deque[int] = deque([gi])
+    best = INF
+    meet = -1
+    while qf or qb:
+        min_remaining = 0
+        if qf:
+            min_remaining += dist_f[qf[0]]
+        if qb:
+            min_remaining += dist_b[qb[0]]
+        if min_remaining >= best:
+            break
+        if qf and (not qb or len(qf) <= len(qb)):
+            node = qf.popleft()
+            d = dist_f[node] + 1
+            for ni in nb[node]:
+                if cost[ni] >= INF:
+                    continue
+                if dist_f[ni] <= d:
+                    continue
+                dist_f[ni] = d
+                parent_f[ni] = node
+                qf.append(ni)
+                if dist_b[ni] < INF and d + dist_b[ni] < best:
+                    best = d + dist_b[ni]
+                    meet = ni
+        elif qb:
+            node = qb.popleft()
+            d = dist_b[node] + 1
+            for ni in nb[node]:
+                if cost[ni] >= INF:
+                    continue
+                if dist_b[ni] <= d:
+                    continue
+                dist_b[ni] = d
+                parent_b[ni] = node
+                qb.append(ni)
+                if dist_f[ni] < INF and dist_f[ni] + d < best:
+                    best = dist_f[ni] + d
+                    meet = ni
+    if meet < 0:
+        return None
+    path: list[int] = []
+    cur = meet
+    while cur != si:
+        path.append(cur)
+        cur = parent_f[cur]
+    path.append(si)
+    path.reverse()
+    if meet != gi:
+        cur = parent_b[meet]
+        while cur != gi:
+            path.append(cur)
+            cur = parent_b[cur]
+        path.append(gi)
     return path
 
 
@@ -683,6 +798,43 @@ def path_cost(md: MapData, path: list[int]) -> int:
     return total
 
 
+def validate_path(md: MapData, path: list[int], si: int, algo_name: str) -> bool:
+    if not path:
+        return True
+    w, n, cost = md.w, md.n, md.cost
+    if path[0] != si:
+        print(
+            f"INVALID {algo_name} on {md.name}: start={path[0]} expected={si}",
+            file=sys.stderr,
+        )
+        return False
+    for k, node in enumerate(path):
+        if node < 0 or node >= n:
+            print(
+                f"INVALID {algo_name} on {md.name}: node {k} out of bounds: {node}",
+                file=sys.stderr,
+            )
+            return False
+        if k > 0 and cost[node] >= INF:
+            print(
+                f"INVALID {algo_name} on {md.name}: node {k} impassable: {node}",
+                file=sys.stderr,
+            )
+            return False
+    for k in range(len(path) - 1):
+        a, b = path[k], path[k + 1]
+        dx = abs(a % w - b % w)
+        dy = abs(a // w - b // w)
+        if dx > 1 or dy > 1:
+            print(
+                f"INVALID {algo_name} on {md.name}: non-adjacent step {k}: "
+                f"({a % w},{a // w})->({b % w},{b // w})",
+                file=sys.stderr,
+            )
+            return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Algorithm registry
 # ---------------------------------------------------------------------------
@@ -691,102 +843,32 @@ def path_cost(md: MapData, path: list[int]) -> int:
 def _make_algos() -> list[AlgoEntry]:
     algos: list[AlgoEntry] = []
 
-    for w in [1, 3]:
-        for b in [200, 1000, 0]:
-            bname = str(b) if b else "inf"
-            algos.append(
-                (
-                    f"a*heap cheb w={w} b={bname}",
-                    lambda md, si, gi, _w=w, _b=b: algo_astar_heap(
-                        md,
-                        si,
-                        gi,
-                        weight=_w,
-                        budget=_b,
-                    ),
-                    False,
-                ),
-            )
-
-    for w in [1, 3]:
-        for b in [200, 1000, 0]:
-            bname = str(b) if b else "inf"
-            algos.append(
-                (
-                    f"a*bucket cheb w={w} b={bname}",
-                    lambda md, si, gi, _w=w, _b=b: algo_astar_bucket(
-                        md,
-                        si,
-                        gi,
-                        weight=_w,
-                        budget=_b,
-                    ),
-                    False,
-                ),
-            )
-
-    for b in [200, 1000, 0]:
-        bname = str(b) if b else "inf"
-        algos.append(
-            (
-                f"a*heap apsp b={bname}",
-                lambda md, si, gi, _b=b: algo_astar_apsp(
-                    md,
-                    si,
-                    gi,
-                    budget=_b,
-                ),
-                True,
-            ),
-        )
-
-    for b in [200, 1000, 0]:
-        bname = str(b) if b else "inf"
-        algos.append(
-            (
-                f"bfs b={bname}",
-                lambda md, si, gi, _b=b: algo_bfs(md, si, gi, budget=_b),
-                False,
-            ),
-        )
-
-    for b in [200, 1000, 0]:
-        bname = str(b) if b else "inf"
-        algos.append(
-            (
-                f"gbfs b={bname}",
-                lambda md, si, gi, _b=b: algo_gbfs(md, si, gi, budget=_b),
-                False,
-            ),
-        )
-
-    for b in [200, 1000, 0]:
-        bname = str(b) if b else "inf"
-        algos.append(
-            (
-                f"dijkstra heap b={bname}",
-                lambda md, si, gi, _b=b: algo_dijkstra_heap(md, si, gi, budget=_b),
-                False,
-            ),
-        )
-
-    for b in [200, 1000, 0]:
-        bname = str(b) if b else "inf"
-        algos.append(
-            (
-                f"dijkstra bucket b={bname}",
-                lambda md, si, gi, _b=b: algo_dijkstra_bucket(md, si, gi, budget=_b),
-                False,
-            ),
-        )
-
-    algos.append(
+    algos.extend(
         (
-            "hpa* excl precomp",
-            algo_hpa,
-            True,
-        ),
+            f"astar heap cheb w={w}",
+            lambda md, si, gi, _w=w: algo_astar_heap(md, si, gi, weight=_w),
+            False,
+        )
+        for w in [1, 3]
     )
+
+    algos.extend(
+        (
+            f"astar bucket cheb w={w}",
+            lambda md, si, gi, _w=w: algo_astar_bucket(md, si, gi, weight=_w),
+            False,
+        )
+        for w in [1, 3]
+    )
+
+    algos.append(("astar heap apsp", algo_astar_apsp, True))
+    algos.append(("bfs", algo_bfs, False))
+    algos.append(("bfs roadopt", algo_bfs_roadopt, False))
+    algos.append(("bibfs", algo_bibfs, False))
+    algos.append(("gbfs", algo_gbfs, False))
+    algos.append(("dijkstra heap", algo_dijkstra_heap, False))
+    algos.append(("dijkstra bucket", algo_dijkstra_bucket, False))
+    algos.append(("hpastar excl precomp", algo_hpa, True))
 
     return algos
 
@@ -832,15 +914,44 @@ CSV_FIELDS = [
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Navigation benchmark")
+    parser.add_argument(
+        "--algos",
+        nargs="*",
+        help="Algorithm name substrings to include (default: all). "
+        "E.g. --algos bfs 'astar heap'",
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="List available algorithms and exit"
+    )
+    args = parser.parse_args()
+
+    if args.list:
+        for name, _, _ in ALGOS:
+            print(name)
+        sys.exit(0)
+
+    if args.algos:
+        selected = [
+            (name, fn, req)
+            for name, fn, req in ALGOS
+            if any(pat in name for pat in args.algos)
+        ]
+        if not selected:
+            print("No algorithms matched. Use --list to see names.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        selected = list(ALGOS)
+
     map_files = sorted(MAPS_DIR.glob("*.map26"))
     if not map_files:
         print(f"No .map26 files in {MAPS_DIR}", file=sys.stderr)
         sys.exit(1)
 
     n_maps = len(map_files)
-    needs_apsp = any(req for _, _, req in ALGOS if req)
-    needs_hpa = any("hpa" in name for name, _, _ in ALGOS)
-    n_algos = len(ALGOS)
+    needs_apsp = any(req for _, _, req in selected)
+    needs_hpa = any("hpa" in name for name, _, _ in selected)
+    n_algos = len(selected)
     n_scenarios = len(SCENARIOS)
     total_work = n_maps * n_scenarios * (n_algos + 1)
     done = 0
@@ -898,7 +1009,7 @@ def main() -> None:
                 precompute_hpa(md)
                 hpa_precomp_times.append((time.perf_counter() - t0) * 1e6)
 
-            for algo_name, algo_fn, req_apsp in ALGOS:
+            for algo_name, algo_fn, req_apsp in selected:
                 if req_apsp and md.apsp is None and md.hpa_graph is None:
                     done += 1
                     progress_bar(done, total_work, prefix=prefix)
@@ -955,6 +1066,7 @@ def main() -> None:
                     opt = ""
                     fm = 0
                     if path is not None and len(path) >= 1:
+                        validate_path(md, path, si, algo_name)
                         pc = path_cost(md, path)
                         if path[-1] == gi and pc < INF:
                             reached = 1
@@ -987,7 +1099,7 @@ def main() -> None:
         amortized = avg_precomp / N_PAIRS
         for orig in hpa_excl_rows:
             row = dict(orig)
-            row["algo"] = "hpa* incl precomp"
+            row["algo"] = "hpastar incl precomp"
             row["time_us"] = f"{float(str(orig['time_us'])) + amortized:.1f}"
             writer.writerow(row)
 

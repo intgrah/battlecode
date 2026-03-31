@@ -14,16 +14,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 ALGO_CLASS_COLORS: dict[str, str] = {
-    "a*heap cheb w=1": "#4682b4",
-    "a*heap cheb w=3": "#1e3a5f",
-    "a*bucket cheb w=1": "#e07020",
-    "a*bucket cheb w=3": "#8b4513",
-    "a*heap apsp": "#2ca02c",
+    "astar heap cheb w=1": "#4682b4",
+    "astar heap cheb w=3": "#1e3a5f",
+    "astar bucket cheb w=1": "#e07020",
+    "astar bucket cheb w=3": "#8b4513",
+    "astar heap apsp": "#2ca02c",
     "bfs": "#d62728",
+    "bfs roadopt": "#b22222",
+    "bibfs": "#ff6961",
     "gbfs": "#9467bd",
     "dijkstra heap": "#8c564b",
     "dijkstra bucket": "#e377c2",
-    "hpa*": "#7f7f7f",
+    "hpastar": "#7f7f7f",
 }
 
 
