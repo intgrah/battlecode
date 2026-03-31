@@ -2,6 +2,7 @@ import heapq
 import random
 import sys
 import time
+from collections import deque
 from pathlib import Path
 
 sys.path.insert(
@@ -18,7 +19,7 @@ _CE = 10
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 WEIGHTS = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 50]
-ALGOS: list[str] = [f"w={w}" for w in WEIGHTS] + ["gbfs"]
+ALGOS: list[str] = [f"w={w}" for w in WEIGHTS] + ["gbfs", "bfs"]
 
 
 def build_nb(w: int, h: int) -> list[list[tuple[int, bool]]]:
@@ -212,6 +213,59 @@ def gbfs(
     return _INF, exp, (time.perf_counter() - t0) * 1e6
 
 
+def bfs(
+    cost: list[int],
+    nb: list[list[tuple[int, bool]]],
+    n: int,
+    w: int,
+    si: int,
+    gi: int,
+) -> tuple[int, int, float]:
+    t0 = time.perf_counter()
+    if si == gi:
+        return 0, 0, (time.perf_counter() - t0) * 1e6
+    parent = [-1] * n
+    parent[si] = si
+    touched = [si]
+    q: deque[int] = deque([si])
+    exp = 0
+    found = False
+    while q:
+        node = q.popleft()
+        exp += 1
+        for ni, _ in nb[node]:
+            if cost[ni] >= _INF:
+                continue
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            touched.append(ni)
+            if ni == gi:
+                found = True
+                break
+            q.append(ni)
+        if found:
+            break
+    if not found:
+        for ti in touched:
+            parent[ti] = -1
+        return _INF, exp, (time.perf_counter() - t0) * 1e6
+    path_cost = 0
+    cur = gi
+    while cur != si:
+        prev = parent[cur]
+        c = cost[cur]
+        px, py = prev % w, prev // w
+        cx, cy = cur % w, cur // w
+        if px != cx and py != cy:
+            c += 1
+        path_cost += c
+        cur = prev
+    for ti in touched:
+        parent[ti] = -1
+    return path_cost, exp, (time.perf_counter() - t0) * 1e6
+
+
 def pct(vals: list[float], p: float) -> float:
     if not vals:
         return 0.0
@@ -261,6 +315,8 @@ def main() -> None:
                         continue
                     if algo == "gbfs":
                         pc, exp, us = gbfs(cost, nb, n, mw, si, gi)
+                    elif algo == "bfs":
+                        pc, exp, us = bfs(cost, nb, n, mw, si, gi)
                     else:
                         wt = int(algo.split("=")[1])
                         pc, exp, us = astar_w(cost, nb, n, mw, si, gi, wt)
