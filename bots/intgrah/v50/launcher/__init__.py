@@ -12,7 +12,7 @@ _WALKABLE = frozenset(
 
 
 class Launcher(Unit):
-    def __init__(self, ct: Controller) -> None:
+    def __init__(self, _ct: Controller) -> None:
         self._core_pos: Position | None = None
 
     def run(self, ct: Controller) -> None:

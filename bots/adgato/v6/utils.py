@@ -68,7 +68,6 @@ def try_move_smart(
     ct: Controller,
     pos: Position,
     direction: Direction,
-    destroy_standing: bool = False,
 ) -> bool:
     if direction == Direction.CENTRE:
         return True
@@ -82,9 +81,11 @@ def try_move_smart(
         pos_bid = ct.get_tile_building_id(pos)
         if pos_bid is not None and ct.get_entity_type(pos_bid) == EntityType.ROAD:
             env = ct.get_tile_env(pos)
-            if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
-                if ct.can_destroy(pos):
-                    ct.destroy(pos)
+            if env not in (
+                Environment.ORE_TITANIUM,
+                Environment.ORE_AXIONITE,
+            ) and ct.can_destroy(pos):
+                ct.destroy(pos)
     if ct.can_move(direction):
         ct.move(direction)
         return True

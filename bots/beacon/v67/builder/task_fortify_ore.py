@@ -55,7 +55,7 @@ def _needs_work(state: State, ox: int, oy: int) -> tuple[int, int, bool] | None:
 
     Returns (ax, ay, is_sentinel) or None if fully fortified.
     """
-    _DONE = frozenset({EntityType.SENTINEL, EntityType.BARRIER})
+    done = frozenset({EntityType.SENTINEL, EntityType.BARRIER})
     sent_dirs = _sentinel_dirs(state, ox, oy)
     for dx, dy in DIR4_DELTA:
         ax, ay = ox + dx, oy + dy
@@ -70,7 +70,7 @@ def _needs_work(state: State, ox: int, oy: int) -> tuple[int, int, bool] | None:
             continue
         ent = state.entity[state.idx(ax, ay)]
         # Skip if any friendly defensive building already here
-        if ent is not None and ent[0] in _DONE and ent[1] == state.my_team:
+        if ent is not None and ent[0] in done and ent[1] == state.my_team:
             continue
         is_sentinel_spot = (dx, dy) in sent_dirs
         return (ax, ay, is_sentinel_spot)

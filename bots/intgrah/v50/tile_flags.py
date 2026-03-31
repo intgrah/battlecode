@@ -45,7 +45,7 @@ B_BREACH: Final[int] = 0b10010  # 18
 B_LAUNCHER: Final[int] = 0b10011  # 19
 
 
-def make_building(building_type: int, enemy: bool = False) -> int:
+def make_building(building_type: int, *, enemy: bool = False) -> int:
     f = B_PASSABLE | building_type
     if enemy:
         f |= B_ENEMY
@@ -124,4 +124,3 @@ for _b in range(256):
             WALK_COST[_b] = COST_ROAD
         else:
             WALK_COST[_b] = COST_IMPASSABLE
-del _b, _t, _enemy

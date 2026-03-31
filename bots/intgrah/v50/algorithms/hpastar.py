@@ -416,6 +416,7 @@ class GatewayGraph:
         self,
         x: int,
         y: int,
+        *,
         passability_changed: bool = False,
     ) -> None:
         """Mark tile as changed.  Set passability_changed=True if the tile

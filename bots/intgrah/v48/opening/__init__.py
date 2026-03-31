@@ -25,8 +25,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from cambc import Position
-
 if TYPE_CHECKING:
     from builder.build import Action
     from cambc import Direction
