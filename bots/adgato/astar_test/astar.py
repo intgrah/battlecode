@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import heapq
-from typing import TYPE_CHECKING
+from collections.abc import Callable
 
-from cambc import Controller, Direction, EntityType, Environment, Position
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from cambc import Direction, EntityType, Environment, Position
+from symmetry import Symmetry, mirror
 
 INF = 1_000_000
 
 COST_ROAD = 2
 COST_EMPTY = 10
-COST_UNSEEN = 12
+COST_UNSEEN = 8
 COST_BUILDER = 1_000
 COST_BUILT_IMPASSABLE = 10_000
 COST_IMPASSABLE = INF
@@ -25,17 +23,17 @@ DIR8_DELTA: tuple[tuple[int, int], ...] = tuple(
     d.delta()
     for d in (
         Direction.NORTH,
-        Direction.NORTHEAST,
         Direction.EAST,
-        Direction.SOUTHEAST,
         Direction.SOUTH,
-        Direction.SOUTHWEST,
         Direction.WEST,
+        Direction.NORTHEAST,
+        Direction.SOUTHEAST,
+        Direction.SOUTHWEST,
         Direction.NORTHWEST,
     )
 )
 
-# Buildings that are walkable (roads, conveyors, etc.)
+
 _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     {
         EntityType.ROAD,
@@ -47,16 +45,16 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
 )
 
 
-def _build_nb(w: int, h: int) -> list[list[tuple[int, bool]]]:
-    """Precompute neighbor table: nb[i] = [(neighbor_idx, is_diagonal), ...]."""
+def _build_nb(w: int, h: int) -> list[list[int]]:
+    """Precompute neighbor table: nb[i] = [neighbor_idx, ...]."""
     n = w * h
-    nb: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
+    nb: list[list[int]] = [[] for _ in range(n)]
     for i in range(n):
         cx, cy = i % w, i // w
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                nb[i].append((ny * w + nx, dx != 0 and dy != 0))
+                nb[i].append(ny * w + nx)
     return nb
 
 
@@ -71,6 +69,7 @@ def _extract_path(p: list[int], si: int, gi: int) -> list[int]:
         path.append(node)
     path.reverse()
     return path
+
 
 
 class NavAstar:
@@ -107,62 +106,76 @@ class NavAstar:
         self._best_node = 0
         self._heap: list[tuple[int, int]] = []
 
-    def update(self, ct: Controller, pos: Position) -> None:
-        """Update cost grid from current vision.
-        Marks dirty if a terrain tile on the path got more expensive,
-        or if a builder is blocking the next step."""
-        w = self.w
-        my_id = ct.get_id()
-        my_team = ct.get_team()
-        grid = self._cost_grid
-        path = self._path
-        dirty = self._dirty
-        has_path = path is not None and not dirty
-        # Next step: path_idx is where we are now, path_idx+1 is the next move
-        if has_path:
-            pi = self._path_idx
-            next_idx = path[pi + 1] if pi + 1 < len(path) else -1
+    def update_tile(
+        self,
+        i: int,
+        env: Environment,
+        building_type: EntityType | None,
+        is_allied_building: bool,
+        is_builder: bool,
+        sym: Symmetry = Symmetry.UNKNOWN,
+    ) -> None:
+        """Update a single tile's cost from raw tile data and check dirty flags."""
+        # Compute cost
+        if env == Environment.WALL:
+            cost = COST_IMPASSABLE
+        elif building_type is None:
+            cost = COST_EMPTY
+        elif building_type == EntityType.CORE:
+            cost = COST_ROAD if is_allied_building else COST_IMPASSABLE
+        elif building_type == EntityType.MARKER:
+            cost = COST_EMPTY
+        elif building_type in _WALKABLE_BUILDINGS:
+            cost = COST_ROAD
         else:
-            next_idx = -1
-        path_set = self._path_set
-        for tile in ct.get_nearby_tiles():
-            i = tile.y * w + tile.x
-            # Terrain + buildings
-            env = ct.get_tile_env(tile)
-            if env == Environment.WALL:
-                new_cost = COST_IMPASSABLE
-            else:
-                bid = ct.get_tile_building_id(tile)
-                if bid is None:
-                    new_cost = COST_EMPTY
-                else:
-                    etype = ct.get_entity_type(bid)
-                    if etype == EntityType.CORE:
-                        new_cost = (
-                            COST_ROAD
-                            if ct.get_team(bid) == my_team
-                            else COST_IMPASSABLE
-                        )
-                    elif etype == EntityType.MARKER:
-                        new_cost = COST_EMPTY
-                    elif etype in _WALKABLE_BUILDINGS:
-                        new_cost = COST_ROAD
-                    else:
-                        new_cost = COST_BUILT_IMPASSABLE
-            # Builder bot overlay — always detect so cost grid is accurate
-            bbid = ct.get_tile_builder_bot_id(tile)
-            if bbid is not None and bbid != my_id:
-                if has_path and i == next_idx:
-                    new_cost = COST_BUILDER
-                    dirty = True
-                    has_path = False
-            old_cost = grid[i]
-            if old_cost != new_cost:
-                grid[i] = new_cost
-                if has_path and new_cost > (old_cost or COST_UNSEEN) and i in path_set:
-                    dirty = True
-                    has_path = False
-        self._dirty = dirty
+            cost = COST_BUILT_IMPASSABLE
+        # Builder bot overlay
+        if is_builder and self._has_path and i == self._next_idx:
+            cost = COST_BUILDER
+            self._dirty = True
+            self._has_path = False
+        # Update grid and dirty check
+        self._set_cost(i, cost)
+        # Mirror environment via symmetry
+        if sym is not Symmetry.UNKNOWN:
+            w = self.w
+            y = i // w
+            m = mirror(Position(i - y * w, y), sym, w, self.h)
+            mi = m.y * w + m.x
+            if self._cost_grid[mi] is None:
+                env_cost = COST_IMPASSABLE if env == Environment.WALL else COST_EMPTY
+                self._set_cost(mi, env_cost)
+
+    def _set_cost(self, i: int, cost: int) -> None:
+        """Write cost to grid and check dirty flags."""
+        old_cost = self._cost_grid[i]
+        if old_cost != cost:
+            self._cost_grid[i] = cost
+            if self._has_path and cost > (old_cost or COST_UNSEEN) and i in self._path_set:
+                self._dirty = True
+                self._has_path = False
+
+    def mirror_known(self, sym: Symmetry, known_env: dict[int, Environment]) -> None:
+        """Bulk-mirror all previously observed tile environments via symmetry."""
+        w, h = self.w, self.h
+        grid = self._cost_grid
+        for i, env in known_env.items():
+            m = mirror(Position(i % w, i // w), sym, w, h)
+            mi = m.y * w + m.x
+            if grid[mi] is None:
+                cost = COST_IMPASSABLE if env == Environment.WALL else COST_EMPTY
+                grid[mi] = cost
+        self._dirty = True
+
+    def begin_update(self) -> None:
+        """Prepare dirty-checking state before iterating tiles."""
+        path = self._path
+        self._has_path = path is not None and not self._dirty
+        if self._has_path:
+            pi = self._path_idx
+            self._next_idx = path[pi + 1] if pi + 1 < len(path) else -1
+        else:
+            self._next_idx = -1
 
     def get_cost(self, pos: Position) -> int | None:
         """Return the cost grid value at a position, or None if unseen."""
@@ -195,8 +208,7 @@ class NavAstar:
         self._best_node = source
         g[source] = 0
         sx, sy = source % self.w, source // self.w
-        dx, dy = abs(sx - self._gx), abs(sy - self._gy)
-        h0 = (max(dx, dy) * COST_ROAD + min(dx, dy)) * W_HEURISTIC
+        h0 = (max(abs(sx - self._gx), abs(sy - self._gy)) * COST_ROAD) * W_HEURISTIC
         self._heap = [(h0, source)]
 
     def _compute(self, within_budget: Callable[[], bool]) -> None:
@@ -237,9 +249,7 @@ class NavAstar:
                 return
 
             ny = node // w
-            dx = abs(node - ny * w - gx)
-            dy = abs(ny - gy)
-            node_h = max(dx, dy) * _COST_ROAD + min(dx, dy)
+            node_h = max(abs(node - ny * w - gx), abs(ny - gy)) * _COST_ROAD
             if f > g[node] + node_h * _W:
                 continue
 
@@ -248,13 +258,11 @@ class NavAstar:
                 break
 
             gn = g[node]
-            for ni, diag in nb[node]:
+            for ni in nb[node]:
                 c = grid[ni]
                 wt = _COST_UNSEEN if c is None else c
                 if wt >= _COST_IMPASSABLE:
                     continue
-                if diag:
-                    wt += 1
                 nd = gn + wt
                 if nd < g[ni]:
                     if g[ni] == _INF:
@@ -262,9 +270,7 @@ class NavAstar:
                     g[ni] = nd
                     p[ni] = node
                     niy = ni // w
-                    dx = abs(ni - niy * w - gx)
-                    dy = abs(niy - gy)
-                    hval = max(dx, dy) * _COST_ROAD + min(dx, dy)
+                    hval = max(abs(ni - niy * w - gx), abs(niy - gy)) * _COST_ROAD
                     _heappush(heap, (nd + hval * _W, ni))
                     if hval < best_h:
                         best_h = hval
