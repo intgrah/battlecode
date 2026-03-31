@@ -82,7 +82,7 @@ class Builder(Unit):
         t0 = ct.get_cpu_time_elapsed()
         _update_nearby_tiles(self.nav, resolved, ct)
         t1 = ct.get_cpu_time_elapsed()
-        next_pos = self.nav.step(pos, lambda: ct.get_cpu_time_elapsed() < 400)
+        next_pos = self.nav.step(pos, lambda: ct.get_cpu_time_elapsed() < 800)
         t2 = ct.get_cpu_time_elapsed()
 
         print(f"sym={resolved.name} enemy={self.sym.enemy_core}")
