@@ -8146,7 +8146,6 @@ class Core:
 
     def run(self, ct: Controller) -> None:
         """Exectues once each round"""
-
         spawn_pos = ct.get_position()
 
         # Need to tweak these values, balance of early game econ -> constant pressure on enemy base
@@ -8173,7 +8172,6 @@ class Gunner:
 
     def run(self, ct: Controller) -> None:
         """Exectues once each round"""
-
         direction = ct.get_direction(ct.get_id())
 
         pos = ct.get_position().add(direction)
@@ -8262,7 +8260,6 @@ class BuilderBot:
 
     def idx_to_pos(self, idx: int) -> Position:
         """Converts grid index to position"""
-
         x = idx % self.width
         y = idx // self.width
         return Position(x, y)
@@ -8272,7 +8269,6 @@ class BuilderBot:
 
     def run(self, ct: Controller) -> None:
         """Exectues once each round"""
-
         self.update_map(ct)
         if self.builder_id < 4 and len(self.candidate_maps) == 1:
             # We know what map we are on
@@ -8600,7 +8596,6 @@ class BuilderBot:
 
     def debug_map(self) -> None:
         """Debug the environment map"""
-
         for i in range(self.height):
             row = ""
             for j in range(self.width):
@@ -8617,7 +8612,6 @@ class BuilderBot:
 
     def debug_ally_buildings(self) -> None:
         """Debug the ally building map"""
-
         for i in range(self.height):
             row = ""
             for j in range(self.width):
@@ -8647,7 +8641,6 @@ class BuilderBot:
 
     def debug_ally_bots(self) -> None:
         """Debug the ally bot map"""
-
         for i in range(self.height):
             row = ""
             for j in range(self.width):
@@ -8659,10 +8652,8 @@ class BuilderBot:
             print(row)
 
     def update_map(self, ct: Controller) -> None:
+        """Updates the builder bots internal map based on their vision.
         """
-        Updates the builder bots internal map based on their vision.
-        """
-
         known_map = len(self.candidate_maps) == 1
         if known_map:
             candidate = self.candidate_maps[0]
@@ -8756,13 +8747,11 @@ class BuilderBot:
         enemy_base_walkable: bool = True,
         max_depth: int = 0,
     ) -> Direction | None:
-        """
-        Get direction to move to goal, most costly method
+        """Get direction to move to goal, most costly method
         - need to watch A* calc timings and optimize as hard as possible
 
         - probably can add a simple thing like conveyer follow and branch out when distance to a ore is near enough for A* to take over...
         """
-
         pos = ct.get_position()
         start_idx = pos.y * self.width + pos.x
         return get_next_move(
@@ -8781,7 +8770,6 @@ class BuilderBot:
 
     def safe_move(self, ct: Controller, direction: Direction) -> bool:
         """Moves in a given direction given that it is safe"""
-
         pos = ct.get_position()
         intent = pos.add(direction)
         if (
@@ -8806,7 +8794,6 @@ class BuilderBot:
         destruct: bool = True,
     ) -> bool:
         """Moves in a given direction given that it is safe"""
-
         pos = ct.get_position()
         if destruct:
             block = ct.get_tile_building_id(pos)

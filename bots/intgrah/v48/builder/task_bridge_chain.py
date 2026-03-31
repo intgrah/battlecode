@@ -42,7 +42,8 @@ def _find_disconnected_harvester(state: State) -> Position | None:
 
 def _pick_bridge_start(state: State, harvester: Position) -> Position | None:
     """Pick the best cardinal-adjacent tile to start a bridge chain.
-    Prefers the side closest to core."""
+    Prefers the side closest to core.
+    """
     cx, cy = state.my_core
     best: Position | None = None
     best_dist = INF

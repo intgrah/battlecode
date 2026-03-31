@@ -100,7 +100,7 @@ class Builder(Unit):
             result = fn(s, ct)
             if result is not None:
                 print(
-                    f"[{self.role.name}] T{ct.get_current_round()} {task.name} score={score}"
+                    f"[{self.role.name}] T{ct.get_current_round()} {task.name} score={score}",
                 )
                 return result
         print(f"[{self.role.name}] T{ct.get_current_round()} IDLE")

@@ -1,5 +1,4 @@
-"""
-A*.
+"""A*.
 
 Heuristic-guided single source shortest path (SSSP).
 """

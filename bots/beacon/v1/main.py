@@ -225,7 +225,8 @@ class Player:
     ) -> list[Position]:
         """Return waypoints from start toward core_adj, each within bridge range (dist_sq<=9).
         Bridges at waypoints[0..n-2], conveyor at waypoints[-1] (core_adj).
-        Skips wall tiles by nudging waypoints to adjacent non-wall positions."""
+        Skips wall tiles by nudging waypoints to adjacent non-wall positions.
+        """
         waypoints = [Position(start.x, start.y)]
         cx, cy = start.x, start.y
         max_iter = 50  # safety limit
@@ -469,7 +470,8 @@ class Player:
         c: Controller,
     ) -> tuple[Position, Position] | None:
         """Find a friendly harvester with no adjacent bridge/conveyor.
-        Returns (harvester_pos, best_build_pos) or None."""
+        Returns (harvester_pos, best_build_pos) or None.
+        """
         my_team = c.get_team()
         pos = c.get_position()
         if self.core_pos is None:
@@ -524,7 +526,8 @@ class Player:
     def _find_hanging_bridge(self, c: Controller) -> tuple[Position, Position] | None:
         """Find a nearby friendly bridge whose target tile has no building (broken chain).
         Only returns gaps that are non-wall and close to this unit.
-        Returns (bridge_pos, gap_pos) or None."""
+        Returns (bridge_pos, gap_pos) or None.
+        """
         my_team = c.get_team()
         pos = c.get_position()
         best = None
@@ -555,7 +558,8 @@ class Player:
     def _find_repair_target(self, c: Controller, gap_pos: Position) -> Position | None:
         """Find the best target for a patch bridge at gap_pos.
         Prefers an existing friendly bridge/conveyor closer to core within bridge range.
-        Falls back to a position ~2 tiles closer to core."""
+        Falls back to a position ~2 tiles closer to core.
+        """
         if self.core_pos is None:
             return None
         my_team = c.get_team()
@@ -757,7 +761,8 @@ class Player:
 
     def _find_blocked_bridge_target(self, c: Controller) -> Position | None:
         """Find a friendly bridge whose target has an enemy building on it.
-        Returns the blocked position to suicide onto, or None."""
+        Returns the blocked position to suicide onto, or None.
+        """
         my_team = c.get_team()
         pos = c.get_position()
         best_pos = None
@@ -790,7 +795,8 @@ class Player:
         ti: int,
     ) -> Direction | None:
         """Try preferred direction first, then adjacent, then rest.
-        Returns the direction moved, or None if stuck."""
+        Returns the direction moved, or None if stuck.
+        """
         idx = DIRS.index(preferred) if preferred in DIRS else 0
         order = [DIRS[(idx + o) % 8] for o in [0, 1, -1, 2, -2, 3, -3, 4]]
         road_cost, _ = c.get_road_cost()
@@ -851,7 +857,8 @@ class Player:
     ) -> bool:
         """When stuck, try to build a bridge from current position to any future waypoint.
         Bridges teleport over walls so the chainer doesn't need to walk there.
-        Returns True if a bridge was built."""
+        Returns True if a bridge was built.
+        """
         my_team = c.get_team()
         # Try each future waypoint (skip the last one which is a conveyor)
         for future_idx in range(current_idx + 1, len(waypoints) - 1):
@@ -896,7 +903,8 @@ class Player:
         explorer_pos: Position,
     ) -> Position:
         """Find the best cardinal-adjacent tile to the harvester for the first bridge.
-        Prefers the tile closest to core. Falls back to explorer's position."""
+        Prefers the tile closest to core. Falls back to explorer's position.
+        """
         if self.core_pos is None:
             return explorer_pos
         best = explorer_pos

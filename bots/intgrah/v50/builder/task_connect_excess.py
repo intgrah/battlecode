@@ -88,7 +88,7 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
             sources = state.my_harvesters | state.my_transport
     w = state.w
     print(
-        f"  excess_check: sources={len(sources)} ti_ex={[f.ti_excess[i] for i in sources]} rax_ex={[f.rax_excess[i] for i in sources]} excess={[f.excess[i] for i in sources]}"
+        f"  excess_check: sources={len(sources)} ti_ex={[f.ti_excess[i] for i in sources]} rax_ex={[f.rax_excess[i] for i in sources]} excess={[f.excess[i] for i in sources]}",
     )
     for i in sources:
         match kind:
@@ -188,7 +188,7 @@ def _find_adjacent_empty(
             continue
         bld_ni = state.building[ni]
         if bld_ni is not None and not isinstance(
-            bld_ni, (BuildingRoad, BuildingMarker)
+            bld_ni, (BuildingRoad, BuildingMarker),
         ):
             continue
         if (

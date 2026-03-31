@@ -305,5 +305,5 @@ def update_flow(state: State) -> None:
     print(
         f"    econ: setup={int((_t1 - _t0) * 1e6)}us edges={int((_t2 - _t1) * 1e6)}us"
         f" fwd={int((_t3 - _t2) * 1e6)}us bwd={int((_t4 - _t3) * 1e6)}us"
-        f" total={int((_t4 - _t0) * 1e6)}us"
+        f" total={int((_t4 - _t0) * 1e6)}us",
     )

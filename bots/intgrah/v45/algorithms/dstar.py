@@ -1,5 +1,4 @@
-"""
-D* Lite.
+"""D* Lite.
 
 Incremental heuristic-guided single source shortest path (SSSP).
 

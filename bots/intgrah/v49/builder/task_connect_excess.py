@@ -181,7 +181,7 @@ def _find_adjacent_empty(
             continue
         bld_ni = state.building[ni]
         if bld_ni is not None and not isinstance(
-            bld_ni, (BuildingRoad, BuildingMarker)
+            bld_ni, (BuildingRoad, BuildingMarker),
         ):
             continue
         if (

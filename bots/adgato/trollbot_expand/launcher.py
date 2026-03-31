@@ -8,7 +8,7 @@ from utils import in_bounds
 def _adjacent_to_core(bp: Position, core: Position) -> bool:
     """True if builder bot is on a cardinal at king distance 2 from core."""
     return (bp.x == core.x or bp.y == core.y) and max(
-        abs(bp.x - core.x), abs(bp.y - core.y)
+        abs(bp.x - core.x), abs(bp.y - core.y),
     ) == 2
 
 

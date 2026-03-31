@@ -106,7 +106,7 @@ class Players(_message.Message):
     a: Player
     b: Player
     def __init__(
-        self, a: Player | _Mapping | None = ..., b: Player | _Mapping | None = ...
+        self, a: Player | _Mapping | None = ..., b: Player | _Mapping | None = ...,
     ) -> None: ...
 
 class Player(_message.Message):
@@ -210,7 +210,7 @@ class MoveBuilderBot(_message.Message):
     id: int
     to: Pos
     def __init__(
-        self, id: int | None = ..., to: Pos | _Mapping | None = ...
+        self, id: int | None = ..., to: Pos | _Mapping | None = ...,
     ) -> None: ...
 
 class RemoveEntity(_message.Message):
@@ -224,7 +224,7 @@ class DistributeResources(_message.Message):
     MOVES_FIELD_NUMBER: _ClassVar[int]
     moves: _containers.RepeatedCompositeFieldContainer[ResourceMove]
     def __init__(
-        self, moves: _Iterable[ResourceMove | _Mapping] | None = ...
+        self, moves: _Iterable[ResourceMove | _Mapping] | None = ...,
     ) -> None: ...
 
 class ResourceMove(_message.Message):
@@ -451,7 +451,7 @@ class BuilderBot(_message.Message):
     action_cooldown: int
     move_cooldown: int
     def __init__(
-        self, action_cooldown: int | None = ..., move_cooldown: int | None = ...
+        self, action_cooldown: int | None = ..., move_cooldown: int | None = ...,
     ) -> None: ...
 
 class Conveyor(_message.Message):
@@ -509,7 +509,7 @@ class Harvester(_message.Message):
     cooldown: int
     resource_type: ResourceType
     def __init__(
-        self, cooldown: int | None = ..., resource_type: ResourceType | str | None = ...
+        self, cooldown: int | None = ..., resource_type: ResourceType | str | None = ...,
     ) -> None: ...
 
 class Foundry(_message.Message):
@@ -590,5 +590,5 @@ class Launcher(_message.Message):
     ammo_type: ResourceType
     ammo_amount: int
     def __init__(
-        self, ammo_type: ResourceType | str | None = ..., ammo_amount: int | None = ...
+        self, ammo_type: ResourceType | str | None = ..., ammo_amount: int | None = ...,
     ) -> None: ...

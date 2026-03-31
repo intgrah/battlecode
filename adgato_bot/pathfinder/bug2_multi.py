@@ -1,6 +1,7 @@
 """Multi-agent Bug2: each agent runs independent Bug2 logic, one move per step.
 Agents cannot occupy the same tile — if a move is blocked by another agent,
-the agent waits that turn."""
+the agent waits that turn.
+"""
 
 import os
 import random
@@ -70,7 +71,8 @@ class AgentState:
 def bug2_step(agent, walkable, occupied):
     """Advance one Bug2 step for a single agent.
     occupied is the set of cells occupied by OTHER agents this turn.
-    Returns the new position (may be unchanged if blocked by another agent)."""
+    Returns the new position (may be unchanged if blocked by another agent).
+    """
     if agent.done:
         return agent.current
 
@@ -294,7 +296,8 @@ def run_multi(
     """Run multiple independent Bug2 agents.
     agent_configs: list of (start, goal) tuples.
     temp_wall_count: number of temporary walls active at any time.
-    Returns list of (path, reached) per agent."""
+    Returns list of (path, reached) per agent.
+    """
     if rng is None:
         rng = random.Random()
     agents = [AgentState(s, g) for s, g in agent_configs]

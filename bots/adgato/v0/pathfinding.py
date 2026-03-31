@@ -70,7 +70,8 @@ def _make_line_state(
     target: Position,
 ) -> tuple[int, int, Literal[1, -1, 0], Literal[1, -1, 0], int]:
     """Compute Bresenham parameters for a line from pos toward target.
-    Returns (adx, ady, sx, sy, err)."""
+    Returns (adx, ady, sx, sy, err).
+    """
     adx = abs(target.x - pos.x)
     ady = abs(target.y - pos.y)
     sx = 1 if pos.x < target.x else -1 if pos.x > target.x else 0
@@ -86,7 +87,8 @@ def scan_line(
     """Walk a Bresenham line from pos toward target within vision.
     Returns (furthest_walkable, first_wall).
     furthest_walkable: last walkable cell before a wall or vision edge, or None.
-    first_wall: first non-walkable cell within vision, or None."""
+    first_wall: first non-walkable cell within vision, or None.
+    """
     if pos == target:
         return None, None
     x, y = pos.x, pos.y
@@ -112,7 +114,8 @@ def _step_along_line(
     line_state: tuple[int, int, int, int, int],
 ) -> tuple[Position, Direction | None, tuple[int, int, int, int, int] | None]:
     """Take one Bresenham step from current toward target.
-    Returns (next_cell, blocked_direction_or_None, new_line_state)."""
+    Returns (next_cell, blocked_direction_or_None, new_line_state).
+    """
     if current == target:
         return current, None, line_state
     ls_adx, ls_ady, ls_sx, ls_sy, ls_err = line_state
@@ -233,8 +236,8 @@ def bug2_step(
 ) -> Position:
     """Advance one Bug2 step for a single agent.
     occupied is the set of Positions occupied by OTHER agents this turn.
-    Returns the new Position (may be unchanged if blocked by another agent)."""
-
+    Returns the new Position (may be unchanged if blocked by another agent).
+    """
     # Sync agent position with external state
     moved = pos != agent.current
     if moved:

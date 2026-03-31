@@ -188,7 +188,7 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
     print(
         f"    scan: tiles={n_tiles} bld={n_bld} markers={n_markers}"
         f" api={t_api}us make={t_make}us sets={t_sets}us"
-        f" eq={t_eq}us marker={t_marker}us sym={t_sym}us rest={t_rest}us"
+        f" eq={t_eq}us marker={t_marker}us sym={t_sym}us rest={t_rest}us",
     )
     return changed
 

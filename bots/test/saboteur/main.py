@@ -6,7 +6,7 @@ _TARGETS = frozenset(
         EntityType.CONVEYOR,
         EntityType.ARMOURED_CONVEYOR,
         EntityType.SPLITTER,
-    )
+    ),
 )
 
 _DIRS = [d for d in Direction if d != Direction.CENTRE]
