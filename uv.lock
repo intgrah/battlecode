@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 [manifest]
 members = [
     "battlecode",
+    "bot-adgato-astar-test",
     "bot-adgato-dummy",
     "bot-adgato-launcher-test",
     "bot-adgato-teleportation",
@@ -32,6 +33,7 @@ members = [
     "bot-exploit-uaf",
     "bot-pd",
     "bot-rug",
+    "bot-saboteur",
     "bot-se",
     "bot-starter",
     "bot-v0",
@@ -123,6 +125,17 @@ dev = [
     { name = "ruff" },
     { name = "ty" },
 ]
+
+[[package]]
+name = "bot-adgato-astar-test"
+version = "0.0.0"
+source = { virtual = "bots/adgato/astar_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 
 [[package]]
 name = "bot-adgato-dummy"
@@ -414,6 +427,17 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-rug"
 version = "0.0.0"
 source = { virtual = "bots/misc/rug" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-saboteur"
+version = "0.0.0"
+source = { virtual = "bots/test/saboteur" }
 dependencies = [
     { name = "cambc" },
 ]
