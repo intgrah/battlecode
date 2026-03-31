@@ -10,6 +10,7 @@ from config import NAV, NavMode
 from navigation.astar_apsp import find_path_raw as _apsp
 from navigation.astar_bucket import find_path_raw as _bucket_py
 from navigation.astar_landmarks import find_path_raw as _landmarks
+from navigation.bfs import find_path_raw as _bfs
 
 _bucket_c = _bucket_py
 if NAV == NavMode.ASTAR_BUCKET_C:
@@ -59,3 +60,10 @@ def find_path(state: State, gx: int, gy: int) -> list[int] | None:
             if apsp is not None:
                 return _apsp(w, h, cost, sx, sy, gx, gy, apsp)
             return _bucket_py(w, h, cost, sx, sy, gx, gy)
+        case NavMode.BFS:
+            return _bfs(w, h, cost, sx, sy, gx, gy, state)
+        case NavMode.HPA:
+            hpa = state.hpa_graph
+            if hpa is not None:
+                return hpa.find_path(sx, sy, gx, gy)
+            return _bfs(w, h, cost, sx, sy, gx, gy, state)

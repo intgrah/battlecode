@@ -600,7 +600,7 @@ class GatewayGraph:
             ti = gw_tile[gi_idx]
             tx = ti % w
             ty = ti // w
-            h = max(abs(tx - gx_f), abs(ty - gy_f)) * 2
+            h = max(abs(tx - gx_f), abs(ty - gy_f))
             heapq.heappush(heap, (c + h, gi_idx, c))
 
         best_total = _INF
@@ -624,7 +624,7 @@ class GatewayGraph:
                     ti = gw_tile[nb]
                     tx = ti % w
                     ty = ti // w
-                    h = max(abs(tx - gx_f), abs(ty - gy_f)) * 2
+                    h = max(abs(tx - gx_f), abs(ty - gy_f))
                     heapq.heappush(heap, (nd + h, nb, nd))
 
         if dst_node not in ab_parent:
@@ -728,7 +728,7 @@ class GatewayGraph:
         sci = self._cluster_of(sx, sy)
         gci = self._cluster_of(gx, gy)
         if sci == gci:
-            return max(abs(sx - gx), abs(sy - gy)) * 2
+            return max(abs(sx - gx), abs(sy - gy))
         src_dist, _ = self._insert_temp(node, sci)
         dst_dist, _ = self._insert_temp(goal, gci)
         if not src_dist or not dst_dist:

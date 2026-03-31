@@ -101,6 +101,53 @@ class UnifiedFlow:
         self._prev_recv: tuple[list[int], ...] = ()
 
 
+_DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
+
+
+def _build_pnb(
+    w: int, h: int, n: int, cost: list[int]
+) -> list[list[int]]:
+    pnb: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        if cost[i] >= COST_IMPASSABLE:
+            continue
+        cx, cy = i % w, i // w
+        for dx, dy in _DIR8:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                if cost[ni] < COST_IMPASSABLE:
+                    pnb[i].append(ni)
+    return pnb
+
+
+def _update_pnb(
+    w: int, h: int, cost: list[int], pnb: list[list[int]], i: int
+) -> None:
+    cx, cy = i % w, i // w
+    passable = cost[i] < COST_IMPASSABLE
+    pnb[i] = []
+    if passable:
+        for dx, dy in _DIR8:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                if cost[ni] < COST_IMPASSABLE:
+                    pnb[i].append(ni)
+    for dx, dy in _DIR8:
+        nx, ny = cx + dx, cy + dy
+        if 0 <= nx < w and 0 <= ny < h:
+            ni = ny * w + nx
+            if cost[ni] >= COST_IMPASSABLE:
+                continue
+            nb_list = pnb[ni]
+            if passable:
+                if i not in nb_list:
+                    nb_list.append(i)
+            elif i in nb_list:
+                nb_list.remove(i)
+
+
 class State:
     """Pure data container for builder belief state.
 
@@ -121,6 +168,7 @@ class State:
         self.building: list[Building | None] = [None] * n
         self.last_seen: list[int] = [0] * n
         self.cost: list[int] = [COST_UNSEEN] * n
+        self.pnb: list[list[int]] = _build_pnb(self.w, self.h, n, self.cost)
 
         # -- Resources (indexed as y * w + x) --
         self.ore_ti: set[int] = set()
@@ -209,6 +257,9 @@ class State:
         # -- Landmarks --
         self.landmarks: tuple[list[int], int, bytes] | None = None
 
+        # -- HPA* --
+        self.hpa_graph: object | None = None
+
         km = _try_identify_map(self, core_pos)
         if km is not None:
             if USE_HARDCODED_MAPS:
@@ -228,28 +279,31 @@ class State:
         return self.env[y * self.w + x] is None
 
     def update_cost(self, i: int) -> None:
+        old_passable = self.cost[i] < COST_IMPASSABLE
         match self.env[i]:
             case None:
                 self.cost[i] = COST_UNSEEN
-                return
             case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
                 self.cost[i] = COST_IMPASSABLE
-                return
-        match self.building[i]:
-            case None | BuildingMarker():
-                self.cost[i] = COST_EMPTY
-            case BuildingCore(team) if team == self.my_team:
-                self.cost[i] = COST_ROAD
-            case (
-                BuildingRoad()
-                | BuildingConveyor()
-                | BuildingArmouredConveyor()
-                | BuildingSplitter()
-                | BuildingBridge()
-            ):
-                self.cost[i] = COST_ROAD
             case _:
-                self.cost[i] = COST_IMPASSABLE
+                match self.building[i]:
+                    case None | BuildingMarker():
+                        self.cost[i] = COST_EMPTY
+                    case BuildingCore(team) if team == self.my_team:
+                        self.cost[i] = COST_ROAD
+                    case (
+                        BuildingRoad()
+                        | BuildingConveyor()
+                        | BuildingArmouredConveyor()
+                        | BuildingSplitter()
+                        | BuildingBridge()
+                    ):
+                        self.cost[i] = COST_ROAD
+                    case _:
+                        self.cost[i] = COST_IMPASSABLE
+        new_passable = self.cost[i] < COST_IMPASSABLE
+        if old_passable != new_passable:
+            _update_pnb(self.w, self.h, self.cost, self.pnb, i)
 
     def walkable(self, x: int, y: int) -> int:
         if Position(x, y) in self.unit_tiles:

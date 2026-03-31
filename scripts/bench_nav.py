@@ -962,7 +962,6 @@ def main() -> None:
     writer.writeheader()
 
     hpa_precomp_times: list[float] = []
-    hpa_excl_rows: list[dict[str, str | int]] = []
 
     for mf in map_files:
         md = MapData(mf)
@@ -1036,8 +1035,6 @@ def main() -> None:
                             "first_move_correct": "",
                         }
                         writer.writerow(row)
-                        if "excl precomp" in algo_name:
-                            hpa_excl_rows.append(row)
                         continue
 
                     if si == gi:
@@ -1054,8 +1051,6 @@ def main() -> None:
                             "first_move_correct": 1,
                         }
                         writer.writerow(row)
-                        if "excl precomp" in algo_name:
-                            hpa_excl_rows.append(row)
                         continue
 
                     t0 = time.perf_counter()
@@ -1088,20 +1083,19 @@ def main() -> None:
                         "first_move_correct": fm,
                     }
                     writer.writerow(row)
-                    if "excl precomp" in algo_name:
-                        hpa_excl_rows.append(row)
 
                 done += 1
                 progress_bar(done, total_work, prefix=prefix)
 
-    if hpa_excl_rows and hpa_precomp_times:
-        avg_precomp = sum(hpa_precomp_times) / len(hpa_precomp_times)
-        amortized = avg_precomp / N_PAIRS
-        for orig in hpa_excl_rows:
-            row = dict(orig)
-            row["algo"] = "hpastar incl precomp"
-            row["time_us"] = f"{float(str(orig['time_us'])) + amortized:.1f}"
-            writer.writerow(row)
+    if hpa_precomp_times:
+        hpa_precomp_times.sort()
+        hn = len(hpa_precomp_times)
+        print(
+            f"\nHPA* precomp: p50={hpa_precomp_times[hn // 2]:.0f}us"
+            f" p100={hpa_precomp_times[-1]:.0f}us"
+            f" (NOT amortized, per map)",
+            file=sys.stderr,
+        )
 
     out_f.close()
     print(f"\nSaved {out_path}", file=sys.stderr)
