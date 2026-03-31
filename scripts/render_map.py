@@ -6,6 +6,7 @@ Usage: python scripts/render_map.py maps/<name>.map26 [output.png]
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -70,7 +71,7 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
         font_sm = ImageFont.truetype(
             "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 12
         )
-    except Exception:
+    except OSError:
         font = ImageFont.load_default()
         font_sm = font
 
@@ -158,7 +159,7 @@ def render_map(map_path: str, output_path: str | None = None) -> str:
     )
 
     if output_path is None:
-        output_path = f"/tmp/{map_name}.png"
+        output_path = f"{tempfile.gettempdir()}/{map_name}.png"
     new_img.save(output_path)
     print(f"Saved to {output_path}")
     return output_path
