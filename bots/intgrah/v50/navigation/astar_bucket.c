@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 #define INF 1000000
-#define COST_ROAD 2
-#define DIAL_MOD 14
+#define COST_ROAD 1
+#define DIAL_MOD 5
 #define NODE_BUDGET 700
 #define MAX_NB 8
 

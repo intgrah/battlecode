@@ -50,13 +50,13 @@ def find_path_raw(
     g[si] = 0
     touched = [si]
     h_si = _h(si)
-    heap: list[tuple[int, int]] = [(h_si, si)]
+    heap: list[tuple[int, int, int]] = [(h_si, h_si, si)]
     exp = 0
     best_h = INF
     best_node = si
 
     while heap:
-        f, node = heapq.heappop(heap)
+        f, _, node = heapq.heappop(heap)
         if node == gi:
             return _extract(parent, si, gi)
         h_node = _h(node)
@@ -78,15 +78,14 @@ def find_path_raw(
             c = cost[ni]
             if c >= INF:
                 continue
-            if dx != 0 and dy != 0:
-                c += 1
             nd = gn + c
             if nd < g[ni]:
                 if g[ni] == INF:
                     touched.append(ni)
                 g[ni] = nd
                 parent[ni] = node
-                heapq.heappush(heap, (nd + _h(ni), ni))
+                h_ni = _h(ni)
+                heapq.heappush(heap, (nd + h_ni, h_ni, ni))
 
     if best_h < INF:
         return _extract(parent, si, best_node)

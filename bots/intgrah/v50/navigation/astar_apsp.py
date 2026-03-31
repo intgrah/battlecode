@@ -33,13 +33,13 @@ def find_path_raw(
     touched = [si]
     h0 = apsp.dist(si, gi)
     h0 = h0 * COST_ROAD if h0 < 255 else INF
-    heap: list[tuple[int, int]] = [(h0, si)]
+    heap: list[tuple[int, int, int]] = [(h0, h0, si)]
     exp = 0
     best_h = INF
     best_node = si
 
     while heap:
-        f, node = heapq.heappop(heap)
+        f, _, node = heapq.heappop(heap)
         if node == gi:
             return _extract(parent, si, gi)
         hv = apsp.dist(node, gi)
@@ -62,8 +62,6 @@ def find_path_raw(
             c = cost[ni]
             if c >= INF:
                 continue
-            if dx != 0 and dy != 0:
-                c += 1
             nd = gn + c
             if nd < g[ni]:
                 if g[ni] == INF:
@@ -72,7 +70,7 @@ def find_path_raw(
                 parent[ni] = node
                 h_ni = apsp.dist(ni, gi)
                 h_ni = h_ni * COST_ROAD if h_ni < 255 else INF
-                heapq.heappush(heap, (nd + h_ni, ni))
+                heapq.heappush(heap, (nd + h_ni, h_ni, ni))
 
     if best_h < INF:
         return _extract(parent, si, best_node)

@@ -26,8 +26,8 @@ from scripts.hpastar import GatewayGraph
 MAPS_DIR = Path(__file__).resolve().parent.parent / "maps"
 
 INF = 1_000_000
-CR = 2
-CE = 10
+CR = 1
+CE = 3
 DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 N_PAIRS = 200
@@ -78,7 +78,7 @@ class MapData:
         self.cost: list[int] = [
             INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)
         ]
-        self.nb: list[list[tuple[int, bool]]] = _build_nb(self.w, self.h)
+        self.nb: list[list[int]] = _build_nb(self.w, self.h)
         self.passable: list[int] = [i for i in range(self.n) if self.cost[i] < INF]
         self.offsets_card: tuple[int, ...] = (-self.w, -1, 1, self.w)
         w = self.w
@@ -89,7 +89,6 @@ class MapData:
     def reset_cost_no_roads(self) -> None:
         self.cost = [INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)]
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
-        self.apsp = None
         self.hpa_graph = None
 
     def place_roads(self) -> int:
@@ -99,7 +98,7 @@ class MapData:
         ores: list[int] = [i for i in range(n) if tiles[i] in (2, 3)]
         ore_adj: set[int] = set()
         for oi in ores:
-            for ni, _ in nb[oi]:
+            for ni in nb[oi]:
                 if cost[ni] < INF:
                     ore_adj.add(ni)
         targets = list(ore_adj)[:5]
@@ -116,12 +115,10 @@ class MapData:
                     continue
                 if node == target:
                     break
-                for ni, diag in nb[node]:
+                for ni in nb[node]:
                     c = cost[ni]
                     if c >= INF:
                         continue
-                    if diag:
-                        c += 1
                     nd = d + c
                     if nd < dist[ni]:
                         dist[ni] = nd
@@ -135,20 +132,19 @@ class MapData:
         for ri in roads:
             cost[ri] = CR
         self.passable = [i for i in range(n) if cost[i] < INF]
-        self.apsp = None
         self.hpa_graph = None
         return len(roads)
 
 
-def _build_nb(w: int, h: int) -> list[list[tuple[int, bool]]]:
+def _build_nb(w: int, h: int) -> list[list[int]]:
     n = w * h
-    nb: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
+    nb: list[list[int]] = [[] for _ in range(n)]
     for i in range(n):
         cx, cy = i % w, i // w
         for dx, dy in DIR8:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                nb[i].append((ny * w + nx, dx != 0 and dy != 0))
+                nb[i].append(ny * w + nx)
     return nb
 
 
@@ -166,12 +162,10 @@ def dijkstra_full(md: MapData, si: int) -> list[int]:
         d, node = heapq.heappop(heap)
         if d > dist[node]:
             continue
-        for ni, diag in nb[node]:
+        for ni in nb[node]:
             c = cost[ni]
             if c >= INF:
                 continue
-            if diag:
-                c += 1
             nd = d + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -191,26 +185,22 @@ def optimal_first_moves(md: MapData, si: int, gi: int, dist: list[int]) -> set[i
     q: deque[int] = deque([gi])
     while q:
         node = q.popleft()
-        for ni, diag in nb[node]:
+        for ni in nb[node]:
             if on_shortest[ni]:
                 continue
             c = cost[node]
             if c >= INF:
                 continue
-            if diag:
-                c += 1
             if dist[ni] + c == dist[node]:
                 on_shortest[ni] = True
                 q.append(ni)
     moves: set[int] = set()
-    for ni, diag in nb[si]:
+    for ni in nb[si]:
         if not on_shortest[ni]:
             continue
         c = cost[ni]
         if c >= INF:
             continue
-        if diag:
-            c += 1
         if dist[si] + c == dist[ni]:
             moves.add(ni)
     return moves
@@ -248,12 +238,12 @@ def algo_astar_heap(
     parent: list[int] = [-1] * n
     g[si] = 0
     h_si = max(abs(si % w - gx), abs(si // w - gy)) * CR
-    heap: list[tuple[int, int]] = [(h_si * weight, si)]
+    heap: list[tuple[int, int, int]] = [(h_si * weight, h_si, si)]
     exp = 0
     best_h = INF
     best_node = si
     while heap:
-        f, node = heapq.heappop(heap)
+        f, _, node = heapq.heappop(heap)
         if node == gi:
             return _extract(parent, si, gi)
         h_node = max(abs(node % w - gx), abs(node // w - gy)) * CR
@@ -266,18 +256,16 @@ def algo_astar_heap(
         if budget > 0 and exp >= budget:
             return _extract(parent, si, best_node)
         gn = g[node]
-        for ni, diag in nb[node]:
+        for ni in nb[node]:
             c = cost[ni]
             if c >= INF:
                 continue
-            if diag:
-                c += 1
             nd = gn + c
             if nd < g[ni]:
                 g[ni] = nd
                 parent[ni] = node
                 h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * CR
-                heapq.heappush(heap, (nd + h_ni * weight, ni))
+                heapq.heappush(heap, (nd + h_ni * weight, h_ni, ni))
     if best_h < INF:
         return _extract(parent, si, best_node)
     return None
@@ -296,7 +284,7 @@ def algo_astar_bucket(
     gx, gy = gi % w, gi // w
     offsets_card = md.offsets_card
     offsets_diag = md.offsets_diag
-    mod = 14 * weight
+    mod = CE + weight + 1
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
     ht: list[int] = [-1] * n
@@ -361,7 +349,7 @@ def algo_astar_bucket(
                     continue
                 c = cost[ni]
                 if c < INF:
-                    nd = gn + c + 1
+                    nd = gn + c
                     if nd < dist[ni]:
                         dist[ni] = nd
                         parent[ni] = node
@@ -391,7 +379,7 @@ def algo_bfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
         if budget > 0 and exp >= budget:
             best_node = node
             break
-        for ni, _ in nb[node]:
+        for ni in nb[node]:
             if cost[ni] >= INF:
                 continue
             if parent[ni] != -1:
@@ -443,7 +431,7 @@ def algo_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
             best_node = node
         if budget > 0 and exp >= budget:
             break
-        for ni, _ in nb[node]:
+        for ni in nb[node]:
             c = cost[ni]
             if c >= INF:
                 continue
@@ -486,12 +474,10 @@ def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
         if budget > 0 and exp >= budget:
             return _extract(parent, si, last_node)
         gn = dist[node]
-        for ni, diag in nb[node]:
+        for ni in nb[node]:
             c = cost[ni]
             if c >= INF:
                 continue
-            if diag:
-                c += 1
             nd = gn + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -506,7 +492,7 @@ def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path
         return [si]
     offsets_card = md.offsets_card
     offsets_diag = md.offsets_diag
-    mod = 12
+    mod = CE + 1
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
     dist[si] = 0
@@ -557,7 +543,7 @@ def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path
                     continue
                 c = cost[ni]
                 if c < INF:
-                    nd = gn + c + 1
+                    nd = gn + c
                     if nd < dist[ni]:
                         dist[ni] = nd
                         parent[ni] = node
@@ -594,12 +580,10 @@ def precompute_apsp(md: MapData) -> None:
             d, node = heapq.heappop(heap)
             if d > dist[node]:
                 continue
-            for ni, diag in nb[node]:
+            for ni in nb[node]:
                 c = cost[ni]
                 if c >= INF:
                     continue
-                if diag:
-                    c += 1
                 nd = d + c
                 if nd < dist[ni]:
                     dist[ni] = nd
@@ -608,13 +592,7 @@ def precompute_apsp(md: MapData) -> None:
     md.apsp = ApspTable(rows)
 
 
-def algo_astar_apsp(
-    md: MapData,
-    si: int,
-    gi: int,
-    weight: int = 1,
-    budget: int = 0,
-) -> Path_:
+def algo_astar_apsp(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     w, n, cost = md.w, md.n, md.cost
     apsp = md.apsp
     assert apsp is not None
@@ -624,16 +602,16 @@ def algo_astar_apsp(
     parent: list[int] = [-1] * n
     g[si] = 0
     h0 = apsp.dist(si, gi)
-    heap: list[tuple[int, int]] = [(h0 * weight, si)]
+    heap: list[tuple[int, int, int]] = [(h0, h0, si)]
     exp = 0
     best_h = INF
     best_node = si
     while heap:
-        f, node = heapq.heappop(heap)
+        f, _, node = heapq.heappop(heap)
         if node == gi:
             return _extract(parent, si, gi)
         hv = apsp.dist(node, gi)
-        if f > g[node] + hv * weight:
+        if f > g[node] + hv:
             continue
         exp += 1
         if hv < best_h:
@@ -651,14 +629,12 @@ def algo_astar_apsp(
             c = cost[ni]
             if c >= INF:
                 continue
-            if dx != 0 and dy != 0:
-                c += 1
             nd = gn + c
             if nd < g[ni]:
                 g[ni] = nd
                 parent[ni] = node
                 h_ni = apsp.dist(ni, gi)
-                heapq.heappush(heap, (nd + h_ni * weight, ni))
+                heapq.heappush(heap, (nd + h_ni, h_ni, ni))
     if best_h < INF:
         return _extract(parent, si, best_node)
     return None
@@ -703,8 +679,6 @@ def path_cost(md: MapData, path: list[int]) -> int:
         c = cost[b]
         if c >= INF:
             return INF
-        if dx != 0 and dy != 0:
-            c += 1
         total += c
     return total
 
@@ -717,8 +691,8 @@ def path_cost(md: MapData, path: list[int]) -> int:
 def _make_algos() -> list[AlgoEntry]:
     algos: list[AlgoEntry] = []
 
-    for w in [1, 2, 5, 10]:
-        for b in [100, 200, 500, 1000, 0]:
+    for w in [1, 3]:
+        for b in [200, 1000, 0]:
             bname = str(b) if b else "inf"
             algos.append(
                 (
@@ -734,8 +708,8 @@ def _make_algos() -> list[AlgoEntry]:
                 ),
             )
 
-    for w in [1, 2, 5]:
-        for b in [100, 200, 500, 1000, 0]:
+    for w in [1, 3]:
+        for b in [200, 1000, 0]:
             bname = str(b) if b else "inf"
             algos.append(
                 (
@@ -751,24 +725,22 @@ def _make_algos() -> list[AlgoEntry]:
                 ),
             )
 
-    for w in [1, 2, 5, 10]:
-        for b in [100, 200, 500, 1000, 0]:
-            bname = str(b) if b else "inf"
-            algos.append(
-                (
-                    f"a*heap apsp w={w} b={bname}",
-                    lambda md, si, gi, _w=w, _b=b: algo_astar_apsp(
-                        md,
-                        si,
-                        gi,
-                        weight=_w,
-                        budget=_b,
-                    ),
-                    True,
+    for b in [200, 1000, 0]:
+        bname = str(b) if b else "inf"
+        algos.append(
+            (
+                f"a*heap apsp b={bname}",
+                lambda md, si, gi, _b=b: algo_astar_apsp(
+                    md,
+                    si,
+                    gi,
+                    budget=_b,
                 ),
-            )
+                True,
+            ),
+        )
 
-    for b in [100, 200, 500, 1000, 0]:
+    for b in [200, 1000, 0]:
         bname = str(b) if b else "inf"
         algos.append(
             (
@@ -778,7 +750,7 @@ def _make_algos() -> list[AlgoEntry]:
             ),
         )
 
-    for b in [100, 200, 500, 1000, 0]:
+    for b in [200, 1000, 0]:
         bname = str(b) if b else "inf"
         algos.append(
             (
@@ -788,7 +760,7 @@ def _make_algos() -> list[AlgoEntry]:
             ),
         )
 
-    for b in [100, 200, 500, 1000, 0]:
+    for b in [200, 1000, 0]:
         bname = str(b) if b else "inf"
         algos.append(
             (
@@ -798,7 +770,7 @@ def _make_algos() -> list[AlgoEntry]:
             ),
         )
 
-    for b in [100, 200, 500, 1000, 0]:
+    for b in [200, 1000, 0]:
         bname = str(b) if b else "inf"
         algos.append(
             (
@@ -893,6 +865,10 @@ def main() -> None:
             (rng.choice(md.passable), rng.choice(md.passable)) for _ in range(N_PAIRS)
         ]
 
+        if needs_apsp:
+            md.reset_cost_no_roads()
+            precompute_apsp(md)
+
         for scenario in SCENARIOS:
             md.reset_cost_no_roads()
             if scenario == "with_roads":
@@ -917,8 +893,6 @@ def main() -> None:
             done += 1
             progress_bar(done, total_work, prefix=prefix)
 
-            if needs_apsp:
-                precompute_apsp(md)
             if needs_hpa:
                 t0 = time.perf_counter()
                 precompute_hpa(md)

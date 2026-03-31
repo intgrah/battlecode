@@ -60,14 +60,14 @@ class GatewayGraph:
             cost[i] = tile_cost(i % w, i // w)
         self._cost: list[int] = cost
 
-        neighbors: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
+        neighbors: list[list[int]] = [[] for _ in range(n)]
         for i in range(n):
             cx, cy = i % w, i // w
             for dx, dy in _DIR8:
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    neighbors[i].append((ny * w + nx, dx != 0 and dy != 0))
-        self._neighbors: list[list[tuple[int, bool]]] = neighbors
+                    neighbors[i].append(ny * w + nx)
+        self._neighbors: list[list[int]] = neighbors
 
         self._gateways: list[tuple[int, int]] = []
         self._gw_tile: list[int] = []
@@ -175,11 +175,7 @@ class GatewayGraph:
         self._gw_tile[gi_b] = t1
         self._gw_cluster[gi_b] = (ci_b, ci_a)
         self._cluster_gws[ci_b].append(gi_b)
-        c = cost[t1]
-        if c >= _INF:
-            c = _INF
-        elif x0 != x1 and y0 != y1:
-            c += 1
+        c = min(cost[t1], _INF)
         self._gw_adj[gi_a].append((gi_b, c))
         self._gw_adj[gi_b].append((gi_a, c))
         self._gateways.append((gi_a, gi_b))
@@ -340,8 +336,6 @@ class GatewayGraph:
                 c = cost[ni]
                 if c >= _INF:
                     continue
-                if dx != 0 and dy != 0:
-                    c += 1
                 nd = d + c
                 if nd < dist.get(ni, _INF):
                     dist[ni] = nd
@@ -385,7 +379,7 @@ class GatewayGraph:
                 break
             if d > dist[node]:
                 continue
-            for ni, diag in neighbors[node]:
+            for ni in neighbors[node]:
                 ny = ni // w
                 nx = ni - ny * w
                 if nx < x0 or nx >= x1 or ny < y0 or ny >= y1:
@@ -393,8 +387,6 @@ class GatewayGraph:
                 c = cost[ni]
                 if c >= _INF:
                     continue
-                if diag:
-                    c += 1
                 nd = d + c
                 if nd < dist[ni]:
                     if dist[ni] == _INF:

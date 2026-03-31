@@ -134,7 +134,7 @@ def main() -> None:
 
     df = pd.read_csv(path)
     scenarios = sorted(df["scenario"].unique())
-    algos = sorted(df["algo"].unique())
+    algos = list(dict.fromkeys(df["algo"]))
     n_scenarios = len(scenarios)
     n_algos = len(algos)
     n_cols = n_scenarios * METRICS_PER_SCENARIO
