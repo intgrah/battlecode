@@ -181,6 +181,11 @@ class State:
         self.bridge_cached_path: list[int] | None = None
         self.nav_target_key: Position | None = None
         self.nav_path: list[int] | None = None
+        self.nav_dist: list[int] | None = None
+        self.nav_parent: list[int] | None = None
+        self.nav_ht: list[int] | None = None
+        self.nav_bk: list[deque[int]] | None = None
+        self.nav_touched: list[int] = []
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None

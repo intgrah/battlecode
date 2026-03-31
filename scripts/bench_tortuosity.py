@@ -6,6 +6,7 @@ import types
 from collections.abc import Generator
 from pathlib import Path
 
+from cambc import Position
 from hardcode.known import KnownMap
 from hardcode.map import CORE_A, CORE_B, DIMENSIONS, TILES, decode
 
@@ -57,7 +58,7 @@ _CE = 10
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 
-def build_nb(w, h):
+def build_nb(w: int, h: int) -> list[list[int]]:
     n = w * h
     nb = [[] for _ in range(n)]
     for i in range(n):
@@ -69,7 +70,7 @@ def build_nb(w, h):
     return nb
 
 
-def dijk(cost, nb, n, si):
+def dijk(cost: list[int], nb, n: int, si) -> list[int]:
     dist = [_INF] * n
     dist[si] = 0
     heap = [(0, si)]
@@ -90,7 +91,16 @@ def dijk(cost, nb, n, si):
     return dist
 
 
-def place_roads(base_cost, nb, n, w, h, tt, ca, cb):
+def place_roads(
+    base_cost: list[int],
+    nb: list,
+    n: int,
+    w: int,
+    h,
+    tt: list[int],
+    ca: Position,
+    cb: Position,
+) -> tuple[list[int], int]:
     cost = list(base_cost)
     cai = ca.y * w + ca.x
     ores = [i for i in range(n) if tt[i] in (2, 3)]
@@ -138,7 +148,9 @@ def place_roads(base_cost, nb, n, w, h, tt, ca, cb):
     return cost, len(roads)
 
 
-def astar_w(cost, nb, n, w, si, gi, weight) -> tuple[int, int]:
+def astar_w(
+    cost: list[int], nb: list[int], n: int, w: int, si: int, gi: int, weight: int
+) -> tuple[int, int]:
     if si == gi:
         return 0, 0
     gx, gy = gi % w, gi // w

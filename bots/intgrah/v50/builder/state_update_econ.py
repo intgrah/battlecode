@@ -222,7 +222,7 @@ def update_flow(state: State) -> None:
                 ti_in = f_ti[ci]
                 ax_in = f_ax[ci]
                 rax_in = f_rax[ci]
-                divisor = 3 if isinstance(bld, BuildingSplitter) else 1
+                divisor = no if isinstance(bld, BuildingSplitter) and no > 0 else 1
                 ti_push = ti_in / divisor
                 ax_push = ax_in / divisor
                 rax_push = rax_in / divisor

@@ -16,6 +16,6 @@ class NavMode(Enum):
 
 
 OPENING: Final[OpeningMode] = OpeningMode.OFF
-NAV: Final[NavMode] = NavMode.ASTAR_APSP
-USE_HARDCODED_MAPS: Final[bool] = True
+NAV: Final[NavMode] = NavMode.ASTAR_BUCKET_PYTHON
+USE_HARDCODED_MAPS: Final[bool] = False
 DEBUG_DUMP: Final[bool] = False
