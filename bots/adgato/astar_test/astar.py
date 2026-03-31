@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import heapq
 from typing import TYPE_CHECKING
+
 from cambc import Direction, EntityType, Environment, Position
 from symmetry import Symmetry, mirror_idx
 
@@ -224,9 +225,7 @@ class NavAstar:
         h0 = max(abs(sx - self._gx), abs(sy - self._gy)) * COST_ROAD * w_heuristic
         self._heap = [(h0, source)]
 
-    def _compute(
-        self, within_budget: Callable[[], bool], w_heuristic: int
-    ) -> None:
+    def _compute(self, within_budget: Callable[[], bool], w_heuristic: int) -> None:
         """Run weighted A* within budget. Sets _done and _result when complete."""
         if self._done:
             return
