@@ -129,6 +129,7 @@ pub struct GameState {
     pub height: i32,
     pub env: Vec<Vec<proto::Environment>>,
     pub turns: Vec<TurnState>,
+    pub winner: Option<proto::Team>,
 }
 
 impl GameState {
@@ -191,11 +192,16 @@ impl GameState {
             turns.push(current.clone());
         }
 
+        let winner = replay
+            .winner
+            .and_then(|w| proto::Team::try_from(w).ok());
+
         Self {
             width,
             height,
             env,
             turns,
+            winner,
         }
     }
 
