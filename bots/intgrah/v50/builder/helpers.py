@@ -30,7 +30,8 @@ def move_toward(state: State, ct: Controller, target: Position) -> Direction:
         return Direction.CENTRE
     t0 = ct.get_cpu_time_elapsed()
     path = find_path(state, target.x, target.y)
-    print(f"nav={ct.get_cpu_time_elapsed() - t0}us")
+    t1 = ct.get_cpu_time_elapsed()
+    print(f"  nav={t1 - t0}us")
     if path is None or len(path) < 2:
         return Direction.CENTRE
     _draw_path(ct, state.w, path)
@@ -47,15 +48,16 @@ def move_toward_with_road(
     state: State,
     ct: Controller,
     target: Position,
-) -> tuple[Direction, Action | None]:
+) -> tuple[Direction, Action | None] | None:
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
     t0 = ct.get_cpu_time_elapsed()
     path = find_path(state, target.x, target.y)
-    print(f"nav={ct.get_cpu_time_elapsed() - t0}us")
+    t1 = ct.get_cpu_time_elapsed()
+    print(f"  nav={t1 - t0}us")
     if path is None or len(path) < 2:
-        return Direction.CENTRE, None
+        return None
     _draw_path(ct, state.w, path)
     w = state.w
     nx, ny = path[1] % w, path[1] // w

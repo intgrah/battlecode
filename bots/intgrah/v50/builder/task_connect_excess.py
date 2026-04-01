@@ -87,9 +87,6 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
         case ExcessKind.AX:
             sources = state.my_harvesters | state.my_transport
     w = state.w
-    print(
-        f"  excess_check: sources={len(sources)} ti_ex={[f.ti_excess[i] for i in sources]} rax_ex={[f.rax_excess[i] for i in sources]} excess={[f.excess[i] for i in sources]}",
-    )
     for i in sources:
         match kind:
             case ExcessKind.TI_RAX:

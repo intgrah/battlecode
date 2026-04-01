@@ -121,20 +121,18 @@ class NavBfs:
             passable = True
         elif building_type == EntityType.CORE:
             passable = is_allied_building
-        elif building_type == EntityType.MARKER:
-            passable = True
-        elif building_type in _WALKABLE_BUILDINGS:
+        elif building_type == EntityType.MARKER or building_type in _WALKABLE_BUILDINGS:
             passable = True
         else:
             passable = False
 
-        self._set_passable(i, passable)
+        self._set_passable(i, passable=passable)
 
         if sym is not Symmetry.UNKNOWN:
             mi = mirror_idx(i, sym, self.w, self.h)
-            self._set_passable(mi, env != Environment.WALL)
+            self._set_passable(mi, passable=env != Environment.WALL)
 
-    def _set_passable(self, i: int, passable: bool) -> None:
+    def _set_passable(self, i: int, *, passable: bool) -> None:
         """Write passability to grid and mark dirty if a closer tile changed."""
         old = self._passable[i]
         if old != passable:
@@ -170,7 +168,7 @@ class NavBfs:
         w, h = self.w, self.h
         for i, env in known_env.items():
             mi = mirror_idx(i, sym, w, h)
-            self._set_passable(mi, env != Environment.WALL)
+            self._set_passable(mi, passable=env != Environment.WALL)
         self._dirty = True
 
     def begin_update(self) -> None:
@@ -205,7 +203,10 @@ class NavBfs:
     def _swap(self) -> None:
         """Promote wip to stable."""
         self._stable, self._wip = self._wip, self._stable
-        self._stable_touched, self._wip_touched = self._wip_touched, self._stable_touched
+        self._stable_touched, self._wip_touched = (
+            self._wip_touched,
+            self._stable_touched,
+        )
 
     def _compute(self, within_budget: Callable[[], bool]) -> bool:
         """Run/resume backwards BFS into wip buffer. Returns True if complete."""
@@ -255,8 +256,13 @@ class NavBfs:
         # Continue building neighbor table if not done
         if self._nb_progress < self._n:
             self._nb_progress = _build_nb_chunk(
-                self._nb, self._pnb, self.w, self.h, self._passable,
-                self._nb_progress, within_budget,
+                self._nb,
+                self._pnb,
+                self.w,
+                self.h,
+                self._passable,
+                self._nb_progress,
+                within_budget,
             )
             return False
 
@@ -271,11 +277,10 @@ class NavBfs:
         if self._dirty:
             self._restart()
             self._dirty = False
-        if self._resumable:
-            if self._compute(within_budget):
-                self._resumable = False
-                self._new_goal = False
-                self._swap()
+        if self._resumable and self._compute(within_budget):
+            self._resumable = False
+            self._new_goal = False
+            self._swap()
 
         # Use stable buffer, fall back to wip if stable is stale (new goal)
         cur_idx = self._cur_idx
@@ -287,7 +292,7 @@ class NavBfs:
         self._cur_dist = d
         if d <= 0:
             return False
-        
+
         pnb = self._pnb[cur_idx]
         options = (d - 1,) if self._resumable else (d - 1, d, d + 1)
         for target in options:
