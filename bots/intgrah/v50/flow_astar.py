@@ -17,7 +17,6 @@ COST_REUSE = 0
 COST_CONV = 3
 COST_BRIDGE = 30
 COST_ROAD_REPLACE = 3
-CONV_CUTOFF_SQ = 0
 
 _IMPASSABLE_ENV = frozenset(
     (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE),
@@ -169,18 +168,16 @@ class FlowAstar(Astar[int]):
                         result.append((ni, COST_REUSE))
 
             case BuildingRoad():
-                core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
-                if core_dist_sq > CONV_CUTOFF_SQ:
-                    for ddx, ddy in DIR4_DELTA:
-                        nx, ny = cx + ddx, cy + ddy
-                        if 0 <= nx < w and 0 <= ny < h:
-                            ni = ny * w + nx
-                            if (
-                                not blocked[ni]
-                                and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                                and leakage_mask[ni] & banned_leakage == 0
-                            ):
-                                result.append((ni, COST_ROAD_REPLACE))
+                for ddx, ddy in DIR4_DELTA:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        ni = ny * w + nx
+                        if (
+                            not blocked[ni]
+                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                            and leakage_mask[ni] & banned_leakage == 0
+                        ):
+                            result.append((ni, COST_ROAD_REPLACE))
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
@@ -193,18 +190,16 @@ class FlowAstar(Astar[int]):
                             result.append((ni, COST_BRIDGE))
 
             case None | BuildingMarker():
-                core_dist_sq = (cx - self._core_x) ** 2 + (cy - self._core_y) ** 2
-                if core_dist_sq > CONV_CUTOFF_SQ:
-                    for ddx, ddy in DIR4_DELTA:
-                        nx, ny = cx + ddx, cy + ddy
-                        if 0 <= nx < w and 0 <= ny < h:
-                            ni = ny * w + nx
-                            if (
-                                not blocked[ni]
-                                and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                                and leakage_mask[ni] & banned_leakage == 0
-                            ):
-                                result.append((ni, COST_CONV))
+                for ddx, ddy in DIR4_DELTA:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        ni = ny * w + nx
+                        if (
+                            not blocked[ni]
+                            and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
+                            and leakage_mask[ni] & banned_leakage == 0
+                        ):
+                            result.append((ni, COST_CONV))
                 for ddx, ddy in BRIDGE_DELTAS:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:

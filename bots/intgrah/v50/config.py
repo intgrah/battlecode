@@ -14,7 +14,6 @@ class NavMode(Enum):
     ASTAR_LANDMARKS = auto()
     ASTAR_APSP = auto()
     BFS = auto()
-    HPA = auto()
 
 
 OPENING: Final[OpeningMode] = OpeningMode.OFF

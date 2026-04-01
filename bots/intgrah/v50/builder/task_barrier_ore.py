@@ -62,7 +62,10 @@ def barrier_ore(
             ct.destroy(ore_pos)
         return Direction.CENTRE, PlaceBarrier(ore_pos)
 
-    move, build = move_toward_with_road(state, ct, ore_pos)
+    result = move_toward_with_road(state, ct, ore_pos)
+    if result is None:
+        return None
+    move, build = result
     if move != Direction.CENTRE and build is None:
         new_pos = pos.add(move)
         if new_pos.distance_squared(ore_pos) <= 2 and new_pos != ore_pos:

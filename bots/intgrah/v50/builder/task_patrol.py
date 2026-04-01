@@ -17,13 +17,8 @@ def patrol(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    infra = (
-        state.my_harvesters
-        | state.my_transport
-        | state.my_foundries
-        | state.my_turrets
-        | state.my_core_tiles
-    )
+    infra = state.my_transport | state.my_core_tiles
+    assert all(state.walkable(i) for i in infra)
     if not infra:
         return None
     w = state.w
@@ -34,6 +29,8 @@ def patrol(
             best_freshness = state.last_seen[i]
             best_idx = i
     target = Position(best_idx % w, best_idx // w)
-    move, build = move_toward_with_road(state, ct, target)
+    result = move_toward_with_road(state, ct, target)
+    if result is None:
+        return None
     ct.draw_indicator_line(state.pos, target, 255, 255, 0)
-    return move, build
+    return result

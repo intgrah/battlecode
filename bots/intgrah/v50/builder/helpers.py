@@ -34,7 +34,7 @@ def move_toward(state: State, ct: Controller, target: Position) -> Direction:
     print(f"  nav={t1 - t0}us")
     if path is None or len(path) < 2:
         return Direction.CENTRE
-    _draw_path(ct, state.w, path)
+    draw_path(ct, state.w, path)
     w = state.w
     nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
@@ -48,7 +48,7 @@ def move_toward_with_road(
     state: State,
     ct: Controller,
     target: Position,
-) -> tuple[Direction, Action | None] | None:
+) -> tuple[Direction, Action | None]:
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
@@ -57,8 +57,8 @@ def move_toward_with_road(
     t1 = ct.get_cpu_time_elapsed()
     print(f"  nav={t1 - t0}us")
     if path is None or len(path) < 2:
-        return None
-    _draw_path(ct, state.w, path)
+        return Direction.CENTRE, None
+    draw_path(ct, state.w, path)
     w = state.w
     nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
@@ -72,11 +72,16 @@ def move_toward_with_road(
     return Direction.CENTRE, None
 
 
-def _draw_path(ct: Controller, w: int, path: list[int]) -> None:
+def draw_path(
+    ct: Controller,
+    w: int,
+    path: list[int],
+    colour: tuple[int, int, int] = (255, 255, 255),
+) -> None:
     for u, v in itertools.pairwise(path):
         y0, x0 = divmod(u, w)
         y1, x1 = divmod(v, w)
-        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), 255, 255, 255)
+        ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), *colour)
 
 
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:
