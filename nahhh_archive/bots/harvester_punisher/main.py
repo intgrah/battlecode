@@ -74,7 +74,9 @@ class Player:
 
         target = self._nearest_enemy_harvester(ct)
         if target is None:
-            goal = self._current_goal(ct, "outward", self._outward_goal(ct.get_position()))
+            goal = self._current_goal(
+                ct, "outward", self._outward_goal(ct.get_position())
+            )
             self._step_toward(ct, goal)
             return
 
@@ -138,7 +140,10 @@ class Player:
         if self.core_pos is not None:
             return
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == ct.get_team()
+            ):
                 self.core_pos = ct.get_position(eid)
                 return
 
@@ -151,7 +156,9 @@ class Player:
         if mode == "outward":
             self.goal = target
             return self.goal
-        if mode in {"harvester", "chip"} and here.distance_squared(target) < here.distance_squared(self.goal):
+        if mode in {"harvester", "chip"} and here.distance_squared(
+            target
+        ) < here.distance_squared(self.goal):
             self.goal = target
         return self.goal
 
@@ -182,12 +189,15 @@ class Player:
             if not ct.is_in_vision(stand):
                 continue
             building_id = ct.get_tile_building_id(stand)
-            if building_id is not None:
-                if ct.get_team(building_id) == ct.get_team() and ct.get_entity_type(building_id) == EntityType.ROAD and ct.can_destroy(stand):
-                    key = (here.distance_squared(stand), stand.x, stand.y)
-                    if clear_key is None or key < clear_key:
-                        clear_road = stand
-                        clear_key = key
+            if building_id is not None and (
+                ct.get_team(building_id) == ct.get_team()
+                and ct.get_entity_type(building_id) == EntityType.ROAD
+                and ct.can_destroy(stand)
+            ):
+                key = (here.distance_squared(stand), stand.x, stand.y)
+                if clear_key is None or key < clear_key:
+                    clear_road = stand
+                    clear_key = key
             for facing in self._feedable_sentinel_facings(target, stand):
                 if not ct.can_build_sentinel(stand, facing):
                     continue
@@ -204,17 +214,39 @@ class Player:
         ct.build_sentinel(stand, facing)
         return True
 
-    def _feedable_sentinel_facings(self, target: Position, stand: Position) -> list[Direction]:
+    def _feedable_sentinel_facings(
+        self, target: Position, stand: Position
+    ) -> list[Direction]:
         dx = target.x - stand.x
         dy = target.y - stand.y
         if dx == 0 and dy == 1:
-            return [Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.EAST, Direction.WEST]
+            return [
+                Direction.SOUTHEAST,
+                Direction.SOUTHWEST,
+                Direction.EAST,
+                Direction.WEST,
+            ]
         if dx == 0 and dy == -1:
-            return [Direction.NORTHEAST, Direction.NORTHWEST, Direction.EAST, Direction.WEST]
+            return [
+                Direction.NORTHEAST,
+                Direction.NORTHWEST,
+                Direction.EAST,
+                Direction.WEST,
+            ]
         if dx == 1 and dy == 0:
-            return [Direction.NORTHEAST, Direction.SOUTHEAST, Direction.NORTH, Direction.SOUTH]
+            return [
+                Direction.NORTHEAST,
+                Direction.SOUTHEAST,
+                Direction.NORTH,
+                Direction.SOUTH,
+            ]
         if dx == -1 and dy == 0:
-            return [Direction.NORTHWEST, Direction.SOUTHWEST, Direction.NORTH, Direction.SOUTH]
+            return [
+                Direction.NORTHWEST,
+                Direction.SOUTHWEST,
+                Direction.NORTH,
+                Direction.SOUTH,
+            ]
         return []
 
     def _has_friendly_sentinel_adjacent(self, ct: Controller, target: Position) -> bool:
@@ -228,7 +260,9 @@ class Player:
                 return True
         return False
 
-    def _best_enemy_walkable_adjacent_to(self, ct: Controller, target: Position) -> Position | None:
+    def _best_enemy_walkable_adjacent_to(
+        self, ct: Controller, target: Position
+    ) -> Position | None:
         here = ct.get_position()
         best = None
         best_key = None
@@ -252,8 +286,12 @@ class Player:
     def _outward_goal(self, pos: Position) -> Position:
         if self.core_pos is None or self.map_w is None or self.map_h is None:
             return self.core_pos if self.core_pos is not None else Position(0, 0)
-        enemy_core = Position(self.map_w - 1 - self.core_pos.x, self.map_h - 1 - self.core_pos.y)
-        horizontal = abs(enemy_core.x - self.core_pos.x) >= abs(enemy_core.y - self.core_pos.y)
+        enemy_core = Position(
+            self.map_w - 1 - self.core_pos.x, self.map_h - 1 - self.core_pos.y
+        )
+        horizontal = abs(enemy_core.x - self.core_pos.x) >= abs(
+            enemy_core.y - self.core_pos.y
+        )
         if self.lane_offset is None:
             self.lane_offset = self._initial_lane_offset(pos, horizontal)
         goals = self._scout_waypoints(enemy_core, horizontal)
@@ -282,19 +320,25 @@ class Player:
         secondary_span = self.map_h if horizontal else self.map_w
         lane_span = max(2, secondary_span // 6)
         half_lane = max(1, lane_span // 2)
-        secondary_delta = (pos.y - self.core_pos.y) if horizontal else (pos.x - self.core_pos.x)
+        secondary_delta = (
+            (pos.y - self.core_pos.y) if horizontal else (pos.x - self.core_pos.x)
+        )
         if secondary_delta < 0:
             return -lane_span
         if secondary_delta > 0:
             return lane_span
-        primary_delta = (pos.x - self.core_pos.x) if horizontal else (pos.y - self.core_pos.y)
+        primary_delta = (
+            (pos.x - self.core_pos.x) if horizontal else (pos.y - self.core_pos.y)
+        )
         if primary_delta < 0:
             return -half_lane
         if primary_delta > 0:
             return half_lane
         return 0
 
-    def _scout_waypoints(self, enemy_core: Position, horizontal: bool) -> list[Position]:
+    def _scout_waypoints(
+        self, enemy_core: Position, horizontal: bool
+    ) -> list[Position]:
         assert self.core_pos is not None
         assert self.map_w is not None
         assert self.map_h is not None
@@ -304,7 +348,9 @@ class Player:
         else:
             alternate_lane = -lane
         if horizontal:
-            mid_x = self._clamp((self.core_pos.x + enemy_core.x) // 2, 0, self.map_w - 1)
+            mid_x = self._clamp(
+                (self.core_pos.x + enemy_core.x) // 2, 0, self.map_w - 1
+            )
             lane_y = self._clamp(enemy_core.y + lane, 0, self.map_h - 1)
             alt_y = self._clamp(enemy_core.y + alternate_lane, 0, self.map_h - 1)
             return [
@@ -331,14 +377,17 @@ class Player:
         candidates = []
         for direction in DIRECTIONS:
             nxt = here.add(direction)
-            backtrack_penalty = 1 if self.prev_pos is not None and nxt == self.prev_pos else 0
+            backtrack_penalty = (
+                1 if self.prev_pos is not None and nxt == self.prev_pos else 0
+            )
             key = (backtrack_penalty, nxt.distance_squared(target), nxt.x, nxt.y)
             candidates.append((key, direction, nxt))
         candidates.sort(key=lambda item: item[0])
         usable_no_reverse = [
             (direction, nxt)
             for _key, direction, nxt in candidates
-            if nxt != self.prev_pos and (ct.can_move(direction) or ct.can_build_road(nxt))
+            if nxt != self.prev_pos
+            and (ct.can_move(direction) or ct.can_build_road(nxt))
         ]
         if usable_no_reverse:
             ordered = usable_no_reverse

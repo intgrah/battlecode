@@ -7,9 +7,13 @@ from replay_common import summarize_replay
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Summarize a .replay26 file using the repo-local proto schema.")
+    parser = argparse.ArgumentParser(
+        description="Summarize a .replay26 file using the repo-local proto schema."
+    )
     parser.add_argument("replay", help="Path to a .replay26 file")
-    parser.add_argument("--json", action="store_true", help="Print machine-readable JSON")
+    parser.add_argument(
+        "--json", action="store_true", help="Print machine-readable JSON"
+    )
     return parser
 
 
@@ -53,7 +57,9 @@ def main() -> int:
         f"tles_total={bot_outputs['tles_total']} first_tle_turn={bot_outputs['first_tle_turn']}"
     )
     if bot_outputs["tles_by_team"]:
-        teams = " ".join(f"{team}={count}" for team, count in bot_outputs["tles_by_team"].items())
+        teams = " ".join(
+            f"{team}={count}" for team, count in bot_outputs["tles_by_team"].items()
+        )
         print(f"  TLE by team: {teams}")
     print("  Worst entities:")
     for stat in bot_outputs["top_exec_entities"]:

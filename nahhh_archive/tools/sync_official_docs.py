@@ -4,16 +4,21 @@ import argparse
 import hashlib
 import json
 import re
-from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-LINK_RE = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\): (?P<description>.+)$")
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+LINK_RE = re.compile(
+    r"^- \[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\): (?P<description>.+)$"
+)
 DEFAULT_LLM_PATH = Path("llms.txt")
 DEFAULT_OUTPUT_DIR = Path("docs/vendor/official")
 DEFAULT_TIMEOUT_S = 30
@@ -230,7 +235,9 @@ def fetch_url(url: str, timeout_s: int) -> tuple[bytes, dict[str, str]]:
         return body, headers
 
 
-def render_snapshot(entry: DocEntry, body: bytes, headers: dict[str, str]) -> tuple[str, str]:
+def render_snapshot(
+    entry: DocEntry, body: bytes, headers: dict[str, str]
+) -> tuple[str, str]:
     content_type = headers.get("content-type", "")
     charset = "utf-8"
     if "charset=" in content_type:
@@ -280,13 +287,35 @@ def build_manifest(records: Iterable[dict[str, str]]) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Sync official Battlecode docs referenced by llms.txt into local pinned snapshots.")
-    parser.add_argument("--llms", default=str(DEFAULT_LLM_PATH), help="Path to llms.txt")
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Directory to write local snapshots into")
-    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_S, help="Per-request timeout in seconds")
-    parser.add_argument("--dry-run", action="store_true", help="List planned downloads without fetching")
-    parser.add_argument("--force", action="store_true", help="Refresh even if the destination file already exists")
-    parser.add_argument("--title-filter", help="Only sync docs whose title contains this case-insensitive substring")
+    parser = argparse.ArgumentParser(
+        description="Sync official Battlecode docs referenced by llms.txt into local pinned snapshots."
+    )
+    parser.add_argument(
+        "--llms", default=str(DEFAULT_LLM_PATH), help="Path to llms.txt"
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Directory to write local snapshots into",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT_S,
+        help="Per-request timeout in seconds",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="List planned downloads without fetching"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Refresh even if the destination file already exists",
+    )
+    parser.add_argument(
+        "--title-filter",
+        help="Only sync docs whose title contains this case-insensitive substring",
+    )
     return parser
 
 
@@ -299,7 +328,8 @@ def main() -> int:
         needle = args.title_filter.lower()
         entries = [entry for entry in entries if needle in entry.title.lower()]
     if not entries:
-        raise SystemExit("No documentation entries selected")
+        msg = "No documentation entries selected"
+        raise SystemExit(msg)
 
     if args.dry_run:
         for entry in entries:

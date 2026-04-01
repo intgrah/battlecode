@@ -29,8 +29,13 @@ def get_ladder(limit: int) -> list[dict]:
     # First get names from ladder.
     out = subprocess.run(
         [CAMBC, "ladder", "--limit", str(limit)],
-        capture_output=True, text=True, env={"COLUMNS": "200", "PATH": subprocess.os.environ["PATH"],
-                                              "HOME": subprocess.os.environ["HOME"]}
+        capture_output=True,
+        text=True,
+        env={
+            "COLUMNS": "200",
+            "PATH": subprocess.os.environ["PATH"],
+            "HOME": subprocess.os.environ["HOME"],
+        },
     )
     lines = out.stdout.strip().split("\n")
     teams = []
@@ -45,11 +50,13 @@ def get_ladder(limit: int) -> list[dict]:
             rank = int(parts[0])
         except ValueError:
             continue
-        teams.append({
-            "rank": rank,
-            "name": parts[1],
-            "rating": int(parts[2]),
-        })
+        teams.append(
+            {
+                "rank": rank,
+                "name": parts[1],
+                "rating": int(parts[2]),
+            }
+        )
     return teams
 
 
@@ -57,8 +64,13 @@ def get_our_rank(teams: list[dict]) -> tuple[int, str]:
     """Find our team in the ladder using --around."""
     out = subprocess.run(
         [CAMBC, "ladder", "--around"],
-        capture_output=True, text=True, env={"COLUMNS": "200", "PATH": subprocess.os.environ["PATH"],
-                                              "HOME": subprocess.os.environ["HOME"]}
+        capture_output=True,
+        text=True,
+        env={
+            "COLUMNS": "200",
+            "PATH": subprocess.os.environ["PATH"],
+            "HOME": subprocess.os.environ["HOME"],
+        },
     )
     # Parse our team name from status
     status_out = subprocess.run([CAMBC, "status"], capture_output=True, text=True)
@@ -69,11 +81,14 @@ def get_our_rank(teams: list[dict]) -> tuple[int, str]:
             our_name = line.split("Team:")[1].strip()
             # Strip category suffix like "(main)" or "(novice)"
             if "(" in our_name:
-                our_name = our_name[:our_name.index("(")].strip()
+                our_name = our_name[: our_name.index("(")].strip()
             break
 
     if our_name is None:
-        print("Error: could not determine our team name from `cambc status`", file=sys.stderr)
+        print(
+            "Error: could not determine our team name from `cambc status`",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     for t in teams:
@@ -101,8 +116,13 @@ def search_team_id(name: str) -> str | None:
     """Get team ID by exact name search."""
     out = subprocess.run(
         [CAMBC, "team", "search", name],
-        capture_output=True, text=True, env={"COLUMNS": "200", "PATH": subprocess.os.environ["PATH"],
-                                              "HOME": subprocess.os.environ["HOME"]}
+        capture_output=True,
+        text=True,
+        env={
+            "COLUMNS": "200",
+            "PATH": subprocess.os.environ["PATH"],
+            "HOME": subprocess.os.environ["HOME"],
+        },
     )
     for line in out.stdout.strip().split("\n"):
         if not line.startswith("│"):
@@ -116,8 +136,7 @@ def search_team_id(name: str) -> str | None:
 def queue_unrated(team_id: str) -> str | None:
     """Queue an unrated match, return match ID or None."""
     out = subprocess.run(
-        [CAMBC, "match", "unrated", team_id],
-        capture_output=True, text=True
+        [CAMBC, "match", "unrated", team_id], capture_output=True, text=True
     )
     if out.returncode != 0:
         return None
@@ -127,10 +146,16 @@ def queue_unrated(team_id: str) -> str | None:
     return None
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Queue unrated matches against nearby opponents")
-    parser.add_argument("-n", type=int, default=10, help="Number of opponents (default: 10)")
-    parser.add_argument("--top", action="store_true", help="Challenge top N instead of N above us")
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Queue unrated matches against nearby opponents"
+    )
+    parser.add_argument(
+        "-n", type=int, default=10, help="Number of opponents (default: 10)"
+    )
+    parser.add_argument(
+        "--top", action="store_true", help="Challenge top N instead of N above us"
+    )
     args = parser.parse_args()
 
     n = args.n
@@ -148,7 +173,9 @@ def main():
         above = [t for t in ladder if t["rank"] < our_rank]
         targets = above[-n:]  # last n = closest above
 
-    print(f"Challenging {len(targets)} teams (ranks {targets[0]['rank']}-{targets[-1]['rank']}):\n")
+    print(
+        f"Challenging {len(targets)} teams (ranks {targets[0]['rank']}-{targets[-1]['rank']}):\n"
+    )
 
     results = []
     for t in targets:
