@@ -386,9 +386,11 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
         state.ax_cached_path = None
         state.bridge_flow_search = None
         state.bridge_cached_path = None
-        state.leakage_mask = build_leakage_mask(state)
+        # state.leakage_mask = build_leakage_mask(state)
+        pass
     elif state.leakage_mask is None:
-        state.leakage_mask = build_leakage_mask(state)
+        # state.leakage_mask = build_leakage_mask(state)
+        pass
 
 
 def _update_infra_staleness(state: State) -> None:
