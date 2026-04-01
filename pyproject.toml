@@ -76,6 +76,7 @@ ignore = [
     "S310",    # suspicious-url-open-usage
     "S311",    # suspicious-non-cryptographic-random-usage
     "S603",    # subprocess-without-shell-equals-true
+    "SLF001",  # private-member-access
     "T201",    # print
 ]
 
