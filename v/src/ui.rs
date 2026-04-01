@@ -6,6 +6,7 @@ use egui::Rect;
 use crate::app::App;
 use crate::proto;
 use crate::state::{Entity, EntityKind, GameState, TurnState};
+use crate::vis::{self, VisField, VisState};
 
 const fn entity_scale_percent(kind: &EntityKind) -> f32 {
     match kind {
@@ -534,6 +535,35 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                 ui.checkbox(&mut app.show_indicators, "Show indicators (i)");
                 ui.checkbox(&mut app.show_flow, "Show flow");
 
+                let vis_fields = collect_vis_fields(state, app.selected_entity);
+                if !vis_fields.is_empty() {
+                    ui.add_space(8.0);
+                    ui.heading("Bot State");
+                    ui.separator();
+
+                    let mut field_names: Vec<&String> = vis_fields.keys().collect();
+                    field_names.sort();
+
+                    for name in &field_names {
+                        match vis_fields.get(*name) {
+                            Some(VisField::Scalar { data }) => {
+                                ui.monospace(format!("{name}: {data}"));
+                            }
+                            Some(VisField::Grid { .. } | VisField::Tiles { .. }) => {
+                                let mut enabled = app.vis_overlays.contains(*name);
+                                if ui.checkbox(&mut enabled, name.as_str()).changed() {
+                                    if enabled {
+                                        app.vis_overlays.insert((*name).clone());
+                                    } else {
+                                        app.vis_overlays.remove(*name);
+                                    }
+                                }
+                            }
+                            None => {}
+                        }
+                    }
+                }
+
                 ui.add_space(8.0);
                 ui.heading("Inspector");
                 ui.separator();
@@ -567,6 +597,17 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                 ui.monospace(log_text);
             });
         });
+}
+
+fn collect_vis_fields(state: &TurnState, selected: Option<i32>) -> VisState {
+    let mut merged = VisState::new();
+    let id = selected.unwrap_or(-1);
+    if let Some(json) = state.vis_data.get(&id)
+        && let Some(fields) = vis::parse_vis(json)
+    {
+        merged.extend(fields);
+    }
+    merged
 }
 
 fn icon_button(ui: &mut egui::Ui, icon: &str, size: f32) -> egui::Response {
