@@ -207,7 +207,9 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 painter.line_segment([from, to], Stroke::new(2.0, Color32::GREEN));
             }
 
-            draw_range_overlay(&painter, e, &app.game, ts, origin, zoom);
+            if app.show_ranges {
+                draw_range_overlay(&painter, e, &app.game, ts, origin, zoom);
+            }
         }
 
         {
