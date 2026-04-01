@@ -21,19 +21,50 @@ enemies_safe        — enemies in range excluding stunned ones
 allies_nearby       — friendly units near that tile
 ```
 
-Then pick the best tile via a **lexicographic comparator** (priority cascade):
+Then pick the best tile via a **lexicographic comparator** (NOT a weighted sum —
+strict priority ordering where the first differing criterion wins).
 
-1. **Safety classification** (higher = better)
-   - `-1` → impassable
-   - `0` (unsafe) → alone with >1 non-stunned enemies in range
-   - `1` (risky) → more non-stunned enemies in threat range than allies
-   - `2` (safe) → otherwise
-2. **Prefer in-range over out-of-range** — if you can attack, be in range
-3. **If out of range** — prefer closer to enemy (approach)
-4. **Minimize exposure** — fewer non-stunned enemies in attack range
-5. **Minimize threat** — fewer enemies in move range
-6. **Close distance** — prefer closer (tiebreaker)
-7. **Prefer CENTRE** — staying still wins ties
+### BC26 Safety Levels (most sophisticated version)
+
+```
+NO_DANGER (6)      — no threats visible
+CAT_DANGER (5)     — seen by special enemy
+FREE_ENEMY_HIT (4) — enemy can hit you but you can't hit back
+SURROUNDED (3)     — enemies in move range > allies near you
+VERY_SURROUNDED (2)— enemies in attack range > allies adjacent
+MOVE_KIDNAPPED (1) — enemies in move range can kill you
+KIDNAPPED (0)      — enemies in attack range can kill you
+FORBIDDEN (-1)     — forbidden tile
+NO_MOVEMENT (-2)   — can't move there
+```
+
+The surrounding check: `if enemiesInRange > alliesDist2: VERY_SURROUNDED`
+
+### BC26 Comparator (priority order)
+
+1. **safe() level** — higher is better (always dominates)
+2. **In range** — prefer being in attack range (if attacking, not retreating)
+3. **Distance** — if in range: maximize (kite away); if out of range: minimize (approach)
+4. **alliesDist2** — prefer more allies within distance² ≤ 2 (stay grouped)
+5. **Prefer CENTRE** — staying still wins ties
+
+### BC23 "Net Threat" Formula (the secret sauce)
+
+```
+net_exposure = enemies_in_attack_range - can_land_hit
+```
+
+If you can hit back, being in range of 1 enemy is acceptable (net = 0).
+Being in range of 2 while only hitting 1 is bad (net = 1). This naturally
+produces kiting behavior without explicit kiting logic.
+
+The BC23 comparator:
+1. **canMove** — moveable beats impassable
+2. **net threat** — minimize `launchers_attack_range - can_land_hit`
+3. **vision threat** — minimize enemies in vision range
+4. **canLandHit** — prefer tiles where you CAN attack
+5. **minDistToAlly** — prefer close to allies (stay grouped)
+6. **Distance** — if in range: maximize; if out: minimize
 
 ### Key Design: `always_in_range` Flag
 
@@ -41,6 +72,20 @@ When the unit **cannot attack** (cooldown > 0) or is **low HP**, set
 `always_in_range = True`. This makes every tile count as "in range,"
 effectively **disabling approach** and focusing purely on safety — i.e.,
 retreat when you can't fight back.
+
+### BC25 Hit-and-Run via Cooldown Math
+
+The BC25 soldier checks `canMoveNextTurn` by computing post-attack cooldown.
+**Only enters tower range when it can attack AND retreat next turn.** This is
+proper kiting with explicit cooldown awareness.
+
+### Why Lexicographic, Not Weighted Sum
+
+Every criterion is binary/integer checked in strict priority. Benefits:
+- No weight tuning needed
+- Behavior is predictable and debuggable
+- Safety ALWAYS trumps aggression — no edge case where high aggression
+  score overrides low safety score
 
 ### Turn Structure (Attack-Move-Attack Kiting)
 
@@ -560,3 +605,10 @@ maps for if/when you need multi-layer strategic reasoning.
 - [Kiting in RTS Using Influence Maps (AAAI)](https://cdn.aaai.org/ojs/12544/12544-52-16064-1-2-20201228.pdf)
 - [Modular Tactical Influence Maps — Game AI Pro 2](https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter30_Modular_Tactical_Influence_Maps.pdf)
 - [Cambridge Battlecode Docs](https://docs.battlecode.cam)
+
+### xsquare Source Code Locations
+
+- **BC23**: [Battlecode23/fortytwo/MicroAttacker.java](https://github.com/IvanGeffner/Battlecode23/blob/master/fortytwo/MicroAttacker.java)
+- **BC25 Soldier**: [BC25/basic45/MicroManagerSoldier.java](https://github.com/IvanGeffner/BC25/blob/master/basic45/MicroManagerSoldier.java)
+- **BC26**: [BC26/basic51/MicroManager.java](https://github.com/IvanGeffner/BC26/blob/master/basic51/MicroManager.java)
+- **1st place BC24 (adopted xsquare style)**: [chenyx512/battlecode24/src/noduckonflag/Micro.java](https://github.com/chenyx512/battlecode24/blob/main/src/noduckonflag/Micro.java)
