@@ -17,23 +17,23 @@ Win condition tiebreakers (in order): refined axionite delivered, titanium deliv
 ### Units (run independent code instances)
 
 - Core: spawns builder bots, vision r²=36, action r²=8 from centre. 1 spawn per round.
-- Builder bot: only mobile unit, 30 HP, 50 Ti, 20% scale, vision r²=20, action r²=2. Builds, heals (4 HP for 1 Ti), attacks building on own tile (2 dmg for 2 Ti), destroys allied buildings (free, no cooldown). Self-destruct does NO damage. Walks only on conveyors, roads, allied core.
-- Gunner: 40 HP, 10 Ti, 10% scale, vision/attack r²=13, 10 dmg (20 with refined ax), reload 1, 2 ammo/shot. Targets closest non-empty tile in facing direction. Markers targetable but don't shield.
-- Sentinel: 30 HP, 15 Ti, 20% scale, vision/attack r²=32, 10 dmg, reload 2, 5 ammo/shot. Hits within 1 king-move of facing line. Refined ax ammo: +2 action/move cooldown stun.
-- Breach: 60 HP, 30 Ti + 10 Ax, 10% scale, vision r²=13, attack r²=5, 40 dmg + 20 splash (8 surrounding tiles), reload 1, 5 ammo (refined ax only). 180° cone. Friendly fire on splash.
+- Builder bot: only mobile unit, 30 HP, 30 Ti, 20% scale, vision r²=20, action r²=2. Builds, heals (4 HP for 1 Ti), attacks building on own tile (2 dmg for 2 Ti), destroys allied buildings (free, no cooldown). Self-destruct does NO damage. Walks only on conveyors, roads, allied core.
+- Gunner: 40 HP, 10 Ti, 10% scale, vision/attack r²=13, 10 dmg (30 with refined ax), reload 1, 2 ammo/shot. Targets closest non-empty tile in facing direction. Markers targetable but don't shield.
+- Sentinel: 30 HP, 30 Ti, 20% scale, vision/attack r²=32, 18 dmg, reload 3, 10 ammo/shot. Hits within 1 king-move of facing line. Refined ax ammo: +5 action/move cooldown stun.
+- Breach: 60 HP, 15 Ti + 10 Ax, 10% scale, vision r²=13, attack r²=5, 40 dmg + 20 splash (8 surrounding tiles), reload 1, 5 ammo (refined ax only). 180° cone. Friendly fire on splash.
 - Launcher: 30 HP, 20 Ti, 10% scale, vision/attack r²=26. Throws adjacent builder bots. No facing direction, no ammo.
 
 ### Buildings
 
-- Road (10 HP, 1 Ti, 0.5%): walkable
+- Road (5 HP, 1 Ti, 0.5%): walkable
 - Marker (1 HP, free, no scale): u32 value, only comms between units. Not walkable, counts as building. Destroyable for free. One per round per unit, separate from action cooldown.
 - Barrier (30 HP, 3 Ti, 1%): blocks space
 - Conveyor (20 HP, 3 Ti, 1%): cardinal only. 3 inputs, 1 output
 - Splitter (20 HP, 6 Ti, 1%): cardinal only. 1 input (back), 3 rotating outputs
-- Bridge (20 HP, 20 Ti, 5%): teleports stack to tile within dist² 9. Accepts from all directions.
-- Armoured conveyor (50 HP, 10 Ti + 5 refined ax, 1%): like conveyor but tankier
-- Harvester (30 HP, 80 Ti, 10%): auto-mines, outputs every 4 rounds. NOT a unit.
-- Foundry (50 HP, 120 Ti, 100%): Ti + raw ax -> refined ax
+- Bridge (20 HP, 20 Ti, 10%): teleports stack to tile within dist² 9. Accepts from all directions.
+- Armoured conveyor (50 HP, 5 Ti + 5 refined ax, 1%): like conveyor but tankier
+- Harvester (30 HP, 20 Ti, 5%): auto-mines, outputs every 4 rounds. NOT a unit.
+- Foundry (50 HP, 40 Ti, 100%): Ti + raw ax -> refined ax
 
 Cost scaling: additive. Each entity built increases scale by its % contribution. cost = floor(scale \* base_cost). Scale starts at 1.0x.
 
