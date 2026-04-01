@@ -475,7 +475,7 @@ fn draw_range_overlay(
     }
 }
 
-#[allow(clippy::many_single_char_names)]
+#[allow(clippy::many_single_char_names, clippy::too_many_lines)]
 fn draw_vis_overlay(
     painter: &egui::Painter,
     app: &App,
@@ -486,12 +486,10 @@ fn draw_vis_overlay(
     zoom: f32,
 ) {
     let id = app.selected_entity.unwrap_or(-1);
-    let Some(json) = turn_state.vis_data.get(&id) else {
+    let Some(jsons) = turn_state.vis_data.get(&id) else {
         return;
     };
-    let Some(fields) = crate::vis::parse_vis(json) else {
-        return;
-    };
+    let fields = crate::vis::parse_vis(jsons);
     let Some(field) = fields.get(field_name) else {
         return;
     };
@@ -565,6 +563,59 @@ fn draw_vis_overlay(
             for &[gx, gy] in data {
                 let r = tile_rect(gx, gy, ts, origin, zoom);
                 painter.rect_filled(r, 0.0, color);
+            }
+        }
+        crate::vis::VisField::VectorField {
+            angles,
+            magnitudes,
+        } => {
+            let arrow_color = Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xc0);
+            let max_mag = magnitudes
+                .as_ref()
+                .and_then(|m| m.iter().copied().reduce(f64::max))
+                .unwrap_or(1.0)
+                .max(1e-9);
+
+            for gy in 0..h {
+                for gx in 0..w {
+                    let i = gy * w + gx;
+                    if i >= angles.len() {
+                        continue;
+                    }
+                    let Some(angle) = angles[i] else {
+                        continue;
+                    };
+                    let mag_frac = magnitudes
+                        .as_ref()
+                        .map_or(0.35, |m| (m[i] / max_mag * 0.4) as f32);
+                    let center = tile_center(gx as i32, gy as i32, ts, origin, zoom);
+                    let half_len = ts * zoom * mag_frac;
+                    let dx = (angle as f32).cos() * half_len;
+                    let dy = (angle as f32).sin() * half_len;
+                    let tip = Pos2::new(center.x + dx, center.y + dy);
+                    let tail = Pos2::new(center.x - dx, center.y - dy);
+                    let stroke = Stroke::new((1.5 * zoom).max(1.0), arrow_color);
+                    painter.line_segment([tail, tip], stroke);
+
+                    let head_len = 3.0 * zoom;
+                    let half = head_len * 0.5;
+                    let ux = (angle as f32).cos();
+                    let uy = (angle as f32).sin();
+                    let bx = (-ux).mul_add(head_len, tip.x);
+                    let by = (-uy).mul_add(head_len, tip.y);
+                    let lx = uy.mul_add(half, bx);
+                    let ly = (-ux).mul_add(half, by);
+                    let rx = (-uy).mul_add(half, bx);
+                    let ry = ux.mul_add(half, by);
+                    painter.line_segment(
+                        [tip, Pos2::new(lx, ly)],
+                        stroke,
+                    );
+                    painter.line_segment(
+                        [tip, Pos2::new(rx, ry)],
+                        stroke,
+                    );
+                }
             }
         }
         crate::vis::VisField::Scalar { .. } => {}

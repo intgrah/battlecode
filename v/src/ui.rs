@@ -549,7 +549,11 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                             Some(VisField::Scalar { data }) => {
                                 ui.monospace(format!("{name}: {data}"));
                             }
-                            Some(VisField::Grid { .. } | VisField::Tiles { .. }) => {
+                            Some(
+                                VisField::Grid { .. }
+                                | VisField::Tiles { .. }
+                                | VisField::VectorField { .. },
+                            ) => {
                                 let mut enabled = app.vis_overlays.contains(*name);
                                 if ui.checkbox(&mut enabled, name.as_str()).changed() {
                                     if enabled {
@@ -600,14 +604,11 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
 }
 
 fn collect_vis_fields(state: &TurnState, selected: Option<i32>) -> VisState {
-    let mut merged = VisState::new();
     let id = selected.unwrap_or(-1);
-    if let Some(json) = state.vis_data.get(&id)
-        && let Some(fields) = vis::parse_vis(json)
-    {
-        merged.extend(fields);
-    }
-    merged
+    state
+        .vis_data
+        .get(&id)
+        .map_or_else(VisState::new, |jsons| vis::parse_vis(jsons))
 }
 
 fn icon_button(ui: &mut egui::Ui, icon: &str, size: f32) -> egui::Response {
