@@ -15,7 +15,9 @@ TEAM_LABELS = {
 }
 
 
-WINNER_RE = re.compile(r"Winner:\s+(?P<winner>\S+)\s+\((?P<reason>.+),\s*turn\s+(?P<turn>\d+)\)")
+WINNER_RE = re.compile(
+    r"Winner:\s+(?P<winner>\S+)\s+\((?P<reason>.+),\s*turn\s+(?P<turn>\d+)\)"
+)
 
 
 def repo_root() -> Path:
@@ -34,7 +36,8 @@ def team_from_side(side: str) -> int:
         return TEAM_A
     if normalized in {"B", "TEAM_B"}:
         return TEAM_B
-    raise ValueError(f"Unsupported side {side!r}; expected A or B")
+    msg = f"Unsupported side {side!r}; expected A or B"
+    raise ValueError(msg)
 
 
 def other_team(team: int) -> int:
@@ -122,7 +125,14 @@ def _entity_state(entity: cambc_pb2.Entity) -> dict[str, Any]:
         state["move_cooldown"] = payload.move_cooldown
     elif kind == "core":
         state["action_cooldown"] = payload.action_cooldown
-    elif kind in {"conveyor", "splitter", "armoured_conveyor", "gunner", "sentinel", "breach"}:
+    elif kind in {
+        "conveyor",
+        "splitter",
+        "armoured_conveyor",
+        "gunner",
+        "sentinel",
+        "breach",
+    }:
         state["direction"] = payload.direction
     if kind in {"conveyor", "splitter", "armoured_conveyor", "bridge", "foundry"}:
         state["stored"] = payload.stored
@@ -145,7 +155,9 @@ def initial_entities(replay: cambc_pb2.Replay) -> dict[int, dict[str, Any]]:
     return entities
 
 
-def _apply_entity_update(entities: dict[int, dict[str, Any]], update: cambc_pb2.Update) -> None:
+def _apply_entity_update(
+    entities: dict[int, dict[str, Any]], update: cambc_pb2.Update
+) -> None:
     kind = update.WhichOneof("kind")
     if kind == "place_entity":
         entity = update.place_entity.entity
@@ -175,7 +187,9 @@ def _apply_entity_update(entities: dict[int, dict[str, Any]], update: cambc_pb2.
             state["move_cooldown"] = update.set_move_cooldown.value
 
 
-def _players_dict(players: cambc_pb2.Players | None) -> dict[str, dict[str, int]] | None:
+def _players_dict(
+    players: cambc_pb2.Players | None,
+) -> dict[str, dict[str, int]] | None:
     if players is None:
         return None
     return {
@@ -265,11 +279,17 @@ def summarize_replay(path: str | Path) -> dict[str, Any]:
         (
             {
                 **stat,
-                "avg_exec_us": int(stat["total_exec_us"] / stat["bot_output_events"]) if stat["bot_output_events"] else 0,
+                "avg_exec_us": int(stat["total_exec_us"] / stat["bot_output_events"])
+                if stat["bot_output_events"]
+                else 0,
             }
             for stat in bot_stats.values()
         ),
-        key=lambda stat: (stat["tle_count"], stat["max_exec_us"], stat["total_exec_us"]),
+        key=lambda stat: (
+            stat["tle_count"],
+            stat["max_exec_us"],
+            stat["total_exec_us"],
+        ),
         reverse=True,
     )
 
@@ -338,7 +358,9 @@ def trace_entity(
             "pos_after": current["pos"] if current is not None else None,
             "hp_before": current["hp"] if current is not None else None,
             "hp_after": current["hp"] if current is not None else None,
-            "action_cooldown": current["action_cooldown"] if current is not None else None,
+            "action_cooldown": current["action_cooldown"]
+            if current is not None
+            else None,
             "move_cooldown": current["move_cooldown"] if current is not None else None,
             "spawned": False,
             "removed": False,
@@ -363,9 +385,14 @@ def trace_entity(
                 record["removed"] = True
             elif kind == "update_hp" and update.update_hp.id == entity_id:
                 record["hp_delta"] += update.update_hp.delta
-            elif kind == "set_action_cooldown" and update.set_action_cooldown.id == entity_id:
+            elif (
+                kind == "set_action_cooldown"
+                and update.set_action_cooldown.id == entity_id
+            ):
                 record["action_cooldown"] = update.set_action_cooldown.value
-            elif kind == "set_move_cooldown" and update.set_move_cooldown.id == entity_id:
+            elif (
+                kind == "set_move_cooldown" and update.set_move_cooldown.id == entity_id
+            ):
                 record["move_cooldown"] = update.set_move_cooldown.value
             elif kind == "bot_output" and update.bot_output.id == entity_id:
                 record["exec_time_us"] = update.bot_output.exec_time_us
@@ -418,5 +445,3 @@ def trace_entity(
         "turn_to": turn_to,
         "records": records,
     }
-
-

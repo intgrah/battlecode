@@ -7,7 +7,12 @@ import sys
 
 from cambc import Direction, EntityType
 
-DEBUG = os.environ.get("CAMBC_DEBUG", "").strip().lower() not in {"", "0", "false", "no"}
+DEBUG = os.environ.get("CAMBC_DEBUG", "").strip().lower() not in {
+    "",
+    "0",
+    "false",
+    "no",
+}
 
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 

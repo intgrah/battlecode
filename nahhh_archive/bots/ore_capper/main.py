@@ -66,7 +66,10 @@ class Player:
         if self.core_pos is not None:
             return
         for eid in ct.get_nearby_entities():
-            if ct.get_entity_type(eid) == EntityType.CORE and ct.get_team(eid) == ct.get_team():
+            if (
+                ct.get_entity_type(eid) == EntityType.CORE
+                and ct.get_team(eid) == ct.get_team()
+            ):
                 self.core_pos = ct.get_position(eid)
                 return
 
@@ -103,7 +106,10 @@ class Player:
             if building_id is not None:
                 etype = ct.get_entity_type(building_id)
                 team = ct.get_team(building_id)
-                if etype in {EntityType.HARVESTER, EntityType.BARRIER} and team == ct.get_team():
+                if (
+                    etype in {EntityType.HARVESTER, EntityType.BARRIER}
+                    and team == ct.get_team()
+                ):
                     continue
             key = (here.distance_squared(pos), pos.x, pos.y)
             if best_key is None or key < best_key:

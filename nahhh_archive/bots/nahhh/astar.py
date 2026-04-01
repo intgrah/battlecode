@@ -16,10 +16,7 @@ CARDINAL_DELTAS = ((0, -1), (1, 0), (0, 1), (-1, 0))
 
 # Pre-computed bridge offsets: all (dx, dy) where dx²+dy² ≤ 9 and not (0,0)
 BRIDGE_OFFSETS: list[tuple[int, int]] = [
-    (dx, dy)
-    for dx in range(-3, 4)
-    for dy in range(-3, 4)
-    if 0 < dx * dx + dy * dy <= 9
+    (dx, dy) for dx in range(-3, 4) for dy in range(-3, 4) if 0 < dx * dx + dy * dy <= 9
 ]
 
 
@@ -121,15 +118,17 @@ def astar_walk(
             if ng < _g_get(nb, 999999):
                 g_score[nb] = ng
                 came_from[nb] = current
-                _heappush(open_heap, (ng + _max(_abs(nx - _gx), _abs(ny - _gy)), counter, nx, ny))
+                _heappush(
+                    open_heap,
+                    (ng + _max(_abs(nx - _gx), _abs(ny - _gy)), counter, nx, ny),
+                )
                 counter += 1
 
         iterations += 1
-        if cpu_fn is not None and iterations % 20 == 0:
-            if cpu_fn() > cpu_limit:
-                if best_effort:
-                    break
-                return None
+        if cpu_fn is not None and iterations % 20 == 0 and cpu_fn() > cpu_limit:
+            if best_effort:
+                break
+            return None
 
     if best_effort and best_node is not None:
         node = best_node
@@ -246,9 +245,8 @@ def astar_chain(
             nb = (nx, ny)
             if nb == harvester_pos:
                 continue
-            if nb in impassable:
-                if nb not in terminals:
-                    continue
+            if nb in impassable and nb not in terminals:
+                continue
 
             if nb in ore_set:
                 cost = 20
@@ -261,7 +259,9 @@ def astar_chain(
             if ng < _g_get(nb, 999999):
                 g_score[nb] = ng
                 came_from[nb] = (_EDGE_CONV, cx, cy)
-                _heappush(open_heap, (ng + _abs(nx - _gx) + _abs(ny - _gy), counter, nx, ny))
+                _heappush(
+                    open_heap, (ng + _abs(nx - _gx) + _abs(ny - _gy), counter, nx, ny)
+                )
                 counter += 1
 
         # Bridge edges: all tiles within dist_sq 9
@@ -272,9 +272,8 @@ def astar_chain(
             lb = (lx, ly)
             if lb == harvester_pos:
                 continue
-            if lb in impassable:
-                if lb not in terminals:
-                    continue
+            if lb in impassable and lb not in terminals:
+                continue
 
             if lb in ore_set:
                 cost = 20
@@ -286,14 +285,15 @@ def astar_chain(
             if ng < _g_get(lb, 999999):
                 g_score[lb] = ng
                 came_from[lb] = (_EDGE_BRIDGE, cx, cy)
-                _heappush(open_heap, (ng + _abs(lx - _gx) + _abs(ly - _gy), counter, lx, ly))
+                _heappush(
+                    open_heap, (ng + _abs(lx - _gx) + _abs(ly - _gy), counter, lx, ly)
+                )
                 counter += 1
 
         iterations += 1
-        if cpu_fn is not None and iterations % 20 == 0:
-            if cpu_fn() > cpu_limit:
-                if best_h_node != start:
-                    return _reconstruct_chain(best_h_node, came_from, start)
-                return None
+        if cpu_fn is not None and iterations % 20 == 0 and cpu_fn() > cpu_limit:
+            if best_h_node != start:
+                return _reconstruct_chain(best_h_node, came_from, start)
+            return None
 
     return None

@@ -63,5 +63,3 @@ def decode_sector(value: int) -> tuple[int, int, int, int]:
     owner_id = (value >> 2) & 0x7FFF
     sector = value & 0x3
     return opcode, round_no, owner_id, sector
-
-
