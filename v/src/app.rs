@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
 
 use eframe::egui;
@@ -12,26 +12,13 @@ use crate::sprites::SpriteAtlas;
 use crate::state::{Entity, EntityKind, GameState};
 use crate::ui;
 
+const FONT: &[u8] = include_bytes!("../assets/font.ttf");
+
 fn configure_fonts(ctx: &egui::Context) {
-    const FONT_CANDIDATES: &[&str] = &[
-        "/usr/share/fonts/TTF/JetBrainsMonoNerdFontMono-Regular.ttf",
-        "/usr/share/fonts/TTF/FiraCode-Regular.ttf",
-        "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf",
-        "/usr/share/fonts/TTF/Inconsolata-Regular.ttf",
-        "/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Regular.ttf",
-    ];
-
-    let Some(path) = FONT_CANDIDATES.iter().map(Path::new).find(|p| p.exists()) else {
-        return;
-    };
-    let Ok(data) = fs::read(path) else {
-        return;
-    };
-
     let mut fonts = FontDefinitions::default();
     fonts
         .font_data
-        .insert("mono".into(), FontData::from_owned(data).into());
+        .insert("mono".into(), FontData::from_static(FONT).into());
     fonts
         .families
         .entry(FontFamily::Proportional)
