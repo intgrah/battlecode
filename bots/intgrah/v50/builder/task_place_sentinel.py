@@ -114,7 +114,10 @@ def place_sentinel(
         if ct.can_build_sentinel(sentinel_pos, facing_alt):
             return Direction.CENTRE, PlaceSentinel(sentinel_pos, facing_alt)
 
-    move, build = move_toward_with_road(state, ct, sentinel_pos)
+    result = move_toward_with_road(state, ct, sentinel_pos)
+    if result is None:
+        return None
+    move, build = result
     if move != Direction.CENTRE and build is None:
         new_pos = pos.add(move)
         if new_pos.distance_squared(sentinel_pos) <= 2 and new_pos != sentinel_pos:

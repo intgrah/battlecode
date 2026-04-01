@@ -23,6 +23,8 @@ def heal_core(
     ):
         return Direction.CENTRE, Heal(core)
 
-    move, build = move_toward_with_road(state, ct, core)
+    result = move_toward_with_road(state, ct, core)
+    if result is None:
+        return None
     ct.draw_indicator_line(state.pos, core, 255, 0, 0)
-    return move, build
+    return result

@@ -71,7 +71,10 @@ def place_launcher(
         if ct.can_build_launcher(adj):
             return Direction.CENTRE, PlaceLauncher(adj)
 
-    move, build = move_toward_with_road(state, ct, adj)
+    result = move_toward_with_road(state, ct, adj)
+    if result is None:
+        return None
+    move, build = result
     if move == Direction.CENTRE and build is None:
         return None
     if move != Direction.CENTRE and build is None:

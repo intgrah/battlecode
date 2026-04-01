@@ -1,3 +1,4 @@
+import sys
 import traceback
 from typing import TYPE_CHECKING
 
@@ -33,6 +34,12 @@ class Player:
         except GameError as e:
             print(traceback.format_exc())
             print(f"GAME_ERROR: {e}")
+            print(traceback.format_exc(), file=sys.stderr)
+            print(f"GAME_ERROR: {e}", file=sys.stderr)
+            ct.resign()
         except Exception as e:  # noqa: BLE001
             print(traceback.format_exc())
             print(f"EXCEPTION: {e}")
+            print(traceback.format_exc(), file=sys.stderr)
+            print(f"EXCEPTION: {e}", file=sys.stderr)
+            ct.resign()

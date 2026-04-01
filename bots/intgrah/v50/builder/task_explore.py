@@ -32,9 +32,11 @@ def explore(
         state.explore_target = _pick_frontier_target(state)
     if state.explore_target is None:
         return None
-    move, build = move_toward_with_road(state, ct, state.explore_target)
+    result = move_toward_with_road(state, ct, state.explore_target)
+    if result is None:
+        return None
     ct.draw_indicator_dot(state.explore_target, 0, 0, 255)
-    return move, build
+    return result
 
 
 def _advance_frontier(state: State) -> None:

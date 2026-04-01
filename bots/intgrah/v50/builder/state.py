@@ -44,36 +44,14 @@ from util import (
     COST_IMPASSABLE,
     COST_ROAD,
     COST_UNSEEN,
+    DIAL_MOD,
+    DIR8_DELTA,
+    INF,
     Symmetry,
 )
 
 
 class UnifiedFlow:
-    __slots__ = (
-        "_edge_push",
-        "_in_degree",
-        "_in_rev_head",
-        "_in_rev_next",
-        "_in_rev_src",
-        "_is_recv",
-        "_out_edges",
-        "_prev_all",
-        "_prev_recv",
-        "ax",
-        "ax_excess",
-        "blocked",
-        "en_frac",
-        "en_total",
-        "excess",
-        "my_frac",
-        "my_total",
-        "rax",
-        "rax_excess",
-        "ti",
-        "ti_excess",
-        "total",
-    )
-
     def __init__(self, n: int) -> None:
         self.ti = [0.0] * n
         self.ax = [0.0] * n
@@ -88,6 +66,8 @@ class UnifiedFlow:
         self.rax_excess = [0.0] * n
         self.excess = [0.0] * n
         self.blocked = [False] * n
+
+        # Internally allocated lists to avoid re-allocating
         self._in_degree = [0] * n
         self._is_recv = [False] * n
         self._in_rev_head = [-1] * n
@@ -100,21 +80,14 @@ class UnifiedFlow:
         self._prev_recv: tuple[list[int], ...] = ()
 
 
-_DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
-
-
-def _build_pnb(w: int, h: int, n: int, cost: list[int]) -> list[list[int]]:
+def _init_pnb(w: int, h: int, n: int) -> list[list[int]]:
     pnb: list[list[int]] = [[] for _ in range(n)]
     for i in range(n):
-        if cost[i] >= COST_IMPASSABLE:
-            continue
         cx, cy = i % w, i // w
-        for dx, dy in _DIR8:
+        for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * w + nx
-                if cost[ni] < COST_IMPASSABLE:
-                    pnb[i].append(ni)
+                pnb[i].append(ny * w + nx)
     return pnb
 
 
@@ -123,13 +96,13 @@ def _update_pnb(w: int, h: int, cost: list[int], pnb: list[list[int]], i: int) -
     passable = cost[i] < COST_IMPASSABLE
     pnb[i] = []
     if passable:
-        for dx, dy in _DIR8:
+        for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
                 if cost[ni] < COST_IMPASSABLE:
                     pnb[i].append(ni)
-    for dx, dy in _DIR8:
+    for dx, dy in DIR8_DELTA:
         nx, ny = cx + dx, cy + dy
         if 0 <= nx < w and 0 <= ny < h:
             ni = ny * w + nx
@@ -159,11 +132,21 @@ class State:
         n = self.w * self.h
 
         # -- Per-tile arrays (indexed by y * w + x) --
+        # The environment at a tile. None is unseen. Empty, Wall, Ti, Ax
         self.env: list[Environment | None] = [None] * n
+        # The building at at tile. None is unseen.
         self.building: list[Building | None] = [None] * n
-        self.last_seen: list[int] = [0] * n
-        self.cost: list[int] = [COST_UNSEEN] * n
-        self.pnb: list[list[int]] = _build_pnb(self.w, self.h, n, self.cost)
+        # The round in which a tile was last seen.
+        self.last_seen = [0] * n
+        # The edge cost used for pathfinding for all in-edges to a tile
+        self.cost = [COST_UNSEEN] * n
+        # Passable neighbours
+        self.pnb: list[list[int]] = _init_pnb(self.w, self.h, n)
+        # Symmetry detection means that knowledge of the environment can be reflected.
+        # Reflected tiles count as changes to the knowledge, so env, pnb
+        # However, in moments such as symmetry elimination, this can cause large spikes
+        # as all tiles in knowledge have to be reflected. We amortise this over multiple rounds
+        # by limiting the amount we process at a time.
         self.reflect_queue: deque[int] = deque()
 
         # -- Resources (indexed as y * w + x) --
@@ -225,13 +208,11 @@ class State:
         self.bridge_flow_search: BridgeFlowAstar | None = None
         self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
-        self.nav_target_key: Position | None = None
-        self.nav_path: list[int] | None = None
-        self.nav_dist: list[int] | None = None
-        self.nav_parent: list[int] | None = None
-        self.nav_ht: list[int] | None = None
-        self.nav_bk: list[deque[int]] | None = None
-        self.nav_touched: list[int] = []
+
+        self.nav_dist = [INF] * n  # astar
+        self.nav_parent = [-1] * n  # astar, bfs
+        self.nav_heuristic = [-1] * n  # astar
+        self.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]  # astar_bucket
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -252,9 +233,6 @@ class State:
 
         # -- Landmarks --
         self.landmarks: tuple[list[int], int, bytes] | None = None
-
-        # -- HPA* --
-        self.hpa_graph: object | None = None
 
         km = _try_identify_map(self, core_pos)
         if km is not None:

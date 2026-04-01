@@ -60,7 +60,10 @@ def harvest_ax(
         adj = cardinal_adjacent(state, pos, ore_pos)
         if adj is None:
             continue
-        move, build = move_toward_with_road(state, ct, adj)
+        result = move_toward_with_road(state, ct, adj)
+        if result is None:
+            continue
+        move, build = result
         if move != Direction.CENTRE and build is None:
             new_pos = pos.add(move)
             if new_pos.distance_squared(ore_pos) == 1:
