@@ -243,6 +243,52 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
         .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(8.0))
         .show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
+                if let Some(winner) = app.game.winner {
+                    let winner_label = match winner {
+                        proto::Team::A => "Team A",
+                        proto::Team::B => "Team B",
+                    };
+                    let final_state = app.game.turns.last().unwrap();
+                    let loser_core_destroyed = !final_state.entities.values().any(|e| {
+                        e.team != winner && matches!(e.kind, EntityKind::Core { .. })
+                    });
+                    let reason = if loser_core_destroyed {
+                        "Core destroyed"
+                    } else {
+                        let fa = &final_state.players[0];
+                        let fb = &final_state.players[1];
+                        if fa.ax_collected != fb.ax_collected {
+                            "Tiebreak: Ax delivered"
+                        } else if fa.ti_collected != fb.ti_collected {
+                            "Tiebreak: Ti delivered"
+                        } else {
+                            let harvesters = |team: proto::Team| {
+                                final_state
+                                    .entities
+                                    .values()
+                                    .filter(|e| {
+                                        e.team == team
+                                            && matches!(e.kind, EntityKind::Harvester { .. })
+                                    })
+                                    .count()
+                            };
+                            if harvesters(proto::Team::A) != harvesters(proto::Team::B) {
+                                "Tiebreak: Harvesters"
+                            } else if fa.axionite != fb.axionite {
+                                "Tiebreak: Ax stored"
+                            } else if fa.titanium != fb.titanium {
+                                "Tiebreak: Ti stored"
+                            } else {
+                                "Tiebreak: Coinflip"
+                            }
+                        }
+                    };
+                    ui.heading(format!("{winner_label} wins"));
+                    ui.label(reason);
+                    ui.separator();
+                    ui.add_space(4.0);
+                }
+
                 let a = &state.players[0];
                 let b = &state.players[1];
 
