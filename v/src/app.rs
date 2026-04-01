@@ -45,7 +45,6 @@ fn configure_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-#[allow(clippy::struct_excessive_bools)]
 pub struct App {
     pub game: GameState,
     pub atlas: SpriteAtlas,
@@ -54,11 +53,8 @@ pub struct App {
     pub speed: i32,
     pub cursor: (i32, i32),
     pub selected_entity: Option<i32>,
-    pub show_indicators: bool,
-    pub show_network: bool,
-    pub show_vision: bool,
-    pub show_help: bool,
     pub follow_entity: bool,
+    pub show_indicators: bool,
     pub pan: egui::Vec2,
     pub zoom: f32,
     replay_path: PathBuf,
@@ -87,11 +83,8 @@ impl App {
             speed: 0,
             cursor: (0, 0),
             selected_entity: None,
-            show_indicators: false,
-            show_network: false,
-            show_vision: false,
-            show_help: false,
             follow_entity: false,
+            show_indicators: false,
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
             replay_path,
@@ -140,29 +133,6 @@ impl App {
         }
     }
 
-    #[allow(clippy::option_if_let_else)]
-    pub fn cycle_entity_at_cursor(&mut self) {
-        let state = &self.game.turns[self.turn];
-        let at_cursor: Vec<i32> = state
-            .entities
-            .values()
-            .filter(|e| e.pos == (self.cursor.0, self.cursor.1))
-            .map(|e| e.id)
-            .collect();
-        if at_cursor.is_empty() {
-            self.selected_entity = None;
-            return;
-        }
-        let next = match self.selected_entity {
-            Some(current) => {
-                let idx = at_cursor.iter().position(|&id| id == current).unwrap_or(0);
-                at_cursor[(idx + 1) % at_cursor.len()]
-            }
-            None => at_cursor[0],
-        };
-        self.selected_entity = Some(next);
-    }
-
     fn check_hot_reload(&mut self) {
         if let Ok(meta) = fs::metadata(&self.replay_path)
             && let Ok(modified) = meta.modified()
@@ -184,13 +154,9 @@ impl App {
             use egui::Key;
             let shift = i.modifiers.shift;
 
-            if i.key_pressed(Key::Q) || i.key_pressed(Key::Escape) {
-                if self.selected_entity.is_some() {
-                    self.selected_entity = None;
-                    self.follow_entity = false;
-                } else if i.key_pressed(Key::Q) {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                }
+            if i.key_pressed(Key::Escape) && self.selected_entity.is_some() {
+                self.selected_entity = None;
+                self.follow_entity = false;
             }
             if i.key_pressed(Key::Space) {
                 self.playing = !self.playing;
@@ -231,23 +197,11 @@ impl App {
             if i.key_pressed(Key::Enter) {
                 self.select_at_cursor();
             }
-            if i.key_pressed(Key::Tab) {
-                self.cycle_entity_at_cursor();
-            }
-            if i.key_pressed(Key::F) && !i.modifiers.ctrl {
-                self.follow_entity = !self.follow_entity;
-            }
             if i.key_pressed(Key::I) {
                 self.show_indicators = !self.show_indicators;
             }
             if i.key_pressed(Key::N) {
-                self.show_network = !self.show_network;
-            }
-            if i.key_pressed(Key::V) && !i.modifiers.ctrl {
-                self.show_vision = !self.show_vision;
-            }
-            if i.key_pressed(Key::Slash) && shift {
-                self.show_help = !self.show_help;
+                // TODO: toggle network overlay
             }
 
             if i.key_pressed(Key::Equals) || i.key_pressed(Key::Plus) {
@@ -268,10 +222,7 @@ impl App {
             for c in '1'..='9' {
                 if i.key_pressed(Key::from_name(&c.to_string()).unwrap()) {
                     let frac = f64::from(c as u8 - b'0') / 10.0;
-                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    {
-                        self.turn = (frac * self.game.turn_count() as f64) as usize;
-                    }
+                    self.turn = (frac * self.game.turn_count() as f64) as usize;
                 }
             }
         });
@@ -301,11 +252,8 @@ impl eframe::App for App {
 
         self.handle_keys(&ctx);
 
-        if self.show_help {
-            ui::render_help(&ctx, &mut self.show_help);
-        }
-
-        ui::render_sidebar(ui, self);
+        ui::render_left_sidebar(ui, self);
+        ui::render_right_sidebar(ui, self);
         ui::render_scrubber(ui, self);
         map::render_map_panel(ui, self);
     }

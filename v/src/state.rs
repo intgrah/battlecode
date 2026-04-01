@@ -108,6 +108,7 @@ pub struct TurnState {
 #[derive(Clone, Debug)]
 pub enum Indicator {
     Line {
+        id: i32,
         pos_a: (i32, i32),
         pos_b: (i32, i32),
         r: u8,
@@ -115,6 +116,7 @@ pub enum Indicator {
         b: u8,
     },
     Dot {
+        id: i32,
         pos: (i32, i32),
         r: u8,
         g: u8,
@@ -275,6 +277,7 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
         Kind::IndicatorLine(l) => {
             if let (Some(a), Some(b)) = (&l.pos_a, &l.pos_b) {
                 state.indicators.push(Indicator::Line {
+                    id: l.id,
                     pos_a: (a.x, a.y),
                     pos_b: (b.x, b.y),
                     r: u8::try_from(l.r).unwrap_or(255),
@@ -286,6 +289,7 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
         Kind::IndicatorDot(d) => {
             if let Some(p) = &d.pos {
                 state.indicators.push(Indicator::Dot {
+                    id: d.id,
                     pos: (p.x, p.y),
                     r: u8::try_from(d.r).unwrap_or(255),
                     g: u8::try_from(d.g).unwrap_or(255),
