@@ -18,7 +18,6 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from flow_astar import build_leakage_mask
 from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import COST_IMPASSABLE, Symmetry
@@ -59,18 +58,17 @@ def update(state: State, ct: Controller) -> None:
     state.age += 1
     state.pos = ct.get_position()
 
-    t = ct.get_cpu_time_elapsed
-    t0 = t()
+    t0 = ct.get_cpu_time_elapsed()
     _update_core_hp(state, ct)
     _update_ephemeral(state, ct)
-    t1 = t()
+    t1 = ct.get_cpu_time_elapsed()
     changed = _scan_vision(state, ct)
     _stamp_unit_tiles(state)
-    t2 = t()
+    t2 = ct.get_cpu_time_elapsed()
     _update_flow(state, ct, changed)
-    t3 = t()
+    t3 = ct.get_cpu_time_elapsed()
     _update_infra_staleness(state)
-    t4 = t()
+    t4 = ct.get_cpu_time_elapsed()
     print(f"  ephemeral={t1 - t0}us")
     print(f"  scan={t2 - t1}us")
     print(f"  flow={t3 - t2}us")
@@ -117,21 +115,7 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
     new_tiles: list[tuple[Position, Environment]] = []
     rnd = ct.get_current_round()
 
-    _g = ct.get_cpu_time_elapsed
-    t_api = 0
-    t_make = 0
-    t_sets = 0
-    t_eq = 0
-    t_marker = 0
-    t_sym = 0
-    t_rest = 0
-    n_tiles = 0
-    n_bld = 0
-    n_markers = 0
-
     for t in ct.get_nearby_tiles():
-        n_tiles += 1
-        _s0 = _g()
         i = t.y * w + t.x
         state.last_seen[i] = rnd
 
@@ -146,27 +130,16 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                 state.ore_ax.add(i)
 
         bid = ct.get_tile_building_id(t)
-        _s1 = _g()
-        t_api += _s1 - _s0
         if bid is not None:
-            n_bld += 1
             etype = ct.get_entity_type(bid)
             bld = _make_building(ct, bid, etype)
-            _s2 = _g()
-            t_make += _s2 - _s1
             state.building[i] = bld
             _update_sets(state, i, old_bld, bld)
-            _s3 = _g()
-            t_sets += _s3 - _s2
-            _eq = bld != old_bld or env != old_env
-            _s4 = _g()
-            t_eq += _s4 - _s3
-            if _eq:
+            if bld != old_bld or env != old_env:
                 changed.append(i)
 
             match bld:
                 case BuildingMarker(team) if team == state.my_team:
-                    n_markers += 1
                     msg = decode_marker(bld.value)
                     match msg:
                         case MarkerTaskClaim() if not is_stale(msg, rnd):
@@ -175,27 +148,17 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                             state.symmetry = Symmetry(msg.symmetry)
                 case BuildingCore(team) if team != state.my_team:
                     state.en_core_tiles.add(i)
-            t_marker += _g() - _s4
         else:
             state.building[i] = None
             _update_sets(state, i, old_bld, None)
             if old_bld is not None or env != old_env:
                 changed.append(i)
-            t_rest += _g() - _s1
 
         state.update_cost(i)
         new_tiles.append((t, env))
 
-    _ss = _g()
     _apply_symmetry(state, new_tiles)
     _drain_reflect_queue(state)
-    t_sym = _g() - _ss
-
-    print(
-        f"    scan: tiles={n_tiles} bld={n_bld} markers={n_markers}"
-        f" api={t_api}us make={t_make}us sets={t_sets}us"
-        f" eq={t_eq}us marker={t_marker}us sym={t_sym}us rest={t_rest}us",
-    )
     return changed
 
 
@@ -264,7 +227,7 @@ def _update_sets(
         getattr(state, prefix + new_cat).add(p)
 
 
-_REFLECT_BUDGET = 10
+_REFLECT_BUDGET = 25
 
 
 def _apply_symmetry(
@@ -387,7 +350,6 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
         state.bridge_flow_search = None
         state.bridge_cached_path = None
         # state.leakage_mask = build_leakage_mask(state)
-        pass
     elif state.leakage_mask is None:
         # state.leakage_mask = build_leakage_mask(state)
         pass

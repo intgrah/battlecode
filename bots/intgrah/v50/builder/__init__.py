@@ -221,12 +221,14 @@ class Builder(Unit):
             t0 = ct.get_cpu_time_elapsed()
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            elapsed = ct.get_cpu_time_elapsed() - t0
+            t1 = ct.get_cpu_time_elapsed()
+            elapsed = t1 - t0
             if result is not None:
-                print(f"task={task.name} {elapsed}us OK")
+                print(f"  task={task.name} {elapsed}us OK")
+                print(f"  {result}")
                 return result
-            print(f"task={task.name} {elapsed}us FAIL")
-        print("task=NONE")
+            print(f"  task={task.name} {elapsed}us FAIL")
+        print("  task=NONE")
         return Direction.CENTRE, None
 
     def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
