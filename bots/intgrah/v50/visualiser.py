@@ -2,45 +2,42 @@
 
 Usage in builder code:
 
-    from visualiser import Grid, Scalar, Tiles, emit
+    from visualiser import Grid, Scalar, Tiles, Palette, emit
 
-    # Show flow belief
     emit(
-        flow_ti=Grid(state.flow.ti, palette="green"),
-        flow_excess=Grid(state.flow.excess, palette="red_green"),
+        dist=Grid(
+            state.dist,
+            palette=Palette(
+                stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)],
+                special={-1: (0, 0, 0, 0), INF: (80, 80, 80, 100)},
+            ),
+        ),
+        flow_ti=Grid(
+            state.flow.ti,
+            palette=Palette(
+                stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
+                special={0: (0, 0, 0, 0)},
+            ),
+        ),
+        scale=Scalar(142.5),
+        goals=Tiles([(3, 5), (7, 2)]),
     )
-
-    # Show explored vs unseen
-    emit(
-        seen=Grid([1 if e is not None else 0 for e in state.env], palette="grey"),
-    )
-
-    # Track a scalar in the sidebar
-    emit(scale=Scalar(state.scale_percent))
-
-    # Highlight specific tiles
-    emit(goals=Tiles([(3, 5), (7, 2)]))
 
 The replay viewer parses lines prefixed with ##VIS## from bot stdout.
 Each call to emit() replaces the previous vis state for that bot on that turn.
 
-Palettes:
-    "viridis"   - perceptual sequential (blue-green-yellow)
-    "green"     - transparent to green
-    "red"       - transparent to red
-    "blue"      - transparent to blue
-    "grey"      - transparent to white
-    "black"     - transparent to dark (fog of war)
-    "red_green" - red (negative) to transparent (zero) to green (positive)
+Palette stops: list of (t, r, g, b, a) where t in [0, 1].
+    Values are auto-scaled to [min, max] of non-special data, then interpolated.
 
-Null handling: values equal to `null` (default None) are rendered transparent.
-    Common: null=None (python None), null=-1, null=0
+Special values: dict mapping value -> (r, g, b, a).
+    Use (0, 0, 0, 0) for transparent. Matched values bypass the palette.
+    Special values are excluded from min/max auto-scaling.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -50,10 +47,15 @@ VIS_PREFIX = "##VIS## "
 
 
 @dataclass(frozen=True, slots=True)
+class Palette:
+    stops: Sequence[tuple[float, int, int, int, int]]
+    special: dict[float | int, tuple[int, int, int, int]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class Grid:
     data: Sequence[float | int | bool | None]
-    palette: str = "viridis"
-    null: float | int | None = None
+    palette: Palette
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,8 +70,15 @@ class Tiles:
 
 def _serialize_field(v: Grid | Scalar | Tiles) -> dict:
     match v:
-        case Grid(data=d, palette=p, null=n):
-            return {"type": "grid", "data": d, "palette": p, "null": n}
+        case Grid(data=d, palette=p):
+            return {
+                "type": "grid",
+                "data": list(d),
+                "palette": {
+                    "stops": [list(s) for s in p.stops],
+                    "special": {str(k): list(c) for k, c in p.special.items()},
+                },
+            }
         case Scalar(data=d):
             return {"type": "scalar", "data": d}
         case Tiles(data=d):

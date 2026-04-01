@@ -500,47 +500,42 @@ fn draw_vis_overlay(
     let h = app.game.height as usize;
 
     match field {
-        crate::vis::VisField::Grid {
-            data,
-            palette,
-            null,
-        } => {
-            let values: Vec<Option<f64>> = data
-                .iter()
-                .map(|v| match v {
-                    None => None,
-                    Some(x) if null.is_some_and(|n| (*x - n).abs() < 1e-9) => None,
-                    Some(x) => Some(*x),
-                })
-                .collect();
-
+        crate::vis::VisField::Grid { data, palette } => {
             let (mut min_v, mut max_v) = (f64::MAX, f64::MIN);
-            for v in values.iter().flatten() {
-                if *v < min_v {
-                    min_v = *v;
-                }
-                if *v > max_v {
-                    max_v = *v;
+            for v in data.iter().flatten() {
+                if !crate::vis::is_special(palette, *v) {
+                    if *v < min_v {
+                        min_v = *v;
+                    }
+                    if *v > max_v {
+                        max_v = *v;
+                    }
                 }
             }
-            if (max_v - min_v).abs() < 1e-12 {
-                max_v = min_v + 1.0;
+            if min_v > max_v {
+                min_v = 0.0;
+                max_v = 1.0;
             }
 
-            let range = max_v - min_v;
             let font = egui::FontId::monospace(8.0 * zoom.min(2.0));
 
             for gy in 0..h {
                 for gx in 0..w {
                     let i = gy * w + gx;
-                    if i >= values.len() {
+                    if i >= data.len() {
                         continue;
                     }
-                    let Some(v) = values[i] else {
+                    let Some(v) = data[i] else {
                         continue;
                     };
-                    let t = ((v - min_v) / range) as f32;
-                    let c = crate::vis::sample_palette(palette, t);
+                    let Some(c) =
+                        crate::vis::sample_palette(palette, v, min_v, max_v)
+                    else {
+                        continue;
+                    };
+                    if c.a == 0 {
+                        continue;
+                    }
                     let r = tile_rect(gx as i32, gy as i32, ts, origin, zoom);
                     painter.rect_filled(
                         r,
@@ -549,7 +544,9 @@ fn draw_vis_overlay(
                     );
 
                     if zoom > 0.8 {
-                        let label = if v.abs() < 100.0 {
+                        let label = if (v - v.round()).abs() < 1e-6 {
+                            format!("{}", v as i64)
+                        } else if v.abs() < 100.0 {
                             format!("{v:.2}")
                         } else {
                             format!("{v:.0}")

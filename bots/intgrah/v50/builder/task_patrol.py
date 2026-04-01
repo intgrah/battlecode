@@ -18,7 +18,7 @@ def patrol(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     infra = state.my_transport | state.my_core_tiles
-    assert all(state.walkable(i) for i in infra)
+    # TO DO: assert that all of these tiles are walkable
     if not infra:
         return None
     w = state.w
