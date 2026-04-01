@@ -15,6 +15,7 @@ mod map;
 mod sprites;
 mod state;
 mod ui;
+mod vis;
 
 use std::{env, fs, path::Path, process};
 

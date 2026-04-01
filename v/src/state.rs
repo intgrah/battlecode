@@ -103,6 +103,7 @@ pub struct TurnState {
     pub outputs: Vec<(i32, String)>,
     pub cpu_time_us: HashMap<i32, u32>,
     pub fire_events: Vec<((i32, i32), (i32, i32))>,
+    pub vis_data: HashMap<i32, String>,
 }
 
 #[derive(Clone, Debug)]
@@ -158,6 +159,7 @@ impl GameState {
             outputs: Vec::new(),
             cpu_time_us: HashMap::new(),
             fire_events: Vec::new(),
+            vis_data: HashMap::new(),
         };
 
         for core_pos in &map.cores {
@@ -185,6 +187,7 @@ impl GameState {
             current.outputs.clear();
             current.cpu_time_us.clear();
             current.fire_events.clear();
+            current.vis_data.clear();
 
             for update in &turn.updates {
                 apply_update(&mut current, update);
@@ -274,7 +277,19 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
         }
         Kind::BotOutput(o) => {
             if !o.stdout.is_empty() {
-                state.outputs.push((o.id, o.stdout.clone()));
+                const VIS_PREFIX: &str = "##VIS## ";
+                let mut regular = Vec::new();
+                for line in o.stdout.lines() {
+                    if let Some(json) = line.strip_prefix(VIS_PREFIX) {
+                        state.vis_data.insert(o.id, json.to_owned());
+                    } else {
+                        regular.push(line);
+                    }
+                }
+                let text = regular.join("\n");
+                if !text.is_empty() {
+                    state.outputs.push((o.id, text));
+                }
             }
             state.cpu_time_us.insert(o.id, o.exec_time_us);
         }

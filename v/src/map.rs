@@ -117,6 +117,23 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 let rr = Rect::from_center_size(center, Vec2::splat(half * 2.0));
                 draw_sprite(&painter, app, res_name, rr);
             }
+
+            if e.hp < e.max_hp && e.max_hp > 0 {
+                let tr = tile_rect(e.pos.0, e.pos.1, ts, origin, zoom);
+                let bar_h = (2.0 * zoom).max(1.0);
+                let bar_y = tr.bottom() - bar_h;
+                let bg =
+                    Rect::from_min_size(Pos2::new(tr.left(), bar_y), Vec2::new(tr.width(), bar_h));
+                painter.rect_filled(bg, 0.0, Color32::from_rgba_premultiplied(0, 0, 0, 0x80));
+                let frac = e.hp as f32 / e.max_hp as f32;
+                let r_ch = ((1.0 - frac) * 255.0) as u8;
+                let g_ch = (frac * 255.0) as u8;
+                let fill = Rect::from_min_size(
+                    Pos2::new(tr.left(), bar_y),
+                    Vec2::new(tr.width() * frac, bar_h),
+                );
+                painter.rect_filled(fill, 0.0, Color32::from_rgb(r_ch, g_ch, 0));
+            }
         }
 
         for e in turn_state.entities.values() {
@@ -134,6 +151,10 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
 
         if app.show_flow {
             draw_flow_overlay(&painter, app, turn_state, ts, origin, zoom);
+        }
+
+        for field_name in &app.vis_overlays {
+            draw_vis_overlay(&painter, app, turn_state, field_name, ts, origin, zoom);
         }
 
         for ind in &turn_state.indicators {
@@ -185,6 +206,8 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 let to = tile_center(target.0, target.1, ts, origin, zoom);
                 painter.line_segment([from, to], Stroke::new(2.0, Color32::GREEN));
             }
+
+            draw_range_overlay(&painter, e, &app.game, ts, origin, zoom);
         }
 
         {
@@ -240,6 +263,317 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             }
         }
     });
+}
+
+fn radius_tiles(cx: i32, cy: i32, r_sq: i32) -> Vec<(i32, i32)> {
+    let r = (r_sq as f32).sqrt().ceil() as i32;
+    let mut tiles = Vec::new();
+    for dy in -r..=r {
+        for dx in -r..=r {
+            if dx * dx + dy * dy <= r_sq {
+                tiles.push((cx + dx, cy + dy));
+            }
+        }
+    }
+    tiles
+}
+
+const fn dir_delta_map(dir: proto::Direction) -> (i32, i32) {
+    match dir {
+        proto::Direction::DirNorth => (0, -1),
+        proto::Direction::DirSouth => (0, 1),
+        proto::Direction::DirEast => (1, 0),
+        proto::Direction::DirWest => (-1, 0),
+        proto::Direction::DirNortheast => (1, -1),
+        proto::Direction::DirSoutheast => (1, 1),
+        proto::Direction::DirSouthwest => (-1, 1),
+        proto::Direction::DirNorthwest => (-1, -1),
+        proto::Direction::DirCentre => (0, 0),
+    }
+}
+
+fn gunner_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Vec<(i32, i32)> {
+    let (dx, dy) = dir_delta_map(dir);
+    if dx == 0 && dy == 0 {
+        return Vec::new();
+    }
+    let mut tiles = Vec::new();
+    let mut x = cx + dx;
+    let mut y = cy + dy;
+    loop {
+        let dist_sq = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if dist_sq > r_sq {
+            break;
+        }
+        tiles.push((x, y));
+        x += dx;
+        y += dy;
+    }
+    tiles
+}
+
+fn sentinel_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Vec<(i32, i32)> {
+    let (dx, dy) = dir_delta_map(dir);
+    if dx == 0 && dy == 0 {
+        return Vec::new();
+    }
+    let mut tiles = Vec::new();
+    let mut x = cx + dx;
+    let mut y = cy + dy;
+    loop {
+        let dist_sq = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if dist_sq > r_sq {
+            break;
+        }
+        for cdy in -1..=1_i32 {
+            for cdx in -1..=1_i32 {
+                let tx = x + cdx;
+                let ty = y + cdy;
+                if (tx, ty) != (cx, cy) {
+                    let d = (tx - cx) * (tx - cx) + (ty - cy) * (ty - cy);
+                    if d <= r_sq && !tiles.contains(&(tx, ty)) {
+                        tiles.push((tx, ty));
+                    }
+                }
+            }
+        }
+        x += dx;
+        y += dy;
+    }
+    tiles
+}
+
+fn breach_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Vec<(i32, i32)> {
+    let (dx, dy) = dir_delta_map(dir);
+    if dx == 0 && dy == 0 {
+        return Vec::new();
+    }
+    let mut tiles = Vec::new();
+    let r = (r_sq as f32).sqrt().ceil() as i32;
+    for oy in -r..=r {
+        for ox in -r..=r {
+            if ox == 0 && oy == 0 {
+                continue;
+            }
+            let dist_sq = ox * ox + oy * oy;
+            if dist_sq > r_sq {
+                continue;
+            }
+            let dot = ox * dx + oy * dy;
+            if dot > 0 || (dot == 0 && (ox * dy - oy * dx).abs() <= 0) {
+                tiles.push((cx + ox, cy + oy));
+            }
+        }
+    }
+    tiles
+}
+
+fn draw_tile_outline(
+    painter: &egui::Painter,
+    tiles: &[(i32, i32)],
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+    color: Color32,
+) {
+    use std::collections::HashSet;
+    let set: HashSet<(i32, i32)> = tiles.iter().copied().collect();
+    let stroke = Stroke::new((1.5 * zoom).max(1.0), color);
+    let sz = ts * zoom;
+
+    for &(gx, gy) in tiles {
+        let px = (gx as f32).mul_add(sz, origin.x);
+        let py = (gy as f32).mul_add(sz, origin.y);
+
+        if !set.contains(&(gx, gy - 1)) {
+            painter.line_segment([Pos2::new(px, py), Pos2::new(px + sz, py)], stroke);
+        }
+        if !set.contains(&(gx, gy + 1)) {
+            painter.line_segment(
+                [Pos2::new(px, py + sz), Pos2::new(px + sz, py + sz)],
+                stroke,
+            );
+        }
+        if !set.contains(&(gx - 1, gy)) {
+            painter.line_segment([Pos2::new(px, py), Pos2::new(px, py + sz)], stroke);
+        }
+        if !set.contains(&(gx + 1, gy)) {
+            painter.line_segment(
+                [Pos2::new(px + sz, py), Pos2::new(px + sz, py + sz)],
+                stroke,
+            );
+        }
+    }
+}
+
+fn draw_range_overlay(
+    painter: &egui::Painter,
+    e: &Entity,
+    game: &crate::state::GameState,
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+) {
+    let (cx, cy) = e.pos;
+    let blue = Color32::from_rgba_premultiplied(0x00, 0x00, 0xff, 0xc0);
+    let red = Color32::from_rgba_premultiplied(0xff, 0x00, 0x00, 0xc0);
+
+    let clamp = |tiles: &mut Vec<(i32, i32)>| {
+        tiles.retain(|&(x, y)| x >= 0 && x < game.width && y >= 0 && y < game.height);
+    };
+
+    match &e.kind {
+        EntityKind::BuilderBot { .. } => {
+            let mut vision = radius_tiles(cx, cy, 20);
+            clamp(&mut vision);
+            draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
+            let mut action = radius_tiles(cx, cy, 2);
+            clamp(&mut action);
+            draw_tile_outline(painter, &action, ts, origin, zoom, red);
+        }
+        EntityKind::Core { .. } => {
+            let mut vision = radius_tiles(cx, cy, 36);
+            clamp(&mut vision);
+            draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
+            let mut action = radius_tiles(cx, cy, 8);
+            clamp(&mut action);
+            draw_tile_outline(painter, &action, ts, origin, zoom, red);
+        }
+        EntityKind::Gunner { dir, .. } => {
+            let mut vision = radius_tiles(cx, cy, 13);
+            clamp(&mut vision);
+            draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
+            let mut attack = gunner_attack_tiles(cx, cy, *dir, 13);
+            clamp(&mut attack);
+            draw_tile_outline(painter, &attack, ts, origin, zoom, red);
+        }
+        EntityKind::Sentinel { dir, .. } => {
+            let mut vision = radius_tiles(cx, cy, 32);
+            clamp(&mut vision);
+            draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
+            let mut attack = sentinel_attack_tiles(cx, cy, *dir, 32);
+            clamp(&mut attack);
+            draw_tile_outline(painter, &attack, ts, origin, zoom, red);
+        }
+        EntityKind::Breach { dir, .. } => {
+            let mut vision = radius_tiles(cx, cy, 13);
+            clamp(&mut vision);
+            draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
+            let mut attack = breach_attack_tiles(cx, cy, *dir, 5);
+            clamp(&mut attack);
+            draw_tile_outline(painter, &attack, ts, origin, zoom, red);
+        }
+        EntityKind::Launcher { .. } => {
+            let mut vision = radius_tiles(cx, cy, 26);
+            clamp(&mut vision);
+            draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
+            let mut attack = radius_tiles(cx, cy, 26);
+            clamp(&mut attack);
+            draw_tile_outline(painter, &attack, ts, origin, zoom, red);
+        }
+        _ => {}
+    }
+}
+
+#[allow(clippy::many_single_char_names)]
+fn draw_vis_overlay(
+    painter: &egui::Painter,
+    app: &App,
+    turn_state: &crate::state::TurnState,
+    field_name: &str,
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+) {
+    let id = app.selected_entity.unwrap_or(-1);
+    let Some(json) = turn_state.vis_data.get(&id) else {
+        return;
+    };
+    let Some(fields) = crate::vis::parse_vis(json) else {
+        return;
+    };
+    let Some(field) = fields.get(field_name) else {
+        return;
+    };
+
+    let w = app.game.width as usize;
+    let h = app.game.height as usize;
+
+    match field {
+        crate::vis::VisField::Grid {
+            data,
+            palette,
+            null,
+        } => {
+            let values: Vec<Option<f64>> = data
+                .iter()
+                .map(|v| match v {
+                    None => None,
+                    Some(x) if null.is_some_and(|n| (*x - n).abs() < 1e-9) => None,
+                    Some(x) => Some(*x),
+                })
+                .collect();
+
+            let (mut min_v, mut max_v) = (f64::MAX, f64::MIN);
+            for v in values.iter().flatten() {
+                if *v < min_v {
+                    min_v = *v;
+                }
+                if *v > max_v {
+                    max_v = *v;
+                }
+            }
+            if (max_v - min_v).abs() < 1e-12 {
+                max_v = min_v + 1.0;
+            }
+
+            let range = max_v - min_v;
+            let font = egui::FontId::monospace(8.0 * zoom.min(2.0));
+
+            for gy in 0..h {
+                for gx in 0..w {
+                    let i = gy * w + gx;
+                    if i >= values.len() {
+                        continue;
+                    }
+                    let Some(v) = values[i] else {
+                        continue;
+                    };
+                    let t = ((v - min_v) / range) as f32;
+                    let c = crate::vis::sample_palette(palette, t);
+                    let r = tile_rect(gx as i32, gy as i32, ts, origin, zoom);
+                    painter.rect_filled(
+                        r,
+                        0.0,
+                        Color32::from_rgba_premultiplied(c.r, c.g, c.b, c.a),
+                    );
+
+                    if zoom > 0.8 {
+                        let label = if v.abs() < 100.0 {
+                            format!("{v:.2}")
+                        } else {
+                            format!("{v:.0}")
+                        };
+                        painter.text(
+                            egui::pos2(r.left() + 1.0, r.top() + 1.0),
+                            egui::Align2::LEFT_TOP,
+                            label,
+                            font.clone(),
+                            Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xc0),
+                        );
+                    }
+                }
+            }
+        }
+        crate::vis::VisField::Tiles { data } => {
+            let color = Color32::from_rgba_premultiplied(0xff, 0xff, 0x00, 0x60);
+            for &[gx, gy] in data {
+                let r = tile_rect(gx, gy, ts, origin, zoom);
+                painter.rect_filled(r, 0.0, color);
+            }
+        }
+        crate::vis::VisField::Scalar { .. } => {}
+    }
 }
 
 #[allow(clippy::many_single_char_names)]
