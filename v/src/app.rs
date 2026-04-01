@@ -60,7 +60,17 @@ impl App {
         replay_path: PathBuf,
     ) -> Self {
         configure_fonts(&cc.egui_ctx);
-        let atlas = SpriteAtlas::load(&cc.egui_ctx, assets_dir);
+        let mut style = (*cc.egui_ctx.global_style()).clone();
+        style.visuals.override_text_color = Some(egui::Color32::from_rgb(0xe0, 0xe0, 0xe0));
+        style.visuals.widgets.noninteractive.fg_stroke.color =
+            egui::Color32::from_rgb(0xe0, 0xe0, 0xe0);
+        style.visuals.widgets.inactive.fg_stroke.color = egui::Color32::from_rgb(0xd0, 0xd0, 0xd0);
+        cc.egui_ctx.set_global_style(style);
+        cc.egui_ctx.tessellation_options_mut(|opts| {
+            opts.feathering = true;
+            opts.feathering_size_in_pixels = 1.5;
+        });
+        let atlas = SpriteAtlas::load(cc, assets_dir);
         let game = GameState::from_replay(replay);
         let last_modified = fs::metadata(&replay_path)
             .and_then(|m| m.modified())

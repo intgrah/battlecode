@@ -53,9 +53,9 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 let r = tile_rect(gx, gy, ts, origin, zoom);
                 match env {
                     proto::Environment::EnvWall => {
-                        if let Some(tex) = app.atlas.get("natural_wall") {
+                        if let Some(tex_id) = app.atlas.get("natural_wall") {
                             painter.image(
-                                tex.id(),
+                                tex_id,
                                 r,
                                 Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
                                 Color32::from_rgb(0x30, 0x0c, 0x08),
@@ -528,9 +528,7 @@ fn draw_vis_overlay(
                     let Some(v) = data[i] else {
                         continue;
                     };
-                    let Some(c) =
-                        crate::vis::sample_palette(palette, v, min_v, max_v)
-                    else {
+                    let Some(c) = crate::vis::sample_palette(palette, v, min_v, max_v) else {
                         continue;
                     };
                     if c.a == 0 {
@@ -556,7 +554,7 @@ fn draw_vis_overlay(
                             egui::Align2::LEFT_TOP,
                             label,
                             font.clone(),
-                            Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xc0),
+                            Color32::WHITE,
                         );
                     }
                 }
@@ -599,19 +597,17 @@ fn draw_flow_overlay(
 
             let r = tile_rect(gx as i32, gy as i32, ts, origin, zoom);
 
-            let alpha = if excess > 0.01 {
+            if excess > 0.01 {
                 let red_frac = (excess / total.max(0.01)).min(1.0);
                 let g = ((1.0 - red_frac) * 0.6 * 255.0) as u8;
                 let r_ch = (red_frac * 0.8 * 255.0) as u8;
                 painter.rect_filled(r, 0.0, Color32::from_rgba_premultiplied(r_ch, g, 0, 0x50));
-                0xd0
             } else if total > 0.01 {
                 let green = (total.min(1.0) * 0.5 * 255.0) as u8;
                 painter.rect_filled(r, 0.0, Color32::from_rgba_premultiplied(0, green, 0, 0x30));
-                0xc0
             } else {
                 continue;
-            };
+            }
 
             if zoom > 0.5 {
                 use std::fmt::Write;
@@ -638,7 +634,7 @@ fn draw_flow_overlay(
                         egui::Align2::LEFT_TOP,
                         label,
                         font.clone(),
-                        Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, alpha),
+                        Color32::WHITE,
                     );
                 }
             }
@@ -647,7 +643,7 @@ fn draw_flow_overlay(
 }
 
 fn draw_beam(painter: &egui::Painter, app: &App, name: &str, from: Pos2, to: Pos2, width: f32) {
-    let Some(tex) = app.atlas.get(name) else {
+    let Some(tex_id) = app.atlas.get(name) else {
         return;
     };
     let dx = to.x - from.x;
@@ -666,7 +662,7 @@ fn draw_beam(painter: &egui::Painter, app: &App, name: &str, from: Pos2, to: Pos
     let tr = Pos2::new(to.x + vx, to.y + vy);
     let br = Pos2::new(to.x - vx, to.y - vy);
 
-    let mut mesh = Mesh::with_texture(tex.id());
+    let mut mesh = Mesh::with_texture(tex_id);
     mesh.add_triangle(0, 1, 2);
     mesh.add_triangle(2, 1, 3);
     mesh.colored_vertex(tl, Color32::WHITE);
@@ -682,9 +678,9 @@ fn draw_beam(painter: &egui::Painter, app: &App, name: &str, from: Pos2, to: Pos
 }
 
 fn draw_sprite(painter: &egui::Painter, app: &App, name: &str, rect: Rect) {
-    if let Some(tex) = app.atlas.get(name) {
+    if let Some(tex_id) = app.atlas.get(name) {
         painter.image(
-            tex.id(),
+            tex_id,
             rect,
             Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
             Color32::WHITE,
