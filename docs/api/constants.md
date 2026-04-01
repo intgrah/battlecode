@@ -57,7 +57,7 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | `BARRIER_BASE_COST`           | (3, 0)   |
 | `FOUNDRY_BASE_COST`           | (40, 0)  |
 | `GUNNER_BASE_COST`            | (10, 0)  |
-| `SENTINEL_BASE_COST`          | (15, 0)  |
+| `SENTINEL_BASE_COST`          | (30, 0)  |
 | `BREACH_BASE_COST`            | (15, 10) |
 | `LAUNCHER_BASE_COST`          | (20, 0)  |
 
@@ -94,12 +94,12 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | `GUNNER_AXIONITE_DAMAGE`           | 30      | Gunner damage when loaded with refined axionite |
 | `GUNNER_FIRE_COOLDOWN`             | 1       | Turns between gunner shots                      |
 | `GUNNER_AMMO_COST`                 | 2       | Resources consumed per shot                     |
-| `GUNNER_ROTATE_COST`               | (10, 0) | Cost to rotate a gunner 45°                     |
+| `GUNNER_ROTATE_COST`               | (10, 0) | Cost to rotate a gunner                         |
 | `GUNNER_ROTATE_COOLDOWN`           | 1       | Action cooldown applied after rotating          |
-| `SENTINEL_DAMAGE`                  | 10      | Sentinel damage per shot                        |
+| `SENTINEL_DAMAGE`                  | 18      | Sentinel damage per shot                        |
 | `SENTINEL_FIRE_COOLDOWN`           | 3       | Turns between sentinel shots                    |
-| `SENTINEL_AMMO_COST`               | 5       | Resources consumed per shot                     |
-| `SENTINEL_STUN_DURATION`           | 2       | Cooldown added by refined axionite stun         |
+| `SENTINEL_AMMO_COST`               | 10      | Resources consumed per shot                     |
+| `SENTINEL_STUN_DURATION`           | 5       | Cooldown added by refined axionite stun         |
 | `BREACH_DAMAGE`                    | 40      | Breach direct hit damage                        |
 | `BREACH_SPLASH_DAMAGE`             | 20      | Breach splash damage                            |
 | `BREACH_FIRE_COOLDOWN`             | 1       | Turns between breach shots                      |

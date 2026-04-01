@@ -10,7 +10,12 @@ Every turret **except the launcher** faces in one of **8 directions**. Ammo must
 
 Ammo-based turrets can hold up to one stack of one resource type and only accept incoming resources when completely empty.
 
-You can inspect a turret's full attack pattern with `c.get_attackable_tiles()`.
+You can inspect raw turret geometry with `c.get_attackable_tiles()` on a real
+turret or `c.get_attackable_tiles_from(position, direction, turret_type)` from
+any controller. These queries ignore ammo, cooldown, occupancy, blockers, and
+other legality checks. Use `c.can_fire()` to check a real turret's current shot
+legality, or `c.can_fire_from(...)` to test a hypothetical shot against the
+current map's range and obstruction rules.
 
 <Info>
   If a builder bot is standing on a building, turret attacks on that tile hit
@@ -18,24 +23,36 @@ You can inspect a turret's full attack pattern with `c.get_attackable_tiles()`.
 </Info>
 
 <Info>
-  Raw axionite fed into a turret is **destroyed**. Only the ammo types listed below have any effect.
+  Raw axionite fed into a turret is **destroyed**. Only the ammo types listed
+  below have any effect.
 </Info>
 
 ## Gunner
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/gunner.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=62439f66dff4e5aa36645340d4daad02" alt="Gunner" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/gunner.png" />
 
-Has a vision radius of √13. Can target **any occupied tile** in the direction it
-is facing. Using refined axionite as ammo deals **30 damage** instead of 10.
+Has a vision radius of √13. Fires along the forward ray up to range. Empty
+tiles and markers do **not** block line of sight. Markers are still targetable.
+Walls block the ray but are not targetable. Builder bots and non-marker
+buildings are both targetable and blocking, so nothing beyond the first such
+blocker is legal. Using refined axionite as ammo deals **30 damage** instead of 10.
 
 <Info>
-  Markers remain targetable, but they do **not** shield occupied tiles behind them.
+  Markers are the only occupied tiles that do **not** block a gunner. Walls
+  block but are not targetable. Builder bots and non-marker buildings are both
+  targetable and blocking.
 </Info>
 
+<Tip>
+  `c.get_gunner_target()` returns the closest **targetable** occupied tile on
+  the forward line. It may return a marker even if a farther legal target also
+  exists behind that marker.
+</Tip>
+
 <Info>
-  Gunners can rotate 45 degrees to an adjacent facing direction with
-  `c.rotate(direction)`. This costs **10 Ti** from the global pool and applies a
-  **1-turn cooldown**.
+  Gunners can rotate to any direction with `c.rotate(direction)`. This costs
+  **10 Ti** from the global pool and applies a **1-turn cooldown**. Use
+  `c.can_rotate(direction)` to preflight the move.
 </Info>
 
 | Property      | Value                         |
@@ -63,18 +80,18 @@ is facing. Using refined axionite as ammo deals **30 damage** instead of 10.
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/sentinel.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=d9e59a60e07e843f244324b5a144cb5f" alt="Sentinel" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/sentinel.png" />
 
-High range, low damage support turret. Can hit all tiles within **1 king move** (Chebyshev distance) of the straight line in its facing direction, within vision range.
+High range support turret. Can hit all tiles within **1 king move** (Chebyshev distance) of the straight line in its facing direction, within vision range.
 
-Using refined axionite instead of titanium as ammo adds **+2 to the action and move cooldown** of any unit directly hit — acting as a stun.
+Using refined axionite instead of titanium as ammo adds **+5 to the action and move cooldown** of any unit directly hit — acting as a stun.
 
 | Property      | Value               |
 | ------------- | ------------------- |
 | HP            | 30                  |
-| Base cost     | 15 Ti               |
+| Base cost     | 30 Ti               |
 | Scaling       | 20%                 |
-| Damage        | 10                  |
+| Damage        | 18                  |
 | Reload        | 3 rounds            |
-| Ammo per shot | 5                   |
+| Ammo per shot | 10                  |
 | Vision r²     | 32                  |
 | Attack r²     | 32 (same as vision) |
 
@@ -89,7 +106,8 @@ Using refined axionite instead of titanium as ammo adds **+2 to the action and m
 </Tabs>
 
 <Tip>
-  Sentinels with refined axionite ammo still disrupt builder bots by delaying both movement and actions.
+  Sentinels with refined axionite ammo still disrupt builder bots by delaying
+  both movement and actions.
 </Tip>
 
 ## Breach
@@ -120,7 +138,8 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 </Tabs>
 
 <Warning>
-  Breach turrets have **friendly fire** on the splash damage (8 surrounding tiles). They do not damage themselves.
+  Breach turrets have **friendly fire** on the splash damage (8 surrounding
+  tiles). They do not damage themselves.
 </Warning>
 
 ## Launcher

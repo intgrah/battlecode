@@ -176,7 +176,12 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>40</td>
         <td>10 Ti</td>
         <td>10%</td>
-        <td>Any occupied tile in facing dir; can rotate 45 degrees for 10 Ti</td>
+
+        <td>
+          Forward ray; markers are targetable but do not block; walls block and
+          are not targetable; builder bots and non-marker buildings block; can
+          rotate to any direction for 10 Ti
+        </td>
       </tr>
 
       <tr>
@@ -187,9 +192,9 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         </td>
 
         <td>30</td>
-        <td>15 Ti</td>
+        <td>30 Ti</td>
         <td>20%</td>
-        <td>Line ±1; refined Ax stuns +2 cd</td>
+        <td>Line ±1; refined Ax stuns +5 cd</td>
       </tr>
 
       <tr>
@@ -273,9 +278,9 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>32</td>
         <td>2</td>
         <td>32</td>
-        <td>10</td>
+        <td>18</td>
         <td>3</td>
-        <td>5</td>
+        <td>10</td>
       </tr>
 
       <tr>
@@ -368,7 +373,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
 
       <tr>
         <td>Sentinel stun (refined axionite ammo)</td>
-        <td>+2 action and move cooldown</td>
+        <td>+5 action and move cooldown</td>
       </tr>
 
       <tr>
