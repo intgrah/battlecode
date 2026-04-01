@@ -51,6 +51,11 @@ def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | No
 
 
 def update(state: State, ct: Controller) -> None:
+    """
+    This is the main update function
+    The state should only be updated by calling this function once per turn
+    Don't do any other updates to state outside of this function!
+    """
     state.age += 1
     state.pos = ct.get_position()
 
@@ -107,6 +112,9 @@ def _stamp_unit_tiles(state: State) -> None:
 
 
 def _scan_vision(state: State, ct: Controller) -> list[int]:
+    """
+    Return all the tiles in vision that changed since the last turn
+    """
     w = state.w
     changed: list[int] = []
     new_tiles: list[tuple[Position, Environment]] = []
@@ -194,6 +202,9 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
 
 
 def _classify(bld: Building | None) -> str | None:
+    """
+    See method below
+    """
     if bld is None:
         return None
     match bld:
@@ -226,6 +237,15 @@ def _update_sets(
     old_bld: Building | None,
     new_bld: Building | None,
 ) -> None:
+    """
+    We store a lot of sets of important tiles all the time, like where the ores are, where our turrets are etc.
+    We want to update them incrementally
+    Here we do that
+
+    This looks really fucking stupid, constructing the attribute names dynamically, but it turns out that
+    python stores everything in dicts anyway, so writing it fully like a normal person doesn't fucking help,
+    and this doesn't hurt performance
+    """
     p = idx
     my_team = state.my_team
     old_cat = _classify(old_bld)
@@ -250,6 +270,10 @@ def _update_symmetry(
     state: State,
     new_tiles: list[tuple[Position, Environment]],
 ) -> None:
+    """
+    If you don't know symmetry, then use the newly discovered tiles to try and eliminate hypotheses
+    If you do, then reflect the newly discovered tiles
+    """
     w = state.w
     if state.symmetry is None:
         _eliminate_symmetries(state, new_tiles)
@@ -270,6 +294,9 @@ def _eliminate_symmetries(
     state: State,
     new_tiles: list[tuple[Position, Environment]],
 ) -> None:
+    """
+    See those new tile? Do they contradict any hypotheses about the symmetry of the map?
+    """
     w, h = state.w, state.h
     to_remove: set[Symmetry] = set()
     cx, cy = state.my_core.x, state.my_core.y
@@ -324,6 +351,10 @@ def _eliminate_symmetries(
 
 
 def _reflect_all(state: State) -> None:
+    """
+    Congratulations, you eliminated all symmetry hypotheses but one
+    Now reflect all of the tiles you currently know
+    """
     w = state.w
     for i in range(state.w * state.h):
         env = state.env[i]
@@ -341,6 +372,10 @@ def _reflect_all(state: State) -> None:
 
 
 def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
+    """
+    Use the flow update algorithm defined in another file, but only if we actually need to
+    We don't need to recalculate if nothing related to transport changed in our vision
+    """
     infra = state.transport | state.harvesters | state.foundries | state.turrets
     needs_reflow = any(i in infra for i in changed)
     if not needs_reflow and changed:
@@ -361,6 +396,13 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
 
 
 def _update_infra_staleness(state: State) -> None:
+    """
+    We track the last time we saw each tile.
+    Empirically our buildings are (hopefully) more important to check than tiles without our buildings.
+    Define staleness of a tile sa as current round - last time you saw that tile.
+    Max staleness for all of our buildings is a good heuristic to prioritise patrolling.
+    "Hey, I haven't looked at this area in a while"
+    """
     age = state.age
     worst = 0
     for i in state.my_transport:
