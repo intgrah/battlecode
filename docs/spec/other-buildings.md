@@ -38,7 +38,9 @@ A tile containing a single **unsigned 32-bit integer** that can be read by any a
 
 Any team may build over markers, destroying them.
 
-Markers remain targetable by gunners, but they do **not** shield occupied tiles behind them.
+Markers remain targetable by gunners, but unlike walls, builder bots, and
+non-marker buildings they do **not** block line of sight or shield occupied
+tiles behind them.
 
 | Property | Value |
 | -------- | ----- |

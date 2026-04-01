@@ -73,14 +73,32 @@ class Player:
 </ResponseField>
 
 <ResponseField name="get_gunner_target()" type="Position | None">
-  Return the position of the gunner's current target tile in its facing
-  direction, or None if nothing is in range. Markers remain targetable, but they
-  do not shield occupied tiles behind them. Only valid on gunners.
+  Return the closest targetable occupied tile on the gunner's forward line, or
+  None if none exists. Empty tiles are skipped. Markers are targetable but do
+  not block farther legal targets. Walls block the line but are not targetable.
+  Builder bots and non-marker buildings are both targetable and blocking, so if
+  either appears first it is returned and nothing beyond it is legal. Only valid
+  on gunners.
 </ResponseField>
 
 <ResponseField name="get_attackable_tiles()" type="list[Position]">
-  Return the tiles in this turret's current attack pattern. Only valid on
-  turrets.
+  Return this turret's raw geometric attack pattern as `list[Position]`. This
+  ignores ammo, cooldown, occupancy, blockers, and any other legality checks.
+  For gunners, this is the full forward ray up to range, including tiles behind
+  walls. For sentinels, this is the full +/-1 band around the forward line
+  within vision radius squared 32. For breaches, this is the forward 180-degree
+  cone within distance squared 5. For launchers, this is every in-bounds tile
+  with `0 < distance^2 <= 26`. Raises `GameError` if this unit is not a turret.
+</ResponseField>
+
+<ResponseField name="get_attackable_tiles_from(position: Position, direction: Direction, turret_type: EntityType)" type="list[Position]">
+  Return the same raw geometric attack pattern for a hypothetical turret at
+  position. This can be called from any controller and does not check whether a
+  turret exists there, whether it could legally be built there, or whether the
+  tile is occupied. If position is out of bounds, returns `[]`. In Python,
+  turret\_type must be one of `EntityType.GUNNER`, `EntityType.SENTINEL`,
+  `EntityType.BREACH`, or `EntityType.LAUNCHER`; any other `EntityType` raises
+  `ValueError`. direction is ignored for launchers.
 </ResponseField>
 
 ### Building info
@@ -308,19 +326,44 @@ c.build_launcher(pos)                     c.can_build_launcher(pos)
 <ResponseField name="fire(target: Position)" type="None">
   Fire this turret at target, or perform the builder bot's own-tile attack.
   Builder bots spend 2 titanium to deal 2 damage to the building on their
-  current tile. If a turret attacks a tile containing both a building and a
-  builder bot, only the builder bot is hit. Use `launch()` for launchers.
+  current tile. Gunners use first-obstruction line of sight: empty tiles and
+  markers do not block, markers are targetable, walls block but are not
+  targetable, and builder bots plus non-marker buildings are both targetable and
+  blocking. If a turret attacks a tile containing both a building and a builder
+  bot, only the builder bot is hit. Use `launch()` for launchers.
 </ResponseField>
 
 <ResponseField name="can_fire(target: Position)" type="bool">
   Return True if this turret can fire at target this round, or if this builder
-  bot can use its own-tile attack on target.
+  bot can use its own-tile attack on target. Gunners use the same
+  first-obstruction line of sight as `fire()`: empty tiles and markers do not
+  block, markers are targetable, walls block but are not targetable, and builder
+  bots plus non-marker buildings are both targetable and blocking.
+</ResponseField>
+
+<ResponseField name="can_fire_from(position: Position, direction: Direction, turret_type: EntityType, target: Position)" type="bool">
+  Return whether a hypothetical turret at position would have a legal shot at
+  target on the current map. This treats position as the turret's tile and uses
+  current map occupancy and walls, but ignores ammo, cooldown, whether a real
+  turret is present, and whether one could legally be built there. If either
+  position or target is out of bounds, returns False. For sentinels and
+  breaches, this is only a geometric range/shape check. For launchers, this is
+  only the raw throw-range check `0 < distance^2 <= 26`; it does not check
+  pickup adjacency, whether a builder bot exists, or whether the destination is
+  bot-passable. direction is ignored for launchers.
+</ResponseField>
+
+<ResponseField name="can_rotate(direction: Direction)" type="bool">
+  Return whether `rotate(direction)` would be legal this round. This returns
+  False if the current unit is not a gunner, if the gunner cannot act this turn,
+  or if the team cannot afford the global 10 Ti rotate cost. Unlike `rotate()`,
+  this does not raise on non-gunners.
 </ResponseField>
 
 <ResponseField name="rotate(direction: Direction)" type="None">
-  Rotate this gunner 45 degrees to an adjacent facing direction. Costs 10
-  titanium from the global resource pool and applies a 1-turn cooldown. Raises
-  `GameError` if not legal. Only valid on gunners.
+  Rotate this gunner to face `direction`. Costs 10 titanium from the global
+  resource pool and applies a 1-turn cooldown. Raises `GameError` if not legal.
+  Only valid on gunners.
 </ResponseField>
 
 <ResponseField name="launch(bot_pos: Position, target: Position)" type="None">
