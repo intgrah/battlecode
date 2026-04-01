@@ -132,6 +132,10 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             }
         }
 
+        if app.show_flow {
+            draw_flow_overlay(&painter, app, turn_state, ts, origin, zoom);
+        }
+
         for ind in &turn_state.indicators {
             let should_draw = match *ind {
                 Indicator::Line { id, .. } | Indicator::Dot { id, .. } => {
@@ -236,6 +240,79 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             }
         }
     });
+}
+
+#[allow(clippy::many_single_char_names)]
+fn draw_flow_overlay(
+    painter: &egui::Painter,
+    app: &App,
+    turn_state: &crate::state::TurnState,
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+) {
+    let w = app.game.width as usize;
+    let h = app.game.height as usize;
+    let flow = crate::flow::compute_flow(turn_state, &app.game.env, w, h);
+
+    let font = egui::FontId::monospace(9.0 * zoom.min(2.0));
+
+    for gy in 0..h {
+        for gx in 0..w {
+            let i = gy * w + gx;
+            let ti = flow.ti[i];
+            let ax = flow.ax[i];
+            let rax = flow.rax[i];
+            let excess = flow.excess[i];
+            let total = ti + ax + rax;
+
+            let r = tile_rect(gx as i32, gy as i32, ts, origin, zoom);
+
+            let alpha = if excess > 0.01 {
+                let red_frac = (excess / total.max(0.01)).min(1.0);
+                let g = ((1.0 - red_frac) * 0.6 * 255.0) as u8;
+                let r_ch = (red_frac * 0.8 * 255.0) as u8;
+                painter.rect_filled(r, 0.0, Color32::from_rgba_premultiplied(r_ch, g, 0, 0x50));
+                0xd0
+            } else if total > 0.01 {
+                let green = (total.min(1.0) * 0.5 * 255.0) as u8;
+                painter.rect_filled(r, 0.0, Color32::from_rgba_premultiplied(0, green, 0, 0x30));
+                0xc0
+            } else {
+                continue;
+            };
+
+            if zoom > 0.5 {
+                use std::fmt::Write;
+                let mut label = String::new();
+                if ti > 0.005 {
+                    let _ = write!(label, "T{ti:.2}");
+                }
+                if ax > 0.005 {
+                    if !label.is_empty() {
+                        label.push('\n');
+                    }
+                    let _ = write!(label, "A{ax:.2}");
+                }
+                if rax > 0.005 {
+                    if !label.is_empty() {
+                        label.push('\n');
+                    }
+                    let _ = write!(label, "R{rax:.2}");
+                }
+
+                if !label.is_empty() {
+                    painter.text(
+                        egui::pos2(r.left() + 1.0, r.top() + 1.0),
+                        egui::Align2::LEFT_TOP,
+                        label,
+                        font.clone(),
+                        Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, alpha),
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn draw_beam(painter: &egui::Painter, app: &App, name: &str, from: Pos2, to: Pos2, width: f32) {

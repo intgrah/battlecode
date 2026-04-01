@@ -32,6 +32,7 @@ fn configure_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct App {
     pub game: GameState,
     pub atlas: SpriteAtlas,
@@ -42,6 +43,7 @@ pub struct App {
     pub selected_entity: Option<i32>,
     pub follow_entity: bool,
     pub show_indicators: bool,
+    pub show_flow: bool,
     pub pan: egui::Vec2,
     pub zoom: f32,
     replay_path: PathBuf,
@@ -72,6 +74,7 @@ impl App {
             selected_entity: None,
             follow_entity: false,
             show_indicators: false,
+            show_flow: false,
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
             replay_path,

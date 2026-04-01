@@ -249,9 +249,10 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                         proto::Team::B => "Team B",
                     };
                     let final_state = app.game.turns.last().unwrap();
-                    let loser_core_destroyed = !final_state.entities.values().any(|e| {
-                        e.team != winner && matches!(e.kind, EntityKind::Core { .. })
-                    });
+                    let loser_core_destroyed = !final_state
+                        .entities
+                        .values()
+                        .any(|e| e.team != winner && matches!(e.kind, EntityKind::Core { .. }));
                     let reason = if loser_core_destroyed {
                         "Core destroyed"
                     } else {
@@ -531,6 +532,7 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
         .show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.checkbox(&mut app.show_indicators, "Show indicators (i)");
+                ui.checkbox(&mut app.show_flow, "Show flow");
 
                 ui.add_space(8.0);
                 ui.heading("Inspector");
