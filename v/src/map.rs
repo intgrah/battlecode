@@ -132,28 +132,35 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             }
         }
 
-        if app.show_indicators {
-            for ind in &turn_state.indicators {
-                match *ind {
-                    Indicator::Line {
-                        pos_a,
-                        pos_b,
-                        r,
-                        g,
-                        b,
-                    } => {
-                        let from = tile_center(pos_a.0, pos_a.1, ts, origin, zoom);
-                        let to = tile_center(pos_b.0, pos_b.1, ts, origin, zoom);
-                        let color =
-                            Color32::from_rgba_premultiplied(premul(r), premul(g), premul(b), 0xc0);
-                        painter.line_segment([from, to], Stroke::new(2.0 * zoom, color));
-                    }
-                    Indicator::Dot { pos, r, g, b } => {
-                        let c = tile_center(pos.0, pos.1, ts, origin, zoom);
-                        let color =
-                            Color32::from_rgba_premultiplied(premul(r), premul(g), premul(b), 0xc0);
-                        painter.circle_filled(c, ts * zoom * 0.25, color);
-                    }
+        for ind in &turn_state.indicators {
+            let should_draw = match *ind {
+                Indicator::Line { id, .. } | Indicator::Dot { id, .. } => {
+                    app.show_indicators || app.selected_entity == Some(id)
+                }
+            };
+            if !should_draw {
+                continue;
+            }
+            match *ind {
+                Indicator::Line {
+                    pos_a,
+                    pos_b,
+                    r,
+                    g,
+                    b,
+                    ..
+                } => {
+                    let from = tile_center(pos_a.0, pos_a.1, ts, origin, zoom);
+                    let to = tile_center(pos_b.0, pos_b.1, ts, origin, zoom);
+                    let color =
+                        Color32::from_rgba_premultiplied(premul(r), premul(g), premul(b), 0xc0);
+                    painter.line_segment([from, to], Stroke::new(2.0 * zoom, color));
+                }
+                Indicator::Dot { pos, r, g, b, .. } => {
+                    let c = tile_center(pos.0, pos.1, ts, origin, zoom);
+                    let color =
+                        Color32::from_rgba_premultiplied(premul(r), premul(g), premul(b), 0xc0);
+                    painter.circle_filled(c, ts * zoom * 0.25, color);
                 }
             }
         }
@@ -196,7 +203,8 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             app.select_at_cursor();
         }
 
-        if response.hovered() && !response.dragged()
+        if response.hovered()
+            && !response.dragged()
             && let Some(pos) = ui.input(|i| i.pointer.hover_pos())
         {
             let gx = ((pos.x - origin.x) / (ts * zoom)) as i32;
@@ -230,14 +238,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
     });
 }
 
-fn draw_beam(
-    painter: &egui::Painter,
-    app: &App,
-    name: &str,
-    from: Pos2,
-    to: Pos2,
-    width: f32,
-) {
+fn draw_beam(painter: &egui::Painter, app: &App, name: &str, from: Pos2, to: Pos2, width: f32) {
     let Some(tex) = app.atlas.get(name) else {
         return;
     };
