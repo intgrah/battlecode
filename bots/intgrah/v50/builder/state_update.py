@@ -112,9 +112,6 @@ def _stamp_unit_tiles(state: State) -> None:
 
 
 def _scan_vision(state: State, ct: Controller) -> list[int]:
-    """
-    Return all the tiles in vision that changed since the last turn
-    """
     w = state.w
     changed: list[int] = []
     new_tiles: list[tuple[Position, Environment]] = []
@@ -176,7 +173,6 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                             state.claims.add(msg)
                         case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
-                            _reflect_all(state)
                 case BuildingCore(team) if team != state.my_team:
                     state.en_core_tiles.add(i)
             t_marker += _g() - _s4
@@ -191,8 +187,10 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
         new_tiles.append((t, env))
 
     _ss = _g()
-    _update_symmetry(state, new_tiles)
+    _apply_symmetry(state, new_tiles)
+    _drain_reflect_queue(state)
     t_sym = _g() - _ss
+
     print(
         f"    scan: tiles={n_tiles} bld={n_bld} markers={n_markers}"
         f" api={t_api}us make={t_make}us sets={t_sets}us"
@@ -266,28 +264,49 @@ def _update_sets(
         getattr(state, prefix + new_cat).add(p)
 
 
-def _update_symmetry(
+_REFLECT_BUDGET = 10
+
+
+def _apply_symmetry(
     state: State,
     new_tiles: list[tuple[Position, Environment]],
 ) -> None:
-    """
-    If you don't know symmetry, then use the newly discovered tiles to try and eliminate hypotheses
-    If you do, then reflect the newly discovered tiles
-    """
-    w = state.w
-    if state.symmetry is None:
+    had_symmetry = state.symmetry is not None
+    if not had_symmetry:
         _eliminate_symmetries(state, new_tiles)
-    if state.symmetry is not None:
-        for t, env in new_tiles:
-            m = mirror(state, t)
-            mi = m.y * w + m.x
-            if state.env[mi] is None:
-                state.env[mi] = env
-                match env:
-                    case Environment.ORE_TITANIUM:
-                        state.ore_ti.add(mi)
-                    case Environment.ORE_AXIONITE:
-                        state.ore_ax.add(mi)
+    if state.symmetry is None:
+        return
+    w = state.w
+    if had_symmetry:
+        source = new_tiles
+    else:
+        source = [
+            (Position(i % w, i // w), e)
+            for i, e in enumerate(state.env)
+            if e is not None
+        ]
+    pending = state.reflect_queue
+    for t, env in source:
+        m = mirror(state, t)
+        mi = m.y * w + m.x
+        if state.env[mi] is not None:
+            continue
+        state.env[mi] = env
+        match env:
+            case Environment.ORE_TITANIUM:
+                state.ore_ti.add(mi)
+            case Environment.ORE_AXIONITE:
+                state.ore_ax.add(mi)
+        pending.append(mi)
+
+
+def _drain_reflect_queue(state: State) -> None:
+    pending = state.reflect_queue
+    if not pending:
+        return
+    n = min(len(pending), _REFLECT_BUDGET)
+    for _ in range(n):
+        state.update_cost(pending.popleft())
 
 
 def _eliminate_symmetries(
@@ -342,33 +361,10 @@ def _eliminate_symmetries(
 
     if len(state.sym_candidates) == 1:
         state.symmetry = next(iter(state.sym_candidates))
-        _reflect_all(state)
     elif len(state.sym_candidates) > 1:
         seen = sum(1 for e in state.env if e is not None)
         if seen > state.w * state.h // 2:
             state.symmetry = next(iter(state.sym_candidates))
-            _reflect_all(state)
-
-
-def _reflect_all(state: State) -> None:
-    """
-    Congratulations, you eliminated all symmetry hypotheses but one
-    Now reflect all of the tiles you currently know
-    """
-    w = state.w
-    for i in range(state.w * state.h):
-        env = state.env[i]
-        if env is None:
-            continue
-        m = mirror(state, Position(i % w, i // w))
-        mi = m.y * w + m.x
-        if state.env[mi] is None:
-            state.env[mi] = env
-            match env:
-                case Environment.ORE_TITANIUM:
-                    state.ore_ti.add(mi)
-                case Environment.ORE_AXIONITE:
-                    state.ore_ax.add(mi)
 
 
 def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:

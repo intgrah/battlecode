@@ -7,11 +7,10 @@ free functions in state_helpers.py.
 
 from __future__ import annotations
 
+from collections import deque
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections import deque
-
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
@@ -165,6 +164,7 @@ class State:
         self.last_seen: list[int] = [0] * n
         self.cost: list[int] = [COST_UNSEEN] * n
         self.pnb: list[list[int]] = _build_pnb(self.w, self.h, n, self.cost)
+        self.reflect_queue: deque[int] = deque()
 
         # -- Resources (indexed as y * w + x) --
         self.ore_ti: set[int] = set()
