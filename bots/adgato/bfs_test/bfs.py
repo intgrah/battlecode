@@ -2,6 +2,10 @@
 
 Backwards BFS from the goal. Stores a flat distance array so that
 stepping toward the goal is a single neighbor scan.
+
+Uses double-buffered dist arrays: the stable buffer is always usable for
+movement, while the wip buffer is computed incrementally. On completion
+the buffers swap.
 """
 
 from __future__ import annotations
@@ -70,6 +74,9 @@ class NavBfs:
     Maintains a passability grid updated each round from vision.
     Runs BFS backwards from the goal using _pnb (passable-only neighbors)
     so the inner loop has no passability check.
+
+    Double-buffered: _stable is used for movement, _wip is computed
+    incrementally. On completion they swap.
     """
 
     def __init__(self, w: int, h: int) -> None:
@@ -83,14 +90,20 @@ class NavBfs:
         self._nb_progress = 0
         self._pnb_dirty: set[int] = set()
         self._dirty = True
-        # _dist[i] = BFS hop distance from goal to i, or -1 if unreachable.
-        self._dist: list[int] = [-1] * (w * h)
-        self._touched: list[int] = []
+
+        # Double-buffered dist arrays (each with own touched list)
+        self._stable: list[int] = [-1] * (w * h)
+        self._stable_touched: list[int] = []
+        self._wip: list[int] = [-1] * (w * h)
+        self._wip_touched: list[int] = []
+
         self._q: list[int] = [0] * (w * h)
         self._qi = 0
         self._qlen = 0
         self._resumable = False
+        self._new_goal = True
         self._cur_dist = -1
+        self._cur_idx = -1
 
     def update_tile(
         self,
@@ -138,7 +151,7 @@ class NavBfs:
                 else:
                     pnb_dirty.discard(ni)
             # Only dirty BFS if tile is closer to goal than agent
-            d = self._dist[i]
+            d = self._stable[i]
             if d != -1 and d < self._cur_dist:
                 self._dirty = True
 
@@ -150,7 +163,6 @@ class NavBfs:
         for i in self._pnb_dirty:
             assert passable[i]
             pnb[i] = [ni for ni in nb[i] if passable[ni]]
-            
         self._pnb_dirty.clear()
 
     def mirror_known(self, sym: Symmetry, known_env: dict[int, Environment]) -> None:
@@ -174,33 +186,48 @@ class NavBfs:
         if gi != self._gi:
             self._gi = gi
             self._dirty = True
+            self._new_goal = True
 
     def _restart(self) -> None:
-        """Reset BFS state for a fresh search from goal."""
-        dist = self._dist
-        for i in self._touched:
-            dist[i] = -1
-        self._touched.clear()
+        """Reset wip BFS state for a fresh search from goal."""
+        wip = self._wip
+        for i in self._wip_touched:
+            wip[i] = -1
+        self._wip_touched.clear()
         gi = self._gi
-        dist[gi] = 0
-        self._touched.append(gi)
+        wip[gi] = 0
+        self._wip_touched.append(gi)
         self._q[0] = gi
         self._qi = 0
         self._qlen = 1
         self._resumable = True
 
+    def _swap(self) -> None:
+        """Promote wip to stable."""
+        self._stable, self._wip = self._wip, self._stable
+        self._stable_touched, self._wip_touched = self._wip_touched, self._stable_touched
+
     def _compute(self, within_budget: Callable[[], bool]) -> bool:
-        """Run/resume backwards BFS from goal. Returns True if complete."""
+        """Run/resume backwards BFS into wip buffer. Returns True if complete."""
         pnb = self._pnb
-        dist = self._dist
-        touched = self._touched
+        dist = self._wip
+        touched = self._wip_touched
         q = self._q
         qi = self._qi
         qlen = self._qlen
+        cur_idx = self._cur_idx
+        # Stop once we've processed one level past the agent
+        cd = dist[cur_idx] if cur_idx >= 0 else -1
+        stop_depth = cd + 1 if cd != -1 else 1_000_000
         while qi < qlen:
             node = q[qi]
             qi += 1
             d = dist[node] + 1
+            if d > stop_depth + 1:
+                self._qi = qi - 1
+                self._qlen = qlen
+                print(f"stopped at depth {stop_depth}")
+                return True
             for ni in pnb[node]:
                 if dist[ni] != -1:
                     continue
@@ -208,6 +235,9 @@ class NavBfs:
                 touched.append(ni)
                 q[qlen] = ni
                 qlen += 1
+                # Update stop depth once we reach the agent
+                if ni == cur_idx:
+                    stop_depth = d + 1
             if qi & 63 == 0 and not within_budget():
                 self._qi = qi
                 self._qlen = qlen
@@ -234,23 +264,34 @@ class NavBfs:
         if self._pnb_dirty:
             self._rebuild_pnb()
 
+        w = self.w
+        pos = ct.get_position()
+        self._cur_idx = pos.y * w + pos.x
+
         if self._dirty:
             self._restart()
             self._dirty = False
         if self._resumable:
             if self._compute(within_budget):
                 self._resumable = False
+                self._new_goal = False
+                self._swap()
 
-        w = self.w
-        pos = ct.get_position()
-        cur_idx = pos.y * w + pos.x
-        d = self._dist[cur_idx]
+        # Use stable buffer, fall back to wip if stable is stale (new goal)
+        cur_idx = self._cur_idx
+        dist = self._stable
+        d = dist[cur_idx]
+        if self._new_goal:
+            dist = self._wip
+            d = dist[cur_idx]
         self._cur_dist = d
         if d <= 0:
             return False
-        dist = self._dist
+        
         pnb = self._pnb[cur_idx]
-        for target in (d - 1, d, d + 1):
+        options = (d - 1,) if self._resumable else (d - 1, d, d + 1)
+        for target in options:
+            print(f"dist {d}")
             # Prefer tiles that are already passable (no road build needed)
             for ni in pnb:
                 if dist[ni] != target:
