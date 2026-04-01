@@ -1,0 +1,312 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant, SystemTime};
+
+use eframe::egui;
+use egui::{FontData, FontDefinitions, FontFamily};
+use prost::Message;
+
+use crate::map;
+use crate::proto;
+use crate::sprites::SpriteAtlas;
+use crate::state::{Entity, EntityKind, GameState};
+use crate::ui;
+
+fn configure_fonts(ctx: &egui::Context) {
+    const FONT_CANDIDATES: &[&str] = &[
+        "/usr/share/fonts/TTF/JetBrainsMonoNerdFontMono-Regular.ttf",
+        "/usr/share/fonts/TTF/FiraCode-Regular.ttf",
+        "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf",
+        "/usr/share/fonts/TTF/Inconsolata-Regular.ttf",
+        "/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Regular.ttf",
+    ];
+
+    let Some(path) = FONT_CANDIDATES.iter().map(Path::new).find(|p| p.exists()) else {
+        return;
+    };
+    let Ok(data) = fs::read(path) else {
+        return;
+    };
+
+    let mut fonts = FontDefinitions::default();
+    fonts
+        .font_data
+        .insert("mono".into(), FontData::from_owned(data).into());
+    fonts
+        .families
+        .entry(FontFamily::Proportional)
+        .or_default()
+        .insert(0, "mono".into());
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .insert(0, "mono".into());
+    ctx.set_fonts(fonts);
+}
+
+#[allow(clippy::struct_excessive_bools)]
+pub struct App {
+    pub game: GameState,
+    pub atlas: SpriteAtlas,
+    pub turn: usize,
+    pub playing: bool,
+    pub speed: i32,
+    pub cursor: (i32, i32),
+    pub selected_entity: Option<i32>,
+    pub show_indicators: bool,
+    pub show_network: bool,
+    pub show_vision: bool,
+    pub show_help: bool,
+    pub follow_entity: bool,
+    pub pan: egui::Vec2,
+    pub zoom: f32,
+    replay_path: PathBuf,
+    last_modified: SystemTime,
+    last_step: Instant,
+}
+
+impl App {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        replay: &proto::Replay,
+        assets_dir: &std::path::Path,
+        replay_path: PathBuf,
+    ) -> Self {
+        configure_fonts(&cc.egui_ctx);
+        let atlas = SpriteAtlas::load(&cc.egui_ctx, assets_dir);
+        let game = GameState::from_replay(replay);
+        let last_modified = fs::metadata(&replay_path)
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        Self {
+            game,
+            atlas,
+            turn: 0,
+            playing: false,
+            speed: 0,
+            cursor: (0, 0),
+            selected_entity: None,
+            show_indicators: false,
+            show_network: false,
+            show_vision: false,
+            show_help: false,
+            follow_entity: false,
+            pan: egui::Vec2::ZERO,
+            zoom: 1.0,
+            replay_path,
+            last_modified,
+            last_step: Instant::now(),
+        }
+    }
+
+    pub const fn tick_ms(&self) -> u64 {
+        500 / (1u64 << self.speed as u64)
+    }
+
+    pub const fn speed_label(&self) -> u32 {
+        1 << self.speed as u32
+    }
+
+    pub fn step_forward(&mut self, n: usize) {
+        self.turn = (self.turn + n).min(self.game.turn_count());
+        if self.turn >= self.game.turn_count() {
+            self.playing = false;
+        }
+    }
+
+    pub const fn step_backward(&mut self, n: usize) {
+        self.turn = self.turn.saturating_sub(n);
+    }
+
+    pub fn select_at_cursor(&mut self) {
+        let state = &self.game.turns[self.turn];
+        let at_cursor: Vec<&Entity> = state
+            .entities
+            .values()
+            .filter(|e| e.pos == (self.cursor.0, self.cursor.1))
+            .collect();
+
+        let builder = at_cursor
+            .iter()
+            .find(|e| matches!(e.kind, EntityKind::BuilderBot { .. }));
+
+        if let Some(b) = builder {
+            self.selected_entity = Some(b.id);
+            self.follow_entity = true;
+        } else {
+            self.selected_entity = at_cursor.first().map(|e| e.id);
+            self.follow_entity = false;
+        }
+    }
+
+    #[allow(clippy::option_if_let_else)]
+    pub fn cycle_entity_at_cursor(&mut self) {
+        let state = &self.game.turns[self.turn];
+        let at_cursor: Vec<i32> = state
+            .entities
+            .values()
+            .filter(|e| e.pos == (self.cursor.0, self.cursor.1))
+            .map(|e| e.id)
+            .collect();
+        if at_cursor.is_empty() {
+            self.selected_entity = None;
+            return;
+        }
+        let next = match self.selected_entity {
+            Some(current) => {
+                let idx = at_cursor.iter().position(|&id| id == current).unwrap_or(0);
+                at_cursor[(idx + 1) % at_cursor.len()]
+            }
+            None => at_cursor[0],
+        };
+        self.selected_entity = Some(next);
+    }
+
+    fn check_hot_reload(&mut self) {
+        if let Ok(meta) = fs::metadata(&self.replay_path)
+            && let Ok(modified) = meta.modified()
+            && modified != self.last_modified
+            && let Ok(new_data) = fs::read(&self.replay_path)
+            && let Ok(new_replay) = proto::Replay::decode(&*new_data)
+        {
+            self.game = GameState::from_replay(&new_replay);
+            self.turn = 0;
+            self.playing = false;
+            self.selected_entity = None;
+            self.follow_entity = false;
+            self.last_modified = modified;
+        }
+    }
+
+    fn handle_keys(&mut self, ctx: &egui::Context) {
+        ctx.input(|i| {
+            use egui::Key;
+            let shift = i.modifiers.shift;
+
+            if i.key_pressed(Key::Q) || i.key_pressed(Key::Escape) {
+                if self.selected_entity.is_some() {
+                    self.selected_entity = None;
+                    self.follow_entity = false;
+                } else if i.key_pressed(Key::Q) {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            }
+            if i.key_pressed(Key::Space) {
+                self.playing = !self.playing;
+                self.last_step = Instant::now();
+            }
+            if i.key_pressed(Key::ArrowRight) {
+                if shift {
+                    self.step_forward(10);
+                } else {
+                    self.step_forward(1);
+                }
+            }
+            if i.key_pressed(Key::ArrowLeft) {
+                if shift {
+                    self.step_backward(10);
+                } else {
+                    self.step_backward(1);
+                }
+            }
+            if i.key_pressed(Key::Home) {
+                self.turn = 0;
+            }
+            if i.key_pressed(Key::End) {
+                self.turn = self.game.turn_count();
+            }
+            if i.key_pressed(Key::H) {
+                self.cursor.0 = (self.cursor.0 - 1).max(0);
+            }
+            if i.key_pressed(Key::J) {
+                self.cursor.1 = (self.cursor.1 + 1).min(self.game.height - 1);
+            }
+            if i.key_pressed(Key::K) {
+                self.cursor.1 = (self.cursor.1 - 1).max(0);
+            }
+            if i.key_pressed(Key::L) {
+                self.cursor.0 = (self.cursor.0 + 1).min(self.game.width - 1);
+            }
+            if i.key_pressed(Key::Enter) {
+                self.select_at_cursor();
+            }
+            if i.key_pressed(Key::Tab) {
+                self.cycle_entity_at_cursor();
+            }
+            if i.key_pressed(Key::F) && !i.modifiers.ctrl {
+                self.follow_entity = !self.follow_entity;
+            }
+            if i.key_pressed(Key::I) {
+                self.show_indicators = !self.show_indicators;
+            }
+            if i.key_pressed(Key::N) {
+                self.show_network = !self.show_network;
+            }
+            if i.key_pressed(Key::V) && !i.modifiers.ctrl {
+                self.show_vision = !self.show_vision;
+            }
+            if i.key_pressed(Key::Slash) && shift {
+                self.show_help = !self.show_help;
+            }
+
+            if i.key_pressed(Key::Equals) || i.key_pressed(Key::Plus) {
+                self.speed = (self.speed + 1).min(8);
+            }
+            if i.key_pressed(Key::Minus) && !shift {
+                self.speed = (self.speed - 1).max(0);
+            }
+
+            if i.key_pressed(Key::G) {
+                if shift {
+                    self.turn = self.game.turn_count();
+                } else {
+                    self.turn = 0;
+                }
+            }
+
+            for c in '1'..='9' {
+                if i.key_pressed(Key::from_name(&c.to_string()).unwrap()) {
+                    let frac = f64::from(c as u8 - b'0') / 10.0;
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    {
+                        self.turn = (frac * self.game.turn_count() as f64) as usize;
+                    }
+                }
+            }
+        });
+    }
+}
+
+impl eframe::App for App {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        self.check_hot_reload();
+
+        if self.playing {
+            let tick = Duration::from_millis(self.tick_ms());
+            if self.last_step.elapsed() >= tick {
+                self.step_forward(1);
+                self.last_step = Instant::now();
+            }
+            ctx.request_repaint_after(tick);
+        }
+
+        if self.follow_entity
+            && let Some(id) = self.selected_entity
+            && let Some(e) = self.game.turns[self.turn].entities.get(&id)
+        {
+            self.cursor = e.pos;
+        }
+
+        self.handle_keys(&ctx);
+
+        if self.show_help {
+            ui::render_help(&ctx, &mut self.show_help);
+        }
+
+        ui::render_sidebar(ui, self);
+        ui::render_scrubber(ui, self);
+        map::render_map_panel(ui, self);
+    }
+}

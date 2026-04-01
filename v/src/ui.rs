@@ -1,417 +1,206 @@
-use std::collections::HashMap;
+use eframe::egui;
+use egui::Rect;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use crossterm::terminal;
-use ratatui::{
-    prelude::*,
-    widgets::{Block, Borders, Gauge, Paragraph, Wrap},
-};
-
-use crate::kitty;
+use crate::app::App;
 use crate::proto;
-use crate::renderer;
-use crate::sprites::SpriteAtlas;
 use crate::state::{Entity, EntityKind, GameState};
 
-fn query_cell_size() -> (u16, u16) {
-    terminal::window_size().map_or((8, 16), |ws| {
-        let cw = if ws.columns > 0 {
-            ws.width / ws.columns
-        } else {
-            8
-        };
-        let ch = if ws.rows > 0 { ws.height / ws.rows } else { 16 };
-        (cw, ch)
-    })
+pub fn render_help(ctx: &egui::Context, show: &mut bool) {
+    egui::Window::new("Help")
+        .open(show)
+        .resizable(false)
+        .show(ctx, |ui| {
+            ui.monospace(
+                "\
+Space       Play/Pause
+Right       Step +1
+Left        Step -1
+S-Right     Step +10
+S-Left      Step -10
+g / Home    Turn 0
+G / End     Last turn
++ / -       Speed up/down
+1-9         Jump to 10-90%
+
+hjkl        Move cursor
+Enter       Select entity
+Tab         Cycle entities
+f           Follow entity
+Esc/q       Deselect/Quit
+
+Click       Select tile/entity
+M-Drag      Pan map
+Scroll      Zoom
+
+i           Indicators
+n           Network
+v           Vision
+?           This help",
+            );
+        });
 }
 
-pub struct App {
-    game: GameState,
-    atlas: SpriteAtlas,
-    turn: usize,
-    pub playing: bool,
-    speed: i32,
-    cursor: (i32, i32),
-    selected_entity: Option<i32>,
-    show_indicators: bool,
-    show_network: bool,
-    show_vision: bool,
-    show_help: bool,
-    follow_entity: bool,
-    needs_redraw: bool,
-    map_area: Option<Rect>,
-    scrubber_area: Option<Rect>,
-    cell_size: (u16, u16),
-}
+pub fn render_sidebar(ui: &mut egui::Ui, app: &App) {
+    let state = &app.game.turns[app.turn];
 
-impl App {
-    pub fn new(replay: proto::Replay, atlas: SpriteAtlas) -> Self {
-        let game = GameState::from_replay(&replay);
-        Self {
-            game,
-            atlas,
-            turn: 0,
-            playing: false,
-            speed: 0,
-            cursor: (0, 0),
-            selected_entity: None,
-            show_indicators: false,
-            show_network: false,
-            show_vision: false,
-            show_help: false,
-            follow_entity: false,
-            needs_redraw: true,
-            map_area: None,
-            scrubber_area: None,
-            cell_size: query_cell_size(),
-        }
-    }
+    egui::Panel::right("info")
+        .exact_size(250.0)
+        .resizable(false)
+        .show_inside(ui, |ui| {
+            ui.heading("Status");
+            ui.separator();
 
-    pub fn reload(&mut self, replay: proto::Replay) {
-        self.game = GameState::from_replay(&replay);
-        self.turn = 0;
-        self.playing = false;
-        self.selected_entity = None;
-        self.follow_entity = false;
-        self.needs_redraw = true;
-    }
-
-    pub const fn tick_ms(&self) -> u64 {
-        500 / (1u64 << self.speed as u64)
-    }
-
-    pub const fn speed_label(&self) -> u32 {
-        1 << self.speed as u32
-    }
-
-    pub fn step_forward(&mut self, n: usize) {
-        let old = self.turn;
-        self.turn = (self.turn + n).min(self.game.turn_count());
-        if self.turn >= self.game.turn_count() {
-            self.playing = false;
-        }
-        if self.turn != old {
-            self.needs_redraw = true;
-        }
-    }
-
-    const fn step_backward(&mut self, n: usize) {
-        let old = self.turn;
-        self.turn = self.turn.saturating_sub(n);
-        if self.turn != old {
-            self.needs_redraw = true;
-        }
-    }
-
-    pub fn handle_key(&mut self, key: KeyEvent) -> bool {
-        if self.show_help {
-            self.show_help = false;
-            self.needs_redraw = true;
-            return false;
-        }
-
-        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
-        match key.code {
-            KeyCode::Char('q') | KeyCode::Esc => {
-                if self.selected_entity.is_some() {
-                    self.selected_entity = None;
-                    self.follow_entity = false;
-                    self.needs_redraw = true;
-                    return false;
-                }
-                return true;
-            }
-            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return true,
-
-            KeyCode::Char(' ') => self.playing = !self.playing,
-            KeyCode::Right if shift => self.step_forward(10),
-            KeyCode::Left if shift => self.step_backward(10),
-            KeyCode::Right => self.step_forward(1),
-            KeyCode::Left => self.step_backward(1),
-            KeyCode::Home | KeyCode::Char('g') => {
-                self.turn = 0;
-                self.needs_redraw = true;
-            }
-            KeyCode::End | KeyCode::Char('G') => {
-                self.turn = self.game.turn_count();
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('+' | '=') => self.speed = (self.speed + 1).min(8),
-            KeyCode::Char('-') if !shift => self.speed = (self.speed - 1).max(0),
-
-            KeyCode::Char('k') => {
-                self.cursor.1 = (self.cursor.1 - 1).max(0);
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('j') => {
-                self.cursor.1 = (self.cursor.1 + 1).min(self.game.height - 1);
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('h') => {
-                self.cursor.0 = (self.cursor.0 - 1).max(0);
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('l') => {
-                self.cursor.0 = (self.cursor.0 + 1).min(self.game.width - 1);
-                self.needs_redraw = true;
-            }
-
-            KeyCode::Enter => {
-                self.select_at_cursor();
-                self.needs_redraw = true;
-            }
-            KeyCode::Tab => {
-                self.cycle_entity_at_cursor();
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('f') => self.follow_entity = !self.follow_entity,
-
-            KeyCode::Char('i') => {
-                self.show_indicators = !self.show_indicators;
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('n') => {
-                self.show_network = !self.show_network;
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('v') => {
-                self.show_vision = !self.show_vision;
-                self.needs_redraw = true;
-            }
-            KeyCode::Char('?') => {
-                self.show_help = true;
-                self.needs_redraw = true;
-            }
-
-            KeyCode::Char(c @ '1'..='9') => {
-                let frac = f64::from(c as u8 - b'0') / 10.0;
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                {
-                    self.turn = (frac * self.game.turn_count() as f64) as usize;
-                }
-                self.needs_redraw = true;
-            }
-
-            _ => {}
-        }
-        false
-    }
-
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss
-    )]
-    pub fn handle_mouse(&mut self, mouse: MouseEvent) {
-        let col = mouse.column;
-        let row = mouse.row;
-
-        match mouse.kind {
-            MouseEventKind::Down(MouseButton::Left) | MouseEventKind::Drag(MouseButton::Left) => {
-                if let Some(scrub) = self.scrubber_area
-                    && row >= scrub.y
-                    && row < scrub.y + scrub.height
-                    && col >= scrub.x
-                    && col < scrub.x + scrub.width
-                {
-                    let frac = f64::from(col - scrub.x) / f64::from(scrub.width);
-                    self.turn = (frac * self.game.turn_count() as f64) as usize;
-                    self.turn = self.turn.min(self.game.turn_count());
-                    self.needs_redraw = true;
-                    return;
-                }
-
-                if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left))
-                    && let Some(map) = self.map_area
-                    && row >= map.y
-                    && row < map.y + map.height
-                    && col >= map.x
-                    && col < map.x + map.width
-                {
-                    let ts = self.atlas.tile_size;
-                    let (cw, ch) = self.cell_size;
-                    if cw > 0 && ch > 0 {
-                        let px = u32::from(col - map.x) * u32::from(cw);
-                        let py = u32::from(row - map.y) * u32::from(ch);
-                        let gx = (px / ts) as i32;
-                        let gy = (py / ts) as i32;
-                        let gx = gx.clamp(0, self.game.width - 1);
-                        let gy = gy.clamp(0, self.game.height - 1);
-                        self.cursor = (gx, gy);
-                        self.select_at_cursor();
-                        self.needs_redraw = true;
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn select_at_cursor(&mut self) {
-        let state = &self.game.turns[self.turn];
-        self.selected_entity = state
-            .entities
-            .values()
-            .find(|e| e.pos == (self.cursor.0, self.cursor.1))
-            .map(|e| e.id);
-    }
-
-    fn cycle_entity_at_cursor(&mut self) {
-        let state = &self.game.turns[self.turn];
-        let at_cursor: Vec<i32> = state
-            .entities
-            .values()
-            .filter(|e| e.pos == (self.cursor.0, self.cursor.1))
-            .map(|e| e.id)
-            .collect();
-        if at_cursor.is_empty() {
-            self.selected_entity = None;
-            return;
-        }
-        let next = match self.selected_entity {
-            Some(current) => {
-                let idx = at_cursor.iter().position(|&id| id == current).unwrap_or(0);
-                at_cursor[(idx + 1) % at_cursor.len()]
-            }
-            None => at_cursor[0],
-        };
-        self.selected_entity = Some(next);
-    }
-
-    pub fn render(&mut self, frame: &mut Frame) {
-        if self.show_help {
-            if self.needs_redraw {
-                let _ = kitty::delete_image(1);
-                self.needs_redraw = false;
-            }
-            render_help(frame);
-            return;
-        }
-
-        if self.follow_entity
-            && let Some(id) = self.selected_entity
-        {
-            let state = &self.game.turns[self.turn];
-            if let Some(e) = state.entities.get(&id)
-                && self.cursor != e.pos
-            {
-                self.cursor = e.pos;
-                self.needs_redraw = true;
-            }
-        }
-
-        let outer =
-            Layout::vertical([Constraint::Min(10), Constraint::Length(3)]).split(frame.area());
-
-        let main =
-            Layout::horizontal([Constraint::Min(20), Constraint::Length(30)]).split(outer[0]);
-
-        self.map_area = Some(main[0]);
-        self.scrubber_area = Some(outer[1]);
-        self.render_info(frame, main[1]);
-        self.render_scrubber(frame, outer[1]);
-    }
-
-    pub fn render_map_if_needed(&mut self) {
-        if !self.needs_redraw {
-            return;
-        }
-        let Some(area) = self.map_area else { return };
-        self.needs_redraw = false;
-        let turn_state = &self.game.turns[self.turn];
-        let img = renderer::render_map(
-            &self.game,
-            turn_state,
-            &self.atlas,
-            self.cursor,
-            self.selected_entity,
-            self.show_indicators,
-        );
-        let _ = kitty::display_image(&img, 1, area.x, area.y);
-    }
-
-    fn render_info(&self, frame: &mut Frame, area: Rect) {
-        let state = &self.game.turns[self.turn];
-
-        let chunks = Layout::vertical([
-            Constraint::Length(8),
-            Constraint::Min(8),
-            Constraint::Min(6),
-        ])
-        .split(area);
-
-        let a = &state.players[0];
-        let b = &state.players[1];
-        let status = format!(
-            "Turn: {}/{}\n\n\
+            let a = &state.players[0];
+            let b = &state.players[1];
+            ui.monospace(format!(
+                "Turn: {}/{}\n\n\
              Team A: {} Ti  {} Ax\n\
              Mined:  {} Ti  {} Ax\n\n\
              Team B: {} Ti  {} Ax\n\
              Mined:  {} Ti  {} Ax",
-            self.turn,
-            self.game.turn_count(),
-            a.titanium,
-            a.axionite,
-            a.ti_collected,
-            a.ax_collected,
-            b.titanium,
-            b.axionite,
-            b.ti_collected,
-            b.ax_collected,
-        );
-        let status_widget = Paragraph::new(status)
-            .block(Block::default().borders(Borders::ALL).title(" Status "))
-            .wrap(Wrap { trim: false });
-        frame.render_widget(status_widget, chunks[0]);
+                app.turn,
+                app.game.turn_count(),
+                a.titanium,
+                a.axionite,
+                a.ti_collected,
+                a.ax_collected,
+                b.titanium,
+                b.axionite,
+                b.ti_collected,
+                b.ax_collected,
+            ));
 
-        let inspector_text = self
-            .selected_entity
-            .and_then(|id| state.entities.get(&id))
-            .map_or_else(
-                || format_tile_info(&self.game, self.cursor),
-                |e| format_entity_info(e, &state.cpu_time_us),
-            );
-        let inspector = Paragraph::new(inspector_text)
-            .block(Block::default().borders(Borders::ALL).title(" Inspector "))
-            .wrap(Wrap { trim: false });
-        frame.render_widget(inspector, chunks[1]);
+            ui.add_space(8.0);
+            ui.heading("Inspector");
+            ui.separator();
 
-        let log_text: String = self.selected_entity.map_or_else(String::new, |id| {
-            state
+            ui.monospace(format_tile_info(&app.game, app.cursor));
+
+            let at_cursor: Vec<&Entity> = state
+                .entities
+                .values()
+                .filter(|e| e.pos == (app.cursor.0, app.cursor.1))
+                .collect();
+
+            for e in &at_cursor {
+                ui.add_space(4.0);
+                ui.separator();
+                ui.monospace(format_entity_info(e, &state.cpu_time_us));
+            }
+
+            ui.add_space(8.0);
+            ui.heading("Log");
+            ui.separator();
+
+            let log_ids: Vec<i32> = at_cursor.iter().map(|e| e.id).collect();
+            let log_text: String = state
                 .outputs
                 .iter()
-                .filter(|(oid, _)| *oid == id)
+                .filter(|(oid, _)| log_ids.contains(oid))
                 .map(|(_, s)| s.as_str())
                 .collect::<Vec<_>>()
-                .join("\n")
+                .join("\n");
+            egui::ScrollArea::vertical()
+                .max_height(ui.available_height())
+                .show(ui, |ui| {
+                    ui.monospace(log_text);
+                });
         });
-        let log = Paragraph::new(log_text)
-            .block(Block::default().borders(Borders::ALL).title(" Log "))
-            .wrap(Wrap { trim: false });
-        frame.render_widget(log, chunks[2]);
-    }
-
-    fn render_scrubber(&self, frame: &mut Frame, area: Rect) {
-        let total = self.game.turn_count().max(1);
-        #[allow(clippy::cast_precision_loss)]
-        let ratio = self.turn as f64 / total as f64;
-        let label = format!(
-            "T{}/{} {}x {}",
-            self.turn,
-            total,
-            self.speed_label(),
-            if self.playing { "❚❚" } else { "▶" },
-        );
-        let gauge = Gauge::default()
-            .block(Block::default().borders(Borders::ALL))
-            .gauge_style(Style::default().fg(Color::Cyan))
-            .ratio(ratio.min(1.0))
-            .label(label);
-        frame.render_widget(gauge, area);
-    }
 }
 
-fn format_entity_info(e: &Entity, cpu_time_us: &HashMap<i32, u32>) -> String {
+fn icon_button(ui: &mut egui::Ui, icon: &str, size: f32) -> egui::Response {
+    let text = egui::RichText::new(icon).size(size);
+    let btn = egui::Button::new(text).frame(false);
+    let response = ui.add(btn);
+    if response.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    response
+}
+
+pub fn render_scrubber(ui: &mut egui::Ui, app: &mut App) {
+    egui::Panel::bottom("scrubber")
+        .exact_size(64.0)
+        .resizable(false)
+        .show_inside(ui, |ui| {
+            let total = app.game.turn_count().max(1);
+
+            ui.add_space(2.0);
+            let desired = egui::vec2(ui.available_width(), 20.0);
+            let (bar_response, bar_painter) =
+                ui.allocate_painter(desired, egui::Sense::click_and_drag());
+            let bar_rect = bar_response.rect;
+
+            if bar_response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+
+            bar_painter.rect_filled(bar_rect, 4.0, ui.visuals().extreme_bg_color);
+            let frac = app.turn as f32 / total as f32;
+            let fill_rect = Rect::from_min_max(
+                bar_rect.left_top(),
+                egui::pos2(
+                    bar_rect.width().mul_add(frac, bar_rect.left()),
+                    bar_rect.bottom(),
+                ),
+            );
+            bar_painter.rect_filled(
+                fill_rect,
+                4.0,
+                egui::Color32::from_rgb(0x40, 0xa0, 0xc0),
+            );
+
+            if (bar_response.clicked() || bar_response.dragged())
+                && let Some(pos) = bar_response.interact_pointer_pos()
+            {
+                let f = ((pos.x - bar_rect.left()) / bar_rect.width()).clamp(0.0, 1.0);
+                app.turn = (f * total as f32) as usize;
+            }
+
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                let icon_size = 18.0;
+
+                if icon_button(ui, "\u{F048}", icon_size).clicked() {
+                    app.step_backward(1);
+                }
+
+                let play_icon = if app.playing { "\u{F04C}" } else { "\u{F04B}" };
+                if icon_button(ui, play_icon, icon_size).clicked() {
+                    app.playing = !app.playing;
+                }
+
+                if icon_button(ui, "\u{F051}", icon_size).clicked() {
+                    app.step_forward(1);
+                }
+
+                ui.add_space(12.0);
+
+                ui.add_enabled_ui(app.speed > 0, |ui| {
+                    if icon_button(ui, "\u{F049}", icon_size).clicked() {
+                        app.speed = (app.speed - 1).max(0);
+                    }
+                });
+
+                ui.label(
+                    egui::RichText::new(format!("{}x", app.speed_label())).size(14.0),
+                );
+
+                ui.add_enabled_ui(app.speed < 8, |ui| {
+                    if icon_button(ui, "\u{F050}", icon_size).clicked() {
+                        app.speed = (app.speed + 1).min(8);
+                    }
+                });
+
+                ui.add_space(12.0);
+                ui.label(
+                    egui::RichText::new(format!("{}/{}", app.turn, total)).size(14.0),
+                );
+            });
+        });
+}
+
+fn format_entity_info(e: &Entity, cpu_time_us: &std::collections::HashMap<i32, u32>) -> String {
     use std::fmt::Write;
     let team = match e.team {
         proto::Team::A => "A",
@@ -461,7 +250,7 @@ fn format_entity_info(e: &Entity, cpu_time_us: &HashMap<i32, u32>) -> String {
             let _ = write!(s, "\nCD: {cooldown}\nRes: {resource_type:?}");
         }
         EntityKind::Marker { value } => {
-            let _ = write!(s, "\nValue: {value:#010x}");
+            let _ = write!(s, "\n{value:#010x}\n{value:#034b}\n{value}");
         }
         EntityKind::Gunner {
             dir,
@@ -502,39 +291,7 @@ fn format_tile_info(game: &GameState, pos: (i32, i32)) -> String {
         proto::Environment::EnvOreAxionite => "Ore (Ax)",
     };
     format!(
-        "({},{}) {}\n\nNo entity selected\n(Enter to select)",
+        "({},{}) {}\n\nNo entity selected\n(Enter/click to select)",
         pos.0, pos.1, env_name
     )
-}
-
-fn render_help(frame: &mut Frame) {
-    let text = "\
-Space       Play/Pause
-Right       Step +1
-Left        Step -1
-S-Right     Step +10
-S-Left      Step -10
-g / Home    Turn 0
-G / End     Last turn
-+ / -       Speed up/down
-1-9         Jump to 10-90%
-
-hjkl        Move cursor
-Enter       Select entity
-Tab         Cycle entities
-f           Follow entity
-Esc/q       Deselect/Quit
-
-Click       Select tile/entity
-Drag        Scrub timeline
-
-i           Indicators
-n           Network
-v           Vision
-?           This help";
-
-    let para = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title(" Help "))
-        .wrap(Wrap { trim: false });
-    frame.render_widget(para, frame.area());
 }
