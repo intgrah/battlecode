@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
+from config import DEBUG_DUMP
+from visualiser import Tiles, VectorField, emit, parent_to_angles
+
 if TYPE_CHECKING:
     from builder.state import State
 
@@ -60,6 +63,12 @@ def find_path_raw(
             cur = parent[cur]
         path.append(si)
         path.reverse()
+
+    if DEBUG_DUMP:
+        emit(
+            bfs_parent=VectorField(parent_to_angles(parent, w)),
+            bfs_path=Tiles([(i % w, i // w) for i in path] if path else []),
+        )
 
     # Cleanup
     for i in touched:

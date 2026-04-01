@@ -1,7 +1,8 @@
 """Dump builder belief state using the visualiser package."""
 
 from cambc import Controller
-from visualiser import Grid, Palette, Scalar, Tiles, emit
+from util import INF
+from visualiser import Grid, Palette, Scalar, Tiles, VectorField, emit, parent_to_angles
 
 from .state import State
 
@@ -24,6 +25,14 @@ P_VIRIDIS = Palette(
 )
 P_FOG = Palette(
     stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 0, 180)], special={0: TRANSPARENT}
+)
+P_DIST = Palette(
+    stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
+    special={-1: TRANSPARENT, INF: TRANSPARENT},
+)
+P_HEURISTIC = Palette(
+    stops=[(0.0, 50, 50, 200, 140), (1.0, 200, 50, 200, 140)],
+    special={-1: TRANSPARENT},
 )
 P_STALENESS = Palette(
     stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)],
@@ -62,4 +71,6 @@ def dump(state: State, ct: Controller) -> None:
         scale=Scalar(round(ct.get_scale_percent(), 1)),
         ore_ti=Tiles([(i % state.w, i // state.w) for i in state.ore_ti]),
         ore_ax=Tiles([(i % state.w, i // state.w) for i in state.ore_ax]),
+        unit_tiles=Tiles(state.unit_tiles),
+        symmetry=Scalar(str(state.symmetry)),
     )

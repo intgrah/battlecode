@@ -22,12 +22,23 @@ pub enum VisField {
     Tiles {
         data: Vec<[i32; 2]>,
     },
+    #[serde(rename = "vectorfield")]
+    VectorField {
+        angles: Vec<Option<f64>>,
+        magnitudes: Option<Vec<f64>>,
+    },
 }
 
 pub type VisState = HashMap<String, VisField>;
 
-pub fn parse_vis(json: &str) -> Option<VisState> {
-    serde_json::from_str(json).ok()
+pub fn parse_vis(jsons: &[String]) -> VisState {
+    let mut merged = VisState::new();
+    for json in jsons {
+        if let Ok(fields) = serde_json::from_str::<VisState>(json) {
+            merged.extend(fields);
+        }
+    }
+    merged
 }
 
 pub struct Color {

@@ -2,7 +2,7 @@
 
 Usage in builder code:
 
-    from visualiser import Grid, Scalar, Tiles, Palette, emit
+    from visualiser import Grid, Scalar, Tiles, Palette, VectorField, emit
 
     emit(
         dist=Grid(
@@ -12,13 +12,7 @@ Usage in builder code:
                 special={-1: (0, 0, 0, 0), INF: (80, 80, 80, 100)},
             ),
         ),
-        flow_ti=Grid(
-            state.flow.ti,
-            palette=Palette(
-                stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
-                special={0: (0, 0, 0, 0)},
-            ),
-        ),
+        bfs=VectorField(parent_to_angles(state.parent, state.w)),
         scale=Scalar(142.5),
         goals=Tiles([(3, 5), (7, 2)]),
     )
@@ -32,11 +26,19 @@ Palette stops: list of (t, r, g, b, a) where t in [0, 1].
 Special values: dict mapping value -> (r, g, b, a).
     Use (0, 0, 0, 0) for transparent. Matched values bypass the palette.
     Special values are excluded from min/max auto-scaling.
+
+VectorField: per-tile arrows.
+    angles: radians per tile, None = no arrow.
+    magnitudes: optional, scales arrow length. None = uniform length.
+
+Helper:
+    parent_to_angles(parent, w) converts a parent-index array to radians.
 """
 
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -68,7 +70,25 @@ class Tiles:
     data: Iterable[tuple[int, int]]
 
 
-def _serialize_field(v: Grid | Scalar | Tiles) -> dict:
+@dataclass(frozen=True, slots=True)
+class VectorField:
+    angles: Sequence[float | None]
+    magnitudes: Sequence[float] | None = None
+
+
+def parent_to_angles(parent: Sequence[int], w: int) -> list[float | None]:
+    result: list[float | None] = []
+    for i, p in enumerate(parent):
+        if p < 0:
+            result.append(None)
+        else:
+            dx = p % w - i % w
+            dy = p // w - i // w
+            result.append(math.atan2(dy, dx))
+    return result
+
+
+def _serialize_field(v: Grid | Scalar | Tiles | VectorField) -> dict:
     match v:
         case Grid(data=d, palette=p):
             return {
@@ -83,8 +103,13 @@ def _serialize_field(v: Grid | Scalar | Tiles) -> dict:
             return {"type": "scalar", "data": d}
         case Tiles(data=d):
             return {"type": "tiles", "data": [list(t) for t in d]}
+        case VectorField(angles=a, magnitudes=m):
+            obj: dict = {"type": "vectorfield", "angles": list(a)}
+            if m is not None:
+                obj["magnitudes"] = list(m)
+            return obj
 
 
-def emit(**fields: Grid | Scalar | Tiles) -> None:
+def emit(**fields: Grid | Scalar | Tiles | VectorField) -> None:
     obj = {name: _serialize_field(v) for name, v in fields.items()}
     print(f"{VIS_PREFIX}{json.dumps(obj, separators=(',', ':'))}")
