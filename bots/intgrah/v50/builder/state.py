@@ -104,9 +104,7 @@ class UnifiedFlow:
 _DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 
-def _build_pnb(
-    w: int, h: int, n: int, cost: list[int]
-) -> list[list[int]]:
+def _build_pnb(w: int, h: int, n: int, cost: list[int]) -> list[list[int]]:
     pnb: list[list[int]] = [[] for _ in range(n)]
     for i in range(n):
         if cost[i] >= COST_IMPASSABLE:
@@ -121,9 +119,7 @@ def _build_pnb(
     return pnb
 
 
-def _update_pnb(
-    w: int, h: int, cost: list[int], pnb: list[list[int]], i: int
-) -> None:
+def _update_pnb(w: int, h: int, cost: list[int], pnb: list[list[int]], i: int) -> None:
     cx, cy = i % w, i // w
     passable = cost[i] < COST_IMPASSABLE
     pnb[i] = []
