@@ -21,18 +21,15 @@ Aggro builder state machine (role="aggro", spawned first):
 from __future__ import annotations
 
 import random
-from typing import Optional
 
+from astar import astar_chain, astar_walk
 from cambc import Controller, Direction, EntityType, Environment, Position
-
 from constants import (
     ALL_DIRECTIONS,
     BRIDGE_MAX_DIST_SQ,
-    CARDINAL_LEFT,
-    CARDINAL_RIGHT,
     CARDINALS,
-    DIRECTION_DELTA,
     DELTA_TO_DIRECTION,
+    DIRECTION_DELTA,
     SECTOR_CLAIM_TTL,
     SECTOR_OFFSETS,
     WALKABLE_BUILDINGS,
@@ -43,7 +40,6 @@ from markers import (
     decode_sector,
     encode_sector,
 )
-from astar import astar_walk, astar_chain
 
 MAX_BUILDERS = 5
 CONNECT_STALL_LIMIT = 40
@@ -71,14 +67,14 @@ AGGRO_ORBIT_RADIUS = 8
 class Player:
     def __init__(self) -> None:
         self.round_no = 0
-        self.my_pos: Optional[Position] = None
-        self.my_id: Optional[int] = None
+        self.my_pos: Position | None = None
+        self.my_id: int | None = None
         self.my_team = None
 
         # Core state
-        self.core_pos: Optional[Position] = None
+        self.core_pos: Position | None = None
         self.core_tiles: set[Position] = set()
-        self.enemy_core_pos: Optional[Position] = None
+        self.enemy_core_pos: Position | None = None
         # Map symmetry: three candidate enemy core positions (x-flip, y-flip, 180).
         self.enemy_core_candidates: list[Position] = []
         self.symmetry_eliminated: list[bool] = [False, False, False]
@@ -88,8 +84,8 @@ class Player:
         self.last_healer_spawn_round: int = -999
 
         # Map (persists across rounds)
-        self.map_w: Optional[int] = None
-        self.map_h: Optional[int] = None
+        self.map_w: int | None = None
+        self.map_h: int | None = None
         self.tile_env: dict[Position, Environment] = {}
         self.known_ores: set[Position] = set()        # Ti ore positions
         self.claimed_ores: set[Position] = set()
@@ -109,8 +105,8 @@ class Player:
 
 
         # Builder state (shared by both roles)
-        self.target_ore: Optional[Position] = None
-        self.explore_target: Optional[Position] = None
+        self.target_ore: Position | None = None
+        self.explore_target: Position | None = None
         # Walk cache (rebuilt once per turn for A* walk)
         self._walk_cache_round: int = -1
         self._wc_walls: set[tuple[int, int]] = set()
@@ -126,27 +122,27 @@ class Player:
 
         # Healing state
         self.healing = False
-        self.heal_target: Optional[Position] = None
+        self.heal_target: Position | None = None
         self.damaged_turns: dict[Position, int] = {}  # pos → turns seen with 1-3 HP missing
 
         # Connect-back state
         self.connecting = False
         self.connect_turns = 0
-        self.connect_harvester_pos: Optional[Position] = None
-        self.chain_end: Optional[Position] = None
-        self.connect_target: Optional[Position] = None
+        self.connect_harvester_pos: Position | None = None
+        self.chain_end: Position | None = None
+        self.connect_target: Position | None = None
         self.connect_last_build_round: int = 0
         self.connect_stall_recoverable: bool = False
         self.current_chain: list[Position] = []
         # A* chain plan
-        self.connect_plan: "Optional[list[tuple[str, int, int, int, int]]]" = None
+        self.connect_plan: list[tuple[str, int, int, int, int]] | None = None
         self.connect_plan_idx: int = 0
         # Attack sub-state: enemy building we're walking to and firing at.
-        self.connect_attack_pos: Optional[Position] = None
+        self.connect_attack_pos: Position | None = None
 
         # Aggro builder state
-        self.aggro_sentinel_pos: Optional[Position] = None   # pending sentinel placement
-        self.aggro_harvester_pos: Optional[Position] = None  # harvester this sentinel feeds
+        self.aggro_sentinel_pos: Position | None = None   # pending sentinel placement
+        self.aggro_harvester_pos: Position | None = None  # harvester this sentinel feeds
         self.aggro_sentinel_turns: int = 0                   # timeout for sentinel placement
         self.aggro_failed_targets: set[Position] = set()     # harvesters we failed to sentinel
         self.aggro_orbit_step: int = 0                       # scout orbit angle index
@@ -323,8 +319,8 @@ class Player:
         """
         if ct.get_action_cooldown() != 0:
             return
-        best: "Optional[Position]" = None
-        best_key: "Optional[tuple[int, int, int]]" = None
+        best: Position | None = None
+        best_key: tuple[int, int, int] | None = None
         my_pos = ct.get_position()
         my_team = ct.get_team()
         for eid in ct.get_nearby_entities():
@@ -512,7 +508,7 @@ class Player:
             return
 
         # Orbit core at radius 2 to stay close for healing.
-        if not hasattr(self, '_healer_orbit_step'):
+        if not hasattr(self, "_healer_orbit_step"):
             self._healer_orbit_step = 0
         dx, dy = self._HEALER_ORBIT_DIRS[self._healer_orbit_step % 8]
         target = Position(self.core_pos.x + dx, self.core_pos.y + dy)
@@ -612,7 +608,7 @@ class Player:
         # No enemy harvesters — scout for enemy infrastructure.
         self._aggro_scout(ct)
 
-    def _find_best_sentinel_placement(self, ct: Controller) -> "Optional[tuple[Position, Position]]":
+    def _find_best_sentinel_placement(self, ct: Controller) -> tuple[Position, Position] | None:
         """Score all (harvester, sentinel_pos) candidates and return the best.
 
         Returns (harvester_pos, sentinel_pos) or None.
@@ -635,7 +631,7 @@ class Player:
             ):
                 enemy_turrets.append(tpos)
 
-        best: "Optional[tuple[Position, Position]]" = None
+        best: tuple[Position, Position] | None = None
         best_score = -1
 
         for hpos, (_, etype, team) in self.visible_buildings.items():
@@ -902,7 +898,7 @@ class Player:
             EntityType.SPLITTER: 2, EntityType.ARMOURED_CONVEYOR: 2,
         }
 
-        best_dir: "Optional[Direction]" = None
+        best_dir: Direction | None = None
         best_score = -1
         for direction in ALL_DIRECTIONS:
             ddx, ddy = DIRECTION_DELTA[direction]
@@ -1097,7 +1093,7 @@ class Player:
         # Minor damage: only heal if persistent (being attacked).
         return self.damaged_turns.get(pos, 0) >= 3
 
-    def _find_heal_target(self, ct: Controller) -> Optional[Position]:
+    def _find_heal_target(self, ct: Controller) -> Position | None:
         """Find a damaged friendly building in vision worth walking to.
 
         Only called when not connecting and no ore target — i.e. idle builders.
@@ -1105,7 +1101,7 @@ class Player:
         """
         if self.my_pos is None:
             return None
-        best_pos: Optional[Position] = None
+        best_pos: Position | None = None
         best_missing = 0
         for pos, (eid, etype, team) in self.visible_buildings.items():
             if team != self.my_team:
@@ -1145,7 +1141,7 @@ class Player:
             ct.heal(self.my_pos)
             dbg(f"r={self.round_no} id={self.my_id} self-heal missing={my_max - my_hp}")
             return True
-        best_pos: Optional[Position] = None
+        best_pos: Position | None = None
         best_missing = 0
         for dx in range(-1, 2):
             for dy in range(-1, 2):
@@ -1199,7 +1195,7 @@ class Player:
         return False
 
     def _try_build_harvester(
-        self, ct: Controller, target_override: Optional[Position] = None
+        self, ct: Controller, target_override: Position | None = None
     ) -> bool:
         if self.target_ore is None or ct.get_action_cooldown() != 0:
             return False
@@ -1265,7 +1261,7 @@ class Player:
     # Connect-back: A* planned chain extension
     # ------------------------------------------------------------------
 
-    def _pick_source_pad(self, harvester_pos: Position, toward: Position) -> Optional[Position]:
+    def _pick_source_pad(self, harvester_pos: Position, toward: Position) -> Position | None:
         """Cardinal neighbor of harvester closest to toward.
 
         Skips walls and tiles already occupied by non-clearable buildings
@@ -1318,10 +1314,9 @@ class Player:
                 if dist < contam_dist:
                     contam_dist = dist
                     contam_best = pad
-            else:
-                if dist < clean_dist:
-                    clean_dist = dist
-                    clean_best = pad
+            elif dist < clean_dist:
+                clean_dist = dist
+                clean_best = pad
         return clean_best if clean_best is not None else contam_best
 
     def _build_chain_cache(self) -> None:
@@ -1330,7 +1325,7 @@ class Player:
         Skips rebuild if tile_env and known_buildings haven't changed since last build.
         """
         cache_key = (len(self.tile_env), len(self.known_buildings))
-        if hasattr(self, '_cc_cache_key') and self._cc_cache_key == cache_key:
+        if hasattr(self, "_cc_cache_key") and self._cc_cache_key == cache_key:
             return  # no new tiles, cache is still valid
         self._cc_cache_key = cache_key
 
@@ -1456,15 +1451,15 @@ class Player:
                             dbg(f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: conv output {out_pos} has own {out_etype.name}")
                             return True
             return False
-        else:  # bridge
-            # Check landing is still valid
-            landing = Position(step[3], step[4])
-            tc = self._classify_tile(landing)
-            terminals = self._get_connect_terminals()
-            if tc in ("free", "enemy_road") or (landing.x, landing.y) in terminals:
-                return False
-            dbg(f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: bridge landing {landing} is {tc}")
-            return True
+        # bridge
+        # Check landing is still valid
+        landing = Position(step[3], step[4])
+        tc = self._classify_tile(landing)
+        terminals = self._get_connect_terminals()
+        if tc in ("free", "enemy_road") or (landing.x, landing.y) in terminals:
+            return False
+        dbg(f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: bridge landing {landing} is {tc}")
+        return True
 
     def _detect_enemy_blocking(self, ct: Controller) -> None:
         """Check if chain_end or its planned output has an attackable enemy building.
@@ -1646,11 +1641,10 @@ class Player:
                         f"(foreign {ce_etype.name} at chain_end)"
                     )
                     return
-                else:
-                    # Chain start itself was taken — abandon
-                    dbg(f"r={self.round_no} id={self.my_id} connect abandon: foreign building at chain start {self.chain_end}")
-                    self._finish_connect(success=False)
-                    return
+                # Chain start itself was taken — abandon
+                dbg(f"r={self.round_no} id={self.my_id} connect abandon: foreign building at chain start {self.chain_end}")
+                self._finish_connect(success=False)
+                return
 
         # Handle pending unwind destroy: walk to the node and destroy our
         # bridge/conveyor so resources stop flowing to the contaminated tile.
@@ -1678,12 +1672,11 @@ class Player:
                 self.connect_last_build_round = self.round_no
                 self.connect_plan = None  # re-plan now that tile is clear
                 dbg(f"r={self.round_no} id={self.my_id} attack cleared at {atk}")
-            else:
-                if self.my_pos != atk:
-                    self._walk_toward(ct, atk)
-                elif ct.can_fire(self.my_pos):
-                    ct.fire(self.my_pos)
-                    dbg(f"r={self.round_no} id={self.my_id} fire at enemy {info[1].name} at {atk}")
+            elif self.my_pos != atk:
+                self._walk_toward(ct, atk)
+            elif ct.can_fire(self.my_pos):
+                ct.fire(self.my_pos)
+                dbg(f"r={self.round_no} id={self.my_id} fire at enemy {info[1].name} at {atk}")
             return
 
         # Check if chain_end or its planned output has an attackable enemy building.
@@ -1929,7 +1922,7 @@ class Player:
             return True
         return False
 
-    def _closest_core_tile(self, pos: Position) -> Optional[Position]:
+    def _closest_core_tile(self, pos: Position) -> Position | None:
         if self.core_pos is None:
             return None
         best, best_dist = None, float("inf")
@@ -1953,13 +1946,13 @@ class Player:
             return False
         return abs(pos.x - self.enemy_core_pos.x) <= 1 and abs(pos.y - self.enemy_core_pos.y) <= 1
 
-    def _nearest_unsaturated_terminal(self, pos: Position) -> Optional[Position]:
+    def _nearest_unsaturated_terminal(self, pos: Position) -> Position | None:
         """Return nearest unsaturated tree node or core tile to pos.
 
         Tree nodes belonging to trees with >= MAX_HARVESTERS_PER_TREE are skipped.
         Core tiles are always included (connecting there starts a new tree).
         """
-        best: Optional[Position] = None
+        best: Position | None = None
         best_dist = float("inf")
         for tp in self.my_tree:
             tree_id = self.tree_ids.get(tp)
@@ -1980,7 +1973,7 @@ class Player:
                         best = cp
         return best
 
-    def _find_adjacent_terminal(self, pos: Position) -> Optional[tuple[Position, Direction]]:
+    def _find_adjacent_terminal(self, pos: Position) -> tuple[Position, Direction] | None:
         """Return (neighbor, direction) if pos is cardinally adjacent to a terminal.
 
         Prefer unsaturated tree nodes, then core tiles. Skips saturated trees.
@@ -1998,7 +1991,7 @@ class Player:
                 best = (neighbor, d)
         return best
 
-    def _finish_connect(self, success: bool = False, terminal: Optional[Position] = None) -> None:
+    def _finish_connect(self, success: bool = False, terminal: Position | None = None) -> None:
         if success:
             self.my_tree.update(self.current_chain)
             # Determine which tree this chain belongs to.
@@ -2050,7 +2043,7 @@ class Player:
         if self.heal_target is not None:
             self._walk_toward(ct, self.heal_target, best_effort=True)
 
-    def _pick_heal_target(self) -> Optional[Position]:
+    def _pick_heal_target(self) -> Position | None:
         """Pick a tree node to patrol toward. Cycles through nodes, preferring
         ones we haven't been near recently (far from current position)."""
         if not self.my_tree or self.my_pos is None:
@@ -2157,7 +2150,7 @@ class Player:
         ((-1, 0), (0, -1)),  # NW
     ]
 
-    def _sector_explore_target(self) -> Optional[Position]:
+    def _sector_explore_target(self) -> Position | None:
         """Sweep sector with density scaling by radius.
 
         Each radius band has enough waypoints to keep ~8 tile spacing along
@@ -2207,7 +2200,7 @@ class Player:
             radius += 5
         return None
 
-    def _random_explore_target(self) -> Optional[Position]:
+    def _random_explore_target(self) -> Position | None:
         """Pick an unseen point on our half. Returns None if our half looks explored."""
         if self.map_w is None or self.map_h is None:
             return None
@@ -2229,10 +2222,10 @@ class Player:
     # Ore picking
     # ------------------------------------------------------------------
 
-    def _pick_ore(self) -> Optional[Position]:
+    def _pick_ore(self) -> Position | None:
         if not self.known_ores or self.my_pos is None:
             return None
-        best: Optional[Position] = None
+        best: Position | None = None
         best_score = float("inf")
         for ore in self.known_ores:
             if ore in self.claimed_ores:

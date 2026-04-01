@@ -1,4 +1,5 @@
-from cambc import Controller, EntityType, Direction, Position
+from cambc import Controller, Direction, EntityType
+
 
 class Player:
     def __init__(self):

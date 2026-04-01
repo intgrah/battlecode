@@ -12,15 +12,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import math
-import sys
-from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
 from replay_common import (
     TEAM_A,
-    TEAM_B,
     initial_entities,
     load_replay,
     other_team,
@@ -78,7 +74,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
 
     # Track enemy turrets and their positions relative to our harvesters.
     # (turn, enemy_turret_kind, turret_pos, adjacent_harvester_pos_or_None)
-    enemy_turret_placements: list[tuple[int, str, tuple[int, int], "tuple[int, int] | None"]] = []
+    enemy_turret_placements: list[tuple[int, str, tuple[int, int], tuple[int, int] | None]] = []
     # Track our harvester positions (live).
     our_harvester_positions: dict[int, tuple[int, int]] = {}
     # Track all enemy building removals near our core for detail mode.
@@ -178,7 +174,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
                 target = pos_tuple(ft.to)
                 # Check if firing at our core tiles.
                 if our_core_pos is not None and dist_sq(target, our_core_pos) <= 2:
-                    turret_shots_at_our_core.append((turn_no, pos_tuple(getattr(ft, 'from'))))
+                    turret_shots_at_our_core.append((turn_no, pos_tuple(getattr(ft, "from"))))
 
             elif kind == "bot_output":
                 if update.bot_output.tled:

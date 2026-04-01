@@ -7,7 +7,6 @@ from typing import Any
 
 from generated import cambc_pb2
 
-
 TEAM_A = cambc_pb2.TEAM_A
 TEAM_B = cambc_pb2.TEAM_B
 TEAM_LABELS = {
