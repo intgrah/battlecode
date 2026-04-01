@@ -1,6 +1,5 @@
 from cambc import Controller, Direction, EntityType, Position
 
-
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 CARDINALS = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
 SPAWN_ORDER = [

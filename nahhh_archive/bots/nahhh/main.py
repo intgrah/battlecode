@@ -16,16 +16,15 @@ Builder state machine (all builders use the same generalist waterfall):
 from __future__ import annotations
 
 import random
-from typing import Optional
 
+from astar import astar_chain, astar_walk
 from cambc import Controller, Direction, EntityType, Environment, Position
-
 from constants import (
     ALL_DIRECTIONS,
     BRIDGE_MAX_DIST_SQ,
     CARDINALS,
-    DIRECTION_DELTA,
     DELTA_TO_DIRECTION,
+    DIRECTION_DELTA,
     SECTOR_CLAIM_TTL,
     SECTOR_OFFSETS,
     WALKABLE_BUILDINGS,
@@ -36,8 +35,6 @@ from markers import (
     decode_sector,
     encode_sector,
 )
-from astar import astar_walk, astar_chain
-
 
 CONNECT_STALL_LIMIT = 40
 DEFENSE_RESERVE_SETS = 1  # reserve Ti for this many gunner+splitter combos
@@ -55,22 +52,22 @@ OWN_SIDE_SLIPPAGE = 0.3
 class Player:
     def __init__(self) -> None:
         self.round_no = 0
-        self.my_pos: Optional[Position] = None
-        self.my_id: Optional[int] = None
+        self.my_pos: Position | None = None
+        self.my_id: int | None = None
         self.my_team = None
 
         # Core state
-        self.core_pos: Optional[Position] = None
+        self.core_pos: Position | None = None
         self.core_tiles: set[Position] = set()
-        self.enemy_core_pos: Optional[Position] = None
+        self.enemy_core_pos: Position | None = None
         # Map symmetry: three candidate enemy core positions (x-flip, y-flip, 180).
         self.enemy_core_candidates: list[Position] = []
         self.symmetry_eliminated: list[bool] = [False, False, False]
         self.num_spawned = 0
 
         # Map (persists across rounds)
-        self.map_w: Optional[int] = None
-        self.map_h: Optional[int] = None
+        self.map_w: int | None = None
+        self.map_h: int | None = None
         self.tile_env: dict[Position, Environment] = {}
         self.known_ores: set[Position] = set()        # Ti ore positions
         self.claimed_ores: set[Position] = set()
@@ -85,8 +82,8 @@ class Player:
         self.visible_unit_positions: set[Position] = set()  # all units excl. self
 
         # Builder state
-        self.target_ore: Optional[Position] = None
-        self.explore_target: Optional[Position] = None
+        self.target_ore: Position | None = None
+        self.explore_target: Position | None = None
         # Walk cache (rebuilt once per turn for A* walk)
         self._walk_cache_round: int = -1
         self._wc_walls: set[tuple[int, int]] = set()
@@ -98,53 +95,53 @@ class Player:
 
         # Tree state (persists across connect-backs)
         self.my_tree: set[Position] = set()
-        self.my_chain_dirs: dict[Position, "Direction"] = {}  # pos → conveyor direction
+        self.my_chain_dirs: dict[Position, Direction] = {}  # pos → conveyor direction
         self.tree_ids: dict[Position, int] = {}       # node → tree index
         self.tree_harvester_counts: list[int] = []    # harvester count per tree
 
         # Offensive attack state
-        self._attack_target: Optional[Position] = None
-        self._attack_gunner_pos: Optional[Position] = None
-        self._attack_gunner_dir: Optional["Direction"] = None
-        self._attack_ore: Optional[Position] = None  # ore to build harvester for ammo
+        self._attack_target: Position | None = None
+        self._attack_gunner_pos: Position | None = None
+        self._attack_gunner_dir: Direction | None = None
+        self._attack_ore: Position | None = None  # ore to build harvester for ammo
 
         # Task commitment
         self.task: str = "idle"  # "seek_ore", "connect", "idle", "attack"
-        self.suspended_task: Optional[str] = None
-        self.suspended_state: Optional[dict] = None
+        self.suspended_task: str | None = None
+        self.suspended_state: dict | None = None
 
         # Healing state
-        self.heal_target: Optional[Position] = None
+        self.heal_target: Position | None = None
         self.damaged_turns: dict[Position, int] = {}  # pos → turns seen with 1-3 HP missing
 
         # Reactive gunner placement state
-        self.gunner_build: Optional[dict] = None  # active gunner build task
+        self.gunner_build: dict | None = None  # active gunner build task
         # Chain repair state
-        self._repair_target: Optional[Position] = None
+        self._repair_target: Position | None = None
 
         # Stuck detection for _walk_toward
-        self._stuck_target: Optional[Position] = None
+        self._stuck_target: Position | None = None
         self._stuck_turns: int = 0
 
         # Connect-back state
         self.connecting = False
         self.connect_turns = 0
-        self.connect_harvester_pos: Optional[Position] = None
-        self.chain_end: Optional[Position] = None
-        self.connect_target: Optional[Position] = None
+        self.connect_harvester_pos: Position | None = None
+        self.chain_end: Position | None = None
+        self.connect_target: Position | None = None
         self.connect_last_build_round: int = 0
         self.connect_stall_recoverable: bool = False
         self.current_chain: list[Position] = []
         # A* chain plan
-        self.connect_plan: "Optional[list[tuple[str, int, int, int, int]]]" = None
+        self.connect_plan: list[tuple[str, int, int, int, int]] | None = None
         self.connect_plan_idx: int = 0
         # Attack sub-state: enemy building we're walking to and firing at.
-        self.connect_attack_pos: Optional[Position] = None
-        self.connect_unwind_destroy: Optional[Position] = None
+        self.connect_attack_pos: Position | None = None
+        self.connect_unwind_destroy: Position | None = None
 
 
         # Post-harvest sentinel placement
-        self._pending_sentinel_harvester: Optional[Position] = None
+        self._pending_sentinel_harvester: Position | None = None
         self._sentinels_placed: int = 0
         self._rng_seeded: bool = False
 
@@ -323,8 +320,8 @@ class Player:
         """
         if ct.get_action_cooldown() != 0:
             return
-        best: "Optional[Position]" = None
-        best_key: "Optional[tuple[int, int, int]]" = None
+        best: Position | None = None
+        best_key: tuple[int, int, int] | None = None
         my_pos = ct.get_position()
         my_team = ct.get_team()
         for eid in ct.get_nearby_entities():
@@ -470,7 +467,7 @@ class Player:
             elif tile in self.visible_unit_positions:
                 for uid in ct.get_nearby_units():
                     if ct.get_team(uid) != self.my_team and ct.get_position(uid) == tile:
-                        if 10 > best_prio:
+                        if best_prio < 10:
                             best_prio = 10
                             best_target = tile
                         break
@@ -702,9 +699,7 @@ class Player:
             sbld = self.visible_buildings.get(spos) or self.known_buildings.get(spos)
             if sbld is not None:
                 _, setype, steam = sbld
-                if setype == EntityType.MARKER:
-                    pass
-                elif steam == self.my_team and setype == EntityType.ROAD:
+                if setype == EntityType.MARKER or (steam == self.my_team and setype == EntityType.ROAD):
                     pass
                 else:
                     continue
@@ -757,14 +752,14 @@ class Player:
         # Use gunner_build state machine — skip splitter phase, direct placement.
         # Place gunner (not sentinel) for better DPS + rotation capability.
         self.gunner_build = {
-            'enemy_pos': self.enemy_core_pos or harv,
-            'gunner_pos': best_pos,
-            'gunner_dir': facing,
-            'chain_pos': None,
-            'chain_type': EntityType.HARVESTER,  # skip splitter phase
-            'phase': 2,  # skip to walk-to-turret
-            'start_round': self.round_no,
-            'est_turns': 5,
+            "enemy_pos": self.enemy_core_pos or harv,
+            "gunner_pos": best_pos,
+            "gunner_dir": facing,
+            "chain_pos": None,
+            "chain_type": EntityType.HARVESTER,  # skip splitter phase
+            "phase": 2,  # skip to walk-to-turret
+            "start_round": self.round_no,
+            "est_turns": 5,
         }
         self._pending_sentinel_harvester = None
         dbg(f"r={self.round_no} id={self.my_id} def gunner at {best_pos} facing {facing.name} for harvester {harv}")
@@ -778,7 +773,7 @@ class Player:
         EntityType.HARVESTER: 3,
     }
 
-    def _eval_sentinel_placement(self, ct: Controller, harv_pos: Position) -> "Optional[tuple[Position, Direction]]":
+    def _eval_sentinel_placement(self, ct: Controller, harv_pos: Position) -> tuple[Position, Direction] | None:
         """Score all (tile, facing) combos adjacent to an enemy harvester.
 
         Called when builder is near the harvester with full vision.
@@ -805,14 +800,10 @@ class Player:
             bld = self.visible_buildings.get(spos)
             if bld is not None:
                 _, betype, bteam = bld
-                if betype == EntityType.MARKER:
-                    pass
-                elif betype == EntityType.ROAD:
-                    pass
-                elif bteam != self.my_team and betype in {
+                if betype == EntityType.MARKER or betype == EntityType.ROAD or (bteam != self.my_team and betype in {
                     EntityType.CONVEYOR, EntityType.BRIDGE,
                     EntityType.SPLITTER, EntityType.ARMOURED_CONVEYOR,
-                }:
+                }):
                     pass
                 else:
                     continue
@@ -886,16 +877,16 @@ class Player:
         # (phase 3) when we have full vision of surroundings.
         # Walk toward harvester. Tile + facing evaluated when adjacent.
         self.gunner_build = {
-            'enemy_pos': best_harv,
-            'gunner_pos': best_harv,  # walk TO harvester; re-eval at arrival
-            'gunner_dir': Direction.NORTH,  # placeholder, re-eval'd
-            'chain_pos': None,
-            'chain_type': EntityType.HARVESTER,
-            'phase': 2,  # walk-to-turret phase
-            'start_round': self.round_no,
-            'est_turns': 10,
-            '_is_sentinel': True,
-            '_needs_eval': True,  # flag: re-evaluate tile+facing when adjacent
+            "enemy_pos": best_harv,
+            "gunner_pos": best_harv,  # walk TO harvester; re-eval at arrival
+            "gunner_dir": Direction.NORTH,  # placeholder, re-eval'd
+            "chain_pos": None,
+            "chain_type": EntityType.HARVESTER,
+            "phase": 2,  # walk-to-turret phase
+            "start_round": self.round_no,
+            "est_turns": 10,
+            "_is_sentinel": True,
+            "_needs_eval": True,  # flag: re-evaluate tile+facing when adjacent
         }
         dbg(f"r={self.round_no} id={self.my_id} opportunistic sentinel: walking to enemy harv {best_harv}")
         return self._continue_gunner_build(ct)
@@ -920,7 +911,7 @@ class Player:
         EntityType.SPLITTER: 3, EntityType.ARMOURED_CONVEYOR: 3,  # transport — low priority
     }
 
-    def _find_attack_target(self, ct: Controller) -> Optional[Position]:
+    def _find_attack_target(self, ct: Controller) -> Position | None:
         """Find best enemy building to attack. Core > turrets > harvesters > transport.
 
         Only returns tier 0-1 targets for gunner placement. Tier 2-3 handled by
@@ -944,7 +935,7 @@ class Player:
                 best = pos
         return best
 
-    def _pick_gunner_for_target(self, ct: Controller, target: Position) -> "tuple[Optional[Position], Optional[Direction]]":
+    def _pick_gunner_for_target(self, ct: Controller, target: Position) -> tuple[Position | None, Direction | None]:
         """Find a gunner position with LoS to target on seen tiles.
 
         Only returns positions where ammo can be delivered (at least one
@@ -999,7 +990,7 @@ class Player:
                     best_dir = gun_dir
         return best_pos, best_dir
 
-    def _find_ammo_for_gunner(self, ct: Controller, gunner_pos: Position, gunner_dir: Direction) -> Optional[dict]:
+    def _find_ammo_for_gunner(self, ct: Controller, gunner_pos: Position, gunner_dir: Direction) -> dict | None:
         """Find an ammo source for a gunner. Returns dict with source info or None."""
         fdx, fdy = DIRECTION_DELTA[gunner_dir]
 
@@ -1027,10 +1018,10 @@ class Player:
                         break
                 if defended:
                     continue
-                return {'type': 'direct', 'pos': cpos}
+                return {"type": "direct", "pos": cpos}
             # Own harvester — free ammo.
             if cteam == self.my_team and cetype == EntityType.HARVESTER:
-                return {'type': 'direct', 'pos': cpos}
+                return {"type": "direct", "pos": cpos}
             # Own conveyors/splitters NOT direct — they carry resources toward core,
             # not sideways to a gunner. Would need splitter swap (not implemented).
 
@@ -1063,7 +1054,7 @@ class Player:
             if d < best_dist:
                 best_dist = d
                 best_source = pos
-                best_type = 'enemy_harvester'
+                best_type = "enemy_harvester"
 
         # Ti ore (need to build harvester).
         for ore_pos in self.known_ores:
@@ -1082,10 +1073,10 @@ class Player:
             if d + 20 < best_dist:
                 best_dist = d + 20
                 best_source = ore_pos
-                best_type = 'ore'
+                best_type = "ore"
 
         if best_source is not None:
-            return {'type': best_type, 'pos': best_source}
+            return {"type": best_type, "pos": best_source}
         return None
 
     def _try_start_attack(self, ct: Controller) -> bool:
@@ -1106,26 +1097,26 @@ class Player:
         self._attack_gunner_pos = gunner_pos
         self._attack_gunner_dir = gunner_dir
 
-        if ammo['type'] == 'direct':
+        if ammo["type"] == "direct":
             # Ammo adjacent — skip chain, go straight to gunner placement.
             self.gunner_build = {
-                'enemy_pos': target,
-                'gunner_pos': gunner_pos,
-                'gunner_dir': gunner_dir,
-                'chain_pos': ammo['pos'],
-                'chain_type': EntityType.HARVESTER,  # skip splitter phase
-                'phase': 2,
-                'start_round': self.round_no,
-                'est_turns': 5,
-                '_is_attack': True,
+                "enemy_pos": target,
+                "gunner_pos": gunner_pos,
+                "gunner_dir": gunner_dir,
+                "chain_pos": ammo["pos"],
+                "chain_type": EntityType.HARVESTER,  # skip splitter phase
+                "phase": 2,
+                "start_round": self.round_no,
+                "est_turns": 5,
+                "_is_attack": True,
             }
             dbg(f"r={self.round_no} id={self.my_id} attack: direct gunner at {gunner_pos} -> {target} ammo={ammo['pos']}")
             return self._continue_gunner_build(ct)
-        elif ammo['type'] == 'enemy_harvester':
+        if ammo["type"] == "enemy_harvester":
             # Secured enemy harvester — route chain from it, no build needed.
             self._attack_ore = None  # no harvester to build
             self.task = "attack"
-            harv_pos = ammo['pos']
+            harv_pos = ammo["pos"]
             source_pad = self._pick_source_pad(harv_pos, gunner_pos)
             if source_pad is None:
                 dbg(f"r={self.round_no} id={self.my_id} attack: no source pad from enemy harv {harv_pos}")
@@ -1145,12 +1136,11 @@ class Player:
             self.connect_stall_recoverable = False
             dbg(f"r={self.round_no} id={self.my_id} attack: chain from enemy harv {harv_pos} pad={source_pad} -> gunner {gunner_pos}")
             return True
-        else:
-            # Need to build harvester on ore, then route chain.
-            self._attack_ore = ammo['pos']
-            self.task = "attack"
-            dbg(f"r={self.round_no} id={self.my_id} attack: ore={ammo['pos']} gunner={gunner_pos} -> {target}")
-            return self._continue_attack(ct)
+        # Need to build harvester on ore, then route chain.
+        self._attack_ore = ammo["pos"]
+        self.task = "attack"
+        dbg(f"r={self.round_no} id={self.my_id} attack: ore={ammo['pos']} gunner={gunner_pos} -> {target}")
+        return self._continue_attack(ct)
 
     def _continue_attack(self, ct: Controller) -> bool:
         """Continue an attack: build harvester, route chain, place gunner."""
@@ -1219,15 +1209,15 @@ class Player:
         # Chain finished — place gunner.
         if self._attack_gunner_pos is not None and self.gunner_build is None:
             self.gunner_build = {
-                'enemy_pos': self._attack_target,
-                'gunner_pos': self._attack_gunner_pos,
-                'gunner_dir': self._attack_gunner_dir,
-                'chain_pos': None,
-                'chain_type': EntityType.HARVESTER,
-                'phase': 2,
-                'start_round': self.round_no,
-                'est_turns': 5,
-                '_is_attack': True,
+                "enemy_pos": self._attack_target,
+                "gunner_pos": self._attack_gunner_pos,
+                "gunner_dir": self._attack_gunner_dir,
+                "chain_pos": None,
+                "chain_type": EntityType.HARVESTER,
+                "phase": 2,
+                "start_round": self.round_no,
+                "est_turns": 5,
+                "_is_attack": True,
             }
             dbg(f"r={self.round_no} id={self.my_id} attack: chain done, gunner at {self._attack_gunner_pos}")
             return self._continue_gunner_build(ct)
@@ -1350,7 +1340,7 @@ class Player:
             best_effort=best_effort,
             # Reduced turret avoidance during gunner builds (need to approach but
             # shouldn't walk through unnecessary danger). Full avoidance otherwise.
-            danger_set=self._wc_danger if self._wc_danger else None,
+            danger_set=self._wc_danger or None,
         )
 
         if result is not None:
@@ -1490,7 +1480,7 @@ class Player:
         # Minor damage: only heal if persistent (being attacked).
         return self.damaged_turns.get(pos, 0) >= 5
 
-    def _find_heal_target(self, ct: Controller) -> Optional[Position]:
+    def _find_heal_target(self, ct: Controller) -> Position | None:
         """Find a damaged friendly building in vision worth walking to.
 
         Only called when not connecting and no ore target — i.e. idle builders.
@@ -1498,7 +1488,7 @@ class Player:
         """
         if self.my_pos is None:
             return None
-        best_pos: Optional[Position] = None
+        best_pos: Position | None = None
         best_missing = 0
         for pos, (eid, etype, team) in self.visible_buildings.items():
             if team != self.my_team:
@@ -1538,7 +1528,7 @@ class Player:
             ct.heal(self.my_pos)
             dbg(f"r={self.round_no} id={self.my_id} self-heal missing={my_max - my_hp}")
             return True
-        best_pos: Optional[Position] = None
+        best_pos: Position | None = None
         best_missing = 0
         for dx in range(-1, 2):
             for dy in range(-1, 2):
@@ -1592,7 +1582,7 @@ class Player:
         return False
 
     def _try_build_harvester(
-        self, ct: Controller, target_override: Optional[Position] = None
+        self, ct: Controller, target_override: Position | None = None
     ) -> bool:
         if self.target_ore is None or ct.get_action_cooldown() != 0:
             return False
@@ -1664,7 +1654,7 @@ class Player:
     # Connect-back: A* planned chain extension
     # ------------------------------------------------------------------
 
-    def _pick_source_pad(self, harvester_pos: Position, toward: Position) -> Optional[Position]:
+    def _pick_source_pad(self, harvester_pos: Position, toward: Position) -> Position | None:
         """Cardinal neighbor of harvester closest to toward.
 
         Skips walls and tiles already occupied by non-clearable buildings
@@ -1717,10 +1707,9 @@ class Player:
                 if dist < contam_dist:
                     contam_dist = dist
                     contam_best = pad
-            else:
-                if dist < clean_dist:
-                    clean_dist = dist
-                    clean_best = pad
+            elif dist < clean_dist:
+                clean_dist = dist
+                clean_best = pad
         return clean_best if clean_best is not None else contam_best
 
     def _build_chain_cache(self) -> None:
@@ -1729,7 +1718,7 @@ class Player:
         Skips rebuild if tile_env and known_buildings haven't changed since last build.
         """
         cache_key = (len(self.tile_env), len(self.known_buildings), self.round_no)
-        if hasattr(self, '_cc_cache_key') and self._cc_cache_key == cache_key:
+        if hasattr(self, "_cc_cache_key") and self._cc_cache_key == cache_key:
             return  # no new tiles, cache is still valid
         self._cc_cache_key = cache_key
 
@@ -1859,15 +1848,15 @@ class Player:
                             dbg(f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: conv output {out_pos} has own {out_etype.name}")
                             return True
             return False
-        else:  # bridge
-            # Check landing is still valid
-            landing = Position(step[3], step[4])
-            tc = self._classify_tile(landing)
-            terminals = self._get_connect_terminals()
-            if tc in ("free", "enemy_road") or (landing.x, landing.y) in terminals:
-                return False
-            dbg(f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: bridge landing {landing} is {tc}")
-            return True
+        # bridge
+        # Check landing is still valid
+        landing = Position(step[3], step[4])
+        tc = self._classify_tile(landing)
+        terminals = self._get_connect_terminals()
+        if tc in ("free", "enemy_road") or (landing.x, landing.y) in terminals:
+            return False
+        dbg(f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: bridge landing {landing} is {tc}")
+        return True
 
     def _detect_enemy_blocking(self, ct: Controller) -> None:
         """Check if chain_end or its planned output has an attackable enemy building.
@@ -2057,11 +2046,10 @@ class Player:
                         f"(foreign {ce_etype.name} at chain_end)"
                     )
                     return
-                else:
-                    # Chain start itself was taken — abandon
-                    dbg(f"r={self.round_no} id={self.my_id} connect abandon: foreign building at chain start {self.chain_end}")
-                    self._finish_connect(success=False)
-                    return
+                # Chain start itself was taken — abandon
+                dbg(f"r={self.round_no} id={self.my_id} connect abandon: foreign building at chain start {self.chain_end}")
+                self._finish_connect(success=False)
+                return
 
         # Handle pending unwind destroy: walk to the node and destroy our
         # bridge/conveyor so resources stop flowing to the contaminated tile.
@@ -2089,12 +2077,11 @@ class Player:
                 self.connect_last_build_round = self.round_no
                 self.connect_plan = None  # re-plan now that tile is clear
                 dbg(f"r={self.round_no} id={self.my_id} attack cleared at {atk}")
-            else:
-                if self.my_pos != atk:
-                    self._walk_toward(ct, atk)
-                elif ct.can_fire(self.my_pos):
-                    ct.fire(self.my_pos)
-                    dbg(f"r={self.round_no} id={self.my_id} fire at enemy {info[1].name} at {atk}")
+            elif self.my_pos != atk:
+                self._walk_toward(ct, atk)
+            elif ct.can_fire(self.my_pos):
+                ct.fire(self.my_pos)
+                dbg(f"r={self.round_no} id={self.my_id} fire at enemy {info[1].name} at {atk}")
             return
 
         # Check if chain_end or its planned output has an attackable enemy building.
@@ -2344,7 +2331,7 @@ class Player:
             return True
         return False
 
-    def _closest_core_tile(self, pos: Position) -> Optional[Position]:
+    def _closest_core_tile(self, pos: Position) -> Position | None:
         if self.core_pos is None:
             return None
         best, best_dist = None, float("inf")
@@ -2368,13 +2355,13 @@ class Player:
             return False
         return abs(pos.x - self.enemy_core_pos.x) <= 1 and abs(pos.y - self.enemy_core_pos.y) <= 1
 
-    def _nearest_unsaturated_terminal(self, pos: Position) -> Optional[Position]:
+    def _nearest_unsaturated_terminal(self, pos: Position) -> Position | None:
         """Return nearest unsaturated tree node or core tile to pos.
 
         Tree nodes belonging to trees with >= MAX_HARVESTERS_PER_TREE are skipped.
         Core tiles are always included (connecting there starts a new tree).
         """
-        best: Optional[Position] = None
+        best: Position | None = None
         best_dist = float("inf")
         for tp in self.my_tree:
             tree_id = self.tree_ids.get(tp)
@@ -2395,7 +2382,7 @@ class Player:
                         best = cp
         return best
 
-    def _find_adjacent_terminal(self, pos: Position) -> Optional[tuple[Position, Direction]]:
+    def _find_adjacent_terminal(self, pos: Position) -> tuple[Position, Direction] | None:
         """Return (neighbor, direction) if pos is cardinally adjacent to a terminal.
 
         Prefer unsaturated tree nodes, then core tiles. Skips saturated trees.
@@ -2413,7 +2400,7 @@ class Player:
                 best = (neighbor, d)
         return best
 
-    def _finish_connect(self, success: bool = False, terminal: Optional[Position] = None) -> None:
+    def _finish_connect(self, success: bool = False, terminal: Position | None = None) -> None:
         if success:
             self.my_tree.update(self.current_chain)
             # Determine which tree this chain belongs to.
@@ -2646,7 +2633,7 @@ class Player:
 
         return False
 
-    def _plan_gunner(self, ct: Controller, enemy_pos: Position) -> Optional[dict]:
+    def _plan_gunner(self, ct: Controller, enemy_pos: Position) -> dict | None:
         """Find best gunner position to kill an enemy turret.
 
         Scores by estimated turns to eliminate the threat:
@@ -2743,7 +2730,7 @@ class Player:
                         cost = 0 + fire_penalty
                         if cost < ammo_turns:
                             ammo_source = cpos
-                            ammo_type = 'enemy_harvester'
+                            ammo_type = "enemy_harvester"
                             ammo_turns = cost
                         continue
                     if cteam != self.my_team:
@@ -2754,21 +2741,21 @@ class Player:
                         cost = 0 + fire_penalty
                         if cost < ammo_turns:
                             ammo_source = cpos
-                            ammo_type = 'harvester'
+                            ammo_type = "harvester"
                             ammo_turns = cost
                     elif cetype == EntityType.SPLITTER:
                         # Good: already a splitter, may feed us on a side output.
                         cost = 0 + fire_penalty
                         if cost < ammo_turns:
                             ammo_source = cpos
-                            ammo_type = 'splitter'
+                            ammo_type = "splitter"
                             ammo_turns = cost
                     elif cetype == EntityType.CONVEYOR:
                         # OK: need to swap conveyor→splitter (+1 turn).
                         cost = 1 + fire_penalty
                         if cpos not in self.visible_unit_positions and cost < ammo_turns:
                             ammo_source = cpos
-                            ammo_type = 'conveyor'
+                            ammo_type = "conveyor"
                             ammo_turns = cost
 
                 if ammo_source is None:
@@ -2776,7 +2763,7 @@ class Player:
 
                 # Walk distance: approximate as manhattan-ish.
                 # Walk to ammo source first (if conveyor swap needed), then to gunner.
-                if ammo_type == 'conveyor':
+                if ammo_type == "conveyor":
                     walk_dist = int(self.my_pos.distance_squared(ammo_source) ** 0.5) + 1
                 else:
                     walk_dist = int(self.my_pos.distance_squared(gpos) ** 0.5)
@@ -2787,16 +2774,16 @@ class Player:
                 if turns < best_turns:
                     best_turns = turns
                     best = {
-                        'enemy_pos': enemy_pos,
-                        'gunner_pos': gpos,
-                        'gunner_dir': gun_dir,
-                        'chain_pos': ammo_source,
-                        'chain_type': EntityType.SPLITTER if ammo_type == 'splitter' else
-                                      EntityType.HARVESTER if ammo_type in ('harvester', 'enemy_harvester') else
+                        "enemy_pos": enemy_pos,
+                        "gunner_pos": gpos,
+                        "gunner_dir": gun_dir,
+                        "chain_pos": ammo_source,
+                        "chain_type": EntityType.SPLITTER if ammo_type == "splitter" else
+                                      EntityType.HARVESTER if ammo_type in ("harvester", "enemy_harvester") else
                                       EntityType.CONVEYOR,
-                        'phase': 0,
-                        'start_round': self.round_no,
-                        'est_turns': turns,
+                        "phase": 0,
+                        "start_round": self.round_no,
+                        "est_turns": turns,
                     }
 
         if best is not None:
@@ -2834,9 +2821,9 @@ class Player:
 
         # Timeout: give up after 30 non-Ti-wait turns.
         # Don't count turns where we're just waiting for resources.
-        elapsed = self.round_no - gb.get('start_round', self.round_no)
-        is_sentinel = gb.get('_is_sentinel', False)
-        ti_waiting = gb['phase'] == 3  # phase 3 = at position, waiting to build
+        elapsed = self.round_no - gb.get("start_round", self.round_no)
+        is_sentinel = gb.get("_is_sentinel", False)
+        ti_waiting = gb["phase"] == 3  # phase 3 = at position, waiting to build
         if ti_waiting and is_sentinel:
             # Sentinels wait indefinitely for Ti — don't timeout.
             pass
@@ -2846,23 +2833,23 @@ class Player:
             return False
 
         # Cancel if enemy turret gone (skip for proactive sentinel/attack builds).
-        if not gb.get('_is_sentinel', False) and not gb.get('_is_attack', False):
-            einfo = self.visible_buildings.get(gb['enemy_pos'])
+        if not gb.get("_is_sentinel", False) and not gb.get("_is_attack", False):
+            einfo = self.visible_buildings.get(gb["enemy_pos"])
             if einfo is not None and (einfo[2] == self.my_team or einfo[1] not in self._ENEMY_TURRET_TYPES):
                 dbg(f"r={self.round_no} id={self.my_id} defender: threat gone at {gb['enemy_pos']}, cancel")
                 self._finish_gunner_build()
                 return False
         # If we can't see the tile anymore, keep going (it might still be there).
 
-        phase = gb['phase']
-        chain_pos = gb['chain_pos']
-        gunner_pos = gb['gunner_pos']
+        phase = gb["phase"]
+        chain_pos = gb["chain_pos"]
+        gunner_pos = gb["gunner_pos"]
 
         if phase == 0:
             # Harvester/splitter ammo source: skip straight to gunner placement.
-            if gb['chain_type'] in {EntityType.HARVESTER, EntityType.SPLITTER}:
+            if gb["chain_type"] in {EntityType.HARVESTER, EntityType.SPLITTER}:
                 dbg(f"r={self.round_no} id={self.my_id} defender p0→p2: {gb['chain_type'].name} feeds gunner, skip splitter")
-                gb['phase'] = 2
+                gb["phase"] = 2
                 return True
             # Conveyor: walk to it to replace with splitter.
             dist = self.my_pos.distance_squared(chain_pos)
@@ -2875,94 +2862,92 @@ class Player:
                     dbg(f"r={self.round_no} id={self.my_id} defender p0: STUCK bld={cinfo[1].name if cinfo else 'none'} unit_on={units_on}")
                 return True
             dbg(f"r={self.round_no} id={self.my_id} defender p0→p1: arrived at chain {chain_pos}")
-            gb['phase'] = 1
+            gb["phase"] = 1
             return True
 
         if phase == 1:
             # Replace conveyor with splitter.
-            if gb['chain_type'] != EntityType.CONVEYOR:
-                gb['phase'] = 2
+            if gb["chain_type"] != EntityType.CONVEYOR:
+                gb["phase"] = 2
                 return True
-            else:
-                if ct.get_action_cooldown() != 0:
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1: wait action cd")
-                    return True
-                cinfo = self.visible_buildings.get(chain_pos)
-                if cinfo is None:
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1: chain tile gone at {chain_pos}, cancel")
-                    self._finish_gunner_build()
-                    return False
-                _, cetype, cteam = cinfo
-                if cteam != self.my_team:
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1: chain tile enemy at {chain_pos}, cancel")
-                    self._finish_gunner_build()
-                    return False
-                # Find the UPSTREAM source that feeds this tile.
-                # The splitter must face so its back accepts input.
-                # Check conveyors first, then fall back to adjacent harvester.
-                # If nothing found, use replaced conveyor's direction.
-                conv_eid = cinfo[0]
-                splitter_dir = ct.get_direction(conv_eid)  # fallback
-                found_upstream = False
+            if ct.get_action_cooldown() != 0:
+                dbg(f"r={self.round_no} id={self.my_id} defender p1: wait action cd")
+                return True
+            cinfo = self.visible_buildings.get(chain_pos)
+            if cinfo is None:
+                dbg(f"r={self.round_no} id={self.my_id} defender p1: chain tile gone at {chain_pos}, cancel")
+                self._finish_gunner_build()
+                return False
+            _, cetype, cteam = cinfo
+            if cteam != self.my_team:
+                dbg(f"r={self.round_no} id={self.my_id} defender p1: chain tile enemy at {chain_pos}, cancel")
+                self._finish_gunner_build()
+                return False
+            # Find the UPSTREAM source that feeds this tile.
+            # The splitter must face so its back accepts input.
+            # Check conveyors first, then fall back to adjacent harvester.
+            # If nothing found, use replaced conveyor's direction.
+            conv_eid = cinfo[0]
+            splitter_dir = ct.get_direction(conv_eid)  # fallback
+            found_upstream = False
+            for udx, udy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
+                upos = Position(chain_pos.x + udx, chain_pos.y + udy)
+                uinfo = self.visible_buildings.get(upos)
+                if uinfo is None:
+                    continue
+                _, utype, uteam = uinfo
+                if uteam != self.my_team:
+                    continue
+                if utype not in {EntityType.CONVEYOR, EntityType.SPLITTER, EntityType.ARMOURED_CONVEYOR}:
+                    continue
+                # Check if this upstream building outputs toward chain_pos.
+                u_dir = ct.get_direction(uinfo[0])
+                fdx, fdy = DIRECTION_DELTA[u_dir]
+                if upos.x + fdx == chain_pos.x and upos.y + fdy == chain_pos.y:
+                    # This upstream conveyor feeds into chain_pos.
+                    # Splitter should face the same direction to accept from back.
+                    splitter_dir = u_dir
+                    found_upstream = True
+                    dbg(f"r={self.round_no} id={self.my_id} defender p1: upstream {utype.name} at {upos} dir={u_dir.name}")
+                    break
+            # If no upstream conveyor, check for adjacent harvester.
+            # Harvester outputs to any adjacent building, so splitter must
+            # face AWAY from harvester (back toward it) to accept input.
+            if not found_upstream:
                 for udx, udy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
                     upos = Position(chain_pos.x + udx, chain_pos.y + udy)
                     uinfo = self.visible_buildings.get(upos)
                     if uinfo is None:
                         continue
                     _, utype, uteam = uinfo
-                    if uteam != self.my_team:
+                    if uteam != self.my_team or utype != EntityType.HARVESTER:
                         continue
-                    if utype not in {EntityType.CONVEYOR, EntityType.SPLITTER, EntityType.ARMOURED_CONVEYOR}:
-                        continue
-                    # Check if this upstream building outputs toward chain_pos.
-                    u_dir = ct.get_direction(uinfo[0])
-                    fdx, fdy = DIRECTION_DELTA[u_dir]
-                    if upos.x + fdx == chain_pos.x and upos.y + fdy == chain_pos.y:
-                        # This upstream conveyor feeds into chain_pos.
-                        # Splitter should face the same direction to accept from back.
-                        splitter_dir = u_dir
-                        found_upstream = True
-                        dbg(f"r={self.round_no} id={self.my_id} defender p1: upstream {utype.name} at {upos} dir={u_dir.name}")
+                    hdx = chain_pos.x - upos.x
+                    hdy = chain_pos.y - upos.y
+                    hdir = DELTA_TO_DIRECTION.get((hdx, hdy))
+                    if hdir is not None:
+                        splitter_dir = hdir
+                        dbg(f"r={self.round_no} id={self.my_id} defender p1: upstream HARVESTER at {upos}, splitter dir={hdir.name}")
                         break
-                # If no upstream conveyor, check for adjacent harvester.
-                # Harvester outputs to any adjacent building, so splitter must
-                # face AWAY from harvester (back toward it) to accept input.
-                if not found_upstream:
-                    for udx, udy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
-                        upos = Position(chain_pos.x + udx, chain_pos.y + udy)
-                        uinfo = self.visible_buildings.get(upos)
-                        if uinfo is None:
-                            continue
-                        _, utype, uteam = uinfo
-                        if uteam != self.my_team or utype != EntityType.HARVESTER:
-                            continue
-                        hdx = chain_pos.x - upos.x
-                        hdy = chain_pos.y - upos.y
-                        hdir = DELTA_TO_DIRECTION.get((hdx, hdy))
-                        if hdir is not None:
-                            splitter_dir = hdir
-                            dbg(f"r={self.round_no} id={self.my_id} defender p1: upstream HARVESTER at {upos}, splitter dir={hdir.name}")
-                            break
-                # Check Ti BEFORE destroying — don't break chain if we can't rebuild.
-                titanium, _ = ct.get_global_resources()
-                splitter_cost = ct.get_splitter_cost()[0]
-                if titanium < splitter_cost:
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1: wait splitter ti={titanium} cost={splitter_cost} (keeping {cetype.name})")
-                    return True
-                # Destroy and immediately rebuild as splitter.
-                if ct.can_destroy(chain_pos):
-                    ct.destroy(chain_pos)
-                    self.visible_buildings.pop(chain_pos, None)
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1: destroyed {cetype.name} at {chain_pos}")
-                if ct.can_build_splitter(chain_pos, splitter_dir):
-                    ct.build_splitter(chain_pos, splitter_dir)
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1→p2: splitter at {chain_pos} dir={splitter_dir.name}")
-                    gb['phase'] = 2
-                    return True
-                else:
-                    dbg(f"r={self.round_no} id={self.my_id} defender p1: can't build splitter at {chain_pos} dir={splitter_dir.name}, cancel")
-                    self._finish_gunner_build()
-                    return False
+            # Check Ti BEFORE destroying — don't break chain if we can't rebuild.
+            titanium, _ = ct.get_global_resources()
+            splitter_cost = ct.get_splitter_cost()[0]
+            if titanium < splitter_cost:
+                dbg(f"r={self.round_no} id={self.my_id} defender p1: wait splitter ti={titanium} cost={splitter_cost} (keeping {cetype.name})")
+                return True
+            # Destroy and immediately rebuild as splitter.
+            if ct.can_destroy(chain_pos):
+                ct.destroy(chain_pos)
+                self.visible_buildings.pop(chain_pos, None)
+                dbg(f"r={self.round_no} id={self.my_id} defender p1: destroyed {cetype.name} at {chain_pos}")
+            if ct.can_build_splitter(chain_pos, splitter_dir):
+                ct.build_splitter(chain_pos, splitter_dir)
+                dbg(f"r={self.round_no} id={self.my_id} defender p1→p2: splitter at {chain_pos} dir={splitter_dir.name}")
+                gb["phase"] = 2
+                return True
+            dbg(f"r={self.round_no} id={self.my_id} defender p1: can't build splitter at {chain_pos} dir={splitter_dir.name}, cancel")
+            self._finish_gunner_build()
+            return False
 
         if phase == 2:
             # Walk to gunner position.
@@ -2972,16 +2957,16 @@ class Player:
                 self._walk_toward(ct, gunner_pos)
                 return True
             # Late evaluation: pick best (tile, facing) now with full vision.
-            if gb.get('_needs_eval', False):
-                harv_pos = gb['enemy_pos']
+            if gb.get("_needs_eval", False):
+                harv_pos = gb["enemy_pos"]
                 result = self._eval_sentinel_placement(ct, harv_pos)
                 if result is None:
                     dbg(f"r={self.round_no} id={self.my_id} defender p2: no valid placement near {harv_pos}")
                     self._finish_gunner_build()
                     return False
-                gb['gunner_pos'] = result[0]
-                gb['gunner_dir'] = result[1]
-                gb['_needs_eval'] = False
+                gb["gunner_pos"] = result[0]
+                gb["gunner_dir"] = result[1]
+                gb["_needs_eval"] = False
                 gunner_pos = result[0]
                 dbg(f"r={self.round_no} id={self.my_id} defender p2: eval'd sentinel at {result[0]} facing {result[1].name}")
                 # May need to walk to the chosen tile.
@@ -2989,7 +2974,7 @@ class Player:
                     self._walk_toward(ct, gunner_pos)
                     return True
             dbg(f"r={self.round_no} id={self.my_id} defender p2→p3: arrived at gunner {gunner_pos}")
-            gb['phase'] = 3
+            gb["phase"] = 3
             return True  # process phase 3 next turn
 
         if phase == 3:
@@ -2997,7 +2982,7 @@ class Player:
             if ct.get_action_cooldown() != 0:
                 return True
             titanium, _ = ct.get_global_resources()
-            is_sentinel = gb.get('_is_sentinel', False)
+            is_sentinel = gb.get("_is_sentinel", False)
             turret_cost = ct.get_sentinel_cost()[0] if is_sentinel else ct.get_gunner_cost()[0]
             if titanium < turret_cost:
                 dbg(f"r={self.round_no} id={self.my_id} defender: wait {'sentinel' if is_sentinel else 'gunner'} ti={titanium} cost={turret_cost}")
@@ -3050,21 +3035,20 @@ class Player:
                             dbg(f"r={self.round_no} id={self.my_id} defender p3: pave road at {adj} for step-off")
                             return True
                     return True  # truly stuck
-            is_sentinel = gb.get('_is_sentinel', False)
-            pos, facing = gb['gunner_pos'], gb['gunner_dir']
+            is_sentinel = gb.get("_is_sentinel", False)
+            pos, facing = gb["gunner_pos"], gb["gunner_dir"]
             if is_sentinel:
                 if ct.can_build_sentinel(pos, facing):
                     ct.build_sentinel(pos, facing)
-                    self._sentinels_placed = getattr(self, '_sentinels_placed', 0) + 1
+                    self._sentinels_placed = getattr(self, "_sentinels_placed", 0) + 1
                     dbg(f"r={self.round_no} id={self.my_id} defender: sentinel at {pos} facing {facing.name} (total={self._sentinels_placed})")
                     self._finish_gunner_build()
                     return True
-            else:
-                if ct.can_build_gunner(pos, facing):
-                    ct.build_gunner(pos, facing)
-                    dbg(f"r={self.round_no} id={self.my_id} defender: gunner at {pos} facing {facing.name} targeting {gb['enemy_pos']}")
-                    self._finish_gunner_build()
-                    return True
+            elif ct.can_build_gunner(pos, facing):
+                ct.build_gunner(pos, facing)
+                dbg(f"r={self.round_no} id={self.my_id} defender: gunner at {pos} facing {facing.name} targeting {gb['enemy_pos']}")
+                self._finish_gunner_build()
+                return True
             ginfo = self.visible_buildings.get(pos)
             gunit = pos in self.visible_unit_positions
             kind = "sentinel" if is_sentinel else "gunner"
@@ -3102,7 +3086,7 @@ class Player:
         else:
             dbg(f"r={self.round_no} id={self.my_id} heal patrol: no target (tree={len(self.my_tree)} nodes)")
 
-    def _pick_heal_target(self) -> Optional[Position]:
+    def _pick_heal_target(self) -> Position | None:
         """Pick a tree node to patrol toward. Cycles through nodes sorted by
         distance to core — spends more time near trunk, less at branches."""
         if not self.my_tree or self.my_pos is None:
@@ -3209,7 +3193,7 @@ class Player:
                 # Sector exhausted — push into enemy territory.
                 # Walk toward nearest known enemy building to discover their infra.
                 # Fall back to enemy core, 180° guess, or map center.
-                if not hasattr(self, '_visited_enemy'):
+                if not hasattr(self, "_visited_enemy"):
                     self._visited_enemy: set[Position] = set()
                 best_enemy = None
                 best_enemy_dist = 999
@@ -3281,7 +3265,7 @@ class Player:
         ((-1, 0), (0, -1)),  # NW
     ]
 
-    def _sector_explore_target(self) -> Optional[Position]:
+    def _sector_explore_target(self) -> Position | None:
         """Sweep sector with density scaling by radius.
 
         Each radius band has enough waypoints to keep ~8 tile spacing along
@@ -3331,7 +3315,7 @@ class Player:
             radius += 5
         return None
 
-    def _random_explore_target(self) -> Optional[Position]:
+    def _random_explore_target(self) -> Position | None:
         """Pick an unseen point on our half. Returns None if our half looks explored."""
         if self.map_w is None or self.map_h is None:
             return None
@@ -3353,10 +3337,10 @@ class Player:
     # Ore picking
     # ------------------------------------------------------------------
 
-    def _pick_ore(self) -> Optional[Position]:
+    def _pick_ore(self) -> Position | None:
         if not self.known_ores or self.my_pos is None:
             return None
-        best: Optional[Position] = None
+        best: Position | None = None
         best_score = float("inf")
         for ore in self.known_ores:
             if ore in self.claimed_ores:

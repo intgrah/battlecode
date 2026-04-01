@@ -4,15 +4,14 @@ import argparse
 import hashlib
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Iterable
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
-
 
 LINK_RE = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\): (?P<description>.+)$")
 DEFAULT_LLM_PATH = Path("llms.txt")
@@ -28,7 +27,7 @@ class DocEntry:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def slugify(text: str) -> str:

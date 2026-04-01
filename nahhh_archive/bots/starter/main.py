@@ -12,7 +12,7 @@ This bot:
 
 import random
 
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType
 
 # non-centre directions
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
@@ -37,7 +37,7 @@ class Player:
                 if ct.can_build_harvester(check_pos):
                     ct.build_harvester(check_pos)
                     break
-            
+
             # move in a random direction
             move_dir = random.choice(DIRECTIONS)
             move_pos = ct.get_position().add(move_dir)
