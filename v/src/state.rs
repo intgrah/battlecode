@@ -66,8 +66,10 @@ pub enum EntityKind {
     },
     Launcher {
         ammo_type: proto::ResourceType,
+        #[allow(dead_code)]
         ammo: i32,
     },
+    #[allow(dead_code)]
     CoreEdge {
         dx: i32,
         dy: i32,
@@ -200,6 +202,7 @@ impl GameState {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn apply_update(state: &mut TurnState, update: &proto::Update) {
     use proto::update::Kind;
     let Some(kind) = &update.kind else { return };
