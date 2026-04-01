@@ -144,6 +144,24 @@ Economy vs. military is a **continuous tradeoff**, not a binary choice.
 xsquare's key insight: **simple strategies that approximate global coordination
 via independent local behavior** beat complex coordination schemes.
 
+Key finding from postmortems:
+- **Micro improvements yield 30-50% win rate gains** (Gone Fishin', BC2023)
+- **Macro improvements yield ~5% gains**
+- But macro is the prerequisite — you need resources to build the military that
+  benefits from micro
+- "Almost all efforts focused on economy and expansion. Teams would lose despite
+  having loads of money." (Om Nom, BC2025) — must convert resources to pressure
+
+### Economy-First with Reactive Military
+
+BC2021 insight: "The first slanderers have the most profound effect on economy."
+Translated: **your first harvesters are disproportionately valuable** due to
+cost scaling. A harvester built at 1.0x scale costs 80 Ti; at 2.0x it costs 160 Ti.
+
+Win condition tiebreakers favor refined axionite > titanium > harvesters alive.
+**Economy wins ties.** So the default stance should be economy-first, with
+military triggered reactively by threat detection.
+
 ### Piecewise Linear Model for Builder Role Allocation
 
 Your instinct about piecewise linear models is correct. The idea:
@@ -274,6 +292,24 @@ Two builders blocking each other in narrow corridors.
 **Fix**: priority by spawn order (older units have right-of-way), or use the
 unit ID as tiebreaker. Lower ID yields to higher ID.
 
+### Cause 5: Pathfinding Edge-Following
+
+Builder follows map edge forever due to BugNav.
+
+**Fix** (Gone Fishin', BC2023): hard-code rules against following map edges;
+treat friendly units as soft obstacles (path around them differently than walls).
+
+### Solutions from BC Postmortems
+
+| Strategy              | Description                                               | Source                  |
+| --------------------- | --------------------------------------------------------- | ----------------------- |
+| Timeouts              | Block retrying same action/destination for N turns        | 4 Musketeers, BC2023   |
+| Random jitter         | Add random perturbation to break symmetry                 | Gone Fishin', BC2023   |
+| Prohibit edge-follow  | Hard-code rules against following map edges               | Gone Fishin', BC2023   |
+| Priority by ID        | Higher-ID bots yield to lower-ID bots                     | General technique       |
+| Soft obstacle allies  | Path around allies differently than walls                 | Gone Fishin', BC2023   |
+| Hybrid BFS + BugNav   | Use global BFS when available, fall back to BugNav locally| 1st place BC2014       |
+
 ### General Anti-Livelock Pattern: Hysteresis
 
 Don't switch states on exact thresholds — use **hysteresis bands**:
@@ -349,6 +385,23 @@ def execute_turn(ct, move, action, threat_level):
         if action is not None:
             execute_action(ct, action)
 ```
+
+### The "Always Kite Back" Rule
+
+Gone Fishin' (BC2023 top team): "We tried to evaluate the skirmish to only kite
+back in certain scenarios but eventually realized that ALWAYS kiting back after an
+attack is better." This is counterintuitive but robust — simplicity beats cleverness.
+
+### Move-Action Decision Table (from BC postmortems + MIT OCW)
+
+| Situation                  | Order              | Rationale                                        |
+| -------------------------- | ------------------ | ------------------------------------------------ |
+| Already in attack range    | **Attack → Move**  | Free hit; opponent may not retaliate before you leave |
+| Out of attack range        | **Move → Attack**  | Close gap, deal damage before they retreat        |
+| Retreating while in range  | **Attack → Move**  | Deal parting damage while disengaging             |
+| Retreating, out of range   | **Move only**      | Preserve health                                   |
+
+MIT OCW (2013): "It's the one who closes the gap first that wins the engagement."
 
 ### xsquare's Pattern: Attack-Move-Attack
 
@@ -469,3 +522,41 @@ distances for pathfinding targets to prevent oscillation.
 
 Encode current task in builder markers. Read nearby markers to estimate
 task distribution and pick under-represented tasks.
+
+---
+
+## 8. Influence Map Architecture (from Game AI Pro 2)
+
+For more sophisticated state tracking beyond simple threat arrays:
+
+- **Grid representation**: overlay matching the map grid
+- **Propagation**: each enemy unit radiates threat outward with exponential decay
+- **Double buffering**: calculate new values into a buffer to prevent
+  order-dependent artifacts
+- **Momentum parameter**: high momentum (→1.0) biases toward historical values
+  (strategic); low momentum (→0.0) tracks current state (tactical)
+- **Layers**: combine multiple maps — proximity, threat, terrain, resources
+- **Update frequency**: strategic maps every ~20 rounds; tactical maps every
+  ~5 rounds
+
+For Cambridge Battlecode, the simpler incremental turret coverage arrays
+(section 6) are likely sufficient given the 2ms budget. Reserve full influence
+maps for if/when you need multi-layer strategic reasoning.
+
+---
+
+## Sources
+
+- [xsquare's Guide to Battlecode (PDF)](https://battlecode.org/assets/files/battlecode-guide-xsquare.pdf)
+- [IvanGeffner GitHub](https://github.com/IvanGeffner) — BC19 through BC26
+- [BTC24 source](https://github.com/IvanGeffner/BTC24) — MicroInfo pattern
+- [BC25 source](https://github.com/IvanGeffner/BC25) — tower-focused micro
+- [Gone Fishin' BC2023 Postmortem](https://battlecode.org/assets/files/postmortem-2023-gone-fishin.pdf)
+- [4 Musketeers BC2023 Postmortem](https://battlecode.org/assets/files/postmortem-2023-4-musketeers.pdf)
+- [Cout for Clout BC2024 Postmortem](https://battlecode.org/assets/files/postmortem-2024-cout-for-clout.pdf)
+- [The Kragle BC2025 Postmortem](https://battlecode.org/assets/files/postmortem-2025-the-kragle.pdf)
+- [Om Nom BC2025 Postmortem](https://battlecode.org/assets/files/postmortem-2025-om-nom.pdf)
+- [MIT OCW BC2013 Lecture](https://ocw.mit.edu/courses/6-370-the-battlecode-programming-competition-january-iap-2013/)
+- [Kiting in RTS Using Influence Maps (AAAI)](https://cdn.aaai.org/ojs/12544/12544-52-16064-1-2-20201228.pdf)
+- [Modular Tactical Influence Maps — Game AI Pro 2](https://www.gameaipro.com/GameAIPro2/GameAIPro2_Chapter30_Modular_Tactical_Influence_Maps.pdf)
+- [Cambridge Battlecode Docs](https://docs.battlecode.cam)
