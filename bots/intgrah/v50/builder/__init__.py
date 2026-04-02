@@ -126,8 +126,16 @@ def _exec_build(ct: Controller, action: Action) -> None:
 
 
 class Builder(Unit):
+    @staticmethod
+    def find_core(ct: Controller) -> Position:
+        my = ct.get_team()
+        for bid in ct.get_nearby_buildings():
+            if ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CORE:
+                return ct.get_position(bid)
+        raise RuntimeError
+
     def __init__(self, ct: Controller) -> None:
-        core_pos = _find_core(ct)
+        core_pos = Builder.find_core(ct)
         self.state = State(ct, core_pos)
         self._script_idx: int = 0
         self._off_script: bool = False
@@ -145,18 +153,18 @@ class Builder(Unit):
 
         has_script = s.compiled is not None and not self._off_script
         if OPENING != OpeningMode.OFF and has_script:
-            self._run_script(ct)
+            self.run_script(ct)
             if OPENING == OpeningMode.OPENING_ONLY:
                 return
             if not self._off_script:
                 return
 
-        move, build = self._run_policy(ct)
+        move, build = self.run_policy(ct)
         t2 = ct.get_cpu_time_elapsed()
         print(f"policy={t2 - t1}us total={t2 - t0}us")
-        self._execute(ct, move, build)
+        self.execute(ct, move, build)
 
-    def _run_script(self, ct: Controller) -> None:
+    def run_script(self, ct: Controller) -> None:
         compiled = self.state.compiled
         assert compiled is not None
         if self._script_idx >= len(compiled):
@@ -192,10 +200,9 @@ class Builder(Unit):
             ct.draw_indicator_dot(ct.get_position(), 0, 255, 0)
             self._off_script = True
 
-    def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
+    def run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
         s = self.state
-        print(f"  role={s.role.name} census={len(s.role_census)}")
-        for score, task in _policy(s):
+        for score, task, transition in POLICIES[s.role]:
             if score <= 0:
                 continue
             t0 = ct.get_cpu_time_elapsed()
@@ -206,13 +213,35 @@ class Builder(Unit):
             if result is not None:
                 print(f"  task={task.name} {elapsed}us OK")
                 print(f"  {result}")
-                s.role = _rebalance(s)
+                if transition is None:
+                    s.role = self.rebalance()
+                else:
+                    s.role = transition
                 return result
             print(f"  task={task.name} {elapsed}us FAIL")
         print("  task=NONE")
         return Direction.CENTRE, None
 
-    def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
+    def rebalance(self) -> Role:
+        """Pick the role with the largest deficit from the target ratio."""
+        s = self.state
+        rnd = s.age + s.birthday
+        counts: dict[Role, float] = dict.fromkeys(Role, 0.0)
+        for role, turn in s.role_census.values():
+            age = rnd - turn
+            weight = max(0.0, 1.0 - age / CENSUS_TTL)
+            counts[role] += weight
+        total = sum(counts.values()) or 1.0
+        best_role = s.role
+        best_deficit = -999.0
+        for role, target_weight in ROLE_TARGETS.items():
+            deficit = target_weight / ROLE_TARGET_TOTAL - counts[role] / total
+            if deficit > best_deficit:
+                best_deficit = deficit
+                best_role = role
+        return best_role
+
+    def execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
         if move != Direction.CENTRE:
             if ct.can_move(move):
                 ct.move(move)
@@ -224,9 +253,9 @@ class Builder(Unit):
         if build is not None:
             execute(build, ct)
 
-        self._write_marker(ct)
+        self.write_marker(ct)
 
-    def _write_marker(self, ct: Controller) -> None:
+    def write_marker(self, ct: Controller) -> None:
         s = self.state
         marker_val = MarkerRole(
             role=s.role.value,
@@ -257,61 +286,29 @@ class Builder(Unit):
                 return
 
 
-def _find_core(ct: Controller) -> Position:
-    my = ct.get_team()
-    for bid in ct.get_nearby_buildings():
-        if ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CORE:
-            return ct.get_position(bid)
-    raise RuntimeError
-
-
 CENSUS_TTL = 16
 
-POLICIES: dict[Role, list[tuple[float, Task]]] = {
+POLICIES: dict[Role, list[tuple[float, Task, Role | None]]] = {
     Role.ECON: [
-        (999.0, Task.HEAL_CORE),
-        (150.0, Task.CONNECT_EXCESS_TI),
-        (100.0, Task.HARVEST_TI),
-        (20.0, Task.EXPLORE),
-        (15.0, Task.PATROL),
+        (999.0, Task.HEAL_CORE, Role.DEFENSE),
+        (150.0, Task.CONNECT_EXCESS_TI, Role.ECON),
+        (100.0, Task.HARVEST_TI, Role.ECON),
+        (20.0, Task.EXPLORE, None),
+        (15.0, Task.PATROL, None),
     ],
     Role.DEFENSE: [
-        (999.0, Task.HEAL_CORE),
-        (200.0, Task.HEAL_TURRET),
-        (150.0, Task.PLACE_SENTINEL),
-        (100.0, Task.BARRIER_ORE),
-        (50.0, Task.PATROL),
-        (20.0, Task.EXPLORE),
+        (999.0, Task.HEAL_CORE, Role.DEFENSE),
+        (200.0, Task.HEAL_TURRET, Role.DEFENSE),
+        (150.0, Task.PLACE_SENTINEL, Role.DEFENSE),
+        (100.0, Task.BARRIER_ORE, Role.ECON),
+        (50.0, Task.PATROL, None),
+        (20.0, Task.EXPLORE, None),
     ],
     Role.OFFENSE: [
-        (999.0, Task.HEAL_CORE),
-        (200.0, Task.FIRE_ENEMY_TRANSPORT),
-        (150.0, Task.PLACE_LAUNCHER),
-        (50.0, Task.EXPLORE),
-        (20.0, Task.PATROL),
+        (999.0, Task.HEAL_CORE, Role.DEFENSE),
+        (200.0, Task.FIRE_ENEMY_TRANSPORT, Role.OFFENSE),
+        (150.0, Task.PLACE_LAUNCHER, Role.OFFENSE),
+        (50.0, Task.EXPLORE, None),
+        (20.0, Task.PATROL, None),
     ],
 }
-
-
-def _rebalance(state: State) -> Role:
-    """Pick the role with the largest deficit from the target ratio."""
-    rnd = state.age + state.birthday
-    counts: dict[Role, float] = dict.fromkeys(Role, 0.0)
-    for role, turn in state.role_census.values():
-        age = rnd - turn
-        weight = max(0.0, 1.0 - age / CENSUS_TTL)
-        counts[role] += weight
-    counts[state.role] += 1.0  # include self
-    total = sum(counts.values()) or 1.0
-    best_role = state.role
-    best_deficit = -999.0
-    for role, target_weight in ROLE_TARGETS.items():
-        deficit = target_weight / ROLE_TARGET_TOTAL - counts[role] / total
-        if deficit > best_deficit:
-            best_deficit = deficit
-            best_role = role
-    return best_role
-
-
-def _policy(state: State) -> list[tuple[float, Task]]:
-    return POLICIES[state.role]

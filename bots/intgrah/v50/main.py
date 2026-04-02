@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from builder import Builder
 from cambc import Controller, EntityType, GameError
 from core import Core
+from gunner import Gunner
 from launcher import Launcher
 from sentinel import Sentinel
 
@@ -23,6 +24,8 @@ class Player:
                     self.unit = Core(ct)
                 case EntityType.BUILDER_BOT:
                     self.unit = Builder(ct)
+                case EntityType.GUNNER:
+                    self.unit = Gunner(ct)
                 case EntityType.SENTINEL:
                     self.unit = Sentinel(ct)
                 case EntityType.LAUNCHER:
