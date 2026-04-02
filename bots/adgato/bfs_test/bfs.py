@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 from symmetry import Symmetry, mirror_idx
+import math
+
+from visualiser import Grid, Palette, VectorField, emit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -208,6 +211,38 @@ class NavBfs:
             self._stable_touched,
         )
 
+    def emit_vis(self) -> None:
+        """Emit the BFS distance field and direction arrows to the visualiser."""
+        dist = self._stable
+        w = self.w
+        pnb = self._pnb
+        angles: list[float | None] = [None] * self._n
+        for i in range(self._n):
+            di = dist[i]
+            if di <= 0:
+                continue
+            best = di
+            bx, by = 0, 0
+            for ni in pnb[i]:
+                dn = dist[ni]
+                if dn != -1 and dn < best:
+                    best = dn
+                    bx = ni % w - i % w
+                    by = ni // w - i // w
+            if best < di:
+                angles[i] = math.atan2(by, bx)
+
+        emit(
+            dist=Grid(
+                dist,
+                palette=Palette(
+                    stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)],
+                    special={-1: (0, 0, 0, 0)},
+                ),
+            ),
+            bfs=VectorField(angles),
+        )
+
     def _compute(self, within_budget: Callable[[], bool]) -> bool:
         """Run/resume backwards BFS into wip buffer. Returns True if complete."""
         pnb = self._pnb
@@ -225,9 +260,9 @@ class NavBfs:
             qi += 1
             d = dist[node] + 1
             if d > stop_depth + 1:
+                print("finished route")
                 self._qi = qi - 1
                 self._qlen = qlen
-                print(f"stopped at depth {stop_depth}")
                 return True
             for ni in pnb[node]:
                 if dist[ni] != -1:
@@ -240,9 +275,11 @@ class NavBfs:
                 if ni == cur_idx:
                     stop_depth = d + 1
             if qi & 63 == 0 and not within_budget():
+                print("budget exceeded")
                 self._qi = qi
                 self._qlen = qlen
                 return False
+        print("exhausted route")
         self._qi = qi
         self._qlen = qlen
         return True
@@ -290,13 +327,14 @@ class NavBfs:
             dist = self._wip
             d = dist[cur_idx]
         self._cur_dist = d
+
         if d <= 0:
             return False
 
+        print(f"dist {d}")
         pnb = self._pnb[cur_idx]
         options = (d - 1,) if self._resumable else (d - 1, d, d + 1)
         for target in options:
-            print(f"dist {d}")
             # Prefer tiles that are already passable (no road build needed)
             for ni in pnb:
                 if dist[ni] != target:
@@ -317,4 +355,19 @@ class NavBfs:
                 if ct.can_move(direction):
                     ct.move(direction)
                     return True
+        
+        # Just move in any direction, and continue bfs (we didn't compute bfs behind us)
+        for ni in pnb:
+            next_pos = Position(ni % w, ni // w)
+            direction = pos.direction_to(next_pos)
+            if ct.can_build_road(next_pos):
+                ct.build_road(next_pos)
+            if ct.can_move(direction):
+                print("backtracked, continuing compute")
+                if not self._resumable:
+                    self._resumable = True
+                    self._swap()
+                ct.move(direction)
+                return True
+            
         return False
