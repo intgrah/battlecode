@@ -56,3 +56,14 @@ just debug replay.replay26 --json             # structured JSON output
 - **verify_network.py** -- Compares bot network beliefs against ground truth
 - **download_match.py** -- Downloads replays for a match ID
 - **tournament.py** -- Local round-robin tournament runner
+
+## Exploit Tools (`exploit/`)
+
+Replay analysis tools for sandbox security auditing and data exfiltration detection.
+Shared marker extraction logic in `exploit/markers.py`.
+
+- **decode_exfil.py** -- Decode base64 payloads from marker values
+- **decode_memscan.py** -- Decode BEEF-header memory scan streams
+- **decode_source.py** -- Extract opponent source code from online match replays
+- **extract_exfil.py** -- Extract large stdout payloads from replays
+- **replay_exfil.py** -- Scan replays for exfiltration signatures (markers, trailing data, suspicious stdout)
