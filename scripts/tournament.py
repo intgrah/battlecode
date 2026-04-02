@@ -1,7 +1,6 @@
 import itertools
 import json
 import re
-import shutil
 import subprocess
 import sys
 from collections import defaultdict
@@ -140,52 +139,14 @@ def round_robin(bots: list[str], maps: list[str]) -> None:
     print(f"\nResults saved to {run_dir}")
 
 
-def snapshot() -> None:
-    cur = latest_version()
-    if cur is None:
-        print("No versioned bots found. Creating v1 from bots/basic/")
-        src = BOTS_DIR / "basic"
-        if not src.exists():
-            print("bots/basic/ not found either")
-            return
-        dest = BOTS_DIR / "v1"
-        shutil.copytree(src, dest)
-        print("Created bots/v1/")
-        return
-
-    num, path = cur
-    next_num = num + 1
-    dest = BOTS_DIR / f"v{next_num}"
-    shutil.copytree(path, dest)
-    print(f"v{num} frozen, working copy is now v{next_num}")
-
-
-def prune(keep: int = 5) -> None:
-    bots = versioned_bots()
-    if len(bots) <= keep:
-        print(f"{len(bots)} versions, nothing to prune (keep={keep})")
-        return
-    to_remove = bots[:-keep]
-    for num, path in to_remove:
-        shutil.rmtree(path)
-        print(f"Removed v{num}")
-    print(f"Kept v{bots[-keep][0]}..v{bots[-1][0]}")
-
-
 def main() -> None:
     if len(sys.argv) < 2:
         print("Usage:")
         print(
             "  tournament.py run [bot1 bot2 ...]   -- round robin (all bots if none specified)",
         )
-        print(
-            "  tournament.py snapshot              -- freeze latest version, bump to next",
-        )
         print("  tournament.py latest                -- print latest version name")
         print("  tournament.py list                  -- list available bots")
-        print(
-            "  tournament.py prune [keep=5]        -- delete old versions, keep latest N",
-        )
         return
 
     cmd = sys.argv[1]
@@ -199,17 +160,12 @@ def main() -> None:
             print("No maps found")
             return
         round_robin(bots, maps)
-    elif cmd == "snapshot":
-        snapshot()
     elif cmd == "latest":
         cur = latest_version()
         if cur:
             print(cur[1].name)
         else:
             print("No versioned bots")
-    elif cmd == "prune":
-        keep = int(sys.argv[2]) if len(sys.argv) > 2 else 5
-        prune(keep)
     elif cmd == "list":
         for b in list_bots():
             print(f"  {b}")
