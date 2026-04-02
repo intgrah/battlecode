@@ -1,15 +1,12 @@
-from cambc import Controller, Direction, EntityType, Position, Team
+from cambc import Controller, Direction, Position, Team
 from config import OPENING, OpeningMode
-from hardcode.known import KnownMap
 from hardcode.map import SYMMETRY
 from hardcode.opening import Opening, get_opening
 from hardcode.opening.identify import identify_map
 from hardcode.opening.mirror import mirror_opening
-from marker import MarkerOpeningBook
 from unit import Unit
 
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
-_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
 
 
 class Core(Unit):
@@ -21,52 +18,28 @@ class Core(Unit):
 
         km = identify_map(ct, self.core_pos)
         self.opening: Opening | None = None
-        self._marker_val: int | None = None
 
         if km is not None:
             opening = get_opening(km)
             if opening is not None and ct.get_team() == Team.B:
                 opening = mirror_opening(opening, SYMMETRY[km])
             self.opening = opening
-            self._marker_val = MarkerOpeningBook(list(KnownMap).index(km)).encode()
-            self._place_marker(ct)
 
     def run(self, ct: Controller) -> None:
         rnd = ct.get_current_round()
 
-        if OPENING != OpeningMode.OFF and self.opening is not None:
-            if rnd < len(self.opening.core_spawns):
-                self._run_opening(ct, rnd)
-                return
-            if rnd <= len(self.opening.core_spawns) + 1:
-                self._place_marker(ct)
-                return
+        if (
+            OPENING != OpeningMode.OFF
+            and self.opening is not None
+            and rnd < len(self.opening.core_spawns)
+        ):
+            self._run_opening(ct, rnd)
+            return
 
         self._run_default(ct, rnd)
 
-    def _place_marker(self, ct: Controller) -> None:
-        if self._marker_val is None:
-            return
-        for odx, ody in _MARKER_OFFSETS:
-            mp = Position(self.core_pos.x + odx, self.core_pos.y + ody)
-            w, h = ct.get_map_width(), ct.get_map_height()
-            if not (0 <= mp.x < w and 0 <= mp.y < h):
-                continue
-            bid = ct.get_tile_building_id(mp)
-            if bid is not None:
-                if (
-                    ct.get_entity_type(bid) == EntityType.MARKER
-                    and ct.get_team(bid) == ct.get_team()
-                ):
-                    return
-                continue
-            if ct.can_place_marker(mp):
-                ct.place_marker(mp, self._marker_val)
-                return
-
     def _run_opening(self, ct: Controller, rnd: int) -> None:
         assert self.opening is not None
-        self._place_marker(ct)
         spawn_offset = self.opening.core_spawns[rnd]
         if spawn_offset is None:
             return

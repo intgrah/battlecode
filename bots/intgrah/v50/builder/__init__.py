@@ -7,21 +7,13 @@ from cambc import (
     Environment,
     GameConstants,
     Position,
-    Team,
 )
 from config import DEBUG_DUMP, OPENING, OpeningMode
-from hardcode.known import KnownMap
-from hardcode.map import SYMMETRY
-from hardcode.opening import Opening, get_opening
 from hardcode.opening.compiler import (
     CompiledActionMove,
     CompiledMoveAction,
-    CompiledTurn,
-    dsl_compile,
 )
-from hardcode.opening.mirror import mirror_opening
-from marker import MarkerEureka, MarkerOpeningBook
-from marker import decode as decode_marker
+from marker import MarkerEureka
 from unit import Unit
 
 from .action import (
@@ -136,23 +128,8 @@ class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
         core_pos = _find_core(ct)
         self.state = State(ct, core_pos)
-        self._compiled: list[CompiledTurn] | None = None
         self._script_idx: int = 0
         self._off_script: bool = False
-
-        opening, km = _read_opening(ct, core_pos)
-        if opening is not None and km is not None:
-            if ct.get_team() == Team.B:
-                opening = mirror_opening(opening, SYMMETRY[km])
-            spawn_turn = self.state.birthday - 1
-            spawn_order = sum(
-                1 for s in opening.core_spawns[:spawn_turn] if s is not None
-            )
-            if 0 <= spawn_order < len(opening.builder_scripts):
-                self._compiled = dsl_compile(
-                    ct.get_position(),
-                    opening.builder_scripts[spawn_order],
-                )
 
     def run(self, ct: Controller) -> None:
         s = self.state
@@ -165,7 +142,7 @@ class Builder(Unit):
             dump(s, ct)
         s.claim = None
 
-        has_script = self._compiled is not None and not self._off_script
+        has_script = s.compiled is not None and not self._off_script
         if OPENING != OpeningMode.OFF and has_script:
             self._run_script(ct)
             if OPENING == OpeningMode.OPENING_ONLY:
@@ -179,12 +156,13 @@ class Builder(Unit):
         self._execute(ct, move, build)
 
     def _run_script(self, ct: Controller) -> None:
-        assert self._compiled is not None
-        if self._script_idx >= len(self._compiled):
+        compiled = self.state.compiled
+        assert compiled is not None
+        if self._script_idx >= len(compiled):
             self._off_script = True
             return
 
-        turn = self._compiled[self._script_idx]
+        turn = compiled[self._script_idx]
         self._script_idx += 1
         pos = ct.get_position()
 
@@ -209,7 +187,7 @@ class Builder(Unit):
                 if action is not None:
                     _exec_build(ct, action)
 
-        if self._script_idx >= len(self._compiled):
+        if self._script_idx >= len(compiled):
             ct.draw_indicator_dot(ct.get_position(), 0, 255, 0)
             self._off_script = True
 
@@ -285,37 +263,6 @@ def _find_core(ct: Controller) -> Position:
         if ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CORE:
             return ct.get_position(bid)
     raise RuntimeError
-
-
-_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
-
-
-def _read_opening(
-    ct: Controller,
-    core_pos: Position,
-) -> tuple[Opening | None, KnownMap | None]:
-    w, h = ct.get_map_width(), ct.get_map_height()
-    for odx, ody in _MARKER_OFFSETS:
-        mx, my = core_pos.x + odx, core_pos.y + ody
-        if not (0 <= mx < w and 0 <= my < h):
-            continue
-        mp = Position(mx, my)
-        bid = ct.get_tile_building_id(mp)
-        if bid is None:
-            continue
-        if ct.get_entity_type(bid) != EntityType.MARKER:
-            continue
-        if ct.get_team(bid) != ct.get_team():
-            continue
-        marker_val = ct.get_marker_value(bid)
-        msg = decode_marker(marker_val)
-        if isinstance(msg, MarkerOpeningBook):
-            km_list = list(KnownMap)
-            idx = msg.map_index
-            if 0 <= idx < len(km_list):
-                km = km_list[idx]
-                return get_opening(km), km
-    return None, None
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:

@@ -211,7 +211,6 @@ def _turret_offsets(bld: Building) -> tuple[tuple[int, int], ...] | None:
     return None
 
 
-
 def _apply_threat(state: State, idx: int, bld: Building, sign: int) -> None:
     offsets = _turret_offsets(bld)
     if offsets is None:
