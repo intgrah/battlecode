@@ -10,8 +10,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
 from analysis.constants import SCALE_PCT, TURRET_KINDS, Pos
 from analysis.parse import extract_map_meta, parse
 from analysis.snapshot import core_tiles, entity_kind
