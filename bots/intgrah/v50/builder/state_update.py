@@ -1,5 +1,11 @@
 __all__ = ["update"]
 
+from attack_patterns import (
+    BREACH_OFFSETS,
+    GUNNER_OFFSETS,
+    LAUNCHER_OFFSETS,
+    SENTINEL_OFFSETS,
+)
 from building import (
     ETYPE_BUILDING,
     Building,
@@ -192,6 +198,45 @@ def _classify(bld: Building | None) -> str | None:
     return None
 
 
+def _turret_offsets(bld: Building) -> tuple[tuple[int, int], ...] | None:
+    match bld:
+        case BuildingGunner(direction=d):
+            return GUNNER_OFFSETS[d]
+        case BuildingSentinel(direction=d):
+            return SENTINEL_OFFSETS[d]
+        case BuildingBreach(direction=d):
+            return BREACH_OFFSETS[d]
+        case BuildingLauncher():
+            return LAUNCHER_OFFSETS
+    return None
+
+
+def _apply_threat(state: State, idx: int, bld: Building, sign: int) -> None:
+    offsets = _turret_offsets(bld)
+    if offsets is None:
+        return
+    w, h = state.w, state.h
+    px, py = idx % w, idx // w
+    if bld.team == state.my_team:
+        arr = state.my_threat
+    else:
+        match bld:
+            case BuildingGunner():
+                arr = state.en_gunner
+            case BuildingSentinel():
+                arr = state.en_sentinel
+            case BuildingBreach():
+                arr = state.en_breach
+            case BuildingLauncher():
+                arr = state.en_launcher
+            case _:
+                return
+    for dx, dy in offsets:
+        x, y = px + dx, py + dy
+        if 0 <= x < w and 0 <= y < h:
+            arr[y * w + x] += sign
+
+
 def _update_sets(
     state: State,
     idx: int,
@@ -220,11 +265,15 @@ def _update_sets(
         getattr(state, old_cat).discard(p)
         prefix = "my_" if old_bld.team == my_team else "en_"
         getattr(state, prefix + old_cat).discard(p)
+        if old_cat == "turrets":
+            _apply_threat(state, p, old_bld, -1)
 
     if new_cat is not None and new_bld is not None:
         getattr(state, new_cat).add(p)
         prefix = "my_" if new_bld.team == my_team else "en_"
         getattr(state, prefix + new_cat).add(p)
+        if new_cat == "turrets":
+            _apply_threat(state, p, new_bld, +1)
 
 
 _REFLECT_BUDGET = 25
