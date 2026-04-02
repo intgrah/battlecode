@@ -6,25 +6,18 @@ Used for incremental threat-map maintenance.
 
 from __future__ import annotations
 
-from cambc import Direction, GameConstants
+import math
 
-_DIR_DELTA: dict[Direction, tuple[int, int]] = {
-    Direction.NORTH: (0, -1),
-    Direction.NORTHEAST: (1, -1),
-    Direction.EAST: (1, 0),
-    Direction.SOUTHEAST: (1, 1),
-    Direction.SOUTH: (0, 1),
-    Direction.SOUTHWEST: (-1, 1),
-    Direction.WEST: (-1, 0),
-    Direction.NORTHWEST: (-1, -1),
-}
+from cambc import Direction, GameConstants
+from util import DIR8, DIR8_DELTA
 
 
 def _gunner_offsets(fdx: int, fdy: int) -> tuple[tuple[int, int], ...]:
-    """Gunner: ray along facing direction within r²=13."""
+    """Gunner: ray along facing direction within vision radius."""
     r_sq = GameConstants.GUNNER_VISION_RADIUS_SQ
+    max_steps = math.isqrt(r_sq) + 1
     tiles: list[tuple[int, int]] = []
-    for t in range(1, 10):
+    for t in range(1, max_steps + 1):
         rx, ry = fdx * t, fdy * t
         if rx * rx + ry * ry > r_sq:
             break
@@ -33,10 +26,11 @@ def _gunner_offsets(fdx: int, fdy: int) -> tuple[tuple[int, int], ...]:
 
 
 def _sentinel_offsets(fdx: int, fdy: int) -> tuple[tuple[int, int], ...]:
-    """Sentinel: Chebyshev distance 1 from facing ray, within r²=32."""
+    """Sentinel: Chebyshev distance 1 from facing ray, within vision radius."""
     r_sq = GameConstants.SENTINEL_VISION_RADIUS_SQ
+    max_steps = math.isqrt(r_sq) + 1
     tiles: set[tuple[int, int]] = set()
-    for t in range(1, 10):
+    for t in range(1, max_steps + 1):
         rx, ry = fdx * t, fdy * t
         if rx * rx + ry * ry > r_sq:
             break
@@ -49,10 +43,10 @@ def _sentinel_offsets(fdx: int, fdy: int) -> tuple[tuple[int, int], ...]:
 
 
 def _breach_offsets(fdx: int, fdy: int) -> tuple[tuple[int, int], ...]:
-    """Breach: 180 degree cone (dot product >= 0) within r²=5."""
+    """Breach: 180 degree cone (dot product >= 0) within attack radius."""
     r_sq = GameConstants.BREACH_ATTACK_RADIUS_SQ
+    r = math.isqrt(r_sq) + 1
     tiles: list[tuple[int, int]] = []
-    r = 3
     for dx in range(-r, r + 1):
         for dy in range(-r, r + 1):
             if (dx, dy) == (0, 0):
@@ -82,7 +76,7 @@ def _build_patterns() -> (
     gunner: dict[Direction, tuple[tuple[int, int], ...]] = {}
     sentinel: dict[Direction, tuple[tuple[int, int], ...]] = {}
     breach: dict[Direction, tuple[tuple[int, int], ...]] = {}
-    for d, (fdx, fdy) in _DIR_DELTA.items():
+    for d, (fdx, fdy) in zip(DIR8, DIR8_DELTA, strict=True):
         gunner[d] = _gunner_offsets(fdx, fdy)
         sentinel[d] = _sentinel_offsets(fdx, fdy)
         breach[d] = _breach_offsets(fdx, fdy)
