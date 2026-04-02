@@ -50,9 +50,13 @@ bench-nav-plot = "scripts.bench_nav_plot:main"
 [dependency-groups]
 dev = ["pyright", "ruff", "ty"]
 
+[tool.uv.sources]
+visualiser = { workspace = true }
+proto = { workspace = true }
+
 [tool.uv.build-backend]
 module-root = ""
-module-name = ["scripts", "proto"]
+module-name = ["scripts"]
 
 [tool.ruff]
 exclude = ["ref"]
@@ -87,15 +91,9 @@ ignore = [
     "TC003",   # typing-only-standard-library-import
     "PLC0415", # import-outside-top-level
 ]
-"proto/*.pyi" = [
-    "A002",   # builtin-argument-shadowing
-    "ANN003", # missing-type-kwargs
-    "N802",   # invalid-function-name
-    "PYI021", # docstring-in-stub
-]
 
 [tool.ty.environment]
-extra-paths = [".", "scripts", "proto"]
+extra-paths = [".", "scripts"]
 
 [tool.ty.src]
 exclude = ["ref/", "bots/"]
@@ -109,4 +107,6 @@ members = [
     "bots/exploit/*",
     "bots/nahhh/*",
     "bots/adgato/*",
+    "lib/visualiser",
+    "lib/proto",
 ]

@@ -1,4 +1,4 @@
-default_map := "maps/default_large1.map26"
+default_map := `ls maps/*.map26 | shuf -n1`
 [private]
 _analysis := "uv run replay-analyze"
 
@@ -6,10 +6,10 @@ run a b map=default_map:
     cambc run {{ a }} {{ b }} {{ map }}
 
 v replay="replay.replay26": vv
-    v/target/release/v {{ replay }}
+    lib/visualiser/viewer/target/release/visualiser-viewer {{ replay }}
 
 vv:
-    cargo build --release --manifest-path v/Cargo.toml
+    cargo build --release --manifest-path lib/visualiser/viewer/Cargo.toml
 
 w replay="replay.replay26":
     cambc watch {{ replay }}
@@ -73,9 +73,9 @@ match a b map=default_map:
     {{ _analysis }} replay.replay26 -s summary
 
 proto:
-    protoc --python_out=proto --pyi_out=proto --proto_path=proto proto/cambc.proto
-    ruff check --fix proto/
-    ruff format proto/
+    protoc --python_out=lib/proto/src/proto --pyi_out=lib/proto/src/proto --proto_path=lib/proto/src/proto lib/proto/src/proto/cambc.proto
+    ruff check --fix lib/proto/
+    ruff format lib/proto/
 
 lint:
     ruff check --fix bots/ scripts/

@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import StrEnum
 from typing import Final
 
 from cambc import Direction, Position
@@ -16,10 +16,10 @@ COST_IMPASSABLE: Final[int] = INF
 DIAL_MOD: Final[int] = max(COST_ROAD, COST_EMPTY, COST_UNSEEN) + 1 + 1
 
 
-class Symmetry(Enum):
-    ROT = auto()
-    HOR = auto()
-    VER = auto()
+class Symmetry(StrEnum):
+    ROT = "rot"
+    HOR = "hor"
+    VER = "ver"
 
 
 DIR4 = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
