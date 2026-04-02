@@ -327,16 +327,4 @@ def _rebalance(state: State) -> Role:
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:
-    policy = POLICIES[state.role]
-    # Adjust patrol score based on staleness for ECON role
-    if state.role == Role.ECON:
-        return [
-            (
-                25.0
-                if task == Task.PATROL and state.infra_max_staleness > 50
-                else score,
-                task,
-            )
-            for score, task in policy
-        ]
-    return policy
+    return POLICIES[state.role]
