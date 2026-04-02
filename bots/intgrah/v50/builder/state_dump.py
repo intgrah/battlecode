@@ -51,7 +51,8 @@ P_THREAT_GUNNER = Palette(
     stops=[(0.0, 255, 165, 0, 80), (1.0, 255, 165, 0, 180)], special={0: TRANSPARENT}
 )
 P_THREAT_SENTINEL = Palette(
-    stops=[(0.0, 100, 100, 255, 80), (1.0, 100, 100, 255, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 100, 100, 255, 80), (1.0, 100, 100, 255, 180)],
+    special={0: TRANSPARENT},
 )
 P_THREAT_BREACH = Palette(
     stops=[(0.0, 255, 0, 0, 80), (1.0, 255, 0, 0, 200)], special={0: TRANSPARENT}

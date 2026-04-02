@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
     from hardcode.known import KnownMap
+    from hardcode.opening import Opening
+    from hardcode.opening.compiler import CompiledTurn
     from marker import MarkerTaskClaim
 
 
@@ -33,12 +35,16 @@ from cambc import (
     Environment,
     GameConstants,
     Position,
+    Team,
 )
-from config import NAV, USE_HARDCODED_MAPS, NavMode
+from config import NAV, OPENING, USE_HARDCODED_MAPS, NavMode, OpeningMode
 from hardcode.apsp import DATA as APSP_DATA
 from hardcode.apsp_loader import ApspTable
 from hardcode.landmarks import DATA as LANDMARK_DATA
 from hardcode.map import CANDIDATES, CORE_B, SYMMETRY, TILES, decode
+from hardcode.opening import get_opening
+from hardcode.opening.compiler import dsl_compile
+from hardcode.opening.mirror import mirror_opening
 from util import (
     COST_EMPTY,
     COST_IMPASSABLE,
@@ -241,14 +247,22 @@ class State:
         # -- For A* Landmarks --
         self.landmarks: tuple[list[int], int, bytes] | None = None
 
+        # -- Opening book --
+        self.known_map: KnownMap | None = None
+        self.opening: Opening | None = None
+        self.compiled: list[CompiledTurn] | None = None
+
         km = _try_identify_map(self, core_pos)
         if km is not None:
+            self.known_map = km
             if USE_HARDCODED_MAPS:
                 _load_map_tiles(self, km)
             if NAV == NavMode.ASTAR_APSP:
                 _load_apsp(self, km)
             if NAV == NavMode.ASTAR_LANDMARKS:
                 _load_landmarks(self, km)
+            if OPENING != OpeningMode.OFF:
+                _load_opening(self, ct, km)
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -352,3 +366,19 @@ def _load_landmarks(state: State, km: KnownMap) -> None:
     lm_fn = LANDMARK_DATA.get(km)
     if lm_fn is not None:
         state.landmarks = lm_fn()
+
+
+def _load_opening(state: State, ct: Controller, km: KnownMap) -> None:
+    opening = get_opening(km)
+    if opening is None:
+        return
+    if ct.get_team() == Team.B:
+        opening = mirror_opening(opening, SYMMETRY[km])
+    state.opening = opening
+    spawn_turn = state.birthday - 1
+    spawn_order = sum(1 for s in opening.core_spawns[:spawn_turn] if s is not None)
+    if 0 <= spawn_order < len(opening.builder_scripts):
+        state.compiled = dsl_compile(
+            ct.get_position(),
+            opening.builder_scripts[spawn_order],
+        )
