@@ -33,7 +33,7 @@ from .helpers import execute
 from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
-from .task import Role, Task
+from .task import _TARGET_TOTAL, ROLE_TARGETS, Role, Task
 from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
@@ -269,14 +269,6 @@ def _find_core(ct: Controller) -> Position:
             return ct.get_position(bid)
     raise RuntimeError
 
-
-ROLE_TARGETS: tuple[tuple[Role, int], ...] = (
-    (Role.ECON, 5),
-    (Role.DEFENSE, 3),
-    (Role.OFFENSE, 2),
-)
-
-_TARGET_TOTAL: int = sum(t for _, t in ROLE_TARGETS)
 
 CENSUS_TTL = 16
 
