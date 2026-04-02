@@ -240,8 +240,10 @@ impl eframe::App for App {
 
         if self.playing {
             let tick = Duration::from_millis(self.tick_ms());
-            if self.last_step.elapsed() >= tick {
-                self.step_forward(1);
+            let elapsed = self.last_step.elapsed();
+            if elapsed >= tick {
+                let steps = (elapsed.as_nanos() / tick.as_nanos().max(1)).min(50) as usize;
+                self.step_forward(steps.max(1));
                 self.last_step = Instant::now();
             }
             ctx.request_repaint_after(tick);
