@@ -278,12 +278,10 @@ def algo_astar_bucket(
     weight: int = 1,
     budget: int = 0,
 ) -> Path_:
-    w, n, cost = md.w, md.n, md.cost
+    w, n, cost, nb = md.w, md.n, md.cost, md.nb
     if si == gi:
         return [si]
     gx, gy = gi % w, gi // w
-    offsets_card = md.offsets_card
-    offsets_diag = md.offsets_diag
     mod = CE + weight + 1
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
@@ -319,45 +317,19 @@ def algo_astar_bucket(
         if budget > 0 and exp >= budget:
             return _extract(parent, si, best_node)
         gn = dist[node]
-        cx = node % w
-        at_left = cx == 0
-        at_right = cx == w - 1
-        for off in offsets_card:
-            ni = node + off
-            if 0 <= ni < n:
-                if off == -1 and at_left:
-                    continue
-                if off == 1 and at_right:
-                    continue
-                c = cost[ni]
-                if c < INF:
-                    nd = gn + c
-                    if nd < dist[ni]:
-                        dist[ni] = nd
-                        parent[ni] = node
-                        h_ni = ht[ni]
-                        if h_ni < 0:
-                            h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * CR
-                            ht[ni] = h_ni
-                        bk[(nd + h_ni * weight) % mod].append(ni)
-        for off in offsets_diag:
-            ni = node + off
-            if 0 <= ni < n:
-                if (off == -w - 1 or off == w - 1) and at_left:
-                    continue
-                if (off == -w + 1 or off == w + 1) and at_right:
-                    continue
-                c = cost[ni]
-                if c < INF:
-                    nd = gn + c
-                    if nd < dist[ni]:
-                        dist[ni] = nd
-                        parent[ni] = node
-                        h_ni = ht[ni]
-                        if h_ni < 0:
-                            h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * CR
-                            ht[ni] = h_ni
-                        bk[(nd + h_ni * weight) % mod].append(ni)
+        for ni in nb[node]:
+            c = cost[ni]
+            if c >= INF:
+                continue
+            nd = gn + c
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                h_ni = ht[ni]
+                if h_ni < 0:
+                    h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * CR
+                    ht[ni] = h_ni
+                bk[(nd + h_ni * weight) % mod].append(ni)
     if best_h < INF:
         return _extract(parent, si, best_node)
     return None
