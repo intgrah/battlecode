@@ -3,29 +3,44 @@
 from __future__ import annotations
 
 import random
+from array import array
 
 from bfs import NavBfs
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, Position, Environment
 from symmetry import Symmetry, SymmetryDetector
 from unit import Unit
 
 
-def _update_nearby_tiles(nav: NavBfs, sym: Symmetry, ct: Controller) -> None:
+_ENV_INT: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
+_ET_INT: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
+
+
+def _encode_tile(env: Environment, building_type: EntityType | None, is_allied: bool) -> int:
+    """Encode tile state as a byte: env (2 bits) | building (4 bits) | allied (1 bit)."""
+    bt = _ET_INT[building_type] if building_type is not None else 0
+    return _ENV_INT[env] | (bt << 2) | (int(is_allied) << 6)
+
+def _update_nearby_tiles(
+    nav: NavBfs,
+    sym: Symmetry,
+    ct: Controller,
+    tile_cache: bytearray,
+) -> None:
     """Read nearby tiles from the controller and feed raw data to nav."""
     w = nav.w
-    my_id = ct.get_id()
     my_team = ct.get_team()
-    nav.begin_update()
     for tile in ct.get_nearby_tiles():
         i = tile.y * w + tile.x
         env = ct.get_tile_env(tile)
         bid = ct.get_tile_building_id(tile)
         building_type = ct.get_entity_type(bid) if bid is not None else None
         is_allied = bid is not None and ct.get_team(bid) == my_team
-        bbid = ct.get_tile_builder_bot_id(tile)
-        is_builder = bbid is not None and bbid != my_id
-        nav.update_tile(i, env, building_type, is_allied, is_builder, sym)
-
+        key = _encode_tile(env, building_type, is_allied)
+        if tile_cache[i] == key:
+            continue
+        tile_cache[i] = key
+        nav.update_tile(i, env, building_type, is_allied, sym)
+        
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
@@ -37,7 +52,9 @@ class Builder(Unit):
         self.target: Position | None = None
         self.w = w
         self.h = h
+        self._tile_cache: bytearray = bytearray(b"\xff" * (w * h))
         self._mirrored = False
+        random.seed(1)
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -84,7 +101,7 @@ class Builder(Unit):
 
         resolved = self.sym.resolved if self.sym is not None else Symmetry.UNKNOWN
         t0 = ct.get_cpu_time_elapsed()
-        _update_nearby_tiles(self.nav, resolved, ct)
+        _update_nearby_tiles(self.nav, resolved, ct, self._tile_cache)
         t1 = ct.get_cpu_time_elapsed()
         self.nav.step(ct, lambda: ct.get_cpu_time_elapsed() < 800)
         t2 = ct.get_cpu_time_elapsed()
@@ -93,5 +110,4 @@ class Builder(Unit):
         print(f"update={t1 - t0}us step={t2 - t1}us total={t2 - t0}us")
 
         ct.draw_indicator_line(ct.get_position(), self.target, 0, 128, 0)
-
-        self.nav.emit_vis()
+        #self.nav.emit_vis()
