@@ -397,6 +397,71 @@ def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
+def algo_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
+    n, cost, nb = md.n, md.cost, md.nb
+    if si == gi:
+        return [si]
+    n2 = n + n
+    parent: list[int] = [-1] * (n + n2)
+    parent[si] = si
+    q: deque[int] = deque([si])
+    found = False
+    while q:
+        node = q.popleft()
+        if node < n:
+            for ni in nb[node]:
+                c = cost[ni]
+                if c >= INF:
+                    continue
+                if c == CR:
+                    if parent[ni] != -1:
+                        continue
+                    parent[ni] = node
+                    if ni == gi:
+                        found = True
+                        break
+                    q.append(ni)
+                else:
+                    vi = ni + n2
+                    if parent[vi] != -1:
+                        continue
+                    parent[vi] = node
+                    q.append(vi)
+        elif node >= n2:
+            ni = node - n
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            q.append(ni)
+        else:
+            ni = node - n
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            if ni < n and ni == gi:
+                found = True
+                break
+            q.append(ni)
+        if found:
+            break
+    if not found:
+        return None
+    path: list[int] = []
+    cur = gi
+    while cur != si:
+        path.append(cur % n)
+        cur = parent[cur]
+    path.append(si)
+    path.reverse()
+    i = 1
+    while i < len(path):
+        if path[i] == path[i - 1]:
+            path.pop(i)
+        else:
+            i += 1
+    return path
+
+
 def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
     n, cost, nb = md.n, md.cost, md.nb
     if si == gi:
@@ -601,11 +666,9 @@ def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
 
 
 def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
-    w, n, cost = md.w, md.n, md.cost
+    n, cost, nb = md.n, md.cost, md.nb
     if si == gi:
         return [si]
-    offsets_card = md.offsets_card
-    offsets_diag = md.offsets_diag
     mod = CE + 1
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
@@ -631,37 +694,15 @@ def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path
         if budget > 0 and exp >= budget:
             return _extract(parent, si, node)
         gn = dist[node]
-        cx = node % w
-        at_left = cx == 0
-        at_right = cx == w - 1
-        for off in offsets_card:
-            ni = node + off
-            if 0 <= ni < n:
-                if off == -1 and at_left:
-                    continue
-                if off == 1 and at_right:
-                    continue
-                c = cost[ni]
-                if c < INF:
-                    nd = gn + c
-                    if nd < dist[ni]:
-                        dist[ni] = nd
-                        parent[ni] = node
-                        bk[nd % mod].append(ni)
-        for off in offsets_diag:
-            ni = node + off
-            if 0 <= ni < n:
-                if (off == -w - 1 or off == w - 1) and at_left:
-                    continue
-                if (off == -w + 1 or off == w + 1) and at_right:
-                    continue
-                c = cost[ni]
-                if c < INF:
-                    nd = gn + c
-                    if nd < dist[ni]:
-                        dist[ni] = nd
-                        parent[ni] = node
-                        bk[nd % mod].append(ni)
+        for ni in nb[node]:
+            c = cost[ni]
+            if c >= INF:
+                continue
+            nd = gn + c
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                bk[nd % mod].append(ni)
     return None
 
 
@@ -862,6 +903,7 @@ def _make_algos() -> list[AlgoEntry]:
 
     algos.append(("astar heap apsp", algo_astar_apsp, True))
     algos.append(("bfs", algo_bfs, False))
+    algos.append(("bfs expand", algo_bfs_expand, False))
     algos.append(("bfs roadopt", algo_bfs_roadopt, False))
     algos.append(("bibfs", algo_bibfs, False))
     algos.append(("gbfs", algo_gbfs, False))
@@ -1099,6 +1141,212 @@ def main() -> None:
 
     out_f.close()
     print(f"\nSaved {out_path}", file=sys.stderr)
+
+
+def sssp_bfs(md: MapData, si: int) -> list[int]:
+    n, cost, nb = md.n, md.cost, md.nb
+    parent: list[int] = [-1] * n
+    parent[si] = si
+    q: deque[int] = deque([si])
+    while q:
+        node = q.popleft()
+        for ni in nb[node]:
+            if cost[ni] >= INF:
+                continue
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            q.append(ni)
+    return parent
+
+
+def sssp_bfs_expand(md: MapData, si: int) -> list[int]:
+    n, cost, nb = md.n, md.cost, md.nb
+    n2 = n + n
+    parent: list[int] = [-1] * (n + n2)
+    parent[si] = si
+    q: deque[int] = deque([si])
+    while q:
+        node = q.popleft()
+        if node < n:
+            for ni in nb[node]:
+                c = cost[ni]
+                if c >= INF:
+                    continue
+                if c == CR:
+                    if parent[ni] != -1:
+                        continue
+                    parent[ni] = node
+                    q.append(ni)
+                else:
+                    vi = ni + n2
+                    if parent[vi] != -1:
+                        continue
+                    parent[vi] = node
+                    q.append(vi)
+        elif node >= n2:
+            ni = node - n
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            q.append(ni)
+        else:
+            ni = node - n
+            if parent[ni] != -1:
+                continue
+            parent[ni] = node
+            q.append(ni)
+    return parent
+
+
+def sssp_dijkstra_heap(md: MapData, si: int) -> list[int]:
+    n, cost, nb = md.n, md.cost, md.nb
+    dist: list[int] = [INF] * n
+    parent: list[int] = [-1] * n
+    dist[si] = 0
+    parent[si] = si
+    heap: list[tuple[int, int]] = [(0, si)]
+    while heap:
+        d, node = heapq.heappop(heap)
+        if d > dist[node]:
+            continue
+        for ni in nb[node]:
+            c = cost[ni]
+            if c >= INF:
+                continue
+            nd = d + c
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                heapq.heappush(heap, (nd, ni))
+    return parent
+
+
+def sssp_dijkstra_bucket(md: MapData, si: int) -> list[int]:
+    n, cost, nb = md.n, md.cost, md.nb
+    mod = CE + 1
+    dist: list[int] = [INF] * n
+    parent: list[int] = [-1] * n
+    dist[si] = 0
+    parent[si] = si
+    bk: list[deque[int]] = [deque() for _ in range(mod)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < mod:
+        bi = cur_d % mod
+        if not bk[bi]:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bk[bi].popleft()
+        if dist[node] != cur_d:
+            continue
+        gn = dist[node]
+        for ni in nb[node]:
+            c = cost[ni]
+            if c >= INF:
+                continue
+            nd = gn + c
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                bk[nd % mod].append(ni)
+    return parent
+
+
+type SsspFn = Callable[[MapData, int], list[int]]
+
+SSSP_ALGOS: list[tuple[str, SsspFn]] = [
+    ("bfs", sssp_bfs),
+    ("bfs expand", sssp_bfs_expand),
+    ("dijkstra heap", sssp_dijkstra_heap),
+    ("dijkstra bucket", sssp_dijkstra_bucket),
+]
+
+
+def bench_sssp() -> None:
+    parser = argparse.ArgumentParser(description="SSSP benchmark")
+    parser.add_argument(
+        "--algos",
+        nargs="*",
+        help="Algorithm name substrings to include (default: all)",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List available algorithms and exit",
+    )
+    args = parser.parse_args()
+
+    if args.list:
+        for name, _ in SSSP_ALGOS:
+            print(name)
+        sys.exit(0)
+
+    if args.algos:
+        selected = [
+            (name, fn)
+            for name, fn in SSSP_ALGOS
+            if any(pat in name for pat in args.algos)
+        ]
+        if not selected:
+            print("No algorithms matched. Use --list to see names.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        selected = list(SSSP_ALGOS)
+
+    map_files = sorted(MAPS_DIR.glob("*.map26"))
+    if not map_files:
+        print(f"No .map26 files in {MAPS_DIR}", file=sys.stderr)
+        sys.exit(1)
+
+    n_sources = 50
+    times: dict[str, dict[str, list[float]]] = {
+        name: {} for name, _ in selected
+    }
+
+    for mf in map_files:
+        md = MapData(mf)
+        if not md.passable:
+            continue
+
+        rng = random.Random(SEED)
+        sources = [rng.choice(md.passable) for _ in range(n_sources)]
+
+        for scenario in SCENARIOS:
+            md.reset_cost_no_roads()
+            if scenario == "with_roads":
+                md.place_roads()
+
+            label = f"{md.name}/{scenario}"
+            sys.stderr.write(f"\r{label:40s}")
+            sys.stderr.flush()
+
+            for algo_name, algo_fn in selected:
+                for si in sources:
+                    t0 = time.perf_counter()
+                    algo_fn(md, si)
+                    us = (time.perf_counter() - t0) * 1e6
+                    times[algo_name].setdefault(scenario, []).append(us)
+
+    sys.stderr.write("\r" + " " * 60 + "\r")
+
+    for scenario in SCENARIOS:
+        print(f"\n  {scenario.upper()}")
+        print(f"  {'Algorithm':<24s} {'p50':>8s} {'p90':>8s} {'p99':>8s} {'p100':>8s}")
+        print(f"  {'-' * 56}")
+        for algo_name, _ in selected:
+            ts = sorted(times[algo_name].get(scenario, []))
+            if not ts:
+                continue
+            nt = len(ts)
+            p50 = ts[nt // 2]
+            p90 = ts[int(nt * 0.9)]
+            p99 = ts[int(nt * 0.99)]
+            p100 = ts[-1]
+            print(f"  {algo_name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us")
 
 
 if __name__ == "__main__":
