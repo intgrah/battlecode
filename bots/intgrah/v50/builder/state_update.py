@@ -284,7 +284,7 @@ def _eliminate_symmetries(
     cx, cy = state.my_core.x, state.my_core.y
 
     if state.en_core_tiles:
-        for sym in state.sym_candidates:
+        for sym in state.symmetry_candidates:
             match sym:
                 case Symmetry.ROT:
                     px, py = w - 1 - cx, h - 1 - cy
@@ -295,7 +295,7 @@ def _eliminate_symmetries(
             if Position(px, py) not in state.en_core_tiles:
                 to_remove.add(sym)
     else:
-        for sym in state.sym_candidates:
+        for sym in state.symmetry_candidates:
             match sym:
                 case Symmetry.HOR:
                     if cy == h - 1 - cy:
@@ -307,7 +307,7 @@ def _eliminate_symmetries(
                     pass
 
     for t, env in new_tiles:
-        for sym in state.sym_candidates - to_remove:
+        for sym in state.symmetry_candidates - to_remove:
             match sym:
                 case Symmetry.ROT:
                     mx, my = w - 1 - t.x, h - 1 - t.y
@@ -320,14 +320,14 @@ def _eliminate_symmetries(
             if mirror_env is not None and mirror_env != env:
                 to_remove.add(sym)
 
-    state.sym_candidates -= to_remove
+    state.symmetry_candidates -= to_remove
 
-    if len(state.sym_candidates) == 1:
-        state.symmetry = next(iter(state.sym_candidates))
-    elif len(state.sym_candidates) > 1:
+    if len(state.symmetry_candidates) == 1:
+        state.symmetry = next(iter(state.symmetry_candidates))
+    elif len(state.symmetry_candidates) > 1:
         seen = sum(1 for e in state.env if e is not None)
         if seen > state.w * state.h // 2:
-            state.symmetry = next(iter(state.sym_candidates))
+            state.symmetry = next(iter(state.symmetry_candidates))
 
 
 def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:

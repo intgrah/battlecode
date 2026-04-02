@@ -194,7 +194,11 @@ class State:
 
         # -- Symmetry --
         self.symmetry: Symmetry | None = None
-        self.sym_candidates: set[Symmetry] = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
+        self.symmetry_candidates: set[Symmetry] = {
+            Symmetry.ROT,
+            Symmetry.HOR,
+            Symmetry.VER,
+        }
 
         # -- Task caches --
         self.explore_target: Position | None = None
@@ -224,14 +228,10 @@ class State:
         # -- Leakage mask (recomputed on reflow) --
         self.leakage_mask: list[int] | None = None
 
-        # -- Flow internals --
-        self.out_target: dict[int, list[int]] = {}
-        self.out_target_dirty: bool = True
-
-        # -- APSP --
+        # -- For A* APSP --
         self.apsp: ApspTable | None = None
 
-        # -- Landmarks --
+        # -- For A* Landmarks --
         self.landmarks: tuple[list[int], int, bytes] | None = None
 
         km = _try_identify_map(self, core_pos)
@@ -332,7 +332,7 @@ def _load_map_tiles(state: State, km: KnownMap) -> None:
         for dy in range(-1, 2)
         if 0 <= cb.x + dx < w and 0 <= cb.y + dy < state.h
     }
-    state.sym_candidates.clear()
+    state.symmetry_candidates.clear()
 
 
 def _load_apsp(state: State, km: KnownMap) -> None:
