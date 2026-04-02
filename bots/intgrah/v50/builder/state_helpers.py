@@ -9,7 +9,8 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Direction, Environment, Position
-from util import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, Symmetry
+from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
+from util import Symmetry
 
 from .state import State
 

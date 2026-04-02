@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util import COST_ROAD, DIAL_MOD, INF
+from constants import COST_ROAD, DIAL_MOD
+from util import INF
 
 if TYPE_CHECKING:
     from collections import deque

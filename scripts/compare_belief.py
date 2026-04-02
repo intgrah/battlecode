@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from proto.cambc_pb2 import Replay
+
 from scripts.replay import load_replay
 
 DIR_DELTA = {

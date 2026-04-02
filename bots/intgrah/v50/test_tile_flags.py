@@ -1,3 +1,4 @@
+from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
 from tile_flags import (
     B_ARMOURED_CONVEYOR,
     B_BARRIER,
@@ -33,7 +34,6 @@ from tile_flags import (
     is_wall_or_ore,
     make_building,
 )
-from util import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
 
 
 def test_env_states() -> None:

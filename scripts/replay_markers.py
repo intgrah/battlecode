@@ -4,6 +4,7 @@ import sys
 from collections import defaultdict
 
 from proto.cambc_pb2 import Entity
+
 from scripts.replay import load_replay
 
 

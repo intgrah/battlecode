@@ -51,8 +51,9 @@ bench-nav-plot = "scripts.bench_nav_plot:main"
 dev = ["pyright", "ruff", "ty"]
 
 [tool.uv.sources]
-visualiser = { workspace = true }
 proto = { workspace = true }
+util = { workspace = true }
+visualiser = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = ""
@@ -109,4 +110,5 @@ members = [
     "bots/adgato/*",
     "lib/visualiser",
     "lib/proto",
+    "lib/util",
 ]

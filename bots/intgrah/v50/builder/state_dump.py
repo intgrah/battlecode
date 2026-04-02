@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-try:
-    from visualiser import Grid, Palette, Scalar, Tiles, emit
-except ImportError:
-    emit = None
+from util import INF
+from visualiser import Grid, Palette, Scalar, Tiles, emit
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -17,63 +15,60 @@ if TYPE_CHECKING:
 __all__ = ["dump"]
 
 
+TRANSPARENT = (0, 0, 0, 0)
+
+P_GREEN = Palette(
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)], special={0: TRANSPARENT}
+)
+P_BLUE = Palette(
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 200, 160)], special={0: TRANSPARENT}
+)
+P_RED = Palette(
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)], special={0: TRANSPARENT}
+)
+P_VIRIDIS = Palette(
+    stops=[
+        (0.0, 68, 1, 84, 160),
+        (0.5, 33, 145, 140, 160),
+        (1.0, 253, 231, 37, 160),
+    ],
+    special={0: TRANSPARENT},
+)
+P_FOG = Palette(
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 0, 180)], special={0: TRANSPARENT}
+)
+P_DIST = Palette(
+    stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
+    special={-1: TRANSPARENT, INF: TRANSPARENT},
+)
+P_STALENESS = Palette(
+    stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)], special={-1: TRANSPARENT}
+)
+P_RED_GREEN = Palette(
+    stops=[(0.0, 200, 0, 0, 160), (0.5, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
+    special={0: TRANSPARENT},
+)
+P_BOOL = Palette(
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)], special={0: TRANSPARENT}
+)
+P_THREAT_GUNNER = Palette(
+    stops=[(0.0, 255, 165, 0, 80), (1.0, 255, 165, 0, 180)],
+    special={0: TRANSPARENT},
+)
+P_THREAT_SENTINEL = Palette(
+    stops=[(0.0, 100, 100, 255, 80), (1.0, 100, 100, 255, 180)],
+    special={0: TRANSPARENT},
+)
+P_THREAT_BREACH = Palette(
+    stops=[(0.0, 255, 0, 0, 80), (1.0, 255, 0, 0, 200)], special={0: TRANSPARENT}
+)
+P_THREAT_LAUNCHER = Palette(
+    stops=[(0.0, 255, 0, 255, 80), (1.0, 255, 0, 255, 180)],
+    special={0: TRANSPARENT},
+)
+
+
 def dump(state: State, ct: Controller) -> None:
-    if emit is None:
-        return
-
-    from util import INF
-
-    TRANSPARENT = (0, 0, 0, 0)
-
-    P_GREEN = Palette(
-        stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)], special={0: TRANSPARENT}
-    )
-    P_BLUE = Palette(
-        stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 200, 160)], special={0: TRANSPARENT}
-    )
-    P_RED = Palette(
-        stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)], special={0: TRANSPARENT}
-    )
-    P_VIRIDIS = Palette(
-        stops=[
-            (0.0, 68, 1, 84, 160),
-            (0.5, 33, 145, 140, 160),
-            (1.0, 253, 231, 37, 160),
-        ],
-        special={0: TRANSPARENT},
-    )
-    P_FOG = Palette(
-        stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 0, 180)], special={0: TRANSPARENT}
-    )
-    P_DIST = Palette(
-        stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
-        special={-1: TRANSPARENT, INF: TRANSPARENT},
-    )
-    P_STALENESS = Palette(
-        stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)], special={-1: TRANSPARENT}
-    )
-    P_RED_GREEN = Palette(
-        stops=[(0.0, 200, 0, 0, 160), (0.5, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
-        special={0: TRANSPARENT},
-    )
-    P_BOOL = Palette(
-        stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)], special={0: TRANSPARENT}
-    )
-    P_THREAT_GUNNER = Palette(
-        stops=[(0.0, 255, 165, 0, 80), (1.0, 255, 165, 0, 180)],
-        special={0: TRANSPARENT},
-    )
-    P_THREAT_SENTINEL = Palette(
-        stops=[(0.0, 100, 100, 255, 80), (1.0, 100, 100, 255, 180)],
-        special={0: TRANSPARENT},
-    )
-    P_THREAT_BREACH = Palette(
-        stops=[(0.0, 255, 0, 0, 80), (1.0, 255, 0, 0, 200)], special={0: TRANSPARENT}
-    )
-    P_THREAT_LAUNCHER = Palette(
-        stops=[(0.0, 255, 0, 255, 80), (1.0, 255, 0, 255, 180)],
-        special={0: TRANSPARENT},
-    )
 
     rnd = ct.get_current_round()
     emit(

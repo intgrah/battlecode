@@ -1,6 +1,5 @@
 import itertools
 import json
-import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -13,20 +12,6 @@ ROOT = Path(__file__).resolve().parent.parent
 BOTS_DIR = ROOT / "bots"
 MAPS_DIR = ROOT / "maps"
 RESULTS_DIR = ROOT / "results"
-
-
-def versioned_bots() -> list[tuple[int, Path]]:
-    results = []
-    for d in BOTS_DIR.iterdir():
-        m = re.fullmatch(r"v(\d+)", d.name)
-        if m and d.is_dir() and (d / "main.py").exists():
-            results.append((int(m.group(1)), d))
-    return sorted(results)
-
-
-def latest_version() -> tuple[int, Path] | None:
-    bots = versioned_bots()
-    return bots[-1] if bots else None
 
 
 def list_bots() -> list[str]:
@@ -140,37 +125,15 @@ def round_robin(bots: list[str], maps: list[str]) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        print("Usage:")
-        print(
-            "  tournament.py run [bot1 bot2 ...]   -- round robin (all bots if none specified)",
-        )
-        print("  tournament.py latest                -- print latest version name")
-        print("  tournament.py list                  -- list available bots")
+    bots = sys.argv[1:] if len(sys.argv) > 1 else list_bots()
+    if len(bots) < 2:
+        print("Need at least 2 bots")
         return
-
-    cmd = sys.argv[1]
-    if cmd == "run":
-        bots = sys.argv[2:] if len(sys.argv) > 2 else list_bots()
-        if len(bots) < 2:
-            print("Need at least 2 bots")
-            return
-        maps = list_maps()
-        if not maps:
-            print("No maps found")
-            return
-        round_robin(bots, maps)
-    elif cmd == "latest":
-        cur = latest_version()
-        if cur:
-            print(cur[1].name)
-        else:
-            print("No versioned bots")
-    elif cmd == "list":
-        for b in list_bots():
-            print(f"  {b}")
-    else:
-        print(f"Unknown command: {cmd}")
+    maps = list_maps()
+    if not maps:
+        print("No maps found")
+        return
+    round_robin(bots, maps)
 
 
 if __name__ == "__main__":

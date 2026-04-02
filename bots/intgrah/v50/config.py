@@ -9,8 +9,7 @@ class OpeningMode(Enum):
 
 
 class NavMode(Enum):
-    ASTAR_BUCKET_C = auto()
-    ASTAR_BUCKET_PYTHON = auto()
+    ASTAR_BUCKET = auto()
     ASTAR_LANDMARKS = auto()
     ASTAR_APSP = auto()
     BFS = auto()

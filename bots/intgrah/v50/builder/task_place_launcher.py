@@ -1,6 +1,7 @@
 from building import BuildingLauncher, BuildingMarker, BuildingRoad
 from cambc import Controller, Direction, Position
-from util import COST_IMPASSABLE, DIR8_DELTA
+from constants import COST_IMPASSABLE
+from util import DIR8_DELTA
 
 from .action import Action, PlaceLauncher
 from .helpers import move_toward_with_road
