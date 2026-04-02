@@ -1,6 +1,6 @@
 default_map := "maps/default_large1.map26"
 [private]
-_analysis := "cd scripts && python -m analysis"
+_analysis := "uv run replay-analyze"
 
 run a b map=default_map:
     cambc run {{ a }} {{ b }} {{ map }}
@@ -21,31 +21,31 @@ watch a b map=default_map:
     cambc run {{ a }} {{ b }} {{ map }} --watch
 
 analyze replay="replay.replay26" *args="":
-    {{ _analysis }} ../{{ replay }} {{ args }}
+    {{ _analysis }} {{ replay }} {{ args }}
 
 stats replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s summary
+    {{ _analysis }} {{ replay }} -s summary
 
 economy replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s economy
+    {{ _analysis }} {{ replay }} -s economy
 
 network replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s network
+    {{ _analysis }} {{ replay }} -s network
 
 spatial replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s spatial
+    {{ _analysis }} {{ replay }} -s spatial
 
 defense replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s defense
+    {{ _analysis }} {{ replay }} -s defense
 
 combat replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s combat
+    {{ _analysis }} {{ replay }} -s combat
 
 bots replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s bots
+    {{ _analysis }} {{ replay }} -s bots
 
 compare replay="replay.replay26":
-    {{ _analysis }} ../{{ replay }} -s compare
+    {{ _analysis }} {{ replay }} -s compare
 
 full replay="replay.replay26":
     python scripts/replay_full.py {{ replay }}
@@ -70,7 +70,7 @@ download match_id:
 
 match a b map=default_map:
     -cambc run {{ a }} {{ b }} {{ map }} 2>&1 | grep -v "^Completed turn\|^Fatal\|^Python runtime\|^Update available\|^$"
-    {{ _analysis }} ../replay.replay26 -s summary
+    {{ _analysis }} replay.replay26 -s summary
 
 proto:
     protoc --python_out=proto --pyi_out=proto --proto_path=proto proto/cambc.proto
@@ -153,7 +153,7 @@ remote-run a b map=default_map:
 remote-match a b map=default_map:
     just sync
     ssh {{ _vps }} "cd {{ _vps_dir }} && {{ _vps_cambc }} run bots/{{ a }} bots/{{ b }} {{ map }} --replay replay.replay26 2>&1 | grep -v '^Completed turn\|^Fatal\|^Python runtime\|^Update available\|^$$'"
-    ssh {{ _vps }} "cd {{ _vps_dir }}/scripts && ../.venv/bin/python -m analysis ../replay.replay26 -s summary"
+    ssh {{ _vps }} "cd {{ _vps_dir }} && .venv/bin/python -m scripts.analysis replay.replay26 -s summary"
     scp {{ _vps }}:{{ _vps_dir }}/replay.replay26 replay_remote.replay26
 
 remote-tournament *args:
