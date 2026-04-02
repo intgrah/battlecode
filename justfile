@@ -82,7 +82,6 @@ lint:
 
 ty:
     #!/usr/bin/env bash
-    set -euo pipefail
     ty check
     for d in bots/*/pyproject.toml; do
         d=$(dirname "$d")
@@ -95,25 +94,26 @@ fmt:
 f: ty lint fmt
 
 tournament *args:
-    python scripts/tournament.py run {{ args }}
+    python scripts/tournament.py {{ args }}
 
-latest:
-    @python scripts/tournament.py latest
-
-submit bot="":
+build bot:
     #!/usr/bin/env bash
-    if [ -z "{{ bot }}" ]; then
-        bot=$(python scripts/tournament.py latest)
-    else
-        bot="{{ bot }}"
-    fi
-    tmp=$(mktemp -d)
-    cp -r "bots/$bot" "$tmp/bot"
-    find "$tmp/bot" -type d \( -name __pycache__ -o -name .cache \) -exec rm -rf {} +
-    find "$tmp/bot" -type f \( -name "*.so" -o -name "*.c" -o -name "*.o" -o -name "*.pyi" -o -name "*.idx" -o -name "compile_commands.json" -o -name "justfile" \) -delete
-    echo "Submitting $bot"
-    cambc submit "$tmp/bot"
-    rm -rf "$tmp"
+    rm -rf build/bot
+    cp -r "bots/{{ bot }}" build/bot
+    # Vendor workspace dependencies
+    for dep in lib/*/src/; do
+        name=$(basename "$(dirname "$dep")")
+        src="lib/$name/src/$name"
+        if [ -d "$src" ] && grep -q "\"$name\"" "bots/{{ bot }}/pyproject.toml" 2>/dev/null; then
+            cp -r "$src" "build/bot/$name"
+        fi
+    done
+    find build/bot -type d -name __pycache__ -exec rm -rf {} +
+    find build/bot -type f \( -name "*.pyi" -o -name pyproject.toml \) -delete
+    echo "Built {{ bot }} -> build/bot"
+
+submit bot: (build bot)
+    cambc submit build/bot
 
 challenge bot opponent:
     #!/usr/bin/env bash
@@ -158,7 +158,7 @@ remote-match a b map=default_map:
 
 remote-tournament *args:
     just sync
-    ssh {{ _vps }} "cd {{ _vps_dir }} && nohup .venv/bin/python scripts/tournament.py run {{ args }} > tournament.log 2>&1 &"
+    ssh {{ _vps }} "cd {{ _vps_dir }} && nohup .venv/bin/python scripts/tournament.py {{ args }} > tournament.log 2>&1 &"
     @echo "Tournament running on VPS. Check with: just remote-status"
 
 remote-status:
@@ -172,7 +172,6 @@ ci *args:
 
 docs:
     #!/usr/bin/env bash
-    set -euo pipefail
     cd docs
     curl -s https://docs.battlecode.cam/llms.txt -o llms.txt
     grep -oP 'https://docs\.battlecode\.cam/\S+\.md' llms.txt | while read -r url; do

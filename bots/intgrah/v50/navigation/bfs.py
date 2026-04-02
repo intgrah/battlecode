@@ -4,11 +4,7 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 from config import DEBUG_DUMP
-
-try:
-    from visualiser import Tiles, VectorField, emit, parent_to_angles
-except ImportError:
-    DEBUG_DUMP = False  # type: ignore[misc]
+from visualiser import Tiles, VectorField, emit, parent_to_angles
 
 if TYPE_CHECKING:
     from builder.state import State

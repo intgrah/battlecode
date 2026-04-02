@@ -1,6 +1,6 @@
 from typing import Final
 
-from util import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
+from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
 
 # Top 2 bits: tile category
 B_IMPASSABLE_TERRAIN: Final[int] = 0b01_000000

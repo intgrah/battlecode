@@ -24,9 +24,10 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
+from constants import COST_IMPASSABLE
 from marker import MarkerEureka, MarkerRole, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
-from util import COST_IMPASSABLE, Symmetry
+from util import Symmetry
 
 from .state import State
 from .state_helpers import mirror

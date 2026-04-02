@@ -3,7 +3,7 @@ from typing import Final
 
 from cambc import Direction, Position
 
-INF: Final[int] = 999_999
+INF: Final[int] = 1_000_000
 OPENING_ONLY: Final[bool] = False
 
 

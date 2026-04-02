@@ -3,7 +3,8 @@ from __future__ import annotations
 import heapq
 from typing import TYPE_CHECKING
 
-from util import COST_ROAD, INF
+from constants import COST_ROAD
+from util import INF
 
 if TYPE_CHECKING:
     from builder.state import State

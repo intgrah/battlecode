@@ -1,9 +1,10 @@
 import itertools
 
 from cambc import Controller, Direction, EntityType, Position
+from constants import COST_IMPASSABLE
 from marker import TaskKind
 from navigation import find_path
-from util import COST_IMPASSABLE, DIR4_DELTA, INF
+from util import DIR4_DELTA, INF
 
 from .action import (
     Action,
