@@ -37,6 +37,7 @@ class Builder(Unit):
         self.target: Position | None = None
         self.w = w
         self.h = h
+        self._mirrored = False
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -60,6 +61,11 @@ class Builder(Unit):
         if self.sym.resolved is Symmetry.UNKNOWN:
             for tile in ct.get_nearby_tiles():
                 self.sym.update(tile.y * self.w + tile.x, tile, ct.get_tile_env(tile))
+
+        # Once symmetry is resolved, mirror all known tiles to the BFS grid
+        if not self._mirrored and self.sym.resolved is not Symmetry.UNKNOWN:
+            self.nav.mirror_known(self.sym.resolved, self.sym.known_env)
+            self._mirrored = True
 
         # Pick a new random target when needed
         if self.target is None or pos == self.target:
@@ -87,3 +93,5 @@ class Builder(Unit):
         print(f"update={t1 - t0}us step={t2 - t1}us total={t2 - t0}us")
 
         ct.draw_indicator_line(ct.get_position(), self.target, 0, 128, 0)
+
+        self.nav.emit_vis()
