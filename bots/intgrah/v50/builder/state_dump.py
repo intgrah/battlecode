@@ -2,7 +2,7 @@
 
 from cambc import Controller
 from util import INF
-from visualiser import Grid, Palette, Scalar, Tiles, VectorField, emit, parent_to_angles
+from visualiser import Grid, Palette, Scalar, Tiles, emit
 
 from .state import State
 

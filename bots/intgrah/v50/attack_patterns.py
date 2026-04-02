@@ -65,14 +65,12 @@ def _launcher_offsets() -> tuple[tuple[int, int], ...]:
     )
 
 
-def _build_patterns() -> (
-    tuple[
-        dict[Direction, tuple[tuple[int, int], ...]],
-        dict[Direction, tuple[tuple[int, int], ...]],
-        dict[Direction, tuple[tuple[int, int], ...]],
-        tuple[tuple[int, int], ...],
-    ]
-):
+def _build_patterns() -> tuple[
+    dict[Direction, tuple[tuple[int, int], ...]],
+    dict[Direction, tuple[tuple[int, int], ...]],
+    dict[Direction, tuple[tuple[int, int], ...]],
+    tuple[tuple[int, int], ...],
+]:
     gunner: dict[Direction, tuple[tuple[int, int], ...]] = {}
     sentinel: dict[Direction, tuple[tuple[int, int], ...]] = {}
     breach: dict[Direction, tuple[tuple[int, int], ...]] = {}
