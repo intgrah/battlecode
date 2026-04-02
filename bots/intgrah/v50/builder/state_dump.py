@@ -80,6 +80,7 @@ def dump(state: State, ct: Controller) -> None:
             [rnd - t if t > 0 else -1 for t in state.last_seen],
             palette=P_STALENESS,
         ),
+        birthday=Scalar(state.birthday),
         infra_max_staleness=Scalar(state.infra_max_staleness),
         role=Scalar(str(state.role)),
         role_census=Scalar(str(state.role_census)),
