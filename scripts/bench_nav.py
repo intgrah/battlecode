@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import heapq
 import random
 import sys
@@ -65,6 +66,7 @@ class MapData:
         "offsets_card",
         "offsets_diag",
         "passable",
+        "pnb",
         "tiles",
         "w",
     )
@@ -79,6 +81,7 @@ class MapData:
             INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)
         ]
         self.nb: list[list[int]] = _build_nb(self.w, self.h)
+        self.pnb: list[list[int]] = _build_pnb(self.nb, self.cost)
         self.passable: list[int] = [i for i in range(self.n) if self.cost[i] < INF]
         self.offsets_card: tuple[int, ...] = (-self.w, -1, 1, self.w)
         w = self.w
@@ -88,6 +91,7 @@ class MapData:
 
     def reset_cost_no_roads(self) -> None:
         self.cost = [INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)]
+        self.pnb = _build_pnb(self.nb, self.cost)
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
         self.hpa_graph = None
 
@@ -131,6 +135,7 @@ class MapData:
                     cur = parent[cur]
         for ri in roads:
             cost[ri] = CR
+        self.pnb = _build_pnb(self.nb, cost)
         self.passable = [i for i in range(n) if cost[i] < INF]
         self.hpa_graph = None
         return len(roads)
@@ -148,13 +153,17 @@ def _build_nb(w: int, h: int) -> list[list[int]]:
     return nb
 
 
+def _build_pnb(nb: list[list[int]], cost: list[int]) -> list[list[int]]:
+    return [[ni for ni in nb[i] if cost[ni] < INF] for i in range(len(nb))]
+
+
 # ---------------------------------------------------------------------------
 # Ground truth: full Dijkstra + all optimal first moves
 # ---------------------------------------------------------------------------
 
 
 def dijkstra_full(md: MapData, si: int) -> list[int]:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     dist: list[int] = [INF] * n
     dist[si] = 0
     heap: list[tuple[int, int]] = [(0, si)]
@@ -164,8 +173,6 @@ def dijkstra_full(md: MapData, si: int) -> list[int]:
             continue
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = d + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -178,7 +185,7 @@ def optimal_first_moves(md: MapData, si: int, gi: int, dist: list[int]) -> set[i
         return {si}
     if dist[gi] >= INF:
         return set()
-    cost, nb = md.cost, md.nb
+    cost, nb = md.cost, md.pnb
     n = md.n
     on_shortest: list[bool] = [False] * n
     on_shortest[gi] = True
@@ -189,8 +196,6 @@ def optimal_first_moves(md: MapData, si: int, gi: int, dist: list[int]) -> set[i
             if on_shortest[ni]:
                 continue
             c = cost[node]
-            if c >= INF:
-                continue
             if dist[ni] + c == dist[node]:
                 on_shortest[ni] = True
                 q.append(ni)
@@ -199,8 +204,6 @@ def optimal_first_moves(md: MapData, si: int, gi: int, dist: list[int]) -> set[i
         if not on_shortest[ni]:
             continue
         c = cost[ni]
-        if c >= INF:
-            continue
         if dist[si] + c == dist[ni]:
             moves.add(ni)
     return moves
@@ -230,7 +233,7 @@ def algo_astar_heap(
     weight: int = 1,
     budget: int = 0,
 ) -> Path_:
-    w, n, cost, nb = md.w, md.n, md.cost, md.nb
+    w, n, cost, nb = md.w, md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     gx, gy = gi % w, gi // w
@@ -258,8 +261,6 @@ def algo_astar_heap(
         gn = g[node]
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = gn + c
             if nd < g[ni]:
                 g[ni] = nd
@@ -278,7 +279,7 @@ def algo_astar_bucket(
     weight: int = 1,
     budget: int = 0,
 ) -> Path_:
-    w, n, cost, nb = md.w, md.n, md.cost, md.nb
+    w, n, cost, nb = md.w, md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     gx, gy = gi % w, gi // w
@@ -319,8 +320,6 @@ def algo_astar_bucket(
         gn = dist[node]
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = gn + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -336,7 +335,7 @@ def algo_astar_bucket(
 
 
 def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     parent: list[int] = [-1] * n
@@ -346,8 +345,6 @@ def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
     while q:
         node = q.popleft()
         for ni in nb[node]:
-            if cost[ni] >= INF:
-                continue
             if parent[ni] != -1:
                 continue
             parent[ni] = node
@@ -370,7 +367,7 @@ def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
 
 
 def algo_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     n2 = n + n
@@ -383,8 +380,6 @@ def algo_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
         if node < n:
             for ni in nb[node]:
                 c = cost[ni]
-                if c >= INF:
-                    continue
                 if c == CR:
                     if parent[ni] != -1:
                         continue
@@ -435,7 +430,7 @@ def algo_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
 
 
 def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     parent: list[int] = [-1] * n
@@ -445,8 +440,6 @@ def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
     while q:
         node = q.popleft()
         for ni in nb[node]:
-            if cost[ni] >= INF:
-                continue
             if parent[ni] != -1:
                 continue
             parent[ni] = node
@@ -486,7 +479,7 @@ def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
 
 
 def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     parent_f: list[int] = [-1] * n
@@ -513,8 +506,6 @@ def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
             node = qf.popleft()
             d = dist_f[node] + 1
             for ni in nb[node]:
-                if cost[ni] >= INF:
-                    continue
                 if dist_f[ni] <= d:
                     continue
                 dist_f[ni] = d
@@ -527,8 +518,6 @@ def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
             node = qb.popleft()
             d = dist_b[node] + 1
             for ni in nb[node]:
-                if cost[ni] >= INF:
-                    continue
                 if dist_b[ni] <= d:
                     continue
                 dist_b[ni] = d
@@ -556,7 +545,7 @@ def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
 
 
 def algo_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
-    w, n, cost, nb = md.w, md.n, md.cost, md.nb
+    w, n, cost, nb = md.w, md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     gx, gy = gi % w, gi // w
@@ -584,8 +573,6 @@ def algo_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
             break
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             if visited[ni]:
                 continue
             visited[ni] = True
@@ -605,7 +592,7 @@ def algo_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
 
 
 def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     dist: list[int] = [INF] * n
@@ -627,8 +614,6 @@ def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
         gn = dist[node]
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = gn + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -638,7 +623,7 @@ def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
 
 
 def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
     mod = CE + 1
@@ -668,8 +653,6 @@ def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path
         gn = dist[node]
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = gn + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -694,7 +677,7 @@ class ApspTable:
 
 
 def precompute_apsp(md: MapData) -> None:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     rows: list[list[int]] = []
     for si in range(n):
         if cost[si] >= INF:
@@ -709,8 +692,6 @@ def precompute_apsp(md: MapData) -> None:
                 continue
             for ni in nb[node]:
                 c = cost[ni]
-                if c >= INF:
-                    continue
                 nd = d + c
                 if nd < dist[ni]:
                     dist[ni] = nd
@@ -754,8 +735,6 @@ def algo_astar_apsp(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
                 continue
             ni = ny * w + nx
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = gn + c
             if nd < g[ni]:
                 g[ni] = nd
@@ -1116,15 +1095,13 @@ def main() -> None:
 
 
 def sssp_bfs(md: MapData, si: int) -> list[int]:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     parent: list[int] = [-1] * n
     parent[si] = si
     q: deque[int] = deque([si])
     while q:
         node = q.popleft()
         for ni in nb[node]:
-            if cost[ni] >= INF:
-                continue
             if parent[ni] != -1:
                 continue
             parent[ni] = node
@@ -1133,7 +1110,7 @@ def sssp_bfs(md: MapData, si: int) -> list[int]:
 
 
 def sssp_bfs_expand(md: MapData, si: int) -> list[int]:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     n2 = n + n
     parent: list[int] = [-1] * (n + n2)
     parent[si] = si
@@ -1143,8 +1120,6 @@ def sssp_bfs_expand(md: MapData, si: int) -> list[int]:
         if node < n:
             for ni in nb[node]:
                 c = cost[ni]
-                if c >= INF:
-                    continue
                 if c == CR:
                     if parent[ni] != -1:
                         continue
@@ -1172,7 +1147,7 @@ def sssp_bfs_expand(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_heap(md: MapData, si: int) -> list[int]:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
     dist[si] = 0
@@ -1184,8 +1159,6 @@ def sssp_dijkstra_heap(md: MapData, si: int) -> list[int]:
             continue
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = d + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -1195,7 +1168,7 @@ def sssp_dijkstra_heap(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_bucket(md: MapData, si: int) -> list[int]:
-    n, cost, nb = md.n, md.cost, md.nb
+    n, cost, nb = md.n, md.cost, md.pnb
     mod = CE + 1
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
@@ -1218,13 +1191,92 @@ def sssp_dijkstra_bucket(md: MapData, si: int) -> list[int]:
         gn = dist[node]
         for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             nd = gn + c
             if nd < dist[ni]:
                 dist[ni] = nd
                 parent[ni] = node
                 bk[nd % mod].append(ni)
+    return parent
+
+
+def sssp_dijkstra_bucket_inline(md: MapData, si: int) -> list[int]:
+    n, cost, nb = md.n, md.cost, md.pnb
+    dist: list[int] = [INF] * n
+    parent: list[int] = [-1] * n
+    dist[si] = 0
+    parent[si] = si
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bi = cur_d & 3
+        if not bk[bi]:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bk[bi].popleft()
+        if dist[node] != cur_d:
+            continue
+        gn = cur_d
+        for ni in nb[node]:
+            c = cost[ni]
+            nd = gn + c
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                bk[nd & 3].append(ni)
+    return parent
+
+
+def sssp_dijkstra_bucket_unrolled(md: MapData, si: int) -> list[int]:
+    n, cost, nb = md.n, md.cost, md.pnb
+    dist: list[int] = [INF] * n
+    parent: list[int] = [-1] * n
+    dist[si] = 0
+    parent[si] = si
+    bk0: deque[int] = deque()
+    bk1: deque[int] = deque()
+    bk2: deque[int] = deque()
+    bk3: deque[int] = deque()
+    bk0.append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bi = cur_d & 3
+        if bi == 0:
+            bk = bk0
+        elif bi == 1:
+            bk = bk1
+        elif bi == 2:
+            bk = bk2
+        else:
+            bk = bk3
+        if not bk:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bk.popleft()
+        if dist[node] != cur_d:
+            continue
+        gn = cur_d
+        for ni in nb[node]:
+            c = cost[ni]
+            nd = gn + c
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                r = nd & 3
+                if r == 0:
+                    bk0.append(ni)
+                elif r == 1:
+                    bk1.append(ni)
+                elif r == 2:
+                    bk2.append(ni)
+                else:
+                    bk3.append(ni)
     return parent
 
 
@@ -1235,6 +1287,8 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("bfs expand", sssp_bfs_expand),
     ("dijkstra heap", sssp_dijkstra_heap),
     ("dijkstra bucket", sssp_dijkstra_bucket),
+    ("dijkstra bucket inline", sssp_dijkstra_bucket_inline),
+    ("dijkstra bucket unrolled", sssp_dijkstra_bucket_unrolled),
 ]
 
 
@@ -1274,7 +1328,7 @@ def bench_sssp() -> None:
         print(f"No .map26 files in {MAPS_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    n_sources = 50
+    n_sources = 500
     times: dict[str, dict[str, list[float]]] = {
         name: {} for name, _ in selected
     }
@@ -1297,11 +1351,13 @@ def bench_sssp() -> None:
             sys.stderr.flush()
 
             for algo_name, algo_fn in selected:
+                gc.disable()
                 for si in sources:
                     t0 = time.perf_counter()
                     algo_fn(md, si)
                     us = (time.perf_counter() - t0) * 1e6
                     times[algo_name].setdefault(scenario, []).append(us)
+                gc.enable()
 
     sys.stderr.write("\r" + " " * 60 + "\r")
 
