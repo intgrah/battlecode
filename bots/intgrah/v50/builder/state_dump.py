@@ -6,6 +6,8 @@ from visualiser import Grid, Palette, Scalar, Tiles, emit
 
 from .state import State
 
+__all__ = ["dump"]
+
 TRANSPARENT = (0, 0, 0, 0)
 BLACK = (0, 0, 0, 180)
 GREY = (80, 80, 80, 100)

@@ -502,13 +502,15 @@ fn draw_vis_overlay(
     match field {
         crate::vis::VisField::Grid { data, palette } => {
             let (mut min_v, mut max_v) = (f64::MAX, f64::MIN);
-            for v in data.iter().flatten() {
-                if !crate::vis::is_special(palette, *v) {
-                    if *v < min_v {
-                        min_v = *v;
+            for raw in data {
+                if let Some(v) = crate::vis::value_to_f64(raw)
+                    && !crate::vis::is_special(palette, v)
+                {
+                    if v < min_v {
+                        min_v = v;
                     }
-                    if *v > max_v {
-                        max_v = *v;
+                    if v > max_v {
+                        max_v = v;
                     }
                 }
             }
@@ -525,7 +527,7 @@ fn draw_vis_overlay(
                     if i >= data.len() {
                         continue;
                     }
-                    let Some(v) = data[i] else {
+                    let Some(v) = crate::vis::value_to_f64(&data[i]) else {
                         continue;
                     };
                     let Some(c) = crate::vis::sample_palette(palette, v, min_v, max_v) else {
