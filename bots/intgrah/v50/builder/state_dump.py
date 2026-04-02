@@ -48,16 +48,16 @@ P_BOOL = Palette(
     stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)], special={0: TRANSPARENT}
 )
 P_THREAT_GUNNER = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 255, 165, 0, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 255, 165, 0, 80), (1.0, 255, 165, 0, 180)], special={0: TRANSPARENT}
 )
 P_THREAT_SENTINEL = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 100, 100, 255, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 100, 100, 255, 80), (1.0, 100, 100, 255, 180)], special={0: TRANSPARENT}
 )
 P_THREAT_BREACH = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 255, 0, 0, 200)], special={0: TRANSPARENT}
+    stops=[(0.0, 255, 0, 0, 80), (1.0, 255, 0, 0, 200)], special={0: TRANSPARENT}
 )
 P_THREAT_LAUNCHER = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 255, 0, 255, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 255, 0, 255, 80), (1.0, 255, 0, 255, 180)], special={0: TRANSPARENT}
 )
 
 
@@ -93,4 +93,6 @@ def dump(state: State, ct: Controller) -> None:
         en_sentinel=Grid(state.en_sentinel, palette=P_THREAT_SENTINEL),
         en_breach=Grid(state.en_breach, palette=P_THREAT_BREACH),
         en_launcher=Grid(state.en_launcher, palette=P_THREAT_LAUNCHER),
+        my_turrets=Tiles([(i % state.w, i // state.w) for i in state.my_turrets]),
+        en_turrets=Tiles([(i % state.w, i // state.w) for i in state.en_turrets]),
     )
