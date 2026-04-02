@@ -14,6 +14,7 @@ resolution-markers = [
 members = [
     "battlecode",
     "bot-adgato-astar-test",
+    "bot-adgato-bfs-test",
     "bot-adgato-dummy",
     "bot-adgato-launcher-test",
     "bot-adgato-teleportation",
@@ -29,6 +30,7 @@ members = [
     "bot-adgato-v5",
     "bot-adgato-v6",
     "bot-astar-test",
+    "bot-beacon-trollbot",
     "bot-beacon-v1",
     "bot-beacon-v2",
     "bot-beacon-v3",
@@ -140,6 +142,17 @@ dev = [
 name = "bot-adgato-astar-test"
 version = "0.0.0"
 source = { virtual = "bots/adgato/astar_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-adgato-bfs-test"
+version = "0.0.0"
+source = { virtual = "bots/adgato/bfs_test" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -305,6 +318,17 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-astar-test"
 version = "0.0.0"
 source = { virtual = "bots/test/astar_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-beacon-trollbot"
+version = "0.0.0"
+source = { virtual = "bots/beacon/v69" }
 dependencies = [
     { name = "cambc" },
 ]
