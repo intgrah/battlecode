@@ -43,7 +43,7 @@ def find_path_raw(
             if parent[ni] != -1:
                 continue
             # We cannot walk over builders
-            if node == si and ni in blocked:
+            if ni in blocked and ni != gi:
                 continue
             parent[ni] = node
             touched.append(ni)
