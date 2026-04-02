@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
-from .task import Role, initial_role
+from .role import Role, initial_role
 
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
@@ -32,14 +32,9 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import (
-    Controller,
-    Environment,
-    GameConstants,
-    Position,
-    Team,
-)
+from cambc import Controller, Environment, GameConstants, Position, Team
 from config import NAV, OPENING, USE_HARDCODED_MAPS, NavMode, OpeningMode
+from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, DIAL_MOD, INF
 from hardcode.apsp import DATA as APSP_DATA
 from hardcode.apsp_loader import ApspTable
 from hardcode.landmarks import DATA as LANDMARK_DATA
@@ -47,16 +42,7 @@ from hardcode.map import CANDIDATES, CORE_B, SYMMETRY, TILES, decode
 from hardcode.opening import get_opening
 from hardcode.opening.compiler import dsl_compile
 from hardcode.opening.mirror import mirror_opening
-from util import (
-    COST_EMPTY,
-    COST_IMPASSABLE,
-    COST_ROAD,
-    COST_UNSEEN,
-    DIAL_MOD,
-    DIR8_DELTA,
-    INF,
-    Symmetry,
-)
+from util import DIR8_DELTA, Symmetry
 
 
 class UnifiedFlow:

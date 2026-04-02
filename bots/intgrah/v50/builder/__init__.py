@@ -13,7 +13,7 @@ from hardcode.opening.compiler import (
     CompiledActionMove,
     CompiledMoveAction,
 )
-from marker import SYMMETRY_UNKNOWN, MarkerRole
+from marker import MarkerRole
 from unit import Unit
 
 from .action import (
@@ -30,10 +30,11 @@ from .action import (
     PlaceSplitter,
 )
 from .helpers import execute
+from .role import ROLE_TARGET_TOTAL, ROLE_TARGETS, Role
 from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
-from .task import _TARGET_TOTAL, ROLE_TARGETS, Role, Task
+from .task import Task
 from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
@@ -231,12 +232,10 @@ class Builder(Unit):
             s.last_claim = s.claim
             marker_val = s.claim.encode()
         else:
-            sym_val = s.symmetry.value if s.symmetry is not None else SYMMETRY_UNKNOWN
             marker_val = MarkerRole(
                 role=s.role.value,
                 birthday=s.birthday,
                 turn=ct.get_current_round(),
-                symmetry=sym_val,
             ).encode()
         pos = ct.get_position()
         for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
@@ -310,8 +309,8 @@ def _rebalance(state: State) -> Role:
     total = sum(counts.values()) or 1.0
     best_role = state.role
     best_deficit = -999.0
-    for role, target_weight in ROLE_TARGETS:
-        deficit = target_weight / _TARGET_TOTAL - counts[role] / total
+    for role, target_weight in ROLE_TARGETS.items():
+        deficit = target_weight / ROLE_TARGET_TOTAL - counts[role] / total
         if deficit > best_deficit:
             best_deficit = deficit
             best_role = role

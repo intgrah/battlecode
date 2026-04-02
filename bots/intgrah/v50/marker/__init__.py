@@ -56,7 +56,6 @@ class MarkerRole:
     role: int  # 2 bits
     birthday: int  # 11 bits
     turn: int  # 11 bits
-    symmetry: int  # 2 bits (ROT=0, HOR=1, VER=2, UNKNOWN=3)
 
     def encode(self) -> int:
         val = (
@@ -64,7 +63,6 @@ class MarkerRole:
             | (self.role << 26)
             | (self.birthday << 15)
             | (self.turn << 4)
-            | (self.symmetry << 2)
         )
         return encrypt(val)
 
@@ -74,11 +72,8 @@ class MarkerRole:
             role=(payload >> 26) & 0x3,
             birthday=(payload >> 15) & 0x7FF,
             turn=(payload >> 4) & 0x7FF,
-            symmetry=(payload >> 2) & 0x3,
         )
 
-
-SYMMETRY_UNKNOWN = 3
 
 type Marker = MarkerTaskClaim | MarkerEureka | MarkerRole
 
@@ -100,4 +95,4 @@ def decode(encrypted: int) -> Marker | None:
 
 def is_stale(claim: MarkerTaskClaim, current_turn: int) -> bool:
     age = current_turn - claim.turn
-    return age >= CLAIM_TTL or age < 0
+    return age >= CLAIM_TTL
