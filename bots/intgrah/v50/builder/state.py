@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
-from .task import Role
+from .task import Role, initial_role
 
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
@@ -139,10 +139,7 @@ class State:
         self.age = 0
 
         # -- Role --
-        bucket = self.birthday % 10
-        self.role: Role = (
-            Role.ECON if bucket < 5 else Role.DEFENSE if bucket < 8 else Role.OFFENSE
-        )
+        self.role: Role = initial_role(self.birthday)
         self.role_census: dict[int, tuple[Role, int]] = {}  # birthday -> (role, turn)
         n = self.w * self.h
 
