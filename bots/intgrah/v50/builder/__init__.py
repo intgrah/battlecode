@@ -13,7 +13,7 @@ from hardcode.opening.compiler import (
     CompiledActionMove,
     CompiledMoveAction,
 )
-from marker import MarkerEureka
+from marker import SYMMETRY_UNKNOWN, MarkerRole
 from unit import Unit
 
 from .action import (
@@ -33,7 +33,7 @@ from .helpers import execute
 from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
-from .task import Task
+from .task import Role, Task
 from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
@@ -193,6 +193,7 @@ class Builder(Unit):
 
     def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
         s = self.state
+        print(f"  role={s.role.name} census={len(s.role_census)}")
         for score, task in _policy(s):
             if score <= 0:
                 continue
@@ -204,6 +205,7 @@ class Builder(Unit):
             if result is not None:
                 print(f"  task={task.name} {elapsed}us OK")
                 print(f"  {result}")
+                s.role = _rebalance(s)
                 return result
             print(f"  task={task.name} {elapsed}us FAIL")
         print("  task=NONE")
@@ -225,14 +227,17 @@ class Builder(Unit):
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
-        marker_val = None
         if s.claim is not None:
             s.last_claim = s.claim
             marker_val = s.claim.encode()
-        elif s.symmetry is not None:
-            marker_val = MarkerEureka(s.symmetry.value).encode()
-        if marker_val is None:
-            return
+        else:
+            sym_val = s.symmetry.value if s.symmetry is not None else SYMMETRY_UNKNOWN
+            marker_val = MarkerRole(
+                role=s.role.value,
+                birthday=s.birthday,
+                turn=ct.get_current_round(),
+                symmetry=sym_val,
+            ).encode()
         pos = ct.get_position()
         for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
             if t == pos:
@@ -265,12 +270,73 @@ def _find_core(ct: Controller) -> Position:
     raise RuntimeError
 
 
+ROLE_TARGETS: tuple[tuple[Role, int], ...] = (
+    (Role.ECON, 5),
+    (Role.DEFENSE, 3),
+    (Role.OFFENSE, 2),
+)
+
+_TARGET_TOTAL: int = sum(t for _, t in ROLE_TARGETS)
+
+CENSUS_TTL = 16
+
+POLICIES: dict[Role, list[tuple[float, Task]]] = {
+    Role.ECON: [
+        (999.0, Task.HEAL_CORE),
+        (150.0, Task.CONNECT_EXCESS_TI),
+        (100.0, Task.HARVEST_TI),
+        (20.0, Task.EXPLORE),
+        (15.0, Task.PATROL),
+    ],
+    Role.DEFENSE: [
+        (999.0, Task.HEAL_CORE),
+        (200.0, Task.HEAL_TURRET),
+        (150.0, Task.PLACE_SENTINEL),
+        (100.0, Task.BARRIER_ORE),
+        (50.0, Task.PATROL),
+        (20.0, Task.EXPLORE),
+    ],
+    Role.OFFENSE: [
+        (999.0, Task.HEAL_CORE),
+        (200.0, Task.FIRE_ENEMY_TRANSPORT),
+        (150.0, Task.PLACE_LAUNCHER),
+        (50.0, Task.EXPLORE),
+        (20.0, Task.PATROL),
+    ],
+}
+
+
+def _rebalance(state: State) -> Role:
+    """Pick the role with the largest deficit from the target ratio."""
+    rnd = state.age + state.birthday
+    counts: dict[Role, float] = dict.fromkeys(Role, 0.0)
+    for role, turn in state.role_census.values():
+        age = rnd - turn
+        weight = max(0.0, 1.0 - age / CENSUS_TTL)
+        counts[role] += weight
+    counts[state.role] += 1.0  # include self
+    total = sum(counts.values()) or 1.0
+    best_role = state.role
+    best_deficit = -999.0
+    for role, target_weight in ROLE_TARGETS:
+        deficit = target_weight / _TARGET_TOTAL - counts[role] / total
+        if deficit > best_deficit:
+            best_deficit = deficit
+            best_role = role
+    return best_role
+
+
 def _policy(state: State) -> list[tuple[float, Task]]:
-    scores: list[tuple[float, Task]] = []
-    scores.append((999.0, Task.HEAL_CORE))
-    scores.append((150.0, Task.CONNECT_EXCESS_TI))
-    scores.append((100.0, Task.HARVEST_TI))
-    scores.append((20.0, Task.EXPLORE))
-    scores.append((25.0 if state.infra_max_staleness > 50 else 15.0, Task.PATROL))
-    scores.sort(key=lambda t: t[0], reverse=True)
-    return scores
+    policy = POLICIES[state.role]
+    # Adjust patrol score based on staleness for ECON role
+    if state.role == Role.ECON:
+        return [
+            (
+                25.0
+                if task == Task.PATROL and state.infra_max_staleness > 50
+                else score,
+                task,
+            )
+            for score, task in policy
+        ]
+    return policy

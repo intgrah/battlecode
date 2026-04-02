@@ -51,7 +51,36 @@ class MarkerEureka:
         return MarkerEureka(symmetry=payload & 0x3)
 
 
-type Marker = MarkerTaskClaim | MarkerEureka
+@dataclass(frozen=True)
+class MarkerRole:
+    role: int  # 2 bits
+    birthday: int  # 11 bits
+    turn: int  # 11 bits
+    symmetry: int  # 2 bits (ROT=0, HOR=1, VER=2, UNKNOWN=3)
+
+    def encode(self) -> int:
+        val = (
+            (2 << _TAG_SHIFT)
+            | (self.role << 26)
+            | (self.birthday << 15)
+            | (self.turn << 4)
+            | (self.symmetry << 2)
+        )
+        return encrypt(val)
+
+    @staticmethod
+    def decode(payload: int) -> MarkerRole:
+        return MarkerRole(
+            role=(payload >> 26) & 0x3,
+            birthday=(payload >> 15) & 0x7FF,
+            turn=(payload >> 4) & 0x7FF,
+            symmetry=(payload >> 2) & 0x3,
+        )
+
+
+SYMMETRY_UNKNOWN = 3
+
+type Marker = MarkerTaskClaim | MarkerEureka | MarkerRole
 
 
 def decode(encrypted: int) -> Marker | None:
@@ -63,6 +92,8 @@ def decode(encrypted: int) -> Marker | None:
             return MarkerTaskClaim.decode(payload)
         case 1:
             return MarkerEureka.decode(payload)
+        case 2:
+            return MarkerRole.decode(payload)
         case _:
             return None
 

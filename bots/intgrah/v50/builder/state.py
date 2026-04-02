@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
+from .task import Role
+
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
@@ -135,6 +137,13 @@ class State:
         self.my_team = ct.get_team()
         self.birthday = ct.get_current_round()
         self.age = 0
+
+        # -- Role --
+        bucket = self.birthday % 10
+        self.role: Role = (
+            Role.ECON if bucket < 5 else Role.DEFENSE if bucket < 8 else Role.OFFENSE
+        )
+        self.role_census: dict[int, tuple[Role, int]] = {}  # birthday -> (role, turn)
         n = self.w * self.h
 
         # -- Per-tile arrays (indexed by y * w + x) --
