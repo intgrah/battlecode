@@ -41,6 +41,11 @@ members = [
     "bot-exploit-posix",
     "bot-exploit-shellmod",
     "bot-exploit-uaf",
+    "bot-nahhh-baseline-v25",
+    "bot-nahhh-harvester-punisher",
+    "bot-nahhh-nahhh",
+    "bot-nahhh-noop",
+    "bot-nahhh-ore-capper",
     "bot-pd",
     "bot-rug",
     "bot-saboteur",
@@ -439,6 +444,61 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-exploit-uaf"
 version = "0.0.0"
 source = { virtual = "bots/exploit/uaf" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-nahhh-baseline-v25"
+version = "0.0.0"
+source = { virtual = "bots/nahhh/baseline_v25" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-nahhh-harvester-punisher"
+version = "0.0.0"
+source = { virtual = "bots/nahhh/harvester_punisher" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-nahhh-nahhh"
+version = "0.0.0"
+source = { virtual = "bots/nahhh/nahhh" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-nahhh-noop"
+version = "0.0.0"
+source = { virtual = "bots/nahhh/noop" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-nahhh-ore-capper"
+version = "0.0.0"
+source = { virtual = "bots/nahhh/ore_capper" }
 dependencies = [
     { name = "cambc" },
 ]

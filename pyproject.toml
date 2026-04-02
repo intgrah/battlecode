@@ -107,5 +107,6 @@ members = [
     "bots/intgrah/*",
     "bots/beacon/*",
     "bots/exploit/*",
+    "bots/nahhh/*",
     "bots/adgato/*",
 ]
