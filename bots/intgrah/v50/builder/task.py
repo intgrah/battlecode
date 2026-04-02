@@ -1,6 +1,12 @@
 from enum import IntEnum, auto
 
 
+class Role(IntEnum):
+    ECON = 0
+    DEFENSE = 1
+    OFFENSE = 2
+
+
 class Task(IntEnum):
     CONNECT_EXCESS_TI = auto()
     CONNECT_EXCESS_AX = auto()

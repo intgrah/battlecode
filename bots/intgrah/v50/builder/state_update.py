@@ -24,13 +24,16 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from marker import MarkerEureka, MarkerTaskClaim, is_stale
+from marker import MarkerEureka, MarkerRole, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import COST_IMPASSABLE, Symmetry
 
 from .state import State
 from .state_helpers import mirror
 from .state_update_econ import update_flow
+from .task import Role
+
+CENSUS_TTL = 16
 
 
 def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
@@ -106,6 +109,9 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
         state.unit_tiles.add(ct.get_position(uid))
 
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
+    state.role_census = {
+        b: (r, t) for b, (r, t) in state.role_census.items() if rnd - t < CENSUS_TTL
+    }
 
 
 def _stamp_unit_tiles(state: State) -> None:
@@ -152,6 +158,15 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                             state.claims.add(msg)
                         case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
+                        case MarkerRole() as role_msg:
+                            existing = state.role_census.get(role_msg.birthday)
+                            if existing is None or role_msg.turn > existing[1]:
+                                state.role_census[role_msg.birthday] = (
+                                    Role(role_msg.role),
+                                    role_msg.turn,
+                                )
+                            if state.symmetry is None and role_msg.symmetry != 3:
+                                state.symmetry = Symmetry(role_msg.symmetry)
                 case BuildingCore(team) if team != state.my_team:
                     state.en_core_tiles.add(i)
         else:
