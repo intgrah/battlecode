@@ -16,7 +16,7 @@ TEAM_LABELS = {
 
 
 WINNER_RE = re.compile(
-    r"Winner:\s+(?P<winner>\S+)\s+\((?P<reason>.+),\s*turn\s+(?P<turn>\d+)\)"
+    r"Winner:\s+(?P<winner>\S+)\s+\((?P<reason>.+),\s*turn\s+(?P<turn>\d+)\)",
 )
 
 
@@ -156,7 +156,8 @@ def initial_entities(replay: cambc_pb2.Replay) -> dict[int, dict[str, Any]]:
 
 
 def _apply_entity_update(
-    entities: dict[int, dict[str, Any]], update: cambc_pb2.Update
+    entities: dict[int, dict[str, Any]],
+    update: cambc_pb2.Update,
 ) -> None:
     kind = update.WhichOneof("kind")
     if kind == "place_entity":
@@ -232,7 +233,7 @@ def summarize_replay(path: str | Path) -> dict[str, Any]:
             "tle_count": 0,
             "max_exec_us": 0,
             "total_exec_us": 0,
-        }
+        },
     )
 
     for turn_no, turn in enumerate(replay.turns, start=1):

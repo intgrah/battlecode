@@ -55,7 +55,7 @@ def get_ladder(limit: int) -> list[dict]:
                 "rank": rank,
                 "name": parts[1],
                 "rating": int(parts[2]),
-            }
+            },
         )
     return teams
 
@@ -136,7 +136,9 @@ def search_team_id(name: str) -> str | None:
 def queue_unrated(team_id: str) -> str | None:
     """Queue an unrated match, return match ID or None."""
     out = subprocess.run(
-        [CAMBC, "match", "unrated", team_id], capture_output=True, text=True
+        [CAMBC, "match", "unrated", team_id],
+        capture_output=True,
+        text=True,
     )
     if out.returncode != 0:
         return None
@@ -148,13 +150,18 @@ def queue_unrated(team_id: str) -> str | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Queue unrated matches against nearby opponents"
+        description="Queue unrated matches against nearby opponents",
     )
     parser.add_argument(
-        "-n", type=int, default=10, help="Number of opponents (default: 10)"
+        "-n",
+        type=int,
+        default=10,
+        help="Number of opponents (default: 10)",
     )
     parser.add_argument(
-        "--top", action="store_true", help="Challenge top N instead of N above us"
+        "--top",
+        action="store_true",
+        help="Challenge top N instead of N above us",
     )
     args = parser.parse_args()
 
@@ -174,7 +181,7 @@ def main() -> None:
         targets = above[-n:]  # last n = closest above
 
     print(
-        f"Challenging {len(targets)} teams (ranks {targets[0]['rank']}-{targets[-1]['rank']}):\n"
+        f"Challenging {len(targets)} teams (ranks {targets[0]['rank']}-{targets[-1]['rank']}):\n",
     )
 
     results = []

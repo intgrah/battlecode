@@ -8,7 +8,7 @@ from replay_common import pos_text, trace_entity
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Trace one entity through a .replay26 file."
+        description="Trace one entity through a .replay26 file.",
     )
     parser.add_argument("replay", help="Path to a .replay26 file")
     parser.add_argument(
@@ -20,10 +20,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Entity id to trace",
     )
     parser.add_argument(
-        "--turn-from", type=int, default=1, help="First turn to include (1-based)"
+        "--turn-from",
+        type=int,
+        default=1,
+        help="First turn to include (1-based)",
     )
     parser.add_argument(
-        "--turn-to", type=int, help="Last turn to include (default: end of replay)"
+        "--turn-to",
+        type=int,
+        help="Last turn to include (default: end of replay)",
     )
     parser.add_argument(
         "--only-events",
@@ -31,7 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show only turns with events for this entity",
     )
     parser.add_argument(
-        "--json", action="store_true", help="Print machine-readable JSON"
+        "--json",
+        action="store_true",
+        help="Print machine-readable JSON",
     )
     return parser
 
@@ -77,7 +84,7 @@ def main() -> int:
             f"turn={record['turn']} present={record['present']} kind={record['kind']} "
             f"pos={pos_text(record['pos_after'])} hp={record['hp_after']} "
             f"acd={record['action_cooldown']} mcd={record['move_cooldown']} "
-            f"exec_us={record['exec_time_us']} {extra}"
+            f"exec_us={record['exec_time_us']} {extra}",
         )
         for line in record["stdout"]:
             print(f"  stdout: {line}")

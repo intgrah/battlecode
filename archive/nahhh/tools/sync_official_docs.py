@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 LINK_RE = re.compile(
-    r"^- \[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\): (?P<description>.+)$"
+    r"^- \[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\): (?P<description>.+)$",
 )
 DEFAULT_LLM_PATH = Path("llms.txt")
 DEFAULT_OUTPUT_DIR = Path("docs/vendor/official")
@@ -53,7 +53,7 @@ def parse_llms(path: Path, *, docs_only: bool = True) -> list[DocEntry]:
                 title=match.group("title").strip(),
                 url=url,
                 description=match.group("description").strip(),
-            )
+            ),
         )
     return entries
 
@@ -236,7 +236,9 @@ def fetch_url(url: str, timeout_s: int) -> tuple[bytes, dict[str, str]]:
 
 
 def render_snapshot(
-    entry: DocEntry, body: bytes, headers: dict[str, str]
+    entry: DocEntry,
+    body: bytes,
+    headers: dict[str, str],
 ) -> tuple[str, str]:
     content_type = headers.get("content-type", "")
     charset = "utf-8"
@@ -267,7 +269,7 @@ def render_snapshot(
             "",
             f"Description: {entry.description}",
             "",
-        ]
+        ],
     )
     return header + text, sha256
 
@@ -288,10 +290,12 @@ def build_manifest(records: Iterable[dict[str, str]]) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Sync official Battlecode docs referenced by llms.txt into local pinned snapshots."
+        description="Sync official Battlecode docs referenced by llms.txt into local pinned snapshots.",
     )
     parser.add_argument(
-        "--llms", default=str(DEFAULT_LLM_PATH), help="Path to llms.txt"
+        "--llms",
+        default=str(DEFAULT_LLM_PATH),
+        help="Path to llms.txt",
     )
     parser.add_argument(
         "--output-dir",
@@ -305,7 +309,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Per-request timeout in seconds",
     )
     parser.add_argument(
-        "--dry-run", action="store_true", help="List planned downloads without fetching"
+        "--dry-run",
+        action="store_true",
+        help="List planned downloads without fetching",
     )
     parser.add_argument(
         "--force",
@@ -347,7 +353,7 @@ def main() -> int:
                     "source_url": entry.url,
                     "path": str(destination),
                     "status": "skipped_existing",
-                }
+                },
             )
             continue
 
@@ -364,7 +370,7 @@ def main() -> int:
                 "content_type": headers.get("content-type", "unknown"),
                 "status": "fetched",
                 "sha256": sha256,
-            }
+            },
         )
 
     output_dir.mkdir(parents=True, exist_ok=True)

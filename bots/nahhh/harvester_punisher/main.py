@@ -75,7 +75,9 @@ class Player:
         target = self._nearest_enemy_harvester(ct)
         if target is None:
             goal = self._current_goal(
-                ct, "outward", self._outward_goal(ct.get_position())
+                ct,
+                "outward",
+                self._outward_goal(ct.get_position()),
             )
             self._step_toward(ct, goal)
             return
@@ -157,7 +159,7 @@ class Player:
             self.goal = target
             return self.goal
         if mode in {"harvester", "chip"} and here.distance_squared(
-            target
+            target,
         ) < here.distance_squared(self.goal):
             self.goal = target
         return self.goal
@@ -215,7 +217,9 @@ class Player:
         return True
 
     def _feedable_sentinel_facings(
-        self, target: Position, stand: Position
+        self,
+        target: Position,
+        stand: Position,
     ) -> list[Direction]:
         dx = target.x - stand.x
         dy = target.y - stand.y
@@ -261,7 +265,9 @@ class Player:
         return False
 
     def _best_enemy_walkable_adjacent_to(
-        self, ct: Controller, target: Position
+        self,
+        ct: Controller,
+        target: Position,
     ) -> Position | None:
         here = ct.get_position()
         best = None
@@ -287,10 +293,11 @@ class Player:
         if self.core_pos is None or self.map_w is None or self.map_h is None:
             return self.core_pos if self.core_pos is not None else Position(0, 0)
         enemy_core = Position(
-            self.map_w - 1 - self.core_pos.x, self.map_h - 1 - self.core_pos.y
+            self.map_w - 1 - self.core_pos.x,
+            self.map_h - 1 - self.core_pos.y,
         )
         horizontal = abs(enemy_core.x - self.core_pos.x) >= abs(
-            enemy_core.y - self.core_pos.y
+            enemy_core.y - self.core_pos.y,
         )
         if self.lane_offset is None:
             self.lane_offset = self._initial_lane_offset(pos, horizontal=horizontal)
@@ -337,7 +344,10 @@ class Player:
         return 0
 
     def _scout_waypoints(
-        self, enemy_core: Position, *, horizontal: bool
+        self,
+        enemy_core: Position,
+        *,
+        horizontal: bool,
     ) -> list[Position]:
         assert self.core_pos is not None
         assert self.map_w is not None
@@ -349,7 +359,9 @@ class Player:
             alternate_lane = -lane
         if horizontal:
             mid_x = self._clamp(
-                (self.core_pos.x + enemy_core.x) // 2, 0, self.map_w - 1
+                (self.core_pos.x + enemy_core.x) // 2,
+                0,
+                self.map_w - 1,
             )
             lane_y = self._clamp(enemy_core.y + lane, 0, self.map_h - 1)
             alt_y = self._clamp(enemy_core.y + alternate_lane, 0, self.map_h - 1)

@@ -25,11 +25,10 @@ __all__ = ["update_flow"]
 
 
 def update_flow(state: State) -> None:
-    """
-    Uhh we treat all transport buildings as equal, so we compute flow as a unified property of the whole map, and then assign attribution to certain flow
+    """Uhh we treat all transport buildings as equal, so we compute flow as a unified property of the whole map, and then assign attribution to certain flow
     This probably helps somewhat
     E.g. if there's an enemy harvester that you're appropriating as your own, then this algorithm will not mind (before, we computed flow separately for allied and enemy transport)
-    E.g. if there's a friendly harvester that's being hijacked with four enemy sentinels, this algorithm can correctly identify that it needs to be destroyed (despite being ours) which is good
+    E.g. if there's a friendly harvester that's being hijacked with four enemy sentinels, this algorithm can correctly identify that it needs to be destroyed (despite being ours) which is good.
 
     This is toposort to find source nodes and then you compute flow in a really obvious way
     """

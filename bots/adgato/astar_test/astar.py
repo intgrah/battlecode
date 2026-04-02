@@ -53,7 +53,11 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
 
 
 def _build_nb_chunk(
-    nb: list[list[int]], w: int, h: int, start: int, within_budget: Callable[[], bool]
+    nb: list[list[int]],
+    w: int,
+    h: int,
+    start: int,
+    within_budget: Callable[[], bool],
 ) -> int:
     """Compute neighbor table incrementally. Returns next index to resume from."""
     n = w * h
@@ -341,7 +345,11 @@ class NavAstar:
         # Continue building neighbor table if not done
         if self._nb_progress < self._n:
             self._nb_progress = _build_nb_chunk(
-                self._nb, self.w, self.h, self._nb_progress, within_budget
+                self._nb,
+                self.w,
+                self.h,
+                self._nb_progress,
+                within_budget,
             )
             return None
 

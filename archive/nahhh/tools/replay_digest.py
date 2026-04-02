@@ -8,11 +8,13 @@ from replay_common import summarize_replay
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Summarize a .replay26 file using the repo-local proto schema."
+        description="Summarize a .replay26 file using the repo-local proto schema.",
     )
     parser.add_argument("replay", help="Path to a .replay26 file")
     parser.add_argument(
-        "--json", action="store_true", help="Print machine-readable JSON"
+        "--json",
+        action="store_true",
+        help="Print machine-readable JSON",
     )
     return parser
 
@@ -41,7 +43,7 @@ def main() -> int:
             continue
         print(
             f"  {team}: titanium={player['titanium']} axionite={player['axionite']} "
-            f"ti_collected={player['titanium_collected']} ax_collected={player['axionite_collected']}"
+            f"ti_collected={player['titanium_collected']} ax_collected={player['axionite_collected']}",
         )
 
     print("Final Living Entities:")
@@ -54,7 +56,7 @@ def main() -> int:
     print("Execution:")
     print(
         f"  bot_output_events={bot_outputs['events']} stdout_events={bot_outputs['stdout_events']} "
-        f"tles_total={bot_outputs['tles_total']} first_tle_turn={bot_outputs['first_tle_turn']}"
+        f"tles_total={bot_outputs['tles_total']} first_tle_turn={bot_outputs['first_tle_turn']}",
     )
     if bot_outputs["tles_by_team"]:
         teams = " ".join(
@@ -65,7 +67,7 @@ def main() -> int:
     for stat in bot_outputs["top_exec_entities"]:
         print(
             f"    id={stat['id']} team={stat['team']} kind={stat['kind']} "
-            f"tles={stat['tle_count']} max_exec_us={stat['max_exec_us']} avg_exec_us={stat['avg_exec_us']}"
+            f"tles={stat['tle_count']} max_exec_us={stat['max_exec_us']} avg_exec_us={stat['avg_exec_us']}",
         )
 
     indicators = summary["indicators"]
