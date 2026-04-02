@@ -13,7 +13,7 @@ pub struct PaletteDef {
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum VisField {
     Grid {
-        data: Vec<Option<f64>>,
+        data: Vec<serde_json::Value>,
         palette: PaletteDef,
     },
     Scalar {
@@ -22,7 +22,6 @@ pub enum VisField {
     Tiles {
         data: Vec<[i32; 2]>,
     },
-    #[serde(rename = "vectorfield")]
     VectorField {
         angles: Vec<Option<f64>>,
         magnitudes: Option<Vec<f64>>,
@@ -46,6 +45,14 @@ pub struct Color {
     pub g: u8,
     pub b: u8,
     pub a: u8,
+}
+
+pub fn value_to_f64(v: &serde_json::Value) -> Option<f64> {
+    match v {
+        serde_json::Value::Number(n) => n.as_f64(),
+        serde_json::Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
+        _ => None,
+    }
 }
 
 #[allow(clippy::many_single_char_names)]
