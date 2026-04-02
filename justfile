@@ -1,5 +1,4 @@
 default_map := "maps/default_large1.map26"
-small_map := "maps/default_small1.map26"
 [private]
 _analysis := "cd scripts && python -m analysis"
 
@@ -98,14 +97,8 @@ f: ty lint fmt
 tournament *args:
     python scripts/tournament.py run {{ args }}
 
-snapshot:
-    python scripts/tournament.py snapshot
-
 latest:
     @python scripts/tournament.py latest
-
-bots-list:
-    @python scripts/tournament.py list
 
 submit bot="":
     #!/usr/bin/env bash
@@ -130,18 +123,6 @@ challenge bot opponent:
     cambc submit "bots/{{ bot }}"
     echo "Challenging {{ opponent }}"
     cambc unrated "{{ opponent }}"
-    echo "Restoring $ranked"
-    cambc submit "bots/$ranked"
-
-challenge-all bot:
-    #!/usr/bin/env bash
-    ranked="${RANKED:-v21}"
-    find "bots/{{ bot }}" -type d -name __pycache__ -exec rm -rf {} +
-    echo "Submitting {{ bot }}"
-    cambc submit "bots/{{ bot }}"
-    cambc unrated "87ee9a96-2175-4a03-afbb-a1ed3b67bb84" || true
-    cambc unrated "05a96b0d-3ce5-4be8-921b-570dd973994a" || true
-    cambc unrated "421bd2a2-c421-4359-a06a-9a517f1e08a7" || true
     echo "Restoring $ranked"
     cambc submit "bots/$ranked"
 
@@ -188,9 +169,6 @@ remote-fetch:
 
 ci *args:
     python scripts/remote_ci.py {{ args }}
-
-belief replay="replay.replay26":
-    cd belief_viewer && REPLAY_FILE={{ replay }} bun run dev -- --port 5174
 
 docs:
     #!/usr/bin/env bash
