@@ -269,6 +269,24 @@ c.build_foundry(pos)                      c.can_build_foundry(pos)
 c.build_launcher(pos)                     c.can_build_launcher(pos)
 ```
 
+### Generic build
+
+A single pair of methods that dispatches to the correct type-specific builder. Use these when the entity type is determined at runtime.
+
+<ResponseField name="can_build(entity_type: EntityType, position: Position, extra: Direction | Position | None = None)" type="bool">
+  Return True if `entity_type` can be built at `position`. For directional
+  buildings and turrets (conveyor, splitter, armoured\_conveyor, gunner,
+  sentinel, breach), `extra` must be a `Direction`. For bridges, `extra` must be
+  the target `Position`. For all other types (harvester, road, barrier, launcher,
+  foundry), `extra` is unused.
+</ResponseField>
+
+<ResponseField name="build(entity_type: EntityType, position: Position, extra: Direction | Position | None = None)" type="int">
+  Build `entity_type` at `position`. Returns the new entity's id. The `extra`
+  parameter follows the same rules as `can_build()`. Raises `GameError` if not
+  legal.
+</ResponseField>
+
 ## Healing & destruction
 
 <ResponseField name="heal(position: Position)" type="None">
