@@ -58,12 +58,13 @@ def dump(state: State, ct: Controller) -> None:
             [rnd - t if t > 0 else -1 for t in state.last_seen],
             palette=P_STALENESS,
         ),
+        infra_max_staleness=Scalar(state.infra_max_staleness),
         flow_ti=Grid(state.flow.ti, palette=P_GREEN),
         flow_ax=Grid(state.flow.ax, palette=P_BLUE),
         flow_rax=Grid(state.flow.rax, palette=P_VIRIDIS),
         flow_excess=Grid(state.flow.excess, palette=P_RED_GREEN),
         blocked=Grid(
-            [1 if b else 0 for b in state.flow.blocked],
+            [bool(b) for b in state.flow.blocked],
             palette=P_BOOL,
         ),
         my_frac=Grid(state.flow.my_frac, palette=P_GREEN),
@@ -73,4 +74,5 @@ def dump(state: State, ct: Controller) -> None:
         ore_ax=Tiles([(i % state.w, i // state.w) for i in state.ore_ax]),
         unit_tiles=Tiles(state.unit_tiles),
         symmetry=Scalar(str(state.symmetry)),
+        symmetry_candidates=Scalar(str(state.symmetry_candidates)),
     )
