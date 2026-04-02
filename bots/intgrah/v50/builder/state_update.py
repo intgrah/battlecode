@@ -25,10 +25,11 @@ from building import (
 )
 from cambc import Controller, EntityType, Environment, Position
 from constants import COST_IMPASSABLE
-from marker import MarkerEureka, MarkerTaskClaim, is_stale
+from marker import MarkerEureka, MarkerRole, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import Symmetry
 
+from .role import Role
 from .state import State
 from .state_helpers import mirror
 from .state_update_econ import update_flow
@@ -157,6 +158,8 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                             state.claims.add(msg)
                         case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
+                        case MarkerRole():
+                            state.role_census[msg.birthday] = (Role(msg.role), msg.turn)
                 case BuildingCore(team) if team != state.my_team:
                     state.en_core_tiles.add(i)
         else:

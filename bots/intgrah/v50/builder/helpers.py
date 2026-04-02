@@ -25,31 +25,11 @@ from .action import (
 from .state import State
 
 
-def move_toward(state: State, ct: Controller, target: Position) -> Direction:
-    pos = state.pos
-    if pos == target:
-        return Direction.CENTRE
-    t0 = ct.get_cpu_time_elapsed()
-    path = find_path(state, target.x, target.y)
-    t1 = ct.get_cpu_time_elapsed()
-    print(f"  nav={t1 - t0}us")
-    if path is None or len(path) < 2:
-        return Direction.CENTRE
-    draw_path(ct, state.w, path)
-    w = state.w
-    nx, ny = path[1] % w, path[1] // w
-    nxt = Position(nx, ny)
-    d = pos.direction_to(nxt)
-    if ct.can_move(d):
-        return d
-    return Direction.CENTRE
-
-
 def move_toward_with_road(
     state: State,
     ct: Controller,
     target: Position,
-) -> tuple[Direction, Action | None]:
+) -> tuple[Direction, Action | None] | None:
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
@@ -58,7 +38,7 @@ def move_toward_with_road(
     t1 = ct.get_cpu_time_elapsed()
     print(f"  nav={t1 - t0}us")
     if path is None or len(path) < 2:
-        return Direction.CENTRE, None
+        return None
     draw_path(ct, state.w, path)
     w = state.w
     nx, ny = path[1] % w, path[1] // w
@@ -70,7 +50,7 @@ def move_toward_with_road(
     ti, _ = ct.get_global_resources()
     if ti >= road_cost and ct.can_build_road(nxt):
         return d, PlaceRoad(nxt)
-    return Direction.CENTRE, None
+    return None
 
 
 def draw_path(

@@ -591,12 +591,14 @@ version = "0.0.0"
 source = { virtual = "bots/intgrah/v50" }
 dependencies = [
     { name = "cambc" },
+    { name = "util" },
     { name = "visualiser" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "cambc", specifier = ">=1.4.6" },
+    { name = "util", editable = "lib/util" },
     { name = "visualiser", editable = "lib/visualiser" },
 ]
 

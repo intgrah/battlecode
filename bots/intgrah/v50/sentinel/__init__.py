@@ -8,59 +8,46 @@ class Sentinel(Unit):
 
     def run(self, ct: Controller) -> None:
         my_team = ct.get_team()
-        best_target = None
-        best_priority = -1
+        targets: list[tuple[int, Position]] = []
 
         for bid in ct.get_nearby_buildings():
             if ct.get_team(bid) == my_team:
                 continue
             etype = ct.get_entity_type(bid)
-            priority = _target_priority(etype)
-            if priority <= best_priority:
-                continue
             bp = ct.get_position(bid)
             if etype == EntityType.CORE:
                 for dx in range(-1, 2):
                     for dy in range(-1, 2):
                         tp = Position(bp.x + dx, bp.y + dy)
                         if ct.can_fire(tp):
-                            best_priority = priority
-                            best_target = tp
+                            targets.append((_target_priority(etype), tp))
             elif ct.can_fire(bp):
-                best_priority = priority
-                best_target = bp
+                targets.append((_target_priority(etype), bp))
 
         for uid in ct.get_nearby_units():
             if ct.get_team(uid) == my_team:
                 continue
             up = ct.get_position(uid)
-            if not ct.can_fire(up):
-                continue
-            etype = ct.get_entity_type(uid)
-            priority = _target_priority(etype)
-            if priority > best_priority:
-                best_priority = priority
-                best_target = up
+            if ct.can_fire(up):
+                targets.append((_target_priority(ct.get_entity_type(uid)), up))
 
-        if best_target is not None:
-            ct.fire(best_target)
+        if targets:
+            ct.fire(max(targets)[1])
+
+
+_PRIORITY: dict[EntityType, int] = {
+    EntityType.BREACH: 10,
+    EntityType.SENTINEL: 9,
+    EntityType.GUNNER: 8,
+    EntityType.SPLITTER: 7,
+    EntityType.HARVESTER: 6,
+    EntityType.BRIDGE: 5,
+    EntityType.CONVEYOR: 4,
+    EntityType.ARMOURED_CONVEYOR: 3,
+    EntityType.CORE: 2,
+    EntityType.BUILDER_BOT: 1,
+}
 
 
 def _target_priority(etype: EntityType) -> int:
-    match etype:
-        case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
-            return 4
-        case (
-            EntityType.HARVESTER
-            | EntityType.BRIDGE
-            | EntityType.CONVEYOR
-            | EntityType.SPLITTER
-            | EntityType.ARMOURED_CONVEYOR
-        ):
-            return 3
-        case EntityType.BUILDER_BOT:
-            return 2
-        case EntityType.CORE:
-            return 1
-        case _:
-            return 0
+    return _PRIORITY.get(etype, 0)

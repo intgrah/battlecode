@@ -22,11 +22,8 @@ class Astar[T]:
         h0 = self.heuristic(source)
         self._heap: list[tuple[int, int, T]] = [(h0, 0, source)]
 
-    def get_neighbors(self, node: T) -> list[tuple[T, int]]:
-        raise NotImplementedError
-
-    def heuristic(self, node: T) -> int:
-        raise NotImplementedError
+    def get_neighbors(self, node: T) -> list[tuple[T, int]]: ...
+    def heuristic(self, node: T) -> int: ...
 
     def _extract_path(self, node: T) -> list[T]:
         path: list[T] = []

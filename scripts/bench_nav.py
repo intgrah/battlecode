@@ -1093,8 +1093,7 @@ def main() -> None:
         hn = len(hpa_precomp_times)
         print(
             f"\nHPA* precomp: p50={hpa_precomp_times[hn // 2]:.0f}us"
-            f" p100={hpa_precomp_times[-1]:.0f}us"
-            f" (NOT amortized, per map)",
+            f" p100={hpa_precomp_times[-1]:.0f}us",
             file=sys.stderr,
         )
 
