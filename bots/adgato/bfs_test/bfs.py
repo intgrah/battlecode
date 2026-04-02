@@ -10,12 +10,11 @@ the buffers swap.
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 from symmetry import Symmetry, mirror_idx
-import math
-
 from visualiser import Grid, Palette, VectorField, emit
 
 if TYPE_CHECKING:
@@ -355,7 +354,7 @@ class NavBfs:
                 if ct.can_move(direction):
                     ct.move(direction)
                     return True
-        
+
         # Just move in any direction, and continue bfs (we didn't compute bfs behind us)
         for ni in pnb:
             next_pos = Position(ni % w, ni // w)
@@ -369,5 +368,5 @@ class NavBfs:
                     self._swap()
                 ct.move(direction)
                 return True
-            
+
         return False
