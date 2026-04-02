@@ -105,72 +105,39 @@ def _destroy_friendly(ct: Controller, pos: Position) -> None:
 
 
 def execute(action: Action, ct: Controller) -> None:
-    ti, _ = ct.get_global_resources()
     match action:
         case PlaceHarvester(pos):
-            cost, _ = ct.get_harvester_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_harvester(pos):
-                    ct.build_harvester(pos)
+            _destroy_friendly(ct, pos)
+            ct.build_harvester(pos)
         case PlaceConveyor(pos, direction):
-            cost, _ = ct.get_conveyor_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_conveyor(pos, direction):
-                    ct.build_conveyor(pos, direction)
+            _destroy_friendly(ct, pos)
+            ct.build_conveyor(pos, direction)
         case PlaceArmouredConveyor(pos, direction):
-            cost, _ = ct.get_armoured_conveyor_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_armoured_conveyor(pos, direction):
-                    ct.build_armoured_conveyor(pos, direction)
+            _destroy_friendly(ct, pos)
+            ct.build_armoured_conveyor(pos, direction)
         case PlaceBridge(pos, target):
-            cost, _ = ct.get_bridge_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_bridge(pos, target):
-                    ct.build_bridge(pos, target)
+            _destroy_friendly(ct, pos)
+            ct.build_bridge(pos, target)
         case PlaceRoad(pos):
-            cost, _ = ct.get_road_cost()
-            if ti >= cost and ct.can_build_road(pos):
-                ct.build_road(pos)
+            ct.build_road(pos)
         case PlaceFoundry(pos):
-            cost, _ = ct.get_foundry_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_foundry(pos):
-                    ct.build_foundry(pos)
+            _destroy_friendly(ct, pos)
+            ct.build_foundry(pos)
         case PlaceSplitter(pos, direction):
-            cost, _ = ct.get_splitter_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_splitter(pos, direction):
-                    ct.build_splitter(pos, direction)
+            _destroy_friendly(ct, pos)
+            ct.build_splitter(pos, direction)
         case SelfDestruct():
             ct.self_destruct()
         case Heal(pos):
-            if ct.can_heal(pos):
-                ct.heal(pos)
+            ct.heal(pos)
         case PlaceBarrier(pos):
-            cost, _ = ct.get_barrier_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_barrier(pos):
-                    ct.build_barrier(pos)
+            _destroy_friendly(ct, pos)
+            ct.build_barrier(pos)
         case PlaceSentinel(pos, direction):
-            cost, _ = ct.get_sentinel_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_sentinel(pos, direction):
-                    ct.build_sentinel(pos, direction)
+            _destroy_friendly(ct, pos)
+            ct.build_sentinel(pos, direction)
         case PlaceLauncher(pos):
-            cost, _ = ct.get_launcher_cost()
-            if ti >= cost:
-                _destroy_friendly(ct, pos)
-                if ct.can_build_launcher(pos):
-                    ct.build_launcher(pos)
+            _destroy_friendly(ct, pos)
+            ct.build_launcher(pos)
         case Fire():
-            pos = ct.get_position()
-            if ct.can_fire(pos):
-                ct.fire(pos)
+            ct.fire(ct.get_position())
