@@ -1,3 +1,3 @@
 #!/bin/bash
 .venv/bin/cambc run "$@"
-v/target/release/v replay.replay26
+lib/visualiser/viewer/target/release/visualiser-viewer replay.replay26
