@@ -6,9 +6,10 @@
       "source.fixAll.ruff": "explicit"
     }
   },
-  "python.analysis.typeCheckingMode": "off",
   "files.exclude": {
     "**/__pycache__": true,
-    "**/*.egg-info": true
+    "**/*.egg-info": true,
+    ".ruff_cache": true,
+    ".venv": true
   }
 }

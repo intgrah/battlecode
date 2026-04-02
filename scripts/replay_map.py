@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import sys
 from collections import defaultdict
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from proto.cambc_pb2 import Entity, Replay
+from scripts.replay import load_replay
+
+if TYPE_CHECKING:
+    from proto.cambc_pb2 import Entity, Replay
 
 TEAM = {0: "A", 1: "B"}
 
@@ -41,11 +46,7 @@ def entity_kind(e: Entity) -> str:
     return e.WhichOneof("kind") or "unknown"
 
 
-def parse(path: str) -> Replay:
-    with Path(path).open("rb") as f:
-        r = Replay()
-        r.ParseFromString(f.read())
-        return r
+parse = load_replay
 
 
 def analyze(r: Replay, target_turn: int | None = None) -> dict:

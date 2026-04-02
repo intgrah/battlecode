@@ -9,11 +9,16 @@ Usage:
     python scripts/verify_network.py replay.replay26 [turn] [team]
 """
 
+from __future__ import annotations
+
 import json
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from proto.cambc_pb2 import Replay
+from scripts.replay import load_replay
+
+if TYPE_CHECKING:
+    from proto.cambc_pb2 import Replay
 
 DIR_DELTA = {
     0: (0, 0),
@@ -216,9 +221,7 @@ def main() -> None:
     at_turn = int(sys.argv[2]) if len(sys.argv) > 2 else None
     team = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 
-    r = Replay()
-    with Path(path).open("rb") as f:
-        r.ParseFromString(f.read())
+    r = load_replay(path)
 
     if at_turn is None:
         at_turn = len(r.turns)

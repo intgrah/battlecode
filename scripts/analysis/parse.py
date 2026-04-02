@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
+
+from scripts.replay import load_replay
 
 from .types import MapMeta
 
@@ -10,12 +11,7 @@ if TYPE_CHECKING:
 
 
 def parse(path: str) -> Replay:
-    from proto.cambc_pb2 import Replay as _Replay
-
-    with Path(path).open("rb") as f:
-        r = _Replay()
-        r.ParseFromString(f.read())
-        return r
+    return load_replay(path)
 
 
 def extract_map_meta(replay: Replay) -> MapMeta:

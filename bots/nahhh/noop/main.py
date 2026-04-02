@@ -1,3 +1,5 @@
+import random
+
 from cambc import Controller, Direction, EntityType
 
 
@@ -38,8 +40,6 @@ class Player:
 
             # Wander randomly
             if ct.get_move_cooldown() == 0:
-                import random
-
                 dirs = [
                     Direction.NORTH,
                     Direction.EAST,

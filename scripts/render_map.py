@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from proto.cambc_pb2 import Map
+from scripts.replay import load_map
 
 # Environment enum values
 ENV_EMPTY = 0
@@ -32,8 +32,7 @@ CELL = 48  # pixels per tile
 
 
 def render_map(map_path: str, output_path: str | None = None) -> str:
-    m = Map()
-    m.ParseFromString(Path(map_path).read_bytes())
+    m = load_map(map_path)
     w, h = m.width, m.height
 
     # Parse tiles

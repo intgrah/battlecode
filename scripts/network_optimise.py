@@ -3,12 +3,11 @@ import sys
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 from random import Random
 
 from PIL import Image, ImageDraw
 
-from proto import cambc_pb2
+from scripts.replay import load_map as _load_pb_map
 
 type Pos = tuple[int, int]
 
@@ -388,9 +387,7 @@ def astar(
 
 
 def load_map(path: str) -> MapGrid:
-    with Path(path).open("rb") as f:
-        mm = cambc_pb2.Map()
-        mm.ParseFromString(f.read())
+    mm = _load_pb_map(path)
 
     w, h = mm.width, mm.height
     ti: list[Pos] = []
