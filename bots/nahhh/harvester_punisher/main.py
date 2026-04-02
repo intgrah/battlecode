@@ -293,8 +293,8 @@ class Player:
             enemy_core.y - self.core_pos.y
         )
         if self.lane_offset is None:
-            self.lane_offset = self._initial_lane_offset(pos, horizontal)
-        goals = self._scout_waypoints(enemy_core, horizontal)
+            self.lane_offset = self._initial_lane_offset(pos, horizontal=horizontal)
+        goals = self._scout_waypoints(enemy_core, horizontal=horizontal)
         goal = goals[self.scout_stage]
         dist = pos.distance_squared(goal)
         if dist <= 4:
@@ -314,7 +314,7 @@ class Player:
         self.last_goal_dist = dist
         return goal
 
-    def _initial_lane_offset(self, pos: Position, horizontal: bool) -> int:
+    def _initial_lane_offset(self, pos: Position, *, horizontal: bool) -> int:
         if self.core_pos is None or self.map_w is None or self.map_h is None:
             return 0
         secondary_span = self.map_h if horizontal else self.map_w
@@ -337,7 +337,7 @@ class Player:
         return 0
 
     def _scout_waypoints(
-        self, enemy_core: Position, horizontal: bool
+        self, enemy_core: Position, *, horizontal: bool
     ) -> list[Position]:
         assert self.core_pos is not None
         assert self.map_w is not None

@@ -1,7 +1,8 @@
-import sys
-from pathlib import Path
+from __future__ import annotations
 
-from proto.cambc_pb2 import Replay
+import sys
+
+from scripts.replay import load_replay
 
 DD = {
     0: (0, 0),
@@ -22,9 +23,7 @@ def main() -> None:
     team = int(sys.argv[2]) if len(sys.argv) > 2 else 0
     max_turn = int(sys.argv[3]) if len(sys.argv) > 3 else 120
 
-    r = Replay()
-    with Path(path).open("rb") as f:
-        r.ParseFromString(f.read())
+    r = load_replay(path)
 
     cores = {}
     for c in r.map.cores:

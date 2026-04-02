@@ -1,12 +1,11 @@
 import math
 import sys
-from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
 from scipy.optimize import linear_sum_assignment
 
-from proto.cambc_pb2 import Replay
+from scripts.replay import load_replay
 
 CAPACITY = 1.0
 
@@ -164,9 +163,7 @@ def main() -> None:
     replay_file = sys.argv[1] if len(sys.argv) > 1 else "replay.replay26"
     output_file = sys.argv[2] if len(sys.argv) > 2 else "network.png"
 
-    with Path(replay_file).open("rb") as f:
-        replay = Replay()
-        replay.ParseFromString(f.read())
+    replay = load_replay(replay_file)
 
     mm = replay.map
     w, h = mm.width, mm.height

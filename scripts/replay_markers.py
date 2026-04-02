@@ -2,9 +2,9 @@
 
 import sys
 from collections import defaultdict
-from pathlib import Path
 
-from proto.cambc_pb2 import Entity, Replay
+from proto.cambc_pb2 import Entity
+from scripts.replay import load_replay
 
 
 def entity_kind(e: Entity) -> str:
@@ -12,9 +12,7 @@ def entity_kind(e: Entity) -> str:
 
 
 def analyze_markers(path: str) -> None:
-    with Path(path).open("rb") as f:
-        r = Replay()
-        r.ParseFromString(f.read())
+    r = load_replay(path)
 
     total_turns = len(r.turns)
     w, h = r.map.width, r.map.height

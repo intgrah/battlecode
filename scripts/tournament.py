@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
-from proto.cambc_pb2 import Replay
+from scripts.replay import load_replay
 
 ROOT = Path(__file__).resolve().parent.parent
 BOTS_DIR = ROOT / "bots"
@@ -60,8 +60,7 @@ def run_match(bot_a: str, bot_b: str, map_path: str, replay_path: str) -> str | 
     replay = Path(replay_path)
     if not replay.exists():
         return None
-    r = Replay()
-    r.ParseFromString(replay.read_bytes())
+    r = load_replay(replay)
     if r.HasField("winner"):
         return "A" if r.winner == 0 else "B"
     return "draw"

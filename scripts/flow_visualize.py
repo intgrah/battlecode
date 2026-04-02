@@ -22,9 +22,12 @@ import sys
 import tempfile
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from proto.cambc_pb2 import Replay
+if TYPE_CHECKING:
+    from proto.cambc_pb2 import Replay
+
+from scripts.replay import load_replay
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -47,10 +50,7 @@ CARD = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 TRANSPORT_TYPES = {"conveyor", "armoured_conveyor", "splitter", "bridge"}
 
 
-def parse_replay(path: str) -> Replay:
-    r = Replay()
-    r.ParseFromString(Path(path).read_bytes())
-    return r
+parse_replay = load_replay
 
 
 Pos = tuple[int, int]

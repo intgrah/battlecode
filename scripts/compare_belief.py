@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from proto.cambc_pb2 import Replay
+from scripts.replay import load_replay
 
 DIR_DELTA = {
     0: (0, 0),
@@ -141,9 +142,7 @@ def main() -> None:
     belief_path = sys.argv[2] if len(sys.argv) > 2 else str(default_belief)
     team = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 
-    r = Replay()
-    with Path(replay_path).open("rb") as f:
-        r.ParseFromString(f.read())
+    r = load_replay(replay_path)
 
     beliefs = []
     with Path(belief_path).open() as f:

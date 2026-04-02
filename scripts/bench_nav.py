@@ -21,8 +21,8 @@ from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 
-from proto.cambc_pb2 import Map as PbMap
 from scripts.hpastar import GatewayGraph
+from scripts.replay import load_map
 
 MAPS_DIR = Path(__file__).resolve().parent.parent / "maps"
 
@@ -46,8 +46,7 @@ AlgoEntry = tuple[str, AlgoFn, bool]
 
 
 def _load_map(path: Path) -> tuple[int, int, list[int]]:
-    m = PbMap()
-    m.ParseFromString(path.read_bytes())
+    m = load_map(path)
     tiles: list[int] = []
     for row in m.rows:
         tiles.extend(row.tiles)
