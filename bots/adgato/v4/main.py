@@ -138,12 +138,14 @@ def find_nearest_ore(ct: Controller, pos: Position) -> Position | None:
     best, best_dist = None, 999999
     for tile in ct.get_nearby_tiles():
         env = ct.get_tile_env(tile)
-        if env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
-            if ct.get_tile_building_id(tile) is None:
-                d = pos.distance_squared(tile)
-                if d < best_dist:
-                    best_dist = d
-                    best = tile
+        if (
+            env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+            and ct.get_tile_building_id(tile) is None
+        ):
+            d = pos.distance_squared(tile)
+            if d < best_dist:
+                best_dist = d
+                best = tile
     return best
 
 
@@ -447,14 +449,15 @@ class Player:
             and not self.has_broadcast
         ):
             for candidate in self.comms_candidates:
-                if pos.distance_squared(candidate) <= 2:
-                    if ct.can_place_marker(candidate):
-                        ct.place_marker(candidate, encode_symmetry(self.sym_resolved))
-                        print(
-                            f"Broadcast: wrote [{self.sym_resolved.value}] to comms tile",
-                        )
-                        self.has_broadcast = True
-                        break
+                if pos.distance_squared(candidate) <= 2 and ct.can_place_marker(
+                    candidate
+                ):
+                    ct.place_marker(candidate, encode_symmetry(self.sym_resolved))
+                    print(
+                        f"Broadcast: wrote [{self.sym_resolved.value}] to comms tile",
+                    )
+                    self.has_broadcast = True
+                    break
 
         # Switch to broadcast phase if we detected symmetry during explore
         if (
@@ -548,10 +551,12 @@ class Player:
                 if not in_bounds(ct, mirrored):
                     self.sym_eliminated.add(s)
                     break
-                if mirrored in self.known_env:
-                    if self.known_env[mirrored] != self.known_env[tile]:
-                        self.sym_eliminated.add(s)
-                        break
+                if (
+                    mirrored in self.known_env
+                    and self.known_env[mirrored] != self.known_env[tile]
+                ):
+                    self.sym_eliminated.add(s)
+                    break
 
         self._try_resolve_from_remaining(w, h)
 

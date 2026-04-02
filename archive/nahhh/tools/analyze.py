@@ -210,9 +210,12 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
         near_count = 0
         if our_core_pos is not None:
             for e in entities.values():
-                if e["team"] == enemy_team and e["kind"] == "builder_bot":
-                    if dist_sq(e["pos"], our_core_pos) <= 50:
-                        near_count += 1
+                if (
+                    e["team"] == enemy_team
+                    and e["kind"] == "builder_bot"
+                    and dist_sq(e["pos"], our_core_pos) <= 50
+                ):
+                    near_count += 1
         enemy_bots_near_core.append(near_count)
 
     # --- Classification ---

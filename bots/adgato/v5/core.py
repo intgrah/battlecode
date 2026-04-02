@@ -57,9 +57,11 @@ def run_core(player: Player, ct: Controller) -> None:
                     if s in player.sym_eliminated:
                         continue
                     mirrored = mirror_pos(tile, s, w, h)
-                    if mirrored in player.known_env:
-                        if player.known_env[mirrored] != env:
-                            player.sym_eliminated.add(s)
+                    if (
+                        mirrored in player.known_env
+                        and player.known_env[mirrored] != env
+                    ):
+                        player.sym_eliminated.add(s)
         if player.try_resolve(w, h, "Core"):
             player.core_phase = PHASE_FOUND
 
