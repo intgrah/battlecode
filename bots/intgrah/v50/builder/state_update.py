@@ -211,6 +211,7 @@ def _turret_offsets(bld: Building) -> tuple[tuple[int, int], ...] | None:
     return None
 
 
+
 def _apply_threat(state: State, idx: int, bld: Building, sign: int) -> None:
     offsets = _turret_offsets(bld)
     if offsets is None:
@@ -276,6 +277,7 @@ def _update_sets(
             _apply_threat(state, p, new_bld, +1)
 
 
+# Max number of reflected tiles to process each turn
 _REFLECT_BUDGET = 25
 
 
