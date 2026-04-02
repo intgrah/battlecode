@@ -1,4 +1,4 @@
 fn main() -> std::io::Result<()> {
-    prost_build::compile_protos(&["../proto/cambc.proto"], &["../proto/"])?;
+    prost_build::compile_protos(&["../../proto/src/proto/cambc.proto"], &["../../proto/src/proto/"])?;
     Ok(())
 }
