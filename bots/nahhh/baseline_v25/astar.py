@@ -257,7 +257,8 @@ def astar_chain(
                 g_score[nb] = ng
                 came_from[nb] = (_EDGE_CONV, cx, cy)
                 _heappush(
-                    open_heap, (ng + _abs(nx - _gx) + _abs(ny - _gy), counter, nx, ny)
+                    open_heap,
+                    (ng + _abs(nx - _gx) + _abs(ny - _gy), counter, nx, ny),
                 )
                 counter += 1
 
@@ -283,7 +284,8 @@ def astar_chain(
                 g_score[lb] = ng
                 came_from[lb] = (_EDGE_BRIDGE, cx, cy)
                 _heappush(
-                    open_heap, (ng + _abs(lx - _gx) + _abs(ly - _gy), counter, lx, ly)
+                    open_heap,
+                    (ng + _abs(lx - _gx) + _abs(ly - _gy), counter, lx, ly),
                 )
                 counter += 1
 

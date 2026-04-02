@@ -921,7 +921,9 @@ def main() -> None:
         "E.g. --algos bfs 'astar heap'",
     )
     parser.add_argument(
-        "--list", action="store_true", help="List available algorithms and exit"
+        "--list",
+        action="store_true",
+        help="List available algorithms and exit",
     )
     args = parser.parse_args()
 

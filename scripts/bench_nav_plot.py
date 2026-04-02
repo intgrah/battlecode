@@ -94,7 +94,8 @@ def main() -> None:
             reach_pcts.append(100 * n_found / n_reachable if n_reachable > 0 else 0)
 
             fm = pd.to_numeric(
-                reachable["first_move_correct"], errors="coerce"
+                reachable["first_move_correct"],
+                errors="coerce",
             ).dropna()
             fm_pcts.append(100 * fm.mean() if len(fm) > 0 else 0)
 

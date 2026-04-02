@@ -143,7 +143,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
                     if state["team"] == our_team:
                         our_destroyed += 1
                         our_buildings_destroyed_detail.append(
-                            (turn_no, state["kind"], state["pos"])
+                            (turn_no, state["kind"], state["pos"]),
                         )
                         if state["kind"] == "harvester":
                             our_harvesters_destroyed += 1
@@ -160,7 +160,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
                                 and dist_sq(state["pos"], our_core_pos) <= 100
                             ):
                                 our_infra_destroyed_near_core.append(
-                                    (turn_no, eid, state["kind"])
+                                    (turn_no, eid, state["kind"]),
                                 )
                     elif state["team"] == enemy_team:
                         enemy_destroyed += 1
@@ -188,7 +188,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
                 # Check if firing at our core tiles.
                 if our_core_pos is not None and dist_sq(target, our_core_pos) <= 2:
                     turret_shots_at_our_core.append(
-                        (turn_no, pos_tuple(getattr(ft, "from")))
+                        (turn_no, pos_tuple(getattr(ft, "from"))),
                     )
 
             elif kind == "bot_output":
@@ -247,19 +247,19 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
         if turret_shots_at_our_core:
             first_shot = turret_shots_at_our_core[0]
             details.append(
-                f"First turret shot at core: turn {first_shot[0]} from {first_shot[1]}"
+                f"First turret shot at core: turn {first_shot[0]} from {first_shot[1]}",
             )
             # Count unique turret positions.
             turret_positions = {s[1] for s in turret_shots_at_our_core}
             details.append(
-                f"Turrets firing at core: {len(turret_positions)} from {turret_positions}"
+                f"Turrets firing at core: {len(turret_positions)} from {turret_positions}",
             )
 
     if we_lost and not our_core_destroyed:
         categories.append("OUTMINED")
         ti_ratio = enemy_ti_final / max(1, our_ti_final)
         details.append(
-            f"Ti mined: us={our_ti_final} them={enemy_ti_final} (ratio={ti_ratio:.2f})"
+            f"Ti mined: us={our_ti_final} them={enemy_ti_final} (ratio={ti_ratio:.2f})",
         )
         # Find turning point.
         turning_point = None
@@ -288,7 +288,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
         if max_burst >= 3:
             categories.append("INFRA_COLLAPSE")
             details.append(
-                f"Infrastructure burst: {max_burst} buildings destroyed near core in turns {max_burst_start}-{max_burst_start + burst_window}"
+                f"Infrastructure burst: {max_burst} buildings destroyed near core in turns {max_burst_start}-{max_burst_start + burst_window}",
             )
 
     # TLE.
@@ -300,7 +300,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
     if our_sentinels_built <= 1 and enemy_harvesters_built >= 3:
         categories.append("AGGRO_INEFFECTIVE")
         details.append(
-            f"Sentinels built: {our_sentinels_built}, enemy harvesters: {enemy_harvesters_built}"
+            f"Sentinels built: {our_sentinels_built}, enemy harvesters: {enemy_harvesters_built}",
         )
 
     # Late stall.
@@ -310,7 +310,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
         if mid_lead and final_loss:
             categories.append("LATE_STALL")
             details.append(
-                f"Led at turn 500 ({our_ti_collected[499]} vs {enemy_ti_collected[499]}) but lost ({our_ti_final} vs {enemy_ti_final})"
+                f"Led at turn 500 ({our_ti_collected[499]} vs {enemy_ti_collected[499]}) but lost ({our_ti_final} vs {enemy_ti_final})",
             )
 
     # Intercepted — enemy destroyed our transport and placed their building on it.
@@ -319,7 +319,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
         details.append(f"Supply lines intercepted: {len(interceptions)}")
         for turn, ek, pos, d_turn, our_kind in interceptions:
             details.append(
-                f"  t={turn} enemy {ek} at {pos} (our {our_kind} destroyed t={d_turn})"
+                f"  t={turn} enemy {ek} at {pos} (our {our_kind} destroyed t={d_turn})",
             )
 
     # Parasited — enemy placed turrets adjacent to our harvesters.
@@ -329,7 +329,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
         details.append(f"Enemy turrets on our harvesters: {len(parasited)}")
         for turn, ek, tpos, hpos in parasited:
             details.append(
-                f"  t={turn} enemy {ek} at {tpos} adj to our harvester at {hpos}"
+                f"  t={turn} enemy {ek} at {tpos} adj to our harvester at {hpos}",
             )
 
     # All enemy turret placements.
@@ -345,7 +345,7 @@ def analyze_replay(path: str | Path, our_team: int) -> dict[str, Any]:
     if peak_bots >= 2:
         peak_turn = enemy_bots_near_core.index(peak_bots) + 1
         details.append(
-            f"Enemy bots near core: peaked at {peak_bots} (turn {peak_turn})"
+            f"Enemy bots near core: peaked at {peak_bots} (turn {peak_turn})",
         )
 
     # Ti income rate at key points.
@@ -420,7 +420,7 @@ def print_analysis(analysis: dict[str, Any]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Analyze replay files for loss patterns."
+        description="Analyze replay files for loss patterns.",
     )
     sub = parser.add_subparsers(dest="command")
 

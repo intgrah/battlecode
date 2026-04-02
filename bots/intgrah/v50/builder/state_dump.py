@@ -13,20 +13,24 @@ BLACK = (0, 0, 0, 180)
 GREY = (80, 80, 80, 100)
 
 P_GREEN = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)], special={0: TRANSPARENT}
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
+    special={0: TRANSPARENT},
 )
 P_BLUE = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 200, 160)], special={0: TRANSPARENT}
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 200, 160)],
+    special={0: TRANSPARENT},
 )
 P_RED = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)], special={0: TRANSPARENT}
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)],
+    special={0: TRANSPARENT},
 )
 P_VIRIDIS = Palette(
     stops=[(0.0, 68, 1, 84, 160), (0.5, 33, 145, 140, 160), (1.0, 253, 231, 37, 160)],
     special={0: TRANSPARENT},
 )
 P_FOG = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 0, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 0, 180)],
+    special={0: TRANSPARENT},
 )
 P_DIST = Palette(
     stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
@@ -45,20 +49,24 @@ P_RED_GREEN = Palette(
     special={0: TRANSPARENT},
 )
 P_BOOL = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)], special={0: TRANSPARENT}
+    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)],
+    special={0: TRANSPARENT},
 )
 P_THREAT_GUNNER = Palette(
-    stops=[(0.0, 255, 165, 0, 80), (1.0, 255, 165, 0, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 255, 165, 0, 80), (1.0, 255, 165, 0, 180)],
+    special={0: TRANSPARENT},
 )
 P_THREAT_SENTINEL = Palette(
     stops=[(0.0, 100, 100, 255, 80), (1.0, 100, 100, 255, 180)],
     special={0: TRANSPARENT},
 )
 P_THREAT_BREACH = Palette(
-    stops=[(0.0, 255, 0, 0, 80), (1.0, 255, 0, 0, 200)], special={0: TRANSPARENT}
+    stops=[(0.0, 255, 0, 0, 80), (1.0, 255, 0, 0, 200)],
+    special={0: TRANSPARENT},
 )
 P_THREAT_LAUNCHER = Palette(
-    stops=[(0.0, 255, 0, 255, 80), (1.0, 255, 0, 255, 180)], special={0: TRANSPARENT}
+    stops=[(0.0, 255, 0, 255, 80), (1.0, 255, 0, 255, 180)],
+    special={0: TRANSPARENT},
 )
 
 

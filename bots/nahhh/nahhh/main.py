@@ -115,7 +115,8 @@ class Player:
         # Healing state
         self.heal_target: Position | None = None
         self.damaged_turns: dict[
-            Position, int
+            Position,
+            int,
         ] = {}  # pos → turns seen with 1-3 HP missing
 
         # Reactive gunner placement state
@@ -152,7 +153,8 @@ class Player:
         self.sector_index: int = -1  # -1 = unclaimed
         self.explore_radius_step: int = 0
         self.sector_claims: dict[
-            int, tuple[int, int]
+            int,
+            tuple[int, int],
         ] = {}  # sector → (owner_id, round)
 
     def run(self, ct: Controller) -> None:
@@ -273,7 +275,7 @@ class Player:
             if cand.distance_squared(self.core_pos) <= 2:
                 self.symmetry_eliminated[i] = True
                 dbg(
-                    f"r={self.round_no} id={self.my_id} symmetry {i} eliminated: overlaps own core at {cand}"
+                    f"r={self.round_no} id={self.my_id} symmetry {i} eliminated: overlaps own core at {cand}",
                 )
         for p, e in list(self.tile_env.items()):
             self._check_symmetry(p, e)
@@ -307,13 +309,13 @@ class Player:
             self.enemy_core_pos = self.enemy_core_candidates[idx]
             dbg(
                 f"r={self.round_no} id={self.my_id} inferred enemy core at {self.enemy_core_pos} "
-                f"(symmetry idx {idx})"
+                f"(symmetry idx {idx})",
             )
         elif len(remaining) == 0:
             self.enemy_core_pos = self.enemy_core_candidates[2]
             dbg(
                 f"r={self.round_no} id={self.my_id} symmetry exhausted; "
-                f"fallback enemy core at {self.enemy_core_pos}"
+                f"fallback enemy core at {self.enemy_core_pos}",
             )
 
     # ------------------------------------------------------------------
@@ -411,7 +413,7 @@ class Player:
         if best is not None:
             ct.fire(best)
             dbg(
-                f"r={self.round_no} id={self.my_id} sentinel fire at {best} pri={best_key[0]}"
+                f"r={self.round_no} id={self.my_id} sentinel fire at {best} pri={best_key[0]}",
             )
 
     # ------------------------------------------------------------------
@@ -445,7 +447,8 @@ class Player:
             # Sample candidate targets within throw range r²=26.
             for tx in range(max(0, self.my_pos.x - 5), min(map_w, self.my_pos.x + 6)):
                 for ty in range(
-                    max(0, self.my_pos.y - 5), min(map_h, self.my_pos.y + 6)
+                    max(0, self.my_pos.y - 5),
+                    min(map_h, self.my_pos.y + 6),
                 ):
                     tp = Position(tx, ty)
                     if self.my_pos.distance_squared(tp) > 26:
@@ -457,7 +460,7 @@ class Player:
             if best_target is not None:
                 ct.launch(bot_pos, best_target)
                 dbg(
-                    f"r={self.round_no} id={self.my_id} launcher threw bot from {bot_pos} to {best_target}"
+                    f"r={self.round_no} id={self.my_id} launcher threw bot from {bot_pos} to {best_target}",
                 )
                 return
 
@@ -509,7 +512,7 @@ class Player:
         if best_target is not None:
             ct.fire(best_target)
             dbg(
-                f"r={self.round_no} id={self.my_id} gunner fire at {best_target} prio={best_prio}"
+                f"r={self.round_no} id={self.my_id} gunner fire at {best_target} prio={best_prio}",
             )
             return
 
@@ -542,7 +545,7 @@ class Player:
                 try:
                     ct.rotate(best_rot_dir)
                     dbg(
-                        f"r={self.round_no} id={self.my_id} gunner rotate {current_dir.name}->{best_rot_dir.name} prio={best_rot_prio}"
+                        f"r={self.round_no} id={self.my_id} gunner rotate {current_dir.name}->{best_rot_dir.name} prio={best_rot_prio}",
                     )
                 except Exception:
                     pass
@@ -574,7 +577,7 @@ class Player:
                     ct.spawn_builder(spawn_pos)
                     self.num_spawned += 1
                     dbg(
-                        f"r={self.round_no} core EMERGENCY spawn #{self.num_spawned} at {spawn_pos} (enemy_near={enemy_near})"
+                        f"r={self.round_no} core EMERGENCY spawn #{self.num_spawned} at {spawn_pos} (enemy_near={enemy_near})",
                     )
                     return
 
@@ -648,7 +651,7 @@ class Player:
         if self.target_ore is not None:
             # Check if target was claimed by someone else.
             info = self.visible_buildings.get(
-                self.target_ore
+                self.target_ore,
             ) or self.known_buildings.get(self.target_ore)
             if info is not None and info[1] == EntityType.HARVESTER:
                 self.claimed_ores.add(self.target_ore)
@@ -659,7 +662,7 @@ class Player:
             if self.target_ore is not None:
                 self.task = "seek_ore"
                 dbg(
-                    f"r={self.round_no} id={self.my_id} task=seek_ore ore={self.target_ore}"
+                    f"r={self.round_no} id={self.my_id} task=seek_ore ore={self.target_ore}",
                 )
 
         if self.target_ore is not None:
@@ -675,7 +678,7 @@ class Player:
                     if ct.get_action_cooldown() == 0 and ct.can_fire(self.my_pos):
                         ct.fire(self.my_pos)
                         dbg(
-                            f"r={self.round_no} id={self.my_id} fire at enemy road on ore {self.target_ore}"
+                            f"r={self.round_no} id={self.my_id} fire at enemy road on ore {self.target_ore}",
                         )
                     return
                 self._step_off_ore(ct)
@@ -689,14 +692,14 @@ class Player:
                     and einfo[1] == EntityType.ROAD
                 ):
                     dbg(
-                        f"r={self.round_no} id={self.my_id} walk onto enemy road at ore {self.target_ore}"
+                        f"r={self.round_no} id={self.my_id} walk onto enemy road at ore {self.target_ore}",
                     )
                     if (
                         not self._walk_toward(ct, self.target_ore)
                         and self._stuck_turns >= 5
                     ):
                         dbg(
-                            f"r={self.round_no} id={self.my_id} abandon ore {self.target_ore} (stuck on enemy road)"
+                            f"r={self.round_no} id={self.my_id} abandon ore {self.target_ore} (stuck on enemy road)",
                         )
                         self.target_ore = None
                         self.task = "idle"
@@ -705,12 +708,12 @@ class Player:
                 return
             self.explore_target = None
             dbg(
-                f"r={self.round_no} id={self.my_id} walk to ore {self.target_ore} dist²={dist_sq}"
+                f"r={self.round_no} id={self.my_id} walk to ore {self.target_ore} dist²={dist_sq}",
             )
             if not self._walk_toward(ct, self.target_ore):
                 if self._stuck_turns >= 5:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} abandon ore {self.target_ore} (stuck {self._stuck_turns} turns)"
+                        f"r={self.round_no} id={self.my_id} abandon ore {self.target_ore} (stuck {self._stuck_turns} turns)",
                     )
                     self.target_ore = None
                     self.task = "idle"
@@ -797,7 +800,7 @@ class Player:
         if best_pos is None:
             self._pending_sentinel_harvester = None
             dbg(
-                f"r={self.round_no} id={self.my_id} no sentinel pos for harvester {harv}"
+                f"r={self.round_no} id={self.my_id} no sentinel pos for harvester {harv}",
             )
             return False
 
@@ -840,7 +843,7 @@ class Player:
         }
         self._pending_sentinel_harvester = None
         dbg(
-            f"r={self.round_no} id={self.my_id} def gunner at {best_pos} facing {facing.name} for harvester {harv}"
+            f"r={self.round_no} id={self.my_id} def gunner at {best_pos} facing {facing.name} for harvester {harv}",
         )
         return self._continue_gunner_build(ct)
 
@@ -857,7 +860,9 @@ class Player:
     }
 
     def _eval_sentinel_placement(
-        self, ct: Controller, harv_pos: Position
+        self,
+        ct: Controller,
+        harv_pos: Position,
     ) -> tuple[Position, Direction] | None:
         """Score all (tile, facing) combos adjacent to an enemy harvester.
 
@@ -899,7 +904,7 @@ class Player:
                 else:
                     continue
             harv_dir = DELTA_TO_DIRECTION.get(
-                (harv_pos.x - spos.x, harv_pos.y - spos.y)
+                (harv_pos.x - spos.x, harv_pos.y - spos.y),
             )
             for d in ALL_DIRECTIONS:
                 if d == harv_dir:
@@ -970,7 +975,7 @@ class Player:
         if best_harv is None:
             return False
         dbg(
-            f"r={self.round_no} id={self.my_id} opp sentinel: found enemy harv {best_harv} dist²={best_dist}"
+            f"r={self.round_no} id={self.my_id} opp sentinel: found enemy harv {best_harv} dist²={best_dist}",
         )
         # Walk to the harvester first. Tile + facing scored at build time
         # (phase 3) when we have full vision of surroundings.
@@ -988,7 +993,7 @@ class Player:
             "_needs_eval": True,  # flag: re-evaluate tile+facing when adjacent
         }
         dbg(
-            f"r={self.round_no} id={self.my_id} opportunistic sentinel: walking to enemy harv {best_harv}"
+            f"r={self.round_no} id={self.my_id} opportunistic sentinel: walking to enemy harv {best_harv}",
         )
         return self._continue_gunner_build(ct)
 
@@ -1047,7 +1052,9 @@ class Player:
         return best
 
     def _pick_gunner_for_target(
-        self, ct: Controller, target: Position
+        self,
+        ct: Controller,
+        target: Position,
     ) -> tuple[Position | None, Direction | None]:
         """Find a gunner position with LoS to target on seen tiles.
 
@@ -1059,7 +1066,8 @@ class Player:
         best_score = -999
         for gx in range(max(0, target.x - 4), min((self.map_w or 50), target.x + 5)):
             for gy in range(
-                max(0, target.y - 4), min((self.map_h or 50), target.y + 5)
+                max(0, target.y - 4),
+                min((self.map_h or 50), target.y + 5),
             ):
                 gpos = Position(gx, gy)
                 if gpos.distance_squared(target) > 13:
@@ -1111,7 +1119,10 @@ class Player:
         return best_pos, best_dir
 
     def _find_ammo_for_gunner(
-        self, ct: Controller, gunner_pos: Position, gunner_dir: Direction
+        self,
+        ct: Controller,
+        gunner_pos: Position,
+        gunner_dir: Direction,
     ) -> dict | None:
         """Find an ammo source for a gunner. Returns dict with source info or None."""
         fdx, fdy = DIRECTION_DELTA[gunner_dir]
@@ -1189,7 +1200,7 @@ class Player:
         # Ti ore (need to build harvester).
         for ore_pos in self.known_ores:
             oinfo = self.visible_buildings.get(ore_pos) or self.known_buildings.get(
-                ore_pos
+                ore_pos,
             )
             if oinfo is not None:
                 continue
@@ -1243,7 +1254,7 @@ class Player:
                 "_is_attack": True,
             }
             dbg(
-                f"r={self.round_no} id={self.my_id} attack: direct gunner at {gunner_pos} -> {target} ammo={ammo['pos']}"
+                f"r={self.round_no} id={self.my_id} attack: direct gunner at {gunner_pos} -> {target} ammo={ammo['pos']}",
             )
             return self._continue_gunner_build(ct)
         if ammo["type"] == "enemy_harvester":
@@ -1254,7 +1265,7 @@ class Player:
             source_pad = self._pick_source_pad(harv_pos, gunner_pos)
             if source_pad is None:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} attack: no source pad from enemy harv {harv_pos}"
+                    f"r={self.round_no} id={self.my_id} attack: no source pad from enemy harv {harv_pos}",
                 )
                 self._clear_attack()
                 return False
@@ -1271,14 +1282,14 @@ class Player:
             self.connect_attack_pos = None
             self.connect_stall_recoverable = False
             dbg(
-                f"r={self.round_no} id={self.my_id} attack: chain from enemy harv {harv_pos} pad={source_pad} -> gunner {gunner_pos}"
+                f"r={self.round_no} id={self.my_id} attack: chain from enemy harv {harv_pos} pad={source_pad} -> gunner {gunner_pos}",
             )
             return True
         # Need to build harvester on ore, then route chain.
         self._attack_ore = ammo["pos"]
         self.task = "attack"
         dbg(
-            f"r={self.round_no} id={self.my_id} attack: ore={ammo['pos']} gunner={gunner_pos} -> {target}"
+            f"r={self.round_no} id={self.my_id} attack: ore={ammo['pos']} gunner={gunner_pos} -> {target}",
         )
         return self._continue_attack(ct)
 
@@ -1316,7 +1327,7 @@ class Player:
             titanium, _ = ct.get_global_resources()
             if titanium < harv_cost:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} attack: wait harv ti={titanium} cost={harv_cost}"
+                    f"r={self.round_no} id={self.my_id} attack: wait harv ti={titanium} cost={harv_cost}",
                 )
                 return True
             if ct.can_build_harvester(ore):
@@ -1328,7 +1339,7 @@ class Player:
                 source_pad = self._pick_source_pad(ore, gunner_pos)
                 if source_pad is None:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} attack: no source pad, abort"
+                        f"r={self.round_no} id={self.my_id} attack: no source pad, abort",
                     )
                     self._clear_attack()
                     return False
@@ -1346,7 +1357,7 @@ class Player:
                 self.connect_attack_pos = None
                 self.connect_stall_recoverable = False
                 dbg(
-                    f"r={self.round_no} id={self.my_id} attack: chain from {source_pad} -> gunner {gunner_pos}"
+                    f"r={self.round_no} id={self.my_id} attack: chain from {source_pad} -> gunner {gunner_pos}",
                 )
                 return True
             self._clear_attack()
@@ -1366,7 +1377,7 @@ class Player:
                 "_is_attack": True,
             }
             dbg(
-                f"r={self.round_no} id={self.my_id} attack: chain done, gunner at {self._attack_gunner_pos}"
+                f"r={self.round_no} id={self.my_id} attack: chain done, gunner at {self._attack_gunner_pos}",
             )
             return self._continue_gunner_build(ct)
 
@@ -1476,7 +1487,10 @@ class Player:
                 pass
 
     def _walk_toward(
-        self, ct: Controller, target: Position, best_effort: bool = False
+        self,
+        ct: Controller,
+        target: Position,
+        best_effort: bool = False,
     ) -> bool:
         """Move one step toward target, paving roads as needed."""
         if self.my_pos is None or ct.get_move_cooldown() != 0:
@@ -1534,7 +1548,7 @@ class Player:
 
         if direction is None:
             dbg(
-                f"r={self.round_no} id={self.my_id} nav=no_dir at {self.my_pos} -> {target}"
+                f"r={self.round_no} id={self.my_id} nav=no_dir at {self.my_pos} -> {target}",
             )
             # Count as stuck so callers can abandon unreachable targets.
             if target == self._stuck_target:
@@ -1552,7 +1566,7 @@ class Player:
             old_pos = self.my_pos
             self.my_pos = ct.get_position()
             dbg(
-                f"r={self.round_no} id={self.my_id} move {old_pos}->{self.my_pos} nav={nav_source} toward {target}"
+                f"r={self.round_no} id={self.my_id} move {old_pos}->{self.my_pos} nav={nav_source} toward {target}",
             )
             self._stuck_target = None
             self._stuck_turns = 0
@@ -1575,7 +1589,7 @@ class Player:
         dbg(
             f"r={self.round_no} id={self.my_id} stuck at {self.my_pos} dir={direction.name} "
             f"nav={nav_source} next={next_pos} env={env} bld={bld_str} "
-            f"cd={ct.get_action_cooldown()}"
+            f"cd={ct.get_action_cooldown()}",
         )
         # Track consecutive failures on same target
         if target == self._stuck_target:
@@ -1585,7 +1599,7 @@ class Player:
             self._stuck_turns = 1
         if self._stuck_turns >= 5:
             dbg(
-                f"r={self.round_no} id={self.my_id} STUCK {self._stuck_turns} turns on {target}, caller should abandon"
+                f"r={self.round_no} id={self.my_id} STUCK {self._stuck_turns} turns on {target}, caller should abandon",
             )
             # Trapped by own buildings? Destroy least valuable adjacent one to escape.
             if self._stuck_turns >= 8 and ct.get_action_cooldown() == 0:
@@ -1615,7 +1629,7 @@ class Player:
                         ct.destroy(best_destroy)
                         self.visible_buildings.pop(best_destroy, None)
                         dbg(
-                            f"r={self.round_no} id={self.my_id} escape: destroyed own building at {best_destroy}"
+                            f"r={self.round_no} id={self.my_id} escape: destroyed own building at {best_destroy}",
                         )
         return False
 
@@ -1729,7 +1743,8 @@ class Player:
                         for cdx in range(-1, 2):
                             for cdy in range(-1, 2):
                                 cpos = Position(
-                                    self.core_pos.x + cdx, self.core_pos.y + cdy
+                                    self.core_pos.x + cdx,
+                                    self.core_pos.y + cdy,
                                 )
                                 if self.my_pos.distance_squared(cpos) <= 2:
                                     best_pos = cpos
@@ -1740,7 +1755,7 @@ class Player:
         if best_pos is not None and ct.can_heal(best_pos):
             ct.heal(best_pos)
             dbg(
-                f"r={self.round_no} id={self.my_id} heal at {best_pos} missing={best_missing}"
+                f"r={self.round_no} id={self.my_id} heal at {best_pos} missing={best_missing}",
             )
             return True
         return False
@@ -1755,13 +1770,15 @@ class Player:
             if ct.can_move(d):
                 ct.move(d)
                 dbg(
-                    f"r={self.round_no} id={self.my_id} step off ore {self.target_ore} dir={d.name}"
+                    f"r={self.round_no} id={self.my_id} step off ore {self.target_ore} dir={d.name}",
                 )
                 return True
         return False
 
     def _try_build_harvester(
-        self, ct: Controller, target_override: Position | None = None
+        self,
+        ct: Controller,
+        target_override: Position | None = None,
     ) -> bool:
         if self.target_ore is None or ct.get_action_cooldown() != 0:
             return False
@@ -1794,7 +1811,7 @@ class Player:
         source_pad = self._pick_source_pad(self.target_ore, target)
         if source_pad is None:
             dbg(
-                f"r={self.round_no} id={self.my_id} no source pad for {self.target_ore} — skipping"
+                f"r={self.round_no} id={self.my_id} no source pad for {self.target_ore} — skipping",
             )
             self.claimed_ores.add(self.target_ore)
             self.target_ore = None
@@ -1818,13 +1835,13 @@ class Player:
             else:
                 reason = "unknown"
             dbg(
-                f"r={self.round_no} id={self.my_id} can't build harvester at {self.target_ore} ({reason})"
+                f"r={self.round_no} id={self.my_id} can't build harvester at {self.target_ore} ({reason})",
             )
             return False
 
         ct.build_harvester(self.target_ore)
         dbg(
-            f"r={self.round_no} id={self.my_id} built harvester at {self.target_ore} pad={source_pad}"
+            f"r={self.round_no} id={self.my_id} built harvester at {self.target_ore} pad={source_pad}",
         )
 
         self.task = "connect"
@@ -1841,7 +1858,7 @@ class Player:
         self.connect_unwind_destroy = None
         self.connect_attack_pos = None
         dbg(
-            f"r={self.round_no} id={self.my_id} connect start pad={source_pad} target={target}"
+            f"r={self.round_no} id={self.my_id} connect start pad={source_pad} target={target}",
         )
         return True
 
@@ -1850,7 +1867,9 @@ class Player:
     # ------------------------------------------------------------------
 
     def _pick_source_pad(
-        self, harvester_pos: Position, toward: Position
+        self,
+        harvester_pos: Position,
+        toward: Position,
     ) -> Position | None:
         """Cardinal neighbor of harvester closest to toward.
 
@@ -2030,11 +2049,11 @@ class Player:
         self.connect_plan_idx = 0
         if plan is not None:
             dbg(
-                f"r={self.round_no} id={self.my_id} A* plan len={len(plan)} from {self.chain_end} -> {self.connect_target}"
+                f"r={self.round_no} id={self.my_id} A* plan len={len(plan)} from {self.chain_end} -> {self.connect_target}",
             )
         else:
             dbg(
-                f"r={self.round_no} id={self.my_id} A* plan FAILED from {self.chain_end} -> {self.connect_target}"
+                f"r={self.round_no} id={self.my_id} A* plan FAILED from {self.chain_end} -> {self.connect_target}",
             )
 
     def _plan_step_invalid(self) -> bool:
@@ -2048,7 +2067,7 @@ class Player:
             tc = self._classify_tile(pos)
             if tc not in ("free", "unseen", "enemy_road"):
                 dbg(
-                    f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: conv at {pos} is {tc}"
+                    f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: conv at {pos} is {tc}",
                 )
                 return True
             # Also check if the output tile is blocked by a non-clearable building.
@@ -2068,7 +2087,7 @@ class Player:
                         is_merge = out_pos in self.my_tree
                         if not self._is_core_tile(out_pos) and not is_merge:
                             dbg(
-                                f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: conv output {out_pos} has own {out_etype.name}"
+                                f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: conv output {out_pos} has own {out_etype.name}",
                             )
                             return True
             return False
@@ -2080,7 +2099,7 @@ class Player:
         if tc in ("free", "enemy_road") or (landing.x, landing.y) in terminals:
             return False
         dbg(
-            f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: bridge landing {landing} is {tc}"
+            f"r={self.round_no} id={self.my_id} plan step {self.connect_plan_idx} invalid: bridge landing {landing} is {tc}",
         )
         return True
 
@@ -2100,7 +2119,7 @@ class Player:
             if team != self.my_team and etype == EntityType.ROAD:
                 self.connect_attack_pos = self.chain_end
                 dbg(
-                    f"r={self.round_no} id={self.my_id} attack target: enemy {etype.name} at chain_end {self.chain_end}"
+                    f"r={self.round_no} id={self.my_id} attack target: enemy {etype.name} at chain_end {self.chain_end}",
                 )
                 return
 
@@ -2126,7 +2145,7 @@ class Player:
                     if out_team != self.my_team and out_etype == EntityType.ROAD:
                         self.connect_attack_pos = out_pos
                         dbg(
-                            f"r={self.round_no} id={self.my_id} attack target: enemy {out_etype.name} at output {out_pos}"
+                            f"r={self.round_no} id={self.my_id} attack target: enemy {out_etype.name} at output {out_pos}",
                         )
                         return
 
@@ -2164,17 +2183,17 @@ class Player:
                     if self._try_place_conveyor(ct, conv_pos, conv_dir):
                         self.current_chain.append(conv_pos)
                         dbg(
-                            f"r={self.round_no} id={self.my_id} connect DONE (plan) turns={self.connect_turns}"
+                            f"r={self.round_no} id={self.my_id} connect DONE (plan) turns={self.connect_turns}",
                         )
                         self._finish_connect(success=True, terminal=adj_pos)
                     else:
                         dbg(
-                            f"r={self.round_no} id={self.my_id} connect last-step conv failed at {conv_pos} dir={conv_dir.name} cd={ct.get_action_cooldown()}"
+                            f"r={self.round_no} id={self.my_id} connect last-step conv failed at {conv_pos} dir={conv_dir.name} cd={ct.get_action_cooldown()}",
                         )
                     return
                 # No adjacent terminal — try to point toward connect_target
                 dbg(
-                    f"r={self.round_no} id={self.my_id} connect last-step no terminal adj to {conv_pos}"
+                    f"r={self.round_no} id={self.my_id} connect last-step no terminal adj to {conv_pos}",
                 )
                 ddx = self.connect_target.x - conv_pos.x
                 ddy = self.connect_target.y - conv_pos.y
@@ -2182,7 +2201,7 @@ class Player:
             conv_dir = DELTA_TO_DIRECTION.get((ddx, ddy))
             if conv_dir is None:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} connect non-cardinal delta ({ddx},{ddy}) at {conv_pos}, replan"
+                    f"r={self.round_no} id={self.my_id} connect non-cardinal delta ({ddx},{ddy}) at {conv_pos}, replan",
                 )
                 self.connect_plan = None  # re-plan
                 return
@@ -2194,7 +2213,7 @@ class Player:
                 self._step_toward_chain_end(ct)
             else:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} connect conv failed at {conv_pos} dir={conv_dir.name} cd={ct.get_action_cooldown()}"
+                    f"r={self.round_no} id={self.my_id} connect conv failed at {conv_pos} dir={conv_dir.name} cd={ct.get_action_cooldown()}",
                 )
 
         elif action == "bridge":
@@ -2206,12 +2225,15 @@ class Player:
                 self.connect_plan_idx += 1
             else:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} connect bridge failed from {from_pos} -> {landing} cd={ct.get_action_cooldown()}"
+                    f"r={self.round_no} id={self.my_id} connect bridge failed from {from_pos} -> {landing} cd={ct.get_action_cooldown()}",
                 )
                 self._step_toward_chain_end(ct)
 
     def _try_bridge_to(
-        self, ct: Controller, from_pos: Position, landing: Position
+        self,
+        ct: Controller,
+        from_pos: Position,
+        landing: Position,
     ) -> bool:
         """Build a bridge from from_pos to a specific landing position."""
         if ct.get_action_cooldown() != 0:
@@ -2224,7 +2246,7 @@ class Player:
         if not self._can_afford(ct, bridge_cost):
             titanium, _ = ct.get_global_resources()
             dbg(
-                f"r={self.round_no} id={self.my_id} bridge: can't afford ti={titanium} cost={bridge_cost}"
+                f"r={self.round_no} id={self.my_id} bridge: can't afford ti={titanium} cost={bridge_cost}",
             )
             self.connect_last_build_round = self.round_no  # Ti/reserve wait ≠ stall
             return False
@@ -2260,7 +2282,7 @@ class Player:
         if self.chain_end in self.my_tree:
             dbg(
                 f"r={self.round_no} id={self.my_id} "
-                f"connect merged with own tree at {self.chain_end}"
+                f"connect merged with own tree at {self.chain_end}",
             )
             self._finish_connect(success=True, terminal=self.chain_end)
             return
@@ -2292,12 +2314,12 @@ class Player:
                     dbg(
                         f"r={self.round_no} id={self.my_id} "
                         f"connect unwind {old_end} -> {self.chain_end} "
-                        f"(foreign {ce_etype.name} at chain_end)"
+                        f"(foreign {ce_etype.name} at chain_end)",
                     )
                     return
                 # Chain start itself was taken — abandon
                 dbg(
-                    f"r={self.round_no} id={self.my_id} connect abandon: foreign building at chain start {self.chain_end}"
+                    f"r={self.round_no} id={self.my_id} connect abandon: foreign building at chain start {self.chain_end}",
                 )
                 self._finish_connect(success=False)
                 return
@@ -2316,7 +2338,7 @@ class Player:
                 self.connect_unwind_destroy = None
                 self.connect_last_build_round = self.round_no
                 dbg(
-                    f"r={self.round_no} id={self.my_id} connect unwind destroyed at {destroy_pos}"
+                    f"r={self.round_no} id={self.my_id} connect unwind destroyed at {destroy_pos}",
                 )
             return
 
@@ -2335,7 +2357,7 @@ class Player:
             elif ct.can_fire(self.my_pos):
                 ct.fire(self.my_pos)
                 dbg(
-                    f"r={self.round_no} id={self.my_id} fire at enemy {info[1].name} at {atk}"
+                    f"r={self.round_no} id={self.my_id} fire at enemy {info[1].name} at {atk}",
                 )
             return
 
@@ -2357,7 +2379,7 @@ class Player:
         )
         if stall > effective_limit:
             dbg(
-                f"r={self.round_no} id={self.my_id} connect STALL timeout stall={stall} limit={effective_limit} turns={self.connect_turns}"
+                f"r={self.round_no} id={self.my_id} connect STALL timeout stall={stall} limit={effective_limit} turns={self.connect_turns}",
             )
             self._finish_connect(success=False)
             return
@@ -2365,7 +2387,7 @@ class Player:
         # Termination logic
         if self.chain_end in self.my_tree or self._is_core_tile(self.chain_end):
             dbg(
-                f"r={self.round_no} id={self.my_id} connect DONE turns={self.connect_turns}"
+                f"r={self.round_no} id={self.my_id} connect DONE turns={self.connect_turns}",
             )
             self._finish_connect(success=True, terminal=self.chain_end)
             return
@@ -2373,7 +2395,7 @@ class Player:
         # Walk to within action radius of chain_end
         if self.my_pos.distance_squared(self.chain_end) > 2:
             dbg(
-                f"r={self.round_no} id={self.my_id} connect walk to chain_end {self.chain_end} dist²={self.my_pos.distance_squared(self.chain_end)}"
+                f"r={self.round_no} id={self.my_id} connect walk to chain_end {self.chain_end} dist²={self.my_pos.distance_squared(self.chain_end)}",
             )
             self._walk_toward(ct, self.chain_end)
             return
@@ -2390,7 +2412,7 @@ class Player:
             self._walk_toward(ct, self.connect_target)
             if self._stuck_turns >= 5:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} abandon connect_target {self.connect_target} (stuck {self._stuck_turns} turns)"
+                    f"r={self.round_no} id={self.my_id} abandon connect_target {self.connect_target} (stuck {self._stuck_turns} turns)",
                 )
                 self.connect_target = None
             return
@@ -2403,7 +2425,7 @@ class Player:
                 if self._try_place_conveyor(ct, self.chain_end, conv_dir):
                     self.current_chain.append(self.chain_end)
                     dbg(
-                        f"r={self.round_no} id={self.my_id} connect DONE turns={self.connect_turns}"
+                        f"r={self.round_no} id={self.my_id} connect DONE turns={self.connect_turns}",
                     )
                     self._finish_connect(success=True, terminal=terminal_pos)
                     return
@@ -2475,7 +2497,10 @@ class Player:
         return False
 
     def _try_place_conveyor(
-        self, ct: Controller, pos: Position, direction: Direction
+        self,
+        ct: Controller,
+        pos: Position,
+        direction: Direction,
     ) -> bool:
         """Place a conveyor at pos. Handles road clearing and resource check."""
         if ct.get_action_cooldown() != 0:
@@ -2485,7 +2510,7 @@ class Player:
         # Reject if a foreign conveyor could feed into this position.
         if self._has_incoming_foreign_conveyor(ct, pos):
             dbg(
-                f"r={self.round_no} id={self.my_id} conv rejected: {pos} has incoming foreign conveyor"
+                f"r={self.round_no} id={self.my_id} conv rejected: {pos} has incoming foreign conveyor",
             )
             return False
         # Don't output into an enemy building or enemy core.
@@ -2496,7 +2521,7 @@ class Player:
             _, out_etype, out_team = out_info
             if out_team != self.my_team:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} conv rejected: output {out_pos} has enemy {out_etype.name}"
+                    f"r={self.round_no} id={self.my_id} conv rejected: output {out_pos} has enemy {out_etype.name}",
                 )
                 return False
             # Don't output into own-team non-clearable buildings unless they're
@@ -2505,12 +2530,12 @@ class Player:
                 is_merge = out_pos in self.my_tree
                 if not self._is_core_tile(out_pos) and not is_merge:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} conv rejected: output {out_pos} has own {out_etype.name}"
+                        f"r={self.round_no} id={self.my_id} conv rejected: output {out_pos} has own {out_etype.name}",
                     )
                     return False
         if self._is_enemy_core_tile(out_pos):
             dbg(
-                f"r={self.round_no} id={self.my_id} conv rejected: output {out_pos} is enemy core"
+                f"r={self.round_no} id={self.my_id} conv rejected: output {out_pos} is enemy core",
             )
             return False
 
@@ -2531,7 +2556,7 @@ class Player:
                     return False
             elif not self._is_core_tile(pos):
                 dbg(
-                    f"r={self.round_no} id={self.my_id} conv rejected: {pos} has {etype.name}"
+                    f"r={self.round_no} id={self.my_id} conv rejected: {pos} has {etype.name}",
                 )
                 return False
 
@@ -2545,7 +2570,10 @@ class Player:
         return False
 
     def _try_bridge_over(
-        self, ct: Controller, from_pos: Position, toward: Position
+        self,
+        ct: Controller,
+        from_pos: Position,
+        toward: Position,
     ) -> bool:
         """Try to build a bridge from from_pos jumping over an obstacle."""
         if ct.get_action_cooldown() != 0:
@@ -2618,7 +2646,7 @@ class Player:
             self.current_chain.append(from_pos)
             self.chain_end = best_landing
             dbg(
-                f"r={self.round_no} id={self.my_id} bridge {from_pos} -> {best_landing}"
+                f"r={self.round_no} id={self.my_id} bridge {from_pos} -> {best_landing}",
             )
             return True
         return False
@@ -2681,7 +2709,8 @@ class Player:
         return best
 
     def _find_adjacent_terminal(
-        self, pos: Position
+        self,
+        pos: Position,
     ) -> tuple[Position, Direction] | None:
         """Return (neighbor, direction) if pos is cardinally adjacent to a terminal.
 
@@ -2704,7 +2733,9 @@ class Player:
         return best
 
     def _finish_connect(
-        self, success: bool = False, terminal: Position | None = None
+        self,
+        success: bool = False,
+        terminal: Position | None = None,
     ) -> None:
         if success:
             self.my_tree.update(self.current_chain)
@@ -2724,7 +2755,7 @@ class Player:
             if terminal is not None:
                 self.tree_ids[terminal] = tree_id
             dbg(
-                f"r={self.round_no} id={self.my_id} tree#{tree_id} now has {self.tree_harvester_counts[tree_id]} harvesters"
+                f"r={self.round_no} id={self.my_id} tree#{tree_id} now has {self.tree_harvester_counts[tree_id]} harvesters",
             )
         # Queue sentinel unless there's already one nearby (dist²≤18, ~4 tiles).
         if success and self.connect_harvester_pos is not None:
@@ -2746,7 +2777,7 @@ class Player:
                 self._pending_sentinel_harvester = hpos
             else:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} skip sentinel for {hpos} — friendly sentinel nearby"
+                    f"r={self.round_no} id={self.my_id} skip sentinel for {hpos} — friendly sentinel nearby",
                 )
 
         self.current_chain.clear()
@@ -2794,7 +2825,7 @@ class Player:
             # Position was a conveyor but now empty — gap detected.
             # Skip if enemy building replaced it (threat response handles that).
             dbg(
-                f"r={self.round_no} id={self.my_id} repair: gap at {pos} dir={direction.name}"
+                f"r={self.round_no} id={self.my_id} repair: gap at {pos} dir={direction.name}",
             )
             self._repair_target = pos
             self.task = "repair"
@@ -2824,12 +2855,12 @@ class Player:
                     self._repair_target = None
                     self.task = "idle"
                     dbg(
-                        f"r={self.round_no} id={self.my_id} repair: enemy {retype.name} at {pos}, escalating to gunner"
+                        f"r={self.round_no} id={self.my_id} repair: enemy {retype.name} at {pos}, escalating to gunner",
                     )
                     return self._continue_gunner_build(ct)
             # Enemy non-turret (road/conveyor) — we can fire to clear after walking on.
             dbg(
-                f"r={self.round_no} id={self.my_id} repair: enemy {retype.name} at {pos}, clearing"
+                f"r={self.round_no} id={self.my_id} repair: enemy {retype.name} at {pos}, clearing",
             )
         # Abandon if stuck.
         if self._stuck_turns >= 10:
@@ -2877,12 +2908,12 @@ class Player:
         if has_turret_adj and ct.can_build_splitter(pos, direction):
             ct.build_splitter(pos, direction)
             dbg(
-                f"r={self.round_no} id={self.my_id} repair: rebuilt SPLITTER at {pos} -> {direction.name} (turret adj)"
+                f"r={self.round_no} id={self.my_id} repair: rebuilt SPLITTER at {pos} -> {direction.name} (turret adj)",
             )
         elif ct.can_build_conveyor(pos, direction):
             ct.build_conveyor(pos, direction)
             dbg(
-                f"r={self.round_no} id={self.my_id} repair: rebuilt conv at {pos} -> {direction.name}"
+                f"r={self.round_no} id={self.my_id} repair: rebuilt conv at {pos} -> {direction.name}",
             )
             self._repair_target = None
             self.task = "idle"
@@ -2961,11 +2992,11 @@ class Player:
                     self.suspended_task = "seek_ore"
                     self.suspended_state = {"target_ore": self.target_ore}
                     dbg(
-                        f"r={self.round_no} id={self.my_id} suspend task=seek_ore ore={self.target_ore}"
+                        f"r={self.round_no} id={self.my_id} suspend task=seek_ore ore={self.target_ore}",
                     )
                 self.gunner_build = plan
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender: targeting {etype.name} at {pos}, gunner at {plan['gunner_pos']}"
+                    f"r={self.round_no} id={self.my_id} defender: targeting {etype.name} at {pos}, gunner at {plan['gunner_pos']}",
                 )
                 return self._continue_gunner_build(ct)
 
@@ -2995,7 +3026,7 @@ class Player:
             try:
                 enemy_dir = ct.get_direction(enemy_info[0])
                 enemy_attack_tiles = set(
-                    ct.get_attackable_tiles_from(enemy_pos, enemy_dir, enemy_info[1])
+                    ct.get_attackable_tiles_from(enemy_pos, enemy_dir, enemy_info[1]),
                 )
             except Exception:
                 pass  # can't get direction, skip check
@@ -3004,10 +3035,12 @@ class Player:
         best_turns = 999
 
         for gx in range(
-            max(0, enemy_pos.x - 4), min((self.map_w or 50), enemy_pos.x + 5)
+            max(0, enemy_pos.x - 4),
+            min((self.map_w or 50), enemy_pos.x + 5),
         ):
             for gy in range(
-                max(0, enemy_pos.y - 4), min((self.map_h or 50), enemy_pos.y + 5)
+                max(0, enemy_pos.y - 4),
+                min((self.map_h or 50), enemy_pos.y + 5),
             ):
                 gpos = Position(gx, gy)
                 if gpos.distance_squared(enemy_pos) > 13:
@@ -3140,7 +3173,7 @@ class Player:
         if best is not None:
             dbg(
                 f"r={self.round_no} id={self.my_id} defender plan: gunner at {best['gunner_pos']} "
-                f"ammo={best['chain_type'].name} at {best['chain_pos']} est={best['est_turns']}t"
+                f"ammo={best['chain_type'].name} at {best['chain_pos']} est={best['est_turns']}t",
             )
         return best
 
@@ -3155,7 +3188,7 @@ class Player:
             if self.suspended_task == "seek_ore" and self.suspended_state:
                 self.target_ore = self.suspended_state.get("target_ore")
                 dbg(
-                    f"r={self.round_no} id={self.my_id} resume task={self.task} ore={self.target_ore}"
+                    f"r={self.round_no} id={self.my_id} resume task={self.task} ore={self.target_ore}",
                 )
             self.suspended_task = None
             self.suspended_state = None
@@ -3176,7 +3209,7 @@ class Player:
         ):
             ct.heal(self.my_pos)
             dbg(
-                f"r={self.round_no} id={self.my_id} defender: self-heal missing={my_max - my_hp}"
+                f"r={self.round_no} id={self.my_id} defender: self-heal missing={my_max - my_hp}",
             )
             return True
 
@@ -3190,7 +3223,7 @@ class Player:
             pass
         elif elapsed > 30:
             dbg(
-                f"r={self.round_no} id={self.my_id} defender: build timeout after {elapsed} turns"
+                f"r={self.round_no} id={self.my_id} defender: build timeout after {elapsed} turns",
             )
             self._finish_gunner_build()
             return False
@@ -3202,7 +3235,7 @@ class Player:
                 einfo[2] == self.my_team or einfo[1] not in self._ENEMY_TURRET_TYPES
             ):
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender: threat gone at {gb['enemy_pos']}, cancel"
+                    f"r={self.round_no} id={self.my_id} defender: threat gone at {gb['enemy_pos']}, cancel",
                 )
                 self._finish_gunner_build()
                 return False
@@ -3216,7 +3249,7 @@ class Player:
             # Harvester/splitter ammo source: skip straight to gunner placement.
             if gb["chain_type"] in {EntityType.HARVESTER, EntityType.SPLITTER}:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p0→p2: {gb['chain_type'].name} feeds gunner, skip splitter"
+                    f"r={self.round_no} id={self.my_id} defender p0→p2: {gb['chain_type'].name} feeds gunner, skip splitter",
                 )
                 gb["phase"] = 2
                 return True
@@ -3224,18 +3257,18 @@ class Player:
             dist = self.my_pos.distance_squared(chain_pos)
             if dist > 2:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p0: walk to chain {chain_pos} dist²={dist} from {self.my_pos}"
+                    f"r={self.round_no} id={self.my_id} defender p0: walk to chain {chain_pos} dist²={dist} from {self.my_pos}",
                 )
                 moved = self._walk_toward(ct, chain_pos)
                 if not moved:
                     cinfo = self.visible_buildings.get(chain_pos)
                     units_on = chain_pos in self.visible_unit_positions
                     dbg(
-                        f"r={self.round_no} id={self.my_id} defender p0: STUCK bld={cinfo[1].name if cinfo else 'none'} unit_on={units_on}"
+                        f"r={self.round_no} id={self.my_id} defender p0: STUCK bld={cinfo[1].name if cinfo else 'none'} unit_on={units_on}",
                     )
                 return True
             dbg(
-                f"r={self.round_no} id={self.my_id} defender p0→p1: arrived at chain {chain_pos}"
+                f"r={self.round_no} id={self.my_id} defender p0→p1: arrived at chain {chain_pos}",
             )
             gb["phase"] = 1
             return True
@@ -3251,14 +3284,14 @@ class Player:
             cinfo = self.visible_buildings.get(chain_pos)
             if cinfo is None:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p1: chain tile gone at {chain_pos}, cancel"
+                    f"r={self.round_no} id={self.my_id} defender p1: chain tile gone at {chain_pos}, cancel",
                 )
                 self._finish_gunner_build()
                 return False
             _, cetype, cteam = cinfo
             if cteam != self.my_team:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p1: chain tile enemy at {chain_pos}, cancel"
+                    f"r={self.round_no} id={self.my_id} defender p1: chain tile enemy at {chain_pos}, cancel",
                 )
                 self._finish_gunner_build()
                 return False
@@ -3292,7 +3325,7 @@ class Player:
                     splitter_dir = u_dir
                     found_upstream = True
                     dbg(
-                        f"r={self.round_no} id={self.my_id} defender p1: upstream {utype.name} at {upos} dir={u_dir.name}"
+                        f"r={self.round_no} id={self.my_id} defender p1: upstream {utype.name} at {upos} dir={u_dir.name}",
                     )
                     break
             # If no upstream conveyor, check for adjacent harvester.
@@ -3313,7 +3346,7 @@ class Player:
                     if hdir is not None:
                         splitter_dir = hdir
                         dbg(
-                            f"r={self.round_no} id={self.my_id} defender p1: upstream HARVESTER at {upos}, splitter dir={hdir.name}"
+                            f"r={self.round_no} id={self.my_id} defender p1: upstream HARVESTER at {upos}, splitter dir={hdir.name}",
                         )
                         break
             # Check Ti BEFORE destroying — don't break chain if we can't rebuild.
@@ -3321,7 +3354,7 @@ class Player:
             splitter_cost = ct.get_splitter_cost()[0]
             if titanium < splitter_cost:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p1: wait splitter ti={titanium} cost={splitter_cost} (keeping {cetype.name})"
+                    f"r={self.round_no} id={self.my_id} defender p1: wait splitter ti={titanium} cost={splitter_cost} (keeping {cetype.name})",
                 )
                 return True
             # Destroy and immediately rebuild as splitter.
@@ -3329,17 +3362,17 @@ class Player:
                 ct.destroy(chain_pos)
                 self.visible_buildings.pop(chain_pos, None)
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p1: destroyed {cetype.name} at {chain_pos}"
+                    f"r={self.round_no} id={self.my_id} defender p1: destroyed {cetype.name} at {chain_pos}",
                 )
             if ct.can_build_splitter(chain_pos, splitter_dir):
                 ct.build_splitter(chain_pos, splitter_dir)
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p1→p2: splitter at {chain_pos} dir={splitter_dir.name}"
+                    f"r={self.round_no} id={self.my_id} defender p1→p2: splitter at {chain_pos} dir={splitter_dir.name}",
                 )
                 gb["phase"] = 2
                 return True
             dbg(
-                f"r={self.round_no} id={self.my_id} defender p1: can't build splitter at {chain_pos} dir={splitter_dir.name}, cancel"
+                f"r={self.round_no} id={self.my_id} defender p1: can't build splitter at {chain_pos} dir={splitter_dir.name}, cancel",
             )
             self._finish_gunner_build()
             return False
@@ -3349,7 +3382,7 @@ class Player:
             dist = self.my_pos.distance_squared(gunner_pos)
             if dist > 2:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p2: walk to gunner {gunner_pos} dist²={dist} from {self.my_pos}"
+                    f"r={self.round_no} id={self.my_id} defender p2: walk to gunner {gunner_pos} dist²={dist} from {self.my_pos}",
                 )
                 self._walk_toward(ct, gunner_pos)
                 return True
@@ -3359,7 +3392,7 @@ class Player:
                 result = self._eval_sentinel_placement(ct, harv_pos)
                 if result is None:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} defender p2: no valid placement near {harv_pos}"
+                        f"r={self.round_no} id={self.my_id} defender p2: no valid placement near {harv_pos}",
                     )
                     self._finish_gunner_build()
                     return False
@@ -3368,14 +3401,14 @@ class Player:
                 gb["_needs_eval"] = False
                 gunner_pos = result[0]
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender p2: eval'd sentinel at {result[0]} facing {result[1].name}"
+                    f"r={self.round_no} id={self.my_id} defender p2: eval'd sentinel at {result[0]} facing {result[1].name}",
                 )
                 # May need to walk to the chosen tile.
                 if self.my_pos.distance_squared(gunner_pos) > 2:
                     self._walk_toward(ct, gunner_pos)
                     return True
             dbg(
-                f"r={self.round_no} id={self.my_id} defender p2→p3: arrived at gunner {gunner_pos}"
+                f"r={self.round_no} id={self.my_id} defender p2→p3: arrived at gunner {gunner_pos}",
             )
             gb["phase"] = 3
             return True  # process phase 3 next turn
@@ -3391,7 +3424,7 @@ class Player:
             )
             if titanium < turret_cost:
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender: wait {'sentinel' if is_sentinel else 'gunner'} ti={titanium} cost={turret_cost}"
+                    f"r={self.round_no} id={self.my_id} defender: wait {'sentinel' if is_sentinel else 'gunner'} ti={titanium} cost={turret_cost}",
                 )
                 return True
 
@@ -3409,7 +3442,7 @@ class Player:
                         ct.destroy(gunner_pos)
                         self.visible_buildings.pop(gunner_pos, None)
                         dbg(
-                            f"r={self.round_no} id={self.my_id} defender p3: cleared own {getype.name} at {gunner_pos}"
+                            f"r={self.round_no} id={self.my_id} defender p3: cleared own {getype.name} at {gunner_pos}",
                         )
                 elif gteam != self.my_team and getype in {
                     EntityType.ROAD,
@@ -3425,12 +3458,12 @@ class Player:
                     if ct.can_fire(self.my_pos):
                         ct.fire(self.my_pos)
                         dbg(
-                            f"r={self.round_no} id={self.my_id} defender p3: fire at enemy {getype.name} {gunner_pos}"
+                            f"r={self.round_no} id={self.my_id} defender p3: fire at enemy {getype.name} {gunner_pos}",
                         )
                     return True
                 elif getype != EntityType.MARKER:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} defender p3: {getype.name} blocking {gunner_pos}, cancel"
+                        f"r={self.round_no} id={self.my_id} defender p3: {getype.name} blocking {gunner_pos}, cancel",
                     )
                     self._finish_gunner_build()
                     return False
@@ -3442,7 +3475,7 @@ class Player:
                     if ct.can_move(d):
                         ct.move(d)
                         dbg(
-                            f"r={self.round_no} id={self.my_id} defender p3: step off gunner tile"
+                            f"r={self.round_no} id={self.my_id} defender p3: step off gunner tile",
                         )
                         moved = True
                         break
@@ -3454,7 +3487,7 @@ class Player:
                         if ct.can_build_road(adj):
                             ct.build_road(adj)
                             dbg(
-                                f"r={self.round_no} id={self.my_id} defender p3: pave road at {adj} for step-off"
+                                f"r={self.round_no} id={self.my_id} defender p3: pave road at {adj} for step-off",
                             )
                             return True
                     return True  # truly stuck
@@ -3465,14 +3498,14 @@ class Player:
                     ct.build_sentinel(pos, facing)
                     self._sentinels_placed = getattr(self, "_sentinels_placed", 0) + 1
                     dbg(
-                        f"r={self.round_no} id={self.my_id} defender: sentinel at {pos} facing {facing.name} (total={self._sentinels_placed})"
+                        f"r={self.round_no} id={self.my_id} defender: sentinel at {pos} facing {facing.name} (total={self._sentinels_placed})",
                     )
                     self._finish_gunner_build()
                     return True
             elif ct.can_build_gunner(pos, facing):
                 ct.build_gunner(pos, facing)
                 dbg(
-                    f"r={self.round_no} id={self.my_id} defender: gunner at {pos} facing {facing.name} targeting {gb['enemy_pos']}"
+                    f"r={self.round_no} id={self.my_id} defender: gunner at {pos} facing {facing.name} targeting {gb['enemy_pos']}",
                 )
                 self._finish_gunner_build()
                 return True
@@ -3480,7 +3513,7 @@ class Player:
             gunit = pos in self.visible_unit_positions
             kind = "sentinel" if is_sentinel else "gunner"
             dbg(
-                f"r={self.round_no} id={self.my_id} defender: can't build {kind} at {pos} dir={facing.name} bld={ginfo[1].name if ginfo else 'none'} unit={gunit}"
+                f"r={self.round_no} id={self.my_id} defender: can't build {kind} at {pos} dir={facing.name} bld={ginfo[1].name if ginfo else 'none'} unit={gunit}",
             )
             self._finish_gunner_build()
             return False
@@ -3514,17 +3547,18 @@ class Player:
 
         if self.heal_target is not None:
             dbg(
-                f"r={self.round_no} id={self.my_id} heal patrol walk to {self.heal_target}"
+                f"r={self.round_no} id={self.my_id} heal patrol walk to {self.heal_target}",
             )
             self._walk_toward(ct, self.heal_target, best_effort=True)
         else:
             dbg(
-                f"r={self.round_no} id={self.my_id} heal patrol: no target (tree={len(self.my_tree)} nodes)"
+                f"r={self.round_no} id={self.my_id} heal patrol: no target (tree={len(self.my_tree)} nodes)",
             )
 
     def _pick_heal_target(self) -> Position | None:
         """Pick a tree node to patrol toward. Cycles through nodes sorted by
-        distance to core — spends more time near trunk, less at branches."""
+        distance to core — spends more time near trunk, less at branches.
+        """
         if not self.my_tree or self.my_pos is None:
             return self.core_pos
         # Sort by distance to core — patrol trunk first, branches later.
@@ -3589,7 +3623,7 @@ class Player:
                 other = self.sector_claims.get(candidate)
                 if other is None or other[0] >= self.my_id:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} yield sector {self.sector_index}→{candidate}"
+                        f"r={self.round_no} id={self.my_id} yield sector {self.sector_index}→{candidate}",
                     )
                     self.sector_index = candidate
                     self.explore_radius_step = 0
@@ -3688,7 +3722,7 @@ class Player:
                         self.explore_target = self._random_explore_target()
                 if self.explore_target is not None:
                     dbg(
-                        f"r={self.round_no} id={self.my_id} offensive: advancing toward {self.explore_target}"
+                        f"r={self.round_no} id={self.my_id} offensive: advancing toward {self.explore_target}",
                     )
 
         if self.explore_target is not None:
@@ -3704,7 +3738,7 @@ class Player:
             if self.gunner_build is None and self._try_opportunistic_sentinel(ct):
                 return
             dbg(
-                f"r={self.round_no} id={self.my_id} sector={self.sector_index} exploring toward {self.explore_target}"
+                f"r={self.round_no} id={self.my_id} sector={self.sector_index} exploring toward {self.explore_target}",
             )
             if not self._walk_toward(ct, self.explore_target, best_effort=True):
                 if self._stuck_turns >= 5:
