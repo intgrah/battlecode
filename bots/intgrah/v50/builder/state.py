@@ -184,6 +184,13 @@ class State:
         self.foundries: set[int] = set()
         self.turrets: set[int] = set()
 
+        # -- Enemy turret threat (ref-counted per tile, indexed by y * w + x) --
+        self.en_gunner: list[int] = [0] * n
+        self.en_sentinel: list[int] = [0] * n
+        self.en_breach: list[int] = [0] * n
+        self.en_launcher: list[int] = [0] * n
+        self.my_threat: list[int] = [0] * n
+
         # -- Unified flow --
         self.flow = UnifiedFlow(n)
 
