@@ -228,15 +228,11 @@ class Builder(Unit):
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
-        if s.claim is not None:
-            s.last_claim = s.claim
-            marker_val = s.claim.encode()
-        else:
-            marker_val = MarkerRole(
-                role=s.role.value,
-                birthday=s.birthday,
-                turn=ct.get_current_round(),
-            ).encode()
+        marker_val = MarkerRole(
+            role=s.role.value,
+            birthday=s.birthday,
+            turn=ct.get_current_round(),
+        ).encode()
         pos = ct.get_position()
         for t in ct.get_nearby_tiles(GameConstants.ACTION_RADIUS_SQ):
             if t == pos:
