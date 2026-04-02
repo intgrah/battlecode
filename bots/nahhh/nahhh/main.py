@@ -710,13 +710,12 @@ class Player:
             dbg(
                 f"r={self.round_no} id={self.my_id} walk to ore {self.target_ore} dist²={dist_sq}",
             )
-            if not self._walk_toward(ct, self.target_ore):
-                if self._stuck_turns >= 5:
-                    dbg(
-                        f"r={self.round_no} id={self.my_id} abandon ore {self.target_ore} (stuck {self._stuck_turns} turns)",
-                    )
-                    self.target_ore = None
-                    self.task = "idle"
+            if not self._walk_toward(ct, self.target_ore) and self._stuck_turns >= 5:
+                dbg(
+                    f"r={self.round_no} id={self.my_id} abandon ore {self.target_ore} (stuck {self._stuck_turns} turns)",
+                )
+                self.target_ore = None
+                self.task = "idle"
             return
 
         # No ore — explore to find more.
@@ -912,11 +911,14 @@ class Player:
                 score = 0
                 hits_core = False
                 for tile in ct.get_attackable_tiles_from(spos, d, EntityType.SENTINEL):
-                    if self.enemy_core_pos is not None and not hits_core:
-                        if tile == self.enemy_core_pos:
-                            score += 30  # core LoS is very high value
-                            hits_core = True
-                            continue
+                    if (
+                        self.enemy_core_pos is not None
+                        and not hits_core
+                        and tile == self.enemy_core_pos
+                    ):
+                        score += 30  # core LoS is very high value
+                        hits_core = True
+                        continue
                     tinfo = self.visible_buildings.get(tile)
                     if tinfo is not None and tinfo[2] != self.my_team:
                         score += self._OPP_SENTINEL_WEIGHT.get(tinfo[1], 0)
@@ -1027,7 +1029,7 @@ class Player:
         EntityType.ARMOURED_CONVEYOR: 3,  # transport — low priority
     }
 
-    def _find_attack_target(self, ct: Controller) -> Position | None:
+    def _find_attack_target(self, _ct: Controller) -> Position | None:
         """Find best enemy building to attack. Core > turrets > harvesters > transport.
 
         Only returns tier 0-1 targets for gunner placement. Tier 2-3 handled by
@@ -1120,7 +1122,7 @@ class Player:
 
     def _find_ammo_for_gunner(
         self,
-        ct: Controller,
+        _ct: Controller,
         gunner_pos: Position,
         gunner_dir: Direction,
     ) -> dict | None:
@@ -1451,7 +1453,7 @@ class Player:
                 continue  # own core is passable
             wc_blocked.add(xy)
 
-        # Always block enemy core 3×3 based on inferred position (not just vision).
+        # Always block enemy core 3x3 based on inferred position (not just vision).
         if self.enemy_core_pos is not None:
             ex, ey = self.enemy_core_pos.x, self.enemy_core_pos.y
             for dx in range(-1, 2):
@@ -1624,13 +1626,16 @@ class Player:
                     if prio < best_prio:
                         best_prio = prio
                         best_destroy = adj
-                if best_destroy is not None and best_prio < 999:
-                    if ct.can_destroy(best_destroy):
-                        ct.destroy(best_destroy)
-                        self.visible_buildings.pop(best_destroy, None)
-                        dbg(
-                            f"r={self.round_no} id={self.my_id} escape: destroyed own building at {best_destroy}",
-                        )
+                if (
+                    best_destroy is not None
+                    and best_prio < 999
+                    and ct.can_destroy(best_destroy)
+                ):
+                    ct.destroy(best_destroy)
+                    self.visible_buildings.pop(best_destroy, None)
+                    dbg(
+                        f"r={self.round_no} id={self.my_id} escape: destroyed own building at {best_destroy}",
+                    )
         return False
 
     # ------------------------------------------------------------------
@@ -2762,17 +2767,23 @@ class Player:
             hpos = self.connect_harvester_pos
             has_nearby = False
             for bpos, binfo in (self.visible_buildings or {}).items():
-                if binfo[2] == self.my_team and binfo[1] == EntityType.SENTINEL:
-                    if hpos.distance_squared(bpos) <= 25:
-                        has_nearby = True
-                        break
+                if (
+                    binfo[2] == self.my_team
+                    and binfo[1] == EntityType.SENTINEL
+                    and hpos.distance_squared(bpos) <= 25
+                ):
+                    has_nearby = True
+                    break
             if not has_nearby:
                 # Also check known_buildings for sentinels out of vision.
                 for bpos, binfo in self.known_buildings.items():
-                    if binfo[2] == self.my_team and binfo[1] == EntityType.SENTINEL:
-                        if hpos.distance_squared(bpos) <= 25:
-                            has_nearby = True
-                            break
+                    if (
+                        binfo[2] == self.my_team
+                        and binfo[1] == EntityType.SENTINEL
+                        and hpos.distance_squared(bpos) <= 25
+                    ):
+                        has_nearby = True
+                        break
             if not has_nearby:
                 self._pending_sentinel_harvester = hpos
             else:
@@ -2957,12 +2968,18 @@ class Player:
                     if pos.distance_squared(own_pos) <= 25:
                         near_us = True
                         break
-            if not near_us and self.connect_harvester_pos is not None:
-                if pos.distance_squared(self.connect_harvester_pos) <= 25:
-                    near_us = True
-            if not near_us and self.core_pos is not None:
-                if pos.distance_squared(self.core_pos) <= 64:
-                    near_us = True
+            if (
+                not near_us
+                and self.connect_harvester_pos is not None
+                and pos.distance_squared(self.connect_harvester_pos) <= 25
+            ):
+                near_us = True
+            if (
+                not near_us
+                and self.core_pos is not None
+                and pos.distance_squared(self.core_pos) <= 64
+            ):
+                near_us = True
             # Respond to any enemy turret in our half of the map.
             if not near_us and not self._in_enemy_half(pos):
                 near_us = True
@@ -3533,11 +3550,10 @@ class Player:
 
         if ct.get_action_cooldown() == 0:
             for pos in self._nearby_tree_positions():
-                if self.my_pos.distance_squared(pos) <= 2:
-                    if ct.can_heal(pos):
-                        ct.heal(pos)
-                        dbg(f"r={self.round_no} id={self.my_id} heal patrol at {pos}")
-                        return
+                if self.my_pos.distance_squared(pos) <= 2 and ct.can_heal(pos):
+                    ct.heal(pos)
+                    dbg(f"r={self.round_no} id={self.my_id} heal patrol at {pos}")
+                    return
 
         if (
             self.heal_target is None
@@ -3727,23 +3743,27 @@ class Player:
 
         if self.explore_target is not None:
             # Offensive attack: try to place gunner targeting enemy infra/core.
-            if self.gunner_build is None and self._attack_target is None:
-                if self._try_start_attack(ct):
-                    return
+            if (
+                self.gunner_build is None
+                and self._attack_target is None
+                and self._try_start_attack(ct)
+            ):
+                return
             # Continue existing attack (building harvester or routing chain).
-            if self._attack_target is not None:
-                if self._continue_attack(ct):
-                    return
+            if self._attack_target is not None and self._continue_attack(ct):
+                return
             # Opportunistic sentinel: if we see an exposed enemy harvester, parasite it.
             if self.gunner_build is None and self._try_opportunistic_sentinel(ct):
                 return
             dbg(
                 f"r={self.round_no} id={self.my_id} sector={self.sector_index} exploring toward {self.explore_target}",
             )
-            if not self._walk_toward(ct, self.explore_target, best_effort=True):
-                if self._stuck_turns >= 5:
-                    self.explore_radius_step += 1
-                    self.explore_target = None
+            if (
+                not self._walk_toward(ct, self.explore_target, best_effort=True)
+                and self._stuck_turns >= 5
+            ):
+                self.explore_radius_step += 1
+                self.explore_target = None
         else:
             # Nothing to explore — patrol our tree and heal.
             self._run_heal_patrol(ct)

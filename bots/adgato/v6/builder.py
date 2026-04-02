@@ -1331,11 +1331,12 @@ def _advance(player: Player, ct: Controller, pos: Position) -> None:
                             player.suicide_countdown = 0
                         return
 
-    if player.advance_targeting_ore:
         # Ore target was claimed — switch back
-        if player.target is None or player.target not in player.known_ore:
-            player.advance_targeting_ore = False
-            player.target = None
+    if (
+        player.advance_targeting_ore and player.target is None
+    ) or player.target not in player.known_ore:
+        player.advance_targeting_ore = False
+        player.target = None
 
     # Look for nearest visible unclaimed ore, preferring LOS
     # (re-evaluates even while targeting ore to switch to a closer one)
@@ -1626,39 +1627,38 @@ def _idle(player: Player, ct: Controller, pos: Position) -> None:
         if (
             ct.get_entity_type(bid) == EntityType.LAUNCHER
             and ct.get_team(bid) != my_team
-        ):
-            if pos.distance_squared(ct.get_position(bid)) <= 2:
-                # Try to build launcher in direction of enemy launcher
-                pref_dir = pos.direction_to(
-                    player.core_pos
-                    if player.core_pos is not None
-                    else ct.get_position(bid),
-                )
-                pref_idx = _DIR_IDX[pref_dir]
-                for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
-                    d = _ALL_DIRS[(pref_idx + offset) % 8]
-                    tile = pos.add(d)
-                    if not in_bounds(ct, tile):
-                        continue
-                    tbid = ct.get_tile_building_id(tile)
-                    if tbid is not None and ct.can_destroy(tile):
-                        ct.destroy(tile)
-                    if ct.can_build_launcher(tile):
-                        ct.build_launcher(tile)
-                        pref_dir = pos.direction_to(ct.get_position(bid)).opposite()
-                        pref_idx = _DIR_IDX[pref_dir]
-                        print(
-                            f"Idle E{ct.get_id()}: built launcher at {tile} near enemy launcher",
-                        )
+        ) and pos.distance_squared(ct.get_position(bid)) <= 2:
+            # Try to build launcher in direction of enemy launcher
+            pref_dir = pos.direction_to(
+                player.core_pos
+                if player.core_pos is not None
+                else ct.get_position(bid),
+            )
+            pref_idx = _DIR_IDX[pref_dir]
+            for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
+                d = _ALL_DIRS[(pref_idx + offset) % 8]
+                tile = pos.add(d)
+                if not in_bounds(ct, tile):
+                    continue
+                tbid = ct.get_tile_building_id(tile)
+                if tbid is not None and ct.can_destroy(tile):
+                    ct.destroy(tile)
+                if ct.can_build_launcher(tile):
+                    ct.build_launcher(tile)
+                    pref_dir = pos.direction_to(ct.get_position(bid)).opposite()
+                    pref_idx = _DIR_IDX[pref_dir]
+                    print(
+                        f"Idle E{ct.get_id()}: built launcher at {tile} near enemy launcher",
+                    )
 
-                for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
-                    d = _ALL_DIRS[(pref_idx + offset) % 8]
-                    if try_move_smart(ct, pos, d):
-                        break
-                player.state = BuilderState.PROTECT
-                player.target = None
-                player.state_turns = 0
-                return
+            for offset in [0, 1, -1, 2, -2, 3, -3, 4]:
+                d = _ALL_DIRS[(pref_idx + offset) % 8]
+                if try_move_smart(ct, pos, d):
+                    break
+            player.state = BuilderState.PROTECT
+            player.target = None
+            player.state_turns = 0
+            return
 
     # Monitor conveyor/bridge we're standing on
     print(f"Idle empty turns {player.idle_empty_turns}")

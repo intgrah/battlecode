@@ -104,12 +104,14 @@ def find_nearest_ore(ct: Controller, pos: Position) -> Position | None:
     best, best_dist = None, 999999
     for tile in ct.get_nearby_tiles():
         env = ct.get_tile_env(tile)
-        if env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
-            if ct.get_tile_building_id(tile) is None:
-                d = pos.distance_squared(tile)
-                if d < best_dist:
-                    best_dist = d
-                    best = tile
+        if (
+            env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE)
+            and ct.get_tile_building_id(tile) is None
+        ):
+            d = pos.distance_squared(tile)
+            if d < best_dist:
+                best_dist = d
+                best = tile
     return best
 
 
@@ -370,24 +372,25 @@ class Player:
         next_pos = self.return_path[self.return_idx + 1]
 
         # Build conveyor at current position
-        if ct.get_action_cooldown() == 0:
-            if not (self.core_pos and is_on_core(pos, self.core_pos)):
-                conv_dir = cardinal_toward(pos, next_pos)
+        if ct.get_action_cooldown() == 0 and not (
+            self.core_pos and is_on_core(pos, self.core_pos)
+        ):
+            conv_dir = cardinal_toward(pos, next_pos)
 
-                # First conveyor must not face toward the harvester
-                if self.return_idx == 0 and conv_dir == self.harvester_dir:
-                    for alt in cardinal_priority(conv_dir):
-                        if alt != self.harvester_dir:
-                            conv_dir = alt
-                            break
+            # First conveyor must not face toward the harvester
+            if self.return_idx == 0 and conv_dir == self.harvester_dir:
+                for alt in cardinal_priority(conv_dir):
+                    if alt != self.harvester_dir:
+                        conv_dir = alt
+                        break
 
-                # Destroy existing building (road from exploration)
-                bid = ct.get_tile_building_id(pos)
-                if bid is not None and ct.can_destroy(pos):
-                    ct.destroy(pos)
+            # Destroy existing building (road from exploration)
+            bid = ct.get_tile_building_id(pos)
+            if bid is not None and ct.can_destroy(pos):
+                ct.destroy(pos)
 
-                if ct.can_build_conveyor(pos, conv_dir):
-                    ct.build_conveyor(pos, conv_dir)
+            if ct.can_build_conveyor(pos, conv_dir):
+                ct.build_conveyor(pos, conv_dir)
 
         # Move toward next position
         if ct.get_move_cooldown() > 0:

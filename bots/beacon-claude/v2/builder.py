@@ -40,9 +40,8 @@ def eliminate_symmetry(player: Player, ct: Controller, w: int, h: int) -> None:
 
                 mirrored = mirror_pos(tile, s, w, h)
 
-                if mirrored in player.known_env:
-                    if player.known_env[mirrored] != env:
-                        player.sym_eliminated.add(s)
+                if mirrored in player.known_env and player.known_env[mirrored] != env:
+                    player.sym_eliminated.add(s)
 
     if player.sym_resolved is not None:
         print(player.sym_resolved)
@@ -164,10 +163,13 @@ def destroy_enemy_road(
     bid = ct.get_tile_building_id(pos)
     if bid is not None:
         etype = ct.get_entity_type(bid)
-        if etype in SHOULD_FIRE_AT and ct.get_team() != ct.get_team(bid):
-            if ct.can_fire(pos):
-                ct.fire(pos)
-                return True
+        if (
+            etype in SHOULD_FIRE_AT
+            and ct.get_team() != ct.get_team(bid)
+            and ct.can_fire(pos)
+        ):
+            ct.fire(pos)
+            return True
     elif move_after:
         for d in _ALL_DIRS:
             if try_move_smart(ct, pos, d):
@@ -336,10 +338,13 @@ def run_builder(player: Player, ct: Controller) -> None:
     # Core damaged — drop everything and heal
     if player.core_pos is not None and ct.is_in_vision(player.core_pos):
         core_id = ct.get_tile_building_id(player.core_pos)
-        if core_id is not None and ct.get_hp(core_id) < ct.get_max_hp(core_id):
-            if player.mode not in ("heal", "bridge"):
-                player.mode = "heal"
-                player.heal_target = player.core_pos
+        if (
+            core_id is not None
+            and ct.get_hp(core_id) < ct.get_max_hp(core_id)
+            and player.mode not in ("heal", "bridge")
+        ):
+            player.mode = "heal"
+            player.heal_target = player.core_pos
 
     # Friendly bridge damaged — heal it (skip if another builder is already on it)
     if player.mode not in ("heal", "bridge"):
@@ -901,11 +906,14 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
     # If bridge_target already has a bridge on it, the chain continues from here
     if ct.is_in_vision(bt):
         bid = ct.get_tile_building_id(bt)
-        if bid is not None and ct.get_entity_type(bid) == EntityType.BRIDGE:
-            # Chain already connected at this tile — done
-            if king_dist(bt, player.core_pos) <= 1:
-                player.bridge_target = None
-                return True
+        # Chain already connected at this tile — done
+        if (
+            bid is not None
+            and ct.get_entity_type(bid) == EntityType.BRIDGE
+            and king_dist(bt, player.core_pos) <= 1
+        ):
+            player.bridge_target = None
+            return True
 
     # Adjacent to bridge_target — try to build the next bridge
     if pos.distance_squared(bt) <= 2:

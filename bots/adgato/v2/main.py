@@ -270,9 +270,12 @@ class Player:
             # Build road on next tile if needed (so we can walk there)
             next_tile = pos.add(d)
             # We might need a road if the next tile isn't passable yet
-            if ct.get_action_cooldown() == 0 and self._in_bounds(ct, next_tile):
-                if ct.can_build_road(next_tile):
-                    ct.build_road(next_tile)
+            if (
+                ct.get_action_cooldown() == 0
+                and self._in_bounds(ct, next_tile)
+                and ct.can_build_road(next_tile)
+            ):
+                ct.build_road(next_tile)
 
             if ct.can_move(d):
                 ct.move(d)

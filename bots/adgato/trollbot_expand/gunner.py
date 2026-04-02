@@ -12,6 +12,5 @@ def run_gunner(player, ct: Controller) -> None:
         return
 
     bbid = ct.get_tile_builder_bot_id(target)
-    if bbid is not None and ct.get_team(bbid) != ct.get_team():
-        if ct.can_fire(target):
-            ct.fire(target)
+    if bbid is not None and ct.get_team(bbid) != ct.get_team() and ct.can_fire(target):
+        ct.fire(target)

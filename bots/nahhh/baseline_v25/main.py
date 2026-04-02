@@ -2262,11 +2262,10 @@ class Player:
         """Walk along own tree, healing damaged buildings."""
         if ct.get_action_cooldown() == 0:
             for pos in self._nearby_tree_positions():
-                if self.my_pos.distance_squared(pos) <= 2:
-                    if ct.can_heal(pos):
-                        ct.heal(pos)
-                        dbg(f"r={self.round_no} id={self.my_id} heal patrol at {pos}")
-                        return
+                if self.my_pos.distance_squared(pos) <= 2 and ct.can_heal(pos):
+                    ct.heal(pos)
+                    dbg(f"r={self.round_no} id={self.my_id} heal patrol at {pos}")
+                    return
 
         if (
             self.heal_target is None

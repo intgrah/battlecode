@@ -125,13 +125,15 @@ def _detect_symmetry(player: Player, ct: Controller, pos: Position) -> None:
                 if s in player.sym_eliminated:
                     continue
                 mirrored = mirror_pos(tile, s, w, h)
-                if mirrored in player.known_env:
-                    if player.known_env[mirrored] != env:
-                        player.sym_eliminated.add(s)
+                if mirrored in player.known_env and player.known_env[mirrored] != env:
+                    player.sym_eliminated.add(s)
 
-    if player.try_resolve(w, h, f"Scout {player.scout_idx}"):
-        if player.sym_resolved and player.enemy_core:
-            _write_comms(player, ct, player.sym_resolved, player.enemy_core)
+    if (
+        player.try_resolve(w, h, f"Scout {player.scout_idx}")
+        and player.sym_resolved
+        and player.enemy_core
+    ):
+        _write_comms(player, ct, player.sym_resolved, player.enemy_core)
 
 
 # ── Pathfinding helpers ──────────────────────────────────────────────

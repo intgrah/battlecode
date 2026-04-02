@@ -7,6 +7,10 @@ in the hot loop. Callers convert at boundaries.
 from __future__ import annotations
 
 import heapq
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # 8-directional deltas for walking
 ALL_DELTAS = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
@@ -32,7 +36,7 @@ def astar_walk(
     enemy_core_tiles: set,
     map_w: int,
     map_h: int,
-    cpu_fn=None,
+    cpu_fn: Callable[[], int] | None = None,
     cpu_limit: int = 1850,
     best_effort: bool = False,
     danger_set: set | None = None,
