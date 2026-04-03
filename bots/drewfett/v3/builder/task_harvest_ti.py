@@ -1,0 +1,75 @@
+"""Navigate to unharvested Ti ore and place a harvester.
+
+If the builder is already cardinally adjacent to Ti ore, it places the
+harvester immediately. Otherwise, it navigates to the nearest unharvested
+Ti ore, sorted by Euclidean distance, skipping claimed and enemy-occupied
+tiles. If the move places the builder adjacent to the ore, it places the
+harvester in the same turn (move + build).
+"""
+
+from cambc import Controller, Direction, Position
+from marker import MarkerTaskClaim, TaskKind
+from util import DIR4_DELTA
+
+from .action import Action, PlaceHarvester
+from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
+from .state import State
+
+
+def harvest_ti(
+    state: State,
+    ct: Controller,
+) -> tuple[Direction, Action | None] | None:
+    pos = state.pos
+    w = state.w
+    unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
+    if not unharvested:
+        return None
+
+    for ddx, ddy in DIR4_DELTA:
+        ni = (pos.y + ddy) * w + (pos.x + ddx)
+        if ni in unharvested:
+            ore_pos = Position(pos.x + ddx, pos.y + ddy)
+            bid = ct.get_tile_building_id(ore_pos)
+            if bid is not None:
+                if ct.can_destroy(ore_pos):
+                    ct.destroy(ore_pos)
+                else:
+                    continue
+            h_cost, _ = ct.get_harvester_cost()
+            ti, _ = ct.get_global_resources()
+            if ti >= h_cost and ct.can_build_harvester(ore_pos):
+                return Direction.CENTRE, PlaceHarvester(ore_pos)
+
+    rnd = ct.get_current_round()
+    candidates = sorted(
+        unharvested,
+        key=lambda oi: (pos.x - oi % w) ** 2 + (pos.y - oi // w) ** 2,
+    )
+    for oi in candidates:
+        bld = state.building[oi]
+        if bld is not None and bld.team != state.my_team:
+            continue
+        if is_claimed(state, oi, TaskKind.NAV_ORE):
+            continue
+        ore_pos = Position(oi % w, oi // w)
+        adj = cardinal_adjacent(state, pos, ore_pos)
+        if adj is None:
+            continue
+        result = move_toward_with_road(state, ct, adj)
+        if result is None:
+            continue
+        move, build = result
+        if move != Direction.CENTRE and build is None:
+            new_pos = pos.add(move)
+            if new_pos.distance_squared(ore_pos) == 1:
+                bid = ct.get_tile_building_id(ore_pos)
+                if bid is not None and ct.can_destroy(ore_pos):
+                    ct.destroy(ore_pos)
+                h_cost, _ = ct.get_harvester_cost()
+                ti, _ = ct.get_global_resources()
+                if ti >= h_cost:
+                    build = PlaceHarvester(ore_pos)
+        state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
+        return move, build
+    return None
