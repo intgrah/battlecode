@@ -40,14 +40,16 @@ def main() -> None:
     found = False
     for eid, entries in sorted(positions.items()):
         for period in [2, 3, 4]:
-            for j in range(len(entries) - period * 3):
+            for j in range(len(entries) - period * 5):
                 seq = [e[1] for e in entries[j : j + period * 3]]
+                seq = [e[1] for e in entries[j : j + period * 5]]
                 chunks = [
-                    tuple(seq[k : k + period]) for k in range(0, period * 3, period)
+                    tuple(seq[k : k + period]) for k in range(0, period * 5, period)
                 ]
                 if (
-                    chunks[0] == chunks[1] == chunks[2]
+                    chunks[0] == chunks[1] == chunks[2] == chunks[3] == chunks[4]
                     and len(set(chunks[0])) > 1
+                    and not any("Wait" in s for s in chunks[0])
                 ):
                     t_start = entries[j][0]
                     t_end = entries[j + period * 3 - 1][0]
