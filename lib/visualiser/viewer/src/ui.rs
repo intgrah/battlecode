@@ -129,6 +129,106 @@ fn nice_tick_step(max_val: f32) -> f32 {
 }
 
 #[allow(clippy::too_many_lines)]
+fn draw_turn_time_graph(ui: &mut egui::Ui, game: &GameState, turn: usize, entity_id: i32) {
+    if turn == 0 {
+        return;
+    }
+
+    // Collect CPU time for this specific entity across all turns.
+    let mut max_us = 1_f32;
+    let mut points: Vec<(usize, f32)> = Vec::new();
+    for t in 0..=turn {
+        if let Some(&us) = game.turns[t].cpu_time_us.get(&entity_id) {
+            let us_f = us as f32;
+            max_us = max_us.max(us_f);
+            points.push((t, us_f));
+        }
+    }
+
+    if points.is_empty() {
+        return;
+    }
+
+    let desired = egui::vec2(ui.available_width(), 90.0);
+    let (response, painter) = ui.allocate_painter(desired, egui::Sense::hover());
+    let full_rect = response.rect;
+
+    painter.rect_filled(full_rect, 2.0, ui.visuals().extreme_bg_color);
+
+    let plot = Rect::from_min_max(
+        egui::pos2(full_rect.left() + 36.0, full_rect.top() + 2.0),
+        egui::pos2(full_rect.right() - 2.0, full_rect.bottom() - 14.0),
+    );
+
+    let grid_color = egui::Color32::from_rgb(0x40, 0x40, 0x40);
+    let label_color = egui::Color32::from_rgb(0x90, 0x90, 0x90);
+    let font = egui::FontId::monospace(9.0);
+
+    // Y-axis grid (microseconds).
+    let y_step = nice_tick_step(max_us);
+    let y_ticks = (max_us / y_step) as i32;
+    for i in 1..=y_ticks {
+        let tick_val = y_step * i as f32;
+        let y = (tick_val / max_us).mul_add(-plot.height(), plot.bottom());
+        painter.line_segment(
+            [egui::pos2(plot.left(), y), egui::pos2(plot.right(), y)],
+            egui::Stroke::new(0.5, grid_color),
+        );
+        let label = if tick_val >= 1_000_000.0 {
+            format!("{:.1}s", tick_val / 1_000_000.0)
+        } else if tick_val >= 1000.0 {
+            format!("{}ms", (tick_val / 1000.0) as i32)
+        } else {
+            format!("{}µs", tick_val as i32)
+        };
+        painter.text(
+            egui::pos2(plot.left() - 3.0, y),
+            egui::Align2::RIGHT_CENTER,
+            label,
+            font.clone(),
+            label_color,
+        );
+    }
+
+    // X-axis grid (turns).
+    let x_step = nice_tick_step(turn as f32);
+    let x_ticks = (turn as f32 / x_step) as i32;
+    for i in 1..=x_ticks {
+        let tick_turn = x_step * i as f32;
+        let x = (tick_turn / turn as f32).mul_add(plot.width(), plot.left());
+        painter.line_segment(
+            [egui::pos2(x, plot.top()), egui::pos2(x, plot.bottom())],
+            egui::Stroke::new(0.5, grid_color),
+        );
+        painter.text(
+            egui::pos2(x, plot.bottom() + 2.0),
+            egui::Align2::CENTER_TOP,
+            format!("{}", tick_turn as i32),
+            font.clone(),
+            label_color,
+        );
+    }
+
+    let line_color = egui::Color32::from_rgb(0xe0, 0xb0, 0x40);
+
+    for window in points.windows(2) {
+        let (t0, v0) = window[0];
+        let (t1, v1) = window[1];
+        if t1 != t0 + 1 {
+            continue;
+        }
+        let x0 = (t0 as f32 / turn as f32).mul_add(plot.width(), plot.left());
+        let y0 = (v0 / max_us).mul_add(-plot.height(), plot.bottom()).round();
+        let x1 = (t1 as f32 / turn as f32).mul_add(plot.width(), plot.left());
+        let y1 = (v1 / max_us).mul_add(-plot.height(), plot.bottom()).round();
+        painter.line_segment(
+            [egui::pos2(x0, y0), egui::pos2(x1, y1)],
+            egui::Stroke::new(2.0, line_color),
+        );
+    }
+}
+
+#[allow(clippy::too_many_lines)]
 fn draw_resource_graph(ui: &mut egui::Ui, game: &GameState, turn: usize, team_idx: usize) {
     let desired = egui::vec2(ui.available_width(), 90.0);
     let (response, painter) = ui.allocate_painter(desired, egui::Sense::hover());
@@ -575,16 +675,18 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
 
                 ui.monospace(format_tile_info(&app.game, app.cursor));
 
-                let at_cursor: Vec<&Entity> = state
+                let mut at_cursor: Vec<&Entity> = state
                     .entities
                     .values()
                     .filter(|e| e.pos == (app.cursor.0, app.cursor.1))
                     .collect();
+                at_cursor.sort_by_key(|e| !matches!(e.kind, EntityKind::BuilderBot { .. }));
 
                 for e in &at_cursor {
                     ui.add_space(4.0);
                     ui.separator();
                     ui.monospace(format_entity_info(e, &state.cpu_time_us));
+                    draw_turn_time_graph(ui, &app.game, app.turn, e.id);
                 }
 
                 ui.add_space(8.0);
