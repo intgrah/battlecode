@@ -12,4 +12,6 @@ class Player:
             ct.spawn_builder(pos)
             print(f"Spawned at centre ({pos.x},{pos.y})")
         else:
-            print(f"Cannot spawn at centre ({pos.x},{pos.y}) can_spawn={ct.can_spawn(pos)} ti={ti} cost={cost}")
+            print(
+                f"Cannot spawn at centre ({pos.x},{pos.y}) can_spawn={ct.can_spawn(pos)} ti={ti} cost={cost}"
+            )

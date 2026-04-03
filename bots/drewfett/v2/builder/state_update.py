@@ -28,7 +28,6 @@ from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import COST_IMPASSABLE, Symmetry
 
-
 from .state import State
 from .state_helpers import mirror
 from .state_update_econ import update_flow
@@ -113,7 +112,12 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
 def _rebuild_danger_zones(state: State) -> None:
     """Rebuild danger zones from threat arrays after scan updates them."""
     n = state.w * state.h
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
     state.danger_zones = {i for i in range(n) if eg[i] + es[i] + eb[i] + el[i] > 0}
 
 
@@ -252,7 +256,9 @@ def _apply_threat(state: State, idx: int, bld: Building, sign: int) -> None:
         if 0 <= x < w and 0 <= y < h:
             arr[y * w + x] += sign
             if arr[y * w + x] < 0:
-                print(f"THREAT_NEG: arr[{x},{y}]={arr[y * w + x]} sign={sign} turret=({px},{py}) type={type(bld).__name__}")
+                print(
+                    f"THREAT_NEG: arr[{x},{y}]={arr[y * w + x]} sign={sign} turret=({px},{py}) type={type(bld).__name__}"
+                )
                 arr[y * w + x] = 0
 
 

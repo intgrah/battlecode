@@ -120,6 +120,7 @@ class Builder(Unit):
 
         try:
             from .state_dump import dump
+
             dump(s, ct)
         except (ImportError, Exception):
             pass

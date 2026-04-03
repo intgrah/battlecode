@@ -110,8 +110,7 @@ def _pick_frontier_target(state: State) -> Position | None:
         for ci in claimed:
             cx2, cy2 = ci % w, ci // w
             d = max(abs(p.x - cx2), abs(p.y - cy2))
-            if d < min_claim_dist:
-                min_claim_dist = d
+            min_claim_dist = min(min_claim_dist, d)
         # Walk distance (lower is better)
         walk = max(abs(pos.x - p.x), abs(pos.y - p.y))
         # Maximize distance from claims, minimize walk distance

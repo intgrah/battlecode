@@ -54,7 +54,9 @@ def _log(msg: str) -> None:
 
 
 def _move_or_none(
-    state: State, ct: Controller, target: Position,
+    state: State,
+    ct: Controller,
+    target: Position,
 ) -> tuple[Direction, Action | None] | None:
     """Like move_toward_with_road but returns None if no progress."""
     result = move_toward_with_road(state, ct, target)
@@ -183,14 +185,17 @@ def rush(
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     _log(f"step3: placing harvester at ({ore_pos.x},{ore_pos.y})")
                     return Direction.CENTRE, PlaceHarvester(ore_pos)
-                else:
-                    # Can't build here — blocked by something we can't see in belief
-                    _log(f"step3: ore ({ore_pos.x},{ore_pos.y}) blocked, removing from ore_ti")
-                    state.ore_ti.discard(ore_idx)
+                # Can't build here — blocked by something we can't see in belief
+                _log(
+                    f"step3: ore ({ore_pos.x},{ore_pos.y}) blocked, removing from ore_ti"
+                )
+                state.ore_ti.discard(ore_idx)
             if pos.distance_squared(ore_pos) > 2:
                 # Walk to the tap point (free adjacent tile), not the ore itself
                 tap_pos = Position(tap_x, tap_y)
-                _log(f"step3: walking toward tap ({tap_x},{tap_y}) for ore ({ore_pos.x},{ore_pos.y})")
+                _log(
+                    f"step3: walking toward tap ({tap_x},{tap_y}) for ore ({ore_pos.x},{ore_pos.y})"
+                )
                 return _move_or_none(state, ct, tap_pos)
         # ours/parasite — extend from tap
         siege = _find_siege_tile(state, tap_x, tap_y, en_core)
@@ -307,7 +312,9 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                     ni = ny * w + nx
                     if ni not in seen:
                         nbld = state.building[ni]
-                        if nbld is None or isinstance(nbld, (BuildingRoad, BuildingMarker)):
+                        if nbld is None or isinstance(
+                            nbld, (BuildingRoad, BuildingMarker)
+                        ):
                             seen.add(ni)
                             result.append((nx, ny))
             case BuildingSplitter(direction=d):
@@ -318,7 +325,9 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                         ni = ny * w + nx
                         if ni not in seen:
                             nbld = state.building[ni]
-                            if nbld is None or isinstance(nbld, (BuildingRoad, BuildingMarker)):
+                            if nbld is None or isinstance(
+                                nbld, (BuildingRoad, BuildingMarker)
+                            ):
                                 seen.add(ni)
                                 result.append((nx, ny))
             case BuildingBridge(target=bt):
@@ -327,7 +336,9 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                     ni = by * w + bx
                     if ni not in seen:
                         nbld = state.building[ni]
-                        if nbld is None or isinstance(nbld, (BuildingRoad, BuildingMarker)):
+                        if nbld is None or isinstance(
+                            nbld, (BuildingRoad, BuildingMarker)
+                        ):
                             seen.add(ni)
                             result.append((bx, by))
 
@@ -348,23 +359,29 @@ def _find_splitter_dir(state: State, sx: int, sy: int) -> Direction | None:
         ni = ny * w + nx
         nbld = state.building[ni]
         match nbld:
-            case BuildingConveyor(direction=d, team=team) | BuildingArmouredConveyor(direction=d, team=team) if team == state.my_team:
+            case (
+                BuildingConveyor(direction=d, team=team)
+                | BuildingArmouredConveyor(direction=d, team=team)
+            ) if team == state.my_team:
                 ddx, ddy = d.delta()
                 if (nx + ddx, ny + ddy) == (sx, sy):
                     # This neighbor feeds us. Face away from it.
                     # Input comes from direction (dx, dy) relative to us
                     # Splitter faces opposite = (-dx, -dy) direction
                     from util import DELTA_TO_DIR
+
                     return DELTA_TO_DIR.get((-dx, -dy))
             case BuildingHarvester():
                 # Harvester outputs to all cardinal neighbors
                 from util import DELTA_TO_DIR
+
                 return DELTA_TO_DIR.get((-dx, -dy))
             case BuildingSplitter(direction=d, team=team) if team == state.my_team:
                 sdx, sdy = d.delta()
                 for odx, ody in [(sdx, sdy), (-sdy, sdx), (sdy, -sdx)]:
                     if (nx + odx, ny + ody) == (sx, sy):
                         from util import DELTA_TO_DIR
+
                         return DELTA_TO_DIR.get((-dx, -dy))
     return None
 
@@ -421,7 +438,9 @@ def _upgrade_to_splitter(
                             if ct.can_destroy(conv_pos):
                                 ct.destroy(conv_pos)
                             if ct.can_build_splitter(conv_pos, sp_dir):
-                                _log(f"step1.5: upgrading conveyor at ({nx},{ny}) to splitter facing {sp_dir.name}")
+                                _log(
+                                    f"step1.5: upgrading conveyor at ({nx},{ny}) to splitter facing {sp_dir.name}"
+                                )
                                 return Direction.CENTRE, PlaceSplitter(conv_pos, sp_dir)
                         return _move_or_none(state, ct, conv_pos)
 
@@ -607,15 +626,21 @@ def _extend_from_flow(
                 # If path[k] already has our conveyor, go place gunner at path[k+1]
                 if not connected:
                     # First build conveyor here
-                    _log(f"extend[{k}]: enemy {ahead2_name} at ({ahead2_x},{ahead2_y}) 2 ahead, building conveyor at ({x},{y}) first")
+                    _log(
+                        f"extend[{k}]: enemy {ahead2_name} at ({ahead2_x},{ahead2_y}) 2 ahead, building conveyor at ({x},{y}) first"
+                    )
                 else:
                     # Conveyor done, place gunner at path[k+1] facing path[k+2]
                     gunner_facing = next_pos.direction_to(Position(ahead2_x, ahead2_y))
                     feed_dir2 = _find_splitter_dir(state, nx, ny)
                     if feed_dir2 is not None and gunner_facing == feed_dir2.opposite():
-                        _log(f"extend[{k}]: gunner at ({nx},{ny}) would face feed, skip")
+                        _log(
+                            f"extend[{k}]: gunner at ({nx},{ny}) would face feed, skip"
+                        )
                     elif gunner_facing != Direction.CENTRE:
-                        _log(f"extend[{k}]: placing gunner at ({nx},{ny}) facing ({ahead2_x},{ahead2_y}) to clear")
+                        _log(
+                            f"extend[{k}]: placing gunner at ({nx},{ny}) facing ({ahead2_x},{ahead2_y}) to clear"
+                        )
                         result = _place_gunner_at(state, ct, next_pos, gunner_facing)
                         if result is not None:
                             return result
@@ -638,7 +663,9 @@ def _extend_from_flow(
             if feed_dir is not None and facing == feed_dir.opposite():
                 _log(f"extend[{k}]: enemy ahead but facing would block feed, skip")
             elif facing != Direction.CENTRE:
-                _log(f"extend[{k}]: enemy {next_name} ahead at ({nx},{ny}), placing gunner at ({x},{y}) facing {facing.name}")
+                _log(
+                    f"extend[{k}]: enemy {next_name} ahead at ({nx},{ny}), placing gunner at ({x},{y}) facing {facing.name}"
+                )
                 result = _place_gunner_at(state, ct, build_at, facing)
                 if result is not None:
                     return result
@@ -668,7 +695,9 @@ def _extend_from_flow(
         # If this tile can already hit core, place gunner instead of conveyor
         hit_facing = _can_hit_core(state, x, y, en_core)
         if hit_facing is not None:
-            _log(f"extend[{k}]: ({x},{y}) can hit core facing {hit_facing.name}, placing gunner")
+            _log(
+                f"extend[{k}]: ({x},{y}) can hit core facing {hit_facing.name}, placing gunner"
+            )
             result = _place_gunner_at(state, ct, build_at, hit_facing)
             if result is not None:
                 return result
@@ -847,7 +876,9 @@ def _find_rush_ore(
             if state.in_bounds(mx, my):
                 all_ore.add(my * w + mx)
 
-    _log(f"_find_rush_ore: {len(all_ore)} total ore, {len(state.ore_ti)} seen, sym={state.symmetry} candidates={state.sym_candidates}")
+    _log(
+        f"_find_rush_ore: {len(all_ore)} total ore, {len(state.ore_ti)} seen, sym={state.symmetry} candidates={state.sym_candidates}"
+    )
     for oi in all_ore:
         ox, oy = oi % w, oi // w
         if not _on_enemy_half(state, ox, oy):
@@ -884,7 +915,9 @@ def _find_rush_ore(
             continue
 
         # Skip ore with non-removable buildings (barriers, conveyors, etc.)
-        if bld is not None and not isinstance(bld, (BuildingRoad, BuildingMarker, BuildingHarvester)):
+        if bld is not None and not isinstance(
+            bld, (BuildingRoad, BuildingMarker, BuildingHarvester)
+        ):
             state.blocked_ore.add(oi)
             continue
 

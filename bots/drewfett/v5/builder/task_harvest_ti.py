@@ -9,12 +9,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from building import (
+    BuildingBarrier,
+    BuildingGunner,
+    BuildingMarker,
+    BuildingRoad,
+    BuildingSentinel,
+)
 from cambc import Controller, Direction, Environment, Position
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, INF
 
-from building import BuildingBarrier, BuildingGunner, BuildingMarker, BuildingRoad, BuildingSentinel
-from .action import Action, PlaceBarrier, PlaceGunner, PlaceHarvester, PlaceRoad, PlaceSentinel, PlaceSplitter
+from .action import (
+    Action,
+    PlaceHarvester,
+    PlaceSentinel,
+    PlaceSplitter,
+)
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
 
 if TYPE_CHECKING:
@@ -52,7 +63,12 @@ def harvest_ti(
         has_gunner = False
         has_barrier = False
 
-        from building import BuildingConveyor, BuildingSplitter, BuildingArmouredConveyor
+        from building import (
+            BuildingArmouredConveyor,
+            BuildingConveyor,
+            BuildingSplitter,
+        )
+
         for ddx, ddy in DIR4_DELTA:
             nx, ny = hx + ddx, hy + ddy
             if not state.in_bounds(nx, ny):
@@ -60,7 +76,11 @@ def harvest_ti(
             ni = ny * w + nx
             bld = state.building[ni]
             match bld:
-                case BuildingConveyor(team=team) | BuildingArmouredConveyor(team=team) | BuildingSplitter(team=team) if team == state.my_team:
+                case (
+                    BuildingConveyor(team=team)
+                    | BuildingArmouredConveyor(team=team)
+                    | BuildingSplitter(team=team)
+                ) if team == state.my_team:
                     conv_dir = (ddx, ddy)
                 case BuildingGunner(team=team) if team == state.my_team:
                     has_gunner = True
@@ -81,9 +101,16 @@ def harvest_ti(
         cx, cy = hx + cdx, hy + cdy
         ci = cy * w + cx
         cbld = state.building[ci]
-        from building import BuildingConveyor, BuildingSplitter, BuildingArmouredConveyor
+        from building import (
+            BuildingArmouredConveyor,
+            BuildingConveyor,
+            BuildingSplitter,
+        )
 
-        needs_splitter = isinstance(cbld, (BuildingConveyor, BuildingArmouredConveyor)) and cbld.team == state.my_team
+        needs_splitter = (
+            isinstance(cbld, (BuildingConveyor, BuildingArmouredConveyor))
+            and cbld.team == state.my_team
+        )
         is_splitter = isinstance(cbld, BuildingSplitter) and cbld.team == state.my_team
 
         if needs_splitter and not has_gunner:
@@ -94,10 +121,12 @@ def harvest_ti(
                 if ti_res >= sp_cost:
                     # Splitter faces away from harvester (back receives from harvester)
                     from .task_rush import _find_splitter_dir
+
                     sp_dir = _find_splitter_dir(state, cx, cy)
                     if sp_dir is None:
                         # Default: face away from harvester
                         from util import DELTA_TO_DIR
+
                         sp_dir = DELTA_TO_DIR.get((cdx, cdy))
                     if sp_dir is not None:
                         if ct.can_destroy(conv_pos):
@@ -113,7 +142,10 @@ def harvest_ti(
                 sx, sy = cx + odx, cy + ody
                 if state.in_bounds(sx, sy):
                     si = sy * w + sx
-                    if isinstance(state.building[si], BuildingSentinel) and state.building[si].team == state.my_team:
+                    if (
+                        isinstance(state.building[si], BuildingSentinel)
+                        and state.building[si].team == state.my_team
+                    ):
                         has_sentinel = True
 
         if is_splitter and not has_sentinel:
@@ -124,10 +156,16 @@ def harvest_ti(
                     continue
                 si = sy * w + sx
                 env = state.env[si]
-                if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+                if env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
                     continue
                 sbld = state.building[si]
-                if sbld is not None and not isinstance(sbld, (BuildingRoad, BuildingMarker)):
+                if sbld is not None and not isinstance(
+                    sbld, (BuildingRoad, BuildingMarker)
+                ):
                     continue
                 sentinel_pos = Position(sx, sy)
                 if pos.distance_squared(sentinel_pos) > 2:
@@ -162,7 +200,7 @@ def harvest_ti(
             ti, _ = ct.get_global_resources()
             if ti >= h_cost and ct.can_build_harvester(ore_pos):
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
-            elif ti >= h_cost:
+            if ti >= h_cost:
                 # Can't build — blocked, remove from ore set
                 state.ore_ti.discard(ni)
 
@@ -212,6 +250,7 @@ def _pick_and_walk(
         # Skip if ore has a building we can't remove
         if bld is not None:
             from building import BuildingHarvester, BuildingMarker, BuildingRoad
+
             if not isinstance(bld, (BuildingRoad, BuildingMarker, BuildingHarvester)):
                 state.blocked_ore.add(oi)
                 continue

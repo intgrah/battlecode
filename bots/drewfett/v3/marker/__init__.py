@@ -72,7 +72,12 @@ class MarkerRole:
     turn: int
 
     def encode(self) -> int:
-        val = (3 << _TAG_SHIFT) | (self.role << 22) | (self.birthday << 11) | (self.turn & 0x7FF)
+        val = (
+            (3 << _TAG_SHIFT)
+            | (self.role << 22)
+            | (self.birthday << 11)
+            | (self.turn & 0x7FF)
+        )
         return encrypt(val)
 
     @staticmethod

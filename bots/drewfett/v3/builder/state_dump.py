@@ -44,7 +44,13 @@ P_COVERAGE = Palette(
     special={0: TRANSPARENT},
 )
 P_APPROACH = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (0.05, 40, 40, 120, 80), (0.15, 100, 50, 150, 120), (0.3, 200, 80, 50, 160), (1.0, 255, 30, 30, 220)],
+    stops=[
+        (0.0, 0, 0, 0, 0),
+        (0.05, 40, 40, 120, 80),
+        (0.15, 100, 50, 150, 120),
+        (0.3, 200, 80, 50, 160),
+        (1.0, 255, 30, 30, 220),
+    ],
     special={0: TRANSPARENT},
 )
 
@@ -77,18 +83,37 @@ def dump(state: State, ct: Controller) -> None:
             palette=P_DANGER,
         ),
         en_threat=Grid(
-            [float(state.en_gunner[i] + state.en_sentinel[i] + state.en_breach[i] + state.en_launcher[i]) for i in range(n)],
+            [
+                float(
+                    state.en_gunner[i]
+                    + state.en_sentinel[i]
+                    + state.en_breach[i]
+                    + state.en_launcher[i]
+                )
+                for i in range(n)
+            ],
             palette=Palette(
                 stops=[(0.0, 255, 100, 0, 120), (1.0, 255, 0, 0, 200)],
                 special={0: TRANSPARENT},
             ),
         ),
         my_coverage=Grid(state.my_threat, palette=P_COVERAGE),
-        en_threat_raw=Scalar(str({
-            (i % state.w, i // state.w): state.en_gunner[i] + state.en_sentinel[i] + state.en_breach[i] + state.en_launcher[i]
-            for i in range(n)
-            if state.en_gunner[i] + state.en_sentinel[i] + state.en_breach[i] + state.en_launcher[i] > 0
-        })),
+        en_threat_raw=Scalar(
+            str(
+                {
+                    (i % state.w, i // state.w): state.en_gunner[i]
+                    + state.en_sentinel[i]
+                    + state.en_breach[i]
+                    + state.en_launcher[i]
+                    for i in range(n)
+                    if state.en_gunner[i]
+                    + state.en_sentinel[i]
+                    + state.en_breach[i]
+                    + state.en_launcher[i]
+                    > 0
+                }
+            )
+        ),
         scale=Scalar(round(ct.get_scale_percent(), 1)),
         ore_ti=Tiles([(i % state.w, i // state.w) for i in state.ore_ti]),
         ore_ax=Tiles([(i % state.w, i // state.w) for i in state.ore_ax]),
@@ -117,7 +142,8 @@ def _vulnerability_layer(state: State, n: int) -> dict:
     cov_grid = [1.0 if i in covered else 0.0 for i in range(n)]
 
     sentinel_count = sum(
-        1 for ti in state.my_turrets
+        1
+        for ti in state.my_turrets
         if isinstance(state.building[ti], BuildingSentinel)
         and state.building[ti].team == state.my_team
     )
@@ -130,7 +156,17 @@ def _vulnerability_layer(state: State, n: int) -> dict:
         "approach_flow": Grid(approach, palette=P_APPROACH),
         "coverage": Grid(cov_grid, palette=P_COVERAGE),
         "sentinels": Scalar(sentinel_count),
-        "my_core": Scalar(f"({state.my_core.x},{state.my_core.y}) map={state.w}x{state.h}"),
-        "en_core_pos": Scalar(f"({state.en_core_pos.x},{state.en_core_pos.y})" if state.en_core_pos else "unknown"),
-        "symmetry": Scalar(state.symmetry.name if state.symmetry else f"candidates={[s.name for s in state.sym_candidates]}"),
+        "my_core": Scalar(
+            f"({state.my_core.x},{state.my_core.y}) map={state.w}x{state.h}"
+        ),
+        "en_core_pos": Scalar(
+            f"({state.en_core_pos.x},{state.en_core_pos.y})"
+            if state.en_core_pos
+            else "unknown"
+        ),
+        "symmetry": Scalar(
+            state.symmetry.name
+            if state.symmetry
+            else f"candidates={[s.name for s in state.sym_candidates]}"
+        ),
     }

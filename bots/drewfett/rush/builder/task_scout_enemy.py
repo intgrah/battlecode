@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 
 
 def _move_or_none(
-    state: State, ct: Controller, target: Position,
+    state: State,
+    ct: Controller,
+    target: Position,
 ) -> tuple[Direction, Action | None] | None:
     result = move_toward_with_road(state, ct, target)
     move, build = result

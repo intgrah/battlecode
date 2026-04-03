@@ -17,19 +17,23 @@ from .helpers import move_toward_with_road
 if TYPE_CHECKING:
     from .state import State
 
-_TURRET_TYPES = frozenset((
-    EntityType.GUNNER,
-    EntityType.SENTINEL,
-    EntityType.BREACH,
-    EntityType.LAUNCHER,
-))
+_TURRET_TYPES = frozenset(
+    (
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+    )
+)
 
-_TRANSPORT_TYPES = frozenset((
-    EntityType.CONVEYOR,
-    EntityType.ARMOURED_CONVEYOR,
-    EntityType.SPLITTER,
-    EntityType.BRIDGE,
-))
+_TRANSPORT_TYPES = frozenset(
+    (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    )
+)
 
 
 def heal(
@@ -49,7 +53,9 @@ def heal(
     if target is None:
         return None
 
-    if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(target):
+    if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
+        target
+    ):
         return Direction.CENTRE, Heal(target)
 
     result = move_toward_with_road(state, ct, target)
@@ -59,7 +65,9 @@ def heal(
     # Heal immediately if we arrive adjacent
     if move != Direction.CENTRE and build is None:
         new_pos = pos.add(move)
-        if new_pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(target):
+        if new_pos.distance_squared(
+            target
+        ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(target):
             build = Heal(target)
     return move, build
 
@@ -89,7 +97,9 @@ def _find_heal_target(ct: Controller) -> Position | None:
             continue
 
         frac = hp / max_hp
-        if priority > best_priority or (priority == best_priority and frac < best_hp_frac):
+        if priority > best_priority or (
+            priority == best_priority and frac < best_hp_frac
+        ):
             best_priority = priority
             best_hp_frac = frac
             best = ct.get_position(bid)

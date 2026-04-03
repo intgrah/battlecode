@@ -1,5 +1,3 @@
-import itertools
-
 from building import BuildingConveyor, BuildingHarvester, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Position
 from marker import TaskKind
@@ -103,6 +101,7 @@ def step_off_and_build(
     If not, place a road on an adjacent tile — next turn we can step off.
     """
     from util import DIR8
+
     pos = ct.get_position()
     for d in DIR8:
         if ct.can_move(d):
@@ -258,7 +257,9 @@ def flow_from_back(state: State, idx: int, splitter_dir: Direction) -> float:
 
 
 def valid_splitter_orientations(
-    state: State, idx: int, prev_flow: float,
+    state: State,
+    idx: int,
+    prev_flow: float,
 ) -> list[Direction]:
     """Return splitter orientations that preserve flow >= min(prev_flow, 1)."""
     threshold = min(prev_flow, 1.0)

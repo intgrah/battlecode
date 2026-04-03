@@ -7,7 +7,6 @@ from building import (
     BuildingConveyor,
     BuildingCore,
     BuildingFoundry,
-    BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
@@ -255,6 +254,8 @@ class FlowAstar(Astar[int]):
         # Add danger penalty for routing through enemy turret threat zones
         danger = self._danger
         if danger:
-            filtered = [(ni, c + COST_FLOW_DANGER if ni in danger else c) for ni, c in filtered]
+            filtered = [
+                (ni, c + COST_FLOW_DANGER if ni in danger else c) for ni, c in filtered
+            ]
 
         return filtered

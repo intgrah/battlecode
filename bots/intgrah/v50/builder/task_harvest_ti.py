@@ -73,6 +73,8 @@ def harvest_ti(
                     if ti >= h_cost:
                         result = MoveAction(move, PlaceHarvester(ore_pos))
         state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
-        print(f"    harvest_ti: nav to ore ({ore_pos.x},{ore_pos.y}) via ({adj.x},{adj.y})")
+        print(
+            f"    harvest_ti: nav to ore ({ore_pos.x},{ore_pos.y}) via ({adj.x},{adj.y})"
+        )
         return result
     return None

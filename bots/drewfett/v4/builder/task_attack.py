@@ -16,7 +16,7 @@ from building import (
     BuildingSentinel,
 )
 from cambc import Controller, Direction, Environment, Position
-from util import DIR8, INF
+from util import INF
 
 from .action import Action, Fire, PlaceGunner
 from .helpers import move_toward_with_road, step_off_and_build
@@ -32,7 +32,12 @@ def _find_attack_target(state: State) -> int | None:
     """Find best attack target: core > harvesters > transport."""
     w = state.w
     pos = state.pos
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
 
     best: int | None = None
     best_priority = -1
@@ -108,8 +113,7 @@ def _network_dist_sq(state: State, sx: int, sy: int) -> int:
         if f.ti[i] > 0 or i in state.my_harvesters:
             ix, iy = i % w, i // w
             d = (sx - ix) ** 2 + (sy - iy) ** 2
-            if d < best:
-                best = d
+            best = min(best, d)
     return best
 
 
@@ -122,7 +126,12 @@ def _find_gunner_placement(
     h = state.h
     tx, ty = target_idx % w, target_idx // w
     pos = state.pos
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
 
     best: tuple[Position, Direction] | None = None
     best_dist = INF
@@ -145,13 +154,19 @@ def _find_gunner_placement(
                 continue
 
             env = state.env[si]
-            if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+            if env in (
+                Environment.WALL,
+                Environment.ORE_TITANIUM,
+                Environment.ORE_AXIONITE,
+            ):
                 continue
             bld = state.building[si]
             match bld:
                 case None | BuildingRoad() | BuildingMarker():
                     pass
-                case BuildingGunner(team=team) | BuildingSentinel(team=team) if team == state.my_team:
+                case BuildingGunner(team=team) | BuildingSentinel(team=team) if (
+                    team == state.my_team
+                ):
                     continue
                 case _:
                     continue

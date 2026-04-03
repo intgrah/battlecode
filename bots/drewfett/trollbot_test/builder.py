@@ -327,8 +327,12 @@ def run_builder(player: Player, ct: Controller) -> None:
                 bid = ct.get_tile_building_id(o)
                 bbid = ct.get_tile_builder_bot_id(o)
                 if bid is not None and ct.get_entity_type(bid) == EntityType.HARVESTER:
-                    continue                
-                if bid is not None and ct.get_entity_type(bid) in BLOCKED_BUILDINGS and ct.get_team() != ct.get_team(bid):
+                    continue
+                if (
+                    bid is not None
+                    and ct.get_entity_type(bid) in BLOCKED_BUILDINGS
+                    and ct.get_team() != ct.get_team(bid)
+                ):
                     continue
                 if bbid is not None and bbid != ct.get_id():
                     continue
@@ -517,12 +521,20 @@ def run_builder(player: Player, ct: Controller) -> None:
         if player.secure_target is not None and ct.is_in_vision(player.secure_target):
             bbid = ct.get_tile_builder_bot_id(player.secure_target)
             bid = ct.get_tile_building_id(player.secure_target)
-            harvester_on_ore = bid is not None and ct.get_entity_type(bid) == EntityType.HARVESTER
-            enemy_barrier_on_ore = bid is not None and ct.get_entity_type(bid) == EntityType.BARRIER and ct.get_team(bid) != ct.get_team()
+            harvester_on_ore = (
+                bid is not None and ct.get_entity_type(bid) == EntityType.HARVESTER
+            )
+            enemy_barrier_on_ore = (
+                bid is not None
+                and ct.get_entity_type(bid) == EntityType.BARRIER
+                and ct.get_team(bid) != ct.get_team()
+            )
             another_claimed_ore = bbid is not None and bbid != ct.get_id()
             another_claimed_ore = bbid is not None and bbid != ct.get_id()
 
-        print(f"h_on_ore {harvester_on_ore} b_on_ore {enemy_barrier_on_ore} bb_on_ore {another_claimed_ore}")
+        print(
+            f"h_on_ore {harvester_on_ore} b_on_ore {enemy_barrier_on_ore} bb_on_ore {another_claimed_ore}"
+        )
 
         if (
             player.secure_target is not None
@@ -834,9 +846,9 @@ def _is_buildable(ct: Controller, tile: Position) -> bool:
     if bid is None:
         return True
     etype = ct.get_entity_type(bid)
-    return (
-        etype in (EntityType.ROAD, EntityType.BARRIER)
-    ) and ct.get_team(bid) == ct.get_team()
+    return (etype in (EntityType.ROAD, EntityType.BARRIER)) and ct.get_team(
+        bid
+    ) == ct.get_team()
 
 
 def _secure(player: Player, ct: Controller, pos: Position) -> bool:
@@ -1000,7 +1012,6 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
                     continue
                 if not in_bounds(ct, t) or not ct.is_in_vision(t):
                     continue
-                
 
                 tbid = ct.get_tile_building_id(t)
                 same_team = tbid is not None and ct.get_team(tbid) == ct.get_team()
@@ -1025,12 +1036,9 @@ def _bridge(player: Player, ct: Controller, pos: Position) -> bool:
                     continue
 
                 # Enemy building we can clear
-                if (
-                    tbid is not None
-                    and (
-                        ct.get_entity_type(tbid) == EntityType.LAUNCHER and same_team 
-                        or ct.get_entity_type(tbid) in SHOULD_FIRE_AT and not same_team
-                    )
+                if tbid is not None and (
+                    (ct.get_entity_type(tbid) == EntityType.LAUNCHER and same_team)
+                    or (ct.get_entity_type(tbid) in SHOULD_FIRE_AT and not same_team)
                 ):
                     enemy_candidates.append((king_dist(t, player.core_pos), t))
                     continue

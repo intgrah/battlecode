@@ -21,8 +21,6 @@ def dump(state: State, ct: Controller) -> None:
     if emit is None:
         return
 
-    from util import INF
-
     TRANSPARENT = (0, 0, 0, 0)
 
     P_GREEN = Palette(
