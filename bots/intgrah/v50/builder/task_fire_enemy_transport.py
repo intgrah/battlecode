@@ -1,22 +1,22 @@
 from action import ActionOnly, Fire, MoveAction, MoveOnly, Turn
 from cambc import Controller, Position
-from util import INF
 
 from .helpers import move_toward_with_road
 from .state import State
 
 
 def _find_target(state: State) -> Position | None:
-    pos = state.pos
     best: Position | None = None
-    best_dist = INF
+    best_hops = -1
+    nav_dist = state.nav_dist
     w = state.w
     for idx in state.en_transport:
-        tx, ty = idx % w, idx // w
-        dist = abs(pos.x - tx) + abs(pos.y - ty)
-        if dist < best_dist:
-            best_dist = dist
-            best = Position(tx, ty)
+        d = nav_dist[idx]
+        if d == -1:
+            continue
+        if best is None or d < best_hops:
+            best_hops = d
+            best = Position(idx % w, idx // w)
     return best
 
 
@@ -40,5 +40,6 @@ def fire_enemy_transport(
             new_pos = pos.add(move)
             if new_pos == fire_pos:
                 result = MoveAction(move, Fire())
+    print(f"    fire_enemy_transport: target=({fire_pos.x},{fire_pos.y})")
     ct.draw_indicator_line(state.pos, fire_pos, 255, 128, 0)
     return result

@@ -35,7 +35,9 @@ def explore(
     result = move_toward_with_road(state, ct, state.explore_target)
     if result is None:
         return None
-    ct.draw_indicator_dot(state.explore_target, 0, 0, 255)
+    t = state.explore_target
+    print(f"    explore: target=({t.x},{t.y}) r={state.explore_radius}")
+    ct.draw_indicator_dot(t, 0, 0, 255)
     return result
 
 
