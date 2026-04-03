@@ -851,6 +851,178 @@ def algo_dijkstra_bucket_noparent_dual2(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
+def algo_dijkstra_bucket_noparent2(md: MapData, si: int, gi: int) -> Path_:
+    """noparent + drain loop + inlined bi + no gn alias."""
+    if si == gi:
+        return [si]
+    cost, pnb = md.cost, md.pnb
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    found = False
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        while bki:
+            node = popleft()
+            if dist[node] != cur_d:
+                continue
+            if node == gi:
+                found = True
+                break
+            for ni in pnb[node]:
+                nd = cur_d + cost[ni]
+                if nd < dist[ni]:
+                    dist[ni] = nd
+                    bk[nd & 3].append(ni)
+        if found:
+            break
+        cur_d += 1
+    if not found:
+        return None
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
+def algo_dijkstra_bucket_noparent_dual3(md: MapData, si: int, gi: int) -> Path_:
+    """dual + drain loop + inlined bi + no gn alias."""
+    if si == gi:
+        return [si]
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    found = False
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        nd1 = cur_d + CR
+        bk1 = bk[nd1 & 3]
+        nd3 = cur_d + CE
+        bk3 = bk[nd3 & 3]
+        while bki:
+            node = popleft()
+            if dist[node] != cur_d:
+                continue
+            if node == gi:
+                found = True
+                break
+            for ni in pnb1[node]:
+                if nd1 < dist[ni]:
+                    dist[ni] = nd1
+                    bk1.append(ni)
+            for ni in pnb3[node]:
+                if nd3 < dist[ni]:
+                    dist[ni] = nd3
+                    bk3.append(ni)
+        if found:
+            break
+        cur_d += 1
+    if not found:
+        return None
+    cost, pnb = md.cost, md.pnb
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
+def algo_dijkstra_bucket_noparent_dual4(md: MapData, si: int, gi: int) -> Path_:
+    """dual3 + bound append methods per distance level."""
+    if si == gi:
+        return [si]
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    found = False
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        nd1 = cur_d + CR
+        bk1_append = bk[nd1 & 3].append
+        nd3 = cur_d + CE
+        bk3_append = bk[nd3 & 3].append
+        while bki:
+            node = popleft()
+            if dist[node] != cur_d:
+                continue
+            if node == gi:
+                found = True
+                break
+            for ni in pnb1[node]:
+                if nd1 < dist[ni]:
+                    dist[ni] = nd1
+                    bk1_append(ni)
+            for ni in pnb3[node]:
+                if nd3 < dist[ni]:
+                    dist[ni] = nd3
+                    bk3_append(ni)
+        if found:
+            break
+        cur_d += 1
+    if not found:
+        return None
+    cost, pnb = md.cost, md.pnb
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
 # ---------------------------------------------------------------------------
 # APSP (weighted Dijkstra per passable tile)
 # ---------------------------------------------------------------------------
@@ -1056,6 +1228,13 @@ def _make_algos() -> list[AlgoEntry]:
     )
     algos.append(
         ("dijkstra bucket noparent dual2", algo_dijkstra_bucket_noparent_dual2, False)
+    )
+    algos.append(("dijkstra bucket noparent2", algo_dijkstra_bucket_noparent2, False))
+    algos.append(
+        ("dijkstra bucket noparent dual3", algo_dijkstra_bucket_noparent_dual3, False)
+    )
+    algos.append(
+        ("dijkstra bucket noparent dual4", algo_dijkstra_bucket_noparent_dual4, False)
     )
     algos.append(("hpastar excl precomp", algo_hpa, True))
 
@@ -1555,6 +1734,110 @@ def sssp_dijkstra_bucket_noparent_dual2(md: MapData, si: int) -> list[int]:
     return dist
 
 
+def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
+    """noparent + drain loop + inlined bi + no gn alias."""
+    cost, pnb = md.cost, md.pnb
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        while bki:
+            node = popleft()
+            if dist[node] != cur_d:
+                continue
+            for ni in pnb[node]:
+                nd = cur_d + cost[ni]
+                if nd < dist[ni]:
+                    dist[ni] = nd
+                    bk[nd & 3].append(ni)
+        cur_d += 1
+    return dist
+
+
+def sssp_dijkstra_bucket_noparent_dual3(md: MapData, si: int) -> list[int]:
+    """dual + drain loop + inlined bi + no gn alias."""
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        nd1 = cur_d + CR
+        bk1 = bk[nd1 & 3]
+        nd3 = cur_d + CE
+        bk3 = bk[nd3 & 3]
+        while bki:
+            node = popleft()
+            if dist[node] != cur_d:
+                continue
+            for ni in pnb1[node]:
+                if nd1 < dist[ni]:
+                    dist[ni] = nd1
+                    bk1.append(ni)
+            for ni in pnb3[node]:
+                if nd3 < dist[ni]:
+                    dist[ni] = nd3
+                    bk3.append(ni)
+        cur_d += 1
+    return dist
+
+
+def sssp_dijkstra_bucket_noparent_dual4(md: MapData, si: int) -> list[int]:
+    """dual3 + bound append methods per distance level."""
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        nd1 = cur_d + CR
+        bk1_append = bk[nd1 & 3].append
+        nd3 = cur_d + CE
+        bk3_append = bk[nd3 & 3].append
+        while bki:
+            node = popleft()
+            if dist[node] != cur_d:
+                continue
+            for ni in pnb1[node]:
+                if nd1 < dist[ni]:
+                    dist[ni] = nd1
+                    bk1_append(ni)
+            for ni in pnb3[node]:
+                if nd3 < dist[ni]:
+                    dist[ni] = nd3
+                    bk3_append(ni)
+        cur_d += 1
+    return dist
+
+
 def extract_path_from_dist(
     dist: list[int],
     cost: list[int],
@@ -1593,6 +1876,9 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("dijkstra bucket noparent", sssp_dijkstra_bucket_noparent),
     ("dijkstra bucket noparent dual", sssp_dijkstra_bucket_noparent_dual),
     ("dijkstra bucket noparent dual2", sssp_dijkstra_bucket_noparent_dual2),
+    ("dijkstra bucket noparent2", sssp_dijkstra_bucket_noparent2),
+    ("dijkstra bucket noparent dual3", sssp_dijkstra_bucket_noparent_dual3),
+    ("dijkstra bucket noparent dual4", sssp_dijkstra_bucket_noparent_dual4),
 ]
 
 
