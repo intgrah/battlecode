@@ -1,0 +1,431 @@
+from __future__ import annotations
+
+from enum import Enum, auto
+from typing import TYPE_CHECKING
+
+from ax_chain_astar import AxChainAstar
+from bridge_astar import BridgeFlowAstar
+from building import (
+    BuildingArmouredConveyor,
+    BuildingBridge,
+    BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingHarvester,
+    BuildingMarker,
+    BuildingRoad,
+    BuildingSplitter,
+)
+from cambc import Controller, Direction, Environment, Position
+from flow_astar import AX, RAX, TI, FlowAstar
+from marker import MarkerTaskClaim, TaskKind
+from util import DIR4_DELTA, INF
+
+from .action import Action, PlaceBridge, PlaceConveyor
+from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
+
+if TYPE_CHECKING:
+    from algorithms import Astar
+
+    from .state import State
+
+
+class ExcessKind(Enum):
+    TI_RAX = auto()
+    AX = auto()
+
+
+class SearchKind(Enum):
+    MIXED = auto()
+    BRIDGE = auto()
+    AX_CHAIN = auto()
+
+
+def connect_excess(
+    state: State,
+    ct: Controller,
+    excess_kind: ExcessKind,
+    search_kind: SearchKind,
+) -> tuple[Direction, Action | None] | None:
+    best_tile = _find_excess_tile(state, excess_kind)
+    if best_tile is None:
+        return None
+
+    goals = _make_goals(state, search_kind)
+    if not goals:
+        print("  CE: no goals")
+        return None
+
+    idx = state.idx(best_tile.x, best_tile.y)
+    rnd = ct.get_current_round()
+    state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
+    ct.draw_indicator_dot(best_tile, 255, 128, 0)
+
+    sx, sy = _step_off_source(state, best_tile, search_kind)
+    if sx < 0:
+        print(f"  CE: step_off failed ({best_tile.x},{best_tile.y})")
+        return None
+
+    start = Position(sx, sy)
+    path = _get_or_compute_path(state, ct, start, goals, search_kind)
+    if path is None or len(path) < 2:
+        print(f"  CE: no path from ({sx},{sy})")
+        return None
+
+    w = state.w
+    print(
+        f"  CE: excess=({best_tile.x},{best_tile.y}) start=({sx},{sy})"
+        f" path={[(p % w, p // w) for p in path[:8]]}"
+        f" pos=({state.pos.x},{state.pos.y})"
+    )
+    return _walk_path(state, ct, path, search_kind)
+
+
+def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
+    pos = state.pos
+    best: Position | None = None
+    best_dist = INF
+    f = state.flow
+    match kind:
+        case ExcessKind.TI_RAX:
+            sources = state.my_harvesters | state.my_transport | state.my_foundries
+        case ExcessKind.AX:
+            sources = state.my_harvesters | state.my_transport
+    w = state.w
+    for i in sources:
+        match kind:
+            case ExcessKind.TI_RAX:
+                has_excess = f.ti_excess[i] > 0.01 or f.rax_excess[i] > 0.01
+            case ExcessKind.AX:
+                has_excess = f.ax_excess[i] > 0.01
+        if has_excess and not is_claimed(state, i, TaskKind.FIX_EXCESS):
+            px, py = i % w, i // w
+            dist = (pos.x - px) ** 2 + (pos.y - py) ** 2
+            if dist < best_dist:
+                best_dist = dist
+                best = Position(px, py)
+    return best
+
+
+def _make_goals(state: State, kind: SearchKind) -> set[int]:
+    match kind:
+        case SearchKind.MIXED | SearchKind.BRIDGE:
+            return set(state.my_core_tiles)
+        case SearchKind.AX_CHAIN:
+            return _find_ti_conveyor_goals(state)
+
+
+def _find_ti_conveyor_goals(state: State) -> set[int]:
+    f = state.flow
+    goals: set[int] = set()
+    for i in state.my_transport:
+        if f.ti[i] > 0:
+            match state.building[i]:
+                case BuildingConveyor() | BuildingArmouredConveyor():
+                    goals.add(i)
+    return goals
+
+
+def _step_off_source(
+    state: State,
+    tile: Position,
+    search_kind: SearchKind,
+) -> tuple[int, int]:
+    sx, sy = tile.x, tile.y
+    si = state.idx(sx, sy)
+    bld = state.building[si]
+    if bld is None:
+        return sx, sy
+
+    match bld:
+        case BuildingHarvester() | BuildingFoundry():
+            return _find_adjacent_empty(state, sx, sy, search_kind)
+        case BuildingBridge(target=bt):
+            return bt.x, bt.y
+        case (
+            BuildingConveyor(direction=d)
+            | BuildingArmouredConveyor(direction=d)
+            | BuildingSplitter(direction=d)
+        ) if search_kind == SearchKind.MIXED:
+            ddx, ddy = d.delta()
+            ox, oy = sx + ddx, sy + ddy
+            if state.in_bounds(ox, oy):
+                oi = state.idx(ox, oy)
+                obld = state.building[oi]
+                if obld is None or isinstance(
+                    obld,
+                    (
+                        BuildingConveyor,
+                        BuildingArmouredConveyor,
+                        BuildingSplitter,
+                        BuildingBridge,
+                        BuildingCore,
+                        BuildingRoad,
+                        BuildingMarker,
+                    ),
+                ):
+                    return ox, oy
+            return _find_adjacent_empty(state, sx, sy, search_kind)
+    return sx, sy
+
+
+def _find_adjacent_empty(
+    state: State,
+    sx: int,
+    sy: int,
+    search_kind: SearchKind,
+) -> tuple[int, int]:
+    banned = TI | RAX if search_kind == SearchKind.AX_CHAIN else 0
+    best_pos = (-1, -1)
+    best_d = INF
+    for ddx, ddy in DIR4_DELTA:
+        nx, ny = sx + ddx, sy + ddy
+        if not state.in_bounds(nx, ny):
+            continue
+        ni = state.idx(nx, ny)
+        env = state.env[ni]
+        if env in (
+            Environment.WALL,
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
+        ):
+            continue
+        bld_ni = state.building[ni]
+        if bld_ni is not None and not isinstance(
+            bld_ni,
+            (BuildingRoad, BuildingMarker),
+        ):
+            continue
+        if (
+            banned
+            and state.leakage_mask is not None
+            and state.leakage_mask[ni] & banned != 0
+        ):
+            continue
+        d = (nx - state.my_core.x) ** 2 + (ny - state.my_core.y) ** 2
+        if d < best_d:
+            best_d = d
+            best_pos = (nx, ny)
+    return best_pos
+
+
+def _get_or_compute_path(
+    state: State,
+    ct: Controller,
+    start: Position,
+    goals: set[int],
+    kind: SearchKind,
+) -> list[int] | None:
+    cached_path, cached_source, search, set_cache = _cache_accessors(state, kind)
+
+    if cached_path is not None and cached_source == start:
+        return cached_path
+
+    if search is None or cached_source != start:
+        search = _make_search(state, start.x, start.y, goals, kind)
+        set_cache(start, search, None)
+
+    t0 = ct.get_cpu_time_elapsed()
+    path = search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
+    print(f"flow_astar={ct.get_cpu_time_elapsed() - t0}us exhausted={search.exhausted}")
+    if search.exhausted:
+        search = None
+    set_cache(start, search, path)
+
+    if path is None or len(path) < 2:
+        set_cache(start, search, None)
+        return None
+    return path
+
+
+def _cache_accessors(
+    state: State,
+    kind: SearchKind,
+) -> tuple[
+    list[int] | None,
+    Position | None,
+    Astar[int] | None,
+    object,
+]:
+    match kind:
+        case SearchKind.MIXED:
+
+            def _set(src: Position, s: Astar[int] | None, p: list[int] | None) -> None:
+                state.ti_cached_source = src
+                state.ti_flow_search = s
+                state.ti_cached_path = p
+
+            return (
+                state.ti_cached_path,
+                state.ti_cached_source,
+                state.ti_flow_search,
+                _set,
+            )
+        case SearchKind.BRIDGE:
+
+            def _set(src: Position, s: Astar[int] | None, p: list[int] | None) -> None:
+                state.bridge_cached_source = src
+                state.bridge_flow_search = s
+                state.bridge_cached_path = p
+
+            return (
+                state.bridge_cached_path,
+                state.bridge_cached_source,
+                state.bridge_flow_search,
+                _set,
+            )
+        case SearchKind.AX_CHAIN:
+
+            def _set(src: Position, s: Astar[int] | None, p: list[int] | None) -> None:
+                state.ax_cached_source = src
+                state.ax_flow_search = s
+                state.ax_cached_path = p
+
+            return (
+                state.ax_cached_path,
+                state.ax_cached_source,
+                state.ax_flow_search,
+                _set,
+            )
+
+
+def _make_search(
+    state: State,
+    sx: int,
+    sy: int,
+    goals: set[int],
+    kind: SearchKind,
+) -> Astar[int]:
+    match kind:
+        case SearchKind.MIXED:
+            return FlowAstar(state, sx, sy, goals, AX)
+        case SearchKind.BRIDGE:
+            return BridgeFlowAstar(state, sx, sy, goals, AX)
+        case SearchKind.AX_CHAIN:
+            return AxChainAstar(state, sx, sy, goals)
+
+
+def _move_toward_next(
+    pos: Position,
+    path: list[int],
+    k: int,
+    w: int,
+) -> Direction:
+    """Step toward the next un-built tile in the path after building at path[k]."""
+    for j in range(k + 1, len(path)):
+        jx, jy = path[j] % w, path[j] // w
+        target = Position(jx, jy)
+        if target == pos:
+            continue
+        return pos.direction_to(target)
+    return Direction.CENTRE
+
+
+def _walk_path(
+    state: State,
+    ct: Controller,
+    path: list[int],
+    kind: SearchKind,
+) -> tuple[Direction, Action | None] | None:
+    w = state.w
+    pos = state.pos
+    for k in range(len(path) - 1):
+        x, y = path[k] % w, path[k] // w
+        nx, ny = path[k + 1] % w, path[k + 1] // w
+
+        if _already_connected(state, path[k], x, y, nx, ny, kind):
+            continue
+
+        # Validate: this tile must receive flow from the previous step.
+        # If not, the path is stale — force a replan by returning None.
+        if k > 0 and not _feeds_into(state, path[k - 1], path[k], w):
+            return None
+
+        build_at = Position(x, y)
+
+        action = _build_action(build_at, nx, ny, kind)
+        if pos.distance_squared(build_at) <= 2:
+            # Adjacent — build and step toward the next site
+            move = _move_toward_next(pos, path, k, w)
+            return move, action
+
+        # Not adjacent — walk toward the build tile (any adjacent approach works)
+        return move_toward_with_road(state, ct, build_at)
+
+    return None
+
+
+def _feeds_into(state: State, src: int, dst: int, w: int) -> bool:
+    """Check if the building at src outputs toward dst."""
+    bld = state.building[src]
+    if bld is None:
+        # Empty tile — will become a conveyor pointing toward dst (planned).
+        # This is valid only if the previous step will be built first.
+        return True
+    match bld:
+        case BuildingHarvester():
+            # Harvesters output to all 4 cardinal neighbors
+            sx, sy = src % w, src // w
+            dx, dy = dst % w, dst // w
+            return abs(sx - dx) + abs(sy - dy) == 1
+        case BuildingCore():
+            return True
+        case BuildingBridge(target=bt):
+            return bt.y * w + bt.x == dst
+        case (
+            BuildingConveyor(direction=d)
+            | BuildingArmouredConveyor(direction=d)
+        ):
+            ddx, ddy = d.delta()
+            sx, sy = src % w, src // w
+            return (sx + ddx, sy + ddy) == (dst % w, dst // w)
+        case BuildingSplitter(direction=d):
+            ddx, ddy = d.delta()
+            sx, sy = src % w, src // w
+            for odx, ody in [(ddx, ddy), (-ddy, ddx), (ddy, -ddx)]:
+                if (sx + odx, sy + ody) == (dst % w, dst // w):
+                    return True
+            return False
+        case BuildingRoad() | BuildingMarker():
+            # Will be replaced by a conveyor pointing toward dst
+            return True
+    return False
+
+
+def _already_connected(
+    state: State,
+    pi: int,
+    x: int,
+    y: int,
+    nx: int,
+    ny: int,
+    kind: SearchKind,
+) -> bool:
+    pbld = state.building[pi]
+    if pbld is None or pbld.team != state.my_team:
+        return False
+    match pbld:
+        case BuildingCore():
+            return True
+        case BuildingBridge(target=bt) if bt.x == nx and bt.y == ny:
+            return True
+    if kind != SearchKind.BRIDGE:
+        match pbld:
+            case (
+                BuildingConveyor(direction=td)
+                | BuildingArmouredConveyor(direction=td)
+                | BuildingSplitter(direction=td)
+            ):
+                ddx, ddy = td.delta()
+                if (x + ddx, y + ddy) == (nx, ny):
+                    return True
+    return False
+
+
+def _build_action(build_at: Position, nx: int, ny: int, kind: SearchKind) -> Action:
+    target = Position(nx, ny)
+    if kind != SearchKind.BRIDGE:
+        dx, dy = nx - build_at.x, ny - build_at.y
+        if abs(dx) + abs(dy) == 1:
+            return PlaceConveyor(build_at, build_at.direction_to(target))
+    return PlaceBridge(build_at, target)
