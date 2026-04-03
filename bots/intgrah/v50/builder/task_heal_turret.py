@@ -1,6 +1,6 @@
-from cambc import Controller, Direction, EntityType, GameConstants, Position
+from cambc import Controller, EntityType, GameConstants, Position
 
-from .action import Action, Heal
+from .action import ActionOnly, Heal, Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -37,7 +37,7 @@ def _find_damaged_turret(ct: Controller) -> Position | None:
 def heal_turret(
     state: State,
     ct: Controller,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     target = _find_damaged_turret(ct)
     if target is None:
         return None
@@ -46,7 +46,7 @@ def heal_turret(
     if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         target,
     ):
-        return Direction.CENTRE, Heal(target)
+        return ActionOnly(Heal(target))
 
     result = move_toward_with_road(state, ct, target)
     if result is None:

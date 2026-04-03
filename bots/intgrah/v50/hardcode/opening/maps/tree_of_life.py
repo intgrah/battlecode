@@ -23,16 +23,16 @@ _B1: list[DslTurn] = [
     SE.rd(),
     S.rd(),
     SW.rd(),
-    h(NW) | None,
-    ba(N) | None,
-    ba(W) | None,
+    h(NW),
+    ba(N),
+    ba(W),
     S.rd(),
     W.rd(),
     W.rd(),
     NW.rd(),
     N.rd(),
-    br(E, (-2, -2)) | None,
-    ln(N) | None,
+    br(E, (-2, -2)),
+    ln(N),
 ]
 
 _B2: list[DslTurn] = []

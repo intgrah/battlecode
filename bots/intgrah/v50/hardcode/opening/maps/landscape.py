@@ -13,8 +13,8 @@ from hardcode.opening.dsl import (
 _B1: list[DslTurn] = [
     *[c(E, W) | E] * 11,
     c(S, N) | S,
-    h(E) | None,
-    h(S) | None,
+    h(E),
+    h(S),
 ]
 
 _B2: list[DslTurn] = []

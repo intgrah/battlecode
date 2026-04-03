@@ -178,7 +178,6 @@ def astar_chain(
     gx: int,
     gy: int,
     terminals: set,
-    free_set: set,
     blocked_set: set,
     ore_set: set,
     wall_set: set,
@@ -186,7 +185,7 @@ def astar_chain(
     harvester_pos: tuple | None,
     map_w: int,
     map_h: int,
-    cpu_fn=None,
+    cpu_fn: Callable[[], int] | None = None,
     cpu_limit: int = 1850,
 ) -> list[tuple[str, int, int, int, int]] | None:
     """A* for connect-back chain planning.

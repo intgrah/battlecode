@@ -18,8 +18,9 @@ if TYPE_CHECKING:
     from flow_astar import FlowAstar
     from hardcode.known import KnownMap
     from hardcode.opening import Opening
-    from hardcode.opening.compiler import CompiledTurn
     from marker import MarkerTaskClaim
+
+    from .action import Turn
 
 
 from building import (
@@ -242,7 +243,7 @@ class State:
         # -- Opening book --
         self.known_map: KnownMap | None = None
         self.opening: Opening | None = None
-        self.compiled: list[CompiledTurn] | None = None
+        self.compiled: list[Turn | None] | None = None
 
         km = _try_identify_map(self, core_pos)
         if km is not None:

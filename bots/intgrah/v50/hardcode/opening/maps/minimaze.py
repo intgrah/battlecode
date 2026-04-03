@@ -19,11 +19,11 @@ from hardcode.opening.dsl import (
 _B1: list[DslTurn] = [
     c(NE, W) | NE,
     *[c(E, W) | E] * 7,
-    h(E) | None,
-    h(SE) | None,
-    c(S, N) | None,
-    ba(N) | None,
-    sn(NE, N) | None,
+    h(E),
+    h(SE),
+    c(S, N),
+    ba(N),
+    sn(NE, N),
 ]
 
 _B2: list[DslTurn] = [
@@ -31,7 +31,7 @@ _B2: list[DslTurn] = [
     NE.rd(),
     E.rd(),
     E.rd(),
-    br(E, (0, 2)) | None,
+    br(E, (0, 2)),
     h(NE) | W,
     ln(NE) | W,
     W.rd(),

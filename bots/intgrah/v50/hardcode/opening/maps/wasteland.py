@@ -22,12 +22,12 @@ _B1: list[DslTurn] = [
     br(E, (-2, 1)) | E,
     c(E, W) | E,
     c(E, W) | E,
-    h(S) | None,
+    h(S),
     E.rd(),
     NE.rd(),
     br(SE, (-3, 0)) | SE,
     c(E, W) | E,
-    h(S) | None,
+    h(S),
 ]
 
 

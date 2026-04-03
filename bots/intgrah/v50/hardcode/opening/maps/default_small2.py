@@ -25,16 +25,16 @@ _B1: list[DslTurn] = [
     c(E, W) | E,
     c(E, W) | E,
     c(E, W) | E,
-    h(E) | None,
+    h(E),
     c(S, N) | S,
     c(S, N) | S,
     c(S, N) | S,
     c(S, N) | S,
-    h(S) | None,
+    h(S),
     wait,
     wait,
-    sn(SE, S) | None,
-    sn(SW, W) | None,
+    sn(SE, S),
+    sn(SW, W),
 ]
 
 _B2: list[DslTurn] = [
@@ -45,14 +45,14 @@ _B2: list[DslTurn] = [
     c(W, E) | W,
     c(W, E) | W,
     c(W, E) | W,
-    h(W) | None,
+    h(W),
     c(S, N) | S,
     c(S, N) | S,
     c(S, N) | S,
     c(S, N) | S,
-    h(S) | None,
-    sn(SW, S) | None,
-    sn(SE, E) | None,
+    h(S),
+    sn(SW, S),
+    sn(SE, E),
 ]
 
 register(

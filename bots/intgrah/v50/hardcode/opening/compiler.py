@@ -1,11 +1,11 @@
-__all__ = ["CompiledActionMove", "CompiledMoveAction", "CompiledTurn", "dsl_compile"]
-
-from dataclasses import dataclass
-
-from builder.action import (
+from action import (
     Action,
+    ActionMove,
+    ActionOnly,
     Fire,
     Heal,
+    MoveAction,
+    MoveOnly,
     PlaceArmouredConveyor,
     PlaceBarrier,
     PlaceBridge,
@@ -18,15 +18,18 @@ from builder.action import (
     PlaceSentinel,
     PlaceSplitter,
     SelfDestruct,
+    Turn,
 )
-from cambc import Direction, Position
+from cambc import Position
 
 from .dsl import (
     DslAction,
     DslActionMove,
+    DslActionOnly,
     DslFire,
     DslHeal,
     DslMoveAction,
+    DslMoveOnly,
     DslPlaceArmouredConveyor,
     DslPlaceBarrier,
     DslPlaceBridge,
@@ -40,22 +43,10 @@ from .dsl import (
     DslPlaceSplitter,
     DslSelfDestruct,
     DslTurn,
+    DslWait,
 )
 
-
-@dataclass(frozen=True, slots=True)
-class CompiledActionMove:
-    action: Action | None
-    move: Direction | None
-
-
-@dataclass(frozen=True, slots=True)
-class CompiledMoveAction:
-    move: Direction | None
-    action: Action | None
-
-
-type CompiledTurn = CompiledMoveAction | CompiledActionMove
+__all__ = ["dsl_compile"]
 
 
 def _compile_action(dsl: DslAction, pos: Position) -> Action:
@@ -95,29 +86,24 @@ def _compile_action(dsl: DslAction, pos: Position) -> Action:
             return Fire()
 
 
-def _advance_pos(pos: Position, direction: Direction | None) -> Position:
-    if direction is None:
-        return pos
-    return pos.add(direction)
-
-
-def dsl_compile(start: Position, script: list[DslTurn]) -> list[CompiledTurn]:
-    result: list[CompiledTurn] = []
+def dsl_compile(start: Position, script: list[DslTurn]) -> list[Turn | None]:
+    result: list[Turn | None] = []
     pos = start
 
     for turn in script:
         match turn:
+            case DslWait():
+                result.append(None)
+            case DslActionOnly(action):
+                result.append(ActionOnly(_compile_action(action, pos)))
+            case DslMoveOnly(move):
+                result.append(MoveOnly(move))
+                pos = pos.add(move)
             case DslActionMove(action, move):
-                compiled_action = (
-                    _compile_action(action, pos) if action is not None else None
-                )
-                result.append(CompiledActionMove(compiled_action, move))
-                pos = _advance_pos(pos, move)
+                result.append(ActionMove(_compile_action(action, pos), move))
+                pos = pos.add(move)
             case DslMoveAction(move, action):
-                pos = _advance_pos(pos, move)
-                compiled_action = (
-                    _compile_action(action, pos) if action is not None else None
-                )
-                result.append(CompiledMoveAction(move, compiled_action))
+                pos = pos.add(move)
+                result.append(MoveAction(move, _compile_action(action, pos)))
 
     return result

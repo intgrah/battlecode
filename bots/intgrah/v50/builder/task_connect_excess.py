@@ -16,12 +16,12 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Environment, Position
 from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, INF
 
-from .action import Action, PlaceBridge, PlaceConveyor
+from .action import Action, ActionOnly, PlaceBridge, PlaceConveyor, Turn, can_execute
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ def connect_excess(
     ct: Controller,
     excess_kind: ExcessKind,
     search_kind: SearchKind,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     best_tile = _find_excess_tile(state, excess_kind)
     if best_tile is None:
         return None
@@ -303,7 +303,7 @@ def _walk_path(
     ct: Controller,
     path: list[int],
     kind: SearchKind,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     w = state.w
     pos = state.pos
     for k in range(len(path) - 1):
@@ -323,7 +323,9 @@ def _walk_path(
 
         action = _build_action(build_at, nx, ny, kind)
         if pos.distance_squared(build_at) <= 2:
-            return Direction.CENTRE, action
+            if not can_execute(action, ct):
+                continue
+            return ActionOnly(action)
         adj = cardinal_adjacent(state, pos, build_at)
         if adj is not None:
             return move_toward_with_road(state, ct, adj)

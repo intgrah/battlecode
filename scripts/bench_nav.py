@@ -2019,10 +2019,12 @@ def bench_sssp() -> None:
                         extract_path_from_dist(result, md.cost, md.pnb, si, gi)
                         ex_us = (time.perf_counter() - t1) * 1e6
                         times.setdefault("noparent+extract", {}).setdefault(
-                            scenario, [],
+                            scenario,
+                            [],
                         ).append(us + ex_us)
                         times.setdefault("extract only", {}).setdefault(
-                            scenario, [],
+                            scenario,
+                            [],
                         ).append(ex_us)
                 gc.enable()
 

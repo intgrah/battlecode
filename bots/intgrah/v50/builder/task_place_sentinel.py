@@ -2,7 +2,7 @@ from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, INF, rotate_cw
 
-from .action import Action, PlaceSentinel
+from .action import ActionOnly, MoveAction, PlaceSentinel, Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -77,7 +77,7 @@ def _is_in_sentinel_arc(
 def place_sentinel(
     state: State,
     ct: Controller,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     target = _find_target(state)
     if target is None:
         return None
@@ -94,15 +94,15 @@ def place_sentinel(
             if _is_in_sentinel_arc(sentinel_pos, facing_alt, new_pos):
                 continue
             if ct.can_build_sentinel(sentinel_pos, facing):
-                return d, PlaceSentinel(sentinel_pos, facing)
+                return MoveAction(d, PlaceSentinel(sentinel_pos, facing))
             if ct.can_build_sentinel(sentinel_pos, facing_alt):
-                return d, PlaceSentinel(sentinel_pos, facing_alt)
+                return MoveAction(d, PlaceSentinel(sentinel_pos, facing_alt))
         for d in DIR8:
             if ct.can_move(d):
                 if ct.can_build_sentinel(sentinel_pos, facing):
-                    return d, PlaceSentinel(sentinel_pos, facing)
+                    return MoveAction(d, PlaceSentinel(sentinel_pos, facing))
                 if ct.can_build_sentinel(sentinel_pos, facing_alt):
-                    return d, PlaceSentinel(sentinel_pos, facing_alt)
+                    return MoveAction(d, PlaceSentinel(sentinel_pos, facing_alt))
         return None
 
     if pos.distance_squared(sentinel_pos) <= 2:
@@ -110,23 +110,23 @@ def place_sentinel(
         if bid is not None and ct.can_destroy(sentinel_pos):
             ct.destroy(sentinel_pos)
         if ct.can_build_sentinel(sentinel_pos, facing):
-            return Direction.CENTRE, PlaceSentinel(sentinel_pos, facing)
+            return ActionOnly(PlaceSentinel(sentinel_pos, facing))
         if ct.can_build_sentinel(sentinel_pos, facing_alt):
-            return Direction.CENTRE, PlaceSentinel(sentinel_pos, facing_alt)
+            return ActionOnly(PlaceSentinel(sentinel_pos, facing_alt))
 
     result = move_toward_with_road(state, ct, sentinel_pos)
     if result is None:
         return None
-    move, build = result
-    if move != Direction.CENTRE and build is None:
-        new_pos = pos.add(move)
-        if new_pos.distance_squared(sentinel_pos) <= 2 and new_pos != sentinel_pos:
-            bid = ct.get_tile_building_id(sentinel_pos)
-            if bid is not None and ct.can_destroy(sentinel_pos):
-                ct.destroy(sentinel_pos)
-            if ct.can_build_sentinel(sentinel_pos, facing):
-                build = PlaceSentinel(sentinel_pos, facing)
-            elif ct.can_build_sentinel(sentinel_pos, facing_alt):
-                build = PlaceSentinel(sentinel_pos, facing_alt)
+    match result:
+        case MoveOnly(move):
+            new_pos = pos.add(move)
+            if new_pos.distance_squared(sentinel_pos) <= 2 and new_pos != sentinel_pos:
+                bid = ct.get_tile_building_id(sentinel_pos)
+                if bid is not None and ct.can_destroy(sentinel_pos):
+                    ct.destroy(sentinel_pos)
+                if ct.can_build_sentinel(sentinel_pos, facing):
+                    result = MoveAction(move, PlaceSentinel(sentinel_pos, facing))
+                elif ct.can_build_sentinel(sentinel_pos, facing_alt):
+                    result = MoveAction(move, PlaceSentinel(sentinel_pos, facing_alt))
     ct.draw_indicator_line(state.pos, sentinel_pos, 255, 0, 0)
-    return move, build
+    return result
