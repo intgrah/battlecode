@@ -32,7 +32,7 @@ def _find_attack_target(state: State) -> int | None:
     """Find best attack target: core > harvesters > transport."""
     w = state.w
     pos = state.pos
-    eg, es, eb, el = (
+    _eg, _es, _eb, _el = (
         state.en_gunner,
         state.en_sentinel,
         state.en_breach,

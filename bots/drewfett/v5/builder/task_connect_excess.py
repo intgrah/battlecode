@@ -179,7 +179,7 @@ def _find_adjacent_empty(
     sy: int,
     search_kind: SearchKind,
 ) -> tuple[int, int]:
-    banned = TI | RAX if search_kind == SearchKind.AX_CHAIN else 0
+    TI | RAX if search_kind == SearchKind.AX_CHAIN else 0
     best_pos = (-1, -1)
     best_d = INF
     for ddx, ddy in DIR4_DELTA:

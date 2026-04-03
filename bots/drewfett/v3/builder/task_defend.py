@@ -38,7 +38,6 @@ def _find_threat(state: State) -> int | None:
 
     best: int | None = None
     best_dist = INF
-    rnd = state.age
 
     for ti in state.en_turrets:
         if is_claimed(state, ti, TaskKind.DEFEND):

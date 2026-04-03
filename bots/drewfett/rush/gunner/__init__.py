@@ -114,11 +114,10 @@ class Gunner(Unit):
             if ct.get_team(uid) == my_team:
                 continue
             up = ct.get_position(uid)
-            if ct.can_fire(up):
-                if cur_priority < 2:
-                    _glog(f"[GUN] enemy bot at ({up.x},{up.y}), upgrading target")
-                    fire_target = up
-                    cur_priority = 2
+            if ct.can_fire(up) and cur_priority < 2:
+                _glog(f"[GUN] enemy bot at ({up.x},{up.y}), upgrading target")
+                fire_target = up
+                cur_priority = 2
 
         # Check if we have ammo for rotation decisions
         has_ammo = ct.get_ammo_amount() > 0
@@ -158,7 +157,7 @@ class Gunner(Unit):
                 if facing_feed and best_dir == current:
                     # Must rotate away from feed — pick any other direction
                     for d in _DIR8:
-                        if d != current and d != feed_dir:
+                        if d not in (current, feed_dir):
                             best_dir = d
                             break
                 ti, _ = ct.get_global_resources()

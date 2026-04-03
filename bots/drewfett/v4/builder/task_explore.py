@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING
 from cambc import Controller, Direction, Position
 from marker import MarkerExploreClaim
 
-from .action import Action
 from .helpers import move_toward_with_road
 
 if TYPE_CHECKING:
+    from .action import Action
     from .state import State
 
 _CLAIM_RADIUS_SQ = 25  # tiles within 5 Chebyshev of a claimed target are "taken"
@@ -104,7 +104,7 @@ def _pick_frontier_target(state: State) -> Position | None:
     pos = state.pos
 
     def _score(p: Position) -> int:
-        pi = p.y * w + p.x
+        p.y * w + p.x
         # Min Chebyshev distance to any claimed explore target
         min_claim_dist = 999
         for ci in claimed:

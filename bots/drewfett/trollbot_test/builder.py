@@ -861,7 +861,6 @@ def _secure(player: Player, ct: Controller, pos: Position) -> bool:
     # Try to barrier or fire on every cardinal neighbor each turn
     my_team = ct.get_team()
     all_secured = True
-    target_adj = False
     for d in (Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST):
         adj = player.secure_target.add(d)
         if not in_bounds(ct, adj) or not ct.is_in_vision(adj):
