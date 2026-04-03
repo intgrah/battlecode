@@ -72,9 +72,6 @@ def harvest_ax(
             case MoveOnly(move):
                 new_pos = pos.add(move)
                 if new_pos.distance_squared(ore_pos) <= 2:
-                    bid = ct.get_tile_building_id(ore_pos)
-                    if bid is not None and ct.can_destroy(ore_pos):
-                        ct.destroy(ore_pos)
                     h_cost, _ = ct.get_harvester_cost()
                     ti, _ = ct.get_global_resources()
                     if ti >= h_cost:

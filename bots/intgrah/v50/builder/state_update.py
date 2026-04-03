@@ -35,7 +35,6 @@ from .state_helpers import mirror
 from .state_update_bfs import update_bfs
 from .state_update_econ import update_flow
 
-CENSUS_TTL = 16
 
 
 def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
@@ -115,9 +114,6 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
         state.unit_tiles.add(ct.get_position(uid))
 
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
-    state.role_census = {
-        b: (r, t) for b, (r, t) in state.role_census.items() if rnd - t < CENSUS_TTL
-    }
 
 
 def _stamp_unit_tiles(state: State) -> None:
@@ -414,16 +410,6 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
         t0 = ct.get_cpu_time_elapsed()
         update_flow(state)
         print(f"  econ={ct.get_cpu_time_elapsed() - t0}us")
-        state.ti_flow_search = None
-        state.ti_cached_path = None
-        state.ax_flow_search = None
-        state.ax_cached_path = None
-        state.bridge_flow_search = None
-        state.bridge_cached_path = None
-        # state.leakage_mask = build_leakage_mask(state)
-    elif state.leakage_mask is None:
-        # state.leakage_mask = build_leakage_mask(state)
-        pass
 
 
 def _update_infra_staleness(state: State) -> None:

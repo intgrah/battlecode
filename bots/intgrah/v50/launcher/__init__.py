@@ -7,26 +7,27 @@ _WALKABLE = frozenset(
         EntityType.CONVEYOR,
         EntityType.ARMOURED_CONVEYOR,
         EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    ),
+)
+
+_MY_TRANSPORT = frozenset(
+    (
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
     ),
 )
 
 
 class Launcher(Unit):
     def __init__(self, _ct: Controller) -> None:
-        self._core_pos: Position | None = None
+        pass
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
         my_team = ct.get_team()
-
-        if self._core_pos is None:
-            for bid in ct.get_nearby_buildings():
-                if (
-                    ct.get_entity_type(bid) == EntityType.CORE
-                    and ct.get_team(bid) == my_team
-                ):
-                    self._core_pos = ct.get_position(bid)
-                    break
 
         enemy_bots: list[Position] = []
         for uid in ct.get_nearby_units():
@@ -41,30 +42,35 @@ class Launcher(Unit):
         if not enemy_bots:
             return
 
-        targets: list[tuple[int, Position]] = []
-        core = self._core_pos
+        good: list[tuple[int, Position]] = []
+        bad: list[tuple[int, Position]] = []
         for tile in ct.get_nearby_tiles():
+            if ct.get_tile_builder_bot_id(tile) is not None:
+                continue
             bid = ct.get_tile_building_id(tile)
             if bid is None:
                 continue
             etype = ct.get_entity_type(bid)
-            if etype not in _WALKABLE and not (
-                etype == EntityType.CORE and ct.get_team(bid) == my_team
-            ):
+            team = ct.get_team(bid)
+            if etype not in _WALKABLE:
                 continue
-            if ct.get_tile_builder_bot_id(tile) is not None:
+            if etype == EntityType.CORE and team == my_team:
                 continue
-            d = (
-                (tile.x - core.x) ** 2 + (tile.y - core.y) ** 2
-                if core is not None
-                else 0
-            )
-            targets.append((d, tile))
+            priority = tile.distance_squared(pos)
+            if team == my_team and etype in _MY_TRANSPORT:
+                bad.append((priority, tile))
+            else:
+                good.append((priority, tile))
 
-        targets.sort(reverse=True)
+        good.sort(reverse=True)
+        bad.sort(reverse=True)
 
         for bp in enemy_bots:
-            for _, tile in targets:
+            for _, tile in good:
+                if ct.can_launch(bp, tile):
+                    ct.launch(bp, tile)
+                    return
+            for _, tile in bad:
                 if ct.can_launch(bp, tile):
                     ct.launch(bp, tile)
                     return

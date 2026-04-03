@@ -14,3 +14,5 @@ class Task(StrEnum):
     FIRE_ENEMY_TRANSPORT = "fire_enemy_transport"
     PLACE_SENTINEL = "place_sentinel"
     HEAL_TURRET = "heal_turret"
+    HEAL_ECON = "heal_econ"
+    BARRIER_HARVESTER = "barrier_harvester"

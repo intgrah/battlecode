@@ -7,6 +7,7 @@ from action import (
     MoveOnly,
     Turn,
     Wait,
+    can_execute,
     execute,
 )
 from cambc import (
@@ -26,6 +27,7 @@ from .state import State
 from .state_dump import dump
 from .state_update import update as state_update
 from .task import Task
+from .task_barrier_harvester import barrier_harvester
 from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
@@ -33,6 +35,7 @@ from .task_fire_enemy_transport import fire_enemy_transport
 from .task_harvest_ax import harvest_ax
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
+from .task_heal_econ import heal_econ
 from .task_heal_turret import heal_turret
 from .task_patrol import patrol
 from .task_place_launcher import place_launcher
@@ -63,6 +66,8 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
     Task.PLACE_SENTINEL: place_sentinel,
     Task.HEAL_TURRET: heal_turret,
+    Task.HEAL_ECON: heal_econ,
+    Task.BARRIER_HARVESTER: barrier_harvester,
 }
 
 
@@ -173,13 +178,10 @@ class Builder(Unit):
     def rebalance(self) -> Role:
         """Pick the role with the largest deficit from the target ratio."""
         s = self.state
-        rnd = s.age + s.birthday
-        counts: dict[Role, float] = dict.fromkeys(Role, 0.0)
-        for role, turn in s.role_census.values():
-            age = rnd - turn
-            weight = max(0.0, 1.0 - age / CENSUS_TTL)
-            counts[role] += weight
-        total = sum(counts.values()) or 1.0
+        counts: dict[Role, int] = dict.fromkeys(Role, 0)
+        for role, _turn in s.role_census.values():
+            counts[role] += 1
+        total = sum(counts.values()) or 1
         best_role = s.role
         best_deficit = -999.0
         for role, target_weight in ROLE_TARGETS.items():
@@ -201,7 +203,7 @@ class Builder(Unit):
                 execute(action, ct)
                 self._move_or_detour(ct, move)
             case MoveAction(move, action):
-                if self._move_or_detour(ct, move):
+                if self._move_or_detour(ct, move) and can_execute(action, ct):
                     execute(action, ct)
 
         self.write_marker(ct)
@@ -248,28 +250,29 @@ class Builder(Unit):
                 return
 
 
-CENSUS_TTL = 16
-
 POLICIES: dict[Role, list[tuple[float, Task, Role | None]]] = {
     Role.ECON: [
         (999.0, Task.HEAL_CORE, Role.DEFENSE),
+        (200.0, Task.HEAL_ECON, Role.ECON),
         (150.0, Task.CONNECT_EXCESS_TI, Role.ECON),
         (100.0, Task.HARVEST_TI, Role.ECON),
-        (20.0, Task.EXPLORE, Role.ECON),
-        (15.0, Task.PATROL, None),
+        (75.0, Task.BARRIER_HARVESTER, Role.ECON),
+        (50.0, Task.EXPLORE, Role.ECON),
+        (20.0, Task.PATROL, None),
     ],
     Role.DEFENSE: [
         (999.0, Task.HEAL_CORE, Role.DEFENSE),
+        (200.0, Task.HEAL_ECON, Role.DEFENSE),
         (200.0, Task.HEAL_TURRET, Role.DEFENSE),
-        (150.0, Task.PLACE_SENTINEL, Role.DEFENSE),
-        (100.0, Task.BARRIER_ORE, Role.ECON),
+        (150.0, Task.BARRIER_HARVESTER, Role.DEFENSE),
+        (80.0, Task.BARRIER_ORE, Role.DEFENSE),
         (50.0, Task.PATROL, None),
-        (20.0, Task.EXPLORE, Role.ECON),
     ],
     Role.OFFENSE: [
         (999.0, Task.HEAL_CORE, Role.DEFENSE),
         (200.0, Task.FIRE_ENEMY_TRANSPORT, Role.OFFENSE),
         (150.0, Task.PLACE_LAUNCHER, Role.OFFENSE),
+        (100.0, Task.PLACE_SENTINEL, Role.OFFENSE),
         (50.0, Task.EXPLORE, Role.ECON),
         (20.0, Task.PATROL, None),
     ],

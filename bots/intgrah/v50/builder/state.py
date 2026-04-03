@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from marker import MarkerTaskClaim
 
 
+from random import Random
+
 from building import (
     Building,
     BuildingArmouredConveyor,
@@ -29,8 +31,6 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from random import Random
-
 from cambc import Controller, Environment, GameConstants, Position, Team
 from config import NAV, OPENING, USE_HARDCODED_MAPS, NavMode, OpeningMode
 from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
