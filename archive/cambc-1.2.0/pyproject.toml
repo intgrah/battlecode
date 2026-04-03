@@ -1,0 +1,19 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "cambc"
+version = "1.2.0"
+description = "CLI for Cambridge Battlecode"
+requires-python = ">=3.12"
+dependencies = ["click>=8.0", "rich>=13.0"]
+
+[project.scripts]
+cambc = "cambc.cli:main"
+
+[tool.maturin]
+module-name = "cambc.cambc_engine"
+include = ["python/cambc/_types.py", "python/cambc/data/**"]
+manifest-path = "cli/Cargo.toml"
+python-source = "python"

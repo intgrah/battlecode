@@ -1,0 +1,12 @@
+[package]
+name = "cambc_engine"
+version = "1.2.0"
+edition = "2021"
+
+[lib]
+name = "cambc_engine"
+crate-type = ["cdylib"]
+
+[dependencies]
+battlecode_titan = { path = "../engine/rust", default-features = false }
+pyo3 = { version = "0.23", features = ["extension-module"] }
