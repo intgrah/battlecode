@@ -1764,6 +1764,35 @@ def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
     return dist
 
 
+def sssp_dijkstra_bucket_noparent_beacon(md: MapData, si: int) -> list[int]:
+    """I guess bro"""
+    cost, pnb = md.cost, md.pnb
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+
+        while bki:
+            node = popleft()
+            for ni in pnb[node]:
+                nd = cur_d + cost[ni]
+                if nd < dist[ni]:
+                    dist[ni] = nd
+                    bk[nd & 3].append(ni)
+        cur_d += 1
+    return dist
+
+
 def sssp_dijkstra_bucket_noparent_dual3(md: MapData, si: int) -> list[int]:
     """Dual + drain loop + inlined bi + no gn alias."""
     pnb1, pnb3 = md.pnb1, md.pnb3
@@ -1942,6 +1971,7 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("dijkstra bucket noparent dual", sssp_dijkstra_bucket_noparent_dual),
     ("dijkstra bucket noparent dual2", sssp_dijkstra_bucket_noparent_dual2),
     ("dijkstra bucket noparent2", sssp_dijkstra_bucket_noparent2),
+    ("dijkstra bucket noparent beacon", sssp_dijkstra_bucket_noparent_beacon),
     ("dijkstra bucket noparent dual3", sssp_dijkstra_bucket_noparent_dual3),
     ("dijkstra bucket noparent dual4", sssp_dijkstra_bucket_noparent_dual4),
     ("dijkstra bucket noparent5", sssp_dijkstra_bucket_noparent5),
