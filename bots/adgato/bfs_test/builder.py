@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import random
-from array import array
 
 from bfs import NavBfs
-from cambc import Controller, EntityType, Position, Environment
+from cambc import Controller, EntityType, Environment, Position
 from symmetry import Symmetry, SymmetryDetector
 from unit import Unit
-
 
 _ENV_INT: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
 _ET_INT: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
@@ -40,7 +38,7 @@ def _update_nearby_tiles(
             continue
         tile_cache[i] = key
         nav.update_tile(i, env, building_type, is_allied, sym)
-        
+
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
