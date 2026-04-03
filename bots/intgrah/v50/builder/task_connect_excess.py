@@ -3,7 +3,15 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
-from action import Action, ActionOnly, PlaceBridge, PlaceConveyor, Turn, can_execute
+from action import (
+    Action,
+    ActionOnly,
+    PlaceBridge,
+    PlaceConveyor,
+    Turn,
+    Wait,
+    can_execute,
+)
 from ax_chain_astar import AxChainAstar
 from bridge_astar import BridgeFlowAstar
 from building import (
@@ -67,7 +75,6 @@ def connect_excess(
     print(
         f"    connect_excess: excess=({best_tile.x},{best_tile.y}) kind={search_kind.name}"
     )
-    ct.draw_indicator_dot(best_tile, 255, 128, 0)
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:
@@ -75,18 +82,23 @@ def connect_excess(
         return None
 
     start = Position(sx, sy)
-    path = _get_or_compute_path(state, ct, start, goals, search_kind)
+    path = _compute_path(state, ct, start, goals, search_kind)
     if path is None or len(path) < 2:
         print(f"  connect_excess: no path from ({sx},{sy})")
-
         return None
+
+    chain_cost = _chain_cost(state, ct, path, search_kind)
+    ti, _ = ct.get_global_resources()
+    if ti < chain_cost:
+        print(f"    connect_excess: can't afford chain cost={chain_cost} ti={ti}")
+        return Wait()
 
     return _walk_path(state, ct, path, search_kind)
 
 
 def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
     best: Position | None = None
-    best_hops = -1
+    best_key: tuple[int, int] = (0, 0)
     nav_dist = state.nav_dist
     f = state.flow
     match kind:
@@ -106,12 +118,13 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
                 has_excess = f.ti_excess[i] > 0.01 or f.rax_excess[i] > 0.01
             case ExcessKind.AX:
                 has_excess = f.ax_excess[i] > 0.01
+        key = (d, i)
         if (
             has_excess
             and not is_claimed(state, i, TaskKind.FIX_EXCESS)
-            and (best is None or d < best_hops)
+            and (best is None or key < best_key)
         ):
-            best_hops = d
+            best_key = key
             best = Position(i % w, i // w)
     return best
 
@@ -161,17 +174,20 @@ def _step_off_source(
             if state.in_bounds(ox, oy):
                 oi = state.idx(ox, oy)
                 obld = state.building[oi]
-                if obld is None or isinstance(
-                    obld,
-                    (
-                        BuildingRoad,
-                        BuildingMarker,
-                        BuildingConveyor,
-                        BuildingArmouredConveyor,
-                        BuildingSplitter,
-                        BuildingBridge,
-                        BuildingCore,
-                    ),
+                if state.nav_dist[oi] != -1 and (
+                    obld is None
+                    or isinstance(
+                        obld,
+                        (
+                            BuildingRoad,
+                            BuildingMarker,
+                            BuildingConveyor,
+                            BuildingArmouredConveyor,
+                            BuildingSplitter,
+                            BuildingBridge,
+                            BuildingCore,
+                        ),
+                    )
                 ):
                     return ox, oy
             return _find_adjacent_empty(state, sx, sy, search_kind)
@@ -211,6 +227,8 @@ def _find_adjacent_empty(
             and state.leakage_mask[ni] & banned != 0
         ):
             continue
+        if state.nav_dist[ni] == -1:
+            continue
         d = (nx - state.my_core.x) ** 2 + (ny - state.my_core.y) ** 2
         if d < best_d:
             best_d = d
@@ -218,84 +236,20 @@ def _find_adjacent_empty(
     return best_pos
 
 
-def _get_or_compute_path(
+def _compute_path(
     state: State,
     ct: Controller,
     start: Position,
     goals: set[int],
     kind: SearchKind,
 ) -> list[int] | None:
-    cached_path, cached_source, search, set_cache = _cache_accessors(state, kind)
-
-    if cached_path is not None and cached_source == start:
-        return cached_path
-
-    if search is None or cached_source != start:
-        search = _make_search(state, start.x, start.y, goals, kind)
-        set_cache(start, search, None)
-
+    search = _make_search(state, start.x, start.y, goals, kind)
     t0 = ct.get_cpu_time_elapsed()
     path = search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
     print(f"flow_astar={ct.get_cpu_time_elapsed() - t0}us exhausted={search.exhausted}")
-    if search.exhausted:
-        search = None
-    set_cache(start, search, path)
-
     if path is None or len(path) < 2:
-        set_cache(start, search, None)
         return None
     return path
-
-
-def _cache_accessors(
-    state: State,
-    kind: SearchKind,
-) -> tuple[
-    list[int] | None,
-    Position | None,
-    Astar[int] | None,
-    object,
-]:
-    match kind:
-        case SearchKind.MIXED:
-
-            def _set(src: Position, s: Astar[int] | None, p: list[int] | None) -> None:
-                state.ti_cached_source = src
-                state.ti_flow_search = s
-                state.ti_cached_path = p
-
-            return (
-                state.ti_cached_path,
-                state.ti_cached_source,
-                state.ti_flow_search,
-                _set,
-            )
-        case SearchKind.BRIDGE:
-
-            def _set(src: Position, s: Astar[int] | None, p: list[int] | None) -> None:
-                state.bridge_cached_source = src
-                state.bridge_flow_search = s
-                state.bridge_cached_path = p
-
-            return (
-                state.bridge_cached_path,
-                state.bridge_cached_source,
-                state.bridge_flow_search,
-                _set,
-            )
-        case SearchKind.AX_CHAIN:
-
-            def _set(src: Position, s: Astar[int] | None, p: list[int] | None) -> None:
-                state.ax_cached_source = src
-                state.ax_flow_search = s
-                state.ax_cached_path = p
-
-            return (
-                state.ax_cached_path,
-                state.ax_cached_source,
-                state.ax_flow_search,
-                _set,
-            )
 
 
 def _make_search(
@@ -338,10 +292,15 @@ def _walk_path(
 
         adj = nearest_reachable_at(state, build_at)
         if adj is not None:
-            print(
-                f"    connect_excess: nav to ({x},{y})->({nx},{ny}) via ({adj.x},{adj.y})"
-            )
-            return move_toward_with_road(state, ct, adj)
+            result = move_toward_with_road(state, ct, adj)
+            if result is not None:
+                print(
+                    f"    connect_excess: nav to ({x},{y})->({nx},{ny}) via ({adj.x},{adj.y})"
+                )
+                return result
+            if state.rng.random() < 0.5:
+                return Wait()
+            return None
 
         print(f"    connect_excess: stuck at ({x},{y})->({nx},{ny})")
         return None
@@ -377,6 +336,28 @@ def _already_connected(
                 if (x + ddx, y + ddy) == (nx, ny):
                     return True
     return False
+
+
+def _chain_cost(
+    state: State,
+    ct: Controller,
+    path: list[int],
+    kind: SearchKind,
+) -> int:
+    w = state.w
+    total = 0
+    for k in range(len(path) - 1):
+        x, y = path[k] % w, path[k] // w
+        nx, ny = path[k + 1] % w, path[k + 1] // w
+        if _already_connected(state, path[k], x, y, nx, ny, kind):
+            continue
+        dx, dy = nx - x, ny - y
+        if kind != SearchKind.BRIDGE and abs(dx) + abs(dy) == 1:
+            cost, _ = ct.get_conveyor_cost()
+        else:
+            cost, _ = ct.get_bridge_cost()
+        total += cost
+    return total
 
 
 def _build_action(build_at: Position, nx: int, ny: int, kind: SearchKind) -> Action:

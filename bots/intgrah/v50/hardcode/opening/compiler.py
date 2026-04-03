@@ -19,6 +19,7 @@ from action import (
     PlaceSplitter,
     SelfDestruct,
     Turn,
+    Wait,
 )
 from cambc import Position
 
@@ -86,14 +87,14 @@ def _compile_action(dsl: DslAction, pos: Position) -> Action:
             return Fire()
 
 
-def dsl_compile(start: Position, script: list[DslTurn]) -> list[Turn | None]:
-    result: list[Turn | None] = []
+def dsl_compile(start: Position, script: list[DslTurn]) -> list[Turn]:
+    result: list[Turn] = []
     pos = start
 
     for turn in script:
         match turn:
             case DslWait():
-                result.append(None)
+                result.append(Wait())
             case DslActionOnly(action):
                 result.append(ActionOnly(_compile_action(action, pos)))
             case DslMoveOnly(move):

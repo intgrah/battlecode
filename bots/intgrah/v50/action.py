@@ -23,6 +23,7 @@ __all__ = [
     "PlaceSplitter",
     "SelfDestruct",
     "Turn",
+    "Wait",
     "can_execute",
     "execute",
 ]
@@ -144,7 +145,12 @@ class MoveAction:
     action: Action
 
 
-type Turn = ActionOnly | MoveOnly | ActionMove | MoveAction
+@dataclass(frozen=True, slots=True)
+class Wait:
+    pass
+
+
+type Turn = ActionOnly | MoveOnly | ActionMove | MoveAction | Wait
 
 
 def _would_destroy_clear(ct: Controller, pos: Position) -> bool:

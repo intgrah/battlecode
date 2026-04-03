@@ -14,9 +14,6 @@ from .role import Role, initial_role
 
 if TYPE_CHECKING:
     from action import Turn
-    from ax_chain_astar import AxChainAstar
-    from bridge_astar import BridgeFlowAstar
-    from flow_astar import FlowAstar
     from hardcode.known import KnownMap
     from hardcode.opening import Opening
     from marker import MarkerTaskClaim
@@ -32,6 +29,8 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
+from random import Random
+
 from cambc import Controller, Environment, GameConstants, Position, Team
 from config import NAV, OPENING, USE_HARDCODED_MAPS, NavMode, OpeningMode
 from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
@@ -123,6 +122,7 @@ class State:
         self.my_team = ct.get_team()
         self.birthday = ct.get_current_round()
         self.age = 0
+        self.rng = Random(ct.get_id())
 
         # -- Role --
         self.role: Role = initial_role(self.birthday)
@@ -205,22 +205,12 @@ class State:
             Symmetry.VER,
         }
 
-        # -- Task caches --
+        # -- Task state --
         self.explore_target: Position | None = None
         self.explore_radius: int = 0
-        self.ti_flow_search: FlowAstar | None = None
-        self.ti_cached_source: Position | None = None
-        self.ti_cached_path: list[int] | None = None
-        self.ax_flow_search: AxChainAstar | None = None
-        self.ax_cached_source: Position | None = None
-        self.ax_cached_path: list[int] | None = None
-        self.bridge_flow_search: BridgeFlowAstar | None = None
-        self.bridge_cached_source: Position | None = None
-        self.bridge_cached_path: list[int] | None = None
 
         self.nav_dist: list[int] = [-1] * n
         self.nav_parent: list[int] = [-1] * n
-        self._bfs_touched: list[int] = []
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -241,7 +231,7 @@ class State:
         # -- Opening book --
         self.known_map: KnownMap | None = None
         self.opening: Opening | None = None
-        self.compiled: list[Turn | None] | None = None
+        self.compiled: list[Turn] | None = None
 
         km = _try_identify_map(self, core_pos)
         if km is not None:

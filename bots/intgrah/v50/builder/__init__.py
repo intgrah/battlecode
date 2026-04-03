@@ -6,10 +6,12 @@ from action import (
     MoveAction,
     MoveOnly,
     Turn,
+    Wait,
     execute,
 )
 from cambc import (
     Controller,
+    Direction,
     EntityType,
     Environment,
     GameConstants,
@@ -116,6 +118,8 @@ class Builder(Unit):
         pos = ct.get_position()
 
         match turn:
+            case Wait():
+                pass
             case ActionOnly(action):
                 execute(action, ct)
             case MoveOnly(move):
@@ -187,18 +191,31 @@ class Builder(Unit):
 
     def execute_turn(self, ct: Controller, turn: Turn) -> None:
         match turn:
+            case Wait():
+                pass
             case ActionOnly(action):
                 execute(action, ct)
             case MoveOnly(move):
-                ct.move(move)
+                self._move_or_detour(ct, move)
             case ActionMove(action, move):
                 execute(action, ct)
-                ct.move(move)
+                self._move_or_detour(ct, move)
             case MoveAction(move, action):
-                ct.move(move)
-                execute(action, ct)
+                if self._move_or_detour(ct, move):
+                    execute(action, ct)
 
         self.write_marker(ct)
+
+    def _move_or_detour(self, ct: Controller, move: Direction) -> bool:
+        if ct.can_move(move):
+            ct.move(move)
+            return True
+        rng = self.state.rng
+        if rng.random() < 0.5:
+            dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
+            if dirs:
+                ct.move(dirs[rng.randrange(len(dirs))])
+        return False
 
     def write_marker(self, ct: Controller) -> None:
         s = self.state
