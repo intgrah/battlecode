@@ -1,9 +1,9 @@
 from action import ActionOnly, MoveAction, MoveOnly, PlaceBarrier, Turn
 from building import BuildingHarvester, BuildingSentinel
 from cambc import Controller, Position
-from util import DIR8_DELTA, INF
+from util import DIR8_DELTA
 
-from .helpers import move_toward_with_road
+from .helpers import min_adjacent_dist, move_toward_with_road
 from .state import State
 
 
@@ -25,10 +25,12 @@ def _best_denied_ore(state: State) -> Position | None:
     if not unharvested:
         return None
     w = state.w
-    pos = state.pos
     best: Position | None = None
-    best_dist = INF
+    best_hops = -1
     for oi in unharvested:
+        d = min_adjacent_dist(state, oi)
+        if d == -1:
+            continue
         ox, oy = oi % w, oi // w
         if oi in state.barriers:
             continue
@@ -38,9 +40,8 @@ def _best_denied_ore(state: State) -> Position | None:
                 continue
         if not _has_friendly_sentinel_adjacent(state, ox, oy):
             continue
-        dist = abs(pos.x - ox) + abs(pos.y - oy)
-        if dist < best_dist:
-            best_dist = dist
+        if best is None or d < best_hops:
+            best_hops = d
             best = Position(ox, oy)
     return best
 
@@ -60,6 +61,7 @@ def barrier_ore(
         bid = ct.get_tile_building_id(ore_pos)
         if bid is not None and ct.can_destroy(ore_pos):
             ct.destroy(ore_pos)
+        print(f"    barrier_ore: place at ({ox},{oy})")
         return ActionOnly(PlaceBarrier(ore_pos))
 
     result = move_toward_with_road(state, ct, ore_pos)
@@ -73,5 +75,6 @@ def barrier_ore(
                 if bid is not None and ct.can_destroy(ore_pos):
                     ct.destroy(ore_pos)
                 result = MoveAction(move, PlaceBarrier(ore_pos))
+    print(f"    barrier_ore: nav to ({ox},{oy})")
     ct.draw_indicator_dot(ore_pos, 128, 128, 128)
     return result

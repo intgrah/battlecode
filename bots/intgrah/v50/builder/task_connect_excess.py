@@ -22,7 +22,12 @@ from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, INF
 
-from .helpers import is_claimed, move_toward_with_road, nearest_reachable_at
+from .helpers import (
+    is_claimed,
+    min_adjacent_dist,
+    move_toward_with_road,
+    nearest_reachable_at,
+)
 
 if TYPE_CHECKING:
     from algorithms import Astar
@@ -53,23 +58,26 @@ def connect_excess(
 
     goals = _make_goals(state, search_kind)
     if not goals:
-        print("  CE: no goals")
+        print("  connect_excess: no goals")
         return None
 
     idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
     state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
+    print(
+        f"    connect_excess: excess=({best_tile.x},{best_tile.y}) kind={search_kind.name}"
+    )
     ct.draw_indicator_dot(best_tile, 255, 128, 0)
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:
-        print(f"  CE: step_off failed ({best_tile.x},{best_tile.y})")
+        print(f"  connect_excess: step_off failed ({best_tile.x},{best_tile.y})")
         return None
 
     start = Position(sx, sy)
     path = _get_or_compute_path(state, ct, start, goals, search_kind)
     if path is None or len(path) < 2:
-        print(f"  CE: no path from ({sx},{sy})")
+        print(f"  connect_excess: no path from ({sx},{sy})")
 
         return None
 
@@ -77,9 +85,9 @@ def connect_excess(
 
 
 def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
-    pos = state.pos
     best: Position | None = None
-    best_dist = INF
+    best_hops = -1
+    nav_dist = state.nav_dist
     f = state.flow
     match kind:
         case ExcessKind.TI_RAX:
@@ -88,17 +96,23 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
             sources = state.my_harvesters | state.my_transport
     w = state.w
     for i in sources:
+        d = nav_dist[i]
+        if d == -1:
+            d = min_adjacent_dist(state, i)
+            if d == -1:
+                continue
         match kind:
             case ExcessKind.TI_RAX:
                 has_excess = f.ti_excess[i] > 0.01 or f.rax_excess[i] > 0.01
             case ExcessKind.AX:
                 has_excess = f.ax_excess[i] > 0.01
-        if has_excess and not is_claimed(state, i, TaskKind.FIX_EXCESS):
-            px, py = i % w, i // w
-            dist = (pos.x - px) ** 2 + (pos.y - py) ** 2
-            if dist < best_dist:
-                best_dist = dist
-                best = Position(px, py)
+        if (
+            has_excess
+            and not is_claimed(state, i, TaskKind.FIX_EXCESS)
+            and (best is None or d < best_hops)
+        ):
+            best_hops = d
+            best = Position(i % w, i // w)
     return best
 
 
@@ -316,14 +330,19 @@ def _walk_path(
         build_at = Position(x, y)
         action = _build_action(build_at, nx, ny, kind)
 
-        if pos.distance_squared(build_at) <= 2:
-            if not can_execute(action, ct):
-                continue
+        if pos.distance_squared(build_at) <= 2 and can_execute(action, ct):
+            print(f"    connect_excess: build at ({x},{y})->({nx},{ny})")
             return ActionOnly(action)
 
         adj = nearest_reachable_at(state, build_at)
         if adj is not None:
+            print(
+                f"    connect_excess: nav to ({x},{y})->({nx},{ny}) via ({adj.x},{adj.y})"
+            )
             return move_toward_with_road(state, ct, adj)
+
+        print(f"    connect_excess: stuck at ({x},{y})->({nx},{ny})")
+        return None
 
     return None
 

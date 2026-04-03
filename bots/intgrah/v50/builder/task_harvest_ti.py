@@ -12,7 +12,12 @@ from cambc import Controller, Position
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA
 
-from .helpers import is_claimed, move_toward_with_road, nearest_reachable_around
+from .helpers import (
+    is_claimed,
+    min_adjacent_dist,
+    move_toward_with_road,
+    nearest_reachable_around,
+)
 from .state import State
 
 
@@ -39,12 +44,13 @@ def harvest_ti(
             h_cost, _ = ct.get_harvester_cost()
             ti, _ = ct.get_global_resources()
             if ti >= h_cost and ct.can_build_harvester(ore_pos):
+                print(f"    harvest_ti: place at ({ore_pos.x},{ore_pos.y})")
                 return ActionOnly(PlaceHarvester(ore_pos))
 
     rnd = ct.get_current_round()
     candidates = sorted(
-        unharvested,
-        key=lambda oi: (pos.x - oi % w) ** 2 + (pos.y - oi // w) ** 2,
+        (oi for oi in unharvested if min_adjacent_dist(state, oi) != -1),
+        key=lambda oi: min_adjacent_dist(state, oi),
     )
     for oi in candidates:
         bld = state.building[oi]
@@ -71,5 +77,8 @@ def harvest_ti(
                     if ti >= h_cost:
                         result = MoveAction(move, PlaceHarvester(ore_pos))
         state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
+        print(
+            f"    harvest_ti: nav to ore ({ore_pos.x},{ore_pos.y}) via ({adj.x},{adj.y})"
+        )
         return result
     return None

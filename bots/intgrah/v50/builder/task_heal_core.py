@@ -21,10 +21,12 @@ def heal_core(
     ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         core,
     ):
+        print(f"    heal_core: hp={state.my_core_hp}")
         return ActionOnly(Heal(core))
 
     result = move_toward_with_road(state, ct, core)
     if result is None:
         return None
+    print(f"    heal_core: nav to ({core.x},{core.y}) hp={state.my_core_hp}")
     ct.draw_indicator_line(state.pos, core, 255, 0, 0)
     return result

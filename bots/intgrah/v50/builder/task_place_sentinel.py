@@ -1,7 +1,7 @@
 from action import ActionOnly, MoveAction, MoveOnly, PlaceSentinel, Turn
 from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, INF, rotate_cw
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, rotate_cw
 
 from .helpers import move_toward_with_road
 from .state import State
@@ -23,9 +23,9 @@ def _has_friendly_sentinel_near(state: State, hx: int, hy: int) -> bool:
 def _find_target(
     state: State,
 ) -> tuple[Position, Position, Direction, Direction] | None:
-    pos = state.pos
-    best = None
-    best_dist = INF
+    best: tuple[Position, Position, Direction, Direction] | None = None
+    best_hops = -1
+    nav_dist = state.nav_dist
     w = state.w
     for hi in state.en_harvesters:
         if state.env[hi] != Environment.ORE_TITANIUM:
@@ -38,6 +38,9 @@ def _find_target(
             if not state.in_bounds(sx, sy):
                 continue
             si = state.idx(sx, sy)
+            d = nav_dist[si]
+            if d == -1:
+                continue
             bld = state.building[si]
             match bld:
                 case None:
@@ -51,9 +54,8 @@ def _find_target(
             card_dir = DELTA_TO_DIR[(dx, dy)]
             facing = rotate_cw(card_dir, 3)
             facing_alt = rotate_cw(card_dir, 5)
-            dist = abs(pos.x - sx) + abs(pos.y - sy)
-            if dist < best_dist:
-                best_dist = dist
+            if best is None or d < best_hops:
+                best_hops = d
                 best = (Position(hx, hy), Position(sx, sy), facing, facing_alt)
     return best
 
@@ -128,5 +130,8 @@ def place_sentinel(
                     result = MoveAction(move, PlaceSentinel(sentinel_pos, facing))
                 elif ct.can_build_sentinel(sentinel_pos, facing_alt):
                     result = MoveAction(move, PlaceSentinel(sentinel_pos, facing_alt))
+    print(
+        f"    place_sentinel: target=({sentinel_pos.x},{sentinel_pos.y}) facing={facing.name}"
+    )
     ct.draw_indicator_line(state.pos, sentinel_pos, 255, 0, 0)
     return result

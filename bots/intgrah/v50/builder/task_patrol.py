@@ -32,5 +32,8 @@ def patrol(
     result = move_toward_with_road(state, ct, target)
     if result is None:
         return None
+    print(
+        f"    patrol: target=({target.x},{target.y}) stale={state.age + state.birthday - best_freshness}"
+    )
     ct.draw_indicator_line(state.pos, target, 255, 255, 0)
     return result

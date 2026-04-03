@@ -66,6 +66,24 @@ def draw_path(
         ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), *colour)
 
 
+def min_adjacent_dist(state: State, i: int) -> int:
+    w = state.w
+    nav_dist = state.nav_dist
+    x, y = i % w, i // w
+    best = -1
+    for dx in range(-1, 2):
+        for dy in range(-1, 2):
+            if dx == 0 and dy == 0:
+                continue
+            ax, ay = x + dx, y + dy
+            if not state.in_bounds(ax, ay):
+                continue
+            d = nav_dist[ay * w + ax]
+            if d != -1 and (best == -1 or d < best):
+                best = d
+    return best
+
+
 def nearest_reachable_at(state: State, target: Position) -> Position | None:
     """
     If you want to place a walkable tile like a road/conveyer/bridge/splitter,

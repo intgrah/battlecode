@@ -46,10 +46,12 @@ def heal_turret(
     if pos.distance_squared(target) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         target,
     ):
+        print(f"    heal_turret: heal ({target.x},{target.y})")
         return ActionOnly(Heal(target))
 
     result = move_toward_with_road(state, ct, target)
     if result is None:
         return None
+    print(f"    heal_turret: nav to ({target.x},{target.y})")
     ct.draw_indicator_line(state.pos, target, 255, 0, 0)
     return result

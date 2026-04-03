@@ -70,6 +70,7 @@ def place_launcher(
         if bid is not None and ct.can_destroy(adj):
             ct.destroy(adj)
         if ct.can_build_launcher(adj):
+            print(f"    place_launcher: place at ({ax},{ay}) for transport ({bx},{by})")
             return ActionOnly(PlaceLauncher(adj))
 
     result = move_toward_with_road(state, ct, adj)
@@ -84,5 +85,6 @@ def place_launcher(
                     ct.destroy(adj)
                 if ct.can_build_launcher(adj):
                     result = MoveAction(move, PlaceLauncher(adj))
+    print(f"    place_launcher: nav to ({ax},{ay}) for transport ({bx},{by})")
     ct.draw_indicator_line(state.pos, adj, 255, 165, 0)
     return result
