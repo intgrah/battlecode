@@ -1838,6 +1838,71 @@ def sssp_dijkstra_bucket_noparent_dual4(md: MapData, si: int) -> list[int]:
     return dist
 
 
+def sssp_dijkstra_bucket_noparent5(md: MapData, si: int) -> list[int]:
+    """noparent + drain + clean control flow (no emp)."""
+    cost, pnb = md.cost, md.pnb
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk0: deque[int] = deque()
+    bk1: deque[int] = deque()
+    bk2: deque[int] = deque()
+    bk3: deque[int] = deque()
+    bks = (bk0, bk1, bk2, bk3)
+    bk0.append(si)
+    cur_d = 0
+    while bk0 or bk1 or bk2 or bk3:
+        bki = bks[cur_d & 3]
+        if bki:
+            popleft = bki.popleft
+            while bki:
+                node = popleft()
+                if dist[node] != cur_d:
+                    continue
+                for ni in pnb[node]:
+                    nd = cur_d + cost[ni]
+                    if nd < dist[ni]:
+                        dist[ni] = nd
+                        bks[nd & 3].append(ni)
+        cur_d += 1
+    return dist
+
+
+def sssp_dijkstra_bucket_noparent_dual5(md: MapData, si: int) -> list[int]:
+    """dual + drain + clean control flow (no emp)."""
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    dist: list[int] = [INF] * md.n
+    dist[si] = 0
+    bk0: deque[int] = deque()
+    bk1_: deque[int] = deque()
+    bk2: deque[int] = deque()
+    bk3_: deque[int] = deque()
+    bks = (bk0, bk1_, bk2, bk3_)
+    bk0.append(si)
+    cur_d = 0
+    while bk0 or bk1_ or bk2 or bk3_:
+        bki = bks[cur_d & 3]
+        if bki:
+            popleft = bki.popleft
+            nd1 = cur_d + CR
+            nbk1 = bks[nd1 & 3]
+            nd3 = cur_d + CE
+            nbk3 = bks[nd3 & 3]
+            while bki:
+                node = popleft()
+                if dist[node] != cur_d:
+                    continue
+                for ni in pnb1[node]:
+                    if nd1 < dist[ni]:
+                        dist[ni] = nd1
+                        nbk1.append(ni)
+                for ni in pnb3[node]:
+                    if nd3 < dist[ni]:
+                        dist[ni] = nd3
+                        nbk3.append(ni)
+        cur_d += 1
+    return dist
+
+
 def extract_path_from_dist(
     dist: list[int],
     cost: list[int],
@@ -1879,6 +1944,8 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("dijkstra bucket noparent2", sssp_dijkstra_bucket_noparent2),
     ("dijkstra bucket noparent dual3", sssp_dijkstra_bucket_noparent_dual3),
     ("dijkstra bucket noparent dual4", sssp_dijkstra_bucket_noparent_dual4),
+    ("dijkstra bucket noparent5", sssp_dijkstra_bucket_noparent5),
+    ("dijkstra bucket noparent dual5", sssp_dijkstra_bucket_noparent_dual5),
 ]
 
 
@@ -1969,7 +2036,7 @@ def bench_sssp() -> None:
             "noparent+extract",
             "extract only",
         ]:
-            ts = sorted(times[algo_name].get(scenario, []))
+            ts = sorted(times.get(algo_name, {}).get(scenario, []))
             if not ts:
                 continue
             nt = len(ts)
