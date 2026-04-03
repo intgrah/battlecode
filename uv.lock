@@ -48,6 +48,7 @@ members = [
     "bot-saboteur",
     "bot-se",
     "bot-starter",
+    "bot-test-core-spawn",
     "bot-v44",
     "bot-v45",
     "bot-v46",
@@ -512,6 +513,17 @@ requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 name = "bot-starter"
 version = "0.0.0"
 source = { virtual = "bots/misc/starter" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-test-core-spawn"
+version = "0.0.0"
+source = { virtual = "bots/test/core_spawn_test" }
 dependencies = [
     { name = "cambc" },
 ]

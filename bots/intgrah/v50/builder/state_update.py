@@ -110,6 +110,8 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
     for uid in ct.get_nearby_units():
         if uid == my_id:
             continue
+        if ct.get_entity_type(uid) == EntityType.CORE:
+            continue
         state.unit_tiles.add(ct.get_position(uid))
 
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
