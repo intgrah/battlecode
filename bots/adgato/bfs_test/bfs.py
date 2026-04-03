@@ -148,7 +148,6 @@ class NavBfs:
 
     def _set_passable(self, i: int, passable: bool) -> None:
         """Write passability to grid and mark dirty if a closer tile changed."""
-
         # real (x,y) where y=i//w, x=i%w -> padded (y+1)*pw + (x+1)
         # = y*pw + pw + x + 1 = (y*w + x) + 2*y + pw + 1 = i + 2*(i//w) + pw + 1
         pi = i + 2 * (i // self.w) + self._pw + 1

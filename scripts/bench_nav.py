@@ -852,7 +852,7 @@ def algo_dijkstra_bucket_noparent_dual2(md: MapData, si: int, gi: int) -> Path_:
 
 
 def algo_dijkstra_bucket_noparent2(md: MapData, si: int, gi: int) -> Path_:
-    """noparent + drain loop + inlined bi + no gn alias."""
+    """Noparent + drain loop + inlined bi + no gn alias."""
     if si == gi:
         return [si]
     cost, pnb = md.cost, md.pnb
@@ -904,7 +904,7 @@ def algo_dijkstra_bucket_noparent2(md: MapData, si: int, gi: int) -> Path_:
 
 
 def algo_dijkstra_bucket_noparent_dual3(md: MapData, si: int, gi: int) -> Path_:
-    """dual + drain loop + inlined bi + no gn alias."""
+    """Dual + drain loop + inlined bi + no gn alias."""
     if si == gi:
         return [si]
     pnb1, pnb3 = md.pnb1, md.pnb3
@@ -1224,17 +1224,17 @@ def _make_algos() -> list[AlgoEntry]:
     algos.append(("dijkstra bucket", algo_dijkstra_bucket, False))
     algos.append(("dijkstra bucket noparent", algo_dijkstra_bucket_noparent, False))
     algos.append(
-        ("dijkstra bucket noparent dual", algo_dijkstra_bucket_noparent_dual, False)
+        ("dijkstra bucket noparent dual", algo_dijkstra_bucket_noparent_dual, False),
     )
     algos.append(
-        ("dijkstra bucket noparent dual2", algo_dijkstra_bucket_noparent_dual2, False)
+        ("dijkstra bucket noparent dual2", algo_dijkstra_bucket_noparent_dual2, False),
     )
     algos.append(("dijkstra bucket noparent2", algo_dijkstra_bucket_noparent2, False))
     algos.append(
-        ("dijkstra bucket noparent dual3", algo_dijkstra_bucket_noparent_dual3, False)
+        ("dijkstra bucket noparent dual3", algo_dijkstra_bucket_noparent_dual3, False),
     )
     algos.append(
-        ("dijkstra bucket noparent dual4", algo_dijkstra_bucket_noparent_dual4, False)
+        ("dijkstra bucket noparent dual4", algo_dijkstra_bucket_noparent_dual4, False),
     )
     algos.append(("hpastar excl precomp", algo_hpa, True))
 
@@ -1735,7 +1735,7 @@ def sssp_dijkstra_bucket_noparent_dual2(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
-    """noparent + drain loop + inlined bi + no gn alias."""
+    """Noparent + drain loop + inlined bi + no gn alias."""
     cost, pnb = md.cost, md.pnb
     dist: list[int] = [INF] * md.n
     dist[si] = 0
@@ -1765,7 +1765,7 @@ def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_bucket_noparent_dual3(md: MapData, si: int) -> list[int]:
-    """dual + drain loop + inlined bi + no gn alias."""
+    """Dual + drain loop + inlined bi + no gn alias."""
     pnb1, pnb3 = md.pnb1, md.pnb3
     dist: list[int] = [INF] * md.n
     dist[si] = 0
@@ -1839,7 +1839,7 @@ def sssp_dijkstra_bucket_noparent_dual4(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_bucket_noparent5(md: MapData, si: int) -> list[int]:
-    """noparent + drain + clean control flow (no emp)."""
+    """Noparent + drain + clean control flow (no emp)."""
     cost, pnb = md.cost, md.pnb
     dist: list[int] = [INF] * md.n
     dist[si] = 0
@@ -1868,7 +1868,7 @@ def sssp_dijkstra_bucket_noparent5(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_bucket_noparent_dual5(md: MapData, si: int) -> list[int]:
-    """dual + drain + clean control flow (no emp)."""
+    """Dual + drain + clean control flow (no emp)."""
     pnb1, pnb3 = md.pnb1, md.pnb3
     dist: list[int] = [INF] * md.n
     dist[si] = 0
@@ -2019,10 +2019,10 @@ def bench_sssp() -> None:
                         extract_path_from_dist(result, md.cost, md.pnb, si, gi)
                         ex_us = (time.perf_counter() - t1) * 1e6
                         times.setdefault("noparent+extract", {}).setdefault(
-                            scenario, []
+                            scenario, [],
                         ).append(us + ex_us)
                         times.setdefault("extract only", {}).setdefault(
-                            scenario, []
+                            scenario, [],
                         ).append(ex_us)
                 gc.enable()
 
@@ -2045,7 +2045,7 @@ def bench_sssp() -> None:
             p99 = ts[int(nt * 0.99)]
             p100 = ts[-1]
             print(
-                f"  {algo_name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us"
+                f"  {algo_name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us",
             )
 
 
