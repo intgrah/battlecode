@@ -32,8 +32,15 @@ def explore(
         state.explore_target = _pick_frontier_target(state)
     if state.explore_target is None:
         return None
+    w = state.w
+    ti = state.explore_target.y * w + state.explore_target.x
+    if state.nav_dist[ti] == -1:
+        state.explore_target = _pick_frontier_target(state)
+        if state.explore_target is None:
+            return None
     result = move_toward_with_road(state, ct, state.explore_target)
     if result is None:
+        state.explore_target = None
         return None
     t = state.explore_target
     print(f"    explore: target=({t.x},{t.y}) r={state.explore_radius}")
@@ -84,7 +91,10 @@ def _pick_frontier_target(state: State) -> Position | None:
             candidates.append(Position(x0, y))
         if state.is_unseen(x1, y):
             candidates.append(Position(x1, y))
-    if not candidates:
+    w = state.w
+    nav_dist = state.nav_dist
+    reachable = [p for p in candidates if nav_dist[p.y * w + p.x] != -1]
+    if not reachable:
         return None
     rng = Random(hash((pos.x, pos.y, state.explore_radius)))
-    return candidates[rng.randrange(len(candidates))]
+    return reachable[rng.randrange(len(reachable))]

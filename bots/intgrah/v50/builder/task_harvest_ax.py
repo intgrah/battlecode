@@ -60,7 +60,7 @@ def harvest_ax(
                 state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
                 print(f"    harvest_ax: place at ({ore_pos.x},{ore_pos.y})")
                 return ActionOnly(PlaceHarvester(ore_pos))
-            return None
+            continue
 
         adj = nearest_reachable_around(state, ore_pos)
         if adj is None:

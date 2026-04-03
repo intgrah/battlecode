@@ -60,8 +60,8 @@ def connect_excess(
     excess_kind: ExcessKind,
     search_kind: SearchKind,
 ) -> Turn | None:
-    best_tile = _find_excess_tile(state, excess_kind)
-    if best_tile is None:
+    candidates = _find_excess_tiles(state, excess_kind)
+    if not candidates:
         return None
 
     goals = _make_goals(state, search_kind)
@@ -69,36 +69,37 @@ def connect_excess(
         print("  connect_excess: no goals")
         return None
 
-    idx = state.idx(best_tile.x, best_tile.y)
     rnd = ct.get_current_round()
-    state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
-    print(
-        f"    connect_excess: excess=({best_tile.x},{best_tile.y}) kind={search_kind.name}"
-    )
+    for best_tile in candidates:
+        print(
+            f"    connect_excess: excess=({best_tile.x},{best_tile.y}) kind={search_kind.name}"
+        )
 
-    sx, sy = _step_off_source(state, best_tile, search_kind)
-    if sx < 0:
-        print(f"  connect_excess: step_off failed ({best_tile.x},{best_tile.y})")
-        return None
+        sx, sy = _step_off_source(state, best_tile, search_kind)
+        if sx < 0:
+            print(f"  connect_excess: step_off failed ({best_tile.x},{best_tile.y})")
+            continue
 
-    start = Position(sx, sy)
-    path = _compute_path(state, ct, start, goals, search_kind)
-    if path is None or len(path) < 2:
-        print(f"  connect_excess: no path from ({sx},{sy})")
-        return None
+        start = Position(sx, sy)
+        path = _compute_path(state, ct, start, goals, search_kind)
+        if path is None or len(path) < 2:
+            print(f"  connect_excess: no path from ({sx},{sy})")
+            continue
 
-    chain_cost = _chain_cost(state, ct, path, search_kind)
-    ti, _ = ct.get_global_resources()
-    if ti < chain_cost:
-        print(f"    connect_excess: can't afford chain cost={chain_cost} ti={ti}")
-        return Wait()
+        chain_cost = _chain_cost(state, ct, path, search_kind)
+        ti, _ = ct.get_global_resources()
+        if ti < chain_cost:
+            print(f"    connect_excess: can't afford chain cost={chain_cost} ti={ti}")
+            return Wait()
 
-    return _walk_path(state, ct, path, search_kind)
+        idx = state.idx(best_tile.x, best_tile.y)
+        state.claim = MarkerTaskClaim(TaskKind.FIX_EXCESS, idx, rnd)
+        return _walk_path(state, ct, path, search_kind)
+
+    return None
 
 
-def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
-    best: Position | None = None
-    best_key: tuple[int, int] = (0, 0)
+def _find_excess_tiles(state: State, kind: ExcessKind) -> list[Position]:
     nav_dist = state.nav_dist
     f = state.flow
     match kind:
@@ -107,6 +108,8 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
         case ExcessKind.AX:
             sources = state.my_harvesters | state.my_transport
     w = state.w
+    cx, cy = state.my_core.x, state.my_core.y
+    results: list[tuple[tuple[int, int], Position]] = []
     for i in sources:
         d = nav_dist[i]
         if d == -1:
@@ -118,15 +121,11 @@ def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
                 has_excess = f.ti_excess[i] > 0.01 or f.rax_excess[i] > 0.01
             case ExcessKind.AX:
                 has_excess = f.ax_excess[i] > 0.01
-        key = (d, i)
-        if (
-            has_excess
-            and not is_claimed(state, i, TaskKind.FIX_EXCESS)
-            and (best is None or key < best_key)
-        ):
-            best_key = key
-            best = Position(i % w, i // w)
-    return best
+        if has_excess and not is_claimed(state, i, TaskKind.FIX_EXCESS):
+            core_dist = abs(i % w - cx) + abs(i // w - cy)
+            results.append(((core_dist, i), Position(i % w, i // w)))
+    results.sort(key=lambda x: x[0])
+    return [pos for _, pos in results]
 
 
 def _make_goals(state: State, kind: SearchKind) -> set[int]:
