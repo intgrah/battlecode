@@ -243,8 +243,13 @@ class State:
         match self.env[i]:
             case None:
                 self.cost[i] = COST_UNSEEN
-            case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+            case Environment.WALL:
                 self.cost[i] = COST_IMPASSABLE
+            case Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+                if self.building[i] is None:
+                    self.cost[i] = COST_EMPTY
+                else:
+                    self.cost[i] = COST_ROAD
             case _:
                 match self.building[i]:
                     case None | BuildingMarker():
@@ -272,7 +277,7 @@ class State:
         match self.env[i]:
             case None:
                 return COST_UNSEEN
-            case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+            case Environment.WALL:
                 return COST_IMPASSABLE
         match self.building[i]:
             case None | BuildingMarker():

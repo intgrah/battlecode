@@ -10,6 +10,7 @@ from cambc import (
 )
 from marker import MarkerEureka
 from marker import decode as decode_marker
+from turn import ActionMove, ActionOnly, MoveAction, MoveOnly, Turn, Wait
 from unit import Unit
 
 from .action import (
@@ -37,7 +38,8 @@ from .task_patrol import patrol
 from .task_rush import rush
 from .task_scout_enemy import scout_enemy
 
-type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
+type OldResult = tuple[Direction, Action | None] | None
+type TaskFn = Callable[[State, Controller], OldResult]
 
 TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
@@ -112,52 +114,54 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
-        t0 = ct.get_cpu_time_elapsed()
         state_update(s, ct)
-        t1 = ct.get_cpu_time_elapsed()
-        print(f"upd={t1 - t0}")
 
         s.claim = None
 
-        move, build = self._run_policy(ct)
-        self._execute(ct, move, build)
+        turn = self._run_policy(ct)
+        self._execute_turn(ct, turn)
+        self._write_marker(ct)
 
-    def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
+    def _run_policy(self, ct: Controller) -> Turn | None:
         s = self.state
         for score, task in _policy(s):
             if score <= 0:
                 continue
-            t0 = ct.get_cpu_time_elapsed()
-            print(f"  try {task.name} @{t0}")
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            dt = ct.get_cpu_time_elapsed() - t0
             if result is not None:
-                print(f"  {task.name} OK {dt}")
-                return result
-        return Direction.CENTRE, None
+                return _to_turn(result)
+        return None
 
-    def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
-        if isinstance(build, PlaceRoad) and move != Direction.CENTRE:
-            # Road: only build if we can't move (need the road to walk on)
-            if ct.can_move(move):
-                ct.move(move)
-            else:
-                execute(build, ct)
-                if ct.can_move(move):
-                    ct.move(move)
-        elif build is not None and move != Direction.CENTRE:
-            # Build first (while adjacent), then step toward next site
-            execute(build, ct)
-            if ct.can_move(move):
-                ct.move(move)
-        elif move != Direction.CENTRE:
-            if ct.can_move(move):
-                ct.move(move)
-        elif build is not None:
-            execute(build, ct)
-
-        self._write_marker(ct)
+    def _execute_turn(self, ct: Controller, turn: Turn | None) -> None:
+        if turn is None:
+            return
+        match turn:
+            case Wait():
+                pass
+            case MoveOnly(direction):
+                if ct.can_move(direction):
+                    ct.move(direction)
+            case ActionOnly(action):
+                execute(action, ct)
+            case ActionMove(action, direction):
+                if isinstance(action, PlaceRoad):
+                    # Road: only build if we can't already move there
+                    if ct.can_move(direction):
+                        ct.move(direction)
+                    else:
+                        execute(action, ct)
+                        if ct.can_move(direction):
+                            ct.move(direction)
+                else:
+                    # Non-road: build first (while adjacent), then step
+                    execute(action, ct)
+                    if ct.can_move(direction):
+                        ct.move(direction)
+            case MoveAction(direction, action):
+                if ct.can_move(direction):
+                    ct.move(direction)
+                    execute(action, ct)
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
@@ -199,6 +203,21 @@ def _find_core(ct: Controller) -> Position:
         if ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CORE:
             return ct.get_position(bid)
     raise RuntimeError
+
+
+def _to_turn(result: OldResult) -> Turn | None:
+    """Convert old-style (Direction, Action | None) to Turn."""
+    if result is None:
+        return None
+    move, build = result
+    if move == Direction.CENTRE and build is None:
+        return Wait()
+    if move == Direction.CENTRE and build is not None:
+        return ActionOnly(build)
+    if build is None:
+        return MoveOnly(move)
+    # All builds happen first (adjacent to target), then step toward next site
+    return ActionMove(build, move)
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:

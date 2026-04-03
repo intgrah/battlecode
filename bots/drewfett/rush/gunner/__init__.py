@@ -279,8 +279,6 @@ def _best_rotation(
     best_pri = 0
 
     for d in _DIR8:
-        if d == current:
-            continue
         if d == feed_dir:
             continue
 
