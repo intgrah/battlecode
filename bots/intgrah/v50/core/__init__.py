@@ -56,12 +56,13 @@ class Core(Unit):
             self.spawned += 1
 
     def _run_default(self, ct: Controller, _rnd: int) -> None:
-        if self.spawned >= 3:
+        if self.spawned >= 20:
             return
         pos = self.core_pos
         ti, _ = ct.get_global_resources()
         cost, _ = ct.get_builder_bot_cost()
-        if ti >= cost:
+        reserve = 0 if self.spawned < 3 else cost * 3
+        if ti >= cost + reserve:
             sp = _best_spawn_pos(ct, pos)
             if sp is not None:
                 ct.spawn_builder(sp)
