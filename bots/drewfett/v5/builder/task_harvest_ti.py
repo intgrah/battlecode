@@ -61,7 +61,6 @@ def harvest_ti(
         # Find the conveyor feeding this harvester
         conv_dir: tuple[int, int] | None = None
         has_gunner = False
-        has_barrier = False
 
         from building import (
             BuildingArmouredConveyor,
@@ -85,7 +84,7 @@ def harvest_ti(
                 case BuildingGunner(team=team) if team == state.my_team:
                     has_gunner = True
                 case BuildingBarrier(team=team) if team == state.my_team:
-                    has_barrier = True
+                    pass
 
         # Only defend if we have a conveyor connected
         if conv_dir is None:

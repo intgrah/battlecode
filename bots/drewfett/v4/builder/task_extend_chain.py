@@ -18,11 +18,11 @@ from cambc import Controller, Direction, Position
 from flow_astar import FlowAstar
 from util import INF
 
-from .action import Action
 from .helpers import move_toward_with_road
 from .task_connect_excess import SearchKind, _already_connected, _build_action
 
 if TYPE_CHECKING:
+    from .action import Action
     from .state import State
 
 

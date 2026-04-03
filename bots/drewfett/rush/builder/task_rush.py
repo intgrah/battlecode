@@ -125,7 +125,7 @@ def rush(
         _log("step2: no flow tile near enemy core")
 
     # Step 2.5: Unconnected harvester near core — build first conveyor toward siege
-    t25 = t()
+    t()
     for hi in state.my_harvesters:
         hx, hy = hi % w, hi // w
         h_dist = (hx - en_core.x) ** 2 + (hy - en_core.y) ** 2
