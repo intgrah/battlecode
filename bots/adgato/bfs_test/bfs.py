@@ -201,7 +201,7 @@ class NavBfs:
                 pi += 3  # skip right border + left border of next row
             else:
                 pi += 1
-            if progress & 127 == 0 and not within_budget():
+            if progress & 255 == 0 and not within_budget():
                 self._pnb_init_progress = progress
                 return False
 
