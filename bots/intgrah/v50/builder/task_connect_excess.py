@@ -164,6 +164,8 @@ def _step_off_source(
                 if obld is None or isinstance(
                     obld,
                     (
+                        BuildingRoad,
+                        BuildingMarker,
                         BuildingConveyor,
                         BuildingArmouredConveyor,
                         BuildingSplitter,

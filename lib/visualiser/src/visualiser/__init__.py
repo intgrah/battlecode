@@ -12,7 +12,7 @@ Usage in builder code:
                 special={-1: (0, 0, 0, 0), INF: (80, 80, 80, 100)},
             ),
         ),
-        bfs=VectorField(parent_to_angles(state.parent, state.w)),
+        bfs=VectorField(angles),
         scale=Scalar(142.5),
         goals=Tiles([(3, 5), (7, 2)]),
     )
@@ -30,15 +30,11 @@ Special values: dict mapping value -> (r, g, b, a).
 VectorField: per-tile arrows.
     angles: radians per tile, None = no arrow.
     magnitudes: optional, scales arrow length. None = uniform length.
-
-Helper:
-    parent_to_angles(parent, w) converts a parent-index array to radians.
 """
 
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -75,17 +71,6 @@ class VectorField:
     angles: Sequence[float | None]
     magnitudes: Sequence[float] | None = None
 
-
-def parent_to_angles(parent: Sequence[int], w: int) -> list[float | None]:
-    result: list[float | None] = []
-    for i, p in enumerate(parent):
-        if p < 0:
-            result.append(None)
-        else:
-            dx = p % w - i % w
-            dy = p // w - i // w
-            result.append(math.atan2(dy, dx))
-    return result
 
 
 def _serialize_field(v: Grid | Scalar | Tiles | VectorField) -> dict:

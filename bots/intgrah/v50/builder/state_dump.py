@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from util import INF
-from visualiser import Grid, Palette, Scalar, Tiles, emit
+from visualiser import Grid, Palette, Scalar, Tiles, VectorField, emit
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -75,6 +76,18 @@ P_THREAT_LAUNCHER = Palette(
 )
 
 
+def _parent_to_angles(parent: list[int], w: int) -> list[float | None]:
+    result: list[float | None] = []
+    for i, p in enumerate(parent):
+        if p < 0 or p == i:
+            result.append(None)
+        else:
+            dx = p % w - i % w
+            dy = p // w - i // w
+            result.append(math.atan2(dy, dx))
+    return result
+
+
 def dump(state: State, ct: Controller) -> None:
 
     rnd = ct.get_current_round()
@@ -112,4 +125,6 @@ def dump(state: State, ct: Controller) -> None:
         en_launcher=Grid(state.en_launcher, palette=P_THREAT_LAUNCHER),
         my_turrets=Tiles([(i % state.w, i // state.w) for i in state.my_turrets]),
         en_turrets=Tiles([(i % state.w, i // state.w) for i in state.en_turrets]),
+        bfs_dist=Grid(state.nav_dist, palette=P_DIST),
+        bfs_parent=VectorField(_parent_to_angles(state.nav_parent, state.w)),
     )

@@ -289,6 +289,18 @@ def _update_sets(
 _REFLECT_BUDGET = 25
 
 
+def _set_enemy_core(state: State) -> None:
+    core = mirror(state, Position(state.my_core.x, state.my_core.y))
+    w = state.w
+    for dx in range(-1, 2):
+        for dy in range(-1, 2):
+            cx, cy = core.x + dx, core.y + dy
+            if state.in_bounds(cx, cy):
+                i = cy * w + cx
+                state.en_core_tiles.add(i)
+                state.update_cost(i)
+
+
 def _apply_symmetry(
     state: State,
     new_tiles: list[tuple[Position, Environment]],
@@ -302,6 +314,7 @@ def _apply_symmetry(
     if had_symmetry:
         source = new_tiles
     else:
+        _set_enemy_core(state)
         source = [
             (Position(i % w, i // w), e)
             for i, e in enumerate(state.env)
