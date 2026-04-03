@@ -17,5 +17,5 @@ class NavMode(Enum):
 
 OPENING: Final[OpeningMode] = OpeningMode.OFF
 NAV: Final[NavMode] = NavMode.BFS
-USE_HARDCODED_MAPS: Final[bool] = False
-DEBUG_DUMP: Final[bool] = True
+USE_HARDCODED_MAPS: Final[bool] = True
+DEBUG_DUMP: Final[bool] = False

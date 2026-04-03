@@ -153,76 +153,42 @@ class Wait:
 type Turn = ActionOnly | MoveOnly | ActionMove | MoveAction | Wait
 
 
-def _would_destroy_clear(ct: Controller, pos: Position) -> bool:
-    bid = ct.get_tile_building_id(pos)
-    if bid is None:
-        return True
-    if ct.get_team(bid) != ct.get_team():
-        return False
-    return ct.get_entity_type(bid) in (EntityType.ROAD, EntityType.MARKER)
-
-
 def can_execute(action: Action, ct: Controller) -> bool:
-    """
-    Specification: can_execute is True iff execute does not raise.
-    Accounts for _destroy_friendly clearing roads/markers before building.
-    """
     ti, _ = ct.get_global_resources()
     match action:
-        case PlaceHarvester(pos):
+        case PlaceHarvester():
             cost, _ = ct.get_harvester_cost()
-            return ti >= cost and (
-                ct.can_build_harvester(pos) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceConveyor(pos, direction):
+            return ti >= cost
+        case PlaceConveyor():
             cost, _ = ct.get_conveyor_cost()
-            return ti >= cost and (
-                ct.can_build_conveyor(pos, direction) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceArmouredConveyor(pos, direction):
+            return ti >= cost
+        case PlaceArmouredConveyor():
             cost, _ = ct.get_armoured_conveyor_cost()
-            return ti >= cost and (
-                ct.can_build_armoured_conveyor(pos, direction)
-                or _would_destroy_clear(ct, pos)
-            )
-        case PlaceBridge(pos, target):
+            return ti >= cost
+        case PlaceBridge():
             cost, _ = ct.get_bridge_cost()
-            return ti >= cost and (
-                ct.can_build_bridge(pos, target) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceRoad(pos):
+            return ti >= cost
+        case PlaceRoad():
             cost, _ = ct.get_road_cost()
-            return ti >= cost and ct.can_build_road(pos)
-        case PlaceFoundry(pos):
+            return ti >= cost
+        case PlaceFoundry():
             cost, _ = ct.get_foundry_cost()
-            return ti >= cost and (
-                ct.can_build_foundry(pos) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceSplitter(pos, direction):
+            return ti >= cost
+        case PlaceSplitter():
             cost, _ = ct.get_splitter_cost()
-            return ti >= cost and (
-                ct.can_build_splitter(pos, direction) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceBarrier(pos):
+            return ti >= cost
+        case PlaceBarrier():
             cost, _ = ct.get_barrier_cost()
-            return ti >= cost and (
-                ct.can_build_barrier(pos) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceSentinel(pos, direction):
+            return ti >= cost
+        case PlaceSentinel():
             cost, _ = ct.get_sentinel_cost()
-            return ti >= cost and (
-                ct.can_build_sentinel(pos, direction) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceLauncher(pos):
+            return ti >= cost
+        case PlaceLauncher():
             cost, _ = ct.get_launcher_cost()
-            return ti >= cost and (
-                ct.can_build_launcher(pos) or _would_destroy_clear(ct, pos)
-            )
-        case PlaceGunner(pos, direction):
+            return ti >= cost
+        case PlaceGunner():
             cost, _ = ct.get_gunner_cost()
-            return ti >= cost and (
-                ct.can_build_gunner(pos, direction) or _would_destroy_clear(ct, pos)
-            )
+            return ti >= cost
         case SelfDestruct() | Heal() | Fire():
             return True
 
@@ -245,36 +211,49 @@ def execute(action: Action, ct: Controller) -> None:
     match action:
         case PlaceHarvester(pos):
             _destroy_friendly(ct, pos)
-            ct.build_harvester(pos)
+            if ct.can_build_harvester(pos):
+                ct.build_harvester(pos)
         case PlaceConveyor(pos, direction):
             _destroy_friendly(ct, pos)
-            ct.build_conveyor(pos, direction)
+            if ct.can_build_conveyor(pos, direction):
+                ct.build_conveyor(pos, direction)
         case PlaceArmouredConveyor(pos, direction):
             _destroy_friendly(ct, pos)
-            ct.build_armoured_conveyor(pos, direction)
+            if ct.can_build_armoured_conveyor(pos, direction):
+                ct.build_armoured_conveyor(pos, direction)
         case PlaceBridge(pos, target):
             _destroy_friendly(ct, pos)
-            ct.build_bridge(pos, target)
+            if ct.can_build_bridge(pos, target):
+                ct.build_bridge(pos, target)
         case PlaceRoad(pos):
-            ct.build_road(pos)
+            if ct.can_build_road(pos):
+                ct.build_road(pos)
         case PlaceFoundry(pos):
             _destroy_friendly(ct, pos)
-            ct.build_foundry(pos)
+            if ct.can_build_foundry(pos):
+                ct.build_foundry(pos)
         case PlaceSplitter(pos, direction):
             _destroy_friendly(ct, pos)
-            ct.build_splitter(pos, direction)
+            if ct.can_build_splitter(pos, direction):
+                ct.build_splitter(pos, direction)
         case SelfDestruct():
             ct.self_destruct()
         case Heal(pos):
-            ct.heal(pos)
+            if ct.can_heal(pos):
+                ct.heal(pos)
         case PlaceBarrier(pos):
             _destroy_friendly(ct, pos)
-            ct.build_barrier(pos)
+            if ct.can_build_barrier(pos):
+                ct.build_barrier(pos)
         case PlaceSentinel(pos, direction):
             _destroy_friendly(ct, pos)
-            ct.build_sentinel(pos, direction)
+            if ct.can_build_sentinel(pos, direction):
+                ct.build_sentinel(pos, direction)
         case PlaceLauncher(pos):
             _destroy_friendly(ct, pos)
-            ct.build_launcher(pos)
+            if ct.can_build_launcher(pos):
+                ct.build_launcher(pos)
         case Fire():
-            ct.fire(ct.get_position())
+            pos = ct.get_position()
+            if ct.can_fire(pos):
+                ct.fire(pos)
