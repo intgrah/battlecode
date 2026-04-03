@@ -33,7 +33,7 @@ def harvest_ti(
     rnd = ct.get_current_round()
     candidates = sorted(
         (oi for oi in unharvested if min_adjacent_dist(state, oi) != -1),
-        key=lambda oi: min_adjacent_dist(state, oi),
+        key=lambda oi: (min_adjacent_dist(state, oi), oi),
     )
     for oi in candidates:
         bld = state.building[oi]
@@ -56,7 +56,7 @@ def harvest_ti(
                 state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
                 print(f"    harvest_ti: place at ({ore_pos.x},{ore_pos.y})")
                 return ActionOnly(PlaceHarvester(ore_pos))
-            continue
+            return None
 
         adj = nearest_reachable_around(state, ore_pos)
         if adj is None:

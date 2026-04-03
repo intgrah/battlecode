@@ -101,8 +101,22 @@ class FlowAstar(Astar[int]):
         self._my_team = state.my_team
         self._core_x = state.my_core.x
         self._core_y = state.my_core.y
+        self._nav_dist = state.nav_dist
         si = sy * self._w + sx
         super().__init__(si, goals)
+
+    def _is_buildable(self, ni: int) -> bool:
+        w, h = self._w, self._h
+        nav_dist = self._nav_dist
+        if nav_dist[ni] != -1:
+            return True
+        nx, ny = ni % w, ni // w
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                ax, ay = nx + dx, ny + dy
+                if 0 <= ax < w and 0 <= ay < h and nav_dist[ay * w + ax] != -1:
+                    return True
+        return False
 
     def heuristic(self, node: int) -> int:
         return abs(node % self._w - self._gx) + abs(node // self._w - self._gy)
@@ -176,6 +190,7 @@ class FlowAstar(Astar[int]):
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
                             and leakage_mask[ni] & banned_leakage == 0
+                            and self._is_buildable(ni)
                         ):
                             result.append((ni, COST_ROAD_REPLACE))
                 for ddx, ddy in BRIDGE_DELTAS:
@@ -186,6 +201,7 @@ class FlowAstar(Astar[int]):
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
                             and leakage_mask[ni] & banned_leakage == 0
+                            and self._is_buildable(ni)
                         ):
                             result.append((ni, COST_BRIDGE))
 
@@ -198,6 +214,7 @@ class FlowAstar(Astar[int]):
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
                             and leakage_mask[ni] & banned_leakage == 0
+                            and self._is_buildable(ni)
                         ):
                             result.append((ni, COST_CONV))
                 for ddx, ddy in BRIDGE_DELTAS:
@@ -208,6 +225,7 @@ class FlowAstar(Astar[int]):
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
                             and leakage_mask[ni] & banned_leakage == 0
+                            and self._is_buildable(ni)
                         ):
                             result.append((ni, COST_BRIDGE))
 

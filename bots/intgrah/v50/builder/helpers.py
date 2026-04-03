@@ -40,16 +40,17 @@ def move_toward_with_road(
     path = extract_path(state, target.x, target.y)
     if path is None or len(path) < 2:
         return None
-    draw_path(ct, state.w, path)
     w = state.w
     nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
     d = pos.direction_to(nxt)
     if ct.can_move(d):
+        draw_path(ct, w, path)
         return MoveOnly(d)
     road_cost, _ = ct.get_road_cost()
     ti, _ = ct.get_global_resources()
     if ti >= road_cost and ct.can_build_road(nxt):
+        draw_path(ct, w, path)
         return ActionMove(PlaceRoad(nxt), d)
     return None
 

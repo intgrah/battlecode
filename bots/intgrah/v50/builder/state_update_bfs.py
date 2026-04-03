@@ -9,19 +9,17 @@ if TYPE_CHECKING:
 
 def update_bfs(state: State) -> None:
     w = state.w
+    n = w * state.h
     pos = state.pos
     si = pos.y * w + pos.x
     pnb = state.pnb
     parent = state.nav_parent
     dist = state.nav_dist
-    blocked = {p.y * w + p.x for p in state.unit_tiles}
 
-    # Reset from previous turn
-    for i in state._bfs_touched:
+    for i in range(n):
         parent[i] = -1
         dist[i] = -1
 
-    touched: list[int] = [si]
     parent[si] = si
     dist[si] = 0
 
@@ -32,11 +30,6 @@ def update_bfs(state: State) -> None:
         for ni in pnb[node]:
             if parent[ni] != -1:
                 continue
-            if ni in blocked:
-                continue
             parent[ni] = node
             dist[ni] = d
-            touched.append(ni)
             q.append(ni)
-
-    state._bfs_touched = touched
