@@ -1,8 +1,8 @@
+from action import ActionOnly, MoveAction, MoveOnly, PlaceSentinel, Turn
 from building import BuildingMarker, BuildingRoad, BuildingSentinel
 from cambc import Controller, Direction, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, INF, rotate_cw
 
-from .action import ActionOnly, MoveAction, PlaceSentinel, Turn
 from .helpers import move_toward_with_road
 from .state import State
 

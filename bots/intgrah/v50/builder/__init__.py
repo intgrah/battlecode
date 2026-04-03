@@ -1,5 +1,13 @@
 from collections.abc import Callable
 
+from action import (
+    ActionMove,
+    ActionOnly,
+    MoveAction,
+    MoveOnly,
+    Turn,
+    execute,
+)
 from cambc import (
     Controller,
     EntityType,
@@ -11,14 +19,6 @@ from config import DEBUG_DUMP, OPENING, OpeningMode
 from marker import MarkerRole
 from unit import Unit
 
-from .action import (
-    ActionMove,
-    ActionOnly,
-    MoveAction,
-    MoveOnly,
-    Turn,
-    execute,
-)
 from .role import ROLE_TARGET_TOTAL, ROLE_TARGETS, Role
 from .state import State
 from .state_dump import dump
@@ -238,7 +238,7 @@ POLICIES: dict[Role, list[tuple[float, Task, Role | None]]] = {
         (999.0, Task.HEAL_CORE, Role.DEFENSE),
         (150.0, Task.CONNECT_EXCESS_TI, Role.ECON),
         (100.0, Task.HARVEST_TI, Role.ECON),
-        (20.0, Task.EXPLORE, None),
+        (20.0, Task.EXPLORE, Role.ECON),
         (15.0, Task.PATROL, None),
     ],
     Role.DEFENSE: [
@@ -247,13 +247,13 @@ POLICIES: dict[Role, list[tuple[float, Task, Role | None]]] = {
         (150.0, Task.PLACE_SENTINEL, Role.DEFENSE),
         (100.0, Task.BARRIER_ORE, Role.ECON),
         (50.0, Task.PATROL, None),
-        (20.0, Task.EXPLORE, None),
+        (20.0, Task.EXPLORE, Role.ECON),
     ],
     Role.OFFENSE: [
         (999.0, Task.HEAL_CORE, Role.DEFENSE),
         (200.0, Task.FIRE_ENEMY_TRANSPORT, Role.OFFENSE),
         (150.0, Task.PLACE_LAUNCHER, Role.OFFENSE),
-        (50.0, Task.EXPLORE, None),
+        (50.0, Task.EXPLORE, Role.ECON),
         (20.0, Task.PATROL, None),
     ],
 }

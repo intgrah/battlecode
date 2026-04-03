@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections import deque
 from typing import TYPE_CHECKING
 
 from config import DEBUG_DUMP
-from visualiser import Tiles, VectorField, emit, parent_to_angles
+from visualiser import Tiles, emit
 
 if TYPE_CHECKING:
     from builder.state import State
@@ -23,58 +22,21 @@ def find_path_raw(
     if si == gi:
         return [si]
 
-    parent: list[int] = state.nav_parent
+    parent = state.nav_parent
+    if parent[gi] == -1:
+        return None
 
-    # Invariant
-    assert all(p == -1 for p in parent)
-
-    touched: list[int] = [si]
-    parent[si] = si
-
-    q: deque[int] = deque([si])
-    found = False
-    nb = state.pnb
-    blocked = {p.y * w + p.x for p in state.unit_tiles}
-
-    while q:
-        node = q.popleft()
-        for ni in nb[node]:
-            # Node already visited
-            if parent[ni] != -1:
-                continue
-            # We cannot walk over builders
-            if ni in blocked and ni != gi:
-                continue
-            parent[ni] = node
-            touched.append(ni)
-            if ni == gi:
-                found = True
-                break
-            q.append(ni)
-        if found:
-            break
-
-    path: list[int] | None = None
-    if found:
-        path = []
-        cur = gi
-        while cur != si:
-            path.append(cur)
-            cur = parent[cur]
-        path.append(si)
-        path.reverse()
+    path: list[int] = []
+    cur = gi
+    while cur != si:
+        path.append(cur)
+        cur = parent[cur]
+    path.append(si)
+    path.reverse()
 
     if DEBUG_DUMP:
         emit(
-            bfs_parent=VectorField(parent_to_angles(parent, w)),
-            bfs_path=Tiles([(i % w, i // w) for i in path] if path else []),
+            bfs_path=Tiles([(i % w, i // w) for i in path]),
         )
-
-    # Cleanup
-    for i in touched:
-        parent[i] = -1
-
-    # Invariant
-    assert all(p == -1 for p in parent)
 
     return path

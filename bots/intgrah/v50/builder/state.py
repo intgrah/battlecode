@@ -13,14 +13,13 @@ from typing import TYPE_CHECKING
 from .role import Role, initial_role
 
 if TYPE_CHECKING:
+    from action import Turn
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
     from flow_astar import FlowAstar
     from hardcode.known import KnownMap
     from hardcode.opening import Opening
     from marker import MarkerTaskClaim
-
-    from .action import Turn
 
 
 from building import (
@@ -35,7 +34,7 @@ from building import (
 )
 from cambc import Controller, Environment, GameConstants, Position, Team
 from config import NAV, OPENING, USE_HARDCODED_MAPS, NavMode, OpeningMode
-from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN, DIAL_MOD, INF
+from constants import COST_EMPTY, COST_IMPASSABLE, COST_ROAD, COST_UNSEEN
 from hardcode.apsp import DATA as APSP_DATA
 from hardcode.apsp_loader import ApspTable
 from hardcode.landmarks import DATA as LANDMARK_DATA
@@ -219,10 +218,9 @@ class State:
         self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
 
-        self.nav_dist = [INF] * n  # astar
-        self.nav_parent = [-1] * n  # astar, bfs
-        self.nav_heuristic = [-1] * n  # astar
-        self.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]  # astar_bucket
+        self.nav_dist: list[int] = [-1] * n
+        self.nav_parent: list[int] = [-1] * n
+        self._bfs_touched: list[int] = []
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None

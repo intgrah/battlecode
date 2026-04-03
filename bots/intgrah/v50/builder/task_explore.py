@@ -11,9 +11,9 @@ oscillation between candidates.
 
 from random import Random
 
+from action import Turn
 from cambc import Controller, Position
 
-from .action import Turn
 from .helpers import move_toward_with_road
 from .state import State
 
