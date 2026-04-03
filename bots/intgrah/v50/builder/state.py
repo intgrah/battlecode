@@ -272,7 +272,11 @@ class State:
             match self.env[i]:
                 case None:
                     self.cost[i] = COST_UNSEEN
-                case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+                case (
+                    Environment.WALL
+                    | Environment.ORE_TITANIUM
+                    | Environment.ORE_AXIONITE
+                ):
                     self.cost[i] = COST_IMPASSABLE
                 case _:
                     match self.building[i]:

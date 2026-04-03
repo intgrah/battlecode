@@ -1,0 +1,8 @@
+[project]
+name = "bot-test-core-spawn"
+version = "0.0.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["cambc>=1.4.6"]
+
+[tool.ty.environment]
+root = ["."]
