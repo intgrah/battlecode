@@ -1,4 +1,3 @@
-import sys
 from collections.abc import Callable
 
 from cambc import (
@@ -116,32 +115,12 @@ class Builder(Unit):
         t0 = ct.get_cpu_time_elapsed()
         state_update(s, ct)
         t1 = ct.get_cpu_time_elapsed()
-        print(f"update={t1 - t0}us")
-
-        try:
-            from .state_dump import dump
-            dump(s, ct)
-        except (ImportError, Exception):
-            pass
+        print(f"upd={t1 - t0}")
 
         s.claim = None
 
         move, build = self._run_policy(ct)
-        t2 = ct.get_cpu_time_elapsed()
-        print(f"policy={t2 - t1}us total={t2 - t0}us")
         self._execute(ct, move, build)
-
-        # State logging to stderr
-        rnd = ct.get_current_round()
-        if rnd % 50 == 0:
-            seen = sum(1 for e in s.env if e is not None)
-            seen_frac = seen / (s.w * s.h)
-            print(
-                f"[MAP] r{rnd} seen={seen_frac:.0%} harv={len(s.my_harvesters)}"
-                f" sym={s.symmetry} encore={s.en_core_pos}"
-                f" ore_known={len(s.ore_ti)}",
-                file=sys.stderr,
-            )
 
     def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
         s = self.state
@@ -149,18 +128,13 @@ class Builder(Unit):
             if score <= 0:
                 continue
             t0 = ct.get_cpu_time_elapsed()
+            print(f"  try {task.name} @{t0}")
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            t1 = ct.get_cpu_time_elapsed()
-            elapsed = t1 - t0
+            dt = ct.get_cpu_time_elapsed() - t0
             if result is not None:
-                print(f"  task={task.name} {elapsed}us OK")
-                print(f"  {result}")
-                print(f"  task={task.name} {elapsed}us OK -> {result}", file=sys.stderr)
+                print(f"  {task.name} OK {dt}")
                 return result
-            print(f"  task={task.name} {elapsed}us FAIL")
-            print(f"  task={task.name} FAIL", file=sys.stderr)
-        print("  task=NONE")
         return Direction.CENTRE, None
 
     def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
