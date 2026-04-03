@@ -139,8 +139,10 @@ class Player:
 </ResponseField>
 
 <ResponseField name="is_tile_passable(pos: Position)" type="bool">
-  Return True if a builder bot belonging to this team could stand on the tile
-  (conveyor, road, or allied core, and no other builder bot).
+  Return True if a builder bot belonging to this team could stand on the tile.
+  A tile is passable when it contains a walkable building (conveyor, splitter,
+  armoured conveyor, bridge, or road) or an allied core, and no builder bot is
+  already present.
 </ResponseField>
 
 <ResponseField name="is_in_vision(pos: Position)" type="bool">
@@ -373,9 +375,10 @@ A single pair of methods that dispatches to the correct type-specific builder. U
 
 <ResponseField name="can_rotate(direction: Direction)" type="bool">
   Return whether `rotate(direction)` would be legal this round. This returns
-  False if the current unit is not a gunner, if the gunner cannot act this turn,
-  or if the team cannot afford the global 10 Ti rotate cost. Unlike `rotate()`,
-  this does not raise on non-gunners.
+  False if the current unit is not a gunner, if direction is `Direction.CENTRE`,
+  if direction is the gunner's current facing direction, if the gunner cannot act
+  this turn, or if the team cannot afford the global 10 Ti rotate cost. Unlike
+  `rotate()`, this does not raise on non-gunners.
 </ResponseField>
 
 <ResponseField name="rotate(direction: Direction)" type="None">
