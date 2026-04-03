@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 from symmetry import Symmetry, mirror_idx
+
 from lib.visualiser.src.visualiser import Grid, Palette, VectorField, emit
 
 if TYPE_CHECKING:
@@ -216,7 +217,7 @@ class NavBfs:
         pnb_push = self._pnb_push
         pnb_set = self._pnb_set
         offsets = self._offsets
-        
+
         for pi in self._pnb_dirty:
             push = pnb_push[pi]
             assign = pnb_set[pi]
@@ -224,7 +225,7 @@ class NavBfs:
             assign.clear()
             if not passable[pi]:
                 continue
-                
+
             ne, se, sw, nw, n, e, s, w = tuple(pi + off for off in offsets)
 
             # Diagonals — always enqueue
