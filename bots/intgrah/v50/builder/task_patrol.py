@@ -5,10 +5,10 @@ Navigates to the least-recently-seen tile that has friendly infrastructure
 belief about its own network fresh and detects enemy disruption.
 """
 
+from action import Turn
 from cambc import Controller, Position
 from util import INF
 
-from .action import Turn
 from .helpers import move_toward_with_road
 from .state import State
 

@@ -1,13 +1,32 @@
 import itertools
 
+from action import ActionMove, MoveOnly, PlaceRoad, Turn
 from cambc import Controller, Position
-from constants import COST_IMPASSABLE
 from marker import TaskKind
-from navigation import find_path
-from util import DIR4_DELTA, INF
 
-from .action import ActionMove, MoveOnly, PlaceRoad, Turn
 from .state import State
+
+
+def extract_path(state: State, gx: int, gy: int) -> list[int] | None:
+    """
+    Assumption: bfs was already computed in the state update.
+    """
+    w = state.w
+    si = state.pos.y * w + state.pos.x
+    gi = gy * w + gx
+    if si == gi:
+        return [si]
+    parent = state.nav_parent
+    if parent[gi] == -1:
+        return None
+    path: list[int] = []
+    cur = gi
+    while cur != si:
+        path.append(cur)
+        cur = parent[cur]
+    path.append(si)
+    path.reverse()
+    return path
 
 
 def move_toward_with_road(
@@ -18,10 +37,7 @@ def move_toward_with_road(
     pos = state.pos
     if pos == target:
         return None
-    t0 = ct.get_cpu_time_elapsed()
-    path = find_path(state, target.x, target.y)
-    t1 = ct.get_cpu_time_elapsed()
-    print(f"  nav={t1 - t0}us")
+    path = extract_path(state, target.x, target.y)
     if path is None or len(path) < 2:
         return None
     draw_path(ct, state.w, path)
@@ -50,19 +66,50 @@ def draw_path(
         ct.draw_indicator_line(Position(x0, y0), Position(x1, y1), *colour)
 
 
-def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:
-    best = None
-    best_dist = INF
-    for ddx, ddy in DIR4_DELTA:
-        ax, ay = target.x + ddx, target.y + ddy
-        if not state.in_bounds(ax, ay):
-            continue
-        if state.walkable(ax, ay) >= COST_IMPASSABLE:
-            continue
-        dist = (pos.x - ax) ** 2 + (pos.y - ay) ** 2
-        if dist < best_dist:
-            best_dist = dist
-            best = Position(ax, ay)
+def nearest_reachable_at(state: State, target: Position) -> Position | None:
+    """
+    If you want to place a walkable tile like a road/conveyer/bridge/splitter,
+    you can be in any of 9 tiles near the spot you want to build.
+    Even if you are standing on the tile you want to build, you can still do that.
+    """
+    w = state.w
+    nav_dist = state.nav_dist
+    best: Position | None = None
+    best_hops = -1
+    tx, ty = target.x, target.y
+    for dx in range(-1, 2):
+        for dy in range(-1, 2):
+            ax, ay = tx + dx, ty + dy
+            if not state.in_bounds(ax, ay):
+                continue
+            d = nav_dist[ay * w + ax]
+            if d != -1 and (best is None or d < best_hops):
+                best_hops = d
+                best = Position(ax, ay)
+    return best
+
+
+def nearest_reachable_around(state: State, target: Position) -> Position | None:
+    """
+    If you want to place an unwalkable building like a barrier or turret, you must be in the 8 tile
+    ring surrounding that tile. If you are on that tile, then you must step aside.
+    """
+    w = state.w
+    nav_dist = state.nav_dist
+    best: Position | None = None
+    best_hops = -1
+    tx, ty = target.x, target.y
+    for dx in range(-1, 2):
+        for dy in range(-1, 2):
+            if dx == 0 and dy == 0:
+                continue
+            ax, ay = tx + dx, ty + dy
+            if not state.in_bounds(ax, ay):
+                continue
+            d = nav_dist[ay * w + ax]
+            if d != -1 and (best is None or d < best_hops):
+                best_hops = d
+                best = Position(ax, ay)
     return best
 
 

@@ -1,8 +1,8 @@
+from action import ActionOnly, MoveAction, MoveOnly, PlaceBarrier, Turn
 from building import BuildingHarvester, BuildingSentinel
 from cambc import Controller, Position
 from util import DIR8_DELTA, INF
 
-from .action import ActionOnly, MoveAction, PlaceBarrier, Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -63,9 +63,9 @@ def barrier_ore(
         return ActionOnly(PlaceBarrier(ore_pos))
 
     result = move_toward_with_road(state, ct, ore_pos)
-    if result is None:
-        return None
     match result:
+        case None:
+            return None
         case MoveOnly(move):
             new_pos = pos.add(move)
             if new_pos.distance_squared(ore_pos) <= 2 and new_pos != ore_pos:

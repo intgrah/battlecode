@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import TYPE_CHECKING
 
+from action import Action, ActionOnly, PlaceBridge, PlaceConveyor, Turn, can_execute
 from ax_chain_astar import AxChainAstar
 from bridge_astar import BridgeFlowAstar
 from building import (
@@ -21,8 +22,7 @@ from flow_astar import AX, RAX, TI, FlowAstar
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, INF
 
-from .action import Action, ActionOnly, PlaceBridge, PlaceConveyor, Turn, can_execute
-from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
+from .helpers import is_claimed, move_toward_with_road, nearest_reachable_at
 
 if TYPE_CHECKING:
     from algorithms import Astar
@@ -314,19 +314,14 @@ def _walk_path(
             continue
 
         build_at = Position(x, y)
-
-        if pos == build_at:
-            adj = cardinal_adjacent(state, pos, build_at)
-            if adj is not None:
-                return move_toward_with_road(state, ct, adj)
-            continue
-
         action = _build_action(build_at, nx, ny, kind)
+
         if pos.distance_squared(build_at) <= 2:
             if not can_execute(action, ct):
                 continue
             return ActionOnly(action)
-        adj = cardinal_adjacent(state, pos, build_at)
+
+        adj = nearest_reachable_at(state, build_at)
         if adj is not None:
             return move_toward_with_road(state, ct, adj)
 

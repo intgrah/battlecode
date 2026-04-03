@@ -7,12 +7,12 @@ Same placement logic as harvest_ti: place immediately if adjacent, or
 navigate to nearest and place on arrival.
 """
 
+from action import ActionOnly, MoveAction, MoveOnly, PlaceHarvester, Turn
 from cambc import Controller, Position
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA
 
-from .action import ActionOnly, MoveAction, PlaceHarvester, Turn
-from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
+from .helpers import is_claimed, move_toward_with_road, nearest_reachable_around
 from .state import State
 
 
@@ -57,7 +57,7 @@ def harvest_ax(
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             continue
         ore_pos = Position(oi % w, oi // w)
-        adj = cardinal_adjacent(state, pos, ore_pos)
+        adj = nearest_reachable_around(state, ore_pos)
         if adj is None:
             continue
         result = move_toward_with_road(state, ct, adj)

@@ -1,9 +1,9 @@
+from action import ActionOnly, MoveAction, MoveOnly, PlaceLauncher, Turn
 from building import BuildingLauncher, BuildingMarker, BuildingRoad
 from cambc import Controller, Position
 from constants import COST_IMPASSABLE
 from util import DIR8_DELTA
 
-from .action import ActionOnly, MoveAction, PlaceLauncher, Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -73,8 +73,6 @@ def place_launcher(
             return ActionOnly(PlaceLauncher(adj))
 
     result = move_toward_with_road(state, ct, adj)
-    if result is None:
-        return None
     match result:
         case None:
             return None

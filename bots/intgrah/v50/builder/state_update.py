@@ -32,6 +32,7 @@ from util import Symmetry
 from .role import Role
 from .state import State
 from .state_helpers import mirror
+from .state_update_bfs import update_bfs
 from .state_update_econ import update_flow
 
 CENSUS_TTL = 16
@@ -78,10 +79,13 @@ def update(state: State, ct: Controller) -> None:
     t3 = ct.get_cpu_time_elapsed()
     _update_infra_staleness(state)
     t4 = ct.get_cpu_time_elapsed()
+    update_bfs(state)
+    t5 = ct.get_cpu_time_elapsed()
     print(f"  ephemeral={t1 - t0}us")
     print(f"  scan={t2 - t1}us")
     print(f"  flow={t3 - t2}us")
     print(f"  stale={t4 - t3}us")
+    print(f"  bfs={t5 - t4}us")
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
