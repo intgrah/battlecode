@@ -12,8 +12,7 @@ from unit import Unit
 
 
 def _glog(msg: str) -> None:
-    print(msg)
-    print(msg, file=sys.stderr)
+    pass
 
 _DIR8 = [d for d in Direction if d != Direction.CENTRE]
 
