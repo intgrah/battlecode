@@ -1958,6 +1958,67 @@ def extract_path_from_dist(
     return path
 
 
+def sssp_reference_dist(md: MapData, si: int) -> list[int]:
+    n, cost, pnb = md.n, md.cost, md.pnb
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    heap: list[tuple[int, int]] = [(0, si)]
+    while heap:
+        d, node = heapq.heappop(heap)
+        if d > dist[node]:
+            continue
+        for ni in pnb[node]:
+            nd = d + cost[ni]
+            if nd < dist[ni]:
+                dist[ni] = nd
+                heapq.heappush(heap, (nd, ni))
+    return dist
+
+
+def parent_to_dist(parent: list[int], cost: list[int], n: int, si: int) -> list[int]:
+    children: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        p = parent[i]
+        if p not in (-1, i):
+            children[p].append(i)
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    q: deque[int] = deque([si])
+    while q:
+        node = q.popleft()
+        for child in children[node]:
+            dist[child] = dist[node] + cost[child]
+            q.append(child)
+    return dist
+
+
+def expanded_parent_to_dist(
+    parent: list[int],
+    n: int,
+    si: int,
+) -> list[int]:
+    total = len(parent)
+    children: list[list[int]] = [[] for _ in range(total)]
+    for i in range(total):
+        p = parent[i]
+        if p not in (-1, i):
+            children[p].append(i)
+    full_dist: list[int] = [INF] * total
+    full_dist[si] = 0
+    q: deque[int] = deque([si])
+    while q:
+        node = q.popleft()
+        for child in children[node]:
+            full_dist[child] = full_dist[node] + 1
+            q.append(child)
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    for i in range(n):
+        if full_dist[i] < INF:
+            dist[i] = full_dist[i]
+    return dist
+
+
 type SsspFn = Callable[[MapData, int], list[int]]
 
 SSSP_ALGOS: list[tuple[str, SsspFn]] = [
@@ -2037,9 +2098,13 @@ def bench_sssp() -> None:
 
             goals = [rng.choice(md.passable) for _ in range(n_sources)]
 
+            ref_dists: list[list[int]] = [sssp_reference_dist(md, si) for si in sources]
+
             for algo_name, algo_fn in selected:
                 gc.disable()
-                for si, gi in zip(sources, goals, strict=True):
+                for idx, (si, gi) in enumerate(
+                    zip(sources, goals, strict=True),
+                ):
                     t0 = time.perf_counter()
                     result = algo_fn(md, si)
                     us = (time.perf_counter() - t0) * 1e6
@@ -2056,6 +2121,41 @@ def bench_sssp() -> None:
                             scenario,
                             [],
                         ).append(ex_us)
+
+                    if algo_name == "bfs" and scenario != "no_roads":
+                        pass
+                    else:
+                        if "noparent" in algo_name:
+                            got_dist = result
+                        elif algo_name == "bfs expand":
+                            got_dist = expanded_parent_to_dist(result, md.n, si)
+                        elif algo_name == "bfs":
+                            got_dist = parent_to_dist(
+                                result,
+                                [CE] * md.n,
+                                md.n,
+                                si,
+                            )
+                        else:
+                            got_dist = parent_to_dist(
+                                result,
+                                md.cost,
+                                md.n,
+                                si,
+                            )
+
+                        ref = ref_dists[idx]
+                        for i in range(md.n):
+                            if got_dist[i] != ref[i]:
+                                x, y = i % md.w, i // md.w
+                                print(
+                                    f"\nMISMATCH {algo_name} on "
+                                    f"{md.name}/{scenario} "
+                                    f"src={si} tile=({x},{y}) "
+                                    f"got={got_dist[i]} ref={ref[i]}",
+                                    file=sys.stderr,
+                                )
+                                sys.exit(1)
                 gc.enable()
 
     sys.stderr.write("\r" + " " * 60 + "\r")
