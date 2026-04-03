@@ -123,12 +123,12 @@ def _rebuild_danger_zones(state: State) -> None:
 
         match bld:
             case BuildingLauncher():
-                # Hard penalty — adjacent tiles very expensive to walk through
+                # Hard block — launcher throws adjacent builders
                 for dx in range(-1, 2):
                     for dy in range(-1, 2):
                         nx, ny = tx + dx, ty + dy
                         if 0 <= nx < w and 0 <= ny < h:
-                            state.danger_zones.add(ny * w + nx)
+                            state.cost[ny * w + nx] = COST_IMPASSABLE
 
             case (
                 BuildingGunner(direction=d)
@@ -183,53 +183,53 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
     changed: list[int] = []
     new_tiles: list[tuple[Position, Environment]] = []
     rnd = ct.get_current_round()
+    my_team = state.my_team
 
     for t in ct.get_nearby_tiles():
         i = t.y * w + t.x
         state.last_seen[i] = rnd
 
         old_env = state.env[i]
-        old_bld = state.building[i]
-        state.env[i] = env = ct.get_tile_env(t)
+        env = ct.get_tile_env(t)
 
-        # Invalidate enemy distance cache when new wall discovered
-        if old_env != env and env == Environment.WALL:
-            pass  # wall discovered
-
-        match env:
-            case Environment.ORE_TITANIUM:
-                state.ore_ti.add(i)
-            case Environment.ORE_AXIONITE:
-                state.ore_ax.add(i)
+        if env != old_env:
+            state.env[i] = env
+            match env:
+                case Environment.ORE_TITANIUM:
+                    state.ore_ti.add(i)
+                case Environment.ORE_AXIONITE:
+                    state.ore_ax.add(i)
 
         bid = ct.get_tile_building_id(t)
+        old_bld = state.building[i]
         if bid is not None:
             etype = ct.get_entity_type(bid)
             bld = _make_building(ct, bid, etype)
-            state.building[i] = bld
-            _update_sets(state, i, old_bld, bld)
             if bld != old_bld or env != old_env:
+                state.building[i] = bld
+                _update_sets(state, i, old_bld, bld)
                 changed.append(i)
+                state.update_cost(i)
 
             match bld:
-                case BuildingMarker(team) if team == state.my_team:
+                case BuildingMarker(team) if team == my_team:
                     msg = decode_marker(bld.value)
                     match msg:
                         case MarkerTaskClaim() if not is_stale(msg, rnd):
                             state.claims.add(msg)
                         case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
-                case BuildingCore(team) if team != state.my_team:
+                case BuildingCore(team) if team != my_team:
                     state.en_core_tiles.add(i)
                     if state.en_core_pos is None:
                         state.en_core_pos = ct.get_position(bid)
         else:
-            state.building[i] = None
-            _update_sets(state, i, old_bld, None)
             if old_bld is not None or env != old_env:
+                state.building[i] = None
+                _update_sets(state, i, old_bld, None)
                 changed.append(i)
+                state.update_cost(i)
 
-        state.update_cost(i)
         new_tiles.append((t, env))
 
     _apply_symmetry(state, new_tiles)

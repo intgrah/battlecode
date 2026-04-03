@@ -48,7 +48,7 @@ def _on_enemy_half(state: State, x: int, y: int) -> bool:
 
 
 def _log(msg: str) -> None:
-    pass
+    print(msg)
 
 
 def _move_or_none(
@@ -599,8 +599,8 @@ def _extend_from_flow(
     siege = _find_siege_tile(state, flow_x, flow_y, en_core)
     print(f"R ext_siege={ct.get_cpu_time_elapsed() - tex} @{ct.get_cpu_time_elapsed()}")
     if siege is None:
-        _log("extend: no siege tile found, walking toward core")
-        return _move_or_none(state, ct, en_core)
+        _log("extend: no siege tile found")
+        return None
 
     siege_x, siege_y = siege
     siege_idx = siege_y * w + siege_x
@@ -621,7 +621,7 @@ def _extend_from_flow(
         _log(
             f"extend: FlowAstar failed from ({flow_x},{flow_y}) to ({siege_x},{siege_y}), path={'None' if path is None else len(path)}"
         )
-        return _move_or_none(state, ct, Position(siege_x, siege_y))
+        return None
 
     _log(f"extend: path len={len(path)}, builder at ({pos.x},{pos.y})")
 
