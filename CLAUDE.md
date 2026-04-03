@@ -2,7 +2,7 @@ This project is for the Cambridge Battlecode competition (hosted by University o
 
 Docs: https://docs.battlecode.cam — local copy in `docs/` (run `just docs` to update).
 Read the relevant files in `docs/` before writing or modifying bot code.
-CLI: `cambc`. Python 3.12. 2ms CPU time per unit per round (+5% buffer).
+CLI: `cambc`. Python 3.12 (stdlib only, no pip packages). 2ms CPU time per unit per round (+5% buffer). 1 GB memory limit per bot.
 
 Reference materials from previous MIT Battlecode years are in `ref/`.
 
@@ -10,18 +10,18 @@ Reference materials from previous MIT Battlecode years are in `ref/`.
 
 Set on Titan. Objective: destroy enemy core (3x3, 500 HP). Max 2000 rounds. Maps 20x20 to 50x50, guaranteed symmetric (reflection or rotation). Max 50 living units per team (including core).
 
-Resources: titanium (start 500) and axionite (raw/refined). Move in stacks of 10 via conveyors and bridges. Raw axionite delivered to core is destroyed — refine it first.
+Resources: titanium (start 500, +10 passive every 4 rounds) and axionite (raw/refined). Move in stacks of 10 via conveyors and bridges. Raw axionite delivered to core or turrets is destroyed — refine it first. Core can convert refined ax to Ti (1 Ax → 4 Ti) via `c.convert(amount)`.
 
-Win condition tiebreakers (in order): refined axionite delivered, titanium delivered, harvesters alive, axionite stored, titanium stored, coinflip.
+Win condition tiebreakers (in order): refined axionite delivered, titanium delivered, harvesters alive, axionite stored, titanium stored, coinflip. Note: `c.convert()` moves Ax from Ax-collected stat to Ti-collected stat.
 
 ### Units (run independent code instances)
 
-- Core: spawns builder bots, vision r²=36, action r²=8 from centre. 1 spawn per round.
-- Builder bot: only mobile unit, 30 HP, 30 Ti, 20% scale, vision r²=20, action r²=2. Builds, heals (4 HP for 1 Ti), attacks building on own tile (2 dmg for 2 Ti), destroys allied buildings (free, no cooldown). Self-destruct does NO damage. Walks only on conveyors, roads, allied core.
-- Gunner: 40 HP, 10 Ti, 10% scale, vision/attack r²=13, 10 dmg (30 with refined ax), reload 1, 2 ammo/shot. Targets closest non-empty tile in facing direction. Markers targetable but don't shield.
+- Core: spawns builder bots on any empty core tile (3x3), vision r²=36, action r²=8 from centre. 1 spawn per round.
+- Builder bot: only mobile unit, 30 HP, 30 Ti, 20% scale, vision r²=20, action r²=2. Builds, heals (4 HP for 1 Ti to ALL friendly entities on target tile), attacks building on own tile (2 dmg for 2 Ti), destroys allied buildings (free, unlimited per round). Self-destruct does NO damage. Walks only on conveyors, roads, allied core.
+- Gunner: 40 HP, 10 Ti, 10% scale, vision/attack r²=13, 10 dmg (30 with refined ax), reload 1, 2 ammo/shot. Targets closest non-empty tile in facing direction. Markers targetable but don't block; walls block but aren't targetable. Can rotate to any direction for 10 Ti (`c.rotate(direction)`, 1-turn cooldown).
 - Sentinel: 30 HP, 30 Ti, 20% scale, vision/attack r²=32, 18 dmg, reload 3, 10 ammo/shot. Hits within 1 king-move of facing line. Refined ax ammo: +5 action/move cooldown stun.
 - Breach: 60 HP, 15 Ti + 10 Ax, 10% scale, vision r²=13, attack r²=5, 40 dmg + 20 splash (8 surrounding tiles), reload 1, 5 ammo (refined ax only). 180° cone. Friendly fire on splash.
-- Launcher: 30 HP, 20 Ti, 10% scale, vision/attack r²=26. Throws adjacent builder bots. No facing direction, no ammo.
+- Launcher: 30 HP, 20 Ti, 10% scale, vision r²=26, action r²=2 (pickup), throw r²=26, reload 1. Throws adjacent builder bots to bot-passable tile. No facing direction, no ammo.
 
 ### Buildings
 
@@ -29,15 +29,17 @@ Win condition tiebreakers (in order): refined axionite delivered, titanium deliv
 - Marker (1 HP, free, no scale): u32 value, only comms between units. Not walkable, counts as building. Destroyable for free. One per round per unit, separate from action cooldown.
 - Barrier (30 HP, 3 Ti, 1%): blocks space
 - Conveyor (20 HP, 3 Ti, 1%): cardinal only. 3 inputs, 1 output
-- Splitter (20 HP, 6 Ti, 1%): cardinal only. 1 input (back), 3 rotating outputs
+- Splitter (20 HP, 6 Ti, 1%): cardinal only. 1 input (back), 3 rotating outputs. Prioritises least recently used direction.
 - Bridge (20 HP, 20 Ti, 10%): teleports stack to tile within dist² 9. Accepts from all directions.
 - Armoured conveyor (50 HP, 5 Ti + 5 refined ax, 1%): like conveyor but tankier
-- Harvester (30 HP, 20 Ti, 5%): auto-mines, outputs every 4 rounds. NOT a unit.
+- Harvester (30 HP, 20 Ti, 5%): auto-mines, outputs every 4 rounds. First output is immediate on build round. Prioritises least recently used direction. NOT a unit.
 - Foundry (50 HP, 40 Ti, 100%): Ti + raw ax -> refined ax
 
 Cost scaling: additive. Each entity built increases scale by its % contribution. cost = floor(scale \* base_cost). Scale starts at 1.0x.
 
-Turrets face a direction, receive ammo from non-facing sides. Diagonal turrets can be fed from all four sides. Turrets hold max one stack, only accept when empty. Raw axionite fed to turrets is destroyed.
+All units have action r²=2 (for building/markers/destroy) except core (r²=8 from centre). Turrets have separate attack ranges listed above.
+
+Turrets face a direction, receive ammo from non-facing sides. Diagonal turrets can be fed from all four sides. Turrets hold max one stack, only accept when empty. Raw axionite fed to turrets is destroyed. If a builder bot stands on a building, turret attacks hit only the bot.
 
 Communication: markers only (each unit is an isolated Python instance, no shared globals).
 
