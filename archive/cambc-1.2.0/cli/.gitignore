@@ -1,0 +1,11 @@
+target/
+.venv/
+*.so
+*.dylib
+*.pyd
+*.dSYM/
+__pycache__/
+*.egg-info/
+dist/
+Cargo.lock
+python/cambc/_types.py
