@@ -10,7 +10,6 @@ harvester in the same turn (move + build).
 from action import ActionOnly, MoveAction, MoveOnly, PlaceHarvester, Turn
 from cambc import Controller, Position
 from marker import MarkerTaskClaim, TaskKind
-from util import DIR4_DELTA
 
 from .helpers import (
     is_claimed,
@@ -31,22 +30,6 @@ def harvest_ti(
     if not unharvested:
         return None
 
-    for ddx, ddy in DIR4_DELTA:
-        ni = (pos.y + ddy) * w + (pos.x + ddx)
-        if ni in unharvested:
-            ore_pos = Position(pos.x + ddx, pos.y + ddy)
-            bid = ct.get_tile_building_id(ore_pos)
-            if bid is not None:
-                if ct.can_destroy(ore_pos):
-                    ct.destroy(ore_pos)
-                else:
-                    continue
-            h_cost, _ = ct.get_harvester_cost()
-            ti, _ = ct.get_global_resources()
-            if ti >= h_cost and ct.can_build_harvester(ore_pos):
-                print(f"    harvest_ti: place at ({ore_pos.x},{ore_pos.y})")
-                return ActionOnly(PlaceHarvester(ore_pos))
-
     rnd = ct.get_current_round()
     candidates = sorted(
         (oi for oi in unharvested if min_adjacent_dist(state, oi) != -1),
@@ -59,6 +42,22 @@ def harvest_ti(
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             continue
         ore_pos = Position(oi % w, oi // w)
+
+        if pos.distance_squared(ore_pos) <= 2:
+            bid = ct.get_tile_building_id(ore_pos)
+            if bid is not None:
+                if ct.can_destroy(ore_pos):
+                    ct.destroy(ore_pos)
+                else:
+                    continue
+            h_cost, _ = ct.get_harvester_cost()
+            ti, _ = ct.get_global_resources()
+            if ti >= h_cost and ct.can_build_harvester(ore_pos):
+                state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
+                print(f"    harvest_ti: place at ({ore_pos.x},{ore_pos.y})")
+                return ActionOnly(PlaceHarvester(ore_pos))
+            continue
+
         adj = nearest_reachable_around(state, ore_pos)
         if adj is None:
             continue
@@ -68,7 +67,7 @@ def harvest_ti(
         match result:
             case MoveOnly(move):
                 new_pos = pos.add(move)
-                if new_pos.distance_squared(ore_pos) == 1:
+                if new_pos.distance_squared(ore_pos) <= 2:
                     bid = ct.get_tile_building_id(ore_pos)
                     if bid is not None and ct.can_destroy(ore_pos):
                         ct.destroy(ore_pos)
@@ -77,8 +76,6 @@ def harvest_ti(
                     if ti >= h_cost:
                         result = MoveAction(move, PlaceHarvester(ore_pos))
         state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
-        print(
-            f"    harvest_ti: nav to ore ({ore_pos.x},{ore_pos.y}) via ({adj.x},{adj.y})"
-        )
+        print(f"    harvest_ti: nav to ore ({ore_pos.x},{ore_pos.y}) via ({adj.x},{adj.y})")
         return result
     return None

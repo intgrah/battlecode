@@ -266,27 +266,30 @@ class State:
 
     def update_cost(self, i: int) -> None:
         old_passable = self.cost[i] < COST_IMPASSABLE
-        match self.env[i]:
-            case None:
-                self.cost[i] = COST_UNSEEN
-            case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
-                self.cost[i] = COST_IMPASSABLE
-            case _:
-                match self.building[i]:
-                    case None | BuildingMarker():
-                        self.cost[i] = COST_EMPTY
-                    case BuildingCore(team) if team == self.my_team:
-                        self.cost[i] = COST_ROAD
-                    case (
-                        BuildingRoad()
-                        | BuildingConveyor()
-                        | BuildingArmouredConveyor()
-                        | BuildingSplitter()
-                        | BuildingBridge()
-                    ):
-                        self.cost[i] = COST_ROAD
-                    case _:
-                        self.cost[i] = COST_IMPASSABLE
+        if i in self.en_core_tiles:
+            self.cost[i] = COST_IMPASSABLE
+        else:
+            match self.env[i]:
+                case None:
+                    self.cost[i] = COST_UNSEEN
+                case Environment.WALL | Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
+                    self.cost[i] = COST_IMPASSABLE
+                case _:
+                    match self.building[i]:
+                        case None | BuildingMarker():
+                            self.cost[i] = COST_EMPTY
+                        case BuildingCore(team) if team == self.my_team:
+                            self.cost[i] = COST_ROAD
+                        case (
+                            BuildingRoad()
+                            | BuildingConveyor()
+                            | BuildingArmouredConveyor()
+                            | BuildingSplitter()
+                            | BuildingBridge()
+                        ):
+                            self.cost[i] = COST_ROAD
+                        case _:
+                            self.cost[i] = COST_IMPASSABLE
         new_passable = self.cost[i] < COST_IMPASSABLE
         if old_passable != new_passable:
             _update_pnb(self.w, self.h, self.cost, self.pnb, i)
