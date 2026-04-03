@@ -41,28 +41,32 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         painter.rect_filled(rect, 0.0, BG_COLOR);
 
         let coord_font = egui::FontId::monospace(10.0 * zoom.clamp(0.3, 1.0));
-        let coord_color = Color32::from_rgb(0x70, 0x70, 0x70);
+        let coord_dim = Color32::from_rgb(0x70, 0x70, 0x70);
+        let coord_bright = Color32::WHITE;
+        let (sel_x, sel_y) = app.cursor;
         let sz = ts * zoom;
         for gx in 0..app.game.width {
             let x = (gx as f32 + 0.5).mul_add(sz, origin.x);
             let y = origin.y - 2.0;
+            let color = if gx == sel_x { coord_bright } else { coord_dim };
             painter.text(
                 Pos2::new(x, y),
                 egui::Align2::CENTER_BOTTOM,
                 format!("{gx}"),
                 coord_font.clone(),
-                coord_color,
+                color,
             );
         }
         for gy in 0..app.game.height {
             let x = origin.x - 2.0;
             let y = (gy as f32 + 0.5).mul_add(sz, origin.y);
+            let color = if gy == sel_y { coord_bright } else { coord_dim };
             painter.text(
                 Pos2::new(x, y),
                 egui::Align2::RIGHT_CENTER,
                 format!("{gy}"),
                 coord_font.clone(),
-                coord_color,
+                color,
             );
         }
 
