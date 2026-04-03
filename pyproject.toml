@@ -47,6 +47,7 @@ bench-nav = "scripts.bench_nav:main"
 bench-nav-table = "scripts.bench_nav_table:main"
 bench-nav-plot = "scripts.bench_nav_plot:main"
 bench-sssp = "scripts.bench_nav:bench_sssp"
+replay-times = "scripts.replay_times:main"
 
 [dependency-groups]
 dev = ["pyright", "ruff", "ty"]
