@@ -52,7 +52,8 @@ def move_toward_with_road(
     if ti >= road_cost and ct.can_build_road(nxt):
         draw_path(ct, w, path)
         return ActionMove(PlaceRoad(nxt), d)
-    return None
+    draw_path(ct, w, path)
+    return MoveOnly(d)
 
 
 def draw_path(

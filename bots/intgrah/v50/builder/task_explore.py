@@ -40,6 +40,8 @@ def explore(
             return None
     result = move_toward_with_road(state, ct, state.explore_target)
     if result is None:
+        t = state.explore_target
+        print(f"    explore: move_toward_with_road returned None for ({t.x},{t.y})")
         state.explore_target = None
         return None
     t = state.explore_target
