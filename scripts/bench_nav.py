@@ -32,7 +32,7 @@ CR = 1
 CE = 3
 DIR8 = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
-N_PAIRS = 200
+N_PAIRS = 1000
 SEED = 42
 
 Path_ = list[int] | None
@@ -67,6 +67,7 @@ class MapData:
         "offsets_diag",
         "passable",
         "pnb",
+        "pnbc",
         "tiles",
         "w",
     )
@@ -82,6 +83,7 @@ class MapData:
         ]
         self.nb: list[list[int]] = _build_nb(self.w, self.h)
         self.pnb: list[list[int]] = _build_pnb(self.nb, self.cost)
+        self.pnbc: list[list[tuple[int, int]]] = _build_pnbc(self.nb, self.cost)
         self.passable: list[int] = [i for i in range(self.n) if self.cost[i] < INF]
         self.offsets_card: tuple[int, ...] = (-self.w, -1, 1, self.w)
         w = self.w
@@ -92,6 +94,7 @@ class MapData:
     def reset_cost_no_roads(self) -> None:
         self.cost = [INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)]
         self.pnb = _build_pnb(self.nb, self.cost)
+        self.pnbc = _build_pnbc(self.nb, self.cost)
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
         self.hpa_graph = None
 
@@ -136,6 +139,7 @@ class MapData:
         for ri in roads:
             cost[ri] = CR
         self.pnb = _build_pnb(self.nb, cost)
+        self.pnbc = _build_pnbc(self.nb, cost)
         self.passable = [i for i in range(n) if cost[i] < INF]
         self.hpa_graph = None
         return len(roads)
@@ -155,6 +159,10 @@ def _build_nb(w: int, h: int) -> list[list[int]]:
 
 def _build_pnb(nb: list[list[int]], cost: list[int]) -> list[list[int]]:
     return [[ni for ni in nb[i] if cost[ni] < INF] for i in range(len(nb))]
+
+
+def _build_pnbc(nb: list[list[int]], cost: list[int]) -> list[list[tuple[int, int]]]:
+    return [[(ni, cost[ni]) for ni in nb[i] if cost[ni] < INF] for i in range(len(nb))]
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +668,54 @@ def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path
     return None
 
 
+def algo_dijkstra_bucket_noparent(md: MapData, si: int, gi: int) -> Path_:
+    n, cost, pnb = md.n, md.cost, md.pnb
+    if si == gi:
+        return [si]
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    found = False
+    while emp < 4:
+        bi = cur_d & 3
+        bki = bk[bi]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bki.popleft()
+        if dist[node] != cur_d:
+            continue
+        if node == gi:
+            found = True
+            break
+        gn = cur_d
+        for ni in pnb[node]:
+            nd = gn + cost[ni]
+            if nd < dist[ni]:
+                dist[ni] = nd
+                bk[nd & 3].append(ni)
+    if not found:
+        return None
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
 # ---------------------------------------------------------------------------
 # APSP (weighted Dijkstra per passable tile)
 # ---------------------------------------------------------------------------
@@ -859,6 +915,7 @@ def _make_algos() -> list[AlgoEntry]:
     algos.append(("gbfs", algo_gbfs, False))
     algos.append(("dijkstra heap", algo_dijkstra_heap, False))
     algos.append(("dijkstra bucket", algo_dijkstra_bucket, False))
+    algos.append(("dijkstra bucket noparent", algo_dijkstra_bucket_noparent, False))
     algos.append(("hpastar excl precomp", algo_hpa, True))
 
     return algos
@@ -1210,17 +1267,48 @@ def sssp_dijkstra_bucket_inline(md: MapData, si: int) -> list[int]:
     emp = 0
     while emp < 4:
         bi = cur_d & 3
-        if not bk[bi]:
+        bki = bk[bi]
+        if not bki:
             cur_d += 1
             emp += 1
             continue
         emp = 0
-        node = bk[bi].popleft()
+        node = bki.popleft()
         if dist[node] != cur_d:
             continue
         gn = cur_d
         for ni in pnb[node]:
-            c = cost[ni]
+            nd = gn + cost[ni]
+            if nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                bk[nd & 3].append(ni)
+    return parent
+
+
+def sssp_dijkstra_bucket_pnbc(md: MapData, si: int) -> list[int]:
+    n, pnbc = md.n, md.pnbc
+    dist: list[int] = [INF] * n
+    parent: list[int] = [-1] * n
+    dist[si] = 0
+    parent[si] = si
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bi = cur_d & 3
+        bki = bk[bi]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bki.popleft()
+        if dist[node] != cur_d:
+            continue
+        gn = cur_d
+        for ni, c in pnbc[node]:
             nd = gn + c
             if nd < dist[ni]:
                 dist[ni] = nd
@@ -1229,54 +1317,54 @@ def sssp_dijkstra_bucket_inline(md: MapData, si: int) -> list[int]:
     return parent
 
 
-def sssp_dijkstra_bucket_unrolled(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_bucket_noparent(md: MapData, si: int) -> list[int]:
     n, cost, pnb = md.n, md.cost, md.pnb
     dist: list[int] = [INF] * n
-    parent: list[int] = [-1] * n
     dist[si] = 0
-    parent[si] = si
-    bk0: deque[int] = deque()
-    bk1: deque[int] = deque()
-    bk2: deque[int] = deque()
-    bk3: deque[int] = deque()
-    bk0.append(si)
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
     cur_d = 0
     emp = 0
     while emp < 4:
         bi = cur_d & 3
-        if bi == 0:
-            bk = bk0
-        elif bi == 1:
-            bk = bk1
-        elif bi == 2:
-            bk = bk2
-        else:
-            bk = bk3
-        if not bk:
+        bki = bk[bi]
+        if not bki:
             cur_d += 1
             emp += 1
             continue
         emp = 0
-        node = bk.popleft()
+        node = bki.popleft()
         if dist[node] != cur_d:
             continue
         gn = cur_d
         for ni in pnb[node]:
-            c = cost[ni]
-            nd = gn + c
+            nd = gn + cost[ni]
             if nd < dist[ni]:
                 dist[ni] = nd
-                parent[ni] = node
-                r = nd & 3
-                if r == 0:
-                    bk0.append(ni)
-                elif r == 1:
-                    bk1.append(ni)
-                elif r == 2:
-                    bk2.append(ni)
-                else:
-                    bk3.append(ni)
-    return parent
+                bk[nd & 3].append(ni)
+    return dist
+
+
+def extract_path_from_dist(
+    dist: list[int], cost: list[int], pnb: list[list[int]], si: int, gi: int,
+) -> list[int] | None:
+    if dist[gi] >= INF:
+        return None
+    if si == gi:
+        return [si]
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
 
 
 type SsspFn = Callable[[MapData, int], list[int]]
@@ -1287,7 +1375,8 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("dijkstra heap", sssp_dijkstra_heap),
     ("dijkstra bucket", sssp_dijkstra_bucket),
     ("dijkstra bucket inline", sssp_dijkstra_bucket_inline),
-    ("dijkstra bucket unrolled", sssp_dijkstra_bucket_unrolled),
+    ("dijkstra bucket pnbc", sssp_dijkstra_bucket_pnbc),
+    ("dijkstra bucket noparent", sssp_dijkstra_bucket_noparent),
 ]
 
 
@@ -1327,7 +1416,7 @@ def bench_sssp() -> None:
         print(f"No .map26 files in {MAPS_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    n_sources = 500
+    n_sources = 1000
     times: dict[str, dict[str, list[float]]] = {name: {} for name, _ in selected}
 
     for mf in map_files:
@@ -1347,13 +1436,21 @@ def bench_sssp() -> None:
             sys.stderr.write(f"\r{label:40s}")
             sys.stderr.flush()
 
+            goals = [rng.choice(md.passable) for _ in range(n_sources)]
+
             for algo_name, algo_fn in selected:
                 gc.disable()
-                for si in sources:
+                for si, gi in zip(sources, goals, strict=True):
                     t0 = time.perf_counter()
-                    algo_fn(md, si)
+                    result = algo_fn(md, si)
                     us = (time.perf_counter() - t0) * 1e6
                     times[algo_name].setdefault(scenario, []).append(us)
+                    if algo_name == "dijkstra bucket noparent":
+                        t1 = time.perf_counter()
+                        extract_path_from_dist(result, md.cost, md.pnb, si, gi)
+                        ex_us = (time.perf_counter() - t1) * 1e6
+                        times.setdefault("noparent+extract", {}).setdefault(scenario, []).append(us + ex_us)
+                        times.setdefault("extract only", {}).setdefault(scenario, []).append(ex_us)
                 gc.enable()
 
     sys.stderr.write("\r" + " " * 60 + "\r")
@@ -1362,7 +1459,7 @@ def bench_sssp() -> None:
         print(f"\n  {scenario.upper()}")
         print(f"  {'Algorithm':<24s} {'p50':>8s} {'p90':>8s} {'p99':>8s} {'p100':>8s}")
         print(f"  {'-' * 56}")
-        for algo_name, _ in selected:
+        for algo_name in [n for n, _ in selected] + ["noparent+extract", "extract only"]:
             ts = sorted(times[algo_name].get(scenario, []))
             if not ts:
                 continue
