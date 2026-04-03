@@ -795,6 +795,62 @@ def algo_dijkstra_bucket_noparent_dual(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
+def algo_dijkstra_bucket_noparent_dual2(md: MapData, si: int, gi: int) -> Path_:
+    if si == gi:
+        return [si]
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    cr, ce = CR, CE
+    n = md.n
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    found = False
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bki.popleft()
+        if dist[node] != cur_d:
+            continue
+        if node == gi:
+            found = True
+            break
+        nd1 = cur_d + cr
+        bk1_append = bk[nd1 & 3].append
+        for ni in pnb1[node]:
+            if nd1 < dist[ni]:
+                dist[ni] = nd1
+                bk1_append(ni)
+        nd3 = cur_d + ce
+        bk3_append = bk[nd3 & 3].append
+        for ni in pnb3[node]:
+            if nd3 < dist[ni]:
+                dist[ni] = nd3
+                bk3_append(ni)
+    if not found:
+        return None
+    cost, pnb = md.cost, md.pnb
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
 # ---------------------------------------------------------------------------
 # APSP (weighted Dijkstra per passable tile)
 # ---------------------------------------------------------------------------
@@ -997,6 +1053,9 @@ def _make_algos() -> list[AlgoEntry]:
     algos.append(("dijkstra bucket noparent", algo_dijkstra_bucket_noparent, False))
     algos.append(
         ("dijkstra bucket noparent dual", algo_dijkstra_bucket_noparent_dual, False)
+    )
+    algos.append(
+        ("dijkstra bucket noparent dual2", algo_dijkstra_bucket_noparent_dual2, False)
     )
     algos.append(("hpastar excl precomp", algo_hpa, True))
 
@@ -1461,6 +1520,41 @@ def sssp_dijkstra_bucket_noparent_dual(md: MapData, si: int) -> list[int]:
     return dist
 
 
+def sssp_dijkstra_bucket_noparent_dual2(md: MapData, si: int) -> list[int]:
+    n = md.n
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    cr, ce = CR, CE
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bki = bk[cur_d & 3]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bki.popleft()
+        if dist[node] != cur_d:
+            continue
+        nd1 = cur_d + cr
+        bk1_append = bk[nd1 & 3].append
+        for ni in pnb1[node]:
+            if nd1 < dist[ni]:
+                dist[ni] = nd1
+                bk1_append(ni)
+        nd3 = cur_d + ce
+        bk3_append = bk[nd3 & 3].append
+        for ni in pnb3[node]:
+            if nd3 < dist[ni]:
+                dist[ni] = nd3
+                bk3_append(ni)
+    return dist
+
+
 def extract_path_from_dist(
     dist: list[int],
     cost: list[int],
@@ -1498,6 +1592,7 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("dijkstra bucket pnbc", sssp_dijkstra_bucket_pnbc),
     ("dijkstra bucket noparent", sssp_dijkstra_bucket_noparent),
     ("dijkstra bucket noparent dual", sssp_dijkstra_bucket_noparent_dual),
+    ("dijkstra bucket noparent dual2", sssp_dijkstra_bucket_noparent_dual2),
 ]
 
 
