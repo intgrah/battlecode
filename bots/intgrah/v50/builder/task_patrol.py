@@ -35,10 +35,12 @@ def patrol(
             best_freshness = state.last_seen[i]
             best_idx = i
     if best_idx == -1:
+        print(f"    patrol: no reachable infra (total={len(infra)})")
         return None
     target = Position(best_idx % w, best_idx // w)
     result = move_toward_with_road(state, ct, target)
     if result is None:
+        print(f"    patrol: move_toward_with_road returned None for ({target.x},{target.y})")
         return None
     print(
         f"    patrol: target=({target.x},{target.y}) stale={state.age + state.birthday - best_freshness}"
