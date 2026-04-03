@@ -450,7 +450,7 @@ class Player:
         ):
             for candidate in self.comms_candidates:
                 if pos.distance_squared(candidate) <= 2 and ct.can_place_marker(
-                    candidate
+                    candidate,
                 ):
                     ct.place_marker(candidate, encode_symmetry(self.sym_resolved))
                     print(
