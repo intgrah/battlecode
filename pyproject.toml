@@ -62,7 +62,7 @@ module-root = ""
 module-name = ["scripts"]
 
 [tool.ruff]
-exclude = ["ref"]
+exclude = ["ref", "archive/cambc-1.2.0"]
 
 [tool.ruff.lint]
 select = ["ALL"]
