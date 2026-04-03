@@ -67,6 +67,8 @@ class MapData:
         "offsets_diag",
         "passable",
         "pnb",
+        "pnb1",
+        "pnb3",
         "pnbc",
         "tiles",
         "w",
@@ -84,6 +86,9 @@ class MapData:
         self.nb: list[list[int]] = _build_nb(self.w, self.h)
         self.pnb: list[list[int]] = _build_pnb(self.nb, self.cost)
         self.pnbc: list[list[tuple[int, int]]] = _build_pnbc(self.nb, self.cost)
+        self.pnb1: list[list[int]]
+        self.pnb3: list[list[int]]
+        self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, self.cost)
         self.passable: list[int] = [i for i in range(self.n) if self.cost[i] < INF]
         self.offsets_card: tuple[int, ...] = (-self.w, -1, 1, self.w)
         w = self.w
@@ -95,6 +100,7 @@ class MapData:
         self.cost = [INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)]
         self.pnb = _build_pnb(self.nb, self.cost)
         self.pnbc = _build_pnbc(self.nb, self.cost)
+        self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, self.cost)
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
         self.hpa_graph = None
 
@@ -140,6 +146,7 @@ class MapData:
             cost[ri] = CR
         self.pnb = _build_pnb(self.nb, cost)
         self.pnbc = _build_pnbc(self.nb, cost)
+        self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, cost)
         self.passable = [i for i in range(n) if cost[i] < INF]
         self.hpa_graph = None
         return len(roads)
@@ -163,6 +170,23 @@ def _build_pnb(nb: list[list[int]], cost: list[int]) -> list[list[int]]:
 
 def _build_pnbc(nb: list[list[int]], cost: list[int]) -> list[list[tuple[int, int]]]:
     return [[(ni, cost[ni]) for ni in nb[i] if cost[ni] < INF] for i in range(len(nb))]
+
+
+def _build_pnb_dual(
+    nb: list[list[int]],
+    cost: list[int],
+) -> tuple[list[list[int]], list[list[int]]]:
+    n = len(nb)
+    pnb1: list[list[int]] = [[] for _ in range(n)]
+    pnb3: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        for ni in nb[i]:
+            c = cost[ni]
+            if c == CR:
+                pnb1[i].append(ni)
+            elif c == CE:
+                pnb3[i].append(ni)
+    return pnb1, pnb3
 
 
 # ---------------------------------------------------------------------------
@@ -716,6 +740,61 @@ def algo_dijkstra_bucket_noparent(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
+def algo_dijkstra_bucket_noparent_dual(md: MapData, si: int, gi: int) -> Path_:
+    if si == gi:
+        return [si]
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    n = md.n
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    found = False
+    while emp < 4:
+        bi = cur_d & 3
+        bki = bk[bi]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bki.popleft()
+        if dist[node] != cur_d:
+            continue
+        if node == gi:
+            found = True
+            break
+        gn = cur_d
+        nd1 = gn + CR
+        for ni in pnb1[node]:
+            if nd1 < dist[ni]:
+                dist[ni] = nd1
+                bk[nd1 & 3].append(ni)
+        nd3 = gn + CE
+        for ni in pnb3[node]:
+            if nd3 < dist[ni]:
+                dist[ni] = nd3
+                bk[nd3 & 3].append(ni)
+    if not found:
+        return None
+    cost, pnb = md.cost, md.pnb
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        for ni in pnb[cur]:
+            if dist[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
 # ---------------------------------------------------------------------------
 # APSP (weighted Dijkstra per passable tile)
 # ---------------------------------------------------------------------------
@@ -916,6 +995,9 @@ def _make_algos() -> list[AlgoEntry]:
     algos.append(("dijkstra heap", algo_dijkstra_heap, False))
     algos.append(("dijkstra bucket", algo_dijkstra_bucket, False))
     algos.append(("dijkstra bucket noparent", algo_dijkstra_bucket_noparent, False))
+    algos.append(
+        ("dijkstra bucket noparent dual", algo_dijkstra_bucket_noparent_dual, False)
+    )
     algos.append(("hpastar excl precomp", algo_hpa, True))
 
     return algos
@@ -1345,8 +1427,46 @@ def sssp_dijkstra_bucket_noparent(md: MapData, si: int) -> list[int]:
     return dist
 
 
+def sssp_dijkstra_bucket_noparent_dual(md: MapData, si: int) -> list[int]:
+    n = md.n
+    pnb1, pnb3 = md.pnb1, md.pnb3
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk[0].append(si)
+    cur_d = 0
+    emp = 0
+    while emp < 4:
+        bi = cur_d & 3
+        bki = bk[bi]
+        if not bki:
+            cur_d += 1
+            emp += 1
+            continue
+        emp = 0
+        node = bki.popleft()
+        if dist[node] != cur_d:
+            continue
+        gn = cur_d
+        nd1 = gn + CR
+        for ni in pnb1[node]:
+            if nd1 < dist[ni]:
+                dist[ni] = nd1
+                bk[nd1 & 3].append(ni)
+        nd3 = gn + CE
+        for ni in pnb3[node]:
+            if nd3 < dist[ni]:
+                dist[ni] = nd3
+                bk[nd3 & 3].append(ni)
+    return dist
+
+
 def extract_path_from_dist(
-    dist: list[int], cost: list[int], pnb: list[list[int]], si: int, gi: int,
+    dist: list[int],
+    cost: list[int],
+    pnb: list[list[int]],
+    si: int,
+    gi: int,
 ) -> list[int] | None:
     if dist[gi] >= INF:
         return None
@@ -1377,6 +1497,7 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("dijkstra bucket inline", sssp_dijkstra_bucket_inline),
     ("dijkstra bucket pnbc", sssp_dijkstra_bucket_pnbc),
     ("dijkstra bucket noparent", sssp_dijkstra_bucket_noparent),
+    ("dijkstra bucket noparent dual", sssp_dijkstra_bucket_noparent_dual),
 ]
 
 
@@ -1449,8 +1570,12 @@ def bench_sssp() -> None:
                         t1 = time.perf_counter()
                         extract_path_from_dist(result, md.cost, md.pnb, si, gi)
                         ex_us = (time.perf_counter() - t1) * 1e6
-                        times.setdefault("noparent+extract", {}).setdefault(scenario, []).append(us + ex_us)
-                        times.setdefault("extract only", {}).setdefault(scenario, []).append(ex_us)
+                        times.setdefault("noparent+extract", {}).setdefault(
+                            scenario, []
+                        ).append(us + ex_us)
+                        times.setdefault("extract only", {}).setdefault(
+                            scenario, []
+                        ).append(ex_us)
                 gc.enable()
 
     sys.stderr.write("\r" + " " * 60 + "\r")
@@ -1459,7 +1584,10 @@ def bench_sssp() -> None:
         print(f"\n  {scenario.upper()}")
         print(f"  {'Algorithm':<24s} {'p50':>8s} {'p90':>8s} {'p99':>8s} {'p100':>8s}")
         print(f"  {'-' * 56}")
-        for algo_name in [n for n, _ in selected] + ["noparent+extract", "extract only"]:
+        for algo_name in [n for n, _ in selected] + [
+            "noparent+extract",
+            "extract only",
+        ]:
             ts = sorted(times[algo_name].get(scenario, []))
             if not ts:
                 continue
