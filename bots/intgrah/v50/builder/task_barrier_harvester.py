@@ -1,9 +1,8 @@
+from action import ActionOnly, MoveAction, MoveOnly, PlaceBarrier, Turn
 from cambc import Controller, Environment, Position
 from util import DIR4_DELTA
 
-from action import ActionOnly, MoveAction, MoveOnly, PlaceBarrier, Turn
-
-from .helpers import nearest_reachable_around, move_toward_with_road
+from .helpers import move_toward_with_road, nearest_reachable_around
 from .state import State
 
 _IMPASSABLE_ENV = frozenset(

@@ -17,7 +17,7 @@ from building import (
     BuildingSentinel,
 )
 from cambc import Controller, Direction, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8, DIR8_DELTA, INF, Symmetry, rotate_cw
+from util import DIR8, DIR8_DELTA, INF, Symmetry
 
 from .action import Action, PlaceSentinel
 from .helpers import move_toward_with_road, step_off_and_build
@@ -32,6 +32,7 @@ _DEFENSE_RANGE_SQ = 49
 # ---------------------------------------------------------------------------
 # Precomputed sentinel attack arcs per facing direction
 # ---------------------------------------------------------------------------
+
 
 def _precompute_arcs() -> dict[Direction, list[tuple[int, int]]]:
     arcs: dict[Direction, list[tuple[int, int]]] = {}
@@ -65,6 +66,7 @@ SENTINEL_ARCS: dict[Direction, list[tuple[int, int]]] = _precompute_arcs()
 # Enemy core candidates
 # ---------------------------------------------------------------------------
 
+
 def _get_enemy_core_candidates(state: State) -> list[Position]:
     if state.symmetry is not None and state.en_core_pos is not None:
         return [state.en_core_pos]
@@ -88,12 +90,14 @@ def _get_enemy_core_candidates(state: State) -> list[Position]:
 # Enemy distance BFS
 # ---------------------------------------------------------------------------
 
+
 def _compute_enemy_dist(state: State) -> list[int]:
     w, h = state.w, state.h
     n = w * h
     dist = [INF] * n
 
     from .state_helpers import mirror
+
     passable = [True] * n
     for i in range(n):
         env = state.env[i]
@@ -148,6 +152,7 @@ def _ensure_enemy_dist(state: State) -> list[int] | None:
 # Coverage tracking
 # ---------------------------------------------------------------------------
 
+
 def _build_coverage(state: State) -> set[int]:
     w = state.w
     covered: set[int] = set()
@@ -168,6 +173,7 @@ def _build_coverage(state: State) -> set[int]:
 # ---------------------------------------------------------------------------
 # Sentinel placement
 # ---------------------------------------------------------------------------
+
 
 def _count_friendly_sentinels(state: State) -> int:
     count = 0
@@ -212,7 +218,12 @@ def _find_best_placement(
 ) -> tuple[Position, Direction] | None:
     w = state.w
     cx, cy = state.my_core.x, state.my_core.y
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
 
     best: tuple[Position, Direction] | None = None
     best_score = 1.5
@@ -240,7 +251,11 @@ def _find_best_placement(
                 continue
 
             env = state.env[si]
-            if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+            if env in (
+                Environment.WALL,
+                Environment.ORE_TITANIUM,
+                Environment.ORE_AXIONITE,
+            ):
                 continue
             sbld = state.building[si]
             match sbld:
@@ -332,7 +347,10 @@ def _compute_approach_flow(state: State, enemy_dist: list[int]) -> list[float]:
                 ni = ny * w + nx
                 if enemy_dist[ni] != ed + 1:
                     continue
-                if our_dist[ni] >= INF or enemy_dist[ni] + our_dist[ni] > shortest + _DETOUR_DELTA:
+                if (
+                    our_dist[ni] >= INF
+                    or enemy_dist[ni] + our_dist[ni] > shortest + _DETOUR_DELTA
+                ):
                     continue
                 approach[ni] += approach[i]
 
@@ -360,6 +378,7 @@ def _ensure_approach_flow(state: State, enemy_dist: list[int]) -> list[float]:
 # ---------------------------------------------------------------------------
 # Main task
 # ---------------------------------------------------------------------------
+
 
 def defend_core(
     state: State,

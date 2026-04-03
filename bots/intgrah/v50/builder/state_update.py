@@ -36,7 +36,6 @@ from .state_update_bfs import update_bfs
 from .state_update_econ import update_flow
 
 
-
 def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
     team = ct.get_team(bid)
     match etype:

@@ -7,7 +7,6 @@ from building import (
     BuildingConveyor,
     BuildingCore,
     BuildingFoundry,
-    BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
@@ -170,7 +169,10 @@ class FlowAstar(Astar[int]):
                     if (
                         not blocked[ni]
                         and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                        and (leakage_mask is None or leakage_mask[ni] & banned_leakage == 0)
+                        and (
+                            leakage_mask is None
+                            or leakage_mask[ni] & banned_leakage == 0
+                        )
                     ):
                         result.append((ni, COST_REUSE))
 
@@ -186,7 +188,10 @@ class FlowAstar(Astar[int]):
                     if (
                         not blocked[ni]
                         and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                        and (leakage_mask is None or leakage_mask[ni] & banned_leakage == 0)
+                        and (
+                            leakage_mask is None
+                            or leakage_mask[ni] & banned_leakage == 0
+                        )
                     ):
                         result.append((ni, COST_REUSE))
 
@@ -198,7 +203,10 @@ class FlowAstar(Astar[int]):
                         if (
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and (leakage_mask is None or leakage_mask[ni] & banned_leakage == 0)
+                            and (
+                                leakage_mask is None
+                                or leakage_mask[ni] & banned_leakage == 0
+                            )
                         ):
                             result.append((ni, COST_ROAD_REPLACE + _enemy_cost))
                 for ddx, ddy in BRIDGE_DELTAS:
@@ -208,7 +216,10 @@ class FlowAstar(Astar[int]):
                         if (
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and (leakage_mask is None or leakage_mask[ni] & banned_leakage == 0)
+                            and (
+                                leakage_mask is None
+                                or leakage_mask[ni] & banned_leakage == 0
+                            )
                         ):
                             result.append((ni, COST_BRIDGE))
 
@@ -221,7 +232,10 @@ class FlowAstar(Astar[int]):
                         if (
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and (leakage_mask is None or leakage_mask[ni] & banned_leakage == 0)
+                            and (
+                                leakage_mask is None
+                                or leakage_mask[ni] & banned_leakage == 0
+                            )
                         ):
                             result.append((ni, base))
                 for ddx, ddy in BRIDGE_DELTAS:
@@ -231,7 +245,10 @@ class FlowAstar(Astar[int]):
                         if (
                             not blocked[ni]
                             and (env[ni] is None or env[ni] not in _IMPASSABLE_ENV)
-                            and (leakage_mask is None or leakage_mask[ni] & banned_leakage == 0)
+                            and (
+                                leakage_mask is None
+                                or leakage_mask[ni] & banned_leakage == 0
+                            )
                         ):
                             result.append((ni, COST_BRIDGE))
 
@@ -255,6 +272,8 @@ class FlowAstar(Astar[int]):
         # Add danger penalty for routing through enemy turret threat zones
         danger = self._danger
         if danger:
-            filtered = [(ni, c + COST_FLOW_DANGER if ni in danger else c) for ni, c in filtered]
+            filtered = [
+                (ni, c + COST_FLOW_DANGER if ni in danger else c) for ni, c in filtered
+            ]
 
         return filtered

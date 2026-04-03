@@ -111,6 +111,7 @@ def step_off_and_build(
     If not, place a road on an adjacent tile — next turn we can step off.
     """
     from util import DIR8
+
     pos = ct.get_position()
     for d in DIR8:
         if ct.can_move(d):

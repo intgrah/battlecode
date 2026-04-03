@@ -8,7 +8,6 @@ def run_launcher(player, ct: Controller) -> None:
     pos = ct.get_position()
     my_team = ct.get_team()
 
-
     # try throw off bridge first
     for uid in ct.get_nearby_units():
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
@@ -17,7 +16,7 @@ def run_launcher(player, ct: Controller) -> None:
             continue
         bp = ct.get_position(uid)
 
-        bid = ct.get_tile_building_id(bp) 
+        bid = ct.get_tile_building_id(bp)
         if bid is None or ct.get_entity_type(bid) != EntityType.BRIDGE:
             continue
 
@@ -38,7 +37,7 @@ def run_launcher(player, ct: Controller) -> None:
         if best is not None:
             ct.launch(bp, best)
             return
-    
+
     # try throw any away second
     for uid in ct.get_nearby_units():
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:

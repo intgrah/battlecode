@@ -72,7 +72,6 @@ class VectorField:
     magnitudes: Sequence[float] | None = None
 
 
-
 def _serialize_field(v: Grid | Scalar | Tiles | VectorField) -> dict:
     match v:
         case Grid(data=d, palette=p):

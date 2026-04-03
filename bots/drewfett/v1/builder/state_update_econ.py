@@ -133,7 +133,9 @@ def update_flow(state: State) -> None:
                         tgt = ny * w + nx
                         if is_recv[tgt]:
                             from_dir = DELTA_TO_DIR.get((odx, ody))
-                            if from_dir is not None and accepts_input_from(state, tgt, from_dir):
+                            if from_dir is not None and accepts_input_from(
+                                state, tgt, from_dir
+                            ):
                                 add_edge(i, tgt)
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 dx, dy = d.delta()
@@ -142,7 +144,9 @@ def update_flow(state: State) -> None:
                     tgt = ny * w + nx
                     if is_recv[tgt]:
                         from_dir = DELTA_TO_DIR.get((dx, dy))
-                        if from_dir is not None and accepts_input_from(state, tgt, from_dir):
+                        if from_dir is not None and accepts_input_from(
+                            state, tgt, from_dir
+                        ):
                             add_edge(i, tgt)
 
     for i in found_idx:

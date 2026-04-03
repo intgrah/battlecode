@@ -103,7 +103,10 @@ def build_walkable(ct: Controller, allow_empty: bool = True) -> set:
 
     # Mark tiles adjacent to enemy launchers as unwalkable
     for bid in ct.get_nearby_buildings():
-        if ct.get_entity_type(bid) != EntityType.LAUNCHER or ct.get_team(bid) == my_team:
+        if (
+            ct.get_entity_type(bid) != EntityType.LAUNCHER
+            or ct.get_team(bid) == my_team
+        ):
             continue
         lp = ct.get_position(bid)
         for d in _ALL_DIRS:

@@ -214,7 +214,9 @@ class State:
 
         # -- Harvest route (build conveyors while walking to ore) --
         self.harvest_target: int | None = None  # ore tile index
-        self.harvest_route: list[int] | None = None  # FlowAstar path: [network..ore_adj]
+        self.harvest_route: list[int] | None = (
+            None  # FlowAstar path: [network..ore_adj]
+        )
         self.ti_flow_search: FlowAstar | None = None
         self.ti_cached_source: Position | None = None
         self.ti_cached_path: list[int] | None = None
@@ -236,6 +238,7 @@ class State:
 
         # -- Role --
         from .task import Role, initial_role
+
         self.role: Role = initial_role(self.birthday)
         self.role_census: dict[int, tuple[Role, int]] = {}  # birthday -> (role, turn)
 

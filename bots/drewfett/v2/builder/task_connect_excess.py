@@ -22,7 +22,7 @@ from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, INF
 
 from .action import Action, PlaceBridge, PlaceConveyor
-from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
+from .helpers import is_claimed, move_toward_with_road
 
 if TYPE_CHECKING:
     from algorithms import Astar
@@ -372,10 +372,7 @@ def _feeds_into(state: State, src: int, dst: int, w: int) -> bool:
             return True
         case BuildingBridge(target=bt):
             return bt.y * w + bt.x == dst
-        case (
-            BuildingConveyor(direction=d)
-            | BuildingArmouredConveyor(direction=d)
-        ):
+        case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
             ddx, ddy = d.delta()
             sx, sy = src % w, src // w
             return (sx + ddx, sy + ddy) == (dst % w, dst // w)

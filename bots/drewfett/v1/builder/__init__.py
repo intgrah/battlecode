@@ -44,6 +44,8 @@ from .state_update import update as state_update
 from .task import Task
 from .task_barrier_ore import barrier_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
+from .task_defend import defend
+from .task_defend_core import defend_core
 from .task_explore import explore
 from .task_fire_enemy_transport import fire_enemy_transport
 from .task_harvest_ax import harvest_ax
@@ -52,8 +54,6 @@ from .task_heal_core import heal_core
 from .task_heal_turret import heal_turret
 from .task_patrol import patrol
 from .task_place_launcher import place_launcher
-from .task_defend import defend
-from .task_defend_core import defend_core
 from .task_place_sentinel import place_sentinel
 
 type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]

@@ -20,7 +20,12 @@ from util import DIR4_DELTA, INF
 
 from .action import Action, PlaceHarvester
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
-from .task_connect_excess import SearchKind, _already_connected, _build_action, _make_goals
+from .task_connect_excess import (
+    SearchKind,
+    _already_connected,
+    _build_action,
+    _make_goals,
+)
 
 if TYPE_CHECKING:
     from .state import State
@@ -42,7 +47,9 @@ def harvest_ti(
             result = _walk_and_build(state, ct)
             if result is not None:
                 rnd = ct.get_current_round()
-                state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, state.harvest_target, rnd)
+                state.claim = MarkerTaskClaim(
+                    TaskKind.NAV_ORE, state.harvest_target, rnd
+                )
                 return result
         # Target gone or route failed
         state.harvest_target = None
@@ -95,7 +102,11 @@ def _plan_route_back(state: State, ct: Controller, from_pos: Position) -> None:
     # Drop chain plan at midpoint
     mid_idx = route[len(route) // 2]
     env = state.env[mid_idx]
-    if env not in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+    if env not in (
+        Environment.WALL,
+        Environment.ORE_TITANIUM,
+        Environment.ORE_AXIONITE,
+    ):
         rnd = ct.get_current_round()
         state.pending_chain_plan = MarkerChainPlan(tile_index=mid_idx, turn=rnd)
 

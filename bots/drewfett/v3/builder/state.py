@@ -232,6 +232,7 @@ class State:
 
         # -- Role --
         from .task import Role, initial_role
+
         self.role: Role = initial_role(self.birthday)
         self.role_census: dict[int, tuple[Role, int]] = {}  # birthday -> (role, turn)
 

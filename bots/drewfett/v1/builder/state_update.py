@@ -28,7 +28,6 @@ from marker import MarkerEureka, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import COST_IMPASSABLE, Symmetry
 
-
 from .state import State
 from .state_helpers import mirror
 from .state_update_econ import update_flow
@@ -110,7 +109,12 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
 
     # Derive danger zones from threat arrays (maintained incrementally)
     n = state.w * state.h
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
     state.danger_zones = {i for i in range(n) if eg[i] + es[i] + eb[i] + el[i] > 0}
 
 

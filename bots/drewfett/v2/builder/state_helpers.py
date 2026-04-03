@@ -76,7 +76,11 @@ def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
             return from_dir == d
         case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
             return from_dir != d.opposite()
-        case BuildingGunner(direction=d) | BuildingSentinel(direction=d) | BuildingBreach(direction=d):
+        case (
+            BuildingGunner(direction=d)
+            | BuildingSentinel(direction=d)
+            | BuildingBreach(direction=d)
+        ):
             # Turrets accept from any direction except their facing direction
             return from_dir != d
     return True

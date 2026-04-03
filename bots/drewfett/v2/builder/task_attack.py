@@ -33,7 +33,12 @@ def _find_attack_target(state: State) -> int | None:
     best: int | None = None
     best_score = 0.0
 
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
 
     for i in state.en_transport:
         val = f.en_total[i]
@@ -76,7 +81,12 @@ def _find_sentinel_placement(
     h = state.h
     tx, ty = target_idx % w, target_idx // w
     pos = state.pos
-    eg, es, eb, el = state.en_gunner, state.en_sentinel, state.en_breach, state.en_launcher
+    eg, es, eb, el = (
+        state.en_gunner,
+        state.en_sentinel,
+        state.en_breach,
+        state.en_launcher,
+    )
 
     best: tuple[Position, Direction] | None = None
     best_dist = INF
@@ -98,7 +108,11 @@ def _find_sentinel_placement(
                 continue
 
             env = state.env[si]
-            if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+            if env in (
+                Environment.WALL,
+                Environment.ORE_TITANIUM,
+                Environment.ORE_AXIONITE,
+            ):
                 continue
             bld = state.building[si]
             match bld:

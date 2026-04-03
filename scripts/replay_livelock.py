@@ -57,10 +57,7 @@ def main() -> None:
                     for k in range(period * 2):
                         t = entries[j + k][0]
                         for u in r.turns[t - 1].updates:
-                            if (
-                                u.HasField("bot_output")
-                                and u.bot_output.id == eid
-                            ):
+                            if u.HasField("bot_output") and u.bot_output.id == eid:
                                 task_lines = [
                                     line.strip()
                                     for line in u.bot_output.stdout.split("\n")
@@ -68,9 +65,7 @@ def main() -> None:
                                     or ("task=" in line and "OK" in line)
                                 ]
                                 tl = task_lines[0] if task_lines else "?"
-                                print(
-                                    f"  t={t}: {tl} | {entries[j + k][1][:60]}"
-                                )
+                                print(f"  t={t}: {tl} | {entries[j + k][1][:60]}")
                     print()
                     found = True
                     break
@@ -104,7 +99,7 @@ def main() -> None:
                         break
                 if streak >= 4:
                     print(
-                        f"DEADLOCK t={t+1}-{t+streak} all {len(all_ids)} builders waiting"
+                        f"DEADLOCK t={t + 1}-{t + streak} all {len(all_ids)} builders waiting"
                     )
                     found = True
                     break
