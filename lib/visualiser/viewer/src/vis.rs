@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
+use serde::de::{self, SeqAccess, Visitor};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PaletteDef {
@@ -9,11 +10,87 @@ pub struct PaletteDef {
     pub special: HashMap<String, [u8; 4]>,
 }
 
+#[derive(Clone, Debug)]
+pub enum GridData {
+    Ints(Vec<Option<i32>>),
+    Floats(Vec<Option<f32>>),
+}
+
+impl GridData {
+    pub const fn len(&self) -> usize {
+        match self {
+            Self::Ints(v) => v.len(),
+            Self::Floats(v) => v.len(),
+        }
+    }
+
+    pub fn get_f32(&self, i: usize) -> Option<f32> {
+        match self {
+            Self::Ints(v) => v.get(i).copied().flatten().map(|x| x as f32),
+            Self::Floats(v) => v.get(i).copied().flatten(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for GridData {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct GridDataVisitor;
+
+        impl<'de> Visitor<'de> for GridDataVisitor {
+            type Value = GridData;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("array of numbers, bools, or nulls")
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<GridData, A::Error> {
+                let mut ints: Vec<Option<i32>> = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+
+                while let Some(val) = seq.next_element::<serde_json::Value>()? {
+                    match &val {
+                        serde_json::Value::Null => ints.push(None),
+                        serde_json::Value::Bool(b) => ints.push(Some(i32::from(*b))),
+                        serde_json::Value::Number(n) => {
+                            if let Some(i) = n.as_i64() {
+                                ints.push(Some(i as i32));
+                            } else {
+                                let mut floats: Vec<Option<f32>> = ints
+                                    .iter()
+                                    .map(|v| v.map(|x| x as f32))
+                                    .collect();
+                                floats.push(n.as_f64().map(|x| x as f32));
+                                while let Some(val) = seq.next_element::<serde_json::Value>()? {
+                                    match &val {
+                                        serde_json::Value::Null => floats.push(None),
+                                        serde_json::Value::Bool(b) => {
+                                            floats.push(Some(if *b { 1.0 } else { 0.0 }));
+                                        }
+                                        serde_json::Value::Number(n) => {
+                                            floats.push(n.as_f64().map(|x| x as f32));
+                                        }
+                                        _ => return Err(de::Error::custom("unexpected value")),
+                                    }
+                                }
+                                return Ok(GridData::Floats(floats));
+                            }
+                        }
+                        _ => return Err(de::Error::custom("unexpected value")),
+                    }
+                }
+
+                Ok(GridData::Ints(ints))
+            }
+        }
+
+        deserializer.deserialize_seq(GridDataVisitor)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum VisField {
     Grid {
-        data: Vec<serde_json::Value>,
+        data: GridData,
         palette: PaletteDef,
     },
     Scalar {
@@ -23,8 +100,8 @@ pub enum VisField {
         data: Vec<[i32; 2]>,
     },
     VectorField {
-        angles: Vec<Option<f64>>,
-        magnitudes: Option<Vec<f64>>,
+        angles: Vec<Option<f32>>,
+        magnitudes: Option<Vec<f32>>,
     },
 }
 
@@ -47,24 +124,23 @@ pub struct Color {
     pub a: u8,
 }
 
-pub fn value_to_f64(v: &serde_json::Value) -> Option<f64> {
-    match v {
-        serde_json::Value::Number(n) => n.as_f64(),
-        serde_json::Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
-        _ => None,
-    }
+pub fn is_special(palette: &PaletteDef, value: f32) -> bool {
+    let key = if (value - value.round()).abs() < 1e-6 {
+        format!("{}", value as i32)
+    } else {
+        format!("{value}")
+    };
+    palette.special.contains_key(&key)
 }
 
 #[allow(clippy::many_single_char_names)]
-pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> Option<Color> {
-    let key = format!("{value}");
+pub fn sample_palette(palette: &PaletteDef, value: f32, min: f32, max: f32) -> Option<Color> {
+    let key = if (value - value.round()).abs() < 1e-6 {
+        format!("{}", value as i32)
+    } else {
+        format!("{value}")
+    };
     if let Some(&[r, g, b, a]) = palette.special.get(&key) {
-        return Some(Color { r, g, b, a });
-    }
-    let key_int = format!("{}", value as i64);
-    if (value - value.round()).abs() < 1e-9
-        && let Some(&[r, g, b, a]) = palette.special.get(&key_int)
-    {
         return Some(Color { r, g, b, a });
     }
 
@@ -82,13 +158,8 @@ pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> O
     }
 
     let range = max - min;
-    let t = if range.abs() < 1e-12 {
-        0.5
-    } else {
-        ((value - min) / range).clamp(0.0, 1.0)
-    };
+    let t = if range.abs() < 1e-9 { 0.5 } else { ((value - min) / range).clamp(0.0, 1.0) };
 
-    let t = t as f32;
     let last = palette.stops.len() - 1;
     for i in 0..last {
         let [t0, r0, g0, b0, a0] = palette.stops[i];
@@ -115,18 +186,4 @@ pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> O
         b: b as u8,
         a: a as u8,
     })
-}
-
-pub fn is_special(palette: &PaletteDef, value: f64) -> bool {
-    let key = format!("{value}");
-    if palette.special.contains_key(&key) {
-        return true;
-    }
-    if (value - value.round()).abs() < 1e-9 {
-        let key_int = format!("{}", value as i64);
-        if palette.special.contains_key(&key_int) {
-            return true;
-        }
-    }
-    false
 }

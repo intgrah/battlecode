@@ -531,9 +531,9 @@ fn draw_vis_overlay(
 
     match field {
         crate::vis::VisField::Grid { data, palette } => {
-            let (mut min_v, mut max_v) = (f64::MAX, f64::MIN);
-            for raw in data {
-                if let Some(v) = crate::vis::value_to_f64(raw)
+            let (mut min_v, mut max_v) = (f32::MAX, f32::MIN);
+            for i in 0..data.len() {
+                if let Some(v) = data.get_f32(i)
                     && !crate::vis::is_special(palette, v)
                 {
                     if v < min_v {
@@ -554,10 +554,7 @@ fn draw_vis_overlay(
             for gy in 0..h {
                 for gx in 0..w {
                     let i = gy * w + gx;
-                    if i >= data.len() {
-                        continue;
-                    }
-                    let Some(v) = crate::vis::value_to_f64(&data[i]) else {
+                    let Some(v) = data.get_f32(i) else {
                         continue;
                     };
                     let Some(c) = crate::vis::sample_palette(palette, v, min_v, max_v) else {
@@ -575,7 +572,7 @@ fn draw_vis_overlay(
 
                     if zoom > 0.8 {
                         let label = if (v - v.round()).abs() < 1e-6 {
-                            format!("{}", v as i64)
+                            format!("{}", v as i32)
                         } else if v.abs() < 100.0 {
                             format!("{v:.2}")
                         } else {
@@ -606,7 +603,7 @@ fn draw_vis_overlay(
             let arrow_color = Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xc0);
             let max_mag = magnitudes
                 .as_ref()
-                .and_then(|m| m.iter().copied().reduce(f64::max))
+                .and_then(|m| m.iter().copied().reduce(f32::max))
                 .unwrap_or(1.0)
                 .max(1e-9);
 
@@ -621,11 +618,11 @@ fn draw_vis_overlay(
                     };
                     let mag_frac = magnitudes
                         .as_ref()
-                        .map_or(0.35, |m| (m[i] / max_mag * 0.4) as f32);
+                        .map_or(0.35, |m| m[i] / max_mag * 0.4);
                     let center = tile_center(gx as i32, gy as i32, ts, origin, zoom);
                     let half_len = ts * zoom * mag_frac;
-                    let dx = (angle as f32).cos() * half_len;
-                    let dy = (angle as f32).sin() * half_len;
+                    let dx = angle.cos() * half_len;
+                    let dy = angle.sin() * half_len;
                     let tip = Pos2::new(center.x + dx, center.y + dy);
                     let tail = Pos2::new(center.x - dx, center.y - dy);
                     let stroke = Stroke::new((1.5 * zoom).max(1.0), arrow_color);
@@ -633,8 +630,8 @@ fn draw_vis_overlay(
 
                     let head_len = 3.0 * zoom;
                     let half = head_len * 0.5;
-                    let ux = (angle as f32).cos();
-                    let uy = (angle as f32).sin();
+                    let ux = angle.cos();
+                    let uy = angle.sin();
                     let bx = (-ux).mul_add(head_len, tip.x);
                     let by = (-uy).mul_add(head_len, tip.y);
                     let lx = uy.mul_add(half, bx);
