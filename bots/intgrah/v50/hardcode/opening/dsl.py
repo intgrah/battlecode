@@ -122,102 +122,91 @@ type DslAction = (
 
 
 @dataclass(frozen=True, slots=True)
+class DslActionOnly:
+    action: DslAction
+
+    def __or__(self, move: DslMoveOnly) -> DslActionMove:
+        return DslActionMove(self.action, move.move)
+
+
+@dataclass(frozen=True, slots=True)
+class DslMoveOnly:
+    move: Direction
+
+    def __or__(self, act: DslActionOnly) -> DslMoveAction:
+        return DslMoveAction(self.move, act.action)
+
+    def rd(self) -> DslActionMove:
+        return DslActionMove(DslPlaceRoad(self.move), self.move)
+
+
+@dataclass(frozen=True, slots=True)
 class DslActionMove:
-    action: DslAction | None
-    move: Direction | None
+    action: DslAction
+    move: Direction
 
 
 @dataclass(frozen=True, slots=True)
 class DslMoveAction:
-    move: Direction | None
-    action: DslAction | None
+    move: Direction
+    action: DslAction
 
 
-type DslTurn = DslMoveAction | DslActionMove
+@dataclass(frozen=True, slots=True)
+class DslWait:
+    pass
 
 
-class Mov:
-    """Wrapper for composing direction | action into DslMoveAction."""
-
-    __slots__ = ("dir",)
-
-    def __init__(self, d: Direction) -> None:
-        self.dir = d
-
-    def __or__(self, act: Act) -> DslMoveAction:
-        return DslMoveAction(self.dir, act.action)
-
-    def rd(self) -> DslActionMove:
-        return DslActionMove(DslPlaceRoad(self.dir), self.dir)
-
-    def turn(self) -> DslActionMove:
-        return DslActionMove(None, self.dir)
+type DslTurn = DslWait | DslActionOnly | DslMoveOnly | DslActionMove | DslMoveAction
 
 
-class Act:
-    """Wrapper for composing action | direction into DslActionMove."""
+N = DslMoveOnly(Direction.NORTH)
+NE = DslMoveOnly(Direction.NORTHEAST)
+E = DslMoveOnly(Direction.EAST)
+SE = DslMoveOnly(Direction.SOUTHEAST)
+S = DslMoveOnly(Direction.SOUTH)
+SW = DslMoveOnly(Direction.SOUTHWEST)
+W = DslMoveOnly(Direction.WEST)
+NW = DslMoveOnly(Direction.NORTHWEST)
 
-    __slots__ = ("action",)
-
-    def __init__(self, action: DslAction) -> None:
-        self.action = action
-
-    def __or__(self, move: Mov | Direction | None) -> DslActionMove:
-        if isinstance(move, Mov):
-            return DslActionMove(self.action, move.dir)
-        return DslActionMove(self.action, move)
-
-    def turn(self) -> DslActionMove:
-        return DslActionMove(self.action, None)
+wait = DslWait()
 
 
-N = Mov(Direction.NORTH)
-NE = Mov(Direction.NORTHEAST)
-E = Mov(Direction.EAST)
-SE = Mov(Direction.SOUTHEAST)
-S = Mov(Direction.SOUTH)
-SW = Mov(Direction.SOUTHWEST)
-W = Mov(Direction.WEST)
-NW = Mov(Direction.NORTHWEST)
-
-wait = DslActionMove(None, None)
+def rd(d: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceRoad(d.move))
 
 
-def rd(d: Mov) -> Act:
-    return Act(DslPlaceRoad(d.dir))
+def h(d: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceHarvester(d.move))
 
 
-def h(d: Mov) -> Act:
-    return Act(DslPlaceHarvester(d.dir))
+def ba(d: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceBarrier(d.move))
 
 
-def ba(d: Mov) -> Act:
-    return Act(DslPlaceBarrier(d.dir))
+def br(d: DslMoveOnly, tv: tuple[int, int]) -> DslActionOnly:
+    return DslActionOnly(DslPlaceBridge(d.move, tv))
 
 
-def br(d: Mov, tv: tuple[int, int]) -> Act:
-    return Act(DslPlaceBridge(d.dir, tv))
+def c(d: DslMoveOnly, facing: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceConveyor(d.move, facing.move))
 
 
-def c(d: Mov, facing: Mov) -> Act:
-    return Act(DslPlaceConveyor(d.dir, facing.dir))
+def sp(d: DslMoveOnly, facing: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceSplitter(d.move, facing.move))
 
 
-def sp(d: Mov, facing: Mov) -> Act:
-    return Act(DslPlaceSplitter(d.dir, facing.dir))
+def sn(d: DslMoveOnly, facing: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceSentinel(d.move, facing.move))
 
 
-def sn(d: Mov, facing: Mov) -> Act:
-    return Act(DslPlaceSentinel(d.dir, facing.dir))
+def gn(d: DslMoveOnly, facing: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceGunner(d.move, facing.move))
 
 
-def gn(d: Mov, facing: Mov) -> Act:
-    return Act(DslPlaceGunner(d.dir, facing.dir))
+def ln(d: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceLauncher(d.move))
 
 
-def ln(d: Mov) -> Act:
-    return Act(DslPlaceLauncher(d.dir))
-
-
-def f(d: Mov) -> Act:
-    return Act(DslPlaceFoundry(d.dir))
+def f(d: DslMoveOnly) -> DslActionOnly:
+    return DslActionOnly(DslPlaceFoundry(d.move))

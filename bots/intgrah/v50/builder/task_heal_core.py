@@ -1,8 +1,8 @@
 """Heal the core."""
 
-from cambc import Controller, Direction, GameConstants, Position
+from cambc import Controller, GameConstants, Position
 
-from .action import Action, Heal
+from .action import ActionOnly, Heal, Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -10,7 +10,7 @@ from .state import State
 def heal_core(
     state: State,
     ct: Controller,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     if state.my_core_hp >= GameConstants.CORE_MAX_HP:
         return None
 
@@ -21,7 +21,7 @@ def heal_core(
     ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         core,
     ):
-        return Direction.CENTRE, Heal(core)
+        return ActionOnly(Heal(core))
 
     result = move_toward_with_road(state, ct, core)
     if result is None:

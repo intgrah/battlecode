@@ -5,10 +5,10 @@ Navigates to the least-recently-seen tile that has friendly infrastructure
 belief about its own network fresh and detects enemy disruption.
 """
 
-from cambc import Controller, Direction, Position
+from cambc import Controller, Position
 from util import INF
 
-from .action import Action
+from .action import Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -16,7 +16,7 @@ from .state import State
 def patrol(
     state: State,
     ct: Controller,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     infra = state.my_transport | state.my_core_tiles
     # TO DO: assert that all of these tiles are walkable
     if not infra:

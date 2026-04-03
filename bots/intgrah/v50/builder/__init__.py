@@ -2,34 +2,23 @@ from collections.abc import Callable
 
 from cambc import (
     Controller,
-    Direction,
     EntityType,
     Environment,
     GameConstants,
     Position,
 )
 from config import DEBUG_DUMP, OPENING, OpeningMode
-from hardcode.opening.compiler import (
-    CompiledActionMove,
-    CompiledMoveAction,
-)
 from marker import MarkerRole
 from unit import Unit
 
 from .action import (
-    Action,
-    PlaceBarrier,
-    PlaceBridge,
-    PlaceConveyor,
-    PlaceFoundry,
-    PlaceGunner,
-    PlaceHarvester,
-    PlaceLauncher,
-    PlaceRoad,
-    PlaceSentinel,
-    PlaceSplitter,
+    ActionMove,
+    ActionOnly,
+    MoveAction,
+    MoveOnly,
+    Turn,
+    execute,
 )
-from .helpers import execute
 from .role import ROLE_TARGET_TOTAL, ROLE_TARGETS, Role
 from .state import State
 from .state_dump import dump
@@ -47,7 +36,7 @@ from .task_patrol import patrol
 from .task_place_launcher import place_launcher
 from .task_place_sentinel import place_sentinel
 
-type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
+type TaskFn = Callable[[State, Controller], Turn | None]
 
 TASK_FNS: dict[Task, TaskFn] = {
     Task.CONNECT_EXCESS_TI: lambda s, c: connect_excess(
@@ -73,56 +62,6 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.PLACE_SENTINEL: place_sentinel,
     Task.HEAL_TURRET: heal_turret,
 }
-
-
-def _destroy_friendly(ct: Controller, pos: Position) -> None:
-    bid = ct.get_tile_building_id(pos)
-    if bid is not None and ct.get_team(bid) == ct.get_team() and ct.can_destroy(pos):
-        ct.destroy(pos)
-
-
-def _exec_build(ct: Controller, action: Action) -> None:
-    match action:
-        case PlaceRoad(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_road(pos):
-                ct.build_road(pos)
-        case PlaceHarvester(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_harvester(pos):
-                ct.build_harvester(pos)
-        case PlaceConveyor(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_conveyor(pos, direction):
-                ct.build_conveyor(pos, direction)
-        case PlaceSplitter(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_splitter(pos, direction):
-                ct.build_splitter(pos, direction)
-        case PlaceBridge(pos, target):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_bridge(pos, target):
-                ct.build_bridge(pos, target)
-        case PlaceBarrier(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_barrier(pos):
-                ct.build_barrier(pos)
-        case PlaceLauncher(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_launcher(pos):
-                ct.build_launcher(pos)
-        case PlaceGunner(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_gunner(pos, direction):
-                ct.build_gunner(pos, direction)
-        case PlaceSentinel(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_sentinel(pos, direction):
-                ct.build_sentinel(pos, direction)
-        case PlaceFoundry(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_foundry(pos):
-                ct.build_foundry(pos)
 
 
 class Builder(Unit):
@@ -159,10 +98,11 @@ class Builder(Unit):
             if not self._off_script:
                 return
 
-        move, build = self.run_policy(ct)
+        turn = self.run_policy(ct)
         t2 = ct.get_cpu_time_elapsed()
         print(f"policy={t2 - t1}us total={t2 - t0}us")
-        self.execute(ct, move, build)
+        if turn is not None:
+            self.execute_turn(ct, turn)
 
     def run_script(self, ct: Controller) -> None:
         compiled = self.state.compiled
@@ -176,31 +116,35 @@ class Builder(Unit):
         pos = ct.get_position()
 
         match turn:
-            case CompiledActionMove(action, move):
-                if action is not None:
-                    _exec_build(ct, action)
-                if move is not None:
-                    if ct.can_move(move):
-                        ct.move(move)
-                    else:
-                        ct.draw_indicator_dot(pos, 255, 0, 0)
-                        self._off_script = True
-            case CompiledMoveAction(move, action):
-                if move is not None:
-                    if ct.can_move(move):
-                        ct.move(move)
-                    else:
-                        ct.draw_indicator_dot(pos, 255, 0, 0)
-                        self._off_script = True
-                        return
-                if action is not None:
-                    _exec_build(ct, action)
+            case ActionOnly(action):
+                execute(action, ct)
+            case MoveOnly(move):
+                if ct.can_move(move):
+                    ct.move(move)
+                else:
+                    ct.draw_indicator_dot(pos, 255, 0, 0)
+                    self._off_script = True
+            case ActionMove(action, move):
+                execute(action, ct)
+                if ct.can_move(move):
+                    ct.move(move)
+                else:
+                    ct.draw_indicator_dot(pos, 255, 0, 0)
+                    self._off_script = True
+            case MoveAction(move, action):
+                if ct.can_move(move):
+                    ct.move(move)
+                else:
+                    ct.draw_indicator_dot(pos, 255, 0, 0)
+                    self._off_script = True
+                    return
+                execute(action, ct)
 
         if self._script_idx >= len(compiled):
             ct.draw_indicator_dot(ct.get_position(), 0, 255, 0)
             self._off_script = True
 
-    def run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
+    def run_policy(self, ct: Controller) -> Turn | None:
         s = self.state
         for score, task, transition in POLICIES[s.role]:
             if score <= 0:
@@ -220,7 +164,7 @@ class Builder(Unit):
                 return result
             print(f"  task={task.name} {elapsed}us FAIL")
         print("  task=NONE")
-        return Direction.CENTRE, None
+        return None
 
     def rebalance(self) -> Role:
         """Pick the role with the largest deficit from the target ratio."""
@@ -241,17 +185,18 @@ class Builder(Unit):
                 best_role = role
         return best_role
 
-    def execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
-        if move != Direction.CENTRE:
-            if ct.can_move(move):
+    def execute_turn(self, ct: Controller, turn: Turn) -> None:
+        match turn:
+            case ActionOnly(action):
+                execute(action, ct)
+            case MoveOnly(move):
                 ct.move(move)
-            elif isinstance(build, PlaceRoad):
-                execute(build, ct)
-                if ct.can_move(move):
-                    ct.move(move)
-                build = None
-        if build is not None:
-            execute(build, ct)
+            case ActionMove(action, move):
+                execute(action, ct)
+                ct.move(move)
+            case MoveAction(move, action):
+                ct.move(move)
+                execute(action, ct)
 
         self.write_marker(ct)
 

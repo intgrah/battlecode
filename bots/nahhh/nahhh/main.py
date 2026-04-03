@@ -2038,7 +2038,6 @@ class Player:
             self.connect_target.x,
             self.connect_target.y,
             terminals,
-            self._cc_free,
             self._cc_blocked,
             self._cc_ore,
             self._cc_walls,

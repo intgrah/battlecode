@@ -51,8 +51,6 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
 )
 
 
-
-
 class NavBfs:
     """Backwards-BFS navigation for builder bots.
 
@@ -80,7 +78,7 @@ class NavBfs:
         # Passable grid: border=0, interior=1 (assume all passable initially)
         self._passable: list[int] = [1] * n
         row_data = [0] * pw
-        self._passable[0 : pw] = row_data
+        self._passable[0:pw] = row_data
         self._passable[(h + 1) * pw : (h + 1) * pw + pw] = row_data
         for ry in range(1, h + 1):
             self._passable[ry * pw] = 0
@@ -95,13 +93,13 @@ class NavBfs:
         # Neighbor offsets (constant for padded grid)
         self._offsets: tuple[int, ...] = (
             -pw + 1,  # NE
-            pw + 1,   # SE
-            pw - 1,   # SW
+            pw + 1,  # SE
+            pw - 1,  # SW
             -pw - 1,  # NW
-            -pw,      # N
-            1,        # E
-            pw,       # S
-            -1,       # W
+            -pw,  # N
+            1,  # E
+            pw,  # S
+            -1,  # W
         )
 
         # Double-buffered dist arrays with generation counters
@@ -232,16 +230,24 @@ class NavBfs:
             has_se = passable[se]
             has_sw = passable[sw]
             has_nw = passable[nw]
-            if has_ne: push.append(ne)
-            if has_se: push.append(se)
-            if has_sw: push.append(sw)
-            if has_nw: push.append(nw)
+            if has_ne:
+                push.append(ne)
+            if has_se:
+                push.append(se)
+            if has_sw:
+                push.append(sw)
+            if has_nw:
+                push.append(nw)
 
             # Cardinals — skip enqueue if both adjacent diagonals are passable
-            if passable[n]: (assign if has_ne and has_nw else push).append(n)
-            if passable[e]: (assign if has_ne and has_se else push).append(e)
-            if passable[s]: (assign if has_se and has_sw else push).append(s)
-            if passable[w]: (assign if has_sw and has_nw else push).append(w)
+            if passable[n]:
+                (assign if has_ne and has_nw else push).append(n)
+            if passable[e]:
+                (assign if has_ne and has_se else push).append(e)
+            if passable[s]:
+                (assign if has_se and has_sw else push).append(s)
+            if passable[w]:
+                (assign if has_sw and has_nw else push).append(w)
 
         self._pnb_dirty.clear()
 

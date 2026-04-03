@@ -21,33 +21,33 @@ _B1: list[DslTurn] = [
     c(S, N) | S,
     c(S, N) | S,
     c(S, N) | S,
-    h(S) | None,
-    ba(SE) | None,
-    ba(E) | None,
+    h(S),
+    ba(SE),
+    ba(E),
 ]
 
 _B2: list[DslTurn] = [
     c(SE, E) | SE,
     c(N, S) | N,
     c(N, S) | N,
-    ba(SE) | None,
-    ba(E) | None,
-    ba(NE) | None,
+    ba(SE),
+    ba(E),
+    ba(NE),
     c(N, S) | N,
     c(N, S) | N,
     NE.rd(),
     br(NW, (0, 2)) | NW,
-    h(N) | None,
+    h(N),
 ]
 
 _B3: list[DslTurn] = [
     c(E, N) | E,
     sn(NE, E) | W,
-    W.turn(),
-    W.turn(),
+    W,
+    W,
     c(W, E) | W,
     c(W, E) | W,
-    h(W) | None,
+    h(W),
 ]
 
 

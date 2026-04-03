@@ -13,10 +13,13 @@ _ENV_INT: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
 _ET_INT: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
 
 
-def _encode_tile(env: Environment, building_type: EntityType | None, is_allied: bool) -> int:
+def _encode_tile(
+    env: Environment, building_type: EntityType | None, is_allied: bool
+) -> int:
     """Encode tile state as a byte: env (2 bits) | building (4 bits) | allied (1 bit)."""
     bt = _ET_INT[building_type] if building_type is not None else 0
     return _ENV_INT[env] | (bt << 2) | (int(is_allied) << 6)
+
 
 def _update_nearby_tiles(
     nav: NavBfs,

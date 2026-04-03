@@ -1,9 +1,9 @@
 from building import BuildingLauncher, BuildingMarker, BuildingRoad
-from cambc import Controller, Direction, Position
+from cambc import Controller, Position
 from constants import COST_IMPASSABLE
 from util import DIR8_DELTA
 
-from .action import Action, PlaceLauncher
+from .action import ActionOnly, MoveAction, PlaceLauncher, Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -53,7 +53,7 @@ def _find_placement(
 def place_launcher(
     state: State,
     ct: Controller,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     bridge = _undefended_transport(state)
     if bridge is None:
         return None
@@ -70,21 +70,21 @@ def place_launcher(
         if bid is not None and ct.can_destroy(adj):
             ct.destroy(adj)
         if ct.can_build_launcher(adj):
-            return Direction.CENTRE, PlaceLauncher(adj)
+            return ActionOnly(PlaceLauncher(adj))
 
     result = move_toward_with_road(state, ct, adj)
     if result is None:
         return None
-    move, build = result
-    if move == Direction.CENTRE and build is None:
-        return None
-    if move != Direction.CENTRE and build is None:
-        new_pos = pos.add(move)
-        if new_pos.distance_squared(adj) <= 2:
-            bid = ct.get_tile_building_id(adj)
-            if bid is not None and ct.can_destroy(adj):
-                ct.destroy(adj)
-            if ct.can_build_launcher(adj):
-                build = PlaceLauncher(adj)
+    match result:
+        case None:
+            return None
+        case MoveOnly(move):
+            new_pos = pos.add(move)
+            if new_pos.distance_squared(adj) <= 2:
+                bid = ct.get_tile_building_id(adj)
+                if bid is not None and ct.can_destroy(adj):
+                    ct.destroy(adj)
+                if ct.can_build_launcher(adj):
+                    result = MoveAction(move, PlaceLauncher(adj))
     ct.draw_indicator_line(state.pos, adj, 255, 165, 0)
-    return move, build
+    return result

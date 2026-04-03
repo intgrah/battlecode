@@ -21,7 +21,7 @@ _B1: list[DslTurn] = [
     c(S, N) | S,
     c(S, N) | S,
     c(E, W) | E,
-    h(E) | None,
+    h(E),
 ]
 
 _B2: list[DslTurn] = [
@@ -31,14 +31,14 @@ _B2: list[DslTurn] = [
     c(E, W) | E,
     c(E, W) | E,
     c(E, W) | E,
-    h(E) | None,
+    h(E),
     SE.rd(),
-    ba(NE) | None,
-    ln(W) | None,
+    ba(NE),
+    ln(W),
     br(SE, (-2, -2)) | SE,
     SE.rd(),
     br(E, (-2, -1)) | E,
-    h(E) | None,
+    h(E),
 ]
 
 register(

@@ -1,27 +1,12 @@
 import itertools
 
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Position
 from constants import COST_IMPASSABLE
 from marker import TaskKind
 from navigation import find_path
 from util import DIR4_DELTA, INF
 
-from .action import (
-    Action,
-    Fire,
-    Heal,
-    PlaceArmouredConveyor,
-    PlaceBarrier,
-    PlaceBridge,
-    PlaceConveyor,
-    PlaceFoundry,
-    PlaceHarvester,
-    PlaceLauncher,
-    PlaceRoad,
-    PlaceSentinel,
-    PlaceSplitter,
-    SelfDestruct,
-)
+from .action import ActionMove, MoveOnly, PlaceRoad, Turn
 from .state import State
 
 
@@ -29,10 +14,10 @@ def move_toward_with_road(
     state: State,
     ct: Controller,
     target: Position,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     pos = state.pos
     if pos == target:
-        return Direction.CENTRE, None
+        return None
     t0 = ct.get_cpu_time_elapsed()
     path = find_path(state, target.x, target.y)
     t1 = ct.get_cpu_time_elapsed()
@@ -45,11 +30,11 @@ def move_toward_with_road(
     nxt = Position(nx, ny)
     d = pos.direction_to(nxt)
     if ct.can_move(d):
-        return d, None
+        return MoveOnly(d)
     road_cost, _ = ct.get_road_cost()
     ti, _ = ct.get_global_resources()
     if ti >= road_cost and ct.can_build_road(nxt):
-        return d, PlaceRoad(nxt)
+        return ActionMove(PlaceRoad(nxt), d)
     return None
 
 
@@ -92,52 +77,3 @@ def is_claimed(state: State, tile_index: int, kind: TaskKind) -> bool:
                 continue
             return True
     return False
-
-
-def _destroy_friendly(ct: Controller, pos: Position) -> None:
-    bid = ct.get_tile_building_id(pos)
-    if bid is None:
-        return
-    if ct.get_team(bid) != ct.get_team():
-        return
-    if ct.get_entity_type(bid) in (EntityType.ROAD, EntityType.MARKER):
-        ct.destroy(pos)
-
-
-def execute(action: Action, ct: Controller) -> None:
-    match action:
-        case PlaceHarvester(pos):
-            _destroy_friendly(ct, pos)
-            ct.build_harvester(pos)
-        case PlaceConveyor(pos, direction):
-            _destroy_friendly(ct, pos)
-            ct.build_conveyor(pos, direction)
-        case PlaceArmouredConveyor(pos, direction):
-            _destroy_friendly(ct, pos)
-            ct.build_armoured_conveyor(pos, direction)
-        case PlaceBridge(pos, target):
-            _destroy_friendly(ct, pos)
-            ct.build_bridge(pos, target)
-        case PlaceRoad(pos):
-            ct.build_road(pos)
-        case PlaceFoundry(pos):
-            _destroy_friendly(ct, pos)
-            ct.build_foundry(pos)
-        case PlaceSplitter(pos, direction):
-            _destroy_friendly(ct, pos)
-            ct.build_splitter(pos, direction)
-        case SelfDestruct():
-            ct.self_destruct()
-        case Heal(pos):
-            ct.heal(pos)
-        case PlaceBarrier(pos):
-            _destroy_friendly(ct, pos)
-            ct.build_barrier(pos)
-        case PlaceSentinel(pos, direction):
-            _destroy_friendly(ct, pos)
-            ct.build_sentinel(pos, direction)
-        case PlaceLauncher(pos):
-            _destroy_friendly(ct, pos)
-            ct.build_launcher(pos)
-        case Fire():
-            ct.fire(ct.get_position())

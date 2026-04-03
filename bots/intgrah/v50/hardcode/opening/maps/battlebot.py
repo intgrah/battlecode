@@ -22,35 +22,35 @@ _B1: list[DslTurn] = [
     c(E, W) | E,
     c(SE, N) | SE,
     # Harvester first
-    h(SE) | None,
+    h(SE),
     # Sentinel
-    sn(E, E) | None,
+    sn(E, E),
     # Move down to grab the other one
     c(S, N) | S,
     SE.rd(),
-    ln(NE) | None,
-    sn(SE, NE) | None,
-    h(S) | None,
+    ln(NE),
+    sn(SE, NE),
+    h(S),
 ]
 
 _B2: list[DslTurn] = [
-    NE.turn(),
-    E.turn(),
-    E.turn(),
+    NE,
+    E,
+    E,
     c(E, W) | E,
-    h(E) | None,
-    sn(NE, E) | None,
+    h(E),
+    sn(NE, E),
     N.rd(),
-    ln(NE) | None,
+    ln(NE),
 ]
 
 _B3: list[DslTurn] = [
-    E.turn(),
-    E.turn(),
-    E.turn(),
+    E,
+    E,
+    E,
     wait,
-    SE.turn(),
-    S.turn(),
+    SE,
+    S,
     c(S, N) | S,
     c(S, N) | S,
 ]

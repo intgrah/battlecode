@@ -11,9 +11,9 @@ oscillation between candidates.
 
 from random import Random
 
-from cambc import Controller, Direction, Position
+from cambc import Controller, Position
 
-from .action import Action
+from .action import Turn
 from .helpers import move_toward_with_road
 from .state import State
 
@@ -21,7 +21,7 @@ from .state import State
 def explore(
     state: State,
     ct: Controller,
-) -> tuple[Direction, Action | None] | None:
+) -> Turn | None:
     _advance_frontier(state)
     if state.explore_target is not None and not state.is_unseen(
         state.explore_target.x,
