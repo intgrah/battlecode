@@ -35,8 +35,8 @@ from .task_explore import explore
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
 from .task_heal_infra import heal_infra
-from .task_road_harvesters import road_harvesters
 from .task_patrol import patrol
+from .task_road_harvesters import road_harvesters
 from .task_rush import rush
 from .task_scout_enemy import scout_enemy
 
@@ -117,21 +117,27 @@ class Builder(Unit):
         self.state = State(ct, core_pos)
 
     def run(self, ct: Controller) -> None:
+        import time as _time
+        _t = _time.perf_counter
         s = self.state
-        t = ct.get_cpu_time_elapsed
-        t0 = t()
+        _t0 = _t()
         state_update(s, ct)
-        t1 = t()
-        _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
-        print(f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}")
+        _t1 = _t()
 
         s.claim = None
 
         turn = self._run_policy(ct)
-        print(f"turn={turn}")
+        _t2 = _t()
         pos_before = ct.get_position()
         self._execute_turn(ct, turn)
         pos_after = ct.get_position()
+        _t3 = _t()
+        upd_us = int((_t1 - _t0) * 1e6)
+        pol_us = int((_t2 - _t1) * 1e6)
+        tot_us = int((_t3 - _t0) * 1e6)
+        if tot_us > 500:
+            _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
+            print(f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={upd_us} pol={pol_us} tot={tot_us}us", file=__import__('sys').stderr)
         if pos_before == pos_after and turn is not None:
             print(f"STUCK at ({pos_before.x},{pos_before.y})")
         # Opportunistic heal: if action unused, heal nearby damaged building
@@ -140,20 +146,22 @@ class Builder(Unit):
         self._write_marker(ct)
 
     def _run_policy(self, ct: Controller) -> Turn | None:
+        import time as _time
+        _t = _time.perf_counter
         s = self.state
-        t = ct.get_cpu_time_elapsed
         for score, task in _policy(s):
             if score <= 0:
                 continue
-            t0 = t()
+            _t0 = _t()
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            dt = t() - t0
+            dt = int((_t() - _t0) * 1e6)
             if result is not None:
-                print(f"  {task.name} OK")
+                if dt > 100:
+                    print(f"  {task.name} OK {dt}us", file=__import__('sys').stderr)
                 return _to_turn(result)
-            print(f"  {task.name} FAIL")
-        print("  IDLE")
+            if dt > 100:
+                print(f"  {task.name} FAIL {dt}us", file=__import__('sys').stderr)
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
@@ -162,6 +170,7 @@ class Builder(Unit):
             ct.move(direction)
             return True
         import random
+
         if random.random() < 0.5:
             # Try walkable tiles first
             dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
@@ -304,7 +313,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (150.0 if not ready else 0.0, Task.CONNECT_BACK),
                 (120.0 if not ready else 0.0, Task.ROAD_HARVESTERS),
                 (100.0 if not ready else 0.0, Task.HARVEST_TI),
-                (80.0 if ready else 0.0, Task.HEAL_INFRA),
+                (250.0 if ready else 0.0, Task.HEAL_INFRA),
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]

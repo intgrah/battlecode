@@ -47,7 +47,7 @@ def update_flow(state: State) -> None:
     turret_idx = list(state.turrets)
     core_idx = list(state.my_core_tiles | state.en_core_tiles)
     w = state.w
-    print(f"FLOW: harv={[(i%w,i//w) for i in harv_idx]} turrets={[(i%w,i//w) for i in turret_idx]} trans={len(trans_idx)}")
+    pass  # debug: print(f"FLOW: harv={[(i%w,i//w) for i in harv_idx]} turrets={[(i%w,i//w) for i in turret_idx]} trans={len(trans_idx)}")
 
     f_ti = f.ti
     f_ax = f.ax
@@ -317,7 +317,7 @@ def update_flow(state: State) -> None:
     # Log gunners_fed for harvesters
     for i in harv_idx:
         if f_gunners_fed[i] > 0:
-            print(f"FLOW: harv ({i%w},{i//w}) gunners_fed={f_gunners_fed[i]} ti={f_ti[i]:.3f}")
+            pass  # debug: print(f"FLOW: harv ({i%w},{i//w}) gunners_fed={f_gunners_fed[i]} ti={f_ti[i]:.3f}")
 
     for i in chain(*_all):
         f_my_total[i] = f_total[i] * f_my_frac[i]

@@ -18,6 +18,7 @@ def heal_infra(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     """Find nearest damaged friendly building and heal it."""
+    _t0 = ct.get_cpu_time_elapsed()
     my_team = ct.get_team()
     pos = state.pos
     best_pos: Position | None = None
@@ -44,9 +45,15 @@ def heal_infra(
             best_pos = bp
 
     if best_pos is None:
+        print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us none")
         return None
 
-    if pos.distance_squared(best_pos) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(best_pos):
+    if pos.distance_squared(best_pos) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
+        best_pos
+    ):
+        print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us heal")
         return Direction.CENTRE, Heal(best_pos)
 
-    return move_toward_with_road(state, ct, best_pos)
+    result = move_toward_with_road(state, ct, best_pos)
+    print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us walk")
+    return result
