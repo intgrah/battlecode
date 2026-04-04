@@ -48,7 +48,7 @@ def _on_enemy_half(state: State, x: int, y: int) -> bool:
 
 
 def _log(msg: str) -> None:
-    pass
+    print(msg)
 
 
 def _move_or_none(
@@ -115,7 +115,9 @@ def rush(
         siege = _find_siege_tile(state, fx, fy, en_core)
         print(f"R s2siege={t() - ts} @{t()}")
         if siege is not None and siege != (fx, fy):
-            return _extend_from_flow(state, ct, fx, fy, en_core)
+            result = _extend_from_flow(state, ct, fx, fy, en_core)
+            if result is not None:
+                return result
         _log(
             f"step2: flow at ({fx},{fy}) d²={flow_dist} but no further siege tile (siege={siege})"
         )
@@ -323,6 +325,10 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
     seen: set[int] = set()
 
     for i in state.my_harvesters:
+        # Skip harvesters whose flow is fully committed to gunners
+        available = 0.25 - f.gunners_fed[i] * 0.2
+        if available < 0.1:
+            continue
         hx, hy = i % w, i // w
         for dx, dy in DIR4_DELTA:
             nx, ny = hx + dx, hy + dy
