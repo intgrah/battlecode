@@ -70,19 +70,18 @@ def connect_excess(
     start = Position(sx, sy)
     w = state.w
     si = sy * w + sx
-    goal_coords = [(g % w, g // w) for g in list(goals)[:5]]
+    [(g % w, g // w) for g in list(goals)[:5]]
     start_bld = state.building[si]
-    start_env = state.env[si]
-    start_blocked = state.flow.blocked[si]
-    start_bld_name = type(start_bld).__name__ if start_bld else "None"
+    state.env[si]
+    state.flow.blocked[si]
+    type(start_bld).__name__ if start_bld else "None"
     _t2 = _t()
     path = _get_or_compute_path(state, ct, start, goals, search_kind)
     _t3 = _t()
     if path is None or len(path) < 2:
         return None
 
-    result = _walk_path(state, ct, path, search_kind)
-    return result
+    return _walk_path(state, ct, path, search_kind)
 
 
 def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:

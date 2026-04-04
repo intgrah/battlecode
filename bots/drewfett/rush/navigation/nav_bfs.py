@@ -1,0 +1,208 @@
+"""BFS pathfinding for builder bots.
+
+Backwards BFS from the goal. Stores a flat distance array so that
+stepping toward the goal is a single neighbor scan.
+
+Uses double-buffered dist arrays: the stable buffer is always usable for
+movement, while the wip buffer is computed incrementally. On completion
+the buffers swap.
+
+Internal grid is padded by 1 tile on each side (sentinel border).
+All border tiles are permanently impassable, so every real tile has
+8 valid neighbors — no bounds checks needed anywhere.
+"""
+
+from __future__ import annotations
+
+from array import array
+from typing import TYPE_CHECKING
+
+from cambc import Position
+
+from navigation.grid import PassableGrid
+
+INF = 1_000_000
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+class NavBfs:
+    """Backwards-BFS navigation for builder bots.
+
+    Uses a PassableGrid for the walkability graph. Runs BFS backwards
+    from the goal using pnb (passable-only neighbors) so the inner loop
+    has no passability check.
+
+    Double-buffered: _stable is used for movement, _wip is computed
+    incrementally. On completion they swap.
+    """
+
+    def __init__(self, grid: PassableGrid) -> None:
+        self.grid = grid
+        n = grid.n
+        self._gi = -1
+
+        self._dirty = True
+
+        # Double-buffered dist arrays with generation counters
+        self._stable: array[int] = array("i", bytes(4 * n))
+        self._stable_gen: bytearray = bytearray(n)
+        self._stable_g: int = 1
+        self._wip: array[int] = array("i", bytes(4 * n))
+        self._wip_gen: bytearray = bytearray(n)
+        self._wip_g: int = 1
+
+        self._q: array[int] = array("i", bytes(4 * n))
+        self._qi = 0
+        self._qlen = 0
+        self._resumable = False
+        self._new_goal = True
+        self._cur_dist = -1
+        self._cur_idx = -1
+
+    def mark_dirty(self) -> None:
+        """Force a BFS restart on the next step."""
+        self._dirty = True
+
+    def notify_closer_tile_changed(self, pi: int) -> None:
+        """Mark BFS dirty if the tile is closer to goal than the agent."""
+        if self._stable_gen[pi] == self._stable_g:
+            d = self._stable[pi]
+            if d < self._cur_dist:
+                self._dirty = True
+
+    def set_goal(self, goal: Position) -> None:
+        """Change the goal. Marks dirty so the search resets."""
+        pw = self.grid.pw
+        gi = (goal.y + 1) * pw + (goal.x + 1)
+        if gi != self._gi:
+            self._gi = gi
+            self._dirty = True
+            self._new_goal = True
+
+    def _restart(self) -> None:
+        """Reset wip BFS state for a fresh search from goal."""
+        g = self._wip_g + 1
+        if g > 255:
+            g = 1
+            self._wip_gen[:] = b"\x00" * len(self._wip_gen)
+        self._wip_g = g
+        gi = self._gi
+        self._wip[gi] = 0
+        self._wip_gen[gi] = self._wip_g
+        self._q[0] = gi
+        self._qi = 0
+        self._qlen = 1
+        self._resumable = True
+
+    def _swap(self) -> None:
+        """Promote wip to stable."""
+        self._stable, self._wip = self._wip, self._stable
+        self._stable_gen, self._wip_gen = self._wip_gen, self._stable_gen
+        self._stable_g, self._wip_g = self._wip_g, self._stable_g
+
+    def _compute(self, within_budget: Callable[[], bool]) -> bool:
+        """Run/resume backwards BFS into wip buffer. Returns True if complete."""
+        grid = self.grid
+        pnb_push = grid.pnb_push
+        pnb_set = grid.pnb_set
+        dist = self._wip
+        gen = self._wip_gen
+        g = self._wip_g
+        q = self._q
+        qi = self._qi
+        qlen = self._qlen
+        cur_idx = self._cur_idx
+        # Stop once we've processed one level past the agent
+        cd = dist[cur_idx] if cur_idx >= 0 and gen[cur_idx] == g else -1
+        stop_at = cd + 1 if cd != -1 else 1_000_000
+        while qi < qlen:
+            node = q[qi]
+            qi += 1
+            d = dist[node] + 1
+            if node == cur_idx:
+                stop_at = d
+            if d > stop_at:
+                self._qi = qi - 1
+                self._qlen = qlen
+                return True
+            for ni in pnb_push[node]:
+                if gen[ni] == g:
+                    continue
+                gen[ni] = g
+                dist[ni] = d
+                q[qlen] = ni
+                qlen += 1
+            for ni in pnb_set[node]:
+                if gen[ni] == g:
+                    continue
+                if ni == cur_idx:
+                    stop_at = d + 1
+                gen[ni] = g
+                dist[ni] = d
+            if qi & 255 == 0 and not within_budget():
+                pass  # budget exceeded
+                self._qi = qi
+                self._qlen = qlen
+                return False
+        pass  # exhausted
+        self._qi = qi
+        self._qlen = qlen
+        return True
+
+    def step(
+        self,
+        pos: Position,
+        within_budget: Callable[[], bool] = lambda: True,
+    ) -> tuple[int, int, int, int, int, int, int, int]:
+        """Compute BFS and return weights for each of the 8 directions.
+
+        Returns (NE, SE, SW, NW, N, E, S, W) where each weight is
+        dist[adjacent] - dist[current], or INF if the adjacent tile has
+        no distance. Returns all zeros if BFS has no data for the current tile.
+
+        Direction order matches grid.offsets: NE, SE, SW, NW, N, E, S, W.
+        """
+        grid = self.grid
+        _zero = (0, 0, 0, 0, 0, 0, 0, 0)
+
+        # Initial pnb build (all-passable fast path)
+        if not grid.ready:
+            grid.init_pnb_chunk(within_budget)
+            return _zero
+
+        # Rebuild pnb for tiles with passability changes
+        if grid.has_dirty_pnb:
+            grid.rebuild_pnb()
+
+        pw = grid.pw
+        cur_idx = (pos.y + 1) * pw + (pos.x + 1)
+        self._cur_idx = cur_idx
+
+        if self._dirty:
+            self._restart()
+            self._dirty = False
+        if self._resumable and self._compute(within_budget):
+            pass
+            self._resumable = False
+            self._new_goal = False
+            self._swap()
+
+        # Use stable buffer, fall back to wip if stable is stale (new goal)
+        dist = self._stable
+        gen = self._stable_gen
+        g = self._stable_g
+        d = dist[cur_idx] if gen[cur_idx] == g else -1
+        if self._new_goal:
+            dist = self._wip
+            gen = self._wip_gen
+            g = self._wip_g
+            d = dist[cur_idx] if gen[cur_idx] == g else -1
+        self._cur_dist = d
+
+        if d <= 0:
+            return _zero
+
+        pass
+        return tuple(dist[cur_idx + off] - d if gen[cur_idx + off] == g else INF for off in grid.offsets)

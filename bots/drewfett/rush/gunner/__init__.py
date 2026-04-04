@@ -93,7 +93,7 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
     return False
 
 
-_IDLE_LIMIT = 20
+_IDLE_LIMIT = 50  # self-destruct after 50 rounds with no target
 
 
 class Gunner(Unit):
@@ -175,21 +175,16 @@ class Gunner(Unit):
         else:
             _glog("[GUN] no target, no ammo")
 
-        # Idle self-destruct: idle 50+ rounds, friendly builder nearby to reclaim,
-        # no enemy nearby (don't self-destruct if we might be needed)
+        # Idle tracking — self-destruct only if friendly builder nearby to reclaim
         self._idle_rounds += 1
         if self._idle_rounds >= _IDLE_LIMIT:
-            has_ally_builder = False
-            has_enemy = False
             for uid in ct.get_nearby_units():
-                team = ct.get_team(uid)
-                if team == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
-                    has_ally_builder = True
-                elif team != my_team:
-                    has_enemy = True
-            if has_ally_builder and not has_enemy:
-                ct.self_destruct()
-                return
+                if (
+                    ct.get_team(uid) == my_team
+                    and ct.get_entity_type(uid) == EntityType.BUILDER_BOT
+                ):
+                    ct.self_destruct()
+                    return
 
 
 def _scan_ray_for_fire(

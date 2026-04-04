@@ -38,9 +38,9 @@ from .task_heal_infra import heal_infra
 from .task_patrol import patrol
 from .task_road_harvesters import road_harvesters
 from .task_rush import rush
-from .task_fortify import fortify
 from .task_cap_ore import cap_ore
 from .task_defend import defend
+from .task_fortify import fortify
 from .task_scout_enemy import scout_enemy
 
 type OldResult = tuple[Direction, Action | None] | None
@@ -124,21 +124,32 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         import time as _time
+
         _t = _time.perf_counter
         s = self.state
         _t0 = _t()
         state_update(s, ct)
         _t1 = _t()
+
         s.claim = None
+
         turn = self._run_policy(ct)
         _t2 = _t()
+        pos_before = ct.get_position()
         self._execute_turn(ct, turn)
+        pos_after = ct.get_position()
         _t3 = _t()
-        tot = int((_t3 - _t0) * 1e6)
-        if tot > 400:
-            import sys
-            _RN = {0: "E", 1: "R", 2: "H"}
-            print(f"[{_RN.get(s.role,'?')}]({s.pos.x},{s.pos.y}) upd={int((_t1-_t0)*1e6)} pol={int((_t2-_t1)*1e6)} tot={tot}", file=sys.stderr)
+        upd_us = int((_t1 - _t0) * 1e6)
+        pol_us = int((_t2 - _t1) * 1e6)
+        tot_us = int((_t3 - _t0) * 1e6)
+        if tot_us > 500:
+            _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
+            print(
+                f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={upd_us} pol={pol_us} tot={tot_us}us",
+                file=__import__("sys").stderr,
+            )
+        if pos_before == pos_after and turn is not None:
+            print(f"STUCK at ({pos_before.x},{pos_before.y})")
         # Opportunistic heal: if action unused, heal nearby damaged building
         if ct.get_action_cooldown() == 0:
             self._opportunistic_heal(ct)
@@ -146,6 +157,7 @@ class Builder(Unit):
 
     def _run_policy(self, ct: Controller) -> Turn | None:
         import time as _time
+
         _t = _time.perf_counter
         s = self.state
         for score, task in _policy(s):
@@ -156,11 +168,11 @@ class Builder(Unit):
             result = fn(s, ct)
             dt = int((_t() - _t0) * 1e6)
             if result is not None:
-                if dt > 200:
-                    import sys; print(f"  {task.name} OK {dt}us", file=sys.stderr)
+                if dt > 100:
+                    print(f"  {task.name} OK {dt}us", file=__import__("sys").stderr)
                 return _to_turn(result)
-            if dt > 200:
-                import sys; print(f"  {task.name} FAIL {dt}us", file=sys.stderr)
+            if dt > 100:
+                print(f"  {task.name} FAIL {dt}us", file=__import__("sys").stderr)
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
@@ -199,25 +211,23 @@ class Builder(Unit):
                 self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
-                if isinstance(action, (PlaceHarvester, PlaceGunner, PlaceSentinel, PlaceLauncher, PlaceFoundry)):
-                    self.state.out_target_dirty = True
+                self.state.out_target_dirty = True
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
                     if ct.can_move(direction):
                         ct.move(direction)
                     else:
                         execute(action, ct)
+                        self.state.out_target_dirty = True
                         self._move_or_detour(ct, direction)
                 else:
                     execute(action, ct)
-                    if not isinstance(action, PlaceBarrier):
-                        self.state.out_target_dirty = True
+                    self.state.out_target_dirty = True
                     self._move_or_detour(ct, direction)
             case MoveAction(direction, action):
                 if self._move_or_detour(ct, direction):
                     execute(action, ct)
-                    if not isinstance(action, (PlaceRoad, PlaceBarrier)):
-                        self.state.out_target_dirty = True
+                    self.state.out_target_dirty = True
 
     def _opportunistic_heal(self, ct: Controller) -> None:
         """If we just moved (action unused), heal any damaged friendly building nearby."""
@@ -289,7 +299,6 @@ def _to_turn(result: OldResult) -> Turn | None:
     return ActionMove(build, move)
 
 
-
 def _rush_ready(state: State) -> bool:
     return state.en_core_pos is not None
 
@@ -301,7 +310,6 @@ def _policy(state: State) -> list[tuple[float, Task]]:
 
     match state.role:
         case 0:  # ECON — harvest, connect ASAP, explore aggressively
-            # Explore stays high until most of the map is seen
             explore_score = 120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
             scores: list[tuple[float, Task]] = [
                 (999.0, Task.HEAL_CORE),

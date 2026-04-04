@@ -31,7 +31,10 @@ def heal_infra(
     for uid in ct.get_nearby_units():
         if uid == my_id:
             continue
-        if ct.get_team(uid) == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
+        if (
+            ct.get_team(uid) == my_team
+            and ct.get_entity_type(uid) == EntityType.BUILDER_BOT
+        ):
             other_builders.append(ct.get_position(uid))
 
     best_pos: Position | None = None
@@ -68,5 +71,4 @@ def heal_infra(
     ):
         return Direction.CENTRE, Heal(best_pos)
 
-    result = move_toward_with_road(state, ct, best_pos)
-    return result
+    return move_toward_with_road(state, ct, best_pos)

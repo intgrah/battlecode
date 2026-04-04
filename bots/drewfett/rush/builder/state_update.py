@@ -56,6 +56,7 @@ def update(state: State, ct: Controller) -> None:
     Don't do any other updates to state outside of this function!
     """
     import time as _time
+
     _t = _time.perf_counter
     state.age += 1
     state.pos = ct.get_position()
@@ -75,7 +76,11 @@ def update(state: State, ct: Controller) -> None:
     tot = int((_t4 - _t0) * 1e6)
     if tot > 300:
         import sys
-        print(f"  upd: scan={int((_t2-_t1)*1e6)} dng={int((_t3-_t2)*1e6)} flow={int((_t4-_t3)*1e6)} tot={tot}", file=sys.stderr)
+
+        print(
+            f"  upd: eph={int((_t1 - _t0) * 1e6)} scan={int((_t2 - _t1) * 1e6)} dng={int((_t3 - _t2) * 1e6)} flow={int((_t4 - _t3) * 1e6)} tot={tot}us",
+            file=sys.stderr,
+        )
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -234,12 +239,11 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                     state.en_core_tiles.add(i)
                     if state.en_core_pos is None:
                         state.en_core_pos = ct.get_position(bid)
-        else:
-            if old_bld is not None or env != old_env:
-                state.building[i] = None
-                _update_sets(state, i, old_bld, None)
-                changed.append(i)
-                state.update_cost(i)
+        elif old_bld is not None or env != old_env:
+            state.building[i] = None
+            _update_sets(state, i, old_bld, None)
+            changed.append(i)
+            state.update_cost(i)
 
         new_tiles.append((t, env))
 
@@ -321,7 +325,6 @@ def _apply_symmetry(
     new_tiles: list[tuple[Position, Environment]],
 ) -> None:
     had_symmetry = state.symmetry is not None
-    old_en_core = state.en_core_pos
     if not had_symmetry:
         _eliminate_symmetries(state, new_tiles)
     if state.symmetry is not None:
@@ -334,28 +337,34 @@ def _apply_symmetry(
         # Compute candidate core positions for each remaining symmetry
         w, h = state.w, state.h
         cx, cy = state.my_core.x, state.my_core.y
-        positions: list[tuple[int, int]] = []
+        candidates: dict[tuple[int, int], Symmetry] = {}
         for sym in state.sym_candidates:
             match sym:
                 case Symmetry.ROT:
-                    positions.append((w - 1 - cx, h - 1 - cy))
+                    px, py = w - 1 - cx, h - 1 - cy
                 case Symmetry.HOR:
-                    positions.append((cx, h - 1 - cy))
+                    px, py = cx, h - 1 - cy
                 case Symmetry.VER:
-                    positions.append((w - 1 - cx, cy))
-        unique = set(positions)
-        if len(unique) == 1:
-            pos = next(iter(unique))
-            state.en_core_pos = Position(pos[0], pos[1])
+                    px, py = w - 1 - cx, cy
+            candidates[(px, py)] = sym
+        # If all remaining symmetries agree on core position, we know it
+        unique_positions = set(candidates.keys())
+        if len(unique_positions) == 1:
+            pos = next(iter(unique_positions))
+            new_pos = Position(pos[0], pos[1])
+            if state.en_core_pos != new_pos:
+                state.en_core_pos = new_pos
+                # wall discovered
+        elif Symmetry.ROT in state.sym_candidates:
+            # Best guess — ROT is most common
+            state.en_core_pos = Position(w - 1 - cx, h - 1 - cy)
         else:
-            # Provisional: average of candidate positions (shifts as we eliminate)
-            avg_x = sum(p[0] for p in positions) // len(positions)
-            avg_y = sum(p[1] for p in positions) // len(positions)
-            state.en_core_pos = Position(avg_x, avg_y)
-    # Invalidate explore/scout targets if enemy core estimate moved
-    if state.en_core_pos != old_en_core:
-        state.explore_target = None
-
+            sym = next(iter(state.sym_candidates))
+            match sym:
+                case Symmetry.HOR:
+                    state.en_core_pos = Position(cx, h - 1 - cy)
+                case Symmetry.VER:
+                    state.en_core_pos = Position(w - 1 - cx, cy)
     if state.symmetry is None:
         return
     w = state.w
@@ -490,13 +499,9 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
     We don't need to recalculate if nothing related to transport changed in our vision
     """
     infra = state.transport | state.harvesters | state.foundries | state.turrets
-    external_change = any(i in infra for i in changed)
-    needs_reflow = external_change or state.out_target_dirty
+    needs_reflow = any(i in infra for i in changed) or state.out_target_dirty
     state.out_target_dirty = False
     if needs_reflow:
-        # Budget guard: skip flow if we've already used too much CPU this turn
-        if ct.get_cpu_time_elapsed() > 1200:
-            return
         update_flow(state)
         state.ti_flow_search = None
         state.ti_cached_path = None
@@ -504,8 +509,6 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
         state.ax_cached_path = None
         state.bridge_flow_search = None
         state.bridge_cached_path = None
-        if external_change:
-            state.rush_flow_search = None
 
 
 def _update_infra_staleness(state: State) -> None:
