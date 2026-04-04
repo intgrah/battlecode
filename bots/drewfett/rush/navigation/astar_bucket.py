@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util import COST_DANGER, COST_ROAD, DIAL_MOD, INF
+from util import COST_DANGER, COST_ROAD, DIAL_MOD, DIR8_DELTA, INF
 
 if TYPE_CHECKING:
     from collections import deque
@@ -48,7 +48,7 @@ def find_path_raw(
     best_h = INF
     best_node = si
 
-    nb = state.pnb
+    h = state.h
 
     while emp < DIAL_MOD:
         bi = cur_f % DIAL_MOD
@@ -73,9 +73,17 @@ def find_path_raw(
             break
 
         gn = dist[node]
+        nx_n = node % w
+        ny_n = node // w
 
-        for ni in nb[node]:
+        for dx, dy in DIR8_DELTA:
+            ax, ay = nx_n + dx, ny_n + dy
+            if not (0 <= ax < w and 0 <= ay < h):
+                continue
+            ni = ay * w + ax
             c = cost[ni]
+            if c >= INF:
+                continue
             if danger and ni in danger:
                 c += COST_DANGER
             nd = gn + c
@@ -92,11 +100,6 @@ def find_path_raw(
                 buckets[(nd + h_ni) % DIAL_MOD].append(ni)
     else:
         path = extract_path(parent, si, best_node) if best_h < INF else None
-
-    if ct is not None:
-        print(
-            f"A*: exp={exp} {ct.get_cpu_time_elapsed() - _t0}us ({sx},{sy})->({gx},{gy})"
-        )
 
     # Cleanup
     for i in touched:

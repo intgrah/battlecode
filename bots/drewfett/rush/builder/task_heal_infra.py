@@ -17,10 +17,23 @@ def heal_infra(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    """Find nearest damaged friendly building and heal it."""
+    """Find nearest damaged friendly building and heal it.
+
+    Skips targets if another friendly builder is closer (let them handle it).
+    """
     _t0 = ct.get_cpu_time_elapsed()
     my_team = ct.get_team()
+    my_id = ct.get_id()
     pos = state.pos
+
+    # Collect positions of other friendly builders
+    other_builders: list[Position] = []
+    for uid in ct.get_nearby_units():
+        if uid == my_id:
+            continue
+        if ct.get_team(uid) == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
+            other_builders.append(ct.get_position(uid))
+
     best_pos: Position | None = None
     best_ratio = 1.0
     best_dist = 1_000_000
@@ -36,8 +49,11 @@ def heal_infra(
         if hp >= max_hp:
             continue
         bp = ct.get_position(bid)
-        ratio = hp / max_hp
         dist = pos.distance_squared(bp)
+        # Skip if another builder is closer to this target
+        if any(ob.distance_squared(bp) < dist for ob in other_builders):
+            continue
+        ratio = hp / max_hp
         # Prefer most damaged, then closest
         if ratio < best_ratio or (ratio == best_ratio and dist < best_dist):
             best_ratio = ratio
@@ -45,15 +61,12 @@ def heal_infra(
             best_pos = bp
 
     if best_pos is None:
-        print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us none")
         return None
 
     if pos.distance_squared(best_pos) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         best_pos
     ):
-        print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us heal")
         return Direction.CENTRE, Heal(best_pos)
 
     result = move_toward_with_road(state, ct, best_pos)
-    print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us walk")
     return result

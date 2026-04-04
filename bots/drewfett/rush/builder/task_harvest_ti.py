@@ -32,6 +32,31 @@ if TYPE_CHECKING:
     from .state import State
 
 
+def _adjacent_safe_for_harvester(state: State, ox: int, oy: int) -> bool:
+    """Check that no enemy transport is adjacent to ore — would steal output."""
+    from building import (
+        BuildingConveyor,
+        BuildingArmouredConveyor,
+        BuildingSplitter,
+        BuildingBridge,
+    )
+
+    w = state.w
+    for dx, dy in DIR4_DELTA:
+        nx, ny = ox + dx, oy + dy
+        if not state.in_bounds(nx, ny):
+            continue
+        ni = ny * w + nx
+        bld = state.building[ni]
+        if bld is None:
+            continue
+        if bld.team == state.my_team:
+            continue
+        if isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge)):
+            return False
+    return True
+
+
 def _enemy_direction(state: State) -> tuple[int, int]:
     """Target point toward likely enemy core."""
     if state.en_core_pos is not None:
@@ -50,7 +75,6 @@ def harvest_ti(
     w = state.w
     unharvested = state.ore_ti - state.my_harvesters - state.en_harvesters
     if not unharvested:
-        print(f"HT: {_t() - _t0}us no-ore")
         return None
 
     # Secure harvesters that have a conveyor connected
@@ -203,19 +227,19 @@ def harvest_ti(
                 and state.enemy_bots_nearby
                 and ct.can_build_barrier(ore_pos)
             ):
-                print(f"HT: {_t() - _t0}us adj-barrier")
                 return Direction.CENTRE, PlaceBarrier(ore_pos)
             # Step 2: road adjacent tiles
             road_result = road_around(state, ct, ore_pos.x, ore_pos.y)
             if road_result is not None:
-                print(f"HT: {_t() - _t0}us adj-road")
                 return road_result
             # Step 3: destroy our barrier on ore and place harvester
+            # Don't place if enemy transport adjacent — would steal output
+            if not _adjacent_safe_for_harvester(state, ore_pos.x, ore_pos.y):
+                continue
             # Only destroy if we can afford the harvester
             h_cost, _ = ct.get_harvester_cost()
             ti, _ = ct.get_global_resources()
             if ti < h_cost:
-                print(f"HT: {_t() - _t0}us adj-wait-ti")
                 return Direction.CENTRE, None  # Wait for Ti
             if bid is not None:
                 if ct.can_destroy(ore_pos):
@@ -223,15 +247,12 @@ def harvest_ti(
                 else:
                     continue
             if ct.can_build_harvester(ore_pos):
-                print(f"HT: {_t() - _t0}us road={_t1 - _t0} adj-place")
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
             state.blocked_ore[ni] = state.age + state.birthday
 
     # Pick best ore and walk toward it
     _t2 = _t()
-    print(f"HT: road_chk={_t2 - _t1}us")
     result = _pick_and_walk(state, ct, unharvested)
-    print(f"HT: {_t() - _t0}us pick={_t() - _t2}")
     return result
 
 
