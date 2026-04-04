@@ -35,18 +35,17 @@ class Core(Unit):
                     self._spawn(ct)
                 return
 
-        # First 4: no reserve. After that: flat reserve.
-        if alive < 4:
+        # First 6: no reserve. Then scale up.
+        if self.spawned < 6:
             reserve = 0
         elif alive < 8:
-            reserve = 500
+            reserve = builder_cost * 2
         else:
-            reserve = 1000
+            reserve = builder_cost * 4
 
-        if ti < builder_cost + reserve:
-            return
-
-        self._spawn(ct)
+        # Surplus dump: if Ti piling up, spawn regardless of reserve
+        if ti >= builder_cost + reserve or ti > builder_cost * 5:
+            self._spawn(ct)
 
     def _spawn(self, ct: Controller) -> None:
         sp = _best_spawn_pos(ct, self.core_pos, self.spawned)
