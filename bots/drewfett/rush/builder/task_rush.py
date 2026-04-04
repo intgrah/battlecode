@@ -22,7 +22,7 @@ from building import (
 )
 from cambc import Controller, Direction, Environment, Position
 from flow_astar import FlowAstar
-from util import DIR4_DELTA, INF
+from util import DIR4_DELTA, INF, Symmetry
 
 from .action import Action, Fire, PlaceGunner, PlaceHarvester
 from .helpers import move_toward_with_road, step_off_and_build
@@ -927,12 +927,26 @@ def _find_rush_ore(
     best_dist = INF
 
     all_ore: set[int] = set(state.ore_ti)
-    # Only mirror when symmetry is confirmed
-    if state.symmetry is not None:
+    # Mirror ore using symmetry — confirmed or best candidate
+    sym = state.symmetry
+    if sym is None and state.sym_candidates:
+        # Use best guess: ROT if available, else first candidate
+        sym = Symmetry.ROT if Symmetry.ROT in state.sym_candidates else next(iter(state.sym_candidates))
+    if sym is not None:
         for oi in list(state.ore_ti):
-            mx, my = mirror(state, Position(oi % w, oi // w))
-            if state.in_bounds(mx, my):
-                all_ore.add(my * w + mx)
+            ox, oy = oi % w, oi // w
+            match sym:
+                case Symmetry.ROT:
+                    mx, my = w - 1 - ox, state.h - 1 - oy
+                case Symmetry.HOR:
+                    mx, my = ox, state.h - 1 - oy
+                case Symmetry.VER:
+                    mx, my = w - 1 - ox, oy
+            if 0 <= mx < w and 0 <= my < state.h:
+                mi = my * w + mx
+                # Only add if we haven't seen that tile yet (could be wrong guess)
+                if state.env[mi] is None:
+                    all_ore.add(mi)
 
     _log(
         f"_find_rush_ore: {len(all_ore)} total ore, {len(state.ore_ti)} seen, sym={state.symmetry} candidates={state.sym_candidates}"
@@ -981,11 +995,9 @@ def _find_rush_ore(
 
         if not isinstance(bld, BuildingHarvester):
             env = state.env[oi]
-            # Accept confirmed ore OR symmetry-mirrored ore (env=None)
-            # Only trust mirrored ore when symmetry is confirmed
+            # Accept confirmed ore OR symmetry-mirrored ore (env=None means unseen)
             if env is None:
-                if oi not in state.ore_ti and state.symmetry is None:
-                    continue  # unconfirmed mirror from candidates — skip
+                pass  # mirrored from symmetry — trust it
             elif env != Environment.ORE_TITANIUM:
                 continue
             tap = _find_free_adjacent(state, ox, oy)
