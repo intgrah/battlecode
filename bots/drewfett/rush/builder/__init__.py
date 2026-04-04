@@ -32,13 +32,13 @@ from .state_update import update as state_update
 from .task import Task
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
+from .task_fortify import fortify
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
 from .task_heal_infra import heal_infra
 from .task_patrol import patrol
 from .task_road_harvesters import road_harvesters
 from .task_rush import rush
-from .task_fortify import fortify
 from .task_scout_enemy import scout_enemy
 
 type OldResult = tuple[Direction, Action | None] | None
@@ -120,6 +120,7 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         import time as _time
+
         _t = _time.perf_counter
         s = self.state
         _t0 = _t()
@@ -133,8 +134,12 @@ class Builder(Unit):
         tot = int((_t3 - _t0) * 1e6)
         if tot > 400:
             import sys
+
             _RN = {0: "E", 1: "R", 2: "H"}
-            print(f"[{_RN.get(s.role,'?')}]({s.pos.x},{s.pos.y}) upd={int((_t1-_t0)*1e6)} pol={int((_t2-_t1)*1e6)} tot={tot}", file=sys.stderr)
+            print(
+                f"[{_RN.get(s.role, '?')}]({s.pos.x},{s.pos.y}) upd={int((_t1 - _t0) * 1e6)} pol={int((_t2 - _t1) * 1e6)} tot={tot}",
+                file=sys.stderr,
+            )
         # Opportunistic heal: if action unused, heal nearby damaged building
         if ct.get_action_cooldown() == 0:
             self._opportunistic_heal(ct)
@@ -142,6 +147,7 @@ class Builder(Unit):
 
     def _run_policy(self, ct: Controller) -> Turn | None:
         import time as _time
+
         _t = _time.perf_counter
         s = self.state
         for score, task in _policy(s):
@@ -153,10 +159,14 @@ class Builder(Unit):
             dt = int((_t() - _t0) * 1e6)
             if result is not None:
                 if dt > 200:
-                    import sys; print(f"  {task.name} OK {dt}us", file=sys.stderr)
+                    import sys
+
+                    print(f"  {task.name} OK {dt}us", file=sys.stderr)
                 return _to_turn(result)
             if dt > 200:
-                import sys; print(f"  {task.name} FAIL {dt}us", file=sys.stderr)
+                import sys
+
+                print(f"  {task.name} FAIL {dt}us", file=sys.stderr)
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
@@ -195,7 +205,16 @@ class Builder(Unit):
                 self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
-                if isinstance(action, (PlaceHarvester, PlaceGunner, PlaceSentinel, PlaceLauncher, PlaceFoundry)):
+                if isinstance(
+                    action,
+                    (
+                        PlaceHarvester,
+                        PlaceGunner,
+                        PlaceSentinel,
+                        PlaceLauncher,
+                        PlaceFoundry,
+                    ),
+                ):
                     self.state.out_target_dirty = True
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
@@ -285,7 +304,6 @@ def _to_turn(result: OldResult) -> Turn | None:
     return ActionMove(build, move)
 
 
-
 def _rush_ready(state: State) -> bool:
     return state.en_core_pos is not None
 
@@ -298,7 +316,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     match state.role:
         case 0:  # ECON — harvest, connect, explore aggressively
             # Explore stays high until most of the map is seen
-            explore_score = 120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
+            explore_score = (
+                120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
+            )
             scores: list[tuple[float, Task]] = [
                 (999.0, Task.HEAL_CORE),
                 (200.0, Task.HEAL_INFRA),
@@ -310,7 +330,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (15.0, Task.PATROL),
             ]
         case 1:  # ATTACK — econ early, then siege once flow established
-            explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+            explore_score = (
+                95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+            )
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (250.0 if ready else 0.0, Task.HEAL_INFRA),
@@ -323,7 +345,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (15.0, Task.PATROL),
             ]
         case _:  # DEFENSE — heal, fortify, then econ fallback
-            explore_score = 80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
+            explore_score = (
+                80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
+            )
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (200.0, Task.HEAL_INFRA),

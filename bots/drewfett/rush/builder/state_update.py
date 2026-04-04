@@ -56,6 +56,7 @@ def update(state: State, ct: Controller) -> None:
     Don't do any other updates to state outside of this function!
     """
     import time as _time
+
     _t = _time.perf_counter
     state.age += 1
     state.pos = ct.get_position()
@@ -75,7 +76,11 @@ def update(state: State, ct: Controller) -> None:
     tot = int((_t4 - _t0) * 1e6)
     if tot > 300:
         import sys
-        print(f"  upd: scan={int((_t2-_t1)*1e6)} dng={int((_t3-_t2)*1e6)} flow={int((_t4-_t3)*1e6)} tot={tot}", file=sys.stderr)
+
+        print(
+            f"  upd: scan={int((_t2 - _t1) * 1e6)} dng={int((_t3 - _t2) * 1e6)} flow={int((_t4 - _t3) * 1e6)} tot={tot}",
+            file=sys.stderr,
+        )
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -234,12 +239,11 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                     state.en_core_tiles.add(i)
                     if state.en_core_pos is None:
                         state.en_core_pos = ct.get_position(bid)
-        else:
-            if old_bld is not None or env != old_env:
-                state.building[i] = None
-                _update_sets(state, i, old_bld, None)
-                changed.append(i)
-                state.update_cost(i)
+        elif old_bld is not None or env != old_env:
+            state.building[i] = None
+            _update_sets(state, i, old_bld, None)
+            changed.append(i)
+            state.update_cost(i)
 
         new_tiles.append((t, env))
 
