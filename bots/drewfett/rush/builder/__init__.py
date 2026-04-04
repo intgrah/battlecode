@@ -114,23 +114,35 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
+        t = ct.get_cpu_time_elapsed
+        t0 = t()
         state_update(s, ct)
+        t1 = t()
+        print(f"upd={t1 - t0} @{t1}")
 
         s.claim = None
 
         turn = self._run_policy(ct)
+        t2 = t()
         self._execute_turn(ct, turn)
         self._write_marker(ct)
+        print(f"pol={t2 - t1} exec={t() - t2} tot={t() - t0}")
 
     def _run_policy(self, ct: Controller) -> Turn | None:
         s = self.state
+        t = ct.get_cpu_time_elapsed
         for score, task in _policy(s):
             if score <= 0:
                 continue
+            t0 = t()
             fn = TASK_FNS[task]
             result = fn(s, ct)
+            dt = t() - t0
             if result is not None:
+                print(f"  {task.name} OK {dt}us @{t()}")
                 return _to_turn(result)
+            if dt > 20:
+                print(f"  {task.name} FAIL {dt}us @{t()}")
         return None
 
     def _execute_turn(self, ct: Controller, turn: Turn | None) -> None:
