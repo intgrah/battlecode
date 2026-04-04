@@ -1,4 +1,3 @@
-import itertools
 
 from building import BuildingConveyor, BuildingHarvester, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Position

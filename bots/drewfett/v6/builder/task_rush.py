@@ -8,7 +8,6 @@ Priority:
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING
 
 from building import (
@@ -126,7 +125,7 @@ def rush(
         _log("step2: no flow tile near enemy core")
 
     # Step 2.5: Unconnected harvester near core — build first conveyor toward siege
-    t25 = t()
+    t()
     for hi in state.my_harvesters:
         hx, hy = hi % w, hi // w
         h_dist = (hx - en_core.x) ** 2 + (hy - en_core.y) ** 2
@@ -184,12 +183,11 @@ def rush(
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     _log(f"step3: placing harvester at ({ore_pos.x},{ore_pos.y})")
                     return Direction.CENTRE, PlaceHarvester(ore_pos)
-                else:
-                    # Can't build here — blocked by something we can't see in belief
-                    _log(
-                        f"step3: ore ({ore_pos.x},{ore_pos.y}) blocked, removing from ore_ti"
-                    )
-                    state.ore_ti.discard(ore_idx)
+                # Can't build here — blocked by something we can't see in belief
+                _log(
+                    f"step3: ore ({ore_pos.x},{ore_pos.y}) blocked, removing from ore_ti"
+                )
+                state.ore_ti.discard(ore_idx)
             if pos.distance_squared(ore_pos) > 2:
                 # Walk to the tap point (free adjacent tile), not the ore itself
                 tap_pos = Position(tap_x, tap_y)

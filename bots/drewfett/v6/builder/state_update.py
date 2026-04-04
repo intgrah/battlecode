@@ -223,12 +223,11 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                     state.en_core_tiles.add(i)
                     if state.en_core_pos is None:
                         state.en_core_pos = ct.get_position(bid)
-        else:
-            if old_bld is not None or env != old_env:
-                state.building[i] = None
-                _update_sets(state, i, old_bld, None)
-                changed.append(i)
-                state.update_cost(i)
+        elif old_bld is not None or env != old_env:
+            state.building[i] = None
+            _update_sets(state, i, old_bld, None)
+            changed.append(i)
+            state.update_cost(i)
 
         new_tiles.append((t, env))
 
@@ -339,7 +338,7 @@ def _apply_symmetry(
             new_pos = Position(pos[0], pos[1])
             if state.en_core_pos != new_pos:
                 state.en_core_pos = new_pos
-                pass  # wall discovered
+                # wall discovered
         elif Symmetry.ROT in state.sym_candidates:
             # Best guess — ROT is most common
             state.en_core_pos = Position(w - 1 - cx, h - 1 - cy)
@@ -471,7 +470,6 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
         state.ax_cached_path = None
         state.bridge_flow_search = None
         state.bridge_cached_path = None
-        pass
 
 
 def _update_infra_staleness(state: State) -> None:

@@ -1,6 +1,6 @@
 """Launcher — throws adjacent enemy bots."""
 
-from cambc import Controller, EntityType
+from cambc import Controller
 from unit import Unit
 
 

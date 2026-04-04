@@ -9,10 +9,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cambc import Controller, Direction, Environment, Position
-from marker import MarkerTaskClaim, TaskKind
-from util import DIR4_DELTA, INF
-
 from building import (
     BuildingBarrier,
     BuildingGunner,
@@ -20,12 +16,13 @@ from building import (
     BuildingRoad,
     BuildingSentinel,
 )
+from cambc import Controller, Direction, Environment, Position
+from marker import MarkerTaskClaim, TaskKind
+from util import DIR4_DELTA, INF
+
 from .action import (
     Action,
-    PlaceBarrier,
-    PlaceGunner,
     PlaceHarvester,
-    PlaceRoad,
     PlaceSentinel,
     PlaceSplitter,
 )
@@ -64,12 +61,11 @@ def harvest_ti(
         # Find the conveyor feeding this harvester
         conv_dir: tuple[int, int] | None = None
         has_gunner = False
-        has_barrier = False
 
         from building import (
+            BuildingArmouredConveyor,
             BuildingConveyor,
             BuildingSplitter,
-            BuildingArmouredConveyor,
         )
 
         for ddx, ddy in DIR4_DELTA:
@@ -88,7 +84,7 @@ def harvest_ti(
                 case BuildingGunner(team=team) if team == state.my_team:
                     has_gunner = True
                 case BuildingBarrier(team=team) if team == state.my_team:
-                    has_barrier = True
+                    pass
 
         # Only defend if we have a conveyor connected
         if conv_dir is None:
@@ -105,9 +101,9 @@ def harvest_ti(
         ci = cy * w + cx
         cbld = state.building[ci]
         from building import (
+            BuildingArmouredConveyor,
             BuildingConveyor,
             BuildingSplitter,
-            BuildingArmouredConveyor,
         )
 
         needs_splitter = (
@@ -203,7 +199,7 @@ def harvest_ti(
             ti, _ = ct.get_global_resources()
             if ti >= h_cost and ct.can_build_harvester(ore_pos):
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
-            elif ti >= h_cost:
+            if ti >= h_cost:
                 # Can't build — blocked, remove from ore set
                 state.ore_ti.discard(ni)
 

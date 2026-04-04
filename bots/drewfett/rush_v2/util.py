@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import IntEnum, auto
+from enum import IntEnum
 from typing import Final
 
-from cambc import Direction, Position
+from cambc import Direction
 
 # -- Pathfinding costs --
 INF: Final[int] = 1_000_000

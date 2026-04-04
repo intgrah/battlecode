@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from action import PlaceGunner, PlaceHarvester, PlaceSplitter
 from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
@@ -22,10 +23,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, Environment, Position
-from marker import ClaimKind, MarkerClaim, MarkerChainPlan
-from turn import ActionMove, ActionOnly, MoveOnly, Turn, Wait
-from action import PlaceConveyor, PlaceGunner, PlaceHarvester, PlaceSplitter
-from util import DIR4_DELTA, DIR8, DIR8_DELTA, GUNNER_RANGE_SQ, INF, MIN_GUNNER_FLOW
+from marker import ClaimKind, MarkerChainPlan, MarkerClaim
+from turn import ActionOnly, Turn, Wait
+from util import DIR4_DELTA, DIR8, GUNNER_RANGE_SQ, INF, MIN_GUNNER_FLOW
 
 if TYPE_CHECKING:
     from state import State
@@ -45,7 +45,6 @@ def run(state: State, ct: Controller) -> Turn | None:
     if pos.distance_squared(en_core) > pos.distance_squared(state.my_core):
         return None
 
-    w = state.w
     core_tiles = _make_core_tiles(state, en_core)
 
     # Phase 1: can we place a gunner right now? (flow tile in range)

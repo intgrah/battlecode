@@ -20,8 +20,9 @@ from cambc import EntityType, Environment, Position
 from symmetry import Symmetry, mirror_idx
 
 if TYPE_CHECKING:
-    from bfs import NavBfs
     from collections.abc import Callable
+
+    from bfs import NavBfs
 
 _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     {

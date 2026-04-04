@@ -1,6 +1,6 @@
 """Sentinel — auto-fires on nearby enemies."""
 
-from cambc import Controller, EntityType, Position
+from cambc import Controller
 from unit import Unit
 
 
