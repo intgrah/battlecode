@@ -142,8 +142,7 @@ class State:
         self.my_team = ct.get_team()
         self.birthday = ct.get_current_round()
         self.age = 0
-        # Everyone is RUSH (all-rounder) for now
-        self.role: int = 1
+        self.role: int = 1  # all RUSH (all-rounder)
         n = self.w * self.h
 
         # -- Per-tile arrays (indexed by y * w + x) --
