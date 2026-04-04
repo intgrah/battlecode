@@ -145,29 +145,27 @@ def rush(
                     if result is not None:
                         return result
 
-    # Step 1b: Sentinel — high-value targets only (turrets, core, harvesters)
-    sentinel_targets = state.en_turrets | state.en_core_tiles | state.en_harvesters
-    if ext_tiles and sentinel_targets:
-        ext_set = {ey * w + ex for ex, ey in ext_tiles}
-        for ti in sentinel_targets:
-            tx, ty = ti % w, ti // w
-            for (dx, dy), facing in _SENTINEL_HITS.items():
-                gx, gy = tx + dx, ty + dy
-                if not state.in_bounds(gx, gy):
-                    continue
-                gi = gy * w + gx
-                if gi not in ext_set:
-                    continue
-                # This ext tile can hit this enemy with sentinel
-                # Skip if gunner could also hit (prefer gunner, already tried)
-                if (dx, dy) in _GUNNER_HITS and _los_clear(state, gx, gy, _GUNNER_HITS[(dx, dy)], tx, ty):
-                    continue
-                feed_dir = _find_splitter_dir(state, gx, gy)
-                if feed_dir is not None and facing == feed_dir.opposite():
-                    continue
-                result = _place_sentinel_at(state, ct, Position(gx, gy), facing)
-                if result is not None:
-                    return result
+    # Step 1b: Sentinel — disabled for now, gunner-only offense
+    # sentinel_targets = state.en_turrets | state.en_core_tiles | state.en_harvesters
+    # if ext_tiles and sentinel_targets:
+    #     ext_set = {ey * w + ex for ex, ey in ext_tiles}
+    #     for ti in sentinel_targets:
+    #         tx, ty = ti % w, ti // w
+    #         for (dx, dy), facing in _SENTINEL_HITS.items():
+    #             gx, gy = tx + dx, ty + dy
+    #             if not state.in_bounds(gx, gy):
+    #                 continue
+    #             gi = gy * w + gx
+    #             if gi not in ext_set:
+    #                 continue
+    #             if (dx, dy) in _GUNNER_HITS and _los_clear(state, gx, gy, _GUNNER_HITS[(dx, dy)], tx, ty):
+    #                 continue
+    #             feed_dir = _find_splitter_dir(state, gx, gy)
+    #             if feed_dir is not None and facing == feed_dir.opposite():
+    #                 continue
+    #             result = _place_sentinel_at(state, ct, Position(gx, gy), facing)
+    #             if result is not None:
+    #                 return result
 
     # Step 1.5: Upgrade conveyors feeding our gunners to splitters
     if ext_tiles:
