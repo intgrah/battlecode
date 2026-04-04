@@ -1,0 +1,14 @@
+/Users/jakewright/Code/battlecode/v/target/release/deps/thiserror-5f7716856f3c4bff.d: /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/jakewright/Code/battlecode/v/target/release/build/thiserror-24f74d814a5a2d42/out/private.rs
+
+/Users/jakewright/Code/battlecode/v/target/release/deps/libthiserror-5f7716856f3c4bff.rlib: /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/jakewright/Code/battlecode/v/target/release/build/thiserror-24f74d814a5a2d42/out/private.rs
+
+/Users/jakewright/Code/battlecode/v/target/release/deps/libthiserror-5f7716856f3c4bff.rmeta: /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/jakewright/Code/battlecode/v/target/release/build/thiserror-24f74d814a5a2d42/out/private.rs
+
+/Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs:
+/Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs:
+/Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs:
+/Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs:
+/Users/jakewright/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs:
+/Users/jakewright/Code/battlecode/v/target/release/build/thiserror-24f74d814a5a2d42/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/jakewright/Code/battlecode/v/target/release/build/thiserror-24f74d814a5a2d42/out

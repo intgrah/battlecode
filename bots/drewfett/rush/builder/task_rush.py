@@ -774,6 +774,26 @@ def _extend_from_flow(
             _log(f"extend[{k}]: can't afford gunner, holding turn")
             return None
 
+        # Sentinel: high-value targets (turrets, core, harvesters) in range
+        hvt = state.en_turrets | state.en_core_tiles | state.en_harvesters
+        for (sdx, sdy), sfacing in _SENTINEL_HITS.items():
+            etx, ety = x + sdx, y + sdy
+            if not state.in_bounds(etx, ety):
+                continue
+            eti = ety * w + etx
+            if eti not in hvt:
+                continue
+            if (sdx, sdy) in _GUNNER_HITS:
+                continue
+            feed_dir = _find_splitter_dir(state, x, y)
+            if feed_dir is not None and sfacing == feed_dir.opposite():
+                continue
+            _log(f"extend[{k}]: ({x},{y}) sentinel can hit HVT at ({etx},{ety})")
+            result = _place_sentinel_at(state, ct, build_at, sfacing)
+            if result is not None:
+                return result
+            break
+
         # Build conveyor
         action = _build_action(build_at, nx, ny, SearchKind.MIXED)
         if builder_dist <= 2:

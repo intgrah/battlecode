@@ -1,0 +1,26 @@
+Running match: v5 vs trollbot_test
+  Map: default_small1.map26  Seed: 1  Replay: replay.replay26  TLE: off
+[nav] ASTAR_BUCKET_PYTHON
+Completed turn 0
+Completed turn 100
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+[nav] ASTAR_BUCKET_PYTHON
+Replay written to replay.replay26
+
+  Winner: v5  (Core destroyed, turn 179)
+
+                           v5     trollbot_test  
+  Titanium     17 (650 mined)    19 (360 mined)  
+  Axionite        0 (0 mined)       0 (0 mined)  
+  Units                    10                 3  
+  Buildings               185                37  
+
