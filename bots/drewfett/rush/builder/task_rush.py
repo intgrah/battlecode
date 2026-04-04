@@ -1196,11 +1196,11 @@ def _find_rush_ore(
             state.blocked_ore[oi] = state.age + state.birthday
             continue
 
-        # Enemy harvester — parasitize (strongly preferred, free flow)
+        # Enemy harvester — parasitize (slight preference, free flow)
         if oi in state.en_harvesters:
             tap = _find_free_adjacent(state, ox, oy)
-            if tap is not None and dist - 30 < best_dist:
-                best_dist = dist - 30
+            if tap is not None and dist - 10 < best_dist:
+                best_dist = dist - 10
                 best = ("parasite", oi, tap[0], tap[1])
             continue
 
