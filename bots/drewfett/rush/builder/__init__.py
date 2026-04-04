@@ -319,7 +319,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (150.0, Task.CONNECT_BACK),
                 (100.0, Task.HARVEST_TI),
                 (min(patrol_score, 140.0), Task.PATROL),
-                (20.0 if not ready else 0.0, Task.EXPLORE),
+                (15.0, Task.EXPLORE),
             ]
         case _:  # ECON — harvest, connect, explore. Never rushes.
             scores = [

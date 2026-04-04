@@ -692,7 +692,7 @@ def _extend_from_flow(
                         if result is not None:
                             return result
                         _log(f"extend[{k}]: can't afford gunner, holding turn")
-                        return Direction.CENTRE, None
+                        return None
 
         # Check what's on the NEXT tile — if enemy building, place gunner HERE to clear it
         # (fallback for when we can't look 2 ahead, e.g. last tiles in path)
@@ -717,7 +717,7 @@ def _extend_from_flow(
                 if result is not None:
                     return result
                 _log(f"extend[{k}]: can't afford gunner, holding turn")
-                return Direction.CENTRE, None
+                return None
             _log(f"extend[{k}]: enemy ahead but CENTRE facing, skip")
 
         # Enemy building on THIS tile (not marker) — walk on and fire
@@ -750,7 +750,7 @@ def _extend_from_flow(
                 return result
             # Can't afford gunner — hold the turn so nothing else runs
             _log(f"extend[{k}]: can't afford gunner, holding turn")
-            return Direction.CENTRE, None
+            return None
 
         # Build conveyor
         action = _build_action(build_at, nx, ny, SearchKind.MIXED)
@@ -764,10 +764,12 @@ def _extend_from_flow(
                     f"extend[{k}]: destroying allied {bld_name} at ({x},{y}) to rebuild"
                 )
                 ct.destroy(build_at)
+            # Build and step toward next tile if possible
+            step = pos.direction_to(build_at)
             _log(
-                f"extend[{k}]: building ({x},{y})->({nx},{ny}) action={action} d²={builder_dist}"
+                f"extend[{k}]: building ({x},{y})->({nx},{ny}) action={action} step={step.name}"
             )
-            return Direction.CENTRE, action
+            return step, action
         _log(f"extend[{k}]: need to walk to ({x},{y}) d²={builder_dist}")
         return _move_or_none(state, ct, build_at)
 
@@ -790,7 +792,7 @@ def _extend_from_flow(
         if result is not None:
             return result
         _log("extend: can't afford gunner, holding turn")
-        return Direction.CENTRE, None
+        return None
 
     _log(f"extend: endpoint ({lx},{ly}) cannot hit core, returning None")
     return None
