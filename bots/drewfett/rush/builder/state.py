@@ -17,9 +17,9 @@ _OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
     (0, 1): 4, (-1, 1): 5, (-1, 0): 6, (-1, -1): 7,
 }
 
-# First 4: 3 econ + 1 attack. After that: 1:1:1 rotation.
-_EARLY_ROLES = (0, 0, 1, 0)     # ECON, ECON, ATTACK, ECON
-_LATE_ROLES = (0, 1, 2)         # ECON, ATTACK, DEFENSE
+# First 3: econ, attack, attack. After that: defense, attack, econ, attack.
+_EARLY_ROLES = (0, 1, 1)        # ECON, ATTACK, ATTACK
+_LATE_ROLES = (2, 1, 0, 1)      # DEFENSE, ATTACK, ECON, ATTACK
 
 
 def _role_from_offset(dx: int, dy: int) -> int:
