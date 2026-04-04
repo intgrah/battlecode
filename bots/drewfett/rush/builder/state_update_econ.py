@@ -261,14 +261,16 @@ def update_flow(state: State) -> None:
                 f_rax_excess[ci] = rax_in - rax_push * no
                 f_excess[ci] = incoming - total_out
 
-            case (
-                BuildingCore()
-                | BuildingGunner()
-                | BuildingSentinel()
-                | BuildingBreach()
-                | BuildingLauncher()
-            ):
-                pass
+            case BuildingCore():
+                pass  # Core absorbs all flow (Ti delivered = victory points)
+
+            case BuildingGunner() | BuildingSentinel() | BuildingBreach() | BuildingLauncher():
+                # Turrets consume Ti for ammo: 0.2 Ti/round (2 Ti per shot, stack of 10)
+                # Mark surplus flow as excess on this tile
+                ti_in = f_ti[ci]
+                consumption = 0.2
+                f_ti_excess[ci] = max(0.0, ti_in - consumption)
+                f_excess[ci] = f_ti_excess[ci]
 
     _t3 = _t()
     # Backward pass: attribute flow to friendly/enemy sinks

@@ -59,18 +59,19 @@ def update(state: State, ct: Controller) -> None:
     state.pos = ct.get_position()
     t = ct.get_cpu_time_elapsed
 
+    t0 = t()
     _update_core_hp(state, ct)
     _update_ephemeral(state, ct)
     t1 = t()
     changed = _scan_vision(state, ct)
     t2 = t()
     _rebuild_danger_zones(state)
-    t3 = t()
     _stamp_unit_tiles(state)
+    t3 = t()
     _update_flow(state, ct, changed)
     t4 = t()
     _update_infra_staleness(state)
-    print(f"  upd: scan={t2 - t1} danger={t3 - t2} flow={t4 - t3}")
+    print(f"  upd: eph={t1-t0} scan={t2-t1} dng={t3-t2} flow={t4-t3}")
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
