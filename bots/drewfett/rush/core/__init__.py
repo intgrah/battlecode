@@ -1,8 +1,9 @@
-from cambc import Controller, Direction, EntityType, GameConstants, Position
+from cambc import Controller, Direction, EntityType, Environment, GameConstants, Position
 from marker import MarkerRole
 from unit import Unit
 
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
+_ENV_WALL = Environment.WALL
 
 # Role schedule: ECON=0, RUSH=1, HOME=2, FLEX=3
 _ROLE_ECON = 0
@@ -80,8 +81,27 @@ class Core(Unit):
 
 def _best_spawn_pos(ct: Controller, pos: Position, spawned: int = 0) -> Position | None:
     n = len(_DIRECTIONS)
+    # Rotate starting direction so each builder gets a different tile
+    # But skip tiles where the builder would be trapped (no walkable neighbor)
     for i in range(n):
         d = _DIRECTIONS[(spawned + i) % n]
+        sp = pos.add(d)
+        if not ct.can_spawn(sp):
+            continue
+        # Check tile isn't boxed in by walls
+        w, h = ct.get_map_width(), ct.get_map_height()
+        walls = 0
+        for d2 in _DIRECTIONS:
+            adj = sp.add(d2)
+            if not (0 <= adj.x < w and 0 <= adj.y < h):
+                walls += 1
+                continue
+            if ct.get_tile_env(adj) == _ENV_WALL:
+                walls += 1
+        if walls < 6:  # at least 3 non-wall neighbors
+            return sp
+    # Fallback: any spawnable tile
+    for d in _DIRECTIONS:
         sp = pos.add(d)
         if ct.can_spawn(sp):
             return sp

@@ -232,6 +232,7 @@ def _pick_and_walk(
         return walk_dist + conn_dist * 2 - enemy_bonus
 
     scored = sorted([(s, oi) for oi in unharvested if (s := _score(oi)) is not None])
+    print(f"HARV: pos=({pos.x},{pos.y}) ore={len(unharvested)} blocked={len(state.blocked_ore)}")
 
     for _, oi in scored:
         bld = state.building[oi]
@@ -258,15 +259,19 @@ def _pick_and_walk(
             state.blocked_ore.add(oi)
             continue
         if is_claimed(state, oi, TaskKind.NAV_ORE):
+            print(f"HARV:   ore ({oi%w},{oi//w}) claimed, skip")
             continue
         ore_pos = Position(oi % w, oi // w)
         adj = cardinal_adjacent(state, pos, ore_pos)
         if adj is None:
+            print(f"HARV:   ore ({oi%w},{oi//w}) no adj tile")
             continue
         result = move_toward_with_road(state, ct, adj)
         if result is None:
+            print(f"HARV:   ore ({oi%w},{oi//w}) no path to adj ({adj.x},{adj.y})")
             continue
         move, build = result
+        print(f"HARV:   ore ({oi%w},{oi//w}) -> adj ({adj.x},{adj.y}) move={move.name} build={type(build).__name__ if build else None}")
         # If we'll be adjacent after moving, place harvester in the same turn
         if move != Direction.CENTRE and build is None:
             new_pos = pos.add(move)

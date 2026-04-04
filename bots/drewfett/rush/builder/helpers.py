@@ -51,18 +51,23 @@ def move_toward_with_road(
         return Direction.CENTRE, None
     path = find_path(state, target.x, target.y)
     if path is None or len(path) < 2:
+        print(f"NAV: no path from ({pos.x},{pos.y}) to ({target.x},{target.y})")
         return Direction.CENTRE, None
-    draw_path(ct, state.w, path)
     w = state.w
     nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
     d = pos.direction_to(nxt)
-    if ct.can_move(d):
+    can_mv = ct.can_move(d)
+    if can_mv:
         return d, None
+    can_rd = ct.can_build_road(nxt)
     road_cost, _ = ct.get_road_cost()
     ti, _ = ct.get_global_resources()
-    if ti >= road_cost and ct.can_build_road(nxt):
+    if ti >= road_cost and can_rd:
         return d, PlaceRoad(nxt)
+    bid = ct.get_tile_building_id(nxt)
+    btype = ct.get_entity_type(bid) if bid is not None else None
+    print(f"NAV: ({pos.x},{pos.y})->({nx},{ny}) d={d.name} can_mv={can_mv} can_rd={can_rd} ti={ti} bld={btype} path_len={len(path)}")
     return Direction.CENTRE, None
 
 

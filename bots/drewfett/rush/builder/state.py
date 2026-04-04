@@ -270,10 +270,19 @@ class State:
             case Environment.WALL:
                 self.cost[i] = COST_IMPASSABLE
             case Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
-                if self.building[i] is None:
-                    self.cost[i] = COST_EMPTY
-                else:
-                    self.cost[i] = COST_ROAD
+                match self.building[i]:
+                    case None | BuildingMarker():
+                        self.cost[i] = COST_EMPTY
+                    case (
+                        BuildingRoad()
+                        | BuildingConveyor()
+                        | BuildingArmouredConveyor()
+                        | BuildingSplitter()
+                        | BuildingBridge()
+                    ):
+                        self.cost[i] = COST_ROAD
+                    case _:
+                        self.cost[i] = COST_IMPASSABLE
             case _:
                 match self.building[i]:
                     case None | BuildingMarker():
