@@ -35,6 +35,7 @@ from .task_explore import explore
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
 from .task_heal_infra import heal_infra
+from .task_road_harvesters import road_harvesters
 from .task_patrol import patrol
 from .task_rush import rush
 from .task_scout_enemy import scout_enemy
@@ -45,6 +46,7 @@ type TaskFn = Callable[[State, Controller], OldResult]
 TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
     Task.HEAL_INFRA: heal_infra,
+    Task.ROAD_HARVESTERS: road_harvesters,
     Task.RUSH: rush,
     Task.CONNECT_BACK: lambda s, c: connect_excess(
         s,
@@ -120,7 +122,8 @@ class Builder(Unit):
         t0 = t()
         state_update(s, ct)
         t1 = t()
-        print(f"pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}")
+        _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
+        print(f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}")
 
         s.claim = None
 
@@ -295,6 +298,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (200.0 if ready else 0.0, Task.RUSH),
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
                 (150.0 if not ready else 0.0, Task.CONNECT_BACK),
+                (120.0 if not ready else 0.0, Task.ROAD_HARVESTERS),
                 (100.0 if not ready else 0.0, Task.HARVEST_TI),
                 (80.0 if ready else 0.0, Task.HEAL_INFRA),
                 (explore_score, Task.EXPLORE),
@@ -306,6 +310,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                     (999.0, Task.HEAL_CORE),
                     (200.0, Task.HEAL_INFRA),
                     (150.0, Task.PATROL),
+                    (120.0, Task.ROAD_HARVESTERS),
                     (100.0, Task.CONNECT_BACK),
                     (50.0, Task.HARVEST_TI),
                 ]
@@ -313,6 +318,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 scores = [
                     (999.0, Task.HEAL_CORE),
                     (150.0, Task.CONNECT_BACK),
+                    (120.0, Task.ROAD_HARVESTERS),
                     (100.0, Task.HARVEST_TI),
                     (explore_score, Task.EXPLORE),
                     (15.0, Task.PATROL),
@@ -321,6 +327,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (150.0, Task.CONNECT_BACK),
+                (120.0, Task.ROAD_HARVESTERS),
                 (100.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),

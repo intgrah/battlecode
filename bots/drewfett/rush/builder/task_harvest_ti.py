@@ -23,6 +23,7 @@ from util import DIR4_DELTA, INF
 from .action import (
     Action,
     PlaceHarvester,
+    PlaceRoad,
     PlaceSentinel,
     PlaceSplitter,
 )
@@ -200,7 +201,6 @@ def harvest_ti(
             if ti >= h_cost and ct.can_build_harvester(ore_pos):
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
             if ti >= h_cost:
-                # Can't build — blocked, remove from ore set
                 state.ore_ti.discard(ni)
 
     # Pick best ore and walk toward it
