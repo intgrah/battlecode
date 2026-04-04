@@ -15,6 +15,10 @@ if TYPE_CHECKING:
 class Player:
     def __init__(self) -> None:
         self.unit: Unit | None = None
+        # Pre-init State for max 50x50 in 5s budget. Builder will patch for actual size.
+        from builder.state import State
+
+        self._pre_state = State.prealloc_max()
 
     def run(self, ct: Controller) -> None:
         if self.unit is None:
@@ -22,7 +26,7 @@ class Player:
                 case EntityType.CORE:
                     self.unit = Core(ct)
                 case EntityType.BUILDER_BOT:
-                    self.unit = Builder(ct)
+                    self.unit = Builder(ct, self._pre_state)
                 case EntityType.SENTINEL:
                     self.unit = Sentinel(ct)
                 case EntityType.GUNNER:

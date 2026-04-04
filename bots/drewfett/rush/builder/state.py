@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 
 
 from building import (
-    Building,
     BuildingArmouredConveyor,
     BuildingBridge,
     BuildingConveyor,
@@ -145,7 +144,31 @@ class State:
     by free functions (state_update, state_update_flow), not methods.
     """
 
-    def __init__(self, ct: Controller, core_pos: Position) -> None:
+    @classmethod
+    def prealloc_max(cls) -> State:
+        """Pre-allocate for max 50x50 map. Called in Player.__init__ (5s budget)."""
+        s = object.__new__(cls)
+        n = 50 * 50
+        s.w = 50
+        s.h = 50
+        s._n = n
+        s.env = [None] * n
+        s.building = [None] * n
+        s.last_seen = [0] * n
+        s.cost = [COST_UNSEEN] * n
+        s.pnb = _init_pnb(50, 50, n)
+        s.flow = UnifiedFlow(n)
+        s.nav_dist = [INF] * n
+        s.nav_parent = [-1] * n
+        s.nav_heuristic = [-1] * n
+        s.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]
+        s._nav_gen = bytearray(n)
+        s._nav_g = 1
+        return s
+
+    def __init__(
+        self, ct: Controller, core_pos: Position, pre: State | None = None
+    ) -> None:
         self.w = ct.get_map_width()
         self.h = ct.get_map_height()
         self.my_team = ct.get_team()
@@ -156,18 +179,27 @@ class State:
         dy = spawn_pos.y - core_pos.y
         self.role: int = _role_from_offset(dx, dy)
         n = self.w * self.h
+        self._n = n
 
-        # -- Per-tile arrays (indexed by y * w + x) --
-        # The environment at a tile. None is unseen. Empty, Wall, Ti, Ax
-        self.env: list[Environment | None] = [None] * n
-        # The building at at tile. None is unseen.
-        self.building: list[Building | None] = [None] * n
-        # The round in which a tile was last seen.
-        self.last_seen = [0] * n
-        # The edge cost used for pathfinding for all in-edges to a tile
-        self.cost = [COST_UNSEEN] * n
-        # Passable neighbours — lazily initialized on first use
-        self._pnb: list[list[int]] | None = None
+        # Always reuse pre-allocated arrays (overallocated for 50x50)
+        assert pre is not None
+        self.env = pre.env
+        self.building = pre.building
+        self.last_seen = pre.last_seen
+        self.cost = pre.cost
+        self.flow = pre.flow
+        self.nav_dist = pre.nav_dist
+        self.nav_parent = pre.nav_parent
+        self.nav_heuristic = pre.nav_heuristic
+        self.nav_buckets = pre.nav_buckets
+        self._nav_gen = pre._nav_gen
+        self._nav_g = pre._nav_g
+
+        # Rebuild pnb for actual map size (indices depend on width)
+        if self.w == 50 and self.h == 50:
+            self.pnb = pre.pnb
+        else:
+            self.pnb = _init_pnb(self.w, self.h, n)
         # Symmetry detection means that knowledge of the environment can be reflected.
         # Reflected tiles count as changes to the knowledge, so env, pnb
         # However, in moments such as symmetry elimination, this can cause large spikes
@@ -213,9 +245,7 @@ class State:
         self.foundries: set[int] = set()
         self.turrets: set[int] = set()
 
-        # -- Unified flow (lazily initialized) --
-        self._flow: UnifiedFlow | None = None
-        self._n = n
+        # flow is set above (pre-allocated or fresh)
 
         # -- Ephemeral --
         self.unit_tiles: set[Position] = set()
@@ -248,10 +278,7 @@ class State:
         self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
 
-        self._nav_dist: list[int] | None = None
-        self._nav_parent: list[int] | None = None
-        self._nav_heuristic: list[int] | None = None
-        self._nav_buckets: list[deque[int]] | None = None
+        # nav_dist/parent/heuristic/buckets set from prealloc above
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -269,42 +296,6 @@ class State:
 
         # -- Landmarks --
         self.landmarks: None = None
-
-    @property
-    def pnb(self) -> list[list[int]]:
-        if self._pnb is None:
-            self._pnb = _init_pnb(self.w, self.h, self.w * self.h)
-        return self._pnb
-
-    @property
-    def flow(self) -> UnifiedFlow:
-        if self._flow is None:
-            self._flow = UnifiedFlow(self._n)
-        return self._flow
-
-    @property
-    def nav_dist(self) -> list[int]:
-        if self._nav_dist is None:
-            self._nav_dist = [INF] * self._n
-        return self._nav_dist
-
-    @property
-    def nav_parent(self) -> list[int]:
-        if self._nav_parent is None:
-            self._nav_parent = [-1] * self._n
-        return self._nav_parent
-
-    @property
-    def nav_heuristic(self) -> list[int]:
-        if self._nav_heuristic is None:
-            self._nav_heuristic = [-1] * self._n
-        return self._nav_heuristic
-
-    @property
-    def nav_buckets(self) -> list[deque[int]]:
-        if self._nav_buckets is None:
-            self._nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]
-        return self._nav_buckets
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x

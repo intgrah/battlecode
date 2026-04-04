@@ -260,7 +260,8 @@ def harvest_ti(
 
     # Pick best ore and walk toward it
     _t2 = _t()
-    return _pick_and_walk(state, ct, unharvested)
+    result = _pick_and_walk(state, ct, unharvested)
+    return result
 
 
 def _pick_and_walk(

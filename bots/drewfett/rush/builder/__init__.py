@@ -120,9 +120,9 @@ def _exec_build(ct: Controller, action: Action) -> None:
 
 
 class Builder(Unit):
-    def __init__(self, ct: Controller) -> None:
+    def __init__(self, ct: Controller, pre_state: State | None = None) -> None:
         core_pos = _find_core(ct)
-        self.state = State(ct, core_pos)
+        self.state = State(ct, core_pos, pre=pre_state)
         self._stuck_turns = 0
 
     def run(self, ct: Controller) -> None:
@@ -156,7 +156,10 @@ class Builder(Unit):
             if self._stuck_turns >= 3:
                 # Livelock: take a random walkable step
                 import random
-                dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
+
+                dirs = [
+                    d for d in Direction if d != Direction.CENTRE and ct.can_move(d)
+                ]
                 if dirs:
                     ct.move(random.choice(dirs))
                     self._stuck_turns = 0
