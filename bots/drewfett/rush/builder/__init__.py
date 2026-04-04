@@ -224,17 +224,46 @@ class Builder(Unit):
                     self.state.out_target_dirty = True
 
     def _opportunistic_heal(self, ct: Controller) -> None:
-        """If we just moved (action unused), heal any damaged friendly building nearby."""
         my_team = ct.get_team()
+        best_pos: Position | None = None
+        best_frac = 1.0
         for bid in ct.get_nearby_buildings():
             if ct.get_team(bid) != my_team:
                 continue
-            if ct.get_hp(bid) >= ct.get_max_hp(bid):
+            hp, max_hp = ct.get_hp(bid), ct.get_max_hp(bid)
+            if hp >= max_hp:
                 continue
-            pos = ct.get_position(bid)
+            if ct.get_entity_type(bid) == EntityType.CORE:
+                bp = ct.get_position(bid)
+                for dx in range(-1, 2):
+                    for dy in range(-1, 2):
+                        tp = Position(bp.x + dx, bp.y + dy)
+                        if ct.can_heal(tp):
+                            frac = hp / max_hp
+                            if frac < best_frac:
+                                best_frac = frac
+                                best_pos = tp
+            else:
+                pos = ct.get_position(bid)
+                if ct.can_heal(pos):
+                    frac = hp / max_hp
+                    if frac < best_frac:
+                        best_frac = frac
+                        best_pos = pos
+        for uid in ct.get_nearby_units():
+            if ct.get_team(uid) != my_team:
+                continue
+            hp, max_hp = ct.get_hp(uid), ct.get_max_hp(uid)
+            if hp >= max_hp:
+                continue
+            pos = ct.get_position(uid)
             if ct.can_heal(pos):
-                ct.heal(pos)
-                return
+                frac = hp / max_hp
+                if frac < best_frac:
+                    best_frac = frac
+                    best_pos = pos
+        if best_pos is not None:
+            ct.heal(best_pos)
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
