@@ -55,6 +55,7 @@ def update_flow(state: State) -> None:
     f_en_frac = f.en_frac
     f_my_total = f.my_total
     f_en_total = f.en_total
+    f_gunners_fed = f.gunners_fed
     f_ti_excess = f.ti_excess
     f_ax_excess = f.ax_excess
     f_rax_excess = f.rax_excess
@@ -85,6 +86,7 @@ def update_flow(state: State) -> None:
         f_ax_excess[i] = 0.0
         f_rax_excess[i] = 0.0
         f_excess[i] = 0.0
+        f_gunners_fed[i] = 0
         in_degree[i] = 0
         out_edges[i].clear()
         in_rev_head[i] = -1
@@ -266,11 +268,11 @@ def update_flow(state: State) -> None:
 
             case BuildingGunner() | BuildingSentinel() | BuildingBreach() | BuildingLauncher():
                 # Turrets consume Ti for ammo: 0.2 Ti/round (2 Ti per shot, stack of 10)
-                # Mark surplus flow as excess on this tile
                 ti_in = f_ti[ci]
                 consumption = 0.2
                 f_ti_excess[ci] = max(0.0, ti_in - consumption)
                 f_excess[ci] = f_ti_excess[ci]
+                f_gunners_fed[ci] = 1
 
     _t3 = _t()
     # Backward pass: attribute flow to friendly/enemy sinks
@@ -290,14 +292,17 @@ def update_flow(state: State) -> None:
         my_w = 0.0
         en_w = 0.0
         total_w = 0.0
+        gunners = 0
         for oi, eidx in edges_ci:
             ep = edge_push[eidx]
             my_w += ep * f_my_frac[oi]
             en_w += ep * f_en_frac[oi]
             total_w += ep
+            gunners += f_gunners_fed[oi]
         if total_w > 0:
             f_my_frac[ci] = my_w / total_w
             f_en_frac[ci] = en_w / total_w
+        f_gunners_fed[ci] = gunners
 
     for i in chain(*_all):
         f_my_total[i] = f_total[i] * f_my_frac[i]
