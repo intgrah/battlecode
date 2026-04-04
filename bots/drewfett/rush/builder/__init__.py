@@ -236,17 +236,33 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
     ready = _rush_ready(state)
 
-    # Unified policy — all builders do everything (old behavior)
-    # Role-specific policies ready but disabled until role assignment is reliable
-    scores: list[tuple[float, Task]] = [
-        (999.0, Task.HEAL_CORE),
-        (200.0 if ready else 0.0, Task.RUSH),
-        (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
-        (150.0, Task.CONNECT_BACK),
-        (100.0, Task.HARVEST_TI),
-        (explore_score, Task.EXPLORE),
-        (15.0, Task.PATROL),
-    ]
+    match state.role:
+        case 1:  # RUSH — full all-rounder, econ early then siege
+            scores: list[tuple[float, Task]] = [
+                (999.0, Task.HEAL_CORE),
+                (200.0 if ready else 0.0, Task.RUSH),
+                (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
+                (150.0, Task.CONNECT_BACK),
+                (100.0, Task.HARVEST_TI),
+                (explore_score, Task.EXPLORE),
+                (15.0, Task.PATROL),
+            ]
+        case 2:  # HOME — stay near base, harvest, connect, patrol harvesters
+            scores = [
+                (999.0, Task.HEAL_CORE),
+                (150.0, Task.CONNECT_BACK),
+                (100.0, Task.HARVEST_TI),
+                (50.0, Task.PATROL),
+                (20.0, Task.EXPLORE),
+            ]
+        case _:  # ECON — harvest, connect, explore. Never rushes.
+            scores = [
+                (999.0, Task.HEAL_CORE),
+                (150.0, Task.CONNECT_BACK),
+                (100.0, Task.HARVEST_TI),
+                (explore_score, Task.EXPLORE),
+                (15.0, Task.PATROL),
+            ]
 
     scores.sort(key=lambda t: t[0], reverse=True)
     return scores
