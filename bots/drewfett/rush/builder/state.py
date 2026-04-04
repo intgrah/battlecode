@@ -216,6 +216,7 @@ class State:
 
         # -- Task caches --
         self.explore_target: Position | None = None
+        self.scout_target: Position | None = None
 
         # -- Flow search caches --
         self.ti_flow_search: FlowAstar | None = None
