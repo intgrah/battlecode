@@ -270,7 +270,7 @@ class State:
         self._nav_heuristic: list[int] | None = None
         self._nav_buckets: list[deque[int]] | None = None
         self._nav_gen: bytearray = bytearray(n)
-        self._nav_g: int = 0
+        self._nav_g: int = 1  # start at 1 so gen (all 0s) never matches
 
 
         # -- Marker --
