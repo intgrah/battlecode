@@ -7,7 +7,6 @@ from building import (
     BuildingConveyor,
     BuildingCore,
     BuildingFoundry,
-    BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
     BuildingSplitter,

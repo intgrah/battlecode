@@ -35,10 +35,10 @@ if TYPE_CHECKING:
 def _adjacent_safe_for_harvester(state: State, ox: int, oy: int) -> bool:
     """Check that no enemy transport is adjacent to ore — would steal output."""
     from building import (
-        BuildingConveyor,
         BuildingArmouredConveyor,
-        BuildingSplitter,
         BuildingBridge,
+        BuildingConveyor,
+        BuildingSplitter,
     )
 
     w = state.w
@@ -52,7 +52,15 @@ def _adjacent_safe_for_harvester(state: State, ox: int, oy: int) -> bool:
             continue
         if bld.team == state.my_team:
             continue
-        if isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge)):
+        if isinstance(
+            bld,
+            (
+                BuildingConveyor,
+                BuildingArmouredConveyor,
+                BuildingSplitter,
+                BuildingBridge,
+            ),
+        ):
             return False
     return True
 
@@ -252,8 +260,7 @@ def harvest_ti(
 
     # Pick best ore and walk toward it
     _t2 = _t()
-    result = _pick_and_walk(state, ct, unharvested)
-    return result
+    return _pick_and_walk(state, ct, unharvested)
 
 
 def _pick_and_walk(

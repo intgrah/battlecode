@@ -55,7 +55,10 @@ class Sentinel(Unit):
             has_enemy = False
             for uid in ct.get_nearby_units():
                 team = ct.get_team(uid)
-                if team == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
+                if (
+                    team == my_team
+                    and ct.get_entity_type(uid) == EntityType.BUILDER_BOT
+                ):
                     has_ally_builder = True
                 elif team != my_team:
                     has_enemy = True

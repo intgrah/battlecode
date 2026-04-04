@@ -18,6 +18,7 @@ def patrol(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     from util import DIR4_DELTA
+
     w = state.w
     f = state.flow
     # Only patrol our harvesters + adjacent tiles + infra flowing to our core

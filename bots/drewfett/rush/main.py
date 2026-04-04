@@ -1,9 +1,8 @@
-import sys
 import traceback
 from typing import TYPE_CHECKING
 
 from builder import Builder
-from cambc import Controller, EntityType, GameError
+from cambc import Controller, EntityType
 from core import Core
 from gunner import Gunner
 from launcher import Launcher
