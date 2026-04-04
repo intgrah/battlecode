@@ -13,8 +13,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import (
-    BuildingConveyor,
     BuildingArmouredConveyor,
+    BuildingConveyor,
     BuildingGunner,
     BuildingHarvester,
     BuildingMarker,
@@ -114,6 +114,7 @@ def defend(
             if env is None:
                 break
             from cambc import Environment
+
             if env == Environment.WALL:
                 break
             bld = state.building[gi]
@@ -122,11 +123,12 @@ def defend(
 
             # Check LoS back to threat (nothing blocking in between)
             los_ok = True
-            cx, cy = gx + dx * (-1), gy + dy * (-1)  # one step toward threat
+            _cx, _cy = gx + dx * (-1), gy + dy * (-1)  # one step toward threat
             # Actually just check: facing direction
             fdx = -dx if dx != 0 else 0
             fdy = -dy if dy != 0 else 0
             from util import DELTA_TO_DIR
+
             facing = DELTA_TO_DIR.get((fdx, fdy))
             if facing is None:
                 continue
@@ -165,7 +167,9 @@ def defend(
                 if isinstance(abld, BuildingHarvester):
                     has_ammo = True
                     break
-                if isinstance(abld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter)):
+                if isinstance(
+                    abld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter)
+                ):
                     if abld.team == my_team and state.flow.ti[ai] > 0.05:
                         has_ammo = True
                         break

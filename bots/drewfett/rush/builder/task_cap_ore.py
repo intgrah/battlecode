@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Direction, Position
 
 from .action import Action, PlaceBarrier
 from .helpers import move_toward_with_road
@@ -35,7 +35,9 @@ def cap_ore(
     best: Position | None = None
     best_dist = _MAX_DETOUR_SQ + 1
 
-    unclaimed = state.ore_ti - state.my_harvesters - state.en_harvesters - state.barriers
+    unclaimed = (
+        state.ore_ti - state.my_harvesters - state.en_harvesters - state.barriers
+    )
     for oi in unclaimed:
         bld = state.building[oi]
         if bld is not None:
