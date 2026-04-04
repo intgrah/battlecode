@@ -84,11 +84,14 @@ def rush(
     w = state.w
     f = state.flow
 
+    # Cache extendable tiles (used by step 1 and step 2)
+    ext_tiles = _extendable_tiles(state)
+
     t = ct.get_cpu_time_elapsed
 
     # Step 1: Any tile with our flow that can hit core? → place gunner
     t1 = t()
-    gunner_hit = _find_flow_in_range(state, en_core)
+    gunner_hit = _find_flow_in_range(state, en_core, ext_tiles)
     print(f"R s1={t() - t1} @{t()}")
     if gunner_hit is not None:
         gx, gy, facing = gunner_hit
@@ -106,7 +109,7 @@ def rush(
 
     # Step 2: Any tile with our flow near enemy core? → extend toward core
     t2 = t()
-    flow_tile = _find_flow_near_core(state, en_core)
+    flow_tile = _find_flow_near_core(state, en_core, ext_tiles)
     print(f"R s2find={t() - t2} @{t()}")
     if flow_tile is not None:
         fx, fy = flow_tile
@@ -505,6 +508,7 @@ def _upgrade_to_splitter(
 def _find_flow_in_range(
     state: State,
     en_core: Position,
+    ext_tiles: list[tuple[int, int]] | None = None,
 ) -> tuple[int, int, Direction] | None:
     """Find a tile with tappable flow that can hit enemy core via LoS ray."""
     best: tuple[int, int, Direction] | None = None
@@ -516,7 +520,7 @@ def _find_flow_in_range(
     building = state.building
     ct = _make_core_tiles(state, en_core)
 
-    for tx, ty in _extendable_tiles(state):
+    for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
         facing = _can_hit_core_fast(w, h, env, building, ct, tx, ty)
         if facing is not None:
             dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
@@ -555,6 +559,7 @@ def _find_flow_in_range(
 def _find_flow_near_core(
     state: State,
     en_core: Position,
+    ext_tiles: list[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
     """Find nearest extendable free tile on the enemy half."""
     best: tuple[int, int] | None = None
@@ -564,7 +569,7 @@ def _find_flow_near_core(
     f = state.flow
 
     # Check extendable free tiles (preferred)
-    for tx, ty in _extendable_tiles(state):
+    for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
         if not _on_enemy_half(state, tx, ty):
             continue
         dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
