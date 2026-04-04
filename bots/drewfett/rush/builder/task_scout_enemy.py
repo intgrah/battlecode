@@ -34,8 +34,10 @@ def scout_enemy(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
+    _t0 = ct.get_cpu_time_elapsed()
     en_core = state.en_core_pos
     if en_core is None:
+        print(f"SE: {ct.get_cpu_time_elapsed() - _t0}us no-core")
         return None
 
     pos = state.pos
@@ -45,6 +47,7 @@ def scout_enemy(
     if not on_enemy_half:
         has_income = any(state.flow.ti[i] > 0 for i in state.my_core_tiles)
         if not has_income:
+            print(f"SE: {ct.get_cpu_time_elapsed() - _t0}us no-income")
             return None
 
     # Committed target — persist until seen
@@ -57,11 +60,13 @@ def scout_enemy(
     if state.explore_target is None:
         state.explore_target = _pick_target(state, en_core)
     if state.explore_target is None:
-        # Nothing unseen near enemy — just walk toward core
-        return _move_or_none(state, ct, en_core)
+        print(f"SE: {ct.get_cpu_time_elapsed() - _t0}us scouted")
+        return None  # everything near core is scouted
 
     ct.draw_indicator_dot(state.explore_target, 0, 255, 255)  # cyan dot
-    return _move_or_none(state, ct, state.explore_target)
+    result = _move_or_none(state, ct, state.explore_target)
+    print(f"SE: {ct.get_cpu_time_elapsed() - _t0}us {'ok' if result else 'fail'}")
+    return result
 
 
 def _pick_target(state: State, en_core: Position) -> Position | None:

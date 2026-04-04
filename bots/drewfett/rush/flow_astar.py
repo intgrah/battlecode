@@ -7,6 +7,7 @@ from building import (
     BuildingConveyor,
     BuildingCore,
     BuildingFoundry,
+    BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
@@ -16,7 +17,7 @@ from util import BRIDGE_DELTAS, DIR4_DELTA
 
 COST_REUSE = 0
 COST_CONV = 3
-COST_BRIDGE = 30
+COST_BRIDGE = 20
 COST_ROAD_REPLACE = 3
 COST_ENEMY_ROAD = 8
 COST_ENEMY_CONV = 12
@@ -24,7 +25,7 @@ COST_ENEMY_BARRIER = 20
 COST_FLOW_DANGER = 10  # penalty for routing through enemy turret threat zones
 
 _IMPASSABLE_ENV = frozenset(
-    (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE),
+    (Environment.WALL,),
 )
 
 TI = 0b001
@@ -152,7 +153,7 @@ class FlowAstar(Astar[int]):
         result: list[tuple[int, int]] = []
 
         match bld:
-            case BuildingCore():
+            case BuildingCore() | BuildingHarvester() | BuildingFoundry():
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:

@@ -93,10 +93,14 @@ def _update_ephemeral(state: State, ct: Controller) -> None:
     state.unit_tiles.clear()
 
     my_id = ct.get_id()
+    my_team = state.my_team
+    state.enemy_bots_nearby = False
     for uid in ct.get_nearby_units():
         if uid == my_id:
             continue
         state.unit_tiles.add(ct.get_position(uid))
+        if ct.get_team(uid) != my_team:
+            state.enemy_bots_nearby = True
 
     state.claims = {c for c in state.claims if not is_stale(c, rnd)}
 
@@ -465,7 +469,8 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
     We don't need to recalculate if nothing related to transport changed in our vision
     """
     infra = state.transport | state.harvesters | state.foundries | state.turrets
-    needs_reflow = any(i in infra for i in changed)
+    needs_reflow = any(i in infra for i in changed) or state.out_target_dirty
+    state.out_target_dirty = False
     if needs_reflow:
         update_flow(state)
         state.ti_flow_search = None

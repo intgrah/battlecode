@@ -34,7 +34,9 @@ from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
+from .task_heal_infra import heal_infra
 from .task_patrol import patrol
+from .task_road_harvesters import road_harvesters
 from .task_rush import rush
 from .task_scout_enemy import scout_enemy
 
@@ -43,6 +45,8 @@ type TaskFn = Callable[[State, Controller], OldResult]
 
 TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
+    Task.HEAL_INFRA: heal_infra,
+    Task.ROAD_HARVESTERS: road_harvesters,
     Task.RUSH: rush,
     Task.CONNECT_BACK: lambda s, c: connect_excess(
         s,
@@ -118,15 +122,27 @@ class Builder(Unit):
         t0 = t()
         state_update(s, ct)
         t1 = t()
-        print(f"pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}")
+        _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
+        print(
+            f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}"
+        )
 
         s.claim = None
 
         turn = self._run_policy(ct)
         t2 = t()
+        print(f"turn={turn}")
+        pos_before = ct.get_position()
         self._execute_turn(ct, turn)
+        pos_after = ct.get_position()
+        t3 = t()
+        print(f"tot={t3 - t0} upd={t1 - t0} pol={t2 - t1} exec={t3 - t2}")
+        if pos_before == pos_after and turn is not None:
+            print(f"STUCK at ({pos_before.x},{pos_before.y})")
+        # Opportunistic heal: if action unused, heal nearby damaged building
+        if ct.get_action_cooldown() == 0:
+            self._opportunistic_heal(ct)
         self._write_marker(ct)
-        print(f"pol={t2 - t1} exec={t() - t2} tot={t() - t0}")
 
     def _run_policy(self, ct: Controller) -> Turn | None:
         s = self.state
@@ -139,11 +155,37 @@ class Builder(Unit):
             result = fn(s, ct)
             dt = t() - t0
             if result is not None:
-                print(f"  {task.name} OK {dt}us @{t()}")
+                print(f"  {task.name} OK {dt}us")
                 return _to_turn(result)
-            if dt > 20:
-                print(f"  {task.name} FAIL {dt}us @{t()}")
+            print(f"  {task.name} FAIL {dt}us")
+        print("  IDLE")
         return None
+
+    def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
+        """Try to move. If blocked, 50% chance to detour randomly (paving if needed)."""
+        if ct.can_move(direction):
+            ct.move(direction)
+            return True
+        import random
+
+        if random.random() < 0.5:
+            # Try walkable tiles first
+            dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
+            if dirs:
+                ct.move(random.choice(dirs))
+                return False
+            # No walkable tiles — try paving a road in a random direction
+            pos = ct.get_position()
+            candidates = [d for d in Direction if d != Direction.CENTRE]
+            random.shuffle(candidates)
+            for d in candidates:
+                nxt = pos.add(d)
+                if ct.can_build_road(nxt):
+                    ct.build_road(nxt)
+                    if ct.can_move(d):
+                        ct.move(d)
+                    return False
+        return False
 
     def _execute_turn(self, ct: Controller, turn: Turn | None) -> None:
         if turn is None:
@@ -152,28 +194,39 @@ class Builder(Unit):
             case Wait():
                 pass
             case MoveOnly(direction):
-                if ct.can_move(direction):
-                    ct.move(direction)
+                self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
+                self.state.out_target_dirty = True
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
-                    # Road: only build if we can't already move there
                     if ct.can_move(direction):
                         ct.move(direction)
                     else:
                         execute(action, ct)
-                        if ct.can_move(direction):
-                            ct.move(direction)
+                        self.state.out_target_dirty = True
+                        self._move_or_detour(ct, direction)
                 else:
-                    # Non-road: build first (while adjacent), then step
                     execute(action, ct)
-                    if ct.can_move(direction):
-                        ct.move(direction)
+                    self.state.out_target_dirty = True
+                    self._move_or_detour(ct, direction)
             case MoveAction(direction, action):
-                if ct.can_move(direction):
-                    ct.move(direction)
+                if self._move_or_detour(ct, direction):
                     execute(action, ct)
+                    self.state.out_target_dirty = True
+
+    def _opportunistic_heal(self, ct: Controller) -> None:
+        """If we just moved (action unused), heal any damaged friendly building nearby."""
+        my_team = ct.get_team()
+        for bid in ct.get_nearby_buildings():
+            if ct.get_team(bid) != my_team:
+                continue
+            if ct.get_hp(bid) >= ct.get_max_hp(bid):
+                continue
+            pos = ct.get_position(bid)
+            if ct.can_heal(pos):
+                ct.heal(pos)
+                return
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
@@ -239,7 +292,7 @@ _ROLE_HOME = 2
 
 def _rush_ready(state: State) -> bool:
     core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
-    return core_flow >= 0.4 and state.en_core_pos is not None
+    return core_flow >= 0.2 and state.en_core_pos is not None
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:
@@ -254,23 +307,36 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (999.0, Task.HEAL_CORE),
                 (200.0 if ready else 0.0, Task.RUSH),
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
-                (150.0, Task.CONNECT_BACK),
-                (100.0, Task.HARVEST_TI),
+                (150.0 if not ready else 0.0, Task.CONNECT_BACK),
+                (120.0 if not ready else 0.0, Task.ROAD_HARVESTERS),
+                (100.0 if not ready else 0.0, Task.HARVEST_TI),
+                (250.0 if ready else 0.0, Task.HEAL_INFRA),
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]
-        case 2:  # HOME — stay near base, harvest, connect, patrol harvesters
+        case 2:  # HOME — econ + defend harvesters, never goes to enemy half
+            n_harv = len(state.my_harvesters)
+            # Harvest until 4 harvesters, then patrol takes over
+            harvest_score = 100.0 if n_harv < 4 else 20.0
+            # Patrol scales: low early, rises with harvesters
+            patrol_score = min(20.0 + n_harv * 20.0, 90.0)  # 0→20, 2→60, 3→80, 4→80 cap
+            # Explore high early (find ore), drops once harvesters connected
+            core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
+            home_explore = 80.0 if core_flow < 0.4 else 15.0
             scores = [
                 (999.0, Task.HEAL_CORE),
+                (200.0, Task.HEAL_INFRA),
+                (180.0, Task.ROAD_HARVESTERS),
                 (150.0, Task.CONNECT_BACK),
-                (100.0, Task.HARVEST_TI),
-                (50.0, Task.PATROL),
-                (20.0, Task.EXPLORE),
+                (harvest_score, Task.HARVEST_TI),
+                (patrol_score, Task.PATROL),
+                (home_explore, Task.EXPLORE),
             ]
         case _:  # ECON — harvest, connect, explore. Never rushes.
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (150.0, Task.CONNECT_BACK),
+                (120.0, Task.ROAD_HARVESTERS),
                 (100.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
