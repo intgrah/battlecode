@@ -32,6 +32,7 @@ from .state_update import update as state_update
 from .task import Task
 from .task_cap_ore import cap_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
+from .task_cut_feed import cut_feed
 from .task_defend import defend
 from .task_explore import explore
 from .task_fortify import fortify
@@ -64,6 +65,7 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.FORTIFY: fortify,
     Task.DEFEND: defend,
     Task.CAP_ORE: cap_ore,
+    Task.CUT_FEED: cut_feed,
 }
 
 
@@ -315,6 +317,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
             )
             scores: list[tuple[float, Task]] = [
                 (999.0, Task.HEAL_CORE),
+                (500.0, Task.CUT_FEED),
                 (300.0, Task.DEFEND),
                 (200.0, Task.HEAL_INFRA),
                 (180.0, Task.CONNECT_BACK),
@@ -329,6 +332,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
             )
             scores = [
                 (999.0, Task.HEAL_CORE),
+                (500.0, Task.CUT_FEED),
                 (250.0 if ready else 0.0, Task.HEAL_INFRA),
                 (200.0 if ready else 0.0, Task.RUSH),
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
@@ -344,6 +348,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
             )
             scores = [
                 (999.0, Task.HEAL_CORE),
+                (500.0, Task.CUT_FEED),
                 (300.0, Task.DEFEND),
                 (200.0, Task.HEAL_INFRA),
                 (150.0, Task.FORTIFY),
