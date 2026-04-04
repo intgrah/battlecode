@@ -105,6 +105,7 @@ def _pick_and_walk(
         # Skip if ore has a building we can't remove
         if bld is not None:
             from building import BuildingHarvester, BuildingMarker, BuildingRoad
+
             if not isinstance(bld, (BuildingRoad, BuildingMarker, BuildingHarvester)):
                 state.blocked_ore.add(oi)
                 continue
