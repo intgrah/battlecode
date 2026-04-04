@@ -32,6 +32,31 @@ if TYPE_CHECKING:
     from .state import State
 
 
+def _adjacent_safe_for_harvester(state: State, ox: int, oy: int) -> bool:
+    """Check that no enemy transport is adjacent to ore — would steal output."""
+    from building import (
+        BuildingConveyor,
+        BuildingArmouredConveyor,
+        BuildingSplitter,
+        BuildingBridge,
+    )
+
+    w = state.w
+    for dx, dy in DIR4_DELTA:
+        nx, ny = ox + dx, oy + dy
+        if not state.in_bounds(nx, ny):
+            continue
+        ni = ny * w + nx
+        bld = state.building[ni]
+        if bld is None:
+            continue
+        if bld.team == state.my_team:
+            continue
+        if isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge)):
+            return False
+    return True
+
+
 def _enemy_direction(state: State) -> tuple[int, int]:
     """Target point toward likely enemy core."""
     if state.en_core_pos is not None:
@@ -208,6 +233,9 @@ def harvest_ti(
             if road_result is not None:
                 return road_result
             # Step 3: destroy our barrier on ore and place harvester
+            # Don't place if enemy transport adjacent — would steal output
+            if not _adjacent_safe_for_harvester(state, ore_pos.x, ore_pos.y):
+                continue
             # Only destroy if we can afford the harvester
             h_cost, _ = ct.get_harvester_cost()
             ti, _ = ct.get_global_resources()
