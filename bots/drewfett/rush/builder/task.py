@@ -12,3 +12,5 @@ class Task(IntEnum):
     EXPLORE = auto()
     PATROL = auto()
     FORTIFY = auto()
+    DEFEND = auto()
+    CAP_ORE = auto()

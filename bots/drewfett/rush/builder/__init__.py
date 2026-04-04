@@ -39,6 +39,8 @@ from .task_patrol import patrol
 from .task_road_harvesters import road_harvesters
 from .task_rush import rush
 from .task_fortify import fortify
+from .task_cap_ore import cap_ore
+from .task_defend import defend
 from .task_scout_enemy import scout_enemy
 
 type OldResult = tuple[Direction, Action | None] | None
@@ -60,6 +62,8 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.EXPLORE: explore,
     Task.PATROL: patrol,
     Task.FORTIFY: fortify,
+    Task.DEFEND: defend,
+    Task.CAP_ORE: cap_ore,
 }
 
 
@@ -296,15 +300,15 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     ready = _rush_ready(state)
 
     match state.role:
-        case 0:  # ECON — harvest, connect, explore aggressively
+        case 0:  # ECON — harvest, connect ASAP, explore aggressively
             # Explore stays high until most of the map is seen
             explore_score = 120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
             scores: list[tuple[float, Task]] = [
                 (999.0, Task.HEAL_CORE),
+                (300.0, Task.DEFEND),
                 (200.0, Task.HEAL_INFRA),
-                (180.0, Task.ROAD_HARVESTERS),
-                (150.0, Task.CONNECT_BACK),
-                (120.0, Task.HARVEST_TI),
+                (180.0, Task.CONNECT_BACK),
+                (150.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
                 (18.0, Task.FORTIFY),
                 (15.0, Task.PATROL),
@@ -317,18 +321,18 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (200.0 if ready else 0.0, Task.RUSH),
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
                 (150.0 if not ready else 0.0, Task.CONNECT_BACK),
-                (120.0 if not ready else 0.0, Task.ROAD_HARVESTERS),
                 (100.0 if not ready else 0.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
+                (25.0, Task.CAP_ORE),
                 (15.0, Task.PATROL),
             ]
-        case _:  # DEFENSE — heal, fortify, then econ fallback
+        case _:  # DEFENSE — defend, heal, fortify, then econ fallback
             explore_score = 80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
             scores = [
                 (999.0, Task.HEAL_CORE),
+                (300.0, Task.DEFEND),
                 (200.0, Task.HEAL_INFRA),
                 (150.0, Task.FORTIFY),
-                (130.0, Task.ROAD_HARVESTERS),
                 (110.0, Task.CONNECT_BACK),
                 (90.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
