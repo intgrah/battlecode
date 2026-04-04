@@ -118,7 +118,7 @@ class Builder(Unit):
         t0 = t()
         state_update(s, ct)
         t1 = t()
-        print(f"upd={t1 - t0} @{t1}")
+        print(f"pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}")
 
         s.claim = None
 
