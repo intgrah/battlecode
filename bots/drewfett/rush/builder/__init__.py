@@ -191,19 +191,23 @@ class Builder(Unit):
                 self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
+                self.state.out_target_dirty = True
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
                     if ct.can_move(direction):
                         ct.move(direction)
                     else:
                         execute(action, ct)
+                        self.state.out_target_dirty = True
                         self._move_or_detour(ct, direction)
                 else:
                     execute(action, ct)
+                    self.state.out_target_dirty = True
                     self._move_or_detour(ct, direction)
             case MoveAction(direction, action):
                 if self._move_or_detour(ct, direction):
                     execute(action, ct)
+                    self.state.out_target_dirty = True
 
     def _opportunistic_heal(self, ct: Controller) -> None:
         """If we just moved (action unused), heal any damaged friendly building nearby."""
