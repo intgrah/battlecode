@@ -34,6 +34,5 @@ class Player:
                     return
         try:
             self.unit.run(ct)
-        except Exception as e:  # noqa: BLE001
-            print(traceback.format_exc(), file=sys.stderr)
-            print(f"ERROR: {e}", file=sys.stderr)
+        except Exception:  # noqa: BLE001
+            print(traceback.format_exc())

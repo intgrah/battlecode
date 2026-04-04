@@ -71,7 +71,7 @@ def update(state: State, ct: Controller) -> None:
     _t3 = _t()
     _update_flow(state, ct, changed)
     _t4 = _t()
-    from navigation.bfs import update_bfs
+    from navigation import update_bfs
     if state.age > 1:  # skip BFS on first turn (pnb init is expensive)
         update_bfs(state)
     _t5 = _t()

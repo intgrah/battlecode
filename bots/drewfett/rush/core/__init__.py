@@ -4,7 +4,7 @@ from unit import Unit
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 _ENV_WALL = Environment.WALL
 
-_BUILDER_CAP = 20
+_BUILDER_CAP = 10
 
 
 class Core(Unit):
