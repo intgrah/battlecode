@@ -98,6 +98,7 @@ def emit(**fields: Grid | Scalar | Tiles | VectorField) -> None:
     obj = {name: _serialize_field(v) for name, v in fields.items()}
     print(f"{VIS_PREFIX}{json.dumps(obj, separators=(',', ':'))}")
 
-def emit_dict(fields: dict[str,Grid | Scalar | Tiles | VectorField]) -> None:
+
+def emit_dict(fields: dict[str, Grid | Scalar | Tiles | VectorField]) -> None:
     obj = {name: _serialize_field(v) for name, v in fields.items()}
     print(f"{VIS_PREFIX}{json.dumps(obj, separators=(',', ':'))}")

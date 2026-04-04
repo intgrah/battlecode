@@ -18,15 +18,15 @@ import math
 from array import array
 from typing import TYPE_CHECKING
 
-from cambc import Position
-
-from grid import PassableGrid
 from lib.visualiser.src.visualiser import VectorField, emit_dict
 
 INF = 1_000_000
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from cambc import Position
+    from grid import PassableGrid
 
 
 class NavBfs:
@@ -139,9 +139,7 @@ class NavBfs:
                 if best < di:
                     angles[ri] = math.atan2(by, bx)
 
-        emit_dict(
-            { "bfs": VectorField(angles) }
-        )
+        emit_dict({"bfs": VectorField(angles)})
 
     def _compute(self, within_budget: Callable[[], bool]) -> bool:
         """Run/resume backwards BFS into wip buffer. Returns True if complete."""
@@ -246,4 +244,7 @@ class NavBfs:
             return _zero
 
         print(f"dist {d}")
-        return tuple(dist[cur_idx + off] - d if gen[cur_idx + off] == g else INF for off in grid.offsets)
+        return tuple(
+            dist[cur_idx + off] - d if gen[cur_idx + off] == g else INF
+            for off in grid.offsets
+        )

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import IntEnum, auto
+from enum import IntEnum
 from typing import Final
 
-from cambc import Direction, Position
+from cambc import Direction
 
 # -- Pathfinding costs --
 INF: Final[int] = 1_000_000
@@ -16,7 +16,9 @@ COST_IMPASSABLE: Final[int] = INF
 COST_DANGER: Final[int] = 5
 COST_FLOW_DANGER: Final[int] = 10
 
-DIAL_MOD: Final[int] = max(COST_ROAD, COST_EMPTY, COST_UNSEEN, COST_DANGER + COST_EMPTY) + 2
+DIAL_MOD: Final[int] = (
+    max(COST_ROAD, COST_EMPTY, COST_UNSEEN, COST_DANGER + COST_EMPTY) + 2
+)
 
 
 # -- Symmetry --
@@ -67,12 +69,12 @@ BRIDGE_DELTAS: tuple[tuple[int, int], ...] = tuple(
 
 # -- Role schedule for core spawning --
 ROLE_SCHEDULE: tuple[Role, ...] = (
-    Role.ECON,   # spawn 0
-    Role.ECON,   # spawn 1
-    Role.RUSH,   # spawn 2
-    Role.RUSH,   # spawn 3
-    Role.HOME,   # spawn 4
-    Role.FLEX,   # spawn 5
+    Role.ECON,  # spawn 0
+    Role.ECON,  # spawn 1
+    Role.RUSH,  # spawn 2
+    Role.RUSH,  # spawn 3
+    Role.HOME,  # spawn 4
+    Role.FLEX,  # spawn 5
 )
 
 BUILDER_CAP: Final[int] = 6
