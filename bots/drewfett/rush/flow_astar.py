@@ -153,7 +153,7 @@ class FlowAstar(Astar[int]):
         result: list[tuple[int, int]] = []
 
         match bld:
-            case BuildingCore() | BuildingHarvester() | BuildingFoundry():
+            case BuildingCore() | BuildingFoundry():
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
