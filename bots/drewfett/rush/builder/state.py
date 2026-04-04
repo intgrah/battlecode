@@ -23,9 +23,9 @@ _OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
     (-1, -1): 7,
 }
 
-# First 5: econ, attack, econ, attack, defense. After that: attack, econ, defense.
-_EARLY_ROLES = (0, 1, 0, 1, 2)  # ECON, ATTACK, ECON, ATTACK, DEFENSE
-_LATE_ROLES = (1, 0, 2)  # ATTACK, ECON, DEFENSE
+# First 4: 2 econ, 2 attack. After that: 2 attack, 1 econ repeating.
+_EARLY_ROLES = (0, 0, 1, 1)  # ECON, ECON, ATTACK, ATTACK
+_LATE_ROLES = (1, 1, 0)  # ATTACK, ATTACK, ECON
 
 
 def _role_from_offset(dx: int, dy: int) -> int:

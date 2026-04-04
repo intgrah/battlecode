@@ -4,7 +4,7 @@ from unit import Unit
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 _ENV_WALL = Environment.WALL
 
-_BUILDER_CAP = 10
+_BUILDER_CAP = 20
 
 
 class Core(Unit):
@@ -35,8 +35,13 @@ class Core(Unit):
                     self._spawn(ct)
                 return
 
-        # First 5: no reserve. After that: moderate gate.
-        reserve = 0 if alive < 5 else builder_cost * 4
+        # First 4: no reserve. After that: flat reserve.
+        if alive < 4:
+            reserve = 0
+        elif alive < 8:
+            reserve = 500
+        else:
+            reserve = 1000
 
         if ti < builder_cost + reserve:
             return

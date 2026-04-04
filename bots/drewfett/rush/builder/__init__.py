@@ -341,7 +341,10 @@ def _to_turn(result: OldResult) -> Turn | None:
 
 
 def _rush_ready(state: State) -> bool:
-    return state.en_core_pos is not None
+    if state.en_core_pos is None:
+        return False
+    core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
+    return core_flow >= 0.2
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:
