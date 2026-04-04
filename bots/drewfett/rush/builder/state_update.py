@@ -71,11 +71,15 @@ def update(state: State, ct: Controller) -> None:
     _t3 = _t()
     _update_flow(state, ct, changed)
     _t4 = _t()
+    from navigation.bfs import update_bfs
+    if state.age > 1:  # skip BFS on first turn (pnb init is expensive)
+        update_bfs(state)
+    _t5 = _t()
     _update_infra_staleness(state)
-    tot = int((_t4 - _t0) * 1e6)
+    tot = int((_t5 - _t0) * 1e6)
     if tot > 300:
         import sys
-        print(f"  upd: scan={int((_t2-_t1)*1e6)} dng={int((_t3-_t2)*1e6)} flow={int((_t4-_t3)*1e6)} tot={tot}", file=sys.stderr)
+        print(f"  upd: scan={int((_t2-_t1)*1e6)} dng={int((_t3-_t2)*1e6)} flow={int((_t4-_t3)*1e6)} bfs={int((_t5-_t4)*1e6)} tot={tot}", file=sys.stderr)
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:

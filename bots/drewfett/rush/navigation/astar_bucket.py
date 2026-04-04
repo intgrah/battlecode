@@ -74,7 +74,11 @@ def find_path_raw(
 
         gn = dist[node]
 
-        for ni in nb[node]:
+        base = node * 8
+        for j in range(8):
+            ni = nb[base + j]
+            if ni == -1:
+                break
             c = cost[ni]
             if danger and ni in danger:
                 c += COST_DANGER

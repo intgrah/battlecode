@@ -49,25 +49,22 @@ def move_toward_with_road(
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
-    path = find_path(state, target.x, target.y, ct=ct)
+
+    from navigation.bfs import find_path as bfs_find_path
+    path = bfs_find_path(state, target.x, target.y)
     if path is None or len(path) < 2:
-        # print(f"NAV: no path")
         return Direction.CENTRE, None
+
     w = state.w
     nx, ny = path[1] % w, path[1] // w
     nxt = Position(nx, ny)
     d = pos.direction_to(nxt)
-    can_mv = ct.can_move(d)
-    if can_mv:
+    if ct.can_move(d):
         return d, None
-    can_rd = ct.can_build_road(nxt)
     road_cost, _ = ct.get_road_cost()
     ti, _ = ct.get_global_resources()
-    if ti >= road_cost and can_rd:
+    if ti >= road_cost and ct.can_build_road(nxt):
         return d, PlaceRoad(nxt)
-    bid = ct.get_tile_building_id(nxt)
-    ct.get_entity_type(bid) if bid is not None else None
-    # print(f"NAV: blocked")
     return Direction.CENTRE, None
 
 
