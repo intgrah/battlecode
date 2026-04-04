@@ -14,3 +14,4 @@ class Task(IntEnum):
     FORTIFY = auto()
     DEFEND = auto()
     CAP_ORE = auto()
+    CUT_FEED = auto()
