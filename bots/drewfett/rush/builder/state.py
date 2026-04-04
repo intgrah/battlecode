@@ -10,17 +10,17 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
-# Spawn tile offset → role. Core tries directions in enum order:
-# N, NE, E, SE, S, SW, W, NW
-# First 2 = ECON, next 2 = RUSH, then HOME, then RUSH
+# Spawn tile offset → role. Core rotates spawn direction each builder.
+# Spawn 0→N, 1→NE, 2→E, 3→SE, 4→S, 5→SW, 6→W, 7→NW
+# 3 RUSH, 2 HOME (cap 5)
 _OFFSET_TO_ROLE: dict[tuple[int, int], int] = {
-    (0, -1): 0,   # N → ECON
-    (1, -1): 0,   # NE → ECON
+    (0, -1): 1,   # N → RUSH
+    (1, -1): 1,   # NE → RUSH
     (1, 0): 1,    # E → RUSH
-    (1, 1): 1,    # SE → RUSH
-    (0, 1): 2,    # S → HOME
-    (-1, 1): 1,   # SW → RUSH
-    (-1, 0): 0,   # W → ECON (backup)
+    (1, 1): 2,    # SE → HOME (4th builder)
+    (0, 1): 2,    # S → HOME (5th builder)
+    (-1, 1): 1,   # SW → RUSH (backup)
+    (-1, 0): 1,   # W → RUSH (backup)
     (-1, -1): 1,  # NW → RUSH (backup)
 }
 
@@ -142,8 +142,10 @@ class State:
         self.my_team = ct.get_team()
         self.birthday = ct.get_current_round()
         self.age = 0
-        # Everyone is RUSH (all-rounder) for now
-        self.role: int = 1
+        spawn_pos = ct.get_position()
+        dx = spawn_pos.x - core_pos.x
+        dy = spawn_pos.y - core_pos.y
+        self.role: int = _role_from_offset(dx, dy)
         n = self.w * self.h
 
         # -- Per-tile arrays (indexed by y * w + x) --
@@ -167,7 +169,7 @@ class State:
         # -- Resources (indexed as y * w + x) --
         self.ore_ti: set[int] = set()
         self.ore_ax: set[int] = set()
-        self.blocked_ore: set[int] = set()  # ore tiles seen blocked
+        self.blocked_ore: dict[int, int] = {}  # ore_idx → round blocked
 
         # -- Friendly --
         self.my_core: Position = core_pos
@@ -192,6 +194,7 @@ class State:
         self.en_barriers: set[int] = set()
         self.en_transport: set[int] = set()
         self.en_turrets: set[int] = set()
+        self.enemy_bots_nearby: bool = False  # set during ephemeral update
         self.en_foundries: set[int] = set()
 
         # -- Both teams (unions, maintained incrementally) --
@@ -216,6 +219,8 @@ class State:
 
         # -- Task caches --
         self.explore_target: Position | None = None
+        self.rush_target_idx: int | None = None  # current rush ore target
+        self.rush_target_turns: int = 0  # turns spent on current target
         self.scout_target: Position | None = None
 
         # -- Flow search caches --
@@ -268,10 +273,19 @@ class State:
             case Environment.WALL:
                 self.cost[i] = COST_IMPASSABLE
             case Environment.ORE_TITANIUM | Environment.ORE_AXIONITE:
-                if self.building[i] is None:
-                    self.cost[i] = COST_EMPTY
-                else:
-                    self.cost[i] = COST_ROAD
+                match self.building[i]:
+                    case None | BuildingMarker():
+                        self.cost[i] = COST_EMPTY
+                    case (
+                        BuildingRoad()
+                        | BuildingConveyor()
+                        | BuildingArmouredConveyor()
+                        | BuildingSplitter()
+                        | BuildingBridge()
+                    ):
+                        self.cost[i] = COST_ROAD
+                    case _:
+                        self.cost[i] = COST_IMPASSABLE
             case _:
                 match self.building[i]:
                     case None | BuildingMarker():

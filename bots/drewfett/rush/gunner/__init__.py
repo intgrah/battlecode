@@ -74,6 +74,8 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
         adj = hp.add(d)
         if not (0 <= adj.x < w and 0 <= adj.y < h):
             continue
+        if not ct.is_in_vision(adj):
+            continue
         bid = ct.get_tile_building_id(adj)
         if bid is None:
             continue
@@ -91,9 +93,12 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
     return False
 
 
+_IDLE_LIMIT = 50  # self-destruct after 50 rounds with no target
+
+
 class Gunner(Unit):
     def __init__(self, _ct: Controller) -> None:
-        pass
+        self._idle_rounds = 0
 
     def run(self, ct: Controller) -> None:
         if ct.get_action_cooldown() != 0:
@@ -124,6 +129,7 @@ class Gunner(Unit):
         _glog(f"[GUN] ammo={has_ammo}")
 
         if fire_target is not None:
+            self._idle_rounds = 0
             # We have something to shoot — but is there a better direction?
             if has_ammo and cur_priority < 5:
                 best_dir, best_pri = _best_rotation(ct, pos, current, my_team)
@@ -168,6 +174,14 @@ class Gunner(Unit):
                 _glog(f"[GUN] want to rotate but ti={ti} or can't")
         else:
             _glog("[GUN] no target, no ammo")
+
+        # Idle tracking — self-destruct only if friendly builder nearby to reclaim
+        self._idle_rounds += 1
+        if self._idle_rounds >= _IDLE_LIMIT:
+            for uid in ct.get_nearby_units():
+                if ct.get_team(uid) == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
+                    ct.self_destruct()
+                    return
 
 
 def _scan_ray_for_fire(

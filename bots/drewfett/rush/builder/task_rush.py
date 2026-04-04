@@ -20,7 +20,7 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import FlowAstar
 from util import DIR4_DELTA, INF, Symmetry
 
@@ -95,7 +95,7 @@ def rush(
         result = _place_gunner_at(state, ct, Position(gx, gy), facing)
         if result is not None:
             return result
-        return Direction.CENTRE, None
+        # Can't place (flow/cost/blocked) — fall through to other steps
 
     # Step 1.5: Upgrade conveyors feeding our gunners to splitters
     t15 = t()
@@ -115,7 +115,9 @@ def rush(
         siege = _find_siege_tile(state, fx, fy, en_core)
         print(f"R s2siege={t() - ts} @{t()}")
         if siege is not None and siege != (fx, fy):
-            return _extend_from_flow(state, ct, fx, fy, en_core)
+            result = _extend_from_flow(state, ct, fx, fy, en_core)
+            if result is not None:
+                return result
         _log(
             f"step2: flow at ({fx},{fy}) d²={flow_dist} but no further siege tile (siege={siege})"
         )
@@ -174,6 +176,17 @@ def rush(
     source = _find_rush_ore(state, en_core)
     if source is not None:
         kind, ore_idx, tap_x, tap_y = source
+        # Livelock detection: if stuck on same target for 30 turns, block it
+        if ore_idx == state.rush_target_idx:
+            state.rush_target_turns += 1
+            if state.rush_target_turns > 30:
+                state.blocked_ore[ore_idx] = state.age + state.birthday
+                state.rush_target_idx = None
+                state.rush_target_turns = 0
+                return None
+        else:
+            state.rush_target_idx = ore_idx
+            state.rush_target_turns = 0
         ore_pos = Position(ore_idx % w, ore_idx // w)
         _log(f"step3: {kind} ore at ({ore_pos.x},{ore_pos.y})")
         if kind == "free":
@@ -183,11 +196,10 @@ def rush(
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     _log(f"step3: placing harvester at ({ore_pos.x},{ore_pos.y})")
                     return Direction.CENTRE, PlaceHarvester(ore_pos)
-                # Can't build here — blocked by something we can't see in belief
-                _log(
-                    f"step3: ore ({ore_pos.x},{ore_pos.y}) blocked, removing from ore_ti"
-                )
-                state.ore_ti.discard(ore_idx)
+                # Can't build — temporarily block, don't permanently remove
+                bid = ct.get_tile_building_id(ore_pos) if ct.is_in_vision(ore_pos) else None
+                _log(f"step3: ore ({ore_pos.x},{ore_pos.y}) can't build, bid={bid} ti={ti}")
+                state.blocked_ore[ore_idx] = state.age + state.birthday
             if pos.distance_squared(ore_pos) > 2:
                 # Walk to the tap point (free adjacent tile), not the ore itself
                 tap_pos = Position(tap_x, tap_y)
@@ -323,6 +335,11 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
     seen: set[int] = set()
 
     for i in state.my_harvesters:
+        # Skip harvesters whose flow is fully committed to gunners
+        available = 0.25 - f.gunners_fed[i] * 0.2
+        _log(f"extendable: harv ({i%w},{i//w}) gunners_fed={f.gunners_fed[i]} avail={available:.3f}")
+        if available < 0.1:
+            continue
         hx, hy = i % w, i // w
         for dx, dy in DIR4_DELTA:
             nx, ny = hx + dx, hy + dy
@@ -337,7 +354,8 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                 result.append((nx, ny))
 
     for i in state.my_transport:
-        if f.ti[i] < 0.01:
+        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        if available < 0.1:
             continue
         bld = state.building[i]
         ix, iy = i % w, i // w
@@ -507,7 +525,8 @@ def _find_flow_in_range(
                 best = (tx, ty, facing)
 
     for i in state.my_transport:
-        if f.ti[i] < 0.01:
+        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        if available < 0.1:
             continue
         ix, iy = i % w, i // w
         bld = building[i]
@@ -555,7 +574,8 @@ def _find_flow_near_core(
 
     # Also check dead-end transport tiles (output goes nowhere)
     for i in state.my_transport:
-        if f.ti[i] < 0.01:
+        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        if available < 0.1:
             continue
         ix, iy = i % w, i // w
         if not _on_enemy_half(state, ix, iy):
@@ -682,7 +702,7 @@ def _extend_from_flow(
                         if result is not None:
                             return result
                         _log(f"extend[{k}]: can't afford gunner, holding turn")
-                        return Direction.CENTRE, None
+                        return None
 
         # Check what's on the NEXT tile — if enemy building, place gunner HERE to clear it
         # (fallback for when we can't look 2 ahead, e.g. last tiles in path)
@@ -707,7 +727,7 @@ def _extend_from_flow(
                 if result is not None:
                     return result
                 _log(f"extend[{k}]: can't afford gunner, holding turn")
-                return Direction.CENTRE, None
+                return None
             _log(f"extend[{k}]: enemy ahead but CENTRE facing, skip")
 
         # Enemy building on THIS tile (not marker) — walk on and fire
@@ -740,7 +760,7 @@ def _extend_from_flow(
                 return result
             # Can't afford gunner — hold the turn so nothing else runs
             _log(f"extend[{k}]: can't afford gunner, holding turn")
-            return Direction.CENTRE, None
+            return None
 
         # Build conveyor
         action = _build_action(build_at, nx, ny, SearchKind.MIXED)
@@ -754,10 +774,12 @@ def _extend_from_flow(
                     f"extend[{k}]: destroying allied {bld_name} at ({x},{y}) to rebuild"
                 )
                 ct.destroy(build_at)
+            # Build and step toward next tile if possible
+            step = pos.direction_to(build_at)
             _log(
-                f"extend[{k}]: building ({x},{y})->({nx},{ny}) action={action} d²={builder_dist}"
+                f"extend[{k}]: building ({x},{y})->({nx},{ny}) action={action} step={step.name}"
             )
-            return Direction.CENTRE, action
+            return step, action
         _log(f"extend[{k}]: need to walk to ({x},{y}) d²={builder_dist}")
         return _move_or_none(state, ct, build_at)
 
@@ -780,7 +802,7 @@ def _extend_from_flow(
         if result is not None:
             return result
         _log("extend: can't afford gunner, holding turn")
-        return Direction.CENTRE, None
+        return None
 
     _log(f"extend: endpoint ({lx},{ly}) cannot hit core, returning None")
     return None
@@ -824,6 +846,7 @@ def _place_gunner_at(
     if best_available < 0.1:
         _log(f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})")
         return None
+
     bld = state.building[ni]
     bld_name = type(bld).__name__ if bld is not None else "None"
     bld_team = getattr(bld, "team", None)
@@ -923,6 +946,7 @@ def _find_rush_ore(
 ) -> tuple[str, int, int, int] | None:
     """Find best ore near enemy core."""
     w = state.w
+    f = state.flow
     best: tuple[str, int, int, int] | None = None
     best_dist = INF
 
@@ -955,23 +979,25 @@ def _find_rush_ore(
         ox, oy = oi % w, oi // w
         if not _on_enemy_half(state, ox, oy):
             continue
-        # Check if previously blocked ore is now free (we can see it)
         ore_p = Position(ox, oy)
         if oi in state.blocked_ore:
-            # Only unblock if we can see it RIGHT NOW and it's free
             rnd = state.age + state.birthday
-            if state.last_seen[oi] == rnd:
+            blocked_at = state.blocked_ore[oi]
+            # TTL: unblock after 100 rounds
+            if rnd - blocked_at > 100:
+                state.blocked_ore.pop(oi, None)
+            # Unblock if we can see it now and it's free
+            elif state.last_seen[oi] == rnd:
                 bld_check = state.building[oi]
-                unit_on = ore_p in state.unit_tiles
-                if bld_check is None and not unit_on:
-                    state.blocked_ore.discard(oi)
+                if bld_check is None and ore_p not in state.unit_tiles:
+                    state.blocked_ore.pop(oi, None)
                 else:
                     continue
             else:
                 continue
         # Skip if enemy unit standing on the ore
         if ore_p in state.unit_tiles:
-            state.blocked_ore.add(oi)
+            state.blocked_ore[oi] = state.age + state.birthday
             continue
         dist = (ox - en_core.x) ** 2 + (oy - en_core.y) ** 2
 
@@ -980,6 +1006,10 @@ def _find_rush_ore(
         _log(f"  ore ({ox},{oy}) d²={dist} bld={bld_name} env={state.env[oi]}")
 
         if oi in state.my_harvesters:
+            # Skip if harvester's flow is already committed to gunners
+            available = 0.25 - f.gunners_fed[oi] * 0.2
+            if available < 0.1:
+                continue
             tap = _find_free_adjacent(state, ox, oy)
             if tap is not None and dist < best_dist:
                 best_dist = dist
@@ -990,7 +1020,7 @@ def _find_rush_ore(
         if bld is not None and not isinstance(
             bld, (BuildingRoad, BuildingMarker, BuildingHarvester)
         ):
-            state.blocked_ore.add(oi)
+            state.blocked_ore[oi] = state.age + state.birthday
             continue
 
         if not isinstance(bld, BuildingHarvester):

@@ -20,7 +20,9 @@ def find_path_raw(
     gy: int,
     cost: list[int],
     danger: set[int] | None = None,
+    ct: object | None = None,
 ) -> list[int] | None:
+    _t0 = ct.get_cpu_time_elapsed() if ct is not None else 0
     w = state.w
     si = sy * w + sx
     gi = gy * w + gx
@@ -90,6 +92,11 @@ def find_path_raw(
                 buckets[(nd + h_ni) % DIAL_MOD].append(ni)
     else:
         path = extract_path(parent, si, best_node) if best_h < INF else None
+
+    if ct is not None:
+        print(
+            f"A*: exp={exp} {ct.get_cpu_time_elapsed() - _t0}us ({sx},{sy})->({gx},{gy})"
+        )
 
     # Cleanup
     for i in touched:
