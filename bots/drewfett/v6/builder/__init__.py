@@ -133,11 +133,11 @@ class Builder(Unit):
             print(f"  try {task.name} @{t0}")
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            dt = ct.get_cpu_time_elapsed() - t0
+            ct.get_cpu_time_elapsed() - t0
             if result is not None:
                 print(f"  -> {task.name} {result}")
                 return result
-        print(f"  -> IDLE")
+        print("  -> IDLE")
         return Direction.CENTRE, None
 
     def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:

@@ -169,10 +169,9 @@ def defend(
                     break
                 if isinstance(
                     abld, (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter)
-                ):
-                    if abld.team == my_team and state.flow.ti[ai] > 0.05:
-                        has_ammo = True
-                        break
+                ) and abld.team == my_team and state.flow.ti[ai] > 0.05:
+                    has_ammo = True
+                    break
             if not has_ammo:
                 continue
 

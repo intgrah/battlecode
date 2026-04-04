@@ -29,7 +29,6 @@ from util import DELTA_TO_DIR, DIR4_DELTA
 
 if TYPE_CHECKING:
     from cambc import Direction
-
     from state import State
 
 

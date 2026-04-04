@@ -6,7 +6,7 @@ bot is close enough that the cell falls within vision (r²=20).
 
 from __future__ import annotations
 
-from cambc import Position, Controller
+from cambc import Controller, Position
 from utils import chebyshev
 
 

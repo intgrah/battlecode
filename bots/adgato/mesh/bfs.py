@@ -18,15 +18,15 @@ import math
 from array import array
 from typing import TYPE_CHECKING
 
-from cambc import Position
-
-from grid import PassableGrid
 from lib.visualiser.src.visualiser import VectorField, emit_dict
 
 INF = 1_000_000
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from cambc import Position
+    from grid import PassableGrid
 
 
 class NavBfs:

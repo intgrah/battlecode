@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from cambc import Direction
-
-from action import Action
+if TYPE_CHECKING:
+    from action import Action
+    from cambc import Direction
 
 
 @dataclass(frozen=True, slots=True)
 class Wait:
     """Hold position intentionally. Don't fall through to lower tasks."""
 
-    pass
 
 
 @dataclass(frozen=True, slots=True)

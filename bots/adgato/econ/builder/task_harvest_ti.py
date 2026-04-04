@@ -13,7 +13,7 @@ from cambc import Controller, Direction, Position
 from marker import MarkerTaskClaim, TaskKind
 from util import DIR4_DELTA, INF
 
-from .action import Action, PlaceHarvester, PlaceRoad
+from .action import Action, PlaceHarvester
 from .helpers import cardinal_adjacent, is_claimed, move_toward_with_road
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ def harvest_ti(
             ti, _ = ct.get_global_resources()
             if ti >= h_cost and ct.can_build_harvester(ore_pos):
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
-            elif ti >= h_cost:
+            if ti >= h_cost:
                 # Can't build — blocked, remove from ore set
                 state.ore_ti.discard(ni)
 
