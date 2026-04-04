@@ -145,8 +145,8 @@ def rush(
                     if result is not None:
                         return result
 
-    # Step 1b: Sentinel — targets high-value enemy buildings (no roads)
-    sentinel_targets = en_buildings  # all enemy except roads are already excluded
+    # Step 1b: Sentinel — high-value targets only (turrets, core, harvesters)
+    sentinel_targets = state.en_turrets | state.en_core_tiles | state.en_harvesters
     if ext_tiles and sentinel_targets:
         ext_set = {ey * w + ex for ex, ey in ext_tiles}
         for ti in sentinel_targets:
@@ -326,8 +326,8 @@ def _los_clear(
         if x == tx and y == ty:
             return True
         env = state.env[y * w + x]
-        if env == Environment.WALL:
-            return False
+        if env is None or env == Environment.WALL:
+            return False  # unseen tiles treated as blocking (conservative)
         bld = state.building[y * w + x]
         if bld is not None and not isinstance(bld, BuildingMarker):
             return False
@@ -433,7 +433,7 @@ def _can_hit_core_fast(
             i = y * w + x
             if i in core_tiles:
                 return _DIR8[k]
-            if env[i] == Environment.WALL:
+            if env[i] is None or env[i] == Environment.WALL:
                 break
             bld = building[i]
             if bld is not None and not isinstance(bld, BuildingMarker):
@@ -467,7 +467,7 @@ def _can_hit_core(
             i = y * w + x
             if i in core_tiles:
                 return d
-            if state.env[i] == Environment.WALL:
+            if state.env[i] is None or state.env[i] == Environment.WALL:
                 break
             bld = state.building[i]
             if bld is not None and not isinstance(bld, BuildingMarker):
@@ -493,8 +493,8 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
 
     for i in state.my_harvesters:
         # Skip harvesters whose flow is fully committed to gunners
-        available = 0.25 - f.gunners_fed[i] * 0.2
-        _log(f"extendable: harv ({i%w},{i//w}) gunners_fed={f.gunners_fed[i]} avail={available:.3f}")
+        available = 0.25 - f.gunners_fed[i]
+        _log(f"extendable: harv ({i%w},{i//w}) gunners_fed={f.gunners_fed[i]:.2f} avail={available:.3f}")
         if available < 0.1:
             continue
         hx, hy = i % w, i // w
@@ -511,7 +511,7 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                 result.append((nx, ny))
 
     for i in state.my_transport:
-        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        available = f.ti[i] - f.gunners_fed[i]
         if available < 0.1:
             continue
         bld = state.building[i]
@@ -529,6 +529,30 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                         ):
                             seen.add(ni)
                             result.append((nx, ny))
+            case BuildingSplitter(direction=d):
+                sdx, sdy = d.delta()
+                for odx, ody in [(sdx, sdy), (-sdy, sdx), (sdy, -sdx)]:
+                    nx, ny = ix + odx, iy + ody
+                    if state.in_bounds(nx, ny):
+                        ni = ny * w + nx
+                        if ni not in seen:
+                            nbld = state.building[ni]
+                            if nbld is None or isinstance(
+                                nbld, (BuildingRoad, BuildingMarker)
+                            ):
+                                seen.add(ni)
+                                result.append((nx, ny))
+            case BuildingBridge(target=bt):
+                bx, by = bt
+                if state.in_bounds(bx, by):
+                    ni = by * w + bx
+                    if ni not in seen:
+                        nbld = state.building[ni]
+                        if nbld is None or isinstance(
+                            nbld, (BuildingRoad, BuildingMarker)
+                        ):
+                            seen.add(ni)
+                            result.append((bx, by))
     return result
 
 
@@ -658,7 +682,7 @@ def _find_flow_in_range(
                 best = (tx, ty, facing)
 
     for i in state.my_transport:
-        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        available = f.ti[i] - f.gunners_fed[i]
         if available < 0.1:
             continue
         ix, iy = i % w, i // w
@@ -708,7 +732,7 @@ def _find_flow_near_core(
 
     # Also check dead-end transport tiles (output goes nowhere)
     for i in state.my_transport:
-        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        available = f.ti[i] - f.gunners_fed[i]
         if available < 0.1:
             continue
         ix, iy = i % w, i // w
@@ -973,12 +997,12 @@ def _place_gunner_at(
             continue
         fi = ny * w + nx
         flow = state.flow.ti[fi]
-        committed = state.flow.gunners_fed[fi] * 0.2
+        committed = state.flow.gunners_fed[fi]
         available = flow - committed
         best_available = max(best_available, available)
     # Also check the tile itself
     flow = state.flow.ti[ni]
-    committed = state.flow.gunners_fed[ni] * 0.2
+    committed = state.flow.gunners_fed[ni]
     best_available = max(best_available, flow - committed)
     if best_available < 0.1:
         _log(f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})")
@@ -1144,7 +1168,7 @@ def _find_rush_ore(
 
         if oi in state.my_harvesters:
             # Skip if harvester's flow is already committed to gunners
-            available = 0.25 - f.gunners_fed[oi] * 0.2
+            available = 0.25 - f.gunners_fed[oi]
             if available < 0.1:
                 continue
             tap = _find_free_adjacent(state, ox, oy)
