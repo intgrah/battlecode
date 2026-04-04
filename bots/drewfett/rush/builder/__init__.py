@@ -304,25 +304,19 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]
-        case 2:  # HOME — econ early, then heal/road/connect once rush triggers
-            if ready:
-                scores = [
-                    (999.0, Task.HEAL_CORE),
-                    (200.0, Task.HEAL_INFRA),
-                    (180.0, Task.ROAD_HARVESTERS),
-                    (150.0, Task.CONNECT_BACK),
-                    (100.0, Task.HARVEST_TI),
-                    (20.0, Task.PATROL),
-                ]
-            else:
-                scores = [
-                    (999.0, Task.HEAL_CORE),
-                    (150.0, Task.CONNECT_BACK),
-                    (120.0, Task.ROAD_HARVESTERS),
-                    (100.0, Task.HARVEST_TI),
-                    (explore_score, Task.EXPLORE),
-                    (15.0, Task.PATROL),
-                ]
+        case 2:  # HOME — econ + defend harvesters, never goes to enemy half
+            # Patrol priority scales with harvesters (more to protect = more patrol)
+            n_harv = len(state.my_harvesters)
+            patrol_score = 20.0 + n_harv * 30.0  # 0 harv=20, 2 harv=80, 3 harv=110
+            scores = [
+                (999.0, Task.HEAL_CORE),
+                (200.0, Task.HEAL_INFRA),
+                (180.0, Task.ROAD_HARVESTERS),
+                (150.0, Task.CONNECT_BACK),
+                (100.0, Task.HARVEST_TI),
+                (min(patrol_score, 140.0), Task.PATROL),
+                (20.0 if not ready else 0.0, Task.EXPLORE),
+            ]
         case _:  # ECON — harvest, connect, explore. Never rushes.
             scores = [
                 (999.0, Task.HEAL_CORE),
