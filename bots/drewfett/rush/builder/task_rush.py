@@ -95,7 +95,7 @@ def rush(
         result = _place_gunner_at(state, ct, Position(gx, gy), facing)
         if result is not None:
             return result
-        return Direction.CENTRE, None
+        # Can't place (flow/cost/blocked) — fall through to other steps
 
     # Step 1.5: Upgrade conveyors feeding our gunners to splitters
     t15 = t()
