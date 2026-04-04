@@ -74,6 +74,8 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
         adj = hp.add(d)
         if not (0 <= adj.x < w and 0 <= adj.y < h):
             continue
+        if not ct.is_in_vision(adj):
+            continue
         bid = ct.get_tile_building_id(adj)
         if bid is None:
             continue

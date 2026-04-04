@@ -96,9 +96,11 @@ def _best_spawn_pos(ct: Controller, pos: Position, spawned: int = 0) -> Position
             if not (0 <= adj.x < w and 0 <= adj.y < h):
                 walls += 1
                 continue
+            if not ct.is_in_vision(adj):
+                continue  # can't tell, assume passable
             if ct.get_tile_env(adj) == _ENV_WALL:
                 walls += 1
-        if walls < 6:  # at least 3 non-wall neighbors
+        if walls < 6:
             return sp
     # Fallback: any spawnable tile
     for d in _DIRECTIONS:
