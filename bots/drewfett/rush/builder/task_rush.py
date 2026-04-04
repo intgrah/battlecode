@@ -967,23 +967,25 @@ def _find_rush_ore(
         ox, oy = oi % w, oi // w
         if not _on_enemy_half(state, ox, oy):
             continue
-        # Check if previously blocked ore is now free (we can see it)
         ore_p = Position(ox, oy)
         if oi in state.blocked_ore:
-            # Only unblock if we can see it RIGHT NOW and it's free
             rnd = state.age + state.birthday
-            if state.last_seen[oi] == rnd:
+            blocked_at = state.blocked_ore[oi]
+            # TTL: unblock after 100 rounds
+            if rnd - blocked_at > 100:
+                state.blocked_ore.pop(oi, None)
+            # Unblock if we can see it now and it's free
+            elif state.last_seen[oi] == rnd:
                 bld_check = state.building[oi]
-                unit_on = ore_p in state.unit_tiles
-                if bld_check is None and not unit_on:
-                    state.blocked_ore.discard(oi)
+                if bld_check is None and ore_p not in state.unit_tiles:
+                    state.blocked_ore.pop(oi, None)
                 else:
                     continue
             else:
                 continue
         # Skip if enemy unit standing on the ore
         if ore_p in state.unit_tiles:
-            state.blocked_ore.add(oi)
+            state.blocked_ore[oi] = state.age + state.birthday
             continue
         dist = (ox - en_core.x) ** 2 + (oy - en_core.y) ** 2
 
@@ -1006,7 +1008,7 @@ def _find_rush_ore(
         if bld is not None and not isinstance(
             bld, (BuildingRoad, BuildingMarker, BuildingHarvester)
         ):
-            state.blocked_ore.add(oi)
+            state.blocked_ore[oi] = state.age + state.birthday
             continue
 
         if not isinstance(bld, BuildingHarvester):

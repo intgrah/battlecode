@@ -169,7 +169,7 @@ class State:
         # -- Resources (indexed as y * w + x) --
         self.ore_ti: set[int] = set()
         self.ore_ax: set[int] = set()
-        self.blocked_ore: set[int] = set()  # ore tiles seen blocked
+        self.blocked_ore: dict[int, int] = {}  # ore_idx → round blocked
 
         # -- Friendly --
         self.my_core: Position = core_pos
