@@ -131,6 +131,9 @@ class Builder(Unit):
         pos_after = ct.get_position()
         if pos_before == pos_after and turn is not None:
             print(f"STUCK at ({pos_before.x},{pos_before.y})")
+        # Opportunistic heal: if action unused, heal nearby damaged building
+        if ct.get_action_cooldown() == 0:
+            self._opportunistic_heal(ct)
         self._write_marker(ct)
 
     def _run_policy(self, ct: Controller) -> Turn | None:
@@ -198,6 +201,19 @@ class Builder(Unit):
             case MoveAction(direction, action):
                 if self._move_or_detour(ct, direction):
                     execute(action, ct)
+
+    def _opportunistic_heal(self, ct: Controller) -> None:
+        """If we just moved (action unused), heal any damaged friendly building nearby."""
+        my_team = ct.get_team()
+        for bid in ct.get_nearby_buildings():
+            if ct.get_team(bid) != my_team:
+                continue
+            if ct.get_hp(bid) >= ct.get_max_hp(bid):
+                continue
+            pos = ct.get_position(bid)
+            if ct.can_heal(pos):
+                ct.heal(pos)
+                return
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
