@@ -934,6 +934,7 @@ def _find_rush_ore(
 ) -> tuple[str, int, int, int] | None:
     """Find best ore near enemy core."""
     w = state.w
+    f = state.flow
     best: tuple[str, int, int, int] | None = None
     best_dist = INF
 
@@ -991,6 +992,10 @@ def _find_rush_ore(
         _log(f"  ore ({ox},{oy}) d²={dist} bld={bld_name} env={state.env[oi]}")
 
         if oi in state.my_harvesters:
+            # Skip if harvester's flow is already committed to gunners
+            available = 0.25 - f.gunners_fed[oi] * 0.2
+            if available < 0.1:
+                continue
             tap = _find_free_adjacent(state, ox, oy)
             if tap is not None and dist < best_dist:
                 best_dist = dist
