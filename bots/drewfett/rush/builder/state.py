@@ -19,7 +19,7 @@ _OFFSET_TO_ROLE: dict[tuple[int, int], int] = {
     (1, 0): 1,    # E → RUSH
     (1, 1): 1,    # SE → RUSH
     (0, 1): 1,    # S → RUSH
-    (-1, 1): 1,   # SW → RUSH
+    (-1, 1): 2,   # SW → HOME (6th builder with rotation)
     (-1, 0): 1,   # W → RUSH
     (-1, -1): 1,  # NW → RUSH
 }
