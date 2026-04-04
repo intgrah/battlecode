@@ -494,6 +494,9 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
     needs_reflow = external_change or state.out_target_dirty
     state.out_target_dirty = False
     if needs_reflow:
+        # Budget guard: skip flow if we've already used too much CPU this turn
+        if ct.get_cpu_time_elapsed() > 1200:
+            return
         update_flow(state)
         state.ti_flow_search = None
         state.ti_cached_path = None
