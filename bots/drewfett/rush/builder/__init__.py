@@ -146,20 +146,22 @@ class Builder(Unit):
         self._write_marker(ct)
 
     def _run_policy(self, ct: Controller) -> Turn | None:
+        import time as _time
+        _t = _time.perf_counter
         s = self.state
-        t = ct.get_cpu_time_elapsed
         for score, task in _policy(s):
             if score <= 0:
                 continue
-            t0 = t()
+            _t0 = _t()
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            dt = t() - t0
+            dt = int((_t() - _t0) * 1e6)
             if result is not None:
-                print(f"  {task.name} OK {dt}us")
+                if dt > 100:
+                    print(f"  {task.name} OK {dt}us", file=__import__('sys').stderr)
                 return _to_turn(result)
-            print(f"  {task.name} FAIL {dt}us")
-        print("  IDLE")
+            if dt > 100:
+                print(f"  {task.name} FAIL {dt}us", file=__import__('sys').stderr)
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
