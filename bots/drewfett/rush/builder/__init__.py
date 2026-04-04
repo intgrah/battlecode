@@ -322,15 +322,17 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]
-        case _:  # DEFENSE — heal, connect, fortify, patrol
+        case _:  # DEFENSE — heal, fortify, then econ fallback
+            explore_score = 80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (200.0, Task.HEAL_INFRA),
-                (150.0, Task.ROAD_HARVESTERS),
-                (120.0, Task.CONNECT_BACK),
-                (100.0, Task.FORTIFY),
+                (150.0, Task.FORTIFY),
+                (130.0, Task.ROAD_HARVESTERS),
+                (110.0, Task.CONNECT_BACK),
+                (90.0, Task.HARVEST_TI),
+                (explore_score, Task.EXPLORE),
                 (50.0, Task.PATROL),
-                (20.0, Task.EXPLORE),
             ]
 
     scores.sort(key=lambda t: t[0], reverse=True)

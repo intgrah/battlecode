@@ -716,6 +716,10 @@ def _extend_from_flow(
     """Extend conveyor chain from a flow tile toward enemy core."""
     w = state.w
     pos = state.pos
+    en_buildings = (
+        state.en_turrets | state.en_harvesters | state.en_transport
+        | state.en_core_tiles | state.en_barriers
+    )
 
     _log(f"extend: from ({flow_x},{flow_y}) toward core ({en_core.x},{en_core.y})")
 
@@ -802,7 +806,7 @@ def _extend_from_flow(
                         _log(
                             f"extend[{k}]: gunner at ({nx},{ny}) would face feed, skip"
                         )
-                    elif gunner_facing != Direction.CENTRE:
+                    elif gunner_facing != Direction.CENTRE and _los_clear(state, nx, ny, gunner_facing, ahead2_x, ahead2_y):
                         _log(
                             f"extend[{k}]: placing gunner at ({nx},{ny}) facing ({ahead2_x},{ahead2_y}) to clear"
                         )
@@ -827,7 +831,7 @@ def _extend_from_flow(
             feed_dir = _find_splitter_dir(state, x, y)
             if feed_dir is not None and facing == feed_dir.opposite():
                 _log(f"extend[{k}]: enemy ahead but facing would block feed, skip")
-            elif facing != Direction.CENTRE:
+            elif facing != Direction.CENTRE and _los_clear(state, x, y, facing, nx, ny):
                 _log(
                     f"extend[{k}]: enemy {next_name} ahead at ({nx},{ny}), placing gunner at ({x},{y}) facing {facing.name}"
                 )
@@ -869,6 +873,24 @@ def _extend_from_flow(
             # Can't afford gunner — hold the turn so nothing else runs
             _log(f"extend[{k}]: can't afford gunner, holding turn")
             return None
+
+        # Check if this tile can hit any enemy building — place gunner/sentinel
+        for (gdx, gdy), gfacing in _GUNNER_HITS.items():
+            etx, ety = x + gdx, y + gdy
+            if not state.in_bounds(etx, ety):
+                continue
+            eti = ety * w + etx
+            if eti not in en_buildings:
+                continue
+            if _los_clear(state, x, y, gfacing, etx, ety):
+                feed_dir = _find_splitter_dir(state, x, y)
+                if feed_dir is not None and gfacing == feed_dir.opposite():
+                    continue
+                _log(f"extend[{k}]: ({x},{y}) can hit enemy at ({etx},{ety}), placing gunner")
+                result = _place_gunner_at(state, ct, build_at, gfacing)
+                if result is not None:
+                    return result
+                break
 
         # Build conveyor
         action = _build_action(build_at, nx, ny, SearchKind.MIXED)
