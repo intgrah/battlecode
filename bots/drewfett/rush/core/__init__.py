@@ -1,7 +1,15 @@
-from cambc import Controller, Direction, EntityType, Position
+from cambc import Controller, Direction, EntityType, GameConstants, Position
+from marker import MarkerRole
 from unit import Unit
 
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
+
+# Role schedule: ECON=0, RUSH=1, HOME=2, FLEX=3
+_ROLE_ECON = 0
+_ROLE_RUSH = 1
+_ROLE_HOME = 2
+_ROLE_SCHEDULE = (_ROLE_ECON, _ROLE_ECON, _ROLE_RUSH, _ROLE_RUSH, _ROLE_HOME, _ROLE_RUSH)
+_BUILDER_CAP = 6
 
 
 class Core(Unit):
@@ -10,17 +18,15 @@ class Core(Unit):
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:
-        self._run_default(ct, ct.get_current_round())
-
-    def _run_default(self, ct: Controller, rnd: int) -> None:
         if ct.get_action_cooldown() != 0:
             return
 
+        rnd = ct.get_current_round()
         ti, _ = ct.get_global_resources()
         builder_cost, _ = ct.get_builder_bot_cost()
-        alive = ct.get_unit_count() - 1  # exclude core
+        alive = ct.get_unit_count() - 1
 
-        if alive >= 6:
+        if alive >= _BUILDER_CAP:
             return
 
         # Emergency: enemy bots near core → spawn immediately
@@ -28,10 +34,7 @@ class Core(Unit):
         for uid in ct.get_nearby_units():
             if ct.get_team(uid) != my_team:
                 if ti >= builder_cost:
-                    sp = _best_spawn_pos(ct, self.core_pos)
-                    if sp is not None:
-                        ct.spawn_builder(sp)
-                        self.spawned += 1
+                    self._spawn_with_role(ct, rnd)
                 return
 
         # Aggressive: first 3 with zero reserve, rest with small reserve
@@ -42,10 +45,37 @@ class Core(Unit):
         if ti < builder_cost + reserve:
             return
 
+        self._spawn_with_role(ct, rnd)
+
+    def _spawn_with_role(self, ct: Controller, rnd: int) -> None:
         sp = _best_spawn_pos(ct, self.core_pos)
-        if sp is not None:
-            ct.spawn_builder(sp)
-            self.spawned += 1
+        if sp is None:
+            return
+
+        ct.spawn_builder(sp)
+
+        # Determine role from schedule
+        idx = min(self.spawned, len(_ROLE_SCHEDULE) - 1)
+        role = _ROLE_SCHEDULE[idx]
+        if self.spawned >= len(_ROLE_SCHEDULE):
+            role = _ROLE_RUSH
+
+        # Place MarkerRole on a core tile (not the spawn tile)
+        marker = MarkerRole(
+            role=role,
+            birthday=rnd % 2048,
+            turn=rnd,
+        )
+        encoded = marker.encode()
+        # Place marker on any available tile near core
+        for t in ct.get_nearby_tiles(GameConstants.CORE_ACTION_RADIUS_SQ):
+            if t == sp:
+                continue
+            if ct.can_place_marker(t):
+                ct.place_marker(t, encoded)
+                break
+
+        self.spawned += 1
 
 
 def _best_spawn_pos(ct: Controller, pos: Position) -> Position | None:

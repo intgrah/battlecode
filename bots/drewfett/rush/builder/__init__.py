@@ -220,23 +220,33 @@ def _to_turn(result: OldResult) -> Turn | None:
     return ActionMove(build, move)
 
 
-def _policy(state: State) -> list[tuple[float, Task]]:
-    scores: list[tuple[float, Task]] = []
+_ROLE_ECON = 0
+_ROLE_RUSH = 1
+_ROLE_HOME = 2
 
+
+def _rush_ready(state: State) -> bool:
+    core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
+    return core_flow >= 0.4 and state.en_core_pos is not None
+
+
+def _policy(state: State) -> list[tuple[float, Task]]:
     seen = sum(1 for e in state.env if e is not None)
     seen_frac = seen / (state.w * state.h)
     explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+    ready = _rush_ready(state)
 
-    # Rush triggers when enough Ti flows to core (~2 connected harvesters)
-    core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
-    rush_ready = core_flow >= 0.4 and state.en_core_pos is not None
+    # Unified policy — all builders do everything (old behavior)
+    # Role-specific policies ready but disabled until role assignment is reliable
+    scores: list[tuple[float, Task]] = [
+        (999.0, Task.HEAL_CORE),
+        (200.0 if ready else 0.0, Task.RUSH),
+        (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
+        (150.0, Task.CONNECT_BACK),
+        (100.0, Task.HARVEST_TI),
+        (explore_score, Task.EXPLORE),
+        (15.0, Task.PATROL),
+    ]
 
-    scores.append((999.0, Task.HEAL_CORE))
-    scores.append((200.0 if rush_ready else 0.0, Task.RUSH))
-    scores.append((160.0 if rush_ready else 0.0, Task.SCOUT_ENEMY))
-    scores.append((150.0, Task.CONNECT_BACK))
-    scores.append((100.0, Task.HARVEST_TI))
-    scores.append((explore_score, Task.EXPLORE))
-    scores.append((15.0, Task.PATROL))
     scores.sort(key=lambda t: t[0], reverse=True)
     return scores
