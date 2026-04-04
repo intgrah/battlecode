@@ -803,17 +803,26 @@ def _place_gunner_at(
         return None
 
     # Flow check: will this gunner have ammo?
+    # Check feeding tile's flow minus what existing gunners already consume
     pos = state.pos
     w = state.w
     ni = at.y * w + at.x
-    incoming_flow = state.flow.ti[ni]
-    if incoming_flow < 0.01:
-        for dx, dy in DIR4_DELTA:
-            nx, ny = at.x + dx, at.y + dy
-            if state.in_bounds(nx, ny):
-                incoming_flow = max(incoming_flow, state.flow.ti[ny * w + nx])
-    if incoming_flow < 0.05:
-        _log(f"gunner: insufficient flow {incoming_flow:.3f} at ({at.x},{at.y})")
+    best_available = 0.0
+    for dx, dy in DIR4_DELTA:
+        nx, ny = at.x + dx, at.y + dy
+        if not state.in_bounds(nx, ny):
+            continue
+        fi = ny * w + nx
+        flow = state.flow.ti[fi]
+        committed = state.flow.gunners_fed[fi] * 0.2
+        available = flow - committed
+        best_available = max(best_available, available)
+    # Also check the tile itself
+    flow = state.flow.ti[ni]
+    committed = state.flow.gunners_fed[ni] * 0.2
+    best_available = max(best_available, flow - committed)
+    if best_available < 0.1:
+        _log(f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})")
         return None
     bld = state.building[ni]
     bld_name = type(bld).__name__ if bld is not None else "None"
