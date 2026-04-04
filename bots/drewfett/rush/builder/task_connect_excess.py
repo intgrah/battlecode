@@ -47,12 +47,17 @@ def connect_excess(
     excess_kind: ExcessKind,
     search_kind: SearchKind,
 ) -> tuple[Direction, Action | None] | None:
+    _t = ct.get_cpu_time_elapsed
+    _t0 = _t()
     best_tile = _find_excess_tile(state, excess_kind)
+    _t1 = _t()
     if best_tile is None:
+        print(f"CE: no excess tile {_t1 - _t0}us")
         return None
 
     goals = _make_goals(state, search_kind)
     if not goals:
+        print(f"CE: excess=({best_tile.x},{best_tile.y}) no goals {_t() - _t0}us")
         return None
 
     idx = state.idx(best_tile.x, best_tile.y)
@@ -62,14 +67,37 @@ def connect_excess(
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:
+        print(
+            f"CE: excess=({best_tile.x},{best_tile.y}) step_off failed {_t() - _t0}us"
+        )
         return None
 
     start = Position(sx, sy)
+    w = state.w
+    si = sy * w + sx
+    goal_coords = [(g % w, g // w) for g in list(goals)[:5]]
+    start_bld = state.building[si]
+    start_env = state.env[si]
+    start_blocked = state.flow.blocked[si]
+    start_bld_name = type(start_bld).__name__ if start_bld else "None"
+    print(
+        f"CE: excess=({best_tile.x},{best_tile.y}) start=({sx},{sy}) env={start_env} bld={start_bld_name} blocked={start_blocked} goals={goal_coords} find={_t1 - _t0}us"
+    )
+    _t2 = _t()
     path = _get_or_compute_path(state, ct, start, goals, search_kind)
+    _t3 = _t()
     if path is None or len(path) < 2:
+        print(
+            f"CE: no path from ({sx},{sy}) to goals, path={path} astar={_t3 - _t2}us tot={_t3 - _t0}us"
+        )
         return None
+    print(
+        f"CE: excess=({best_tile.x},{best_tile.y}) path_len={len(path)} astar={_t3 - _t2}us"
+    )
 
-    return _walk_path(state, ct, path, search_kind)
+    result = _walk_path(state, ct, path, search_kind)
+    print(f"CE: tot={_t() - _t0}us find={_t1 - _t0} astar={_t3 - _t2}")
+    return result
 
 
 def _find_excess_tile(state: State, kind: ExcessKind) -> Position | None:
@@ -293,7 +321,7 @@ def _make_search(
 ) -> Astar[int]:
     match kind:
         case SearchKind.MIXED:
-            return FlowAstar(state, sx, sy, goals, AX, hx=hx, hy=hy)
+            return FlowAstar(state, sx, sy, goals, 0, hx=hx, hy=hy)
         case SearchKind.BRIDGE:
             return BridgeFlowAstar(state, sx, sy, goals, AX)
         case SearchKind.AX_CHAIN:
@@ -337,6 +365,19 @@ def _walk_path(
             return None
 
         build_at = Position(x, y)
+
+        # Enemy building on build tile — walk onto it and fire to clear
+        bld = state.building[path[k]]
+        if bld is not None and bld.team != state.my_team:
+            from .action import Fire
+
+            if pos == build_at:
+                return Direction.CENTRE, Fire()
+            if pos.distance_squared(build_at) <= 2:
+                d = pos.direction_to(build_at)
+                if ct.can_move(d):
+                    return d, None
+            return move_toward_with_road(state, ct, build_at)
 
         action = _build_action(build_at, nx, ny, kind)
         if pos.distance_squared(build_at) <= 2:

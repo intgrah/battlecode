@@ -28,7 +28,7 @@ def move_toward(state: State, ct: Controller, target: Position) -> Direction:
     pos = state.pos
     if pos == target:
         return Direction.CENTRE
-    path = find_path(state, target.x, target.y)
+    path = find_path(state, target.x, target.y, ct=ct)
     if path is None or len(path) < 2:
         return Direction.CENTRE
     draw_path(ct, state.w, path)
@@ -49,9 +49,9 @@ def move_toward_with_road(
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
-    path = find_path(state, target.x, target.y)
+    path = find_path(state, target.x, target.y, ct=ct)
     if path is None or len(path) < 2:
-        print(f"NAV: no path from ({pos.x},{pos.y}) to ({target.x},{target.y})")
+        # print(f"NAV: no path")
         return Direction.CENTRE, None
     w = state.w
     nx, ny = path[1] % w, path[1] // w
@@ -66,8 +66,8 @@ def move_toward_with_road(
     if ti >= road_cost and can_rd:
         return d, PlaceRoad(nxt)
     bid = ct.get_tile_building_id(nxt)
-    btype = ct.get_entity_type(bid) if bid is not None else None
-    print(f"NAV: ({pos.x},{pos.y})->({nx},{ny}) d={d.name} can_mv={can_mv} can_rd={can_rd} ti={ti} bld={btype} path_len={len(path)}")
+    ct.get_entity_type(bid) if bid is not None else None
+    # print(f"NAV: blocked")
     return Direction.CENTRE, None
 
 

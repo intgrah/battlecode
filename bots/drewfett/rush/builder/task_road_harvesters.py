@@ -15,13 +15,19 @@ from building import (
 from cambc import Controller, Direction, Environment, Position
 from util import DIR4_DELTA
 
-from .action import Action, PlaceRoad
+from .action import Action, Fire, PlaceRoad
 from .helpers import move_toward_with_road
 
 if TYPE_CHECKING:
     from .state import State
 
-_WALKABLE = (BuildingRoad, BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge)
+_WALKABLE = (
+    BuildingRoad,
+    BuildingConveyor,
+    BuildingArmouredConveyor,
+    BuildingSplitter,
+    BuildingBridge,
+)
 
 
 def road_around(
@@ -33,24 +39,40 @@ def road_around(
     """Road unroaded cardinal tiles around (tx, ty). Returns action or None if all done."""
     pos = state.pos
     w = state.w
+    my_team = state.my_team
     for rdx, rdy in DIR4_DELTA:
         rx, ry = tx + rdx, ty + rdy
         if not state.in_bounds(rx, ry):
             continue
         ri = ry * w + rx
         env = state.env[ri]
-        if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+        if env == Environment.WALL:
             continue
         bld = state.building[ri]
-        if isinstance(bld, _WALKABLE):
+        # Already walkable with our building — controlled
+        if isinstance(bld, _WALKABLE) and bld.team == my_team:
             continue
-        if bld is not None and not isinstance(bld, BuildingMarker):
-            continue
-        # Needs a road
-        rp = Position(rx, ry)
-        if pos.distance_squared(rp) <= 2 and ct.can_build_road(rp):
-            return Direction.CENTRE, PlaceRoad(rp)
-        return move_toward_with_road(state, ct, rp)
+        # Enemy road — need to walk onto it and fire to destroy
+        if isinstance(bld, BuildingRoad) and bld.team != my_team:
+            rp = Position(rx, ry)
+            if pos == rp:
+                return Direction.CENTRE, Fire()
+            if pos.distance_squared(rp) <= 2:
+                d = pos.direction_to(rp)
+                if ct.can_move(d):
+                    return d, None  # walk onto it to fire next turn
+            return move_toward_with_road(state, ct, rp)
+        # Our marker or empty (including ore tiles) — road it
+        if bld is None or isinstance(bld, BuildingMarker):
+            rp = Position(rx, ry)
+            if pos.distance_squared(rp) <= 2:
+                can = ct.can_build_road(rp)
+                # debug: print(f"ROAD: ...")
+                if can:
+                    return Direction.CENTRE, PlaceRoad(rp)
+            return move_toward_with_road(state, ct, rp)
+        # Enemy building we can't easily clear — skip this tile
+        continue
     return None
 
 
@@ -59,9 +81,12 @@ def road_harvesters(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     """Road tiles adjacent to all our harvesters."""
+    _t0 = ct.get_cpu_time_elapsed()
     w = state.w
     for hi in state.my_harvesters:
         result = road_around(state, ct, hi % w, hi // w)
         if result is not None:
+            print(f"RH: {ct.get_cpu_time_elapsed() - _t0}us ok")
             return result
+    print(f"RH: {ct.get_cpu_time_elapsed() - _t0}us none")
     return None

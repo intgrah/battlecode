@@ -84,11 +84,14 @@ def rush(
     w = state.w
     f = state.flow
 
+    # Cache extendable tiles (used by step 1 and step 2)
+    ext_tiles = _extendable_tiles(state)
+
     t = ct.get_cpu_time_elapsed
 
     # Step 1: Any tile with our flow that can hit core? → place gunner
     t1 = t()
-    gunner_hit = _find_flow_in_range(state, en_core)
+    gunner_hit = _find_flow_in_range(state, en_core, ext_tiles)
     print(f"R s1={t() - t1} @{t()}")
     if gunner_hit is not None:
         gx, gy, facing = gunner_hit
@@ -106,7 +109,7 @@ def rush(
 
     # Step 2: Any tile with our flow near enemy core? → extend toward core
     t2 = t()
-    flow_tile = _find_flow_near_core(state, en_core)
+    flow_tile = _find_flow_near_core(state, en_core, ext_tiles)
     print(f"R s2find={t() - t2} @{t()}")
     if flow_tile is not None:
         fx, fy = flow_tile
@@ -176,6 +179,17 @@ def rush(
     source = _find_rush_ore(state, en_core)
     if source is not None:
         kind, ore_idx, tap_x, tap_y = source
+        # Livelock detection: if stuck on same target for 30 turns, block it
+        if ore_idx == state.rush_target_idx:
+            state.rush_target_turns += 1
+            if state.rush_target_turns > 30:
+                state.blocked_ore[ore_idx] = state.age + state.birthday
+                state.rush_target_idx = None
+                state.rush_target_turns = 0
+                return None
+        else:
+            state.rush_target_idx = ore_idx
+            state.rush_target_turns = 0
         ore_pos = Position(ore_idx % w, ore_idx // w)
         _log(f"step3: {kind} ore at ({ore_pos.x},{ore_pos.y})")
         if kind == "free":
@@ -185,11 +199,10 @@ def rush(
                 if ti >= h_cost and ct.can_build_harvester(ore_pos):
                     _log(f"step3: placing harvester at ({ore_pos.x},{ore_pos.y})")
                     return Direction.CENTRE, PlaceHarvester(ore_pos)
-                # Can't build here — blocked by something we can't see in belief
-                _log(
-                    f"step3: ore ({ore_pos.x},{ore_pos.y}) blocked, removing from ore_ti"
-                )
-                state.ore_ti.discard(ore_idx)
+                # Can't build — temporarily block, don't permanently remove
+                bid = ct.get_tile_building_id(ore_pos) if ct.is_in_vision(ore_pos) else None
+                _log(f"step3: ore ({ore_pos.x},{ore_pos.y}) can't build, bid={bid} ti={ti}")
+                state.blocked_ore[ore_idx] = state.age + state.birthday
             if pos.distance_squared(ore_pos) > 2:
                 # Walk to the tap point (free adjacent tile), not the ore itself
                 tap_pos = Position(tap_x, tap_y)
@@ -495,6 +508,7 @@ def _upgrade_to_splitter(
 def _find_flow_in_range(
     state: State,
     en_core: Position,
+    ext_tiles: list[tuple[int, int]] | None = None,
 ) -> tuple[int, int, Direction] | None:
     """Find a tile with tappable flow that can hit enemy core via LoS ray."""
     best: tuple[int, int, Direction] | None = None
@@ -506,7 +520,7 @@ def _find_flow_in_range(
     building = state.building
     ct = _make_core_tiles(state, en_core)
 
-    for tx, ty in _extendable_tiles(state):
+    for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
         facing = _can_hit_core_fast(w, h, env, building, ct, tx, ty)
         if facing is not None:
             dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
@@ -545,6 +559,7 @@ def _find_flow_in_range(
 def _find_flow_near_core(
     state: State,
     en_core: Position,
+    ext_tiles: list[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
     """Find nearest extendable free tile on the enemy half."""
     best: tuple[int, int] | None = None
@@ -554,7 +569,7 @@ def _find_flow_near_core(
     f = state.flow
 
     # Check extendable free tiles (preferred)
-    for tx, ty in _extendable_tiles(state):
+    for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
         if not _on_enemy_half(state, tx, ty):
             continue
         dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
