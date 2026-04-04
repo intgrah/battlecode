@@ -117,26 +117,27 @@ class Builder(Unit):
         self.state = State(ct, core_pos)
 
     def run(self, ct: Controller) -> None:
+        import time as _time
+        _t = _time.perf_counter
         s = self.state
-        t = ct.get_cpu_time_elapsed
-        t0 = t()
+        _t0 = _t()
         state_update(s, ct)
-        t1 = t()
-        _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
-        print(
-            f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}"
-        )
+        _t1 = _t()
 
         s.claim = None
 
         turn = self._run_policy(ct)
-        t2 = t()
-        print(f"turn={turn}")
+        _t2 = _t()
         pos_before = ct.get_position()
         self._execute_turn(ct, turn)
         pos_after = ct.get_position()
-        t3 = t()
-        print(f"tot={t3 - t0} upd={t1 - t0} pol={t2 - t1} exec={t3 - t2}")
+        _t3 = _t()
+        upd_us = int((_t1 - _t0) * 1e6)
+        pol_us = int((_t2 - _t1) * 1e6)
+        tot_us = int((_t3 - _t0) * 1e6)
+        if tot_us > 500:
+            _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
+            print(f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={upd_us} pol={pol_us} tot={tot_us}us", file=__import__('sys').stderr)
         if pos_before == pos_after and turn is not None:
             print(f"STUCK at ({pos_before.x},{pos_before.y})")
         # Opportunistic heal: if action unused, heal nearby damaged building
