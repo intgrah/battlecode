@@ -183,13 +183,20 @@ def harvest_ti(
                 if ct.can_build_sentinel(sentinel_pos, facing):
                     return Direction.CENTRE, PlaceSentinel(sentinel_pos, facing)
 
-    # Immediate: already adjacent to ore -> place harvester
+    # Immediate: already adjacent to ore -> road around it first, then place
+    from .task_road_harvesters import road_around
+
     for ddx, ddy in DIR4_DELTA:
         ni = (pos.y + ddy) * w + (pos.x + ddx)
         if ni in unharvested:
             ore_pos = Position(pos.x + ddx, pos.y + ddy)
             if ore_pos in state.unit_tiles:
                 continue
+            # Road adjacent tiles before placing harvester
+            road_result = road_around(state, ct, ore_pos.x, ore_pos.y)
+            if road_result is not None:
+                return road_result
+            # All roaded — place harvester
             bid = ct.get_tile_building_id(ore_pos)
             if bid is not None:
                 if ct.can_destroy(ore_pos):
