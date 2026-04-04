@@ -17,7 +17,16 @@ def patrol(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    infra = state.my_transport | state.my_core_tiles
+    # Include tiles adjacent to harvesters so we patrol around them
+    w = state.w
+    infra = state.my_transport | state.my_harvesters | state.my_core_tiles
+    for hi in state.my_harvesters:
+        hx, hy = hi % w, hi // w
+        from util import DIR4_DELTA
+        for dx, dy in DIR4_DELTA:
+            nx, ny = hx + dx, hy + dy
+            if state.in_bounds(nx, ny):
+                infra.add(ny * w + nx)
     if not infra:
         return None
     w = state.w

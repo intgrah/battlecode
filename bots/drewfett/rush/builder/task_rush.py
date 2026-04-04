@@ -821,7 +821,7 @@ def _place_gunner_at(
     flow = state.flow.ti[ni]
     committed = state.flow.gunners_fed[ni] * 0.2
     best_available = max(best_available, flow - committed)
-    if best_available < 0.1:
+    if best_available < 0.01:
         _log(f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})")
         return None
 
