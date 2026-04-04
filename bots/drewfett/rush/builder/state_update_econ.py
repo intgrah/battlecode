@@ -286,6 +286,7 @@ def update_flow(state: State) -> None:
         elif bld is not None:
             f_en_frac[i] = 1.0
 
+    # Backward pass 1: attribute flow to friendly/enemy
     for ci in reversed(topo_order):
         edges_ci = out_edges[ci]
         no = len(edges_ci)
@@ -294,17 +295,24 @@ def update_flow(state: State) -> None:
         my_w = 0.0
         en_w = 0.0
         total_w = 0.0
-        gunners = 0
         for oi, eidx in edges_ci:
             ep = edge_push[eidx]
             my_w += ep * f_my_frac[oi]
             en_w += ep * f_en_frac[oi]
             total_w += ep
-            gunners += f_gunners_fed[oi]
         if total_w > 0:
             f_my_frac[ci] = my_w / total_w
             f_en_frac[ci] = en_w / total_w
-        f_gunners_fed[ci] = gunners
+
+    # Backward pass 2: propagate gunners_fed from sinks upstream via reverse edges
+    for ci in reversed(topo_order):
+        if f_gunners_fed[ci] == 0:
+            continue
+        ri = in_rev_head[ci]
+        while ri != -1:
+            fi = in_rev_src[ri]
+            f_gunners_fed[fi] += f_gunners_fed[ci]
+            ri = in_rev_next[ri]
 
     # Log gunners_fed for harvesters
     for i in harv_idx:
