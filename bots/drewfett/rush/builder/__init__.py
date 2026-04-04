@@ -286,7 +286,7 @@ _ROLE_HOME = 2
 
 def _rush_ready(state: State) -> bool:
     core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
-    return core_flow >= 0.4 and state.en_core_pos is not None
+    return core_flow >= 0.2 and state.en_core_pos is not None
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:
@@ -309,17 +309,22 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (15.0, Task.PATROL),
             ]
         case 2:  # HOME — econ + defend harvesters, never goes to enemy half
-            # Patrol priority scales with harvesters (more to protect = more patrol)
             n_harv = len(state.my_harvesters)
-            patrol_score = 20.0 + n_harv * 30.0  # 0 harv=20, 2 harv=80, 3 harv=110
+            # Harvest until 4 harvesters, then patrol takes over
+            harvest_score = 100.0 if n_harv < 4 else 20.0
+            # Patrol scales: low early, rises with harvesters
+            patrol_score = min(20.0 + n_harv * 20.0, 90.0)  # 0→20, 2→60, 3→80, 4→80 cap
+            # Explore high early (find ore), drops once harvesters connected
+            core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
+            home_explore = 80.0 if core_flow < 0.4 else 15.0
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (200.0, Task.HEAL_INFRA),
                 (180.0, Task.ROAD_HARVESTERS),
                 (150.0, Task.CONNECT_BACK),
-                (100.0, Task.HARVEST_TI),
-                (min(patrol_score, 140.0), Task.PATROL),
-                (15.0, Task.EXPLORE),
+                (harvest_score, Task.HARVEST_TI),
+                (patrol_score, Task.PATROL),
+                (home_explore, Task.EXPLORE),
             ]
         case _:  # ECON — harvest, connect, explore. Never rushes.
             scores = [
