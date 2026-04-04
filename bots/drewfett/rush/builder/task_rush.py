@@ -145,27 +145,27 @@ def rush(
                     if result is not None:
                         return result
 
-    # Step 1b: Sentinel — disabled for now, gunner-only offense
-    # sentinel_targets = state.en_turrets | state.en_core_tiles | state.en_harvesters
-    # if ext_tiles and sentinel_targets:
-    #     ext_set = {ey * w + ex for ex, ey in ext_tiles}
-    #     for ti in sentinel_targets:
-    #         tx, ty = ti % w, ti // w
-    #         for (dx, dy), facing in _SENTINEL_HITS.items():
-    #             gx, gy = tx + dx, ty + dy
-    #             if not state.in_bounds(gx, gy):
-    #                 continue
-    #             gi = gy * w + gx
-    #             if gi not in ext_set:
-    #                 continue
-    #             if (dx, dy) in _GUNNER_HITS and _los_clear(state, gx, gy, _GUNNER_HITS[(dx, dy)], tx, ty):
-    #                 continue
-    #             feed_dir = _find_splitter_dir(state, gx, gy)
-    #             if feed_dir is not None and facing == feed_dir.opposite():
-    #                 continue
-    #             result = _place_sentinel_at(state, ct, Position(gx, gy), facing)
-    #             if result is not None:
-    #                 return result
+    # Step 1b: Sentinel — high-value targets only (turrets, core, harvesters)
+    sentinel_targets = state.en_turrets | state.en_core_tiles | state.en_harvesters
+    if ext_tiles and sentinel_targets:
+        ext_set = {ey * w + ex for ex, ey in ext_tiles}
+        for ti in sentinel_targets:
+            tx, ty = ti % w, ti // w
+            for (dx, dy), facing in _SENTINEL_HITS.items():
+                gx, gy = tx + dx, ty + dy
+                if not state.in_bounds(gx, gy):
+                    continue
+                gi = gy * w + gx
+                if gi not in ext_set:
+                    continue
+                if (dx, dy) in _GUNNER_HITS and _los_clear(state, gx, gy, _GUNNER_HITS[(dx, dy)], tx, ty):
+                    continue
+                feed_dir = _find_splitter_dir(state, gx, gy)
+                if feed_dir is not None and facing == feed_dir.opposite():
+                    continue
+                result = _place_sentinel_at(state, ct, Position(gx, gy), facing)
+                if result is not None:
+                    return result
 
     # Step 1.5: Upgrade conveyors feeding our gunners to splitters
     if ext_tiles:
@@ -258,6 +258,11 @@ def rush(
         _log(f"step3: {kind} ore at ({ore_pos.x},{ore_pos.y})")
         if kind == "free":
             if pos.distance_squared(ore_pos) <= 2 and pos != ore_pos:
+                # Don't place if enemy transport adjacent — would steal output
+                from .task_harvest_ti import _adjacent_safe_for_harvester
+                if not _adjacent_safe_for_harvester(state, ore_pos.x, ore_pos.y):
+                    state.blocked_ore[ore_idx] = state.age + state.birthday
+                    return None  # skip, scout will find other ore
                 h_cost, _ = ct.get_harvester_cost()
                 ti, _ = ct.get_global_resources()
                 if ti < h_cost:
@@ -324,8 +329,8 @@ def _los_clear(
         if x == tx and y == ty:
             return True
         env = state.env[y * w + x]
-        if env is None or env == Environment.WALL:
-            return False  # unseen tiles treated as blocking (conservative)
+        if env == Environment.WALL:
+            return False
         bld = state.building[y * w + x]
         if bld is not None and not isinstance(bld, BuildingMarker):
             return False
@@ -431,7 +436,7 @@ def _can_hit_core_fast(
             i = y * w + x
             if i in core_tiles:
                 return _DIR8[k]
-            if env[i] is None or env[i] == Environment.WALL:
+            if env[i] == Environment.WALL:
                 break
             bld = building[i]
             if bld is not None and not isinstance(bld, BuildingMarker):
@@ -465,7 +470,7 @@ def _can_hit_core(
             i = y * w + x
             if i in core_tiles:
                 return d
-            if state.env[i] is None or state.env[i] == Environment.WALL:
+            if state.env[i] == Environment.WALL:
                 break
             bld = state.building[i]
             if bld is not None and not isinstance(bld, BuildingMarker):

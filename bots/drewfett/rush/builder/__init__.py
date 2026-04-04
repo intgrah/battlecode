@@ -285,63 +285,52 @@ def _to_turn(result: OldResult) -> Turn | None:
     return ActionMove(build, move)
 
 
-_ROLE_ECON = 0
-_ROLE_RUSH = 1
-_ROLE_HOME = 2
-
 
 def _rush_ready(state: State) -> bool:
-    core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
-    return core_flow >= 0.2 and state.en_core_pos is not None
+    return state.en_core_pos is not None
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:
     seen = sum(1 for e in state.env if e is not None)
     seen_frac = seen / (state.w * state.h)
-    explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
     ready = _rush_ready(state)
 
     match state.role:
-        case 1:  # RUSH — full all-rounder, econ early then siege
+        case 0:  # ECON — harvest, connect, explore aggressively
+            # Explore stays high until most of the map is seen
+            explore_score = 120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
             scores: list[tuple[float, Task]] = [
                 (999.0, Task.HEAL_CORE),
+                (200.0, Task.HEAL_INFRA),
+                (180.0, Task.ROAD_HARVESTERS),
+                (150.0, Task.CONNECT_BACK),
+                (120.0, Task.HARVEST_TI),
+                (explore_score, Task.EXPLORE),
+                (18.0, Task.FORTIFY),
+                (15.0, Task.PATROL),
+            ]
+        case 1:  # ATTACK — econ early, then siege once flow established
+            explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+            scores = [
+                (999.0, Task.HEAL_CORE),
+                (250.0 if ready else 0.0, Task.HEAL_INFRA),
                 (200.0 if ready else 0.0, Task.RUSH),
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
                 (150.0 if not ready else 0.0, Task.CONNECT_BACK),
                 (120.0 if not ready else 0.0, Task.ROAD_HARVESTERS),
                 (100.0 if not ready else 0.0, Task.HARVEST_TI),
-                (250.0 if ready else 0.0, Task.HEAL_INFRA),
                 (explore_score, Task.EXPLORE),
-                (18.0, Task.FORTIFY),
                 (15.0, Task.PATROL),
             ]
-        case 2:  # HOME — econ + defend harvesters, never goes to enemy half
-            n_harv = len(state.my_harvesters)
-            # Harvest until 4 harvesters, then patrol takes over
-            harvest_score = 100.0 if n_harv < 4 else 20.0
-            # Patrol scales: low early, rises with harvesters
-            patrol_score = min(20.0 + n_harv * 20.0, 90.0)  # 0→20, 2→60, 3→80, 4→80 cap
-            # Explore high early (find ore), drops once harvesters connected
-            core_flow = sum(state.flow.ti[i] for i in state.my_core_tiles)
-            home_explore = 80.0 if core_flow < 0.4 else 15.0
+        case _:  # DEFENSE — heal, connect, fortify, patrol
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (200.0, Task.HEAL_INFRA),
-                (180.0, Task.ROAD_HARVESTERS),
-                (150.0, Task.CONNECT_BACK),
-                (harvest_score, Task.HARVEST_TI),
-                (95.0, Task.FORTIFY),
-                (patrol_score, Task.PATROL),
-                (home_explore, Task.EXPLORE),
-            ]
-        case _:  # ECON — harvest, connect, explore. Never rushes.
-            scores = [
-                (999.0, Task.HEAL_CORE),
-                (150.0, Task.CONNECT_BACK),
-                (120.0, Task.ROAD_HARVESTERS),
-                (100.0, Task.HARVEST_TI),
-                (explore_score, Task.EXPLORE),
-                (15.0, Task.PATROL),
+                (150.0, Task.ROAD_HARVESTERS),
+                (120.0, Task.CONNECT_BACK),
+                (100.0, Task.FORTIFY),
+                (50.0, Task.PATROL),
+                (20.0, Task.EXPLORE),
             ]
 
     scores.sort(key=lambda t: t[0], reverse=True)

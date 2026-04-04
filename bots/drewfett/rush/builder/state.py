@@ -10,23 +10,23 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
-# Spawn tile offset → role. Core rotates spawn direction each builder.
-# Spawn 0→N, 1→NE, 2→E, 3→SE, 4→S, 5→SW, 6→W, 7→NW
-# 3 RUSH, 2 HOME (cap 5)
-_OFFSET_TO_ROLE: dict[tuple[int, int], int] = {
-    (0, -1): 1,   # N → RUSH
-    (1, -1): 1,   # NE → RUSH
-    (1, 0): 1,    # E → RUSH
-    (1, 1): 2,    # SE → HOME (4th builder)
-    (0, 1): 2,    # S → HOME (5th builder)
-    (-1, 1): 1,   # SW → RUSH (backup)
-    (-1, 0): 1,   # W → RUSH (backup)
-    (-1, -1): 1,  # NW → RUSH (backup)
+# Roles: ECON=0, ATTACK=1, DEFENSE=2
+# Direction offset → spawn direction index (0-7), wraps for 8+
+_OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
+    (0, -1): 0, (1, -1): 1, (1, 0): 2, (1, 1): 3,
+    (0, 1): 4, (-1, 1): 5, (-1, 0): 6, (-1, -1): 7,
 }
+
+# First 4: 3 econ + 1 attack. After that: 1:1:1 rotation.
+_EARLY_ROLES = (0, 0, 1, 0)     # ECON, ECON, ATTACK, ECON
+_LATE_ROLES = (0, 1, 2)         # ECON, ATTACK, DEFENSE
 
 
 def _role_from_offset(dx: int, dy: int) -> int:
-    return _OFFSET_TO_ROLE.get((dx, dy), 0)
+    idx = _OFFSET_TO_INDEX.get((dx, dy), 0)
+    if idx < 4:
+        return _EARLY_ROLES[idx]
+    return _LATE_ROLES[(idx - 4) % len(_LATE_ROLES)]
 
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
@@ -220,6 +220,7 @@ class State:
 
         # -- Task caches --
         self.explore_target: Position | None = None
+        self.explore_radius: int = 0  # expanding ring for ECON explore
         self.rush_target_idx: int | None = None  # current rush ore target
         self.rush_target_turns: int = 0  # turns spent on current target
         self.scout_target: Position | None = None

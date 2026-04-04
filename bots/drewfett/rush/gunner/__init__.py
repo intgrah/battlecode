@@ -93,9 +93,12 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
     return False
 
 
+_IDLE_LIMIT = 20
+
+
 class Gunner(Unit):
     def __init__(self, _ct: Controller) -> None:
-        pass
+        self._idle_rounds = 0
 
     def run(self, ct: Controller) -> None:
         if ct.get_action_cooldown() != 0:
@@ -126,6 +129,7 @@ class Gunner(Unit):
         _glog(f"[GUN] ammo={has_ammo}")
 
         if fire_target is not None:
+            self._idle_rounds = 0
             # We have something to shoot — but is there a better direction?
             if has_ammo and cur_priority < 5:
                 best_dir, best_pri = _best_rotation(ct, pos, current, my_team)
@@ -171,6 +175,21 @@ class Gunner(Unit):
         else:
             _glog("[GUN] no target, no ammo")
 
+        # Idle self-destruct: idle 50+ rounds, friendly builder nearby to reclaim,
+        # no enemy nearby (don't self-destruct if we might be needed)
+        self._idle_rounds += 1
+        if self._idle_rounds >= _IDLE_LIMIT:
+            has_ally_builder = False
+            has_enemy = False
+            for uid in ct.get_nearby_units():
+                team = ct.get_team(uid)
+                if team == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
+                    has_ally_builder = True
+                elif team != my_team:
+                    has_enemy = True
+            if has_ally_builder and not has_enemy:
+                ct.self_destruct()
+                return
 
 
 def _scan_ray_for_fire(
