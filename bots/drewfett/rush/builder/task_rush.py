@@ -20,7 +20,7 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from flow_astar import FlowAstar
 from util import DIR4_DELTA, INF, Symmetry
 
@@ -824,6 +824,7 @@ def _place_gunner_at(
     if best_available < 0.1:
         _log(f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})")
         return None
+
     bld = state.building[ni]
     bld_name = type(bld).__name__ if bld is not None else "None"
     bld_team = getattr(bld, "team", None)
