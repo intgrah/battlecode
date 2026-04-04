@@ -691,12 +691,20 @@ def _find_flow_near_core(
     en_core: Position,
     ext_tiles: list[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
-    """Find nearest extendable free tile on the enemy half."""
+    """Find nearest extendable free tile on the enemy half that builder can reach."""
     best: tuple[int, int] | None = None
     best_dist = INF
+    w = state.w
+    nav_dist = state.nav_dist
+    nav_gen = state._nav_gen
+    nav_g = state._nav_g
 
     for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
         if not _on_enemy_half(state, tx, ty):
+            continue
+        # Skip unreachable tiles (e.g. bridge targets across gaps)
+        ti = ty * w + tx
+        if nav_gen[ti] != nav_g:
             continue
         dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
         if dist < best_dist:
@@ -933,14 +941,6 @@ def _extend_from_flow(
                 f"extend[{k}]: building ({x},{y})->({nx},{ny}) action={action} step={step.name}"
             )
             return step, action
-        # If build_at is a bridge target, walk onto the bridge to teleport
-        if k > 0:
-            prev_idx = path[k - 1]
-            prev_bld = state.building[prev_idx]
-            if isinstance(prev_bld, BuildingBridge) and prev_bld.team == state.my_team:
-                bridge_pos = Position(prev_idx % w, prev_idx // w)
-                _log(f"extend[{k}]: walking onto bridge at ({bridge_pos.x},{bridge_pos.y}) to reach ({x},{y})")
-                return _move_or_none(state, ct, bridge_pos)
         _log(f"extend[{k}]: need to walk to ({x},{y}) d²={builder_dist}")
         return _move_or_none(state, ct, build_at)
 
