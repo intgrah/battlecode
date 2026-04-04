@@ -78,7 +78,7 @@ class UnifiedFlow:
         self.rax_excess = [0.0] * n
         self.excess = [0.0] * n
         self.blocked = [False] * n
-        self.gunners_fed = [0] * n  # num gunners downstream of each tile
+        self.gunners_fed = [0.0] * n  # committed Ti/round downstream (gunner=0.2, sentinel≈0.33)
 
         # Internally allocated lists to avoid re-allocating
         self._in_degree = [0] * n

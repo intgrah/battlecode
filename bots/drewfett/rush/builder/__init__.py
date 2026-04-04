@@ -193,7 +193,7 @@ class Builder(Unit):
                 self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
-                if not isinstance(action, (PlaceRoad, PlaceBarrier)):
+                if isinstance(action, (PlaceHarvester, PlaceGunner, PlaceSentinel, PlaceLauncher, PlaceFoundry)):
                     self.state.out_target_dirty = True
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
