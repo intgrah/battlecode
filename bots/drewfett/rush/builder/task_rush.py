@@ -21,13 +21,12 @@ from building import (
     BuildingSentinel,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, Environment, Position
 from flow_astar import FlowAstar
 from util import DIR4_DELTA, INF, Symmetry
 
 from .action import Action, Fire, PlaceGunner, PlaceHarvester
 from .helpers import move_toward_with_road, step_off_and_build
-from .state_helpers import mirror
 from .task_connect_excess import SearchKind, _already_connected, _build_action
 
 if TYPE_CHECKING:
@@ -44,8 +43,14 @@ _GUNNER_HITS: dict[tuple[int, int], Direction] = {}
 _SENTINEL_HITS: dict[tuple[int, int], Direction] = {}
 
 for _d in (
-    Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST,
-    Direction.SOUTH, Direction.SOUTHWEST, Direction.WEST, Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.NORTHEAST,
+    Direction.EAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTH,
+    Direction.SOUTHWEST,
+    Direction.WEST,
+    Direction.NORTHWEST,
 ):
     _ddx, _ddy = _d.delta()
     _x, _y = _ddx, _ddy
@@ -122,8 +127,11 @@ def rush(
 
     # Build set of all enemy building indices for O(1) lookup
     en_buildings = (
-        state.en_turrets | state.en_harvesters | state.en_transport
-        | state.en_core_tiles | state.en_barriers
+        state.en_turrets
+        | state.en_harvesters
+        | state.en_transport
+        | state.en_core_tiles
+        | state.en_barriers
     )
 
     # Step 1: Can any extendable tile hit an enemy? Place gunner.
@@ -158,7 +166,9 @@ def rush(
                 gi = gy * w + gx
                 if gi not in ext_set:
                     continue
-                if (dx, dy) in _GUNNER_HITS and _los_clear(state, gx, gy, _GUNNER_HITS[(dx, dy)], tx, ty):
+                if (dx, dy) in _GUNNER_HITS and _los_clear(
+                    state, gx, gy, _GUNNER_HITS[(dx, dy)], tx, ty
+                ):
                     continue
                 feed_dir = _find_splitter_dir(state, gx, gy)
                 if feed_dir is not None and facing == feed_dir.opposite():
@@ -180,7 +190,7 @@ def rush(
     if flow_tile is not None:
         fx, fy = flow_tile
         flow_dist = (fx - en_core.x) ** 2 + (fy - en_core.y) ** 2
-        ts = t()
+        t()
         siege = _find_siege_tile_fast(state, fx, fy, en_core.x, en_core.y)
         if siege is not None and siege != (fx, fy):
             result = _extend_from_flow(state, ct, fx, fy, en_core)
@@ -215,8 +225,10 @@ def rush(
                     # Build first conveyor from harvester toward siege ourselves
                     tap = _find_free_adjacent(state, hx, hy)
                     if tap is not None:
-                        ts25 = t()
-                        siege = _find_siege_tile_fast(state, tap[0], tap[1], en_core.x, en_core.y)
+                        t()
+                        siege = _find_siege_tile_fast(
+                            state, tap[0], tap[1], en_core.x, en_core.y
+                        )
                         if siege is not None:
                             _log(
                                 f"step2.5: tap=({tap[0]},{tap[1]}), building toward siege ({siege[0]},{siege[1]})"
@@ -260,6 +272,7 @@ def rush(
             if pos.distance_squared(ore_pos) <= 2 and pos != ore_pos:
                 # Don't place if enemy transport adjacent — would steal output
                 from .task_harvest_ti import _adjacent_safe_for_harvester
+
                 if not _adjacent_safe_for_harvester(state, ore_pos.x, ore_pos.y):
                     state.blocked_ore[ore_idx] = state.age + state.birthday
                     return None  # skip, scout will find other ore
@@ -268,8 +281,16 @@ def rush(
                 if ti < h_cost:
                     return Direction.CENTRE, None  # Wait for Ti
                 # Destroy our road/barrier on ore if present
-                bid = ct.get_tile_building_id(ore_pos) if ct.is_in_vision(ore_pos) else None
-                if bid is not None and ct.get_team(bid) == state.my_team and ct.can_destroy(ore_pos):
+                bid = (
+                    ct.get_tile_building_id(ore_pos)
+                    if ct.is_in_vision(ore_pos)
+                    else None
+                )
+                if (
+                    bid is not None
+                    and ct.get_team(bid) == state.my_team
+                    and ct.can_destroy(ore_pos)
+                ):
                     ct.destroy(ore_pos)
                 if ct.can_build_harvester(ore_pos):
                     return Direction.CENTRE, PlaceHarvester(ore_pos)
@@ -317,7 +338,12 @@ _DIR8_DELTAS: tuple[tuple[int, int], ...] = (
 
 
 def _los_clear(
-    state: State, gx: int, gy: int, facing: Direction, tx: int, ty: int,
+    state: State,
+    gx: int,
+    gy: int,
+    facing: Direction,
+    tx: int,
+    ty: int,
 ) -> bool:
     """Check LoS from gunner at (gx,gy) facing `facing` to (tx,ty)."""
     w, h = state.w, state.h
@@ -340,10 +366,14 @@ def _los_clear(
 
 
 def _place_sentinel_at(
-    state: State, ct: Controller, at: Position, facing: Direction,
+    state: State,
+    ct: Controller,
+    at: Position,
+    facing: Direction,
 ) -> tuple[Direction, Action | None] | None:
     """Place sentinel at a tile."""
     from .action import PlaceSentinel
+
     s_cost, _ = ct.get_sentinel_cost()
     ti, _ = ct.get_global_resources()
     if ti < s_cost:
@@ -356,7 +386,11 @@ def _place_sentinel_at(
     if isinstance(bld, BuildingSentinel) and bld.team == state.my_team:
         return None
     # Enemy building — clear it
-    if bld is not None and bld.team != state.my_team and not isinstance(bld, BuildingMarker):
+    if (
+        bld is not None
+        and bld.team != state.my_team
+        and not isinstance(bld, BuildingMarker)
+    ):
         if pos == at:
             return Direction.CENTRE, Fire()
         return _move_or_none(state, ct, at)
@@ -372,7 +406,11 @@ def _place_sentinel_at(
 
 
 def _find_siege_tile_fast(
-    state: State, from_x: int, from_y: int, target_x: int, target_y: int,
+    state: State,
+    from_x: int,
+    from_y: int,
+    target_x: int,
+    target_y: int,
 ) -> tuple[int, int] | None:
     """Find closest buildable tile to (from_x,from_y) that can hit (target_x,target_y).
     Uses precomputed _GUNNER_HITS table instead of 112-tile LoS scan."""
@@ -497,7 +535,9 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
     for i in state.my_harvesters:
         # Skip harvesters whose flow is fully committed to gunners
         available = 0.25 - f.gunners_fed[i]
-        _log(f"extendable: harv ({i%w},{i//w}) gunners_fed={f.gunners_fed[i]:.2f} avail={available:.3f}")
+        _log(
+            f"extendable: harv ({i % w},{i // w}) gunners_fed={f.gunners_fed[i]:.2f} avail={available:.3f}"
+        )
         if available < 0.1:
             continue
         hx, hy = i % w, i // w
@@ -675,7 +715,7 @@ def _find_flow_in_range(
     building = state.building
     ct = _make_core_tiles(state, en_core)
 
-    for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
+    for tx, ty in ext_tiles if ext_tiles is not None else _extendable_tiles(state):
         facing = _can_hit_core_fast(w, h, env, building, ct, tx, ty)
         if facing is not None:
             dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
@@ -695,7 +735,7 @@ def _find_flow_near_core(
     best: tuple[int, int] | None = None
     best_dist = INF
 
-    for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
+    for tx, ty in ext_tiles if ext_tiles is not None else _extendable_tiles(state):
         if not _on_enemy_half(state, tx, ty):
             continue
         dist = (tx - en_core.x) ** 2 + (ty - en_core.y) ** 2
@@ -717,8 +757,11 @@ def _extend_from_flow(
     w = state.w
     pos = state.pos
     en_buildings = (
-        state.en_turrets | state.en_harvesters | state.en_transport
-        | state.en_core_tiles | state.en_barriers
+        state.en_turrets
+        | state.en_harvesters
+        | state.en_transport
+        | state.en_core_tiles
+        | state.en_barriers
     )
 
     _log(f"extend: from ({flow_x},{flow_y}) toward core ({en_core.x},{en_core.y})")
@@ -742,7 +785,9 @@ def _extend_from_flow(
     if state.rush_flow_search is not None and state.rush_flow_source == flow_idx:
         search = state.rush_flow_search
     else:
-        search = FlowAstar(state, flow_x, flow_y, {siege_idx}, 0, hx=siege_x, hy=siege_y)
+        search = FlowAstar(
+            state, flow_x, flow_y, {siege_idx}, 0, hx=siege_x, hy=siege_y
+        )
         state.rush_flow_source = flow_idx
     path = search.compute(lambda: ct.get_cpu_time_elapsed() < 800)
     state.rush_flow_search = None if search.exhausted else search
@@ -806,7 +851,9 @@ def _extend_from_flow(
                         _log(
                             f"extend[{k}]: gunner at ({nx},{ny}) would face feed, skip"
                         )
-                    elif gunner_facing != Direction.CENTRE and _los_clear(state, nx, ny, gunner_facing, ahead2_x, ahead2_y):
+                    elif gunner_facing != Direction.CENTRE and _los_clear(
+                        state, nx, ny, gunner_facing, ahead2_x, ahead2_y
+                    ):
                         _log(
                             f"extend[{k}]: placing gunner at ({nx},{ny}) facing ({ahead2_x},{ahead2_y}) to clear"
                         )
@@ -887,7 +934,9 @@ def _extend_from_flow(
                 feed_dir = _find_splitter_dir(state, x, y)
                 if feed_dir is not None and gfacing == feed_dir.opposite():
                     continue
-                _log(f"extend[{k}]: ({x},{y}) can hit enemy at ({etx},{ety}), placing gunner")
+                _log(
+                    f"extend[{k}]: ({x},{y}) can hit enemy at ({etx},{ety}), placing gunner"
+                )
                 result = _place_gunner_at(state, ct, build_at, gfacing)
                 if result is not None:
                     return result
@@ -998,7 +1047,9 @@ def _place_gunner_at(
     committed = state.flow.gunners_fed[ni]
     best_available = max(best_available, flow - committed)
     if best_available < 0.1:
-        _log(f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})")
+        _log(
+            f"gunner: insufficient available flow {best_available:.3f} at ({at.x},{at.y})"
+        )
         return None
 
     bld = state.building[ni]
@@ -1106,7 +1157,9 @@ def _find_rush_ore(
 
     all_ore: set[int] = set(state.ore_ti)
     # Mirror ore using symmetry — confirmed or all remaining candidates
-    syms: list[Symmetry] = [state.symmetry] if state.symmetry is not None else list(state.sym_candidates)
+    syms: list[Symmetry] = (
+        [state.symmetry] if state.symmetry is not None else list(state.sym_candidates)
+    )
     for sym in syms:
         for oi in list(state.ore_ti):
             ox, oy = oi % w, oi // w
