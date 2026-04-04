@@ -93,11 +93,6 @@ def find_path_raw(
     else:
         path = extract_path(parent, si, best_node) if best_h < INF else None
 
-    if ct is not None:
-        print(
-            f"A*: exp={exp} {ct.get_cpu_time_elapsed() - _t0}us ({sx},{sy})->({gx},{gy})"
-        )
-
     # Cleanup
     for i in touched:
         dist[i] = INF

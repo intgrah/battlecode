@@ -222,6 +222,9 @@ class State:
         self.rush_target_idx: int | None = None  # current rush ore target
         self.rush_target_turns: int = 0  # turns spent on current target
         self.scout_target: Position | None = None
+        self.rush_cached_siege: int | None = None  # cached siege target tile
+        self.rush_flow_search: object | None = None  # cached FlowAstar for extend
+        self.rush_flow_source: int | None = None  # flow source for cached search
 
         # -- Flow search caches --
         self.ti_flow_search: FlowAstar | None = None

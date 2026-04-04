@@ -93,7 +93,7 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
     return False
 
 
-_IDLE_LIMIT = 50  # self-destruct after 50 rounds with no target
+_IDLE_LIMIT = 25
 
 
 class Gunner(Unit):
