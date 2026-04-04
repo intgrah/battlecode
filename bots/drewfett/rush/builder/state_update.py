@@ -465,7 +465,8 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
     We don't need to recalculate if nothing related to transport changed in our vision
     """
     infra = state.transport | state.harvesters | state.foundries | state.turrets
-    needs_reflow = any(i in infra for i in changed)
+    needs_reflow = any(i in infra for i in changed) or state.out_target_dirty
+    state.out_target_dirty = False
     if needs_reflow:
         update_flow(state)
         state.ti_flow_search = None
