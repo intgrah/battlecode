@@ -296,6 +296,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
                 (150.0 if not ready else 0.0, Task.CONNECT_BACK),
                 (100.0 if not ready else 0.0, Task.HARVEST_TI),
+                (80.0 if ready else 0.0, Task.HEAL_INFRA),
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]
