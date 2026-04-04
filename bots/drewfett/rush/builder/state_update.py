@@ -18,7 +18,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from marker import MarkerEureka, MarkerTaskClaim, is_stale
+from marker import MarkerEureka, MarkerRole, MarkerTaskClaim, is_stale
 from marker import decode as decode_marker
 from util import COST_IMPASSABLE, Symmetry
 
@@ -219,6 +219,8 @@ def _scan_vision(state: State, ct: Controller) -> list[int]:
                             state.claims.add(msg)
                         case MarkerEureka() if state.symmetry is None:
                             state.symmetry = Symmetry(msg.symmetry)
+                        case MarkerRole():
+                            pass  # roles assigned by spawn tile offset
                 case BuildingCore(team) if team != my_team:
                     state.en_core_tiles.add(i)
                     if state.en_core_pos is None:

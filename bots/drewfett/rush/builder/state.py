@@ -10,6 +10,24 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
+# Spawn tile offset → role. Core tries directions in enum order:
+# N, NE, E, SE, S, SW, W, NW
+# First 2 = ECON, next 2 = RUSH, then HOME, then RUSH
+_OFFSET_TO_ROLE: dict[tuple[int, int], int] = {
+    (0, -1): 0,   # N → ECON
+    (1, -1): 0,   # NE → ECON
+    (1, 0): 1,    # E → RUSH
+    (1, 1): 1,    # SE → RUSH
+    (0, 1): 2,    # S → HOME
+    (-1, 1): 1,   # SW → RUSH
+    (-1, 0): 0,   # W → ECON (backup)
+    (-1, -1): 1,  # NW → RUSH (backup)
+}
+
+
+def _role_from_offset(dx: int, dy: int) -> int:
+    return _OFFSET_TO_ROLE.get((dx, dy), 0)
+
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
     from bridge_astar import BridgeFlowAstar
@@ -123,6 +141,9 @@ class State:
         self.my_team = ct.get_team()
         self.birthday = ct.get_current_round()
         self.age = 0
+        # Role: all builders use the unified policy for now
+        # Role system is wired up but everyone acts as "all-rounder"
+        self.role: int = -1  # -1 = unified (old behavior)
         n = self.w * self.h
 
         # -- Per-tile arrays (indexed by y * w + x) --
