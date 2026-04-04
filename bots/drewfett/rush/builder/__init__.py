@@ -38,6 +38,7 @@ from .task_heal_infra import heal_infra
 from .task_patrol import patrol
 from .task_road_harvesters import road_harvesters
 from .task_rush import rush
+from .task_fortify import fortify
 from .task_scout_enemy import scout_enemy
 
 type OldResult = tuple[Direction, Action | None] | None
@@ -58,6 +59,7 @@ TASK_FNS: dict[Task, TaskFn] = {
     Task.SCOUT_ENEMY: scout_enemy,
     Task.EXPLORE: explore,
     Task.PATROL: patrol,
+    Task.FORTIFY: fortify,
 }
 
 
@@ -310,6 +312,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (100.0 if not ready else 0.0, Task.HARVEST_TI),
                 (250.0 if ready else 0.0, Task.HEAL_INFRA),
                 (explore_score, Task.EXPLORE),
+                (18.0, Task.FORTIFY),
                 (15.0, Task.PATROL),
             ]
         case 2:  # HOME — econ + defend harvesters, never goes to enemy half
@@ -327,6 +330,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (180.0, Task.ROAD_HARVESTERS),
                 (150.0, Task.CONNECT_BACK),
                 (harvest_score, Task.HARVEST_TI),
+                (95.0, Task.FORTIFY),
                 (patrol_score, Task.PATROL),
                 (home_explore, Task.EXPLORE),
             ]
