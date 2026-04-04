@@ -327,6 +327,7 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
     for i in state.my_harvesters:
         # Skip harvesters whose flow is fully committed to gunners
         available = 0.25 - f.gunners_fed[i] * 0.2
+        _log(f"extendable: harv ({i%w},{i//w}) gunners_fed={f.gunners_fed[i]} avail={available:.3f}")
         if available < 0.1:
             continue
         hx, hy = i % w, i // w
