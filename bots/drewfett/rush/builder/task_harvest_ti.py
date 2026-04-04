@@ -240,9 +240,12 @@ def _pick_and_walk(
         ore_p = Position(oi % w, oi // w)
         if oi in state.blocked_ore:
             rnd = state.age + state.birthday
-            if state.last_seen[oi] == rnd:
+            blocked_at = state.blocked_ore[oi]
+            if rnd - blocked_at > 100:
+                state.blocked_ore.pop(oi, None)
+            elif state.last_seen[oi] == rnd:
                 if bld is None and ore_p not in state.unit_tiles:
-                    state.blocked_ore.discard(oi)
+                    state.blocked_ore.pop(oi, None)
                 else:
                     continue
             else:
@@ -252,11 +255,11 @@ def _pick_and_walk(
             from building import BuildingHarvester, BuildingMarker, BuildingRoad
 
             if not isinstance(bld, (BuildingRoad, BuildingMarker, BuildingHarvester)):
-                state.blocked_ore.add(oi)
+                state.blocked_ore[oi] = state.age + state.birthday
                 continue
         # Skip if enemy unit is standing on the ore
         if ore_p in state.unit_tiles:
-            state.blocked_ore.add(oi)
+            state.blocked_ore[oi] = state.age + state.birthday
             continue
         if is_claimed(state, oi, TaskKind.NAV_ORE):
             print(f"HARV:   ore ({oi%w},{oi//w}) claimed, skip")
