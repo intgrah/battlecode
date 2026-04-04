@@ -123,10 +123,13 @@ class Builder(Unit):
         s.claim = None
 
         turn = self._run_policy(ct)
-        t2 = t()
+        print(f"turn={turn}")
+        pos_before = ct.get_position()
         self._execute_turn(ct, turn)
+        pos_after = ct.get_position()
+        if pos_before == pos_after and turn is not None:
+            print(f"STUCK at ({pos_before.x},{pos_before.y})")
         self._write_marker(ct)
-        print(f"pol={t2 - t1} exec={t() - t2} tot={t() - t0}")
 
     def _run_policy(self, ct: Controller) -> Turn | None:
         s = self.state
@@ -139,23 +142,35 @@ class Builder(Unit):
             result = fn(s, ct)
             dt = t() - t0
             if result is not None:
-                print(f"  {task.name} OK {dt}us @{t()}")
+                print(f"  {task.name} OK")
                 return _to_turn(result)
-            if dt > 20:
-                print(f"  {task.name} FAIL {dt}us @{t()}")
+            print(f"  {task.name} FAIL")
+        print("  IDLE")
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
-        """Try to move. If blocked, 50% chance to detour randomly."""
+        """Try to move. If blocked, 50% chance to detour randomly (paving if needed)."""
         if ct.can_move(direction):
             ct.move(direction)
             return True
-        # Livelock prevention: random detour
         import random
         if random.random() < 0.5:
+            # Try walkable tiles first
             dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
             if dirs:
                 ct.move(random.choice(dirs))
+                return False
+            # No walkable tiles — try paving a road in a random direction
+            pos = ct.get_position()
+            candidates = [d for d in Direction if d != Direction.CENTRE]
+            random.shuffle(candidates)
+            for d in candidates:
+                nxt = pos.add(d)
+                if ct.can_build_road(nxt):
+                    ct.build_road(nxt)
+                    if ct.can_move(d):
+                        ct.move(d)
+                    return False
         return False
 
     def _execute_turn(self, ct: Controller, turn: Turn | None) -> None:
