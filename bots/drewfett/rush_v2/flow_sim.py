@@ -42,7 +42,11 @@ def _accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
             return from_dir == d
         case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
             return from_dir != d.opposite()
-        case BuildingGunner(direction=d) | BuildingSentinel(direction=d) | BuildingBreach(direction=d):
+        case (
+            BuildingGunner(direction=d)
+            | BuildingSentinel(direction=d)
+            | BuildingBreach(direction=d)
+        ):
             return from_dir != d
     return True
 
@@ -152,7 +156,9 @@ def update_flow(state: State) -> None:
                         tgt = ny * w + nx
                         if is_recv[tgt]:
                             from_dir = DELTA_TO_DIR.get((odx, ody))
-                            if from_dir is not None and _accepts_input_from(state, tgt, from_dir):
+                            if from_dir is not None and _accepts_input_from(
+                                state, tgt, from_dir
+                            ):
                                 add_edge(i, tgt)
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 dx, dy = d.delta()
@@ -161,7 +167,9 @@ def update_flow(state: State) -> None:
                     tgt = ny * w + nx
                     if is_recv[tgt]:
                         from_dir = DELTA_TO_DIR.get((dx, dy))
-                        if from_dir is not None and _accepts_input_from(state, tgt, from_dir):
+                        if from_dir is not None and _accepts_input_from(
+                            state, tgt, from_dir
+                        ):
                             add_edge(i, tgt)
 
     for i in found_idx:
@@ -172,7 +180,9 @@ def update_flow(state: State) -> None:
                 ni = ny * w + nx
                 if is_recv[ni]:
                     from_dir = DELTA_TO_DIR.get((ddx, ddy))
-                    if from_dir is not None and _accepts_input_from(state, ni, from_dir):
+                    if from_dir is not None and _accepts_input_from(
+                        state, ni, from_dir
+                    ):
                         add_edge(i, ni)
 
     queue: deque[int] = deque()
@@ -184,7 +194,9 @@ def update_flow(state: State) -> None:
                 ni = ny * w + nx
                 if is_recv[ni]:
                     from_dir = DELTA_TO_DIR.get((ddx, ddy))
-                    if from_dir is not None and _accepts_input_from(state, ni, from_dir):
+                    if from_dir is not None and _accepts_input_from(
+                        state, ni, from_dir
+                    ):
                         add_edge(i, ni)
         queue.append(i)
 

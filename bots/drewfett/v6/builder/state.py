@@ -294,5 +294,3 @@ class State:
                 return COST_ROAD
             case _:
                 return COST_IMPASSABLE
-
-

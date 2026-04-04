@@ -12,6 +12,7 @@ from action import Action
 @dataclass(frozen=True, slots=True)
 class Wait:
     """Hold position intentionally. Don't fall through to lower tasks."""
+
     pass
 
 
@@ -28,6 +29,7 @@ class ActionOnly:
 @dataclass(frozen=True, slots=True)
 class ActionMove:
     """Build first, then step."""
+
     action: Action
     direction: Direction
 
@@ -35,6 +37,7 @@ class ActionMove:
 @dataclass(frozen=True, slots=True)
 class MoveAction:
     """Step first, then build."""
+
     direction: Direction
     action: Action
 

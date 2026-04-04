@@ -75,6 +75,7 @@ def run(state: State, ct: Controller) -> Turn | None:
 # Core tile helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_core_tiles(state: State, en_core: Position) -> set[int]:
     """Precompute flat-index set of enemy core tiles (3x3)."""
     w, h = state.w, state.h
@@ -88,8 +89,13 @@ def _make_core_tiles(state: State, en_core: Position) -> set[int]:
 
 
 def _can_hit_core_fast(
-    w: int, h: int, env: list, building: list, core_tiles: set[int],
-    gx: int, gy: int,
+    w: int,
+    h: int,
+    env: list,
+    building: list,
+    core_tiles: set[int],
+    gx: int,
+    gy: int,
 ) -> Direction | None:
     """Fast LoS check — no feed direction filtering. For search only."""
     for k in range(8):
@@ -112,7 +118,11 @@ def _can_hit_core_fast(
 
 
 def _can_hit_core(
-    state: State, gx: int, gy: int, en_core: Position, core_tiles: set[int],
+    state: State,
+    gx: int,
+    gy: int,
+    en_core: Position,
+    core_tiles: set[int],
 ) -> Direction | None:
     """Full LoS check with feed direction filtering. For placement only."""
     w, h = state.w, state.h
@@ -154,11 +164,15 @@ def _find_feed_direction(state: State, sx: int, sy: int) -> Direction | None:
         ni = ny * w + nx
         nbld = state.building[ni]
         match nbld:
-            case BuildingConveyor(direction=d, team=team) | BuildingArmouredConveyor(direction=d, team=team):
+            case (
+                BuildingConveyor(direction=d, team=team)
+                | BuildingArmouredConveyor(direction=d, team=team)
+            ):
                 if team == state.my_team:
                     ddx, ddy = d.delta()
                     if (nx + ddx, ny + ddy) == (sx, sy):
                         from util import DELTA_TO_DIR
+
                         return DELTA_TO_DIR.get((-dx, -dy))
             case BuildingSplitter(direction=d, team=team):
                 if team == state.my_team:
@@ -166,9 +180,11 @@ def _find_feed_direction(state: State, sx: int, sy: int) -> Direction | None:
                     for odx, ody in [(sdx, sdy), (-sdy, sdx), (sdy, -sdx)]:
                         if (nx + odx, ny + ody) == (sx, sy):
                             from util import DELTA_TO_DIR
+
                             return DELTA_TO_DIR.get((-dx, -dy))
             case BuildingHarvester(team=team):
                 from util import DELTA_TO_DIR
+
                 return DELTA_TO_DIR.get((-dx, -dy))
     return None
 
@@ -176,6 +192,7 @@ def _find_feed_direction(state: State, sx: int, sy: int) -> Direction | None:
 # ---------------------------------------------------------------------------
 # Phase 1: Try to place gunner at existing flow tile in range
 # ---------------------------------------------------------------------------
+
 
 def _extendable_tiles(state: State) -> list[tuple[int, int]]:
     """Find tiles where we have tappable Ti flow (free output positions)."""
@@ -239,7 +256,10 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
 
 
 def _try_place_gunner(
-    state: State, ct: Controller, en_core: Position, core_tiles: set[int],
+    state: State,
+    ct: Controller,
+    en_core: Position,
+    core_tiles: set[int],
 ) -> Turn | None:
     """Phase 1: find extendable tile in gunner range of core, place gunner."""
     from tasks._helpers import move_toward
@@ -298,8 +318,11 @@ def _try_place_gunner(
 # Phase 1.5: Upgrade conveyor feeding gunner to splitter
 # ---------------------------------------------------------------------------
 
+
 def _try_upgrade_splitter(
-    state: State, ct: Controller, en_core: Position,
+    state: State,
+    ct: Controller,
+    en_core: Position,
 ) -> Turn | None:
     """Upgrade conveyors feeding our gunners to splitters for chain continuation."""
     from tasks._helpers import move_toward
@@ -327,6 +350,7 @@ def _try_upgrade_splitter(
                     if (nx + ddx, ny + ddy) == (tx, ty):
                         # This conveyor feeds our gunner — upgrade to splitter
                         from util import DELTA_TO_DIR
+
                         back_dir = DELTA_TO_DIR.get((-dx, -dy))
                         if back_dir is None:
                             continue
@@ -347,6 +371,7 @@ def _try_upgrade_splitter(
 # Phase 2: Extend chain from flow toward core
 # ---------------------------------------------------------------------------
 
+
 def _find_flow_near_core(state: State, en_core: Position) -> tuple[int, int] | None:
     """Find nearest extendable tile on enemy half."""
     best: tuple[int, int] | None = None
@@ -364,7 +389,11 @@ def _find_flow_near_core(state: State, en_core: Position) -> tuple[int, int] | N
 
 
 def _find_siege_tile(
-    state: State, from_x: int, from_y: int, en_core: Position, core_tiles: set[int],
+    state: State,
+    from_x: int,
+    from_y: int,
+    en_core: Position,
+    core_tiles: set[int],
 ) -> tuple[int, int] | None:
     """Find closest tile to source that can hit core via LoS."""
     w, h = state.w, state.h
@@ -398,7 +427,10 @@ def _find_siege_tile(
 
 
 def _try_extend_chain(
-    state: State, ct: Controller, en_core: Position, core_tiles: set[int],
+    state: State,
+    ct: Controller,
+    en_core: Position,
+    core_tiles: set[int],
 ) -> Turn | None:
     """Phase 2: extend conveyors from existing flow toward core."""
     from tasks._helpers import move_toward
@@ -437,6 +469,7 @@ def _try_extend_chain(
 # Phase 3: Find ore on enemy half
 # ---------------------------------------------------------------------------
 
+
 def _on_enemy_half(state: State, x: int, y: int) -> bool:
     en = state.en_core_pos
     if en is None:
@@ -448,7 +481,9 @@ def _on_enemy_half(state: State, x: int, y: int) -> bool:
 
 
 def _try_find_ore(
-    state: State, ct: Controller, en_core: Position,
+    state: State,
+    ct: Controller,
+    en_core: Position,
 ) -> Turn | None:
     """Phase 3: find ore on enemy half, walk to it, place harvester."""
     from tasks._helpers import move_toward

@@ -70,7 +70,7 @@ def update(state: State, ct: Controller) -> None:
     _update_flow(state, ct, changed)
     t4 = t()
     _update_infra_staleness(state)
-    print(f"  upd: scan={t2-t1} danger={t3-t2} flow={t4-t3}")
+    print(f"  upd: scan={t2 - t1} danger={t3 - t2} flow={t4 - t3}")
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -130,7 +130,11 @@ def _rebuild_danger_zones(state: State) -> None:
                         if 0 <= nx < w and 0 <= ny < h:
                             state.danger_zones.add(ny * w + nx)
 
-            case BuildingGunner(direction=d) | BuildingSentinel(direction=d) | BuildingBreach(direction=d):
+            case (
+                BuildingGunner(direction=d)
+                | BuildingSentinel(direction=d)
+                | BuildingBreach(direction=d)
+            ):
                 ddx, ddy = d.delta()
                 r_sq = 13 if isinstance(bld, (BuildingGunner, BuildingBreach)) else 32
                 # Sentinels hit within 1 king-move of facing line
