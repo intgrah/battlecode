@@ -309,8 +309,8 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 scores = [
                     (999.0, Task.HEAL_CORE),
                     (200.0, Task.HEAL_INFRA),
+                    (180.0, Task.ROAD_HARVESTERS),
                     (150.0, Task.PATROL),
-                    (120.0, Task.ROAD_HARVESTERS),
                     (100.0, Task.CONNECT_BACK),
                     (50.0, Task.HARVEST_TI),
                 ]
