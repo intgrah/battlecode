@@ -8,6 +8,7 @@ from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
     BuildingConveyor,
+    BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
 )
@@ -42,9 +43,13 @@ def road_harvesters(
             if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
                 continue
             bld = state.building[ri]
+            # Already walkable — skip
             if isinstance(bld, _WALKABLE):
                 continue
-            # Needs a road
+            # Has a non-roadable building (enemy barrier, harvester, turret etc) — skip
+            if bld is not None and not isinstance(bld, BuildingMarker):
+                continue
+            # Empty or marker — needs a road
             rp = Position(rx, ry)
             if pos.distance_squared(rp) <= 2 and ct.can_build_road(rp):
                 return Direction.CENTRE, PlaceRoad(rp)
