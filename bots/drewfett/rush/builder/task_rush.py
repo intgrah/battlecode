@@ -48,7 +48,7 @@ def _on_enemy_half(state: State, x: int, y: int) -> bool:
 
 
 def _log(msg: str) -> None:
-    print(msg)
+    pass
 
 
 def _move_or_none(
@@ -802,9 +802,19 @@ def _place_gunner_at(
         _log(f"gunner: cannot afford (need {g_cost}, have {ti})")
         return None
 
+    # Flow check: will this gunner have ammo?
     pos = state.pos
     w = state.w
     ni = at.y * w + at.x
+    incoming_flow = state.flow.ti[ni]
+    if incoming_flow < 0.01:
+        for dx, dy in DIR4_DELTA:
+            nx, ny = at.x + dx, at.y + dy
+            if state.in_bounds(nx, ny):
+                incoming_flow = max(incoming_flow, state.flow.ti[ny * w + nx])
+    if incoming_flow < 0.05:
+        _log(f"gunner: insufficient flow {incoming_flow:.3f} at ({at.x},{at.y})")
+        return None
     bld = state.building[ni]
     bld_name = type(bld).__name__ if bld is not None else "None"
     bld_team = getattr(bld, "team", None)
