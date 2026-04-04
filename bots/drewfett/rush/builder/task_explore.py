@@ -42,15 +42,12 @@ def explore(
     if state.explore_target is None:
         state.explore_target = _pick_target(state)
     if state.explore_target is None:
-        print(f"EX: {ct.get_cpu_time_elapsed() - _t0}us none")
         return None
 
     result = move_toward_with_road(state, ct, state.explore_target)
     if result is None:
-        print(f"EX: {ct.get_cpu_time_elapsed() - _t0}us no-path")
         return None
     ct.draw_indicator_dot(state.explore_target, 0, 0, 255)
-    print(f"EX: {ct.get_cpu_time_elapsed() - _t0}us ok")
     return result
 
 

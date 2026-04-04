@@ -117,48 +117,44 @@ class Builder(Unit):
         self.state = State(ct, core_pos)
 
     def run(self, ct: Controller) -> None:
+        import time as _time
+        _t = _time.perf_counter
         s = self.state
-        t = ct.get_cpu_time_elapsed
-        t0 = t()
+        _t0 = _t()
         state_update(s, ct)
-        t1 = t()
-        _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
-        print(
-            f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={t1 - t0} @{t1}"
-        )
-
+        _t1 = _t()
         s.claim = None
-
         turn = self._run_policy(ct)
-        t2 = t()
-        print(f"turn={turn}")
-        pos_before = ct.get_position()
+        _t2 = _t()
         self._execute_turn(ct, turn)
-        pos_after = ct.get_position()
-        t3 = t()
-        print(f"tot={t3 - t0} upd={t1 - t0} pol={t2 - t1} exec={t3 - t2}")
-        if pos_before == pos_after and turn is not None:
-            print(f"STUCK at ({pos_before.x},{pos_before.y})")
+        _t3 = _t()
+        tot = int((_t3 - _t0) * 1e6)
+        if tot > 400:
+            import sys
+            _RN = {0: "E", 1: "R", 2: "H"}
+            print(f"[{_RN.get(s.role,'?')}]({s.pos.x},{s.pos.y}) upd={int((_t1-_t0)*1e6)} pol={int((_t2-_t1)*1e6)} tot={tot}", file=sys.stderr)
         # Opportunistic heal: if action unused, heal nearby damaged building
         if ct.get_action_cooldown() == 0:
             self._opportunistic_heal(ct)
         self._write_marker(ct)
 
     def _run_policy(self, ct: Controller) -> Turn | None:
+        import time as _time
+        _t = _time.perf_counter
         s = self.state
-        t = ct.get_cpu_time_elapsed
         for score, task in _policy(s):
             if score <= 0:
                 continue
-            t0 = t()
+            _t0 = _t()
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            dt = t() - t0
+            dt = int((_t() - _t0) * 1e6)
             if result is not None:
-                print(f"  {task.name} OK {dt}us")
+                if dt > 200:
+                    import sys; print(f"  {task.name} OK {dt}us", file=sys.stderr)
                 return _to_turn(result)
-            print(f"  {task.name} FAIL {dt}us")
-        print("  IDLE")
+            if dt > 200:
+                import sys; print(f"  {task.name} FAIL {dt}us", file=sys.stderr)
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
@@ -197,23 +193,25 @@ class Builder(Unit):
                 self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
-                self.state.out_target_dirty = True
+                if not isinstance(action, (PlaceRoad, PlaceBarrier)):
+                    self.state.out_target_dirty = True
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
                     if ct.can_move(direction):
                         ct.move(direction)
                     else:
                         execute(action, ct)
-                        self.state.out_target_dirty = True
                         self._move_or_detour(ct, direction)
                 else:
                     execute(action, ct)
-                    self.state.out_target_dirty = True
+                    if not isinstance(action, PlaceBarrier):
+                        self.state.out_target_dirty = True
                     self._move_or_detour(ct, direction)
             case MoveAction(direction, action):
                 if self._move_or_detour(ct, direction):
                     execute(action, ct)
-                    self.state.out_target_dirty = True
+                    if not isinstance(action, (PlaceRoad, PlaceBarrier)):
+                        self.state.out_target_dirty = True
 
     def _opportunistic_heal(self, ct: Controller) -> None:
         """If we just moved (action unused), heal any damaged friendly building nearby."""

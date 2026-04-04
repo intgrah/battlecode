@@ -86,7 +86,5 @@ def road_harvesters(
     for hi in state.my_harvesters:
         result = road_around(state, ct, hi % w, hi // w)
         if result is not None:
-            print(f"RH: {ct.get_cpu_time_elapsed() - _t0}us ok")
             return result
-    print(f"RH: {ct.get_cpu_time_elapsed() - _t0}us none")
     return None

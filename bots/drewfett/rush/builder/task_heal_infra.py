@@ -45,15 +45,12 @@ def heal_infra(
             best_pos = bp
 
     if best_pos is None:
-        print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us none")
         return None
 
     if pos.distance_squared(best_pos) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
         best_pos
     ):
-        print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us heal")
         return Direction.CENTRE, Heal(best_pos)
 
     result = move_toward_with_road(state, ct, best_pos)
-    print(f"HI: {ct.get_cpu_time_elapsed() - _t0}us walk")
     return result

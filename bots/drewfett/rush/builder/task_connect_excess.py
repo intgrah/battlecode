@@ -52,12 +52,10 @@ def connect_excess(
     best_tile = _find_excess_tile(state, excess_kind)
     _t1 = _t()
     if best_tile is None:
-        print(f"CE: no excess tile {_t1 - _t0}us")
         return None
 
     goals = _make_goals(state, search_kind)
     if not goals:
-        print(f"CE: excess=({best_tile.x},{best_tile.y}) no goals {_t() - _t0}us")
         return None
 
     idx = state.idx(best_tile.x, best_tile.y)
@@ -67,9 +65,6 @@ def connect_excess(
 
     sx, sy = _step_off_source(state, best_tile, search_kind)
     if sx < 0:
-        print(
-            f"CE: excess=({best_tile.x},{best_tile.y}) step_off failed {_t() - _t0}us"
-        )
         return None
 
     start = Position(sx, sy)
@@ -80,23 +75,13 @@ def connect_excess(
     start_env = state.env[si]
     start_blocked = state.flow.blocked[si]
     start_bld_name = type(start_bld).__name__ if start_bld else "None"
-    print(
-        f"CE: excess=({best_tile.x},{best_tile.y}) start=({sx},{sy}) env={start_env} bld={start_bld_name} blocked={start_blocked} goals={goal_coords} find={_t1 - _t0}us"
-    )
     _t2 = _t()
     path = _get_or_compute_path(state, ct, start, goals, search_kind)
     _t3 = _t()
     if path is None or len(path) < 2:
-        print(
-            f"CE: no path from ({sx},{sy}) to goals, path={path} astar={_t3 - _t2}us tot={_t3 - _t0}us"
-        )
         return None
-    print(
-        f"CE: excess=({best_tile.x},{best_tile.y}) path_len={len(path)} astar={_t3 - _t2}us"
-    )
 
     result = _walk_path(state, ct, path, search_kind)
-    print(f"CE: tot={_t() - _t0}us find={_t1 - _t0} astar={_t3 - _t2}")
     return result
 
 
