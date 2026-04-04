@@ -34,6 +34,7 @@ from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_explore import explore
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
+from .task_heal_infra import heal_infra
 from .task_patrol import patrol
 from .task_rush import rush
 from .task_scout_enemy import scout_enemy
@@ -43,6 +44,7 @@ type TaskFn = Callable[[State, Controller], OldResult]
 
 TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
+    Task.HEAL_INFRA: heal_infra,
     Task.RUSH: rush,
     Task.CONNECT_BACK: lambda s, c: connect_excess(
         s,
@@ -276,14 +278,15 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (999.0, Task.HEAL_CORE),
                 (200.0 if ready else 0.0, Task.RUSH),
                 (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
-                (150.0, Task.CONNECT_BACK),
-                (100.0, Task.HARVEST_TI),
+                (150.0 if not ready else 0.0, Task.CONNECT_BACK),
+                (100.0 if not ready else 0.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]
-        case 2:  # HOME — stay near base, harvest, connect, patrol harvesters
+        case 2:  # HOME — stay near base, heal, harvest, connect, patrol
             scores = [
                 (999.0, Task.HEAL_CORE),
+                (200.0, Task.HEAL_INFRA),
                 (150.0, Task.CONNECT_BACK),
                 (100.0, Task.HARVEST_TI),
                 (50.0, Task.PATROL),
