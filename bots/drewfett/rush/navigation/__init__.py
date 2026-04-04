@@ -5,12 +5,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from builder.state import State
 
-from . import astar_bucket, bfs
+from . import astar_bucket
 
-__all__ = ["find_path", "update_bfs", "find_path_bfs"]
-
-update_bfs = bfs.update_bfs
-find_path_bfs = bfs.find_path
+__all__ = ["find_path"]
 
 
 def find_path(

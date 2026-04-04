@@ -22,7 +22,6 @@ def find_path_raw(
     danger: set[int] | None = None,
     ct: object | None = None,
 ) -> list[int] | None:
-    _t0 = ct.get_cpu_time_elapsed() if ct is not None else 0
     w = state.w
     si = sy * w + sx
     gi = gy * w + gx
@@ -31,16 +30,20 @@ def find_path_raw(
 
     dist: list[int] = state.nav_dist
     parent: list[int] = state.nav_parent
-    heuristic: list[int] = state.nav_heuristic
-    buckets: list[deque[int]] = state.nav_buckets
+    gen = state._nav_gen
+    g = state._nav_g + 1
+    if g > 250:
+        g = 1
+        for i in range(len(gen)):
+            gen[i] = 0
+    state._nav_g = g
 
-    touched: list[int] = []
+    buckets: list[deque[int]] = state.nav_buckets
 
     h_si = max(abs(sx - gx), abs(sy - gy)) * COST_ROAD
     dist[si] = 0
-    heuristic[si] = h_si
+    gen[si] = g
     buckets[h_si % DIAL_MOD].append(si)
-    touched.append(si)
 
     cur_f = h_si
     emp = 0
@@ -49,6 +52,8 @@ def find_path_raw(
     best_node = si
 
     nb = state.pnb
+    # Pre-cache danger as local check
+    has_danger = bool(danger)
 
     while emp < DIAL_MOD:
         bi = cur_f % DIAL_MOD
@@ -58,21 +63,21 @@ def find_path_raw(
             continue
         emp = 0
         node = buckets[bi].popleft()
-        h_node = heuristic[node]
-        if dist[node] + h_node != cur_f:
+        gn = dist[node]
+        # Compute h inline
+        nx_n = node % w
+        ny_n = node // w
+        h_node = max(abs(nx_n - gx), abs(ny_n - gy)) * COST_ROAD
+        if gn + h_node != cur_f:
             continue
         if node == gi:
-            path = extract_path(parent, si, gi)
-            break
+            return _extract(parent, si, gi)
         exp += 1
         if h_node < best_h:
             best_h = h_node
             best_node = node
         if exp >= NODE_BUDGET:
-            path = extract_path(parent, si, best_node)
-            break
-
-        gn = dist[node]
+            return _extract(parent, si, best_node)
 
         base = node * 8
         for j in range(8):
@@ -80,42 +85,37 @@ def find_path_raw(
             if ni == -1:
                 break
             c = cost[ni]
-            if danger and ni in danger:
+            if has_danger and ni in danger:
                 c += COST_DANGER
             nd = gn + c
-            if nd < dist[ni]:
-                if dist[ni] == INF:
-                    touched.append(ni)
+            if gen[ni] != g:
+                gen[ni] = g
                 dist[ni] = nd
                 parent[ni] = node
-                h_ni = heuristic[ni]
-                if h_ni < 0:
-                    nx = ni % w
-                    h_ni = max(abs(nx - gx), abs(ni // w - gy)) * COST_ROAD
-                    heuristic[ni] = h_ni
+                h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * COST_ROAD
                 buckets[(nd + h_ni) % DIAL_MOD].append(ni)
-    else:
-        path = extract_path(parent, si, best_node) if best_h < INF else None
+            elif nd < dist[ni]:
+                dist[ni] = nd
+                parent[ni] = node
+                h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * COST_ROAD
+                buckets[(nd + h_ni) % DIAL_MOD].append(ni)
 
-    # Cleanup
-    for i in touched:
-        dist[i] = INF
-        parent[i] = -1
-        heuristic[i] = -1
+    if best_h < INF:
+        return _extract(parent, si, best_node)
 
     for b in buckets:
         b.clear()
+    return None
 
-    return path
 
-
-def extract_path(parent: list[int], si: int, node: int) -> list[int] | None:
+def _extract(parent: list[int], si: int, node: int) -> list[int] | None:
     if parent[node] == -1 and node != si:
         return None
     path: list[int] = []
     cur = node
-    while cur != -1:
+    while cur != si:
         path.append(cur)
         cur = parent[cur]
+    path.append(si)
     path.reverse()
     return path
