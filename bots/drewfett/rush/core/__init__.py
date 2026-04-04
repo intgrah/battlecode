@@ -48,7 +48,7 @@ class Core(Unit):
         self._spawn_with_role(ct, rnd)
 
     def _spawn_with_role(self, ct: Controller, rnd: int) -> None:
-        sp = _best_spawn_pos(ct, self.core_pos)
+        sp = _best_spawn_pos(ct, self.core_pos, self.spawned)
         if sp is None:
             return
 
@@ -78,8 +78,10 @@ class Core(Unit):
         self.spawned += 1
 
 
-def _best_spawn_pos(ct: Controller, pos: Position) -> Position | None:
-    for d in _DIRECTIONS:
+def _best_spawn_pos(ct: Controller, pos: Position, spawned: int = 0) -> Position | None:
+    n = len(_DIRECTIONS)
+    for i in range(n):
+        d = _DIRECTIONS[(spawned + i) % n]
         sp = pos.add(d)
         if ct.can_spawn(sp):
             return sp

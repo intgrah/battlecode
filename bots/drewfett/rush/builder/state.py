@@ -10,18 +10,18 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
-# Spawn tile offset → role. Core tries directions in enum order:
-# N, NE, E, SE, S, SW, W, NW
-# First 2 = ECON, next 2 = RUSH, then HOME, then RUSH
+# Spawn tile offset → role. Core rotates spawn direction each builder.
+# Spawn 0→N, 1→NE, 2→E, 3→SE, 4→S, 5→SW, 6→W, 7→NW
+# All RUSH except S (spawn 4) → HOME
 _OFFSET_TO_ROLE: dict[tuple[int, int], int] = {
-    (0, -1): 0,   # N → ECON
-    (1, -1): 0,   # NE → ECON
+    (0, -1): 1,   # N → RUSH
+    (1, -1): 1,   # NE → RUSH
     (1, 0): 1,    # E → RUSH
     (1, 1): 1,    # SE → RUSH
-    (0, 1): 2,    # S → HOME
+    (0, 1): 1,    # S → RUSH
     (-1, 1): 1,   # SW → RUSH
-    (-1, 0): 0,   # W → ECON (backup)
-    (-1, -1): 1,  # NW → RUSH (backup)
+    (-1, 0): 1,   # W → RUSH
+    (-1, -1): 1,  # NW → RUSH
 }
 
 
@@ -142,7 +142,10 @@ class State:
         self.my_team = ct.get_team()
         self.birthday = ct.get_current_round()
         self.age = 0
-        self.role: int = 1  # all RUSH (all-rounder)
+        spawn_pos = ct.get_position()
+        dx = spawn_pos.x - core_pos.x
+        dy = spawn_pos.y - core_pos.y
+        self.role: int = _role_from_offset(dx, dy)
         n = self.w * self.h
 
         # -- Per-tile arrays (indexed by y * w + x) --
