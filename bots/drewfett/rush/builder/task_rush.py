@@ -337,7 +337,8 @@ def _extendable_tiles(state: State) -> list[tuple[int, int]]:
                 result.append((nx, ny))
 
     for i in state.my_transport:
-        if f.ti[i] < 0.01:
+        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        if available < 0.1:
             continue
         bld = state.building[i]
         ix, iy = i % w, i // w
@@ -507,7 +508,8 @@ def _find_flow_in_range(
                 best = (tx, ty, facing)
 
     for i in state.my_transport:
-        if f.ti[i] < 0.01:
+        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        if available < 0.1:
             continue
         ix, iy = i % w, i // w
         bld = building[i]
@@ -555,7 +557,8 @@ def _find_flow_near_core(
 
     # Also check dead-end transport tiles (output goes nowhere)
     for i in state.my_transport:
-        if f.ti[i] < 0.01:
+        available = f.ti[i] - f.gunners_fed[i] * 0.2
+        if available < 0.1:
             continue
         ix, iy = i % w, i // w
         if not _on_enemy_half(state, ix, iy):
