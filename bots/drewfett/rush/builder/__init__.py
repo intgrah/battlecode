@@ -304,15 +304,15 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (explore_score, Task.EXPLORE),
                 (15.0, Task.PATROL),
             ]
-        case 2:  # HOME — econ early, then patrol/heal once rush triggers
+        case 2:  # HOME — econ early, then heal/road/connect once rush triggers
             if ready:
                 scores = [
                     (999.0, Task.HEAL_CORE),
                     (200.0, Task.HEAL_INFRA),
                     (180.0, Task.ROAD_HARVESTERS),
-                    (150.0, Task.PATROL),
-                    (100.0, Task.CONNECT_BACK),
-                    (50.0, Task.HARVEST_TI),
+                    (150.0, Task.CONNECT_BACK),
+                    (100.0, Task.HARVEST_TI),
+                    (20.0, Task.PATROL),
                 ]
             else:
                 scores = [
