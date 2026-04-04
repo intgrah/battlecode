@@ -157,8 +157,8 @@ class State:
         self.last_seen = [0] * n
         # The edge cost used for pathfinding for all in-edges to a tile
         self.cost = [COST_UNSEEN] * n
-        # Passable neighbours
-        self.pnb: list[list[int]] = _init_pnb(self.w, self.h, n)
+        # Passable neighbours — lazily initialized on first use
+        self._pnb: list[list[int]] | None = None
         # Symmetry detection means that knowledge of the environment can be reflected.
         # Reflected tiles count as changes to the knowledge, so env, pnb
         # However, in moments such as symmetry elimination, this can cause large spikes
@@ -204,8 +204,9 @@ class State:
         self.foundries: set[int] = set()
         self.turrets: set[int] = set()
 
-        # -- Unified flow --
-        self.flow = UnifiedFlow(n)
+        # -- Unified flow (lazily initialized) --
+        self._flow: UnifiedFlow | None = None
+        self._n = n
 
         # -- Ephemeral --
         self.unit_tiles: set[Position] = set()
@@ -237,10 +238,10 @@ class State:
         self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
 
-        self.nav_dist = [INF] * n  # astar
-        self.nav_parent = [-1] * n  # astar, bfs
-        self.nav_heuristic = [-1] * n  # astar
-        self.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]  # astar_bucket
+        self._nav_dist: list[int] | None = None
+        self._nav_parent: list[int] | None = None
+        self._nav_heuristic: list[int] | None = None
+        self._nav_buckets: list[deque[int]] | None = None
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -258,6 +259,42 @@ class State:
 
         # -- Landmarks --
         self.landmarks: None = None
+
+    @property
+    def pnb(self) -> list[list[int]]:
+        if self._pnb is None:
+            self._pnb = _init_pnb(self.w, self.h, self.w * self.h)
+        return self._pnb
+
+    @property
+    def flow(self) -> UnifiedFlow:
+        if self._flow is None:
+            self._flow = UnifiedFlow(self._n)
+        return self._flow
+
+    @property
+    def nav_dist(self) -> list[int]:
+        if self._nav_dist is None:
+            self._nav_dist = [INF] * self._n
+        return self._nav_dist
+
+    @property
+    def nav_parent(self) -> list[int]:
+        if self._nav_parent is None:
+            self._nav_parent = [-1] * self._n
+        return self._nav_parent
+
+    @property
+    def nav_heuristic(self) -> list[int]:
+        if self._nav_heuristic is None:
+            self._nav_heuristic = [-1] * self._n
+        return self._nav_heuristic
+
+    @property
+    def nav_buckets(self) -> list[deque[int]]:
+        if self._nav_buckets is None:
+            self._nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]
+        return self._nav_buckets
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
