@@ -1,0 +1,10 @@
+_py_include := `python -c "import sysconfig; print(sysconfig.get_config_var('INCLUDEPY'))"`
+_ext_suffix := `python -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))"`
+_src := "astar_bucket"
+
+build:
+    cc -O3 -shared -fPIC -I{{_py_include}} \
+        {{_src}}.c -o _{{_src}}_c{{_ext_suffix}}
+
+compile-commands:
+    echo '[{"directory":"{{justfile_directory()}}","file":"{{_src}}.c","arguments":["cc","-I{{_py_include}}","{{_src}}.c"]}]' | jq . > compile_commands.json

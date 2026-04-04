@@ -10,23 +10,24 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING
 
-# Roles: ECON=0, ATTACK=1, DEFENSE=2
-# Direction offset → spawn direction index (0-7), wraps for 8+
-_OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
-    (0, -1): 0, (1, -1): 1, (1, 0): 2, (1, 1): 3,
-    (0, 1): 4, (-1, 1): 5, (-1, 0): 6, (-1, -1): 7,
+# Spawn tile offset → role. Core rotates spawn direction each builder.
+# Spawn 0→N, 1→NE, 2→E, 3→SE, 4→S, 5→SW, 6→W, 7→NW
+# 3 RUSH, 2 HOME (cap 5)
+_OFFSET_TO_ROLE: dict[tuple[int, int], int] = {
+    (0, -1): 1,  # N → RUSH
+    (1, -1): 1,  # NE → RUSH
+    (1, 0): 1,  # E → RUSH
+    (1, 1): 2,  # SE → HOME (4th builder)
+    (0, 1): 2,  # S → HOME (5th builder)
+    (-1, 1): 1,  # SW → RUSH (backup)
+    (-1, 0): 1,  # W → RUSH (backup)
+    (-1, -1): 1,  # NW → RUSH (backup)
 }
-
-# First 5: econ, attack, econ, attack, defense. After that: attack, econ, defense.
-_EARLY_ROLES = (0, 1, 0, 1, 2)  # ECON, ATTACK, ECON, ATTACK, DEFENSE
-_LATE_ROLES = (1, 0, 2)         # ATTACK, ECON, DEFENSE
 
 
 def _role_from_offset(dx: int, dy: int) -> int:
-    idx = _OFFSET_TO_INDEX.get((dx, dy), 0)
-    if idx < 4:
-        return _EARLY_ROLES[idx]
-    return _LATE_ROLES[(idx - 4) % len(_LATE_ROLES)]
+    return _OFFSET_TO_ROLE.get((dx, dy), 0)
+
 
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
@@ -78,7 +79,7 @@ class UnifiedFlow:
         self.rax_excess = [0.0] * n
         self.excess = [0.0] * n
         self.blocked = [False] * n
-        self.gunners_fed = [0.0] * n  # committed Ti/round downstream (gunner=0.2, sentinel≈0.33)
+        self.gunners_fed = [0] * n  # num gunners downstream of each tile
 
         # Internally allocated lists to avoid re-allocating
         self._in_degree = [0] * n
@@ -157,8 +158,8 @@ class State:
         self.last_seen = [0] * n
         # The edge cost used for pathfinding for all in-edges to a tile
         self.cost = [COST_UNSEEN] * n
-        # Passable neighbours — lazily initialized on first use
-        self._pnb: list[list[int]] | None = None
+        # Passable neighbours
+        self.pnb: list[list[int]] = _init_pnb(self.w, self.h, n)
         # Symmetry detection means that knowledge of the environment can be reflected.
         # Reflected tiles count as changes to the knowledge, so env, pnb
         # However, in moments such as symmetry elimination, this can cause large spikes
@@ -204,9 +205,8 @@ class State:
         self.foundries: set[int] = set()
         self.turrets: set[int] = set()
 
-        # -- Unified flow (lazily initialized) --
-        self._flow: UnifiedFlow | None = None
-        self._n = n
+        # -- Unified flow --
+        self.flow = UnifiedFlow(n)
 
         # -- Ephemeral --
         self.unit_tiles: set[Position] = set()
@@ -220,13 +220,9 @@ class State:
 
         # -- Task caches --
         self.explore_target: Position | None = None
-        self.explore_radius: int = 0  # expanding ring for ECON explore
         self.rush_target_idx: int | None = None  # current rush ore target
         self.rush_target_turns: int = 0  # turns spent on current target
         self.scout_target: Position | None = None
-        self.rush_cached_siege: int | None = None  # cached siege target tile
-        self.rush_flow_search: object | None = None  # cached FlowAstar for extend
-        self.rush_flow_source: int | None = None  # flow source for cached search
 
         # -- Flow search caches --
         self.ti_flow_search: FlowAstar | None = None
@@ -239,10 +235,10 @@ class State:
         self.bridge_cached_source: Position | None = None
         self.bridge_cached_path: list[int] | None = None
 
-        self._nav_dist: list[int] | None = None
-        self._nav_parent: list[int] | None = None
-        self._nav_heuristic: list[int] | None = None
-        self._nav_buckets: list[deque[int]] | None = None
+        self.nav_dist = [INF] * n  # astar
+        self.nav_parent = [-1] * n  # astar, bfs
+        self.nav_heuristic = [-1] * n  # astar
+        self.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]  # astar_bucket
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -260,42 +256,6 @@ class State:
 
         # -- Landmarks --
         self.landmarks: None = None
-
-    @property
-    def pnb(self) -> list[list[int]]:
-        if self._pnb is None:
-            self._pnb = _init_pnb(self.w, self.h, self.w * self.h)
-        return self._pnb
-
-    @property
-    def flow(self) -> UnifiedFlow:
-        if self._flow is None:
-            self._flow = UnifiedFlow(self._n)
-        return self._flow
-
-    @property
-    def nav_dist(self) -> list[int]:
-        if self._nav_dist is None:
-            self._nav_dist = [INF] * self._n
-        return self._nav_dist
-
-    @property
-    def nav_parent(self) -> list[int]:
-        if self._nav_parent is None:
-            self._nav_parent = [-1] * self._n
-        return self._nav_parent
-
-    @property
-    def nav_heuristic(self) -> list[int]:
-        if self._nav_heuristic is None:
-            self._nav_heuristic = [-1] * self._n
-        return self._nav_heuristic
-
-    @property
-    def nav_buckets(self) -> list[deque[int]]:
-        if self._nav_buckets is None:
-            self._nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]
-        return self._nav_buckets
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -345,7 +305,7 @@ class State:
                         self.cost[i] = COST_IMPASSABLE
         new_passable = self.cost[i] < COST_IMPASSABLE
         if old_passable != new_passable:
-            pass  # pnb removed — A* inlines neighbor checks
+            _update_pnb(self.w, self.h, self.cost, self.pnb, i)
 
     def walkable(self, x: int, y: int) -> int:
         if Position(x, y) in self.unit_tiles:

@@ -61,8 +61,7 @@ def scout_enemy(
         return None  # everything near core is scouted
 
     ct.draw_indicator_dot(state.explore_target, 0, 255, 255)  # cyan dot
-    result = _move_or_none(state, ct, state.explore_target)
-    return result
+    return _move_or_none(state, ct, state.explore_target)
 
 
 def _pick_target(state: State, en_core: Position) -> Position | None:

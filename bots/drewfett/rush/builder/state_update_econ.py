@@ -47,7 +47,7 @@ def update_flow(state: State) -> None:
     turret_idx = list(state.turrets)
     core_idx = list(state.my_core_tiles | state.en_core_tiles)
     w = state.w
-    pass  # debug: print(f"FLOW: harv={[(i%w,i//w) for i in harv_idx]} turrets={[(i%w,i//w) for i in turret_idx]} trans={len(trans_idx)}")
+    # debug: print(f"FLOW: harv={[(i%w,i//w) for i in harv_idx]} turrets={[(i%w,i//w) for i in turret_idx]} trans={len(trans_idx)}")
 
     f_ti = f.ti
     f_ax = f.ax
@@ -88,7 +88,7 @@ def update_flow(state: State) -> None:
         f_ax_excess[i] = 0.0
         f_rax_excess[i] = 0.0
         f_excess[i] = 0.0
-        f_gunners_fed[i] = 0.0
+        f_gunners_fed[i] = 0
         in_degree[i] = 0
         out_edges[i].clear()
         in_rev_head[i] = -1
@@ -268,22 +268,18 @@ def update_flow(state: State) -> None:
             case BuildingCore():
                 pass  # Core absorbs all flow (Ti delivered = victory points)
 
-            case BuildingGunner() | BuildingSentinel() | BuildingBreach() | BuildingLauncher():
-                # Turrets consume Ti for ammo at different rates:
-                # Gunner: 2 Ti/shot, reload 1 → 0.2 Ti/round
-                # Sentinel: 10 Ti/shot, reload 3 → 0.33 Ti/round
-                # Breach: 5 refined ax/shot (not Ti) → 0
-                # Launcher: no ammo
+            case (
+                BuildingGunner()
+                | BuildingSentinel()
+                | BuildingBreach()
+                | BuildingLauncher()
+            ):
+                # Turrets consume Ti for ammo: 0.2 Ti/round (2 Ti per shot, stack of 10)
                 ti_in = f_ti[ci]
-                if isinstance(bld, BuildingSentinel):
-                    consumption = 0.33
-                elif isinstance(bld, BuildingGunner):
-                    consumption = 0.2
-                else:
-                    consumption = 0.0
+                consumption = 0.2
                 f_ti_excess[ci] = max(0.0, ti_in - consumption)
                 f_excess[ci] = f_ti_excess[ci]
-                f_gunners_fed[ci] = consumption
+                f_gunners_fed[ci] = 1
 
     _t3 = _t()
     # Backward pass: attribute flow to friendly/enemy sinks

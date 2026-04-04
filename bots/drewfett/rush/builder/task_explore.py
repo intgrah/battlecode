@@ -26,6 +26,7 @@ def explore(
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
     import time as _time
+
     _t = _time.perf_counter
     # Clear target if seen
     if state.explore_target is not None and not state.is_unseen(
@@ -52,6 +53,7 @@ def explore(
     nav_us = int((_t2 - _t1) * 1e6)
     if pick_us + nav_us > 500:
         import sys
+
         print(f"  explore: pick={pick_us} nav={nav_us}", file=sys.stderr)
     if result is None:
         state.explore_target = None
@@ -61,6 +63,7 @@ def explore(
 
 
 # -- Expanding ring (ECON) --
+
 
 def _advance_frontier(state: State) -> None:
     cx, cy = state.my_core.x, state.my_core.y
@@ -125,6 +128,7 @@ def _pick_ring_target(state: State) -> Position | None:
 
 # -- Biased explore (ATTACK / DEFENSE) --
 
+
 def _pick_biased_target(state: State) -> Position | None:
     w = state.w
     h = state.h
@@ -133,11 +137,10 @@ def _pick_biased_target(state: State) -> Position | None:
 
     if state.role == 2:  # DEFENSE: bias toward our core
         bias_x, bias_y = state.my_core.x, state.my_core.y
-    else:  # ATTACK: bias toward enemy
-        if state.en_core_pos is not None:
-            bias_x, bias_y = state.en_core_pos.x, state.en_core_pos.y
-        else:
-            bias_x, bias_y = w - 1 - state.my_core.x, h - 1 - state.my_core.y
+    elif state.en_core_pos is not None:
+        bias_x, bias_y = state.en_core_pos.x, state.en_core_pos.y
+    else:
+        bias_x, bias_y = w - 1 - state.my_core.x, h - 1 - state.my_core.y
 
     best: Position | None = None
     best_score = -1_000_000

@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from cambc import Direction
-
-from builder.action import Action
+if TYPE_CHECKING:
+    from builder.action import Action
+    from cambc import Direction
 
 
 @dataclass(frozen=True, slots=True)
 class Wait:
     """Hold position intentionally. Don't fall through to lower tasks."""
-    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +28,7 @@ class ActionOnly:
 @dataclass(frozen=True, slots=True)
 class ActionMove:
     """Build first, then step."""
+
     action: Action
     direction: Direction
 
@@ -35,6 +36,7 @@ class ActionMove:
 @dataclass(frozen=True, slots=True)
 class MoveAction:
     """Step first, then build."""
+
     direction: Direction
     action: Action
 

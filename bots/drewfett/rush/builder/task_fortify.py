@@ -48,7 +48,11 @@ def fortify(
                 continue
             ni = ny * w + nx
             env = state.env[ni]
-            if env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+            if env in (
+                Environment.WALL,
+                Environment.ORE_TITANIUM,
+                Environment.ORE_AXIONITE,
+            ):
                 continue
             bld = state.building[ni]
             # Exposed: empty, road, or marker (can be replaced with barrier)
