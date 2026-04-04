@@ -1194,6 +1194,14 @@ def _find_rush_ore(
             state.blocked_ore[oi] = state.age + state.birthday
             continue
 
+        # Enemy harvester — parasitize (strongly preferred, free flow)
+        if oi in state.en_harvesters:
+            tap = _find_free_adjacent(state, ox, oy)
+            if tap is not None and dist - 30 < best_dist:
+                best_dist = dist - 30
+                best = ("parasite", oi, tap[0], tap[1])
+            continue
+
         if not isinstance(bld, BuildingHarvester):
             env = state.env[oi]
             # Accept confirmed ore OR symmetry-mirrored ore (env=None means unseen)
@@ -1202,16 +1210,10 @@ def _find_rush_ore(
             elif env != Environment.ORE_TITANIUM:
                 continue
             tap = _find_free_adjacent(state, ox, oy)
-            if tap is not None and dist - 5 < best_dist:
-                best_dist = dist - 5
+            if tap is not None and dist < best_dist:
+                best_dist = dist
                 best = ("free", oi, tap[0], tap[1])
             continue
-
-        if oi in state.en_harvesters:
-            tap = _find_free_adjacent(state, ox, oy)
-            if tap is not None and dist + 10 < best_dist:
-                best_dist = dist + 10
-                best = ("parasite", oi, tap[0], tap[1])
 
     if best is not None:
         _log(f"  PICKED: {best[0]} ore at ({best[2]},{best[3]}) d²={best_dist}")

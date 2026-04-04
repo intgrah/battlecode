@@ -123,6 +123,7 @@ class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
         core_pos = _find_core(ct)
         self.state = State(ct, core_pos)
+        self._stuck_turns = 0
 
     def run(self, ct: Controller) -> None:
         import time as _time
@@ -151,7 +152,16 @@ class Builder(Unit):
                 file=__import__("sys").stderr,
             )
         if pos_before == pos_after and turn is not None:
-            print(f"STUCK at ({pos_before.x},{pos_before.y})")
+            self._stuck_turns += 1
+            if self._stuck_turns >= 3:
+                # Livelock: take a random walkable step
+                import random
+                dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
+                if dirs:
+                    ct.move(random.choice(dirs))
+                    self._stuck_turns = 0
+        else:
+            self._stuck_turns = 0
         # Opportunistic heal: if action unused, heal nearby damaged building
         if ct.get_action_cooldown() == 0:
             self._opportunistic_heal(ct)
