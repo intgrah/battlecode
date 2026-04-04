@@ -93,66 +93,40 @@ class UnifiedFlow:
         self._prev_recv: tuple[list[int], ...] = ()
 
 
-def _init_pnb(w: int, h: int, n: int) -> list[int]:
-    """Flat pnb: stride 8 per tile, -1 terminated. pnb[i*8 .. i*8+7]."""
-    pnb = [-1] * (n * 8)
+def _init_pnb(w: int, h: int, n: int) -> list[list[int]]:
+    pnb: list[list[int]] = [[] for _ in range(n)]
     for i in range(n):
         cx, cy = i % w, i // w
-        k = 0
-        base = i * 8
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                pnb[base + k] = ny * w + nx
-                k += 1
+                pnb[i].append(ny * w + nx)
     return pnb
 
 
-def _update_pnb(w: int, h: int, cost: list[int], pnb: list[int], i: int) -> None:
+def _update_pnb(w: int, h: int, cost: list[int], pnb: list[list[int]], i: int) -> None:
     cx, cy = i % w, i // w
     passable = cost[i] < COST_IMPASSABLE
-    # Rebuild this tile's neighbors
-    base = i * 8
-    k = 0
+    pnb[i] = []
     if passable:
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
                 if cost[ni] < COST_IMPASSABLE:
-                    pnb[base + k] = ni
-                    k += 1
-    while k < 8:
-        pnb[base + k] = -1
-        k += 1
-    # Update neighbors' lists to include/exclude this tile
+                    pnb[i].append(ni)
     for dx, dy in DIR8_DELTA:
         nx, ny = cx + dx, cy + dy
         if 0 <= nx < w and 0 <= ny < h:
             ni = ny * w + nx
             if cost[ni] >= COST_IMPASSABLE:
                 continue
-            nb_base = ni * 8
-            # Check if i is in ni's list
-            found = -1
-            for j in range(8):
-                v = pnb[nb_base + j]
-                if v == i:
-                    found = j
-                    break
-                if v == -1:
-                    break
-            if passable and found == -1:
-                # Add i to ni's list
-                for j in range(8):
-                    if pnb[nb_base + j] == -1:
-                        pnb[nb_base + j] = i
-                        break
-            elif not passable and found >= 0:
-                # Remove i from ni's list (shift left)
-                for j in range(found, 7):
-                    pnb[nb_base + j] = pnb[nb_base + j + 1]
-                pnb[nb_base + 7] = -1
+            nb_list = pnb[ni]
+            if passable:
+                if i not in nb_list:
+                    nb_list.append(i)
+            elif i in nb_list:
+                nb_list.remove(i)
 
 
 class State:
@@ -269,9 +243,6 @@ class State:
         self._nav_parent: list[int] | None = None
         self._nav_heuristic: list[int] | None = None
         self._nav_buckets: list[deque[int]] | None = None
-        self._nav_gen: bytearray = bytearray(n)
-        self._nav_g: int = 1  # start at 1 so gen (all 0s) never matches
-
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -291,7 +262,7 @@ class State:
         self.landmarks: None = None
 
     @property
-    def pnb(self) -> list[int]:
+    def pnb(self) -> list[list[int]]:
         if self._pnb is None:
             self._pnb = _init_pnb(self.w, self.h, self.w * self.h)
         return self._pnb
@@ -374,7 +345,7 @@ class State:
                         self.cost[i] = COST_IMPASSABLE
         new_passable = self.cost[i] < COST_IMPASSABLE
         if old_passable != new_passable:
-            _update_pnb(self.w, self.h, self.cost, self.pnb, i)
+            pass  # pnb removed — A* inlines neighbor checks
 
     def walkable(self, x: int, y: int) -> int:
         if Position(x, y) in self.unit_tiles:
