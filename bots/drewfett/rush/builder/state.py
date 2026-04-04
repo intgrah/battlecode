@@ -13,13 +13,19 @@ from typing import TYPE_CHECKING
 # Roles: ECON=0, ATTACK=1, DEFENSE=2
 # Direction offset → spawn direction index (0-7), wraps for 8+
 _OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
-    (0, -1): 0, (1, -1): 1, (1, 0): 2, (1, 1): 3,
-    (0, 1): 4, (-1, 1): 5, (-1, 0): 6, (-1, -1): 7,
+    (0, -1): 0,
+    (1, -1): 1,
+    (1, 0): 2,
+    (1, 1): 3,
+    (0, 1): 4,
+    (-1, 1): 5,
+    (-1, 0): 6,
+    (-1, -1): 7,
 }
 
 # First 5: econ, attack, econ, attack, defense. After that: attack, econ, defense.
 _EARLY_ROLES = (0, 1, 0, 1, 2)  # ECON, ATTACK, ECON, ATTACK, DEFENSE
-_LATE_ROLES = (1, 0, 2)         # ATTACK, ECON, DEFENSE
+_LATE_ROLES = (1, 0, 2)  # ATTACK, ECON, DEFENSE
 
 
 def _role_from_offset(dx: int, dy: int) -> int:
@@ -27,6 +33,7 @@ def _role_from_offset(dx: int, dy: int) -> int:
     if idx < 4:
         return _EARLY_ROLES[idx]
     return _LATE_ROLES[(idx - 4) % len(_LATE_ROLES)]
+
 
 if TYPE_CHECKING:
     from ax_chain_astar import AxChainAstar
@@ -78,7 +85,9 @@ class UnifiedFlow:
         self.rax_excess = [0.0] * n
         self.excess = [0.0] * n
         self.blocked = [False] * n
-        self.gunners_fed = [0.0] * n  # committed Ti/round downstream (gunner=0.2, sentinel≈0.33)
+        self.gunners_fed = [
+            0.0
+        ] * n  # committed Ti/round downstream (gunner=0.2, sentinel≈0.33)
 
         # Internally allocated lists to avoid re-allocating
         self._in_degree = [0] * n

@@ -6,10 +6,10 @@ import random
 
 from bfs import INF, NavBfs
 from cambc import Controller, Direction, EntityType, Environment, Position
+from explore import ExploreGrid
 from grid import PassableGrid
 from symmetry import Symmetry, SymmetryDetector
 from unit import Unit
-from explore import ExploreGrid
 
 # Direction order matching grid.offsets: NE, SE, SW, NW, N, E, S, W
 _DIRECTIONS: tuple[Direction, ...] = (

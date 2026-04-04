@@ -37,10 +37,7 @@ class Core(Unit):
         # Aggressive: first 3 with zero reserve, rest with small reserve
         h_cost, _ = ct.get_harvester_cost()
         c_cost, _ = ct.get_conveyor_cost()
-        if alive < 3:
-            reserve = 0
-        else:
-            reserve = h_cost + c_cost * 3
+        reserve = 0 if alive < 3 else h_cost + c_cost * 3
 
         if ti < builder_cost + reserve:
             return

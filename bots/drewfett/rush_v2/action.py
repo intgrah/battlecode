@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from cambc import Controller, Direction, EntityType, Position
+if TYPE_CHECKING:
+    from cambc import Controller, Direction, Position
 
 
 @dataclass(frozen=True, slots=True)

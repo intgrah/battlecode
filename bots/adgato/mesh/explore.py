@@ -6,7 +6,7 @@ bot is close enough that the cell falls within vision (r²=20).
 
 from __future__ import annotations
 
-from cambc import Position, Controller
+from cambc import Controller, Position
 from utils import chebyshev
 
 
@@ -25,17 +25,17 @@ class ExploreGrid:
 
     def update(self, ct: Controller) -> None:
         """Remove any grid cell within vision of the bot's position."""
-        self._unvisited -= { pos for pos in self._unvisited if ct.is_in_vision(pos) }
+        self._unvisited -= {pos for pos in self._unvisited if ct.is_in_vision(pos)}
 
     def select_next_target(self, pos: Position, core: Position) -> Position | None:
         """Return the unvisited cell nearest to the friendly core."""
         if not self._unvisited:
             return None
-        
+
         next = self._next_target
         if next is not None and next in self._unvisited:
             return next
-        
+
         best_dist = 1_000_000
         for cell in self._unvisited:
             # prefer nearer to core than nearer to bbot
@@ -46,7 +46,7 @@ class ExploreGrid:
 
         self._next_target = next
         return next
-    
+
     def draw_unvisited(self, ct: Controller) -> None:
         for cell in self._unvisited:
             ct.draw_indicator_dot(cell, 255, 0, 0)

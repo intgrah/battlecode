@@ -14,6 +14,7 @@ from unit import Unit
 def _glog(msg: str) -> None:
     pass
 
+
 _DIR8 = [d for d in Direction if d != Direction.CENTRE]
 
 # Priority: higher = more valuable target
@@ -32,28 +33,37 @@ _PRIORITY: dict[EntityType, int] = {
 }
 
 # Our buildings we must NOT shoot through
-_OWN_DONT_SHOOT = frozenset({
-    EntityType.CONVEYOR,
-    EntityType.SPLITTER,
-    EntityType.BRIDGE,
-    EntityType.ARMOURED_CONVEYOR,
-    EntityType.HARVESTER,
-    EntityType.GUNNER,
-    EntityType.SENTINEL,
-    EntityType.BREACH,
-    EntityType.LAUNCHER,
-    EntityType.FOUNDRY,
-    EntityType.BARRIER,
-    EntityType.CORE,
-})
+_OWN_DONT_SHOOT = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.HARVESTER,
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+        EntityType.FOUNDRY,
+        EntityType.BARRIER,
+        EntityType.CORE,
+    }
+)
 
 
 _CARDINAL = [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]
-_OUR_ADJACENT = frozenset({
-    EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR, EntityType.SPLITTER,
-    EntityType.BRIDGE, EntityType.GUNNER, EntityType.SENTINEL,
-    EntityType.BREACH, EntityType.LAUNCHER,
-})
+_OUR_ADJACENT = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+    }
+)
 
 
 def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> bool:
@@ -71,8 +81,11 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
             continue
         etype = ct.get_entity_type(bid)
         if etype in (
-            EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR,
-            EntityType.SPLITTER, EntityType.GUNNER, EntityType.SENTINEL,
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.SPLITTER,
+            EntityType.GUNNER,
+            EntityType.SENTINEL,
         ):
             return True
     return False
@@ -101,11 +114,10 @@ class Gunner(Unit):
             if ct.get_team(uid) == my_team:
                 continue
             up = ct.get_position(uid)
-            if ct.can_fire(up):
-                if cur_priority < 2:
-                    _glog(f"[GUN] enemy bot at ({up.x},{up.y}), upgrading target")
-                    fire_target = up
-                    cur_priority = 2
+            if ct.can_fire(up) and cur_priority < 2:
+                _glog(f"[GUN] enemy bot at ({up.x},{up.y}), upgrading target")
+                fire_target = up
+                cur_priority = 2
 
         # Check if we have ammo for rotation decisions
         has_ammo = ct.get_ammo_amount() > 0
@@ -115,11 +127,15 @@ class Gunner(Unit):
             # We have something to shoot — but is there a better direction?
             if has_ammo and cur_priority < 5:
                 best_dir, best_pri = _best_rotation(ct, pos, current, my_team)
-                _glog(f"[GUN] cur_pri={cur_priority} best_rot={best_dir.name} rot_pri={best_pri}")
+                _glog(
+                    f"[GUN] cur_pri={cur_priority} best_rot={best_dir.name} rot_pri={best_pri}"
+                )
                 if best_pri > cur_priority:
                     ti, _ = ct.get_global_resources()
                     if ti >= 10 and ct.can_rotate(best_dir):
-                        _glog(f"[GUN] ROTATING to {best_dir.name} (pri {best_pri} > {cur_priority})")
+                        _glog(
+                            f"[GUN] ROTATING to {best_dir.name} (pri {best_pri} > {cur_priority})"
+                        )
                         ct.rotate(best_dir)
                         return
                     _glog(f"[GUN] want to rotate but ti={ti} or can't")
@@ -134,12 +150,14 @@ class Gunner(Unit):
         if has_ammo or facing_feed:
             best_dir, best_pri = _best_rotation(ct, pos, current, my_team)
             reason = "facing feed" if facing_feed and not has_ammo else "has ammo"
-            _glog(f"[GUN] no target, {reason}, best_rot={best_dir.name} rot_pri={best_pri}")
+            _glog(
+                f"[GUN] no target, {reason}, best_rot={best_dir.name} rot_pri={best_pri}"
+            )
             if best_pri > 0 or facing_feed:
                 if facing_feed and best_dir == current:
                     # Must rotate away from feed — pick any other direction
                     for d in _DIR8:
-                        if d != current and d != feed_dir:
+                        if d not in (current, feed_dir):
                             best_dir = d
                             break
                 ti, _ = ct.get_global_resources()
@@ -202,16 +220,14 @@ def _scan_ray_for_fire(
                         continue  # our parasitised harvester — skip
                     # Unprotected enemy harvester — targetable
                     pri = 2
-                    if pri > best_strategic_pri:
-                        best_strategic_pri = pri
+                    best_strategic_pri = max(best_strategic_pri, pri)
                     if first_target is None and ct.can_fire(tp):
                         first_target = tp
                     x += dx
                     y += dy
                     continue
                 pri = _PRIORITY.get(etype, 1)
-                if pri > best_strategic_pri:
-                    best_strategic_pri = pri
+                best_strategic_pri = max(best_strategic_pri, pri)
                 if first_target is None and ct.can_fire(tp):
                     first_target = tp
                 # Enemy buildings block LoS but keep scanning for priority
@@ -303,6 +319,7 @@ def _scan_ray_strategic(
         # Wall blocks ray
         env = ct.get_tile_env(tp)
         from cambc import Environment
+
         if env == Environment.WALL:
             break
 
@@ -322,15 +339,14 @@ def _scan_ray_strategic(
                     if _harvester_is_feeding_us(ct, tp, my_team):
                         break  # our parasitised harvester — block ray
                     # Unprotected — targetable, doesn't block
-                    if 3 > best_pri:
+                    if best_pri < 3:
                         best_pri = 2
                     x += dx
                     y += dy
                     continue
                 # Enemy — record priority
                 pri = _PRIORITY.get(etype, 1)
-                if pri > best_pri:
-                    best_pri = pri
+                best_pri = max(best_pri, pri)
                 # Enemy buildings block but we still want to see what's behind
                 x += dx
                 y += dy

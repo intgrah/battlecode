@@ -36,10 +36,7 @@ class Core(Unit):
                 return
 
         # First 5: no reserve. After that: moderate gate.
-        if alive < 5:
-            reserve = 0
-        else:
-            reserve = builder_cost * 4
+        reserve = 0 if alive < 5 else builder_cost * 4
 
         if ti < builder_cost + reserve:
             return

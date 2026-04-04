@@ -53,7 +53,12 @@ class MarkerClaim:
     turn: int
 
     def encode(self) -> int:
-        val = (0 << _TAG_SHIFT) | (self.kind << 23) | (self.tile_index << 11) | (self.turn & 0x7FF)
+        val = (
+            (0 << _TAG_SHIFT)
+            | (self.kind << 23)
+            | (self.tile_index << 11)
+            | (self.turn & 0x7FF)
+        )
         return _encrypt(val)
 
     @staticmethod
@@ -89,7 +94,12 @@ class MarkerRole:
     turn: int  # 11 bits
 
     def encode(self) -> int:
-        val = (2 << _TAG_SHIFT) | (self.role << 22) | (self.birthday << 11) | (self.turn & 0x7FF)
+        val = (
+            (2 << _TAG_SHIFT)
+            | (self.role << 22)
+            | (self.birthday << 11)
+            | (self.turn & 0x7FF)
+        )
         return _encrypt(val)
 
     @staticmethod
