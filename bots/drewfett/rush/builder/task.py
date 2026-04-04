@@ -11,3 +11,4 @@ class Task(IntEnum):
     SCOUT_ENEMY = auto()
     EXPLORE = auto()
     PATROL = auto()
+    FORTIFY = auto()

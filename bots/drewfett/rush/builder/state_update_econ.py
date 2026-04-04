@@ -88,7 +88,7 @@ def update_flow(state: State) -> None:
         f_ax_excess[i] = 0.0
         f_rax_excess[i] = 0.0
         f_excess[i] = 0.0
-        f_gunners_fed[i] = 0
+        f_gunners_fed[i] = 0.0
         in_degree[i] = 0
         out_edges[i].clear()
         in_rev_head[i] = -1
@@ -269,12 +269,21 @@ def update_flow(state: State) -> None:
                 pass  # Core absorbs all flow (Ti delivered = victory points)
 
             case BuildingGunner() | BuildingSentinel() | BuildingBreach() | BuildingLauncher():
-                # Turrets consume Ti for ammo: 0.2 Ti/round (2 Ti per shot, stack of 10)
+                # Turrets consume Ti for ammo at different rates:
+                # Gunner: 2 Ti/shot, reload 1 → 0.2 Ti/round
+                # Sentinel: 10 Ti/shot, reload 3 → 0.33 Ti/round
+                # Breach: 5 refined ax/shot (not Ti) → 0
+                # Launcher: no ammo
                 ti_in = f_ti[ci]
-                consumption = 0.2
+                if isinstance(bld, BuildingSentinel):
+                    consumption = 0.33
+                elif isinstance(bld, BuildingGunner):
+                    consumption = 0.2
+                else:
+                    consumption = 0.0
                 f_ti_excess[ci] = max(0.0, ti_in - consumption)
                 f_excess[ci] = f_ti_excess[ci]
-                f_gunners_fed[ci] = 1
+                f_gunners_fed[ci] = consumption
 
     _t3 = _t()
     # Backward pass: attribute flow to friendly/enemy sinks

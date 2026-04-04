@@ -1,10 +1,12 @@
 from cambc import Controller, EntityType, Position
 from unit import Unit
 
+_IDLE_LIMIT = 20
+
 
 class Sentinel(Unit):
     def __init__(self, ct: Controller) -> None:
-        pass
+        self._idle_rounds = 0
 
     def run(self, ct: Controller) -> None:
         my_team = ct.get_team()
@@ -43,7 +45,23 @@ class Sentinel(Unit):
                 best_target = up
 
         if best_target is not None:
+            self._idle_rounds = 0
             ct.fire(best_target)
+            return
+
+        self._idle_rounds += 1
+        if self._idle_rounds >= _IDLE_LIMIT:
+            has_ally_builder = False
+            has_enemy = False
+            for uid in ct.get_nearby_units():
+                team = ct.get_team(uid)
+                if team == my_team and ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
+                    has_ally_builder = True
+                elif team != my_team:
+                    has_enemy = True
+            if has_ally_builder and not has_enemy:
+                ct.self_destruct()
+                return
 
 
 def _target_priority(etype: EntityType) -> int:
