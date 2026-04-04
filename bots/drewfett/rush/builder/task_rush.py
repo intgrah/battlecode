@@ -806,7 +806,7 @@ def _extend_from_flow(
                         _log(
                             f"extend[{k}]: gunner at ({nx},{ny}) would face feed, skip"
                         )
-                    elif gunner_facing != Direction.CENTRE:
+                    elif gunner_facing != Direction.CENTRE and _los_clear(state, nx, ny, gunner_facing, ahead2_x, ahead2_y):
                         _log(
                             f"extend[{k}]: placing gunner at ({nx},{ny}) facing ({ahead2_x},{ahead2_y}) to clear"
                         )
@@ -831,7 +831,7 @@ def _extend_from_flow(
             feed_dir = _find_splitter_dir(state, x, y)
             if feed_dir is not None and facing == feed_dir.opposite():
                 _log(f"extend[{k}]: enemy ahead but facing would block feed, skip")
-            elif facing != Direction.CENTRE:
+            elif facing != Direction.CENTRE and _los_clear(state, x, y, facing, nx, ny):
                 _log(
                     f"extend[{k}]: enemy {next_name} ahead at ({nx},{ny}), placing gunner at ({x},{y}) facing {facing.name}"
                 )

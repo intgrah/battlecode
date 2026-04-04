@@ -50,8 +50,8 @@ def move_toward_with_road(
     if pos == target:
         return Direction.CENTRE, None
 
-    from navigation.bfs import find_path as bfs_find_path
-    path = bfs_find_path(state, target.x, target.y)
+    from navigation import find_path_bfs
+    path = find_path_bfs(state, target.x, target.y)
     if path is None or len(path) < 2:
         return Direction.CENTRE, None
 
