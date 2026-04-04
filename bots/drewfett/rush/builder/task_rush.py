@@ -108,10 +108,10 @@ def rush(
 
     pos = state.pos
 
-    # Only rush if closer to enemy core than our core
+    # Only rush if roughly on enemy half (with slack for provisional core)
     my_dist = pos.distance_squared(en_core)
     home_dist = pos.distance_squared(state.my_core)
-    if my_dist > home_dist:
+    if my_dist > home_dist + _ENEMY_HALF_SLACK:
         return None
 
     w = state.w
@@ -232,7 +232,7 @@ def rush(
                     _log(
                         f"step2.5: unconnected harvester at ({hx},{hy}), no siege path"
                     )
-                    return None
+                    continue
                 _log(
                     f"step2.5: harvester ({hx},{hy}) d²={h_dist} flow={flow_val:.3f} has adjacent flow, skip"
                 )
@@ -668,7 +668,6 @@ def _find_flow_in_range(
     best_dist = INF
 
     w, h = state.w, state.h
-    f = state.flow
     env = state.env
     building = state.building
     ct = _make_core_tiles(state, en_core)
@@ -680,31 +679,6 @@ def _find_flow_in_range(
             if dist < best_dist:
                 best_dist = dist
                 best = (tx, ty, facing)
-
-    for i in state.my_transport:
-        available = f.ti[i] - f.gunners_fed[i]
-        if available < 0.1:
-            continue
-        ix, iy = i % w, i // w
-        bld = building[i]
-        if isinstance(bld, BuildingBridge):
-            continue
-        match bld:
-            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                ddx, ddy = d.delta()
-                nx, ny = ix + ddx, iy + ddy
-                if state.in_bounds(nx, ny):
-                    ni = ny * w + nx
-                    if f.ti[ni] > 0.01:
-                        continue
-            case _:
-                continue
-        facing = _can_hit_core_fast(w, h, env, building, ct, ix, iy)
-        if facing is not None:
-            dist = (ix - en_core.x) ** 2 + (iy - en_core.y) ** 2
-            if dist < best_dist:
-                best_dist = dist
-                best = (ix, iy, facing)
 
     return best
 
@@ -718,10 +692,6 @@ def _find_flow_near_core(
     best: tuple[int, int] | None = None
     best_dist = INF
 
-    w = state.w
-    f = state.flow
-
-    # Check extendable free tiles (preferred)
     for tx, ty in (ext_tiles if ext_tiles is not None else _extendable_tiles(state)):
         if not _on_enemy_half(state, tx, ty):
             continue
@@ -729,32 +699,6 @@ def _find_flow_near_core(
         if dist < best_dist:
             best_dist = dist
             best = (tx, ty)
-
-    # Also check dead-end transport tiles (output goes nowhere)
-    for i in state.my_transport:
-        available = f.ti[i] - f.gunners_fed[i]
-        if available < 0.1:
-            continue
-        ix, iy = i % w, i // w
-        if not _on_enemy_half(state, ix, iy):
-            continue
-        bld = state.building[i]
-        if isinstance(bld, BuildingBridge):
-            continue
-        match bld:
-            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                ddx, ddy = d.delta()
-                nx, ny = ix + ddx, iy + ddy
-                if state.in_bounds(nx, ny):
-                    ni = ny * w + nx
-                    if f.ti[ni] > 0.01:
-                        continue
-            case _:
-                continue
-        dist = (ix - en_core.x) ** 2 + (iy - en_core.y) ** 2
-        if dist < best_dist:
-            best_dist = dist
-            best = (ix, iy)
 
     return best
 
@@ -1112,12 +1056,9 @@ def _find_rush_ore(
     best_dist = INF
 
     all_ore: set[int] = set(state.ore_ti)
-    # Mirror ore using symmetry — confirmed or best candidate
-    sym = state.symmetry
-    if sym is None and state.sym_candidates:
-        # Use best guess: ROT if available, else first candidate
-        sym = Symmetry.ROT if Symmetry.ROT in state.sym_candidates else next(iter(state.sym_candidates))
-    if sym is not None:
+    # Mirror ore using symmetry — confirmed or all remaining candidates
+    syms: list[Symmetry] = [state.symmetry] if state.symmetry is not None else list(state.sym_candidates)
+    for sym in syms:
         for oi in list(state.ore_ti):
             ox, oy = oi % w, oi // w
             match sym:
