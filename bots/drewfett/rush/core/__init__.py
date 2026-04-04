@@ -35,11 +35,11 @@ class Core(Unit):
                     self._spawn(ct)
                 return
 
-        # First 4: no reserve. After that: scale reserve with count.
-        if alive < 4:
+        # First 5: no reserve. After that: heavily gated.
+        if alive < 5:
             reserve = 0
         else:
-            reserve = builder_cost * (alive - 1)
+            reserve = builder_cost * alive
 
         if ti < builder_cost + reserve:
             return

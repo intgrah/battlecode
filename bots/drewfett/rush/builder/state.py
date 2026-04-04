@@ -17,9 +17,9 @@ _OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
     (0, 1): 4, (-1, 1): 5, (-1, 0): 6, (-1, -1): 7,
 }
 
-# First 3: econ, attack, attack. After that: defense, attack, econ, attack.
-_EARLY_ROLES = (0, 1, 1)        # ECON, ATTACK, ATTACK
-_LATE_ROLES = (2, 1, 0, 1)      # DEFENSE, ATTACK, ECON, ATTACK
+# First 5: econ, attack, econ, attack, defense. After that: attack, econ, defense.
+_EARLY_ROLES = (0, 1, 0, 1, 2)  # ECON, ATTACK, ECON, ATTACK, DEFENSE
+_LATE_ROLES = (1, 0, 2)         # ATTACK, ECON, DEFENSE
 
 
 def _role_from_offset(dx: int, dy: int) -> int:
@@ -93,40 +93,66 @@ class UnifiedFlow:
         self._prev_recv: tuple[list[int], ...] = ()
 
 
-def _init_pnb(w: int, h: int, n: int) -> list[list[int]]:
-    pnb: list[list[int]] = [[] for _ in range(n)]
+def _init_pnb(w: int, h: int, n: int) -> list[int]:
+    """Flat pnb: stride 8 per tile, -1 terminated. pnb[i*8 .. i*8+7]."""
+    pnb = [-1] * (n * 8)
     for i in range(n):
         cx, cy = i % w, i // w
+        k = 0
+        base = i * 8
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                pnb[i].append(ny * w + nx)
+                pnb[base + k] = ny * w + nx
+                k += 1
     return pnb
 
 
-def _update_pnb(w: int, h: int, cost: list[int], pnb: list[list[int]], i: int) -> None:
+def _update_pnb(w: int, h: int, cost: list[int], pnb: list[int], i: int) -> None:
     cx, cy = i % w, i // w
     passable = cost[i] < COST_IMPASSABLE
-    pnb[i] = []
+    # Rebuild this tile's neighbors
+    base = i * 8
+    k = 0
     if passable:
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
                 if cost[ni] < COST_IMPASSABLE:
-                    pnb[i].append(ni)
+                    pnb[base + k] = ni
+                    k += 1
+    while k < 8:
+        pnb[base + k] = -1
+        k += 1
+    # Update neighbors' lists to include/exclude this tile
     for dx, dy in DIR8_DELTA:
         nx, ny = cx + dx, cy + dy
         if 0 <= nx < w and 0 <= ny < h:
             ni = ny * w + nx
             if cost[ni] >= COST_IMPASSABLE:
                 continue
-            nb_list = pnb[ni]
-            if passable:
-                if i not in nb_list:
-                    nb_list.append(i)
-            elif i in nb_list:
-                nb_list.remove(i)
+            nb_base = ni * 8
+            # Check if i is in ni's list
+            found = -1
+            for j in range(8):
+                v = pnb[nb_base + j]
+                if v == i:
+                    found = j
+                    break
+                if v == -1:
+                    break
+            if passable and found == -1:
+                # Add i to ni's list
+                for j in range(8):
+                    if pnb[nb_base + j] == -1:
+                        pnb[nb_base + j] = i
+                        break
+            elif not passable and found >= 0:
+                # Remove i from ni's list (shift left)
+                for j in range(found, 7):
+                    pnb[nb_base + j] = pnb[nb_base + j + 1]
+                pnb[nb_base + 7] = -1
 
 
 class State:
@@ -243,6 +269,9 @@ class State:
         self._nav_parent: list[int] | None = None
         self._nav_heuristic: list[int] | None = None
         self._nav_buckets: list[deque[int]] | None = None
+        self._nav_gen: bytearray = bytearray(n)
+        self._nav_g: int = 0
+
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
@@ -262,7 +291,7 @@ class State:
         self.landmarks: None = None
 
     @property
-    def pnb(self) -> list[list[int]]:
+    def pnb(self) -> list[int]:
         if self._pnb is None:
             self._pnb = _init_pnb(self.w, self.h, self.w * self.h)
         return self._pnb

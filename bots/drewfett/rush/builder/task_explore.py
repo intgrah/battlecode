@@ -25,6 +25,8 @@ def explore(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
+    import time as _time
+    _t = _time.perf_counter
     # Clear target if seen
     if state.explore_target is not None and not state.is_unseen(
         state.explore_target.x,
@@ -32,17 +34,25 @@ def explore(
     ):
         state.explore_target = None
 
+    _t0 = _t()
     if state.explore_target is None:
         if state.role == 0:  # ECON: expanding ring
             _advance_frontier(state)
             state.explore_target = _pick_ring_target(state)
         else:
             state.explore_target = _pick_biased_target(state)
+    _t1 = _t()
 
     if state.explore_target is None:
         return None
 
     result = move_toward_with_road(state, ct, state.explore_target)
+    _t2 = _t()
+    pick_us = int((_t1 - _t0) * 1e6)
+    nav_us = int((_t2 - _t1) * 1e6)
+    if pick_us + nav_us > 500:
+        import sys
+        print(f"  explore: pick={pick_us} nav={nav_us}", file=sys.stderr)
     if result is None:
         state.explore_target = None
         return None
