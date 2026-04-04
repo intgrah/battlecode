@@ -874,28 +874,8 @@ def _extend_from_flow(
             _log(f"extend[{k}]: can't afford gunner, holding turn")
             return None
 
-        # Check if this tile can hit any enemy building — place gunner
-        placed_turret = False
-        for (gdx, gdy), gfacing in _GUNNER_HITS.items():
-            etx, ety = x + gdx, y + gdy
-            if not state.in_bounds(etx, ety):
-                continue
-            eti = ety * w + etx
-            if eti not in en_buildings:
-                continue
-            if _los_clear(state, x, y, gfacing, etx, ety):
-                feed_dir = _find_splitter_dir(state, x, y)
-                if feed_dir is not None and gfacing == feed_dir.opposite():
-                    continue
-                _log(f"extend[{k}]: ({x},{y}) can hit enemy at ({etx},{ety}), placing gunner")
-                result = _place_gunner_at(state, ct, build_at, gfacing)
-                if result is not None:
-                    return result
-                placed_turret = True
-                break
-
-        # Sentinel fallback: high-value targets (turrets, core, harvesters)
-        if not placed_turret:
+        # Sentinel: high-value targets (turrets, core, harvesters) in range
+        if True:
             hvt = state.en_turrets | state.en_core_tiles | state.en_harvesters
             for (sdx, sdy), sfacing in _SENTINEL_HITS.items():
                 etx, ety = x + sdx, y + sdy
