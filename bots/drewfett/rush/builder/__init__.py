@@ -30,17 +30,17 @@ from .helpers import execute
 from .state import State
 from .state_update import update as state_update
 from .task import Task
+from .task_cap_ore import cap_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
+from .task_defend import defend
 from .task_explore import explore
+from .task_fortify import fortify
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
 from .task_heal_infra import heal_infra
 from .task_patrol import patrol
 from .task_road_harvesters import road_harvesters
 from .task_rush import rush
-from .task_cap_ore import cap_ore
-from .task_defend import defend
-from .task_fortify import fortify
 from .task_scout_enemy import scout_enemy
 
 type OldResult = tuple[Direction, Action | None] | None
@@ -310,7 +310,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
 
     match state.role:
         case 0:  # ECON — harvest, connect ASAP, explore aggressively
-            explore_score = 120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
+            explore_score = (
+                120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
+            )
             scores: list[tuple[float, Task]] = [
                 (999.0, Task.HEAL_CORE),
                 (300.0, Task.DEFEND),
@@ -322,7 +324,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (15.0, Task.PATROL),
             ]
         case 1:  # ATTACK — econ early, then siege once flow established
-            explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+            explore_score = (
+                95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+            )
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (250.0 if ready else 0.0, Task.HEAL_INFRA),
@@ -335,7 +339,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (15.0, Task.PATROL),
             ]
         case _:  # DEFENSE — defend, heal, fortify, then econ fallback
-            explore_score = 80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
+            explore_score = (
+                80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
+            )
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (300.0, Task.DEFEND),

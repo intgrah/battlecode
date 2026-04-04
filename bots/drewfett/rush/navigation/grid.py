@@ -19,8 +19,9 @@ from typing import TYPE_CHECKING
 from cambc import EntityType, Environment, Position
 
 if TYPE_CHECKING:
-    from navigation.nav_bfs import NavBfs
     from collections.abc import Callable
+
+    from navigation.nav_bfs import NavBfs
 
 _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     {

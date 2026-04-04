@@ -17,14 +17,14 @@ from __future__ import annotations
 from array import array
 from typing import TYPE_CHECKING
 
-from cambc import Position
-
-from navigation.grid import PassableGrid
-
 INF = 1_000_000
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from cambc import Position
+
+    from navigation.grid import PassableGrid
 
 
 class NavBfs:
@@ -142,11 +142,11 @@ class NavBfs:
                 gen[ni] = g
                 dist[ni] = d
             if qi & 255 == 0 and not within_budget():
-                pass  # budget exceeded
+                # budget exceeded
                 self._qi = qi
                 self._qlen = qlen
                 return False
-        pass  # exhausted
+        # exhausted
         self._qi = qi
         self._qlen = qlen
         return True
@@ -184,7 +184,6 @@ class NavBfs:
             self._restart()
             self._dirty = False
         if self._resumable and self._compute(within_budget):
-            pass
             self._resumable = False
             self._new_goal = False
             self._swap()
@@ -204,5 +203,7 @@ class NavBfs:
         if d <= 0:
             return _zero
 
-        pass
-        return tuple(dist[cur_idx + off] - d if gen[cur_idx + off] == g else INF for off in grid.offsets)
+        return tuple(
+            dist[cur_idx + off] - d if gen[cur_idx + off] == g else INF
+            for off in grid.offsets
+        )
