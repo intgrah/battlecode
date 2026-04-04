@@ -35,13 +35,11 @@ class Core(Unit):
                     self._spawn(ct)
                 return
 
-        # First 4: no reserve. After that: flat reserve.
+        # First 4: no reserve. After that: excess-based.
         if alive < 4:
             reserve = 0
-        elif alive < 8:
-            reserve = 500
         else:
-            reserve = 1000
+            reserve = builder_cost * 3
 
         if ti < builder_cost + reserve:
             return

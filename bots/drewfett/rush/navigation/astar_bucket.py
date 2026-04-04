@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util import COST_DANGER, COST_ROAD, DIAL_MOD, DIR8_DELTA, INF
+from util import COST_DANGER, COST_ROAD, DIAL_MOD, INF
 
 if TYPE_CHECKING:
     from collections import deque
@@ -48,7 +48,7 @@ def find_path_raw(
     best_h = INF
     best_node = si
 
-    h = state.h
+    nb = state.pnb
 
     while emp < DIAL_MOD:
         bi = cur_f % DIAL_MOD
@@ -73,17 +73,9 @@ def find_path_raw(
             break
 
         gn = dist[node]
-        nx_n = node % w
-        ny_n = node // w
 
-        for dx, dy in DIR8_DELTA:
-            ax, ay = nx_n + dx, ny_n + dy
-            if not (0 <= ax < w and 0 <= ay < h):
-                continue
-            ni = ay * w + ax
+        for ni in nb[node]:
             c = cost[ni]
-            if c >= INF:
-                continue
             if danger and ni in danger:
                 c += COST_DANGER
             nd = gn + c

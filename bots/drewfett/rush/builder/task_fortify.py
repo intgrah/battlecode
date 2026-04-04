@@ -37,8 +37,6 @@ def fortify(
     best_exposed = 0
     best_dist = 1_000_000
 
-    from building import BuildingMarker, BuildingRoad
-
     for hi in state.my_harvesters:
         hx, hy = hi % w, hi // w
         exposed: list[tuple[int, int]] = []
@@ -47,6 +45,8 @@ def fortify(
             if not state.in_bounds(nx, ny):
                 continue
             ni = ny * w + nx
+            if state.building[ni] is not None:
+                continue
             env = state.env[ni]
             if env in (
                 Environment.WALL,
@@ -54,10 +54,7 @@ def fortify(
                 Environment.ORE_AXIONITE,
             ):
                 continue
-            bld = state.building[ni]
-            # Exposed: empty, road, or marker (can be replaced with barrier)
-            if bld is None or isinstance(bld, (BuildingRoad, BuildingMarker)):
-                exposed.append((nx, ny))
+            exposed.append((nx, ny))
 
         if not exposed:
             continue
@@ -76,9 +73,6 @@ def fortify(
         return None
 
     if pos.distance_squared(best_target) <= 2:
-        bid = ct.get_tile_building_id(best_target)
-        if bid is not None and ct.can_destroy(best_target):
-            ct.destroy(best_target)
         if ct.can_build_barrier(best_target):
             return Direction.CENTRE, PlaceBarrier(best_target)
 
