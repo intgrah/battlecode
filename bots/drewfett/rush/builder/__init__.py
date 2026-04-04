@@ -145,6 +145,19 @@ class Builder(Unit):
                 print(f"  {task.name} FAIL {dt}us @{t()}")
         return None
 
+    def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
+        """Try to move. If blocked, 50% chance to detour randomly."""
+        if ct.can_move(direction):
+            ct.move(direction)
+            return True
+        # Livelock prevention: random detour
+        import random
+        if random.random() < 0.5:
+            dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
+            if dirs:
+                ct.move(random.choice(dirs))
+        return False
+
     def _execute_turn(self, ct: Controller, turn: Turn | None) -> None:
         if turn is None:
             return
@@ -152,27 +165,21 @@ class Builder(Unit):
             case Wait():
                 pass
             case MoveOnly(direction):
-                if ct.can_move(direction):
-                    ct.move(direction)
+                self._move_or_detour(ct, direction)
             case ActionOnly(action):
                 execute(action, ct)
             case ActionMove(action, direction):
                 if isinstance(action, PlaceRoad):
-                    # Road: only build if we can't already move there
                     if ct.can_move(direction):
                         ct.move(direction)
                     else:
                         execute(action, ct)
-                        if ct.can_move(direction):
-                            ct.move(direction)
+                        self._move_or_detour(ct, direction)
                 else:
-                    # Non-road: build first (while adjacent), then step
                     execute(action, ct)
-                    if ct.can_move(direction):
-                        ct.move(direction)
+                    self._move_or_detour(ct, direction)
             case MoveAction(direction, action):
-                if ct.can_move(direction):
-                    ct.move(direction)
+                if self._move_or_detour(ct, direction):
                     execute(action, ct)
 
     def _write_marker(self, ct: Controller) -> None:
