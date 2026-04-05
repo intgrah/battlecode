@@ -6,47 +6,76 @@ bot is close enough that the cell falls within vision (r²=20).
 
 from __future__ import annotations
 
-from cambc import Controller, Position
+from cambc import Position, Controller
 from utils import chebyshev
-
+import random
 
 class ExploreGrid:
     def __init__(self, w: int, h: int) -> None:
         self._unvisited: set[Position] = set()
         self._next_target: Position | None = None
+        self._changed: bool = False
 
-        _SPACING = 13
+        _SPACING = 9
 
-        # Build grid cells offset so the first cell is at (SPACING//2, SPACING//2)
-        for y in range(0, h + _SPACING // 2, _SPACING):
-            for x in range(0, w + _SPACING // 2, _SPACING):
-                pos = Position(min(x, w - 1), min(y, h - 1))
-                self._unvisited.add(pos)
+        # Build 1D coordinate lists with both borders covered
+        def _axis_coords(size: int) -> list[int]:
+            n = max(1, (size - 1) // _SPACING)
+            step = (size - 1) / n
+            jitter = random.random() * step * 0.5
 
-    def update(self, ct: Controller) -> None:
-        """Remove any grid cell within vision of the bot's position."""
+            coords: list[int] = [0]
+            for i in range(1, n):
+                coords.append(round(i * step + jitter))
+
+            # Handle far border: snap last point if close, else add new one
+            last = coords[-1] if coords else 0
+            gap = (size - 1) - last
+            if gap <= _SPACING * 3 // 4:
+                coords[-1] = size - 1
+            else:
+                coords.append(size - 1)
+
+            return coords
+
+        xs = _axis_coords(w)
+        ys = _axis_coords(h)
+        for y in ys:
+            for x in xs:
+                self._unvisited.add(Position(x, y))
+
+    def take_changed(self) -> bool:
+        """Return whether the target changed, and reset the flag."""
+        changed = self._changed
+        self._changed = False
+        return changed
+
+    @property
+    def target(self) -> Position | None:
+        return self._next_target
+
+    def update(self, ct: Controller, pos: Position, core: Position) -> None:
+        """Remove visited cells and recompute target if needed."""
         self._unvisited -= {pos for pos in self._unvisited if ct.is_in_vision(pos)}
 
-    def select_next_target(self, pos: Position, core: Position) -> Position | None:
-        """Return the unvisited cell nearest to the friendly core."""
         if not self._unvisited:
-            return None
+            return
 
-        next = self._next_target
-        if next is not None and next in self._unvisited:
-            return next
+        cur = self._next_target
+        if cur is not None and cur in self._unvisited:
+            return
 
         best_dist = 1_000_000
+        best: Position | None = None
         for cell in self._unvisited:
-            # prefer nearer to core than nearer to bbot
             d = chebyshev(core, cell) * 2 + chebyshev(pos, cell)
             if d < best_dist:
                 best_dist = d
-                next = cell
+                best = cell
 
-        self._next_target = next
-        return next
-
-    def draw_unvisited(self, ct: Controller) -> None:
+        self._next_target = best
+        self._changed = True
+    
+    def draw_unvisited(self, ct: Controller, r: int, g: int, b: int) -> None:
         for cell in self._unvisited:
-            ct.draw_indicator_dot(cell, 255, 0, 0)
+            ct.draw_indicator_dot(cell, r, g, b)
