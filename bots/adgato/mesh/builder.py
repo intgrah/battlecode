@@ -87,7 +87,16 @@ class Builder(Unit):
         self.w = w
         self.h = h
         self._mirrored = False
+        self._mirrored = False
         self._tile_cache: bytearray = bytearray(b"\xff" * (w * h))
+        self.grid.navs = [
+            NavBfs(self.grid), # NV_EXPLORE = 0
+            NavBfs(self.grid, range=20), # NV_TI_ORE = 1
+            NavBfs(self.grid, range=10) # NV_BBOTS = 1
+        ]
+        self.trackers: list[Tracker] = [
+            Tracker(w, h, environment=Environment.ORE_TITANIUM) # TK_TI_ORE = 0
+        ]
         self.grid.navs = [
             NavBfs(self.grid), # NV_EXPLORE = 0
             NavBfs(self.grid, range=20), # NV_TI_ORE = 1
