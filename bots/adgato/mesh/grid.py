@@ -151,6 +151,8 @@ class PassableGrid:
             if env == Environment.WALL:
                 mi = mirror_idx(i, sym, w, h)
                 self.set_passable(mi, passable=False)
+        for nav in self.navs:
+            nav.mark_dirty()
 
     def init_pnb_chunk(self, within_budget: Callable[[], bool]) -> bool:
         """Build pnb tables incrementally, assuming all real tiles passable.
