@@ -6,10 +6,12 @@ import random
 
 from bfs import INF, NavBfs
 from cambc import Controller, Direction, EntityType, Environment, Position
-from explore import ExploreGrid
 from grid import PassableGrid
 from symmetry import Symmetry, SymmetryDetector
+from tracker import Tracker
+from bbot_tracker import BbotTracker
 from unit import Unit
+from explore import ExploreGrid
 
 # Direction order matching grid.offsets: NE, SE, SW, NW, N, E, S, W
 _DIRECTIONS: tuple[Direction, ...] = (
@@ -40,6 +42,7 @@ def _update_nearby_tiles(
     sym: Symmetry,
     ct: Controller,
     tile_cache: bytearray,
+    trackers: list[Tracker],
 ) -> None:
     """Read nearby tiles from the controller and feed raw data to grid."""
     w = grid.w
@@ -55,24 +58,46 @@ def _update_nearby_tiles(
             continue
         tile_cache[i] = key
         grid.update_tile(i, env, building_type, is_allied, sym)
+        for tracker in trackers:
+            tracker.update_tile(i, env, building_type, is_allied, sym)
 
+def _combine_weights(*weighted: tuple[tuple[int, ...], int]) -> tuple[int, ...]:
+    """Linear combination of weight tuples. INF in any input produces INF."""
+    result = [0] * 8
+    for weights, scale in weighted:
+        for i in range(8):
+            result[i] += weights[i] * scale
+    return tuple(v if v < INF else INF for v in result)
+
+NV_EXPLORE = 0
+NV_TI_ORE = 1
+NV_BBOTS = 2
+NV_CORE = 3
+
+TK_TI_ORE = 0
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
         w = ct.get_map_width()
         h = ct.get_map_height()
         self.grid = PassableGrid(w, h)
-        nav = NavBfs(self.grid)
         self.explore = ExploreGrid(w, h)
-        self.grid.navs.append(nav)
         self.sym: SymmetryDetector | None = None
         self.core_pos: Position | None = None
-        self.target: Position | None = None
         self.w = w
         self.h = h
-        self._tile_cache: bytearray = bytearray(b"\xff" * (w * h))
         self._mirrored = False
-        random.seed(1)
+        self._tile_cache: bytearray = bytearray(b"\xff" * (w * h))
+        self.grid.navs = [
+            NavBfs(self.grid), # NV_EXPLORE = 0
+            NavBfs(self.grid, range=20), # NV_TI_ORE = 1
+            NavBfs(self.grid, target_dist=5, range=10), # NV_BBOTS = 2
+            NavBfs(self.grid, target_dist=5) # NV_CORE = 3
+        ]
+        self.trackers: list[Tracker] = [
+            Tracker(w, h, environment=Environment.ORE_TITANIUM) # TK_TI_ORE = 0
+        ]
+        self.friend_tracker: BbotTracker = BbotTracker(w, friendly=True)
 
     def _move(
         self,
@@ -123,10 +148,10 @@ class Builder(Unit):
                     and ct.get_entity_type(bid) == EntityType.CORE
                     and ct.get_team(bid) == my_team
                 ):
-                    self.core_pos = tile
+                    self.core_pos = ct.get_position(bid)
                     self.sym = SymmetryDetector(self.w, self.h, tile)
                     break
-            assert self.core_pos is not None
+            self.grid.navs[NV_CORE].change_goal([self.core_pos])
 
         # Run symmetry detection
         if self.sym.resolved is Symmetry.UNKNOWN:
@@ -136,29 +161,50 @@ class Builder(Unit):
         # Once symmetry is resolved, mirror all known tiles to the grid
         if not self._mirrored and self.sym.resolved is not Symmetry.UNKNOWN:
             self.grid.mirror_known(self.sym.resolved, self.sym.known_env)
-            for nav in self.grid.navs:
-                nav.mark_dirty()
+            for tracker in self.trackers:
+                tracker.mirror_known(self.sym.resolved)
             self._mirrored = True
-
-        # Pick a new random target when needed
-        self.explore.update(ct)
-        self.target = self.explore.select_next_target(pos, self.core_pos)
-        if self.target is None:
-            return
-
-        self.grid.navs[0].set_goal(self.target)
 
         resolved = self.sym.resolved if self.sym is not None else Symmetry.UNKNOWN
         t0 = ct.get_cpu_time_elapsed()
-        _update_nearby_tiles(self.grid, resolved, ct, self._tile_cache)
+        _update_nearby_tiles(self.grid, resolved, ct, self._tile_cache, self.trackers)
+        self.friend_tracker.update(ct)
+        self.explore.update(ct, pos, self.core_pos)
         t1 = ct.get_cpu_time_elapsed()
-        weights = self.grid.navs[0].step(pos)
-        t2 = ct.get_cpu_time_elapsed()
-        self._move(ct, pos, weights)
 
+        # Update goals: ore tracker -> NV_TI_ORE, explore -> NV_EXPLORE
+        ti_ore = self.trackers[TK_TI_ORE]
+        use_ore = bool(ti_ore.positions)
+        if use_ore and ti_ore.take_changed():
+            self.grid.navs[NV_TI_ORE].change_goal(ti_ore.as_positions())
+        if not use_ore and self.explore.take_changed():
+            self.grid.navs[NV_EXPLORE].change_goal([self.explore.target])
+        if self.friend_tracker.take_changed():
+            self.grid.navs[NV_BBOTS].change_goal(self.friend_tracker.as_positions())
+
+        # Step the preferred nav: ore if available, else explore
+        active_nav = NV_TI_ORE if use_ore else NV_EXPLORE
+
+        weights = _combine_weights(
+            (self.grid.navs[active_nav].step(pos), 3),
+            (self.grid.navs[NV_BBOTS].step(pos), 2),
+            (self.grid.navs[NV_CORE].step(pos), 2),
+        )
+
+        t2 = ct.get_cpu_time_elapsed()
         print(f"sym={resolved.name} enemy={self.sym.enemy_core}")
         print(f"update={t1 - t0}us step={t2 - t1}us total={t2 - t0}us")
+        
+        self._move(ct, pos, weights)
 
-        ct.draw_indicator_line(ct.get_position(), self.target, 0, 128, 0)
-        self.grid.navs[0].emit_vis()
-        self.explore.draw_unvisited(ct)
+        nav = self.grid.navs[active_nav]
+        pw = self.grid.pw
+        new_pos = ct.get_position()
+        for gi in nav._goals:
+            ct.draw_indicator_line(new_pos, Position(gi % pw - 1, gi // pw - 1), 0, 128, 0)
+        self.grid.navs[NV_CORE].emit_vis()
+        if use_ore:
+            self.trackers[TK_TI_ORE].draw_tracked(ct, 0, 255, 255)
+        else:
+            self.explore.draw_unvisited(ct, 255, 0, 0)
+        self.friend_tracker.draw_tracked(ct, 0, 0, 128)

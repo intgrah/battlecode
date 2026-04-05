@@ -12,7 +12,7 @@ class Core(Unit):
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:
-        if self.spawned < 1:
+        if self.spawned < 5:
             pos = self.pos
             for dx in range(-1, 2):
                 for dy in range(-1, 2):
