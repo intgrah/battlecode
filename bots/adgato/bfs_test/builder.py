@@ -25,7 +25,7 @@ def _update_nearby_tiles(
     nav: NavBfs,
     sym: Symmetry,
     ct: Controller,
-    tile_cache: bytearray,
+    tile_cache: list[int],
 ) -> None:
     """Read nearby tiles from the controller and feed raw data to nav."""
     w = nav.w
@@ -53,7 +53,7 @@ class Builder(Unit):
         self.target: Position | None = None
         self.w = w
         self.h = h
-        self._tile_cache: bytearray = bytearray(b"\xff" * (w * h))
+        self._tile_cache: list[int] = [0xFF] * (w * h)
         self._mirrored = False
         random.seed(1)
 

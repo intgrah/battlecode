@@ -69,6 +69,8 @@ class MapData:
         "pnb",
         "pnb1",
         "pnb3",
+        "pnb_navbfs_push",
+        "pnb_navbfs_set",
         "pnbc",
         "tiles",
         "w",
@@ -89,6 +91,11 @@ class MapData:
         self.pnb1: list[list[int]]
         self.pnb3: list[list[int]]
         self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, self.cost)
+        self.pnb_navbfs_push: list[list[int]]
+        self.pnb_navbfs_set: list[list[int]]
+        self.pnb_navbfs_push, self.pnb_navbfs_set = _build_pnb_navbfs(
+            self.w, self.h, self.cost,
+        )
         self.passable: list[int] = [i for i in range(self.n) if self.cost[i] < INF]
         self.offsets_card: tuple[int, ...] = (-self.w, -1, 1, self.w)
         w = self.w
@@ -101,6 +108,9 @@ class MapData:
         self.pnb = _build_pnb(self.nb, self.cost)
         self.pnbc = _build_pnbc(self.nb, self.cost)
         self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, self.cost)
+        self.pnb_navbfs_push, self.pnb_navbfs_set = _build_pnb_navbfs(
+            self.w, self.h, self.cost,
+        )
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
         self.hpa_graph = None
 
@@ -147,6 +157,9 @@ class MapData:
         self.pnb = _build_pnb(self.nb, cost)
         self.pnbc = _build_pnbc(self.nb, cost)
         self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, cost)
+        self.pnb_navbfs_push, self.pnb_navbfs_set = _build_pnb_navbfs(
+            self.w, self.h, cost,
+        )
         self.passable = [i for i in range(n) if cost[i] < INF]
         self.hpa_graph = None
         return len(roads)
@@ -170,6 +183,47 @@ def _build_pnb(nb: list[list[int]], cost: list[int]) -> list[list[int]]:
 
 def _build_pnbc(nb: list[list[int]], cost: list[int]) -> list[list[tuple[int, int]]]:
     return [[(ni, cost[ni]) for ni in nb[i] if cost[ni] < INF] for i in range(len(nb))]
+
+
+def _build_pnb_navbfs(
+    w: int, h: int, cost: list[int],
+) -> tuple[list[list[int]], list[list[int]]]:
+    """Split passable neighbours into push (always enqueue) and set (no enqueue).
+
+    Cardinals can be in `set` (visited via diagonal expansion) when both
+    bracketing diagonals are passable; otherwise they go in `push`. All
+    diagonals always go in `push`.
+    """
+    n = w * h
+    push: list[list[int]] = [[] for _ in range(n)]
+    aset: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        if cost[i] >= INF:
+            continue
+        cx, cy = i % w, i // w
+        # Booleans for each of the 4 diagonals
+        has_ne = cy > 0 and cx < w - 1 and cost[(cy - 1) * w + (cx + 1)] < INF
+        has_se = cy < h - 1 and cx < w - 1 and cost[(cy + 1) * w + (cx + 1)] < INF
+        has_sw = cy < h - 1 and cx > 0 and cost[(cy + 1) * w + (cx - 1)] < INF
+        has_nw = cy > 0 and cx > 0 and cost[(cy - 1) * w + (cx - 1)] < INF
+        if has_ne:
+            push[i].append((cy - 1) * w + (cx + 1))
+        if has_se:
+            push[i].append((cy + 1) * w + (cx + 1))
+        if has_sw:
+            push[i].append((cy + 1) * w + (cx - 1))
+        if has_nw:
+            push[i].append((cy - 1) * w + (cx - 1))
+        # Cardinals
+        if cy > 0 and cost[(cy - 1) * w + cx] < INF:  # N
+            (aset if has_ne and has_nw else push)[i].append((cy - 1) * w + cx)
+        if cx < w - 1 and cost[cy * w + (cx + 1)] < INF:  # E
+            (aset if has_ne and has_se else push)[i].append(cy * w + (cx + 1))
+        if cy < h - 1 and cost[(cy + 1) * w + cx] < INF:  # S
+            (aset if has_se and has_sw else push)[i].append((cy + 1) * w + cx)
+        if cx > 0 and cost[cy * w + (cx - 1)] < INF:  # W
+            (aset if has_sw and has_nw else push)[i].append(cy * w + (cx - 1))
+    return push, aset
 
 
 def _build_pnb_dual(
@@ -508,6 +562,41 @@ def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
             best_cost = cost[ni]
     path[1] = best_ni
     return path
+
+
+def algo_navbfs(md: MapData, si: int, gi: int) -> Path_:
+    """Mirrors bots/adgato/bfs_test/bfs.py::_bfs_compute.
+
+    Uses precomputed pnb_push/pnb_set split: cardinals bracketed by two
+    passable diagonals don't get enqueued (they're reached one level later
+    via the diagonal expansion). dist initialized to INF, fused visited
+    check, growable queue iterated with `for node in q`.
+    """
+    n = md.n
+    pnb_push = md.pnb_navbfs_push
+    pnb_set = md.pnb_navbfs_set
+    if si == gi:
+        return None
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    q: list[int] = [si]
+    stop_at = INF
+    for node in q:
+        d = dist[node] + 1
+        if node == gi:
+            stop_at = d
+        if d > stop_at:
+            break
+        for ni in pnb_push[node]:
+            if d < dist[ni]:
+                dist[ni] = d
+                q.append(ni)
+        for ni in pnb_set[node]:
+            if d < dist[ni]:
+                if ni == gi:
+                    stop_at = d + 1
+                dist[ni] = d
+    return None
 
 
 def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
@@ -1218,6 +1307,7 @@ def _make_algos() -> list[AlgoEntry]:
     algos.append(("bfs", algo_bfs, False))
     algos.append(("bfs expand", algo_bfs_expand, False))
     algos.append(("bfs roadopt", algo_bfs_roadopt, False))
+    algos.append(("navbfs", algo_navbfs, False))
     algos.append(("bibfs", algo_bibfs, False))
     algos.append(("gbfs", algo_gbfs, False))
     algos.append(("dijkstra heap", algo_dijkstra_heap, False))
