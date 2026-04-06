@@ -10,10 +10,11 @@ resolution-markers = [
 [manifest]
 members = [
     "battlecode",
-    "bot-adgato-astar-test",
     "bot-adgato-bfs-test",
     "bot-adgato-dummy",
+    "bot-adgato-econ",
     "bot-adgato-launcher-test",
+    "bot-adgato-mesh",
     "bot-adgato-teleportation",
     "bot-adgato-trollbot",
     "bot-adgato-trollbot-expand",
@@ -99,17 +100,6 @@ dev = [
 ]
 
 [[package]]
-name = "bot-adgato-astar-test"
-version = "0.0.0"
-source = { virtual = "bots/adgato/astar_test" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
-
-[[package]]
 name = "bot-adgato-bfs-test"
 version = "0.0.0"
 source = { virtual = "bots/adgato/bfs_test" }
@@ -136,6 +126,17 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
 
 [[package]]
+name = "bot-adgato-econ"
+version = "0.0.0"
+source = { virtual = "bots/adgato/econ" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
 name = "bot-adgato-launcher-test"
 version = "0.0.0"
 source = { virtual = "bots/adgato/launcher_test" }
@@ -145,6 +146,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+
+[[package]]
+name = "bot-adgato-mesh"
+version = "0.0.0"
+source = { virtual = "bots/adgato/mesh" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "visualiser", editable = "lib/visualiser" },
+]
 
 [[package]]
 name = "bot-adgato-teleportation"
