@@ -3,10 +3,6 @@
 Backwards BFS from the goal. Stores a flat distance array so that
 stepping toward the goal is a single neighbor scan.
 
-Uses double-buffered dist arrays: the stable buffer is always usable for
-movement, while the wip buffer is computed incrementally. On completion
-the buffers swap.
-
 Internal grid is padded by 1 tile on each side (sentinel border).
 All border tiles are permanently impassable, so every real tile has
 8 valid neighbors — no bounds checks needed anywhere.
@@ -15,7 +11,6 @@ All border tiles are permanently impassable, so every real tile has
 from __future__ import annotations
 
 import math
-from array import array
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
@@ -25,6 +20,8 @@ from lib.visualiser.src.visualiser import Grid, Palette, VectorField, emit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+INF = 1_000_000
 
 DIR8_DELTA: tuple[tuple[int, int], ...] = tuple(
     d.delta()
@@ -50,6 +47,30 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     },
 )
 
+def _bfs_compute(
+    pnb_push: list[list[int]],
+    pnb_set: list[list[int]],
+    dist: list[int],
+    q: list[int],
+    cur_idx: int,
+) -> None:
+    """Run backwards BFS to completion (one level past the agent)."""
+    stop_at = INF
+    for node in q:
+        d = dist[node] + 1
+        if node == cur_idx:
+            stop_at = d
+        if d > stop_at:
+            return
+        for ni in pnb_push[node]:
+            if d < dist[ni]:
+                dist[ni] = d
+                q.append(ni)
+        for ni in pnb_set[node]:
+            if d < dist[ni]:
+                if ni == cur_idx:
+                    stop_at = d + 1
+                dist[ni] = d
 
 class NavBfs:
     """Backwards-BFS navigation for builder bots.
@@ -57,9 +78,6 @@ class NavBfs:
     Maintains a passability grid updated each round from vision.
     Runs BFS backwards from the goal using _pnb (passable-only neighbors)
     so the inner loop has no passability check.
-
-    Double-buffered: _stable is used for movement, _wip is computed
-    incrementally. On completion they swap.
 
     Internal grid is padded by 1 on each side. Border tiles are always
     impassable, eliminating all bounds checks.
@@ -102,21 +120,13 @@ class NavBfs:
             -1,  # W
         )
 
-        # Double-buffered dist arrays with generation counters
-        self._stable: array[int] = array("i", bytes(4 * n))
-        self._stable_gen: bytearray = bytearray(n)
-        self._stable_g: int = 1
-        self._wip: array[int] = array("i", bytes(4 * n))
-        self._wip_gen: bytearray = bytearray(n)
-        self._wip_g: int = 1
+        # Distance array. Unvisited tiles hold INF; cleared on each restart.
+        self._dist: list[int] = [INF] * n
 
-        self._q: array[int] = array("i", bytes(4 * n))
-        self._qi = 0
-        self._qlen = 0
-        self._resumable = False
-        self._new_goal = True
-        self._cur_dist = -1
+        self._q: list[int] = []
+        self._cur_dist = INF
         self._cur_idx = -1
+        self._gis: list[int] = []
 
     def update_tile(
         self,
@@ -165,10 +175,8 @@ class NavBfs:
                 else:
                     pnb_dirty.discard(ni)
             # Only dirty BFS if tile is closer to goal than agent
-            if self._stable_gen[pi] == self._stable_g:
-                d = self._stable[pi]
-                if d < self._cur_dist:
-                    self._dirty = True
+            if self._dist[pi] < self._cur_dist:
+                self._dirty = True
 
     def _init_pnb_chunk(self, within_budget: Callable[[], bool]) -> bool:
         """Build pnb tables incrementally, assuming all real tiles passable.
@@ -265,39 +273,31 @@ class NavBfs:
         return self._passable[pi]
 
     def set_goal(self, goal: Position) -> None:
-        """Change the goal. Marks dirty so the search resets."""
-        gi = (goal.y + 1) * self._pw + (goal.x + 1)
-        if gi != self._gi:
-            self._gi = gi
+        """Change to a single goal. Marks dirty so the search resets."""
+        self.set_goals([goal])
+
+    def set_goals(self, goals: list[Position]) -> None:
+        """Change to multiple goals. Marks dirty so the search resets."""
+        pw = self._pw
+        gis = [(g.y + 1) * pw + (g.x + 1) for g in goals]
+        if gis != self._gis:
+            self._gis = gis
             self._dirty = True
-            self._new_goal = True
 
-    def _restart(self) -> None:
-        """Reset wip BFS state for a fresh search from goal."""
-        g = self._wip_g + 1
-        if g > 255:
-            g = 1
-            self._wip_gen[:] = b"\x00" * len(self._wip_gen)
-        self._wip_g = g
-        gi = self._gi
-        self._wip[gi] = 0
-        self._wip_gen[gi] = self._wip_g
-        self._q[0] = gi
-        self._qi = 0
-        self._qlen = 1
-        self._resumable = True
-
-    def _swap(self) -> None:
-        """Promote wip to stable."""
-        self._stable, self._wip = self._wip, self._stable
-        self._stable_gen, self._wip_gen = self._wip_gen, self._stable_gen
-        self._stable_g, self._wip_g = self._wip_g, self._stable_g
+    def _compute(self) -> None:
+        """Reset BFS state for a fresh search from goals."""
+        self._dist[:] = [INF] * self._n
+        q = self._q
+        q.clear()
+        for gi in self._gis:
+            self._dist[gi] = 0
+            q.append(gi)
+            
+        _bfs_compute(self._pnb_push, self._pnb_set, self._dist, self._q, self._cur_idx)
 
     def emit_vis(self) -> None:
         """Emit the BFS distance field and direction arrows to the visualiser."""
-        dist = self._stable
-        gen = self._stable_gen
-        g = self._stable_g
+        dist = self._dist
         pw = self._pw
         w, h = self.w, self.h
         rn = self._rn
@@ -310,17 +310,15 @@ class NavBfs:
             for rx in range(w):
                 pi = (ry + 1) * pw + (rx + 1)
                 ri = ry * w + rx
-                if gen[pi] != g:
-                    continue
                 di = dist[pi]
+                if di >= INF:
+                    continue
                 dist_list[ri] = di
                 if di <= 0:
                     continue
                 best = di
                 bx, by = 0, 0
                 for ni in pnb_push[pi] + pnb_set[pi]:
-                    if gen[ni] != g:
-                        continue
                     dn = dist[ni]
                     if dn < best:
                         best = dn
@@ -340,53 +338,6 @@ class NavBfs:
             bfs=VectorField(angles),
         )
 
-    def _compute(self, within_budget: Callable[[], bool]) -> bool:
-        """Run/resume backwards BFS into wip buffer. Returns True if complete."""
-        pnb_push = self._pnb_push
-        pnb_set = self._pnb_set
-        dist = self._wip
-        gen = self._wip_gen
-        g = self._wip_g
-        q = self._q
-        qi = self._qi
-        qlen = self._qlen
-        cur_idx = self._cur_idx
-        # Stop once we've processed one level past the agent
-        cd = dist[cur_idx] if cur_idx >= 0 and gen[cur_idx] == g else -1
-        stop_at = cd + 1 if cd != -1 else 1_000_000
-        while qi < qlen:
-            node = q[qi]
-            qi += 1
-            d = dist[node] + 1
-            if node == cur_idx:
-                stop_at = d
-            if d > stop_at:
-                self._qi = qi - 1
-                self._qlen = qlen
-                return True
-            for ni in pnb_push[node]:
-                if gen[ni] == g:
-                    continue
-                gen[ni] = g
-                dist[ni] = d
-                q[qlen] = ni
-                qlen += 1
-            for ni in pnb_set[node]:
-                if gen[ni] == g:
-                    continue
-                if ni == cur_idx:
-                    stop_at = d + 1
-                gen[ni] = g
-                dist[ni] = d
-            if qi & 255 == 0 and not within_budget():
-                print("budget exceeded")
-                self._qi = qi
-                self._qlen = qlen
-                return False
-        print("exhausted route")
-        self._qi = qi
-        self._qlen = qlen
-        return True
 
     def step(
         self,
@@ -407,38 +358,25 @@ class NavBfs:
         pos = ct.get_position()
         self._cur_idx = (pos.y + 1) * pw + (pos.x + 1)
 
+        self._dirty = True
         if self._dirty:
-            self._restart()
+            self._compute()
             self._dirty = False
-        if self._resumable and self._compute(within_budget):
-            print(f"steps {self._qi}")
-            self._resumable = False
-            self._new_goal = False
-            self._swap()
 
-        # Use stable buffer, fall back to wip if stable is stale (new goal)
         cur_idx = self._cur_idx
-        dist = self._stable
-        gen = self._stable_gen
-        g = self._stable_g
-        d = dist[cur_idx] if gen[cur_idx] == g else -1
-        if self._new_goal:
-            dist = self._wip
-            gen = self._wip_gen
-            g = self._wip_g
-            d = dist[cur_idx] if gen[cur_idx] == g else -1
+        dist = self._dist
+        d = dist[cur_idx]
         self._cur_dist = d
 
-        if d <= 0:
+        if d <= 0 or d >= INF:
             return False
 
         print(f"dist {d}")
         pnb = self._pnb_push[cur_idx] + self._pnb_set[cur_idx]
-        options = (d - 1,) if self._resumable else (d - 1, d, d + 1)
-        for target in options:
+        for target in (d - 1, d, d + 1):
             # Prefer tiles that are already passable (no road build needed)
             for ni in pnb:
-                if gen[ni] != g or dist[ni] != target:
+                if dist[ni] != target:
                     continue
                 next_pos = Position(ni % pw - 1, ni // pw - 1)
                 direction = pos.direction_to(next_pos)
@@ -447,7 +385,7 @@ class NavBfs:
                     return True
             # Fall back to building a road
             for ni in pnb:
-                if gen[ni] != g or dist[ni] != target:
+                if dist[ni] != target:
                     continue
                 next_pos = Position(ni % pw - 1, ni // pw - 1)
                 direction = pos.direction_to(next_pos)
@@ -457,17 +395,13 @@ class NavBfs:
                     ct.move(direction)
                     return True
 
-        # Just move in any direction, and continue bfs (we didn't compute bfs behind us)
+        # Just move in any direction
         for ni in pnb:
             next_pos = Position(ni % pw - 1, ni // pw - 1)
             direction = pos.direction_to(next_pos)
             if ct.can_build_road(next_pos):
                 ct.build_road(next_pos)
             if ct.can_move(direction):
-                print("backtracked, continuing compute")
-                if not self._resumable:
-                    self._resumable = True
-                    self._swap()
                 ct.move(direction)
                 return True
 
