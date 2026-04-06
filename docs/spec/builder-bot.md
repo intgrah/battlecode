@@ -29,11 +29,11 @@ Builder bots can move to an adjacent tile (including diagonals) if their move co
 <Warning>
   Builder bots can **only walk on**:
 
-  * Conveyors (any variant, any direction, either team)
+  * Conveyors, splitters, armoured conveyors, and bridges (any direction, either team)
   * Roads (either team)
   * The allied core
 
-  These are called **walkable** tiles. The direction of the conveyor does not matter, and neither does the presence of resources on the tile.
+  These are called **walkable** tiles. The direction of the building does not matter, and neither does the presence of resources on the tile.
 </Warning>
 
 ```python  theme={"dark"}
