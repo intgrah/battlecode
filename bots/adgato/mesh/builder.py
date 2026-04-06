@@ -195,9 +195,9 @@ class Builder(Unit):
         active_nav = NV_TI_ORE if use_ore else NV_EXPLORE
 
         weights = _combine_weights(
-            (self.grid.navs[active_nav].step(pos), 3),
-            (self.grid.navs[NV_BBOTS].step(pos), 2),
-            (self.grid.navs[NV_CORE].step(pos), 2),
+            (self.grid.navs[active_nav].step(pos), 4),
+            (self.grid.navs[NV_BBOTS].step(pos), 3),
+            (self.grid.navs[NV_CORE].step(pos), 1),
         )
 
         t2 = ct.get_cpu_time_elapsed()
