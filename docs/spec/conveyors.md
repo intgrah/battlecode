@@ -64,7 +64,7 @@ c.build_bridge(bridge_pos, target_pos)
 
 <img src="https://mintcdn.com/cambridgebattlecode/W9OYBDP1YcA3tc0W/images/entities/armoured-conveyor.png?fit=max&auto=format&n=W9OYBDP1YcA3tc0W&q=85&s=c706382c9d7e9718c9a2d3e41322a373" alt="Armoured conveyor" style={{ width: 64, float: "right", marginLeft: 16 }} width="512" height="512" data-path="images/entities/armoured-conveyor.png" />
 
-Same function as a basic conveyor but with **much more HP**. Requires refined axionite to build.
+Same function as a basic conveyor but with **much more HP**. Requires refined axionite to build. Armoured conveyors are **immune to builder bot attacks**.
 
 | Property  | Value      |
 | --------- | ---------- |

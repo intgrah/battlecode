@@ -43,7 +43,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
           Builder bot
         </td>
 
-        <td>30</td>
+        <td>40</td>
         <td>30 Ti</td>
         <td>20%</td>
         <td>Mobile; build, heal, attack, destroy</td>
@@ -98,7 +98,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>50</td>
         <td>5 Ti, 5 Ax</td>
         <td>1%</td>
-        <td>Conveyor with more HP</td>
+        <td>Conveyor with more HP; immune to builder attacks</td>
       </tr>
 
       <tr>
@@ -123,7 +123,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
 
         <td>50</td>
         <td>40 Ti</td>
-        <td>100%</td>
+        <td>50%</td>
         <td>Ti + raw Ax → refined Ax</td>
       </tr>
 
@@ -268,7 +268,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>13</td>
         <td>2</td>
         <td>13</td>
-        <td>10 (30 with Ax)</td>
+        <td>10 (40 with Ax)</td>
         <td>1</td>
         <td>2</td>
       </tr>
@@ -285,9 +285,9 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
 
       <tr>
         <td>Breach</td>
-        <td>13</td>
         <td>2</td>
-        <td>5</td>
+        <td>2</td>
+        <td>13</td>
         <td>40 + 20 splash</td>
         <td>1</td>
         <td>5</td>
@@ -435,7 +435,7 @@ Every entity you build increases the cost multiplier. Scale starts at 1.0x (100%
 
       <tr>
         <td>Axionite foundry</td>
-        <td>+100%</td>
+        <td>+50%</td>
       </tr>
     </tbody>
   </table>

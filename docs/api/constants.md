@@ -38,8 +38,8 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | `BUILDER_BOT_VISION_RADIUS_SQ` | 20    | Builder bot vision               |
 | `GUNNER_VISION_RADIUS_SQ`      | 13    | Gunner vision                    |
 | `SENTINEL_VISION_RADIUS_SQ`    | 32    | Sentinel vision                  |
-| `BREACH_VISION_RADIUS_SQ`      | 13    | Breach vision                    |
-| `BREACH_ATTACK_RADIUS_SQ`      | 5     | Breach attack cone               |
+| `BREACH_VISION_RADIUS_SQ`      | 2     | Breach vision                    |
+| `BREACH_ATTACK_RADIUS_SQ`      | 13    | Breach attack cone               |
 | `LAUNCHER_VISION_RADIUS_SQ`    | 26    | Launcher vision + throw range    |
 | `BRIDGE_TARGET_RADIUS_SQ`      | 9     | Max bridge output distance²      |
 
@@ -66,7 +66,7 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | Constant                   | Value |
 | -------------------------- | ----- |
 | `CORE_MAX_HP`              | 500   |
-| `BUILDER_BOT_MAX_HP`       | 30    |
+| `BUILDER_BOT_MAX_HP`       | 40    |
 | `CONVEYOR_MAX_HP`          | 20    |
 | `SPLITTER_MAX_HP`          | 20    |
 | `BRIDGE_MAX_HP`            | 20    |
@@ -91,7 +91,7 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | `BUILDER_BOT_SELF_DESTRUCT_DAMAGE` | 0       | Damage on self-destruct                         |
 | `HEAL_AMOUNT`                      | 4       | HP restored per heal action                     |
 | `GUNNER_DAMAGE`                    | 10      | Gunner base damage per shot                     |
-| `GUNNER_AXIONITE_DAMAGE`           | 30      | Gunner damage when loaded with refined axionite |
+| `GUNNER_AXIONITE_DAMAGE`           | 40      | Gunner damage when loaded with refined axionite |
 | `GUNNER_FIRE_COOLDOWN`             | 1       | Turns between gunner shots                      |
 | `GUNNER_AMMO_COST`                 | 2       | Resources consumed per shot                     |
 | `GUNNER_ROTATE_COST`               | (10, 0) | Cost to rotate a gunner                         |

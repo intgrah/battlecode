@@ -108,7 +108,7 @@ Turrets also have an **attack range** which is different from their action radiu
       <tr><td>Builder bot</td><td>20</td><td>2</td></tr>
       <tr><td>Gunner</td><td>13</td><td>2</td></tr>
       <tr><td>Sentinel</td><td>32</td><td>2</td></tr>
-      <tr><td>Breach</td><td>13</td><td>2</td></tr>
+      <tr><td>Breach</td><td>2</td><td>2</td></tr>
       <tr><td>Launcher</td><td>26</td><td>2</td></tr>
     </tbody>
   </table>

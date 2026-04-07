@@ -14,7 +14,7 @@ Builder bots are the **only mobile unit**. They construct buildings, heal friend
 
 | Property             | Value |
 | -------------------- | ----- |
-| HP                   | 30    |
+| HP                   | 40    |
 | Base cost            | 30 Ti |
 | Scaling contribution | 20%   |
 | Vision radius²       | 20    |
@@ -68,7 +68,7 @@ if c.can_heal(target_pos):
 
 ### Attack
 
-Spend **2 Ti** to deal **2 damage** to the building on the tile the builder bot is standing on. This reuses the standard `can_fire()` / `fire()` combat API.
+Spend **2 Ti** to deal **2 damage** to the building on the tile the builder bot is standing on. This reuses the standard `can_fire()` / `fire()` combat API. **Armoured conveyors are immune** to builder bot attacks.
 
 ```python  theme={"dark"}
 my_pos = c.get_position()
