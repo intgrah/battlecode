@@ -240,6 +240,8 @@ class Builder(Unit):
     # -- Role: ATTACK --
 
     def _run_attack(self, ct: Controller) -> tuple[str, bool]:
+        s = self.state
+        pos = ct.get_position()
 
         # Invalidation checks
         self._attack_invalidate(ct)
