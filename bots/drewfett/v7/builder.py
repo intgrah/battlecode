@@ -852,9 +852,13 @@ class Builder(Unit):
         tx, ty = target % w, target // w
 
         # (a) Any own harvester with free cardinal side, closest to target
+        # Prefer harvesters this builder placed (avoids competing with other attackers)
         best_src: int | None = None
         best_dist = 1_000_000
-        for hi in s.my_harvesters:
+        candidates = list(self._my_harvesters & s.my_harvesters) + [
+            hi for hi in s.my_harvesters if hi not in self._my_harvesters
+        ]
+        for hi in candidates:
             hx, hy = hi % w, hi // w
             for dx, dy in DIR4_DELTA:
                 fx, fy = hx + dx, hy + dy
@@ -869,7 +873,7 @@ class Builder(Unit):
                 ):
                     continue
                 bld = s.building[fi]
-                # Free side: empty, road, or marker only
+                # Free side: empty, road, or marker only (no existing conveyors)
                 if bld is not None and not isinstance(
                     bld, (BuildingRoad, BuildingMarker)
                 ):
@@ -1091,9 +1095,10 @@ class Builder(Unit):
 
     # -- Task: Recycle Gunner --
 
-    def _task_recycle_gunner(self, _ct: Controller) -> tuple[str, bool] | None:
-        """Check if our placed gunner is idle (self-destructed). If gone, advance."""
+    def _task_recycle_gunner(self, ct: Controller) -> tuple[str, bool] | None:
+        """Check if gunner is dead or idle. If so, recycle and advance."""
         s = self.state
+        w = s.w
 
         gunner_ti = self._attack_gunner
         if gunner_ti is None:
@@ -1101,16 +1106,41 @@ class Builder(Unit):
 
         # Check if gunner is still alive
         bld = s.building[gunner_ti]
-        if isinstance(bld, BuildingGunner) and bld.team == s.my_team:
-            return None  # gunner still active, wait
+        if not (isinstance(bld, BuildingGunner) and bld.team == s.my_team):
+            # Gunner is gone — reset and find new target
+            self._attack_gunner = None
+            self._attack_target = None
+            self._attack_source = None
+            self._attack_path = None
+            return "recycle:gunner_gone", False
 
-        # Gunner is gone (destroyed or self-destructed)
-        self._attack_gunner = None
-        # Pick new target further forward
-        self._attack_target = None
-        self._attack_source = None
-        self._attack_path = None
-        return None  # fall through to find new target
+        # Gunner alive — check if it has any targets within r²=13
+        gx, gy = gunner_ti % w, gunner_ti // w
+        en_buildings = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
+        has_target = False
+        for ei in en_buildings:
+            ex, ey = ei % w, ei // w
+            if (ex - gx) ** 2 + (ey - gy) ** 2 <= 13:
+                has_target = True
+                break
+
+        if has_target:
+            return None  # gunner has targets, let it fight
+
+        # Gunner is idle — walk to it and destroy to reclaim
+        pos = ct.get_position()
+        gpos = Position(gx, gy)
+        if pos.distance_squared(gpos) <= 2:
+            if ct.can_destroy(gpos):
+                ct.destroy(gpos)
+                self._attack_gunner = None
+                self._attack_target = None
+                self._attack_source = None
+                self._attack_path = None
+                return "recycle:destroyed_idle_gunner", True
+        self.nav.set_goal(gpos)
+        moved = self.nav.step(ct)
+        return f"recycle:walk_to_gunner({gx},{gy})", moved
 
     # -- Task: Cut Feed --
 
