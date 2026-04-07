@@ -58,21 +58,7 @@ class Gunner(Unit):
             return
 
         self._idle_rounds += 1
-        # Self-destruct after prolonged idle if ally builder nearby and no enemies
-        if self._idle_rounds >= _IDLE_LIMIT:
-            has_ally_builder = False
-            has_enemy = False
-            for uid in ct.get_nearby_units():
-                team = ct.get_team(uid)
-                if (
-                    team == my_team
-                    and ct.get_entity_type(uid) == EntityType.BUILDER_BOT
-                ):
-                    has_ally_builder = True
-                elif team != my_team:
-                    has_enemy = True
-            if has_ally_builder and not has_enemy:
-                ct.self_destruct()
+        # Don't self-destruct — attack builder manages gunner lifecycle
 
 
 def _scan_ray(

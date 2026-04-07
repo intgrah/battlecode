@@ -853,9 +853,6 @@ class Builder(Unit):
                     best_dist = dist
                     best_src = fi
 
-        if best_src is not None:
-            return best_src
-
         # (b) Ti ore near target — pick closest ore to target
         best_ore: int | None = None
         best_ore_dist = 1_000_000
@@ -868,8 +865,8 @@ class Builder(Unit):
                 best_ore_dist = dist
                 best_ore = oi
 
+        best_ore_src: int | None = None
         if best_ore is not None:
-            # Return a free cardinal side of the ore (where harvester would output)
             ox, oy = best_ore % w, best_ore // w
             for dx, dy in DIR4_DELTA:
                 fx, fy = ox + dx, oy + dy
@@ -888,9 +885,13 @@ class Builder(Unit):
                     bld, (BuildingRoad, BuildingMarker)
                 ):
                     continue
-                return fi
+                best_ore_src = fi
+                break
 
-        return None
+        # Pick whichever source is closer to target
+        if best_src is not None and best_ore_src is not None:
+            return best_ore_src if best_ore_dist < best_dist else best_src
+        return best_src or best_ore_src
 
     # -- Task: Extend Attack Chain --
 
