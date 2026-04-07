@@ -172,24 +172,30 @@ class ChainAstar(Astar[int]):
                             _add_neighbor(ny * w + nx, reuse_cost)
 
             case BuildingRoad():
+                before = len(result)
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         _add_neighbor(ny * w + nx, COST_ROAD_REPLACE)
-                for ddx, ddy in BRIDGE_DELTAS:
-                    nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        _add_neighbor(ny * w + nx, COST_BRIDGE)
+                # Only try bridges when 2+ cardinal directions blocked
+                if len(result) - before <= 2:
+                    for ddx, ddy in BRIDGE_DELTAS:
+                        nx, ny = cx + ddx, cy + ddy
+                        if 0 <= nx < w and 0 <= ny < h:
+                            _add_neighbor(ny * w + nx, COST_BRIDGE)
 
             case None | BuildingMarker():
+                before = len(result)
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         _add_neighbor(ny * w + nx, COST_CONV)
-                for ddx, ddy in BRIDGE_DELTAS:
-                    nx, ny = cx + ddx, cy + ddy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        _add_neighbor(ny * w + nx, COST_BRIDGE)
+                # Only try bridges when 2+ cardinal directions blocked
+                if len(result) - before <= 2:
+                    for ddx, ddy in BRIDGE_DELTAS:
+                        nx, ny = cx + ddx, cy + ddy
+                        if 0 <= nx < w and 0 <= ny < h:
+                            _add_neighbor(ny * w + nx, COST_BRIDGE)
 
         # Filter: don't route into enemy buildings or friendly harvesters/barriers
         filtered: list[tuple[int, int]] = []
