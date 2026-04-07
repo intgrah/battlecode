@@ -1199,15 +1199,20 @@ class Builder(Unit):
                     pt = None  # arrived
 
         if pt is None:
-            # Pick tile with oldest last_seen
+            # Pick tile with best score: stale + nearby
+            now = s.age + s.birthday
             best_ti: int | None = None
-            best_seen = s.age + s.birthday + 1
+            best_score = -1_000_000
             for ti in infra:
                 if ti == pos.y * w + pos.x:
                     continue
-                seen = s.last_seen[ti]
-                if seen < best_seen:
-                    best_seen = seen
+                staleness = now - s.last_seen[ti]
+                tx, ty = ti % w, ti // w
+                dist = abs(pos.x - tx) + abs(pos.y - ty)
+                # Prefer stale tiles, penalize distance
+                score = staleness - dist * 2
+                if score > best_score:
+                    best_score = score
                     best_ti = ti
             pt = best_ti
             self._patrol_target = pt
