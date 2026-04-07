@@ -632,6 +632,10 @@ class Builder(Unit):
         pos = ct.get_position()
 
         unharvested = self.ti_ore.positions - s.my_harvesters - s.en_harvesters
+        # Remove temporarily blocked ore
+        blocked = getattr(self, "_blocked_ore", {})
+        now = s.age + s.birthday
+        unharvested = {oi for oi in unharvested if blocked.get(oi, 0) <= now}
         if not unharvested:
             self._harvest_target = None
             return None
@@ -667,8 +671,10 @@ class Builder(Unit):
                 self._harvest_target = None
                 self._my_harvesters.add(ni)
                 return f"harvest:place({ore_pos.x},{ore_pos.y})", True
-            # Failed — clear target so we pick a different ore
+            # Failed — block this ore temporarily so we pick a different one
             self._harvest_target = None
+            self._blocked_ore = getattr(self, "_blocked_ore", {})
+            self._blocked_ore[ni] = s.age + s.birthday + 50  # block for 50 turns
             return f"harvest:cant_place({ore_pos.x},{ore_pos.y})", False
 
         # Phase 2: walk toward committed ore target (sticky -- no oscillation)
