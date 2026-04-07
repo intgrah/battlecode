@@ -10,9 +10,6 @@ stderr: chain routing decisions + profiling.
 from __future__ import annotations
 
 import random
-import sys
-import time
-import traceback as tb
 
 from bbot_tracker import BbotTracker
 from building import (
@@ -35,7 +32,6 @@ from symmetry import SymmetryDetector
 from tracker import Tracker
 from unit import Unit
 from util import DELTA_TO_DIR, DIR4_DELTA, Symmetry
-from vis import Grid, Palette, Scalar, Tiles, emit
 
 # Max harvesters per branch (4 = true throughput limit, 1 stack/turn)
 _BRANCH_CAPACITY = 4
@@ -96,14 +92,12 @@ class Builder(Unit):
             self._mirrored = True
 
         # -- Vision scan + state update --
-        t0 = time.perf_counter_ns()
         _update_nearby_tiles(
             self.nav, self.ti_ore, s, ct, self._tile_cache, resolved_sym
         )
         self.friend_tracker.update(ct)
         self.explore.update(ct, pos, s.core_pos)
         state_update(s, ct)
-        t_state = time.perf_counter_ns() - t0
 
         # Enemy core estimate from symmetry
         if s.en_core_pos is None and self.sym.enemy_core is not None:
@@ -115,35 +109,13 @@ class Builder(Unit):
             if ti >= 1 and ct.can_heal(pos):
                 ct.heal(pos)
 
-        # -- Task dispatch with logging --
-        bid = ct.get_id()
-        ti_res, _ = ct.get_global_resources()
+        # -- Task dispatch --
         try:
             task_name, moved = self._run_tasks(ct)
-        except Exception as exc:
-            print(f"CRASH: {tb.format_exc()}", file=sys.stderr)
-            print(tb.format_exc(), file=sys.stderr)
+        except Exception:
             task_name, moved = "crash", False
 
         new_pos = ct.get_position()
-        acted = ct.get_action_cooldown() > 0
-        print(
-            f"[r{s.age + s.birthday} id={bid}] ({pos.x},{pos.y})"
-            f" ore={len(self.ti_ore.positions)} h={len(s.my_harvesters)}"
-            f" c={len(s.connected_harvesters)} t={len(s.my_transport)}"
-            f" ti={ti_res}"
-            f" -> {task_name}"
-            f"{'  moved' if pos != new_pos else ''}"
-            f"{'  built' if acted else ''}"
-        )
-
-        print(
-            f"[TASK r{s.age + s.birthday} id={bid}] ({pos.x},{pos.y}) ore={len(self.ti_ore.positions)} h={len(s.my_harvesters)} c={len(s.connected_harvesters)} -> {task_name}",
-            file=sys.stderr,
-        )
-
-        # -- Visualiser --
-        self._emit_vis(ct)
 
         # Livelock breaker
         if new_pos == pos and not moved:
@@ -254,36 +226,17 @@ class Builder(Unit):
                 # Everything is full or stale — can't connect safely
                 return f"connect:no_valid_goals h=({hx},{hy})", False
 
-            t0 = time.perf_counter_ns()
             search = ChainAstar(
                 s, hx, hy, goals,
                 bottleneck=s.bottleneck, capacity=_BRANCH_CAPACITY,
             )
             path = search.compute(within_budget=lambda: ct.get_cpu_time_elapsed() < 1800)
-            t_astar = time.perf_counter_ns() - t0
-
-            branch_loads_str = ",".join(
-                f"{bid % w},{bid // w}:{ld}" for bid, ld in s.branch_load.items()
-            )
 
             if path is None:
-                print(
-                    f"[CHAIN r{s.age + s.birthday}] no_path h=({hx},{hy})"
-                    f" goals={all_goals} loads=[{branch_loads_str}]"
-                    f" astar={t_astar // 1000}us exhausted={search.exhausted}",
-                    file=sys.stderr,
-                )
                 self._connect_path = None
-                return f"connect:no_path h=({hx},{hy}) goals={all_goals}", False
+                return f"connect:no_path h=({hx},{hy})", False
 
             self._connect_path = path
-            print(
-                f"[CHAIN r{s.age + s.birthday}] new_path h=({hx},{hy})"
-                f" end=({path[-1] % w},{path[-1] // w})"
-                f" path={len(path)} loads=[{branch_loads_str}]"
-                f" astar={t_astar // 1000}us",
-                file=sys.stderr,
-            )
 
         end_ti = path[-1]
         end_bn = s.bottleneck.get(end_ti, 0)
@@ -301,13 +254,6 @@ class Builder(Unit):
             gap_ti = ci
             break
 
-        gap_str = 'none' if gap_idx is None else f'k={gap_idx} ({gap_ti % w},{gap_ti // w})' if gap_ti is not None else 'none'
-        print(
-            f"[CHAIN r{s.age + s.birthday}] h=({hx},{hy})"
-            f" end=({end_ti % w},{end_ti // w}) bn={end_bn}"
-            f" path={len(path)} gap={gap_str} cached={'Y' if cached else 'N'}",
-            file=sys.stderr,
-        )
 
         if gap_idx is None:
             # Path is complete -- harvester is now connected
@@ -320,20 +266,33 @@ class Builder(Unit):
         build_pos = Position(cx, cy)
         tag = f"connect:h=({hx},{hy}) gap=({cx},{cy})"
 
-        # Check if adjacent to gap -- if so, build
+        # Check if adjacent to gap -- if so, build + walk toward next gap
         if pos.distance_squared(build_pos) <= 2:
-            return self._build_at_gap(ct, cx, cy, nx, ny, build_pos, tag)
+            return self._build_at_gap(ct, cx, cy, nx, ny, build_pos, tag, path, gap_idx)
 
         # Walk toward gap (may build roads to get there)
-        t0 = time.perf_counter_ns()
         self.nav.set_goal(build_pos)
         moved = self.nav.step(ct)
-        t_bfs = time.perf_counter_ns() - t0
-        print(
-            f"[PERF r{s.age + s.birthday}] bfs_step={t_bfs // 1000}us",
-            file=sys.stderr,
-        )
         return f"{tag} walk->({cx},{cy})", moved
+
+    def _walk_toward_next_gap(
+        self, ct: Controller, path: list[int], from_k: int
+    ) -> None:
+        """After building, use remaining movement to walk toward next gap."""
+        s = self.state
+        w = s.w
+        for k in range(from_k, len(path) - 1):
+            ci = path[k]
+            ni = path[k + 1]
+            if _tile_has_correct_transport(s, ci, ni, w):
+                continue
+            # Found next gap — try to walk toward it
+            gx, gy = ci % w, ci // w
+            target = Position(gx, gy)
+            direction = ct.get_position().direction_to(target)
+            if direction != Direction.CENTRE and ct.can_move(direction):
+                ct.move(direction)
+            return
 
     def _build_at_gap(
         self,
@@ -344,6 +303,8 @@ class Builder(Unit):
         ny: int,
         build_pos: Position,
         tag: str,
+        path: list[int] | None = None,
+        gap_idx: int = 0,
     ) -> tuple[str, bool]:
         """Build conveyor or bridge at the gap tile."""
         s = self.state
@@ -367,16 +328,15 @@ class Builder(Unit):
             _destroy_friendly(ct, build_pos)
             if ct.can_build_bridge(build_pos, target_pos):
                 ct.build_bridge(build_pos, target_pos)
-
-                # Update belief state + transport set so connectivity picks it up
                 from building import BuildingBridge as BldBridge
                 s.building[ci] = BldBridge(s.my_team, target_pos)
                 s.my_transport.add(ci)
+                self._walk_toward_next_gap(ct, path, gap_idx + 1)
                 return f"{tag} bridge({cx},{cy})->({nx},{ny})", True
             self._connect_path = None
             return f"{tag} bridge_cant_build:recompute", False
 
-        # Cardinal conveyor — verify next tile isn't a wall
+        # Cardinal conveyor — verify tiles
         next_env = s.env[ni]
         if next_env == Environment.WALL:
             self._connect_path = None
@@ -392,10 +352,10 @@ class Builder(Unit):
         _destroy_friendly(ct, build_pos)
         if ct.can_build_conveyor(build_pos, conv_dir):
             ct.build_conveyor(build_pos, conv_dir)
-            # Update belief state + transport set so connectivity picks it up
             from building import BuildingConveyor as BldConveyor
             s.building[ci] = BldConveyor(s.my_team, conv_dir)
             s.my_transport.add(ci)
+            self._walk_toward_next_gap(ct, path, gap_idx + 1)
             return f"{tag} conv({cx},{cy})->{conv_dir.name}", True
         self._connect_path = None
         return f"{tag} conv_cant_build:recompute", False
@@ -579,52 +539,6 @@ class Builder(Unit):
 
     # -- Visualiser --
 
-    def _emit_vis(self, _ct: Controller) -> None:
-        s = self.state
-        w, h = s.w, s.h
-        n = w * h
-
-        # 1. Load heatmap: per-tile upstream harvester count
-        #    -1 = not transport, 0..N = load through this tile
-        load_grid: list[int] = [-1] * n
-        for ti in s.connected_transport:
-            load_grid[ti] = s.load.get(ti, 0)
-        for ti in s.core_tiles:
-            if 0 <= ti < n:
-                load_grid[ti] = s.load.get(ti, 0)
-
-        # 2. Capacity-filtered goals (available connection points)
-        goal_tiles: list[tuple[int, int]] = []
-        for ti in s.connected_transport | s.core_tiles:
-            bn = s.bottleneck.get(ti, 0)
-            if bn < _BRANCH_CAPACITY:
-                goal_tiles.append((ti % w, ti // w))
-
-        # 3. Full tiles (at/over capacity)
-        full_tiles: list[tuple[int, int]] = []
-        for ti in s.connected_transport:
-            bn = s.bottleneck.get(ti, 0)
-            if bn >= _BRANCH_CAPACITY:
-                full_tiles.append((ti % w, ti // w))
-
-        # 4. Stale tiles (need exploration to validate tree)
-
-        emit(
-            load=Grid(
-                load_grid,
-                palette=Palette(
-                    stops=[
-                        (0.0, 0, 180, 0, 100),  # 0 harvesters: green
-                        (0.33, 200, 200, 0, 140),  # 1: yellow
-                        (0.66, 200, 100, 0, 160),  # 2: orange
-                        (1.0, 200, 0, 0, 200),  # 3+: red
-                    ],
-                    special={-1: (0, 0, 0, 0)},
-                ),
-            ),
-            goals=Tiles(goal_tiles),
-            full=Tiles(full_tiles),
-        )
 
 
 # -- Helpers --
