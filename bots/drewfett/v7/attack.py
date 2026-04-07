@@ -259,14 +259,11 @@ class Attack:
                 s.my_transport.add(ci)
                 self.frontier = ci
                 return f"atk:conv({cx},{cy})->{conv_dir.name}", True
-            # Build failed — destroy any own building and retry next turn
+            # Build failed — only destroy road/marker/barrier (not transport)
+            _clear_tile(ct, s, ci, build_pos)
             bid = ct.get_tile_building_id(build_pos)
-            if bid is not None and ct.get_team(bid) == ct.get_team():
-                if ct.can_destroy(build_pos):
-                    ct.destroy(build_pos)
-                    s.building[ci] = None
-                    s.my_transport.discard(ci)
-                    return f"atk:cleared({cx},{cy})", False
+            if bid is None:
+                return f"atk:cleared({cx},{cy})", False  # cleared, retry
             return f"atk:conv_fail({cx},{cy})", False
 
         # Bridge
@@ -284,6 +281,17 @@ class Attack:
             return f"atk:bridge_enemy({nx},{ny})", False
         if ni in s.danger_zones:
             return f"atk:bridge_danger({nx},{ny})", False
+        # Check landing tile or an adjacent tile is BFS-reachable
+        if s.nav is not None:
+            reachable = s.nav.is_passable(Position(nx, ny))
+            if not reachable:
+                for ddx, ddy in DIR4_DELTA:
+                    ax, ay = nx + ddx, ny + ddy
+                    if s.in_bounds(ax, ay) and s.nav.is_passable(Position(ax, ay)):
+                        reachable = True
+                        break
+            if not reachable:
+                return f"atk:bridge_unreachable({nx},{ny})", False
 
         b_cost, _ = ct.get_bridge_cost()
         ti, _ = ct.get_global_resources()
@@ -354,14 +362,8 @@ class Attack:
             moved = nav.step(ct)
             return f"atk:gunner_walk({gx},{gy})", moved
 
-        # Destroy own building (but not econ)
-        if gi not in s.connected_transport:
-            bid = ct.get_tile_building_id(gpos)
-            if bid is not None and ct.get_team(bid) == ct.get_team():
-                if ct.can_destroy(gpos):
-                    ct.destroy(gpos)
-                    s.building[gi] = None
-                    s.my_transport.discard(gi)
+        # Only clear road/marker/barrier — don't destroy transport
+        _clear_tile(ct, s, gi, gpos)
 
         if ct.can_build_gunner(gpos, facing):
             ct.build_gunner(gpos, facing)
