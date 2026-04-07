@@ -526,6 +526,7 @@ class Builder(Unit):
                 ct.build_harvester(ore_pos)
                 self._harvest_target = None
                 self._my_harvesters.add(ni)
+                self._needs_barrier = ni  # barrier this harvester next turn
                 return f"harvest:place({ore_pos.x},{ore_pos.y})", True
             return f"harvest:cant_place({ore_pos.x},{ore_pos.y})", False
 
@@ -1044,9 +1045,6 @@ class Builder(Unit):
                 if not s.in_bounds(nx, ny):
                     continue
                 ni = ny * w + nx
-                # Skip if there's already a building (chain conveyors etc.)
-                if s.building[ni] is not None:
-                    continue
                 env = s.env[ni]
                 if env is not None and env in (
                     Environment.WALL,
@@ -1054,18 +1052,37 @@ class Builder(Unit):
                     Environment.ORE_AXIONITE,
                 ):
                     continue
-                barrier_pos = Position(nx, ny)
-                # Can't build on tile with a bot on it
-                if barrier_pos == pos or barrier_pos in s.unit_tiles:
+                bld = s.building[ni]
+                # Skip tiles that already have important buildings
+                if bld is not None and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
                     continue
-                if pos.distance_squared(barrier_pos) <= 2:
+                barrier_pos = Position(nx, ny)
+                if barrier_pos in s.unit_tiles:
+                    continue
+                if pos.distance_squared(barrier_pos) <= 2 and barrier_pos != pos:
+                    _destroy_friendly(ct, barrier_pos)
                     if ct.can_build_barrier(barrier_pos):
                         ct.build_barrier(barrier_pos)
                         return f"barrier:place({nx},{ny})", True
                 else:
-                    self.nav.set_goal(barrier_pos)
-                    moved = self.nav.step(ct)
-                    return f"barrier:walk({nx},{ny})", moved
+                    # Walk to an adjacent tile of the barrier spot, not the spot itself
+                    best_adj: Position | None = None
+                    best_d = 1_000_000
+                    for adx, ady in DIR4_DELTA:
+                        ax, ay = nx + adx, ny + ady
+                        if not s.in_bounds(ax, ay):
+                            continue
+                        adj = Position(ax, ay)
+                        d = (pos.x - ax) ** 2 + (pos.y - ay) ** 2
+                        if d < best_d:
+                            best_d = d
+                            best_adj = adj
+                    if best_adj is not None:
+                        self.nav.set_goal(best_adj)
+                        moved = self.nav.step(ct)
+                        return f"barrier:walk({nx},{ny})", moved
 
         return None
 
