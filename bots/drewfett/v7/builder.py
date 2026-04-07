@@ -113,12 +113,10 @@ class Builder(Unit):
         self._connect_path: list[int] | None = None
         self._my_harvesters: set[int] = set()  # harvesters THIS builder placed
 
-        # Attack state — frontier model
-        self._attack_target: int | None = None  # enemy tile to push toward
-        self._chain_source: int | None = None  # Ti source (harvester free side)
-        self._chain_frontier: int | None = None  # furthest tile with our transport
-        self._attack_gunner: int | None = None  # active gunner tile
-        self._attack_stuck: int = 0  # turns stuck at same frontier
+        # Attack — delegated to Attack class
+        from attack import Attack
+
+        self._attack = Attack()
 
         # Defense state (reactive gunner uses stateless scan each turn)
 
@@ -181,16 +179,14 @@ class Builder(Unit):
         m = "M" if pos != new_pos else "."
         extra = ""
         if self._role == 1:
+            a = self._attack
             parts = []
-            if self._attack_target is not None:
-                ti = self._attack_target
-                parts.append(f"tgt=({ti % s.w},{ti // s.w})")
-            if self._chain_frontier is not None:
-                fi = self._chain_frontier
-                parts.append(f"fr=({fi % s.w},{fi // s.w})")
-            if self._attack_gunner is not None:
-                gi = self._attack_gunner
-                parts.append(f"gun=({gi % s.w},{gi // s.w})")
+            if a.target is not None:
+                parts.append(f"tgt=({a.target % s.w},{a.target // s.w})")
+            if a.frontier is not None:
+                parts.append(f"fr=({a.frontier % s.w},{a.frontier // s.w})")
+            if a.gunner is not None:
+                parts.append(f"gun=({a.gunner % s.w},{a.gunner // s.w})")
             extra = f" [{' '.join(parts)}]"
         _log(f"T{s.age + s.birthday} {r}{m} {task_name}{extra}", ct.get_id())
 
@@ -287,44 +283,40 @@ class Builder(Unit):
         total_connected = len(s.connected_harvesters)
         return own_connected >= 2 or total_connected >= 4
 
-    # -- Role: ATTACK (frontier model) --
+    # -- Role: ATTACK --
 
     def _run_attack(self, ct: Controller) -> tuple[str, bool]:
+        a = self._attack
         s = self.state
-        pos = ct.get_position()
-        w = s.w
 
-        # Invalidation
-        self._attack_invalidate(ct)
+        # Find target if needed
+        if a.target is None:
+            en = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
+            if s.en_core_pos is not None and not en:
+                a.target = s.en_core_pos.y * s.w + s.en_core_pos.x
+            elif en:
+                pos = ct.get_position()
+                best_ti: int | None = None
+                best_score = 1_000_000
+                for ei in en:
+                    ex, ey = ei % s.w, ei // s.w
+                    sc = abs(pos.x - ex) + abs(pos.y - ey)
+                    if ei in s.en_core_tiles:
+                        sc -= 100
+                    if sc < best_score:
+                        best_score = sc
+                        best_ti = ei
+                if best_ti is not None:
+                    a.target = best_ti
 
-        # 1. Gunner active → wait near it for idle signal
-        if self._attack_gunner is not None:
-            result = self._attack_recycle(ct)
-            if result is not None:
-                return result
-            gti = self._attack_gunner
-            gx, gy = gti % w, gti // w
-            gpos = Position(gx, gy)
-            if pos.distance_squared(gpos) > 2:
-                self.nav.set_goal(gpos)
-                moved = self.nav.step(ct)
-                return f"attack:walk_gunner({gx},{gy})", moved
-            return "attack:gunner_active", False
+        # Delegate to Attack class
+        result = a.run(ct, self.nav, s)
 
-        # 2. Frontier exists → advance chain
-        if self._chain_frontier is not None:
-            return self._attack_advance(ct)
+        # If attack has nothing to do, explore toward enemy
+        if result[0] == "atk:no_target" or result[0] == "atk:no_source":
+            return self._task_explore_enemy(ct)
 
-        # 3. Target exists but no chain → init chain (find source)
-        if self._attack_target is not None:
-            return self._attack_init_chain(ct)
-
-        # 4. No target → find one
-        self._attack_find_target(ct)
-        if self._attack_target is not None:
-            return self._attack_init_chain(ct)
-
-        return self._task_explore_enemy(ct)
+        return result
 
     # -- Role: DEFENSE --
 
@@ -803,9 +795,10 @@ class Builder(Unit):
                             return p
         return target  # fallback
 
-    # -- Attack: Frontier-based methods --
+    # -- Attack methods moved to attack.py --
 
-    def _attack_invalidate(self, _ct: Controller) -> None:
+    # Legacy helper kept for explore_enemy
+    def _attack_invalidate_REMOVED(self, _ct: Controller) -> None:
         """Light invalidation — only clear state when something is truly gone."""
         s = self.state
         w = s.w
