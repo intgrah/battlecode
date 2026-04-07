@@ -27,6 +27,7 @@ class Gunner(Unit):
             return
 
         # Try rotating to find a better target
+        # Lookahead: if first hit is a road, peek behind for higher-value targets
         best_target: Position | None = None
         best_priority = -1
         best_dir: Direction | None = None
@@ -37,7 +38,17 @@ class Gunner(Unit):
             bid = ct.get_tile_building_id(t)
             bot_id = ct.get_tile_builder_bot_id(t)
             if bid is not None and ct.get_team(bid) != my_team:
-                p = _target_priority(ct.get_entity_type(bid))
+                etype = ct.get_entity_type(bid)
+                p = _target_priority(etype)
+                # If it's a road, peek behind for better targets
+                if etype == EntityType.ROAD:
+                    behind = _scan_ray_from(ct, t, d, my_team)
+                    if behind is not None:
+                        bbid = ct.get_tile_building_id(behind)
+                        if bbid is not None and ct.get_team(bbid) != my_team:
+                            bp = _target_priority(ct.get_entity_type(bbid))
+                            if bp > p:
+                                p = bp  # boost this direction's priority
             elif bot_id is not None and ct.get_team(bot_id) != my_team:
                 p = _target_priority(EntityType.BUILDER_BOT)
             else:
@@ -128,6 +139,41 @@ def _scan_ray(
             if ct.get_team(bot_id) != my_team:
                 return p  # enemy bot — targetable
             break  # friendly bot — blocks LoS
+        x += dx
+        y += dy
+    return None
+
+
+def _scan_ray_from(
+    ct: Controller,
+    start: Position,
+    direction: Direction,
+    my_team: int,
+) -> Position | None:
+    """Like _scan_ray but starts one tile past 'start'. Used for lookahead."""
+    dx, dy = direction.delta()
+    # Start from one tile past 'start'
+    x, y = start.x + dx, start.y + dy
+    w = ct.get_map_width()
+    h = ct.get_map_height()
+    # Only look a few tiles ahead (don't need full range)
+    for _ in range(3):
+        if not (0 <= x < w and 0 <= y < h):
+            break
+        p = Position(x, y)
+        env = ct.get_tile_env(p)
+        if env == Environment.WALL:
+            break
+        bid = ct.get_tile_building_id(p)
+        if bid is not None:
+            etype = ct.get_entity_type(bid)
+            if etype == EntityType.MARKER:
+                x += dx
+                y += dy
+                continue
+            if ct.get_team(bid) != my_team:
+                return p
+            break
         x += dx
         y += dy
     return None
