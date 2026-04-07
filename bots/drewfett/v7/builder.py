@@ -16,13 +16,14 @@ from building import (
     BuildingBridge,
     BuildingConveyor,
     BuildingFoundry,
+    BuildingGunner,
     BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
-from chain_astar import ChainAstar
+from chain_astar import AttackAstar, ChainAstar
 from core import OFFSET_TO_INDEX, role_for_spawn
 from explore import ExploreGrid
 from nav import NavBfs
@@ -77,8 +78,10 @@ class Builder(Unit):
         self._my_harvesters: set[int] = set()  # harvesters THIS builder placed
 
         # Attack state
-        self._attack_path: list[int] | None = None
-        self._attack_target_ti: int | None = None
+        self._attack_target: int | None = None  # enemy building we're pushing toward
+        self._attack_source: int | None = None  # Ti source tile (harvester free side)
+        self._attack_path: list[int] | None = None  # A* path from source to gunner pos
+        self._attack_gunner: int | None = None  # tile where we placed gunner
 
         # Defense state
         self._reactive_gunner_state: str | None = None
@@ -234,19 +237,39 @@ class Builder(Unit):
     # -- Role: ATTACK --
 
     def _run_attack(self, ct: Controller) -> tuple[str, bool]:
-        s = self.state
 
-        # 1. Place gunner if chain tip has flow + LoS to enemy
-        result = self._task_place_gunner(ct)
-        if result is not None:
-            return result
+        # Invalidation checks
+        self._attack_invalidate(ct)
 
-        # 2. Extend attack chain toward enemy
-        result = self._task_extend_attack(ct)
-        if result is not None:
-            return result
+        # 1. Gunner placed: check for idle → recycle + advance. Otherwise wait.
+        if self._attack_gunner is not None:
+            result = self._task_recycle_gunner(ct)
+            if result is not None:
+                return result
+            return "attack:gunner_active", False
 
-        # 3. Explore enemy half (find enemy buildings to target)
+        # 2. Path exists: build along it. If complete + ammo flowing → place gunner.
+        if self._attack_path is not None:
+            result = self._task_extend_attack(ct)
+            if result is not None:
+                return result
+            # Path complete — try to place gunner
+            result = self._task_place_gunner(ct)
+            if result is not None:
+                return result
+
+        # 3. Target exists but no path: find Ti source, compute A*.
+        if self._attack_target is not None and self._attack_path is None:
+            result = self._task_plan_attack(ct)
+            if result is not None:
+                return result
+
+        # 4. No target: explore enemy half to find enemy buildings.
+        if self._attack_target is None:
+            result = self._task_find_attack_target(ct)
+            if result is not None:
+                return result
+
         return self._task_explore_enemy(ct)
 
     # -- Role: DEFENSE --
@@ -625,99 +648,236 @@ class Builder(Unit):
         moved = self.nav.step(ct)
         return "explore_enemy", moved
 
-    # -- Task: Extend Attack Chain --
+    # -- Attack: Invalidation --
 
-    def _task_extend_attack(self, ct: Controller) -> tuple[str, bool] | None:
+    def _attack_invalidate(self, _ct: Controller) -> None:
+        """Clear stale attack state when world changes."""
         s = self.state
         w = s.w
 
-        # Need enemy buildings to target
+        # Target tile occupied by wall or gone
+        if self._attack_target is not None:
+            env = s.env[self._attack_target]
+            if env is not None and env == Environment.WALL:
+                self._attack_target = None
+                self._attack_path = None
+
+        # Source harvester destroyed
+        if self._attack_source is not None:
+            src = self._attack_source
+            # Source should be a free side of a harvester — check the harvester exists
+            found_harvester = False
+            for dx, dy in DIR4_DELTA:
+                nx, ny = src % w + dx, src // w + dy
+                if s.in_bounds(nx, ny):
+                    ni = ny * w + nx
+                    bld = s.building[ni]
+                    if isinstance(bld, BuildingHarvester) and bld.team == s.my_team:
+                        found_harvester = True
+                        break
+            if not found_harvester:
+                self._attack_source = None
+                self._attack_path = None
+
+        # Gunner destroyed
+        if self._attack_gunner is not None:
+            bld = s.building[self._attack_gunner]
+            if not isinstance(bld, BuildingGunner) or bld.team != s.my_team:
+                self._attack_gunner = None
+
+        # Path validation: first tile must be source, check no walls inserted
+        path = self._attack_path
+        if path is not None:
+            if self._attack_source is not None and path[0] != self._attack_source:
+                self._attack_path = None
+            elif len(path) >= 2:
+                # Quick check: any tile on path became a wall?
+                for ti in path:
+                    env = s.env[ti]
+                    if env is not None and env == Environment.WALL:
+                        self._attack_path = None
+                        break
+
+    # -- Attack: Find target --
+
+    def _task_find_attack_target(self, ct: Controller) -> tuple[str, bool] | None:
+        """Pick an enemy building to push toward."""
+        s = self.state
+        w = s.w
+
         en_buildings = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
         if not en_buildings:
             return None
 
-        # Need connected transport to start from
-        network = s.connected_transport | s.core_tiles
-        if not network:
-            return None
-
-        # Compute target tiles: tiles within gunner r^2=13 of enemy buildings
-        targets: set[int] = set()
+        # Score enemy buildings: prefer core tiles > others, closer is better
+        pos = ct.get_position()
+        best_ti: int | None = None
+        best_score = 1_000_000
         for ei in en_buildings:
             ex, ey = ei % w, ei // w
-            for dx in range(-4, 5):
-                for dy in range(-4, 5):
-                    if dx * dx + dy * dy > 13:
-                        continue
-                    nx, ny = ex + dx, ey + dy
-                    if not s.in_bounds(nx, ny):
-                        continue
-                    ni = ny * w + nx
-                    env = s.env[ni]
-                    if env is not None and env in (
-                        Environment.WALL,
-                        Environment.ORE_TITANIUM,
-                        Environment.ORE_AXIONITE,
-                    ):
-                        continue
-                    targets.add(ni)
+            dist = abs(pos.x - ex) + abs(pos.y - ey)
+            # Core tiles get priority (subtract 100)
+            bonus = -100 if ei in s.en_core_tiles else 0
+            score = dist + bonus
+            if score < best_score:
+                best_score = score
+                best_ti = ei
 
-        # Already connected to target zone?
-        if targets & network:
+        if best_ti is not None:
+            self._attack_target = best_ti
+        return None  # fall through to explore_enemy
+
+    # -- Attack: Plan (find source + compute A*) --
+
+    def _task_plan_attack(self, ct: Controller) -> tuple[str, bool] | None:
+        """Find Ti source and compute A* from source to gunner position near target."""
+        s = self.state
+        w = s.w
+
+        target = self._attack_target
+        if target is None:
             return None
 
-        # Validate cached path
-        path = self._attack_path
-        if path is not None:
-            # After reverse: path[0]=network, path[-1]=target
-            still_valid = (
-                (path[0] in network or path[0] in s.core_tiles)
-                and path[-1] in targets
-            )
-            if not still_valid:
-                path = None
-                self._attack_path = None
+        # Find valid gunner positions: tiles within r^2=13 of target, buildable, with LoS
+        tx, ty = target % w, target // w
+        gunner_goals: set[int] = set()
+        for dx in range(-4, 5):
+            for dy in range(-4, 5):
+                if dx * dx + dy * dy > 13:
+                    continue
+                gx, gy = tx + dx, ty + dy
+                if not s.in_bounds(gx, gy):
+                    continue
+                gi = gy * w + gx
+                env = s.env[gi]
+                if env is not None and env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
+                    continue
+                if gi in s.danger_zones:
+                    continue
+                bld = s.building[gi]
+                if bld is not None and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
+                    continue
+                gunner_goals.add(gi)
 
-        # Find nearest target tile to start A* from
+        if not gunner_goals:
+            self._attack_target = None
+            return "plan_attack:no_gunner_pos", False
+
+        # Find Ti source
+        source = self._find_attack_source(ct, target)
+        if source is None:
+            return "plan_attack:no_source", False
+        self._attack_source = source
+
+        # Compute A* from source to gunner goals
+        search = AttackAstar(s, source, gunner_goals)
+        path = search.compute(
+            within_budget=lambda: ct.get_cpu_time_elapsed() < 1500,
+        )
         if path is None:
-            pos = ct.get_position()
-            best_start: int | None = None
-            best_dist = 1_000_000
-            for ti in targets:
-                tx, ty = ti % w, ti // w
-                d = abs(pos.x - tx) + abs(pos.y - ty)
-                if d < best_dist:
-                    best_dist = d
-                    best_start = ti
+            self._attack_source = None
+            return "plan_attack:no_path", False
 
-            if best_start is None:
-                return None
+        self._attack_path = path
+        return None  # fall through to extend_attack on next tick
 
-            sx, sy = best_start % w, best_start // w
-            goals = self._capacity_filtered_goals()
-            if not goals:
-                return None
+    def _find_attack_source(self, _ct: Controller, target: int) -> int | None:
+        """Find best Ti source tile for the attack chain.
 
-            search = ChainAstar(
-                s,
-                sx,
-                sy,
-                goals,
-                bottleneck=s.bottleneck,
-                capacity=_BRANCH_CAPACITY,
-            )
-            path = search.compute(
-                within_budget=lambda: ct.get_cpu_time_elapsed() < 1500,
-            )
-            if path is None:
-                return None
-            # Reverse: path goes target→network, but we need conveyors
-            # pointing FROM network TOWARD target (Ti flows outward)
-            path.reverse()
-            self._attack_path = path
+        Preference:
+        a. Own connected harvester with a free cardinal side
+        b. Ti ore near the target (would need new harvester)
+        """
+        s = self.state
+        w = s.w
+        tx, ty = target % w, target // w
 
-        # Find first gap (same logic as connect)
+        # (a) Connected harvester with free cardinal side, closest to target
+        best_src: int | None = None
+        best_dist = 1_000_000
+        for hi in s.connected_harvesters:
+            hx, hy = hi % w, hi // w
+            for dx, dy in DIR4_DELTA:
+                fx, fy = hx + dx, hy + dy
+                if not s.in_bounds(fx, fy):
+                    continue
+                fi = fy * w + fx
+                env = s.env[fi]
+                if env is not None and env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
+                    continue
+                bld = s.building[fi]
+                # Free side: empty, road, or marker only
+                if bld is not None and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
+                    continue
+                dist = abs(fx - tx) + abs(fy - ty)
+                if dist < best_dist:
+                    best_dist = dist
+                    best_src = fi
+
+        if best_src is not None:
+            return best_src
+
+        # (b) Ti ore near target — pick closest ore to target
+        best_ore: int | None = None
+        best_ore_dist = 1_000_000
+        for oi in self.ti_ore.positions:
+            if oi in s.my_harvesters or oi in s.en_harvesters:
+                continue
+            ox, oy = oi % w, oi // w
+            dist = abs(ox - tx) + abs(oy - ty)
+            if dist < best_ore_dist:
+                best_ore_dist = dist
+                best_ore = oi
+
+        if best_ore is not None:
+            # Return a free cardinal side of the ore (where harvester would output)
+            ox, oy = best_ore % w, best_ore // w
+            for dx, dy in DIR4_DELTA:
+                fx, fy = ox + dx, oy + dy
+                if not s.in_bounds(fx, fy):
+                    continue
+                fi = fy * w + fx
+                env = s.env[fi]
+                if env is not None and env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
+                    continue
+                bld = s.building[fi]
+                if bld is not None and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
+                    continue
+                return fi
+
+        return None
+
+    # -- Task: Extend Attack Chain --
+
+    def _task_extend_attack(self, ct: Controller) -> tuple[str, bool] | None:
+        """Build conveyors along the attack path from source toward gunner position."""
+        s = self.state
+        w = s.w
         pos = ct.get_position()
+
+        path = self._attack_path
+        if path is None or len(path) < 2:
+            return None
+
+        # Find first gap in path (from source toward gunner)
         gap_idx: int | None = None
         for k in range(len(path) - 1):
             ci = path[k]
@@ -728,8 +888,7 @@ class Builder(Unit):
             break
 
         if gap_idx is None:
-            self._attack_path = None
-            return None  # path complete
+            return None  # path fully built — fall through to place_gunner
 
         ci = path[gap_idx]
         ni = path[gap_idx + 1]
@@ -748,11 +907,10 @@ class Builder(Unit):
     # -- Task: Place Gunner --
 
     def _task_place_gunner(self, ct: Controller) -> tuple[str, bool] | None:
-        """Place gunner at the end of the attack chain.
+        """Place gunner at the LAST tile of the attack path.
 
-        The attack chain path ends at a tile near the enemy. If the chain
-        is fully built (all conveyors placed) and ammo is flowing, the last
-        tile becomes the gunner position. The second-to-last conveyor feeds it.
+        Requires: chain fully built (all gaps filled) AND ammo flowing.
+        Gunner faces toward the attack target. Feed must not be the facing dir.
         """
         s = self.state
         w = s.w
@@ -762,78 +920,135 @@ class Builder(Unit):
         if path is None or len(path) < 2:
             return None
 
-        # Check: is the chain fully built EXCEPT the last tile?
-        # (last tile is where the gunner goes, not a conveyor)
-        for k in range(len(path) - 2):  # all but last
+        target = self._attack_target
+        if target is None:
+            return None
+
+        # Verify chain is fully built (all but last tile have correct transport)
+        for k in range(len(path) - 2):
             ci = path[k]
             ni = path[k + 1]
             if not _tile_has_correct_transport(s, ci, ni, w):
-                return None  # chain not complete yet
+                return None  # chain not complete
 
-        # Chain is complete up to second-to-last tile.
         # Check ammo: does the second-to-last tile have flow?
         feed_ti = path[-2]
         if s.flow_seen.get(feed_ti, 0) <= 0:
-            return None  # no ammo flowing yet
+            return "place_gunner:wait_ammo", False
 
-        # The last tile is the gunner position
+        # Last tile = gunner position
         gunner_ti = path[-1]
         gx, gy = gunner_ti % w, gunner_ti // w
         gpos = Position(gx, gy)
 
-        # Check the tile is buildable
+        # Verify tile is buildable
         env = s.env[gunner_ti]
-        if env is not None and env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+        if env is not None and env in (
+            Environment.WALL,
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
+        ):
+            self._attack_path = None
             return None
         bld = s.building[gunner_ti]
         if bld is not None and not isinstance(bld, (BuildingRoad, BuildingMarker)):
+            self._attack_path = None
             return None
 
-        # Determine facing: toward nearest enemy core tile
-        en_targets = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
-        if not en_targets:
+        # Determine facing: toward the attack target
+        ex, ey = target % w, target // w
+        fdx = 0 if ex == gx else (1 if ex > gx else -1)
+        fdy = 0 if ey == gy else (1 if ey > gy else -1)
+        if fdx == 0 and fdy == 0:
+            self._attack_path = None
+            return None
+        facing_dir = DELTA_TO_DIR.get((fdx, fdy))
+        if facing_dir is None:
+            self._attack_path = None
             return None
 
-        # Find best facing direction: toward nearest enemy target with LoS
-        best_dir = None
-        for ei in en_targets:
-            ex, ey = ei % w, ei // w
-            fdx = 0 if ex == gx else (1 if ex > gx else -1)
-            fdy = 0 if ey == gy else (1 if ey > gy else -1)
-            if fdx == 0 and fdy == 0:
-                continue
-            d = DELTA_TO_DIR.get((fdx, fdy))
-            if d is None:
-                continue
-            hit = _has_los(s, gx, gy, fdx, fdy)
-            if hit is not None:
-                # Check feed: chain comes from path[-2], must not be facing dir
-                fx, fy = feed_ti % w, feed_ti // w
-                chain_dx, chain_dy = fx - gx, fy - gy
-                if (chain_dx, chain_dy) != (fdx, fdy):
-                    best_dir = d
-                    break
+        # Verify LoS to target
+        hit = _has_los(s, gx, gy, fdx, fdy)
+        if hit is None:
+            # No LoS — try other nearby enemy buildings
+            en_buildings = (
+                s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
+            )
+            found_alt = False
+            for ei in en_buildings:
+                eex, eey = ei % w, ei // w
+                adx = 0 if eex == gx else (1 if eex > gx else -1)
+                ady = 0 if eey == gy else (1 if eey > gy else -1)
+                if adx == 0 and ady == 0:
+                    continue
+                ad = DELTA_TO_DIR.get((adx, ady))
+                if ad is None:
+                    continue
+                ah = _has_los(s, gx, gy, adx, ady)
+                if ah is not None:
+                    # Check feed direction: chain enters from path[-2]
+                    fx, fy = feed_ti % w, feed_ti // w
+                    chain_dx, chain_dy = fx - gx, fy - gy
+                    if (chain_dx, chain_dy) != (adx, ady):
+                        facing_dir = ad
+                        fdx, fdy = adx, ady
+                        found_alt = True
+                        break
+            if not found_alt:
+                self._attack_path = None
+                return None
 
-        if best_dir is None:
-            return None  # no valid LoS + feed combination
+        # Check feed direction: chain enters from path[-2], must not be facing dir
+        fx, fy = feed_ti % w, feed_ti // w
+        chain_dx, chain_dy = fx - gx, fy - gy
+        if (chain_dx, chain_dy) == (fdx, fdy):
+            # Feed conflicts with facing — clear and recompute
+            self._attack_path = None
+            return None
 
+        # Cost check
         g_cost, _ = ct.get_gunner_cost()
         ti_res, _ = ct.get_global_resources()
         if ti_res < g_cost:
             return "place_gunner:wait_ti", False
 
+        # Walk to gunner position if not adjacent
         if pos.distance_squared(gpos) > 2:
             self.nav.set_goal(gpos)
             moved = self.nav.step(ct)
             return f"place_gunner:walk({gx},{gy})", moved
 
         _destroy_friendly(ct, gpos)
-        if ct.can_build_gunner(gpos, best_dir):
-            ct.build_gunner(gpos, best_dir)
-            self._attack_path = None  # chain complete, clear path
+        if ct.can_build_gunner(gpos, facing_dir):
+            ct.build_gunner(gpos, facing_dir)
+            self._attack_gunner = gunner_ti
+            self._attack_path = None
             return f"place_gunner:built({gx},{gy})", True
 
         return None
+
+    # -- Task: Recycle Gunner --
+
+    def _task_recycle_gunner(self, _ct: Controller) -> tuple[str, bool] | None:
+        """Check if our placed gunner is idle (self-destructed). If gone, advance."""
+        s = self.state
+
+        gunner_ti = self._attack_gunner
+        if gunner_ti is None:
+            return None
+
+        # Check if gunner is still alive
+        bld = s.building[gunner_ti]
+        if isinstance(bld, BuildingGunner) and bld.team == s.my_team:
+            return None  # gunner still active, wait
+
+        # Gunner is gone (destroyed or self-destructed)
+        self._attack_gunner = None
+        # Pick new target further forward
+        self._attack_target = None
+        self._attack_source = None
+        self._attack_path = None
+        return None  # fall through to find new target
 
     # -- Task: Cut Feed --
 
@@ -1106,7 +1321,7 @@ class Builder(Unit):
             return self._task_explore(ct)
 
         # Sticky target — repick when arrived or gone
-        pt = getattr(self, '_patrol_target', None)
+        pt = getattr(self, "_patrol_target", None)
         if pt is not None:
             if pt not in infra:
                 pt = None
@@ -1200,7 +1415,12 @@ def _tile_has_correct_transport(s: State, ci: int, ni: int, w: int) -> bool:
 
 
 def _has_los(s: State, gx: int, gy: int, fdx: int, fdy: int) -> int | None:
-    """Walk ray from gunner position, return first enemy building tile or None."""
+    """Walk ray from gunner position, return first enemy building tile or None.
+
+    Per game rules: only WALLS block gunner LoS. Buildings, bots, barriers
+    are targetable but do NOT block LoS. Markers are not targetable and
+    don't block LoS either.
+    """
     w, h = s.w, s.h
     my_team = s.my_team
     x, y = gx + fdx, gy + fdy
@@ -1210,12 +1430,15 @@ def _has_los(s: State, gx: int, gy: int, fdx: int, fdy: int) -> int | None:
         ni = y * w + x
         env = s.env[ni]
         if env == Environment.WALL:
-            return None  # blocked by wall
+            return None  # wall blocks LoS
         bld = s.building[ni]
-        if bld is not None and not isinstance(bld, BuildingMarker):
-            if bld.team != my_team:
-                return ni  # hit enemy building
-            return None  # blocked by own building
+        if (
+            bld is not None
+            and not isinstance(bld, BuildingMarker)
+            and bld.team != my_team
+        ):
+            return ni  # found enemy target
+        # Own buildings do NOT block gunner LoS per game rules. Keep walking.
         x += fdx
         y += fdy
     return None
