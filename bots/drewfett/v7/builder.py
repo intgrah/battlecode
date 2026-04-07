@@ -1067,7 +1067,7 @@ class Builder(Unit):
                         ct.build_barrier(barrier_pos)
                         return f"barrier:place({nx},{ny})", True
                 else:
-                    # Walk to an adjacent tile of the barrier spot, not the spot itself
+                    # Walk to an adjacent walkable tile of the barrier spot
                     best_adj: Position | None = None
                     best_d = 1_000_000
                     for adx, ady in DIR4_DELTA:
@@ -1075,6 +1075,8 @@ class Builder(Unit):
                         if not s.in_bounds(ax, ay):
                             continue
                         adj = Position(ax, ay)
+                        if not self.nav.is_passable(adj):
+                            continue
                         d = (pos.x - ax) ** 2 + (pos.y - ay) ** 2
                         if d < best_d:
                             best_d = d
