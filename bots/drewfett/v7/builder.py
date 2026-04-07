@@ -851,10 +851,10 @@ class Builder(Unit):
         w = s.w
         tx, ty = target % w, target // w
 
-        # (a) Connected harvester with free cardinal side, closest to target
+        # (a) Any own harvester with free cardinal side, closest to target
         best_src: int | None = None
         best_dist = 1_000_000
-        for hi in s.connected_harvesters:
+        for hi in s.my_harvesters:
             hx, hy = hi % w, hi // w
             for dx, dy in DIR4_DELTA:
                 fx, fy = hx + dx, hy + dy
