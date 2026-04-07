@@ -24,21 +24,13 @@ from .state_helpers import accepts_input_from, harvester_ore_type
 __all__ = ["update_flow"]
 
 
-def update_flow(state: State) -> None:
-    """
-    Uhh we treat all transport buildings as equal, so we compute flow as a unified property of the whole map, and then assign attribution to certain flow
-    This probably helps somewhat
-    E.g. if there's an enemy harvester that you're appropriating as your own, then this algorithm will not mind (before, we computed flow separately for allied and enemy transport)
-    E.g. if there's a friendly harvester that's being hijacked with four enemy sentinels, this algorithm can correctly identify that it needs to be destroyed (despite being ours) which is good
+def update_flow(state: State, ct: object | None = None) -> None:
+    """Forward-only flow simulation: topo sort + push from harvesters through transport.
 
-    This is toposort to find source nodes and then you compute flow in a really obvious way
+    No backward pass (attribution/gunners_fed) or blocked propagation.
     """
-    _t = time.perf_counter
-
-    _t0 = _t()
     w, h = state.w, state.h
     building = state.building
-    my_team = state.my_team
     f = state.flow
 
     harv_idx = list(state.harvesters)
@@ -46,23 +38,15 @@ def update_flow(state: State) -> None:
     found_idx = list(state.foundries)
     turret_idx = list(state.turrets)
     core_idx = list(state.my_core_tiles | state.en_core_tiles)
-    w = state.w
-    # debug: print(f"FLOW: harv={[(i%w,i//w) for i in harv_idx]} turrets={[(i%w,i//w) for i in turret_idx]} trans={len(trans_idx)}")
 
     f_ti = f.ti
     f_ax = f.ax
     f_rax = f.rax
     f_total = f.total
-    f_my_frac = f.my_frac
-    f_en_frac = f.en_frac
-    f_my_total = f.my_total
-    f_en_total = f.en_total
-    f_gunners_fed = f.gunners_fed
     f_ti_excess = f.ti_excess
     f_ax_excess = f.ax_excess
     f_rax_excess = f.rax_excess
     f_excess = f.excess
-    f_blocked = f.blocked
 
     _recv = (trans_idx, found_idx, turret_idx, core_idx)
     _all = (harv_idx, *_recv)
@@ -70,31 +54,26 @@ def update_flow(state: State) -> None:
     in_degree = f._in_degree
     out_edges = f._out_edges
     is_recv = f._is_recv
+    edge_push = f._edge_push
     in_rev_head = f._in_rev_head
     in_rev_next = f._in_rev_next
     in_rev_src = f._in_rev_src
-    edge_push = f._edge_push
 
+    # Clear previous turn's data
     for i in chain(*f._prev_all):
         f_ti[i] = 0.0
         f_ax[i] = 0.0
         f_rax[i] = 0.0
         f_total[i] = 0.0
-        f_my_frac[i] = 0.0
-        f_en_frac[i] = 0.0
-        f_my_total[i] = 0.0
-        f_en_total[i] = 0.0
         f_ti_excess[i] = 0.0
         f_ax_excess[i] = 0.0
         f_rax_excess[i] = 0.0
         f_excess[i] = 0.0
-        f_gunners_fed[i] = 0.0
         in_degree[i] = 0
         out_edges[i].clear()
         in_rev_head[i] = -1
     for i in chain(*f._prev_recv):
         is_recv[i] = False
-        f_blocked[i] = False
 
     for i in chain(*_recv):
         is_recv[i] = True
@@ -102,8 +81,7 @@ def update_flow(state: State) -> None:
     f._prev_all = _all
     f._prev_recv = _recv
 
-    _t1 = _t()
-
+    # Build edges
     rev_ptr = 0
 
     def add_edge(src: int, tgt: int) -> None:
@@ -126,7 +104,6 @@ def update_flow(state: State) -> None:
                 if 0 <= bt.x < w and 0 <= bt.y < h:
                     tgt = bt.y * w + bt.x
                     if is_recv[tgt]:
-                        # Bridges deliver directly — no facing restriction
                         add_edge(i, tgt)
             case BuildingSplitter(direction=d):
                 dx, dy = d.delta()
@@ -180,15 +157,18 @@ def update_flow(state: State) -> None:
         if in_degree[i] == 0:
             queue.append(i)
 
-    _t2 = _t()
-    topo_order: list[int] = []
+    # Forward pass: push flow through network
+    _budget_fn = ct.get_cpu_time_elapsed if ct is not None else None
+    _iter_count = 0
 
     while queue:
         ci = queue.popleft()
         bld = building[ci]
         if bld is None:
             continue
-        topo_order.append(ci)
+        _iter_count += 1
+        if _budget_fn is not None and _iter_count & 31 == 0 and _budget_fn() > 800:
+            break
         edges_ci = out_edges[ci]
         no = len(edges_ci)
 
@@ -199,7 +179,6 @@ def update_flow(state: State) -> None:
                 push = 0.25 / denom
                 excess = 0.25 - push * no
                 for oi, eidx in edges_ci:
-                    edge_push[eidx] = push
                     match ore:
                         case Environment.ORE_TITANIUM:
                             f_ti[oi] += push
@@ -226,7 +205,6 @@ def update_flow(state: State) -> None:
                 rax_out = rax_in + refined
                 push = rax_out / no if no > 0 else 0.0
                 for oi, eidx in edges_ci:
-                    edge_push[eidx] = push
                     f_rax[oi] += push
                     f_total[oi] += push
                     in_degree[oi] -= 1
@@ -250,7 +228,6 @@ def update_flow(state: State) -> None:
                 total_push = ti_push + ax_push + rax_push
                 total_out = 0.0
                 for oi, eidx in edges_ci:
-                    edge_push[eidx] = total_push
                     f_ti[oi] += ti_push
                     f_ax[oi] += ax_push
                     f_rax[oi] += rax_push
@@ -266,7 +243,7 @@ def update_flow(state: State) -> None:
                 f_excess[ci] = incoming - total_out
 
             case BuildingCore():
-                pass  # Core absorbs all flow (Ti delivered = victory points)
+                pass
 
             case (
                 BuildingGunner()
@@ -274,11 +251,6 @@ def update_flow(state: State) -> None:
                 | BuildingBreach()
                 | BuildingLauncher()
             ):
-                # Turrets consume Ti for ammo at different rates:
-                # Gunner: 2 Ti/shot, reload 1 → 0.2 Ti/round
-                # Sentinel: 10 Ti/shot, reload 3 → 0.33 Ti/round
-                # Breach: 5 refined ax/shot (not Ti) → 0
-                # Launcher: no ammo
                 ti_in = f_ti[ci]
                 if isinstance(bld, BuildingSentinel):
                     consumption = 0.33
@@ -288,57 +260,13 @@ def update_flow(state: State) -> None:
                     consumption = 0.0
                 f_ti_excess[ci] = max(0.0, ti_in - consumption)
                 f_excess[ci] = f_ti_excess[ci]
-                f_gunners_fed[ci] = consumption
 
-    _t3 = _t()
-    # Backward pass: attribute flow to friendly/enemy sinks
-    sink_set = set(turret_idx) | set(core_idx)
-    for i in sink_set:
-        bld = building[i]
-        if bld is not None and bld.team == my_team:
-            f_my_frac[i] = 1.0
-        elif bld is not None:
-            f_en_frac[i] = 1.0
-
-    # Backward pass 1: attribute flow to friendly/enemy
-    for ci in reversed(topo_order):
-        edges_ci = out_edges[ci]
-        no = len(edges_ci)
-        if ci in sink_set or no == 0:
-            continue
-        my_w = 0.0
-        en_w = 0.0
-        total_w = 0.0
-        for oi, eidx in edges_ci:
-            ep = edge_push[eidx]
-            my_w += ep * f_my_frac[oi]
-            en_w += ep * f_en_frac[oi]
-            total_w += ep
-        if total_w > 0:
-            f_my_frac[ci] = my_w / total_w
-            f_en_frac[ci] = en_w / total_w
-
-    # Backward pass 2: propagate gunners_fed from sinks upstream via reverse edges
-    for ci in reversed(topo_order):
-        if f_gunners_fed[ci] == 0:
-            continue
-        ri = in_rev_head[ci]
-        while ri != -1:
-            fi = in_rev_src[ri]
-            f_gunners_fed[fi] += f_gunners_fed[ci]
-            ri = in_rev_next[ri]
-
-    # Log gunners_fed for harvesters
-    for i in harv_idx:
-        if f_gunners_fed[i] > 0:
-            pass  # debug: print(f"FLOW: harv ({i%w},{i//w}) gunners_fed={f_gunners_fed[i]} ti={f_ti[i]:.3f}")
-
-    for i in chain(*_all):
-        f_my_total[i] = f_total[i] * f_my_frac[i]
-        f_en_total[i] = f_total[i] * f_en_frac[i]
-
-    # Blocked propagation
-    for i in chain(*_recv):
+    # Mark congested tiles as blocked + propagate upstream
+    f_blocked = f.blocked
+    in_rev_head = f._in_rev_head
+    in_rev_next = f._in_rev_next
+    in_rev_src = f._in_rev_src
+    for i in chain(*f._prev_recv):
         f_blocked[i] = False
     seeds: deque[int] = deque()
     for i in chain(*_recv):
@@ -354,4 +282,3 @@ def update_flow(state: State) -> None:
                 f_blocked[fi] = True
                 seeds.append(fi)
             ri = in_rev_next[ri]
-    _t4 = _t()

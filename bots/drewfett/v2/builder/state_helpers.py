@@ -81,8 +81,10 @@ def accepts_input_from(state: State, ti: int, from_dir: Direction) -> bool:
             | BuildingSentinel(direction=d)
             | BuildingBreach(direction=d)
         ):
-            # Turrets accept from any direction except their facing direction
-            return from_dir != d
+            # Turrets receive from non-facing sides. from_dir is flow travel
+            # direction, so entry side is from_dir.opposite(). Reject if
+            # entry side == facing.
+            return from_dir != d.opposite()
     return True
 
 

@@ -1,9 +1,11 @@
-"""Reactive gunner placement against enemy turrets.
+"""Reactive defense: counter enemy turrets threatening our infrastructure.
 
-Scans for enemy turrets near friendly infrastructure. If found, picks a
-gunner position with line-of-sight to the threat, validates that ammo can
-arrive (adjacent harvester or splitter on a non-facing side), and walks
-to build. Only places gunners where direct ammo is available.
+Scans for enemy turrets near our harvesters/transport/core. Finds a
+gunner position with LoS to the threat AND adjacent conveyor delivering
+ammo (must point toward gunner tile, not on facing side).
+
+Scores gunner positions by distance to CORE (deterministic), not builder.
+Skips tiles with enemy buildings.
 """
 
 from __future__ import annotations
@@ -11,176 +13,223 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import (
+    BuildingArmouredConveyor,
+    BuildingConveyor,
     BuildingGunner,
+    BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
+    BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Environment, Position
-from marker import MarkerTaskClaim, TaskKind
-from util import DELTA_TO_DIR, DIR4_DELTA, INF
+from cambc import Controller, Direction, Environment, Position
+from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA
 
-from .action import Action, PlaceGunner
-from .helpers import is_claimed, move_toward_with_road
+from action import Action, Fire, PlaceGunner
+from .helpers import move_toward_with_road, step_off_and_build
 
 if TYPE_CHECKING:
     from .state import State
 
 _THREAT_RANGE_SQ = 36
-
-
-def _find_threat(state: State) -> int | None:
-    """Find the nearest enemy turret threatening our infrastructure."""
-    pos = state.pos
-    w = state.w
-    my_infra = state.my_transport | state.my_core_tiles | state.my_harvesters
-    if not my_infra:
-        return None
-
-    best: int | None = None
-    best_dist = INF
-
-    for ti in state.en_turrets:
-        if is_claimed(state, ti, TaskKind.DEFEND):
-            continue
-        tx, ty = ti % w, ti // w
-        # Check if this turret is near any of our infrastructure
-        near_infra = False
-        for ii in my_infra:
-            ix, iy = ii % w, ii // w
-            if (tx - ix) ** 2 + (ty - iy) ** 2 <= _THREAT_RANGE_SQ:
-                near_infra = True
-                break
-        if not near_infra:
-            continue
-        dist = (pos.x - tx) ** 2 + (pos.y - ty) ** 2
-        if dist < best_dist:
-            best_dist = dist
-            best = ti
-    return best
-
-
-def _has_friendly_gunner_covering(state: State, threat_idx: int) -> bool:
-    """Check if we already have a gunner near this threat."""
-    w = state.w
-    tx, ty = threat_idx % w, threat_idx // w
-    for gi in state.my_turrets:
-        bld = state.building[gi]
-        match bld:
-            case BuildingGunner(team=team) if team == state.my_team:
-                gx, gy = gi % w, gi // w
-                if (tx - gx) ** 2 + (ty - gy) ** 2 <= 13:
-                    return True
-    return False
-
-
-def _find_gunner_placement(
-    state: State,
-    ct: Controller,
-    threat_idx: int,
-) -> tuple[Position, Direction] | None:
-    """Find a tile + facing for a gunner with LoS and ammo access."""
-    w = state.w
-    tx, ty = threat_idx % w, threat_idx // w
-    threat_pos = Position(tx, ty)
-    pos = state.pos
-
-    best: tuple[Position, Direction] | None = None
-    best_dist = INF
-
-    for gx in range(max(0, tx - 4), min(w, tx + 5)):
-        for gy in range(max(0, ty - 4), min(state.h, ty + 5)):
-            gi = gy * w + gx
-            dist_sq = (tx - gx) ** 2 + (ty - gy) ** 2
-            if dist_sq > 13:
-                continue
-
-            # Must be buildable
-            env = state.env[gi]
-            if env is None or env in (
-                Environment.WALL,
-                Environment.ORE_TITANIUM,
-                Environment.ORE_AXIONITE,
-            ):
-                continue
-            bld = state.building[gi]
-            match bld:
-                case None | BuildingRoad() | BuildingMarker():
-                    pass
-                case _:
-                    continue
-
-            # Compute facing toward threat
-            dx = tx - gx
-            dy = ty - gy
-            if dx != 0:
-                dx = 1 if dx > 0 else -1
-            if dy != 0:
-                dy = 1 if dy > 0 else -1
-            gun_dir = DELTA_TO_DIR.get((dx, dy))
-            if gun_dir is None:
-                continue
-
-            gpos = Position(gx, gy)
-            if not ct.can_fire_from(gpos, gun_dir, EntityType.GUNNER, threat_pos):
-                continue
-
-            # Must have at least one cardinal non-facing neighbor for future ammo feed
-            fdx, fdy = gun_dir.delta()
-            has_feed_tile = False
-            for adx, ady in DIR4_DELTA:
-                if (adx, ady) == (fdx, fdy):
-                    continue
-                ax, ay = gx + adx, gy + ady
-                if state.in_bounds(ax, ay):
-                    has_feed_tile = True
-                    break
-            if not has_feed_tile:
-                continue
-
-            walk_dist = (pos.x - gx) ** 2 + (pos.y - gy) ** 2
-            if walk_dist < best_dist:
-                best_dist = walk_dist
-                best = (gpos, gun_dir)
-
-    return best
+_GUNNER_RANGE_SQ = 13
 
 
 def defend(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    threat_idx = _find_threat(state)
-    if threat_idx is None:
-        return None
-    if _has_friendly_gunner_covering(state, threat_idx):
-        return None
-
-    placement = _find_gunner_placement(state, ct, threat_idx)
-    if placement is None:
-        return None
-
-    gunner_pos, gunner_dir = placement
+    w = state.w
     pos = state.pos
-    rnd = ct.get_current_round()
-    state.claim = MarkerTaskClaim(TaskKind.DEFEND, threat_idx, rnd)
+    my_team = state.my_team
 
-    if pos.distance_squared(gunner_pos) <= 2 and pos != gunner_pos:
-        g_cost, _ = ct.get_gunner_cost()
-        ti, _ = ct.get_global_resources()
-        if ti >= g_cost:
-            return Direction.CENTRE, PlaceGunner(gunner_pos, gunner_dir)
-
-    result = move_toward_with_road(state, ct, gunner_pos)
-    if result is None:
+    my_infra = state.my_harvesters | state.my_transport | state.my_core_tiles
+    if not my_infra or not state.en_turrets:
         return None
-    move, build = result
-    # If we arrive adjacent after moving, place immediately
-    if move != Direction.CENTRE and build is None:
-        new_pos = pos.add(move)
-        if new_pos.distance_squared(gunner_pos) <= 2 and new_pos != gunner_pos:
-            g_cost, _ = ct.get_gunner_cost()
-            ti, _ = ct.get_global_resources()
-            if ti >= g_cost:
-                build = PlaceGunner(gunner_pos, gunner_dir)
-    ct.draw_indicator_line(state.pos, gunner_pos, 255, 0, 0)
-    return move, build
+
+    # Find uncovered enemy turret threatening our infra, closest to us
+    best_threat: int | None = None
+    best_dist = 1_000_000
+
+    for ti in state.en_turrets:
+        tx, ty = ti % w, ti // w
+        # Near our infra?
+        near_us = any(
+            (tx - ii % w) ** 2 + (ty - ii // w) ** 2 <= _THREAT_RANGE_SQ
+            for ii in my_infra
+        )
+        if not near_us:
+            continue
+
+        # Already covered by our gunner?
+        covered = False
+        for gi in state.my_turrets:
+            bld = state.building[gi]
+            if not isinstance(bld, BuildingGunner) or bld.team != my_team:
+                continue
+            gx, gy = gi % w, gi // w
+            if (gx - tx) ** 2 + (gy - ty) ** 2 <= _GUNNER_RANGE_SQ:
+                covered = True
+                break
+        if covered:
+            continue
+
+        # Am I closest builder?
+        my_dist = (pos.x - tx) ** 2 + (pos.y - ty) ** 2
+        ally_closer = False
+        for uid in ct.get_nearby_units():
+            if uid == ct.get_id():
+                continue
+            if ct.get_team(uid) != my_team:
+                continue
+            ap = ct.get_position(uid)
+            if (ap.x - tx) ** 2 + (ap.y - ty) ** 2 < my_dist:
+                ally_closer = True
+                break
+        if ally_closer:
+            continue
+
+        if my_dist < best_dist:
+            best_dist = my_dist
+            best_threat = ti
+
+    if best_threat is None:
+        return None
+
+    tx, ty = best_threat % w, best_threat // w
+
+    # Find gunner position: LoS to threat + adjacent ammo source
+    best_gpos: Position | None = None
+    best_facing: Direction | None = None
+    best_score = 1_000_000
+
+    for dx, dy in DIR8_DELTA:
+        for r in range(1, 4):
+            gx, gy = tx + dx * r, ty + dy * r
+            if not state.in_bounds(gx, gy):
+                break
+            if (gx - tx) ** 2 + (gy - ty) ** 2 > _GUNNER_RANGE_SQ:
+                break
+            gi = gy * w + gx
+            env = state.env[gi]
+            if env is None:
+                break
+            if env == Environment.WALL:
+                break
+            bld = state.building[gi]
+            if bld is not None:
+                if bld.team != my_team:
+                    break  # enemy building -- skip
+                if not isinstance(bld, (BuildingRoad, BuildingMarker)):
+                    break  # our non-trivial building -- skip
+
+            # Facing direction toward threat
+            fdx = -dx if dx != 0 else 0
+            fdy = -dy if dy != 0 else 0
+            facing = DELTA_TO_DIR.get((fdx, fdy))
+            if facing is None:
+                continue
+
+            # Verify LoS: walk from gunner toward threat
+            rx, ry = gx + fdx, gy + fdy
+            los_ok = True
+            while (rx, ry) != (tx, ty):
+                if not state.in_bounds(rx, ry):
+                    los_ok = False
+                    break
+                ri = ry * w + rx
+                renv = state.env[ri]
+                if renv == Environment.WALL:
+                    los_ok = False
+                    break
+                rbld = state.building[ri]
+                if rbld is not None and not isinstance(rbld, BuildingMarker):
+                    los_ok = False
+                    break
+                rx += fdx
+                ry += fdy
+            if not los_ok:
+                continue
+
+            # Check ammo: adjacent building must deliver toward gunner
+            has_ammo = _check_ammo_delivery(state, gx, gy, fdx, fdy)
+            if not has_ammo:
+                continue
+
+            # Score by distance from core (deterministic)
+            walk = (state.my_core.x - gx) ** 2 + (state.my_core.y - gy) ** 2
+            if walk < best_score:
+                best_score = walk
+                best_gpos = Position(gx, gy)
+                best_facing = facing
+
+    if best_gpos is None or best_facing is None:
+        return None
+
+    # Place the gunner
+    g_cost, _ = ct.get_gunner_cost()
+    ti_res, _ = ct.get_global_resources()
+
+    ni = best_gpos.y * w + best_gpos.x
+    bld = state.building[ni]
+
+    # On the gunner spot
+    if pos == best_gpos:
+        if bld is not None and bld.team != my_team:
+            if ct.can_fire(best_gpos):
+                return Direction.CENTRE, Fire()
+            return Direction.CENTRE, None
+        if ti_res < g_cost:
+            return Direction.CENTRE, None
+        return step_off_and_build(ct, PlaceGunner(best_gpos, best_facing))
+
+    # Adjacent to gunner spot
+    if pos.distance_squared(best_gpos) <= 2:
+        if bld is not None and bld.team != my_team:
+            d = pos.direction_to(best_gpos)
+            if ct.can_move(d):
+                return d, None
+        if bld is not None and bld.team == my_team and ct.can_destroy(best_gpos):
+            ct.destroy(best_gpos)
+        if ti_res >= g_cost and ct.can_build_gunner(best_gpos, best_facing):
+            return Direction.CENTRE, PlaceGunner(best_gpos, best_facing)
+
+    return move_toward_with_road(state, ct, best_gpos)
+
+
+def _check_ammo_delivery(
+    state: State,
+    gx: int,
+    gy: int,
+    fdx: int,
+    fdy: int,
+) -> bool:
+    """Check if any cardinal neighbor delivers flow toward gunner tile.
+
+    Conveyor: must point toward gunner tile (not on facing side).
+    Harvester: always produces (adjacent = always has flow).
+    Splitter: check side outputs point toward gunner.
+    """
+    w = state.w
+    my_team = state.my_team
+    for adx, ady in DIR4_DELTA:
+        if adx == fdx and ady == fdy:
+            continue  # gunner can't accept from facing side
+        ax, ay = gx + adx, gy + ady
+        if not state.in_bounds(ax, ay):
+            continue
+        ai = ay * w + ax
+        abld = state.building[ai]
+        if abld is None or abld.team != my_team:
+            continue
+        if isinstance(abld, BuildingHarvester):
+            return True
+        if isinstance(abld, (BuildingConveyor, BuildingArmouredConveyor)):
+            ddx, ddy = abld.direction.delta()
+            if (ax + ddx, ay + ddy) == (gx, gy):
+                return True
+        if isinstance(abld, BuildingSplitter):
+            sdx, sdy = abld.direction.delta()
+            for odx, ody in [(sdx, sdy), (-sdy, sdx), (sdy, -sdx)]:
+                if (ax + odx, ay + ody) == (gx, gy):
+                    return True
+    return False

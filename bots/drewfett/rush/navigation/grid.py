@@ -47,7 +47,7 @@ class PassableGrid:
         n = pw * (h + 2)
         self.n = n
 
-        # Passable grid: border=0, interior=1 (assume all passable initially)
+        # Passable grid: border=0, interior=1 (assume passable until proven wall)
         self.passable: list[int] = [1] * n
         row_data = [0] * pw
         self.passable[0:pw] = row_data

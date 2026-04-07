@@ -3,13 +3,13 @@ from typing import Final
 
 from cambc import Direction, Position
 
-INF: Final[int] = 1_000_000
-
 COST_ROAD: Final[int] = 1
 COST_EMPTY: Final[int] = 3
 COST_UNSEEN: Final[int] = 3
 COST_DANGER: Final[int] = 5
-COST_IMPASSABLE: Final[int] = INF
+COST_IMPASSABLE: Final[int] = max(COST_ROAD, COST_EMPTY, COST_UNSEEN, COST_DANGER) + 2
+
+INF: Final[int] = 1_000_000
 
 # The number of buckets used in Dial's algorithm must exceed the maximum possible increase in f-value in A*.
 # f(n) = g(n) + h(n)

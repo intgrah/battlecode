@@ -1,10 +1,16 @@
-"""Heal the core."""
+"""Heal the core when damaged."""
 
-from cambc import Controller, Direction, GameConstants, Position
+from __future__ import annotations
 
-from .action import Action, Heal
+from typing import TYPE_CHECKING
+
+from cambc import Controller, Direction, GameConstants
+
+from action import Action, Heal
 from .helpers import move_toward_with_road
-from .state import State
+
+if TYPE_CHECKING:
+    from .state import State
 
 
 def heal_core(
@@ -14,17 +20,18 @@ def heal_core(
     if state.my_core_hp >= GameConstants.CORE_MAX_HP:
         return None
 
-    core = Position(state.my_core[0], state.my_core[1])
+    core = state.my_core
 
+    # Already in range -- heal
     if state.pos.distance_squared(
-        core,
-    ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(
-        core,
-    ):
+        core
+    ) <= GameConstants.ACTION_RADIUS_SQ and ct.can_heal(core):
         return Direction.CENTRE, Heal(core)
 
+    # Walk toward core
     result = move_toward_with_road(state, ct, core)
-    if result is None:
+    move, build = result
+    if move == Direction.CENTRE and build is None:
         return None
     ct.draw_indicator_line(state.pos, core, 255, 0, 0)
     return result

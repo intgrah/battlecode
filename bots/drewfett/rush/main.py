@@ -6,6 +6,8 @@ from cambc import Controller, EntityType
 from core import Core
 from gunner import Gunner
 from launcher import Launcher
+from navigation.grid import PassableGrid
+from navigation.nav_bfs import NavBfs
 from sentinel import Sentinel
 
 if TYPE_CHECKING:
@@ -20,7 +22,19 @@ class Player:
 
         self._pre_state = State.prealloc_max()
 
+        # Grid created on first run() when we know map size
+        self._grid_init = False
+
     def run(self, ct: Controller) -> None:
+        if not self._grid_init:
+            self._grid_init = True
+            w, h = ct.get_map_width(), ct.get_map_height()
+            grid = PassableGrid(w, h)
+            grid.init_pnb_chunk(lambda: True)
+            nav = NavBfs(grid)
+            grid.navs.append(nav)
+            self._pre_state.grid = grid
+            self._pre_state.nav_bfs = nav
         if self.unit is None:
             match ct.get_entity_type():
                 case EntityType.CORE:

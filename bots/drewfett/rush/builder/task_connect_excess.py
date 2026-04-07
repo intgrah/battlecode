@@ -232,7 +232,7 @@ def _get_or_compute_path(
         search = _make_search(state, start.x, start.y, goals, kind, gx, gy)
         set_cache(start, search, None)
 
-    path = search.compute(lambda: ct.get_cpu_time_elapsed() < 1200)
+    path = search.compute(lambda: ct.get_cpu_time_elapsed() < 1400)
     if search.exhausted:
         search = None
     set_cache(start, search, path)
