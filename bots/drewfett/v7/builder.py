@@ -316,13 +316,13 @@ class Builder(Unit):
         if result is not None:
             return result
 
-        # 4. Destroy nearby enemy infra
-        result = self._task_destroy_enemy_infra(ct)
+        # 4. Barrier harvesters
+        result = self._task_barrier_harvesters(ct)
         if result is not None:
             return result
 
-        # 5. Barrier harvesters
-        result = self._task_barrier_harvesters(ct)
+        # 5. Destroy nearby enemy infra (low priority for defense)
+        result = self._task_destroy_enemy_infra(ct)
         if result is not None:
             return result
 
@@ -843,7 +843,7 @@ class Builder(Unit):
                     best_dist = d
                     best_pos = bpos
 
-        if best_pos is None or best_dist > 10:
+        if best_pos is None or best_dist > 5:
             return None
 
         self.nav.set_goal(best_pos)
