@@ -639,14 +639,32 @@ class Builder(Unit):
     def _task_explore_enemy(self, ct: Controller) -> tuple[str, bool]:
         s = self.state
         if s.en_core_pos is not None:
-            self.nav.set_goal(s.en_core_pos)
+            # Target a passable tile near enemy core, not the core itself
+            target = self._find_passable_near(s.en_core_pos)
+            self.nav.set_goal(target)
         else:
-            # Guess enemy is on opposite side of map
             ex = s.w - 1 - s.core_pos.x
             ey = s.h - 1 - s.core_pos.y
             self.nav.set_goal(Position(ex, ey))
         moved = self.nav.step(ct)
         return "explore_enemy", moved
+
+    def _find_passable_near(self, target: Position) -> Position:
+        """Find a passable tile near the target. Returns target if already passable."""
+        if self.nav.is_passable(target):
+            return target
+        # Search expanding rings for a passable tile
+        for r in range(1, 5):
+            for dx in range(-r, r + 1):
+                for dy in range(-r, r + 1):
+                    if abs(dx) != r and abs(dy) != r:
+                        continue  # only ring edge
+                    nx, ny = target.x + dx, target.y + dy
+                    if self.state.in_bounds(nx, ny):
+                        p = Position(nx, ny)
+                        if self.nav.is_passable(p):
+                            return p
+        return target  # fallback
 
     # -- Attack: Invalidation --
 
@@ -1364,6 +1382,21 @@ def _find_core(ct: Controller) -> Position:
         if ct.get_team(bid) == my and ct.get_entity_type(bid) == EntityType.CORE:
             return ct.get_position(bid)
     return ct.get_position()
+
+
+def _destroy_friendly_for_attack(ct: Controller, pos: Position) -> None:
+    """Destroy own buildings for attack chain — includes barriers."""
+    bid = ct.get_tile_building_id(pos)
+    if bid is None:
+        return
+    if ct.get_team(bid) != ct.get_team():
+        return
+    if ct.get_entity_type(bid) in (
+        EntityType.ROAD,
+        EntityType.MARKER,
+        EntityType.BARRIER,
+    ) and ct.can_destroy(pos):
+        ct.destroy(pos)
 
 
 def _destroy_friendly(ct: Controller, pos: Position) -> None:
