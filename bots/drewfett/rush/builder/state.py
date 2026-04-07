@@ -8,7 +8,6 @@ free functions in state_helpers.py.
 from __future__ import annotations
 
 from collections import deque
-from typing import TYPE_CHECKING
 
 # Roles: ECON=0, ATTACK=1, DEFENSE=2
 # Direction offset → spawn direction index (0-7), wraps for 8+
@@ -23,9 +22,9 @@ _OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
     (-1, -1): 7,
 }
 
-# First 4: 2 econ, 2 attack. After that: 2 attack, 1 econ repeating.
-_EARLY_ROLES = (0, 0, 1, 1)  # ECON, ECON, ATTACK, ATTACK
-_LATE_ROLES = (1, 1, 0)  # ATTACK, ATTACK, ECON
+# First 4: 3 econ, 1 attack. After that: attack, econ repeating.
+_EARLY_ROLES = (0, 0, 0, 1)  # ECON, ECON, ECON, ATTACK
+_LATE_ROLES = (1, 0)  # ATTACK, ECON
 
 
 def _role_from_offset(dx: int, dy: int) -> int:
@@ -33,13 +32,6 @@ def _role_from_offset(dx: int, dy: int) -> int:
     if idx < 4:
         return _EARLY_ROLES[idx]
     return _LATE_ROLES[(idx - 4) % len(_LATE_ROLES)]
-
-
-if TYPE_CHECKING:
-    from ax_chain_astar import AxChainAstar
-    from bridge_astar import BridgeFlowAstar
-    from flow_astar import FlowAstar
-    from marker import MarkerTaskClaim
 
 
 from building import (
@@ -152,6 +144,7 @@ class State:
         s.w = 50
         s.h = 50
         s._n = n
+        # Heavy arrays
         s.env = [None] * n
         s.building = [None] * n
         s.last_seen = [0] * n
@@ -164,11 +157,67 @@ class State:
         s.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]
         s._nav_gen = bytearray(n)
         s._nav_g = 1
+        # All the lightweight fields
+        s.reflect_queue = deque()
+        s.ore_ti = set()
+        s.ore_ax = set()
+        s.blocked_ore = {}
+        s.my_harvesters = set()
+        s.my_barriers = set()
+        s.my_transport = set()
+        s.my_foundries = set()
+        s.my_turrets = set()
+        s.my_core_hp = GameConstants.CORE_MAX_HP
+        s.en_core_pos = None
+        s.en_core_tiles = set()
+        s.en_harvesters = set()
+        s.en_barriers = set()
+        s.en_transport = set()
+        s.en_turrets = set()
+        s.enemy_bots_nearby = False
+        s.en_foundries = set()
+        s.harvesters = set()
+        s.barriers = set()
+        s.transport = set()
+        s.foundries = set()
+        s.turrets = set()
+        s.unit_tiles = set()
+        s.danger_zones = set()
+        s.claims = set()
+        s.symmetry = None
+        s.sym_candidates = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
+        s.explore_target = None
+        s.explore_radius = 0
+        s.rush_target_idx = None
+        s.rush_target_turns = 0
+        s.scout_target = None
+        s.rush_cached_siege = None
+        s.rush_flow_search = None
+        s.rush_flow_source = None
+        s.ti_flow_search = None
+        s.ti_cached_source = None
+        s.ti_cached_path = None
+        s.ax_flow_search = None
+        s.ax_cached_source = None
+        s.ax_cached_path = None
+        s.bridge_flow_search = None
+        s.bridge_cached_source = None
+        s.bridge_cached_path = None
+        s.last_claim = None
+        s.claim = None
+        s.infra_max_staleness = 0
+        s.out_target = {}
+        s.out_target_dirty = True
+        s.apsp = None
+        s.landmarks = None
+        s.grid = None  # set by Player.__init__
+        s.nav_bfs = None  # set by Player.__init__
         return s
 
     def __init__(
         self, ct: Controller, core_pos: Position, pre: State | None = None
     ) -> None:
+        # ct-dependent init (must happen in run() budget)
         self.w = ct.get_map_width()
         self.h = ct.get_map_height()
         self.my_team = ct.get_team()
@@ -180,8 +229,16 @@ class State:
         self.role: int = _role_from_offset(dx, dy)
         n = self.w * self.h
         self._n = n
+        self.my_core: Position = core_pos
+        self.my_core_tiles: set[int] = {
+            (core_pos.y + dy) * self.w + (core_pos.x + dx)
+            for dx in range(-1, 2)
+            for dy in range(-1, 2)
+            if 0 <= core_pos.x + dx < self.w and 0 <= core_pos.y + dy < self.h
+        }
+        self.pos: Position = core_pos
 
-        # Always reuse pre-allocated arrays (overallocated for 50x50)
+        # Reuse pre-allocated arrays
         assert pre is not None
         self.env = pre.env
         self.building = pre.building
@@ -194,108 +251,65 @@ class State:
         self.nav_buckets = pre.nav_buckets
         self._nav_gen = pre._nav_gen
         self._nav_g = pre._nav_g
-
-        # Rebuild pnb for actual map size (indices depend on width)
+        # pnb indices depend on width — rebuild if map size differs from prealloc
         if self.w == 50 and self.h == 50:
             self.pnb = pre.pnb
         else:
             self.pnb = _init_pnb(self.w, self.h, n)
-        # Symmetry detection means that knowledge of the environment can be reflected.
-        # Reflected tiles count as changes to the knowledge, so env, pnb
-        # However, in moments such as symmetry elimination, this can cause large spikes
-        # as all tiles in knowledge have to be reflected. We amortise this over multiple rounds
-        # by limiting the amount we process at a time.
-        self.reflect_queue: deque[int] = deque()
-
-        # -- Resources (indexed as y * w + x) --
-        self.ore_ti: set[int] = set()
-        self.ore_ax: set[int] = set()
-        self.blocked_ore: dict[int, int] = {}  # ore_idx → round blocked
-
-        # -- Friendly --
-        self.my_core: Position = core_pos
-        self.my_core_tiles: set[int] = {
-            (core_pos.y + dy) * self.w + (core_pos.x + dx)
-            for dx in range(-1, 2)
-            for dy in range(-1, 2)
-            if 0 <= core_pos.x + dx < self.w and 0 <= core_pos.y + dy < self.h
-        }
-        self.my_harvesters: set[int] = set()
-        self.my_barriers: set[int] = set()
-        self.my_transport: set[int] = set()
-        self.my_foundries: set[int] = set()
-        self.my_turrets: set[int] = set()
-
-        self.my_core_hp: int = GameConstants.CORE_MAX_HP
-
-        # -- Enemy --
-        self.en_core_pos: Position | None = None
-        self.en_core_tiles: set[int] = set()
-        self.en_harvesters: set[int] = set()
-        self.en_barriers: set[int] = set()
-        self.en_transport: set[int] = set()
-        self.en_turrets: set[int] = set()
-        self.enemy_bots_nearby: bool = False  # set during ephemeral update
-        self.en_foundries: set[int] = set()
-
-        # -- Both teams (unions, maintained incrementally) --
-        self.harvesters: set[int] = set()
-        self.barriers: set[int] = set()
-        self.transport: set[int] = set()
-        self.foundries: set[int] = set()
-        self.turrets: set[int] = set()
-
-        # flow is set above (pre-allocated or fresh)
-
-        # -- Ephemeral --
-        self.unit_tiles: set[Position] = set()
-        self.danger_zones: set[int] = set()
-        self.claims: set[MarkerTaskClaim] = set()
-        self.pos: Position = core_pos
-
-        # -- Symmetry --
-        self.symmetry: Symmetry | None = None
-        self.sym_candidates: set[Symmetry] = {Symmetry.ROT, Symmetry.HOR, Symmetry.VER}
-
-        # -- Task caches --
-        self.explore_target: Position | None = None
-        self.explore_radius: int = 0  # expanding ring for ECON explore
-        self.rush_target_idx: int | None = None  # current rush ore target
-        self.rush_target_turns: int = 0  # turns spent on current target
-        self.scout_target: Position | None = None
-        self.rush_cached_siege: int | None = None  # cached siege target tile
-        self.rush_flow_search: object | None = None  # cached FlowAstar for extend
-        self.rush_flow_source: int | None = None  # flow source for cached search
-
-        # -- Flow search caches --
-        self.ti_flow_search: FlowAstar | None = None
-        self.ti_cached_source: Position | None = None
-        self.ti_cached_path: list[int] | None = None
-        self.ax_flow_search: AxChainAstar | None = None
-        self.ax_cached_source: Position | None = None
-        self.ax_cached_path: list[int] | None = None
-        self.bridge_flow_search: BridgeFlowAstar | None = None
-        self.bridge_cached_source: Position | None = None
-        self.bridge_cached_path: list[int] | None = None
-
-        # nav_dist/parent/heuristic/buckets set from prealloc above
-
-        # -- Marker --
-        self.last_claim: MarkerTaskClaim | None = None
-        self.claim: MarkerTaskClaim | None = None
-
-        # -- Derived beliefs --
-        self.infra_max_staleness: int = 0
-
-        # -- Flow internals --
-        self.out_target: dict[int, list[int]] = {}
-        self.out_target_dirty: bool = True
-
-        # -- APSP --
-        self.apsp: None = None
-
-        # -- Landmarks --
-        self.landmarks: None = None
+        self.reflect_queue = pre.reflect_queue
+        self.ore_ti = pre.ore_ti
+        self.ore_ax = pre.ore_ax
+        self.blocked_ore = pre.blocked_ore
+        self.my_harvesters = pre.my_harvesters
+        self.my_barriers = pre.my_barriers
+        self.my_transport = pre.my_transport
+        self.my_foundries = pre.my_foundries
+        self.my_turrets = pre.my_turrets
+        self.my_core_hp = pre.my_core_hp
+        self.en_core_pos = pre.en_core_pos
+        self.en_core_tiles = pre.en_core_tiles
+        self.en_harvesters = pre.en_harvesters
+        self.en_barriers = pre.en_barriers
+        self.en_transport = pre.en_transport
+        self.en_turrets = pre.en_turrets
+        self.enemy_bots_nearby = pre.enemy_bots_nearby
+        self.en_foundries = pre.en_foundries
+        self.harvesters = pre.harvesters
+        self.barriers = pre.barriers
+        self.transport = pre.transport
+        self.foundries = pre.foundries
+        self.turrets = pre.turrets
+        self.unit_tiles = pre.unit_tiles
+        self.danger_zones = pre.danger_zones
+        self.claims = pre.claims
+        self.symmetry = pre.symmetry
+        self.sym_candidates = pre.sym_candidates
+        self.explore_target = pre.explore_target
+        self.explore_radius = pre.explore_radius
+        self.rush_target_idx = pre.rush_target_idx
+        self.rush_target_turns = pre.rush_target_turns
+        self.scout_target = pre.scout_target
+        self.rush_cached_siege = pre.rush_cached_siege
+        self.rush_flow_search = pre.rush_flow_search
+        self.rush_flow_source = pre.rush_flow_source
+        self.ti_flow_search = pre.ti_flow_search
+        self.ti_cached_source = pre.ti_cached_source
+        self.ti_cached_path = pre.ti_cached_path
+        self.ax_flow_search = pre.ax_flow_search
+        self.ax_cached_source = pre.ax_cached_source
+        self.ax_cached_path = pre.ax_cached_path
+        self.bridge_flow_search = pre.bridge_flow_search
+        self.bridge_cached_source = pre.bridge_cached_source
+        self.bridge_cached_path = pre.bridge_cached_path
+        self.last_claim = pre.last_claim
+        self.claim = pre.claim
+        self.infra_max_staleness = pre.infra_max_staleness
+        self.out_target = pre.out_target
+        self.out_target_dirty = pre.out_target_dirty
+        self.apsp = pre.apsp
+        self.landmarks = pre.landmarks
+        self.grid = pre.grid
+        self.nav_bfs = pre.nav_bfs
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x
@@ -344,8 +358,8 @@ class State:
                     case _:
                         self.cost[i] = COST_IMPASSABLE
         new_passable = self.cost[i] < COST_IMPASSABLE
-        if old_passable != new_passable:
-            pass  # pnb removed — A* inlines neighbor checks
+        if old_passable != new_passable and self.grid is not None:
+            self.grid.set_passable(i, passable=new_passable)
 
     def walkable(self, x: int, y: int) -> int:
         if Position(x, y) in self.unit_tiles:

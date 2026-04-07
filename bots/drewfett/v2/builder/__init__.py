@@ -1,3 +1,16 @@
+"""Builder bot: task waterfall with BFS navigation and hard work caps.
+
+Key design:
+- BFS navigation with iteration cap (not time-based)
+- NO flow simulation -- uses connected_harvesters set
+- Greedy connect-back: one conveyor per turn toward core
+- Sentinel-based attack: walk toward enemy flow, drop sentinels
+- Hard iteration/work caps everywhere
+"""
+
+from __future__ import annotations
+
+import random
 from collections.abc import Callable
 
 from cambc import (
@@ -7,261 +20,189 @@ from cambc import (
     Environment,
     GameConstants,
     Position,
-    Team,
 )
-from config import DEBUG_DUMP, OPENING, OpeningMode
-from hardcode.known import KnownMap
-from hardcode.map import SYMMETRY
-from hardcode.opening import Opening, get_opening
-from hardcode.opening.compiler import (
-    CompiledActionMove,
-    CompiledMoveAction,
-    CompiledTurn,
-    dsl_compile,
-)
-from hardcode.opening.mirror import mirror_opening
-from marker import MarkerEureka, MarkerOpeningBook
-from marker import decode as decode_marker
+from marker import MarkerEureka
+from turn import ActionMove, ActionOnly, MoveAction, MoveOnly, Turn, Wait
 from unit import Unit
 
-from .action import (
-    Action,
-    PlaceBarrier,
-    PlaceBridge,
-    PlaceConveyor,
-    PlaceFoundry,
-    PlaceGunner,
-    PlaceHarvester,
-    PlaceLauncher,
-    PlaceRoad,
-    PlaceSentinel,
-    PlaceSplitter,
-)
+from action import Action, PlaceRoad
 from .helpers import execute
 from .state import State
-from .state_dump import dump
 from .state_update import update as state_update
 from .task import Task
-from .task_attack import attack
-from .task_barrier_ore import barrier_ore
-from .task_connect_excess import ExcessKind, SearchKind, connect_excess
+from .task_cut_feed import cut_feed
 from .task_defend import defend
-from .task_defend_core import defend_core
 from .task_explore import explore
-from .task_feed_turret import feed_turret
-from .task_fire_enemy_transport import fire_enemy_transport
-from .task_harvest_ax import harvest_ax
-from .task_harvest_ti import harvest_ti
-from .task_heal import heal
+from .task_harvest import harvest
 from .task_heal_core import heal_core
-from .task_heal_turret import heal_turret
-from .task_patrol import patrol
-from .task_place_launcher import place_launcher
-from .task_place_sentinel import place_sentinel
+from .task_siege import siege
 
-type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
+type OldResult = tuple[Direction, Action | None] | None
+type TaskFn = Callable[[State, Controller], OldResult]
 
 TASK_FNS: dict[Task, TaskFn] = {
-    Task.CONNECT_EXCESS_TI: lambda s, c: connect_excess(
-        s,
-        c,
-        ExcessKind.TI_RAX,
-        SearchKind.MIXED,
-    ),
-    Task.CONNECT_EXCESS_AX: lambda s, c: connect_excess(
-        s,
-        c,
-        ExcessKind.AX,
-        SearchKind.AX_CHAIN,
-    ),
-    Task.HARVEST_TI: harvest_ti,
-    Task.HARVEST_AX: harvest_ax,
-    Task.EXPLORE: explore,
-    Task.PATROL: patrol,
     Task.HEAL_CORE: heal_core,
-    Task.PLACE_LAUNCHER: place_launcher,
-    Task.BARRIER_ORE: barrier_ore,
-    Task.FIRE_ENEMY_TRANSPORT: fire_enemy_transport,
-    Task.PLACE_SENTINEL: place_sentinel,
-    Task.HEAL_TURRET: heal_turret,
-    Task.HEAL: heal,
+    Task.CUT_FEED: cut_feed,
     Task.DEFEND: defend,
-    Task.DEFEND_CORE: defend_core,
-    Task.ATTACK: attack,
-    Task.FEED_TURRET: feed_turret,
+    Task.HARVEST: harvest,
+    Task.SIEGE: siege,
+    Task.EXPLORE: explore,
 }
 
 
-def _destroy_friendly(ct: Controller, pos: Position) -> None:
-    bid = ct.get_tile_building_id(pos)
-    if bid is not None and ct.get_team(bid) == ct.get_team() and ct.can_destroy(pos):
-        ct.destroy(pos)
-
-
-def _exec_build(ct: Controller, action: Action) -> None:
-    match action:
-        case PlaceRoad(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_road(pos):
-                ct.build_road(pos)
-        case PlaceHarvester(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_harvester(pos):
-                ct.build_harvester(pos)
-        case PlaceConveyor(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_conveyor(pos, direction):
-                ct.build_conveyor(pos, direction)
-        case PlaceSplitter(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_splitter(pos, direction):
-                ct.build_splitter(pos, direction)
-        case PlaceBridge(pos, target):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_bridge(pos, target):
-                ct.build_bridge(pos, target)
-        case PlaceBarrier(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_barrier(pos):
-                ct.build_barrier(pos)
-        case PlaceLauncher(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_launcher(pos):
-                ct.build_launcher(pos)
-        case PlaceGunner(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_gunner(pos, direction):
-                ct.build_gunner(pos, direction)
-        case PlaceSentinel(pos, direction):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_sentinel(pos, direction):
-                ct.build_sentinel(pos, direction)
-        case PlaceFoundry(pos):
-            _destroy_friendly(ct, pos)
-            if ct.can_build_foundry(pos):
-                ct.build_foundry(pos)
-
-
 class Builder(Unit):
-    def __init__(self, ct: Controller) -> None:
+    def __init__(self, ct: Controller, pre_state: State | None = None) -> None:
         core_pos = _find_core(ct)
-        self.state = State(ct, core_pos)
-        self._compiled: list[CompiledTurn] | None = None
-        self._script_idx: int = 0
-        self._off_script: bool = False
-
-        opening, km = _read_opening(ct, core_pos)
-        if opening is not None and km is not None:
-            if ct.get_team() == Team.B:
-                opening = mirror_opening(opening, SYMMETRY[km])
-            spawn_turn = self.state.birthday - 1
-            spawn_order = sum(
-                1 for s in opening.core_spawns[:spawn_turn] if s is not None
-            )
-            if 0 <= spawn_order < len(opening.builder_scripts):
-                self._compiled = dsl_compile(
-                    ct.get_position(),
-                    opening.builder_scripts[spawn_order],
-                )
+        self.state = State(ct, core_pos, pre=pre_state)
+        self._stuck_turns = 0
 
     def run(self, ct: Controller) -> None:
-        s = self.state
-        t0 = ct.get_cpu_time_elapsed()
-        state_update(s, ct)
-        t1 = ct.get_cpu_time_elapsed()
-        print(f"update={t1 - t0}us")
-
-        if DEBUG_DUMP:
-            dump(s, ct)
-        s.claim = None
-
-        has_script = self._compiled is not None and not self._off_script
-        if OPENING != OpeningMode.OFF and has_script:
-            self._run_script(ct)
-            if OPENING == OpeningMode.OPENING_ONLY:
-                return
-            if not self._off_script:
-                return
-
-        move, build = self._run_policy(ct)
-        t2 = ct.get_cpu_time_elapsed()
-        print(f"policy={t2 - t1}us total={t2 - t0}us")
-        self._execute(ct, move, build)
-
-    def _run_script(self, ct: Controller) -> None:
-        assert self._compiled is not None
-        if self._script_idx >= len(self._compiled):
-            self._off_script = True
+        # First turn: init already burned most of budget
+        if ct.get_cpu_time_elapsed() > 1400:
+            s = self.state
+            s.age += 1
+            s.pos = ct.get_position()
             return
 
-        turn = self._compiled[self._script_idx]
-        self._script_idx += 1
-        pos = ct.get_position()
+        s = self.state
+        state_update(s, ct)
 
-        match turn:
-            case CompiledActionMove(action, move):
-                if action is not None:
-                    _exec_build(ct, action)
-                if move is not None:
-                    if ct.can_move(move):
-                        ct.move(move)
-                    else:
-                        ct.draw_indicator_dot(pos, 255, 0, 0)
-                        self._off_script = True
-            case CompiledMoveAction(move, action):
-                if move is not None:
-                    if ct.can_move(move):
-                        ct.move(move)
-                    else:
-                        ct.draw_indicator_dot(pos, 255, 0, 0)
-                        self._off_script = True
-                        return
-                if action is not None:
-                    _exec_build(ct, action)
+        # Self-heal if damaged -- priority over all tasks
+        if ct.get_hp() < ct.get_max_hp() and ct.get_action_cooldown() == 0:
+            pos = ct.get_position()
+            ti, _ = ct.get_global_resources()
+            if ti >= 1 and ct.can_heal(pos):
+                ct.heal(pos)
 
-        if self._script_idx >= len(self._compiled):
-            ct.draw_indicator_dot(ct.get_position(), 0, 255, 0)
-            self._off_script = True
+        s.claim = None
 
-    def _run_policy(self, ct: Controller) -> tuple[Direction, Action | None]:
+        turn = self._run_policy(ct)
+        pos_before = ct.get_position()
+        self._execute_turn(ct, turn)
+        pos_after = ct.get_position()
+
+        # Livelock breaker
+        if pos_before == pos_after and turn is not None:
+            self._stuck_turns += 1
+            if self._stuck_turns >= 3:
+                dirs = [
+                    d for d in Direction if d != Direction.CENTRE and ct.can_move(d)
+                ]
+                if dirs:
+                    ct.move(random.choice(dirs))
+                    self._stuck_turns = 0
+        else:
+            self._stuck_turns = 0
+
+        # Opportunistic heal: if action unused, heal nearby damaged building
+        if ct.get_action_cooldown() == 0:
+            self._opportunistic_heal(ct)
+
+        self._write_marker(ct)
+
+    def _run_policy(self, ct: Controller) -> Turn | None:
         s = self.state
         for score, task in _policy(s):
             if score <= 0:
                 continue
-            t0 = ct.get_cpu_time_elapsed()
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            t1 = ct.get_cpu_time_elapsed()
-            elapsed = t1 - t0
             if result is not None:
-                print(f"  task={task.name} {elapsed}us OK")
-                print(f"  {result}")
-                return result
-            print(f"  task={task.name} {elapsed}us FAIL")
-        print("  task=NONE")
-        return Direction.CENTRE, None
+                return _to_turn(result)
+        return None
 
-    def _execute(self, ct: Controller, move: Direction, build: Action | None) -> None:
-        if isinstance(build, PlaceRoad) and move != Direction.CENTRE:
-            # Road: only build if we can't move (need the road to walk on)
-            if ct.can_move(move):
-                ct.move(move)
+    def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
+        """Try to move. If blocked, 50% chance to detour randomly."""
+        if ct.can_move(direction):
+            ct.move(direction)
+            return True
+        if random.random() < 0.5:
+            dirs = [d for d in Direction if d != Direction.CENTRE and ct.can_move(d)]
+            if dirs:
+                ct.move(random.choice(dirs))
+                return False
+            pos = ct.get_position()
+            candidates = [d for d in Direction if d != Direction.CENTRE]
+            random.shuffle(candidates)
+            for d in candidates:
+                nxt = pos.add(d)
+                if ct.can_build_road(nxt):
+                    ct.build_road(nxt)
+                    if ct.can_move(d):
+                        ct.move(d)
+                    return False
+        return False
+
+    def _execute_turn(self, ct: Controller, turn: Turn | None) -> None:
+        if turn is None:
+            return
+        match turn:
+            case Wait():
+                pass
+            case MoveOnly(direction):
+                self._move_or_detour(ct, direction)
+            case ActionOnly(action):
+                execute(action, ct)
+            case ActionMove(action, direction):
+                if isinstance(action, PlaceRoad):
+                    if ct.can_move(direction):
+                        ct.move(direction)
+                    else:
+                        execute(action, ct)
+                        self._move_or_detour(ct, direction)
+                else:
+                    execute(action, ct)
+                    self._move_or_detour(ct, direction)
+            case MoveAction(direction, action):
+                if self._move_or_detour(ct, direction):
+                    execute(action, ct)
+
+    def _opportunistic_heal(self, ct: Controller) -> None:
+        my_team = ct.get_team()
+        best_pos: Position | None = None
+        best_frac = 1.0
+        for bid in ct.get_nearby_buildings():
+            if ct.get_team(bid) != my_team:
+                continue
+            etype = ct.get_entity_type(bid)
+            if etype == EntityType.CORE:
+                bp = ct.get_position(bid)
+                for dx in range(-1, 2):
+                    for dy in range(-1, 2):
+                        tp = Position(bp.x + dx, bp.y + dy)
+                        if ct.can_heal(tp):
+                            hp = ct.get_hp(bid)
+                            max_hp = ct.get_max_hp(bid)
+                            frac = hp / max_hp
+                            if frac < best_frac:
+                                best_frac = frac
+                                best_pos = tp
             else:
-                execute(build, ct)
-                if ct.can_move(move):
-                    ct.move(move)
-        elif build is not None and move != Direction.CENTRE:
-            # Build first (while adjacent), then step toward next site
-            execute(build, ct)
-            if ct.can_move(move):
-                ct.move(move)
-        elif move != Direction.CENTRE:
-            if ct.can_move(move):
-                ct.move(move)
-        elif build is not None:
-            execute(build, ct)
-
-        self._write_marker(ct)
+                hp = ct.get_hp(bid)
+                max_hp = ct.get_max_hp(bid)
+                if hp >= max_hp:
+                    continue
+                pos = ct.get_position(bid)
+                if ct.can_heal(pos):
+                    frac = hp / max_hp
+                    if frac < best_frac:
+                        best_frac = frac
+                        best_pos = pos
+        for uid in ct.get_nearby_units():
+            if ct.get_team(uid) != my_team:
+                continue
+            hp = ct.get_hp(uid)
+            max_hp = ct.get_max_hp(uid)
+            if hp >= max_hp:
+                continue
+            pos = ct.get_position(uid)
+            if ct.can_heal(pos):
+                frac = hp / max_hp
+                if frac < best_frac:
+                    best_frac = frac
+                    best_pos = pos
+        if best_pos is not None:
+            ct.heal(best_pos)
 
     def _write_marker(self, ct: Controller) -> None:
         s = self.state
@@ -305,54 +246,66 @@ def _find_core(ct: Controller) -> Position:
     raise RuntimeError
 
 
-_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
+def _to_turn(result: OldResult) -> Turn | None:
+    """Convert old-style (Direction, Action | None) to Turn."""
+    if result is None:
+        return None
+    move, build = result
+    if move == Direction.CENTRE and build is None:
+        return Wait()
+    if move == Direction.CENTRE and build is not None:
+        return ActionOnly(build)
+    if build is None:
+        return MoveOnly(move)
+    # All builds happen first (adjacent to target), then step toward next site
+    return ActionMove(build, move)
 
 
-def _read_opening(
-    ct: Controller,
-    core_pos: Position,
-) -> tuple[Opening | None, KnownMap | None]:
-    w, h = ct.get_map_width(), ct.get_map_height()
-    for odx, ody in _MARKER_OFFSETS:
-        mx, my = core_pos.x + odx, core_pos.y + ody
-        if not (0 <= mx < w and 0 <= my < h):
-            continue
-        mp = Position(mx, my)
-        bid = ct.get_tile_building_id(mp)
-        if bid is None:
-            continue
-        if ct.get_entity_type(bid) != EntityType.MARKER:
-            continue
-        if ct.get_team(bid) != ct.get_team():
-            continue
-        marker_val = ct.get_marker_value(bid)
-        msg = decode_marker(marker_val)
-        if isinstance(msg, MarkerOpeningBook):
-            km_list = list(KnownMap)
-            idx = msg.map_index
-            if 0 <= idx < len(km_list):
-                km = km_list[idx]
-                return get_opening(km), km
-    return None, None
+def _rush_ready(state: State) -> bool:
+    """True if any harvester is connected to core (flow gate)."""
+    return bool(state.connected_harvesters)
 
 
 def _policy(state: State) -> list[tuple[float, Task]]:
-    scores: list[tuple[float, Task]] = []
-
     seen = sum(1 for e in state.env if e is not None)
     seen_frac = seen / (state.w * state.h)
-    explore_score = 95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+    ready = _rush_ready(state)
 
-    scores.append((999.0, Task.HEAL_CORE))
-    scores.append((500.0, Task.HEAL))
-    scores.append((180.0 if state.en_turrets else 0.0, Task.DEFEND))
-    scores.append((160.0, Task.FEED_TURRET))
-    scores.append((150.0, Task.CONNECT_EXCESS_TI))
-    scores.append((100.0, Task.HARVEST_TI))
-    scores.append((96.0 if state.en_transport else 0.0, Task.ATTACK))
-    scores.append((90.0, Task.DEFEND_CORE))
-    scores.append((40.0 if state.en_harvesters else 0.0, Task.PLACE_SENTINEL))
-    scores.append((25.0 if state.infra_max_staleness > 50 else 15.0, Task.PATROL))
-    scores.append((explore_score, Task.EXPLORE))
+    match state.role:
+        case 0:  # ECON -- harvest, connect, explore
+            explore_score = (
+                120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
+            )
+            scores: list[tuple[float, Task]] = [
+                (999.0, Task.HEAL_CORE),
+                (500.0, Task.CUT_FEED),
+                (300.0 if state.en_turrets else 0.0, Task.DEFEND),
+                (200.0, Task.HARVEST),
+                (explore_score, Task.EXPLORE),
+            ]
+        case 1:  # ATTACK -- econ early, then siege once flow established
+            explore_score = (
+                95.0 if seen_frac < 0.3 else 55.0 if seen_frac < 0.5 else 20.0
+            )
+            scores = [
+                (999.0, Task.HEAL_CORE),
+                (500.0, Task.CUT_FEED),
+                (300.0 if state.en_turrets else 0.0, Task.DEFEND),
+                (200.0, Task.SIEGE),
+                (100.0 if not ready else 50.0, Task.HARVEST),
+                (explore_score, Task.EXPLORE),
+            ]
+        case _:  # Fallback
+            explore_score = (
+                80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
+            )
+            scores = [
+                (999.0, Task.HEAL_CORE),
+                (500.0, Task.CUT_FEED),
+                (300.0 if state.en_turrets else 0.0, Task.DEFEND),
+                (200.0, Task.HARVEST),
+                (explore_score, Task.EXPLORE),
+            ]
+
     scores.sort(key=lambda t: t[0], reverse=True)
     return scores

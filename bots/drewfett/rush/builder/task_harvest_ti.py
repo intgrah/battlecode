@@ -228,31 +228,18 @@ def harvest_ti(
             ore_pos = Position(pos.x + ddx, pos.y + ddy)
             if ore_pos in state.unit_tiles:
                 continue
-            bid = ct.get_tile_building_id(ore_pos)
-            # Step 1: barrier the ore tile only if enemy nearby (prevents claiming)
-            if (
-                bid is None
-                and state.enemy_bots_nearby
-                and ct.can_build_barrier(ore_pos)
-            ):
-                return Direction.CENTRE, PlaceBarrier(ore_pos)
-            # Step 2: road adjacent tiles
-            road_result = road_around(state, ct, ore_pos.x, ore_pos.y)
-            if road_result is not None:
-                return road_result
-            # Step 3: destroy our barrier on ore and place harvester
-            # Don't place if enemy transport adjacent — would steal output
             if not _adjacent_safe_for_harvester(state, ore_pos.x, ore_pos.y):
                 continue
-            # Only destroy if we can afford the harvester
+            bid = ct.get_tile_building_id(ore_pos)
             h_cost, _ = ct.get_harvester_cost()
             ti, _ = ct.get_global_resources()
             if ti < h_cost:
                 return Direction.CENTRE, None  # Wait for Ti
+            # Destroy any friendly building on the ore tile
             if bid is not None:
-                if ct.can_destroy(ore_pos):
+                if ct.get_team(bid) == state.my_team and ct.can_destroy(ore_pos):
                     ct.destroy(ore_pos)
-                else:
+                elif ct.get_team(bid) != state.my_team:
                     continue
             if ct.can_build_harvester(ore_pos):
                 return Direction.CENTRE, PlaceHarvester(ore_pos)
@@ -289,7 +276,8 @@ def _pick_and_walk(
         return walk_dist + conn_dist * 2 - enemy_bonus
 
     scored = sorted([(s, oi) for oi in unharvested if (s := _score(oi)) is not None])
-    # print(f"HARV: pos=({pos.x},{pos.y}) ore={len(unharvested)} blocked={len(state.blocked_ore)}")
+    import sys
+    print(f"HARV: pos=({pos.x},{pos.y}) ore={len(unharvested)} scored={len(scored)} blocked={len(state.blocked_ore)}", file=sys.stderr)
 
     for _, oi in scored:
         bld = state.building[oi]
@@ -326,22 +314,25 @@ def _pick_and_walk(
             state.blocked_ore[oi] = state.age + state.birthday
             continue
         if is_claimed(state, oi, TaskKind.NAV_ORE):
-            # print(f"HARV:   ore ({oi%w},{oi//w}) claimed, skip")
+            print(f"HARV:   ({oi%w},{oi//w}) claimed", file=sys.stderr)
             continue
         ore_pos = Position(oi % w, oi // w)
         adj = cardinal_adjacent(state, pos, ore_pos)
         if adj is None:
-            # print(f"HARV:   ore ({oi%w},{oi//w}) no adj tile")
+            print(f"HARV:   ({oi%w},{oi//w}) no adj", file=sys.stderr)
             continue
         result = move_toward_with_road(state, ct, adj)
         if result is None:
-            # print(f"HARV:   ore ({oi%w},{oi//w}) no path to adj ({adj.x},{adj.y})")
+            print(f"HARV:   ({oi%w},{oi//w}) no path to ({adj.x},{adj.y})", file=sys.stderr)
             continue
         move, build = result
-        # print(f"HARV:   ore ({oi%w},{oi//w}) -> adj ({adj.x},{adj.y}) move={move.name} build={type(build).__name__ if build else None}")
+        if move == Direction.CENTRE and build is None:
+            print(f"HARV:   ({oi%w},{oi//w}) stuck at ({adj.x},{adj.y})", file=sys.stderr)
+            continue
         # If we'll be adjacent after moving, DON'T fast-place — let the
         # immediate check handle it next turn (with barrier + road sequence)
 
+        print(f"HARV: id={ct.get_id()} ({pos.x},{pos.y}) -> ore ({oi%w},{oi//w}) adj ({adj.x},{adj.y}) {move.name}", file=sys.stderr)
         state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
         return move, build
 

@@ -4,7 +4,7 @@ from unit import Unit
 _DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 _ENV_WALL = Environment.WALL
 
-_BUILDER_CAP = 20
+_BUILDER_CAP = 8
 
 
 class Core(Unit):
@@ -35,11 +35,11 @@ class Core(Unit):
                     self._spawn(ct)
                 return
 
-        # First 4: no reserve. After that: excess-based.
+        # First 4: no reserve. After that: heavy reserve — only spawn with excess.
         if alive < 4:
             reserve = 0
         else:
-            reserve = builder_cost * 3
+            reserve = builder_cost * 6
 
         if ti < builder_cost + reserve:
             return

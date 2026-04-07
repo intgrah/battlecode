@@ -30,19 +30,15 @@ from .helpers import execute
 from .state import State
 from .state_update import update as state_update
 from .task import Task
-from .task_cap_ore import cap_ore
 from .task_connect_excess import ExcessKind, SearchKind, connect_excess
 from .task_cut_feed import cut_feed
 from .task_defend import defend
 from .task_explore import explore
-from .task_fortify import fortify
 from .task_harvest_ti import harvest_ti
 from .task_heal_core import heal_core
 from .task_heal_infra import heal_infra
-from .task_patrol import patrol
-from .task_road_harvesters import road_harvesters
-from .task_rush import rush
-from .task_scout_enemy import scout_enemy
+from .task_road_harvesters import road_around as _road_around  # used by task_harvest_ti
+from .task_siege import siege
 
 type OldResult = tuple[Direction, Action | None] | None
 type TaskFn = Callable[[State, Controller], OldResult]
@@ -50,8 +46,7 @@ type TaskFn = Callable[[State, Controller], OldResult]
 TASK_FNS: dict[Task, TaskFn] = {
     Task.HEAL_CORE: heal_core,
     Task.HEAL_INFRA: heal_infra,
-    Task.ROAD_HARVESTERS: road_harvesters,
-    Task.RUSH: rush,
+    Task.SIEGE: siege,
     Task.CONNECT_BACK: lambda s, c: connect_excess(
         s,
         c,
@@ -59,12 +54,8 @@ TASK_FNS: dict[Task, TaskFn] = {
         SearchKind.MIXED,
     ),
     Task.HARVEST_TI: harvest_ti,
-    Task.SCOUT_ENEMY: scout_enemy,
     Task.EXPLORE: explore,
-    Task.PATROL: patrol,
-    Task.FORTIFY: fortify,
     Task.DEFEND: defend,
-    Task.CAP_ORE: cap_ore,
     Task.CUT_FEED: cut_feed,
 }
 
@@ -126,31 +117,28 @@ class Builder(Unit):
         self._stuck_turns = 0
 
     def run(self, ct: Controller) -> None:
-        import time as _time
-
-        _t = _time.perf_counter
+        # First turn: init already burned most of budget
+        if ct.get_cpu_time_elapsed() > 1400:
+            s = self.state
+            s.age += 1
+            s.pos = ct.get_position()
+            return
         s = self.state
-        _t0 = _t()
         state_update(s, ct)
-        _t1 = _t()
+
+        # Self-heal if damaged — priority over all tasks
+        if ct.get_hp() < ct.get_max_hp() and ct.get_action_cooldown() == 0:
+            pos = ct.get_position()
+            ti, _ = ct.get_global_resources()
+            if ti >= 1 and ct.can_heal(pos):
+                ct.heal(pos)
 
         s.claim = None
 
         turn = self._run_policy(ct)
-        _t2 = _t()
         pos_before = ct.get_position()
         self._execute_turn(ct, turn)
         pos_after = ct.get_position()
-        _t3 = _t()
-        upd_us = int((_t1 - _t0) * 1e6)
-        pol_us = int((_t2 - _t1) * 1e6)
-        tot_us = int((_t3 - _t0) * 1e6)
-        if tot_us > 500:
-            _ROLE_NAMES = {0: "ECON", 1: "RUSH", 2: "HOME"}
-            print(
-                f"[{_ROLE_NAMES.get(s.role, '?')}] pos=({s.pos.x},{s.pos.y}) upd={upd_us} pol={pol_us} tot={tot_us}us",
-                file=__import__("sys").stderr,
-            )
         if pos_before == pos_after and turn is not None:
             self._stuck_turns += 1
             if self._stuck_turns >= 3:
@@ -171,23 +159,22 @@ class Builder(Unit):
         self._write_marker(ct)
 
     def _run_policy(self, ct: Controller) -> Turn | None:
-        import time as _time
-
-        _t = _time.perf_counter
         s = self.state
+        _rn = {0: "E", 1: "R"}.get(s.role, "?")
+        _id = ct.get_id()
         for score, task in _policy(s):
             if score <= 0:
                 continue
-            _t0 = _t()
             fn = TASK_FNS[task]
             result = fn(s, ct)
-            dt = int((_t() - _t0) * 1e6)
             if result is not None:
-                if dt > 100:
-                    print(f"  {task.name} OK {dt}us", file=__import__("sys").stderr)
+                move, act = result
+                act_name = type(act).__name__ if act is not None else "move"
+                msg = f"[{_rn}{_id}] ({s.pos.x},{s.pos.y}) {task.name} {move.name} {act_name}"
+                print(f"  {msg}", file=__import__("sys").stderr)
                 return _to_turn(result)
-            if dt > 100:
-                print(f"  {task.name} FAIL {dt}us", file=__import__("sys").stderr)
+        msg = f"[{_rn}{_id}] ({s.pos.x},{s.pos.y}) IDLE"
+        print(f"  {msg}", file=__import__("sys").stderr)
         return None
 
     def _move_or_detour(self, ct: Controller, direction: Direction) -> bool:
@@ -356,7 +343,7 @@ def _policy(state: State) -> list[tuple[float, Task]]:
     ready = _rush_ready(state)
 
     match state.role:
-        case 0:  # ECON — harvest, connect ASAP, explore aggressively
+        case 0:  # ECON — harvest, connect, explore
             explore_score = (
                 120.0 if seen_frac < 0.3 else 80.0 if seen_frac < 0.6 else 30.0
             )
@@ -368,8 +355,6 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (180.0, Task.CONNECT_BACK),
                 (150.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
-                (18.0, Task.FORTIFY),
-                (15.0, Task.PATROL),
             ]
         case 1:  # ATTACK — econ early, then siege once flow established
             explore_score = (
@@ -378,16 +363,14 @@ def _policy(state: State) -> list[tuple[float, Task]]:
             scores = [
                 (999.0, Task.HEAL_CORE),
                 (500.0, Task.CUT_FEED),
+                (300.0, Task.DEFEND),
                 (250.0 if ready else 0.0, Task.HEAL_INFRA),
-                (200.0 if ready else 0.0, Task.RUSH),
-                (160.0 if ready else 0.0, Task.SCOUT_ENEMY),
+                (200.0, Task.SIEGE),  # always try — gates internally
                 (150.0 if not ready else 0.0, Task.CONNECT_BACK),
-                (100.0 if not ready else 0.0, Task.HARVEST_TI),
+                (100.0 if not ready else 50.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
-                (25.0, Task.CAP_ORE),
-                (15.0, Task.PATROL),
             ]
-        case _:  # DEFENSE — defend, heal, fortify, then econ fallback
+        case _:  # DEFENSE — defend, heal, then econ fallback
             explore_score = (
                 80.0 if seen_frac < 0.3 else 40.0 if seen_frac < 0.6 else 15.0
             )
@@ -396,11 +379,9 @@ def _policy(state: State) -> list[tuple[float, Task]]:
                 (500.0, Task.CUT_FEED),
                 (300.0, Task.DEFEND),
                 (200.0, Task.HEAL_INFRA),
-                (150.0, Task.FORTIFY),
                 (110.0, Task.CONNECT_BACK),
                 (90.0, Task.HARVEST_TI),
                 (explore_score, Task.EXPLORE),
-                (50.0, Task.PATROL),
             ]
 
     scores.sort(key=lambda t: t[0], reverse=True)

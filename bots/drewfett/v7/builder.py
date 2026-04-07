@@ -52,7 +52,6 @@ import sys as _sys
 
 def _log(msg: str, _bot_id: int = 0) -> None:
     print(msg, file=_sys.stderr, flush=True)
-    print(msg)
 
 
 def _can_place_gunner_at(s: State, gi: int) -> bool:

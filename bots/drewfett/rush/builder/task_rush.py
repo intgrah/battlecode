@@ -134,7 +134,7 @@ def rush(
         | state.en_barriers
     )
 
-    # Step 1: Can any extendable tile hit an enemy? Place gunner.
+# Step 1: Can any extendable tile hit an enemy? Place gunner.
     # Uses precomputed offset table — 20 lookups per ext tile, no ray casting.
     if ext_tiles and en_buildings:
         for ex, ey in ext_tiles:
@@ -152,8 +152,7 @@ def rush(
                     result = _place_gunner_at(state, ct, Position(ex, ey), facing)
                     if result is not None:
                         return result
-
-    # Step 1b: Sentinel — high-value targets only (turrets, core, harvesters)
+# Step 1b: Sentinel — high-value targets only (turrets, core, harvesters)
     sentinel_targets = state.en_turrets | state.en_core_tiles | state.en_harvesters
     if ext_tiles and sentinel_targets:
         ext_set = {ey * w + ex for ex, ey in ext_tiles}
@@ -177,13 +176,13 @@ def rush(
                 if result is not None:
                     return result
 
-    # Step 1.5: Upgrade conveyors feeding our gunners to splitters
+# Step 1.5: Upgrade conveyors feeding our gunners to splitters
     if ext_tiles:
         result = _upgrade_to_splitter(state, ct, en_core)
         if result is not None:
             return result
 
-    # Step 2: Any tile with our flow near enemy core? → extend toward core
+# Step 2: Any tile with our flow near enemy core? → extend toward core
     flow_tile = None
     if ext_tiles:
         flow_tile = _find_flow_near_core(state, en_core, ext_tiles)
@@ -204,7 +203,7 @@ def rush(
     else:
         _log("step2: no flow tile near enemy core")
 
-    # Step 2.5: Unconnected harvester near core — build first conveyor toward siege
+# Step 2.5: Unconnected harvester near core — build first conveyor toward siege
     t()
     for hi in state.my_harvesters:
         hx, hy = hi % w, hi // w
@@ -308,8 +307,7 @@ def rush(
             _log(f"step3: extending from tap ({tap_x},{tap_y})")
             return _extend_from_flow(state, ct, tap_x, tap_y, en_core)
 
-    # Nothing useful — defer to SCOUT_ENEMY to find new ore
-    _log("step3: no ore found, deferring to scout")
+    # Nothing useful — defer to explore
     return None
 
 

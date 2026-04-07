@@ -55,32 +55,16 @@ def update(state: State, ct: Controller) -> None:
     The state should only be updated by calling this function once per turn
     Don't do any other updates to state outside of this function!
     """
-    import time as _time
-
-    _t = _time.perf_counter
     state.age += 1
     state.pos = ct.get_position()
 
-    _t0 = _t()
     _update_core_hp(state, ct)
     _update_ephemeral(state, ct)
-    _t1 = _t()
     changed = _scan_vision(state, ct)
-    _t2 = _t()
     _rebuild_danger_zones(state)
     _stamp_unit_tiles(state)
-    _t3 = _t()
     _update_flow(state, ct, changed)
-    _t4 = _t()
     _update_infra_staleness(state)
-    tot = int((_t4 - _t0) * 1e6)
-    if tot > 300:
-        import sys
-
-        print(
-            f"  upd: scan={int((_t2 - _t1) * 1e6)} dng={int((_t3 - _t2) * 1e6)} flow={int((_t4 - _t3) * 1e6)} tot={tot}",
-            file=sys.stderr,
-        )
 
 
 def _update_core_hp(state: State, ct: Controller) -> None:
@@ -138,11 +122,15 @@ def _rebuild_danger_zones(state: State) -> None:
         match bld:
             case BuildingLauncher():
                 # Hard block — launcher throws adjacent builders
+                grid = state.grid
                 for dx in range(-1, 2):
                     for dy in range(-1, 2):
                         nx, ny = tx + dx, ty + dy
                         if 0 <= nx < w and 0 <= ny < h:
-                            state.cost[ny * w + nx] = COST_IMPASSABLE
+                            ni = ny * w + nx
+                            state.cost[ni] = COST_IMPASSABLE
+                            if grid is not None:
+                                grid.set_passable(ni, passable=False)
 
             case (
                 BuildingGunner(direction=d)
@@ -366,33 +354,9 @@ def _apply_symmetry(
     if had_symmetry:
         source = new_tiles
     else:
-        # First symmetry detection — mirror all known tiles using raw indices
-        h = state.h
-        sym = state.symmetry
-        for i, e in enumerate(state.env):
-            if e is None:
-                continue
-            ix, iy = i % w, i // w
-            match sym:
-                case Symmetry.ROT:
-                    mx, my = w - 1 - ix, h - 1 - iy
-                case Symmetry.HOR:
-                    mx, my = ix, h - 1 - iy
-                case Symmetry.VER:
-                    mx, my = w - 1 - ix, iy
-                case _:
-                    continue
-            mi = my * w + mx
-            if state.env[mi] is not None:
-                continue
-            state.env[mi] = e
-            match e:
-                case Environment.ORE_TITANIUM:
-                    state.ore_ti.add(mi)
-                case Environment.ORE_AXIONITE:
-                    state.ore_ax.add(mi)
-            state.reflect_queue.append(mi)
-        return
+        # First symmetry detection — just mirror new tiles, not entire map.
+        # The builder discovers walls/ore naturally through vision.
+        source = new_tiles
     pending = state.reflect_queue
     for t, env in source:
         m = mirror(state, t)
@@ -499,15 +463,14 @@ def _update_flow(state: State, ct: Controller, changed: list[int]) -> None:
     state.out_target_dirty = False
     if needs_reflow:
         # Budget guard: skip flow if we've already used too much CPU this turn
-        if ct.get_cpu_time_elapsed() > 1200:
+        if ct.get_cpu_time_elapsed() > 600:
             return
-        update_flow(state)
+        update_flow(state, ct)
+        # Clear searches (need recompute) but keep cached PATHS
+        # (builder follows existing path until it's actually blocked)
         state.ti_flow_search = None
-        state.ti_cached_path = None
         state.ax_flow_search = None
-        state.ax_cached_path = None
         state.bridge_flow_search = None
-        state.bridge_cached_path = None
         if external_change:
             state.rush_flow_search = None
 

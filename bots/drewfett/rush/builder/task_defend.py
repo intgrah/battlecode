@@ -118,8 +118,13 @@ def defend(
             if env == Environment.WALL:
                 break
             bld = state.building[gi]
-            if bld is not None and not isinstance(bld, (BuildingRoad, BuildingMarker)):
-                break
+            if bld is not None:
+                # Enemy buildings: roads/markers can be fired on to clear, others block
+                if bld.team != my_team and not isinstance(bld, (BuildingRoad, BuildingMarker)):
+                    break
+                # Allied non-road buildings block placement
+                if bld.team == my_team and not isinstance(bld, (BuildingRoad, BuildingMarker)):
+                    break
 
             # Check LoS back to threat (nothing blocking in between)
             los_ok = True
@@ -154,7 +159,7 @@ def defend(
             if not los_ok:
                 continue
 
-            # Check ammo: adjacent harvester or transport with flow (not facing side)
+            # Check ammo: adjacent building must deliver flow toward gunner (not facing side)
             has_ammo = False
             for adx, ady in DIR4_DELTA:
                 if adx == fdx and ady == fdy:
@@ -167,20 +172,27 @@ def defend(
                 if isinstance(abld, BuildingHarvester):
                     has_ammo = True
                     break
-                if (
-                    isinstance(
-                        abld,
-                        (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter),
-                    )
-                    and abld.team == my_team
-                    and state.flow.ti[ai] > 0.05
-                ):
-                    has_ammo = True
+                if isinstance(abld, (BuildingConveyor, BuildingArmouredConveyor)):
+                    if abld.team == my_team and state.flow.ti[ai] > 0.05:
+                        # Verify conveyor points toward the gunner tile
+                        ddx, ddy = abld.direction.delta()
+                        if (ax + ddx, ay + ddy) == (gx, gy):
+                            has_ammo = True
+                            break
+                if isinstance(abld, BuildingSplitter):
+                    if abld.team == my_team and state.flow.ti[ai] > 0.05:
+                        sdx, sdy = abld.direction.delta()
+                        for odx, ody in [(sdx, sdy), (-sdy, sdx), (sdy, -sdx)]:
+                            if (ax + odx, ay + ody) == (gx, gy):
+                                has_ammo = True
+                                break
+                if has_ammo:
                     break
             if not has_ammo:
                 continue
 
-            walk = (pos.x - gx) ** 2 + (pos.y - gy) ** 2
+            # Score by distance from core (deterministic) not builder (oscillates)
+            walk = (state.my_core.x - gx) ** 2 + (state.my_core.y - gy) ** 2
             if walk < best_score:
                 best_score = walk
                 best_gpos = Position(gx, gy)
@@ -189,19 +201,38 @@ def defend(
     if best_gpos is None or best_facing is None:
         return None
 
+    import sys
+    print(f"  DEFEND: id={ct.get_id()} threat=({tx},{ty}) gunner=({best_gpos.x},{best_gpos.y}) facing={best_facing.name}", file=sys.stderr)
     # Place the gunner
     g_cost, _ = ct.get_gunner_cost()
     ti_res, _ = ct.get_global_resources()
-    if ti_res < g_cost:
-        return None
 
+    from .action import Fire
     ni = best_gpos.y * w + best_gpos.x
+    bld = state.building[ni]
+
+    # On the gunner spot
     if pos == best_gpos:
+        # Enemy building here — fire to clear it
+        if bld is not None and bld.team != my_team:
+            if ct.can_fire(best_gpos):
+                return Direction.CENTRE, Fire()
+            return Direction.CENTRE, None
+        if ti_res < g_cost:
+            return Direction.CENTRE, None  # wait for Ti
         return step_off_and_build(ct, PlaceGunner(best_gpos, best_facing))
+
+    # Adjacent to gunner spot
     if pos.distance_squared(best_gpos) <= 2:
-        bld = state.building[ni]
+        # Enemy building — walk onto it to fire next turn
+        if bld is not None and bld.team != my_team:
+            d = pos.direction_to(best_gpos)
+            if ct.can_move(d):
+                return d, None
+        # Allied road/marker — destroy and build
         if bld is not None and bld.team == my_team and ct.can_destroy(best_gpos):
             ct.destroy(best_gpos)
-        if ct.can_build_gunner(best_gpos, best_facing):
+        if ti_res >= g_cost and ct.can_build_gunner(best_gpos, best_facing):
             return Direction.CENTRE, PlaceGunner(best_gpos, best_facing)
+
     return move_toward_with_road(state, ct, best_gpos)

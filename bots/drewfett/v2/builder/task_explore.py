@@ -1,46 +1,60 @@
-"""Expanding-ring exploration.
+"""Exploration with role-aware strategies.
 
-Maintains a Chebyshev-distance ring centered on the core. The ring
-advances (by 3) when all perimeter tiles have been seen. The builder
-navigates to a random unseen tile on the ring's frontier.
+ECON (role 0): Expanding ring from core -- systematic, finds all nearby ore.
+ATTACK (role 1): Bias toward enemy core -- scout enemy half.
 
-Commitment: once a target is picked, it persists until the tile is seen
-(builder walks close enough for it to enter vision). This prevents
-oscillation between candidates.
+Commitment: once a target is picked, it persists until the tile is seen.
 """
 
+from __future__ import annotations
+
 from random import Random
+from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, Position
 
-from .action import Action
 from .helpers import move_toward_with_road
-from .state import State
+
+if TYPE_CHECKING:
+    from action import Action
+    from .state import State
 
 
 def explore(
     state: State,
     ct: Controller,
 ) -> tuple[Direction, Action | None] | None:
-    _advance_frontier(state)
+    # Clear target if seen
     if state.explore_target is not None and not state.is_unseen(
         state.explore_target.x,
         state.explore_target.y,
     ):
         state.explore_target = None
+
     if state.explore_target is None:
-        state.explore_target = _pick_frontier_target(state)
+        if state.role == 0:  # ECON: expanding ring
+            _advance_frontier(state)
+            state.explore_target = _pick_ring_target(state)
+        else:
+            state.explore_target = _pick_biased_target(state)
+
     if state.explore_target is None:
         return None
+
     result = move_toward_with_road(state, ct, state.explore_target)
-    if result is None:
+    move, build = result
+    if move == Direction.CENTRE and build is None:
+        state.explore_target = None
         return None
     ct.draw_indicator_dot(state.explore_target, 0, 0, 255)
     return result
 
 
+# -- Expanding ring (ECON) --
+
+
 def _advance_frontier(state: State) -> None:
-    cx, cy = state.my_core
+    cx, cy = state.my_core.x, state.my_core.y
     limit = max(state.w, state.h)
     while state.explore_radius < limit:
         r = state.explore_radius + 1
@@ -65,10 +79,10 @@ def _ring_has_unseen(state: State, cx: int, cy: int, r: int) -> bool:
     return False
 
 
-def _pick_frontier_target(state: State) -> Position | None:
-    cx, cy = state.my_core
+def _pick_ring_target(state: State) -> Position | None:
+    cx, cy = state.my_core.x, state.my_core.y
     pos = state.pos
-    r = state.explore_radius + 3
+    r = state.explore_radius + 5
     x0, x1 = max(0, cx - r), min(state.w - 1, cx + r)
     y0, y1 = max(0, cy - r), min(state.h - 1, cy + r)
     candidates: list[Position] = []
@@ -86,3 +100,35 @@ def _pick_frontier_target(state: State) -> Position | None:
         return None
     rng = Random(hash((pos.x, pos.y, state.explore_radius)))
     return candidates[rng.randrange(len(candidates))]
+
+
+# -- Biased explore (ATTACK) --
+
+
+def _pick_biased_target(state: State) -> Position | None:
+    w = state.w
+    h = state.h
+    pos = state.pos
+    max_dim = max(w, h)
+
+    if state.en_core_pos is not None:
+        bias_x, bias_y = state.en_core_pos.x, state.en_core_pos.y
+    else:
+        bias_x, bias_y = w - 1 - state.my_core.x, h - 1 - state.my_core.y
+
+    best: Position | None = None
+    best_score = -1_000_000
+
+    for y in range(0, h, 3):
+        for x in range(0, w, 3):
+            if not state.is_unseen(x, y):
+                continue
+            walk_dist = max(abs(pos.x - x), abs(pos.y - y))
+            bias_dist = max(abs(bias_x - x), abs(bias_y - y))
+            closeness = max_dim - bias_dist
+            score = -walk_dist + closeness * 0.5
+            if score > best_score:
+                best_score = score
+                best = Position(x, y)
+
+    return best

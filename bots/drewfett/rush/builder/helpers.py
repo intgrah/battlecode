@@ -1,7 +1,6 @@
 from building import BuildingConveyor, BuildingHarvester, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Position
 from marker import TaskKind
-from navigation import find_path
 from util import COST_IMPASSABLE, DIR4, DIR4_DELTA, INF
 
 from .action import (
@@ -23,22 +22,16 @@ from .action import (
 )
 from .state import State
 
-
-def move_toward(state: State, ct: Controller, target: Position) -> Direction:
-    pos = state.pos
-    if pos == target:
-        return Direction.CENTRE
-    path = find_path(state, target.x, target.y, ct=ct)
-    if path is None or len(path) < 2:
-        return Direction.CENTRE
-    draw_path(ct, state.w, path)
-    w = state.w
-    nx, ny = path[1] % w, path[1] // w
-    nxt = Position(nx, ny)
-    d = pos.direction_to(nxt)
-    if ct.can_move(d):
-        return d
-    return Direction.CENTRE
+_BFS_DIRECTIONS: tuple[Direction, ...] = (
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+)
 
 
 def move_toward_with_road(
@@ -49,38 +42,66 @@ def move_toward_with_road(
     pos = state.pos
     if pos == target:
         return Direction.CENTRE, None
-    path = find_path(state, target.x, target.y, ct=ct)
-    if path is None or len(path) < 2:
-        # print(f"NAV: no path")
+
+    nav = state.nav_bfs
+    if nav is None:
         return Direction.CENTRE, None
-    w = state.w
-    nx, ny = path[1] % w, path[1] // w
-    nxt = Position(nx, ny)
-    d = pos.direction_to(nxt)
-    can_mv = ct.can_move(d)
-    if can_mv:
-        return d, None
-    can_rd = ct.can_build_road(nxt)
+
+    nav.set_goal(target)
+    weights = nav.step(pos, lambda: ct.get_cpu_time_elapsed() < 1400)
+
+    if weights == (0, 0, 0, 0, 0, 0, 0, 0):
+        return Direction.CENTRE, None
+
+    # Sort by weight. Break ties: prefer cardinal over diagonal, then by distance to target.
+    tx, ty = target.x, target.y
+    _DELTAS = ((1, -1), (1, 1), (-1, 1), (-1, -1), (0, -1), (1, 0), (0, 1), (-1, 0))
+    _IS_DIAG = (1, 1, 1, 1, 0, 0, 0, 0)
+    indexed = []
+    for i in range(8):
+        w = weights[i]
+        if w >= INF:
+            continue
+        ddx, ddy = _DELTAS[i]
+        nx, ny = pos.x + ddx, pos.y + ddy
+        dist_sq = (nx - tx) ** 2 + (ny - ty) ** 2
+        indexed.append((w, _IS_DIAG[i], dist_sq, i))
+    indexed.sort()
+
+    if not indexed:
+        return Direction.CENTRE, None
+
+    # For each direction (best first): try move, then road
+    # BFS grid already marks launchers as impassable (weight=INF)
+    # Also skip gunner/sentinel arcs (danger_zones) as soft avoid
     road_cost, _ = ct.get_road_cost()
-    ti, _ = ct.get_global_resources()
-    if ti >= road_cost and can_rd:
-        return d, PlaceRoad(nxt)
-    bid = ct.get_tile_building_id(nxt)
-    ct.get_entity_type(bid) if bid is not None else None
-    # print(f"NAV: blocked")
+    ti_res, _ = ct.get_global_resources()
+    w = state.w
+    danger = state.danger_zones
+    for _w, _d, _ds, i in indexed:
+        d = _BFS_DIRECTIONS[i]
+        nxt = pos.add(d)
+        ni = nxt.y * w + nxt.x
+        if ni in danger:
+            continue
+        if ct.can_move(d):
+            return d, None
+        if ti_res >= road_cost and ct.can_build_road(nxt):
+            return d, PlaceRoad(nxt)
+
+    # All directions blocked or dangerous — try without danger check as last resort
+    for _w, _d, _ds, i in indexed:
+        d = _BFS_DIRECTIONS[i]
+        if ct.can_move(d):
+            return d, None
+
     return Direction.CENTRE, None
 
 
-def draw_path(
-    ct: Controller,
-    w: int,
-    path: list[int],
-    colour: tuple[int, int, int] = (255, 255, 255),
-) -> None:
-    pass
-
-
 def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position | None:
+    """Pick a walkable tile adjacent to target. Deterministic: always picks the
+    same tile regardless of builder position (closest to core) to prevent oscillation."""
+    core = state.my_core
     best = None
     best_dist = INF
     for ddx, ddy in DIR4_DELTA:
@@ -89,7 +110,8 @@ def cardinal_adjacent(state: State, pos: Position, target: Position) -> Position
             continue
         if state.walkable(ax, ay) >= COST_IMPASSABLE:
             continue
-        dist = (pos.x - ax) ** 2 + (pos.y - ay) ** 2
+        # Deterministic: closest to core, not to builder
+        dist = (core.x - ax) ** 2 + (core.y - ay) ** 2
         if dist < best_dist:
             best_dist = dist
             best = Position(ax, ay)

@@ -93,7 +93,7 @@ def _harvester_is_feeding_us(ct: Controller, hp: Position, my_team: object) -> b
     return False
 
 
-_IDLE_LIMIT = 20
+_IDLE_LIMIT = 50
 
 
 class Gunner(Unit):
@@ -175,8 +175,8 @@ class Gunner(Unit):
         else:
             _glog("[GUN] no target, no ammo")
 
-        # Idle self-destruct: idle 50+ rounds, friendly builder nearby to reclaim,
-        # no enemy nearby (don't self-destruct if we might be needed)
+        # Idle self-destruct: idle too long, friendly builder nearby to reclaim,
+        # no enemy builder nearby (don't give them a free tile)
         self._idle_rounds += 1
         if self._idle_rounds >= _IDLE_LIMIT:
             has_ally_builder = False

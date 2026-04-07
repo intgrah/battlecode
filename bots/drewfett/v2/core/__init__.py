@@ -1,134 +1,96 @@
-from cambc import Controller, Direction, EntityType, Position, Team
-from config import OPENING, OpeningMode
-from hardcode.known import KnownMap
-from hardcode.map import SYMMETRY
-from hardcode.opening import Opening, get_opening
-from hardcode.opening.identify import identify_map
-from hardcode.opening.mirror import mirror_opening
-from marker import MarkerOpeningBook
+from cambc import Controller, Direction, Environment, Position
 from unit import Unit
 
-_DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
-_MARKER_OFFSETS = ((2, 2), (-2, -2), (2, -2), (-2, 2), (0, 2), (0, -2), (2, 0), (-2, 0))
+_DIRECTIONS = tuple(d for d in Direction if d != Direction.CENTRE)
+_ENV_WALL = Environment.WALL
+
+_BUILDER_CAP = 8
+
+ROLE_ECON = 0
+ROLE_ATTACK = 1
+
+_INITIAL_ROLES: tuple[int, ...] = (ROLE_ECON, ROLE_ECON, ROLE_ECON, ROLE_ATTACK)
+
+
+def role_for_spawn(index: int) -> int:
+    """Return the role for the *index*-th spawned builder (0-based)."""
+    if index < len(_INITIAL_ROLES):
+        return _INITIAL_ROLES[index]
+    return ROLE_ATTACK if (index - len(_INITIAL_ROLES)) % 2 == 0 else ROLE_ECON
 
 
 class Core(Unit):
     def __init__(self, ct: Controller) -> None:
         self.core_pos: Position = ct.get_position()
-        self.spawned = 0
-        self.nearest_bridge_id: int | None = None
-        self.last_resource_turn: int = 0
-
-        km = identify_map(ct, self.core_pos)
-        self.opening: Opening | None = None
-        self._marker_val: int | None = None
-
-        if km is not None:
-            opening = get_opening(km)
-            if opening is not None and ct.get_team() == Team.B:
-                opening = mirror_opening(opening, SYMMETRY[km])
-            self.opening = opening
-            self._marker_val = MarkerOpeningBook(list(KnownMap).index(km)).encode()
-            self._place_marker(ct)
+        self.spawned: int = 0
 
     def run(self, ct: Controller) -> None:
-        rnd = ct.get_current_round()
-
-        if OPENING != OpeningMode.OFF and self.opening is not None:
-            if rnd < len(self.opening.core_spawns):
-                self._run_opening(ct, rnd)
-                return
-            if rnd <= len(self.opening.core_spawns) + 1:
-                self._place_marker(ct)
-                return
-
-        self._run_default(ct, rnd)
-
-    def _place_marker(self, ct: Controller) -> None:
-        if self._marker_val is None:
-            return
-        for odx, ody in _MARKER_OFFSETS:
-            mp = Position(self.core_pos.x + odx, self.core_pos.y + ody)
-            w, h = ct.get_map_width(), ct.get_map_height()
-            if not (0 <= mp.x < w and 0 <= mp.y < h):
-                continue
-            bid = ct.get_tile_building_id(mp)
-            if bid is not None:
-                if (
-                    ct.get_entity_type(bid) == EntityType.MARKER
-                    and ct.get_team(bid) == ct.get_team()
-                ):
-                    return
-                continue
-            if ct.can_place_marker(mp):
-                ct.place_marker(mp, self._marker_val)
-                return
-
-    def _run_opening(self, ct: Controller, rnd: int) -> None:
-        assert self.opening is not None
-        self._place_marker(ct)
-        spawn_offset = self.opening.core_spawns[rnd]
-        if spawn_offset is None:
-            return
-        ti, _ = ct.get_global_resources()
-        cost, _ = ct.get_builder_bot_cost()
-        if ti < cost:
-            return
-        sp = Position(
-            self.core_pos.x + spawn_offset[0],
-            self.core_pos.y + spawn_offset[1],
-        )
-        if ct.can_spawn(sp):
-            ct.spawn_builder(sp)
-            self.spawned += 1
-
-    def _run_default(self, ct: Controller, _rnd: int) -> None:
         if ct.get_action_cooldown() != 0:
             return
 
         ti, _ = ct.get_global_resources()
         builder_cost, _ = ct.get_builder_bot_cost()
-        alive = ct.get_unit_count() - 1  # exclude core
+        alive = ct.get_unit_count() - 1
 
-        if alive >= 20:
+        if alive >= _BUILDER_CAP:
             return
 
-        # Emergency: enemy bots near core → spawn immediately
         my_team = ct.get_team()
+        if ct.get_hp() < ct.get_max_hp():
+            if ti >= builder_cost:
+                self._spawn(ct)
+            return
+
         for uid in ct.get_nearby_units():
             if ct.get_team(uid) != my_team:
                 if ti >= builder_cost:
-                    sp = _best_spawn_pos(ct, self.core_pos)
-                    if sp is not None:
-                        ct.spawn_builder(sp)
-                        self.spawned += 1
+                    self._spawn(ct)
                 return
 
-        # First 3 builders: spawn quickly with minimal reserve
-        # After that: need progressively more Ti to justify another builder
-        h_cost, _ = ct.get_harvester_cost()
-        c_cost, _ = ct.get_conveyor_cost()
-        if alive < 3:
-            reserve = h_cost + c_cost * 3
-        elif alive < 6:
-            reserve = (h_cost + c_cost * 5) * (alive - 1)
+        if alive < 4:
+            reserve = 0
         else:
-            # 6+: need a lot of Ti to spawn (scale cost is high)
-            s_cost, _ = ct.get_sentinel_cost()
-            reserve = (h_cost + c_cost * 5) * 4 + s_cost * (alive - 4)
+            reserve = builder_cost * 6
 
         if ti < builder_cost + reserve:
             return
 
-        sp = _best_spawn_pos(ct, self.core_pos)
-        if sp is not None:
-            ct.spawn_builder(sp)
-            self.spawned += 1
+        self._spawn(ct)
+
+    def _spawn(self, ct: Controller) -> None:
+        sp = _best_spawn_pos(ct, self.core_pos, self.spawned)
+        if sp is None:
+            return
+        ct.spawn_builder(sp)
+        self.spawned += 1
 
 
-def _best_spawn_pos(ct: Controller, pos: Position) -> Position | None:
+def _best_spawn_pos(
+    ct: Controller, pos: Position, spawned: int = 0,
+) -> Position | None:
+    n = len(_DIRECTIONS)
+    for i in range(n):
+        d = _DIRECTIONS[(spawned + i) % n]
+        sp = pos.add(d)
+        if not ct.can_spawn(sp):
+            continue
+        w, h = ct.get_map_width(), ct.get_map_height()
+        walls = 0
+        for d2 in _DIRECTIONS:
+            adj = sp.add(d2)
+            if not (0 <= adj.x < w and 0 <= adj.y < h):
+                walls += 1
+                continue
+            if not ct.is_in_vision(adj):
+                continue
+            if ct.get_tile_env(adj) == _ENV_WALL:
+                walls += 1
+        if walls < 6:
+            return sp
+
     for d in _DIRECTIONS:
         sp = pos.add(d)
         if ct.can_spawn(sp):
             return sp
+
     return None
