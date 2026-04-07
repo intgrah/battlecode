@@ -228,6 +228,7 @@ class AttackAstar(Astar[int]):
         self._building = state.building
         self._my_team = state.my_team
         self._danger = state.danger_zones
+        self._econ = state.connected_transport
 
         # Heuristic target: centroid of goals
         if goals:
@@ -297,7 +298,8 @@ class AttackAstar(Astar[int]):
                     continue
                 result.append((ni, COST_BRIDGE))
 
-        # Filter: route through buildable tiles OR reuse own transport
+        # Filter: route through buildable tiles OR reuse own non-econ transport
+        econ = self._econ
         filtered: list[tuple[int, int]] = []
         for ni, c in result:
             nbld = building[ni]
@@ -308,8 +310,12 @@ class AttackAstar(Astar[int]):
                     nbld, (BuildingRoad, BuildingBarrier)
                 ):
                     pass  # own road/barrier — destroyable for attack
-                elif nbld.team == my_team and isinstance(nbld, _TRANSPORT_CHECK):
-                    c = COST_CONV  # same cost as new — just allows routing through
+                elif (
+                    nbld.team == my_team
+                    and isinstance(nbld, _TRANSPORT_CHECK)
+                    and ni not in econ
+                ):
+                    c = COST_CONV  # reuse own attack chain (not econ)
                 else:
                     continue
             filtered.append((ni, c))

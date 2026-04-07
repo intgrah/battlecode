@@ -51,7 +51,7 @@ import sys as _sys
 
 
 def _log(msg: str, _bot_id: int = 0) -> None:
-    print(msg, file=_sys.stderr)
+    print(msg, file=_sys.stderr, flush=True)
 
 
 def _can_place_gunner_at(s: State, gi: int) -> bool:
@@ -501,13 +501,32 @@ class Builder(Unit):
         ci = cy * w + cx
         ni = ny * w + nx
 
+        # Debug: log what's on the tiles
+        ci_bld = s.building[ci]
+        ni_bld = s.building[ni]
+        ci_name = type(ci_bld).__name__[8:] if ci_bld else "empty"
+        ni_name = type(ni_bld).__name__[8:] if ni_bld else "empty"
+        ci_team = (
+            "own" if ci_bld and ci_bld.team == s.my_team else "en" if ci_bld else ""
+        )
+        ni_team = (
+            "own" if ni_bld and ni_bld.team == s.my_team else "en" if ni_bld else ""
+        )
+        ci_conn = "conn" if ci in s.connected_transport else ""
+        _log(
+            f"  gap@({cx},{cy})={ci_team}{ci_name}{ci_conn} -> ({nx},{ny})={ni_team}{ni_name} mode={'atk' if destroy_barriers else 'eco'}",
+            0,
+        )
+
         # Pre-check (econ only): can we remove existing building on gap tile?
-        # Attack mode handles blocks in _task_extend_attack before reaching here.
         if not destroy_barriers:
             gap_bld = s.building[ci]
             if gap_bld is not None and not (
                 isinstance(gap_bld, BuildingMarker)
-                or (gap_bld.team == s.my_team and isinstance(gap_bld, BuildingRoad))
+                or (
+                    gap_bld.team == s.my_team
+                    and isinstance(gap_bld, (BuildingRoad, BuildingBarrier))
+                )
             ):
                 self._connect_path = None
                 return f"{tag} tile_blocked:recompute", False
@@ -545,7 +564,8 @@ class Builder(Unit):
             ti_res, _ = ct.get_global_resources()
             if ti_res < b_cost:
                 return f"{tag} wait_ti(bridge)", False
-            _destroy_friendly(ct, build_pos, allow_barrier=destroy_barriers)
+            if ci not in s.connected_transport:
+                _destroy_friendly(ct, build_pos, allow_barrier=True)
             if ct.can_build_bridge(build_pos, target_pos):
                 ct.build_bridge(build_pos, target_pos)
                 from building import BuildingBridge as BldBridge
@@ -590,7 +610,7 @@ class Builder(Unit):
         ti_res, _ = ct.get_global_resources()
         if ti_res < c_cost:
             return f"{tag} wait_ti(conv)", False
-        _destroy_friendly(ct, build_pos, allow_barrier=destroy_barriers)
+        _destroy_friendly(ct, build_pos, allow_barrier=True)
         if ct.can_build_conveyor(build_pos, conv_dir):
             ct.build_conveyor(build_pos, conv_dir)
             from building import BuildingConveyor as BldConveyor
@@ -1032,13 +1052,20 @@ class Builder(Unit):
         if path is None or len(path) < 2:
             self._attack_stuck += 1
             if self._attack_stuck >= 10:
-                # Truly stuck — clear and replan
+                # Truly stuck — abandon this attack entirely, find new target
                 self._chain_frontier = None
                 self._chain_source = None
+                self._attack_target = None
                 self._attack_stuck = 0
             return "attack:no_path", False
 
         self._attack_stuck = 0
+
+        # Log the computed path
+        path_str = "->".join(f"({ti % w},{ti // w})" for ti in path[:6])
+        if len(path) > 6:
+            path_str += f"...({len(path)})"
+        _log(f"  astar: {path_str}", 0)
 
         # Find first gap in the short path
         for k in range(len(path) - 1):
@@ -1098,8 +1125,8 @@ class Builder(Unit):
                 if "cant_build" in result[0] or "recompute" in result[0]:
                     self._attack_stuck += 1
                     if self._attack_stuck >= 5:
-                        # Stuck too long — retreat frontier and let A* reroute
-                        self._chain_frontier = None
+                        # Stuck too long — retreat to source, A* will reroute
+                        self._chain_frontier = self._chain_source
                         self._attack_stuck = 0
                     return result
                 # Success — advance frontier
@@ -1408,9 +1435,13 @@ class Builder(Unit):
             if hit is None:
                 continue
 
-            # Check feed direction
+            # Feed direction must not equal facing direction
             chain_dx, chain_dy = fx - gx, fy - gy
             if (chain_dx, chain_dy) == (facing_dx, facing_dy):
+                continue
+            # Verify flow tile actually outputs toward gunner position
+            flow_fi = fy * w + fx
+            if not _tile_has_correct_transport(s, flow_fi, gi, w):
                 continue
 
             if pos.distance_squared(gpos) > 2:
