@@ -667,6 +667,8 @@ class Builder(Unit):
                 self._harvest_target = None
                 self._my_harvesters.add(ni)
                 return f"harvest:place({ore_pos.x},{ore_pos.y})", True
+            # Failed — clear target so we pick a different ore
+            self._harvest_target = None
             return f"harvest:cant_place({ore_pos.x},{ore_pos.y})", False
 
         # Phase 2: walk toward committed ore target (sticky -- no oscillation)
@@ -692,8 +694,19 @@ class Builder(Unit):
                     conn_dist = abs(ox - core_x) + abs(oy - core_y)
                 return walk_dist + conn_dist * 2
 
+            # Skip ore with enemy buildings on it
+            valid_ore = set()
+            for oi in unharvested:
+                bld = s.building[oi]
+                if (
+                    bld is not None
+                    and bld.team != s.my_team
+                    and not isinstance(bld, BuildingMarker)
+                ):
+                    continue
+                valid_ore.add(oi)
             scored = sorted(
-                [(sc, oi) for oi in unharvested if (sc := _score(oi)) < 1_000_000]
+                [(sc, oi) for oi in valid_ore if (sc := _score(oi)) < 1_000_000]
             )
             if scored:
                 ht = scored[0][1]
