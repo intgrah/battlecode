@@ -270,6 +270,7 @@ class AttackAstar(Astar[int]):
 
         cx, cy = node % w, node // w
         result: list[tuple[int, int]] = []
+        danger = self._danger
 
         # Cardinal neighbors (COST_CONV each — always build new)
         for ddx, ddy in DIR4_DELTA:
@@ -278,6 +279,9 @@ class AttackAstar(Astar[int]):
                 ni = ny * w + nx
                 ne = env[ni]
                 if ne is not None and ne in _IMPASSABLE_ENV:
+                    continue
+                # Avoid launcher danger zones
+                if ni in danger:
                     continue
                 result.append((ni, COST_CONV))
 
