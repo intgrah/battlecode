@@ -263,17 +263,12 @@ class Builder(Unit):
             result = self._task_plan_attack(ct)
             if result is not None:
                 return result
-            # Planning failed — need Ti source. Fall through to econ/explore.
 
         # 4. No target: find one
         if self._attack_target is None:
             result = self._task_find_attack_target(ct)
             if result is not None:
                 return result
-
-        # 5. No path yet (no source) — do econ to build up Ti supply
-        if self._attack_path is None:
-            return self._run_econ(ct)
 
         return self._task_explore_enemy(ct)
 
@@ -733,6 +728,13 @@ class Builder(Unit):
         w = s.w
 
         en_buildings = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
+
+        # Include estimated enemy core position even if not directly observed
+        if s.en_core_pos is not None and not en_buildings:
+            ei = s.en_core_pos.y * w + s.en_core_pos.x
+            self._attack_target = ei
+            return None
+
         if not en_buildings:
             return None
 
@@ -743,7 +745,6 @@ class Builder(Unit):
         for ei in en_buildings:
             ex, ey = ei % w, ei // w
             dist = abs(pos.x - ex) + abs(pos.y - ey)
-            # Core tiles get priority (subtract 100)
             bonus = -100 if ei in s.en_core_tiles else 0
             score = dist + bonus
             if score < best_score:
@@ -752,7 +753,7 @@ class Builder(Unit):
 
         if best_ti is not None:
             self._attack_target = best_ti
-        return None  # fall through to explore_enemy
+        return None
 
     # -- Attack: Plan (find source + compute A*) --
 
