@@ -261,14 +261,19 @@ class Builder(Unit):
             if pos.distance_squared(ore_pos) <= 2:
                 h_cost, _ = ct.get_harvester_cost()
                 ti_res, _ = ct.get_global_resources()
-                if ti_res >= h_cost:
-                    _destroy_friendly(ct, ore_pos)
-                    if ct.can_build_harvester(ore_pos):
-                        ct.build_harvester(ore_pos)
-                        self._my_harvesters.add(ore_ti)
-                        self._attack_needs_harvester = None
-                        return "attack:place_harvester", True
-                return "attack:wait_ti_harvester", False
+                if ti_res < h_cost:
+                    return "attack:wait_ti_harvester", False
+                _destroy_friendly(ct, ore_pos)
+                if ct.can_build_harvester(ore_pos):
+                    ct.build_harvester(ore_pos)
+                    self._my_harvesters.add(ore_ti)
+                    self._attack_needs_harvester = None
+                    return "attack:place_harvester", True
+                # Can't build — ore blocked. Clear and re-plan.
+                self._attack_needs_harvester = None
+                self._attack_source = None
+                self._attack_path = None
+                return "attack:ore_blocked", False
             self.nav.set_goal(ore_pos)
             moved = self.nav.step(ct)
             return "attack:walk_to_ore", moved
@@ -888,6 +893,10 @@ class Builder(Unit):
         best_ore_dist = 1_000_000
         for oi in self.ti_ore.positions:
             if oi in s.my_harvesters or oi in s.en_harvesters:
+                continue
+            # Skip ore with enemy building on it (barrier etc)
+            ore_bld = s.building[oi]
+            if ore_bld is not None and ore_bld.team != s.my_team:
                 continue
             ox, oy = oi % w, oi // w
             dist = abs(ox - tx) + abs(oy - ty)
