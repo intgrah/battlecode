@@ -401,19 +401,12 @@ class Builder(Unit):
         return f"{tag} conv_cant_build:recompute", False
 
     def _capacity_filtered_goals(self) -> set[int]:
-        """Goals = core tiles + connected transport with spare capacity on trusted branches."""
-        from state_update import _is_branch_trusted
-
+        """Goals = core tiles + connected transport with spare capacity."""
         s = self.state
         goals: set[int] = set(s.core_tiles)
-
         for ti in s.connected_transport:
-            bn = s.bottleneck.get(ti, 0)
-            if bn >= _BRANCH_CAPACITY:
-                continue
-            if not _is_branch_trusted(s, ti):
-                continue
-            goals.add(ti)
+            if s.bottleneck.get(ti, 0) < _BRANCH_CAPACITY:
+                goals.add(ti)
         return goals
 
     # -- Task: Explore Tree --

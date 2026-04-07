@@ -74,7 +74,7 @@ class ChainAstar(Astar[int]):
         sy: int,
         goals: set[int],
         bottleneck: dict[int, int] | None = None,
-        capacity: int = 3,
+        capacity: int = 4,
     ) -> None:
         self._w = state.w
         self._h = state.h
@@ -86,8 +86,6 @@ class ChainAstar(Astar[int]):
         self._bottleneck = bottleneck or {}
         self._capacity = capacity
         si = sy * self._w + sx
-
-        # Goals are already capacity-filtered by caller
         super().__init__(si, goals)
 
     def heuristic(self, node: int) -> int:
@@ -115,6 +113,11 @@ class ChainAstar(Astar[int]):
         bottleneck = self._bottleneck
         capacity = self._capacity
         node_overloaded = bottleneck.get(node, 0) >= capacity
+
+        # Near core, reuse costs same as new conveyor (discourages merging).
+        # Far from core, reuse is free (saves Ti on long chains).
+        core_dist = abs(cx - self._gx) + abs(cy - self._gy)
+        reuse_cost = COST_CONV if core_dist <= 5 else COST_REUSE
 
         def _add_neighbor(ni: int, base_cost: int) -> None:
             ok, cost = _tile_cost(env, ni, base_cost)
@@ -147,7 +150,7 @@ class ChainAstar(Astar[int]):
                         return []
                     bx, by = bt.x, bt.y
                     if 0 <= bx < w and 0 <= by < h:
-                        _add_neighbor(by * w + bx, COST_REUSE)
+                        _add_neighbor(by * w + bx, reuse_cost)
 
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 if bld.team == my_team:
@@ -156,7 +159,7 @@ class ChainAstar(Astar[int]):
                     ddx, ddy = d.delta()
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
-                        _add_neighbor(ny * w + nx, COST_REUSE)
+                        _add_neighbor(ny * w + nx, reuse_cost)
 
             case BuildingSplitter(direction=d):
                 if bld.team == my_team:
@@ -166,7 +169,7 @@ class ChainAstar(Astar[int]):
                     for odx, ody in [(ddx, ddy), (-ddy, ddx), (ddy, -ddx)]:
                         nx, ny = cx + odx, cy + ody
                         if 0 <= nx < w and 0 <= ny < h:
-                            _add_neighbor(ny * w + nx, COST_REUSE)
+                            _add_neighbor(ny * w + nx, reuse_cost)
 
             case BuildingRoad():
                 for ddx, ddy in DIR4_DELTA:
