@@ -670,10 +670,11 @@ class Builder(Unit):
         # Validate cached path
         path = self._attack_path
         if path is not None:
-            end_ti = path[-1]
-            still_valid = (end_ti in network or end_ti in s.core_tiles) and path[
-                0
-            ] in targets
+            # After reverse: path[0]=network, path[-1]=target
+            still_valid = (
+                (path[0] in network or path[0] in s.core_tiles)
+                and path[-1] in targets
+            )
             if not still_valid:
                 path = None
                 self._attack_path = None
@@ -711,6 +712,9 @@ class Builder(Unit):
             )
             if path is None:
                 return None
+            # Reverse: path goes target→network, but we need conveyors
+            # pointing FROM network TOWARD target (Ti flows outward)
+            path.reverse()
             self._attack_path = path
 
         # Find first gap (same logic as connect)
@@ -1051,6 +1055,9 @@ class Builder(Unit):
                 ):
                     continue
                 barrier_pos = Position(nx, ny)
+                # Can't build on tile with a bot on it
+                if barrier_pos == pos or barrier_pos in s.unit_tiles:
+                    continue
                 if pos.distance_squared(barrier_pos) <= 2:
                     if ct.can_build_barrier(barrier_pos):
                         ct.build_barrier(barrier_pos)
