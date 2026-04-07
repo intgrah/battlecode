@@ -82,6 +82,7 @@ class Builder(Unit):
         self._attack_source: int | None = None  # Ti source tile (harvester free side)
         self._attack_path: list[int] | None = None  # A* path from source to gunner pos
         self._attack_gunner: int | None = None  # tile where we placed gunner
+        self._attack_needs_harvester: int | None = None  # ore tile needing harvester
 
         # Defense state
         self._reactive_gunner_state: str | None = None
@@ -248,7 +249,27 @@ class Builder(Unit):
                 return result
             return "attack:gunner_active", False
 
-        # 2. Path exists: build along it. If complete + ammo flowing → place gunner.
+        # 2. Need to place harvester for attack source?
+        if self._attack_needs_harvester is not None:
+            ore_ti = self._attack_needs_harvester
+            ox, oy = ore_ti % s.w, ore_ti // s.w
+            ore_pos = Position(ox, oy)
+            if pos.distance_squared(ore_pos) <= 2:
+                h_cost, _ = ct.get_harvester_cost()
+                ti_res, _ = ct.get_global_resources()
+                if ti_res >= h_cost:
+                    _destroy_friendly(ct, ore_pos)
+                    if ct.can_build_harvester(ore_pos):
+                        ct.build_harvester(ore_pos)
+                        self._my_harvesters.add(ore_ti)
+                        self._attack_needs_harvester = None
+                        return "attack:place_harvester", True
+                return "attack:wait_ti_harvester", False
+            self.nav.set_goal(ore_pos)
+            moved = self.nav.step(ct)
+            return "attack:walk_to_ore", moved
+
+        # 3. Path exists: build along it. If complete + ammo flowing → place gunner.
         if self._attack_path is not None:
             result = self._task_extend_attack(ct)
             if result is not None:
@@ -891,8 +912,16 @@ class Builder(Unit):
 
         # Pick whichever source is closer to target
         if best_src is not None and best_ore_src is not None:
-            return best_ore_src if best_ore_dist < best_dist else best_src
-        return best_src or best_ore_src
+            if best_ore_dist < best_dist:
+                self._attack_needs_harvester = best_ore
+                return best_ore_src
+            self._attack_needs_harvester = None
+            return best_src
+        if best_ore_src is not None:
+            self._attack_needs_harvester = best_ore
+            return best_ore_src
+        self._attack_needs_harvester = None
+        return best_src
 
     # -- Task: Extend Attack Chain --
 
