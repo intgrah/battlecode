@@ -810,7 +810,7 @@ class Builder(Unit):
     # -- Task: Cut Feed --
 
     def _task_destroy_enemy_infra(self, ct: Controller) -> tuple[str, bool] | None:
-        """Walk to nearest visible enemy walkable building and fire at it."""
+        """Walk to and fire at enemy transport or harvester-adjacent buildings."""
         s = self.state
         w = s.w
         pos = ct.get_position()
@@ -823,7 +823,7 @@ class Builder(Unit):
                 ct.fire(pos)
                 return "destroy_enemy:fire", True
 
-        # Find nearest enemy walkable building (road/conveyor/bridge/splitter)
+        # Target: enemy transport tiles only (not random roads)
         best_pos: Position | None = None
         best_dist = 1_000_000
         for ti in s.en_transport:
@@ -832,16 +832,6 @@ class Builder(Unit):
             if d < best_dist:
                 best_dist = d
                 best_pos = Position(tx, ty)
-        # Also check enemy roads (not in en_transport)
-        for bid in ct.get_nearby_buildings():
-            if ct.get_team(bid) == my_team:
-                continue
-            if ct.get_entity_type(bid) == EntityType.ROAD:
-                bpos = ct.get_position(bid)
-                d = abs(pos.x - bpos.x) + abs(pos.y - bpos.y)
-                if d < best_dist:
-                    best_dist = d
-                    best_pos = bpos
 
         if best_pos is None or best_dist > 5:
             return None
@@ -1388,7 +1378,7 @@ def _update_nearby_tiles(
         ti_ore.update_tile(i, env, sym)
 
 
-# -- Attack class (inlined from attack.py) --
+# -- Attack class (flow-gap model) --
 
 _BUILDABLE_ENV = frozenset(
     {Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE}
@@ -1396,23 +1386,17 @@ _BUILDABLE_ENV = frozenset(
 
 
 class _Attack:
-    """Manages one attack chain from source to target."""
+    """Flow-gap attack: extend transport with Ti, drop turrets when useful/blocked."""
 
     def __init__(self) -> None:
-        self.target: int | None = None  # enemy tile to push toward
-        self.source: int | None = None  # Ti source (harvester free side)
-        self.frontier: int | None = None  # furthest tile with our transport
-        self.gunner: int | None = None  # active gunner tile
-        self._stuck: int = 0
+        self.target: int | None = None
+        self.gunner: int | None = None  # active turret tile
 
     def run(self, ct: Controller, nav: NavBfs, s: State) -> tuple[str, bool]:
-        """Main entry point — called once per turn by the attack builder."""
         w = s.w
         pos = ct.get_position()
 
-        self._invalidate(s)
-
-        # 1. Gunner active → wait for idle → recycle
+        # Recycle idle turret
         if self.gunner is not None:
             result = self._recycle(ct, s)
             if result is not None:
@@ -1422,365 +1406,182 @@ class _Attack:
             if pos.distance_squared(gpos) > 2:
                 nav.set_goal(gpos)
                 moved = nav.step(ct)
-                return f"atk:wait_gunner({gx},{gy})", moved
-            return "atk:gunner_active", False
+                return f"atk:wait({gx},{gy})", moved
+            return "atk:turret_active", False
 
-        # 2. Frontier exists → advance
-        if self.frontier is not None:
-            return self._advance(ct, nav, s)
+        if ct.get_action_cooldown() != 0:
+            return "atk:cooldown", False
 
-        # 3. Target but no chain → find source, set frontier
-        if self.target is not None:
-            return self._init_chain(ct, s)
+        # Scan nearby tiles for flow gaps — our transport with Ti
+        # outputting to empty/enemy space
+        best_gap = self._find_best_gap(ct, s, pos)
 
-        # 4. No target
-        return "atk:no_target", False
+        if best_gap is not None:
+            src_ti, out_ti, out_x, out_y = best_gap
+            out_pos = Position(out_x, out_y)
+            out_bld = s.building[out_ti]
 
-    # -- Invalidation --
-
-    def _invalidate(self, s: State) -> None:
-        w = s.w
-
-        # Target gone
-        if self.target is not None:
-            env = s.env[self.target]
-            if env is not None and env == Environment.WALL:
-                self.target = None
-                self.frontier = None
-                self.source = None
-
-        # Source harvester destroyed
-        if self.source is not None:
-            found = False
-            for dx, dy in DIR4_DELTA:
-                nx, ny = self.source % w + dx, self.source // w + dy
-                if s.in_bounds(nx, ny) and isinstance(
-                    s.building[ny * w + nx], BuildingHarvester
-                ):
-                    found = True
-                    break
-            if not found:
-                self.source = None
-                # Keep frontier — chain may still be fed by another harvester
-
-        # Frontier tile taken by enemy
-        if self.frontier is not None and self.frontier != self.source:
-            bld = s.building[self.frontier]
-            # Only retreat if enemy built on our frontier (not if we cleared it)
+            # Enemy building at output → place turret
+            is_enemy = False
             if (
-                bld is not None
-                and bld.team != s.my_team
-                and not isinstance(bld, BuildingMarker)
+                out_bld is not None
+                and out_bld.team != s.my_team
+                and not isinstance(out_bld, BuildingMarker)
             ):
-                self.frontier = self.source
+                is_enemy = True
+            elif ct.is_in_vision(out_pos):
+                obid = ct.get_tile_building_id(out_pos)
+                if obid is not None and ct.get_team(obid) != s.my_team:
+                    if ct.get_entity_type(obid) != EntityType.MARKER:
+                        is_enemy = True
 
-        # Gunner destroyed
-        if self.gunner is not None:
-            bld = s.building[self.gunner]
-            if not isinstance(bld, BuildingGunner) or bld.team != s.my_team:
-                self.gunner = None
+            if is_enemy:
+                return self._place_turret(ct, nav, s, src_ti, out_ti)
 
-    # -- Init chain --
+            # Check if a turret HERE would hit something valuable
+            # before extending further
+            result = self._try_turret_for_value(ct, nav, s, out_ti)
+            if result is not None:
+                return result
 
-    def _init_chain(self, ct: Controller, s: State) -> tuple[str, bool]:
-        w = s.w
-        target = self.target
-        if target is None:
-            return "atk:no_target", False
+            # Empty and buildable → extend chain
+            out_env = s.env[out_ti]
+            if out_env is None or out_env not in _BUILDABLE_ENV:
+                if pos.distance_squared(out_pos) > 2:
+                    nav.set_goal(out_pos)
+                    moved = nav.step(ct)
+                    return f"atk:walk({out_x},{out_y})", moved
 
-        tx, ty = target % w, target // w
-        source = _find_source(s, tx, ty)
-        if source is None:
-            return "atk:no_source", False
-
-        self.source = source
-        self.frontier = source
-        self._stuck = 0
-        return f"atk:init src=({source % w},{source // w})", False
-
-    # -- Opportunistic extend --
-
-    def _try_opportunistic_extend(
-        self, ct: Controller, s: State, pos: Position, tx: int, ty: int
-    ) -> tuple[str, bool] | None:
-        """If adjacent to our transport with Ti that outputs to empty space
-        closer to target, build a conveyor there. O(1) check."""
-        w = s.w
-        my_team = s.my_team
-        px, py = pos.x, pos.y
-
-        # Check tiles within action range (r²=2)
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                if dx == 0 and dy == 0:
-                    continue
-                sx, sy = px + dx, py + dy
-                if not s.in_bounds(sx, sy):
-                    continue
-                si = sy * w + sx
-                bld = s.building[si]
-                if bld is None or bld.team != my_team:
-                    continue
-
-                # Must be transport with resources
-                src_pos = Position(sx, sy)
-                bid = ct.get_tile_building_id(src_pos)
-                if bid is None:
-                    continue
-                if ct.get_stored_resource(bid) <= 0:
-                    continue
-
-                # Find where this transport outputs
-                from building import (
-                    BuildingArmouredConveyor,
-                    BuildingBridge,
-                    BuildingConveyor,
-                    BuildingSplitter,
-                )
-
-                out_tiles: list[tuple[int, int]] = []
-                match bld:
-                    case (
-                        BuildingConveyor(direction=d)
-                        | BuildingArmouredConveyor(direction=d)
-                    ):
-                        ddx, ddy = d.delta()
-                        out_tiles.append((sx + ddx, sy + ddy))
-                    case BuildingSplitter(direction=d):
-                        ddx, ddy = d.delta()
-                        for odx, ody in [
-                            (ddx, ddy),
-                            (-ddy, ddx),
-                            (ddy, -ddx),
-                        ]:
-                            out_tiles.append((sx + odx, sy + ody))
-                    case BuildingBridge(target=tgt):
-                        out_tiles.append((tgt.x, tgt.y))
-                    case _:
-                        continue
-
-                for ox, oy in out_tiles:
-                    if not s.in_bounds(ox, oy):
-                        continue
-                    oi = oy * w + ox
-                    # Output tile must be empty and buildable
-                    if s.building[oi] is not None:
-                        continue
-                    oenv = s.env[oi]
-                    if oenv is not None and oenv in _BUILDABLE_ENV:
-                        continue
-                    # Must be closer to target than the source
-                    if abs(ox - tx) + abs(oy - ty) >= abs(sx - tx) + abs(sy - ty):
-                        continue
-                    # Must be adjacent to us
-                    opos = Position(ox, oy)
-                    if pos.distance_squared(opos) > 2:
-                        continue
-                    # Build a conveyor toward the target
-                    cdx = 0 if tx == ox else (1 if tx > ox else -1)
-                    cdy = 0 if ty == oy else (1 if ty > oy else -1)
-                    conv_dir = DELTA_TO_DIR.get((cdx, cdy))
-                    if conv_dir is None:
-                        continue
+                # Build conveyor toward target (or toward enemy core estimate)
+                tx, ty = self._target_xy(s, w)
+                cdx = 0 if tx == out_x else (1 if tx > out_x else -1)
+                cdy = 0 if ty == out_y else (1 if ty > out_y else -1)
+                conv_dir = DELTA_TO_DIR.get((cdx, cdy))
+                if conv_dir is not None:
                     c_cost, _ = ct.get_conveyor_cost()
                     ti_res, _ = ct.get_global_resources()
-                    if ti_res < c_cost:
-                        continue
-                    _clear_tile(ct, s, oi, opos)
-                    if ct.can_build_conveyor(opos, conv_dir):
-                        ct.build_conveyor(opos, conv_dir)
-                        from building import BuildingConveyor
+                    if ti_res >= c_cost:
+                        _clear_tile(ct, s, out_ti, out_pos)
+                        if ct.can_build_conveyor(out_pos, conv_dir):
+                            ct.build_conveyor(out_pos, conv_dir)
+                            from building import BuildingConveyor
 
-                        s.building[oi] = BuildingConveyor(s.my_team, conv_dir)
-                        s.my_transport.add(oi)
-                        self.frontier = oi
-                        return f"atk:opp({ox},{oy})->{conv_dir.name}", True
+                            s.building[out_ti] = BuildingConveyor(s.my_team, conv_dir)
+                            s.my_transport.add(out_ti)
+                            return f"atk:conv({out_x},{out_y})->{conv_dir.name}", True
+                    return "atk:wait_ti", False
+
+        return "atk:no_gap", False
+
+    def _find_best_gap(
+        self, ct: Controller, s: State, pos: Position
+    ) -> tuple[int, int, int, int] | None:
+        """Find nearest transport tile with Ti outputting to empty/enemy space."""
+        w = s.w
+        my_team = s.my_team
+        best: tuple[int, int, int, int] | None = None
+        best_dist = 1_000_000
+
+        from building import (
+            BuildingArmouredConveyor,
+            BuildingBridge,
+            BuildingConveyor,
+            BuildingHarvester,
+            BuildingSplitter,
+        )
+
+        # Check nearby buildings for transport with resources (ours OR enemy)
+        for bid in ct.get_nearby_buildings():
+            etype = ct.get_entity_type(bid)
+            if etype not in (
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+                EntityType.BRIDGE,
+                EntityType.HARVESTER,
+            ):
+                continue
+            if ct.get_stored_resource(bid) <= 0 and etype != EntityType.HARVESTER:
+                continue
+
+            bpos = ct.get_position(bid)
+            si = bpos.y * w + bpos.x
+            bld = s.building[si]
+            if bld is None:
+                continue
+
+            # Find output tiles
+            out_tiles: list[tuple[int, int]] = []
+            match bld:
+                case (
+                    BuildingConveyor(direction=d)
+                    | BuildingArmouredConveyor(direction=d)
+                ):
+                    ddx, ddy = d.delta()
+                    out_tiles.append((bpos.x + ddx, bpos.y + ddy))
+                case BuildingSplitter(direction=d):
+                    ddx, ddy = d.delta()
+                    for odx, ody in [(ddx, ddy), (-ddy, ddx), (ddy, -ddx)]:
+                        out_tiles.append((bpos.x + odx, bpos.y + ody))
+                case BuildingBridge(target=tgt):
+                    out_tiles.append((tgt.x, tgt.y))
+                case BuildingHarvester():
+                    for ddx, ddy in DIR4_DELTA:
+                        out_tiles.append((bpos.x + ddx, bpos.y + ddy))
+
+            for ox, oy in out_tiles:
+                if not s.in_bounds(ox, oy):
+                    continue
+                oi = oy * w + ox
+                out_bld = s.building[oi]
+                # Gap = output goes to empty tile or enemy building
+                if out_bld is not None and out_bld.team == my_team:
+                    continue  # already our transport, not a gap
+                d = abs(pos.x - ox) + abs(pos.y - oy)
+                if d < best_dist:
+                    best_dist = d
+                    best = (si, oi, ox, oy)
+
+        return best
+
+    def _try_turret_for_value(
+        self, ct: Controller, nav: NavBfs, s: State, ti: int
+    ) -> tuple[str, bool] | None:
+        """If placing a turret at ti can hit a high-value enemy target, do it."""
+        w = s.w
+        tx, ty = ti % w, ti // w
+        en_hvt = s.en_core_tiles | s.en_turrets | s.en_harvesters
+
+        for eti in en_hvt:
+            ex, ey = eti % w, eti // w
+            d2 = (tx - ex) ** 2 + (ty - ey) ** 2
+            if d2 <= 13:
+                # Gunner range — place gunner
+                return self._place_turret(ct, nav, s, ti, eti)
+            if d2 <= 32 and eti in (s.en_core_tiles | s.en_turrets):
+                # Sentinel range for HVT — place sentinel
+                return self._place_turret(ct, nav, s, ti, eti, sentinel=True)
 
         return None
 
-    # -- Advance frontier --
-
-    def _advance(self, ct: Controller, nav: NavBfs, s: State) -> tuple[str, bool]:
-        """Advance the chain one tile toward the target. Simple and robust."""
-        w = s.w
-        pos = ct.get_position()
-        frontier = self.frontier
-        target = self.target
-
-        if frontier is None or target is None:
-            return "atk:no_state", False
-
-        fx, fy = frontier % w, frontier // w
-        tx, ty = target % w, target // w
-
-        # Opportunistic: check nearby transport tiles with Ti that output
-        # to empty buildable tiles closer to target. O(1) per tile.
-        if ct.get_action_cooldown() == 0:
-            result = self._try_opportunistic_extend(ct, s, pos, tx, ty)
-            if result is not None:
-                return result
-
-        # Close to target — place gunner
-        if abs(fx - tx) + abs(fy - ty) <= 4:
-            result = self._place_gunner(ct, nav, s)
-            if result is not None:
-                return result
-
-        # A* from frontier toward target ring
-        goals: set[int] = set()
-        for ddx in range(-3, 4):
-            for ddy in range(-3, 4):
-                gx, gy = tx + ddx, ty + ddy
-                if s.in_bounds(gx, gy):
-                    goals.add(gy * w + gx)
-
-        search = AttackAstar(s, frontier, goals)
-        path = search.compute(within_budget=lambda: ct.get_cpu_time_elapsed() < 1500)
-        if path is None or len(path) < 2:
-            self._stuck += 1
-            if self._stuck >= 10:
-                self.target = None
-                self.frontier = None
-                self.source = None
-                self._stuck = 0
-            return "atk:no_path", False
-        self._stuck = 0
-
-        # Find the first tile that needs building
-        for k in range(len(path) - 1):
-            ci, ni = path[k], path[k + 1]
-
-            # Already built → advance frontier
-            if _tile_has_transport(s, ci, ni, w):
-                self.frontier = ci
-                continue
-
-            cx, cy = ci % w, ci // w
-            nx, ny = ni % w, ni // w
-
-            # Is there an enemy building on ci or ni? Drop gunner.
-            for ti in (ci, ni):
-                bld = s.building[ti]
-                if (
-                    bld is not None
-                    and bld.team != s.my_team
-                    and not isinstance(bld, BuildingMarker)
-                ):
-                    return self._place_gunner_at(ct, nav, s, ci, ti)
-
-            # Live check on ni (belief map might be stale)
-            npos = Position(nx, ny)
-            if ct.is_in_vision(npos):
-                nbid = ct.get_tile_building_id(npos)
-                if nbid is not None and ct.get_team(nbid) != s.my_team:
-                    if ct.get_entity_type(nbid) != EntityType.MARKER:
-                        return self._place_gunner_at(ct, nav, s, ci, ni)
-
-            # Can't build on wall/ore
-            ci_env = s.env[ci]
-            if ci_env is not None and ci_env in _BUILDABLE_ENV:
-                self._stuck += 1
-                return f"atk:terrain({cx},{cy})", False
-
-            # Walk to tile if not adjacent
-            bpos = Position(cx, cy)
-            if pos.distance_squared(bpos) > 2:
-                nav.set_goal(bpos)
-                moved = nav.step(ct)
-                return f"atk:walk({cx},{cy})", moved
-
-            # Check: can we place a sentinel here to hit a high-value target?
-            # Sentinels have r²=32 vs gunner r²=13 — can reach further
-            en_hvt = s.en_core_tiles | s.en_turrets | s.en_harvesters
-            for eti in en_hvt:
-                etx, ety = eti % w, eti // w
-                d2 = (cx - etx) ** 2 + (cy - ety) ** 2
-                if 13 < d2 <= 32:
-                    # Sentinel range but not gunner range
-                    s_cost, _ = ct.get_sentinel_cost()
-                    ti_res, _ = ct.get_global_resources()
-                    if ti_res >= s_cost and _can_place_gunner(s, ci):
-                        sdx = 0 if etx == cx else (1 if etx > cx else -1)
-                        sdy = 0 if ety == cy else (1 if ety > cy else -1)
-                        sdir = DELTA_TO_DIR.get((sdx, sdy))
-                        if sdir is not None:
-                            sbpos = Position(cx, cy)
-                            if pos.distance_squared(sbpos) > 2:
-                                nav.set_goal(sbpos)
-                                moved = nav.step(ct)
-                                return f"atk:sentinel_walk({cx},{cy})", moved
-                            _clear_tile(ct, s, ci, sbpos)
-                            if ct.can_build_sentinel(sbpos, sdir):
-                                ct.build_sentinel(sbpos, sdir)
-                                self.gunner = ci  # track like a gunner
-                                return f"atk:sentinel({cx},{cy})", True
-                    break  # only try one HVT
-
-            # Try to build
-            dx, dy = nx - cx, ny - cy
-            conv_dir = DELTA_TO_DIR.get((dx, dy))
-
-            if conv_dir is not None:
-                # Cardinal conveyor
-                c_cost, _ = ct.get_conveyor_cost()
-                ti_res, _ = ct.get_global_resources()
-                if ti_res < c_cost:
-                    return "atk:wait_ti", False
-                _clear_tile(ct, s, ci, bpos)
-                if ct.can_build_conveyor(bpos, conv_dir):
-                    ct.build_conveyor(bpos, conv_dir)
-                    from building import BuildingConveyor
-
-                    s.building[ci] = BuildingConveyor(s.my_team, conv_dir)
-                    s.my_transport.add(ci)
-                    self.frontier = ci
-                    return f"atk:conv({cx},{cy})->{conv_dir.name}", True
-                # Failed — increment stuck, A* will reroute
-                self._stuck += 1
-                return f"atk:conv_fail({cx},{cy})", False
-
-            # Bridge
-            tpos = Position(nx, ny)
-            b_cost, _ = ct.get_bridge_cost()
-            ti_res, _ = ct.get_global_resources()
-            if ti_res < b_cost:
-                return "atk:wait_ti", False
-            _clear_tile(ct, s, ci, bpos)
-            if ct.can_build_bridge(bpos, tpos):
-                ct.build_bridge(bpos, tpos)
-                from building import BuildingBridge
-
-                s.building[ci] = BuildingBridge(s.my_team, tpos)
-                s.my_transport.add(ci)
-                self.frontier = ci
-                return f"atk:bridge({cx},{cy})->({nx},{ny})", True
-            self._stuck += 1
-            return f"atk:bridge_fail({cx},{cy})", False
-
-        # All built — place gunner
-        self.frontier = path[-1]
-        result = self._place_gunner(ct, nav, s)
-        if result is not None:
-            return result
-        return "atk:chain_done", False
-
-    # -- Place gunner facing enemy --
-
-    def _place_gunner_at(
+    def _place_turret(
         self,
         ct: Controller,
         nav: NavBfs,
         s: State,
         gi: int,
         enemy_ti: int,
+        *,
+        sentinel: bool = False,
     ) -> tuple[str, bool]:
+        """Place gunner or sentinel at gi facing enemy_ti."""
         w = s.w
         pos = ct.get_position()
         gx, gy = gi % w, gi // w
         ex, ey = enemy_ti % w, enemy_ti // w
 
         if not _can_place_gunner(s, gi):
-            return f"atk:cant_gunner({gx},{gy})", False
+            return f"atk:cant_place({gx},{gy})", False
 
         fdx = 0 if ex == gx else (1 if ex > gx else -1)
         fdy = 0 if ey == gy else (1 if ey > gy else -1)
@@ -1790,14 +1591,8 @@ class _Attack:
         if facing is None:
             return f"atk:no_face({gx},{gy})", False
 
-        g_cost, _ = ct.get_gunner_cost()
-        ti, _ = ct.get_global_resources()
-        if ti < g_cost:
-            return "atk:gunner_wait_ti", False
-
         gpos = Position(gx, gy)
 
-        # Step off if we're standing on the tile
         if pos == gpos:
             for d in Direction:
                 if d != Direction.CENTRE and ct.can_move(d):
@@ -1808,60 +1603,59 @@ class _Attack:
         if pos.distance_squared(gpos) > 2:
             nav.set_goal(gpos)
             moved = nav.step(ct)
-            return f"atk:gunner_walk({gx},{gy})", moved
+            return f"atk:turret_walk({gx},{gy})", moved
 
-        # Only clear road/marker/barrier — don't destroy transport
         _clear_tile(ct, s, gi, gpos)
 
-        if ct.can_build_gunner(gpos, facing):
+        # Try to destroy own building if still blocking
+        if sentinel:
+            cost, _ = ct.get_sentinel_cost()
+        else:
+            cost, _ = ct.get_gunner_cost()
+        ti_res, _ = ct.get_global_resources()
+        if ti_res < cost:
+            return "atk:wait_ti", False
+
+        if not sentinel and ct.can_build_gunner(gpos, facing):
             ct.build_gunner(gpos, facing)
             from building import BuildingGunner
 
             s.building[gi] = BuildingGunner(s.my_team, facing)
             self.gunner = gi
             return f"atk:gunner({gx},{gy})", True
+        if sentinel and ct.can_build_sentinel(gpos, facing):
+            ct.build_sentinel(gpos, facing)
+            self.gunner = gi  # track same way
+            return f"atk:sentinel({gx},{gy})", True
 
-        return f"atk:gunner_fail({gx},{gy})", False
+        # Force destroy own building to make room
+        bid = ct.get_tile_building_id(gpos)
+        if bid is not None and ct.get_team(bid) == s.my_team:
+            if ct.can_destroy(gpos):
+                ct.destroy(gpos)
+                s.building[gi] = None
+                s.my_transport.discard(gi)
+        return f"atk:turret_fail({gx},{gy})", False
 
-    # -- Place gunner near frontier facing target --
-
-    def _place_gunner(
-        self, ct: Controller, nav: NavBfs, s: State
-    ) -> tuple[str, bool] | None:
-        w = s.w
-        frontier = self.frontier
-        target = self.target
-        if frontier is None or target is None:
-            return None
-
-        fx, fy = frontier % w, frontier // w
-        # Try frontier + cardinal neighbors
-        candidates = [frontier]
-        for dx, dy in DIR4_DELTA:
-            nx, ny = fx + dx, fy + dy
-            if s.in_bounds(nx, ny):
-                candidates.append(ny * w + nx)
-
-        for gi in candidates:
-            if not _can_place_gunner(s, gi):
-                continue
-            return self._place_gunner_at(ct, nav, s, gi, target)
-
-        return None
-
-    # -- Recycle idle gunner --
+    def _target_xy(self, s: State, w: int) -> tuple[int, int]:
+        """Get target coords for conveyor direction."""
+        if self.target is not None:
+            return self.target % w, self.target // w
+        if s.en_core_pos is not None:
+            return s.en_core_pos.x, s.en_core_pos.y
+        return w - 1 - s.core_pos.x, s.h - 1 - s.core_pos.y
 
     def _recycle(self, ct: Controller, s: State) -> tuple[str, bool] | None:
+        """Check if turret is dead or idle. Recycle if so."""
         w = s.w
-        gunner_ti = self.gunner
-        if gunner_ti is None:
+        gti = self.gunner
+        if gti is None:
             return None
 
-        # Gunner gone?
-        bld = s.building[gunner_ti]
-        if not (isinstance(bld, BuildingGunner) and bld.team == s.my_team):
+        bld = s.building[gti]
+        if bld is None or bld.team != s.my_team:
             self.gunner = None
-            return "atk:gunner_gone", False
+            return "atk:turret_gone", False
 
         # Check for idle marker
         for tile in ct.get_nearby_tiles():
@@ -1870,15 +1664,14 @@ class _Attack:
             if not isinstance(mbld, BuildingMarker) or mbld.team != s.my_team:
                 continue
             msg = _decode_marker(mbld.value)
-            if isinstance(msg, MarkerIdleGunner) and msg.gunner_tile_index == gunner_ti:
-                gx, gy = gunner_ti % w, gunner_ti // w
+            if isinstance(msg, MarkerIdleGunner) and msg.gunner_tile_index == gti:
+                gx, gy = gti % w, gti // w
                 gpos = Position(gx, gy)
                 pos = ct.get_position()
                 if pos.distance_squared(gpos) <= 2 and ct.can_destroy(gpos):
                     ct.destroy(gpos)
-                    s.building[gunner_ti] = None
+                    s.building[gti] = None
                     self.gunner = None
-                    # Clean up marker
                     mpos = Position(tile.x, tile.y)
                     if ct.can_destroy(mpos):
                         ct.destroy(mpos)
@@ -1886,7 +1679,7 @@ class _Attack:
                     return "atk:recycled", True
                 return f"atk:recycle_walk({gx},{gy})", False
 
-        return None  # still fighting
+        return None
 
 
 # -- Module-level helpers --
