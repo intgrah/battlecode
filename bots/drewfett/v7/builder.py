@@ -440,6 +440,7 @@ class Builder(Unit):
         tag: str,
         path: list[int] | None = None,
         gap_idx: int = 0,
+        destroy_barriers: bool = False,
     ) -> tuple[str, bool]:
         """Build conveyor or bridge at the gap tile."""
         s = self.state
@@ -460,7 +461,8 @@ class Builder(Unit):
             ti_res, _ = ct.get_global_resources()
             if ti_res < b_cost:
                 return f"{tag} wait_ti(bridge)", False
-            _destroy_friendly(ct, build_pos)
+            destroy = _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
+            destroy(ct, build_pos)
             if ct.can_build_bridge(build_pos, target_pos):
                 ct.build_bridge(build_pos, target_pos)
                 from building import BuildingBridge as BldBridge
@@ -489,7 +491,8 @@ class Builder(Unit):
         ti_res, _ = ct.get_global_resources()
         if ti_res < c_cost:
             return f"{tag} wait_ti(conv)", False
-        _destroy_friendly(ct, build_pos)
+        destroy = _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
+        destroy(ct, build_pos)
         if ct.can_build_conveyor(build_pos, conv_dir):
             ct.build_conveyor(build_pos, conv_dir)
             from building import BuildingConveyor as BldConveyor
@@ -638,9 +641,15 @@ class Builder(Unit):
 
     def _task_explore_enemy(self, ct: Controller) -> tuple[str, bool]:
         s = self.state
+        pos = ct.get_position()
+
         if s.en_core_pos is not None:
-            # Target a passable tile near enemy core, not the core itself
             target = self._find_passable_near(s.en_core_pos)
+            dist = (pos.x - target.x) ** 2 + (pos.y - target.y) ** 2
+            if dist <= 4:
+                # Already near enemy core — orbit around it to find targets
+                # Use the general explore grid to avoid sitting still
+                return self._task_explore(ct)
             self.nav.set_goal(target)
         else:
             ex = s.w - 1 - s.core_pos.x
@@ -916,7 +925,7 @@ class Builder(Unit):
         tag = f"attack_chain:gap=({cx},{cy})"
 
         if pos.distance_squared(build_pos) <= 2:
-            return self._build_at_gap(ct, cx, cy, nx, ny, build_pos, tag, path, gap_idx)
+            return self._build_at_gap(ct, cx, cy, nx, ny, build_pos, tag, path, gap_idx, destroy_barriers=True)
 
         self.nav.set_goal(build_pos)
         moved = self.nav.step(ct)
