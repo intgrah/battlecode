@@ -26,6 +26,8 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from chain_astar import AttackAstar, ChainAstar
 from core import OFFSET_TO_INDEX, role_for_spawn
 from explore import ExploreGrid
+from marker import MarkerIdleGunner
+from marker import decode as _decode_marker
 from nav import NavBfs
 from state import State
 from state_update import _outputs_toward
@@ -133,6 +135,7 @@ class Builder(Unit):
         # -- Task dispatch --
         _ROLE_NAME = ("E", "A", "D")
         import traceback
+
         try:
             task_name, moved = self._run_tasks(ct)
         except Exception:
@@ -491,7 +494,9 @@ class Builder(Unit):
             ti_res, _ = ct.get_global_resources()
             if ti_res < b_cost:
                 return f"{tag} wait_ti(bridge)", False
-            destroy = _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
+            destroy = (
+                _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
+            )
             destroy(ct, build_pos)
             if ct.can_build_bridge(build_pos, target_pos):
                 ct.build_bridge(build_pos, target_pos)
@@ -521,7 +526,9 @@ class Builder(Unit):
         ti_res, _ = ct.get_global_resources()
         if ti_res < c_cost:
             return f"{tag} wait_ti(conv)", False
-        destroy = _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
+        destroy = (
+            _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
+        )
         destroy(ct, build_pos)
         if ct.can_build_conveyor(build_pos, conv_dir):
             ct.build_conveyor(build_pos, conv_dir)
@@ -671,7 +678,7 @@ class Builder(Unit):
 
     def _task_explore_enemy(self, ct: Controller) -> tuple[str, bool]:
         s = self.state
-        pos = ct.get_position()
+        ct.get_position()
 
         if s.en_core_pos is not None:
             target = self._find_passable_near(s.en_core_pos)
@@ -714,17 +721,17 @@ class Builder(Unit):
                 self._attack_target = None
                 self._attack_path = None
 
-        # Source harvester destroyed
+        # Source harvester destroyed (own or parasitized enemy)
         if self._attack_source is not None:
             src = self._attack_source
-            # Source should be a free side of a harvester — check the harvester exists
+            # Source should be a free side of a harvester — check any harvester exists
             found_harvester = False
             for dx, dy in DIR4_DELTA:
                 nx, ny = src % w + dx, src // w + dy
                 if s.in_bounds(nx, ny):
                     ni = ny * w + nx
                     bld = s.building[ni]
-                    if isinstance(bld, BuildingHarvester) and bld.team == s.my_team:
+                    if isinstance(bld, BuildingHarvester):
                         found_harvester = True
                         break
             if not found_harvester:
@@ -821,6 +828,13 @@ class Builder(Unit):
                     bld, (BuildingRoad, BuildingMarker)
                 ):
                     continue
+                # Verify LoS from this position to target
+                fdx = 0 if tx == gx else (1 if tx > gx else -1)
+                fdy = 0 if ty == gy else (1 if ty > gy else -1)
+                if fdx == 0 and fdy == 0:
+                    continue
+                if _has_los(s, gx, gy, fdx, fdy) is None:
+                    continue
                 gunner_goals.add(gi)
 
         if not gunner_goals:
@@ -850,6 +864,7 @@ class Builder(Unit):
 
         Preference:
         a. Own connected harvester with a free cardinal side
+        c. Enemy harvester with a free cardinal side (parasitize their output)
         b. Ti ore near the target (would need new harvester)
         """
         s = self.state
@@ -887,6 +902,36 @@ class Builder(Unit):
                 if dist < best_dist:
                     best_dist = dist
                     best_src = fi
+
+        # (c) Enemy harvester with a free cardinal side (parasitize their output)
+        # A conveyor on the free side will capture the enemy harvester's Ti output.
+        # Prefer enemy harvesters closer to the attack target than our own harvesters.
+        best_en_src: int | None = None
+        best_en_dist = 1_000_000
+        for hi in s.en_harvesters:
+            hx, hy = hi % w, hi // w
+            for dx, dy in DIR4_DELTA:
+                fx, fy = hx + dx, hy + dy
+                if not s.in_bounds(fx, fy):
+                    continue
+                fi = fy * w + fx
+                env = s.env[fi]
+                if env is not None and env in (
+                    Environment.WALL,
+                    Environment.ORE_TITANIUM,
+                    Environment.ORE_AXIONITE,
+                ):
+                    continue
+                bld = s.building[fi]
+                # Free side: empty, road, or marker only
+                if bld is not None and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
+                    continue
+                dist = abs(fx - tx) + abs(fy - ty)
+                if dist < best_en_dist:
+                    best_en_dist = dist
+                    best_en_src = fi
 
         # (b) Ti ore near target — pick closest ore to target
         best_ore: int | None = None
@@ -927,18 +972,24 @@ class Builder(Unit):
                 best_ore_src = fi
                 break
 
-        # Pick whichever source is closer to target
-        if best_src is not None and best_ore_src is not None:
-            if best_ore_dist < best_dist:
+        # Pick best source: (a) own harvester, (c) enemy harvester, (b) new ore
+        # Prefer enemy harvester over new ore when it's closer to target
+        self._attack_needs_harvester = None
+        if best_src is not None:
+            # Own harvester exists; check if enemy harvester is even closer
+            if best_en_src is not None and best_en_dist < best_dist:
+                return best_en_src
+            return best_src
+        if best_en_src is not None:
+            # No own harvester but can parasitize enemy
+            if best_ore_src is not None and best_ore_dist < best_en_dist:
                 self._attack_needs_harvester = best_ore
                 return best_ore_src
-            self._attack_needs_harvester = None
-            return best_src
+            return best_en_src
         if best_ore_src is not None:
             self._attack_needs_harvester = best_ore
             return best_ore_src
-        self._attack_needs_harvester = None
-        return best_src
+        return None
 
     # -- Task: Extend Attack Chain --
 
@@ -973,7 +1024,9 @@ class Builder(Unit):
         tag = f"attack_chain:gap=({cx},{cy})"
 
         if pos.distance_squared(build_pos) <= 2:
-            return self._build_at_gap(ct, cx, cy, nx, ny, build_pos, tag, path, gap_idx, destroy_barriers=True)
+            return self._build_at_gap(
+                ct, cx, cy, nx, ny, build_pos, tag, path, gap_idx, destroy_barriers=True
+            )
 
         self.nav.set_goal(build_pos)
         moved = self.nav.step(ct)
@@ -1105,7 +1158,7 @@ class Builder(Unit):
     # -- Task: Recycle Gunner --
 
     def _task_recycle_gunner(self, ct: Controller) -> tuple[str, bool] | None:
-        """Check if gunner is dead or idle. If so, recycle and advance."""
+        """Check if gunner is dead or idle (via marker signal). If so, recycle."""
         s = self.state
         w = s.w
 
@@ -1123,30 +1176,32 @@ class Builder(Unit):
             self._attack_path = None
             return "recycle:gunner_gone", False
 
-        # Gunner alive — check if it has any targets within r²=13
-        gx, gy = gunner_ti % w, gunner_ti // w
-        en_buildings = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
-        has_target = False
-        for ei in en_buildings:
-            ex, ey = ei % w, ei // w
-            if (ex - gx) ** 2 + (ey - gy) ** 2 <= 13:
-                has_target = True
+        # Check for IDLE_GUNNER marker signal from the gunner
+        idle_gunner_ti: int | None = None
+        for tile in ct.get_nearby_tiles():
+            ti = tile.y * w + tile.x
+            mbld = s.building[ti]
+            if not isinstance(mbld, BuildingMarker) or mbld.team != s.my_team:
+                continue
+            msg = _decode_marker(mbld.value)
+            if isinstance(msg, MarkerIdleGunner) and msg.gunner_tile_index == gunner_ti:
+                idle_gunner_ti = gunner_ti
                 break
 
-        if has_target:
-            return None  # gunner has targets, let it fight
+        if idle_gunner_ti is None:
+            return None  # gunner is still fighting, let it be
 
-        # Gunner is idle — walk to it and destroy to reclaim
+        # Gunner signalled idle — walk to it and destroy to reclaim
+        gx, gy = gunner_ti % w, gunner_ti // w
         pos = ct.get_position()
         gpos = Position(gx, gy)
-        if pos.distance_squared(gpos) <= 2:
-            if ct.can_destroy(gpos):
-                ct.destroy(gpos)
-                self._attack_gunner = None
-                self._attack_target = None
-                self._attack_source = None
-                self._attack_path = None
-                return "recycle:destroyed_idle_gunner", True
+        if pos.distance_squared(gpos) <= 2 and ct.can_destroy(gpos):
+            ct.destroy(gpos)
+            self._attack_gunner = None
+            self._attack_target = None
+            self._attack_source = None
+            self._attack_path = None
+            return "recycle:destroyed_idle_gunner", True
         self.nav.set_goal(gpos)
         moved = self.nav.step(ct)
         return f"recycle:walk_to_gunner({gx},{gy})", moved
@@ -1533,9 +1588,11 @@ def _tile_has_correct_transport(s: State, ci: int, ni: int, w: int) -> bool:
 def _has_los(s: State, gx: int, gy: int, fdx: int, fdy: int) -> int | None:
     """Walk ray from gunner position, return first enemy building tile or None.
 
-    Per game rules: only WALLS block gunner LoS. Buildings, bots, barriers
-    are targetable but do NOT block LoS. Markers are not targetable and
-    don't block LoS either.
+    Per game rules:
+    - Walls: block LoS, NOT targetable -> return None
+    - Markers: targetable but DON'T block LoS -> skip
+    - All other buildings: block LoS AND are targetable
+      -> if enemy, return the tile; if friendly, return None (blocked)
     """
     w, h = s.w, s.h
     my_team = s.my_team
@@ -1546,15 +1603,14 @@ def _has_los(s: State, gx: int, gy: int, fdx: int, fdy: int) -> int | None:
         ni = y * w + x
         env = s.env[ni]
         if env == Environment.WALL:
-            return None  # wall blocks LoS
+            return None  # wall blocks LoS, not targetable
         bld = s.building[ni]
-        if (
-            bld is not None
-            and not isinstance(bld, BuildingMarker)
-            and bld.team != my_team
-        ):
-            return ni  # found enemy target
-        # Own buildings do NOT block gunner LoS per game rules. Keep walking.
+        if bld is not None and not isinstance(bld, BuildingMarker):
+            # Non-marker building: blocks LoS and is targetable
+            if bld.team != my_team:
+                return ni  # enemy target
+            return None  # friendly building blocks LoS
+        # Marker or no building: keep walking
         x += fdx
         y += fdy
     return None
