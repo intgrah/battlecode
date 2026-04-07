@@ -74,16 +74,6 @@ def _can_place_gunner_at(s: State, gi: int) -> bool:
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
-        try:
-            self._init(ct)
-        except BaseException:
-            import traceback
-            import sys
-
-            print(f"BUILDER INIT CRASH:\n{traceback.format_exc()}", file=sys.stderr)
-            raise
-
-    def _init(self, ct: Controller) -> None:
         w = ct.get_map_width()
         h = ct.get_map_height()
 
@@ -128,15 +118,6 @@ class Builder(Unit):
         # Defense state (reactive gunner uses stateless scan each turn)
 
     def run(self, ct: Controller) -> None:
-        try:
-            self._run_turn(ct)
-        except BaseException:
-            import traceback
-            import sys
-
-            print(f"BUILDER RUN CRASH:\n{traceback.format_exc()}", file=sys.stderr)
-
-    def _run_turn(self, ct: Controller) -> None:
         if ct.get_cpu_time_elapsed() > 1400:
             self.state.age += 1
             self.state.pos = ct.get_position()
