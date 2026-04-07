@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 COST_REUSE = 0
 COST_CONV = 3
-COST_BRIDGE = 20
+COST_BRIDGE = 30  # 20 Ti base + scale penalty (10% scale = expensive)
 COST_ROAD_REPLACE = 3
 
 _IMPASSABLE_ENV = frozenset(
@@ -114,11 +114,6 @@ class ChainAstar(Astar[int]):
         capacity = self._capacity
         node_overloaded = bottleneck.get(node, 0) >= capacity
 
-        # Near core, reuse costs same as new conveyor (discourages merging).
-        # Far from core, reuse is free (saves Ti on long chains).
-        core_dist = abs(cx - self._gx) + abs(cy - self._gy)
-        reuse_cost = COST_CONV if core_dist <= 5 else COST_REUSE
-
         def _add_neighbor(ni: int, base_cost: int) -> None:
             ok, cost = _tile_cost(env, ni, base_cost)
             if not ok:
@@ -150,7 +145,7 @@ class ChainAstar(Astar[int]):
                         return []
                     bx, by = bt.x, bt.y
                     if 0 <= bx < w and 0 <= by < h:
-                        _add_neighbor(by * w + bx, reuse_cost)
+                        _add_neighbor(by * w + bx, COST_REUSE)
 
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 if bld.team == my_team:
@@ -159,7 +154,7 @@ class ChainAstar(Astar[int]):
                     ddx, ddy = d.delta()
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
-                        _add_neighbor(ny * w + nx, reuse_cost)
+                        _add_neighbor(ny * w + nx, COST_REUSE)
 
             case BuildingSplitter(direction=d):
                 if bld.team == my_team:
@@ -169,7 +164,7 @@ class ChainAstar(Astar[int]):
                     for odx, ody in [(ddx, ddy), (-ddy, ddx), (ddy, -ddx)]:
                         nx, ny = cx + odx, cy + ody
                         if 0 <= nx < w and 0 <= ny < h:
-                            _add_neighbor(ny * w + nx, reuse_cost)
+                            _add_neighbor(ny * w + nx, COST_REUSE)
 
             case BuildingRoad():
                 before = len(result)
@@ -177,8 +172,8 @@ class ChainAstar(Astar[int]):
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         _add_neighbor(ny * w + nx, COST_ROAD_REPLACE)
-                # Only try bridges when 2+ cardinal directions blocked
-                if len(result) - before <= 2:
+                # Only try bridges when 3+ cardinal directions blocked
+                if len(result) - before <= 1:
                     for ddx, ddy in BRIDGE_DELTAS:
                         nx, ny = cx + ddx, cy + ddy
                         if 0 <= nx < w and 0 <= ny < h:
@@ -190,8 +185,8 @@ class ChainAstar(Astar[int]):
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         _add_neighbor(ny * w + nx, COST_CONV)
-                # Only try bridges when 2+ cardinal directions blocked
-                if len(result) - before <= 2:
+                # Only try bridges when 3+ cardinal directions blocked
+                if len(result) - before <= 1:
                     for ddx, ddy in BRIDGE_DELTAS:
                         nx, ny = cx + ddx, cy + ddy
                         if 0 <= nx < w and 0 <= ny < h:

@@ -443,13 +443,17 @@ class Builder(Unit):
             return None
 
         ore_pos = Position(ht % w, ht // w)
-        # Walk to cardinal neighbor of ore closest to core
+        # Walk to cardinal neighbor of ore closest to core (must be passable)
         best_adj: Position | None = None
         best_d = 1_000_000
         core_x, core_y = s.core_pos.x, s.core_pos.y
         for dx, dy in DIR4_DELTA:
             ax, ay = ore_pos.x + dx, ore_pos.y + dy
             if not s.in_bounds(ax, ay):
+                continue
+            ai = ay * w + ax
+            env = s.env[ai]
+            if env is not None and env == Environment.WALL:
                 continue
             d = abs(core_x - ax) + abs(core_y - ay)
             if d < best_d:
