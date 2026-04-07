@@ -52,6 +52,7 @@ import sys as _sys
 
 def _log(msg: str, _bot_id: int = 0) -> None:
     print(msg, file=_sys.stderr, flush=True)
+    print(msg)
 
 
 def _can_place_gunner_at(s: State, gi: int) -> bool:
@@ -188,7 +189,11 @@ class Builder(Unit):
             if a.gunner is not None:
                 parts.append(f"gun=({a.gunner % s.w},{a.gunner // s.w})")
             extra = f" [{' '.join(parts)}]"
-        _log(f"T{s.age + s.birthday} {r}{m} {task_name}{extra}", ct.get_id())
+        px, py = new_pos.x, new_pos.y
+        _log(
+            f"T{s.age + s.birthday} {r}{m}@({px},{py}) {task_name}{extra}",
+            ct.get_id(),
+        )
 
         # Livelock breaker
         if new_pos == pos and not moved:
@@ -740,6 +745,10 @@ class Builder(Unit):
                 best_adj = Position(ax, ay)
 
         if best_adj is not None:
+            # Already adjacent but can't place? Skip this ore.
+            if pos.distance_squared(ore_pos) <= 2:
+                self._harvest_target = None
+                return None
             self.nav.set_goal(best_adj)
             moved = self.nav.step(ct)
             return f"harvest:walk->ore({ore_pos.x},{ore_pos.y})", moved
