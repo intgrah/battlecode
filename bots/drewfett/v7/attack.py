@@ -362,8 +362,17 @@ class Attack:
             moved = nav.step(ct)
             return f"atk:gunner_walk({gx},{gy})", moved
 
-        # Only clear road/marker/barrier — don't destroy transport
+        # Clear the tile for gunner placement — destroy any own building
+        # (this is the frontier tile, we're replacing it with a gunner)
         _clear_tile(ct, s, gi, gpos)
+        if not ct.can_build_gunner(gpos, facing):
+            # Still blocked — force destroy own building (e.g. our conveyor)
+            bid = ct.get_tile_building_id(gpos)
+            if bid is not None and ct.get_team(bid) == ct.get_team():
+                if ct.can_destroy(gpos):
+                    ct.destroy(gpos)
+                    s.building[gi] = None
+                    s.my_transport.discard(gi)
 
         if ct.can_build_gunner(gpos, facing):
             ct.build_gunner(gpos, facing)
