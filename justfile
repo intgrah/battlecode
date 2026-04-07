@@ -44,6 +44,9 @@ combat replay="replay.replay26":
 bots replay="replay.replay26":
     {{ _analysis }} {{ replay }} -s bots
 
+report replay="replay.replay26" a="Team A" b="Team B":
+    PYTHONPATH=lib/proto/src python scripts/match_report.py {{ replay }} --a "{{ a }}" --b "{{ b }}"
+
 compare replay="replay.replay26":
     {{ _analysis }} {{ replay }} -s compare
 
@@ -133,42 +136,26 @@ status:
     cambc status
 
 [private]
-_vps := "chi"
+_arm := "bc"
 [private]
-_vps_dir := "~/battlecode"
-[private]
-_vps_cambc := "~/battlecode/.venv/bin/cambc"
+_x86 := "chi"
 
-sync:
-    rsync -av --delete bots/ {{ _vps }}:{{ _vps_dir }}/bots/
-    rsync -av maps/ {{ _vps }}:{{ _vps_dir }}/maps/
-    rsync -av scripts/ {{ _vps }}:{{ _vps_dir }}/scripts/
-    rsync -av proto/ {{ _vps }}:{{ _vps_dir }}/proto/
+remote a b *args:
+    fish scripts/remote_match.fish {{ _arm }} bots/{{ a }} bots/{{ b }} {{ args }}
 
-remote-run a b map=default_map:
-    just sync
-    ssh {{ _vps }} "cd {{ _vps_dir }} && {{ _vps_cambc }} run bots/{{ a }} bots/{{ b }} {{ map }} --replay replay.replay26"
-    scp {{ _vps }}:{{ _vps_dir }}/replay.replay26 replay_remote.replay26
+remote-x86 a b *args:
+    fish scripts/remote_match.fish {{ _x86 }} bots/{{ a }} bots/{{ b }} {{ args }}
 
-remote-match a b map=default_map:
-    just sync
-    ssh {{ _vps }} "cd {{ _vps_dir }} && {{ _vps_cambc }} run bots/{{ a }} bots/{{ b }} {{ map }} --replay replay.replay26 2>&1 | grep -v '^Completed turn\|^Fatal\|^Python runtime\|^Update available\|^$$'"
-    ssh {{ _vps }} "cd {{ _vps_dir }} && .venv/bin/python -m scripts.analysis replay.replay26 -s summary"
-    scp {{ _vps }}:{{ _vps_dir }}/replay.replay26 replay_remote.replay26
+remote-match a b *args:
+    fish scripts/remote_match.fish {{ _arm }} bots/{{ a }} bots/{{ b }} {{ args }}
+    {{ _analysis }} replay.replay26 -s summary
 
-remote-tournament *args:
-    just sync
-    ssh {{ _vps }} "cd {{ _vps_dir }} && nohup .venv/bin/python scripts/tournament.py {{ args }} > tournament.log 2>&1 &"
-    @echo "Tournament running on VPS. Check with: just remote-status"
+ci a b:
+    fish scripts/ci.fish bots/{{ a }} bots/{{ b }}
 
-remote-status:
-    ssh {{ _vps }} "tail -20 {{ _vps_dir }}/tournament.log 2>/dev/null || echo 'No tournament running'"
-
-remote-fetch:
-    rsync -av {{ _vps }}:{{ _vps_dir }}/replays_remote/ replays_remote/
-
-ci *args:
-    python scripts/remote_ci.py {{ args }}
+remote-match-x86 a b *args:
+    fish scripts/remote_match.fish {{ _x86 }} bots/{{ a }} bots/{{ b }} {{ args }}
+    {{ _analysis }} replay.replay26 -s summary
 
 docs:
     #!/usr/bin/env bash
