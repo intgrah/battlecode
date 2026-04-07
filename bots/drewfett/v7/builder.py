@@ -1097,20 +1097,33 @@ class Builder(Unit):
         if not patrol_set:
             return self._task_explore(ct)
 
-        best_ti: int | None = None
-        best_score = -1_000_000
-        for ti in patrol_set:
-            tx, ty = ti % w, ti // w
-            age = rnd - s.last_seen[ti]
-            dist = abs(pos.x - tx) + abs(pos.y - ty)
-            bonus = 10 if ti in s.my_harvesters else 0
-            score = age + bonus - dist
-            if score > best_score:
-                best_score = score
-                best_ti = ti
+        # Sticky target — only repick when reached or tile no longer in patrol set
+        pt = getattr(self, '_patrol_target', None)
+        if pt is not None:
+            if pt not in patrol_set:
+                pt = None
+            else:
+                ptx, pty = pt % w, pt // w
+                if (pos.x - ptx) ** 2 + (pos.y - pty) ** 2 <= 2:
+                    pt = None  # arrived, pick new
 
-        if best_ti is not None:
-            tx, ty = best_ti % w, best_ti // w
+        if pt is None:
+            best_ti: int | None = None
+            best_score = -1_000_000
+            for ti in patrol_set:
+                tx, ty = ti % w, ti // w
+                age = rnd - s.last_seen[ti]
+                dist = abs(pos.x - tx) + abs(pos.y - ty)
+                bonus = 10 if ti in s.my_harvesters else 0
+                score = age + bonus - dist
+                if score > best_score:
+                    best_score = score
+                    best_ti = ti
+            pt = best_ti
+            self._patrol_target = pt
+
+        if pt is not None:
+            tx, ty = pt % w, pt // w
             self.nav.set_goal(Position(tx, ty))
             moved = self.nav.step(ct)
             return f"patrol:walk({tx},{ty})", moved
