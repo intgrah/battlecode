@@ -2,4 +2,4 @@
 name = "util"
 version = "0.1.0"
 requires-python = ">=3.12,<3.14"
-dependencies = ["cambc>=1.4.6"]
+dependencies = ["cambc>=1.6.0"]
