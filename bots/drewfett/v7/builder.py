@@ -42,6 +42,10 @@ from util import DELTA_TO_DIR, DIR4_DELTA, Symmetry
 # Max harvesters per branch (4 = true throughput limit, 1 stack/turn)
 _BRANCH_CAPACITY = 4
 
+# Tile cache keys (avoid recreating dicts every turn)
+_ENV_INT: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
+_ET_INT: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
+
 
 import sys as _sys
 
@@ -119,10 +123,7 @@ class Builder(Unit):
             set()
         )  # sources that led to blocked paths
 
-        # Defense state
-        self._reactive_gunner_state: str | None = None
-        self._reactive_gunner_target: int | None = None
-        self._reactive_gunner_pos: int | None = None
+        # Defense state (reactive gunner uses stateless scan each turn)
 
     def run(self, ct: Controller) -> None:
         if ct.get_cpu_time_elapsed() > 1400:
@@ -337,7 +338,7 @@ class Builder(Unit):
                 ti_res, _ = ct.get_global_resources()
                 if ti_res < h_cost:
                     return "attack:wait_ti_harvester", False
-                _destroy_friendly_or_barrier(ct, ore_pos)
+                _destroy_friendly(ct, ore_pos, allow_barrier=True)
                 if ct.can_build_harvester(ore_pos):
                     ct.build_harvester(ore_pos)
                     self._my_harvesters.add(ore_ti)
@@ -606,10 +607,7 @@ class Builder(Unit):
             ti_res, _ = ct.get_global_resources()
             if ti_res < b_cost:
                 return f"{tag} wait_ti(bridge)", False
-            destroy = (
-                _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
-            )
-            destroy(ct, build_pos)
+            _destroy_friendly(ct, build_pos, allow_barrier=destroy_barriers)
             if ct.can_build_bridge(build_pos, target_pos):
                 ct.build_bridge(build_pos, target_pos)
                 from building import BuildingBridge as BldBridge
@@ -647,10 +645,7 @@ class Builder(Unit):
         ti_res, _ = ct.get_global_resources()
         if ti_res < c_cost:
             return f"{tag} wait_ti(conv)", False
-        destroy = (
-            _destroy_friendly_for_attack if destroy_barriers else _destroy_friendly
-        )
-        destroy(ct, build_pos)
+        _destroy_friendly(ct, build_pos, allow_barrier=destroy_barriers)
         if ct.can_build_conveyor(build_pos, conv_dir):
             ct.build_conveyor(build_pos, conv_dir)
             from building import BuildingConveyor as BldConveyor
@@ -713,7 +708,7 @@ class Builder(Unit):
             ti, _ = ct.get_global_resources()
             if ti < h_cost:
                 return "harvest:wait_ti", False
-            _destroy_friendly_or_barrier(ct, ore_pos)
+            _destroy_friendly(ct, ore_pos, allow_barrier=True)
             if ct.can_build_harvester(ore_pos):
                 ct.build_harvester(ore_pos)
                 self._harvest_target = None
@@ -1231,7 +1226,7 @@ class Builder(Unit):
                         self.nav.set_goal(gpos)
                         moved = self.nav.step(ct)
                         return f"attack_chain:gunner_walk({cx},{cy})", moved
-                    _destroy_friendly_for_attack(ct, gpos)
+                    _destroy_friendly(ct, gpos, allow_barrier=True)
                     if ct.can_build_gunner(gpos, facing_dir):
                         ct.build_gunner(gpos, facing_dir)
                         from building import BuildingGunner as BldGunner
@@ -1702,7 +1697,6 @@ class Builder(Unit):
                         threats.append(ei)
 
         if not threats:
-            self._reactive_gunner_state = None
             return None
 
         # Find nearest own transport tile with flow near the threat
@@ -1981,47 +1975,22 @@ def _find_core(ct: Controller) -> Position:
     return ct.get_position()
 
 
-def _destroy_friendly_for_attack(ct: Controller, pos: Position) -> None:
-    """Destroy own buildings for attack chain — includes barriers."""
+def _destroy_friendly(
+    ct: Controller, pos: Position, *, allow_barrier: bool = False
+) -> None:
+    """Destroy own road/marker (and optionally barrier) at pos."""
     bid = ct.get_tile_building_id(pos)
     if bid is None:
         return
     if ct.get_team(bid) != ct.get_team():
         return
-    if ct.get_entity_type(bid) in (
-        EntityType.ROAD,
-        EntityType.MARKER,
-        EntityType.BARRIER,
-    ) and ct.can_destroy(pos):
-        ct.destroy(pos)
-
-
-def _destroy_friendly(ct: Controller, pos: Position) -> None:
-    bid = ct.get_tile_building_id(pos)
-    if bid is None:
-        return
-    if ct.get_team(bid) != ct.get_team():
-        return
-    if ct.get_entity_type(bid) in (
-        EntityType.ROAD,
-        EntityType.MARKER,
-    ) and ct.can_destroy(pos):
-        ct.destroy(pos)
-
-
-def _destroy_friendly_or_barrier(ct: Controller, pos: Position) -> None:
-    """Like _destroy_friendly but also removes own barriers (for re-harvesting ore)."""
-    bid = ct.get_tile_building_id(pos)
-    if bid is None:
-        return
-    if ct.get_team(bid) != ct.get_team():
-        return
-    if ct.get_entity_type(bid) in (
-        EntityType.ROAD,
-        EntityType.MARKER,
-        EntityType.BARRIER,
-    ) and ct.can_destroy(pos):
-        ct.destroy(pos)
+    etype = ct.get_entity_type(bid)
+    if etype == EntityType.ROAD or etype == EntityType.MARKER:
+        if ct.can_destroy(pos):
+            ct.destroy(pos)
+    elif allow_barrier and etype == EntityType.BARRIER:
+        if ct.can_destroy(pos):
+            ct.destroy(pos)
 
 
 def _has_nearby_threat(s: State, tile_idx: int) -> bool:
@@ -2130,8 +2099,8 @@ def _update_nearby_tiles(
     w = state.w
     my_team = ct.get_team()
 
-    env_int: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
-    et_int: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
+    env_int = _ENV_INT
+    et_int = _ET_INT
 
     for tile in ct.get_nearby_tiles():
         i = tile.y * w + tile.x
