@@ -4,7 +4,7 @@ from cambc import Controller, Direction, Environment, Position
 from unit import Unit
 
 _DIRECTIONS = tuple(d for d in Direction if d != Direction.CENTRE)
-_BUILDER_CAP = 8
+_BUILDER_CAP = 49
 
 ROLE_ECON = 0
 ROLE_ATTACK = 1
