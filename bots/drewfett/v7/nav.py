@@ -310,21 +310,23 @@ class NavBfs:
                     continue
                 next_pos = Position(ni % pw - 1, ni // pw - 1)
                 direction = pos.direction_to(next_pos)
-                if ct.can_build_road(next_pos):
-                    ct.build_road(next_pos)
                 if ct.can_move(direction):
                     ct.move(direction)
                     return True
+                if ct.can_build_road(next_pos):
+                    ct.build_road(next_pos)
+                    return True  # road built, move next turn
 
         # Backtrack: move in any passable direction
         for ni in pnb:
             next_pos = Position(ni % pw - 1, ni // pw - 1)
             direction = pos.direction_to(next_pos)
-            if ct.can_build_road(next_pos):
-                ct.build_road(next_pos)
             if ct.can_move(direction):
                 ct.move(direction)
                 return True
+            if ct.can_build_road(next_pos):
+                ct.build_road(next_pos)
+                return True  # road built, move next turn
 
         return False
 

@@ -1,6 +1,5 @@
 """v7 bot — mesh nav + capacity-aware harvesting + roles + attack/defense."""
 
-import traceback
 from typing import TYPE_CHECKING
 
 from builder import Builder
@@ -30,7 +29,4 @@ class Player:
                     self.unit = Gunner(ct)
                 case _:
                     return
-        try:
-            self.unit.run(ct)
-        except Exception:  # noqa: BLE001
-            print(traceback.format_exc())
+        self.unit.run(ct)
