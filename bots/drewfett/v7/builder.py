@@ -127,12 +127,15 @@ class Builder(Unit):
                 ct.heal(pos)
 
         # -- Task dispatch --
+        _ROLE_NAME = ("E", "A", "D")
         try:
             task_name, moved = self._run_tasks(ct)
         except Exception:
-            _task_name, moved = "crash", False
+            task_name, moved = "crash", False
 
         new_pos = ct.get_position()
+        r = _ROLE_NAME[self._role] if self._role < 3 else "?"
+        print(f"{r} {task_name}")
 
         # Livelock breaker
         if new_pos == pos and not moved:
@@ -242,13 +245,7 @@ class Builder(Unit):
         if result is not None:
             return result
 
-        # 3. If no enemy known, harvest (build econ in enemy half)
-        if s.en_core_pos is None:
-            result = self._task_harvest(ct)
-            if result is not None:
-                return result
-
-        # 4. Explore enemy half
+        # 3. Explore enemy half (find enemy buildings to target)
         return self._task_explore_enemy(ct)
 
     # -- Role: DEFENSE --
