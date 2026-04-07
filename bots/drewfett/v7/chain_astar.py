@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 COST_REUSE = 0
 COST_CONV = 3
-COST_BRIDGE = 30  # 20 Ti base + scale penalty (10% scale = expensive)
+COST_BRIDGE = 20
 COST_ROAD_REPLACE = 3
 
 _IMPASSABLE_ENV = frozenset(
@@ -167,30 +167,24 @@ class ChainAstar(Astar[int]):
                             _add_neighbor(ny * w + nx, COST_REUSE)
 
             case BuildingRoad():
-                before = len(result)
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         _add_neighbor(ny * w + nx, COST_ROAD_REPLACE)
-                # Only try bridges when 3+ cardinal directions blocked
-                if len(result) - before <= 1:
-                    for ddx, ddy in BRIDGE_DELTAS:
-                        nx, ny = cx + ddx, cy + ddy
-                        if 0 <= nx < w and 0 <= ny < h:
-                            _add_neighbor(ny * w + nx, COST_BRIDGE)
+                for ddx, ddy in BRIDGE_DELTAS:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        _add_neighbor(ny * w + nx, COST_BRIDGE)
 
             case None | BuildingMarker():
-                before = len(result)
                 for ddx, ddy in DIR4_DELTA:
                     nx, ny = cx + ddx, cy + ddy
                     if 0 <= nx < w and 0 <= ny < h:
                         _add_neighbor(ny * w + nx, COST_CONV)
-                # Only try bridges when 3+ cardinal directions blocked
-                if len(result) - before <= 1:
-                    for ddx, ddy in BRIDGE_DELTAS:
-                        nx, ny = cx + ddx, cy + ddy
-                        if 0 <= nx < w and 0 <= ny < h:
-                            _add_neighbor(ny * w + nx, COST_BRIDGE)
+                for ddx, ddy in BRIDGE_DELTAS:
+                    nx, ny = cx + ddx, cy + ddy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        _add_neighbor(ny * w + nx, COST_BRIDGE)
 
         # Filter: don't route into enemy buildings or friendly harvesters/barriers
         filtered: list[tuple[int, int]] = []
