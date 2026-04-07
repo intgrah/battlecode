@@ -132,10 +132,12 @@ class Builder(Unit):
 
         # -- Task dispatch --
         _ROLE_NAME = ("E", "A", "D")
+        import traceback
         try:
             task_name, moved = self._run_tasks(ct)
         except Exception:
-            task_name, moved = "crash", False
+            task_name = f"crash:{traceback.format_exc().splitlines()[-1]}"
+            moved = False
 
         new_pos = ct.get_position()
         r = _ROLE_NAME[self._role] if self._role < 3 else "?"
