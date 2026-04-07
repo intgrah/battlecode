@@ -160,6 +160,11 @@ class NavBfs:
         """Public passability override (e.g. for launcher danger zones)."""
         self._set_passable(i, passable)
 
+    def is_passable(self, pos: Position) -> bool:
+        """Check if a tile is passable for walking."""
+        pi = (pos.y + 1) * self._pw + (pos.x + 1)
+        return bool(self._passable[pi])
+
     def mirror_known(self, sym: Symmetry, known_env: dict[int, Environment]) -> None:
         """Bulk-mirror walls via symmetry."""
         w, h = self.w, self.h
