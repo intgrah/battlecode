@@ -17,16 +17,19 @@ _INITIAL_ROLES: tuple[int, ...] = (
     ROLE_ATTACK,
     ROLE_DEFENSE,
     ROLE_ECON,
-    ROLE_ECON,
+    ROLE_DEFENSE,
     ROLE_ATTACK,
 )
+
+
+_LATE_CYCLE: tuple[int, ...] = (ROLE_ATTACK, ROLE_ATTACK, ROLE_DEFENSE)
 
 
 def role_for_spawn(index: int) -> int:
     """Return the role for the *index*-th spawned builder (0-based)."""
     if index < len(_INITIAL_ROLES):
         return _INITIAL_ROLES[index]
-    return ROLE_ATTACK
+    return _LATE_CYCLE[(index - len(_INITIAL_ROLES)) % len(_LATE_CYCLE)]
 
 
 # Direction offset -> spawn index (clockwise from N, matches _DIRECTIONS order)
