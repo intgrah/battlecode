@@ -7,7 +7,7 @@ from marker import MarkerIdleGunner
 from unit import Unit
 from util import DIR4, DIR8
 
-_IDLE_LIMIT = 5
+_IDLE_LIMIT = 15
 
 
 class Gunner(Unit):
@@ -58,18 +58,40 @@ class Gunner(Unit):
             self._idle_rounds = 0
             return
 
+        # Only count as idle when genuinely NO targets in any direction.
+        # If targets exist but we can't fire (no ammo/Ti), wait for supply.
+        if best_target is not None:
+            self._idle_rounds = 0  # targets exist, just waiting for ammo
+            return
+
         self._idle_rounds += 1
 
-        # After 5 idle rounds, signal via marker for builder to recycle us
+        # After sustained idle, signal via marker for builder to recycle us
         if self._idle_rounds >= _IDLE_LIMIT:
             w = ct.get_map_width()
             gunner_ti = pos.y * w + pos.x
             marker_val = MarkerIdleGunner(gunner_ti).encode()
-            for d in DIR4:
+            # Try all 8 directions, and destroy own markers to make space
+            placed = False
+            for d in DIR8:
                 mp = pos.add(d)
                 if ct.can_place_marker(mp):
                     ct.place_marker(mp, marker_val)
+                    placed = True
                     break
+            if not placed:
+                # All tiles occupied — try destroying a friendly marker first
+                for d in DIR8:
+                    mp = pos.add(d)
+                    bid = ct.get_tile_building_id(mp)
+                    if (
+                        bid is not None
+                        and ct.get_entity_type(bid) == EntityType.MARKER
+                        and ct.get_team(bid) == my_team
+                    ):
+                        ct.destroy(mp)
+                        # Marker placed next turn (one marker per round)
+                        break
 
 
 def _scan_ray(
@@ -100,10 +122,12 @@ def _scan_ray(
             if ct.get_team(bid) != my_team:
                 return p  # enemy target
             break  # own building blocks
-        # Check for enemy bot on this tile
+        # Check for builder bot on this tile (bots block LoS)
         bot_id = ct.get_tile_builder_bot_id(p)
-        if bot_id is not None and ct.get_team(bot_id) != my_team:
-            return p
+        if bot_id is not None:
+            if ct.get_team(bot_id) != my_team:
+                return p  # enemy bot — targetable
+            break  # friendly bot — blocks LoS
         x += dx
         y += dy
     return None
@@ -117,20 +141,22 @@ def _target_priority(etype: EntityType) -> int:
             | EntityType.BREACH
             | EntityType.LAUNCHER
         ):
+            return 6
+        case EntityType.BUILDER_BOT:
             return 5
-        case EntityType.CORE:
-            return 4
         case EntityType.HARVESTER:
-            return 3
+            return 4
         case (
             EntityType.CONVEYOR
             | EntityType.SPLITTER
             | EntityType.ARMOURED_CONVEYOR
             | EntityType.BRIDGE
         ):
+            return 3
+        case EntityType.CORE:
             return 2
-        case EntityType.BUILDER_BOT:
-            return 2
+        case EntityType.ROAD:
+            return 2  # cheap to kill (5 HP), often screens better targets
         case EntityType.BARRIER:
             return 1
         case _:
