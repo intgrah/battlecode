@@ -13,6 +13,8 @@ _IDLE_LIMIT = 15
 class Gunner(Unit):
     def __init__(self, ct: Controller) -> None:
         self._idle_rounds = 0
+        self._fire_rounds = 0  # rounds spent firing without killing
+        self._last_target: Position | None = None
 
     def run(self, ct: Controller) -> None:
         my_team = ct.get_team()
@@ -22,9 +24,20 @@ class Gunner(Unit):
         # Try to fire along current facing
         target = _scan_ray(ct, pos, direction, my_team)
         if target is not None and ct.can_fire(target):
-            ct.fire(target)
-            self._idle_rounds = 0
-            return
+            # Track if we're making progress
+            if target == self._last_target:
+                self._fire_rounds += 1
+            else:
+                self._fire_rounds = 0
+                self._last_target = target
+            # If we've fired 15+ times at the same target, it's being healed
+            # Signal idle so builder recycles us
+            if self._fire_rounds >= 15:
+                self._idle_rounds = _IDLE_LIMIT
+            else:
+                ct.fire(target)
+                self._idle_rounds = 0
+                return
 
         # Try rotating to find a better target
         # Lookahead: if first hit is a road, peek behind for higher-value targets
