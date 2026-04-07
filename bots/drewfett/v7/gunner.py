@@ -13,8 +13,7 @@ _IDLE_LIMIT = 15
 class Gunner(Unit):
     def __init__(self, ct: Controller) -> None:
         self._idle_rounds = 0
-        self._fire_rounds = 0  # rounds spent firing without killing
-        self._last_target: Position | None = None
+        self._last_target_hp: int = 0  # track target HP to detect healing
 
     def run(self, ct: Controller) -> None:
         my_team = ct.get_team()
@@ -24,18 +23,15 @@ class Gunner(Unit):
         # Try to fire along current facing
         target = _scan_ray(ct, pos, direction, my_team)
         if target is not None and ct.can_fire(target):
-            # Track if we're making progress
-            if target == self._last_target:
-                self._fire_rounds += 1
-            else:
-                self._fire_rounds = 0
-                self._last_target = target
-            # If we've fired 15+ times at the same target, it's being healed
-            # Signal idle so builder recycles us
-            if self._fire_rounds >= 15:
+            # Check if target HP went UP (being healed)
+            bid = ct.get_tile_building_id(target)
+            hp = ct.get_hp(bid) if bid is not None else 0
+            if hp > self._last_target_hp and self._last_target_hp > 0:
+                # Target is being healed — stop wasting Ti
                 self._idle_rounds = _IDLE_LIMIT
             else:
                 ct.fire(target)
+                self._last_target_hp = hp - 10  # expected HP after our shot
                 self._idle_rounds = 0
                 return
 
