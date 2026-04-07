@@ -14,11 +14,11 @@ ROLE_DEFENSE = 2
 _INITIAL_ROLES: tuple[int, ...] = (
     ROLE_ECON,
     ROLE_ECON,
-    ROLE_ECON,
-    ROLE_ECON,
-    ROLE_ATTACK,
     ROLE_ATTACK,
     ROLE_DEFENSE,
+    ROLE_ECON,
+    ROLE_ECON,
+    ROLE_ATTACK,
 )
 
 
