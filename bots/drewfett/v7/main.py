@@ -1,4 +1,4 @@
-"""v7 bot — mesh nav + capacity-aware harvesting + sentinel attack."""
+"""v7 bot — mesh nav + capacity-aware harvesting + roles + attack/defense."""
 
 import traceback
 from typing import TYPE_CHECKING
@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from builder import Builder
 from cambc import Controller, EntityType
 from core import Core
+from gunner import Gunner
 from sentinel import Sentinel
 
 if TYPE_CHECKING:
@@ -25,6 +26,8 @@ class Player:
                     self.unit = Builder(ct)
                 case EntityType.SENTINEL:
                     self.unit = Sentinel(ct)
+                case EntityType.GUNNER:
+                    self.unit = Gunner(ct)
                 case _:
                     return
         try:

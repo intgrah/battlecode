@@ -6,6 +6,34 @@ from unit import Unit
 _DIRECTIONS = tuple(d for d in Direction if d != Direction.CENTRE)
 _BUILDER_CAP = 8
 
+ROLE_ECON = 0
+ROLE_ATTACK = 1
+ROLE_DEFENSE = 2
+
+# Spawn 0-2: ECON, 3-5: ATTACK, 6: DEFENSE, 7+: ATTACK
+_INITIAL_ROLES: tuple[int, ...] = (
+    ROLE_ECON,
+    ROLE_ECON,
+    ROLE_ECON,
+    ROLE_ATTACK,
+    ROLE_ATTACK,
+    ROLE_ATTACK,
+    ROLE_DEFENSE,
+)
+
+
+def role_for_spawn(index: int) -> int:
+    """Return the role for the *index*-th spawned builder (0-based)."""
+    if index < len(_INITIAL_ROLES):
+        return _INITIAL_ROLES[index]
+    return ROLE_ATTACK
+
+
+# Direction offset -> spawn index (clockwise from N, matches _DIRECTIONS order)
+OFFSET_TO_INDEX: dict[tuple[int, int], int] = {
+    d.delta(): i for i, d in enumerate(_DIRECTIONS)
+}
+
 
 class Core(Unit):
     def __init__(self, ct: Controller) -> None:
