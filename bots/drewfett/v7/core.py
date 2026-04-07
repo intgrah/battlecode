@@ -22,7 +22,7 @@ _INITIAL_ROLES: tuple[int, ...] = (
 )
 
 
-_LATE_CYCLE: tuple[int, ...] = (ROLE_ATTACK, ROLE_ATTACK, ROLE_DEFENSE)
+_LATE_CYCLE: tuple[int, ...] = (ROLE_DEFENSE, ROLE_ATTACK)
 
 
 def role_for_spawn(index: int) -> int:

@@ -269,19 +269,8 @@ class Builder(Unit):
         if result is not None:
             return result
 
-        # Switch to attack if enough flow
-        if self._should_switch_to_attack():
-            self._role = 1
-            return self._run_attack(ct)
-
         # Explore map
         return self._task_explore(ct)
-
-    def _should_switch_to_attack(self) -> bool:
-        s = self.state
-        own_connected = len(s.connected_harvesters & self._my_harvesters)
-        total_connected = len(s.connected_harvesters)
-        return own_connected >= 2 or total_connected >= 4
 
     # -- Role: ATTACK --
 
