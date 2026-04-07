@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from cambc import Controller, Direction, EntityType, Environment, Position
+from marker import MarkerIdleGunner
 from unit import Unit
-from util import DIR8
+from util import DIR4, DIR8
 
-_IDLE_LIMIT = 50
+_IDLE_LIMIT = 5
 
 
 class Gunner(Unit):
@@ -58,7 +59,17 @@ class Gunner(Unit):
             return
 
         self._idle_rounds += 1
-        # Don't self-destruct — attack builder manages gunner lifecycle
+
+        # After 5 idle rounds, signal via marker for builder to recycle us
+        if self._idle_rounds >= _IDLE_LIMIT:
+            w = ct.get_map_width()
+            gunner_ti = pos.y * w + pos.x
+            marker_val = MarkerIdleGunner(gunner_ti).encode()
+            for d in DIR4:
+                mp = pos.add(d)
+                if ct.can_place_marker(mp):
+                    ct.place_marker(mp, marker_val)
+                    break
 
 
 def _scan_ray(
