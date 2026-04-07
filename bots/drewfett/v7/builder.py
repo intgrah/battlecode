@@ -554,8 +554,15 @@ class Builder(Unit):
                 s.my_transport.add(ci)
                 self._walk_toward_next_gap(ct, path, gap_idx + 1)
                 return f"{tag} bridge({cx},{cy})->({nx},{ny})", True
+            # Build failed — try to destroy any own building blocking us
             if destroy_barriers:
-                pass  # frontier model — caller handles replan
+                bid = ct.get_tile_building_id(build_pos)
+                if bid is not None and ct.get_team(bid) == ct.get_team():
+                    if ct.can_destroy(build_pos):
+                        ct.destroy(build_pos)
+                        s.building[ci] = None
+                        s.my_transport.discard(ci)
+                        return f"{tag} cleared({cx},{cy})", False
             else:
                 self._connect_path = None
             return f"{tag} bridge_cant_build:recompute", False
@@ -592,9 +599,16 @@ class Builder(Unit):
             s.my_transport.add(ci)
             self._walk_toward_next_gap(ct, path, gap_idx + 1)
             return f"{tag} conv({cx},{cy})->{conv_dir.name}", True
+        # Build failed — try to destroy any own building blocking us
         if destroy_barriers:
-            self._attack_path = None
-        else:
+            bid = ct.get_tile_building_id(build_pos)
+            if bid is not None and ct.get_team(bid) == ct.get_team():
+                if ct.can_destroy(build_pos):
+                    ct.destroy(build_pos)
+                    s.building[ci] = None
+                    s.my_transport.discard(ci)
+                    return f"{tag} cleared({cx},{cy})", False  # retry next turn
+        if not destroy_barriers:
             self._connect_path = None
         return f"{tag} conv_cant_build:recompute", False
 
@@ -1081,8 +1095,12 @@ class Builder(Unit):
                     k,
                     destroy_barriers=True,
                 )
-                if result[0].endswith("recompute"):
-                    # Build failed — will replan next turn
+                if "cant_build" in result[0] or "recompute" in result[0]:
+                    self._attack_stuck += 1
+                    if self._attack_stuck >= 5:
+                        # Stuck too long — retreat frontier and let A* reroute
+                        self._chain_frontier = None
+                        self._attack_stuck = 0
                     return result
                 # Success — advance frontier
                 self._chain_frontier = ci
@@ -1128,6 +1146,14 @@ class Builder(Unit):
             self.nav.set_goal(gpos)
             moved = self.nav.step(ct)
             return f"attack:gunner_walk({gx},{gy})", moved
+
+        # Can't build on our own tile — step off first
+        if pos == gpos:
+            for d in Direction:
+                if d != Direction.CENTRE and ct.can_move(d):
+                    ct.move(d)
+                    return f"attack:gunner_stepoff({gx},{gy})", True
+            return f"attack:gunner_trapped({gx},{gy})", False
 
         # Destroy any own building at this tile
         bid = ct.get_tile_building_id(gpos)
