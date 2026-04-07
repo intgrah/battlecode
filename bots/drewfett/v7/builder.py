@@ -263,12 +263,17 @@ class Builder(Unit):
             result = self._task_plan_attack(ct)
             if result is not None:
                 return result
+            # Planning failed — need Ti source. Fall through to econ/explore.
 
-        # 4. No target: explore enemy half to find enemy buildings.
+        # 4. No target: find one
         if self._attack_target is None:
             result = self._task_find_attack_target(ct)
             if result is not None:
                 return result
+
+        # 5. No path yet (no source) — do econ to build up Ti supply
+        if self._attack_path is None:
+            return self._run_econ(ct)
 
         return self._task_explore_enemy(ct)
 
