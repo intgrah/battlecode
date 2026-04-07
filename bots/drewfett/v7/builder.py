@@ -135,7 +135,8 @@ class Builder(Unit):
 
         new_pos = ct.get_position()
         r = _ROLE_NAME[self._role] if self._role < 3 else "?"
-        print(f"{r} {task_name}")
+        m = "M" if pos != new_pos else "."
+        print(f"{r}{m} {task_name}")
 
         # Livelock breaker
         if new_pos == pos and not moved:
@@ -747,83 +748,90 @@ class Builder(Unit):
     # -- Task: Place Gunner --
 
     def _task_place_gunner(self, ct: Controller) -> tuple[str, bool] | None:
+        """Place gunner at the end of the attack chain.
+
+        The attack chain path ends at a tile near the enemy. If the chain
+        is fully built (all conveyors placed) and ammo is flowing, the last
+        tile becomes the gunner position. The second-to-last conveyor feeds it.
+        """
         s = self.state
         w = s.w
         pos = ct.get_position()
 
-        en_buildings = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
-        if not en_buildings:
+        path = self._attack_path
+        if path is None or len(path) < 2:
             return None
 
-        flow_tiles = s.tiles_with_flow
-        if not flow_tiles:
+        # Check: is the chain fully built EXCEPT the last tile?
+        # (last tile is where the gunner goes, not a conveyor)
+        for k in range(len(path) - 2):  # all but last
+            ci = path[k]
+            ni = path[k + 1]
+            if not _tile_has_correct_transport(s, ci, ni, w):
+                return None  # chain not complete yet
+
+        # Chain is complete up to second-to-last tile.
+        # Check ammo: does the second-to-last tile have flow?
+        feed_ti = path[-2]
+        if s.flow_seen.get(feed_ti, 0) <= 0:
+            return None  # no ammo flowing yet
+
+        # The last tile is the gunner position
+        gunner_ti = path[-1]
+        gx, gy = gunner_ti % w, gunner_ti // w
+        gpos = Position(gx, gy)
+
+        # Check the tile is buildable
+        env = s.env[gunner_ti]
+        if env is not None and env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+            return None
+        bld = s.building[gunner_ti]
+        if bld is not None and not isinstance(bld, (BuildingRoad, BuildingMarker)):
             return None
 
-        # Check each flow tile in connected transport
-        flow_on_network = flow_tiles & s.connected_transport
-        if not flow_on_network:
+        # Determine facing: toward nearest enemy core tile
+        en_targets = s.en_core_tiles | s.en_harvesters | s.en_transport | s.en_turrets
+        if not en_targets:
             return None
+
+        # Find best facing direction: toward nearest enemy target with LoS
+        best_dir = None
+        for ei in en_targets:
+            ex, ey = ei % w, ei // w
+            fdx = 0 if ex == gx else (1 if ex > gx else -1)
+            fdy = 0 if ey == gy else (1 if ey > gy else -1)
+            if fdx == 0 and fdy == 0:
+                continue
+            d = DELTA_TO_DIR.get((fdx, fdy))
+            if d is None:
+                continue
+            hit = _has_los(s, gx, gy, fdx, fdy)
+            if hit is not None:
+                # Check feed: chain comes from path[-2], must not be facing dir
+                fx, fy = feed_ti % w, feed_ti // w
+                chain_dx, chain_dy = fx - gx, fy - gy
+                if (chain_dx, chain_dy) != (fdx, fdy):
+                    best_dir = d
+                    break
+
+        if best_dir is None:
+            return None  # no valid LoS + feed combination
 
         g_cost, _ = ct.get_gunner_cost()
         ti_res, _ = ct.get_global_resources()
         if ti_res < g_cost:
-            return None
+            return "place_gunner:wait_ti", False
 
-        for fti in flow_on_network:
-            fx, fy = fti % w, fti // w
-            # Check adjacent tiles for gunner placement
-            for dx, dy in DIR4_DELTA:
-                gx, gy = fx + dx, fy + dy
-                if not s.in_bounds(gx, gy):
-                    continue
-                gi = gy * w + gx
-                gpos = Position(gx, gy)
-                # Must be empty (or road/marker) and not on transport
-                env = s.env[gi]
-                if env is not None and env in (
-                    Environment.WALL,
-                    Environment.ORE_TITANIUM,
-                    Environment.ORE_AXIONITE,
-                ):
-                    continue
-                bld = s.building[gi]
-                if bld is not None and not isinstance(
-                    bld, (BuildingRoad, BuildingMarker)
-                ):
-                    continue
-                if gi in s.danger_zones:
-                    continue
+        if pos.distance_squared(gpos) > 2:
+            self.nav.set_goal(gpos)
+            moved = self.nav.step(ct)
+            return f"place_gunner:walk({gx},{gy})", moved
 
-                # Check LoS from this tile toward each enemy building
-                for ei in en_buildings:
-                    ex, ey = ei % w, ei // w
-                    facing_dx = 0 if ex == gx else (1 if ex > gx else -1)
-                    facing_dy = 0 if ey == gy else (1 if ey > gy else -1)
-                    if facing_dx == 0 and facing_dy == 0:
-                        continue
-                    facing_dir = DELTA_TO_DIR.get((facing_dx, facing_dy))
-                    if facing_dir is None:
-                        continue
-
-                    hit = _has_los(s, gx, gy, facing_dx, facing_dy)
-                    if hit is None:
-                        continue
-
-                    # Check feed direction: chain comes from fti, gunner faces toward enemy
-                    # Feed must not come from facing direction
-                    chain_dx, chain_dy = fx - gx, fy - gy
-                    if (chain_dx, chain_dy) == (facing_dx, facing_dy):
-                        continue  # can't feed from facing side
-
-                    if pos.distance_squared(gpos) > 2:
-                        self.nav.set_goal(gpos)
-                        moved = self.nav.step(ct)
-                        return f"place_gunner:walk({gx},{gy})", moved
-
-                    _destroy_friendly(ct, gpos)
-                    if ct.can_build_gunner(gpos, facing_dir):
-                        ct.build_gunner(gpos, facing_dir)
-                        return f"place_gunner:built({gx},{gy})", True
+        _destroy_friendly(ct, gpos)
+        if ct.can_build_gunner(gpos, best_dir):
+            ct.build_gunner(gpos, best_dir)
+            self._attack_path = None  # chain complete, clear path
+            return f"place_gunner:built({gx},{gy})", True
 
         return None
 
@@ -1088,36 +1096,35 @@ class Builder(Unit):
     # -- Task: Patrol (defense) --
 
     def _task_patrol(self, ct: Controller) -> tuple[str, bool]:
+        """Walk to least-recently-seen infra tile. Sticky until arrived."""
         s = self.state
         w = s.w
         pos = ct.get_position()
-        rnd = s.age + s.birthday
 
-        patrol_set = s.connected_transport | s.my_harvesters
-        if not patrol_set:
+        infra = s.connected_transport | s.my_harvesters | s.core_tiles
+        if not infra:
             return self._task_explore(ct)
 
-        # Sticky target — only repick when reached or tile no longer in patrol set
+        # Sticky target — repick when arrived or gone
         pt = getattr(self, '_patrol_target', None)
         if pt is not None:
-            if pt not in patrol_set:
+            if pt not in infra:
                 pt = None
             else:
                 ptx, pty = pt % w, pt // w
                 if (pos.x - ptx) ** 2 + (pos.y - pty) ** 2 <= 2:
-                    pt = None  # arrived, pick new
+                    pt = None  # arrived
 
         if pt is None:
+            # Pick tile with oldest last_seen
             best_ti: int | None = None
-            best_score = -1_000_000
-            for ti in patrol_set:
-                tx, ty = ti % w, ti // w
-                age = rnd - s.last_seen[ti]
-                dist = abs(pos.x - tx) + abs(pos.y - ty)
-                bonus = 10 if ti in s.my_harvesters else 0
-                score = age + bonus - dist
-                if score > best_score:
-                    best_score = score
+            best_seen = s.age + s.birthday + 1
+            for ti in infra:
+                if ti == pos.y * w + pos.x:
+                    continue
+                seen = s.last_seen[ti]
+                if seen < best_seen:
+                    best_seen = seen
                     best_ti = ti
             pt = best_ti
             self._patrol_target = pt
