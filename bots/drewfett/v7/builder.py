@@ -118,6 +118,14 @@ class Builder(Unit):
         # Defense state (reactive gunner uses stateless scan each turn)
 
     def run(self, ct: Controller) -> None:
+        try:
+            self._run_turn(ct)
+        except Exception:
+            import traceback
+
+            print(f"BUILDER RUN CRASH:\n{traceback.format_exc()}")
+
+    def _run_turn(self, ct: Controller) -> None:
         if ct.get_cpu_time_elapsed() > 1400:
             self.state.age += 1
             self.state.pos = ct.get_position()
