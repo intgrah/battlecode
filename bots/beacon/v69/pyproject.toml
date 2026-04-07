@@ -2,7 +2,7 @@
 name = "bot-beacon-trollbot"
 version = "0.0.0"
 requires-python = ">=3.12,<3.14"
-dependencies = ["cambc>=1.6.0"]
+dependencies = ["cambc>=1.6.1"]
 
 [tool.ty.environment]
 root = ["."]
