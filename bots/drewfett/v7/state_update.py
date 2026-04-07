@@ -433,12 +433,16 @@ def _rebuild_danger_zones(state: State) -> None:
 
         match bld:
             case BuildingLauncher():
+                # Launcher pickup r²=2 — hard block nav + danger zones
                 nav = state.nav
-                for dx in range(-1, 2):
-                    for dy in range(-1, 2):
+                for dx in range(-2, 3):
+                    for dy in range(-2, 3):
+                        if dx * dx + dy * dy > 2:
+                            continue
                         nx, ny = tx + dx, ty + dy
                         if 0 <= nx < w and 0 <= ny < h:
                             ni = ny * w + nx
+                            state.danger_zones.add(ni)
                             if nav is not None:
                                 nav.set_passable_at(ni, passable=False)
 
