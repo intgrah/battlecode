@@ -61,7 +61,7 @@ class Astar[T]:
                 return self._result
 
             expanded += 1
-            if expanded & 15 == 0 and not within_budget():
+            if expanded & 3 == 0 and not within_budget():
                 break
 
             g_node = g[node]

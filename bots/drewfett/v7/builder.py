@@ -230,7 +230,7 @@ class Builder(Unit):
                 s, hx, hy, goals,
                 bottleneck=s.bottleneck, capacity=_BRANCH_CAPACITY,
             )
-            path = search.compute(within_budget=lambda: ct.get_cpu_time_elapsed() < 1800)
+            path = search.compute(within_budget=lambda: ct.get_cpu_time_elapsed() < 1500)
 
             if path is None:
                 self._connect_path = None
