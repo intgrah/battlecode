@@ -42,12 +42,12 @@ Takes one stack each of **titanium and raw axionite**, then outputs one stack of
 | --------- | ----- |
 | HP        | 50    |
 | Base cost | 40 Ti |
-| Scaling   | 100%  |
+| Scaling   | 50%   |
 
 <Warning>
-  Foundries have the highest scaling contribution at +100% each. Building one
-  adds 100% to your cost multiplier (e.g. 1.0x -> 2.0x if it's your first
-  build, but 1.5x -> 2.5x if you've already built other things). Plan
+  Foundries have the highest scaling contribution at +50% each. Building one
+  adds 50% to your cost multiplier (e.g. 1.0x -> 1.5x if it's your first
+  build, but 1.5x -> 2.0x if you've already built other things). Plan
   carefully before committing 40 Ti.
 </Warning>
 

@@ -84,7 +84,7 @@ Where scale starts at 1.0 and increases **additively** with each entity built â€
       <tr><td>Harvester</td><td>+5%</td></tr>
       <tr><td>Gunner, breach, launcher</td><td>+10%</td></tr>
       <tr><td>Builder bot, sentinel</td><td>+20%</td></tr>
-      <tr><td>Axionite foundry</td><td>+100%</td></tr>
+      <tr><td>Axionite foundry</td><td>+50%</td></tr>
     </tbody>
   </table>
 </DenseTable>

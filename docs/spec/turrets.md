@@ -24,7 +24,8 @@ current map's range and obstruction rules.
 
 <Info>
   Raw axionite fed into a turret is **destroyed**. Only the ammo types listed
-  below have any effect.
+  below have any effect. Breach turrets additionally accept and destroy
+  **all** resource types (including titanium) — see [Breach](#breach).
 </Info>
 
 ## Gunner
@@ -35,7 +36,7 @@ Has a vision radius of √13. Fires along the forward ray up to range. Empty
 tiles and markers do **not** block line of sight. Markers are still targetable.
 Walls block the ray but are not targetable. Builder bots and non-marker
 buildings are both targetable and blocking, so nothing beyond the first such
-blocker is legal. Using refined axionite as ammo deals **30 damage** instead of 10.
+blocker is legal. Using refined axionite as ammo deals **40 damage** instead of 10.
 
 <Info>
   Markers are the only occupied tiles that do **not** block a gunner. Walls
@@ -60,7 +61,7 @@ blocker is legal. Using refined axionite as ammo deals **30 damage** instead of 
 | HP            | 40                            |
 | Base cost     | 10 Ti                         |
 | Scaling       | 10%                           |
-| Damage        | 10 (30 with refined axionite) |
+| Damage        | 10 (40 with refined axionite) |
 | Reload        | 1 round                       |
 | Ammo per shot | 2                             |
 | Vision r²     | 13                            |
@@ -124,18 +125,25 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 | Damage        | 40 direct + 20 splash (8 surrounding tiles) |
 | Reload        | 1 round                                     |
 | Ammo per shot | 5 (refined axionite only)                   |
-| Vision r²     | 13                                          |
-| Attack r²     | 5                                           |
+| Vision r²     | 2                                           |
+| Attack r²     | 13                                          |
 
 <Tabs>
   <Tab title="Cardinal">
-        <img src="https://mintcdn.com/cambridgebattlecode/jkHPwcNhhgR_-bsi/images/ranges/breach-cardinal.png?fit=max&auto=format&n=jkHPwcNhhgR_-bsi&q=85&s=401c6ed47480bff1a0791b8b80e25bf9" alt="Breach range — cardinal direction" width="1024" height="984" data-path="images/ranges/breach-cardinal.png" />
+        <img src="https://mintcdn.com/cambridgebattlecode/Jrocgfi7ovGO1A5q/images/ranges/breach-cardinal.png?fit=max&auto=format&n=Jrocgfi7ovGO1A5q&q=85&s=3b29d8f94e4928f003d6068959e50ae0" alt="Breach range — cardinal direction" width="1053" height="964" data-path="images/ranges/breach-cardinal.png" />
   </Tab>
 
   <Tab title="Diagonal">
-        <img src="https://mintcdn.com/cambridgebattlecode/HREr2plTj9cAMxXJ/images/ranges/breach-diagonal.png?fit=max&auto=format&n=HREr2plTj9cAMxXJ&q=85&s=abf61b4bda33d930891fe73a6d9379c8" alt="Breach range — diagonal direction" width="1024" height="986" data-path="images/ranges/breach-diagonal.png" />
+        <img src="https://mintcdn.com/cambridgebattlecode/Jrocgfi7ovGO1A5q/images/ranges/breach-diagonal.png?fit=max&auto=format&n=Jrocgfi7ovGO1A5q&q=85&s=5f97deeafb0851e2a13d808982e7767f" alt="Breach range — diagonal direction" width="1053" height="964" data-path="images/ranges/breach-diagonal.png" />
   </Tab>
 </Tabs>
+
+<Info>
+  Breach turrets accept **all** resource types, but only refined axionite is
+  stored as ammo. Titanium and raw axionite delivered to a breach are consumed
+  and **destroyed** on receipt. This prevents resources from backing up on
+  conveyors feeding a breach.
+</Info>
 
 <Warning>
   Breach turrets have **friendly fire** on the splash damage (8 surrounding
