@@ -8,7 +8,7 @@ Based on v50 FlowAstar neighbor expansion logic. Key differences:
 
 Routes from harvester to the nearest connected transport tile with
 spare capacity, using conveyors (cardinal, cost 3) and bridges
-(r^2 <= 9, cost 30).
+(r^2 <= 9, cost 20).
 """
 
 from __future__ import annotations
@@ -293,16 +293,24 @@ class AttackAstar(Astar[int]):
                 ne = env[ni]
                 if ne is not None and ne in _IMPASSABLE_ENV:
                     continue
+                if ni in danger:
+                    continue
                 result.append((ni, COST_BRIDGE))
 
-        # Filter: skip enemy buildings (except markers), friendly harvesters/barriers
+        # Filter: route through buildable tiles OR reuse own transport
         filtered: list[tuple[int, int]] = []
         for ni, c in result:
             nbld = building[ni]
             if nbld is not None:
-                if nbld.team != my_team and not isinstance(nbld, BuildingMarker):
-                    continue
-                if isinstance(nbld, (BuildingHarvester, BuildingBarrier)):
+                if isinstance(nbld, BuildingMarker):
+                    pass  # any team — can build over markers
+                elif nbld.team == my_team and isinstance(
+                    nbld, (BuildingRoad, BuildingBarrier)
+                ):
+                    pass  # own road/barrier — destroyable for attack
+                elif nbld.team == my_team and isinstance(nbld, _TRANSPORT_CHECK):
+                    c = COST_CONV  # same cost as new — just allows routing through
+                else:
                     continue
             filtered.append((ni, c))
         return filtered
