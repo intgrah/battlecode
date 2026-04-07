@@ -168,7 +168,9 @@ class Builder(Unit):
         try:
             task_name, moved = self._run_tasks(ct)
         except Exception:
-            task_name = f"crash:{traceback.format_exc().splitlines()[-1]}"
+            tb = traceback.format_exc()
+            print(f"BUILDER CRASH:\n{tb}")
+            task_name = f"crash:{tb.splitlines()[-1]}"
             moved = False
 
         new_pos = ct.get_position()
