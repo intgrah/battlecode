@@ -111,7 +111,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "cambc", specifier = ">=1.6.0" },
     { name = "visualiser", editable = "lib/visualiser" },
 ]
 
@@ -124,7 +124,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-econ"
@@ -135,7 +135,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-launcher-test"
@@ -146,7 +146,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-mesh"
@@ -159,7 +159,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "cambc", specifier = ">=1.6.0" },
     { name = "visualiser", editable = "lib/visualiser" },
 ]
 
@@ -172,7 +172,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-trollbot"
@@ -183,7 +183,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-trollbot-expand"
@@ -194,7 +194,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-trollbot-hc"
@@ -205,7 +205,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-trollbot-maybe"
@@ -216,7 +216,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v0"
@@ -227,7 +227,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v1"
@@ -238,7 +238,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v2"
@@ -249,7 +249,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v3"
@@ -260,7 +260,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v4"
@@ -271,7 +271,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v5"
@@ -282,7 +282,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-adgato-v6"
@@ -293,7 +293,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-astar-test"
@@ -304,7 +304,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-beacon-trollbot"
@@ -315,7 +315,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-beacon-v1"
@@ -326,7 +326,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-beacon-v2"
@@ -337,7 +337,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-beacon-v3"
@@ -348,7 +348,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-beacon-v4"
@@ -359,7 +359,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-beacon-v67"
@@ -370,7 +370,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-bugnav-test"
@@ -381,7 +381,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-cheese"
@@ -392,7 +392,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-exploit-posix"
@@ -403,7 +403,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-exploit-shellmod"
@@ -414,7 +414,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-exploit-uaf"
@@ -425,7 +425,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-nahhh-baseline-v25"
@@ -436,7 +436,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-nahhh-harvester-punisher"
@@ -447,7 +447,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-nahhh-nahhh"
@@ -458,7 +458,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-nahhh-noop"
@@ -469,7 +469,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-nahhh-ore-capper"
@@ -480,7 +480,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-pd"
@@ -491,7 +491,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-rug"
@@ -502,7 +502,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-saboteur"
@@ -513,7 +513,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-se"
@@ -524,7 +524,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-starter"
@@ -535,7 +535,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-test-core-spawn"
@@ -546,7 +546,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v44"
@@ -557,7 +557,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v45"
@@ -568,7 +568,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v46"
@@ -579,7 +579,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v47"
@@ -590,7 +590,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v48"
@@ -601,7 +601,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v49"
@@ -612,7 +612,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "bot-v50"
@@ -626,7 +626,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "cambc", specifier = ">=1.6.0" },
     { name = "util", editable = "lib/util" },
     { name = "visualiser", editable = "lib/visualiser" },
 ]
@@ -643,7 +643,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "cambc", specifier = ">=1.6.0" },
     { name = "util", editable = "lib/util" },
     { name = "visualiser", editable = "lib/visualiser" },
 ]
@@ -1048,7 +1048,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.4.6" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.0" }]
 
 [[package]]
 name = "visualiser"
