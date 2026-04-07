@@ -205,3 +205,100 @@ class ChainAstar(Astar[int]):
                         continue
             filtered.append((ni, c))
         return filtered
+
+
+class AttackAstar(Astar[int]):
+    """Route fresh conveyor chain for attack — NO reuse of existing transport.
+
+    Every tile gets COST_CONV (cardinal) or COST_BRIDGE (bridge hop).
+    Source is a Ti source tile (harvester free side or ore for new harvester).
+    Goals are valid gunner positions near enemy buildings.
+    Heuristic targets the centroid of the goal set.
+    """
+
+    def __init__(
+        self,
+        state: State,
+        source: int,
+        goals: set[int],
+    ) -> None:
+        self._w = state.w
+        self._h = state.h
+        self._env = state.env
+        self._building = state.building
+        self._my_team = state.my_team
+        self._danger = state.danger_zones
+
+        # Heuristic target: centroid of goals
+        if goals:
+            sx = sum(g % self._w for g in goals)
+            sy = sum(g // self._w for g in goals)
+            n = len(goals)
+            self._hx = sx // n
+            self._hy = sy // n
+        else:
+            self._hx = state.core_pos.x
+            self._hy = state.core_pos.y
+
+        super().__init__(source, goals)
+
+    def heuristic(self, node: int) -> int:
+        return abs(node % self._w - self._hx) + abs(node // self._w - self._hy)
+
+    def get_neighbors(self, node: int) -> list[tuple[int, int]]:
+        w, h = self._w, self._h
+        env = self._env
+        building = self._building
+        my_team = self._my_team
+
+        e = env[node]
+        bld = building[node]
+        # Hard block: walls and ore (except harvester on ore = our source)
+        if (
+            e is not None
+            and e in _IMPASSABLE_ENV
+            and not isinstance(bld, (BuildingHarvester, BuildingFoundry))
+        ):
+            return []
+        # Hard block: enemy buildings (except markers)
+        if (
+            bld is not None
+            and bld.team != my_team
+            and not isinstance(bld, BuildingMarker)
+        ):
+            return []
+
+        cx, cy = node % w, node // w
+        result: list[tuple[int, int]] = []
+
+        # Cardinal neighbors (COST_CONV each — always build new)
+        for ddx, ddy in DIR4_DELTA:
+            nx, ny = cx + ddx, cy + ddy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                ne = env[ni]
+                if ne is not None and ne in _IMPASSABLE_ENV:
+                    continue
+                result.append((ni, COST_CONV))
+
+        # Bridge jumps (COST_BRIDGE each)
+        for ddx, ddy in BRIDGE_DELTAS:
+            nx, ny = cx + ddx, cy + ddy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                ne = env[ni]
+                if ne is not None and ne in _IMPASSABLE_ENV:
+                    continue
+                result.append((ni, COST_BRIDGE))
+
+        # Filter: skip enemy buildings (except markers), friendly harvesters/barriers
+        filtered: list[tuple[int, int]] = []
+        for ni, c in result:
+            nbld = building[ni]
+            if nbld is not None:
+                if nbld.team != my_team and not isinstance(nbld, BuildingMarker):
+                    continue
+                if isinstance(nbld, (BuildingHarvester, BuildingBarrier)):
+                    continue
+            filtered.append((ni, c))
+        return filtered
