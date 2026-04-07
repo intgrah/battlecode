@@ -83,6 +83,9 @@ class State:
         # Bridge lookup: target_tile_index -> list of bridge tile indices
         self.bridges_by_target: dict[int, list[int]] = {}
 
+        # Flow tracking: tile index -> freshness (4 = just seen with Ti, decays)
+        self.flow_seen: dict[int, int] = {}
+
         # Ephemeral (reset each turn)
         self.unit_tiles: set[Position] = set()
         self.danger_zones: set[int] = set()
@@ -90,6 +93,10 @@ class State:
 
         # Explore
         self.en_core_estimate: Position | None = None
+
+    @property
+    def tiles_with_flow(self) -> set[int]:
+        return {ti for ti, f in self.flow_seen.items() if f > 0}
 
     def idx(self, x: int, y: int) -> int:
         return y * self.w + x

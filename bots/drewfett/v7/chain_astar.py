@@ -44,7 +44,10 @@ _IMPASSABLE_ENV = frozenset(
 )
 
 _TRANSPORT_CHECK = (
-    BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge,
+    BuildingConveyor,
+    BuildingArmouredConveyor,
+    BuildingSplitter,
+    BuildingBridge,
 )
 
 
@@ -56,8 +59,6 @@ def _tile_cost(env: list, ni: int, base_cost: int) -> tuple[bool, int]:
     if ne in _IMPASSABLE_ENV:
         return False, 0
     return True, base_cost
-
-
 
 
 class ChainAstar(Astar[int]):

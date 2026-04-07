@@ -32,6 +32,15 @@ from marker import MarkerEureka
 from marker import decode as decode_marker
 from util import DIR4_DELTA, Symmetry
 
+_FLOW_CHECK_TYPES = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    }
+)
+
 if TYPE_CHECKING:
     from state import State
 
@@ -44,6 +53,7 @@ def update(state: State, ct: Controller) -> None:
     _update_core_hp(state, ct)
     _update_ephemeral(state, ct)
     _scan_vision(state, ct)
+    _decay_flow(state)
     _build_bridge_lookup(state)
     _update_connectivity(state)
     _update_capacity(state)
@@ -140,6 +150,7 @@ def _scan_vision(state: State, ct: Controller) -> None:
     my_team = state.my_team
     rnd = ct.get_current_round()
     sym = state.symmetry
+    scanned_flow: set[int] = set()
 
     for t in ct.get_nearby_tiles():
         i = t.y * w + t.x
@@ -166,6 +177,13 @@ def _scan_vision(state: State, ct: Controller) -> None:
                     is_allied = bld.team == my_team if bld is not None else False
                     state.nav.update_tile(i, env, etype, is_allied, sym)
 
+            # Track flow: transport with stored resource
+            if etype in _FLOW_CHECK_TYPES:
+                res = ct.get_stored_resource(bid)
+                if res is not None:
+                    state.flow_seen[i] = 4
+                    scanned_flow.add(i)
+
             match bld:
                 case BuildingMarker(team=team) if team == my_team:
                     msg = decode_marker(bld.value)
@@ -182,6 +200,24 @@ def _scan_vision(state: State, ct: Controller) -> None:
             _update_sets(state, i, old_bld, None)
             if state.nav is not None:
                 state.nav.update_tile(i, env, None, is_allied_building=False, sym=sym)
+
+    state._scanned_flow = scanned_flow
+
+
+def _decay_flow(state: State) -> None:
+    """Decay flow_seen for tiles not refreshed this turn. Remove at 0."""
+    scanned: set[int] = getattr(state, "_scanned_flow", set())
+    to_remove: list[int] = []
+    for ti, freshness in state.flow_seen.items():
+        if ti in scanned:
+            continue
+        nf = freshness - 1
+        if nf <= 0:
+            to_remove.append(ti)
+        else:
+            state.flow_seen[ti] = nf
+    for ti in to_remove:
+        del state.flow_seen[ti]
 
 
 def _build_bridge_lookup(state: State) -> None:
