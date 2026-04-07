@@ -645,11 +645,6 @@ class Builder(Unit):
 
         if s.en_core_pos is not None:
             target = self._find_passable_near(s.en_core_pos)
-            dist = (pos.x - target.x) ** 2 + (pos.y - target.y) ** 2
-            if dist <= 4:
-                # Already near enemy core — orbit around it to find targets
-                # Use the general explore grid to avoid sitting still
-                return self._task_explore(ct)
             self.nav.set_goal(target)
         else:
             ex = s.w - 1 - s.core_pos.x
