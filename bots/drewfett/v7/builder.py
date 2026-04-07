@@ -1689,6 +1689,33 @@ class _Attack:
                 moved = nav.step(ct)
                 return f"atk:walk({cx},{cy})", moved
 
+            # Check: can we place a sentinel here to hit a high-value target?
+            # Sentinels have r²=32 vs gunner r²=13 — can reach further
+            en_hvt = s.en_core_tiles | s.en_turrets | s.en_harvesters
+            for eti in en_hvt:
+                etx, ety = eti % w, eti // w
+                d2 = (cx - etx) ** 2 + (cy - ety) ** 2
+                if 13 < d2 <= 32:
+                    # Sentinel range but not gunner range
+                    s_cost, _ = ct.get_sentinel_cost()
+                    ti_res, _ = ct.get_global_resources()
+                    if ti_res >= s_cost and _can_place_gunner(s, ci):
+                        sdx = 0 if etx == cx else (1 if etx > cx else -1)
+                        sdy = 0 if ety == cy else (1 if ety > cy else -1)
+                        sdir = DELTA_TO_DIR.get((sdx, sdy))
+                        if sdir is not None:
+                            sbpos = Position(cx, cy)
+                            if pos.distance_squared(sbpos) > 2:
+                                nav.set_goal(sbpos)
+                                moved = nav.step(ct)
+                                return f"atk:sentinel_walk({cx},{cy})", moved
+                            _clear_tile(ct, s, ci, sbpos)
+                            if ct.can_build_sentinel(sbpos, sdir):
+                                ct.build_sentinel(sbpos, sdir)
+                                self.gunner = ci  # track like a gunner
+                                return f"atk:sentinel({cx},{cy})", True
+                    break  # only try one HVT
+
             # Try to build
             dx, dy = nx - cx, ny - cy
             conv_dir = DELTA_TO_DIR.get((dx, dy))
