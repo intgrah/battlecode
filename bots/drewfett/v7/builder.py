@@ -916,13 +916,11 @@ class Builder(Unit):
     # -- Task: Reactive Gunner (defense) --
 
     def _task_reactive_gunner(self, ct: Controller) -> tuple[str, bool] | None:
+        """Use flow-gap approach to place turrets against enemy threats."""
         s = self.state
         w = s.w
-        pos = ct.get_position()
-        core_x, core_y = s.core_pos.x, s.core_pos.y
 
-        # Collect threats: ALL enemy turrets (not launchers) + enemy bots attacking
-        # Skip threats that already have a friendly gunner covering them
+        # Find enemy turrets (not launchers) not already covered
         threats: list[int] = []
         for ti in s.en_turrets:
             if isinstance(s.building[ti], BuildingLauncher):
@@ -930,106 +928,35 @@ class Builder(Unit):
             if not _has_friendly_gunner_covering(s, ti):
                 threats.append(ti)
 
-        # Enemy bots actually attacking our infrastructure (building damaged)
-        for uid in ct.get_nearby_units():
-            if ct.get_team(uid) == s.my_team:
-                continue
-            epos = ct.get_position(uid)
-            ei = epos.y * w + epos.x
-            bld = s.building[ei]
-            if (
-                bld is not None
-                and bld.team == s.my_team
-                and not isinstance(bld, (BuildingMarker, BuildingRoad))
-            ):
-                bid = ct.get_tile_building_id(epos)
-                if bid is not None and ct.get_hp(bid) < ct.get_max_hp(bid):
-                    if not _has_friendly_gunner_covering(s, ei):
-                        threats.append(ei)
-
         if not threats:
             return None
 
-        # Find nearest own transport tile with flow near the threat
-        flow_tiles = s.tiles_with_flow & s.connected_transport
-        if not flow_tiles:
-            return None
-
-        # Pick closest threat to us
+        # Use the attack flow-gap scan with threat as target
+        # Temporarily set attack target to nearest threat, run gap logic
+        pos = ct.get_position()
         best_threat: int | None = None
-        best_tdist = 1_000_000
+        best_d = 1_000_000
         for ti in threats:
             tx, ty = ti % w, ti // w
             d = abs(pos.x - tx) + abs(pos.y - ty)
-            if d < best_tdist:
-                best_tdist = d
+            if d < best_d:
+                best_d = d
                 best_threat = ti
 
         if best_threat is None:
             return None
-        ttx, tty = best_threat % w, best_threat // w
 
-        # Find flow tile nearest to threat
-        best_flow: int | None = None
-        best_fdist = 1_000_000
-        for fti in flow_tiles:
-            fx, fy = fti % w, fti // w
-            d = abs(fx - ttx) + abs(fy - tty)
-            if d < best_fdist:
-                best_fdist = d
-                best_flow = fti
+        # Use Attack instance to find gap and extend/place turret toward threat
+        a = self._attack
+        old_target = a.target
+        a.target = best_threat
+        result = a.run(ct, self.nav, s)
+        # Restore target if attack had one
+        if old_target is not None:
+            a.target = old_target
 
-        if best_flow is None:
-            return None
-
-        fx, fy = best_flow % w, best_flow // w
-
-        # Check adjacent tiles for gunner placement with LoS
-        g_cost, _ = ct.get_gunner_cost()
-        ti_res, _ = ct.get_global_resources()
-        if ti_res < g_cost:
-            return None
-
-        for dx, dy in DIR4_DELTA:
-            gx, gy = fx + dx, fy + dy
-            if not s.in_bounds(gx, gy):
-                continue
-            gi = gy * w + gx
-            if not _can_place_gunner_at(s, gi):
-                continue
-            gpos = Position(gx, gy)
-
-            # Check LoS to threat turret
-            facing_dx = 0 if ttx == gx else (1 if ttx > gx else -1)
-            facing_dy = 0 if tty == gy else (1 if tty > gy else -1)
-            if facing_dx == 0 and facing_dy == 0:
-                continue
-            facing_dir = DELTA_TO_DIR.get((facing_dx, facing_dy))
-            if facing_dir is None:
-                continue
-
-            hit = _has_los(s, gx, gy, facing_dx, facing_dy)
-            if hit is None:
-                continue
-
-            # Feed direction must not equal facing direction
-            chain_dx, chain_dy = fx - gx, fy - gy
-            if (chain_dx, chain_dy) == (facing_dx, facing_dy):
-                continue
-            # Verify flow tile actually outputs toward gunner position
-            flow_fi = fy * w + fx
-            if not _tile_has_correct_transport(s, flow_fi, gi, w):
-                continue
-
-            if pos.distance_squared(gpos) > 2:
-                self.nav.set_goal(gpos)
-                moved = self.nav.step(ct)
-                return f"reactive_gunner:walk({gx},{gy})", moved
-
-            _destroy_friendly(ct, gpos)
-            if ct.can_build_gunner(gpos, facing_dir):
-                ct.build_gunner(gpos, facing_dir)
-                return f"reactive_gunner:built({gx},{gy})", True
+        if result[0] != "atk:no_gap" and result[0] != "atk:cooldown":
+            return result
 
         return None
 
