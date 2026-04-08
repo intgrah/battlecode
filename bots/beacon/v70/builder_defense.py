@@ -99,14 +99,14 @@ def _ray_clear_to(
 
 
 def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
-    """Sacrifice a conveyor with flow to build a gunner that kills enemy raiders.
+    """Place a gunner adjacent to our transport chain to kill enemy raiders.
 
     Triggers when an enemy builder bot is attacking our infrastructure
-    (standing on a tile where our building has HP < max). We find a nearby
-    connected transport tile with flow, verify gunner LoS + ammo feed from
-    the chain, then destroy the transport and build a gunner in its place.
+    (standing on a tile where our building has HP < max). We find an empty
+    or clearable tile adjacent to connected transport with flow, with LoS
+    to the raider tile. The transport feeds the gunner from a non-facing side.
     The gunner kills the raider (10 dmg/shot vs 40 HP = 4 shots), then
-    self-destructs after 15 idle rounds. Defense repair task reconnects the chain.
+    self-destructs after 15 idle rounds.
     """
     s = builder.state
     w = s.w
@@ -152,61 +152,58 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
         if _has_friendly_gunner_covering(s, eti):
             return None  # already handled
 
-    # For each raider, find a connected transport tile with flow that we can
-    # sacrifice for a gunner with LoS to the raider
+    # For each raider, find an empty/clearable tile ADJACENT to connected
+    # transport with flow. The gunner faces the raider; the transport feeds
+    # from a non-facing side.
     best_gpos: Position | None = None
     best_facing: Direction | None = None
     best_gdist = 1_000_000
 
     for _, epos in raider_tiles:
         ex, ey = epos.x, epos.y
-        # Search connected transport tiles near the raider
+        # Search connected transport tiles with flow
         for ti in s.connected_transport:
-            # Must have flow (active resource movement)
             if ti not in s.tiles_with_flow and ti not in s.flow_seen:
                 continue
-            tx, ty = ti % w, ti // w
-            # Must be within gunner range (r²≤13)
-            if (tx - ex) ** 2 + (ty - ey) ** 2 > 13:
-                continue
-            # Compute facing direction toward the raider
-            fdx = 0 if ex == tx else (1 if ex > tx else -1)
-            fdy = 0 if ey == ty else (1 if ey > ty else -1)
-            if fdx == 0 and fdy == 0:
-                continue
-            # Verify LoS to raider position
-            if not _ray_clear_to(s, tx, ty, fdx, fdy, ex, ey):
-                continue
-            facing = DELTA_TO_DIR.get((fdx, fdy))
-            if facing is None:
-                continue
-            # Verify ammo feed: upstream transport must feed from a non-facing side
-            has_feed = False
+            ftx, fty = ti % w, ti // w
+            # Check cardinal neighbors of this transport for gunner placement
             for adx, ady in DIR4_DELTA:
-                if (adx, ady) == (fdx, fdy):
-                    continue  # facing side — can't receive
-                fax, fay = tx + adx, ty + ady
-                if not s.in_bounds(fax, fay):
+                gx, gy = ftx + adx, fty + ady
+                if not s.in_bounds(gx, gy):
                     continue
-                fai = fay * w + fax
-                fbld = s.building[fai]
-                if fbld is None or fbld.team != my_team:
+                gi = gy * w + gx
+                # Must be within gunner range of raider (r²≤13)
+                if (gx - ex) ** 2 + (gy - ey) ** 2 > 13:
                     continue
-                if isinstance(fbld, BuildingHarvester):
-                    has_feed = True
-                    break
-                if fai in s.connected_transport and _tile_has_correct_transport(
-                    s, fai, ti, w
-                ):
-                    has_feed = True
-                    break
-            if not has_feed:
-                continue
-            d = abs(pos.x - tx) + abs(pos.y - ty)
-            if d < best_gdist:
-                best_gdist = d
-                best_gpos = Position(tx, ty)
-                best_facing = facing
+                # Tile must be buildable (empty, or own road/marker/barrier)
+                if not _can_place_gunner_at(s, gi):
+                    continue
+                # Compute facing toward raider
+                fdx = 0 if ex == gx else (1 if ex > gx else -1)
+                fdy = 0 if ey == gy else (1 if ey > gy else -1)
+                if fdx == 0 and fdy == 0:
+                    continue
+                # Transport must feed from non-facing side
+                feed_dx, feed_dy = ftx - gx, fty - gy
+                if (feed_dx, feed_dy) == (fdx, fdy):
+                    continue  # transport is on the facing side — can't receive
+                # Verify transport actually outputs toward the gunner tile
+                if not _tile_has_correct_transport(s, ti, gi, w):
+                    # Also accept harvesters (output all cardinal)
+                    tbld = s.building[ti]
+                    if not isinstance(tbld, BuildingHarvester):
+                        continue
+                # Verify LoS to raider
+                if not _ray_clear_to(s, gx, gy, fdx, fdy, ex, ey):
+                    continue
+                facing = DELTA_TO_DIR.get((fdx, fdy))
+                if facing is None:
+                    continue
+                d = abs(pos.x - gx) + abs(pos.y - gy)
+                if d < best_gdist:
+                    best_gdist = d
+                    best_gpos = Position(gx, gy)
+                    best_facing = facing
 
     if best_gpos is None or best_facing is None:
         return None
@@ -233,12 +230,8 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
                 return "def:intercept_stepoff", True
         return None
 
-    # Destroy the transport and build gunner
-    if ct.can_destroy(best_gpos):
-        ct.destroy(best_gpos)
-        s.building[gi] = None
-        s.my_transport.discard(gi)
-        s.connected_transport.discard(gi)
+    # Clear road/marker/barrier if present
+    _clear_tile(ct, s, gi, best_gpos)
 
     if ct.can_build_gunner(best_gpos, best_facing):
         ct.build_gunner(best_gpos, best_facing)
@@ -400,10 +393,14 @@ def _task_heal_infra(builder: Builder, ct: Controller) -> tuple[str, bool] | Non
     w = s.w
     pos = ct.get_position()
 
-    # Enemy bot actively attacking our building (HP < max) -> heal if adjacent.
-    # Reactive gunner handles offensive response; don't force reroute here.
+    # Skip healing buildings that have an enemy bot actively attacking them.
+    # Healing is a losing trade (we spend 1 Ti/turn, enemy does 2 dmg/2 Ti
+    # but keeps attacking forever). Let intercept gunner eliminate the threat.
+    tiles_under_attack: set[int] = set()
     for uid in ct.get_nearby_units():
         if ct.get_team(uid) == s.my_team:
+            continue
+        if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
         epos = ct.get_position(uid)
         ei = epos.y * w + epos.x
@@ -415,13 +412,8 @@ def _task_heal_infra(builder: Builder, ct: Controller) -> tuple[str, bool] | Non
         bid = ct.get_tile_building_id(epos)
         if bid is None:
             continue
-        if ct.get_hp(bid) >= ct.get_max_hp(bid):
-            continue  # not damaged -- bot is just passing through
-        # Damaged with enemy on it -- heal opportunistically if adjacent
-        if pos.distance_squared(epos) <= 2:
-            if ct.get_action_cooldown() == 0 and ct.can_heal(epos):
-                ct.heal(epos)
-                return f"heal_infra:opp_heal({epos.x},{epos.y})", True
+        if ct.get_hp(bid) < ct.get_max_hp(bid):
+            tiles_under_attack.add(ei)
 
     if ct.get_action_cooldown() != 0:
         return None
@@ -467,6 +459,11 @@ def _task_heal_infra(builder: Builder, ct: Controller) -> tuple[str, bool] | Non
         if hp >= max_hp:
             continue
         bpos = ct.get_position(bid)
+        bi = bpos.y * w + bpos.x
+        # Skip buildings under active enemy attack — healing is futile,
+        # let the intercept gunner handle it
+        if bi in tiles_under_attack:
+            continue
         if any(fp.distance_squared(bpos) <= 2 for fp in friendly_positions):
             continue
         ratio = hp / max_hp
