@@ -157,19 +157,7 @@ class Builder(Unit):
         _ROLE_NAME = ("E", "A", "D")
         task_name, moved = self._run_tasks(ct)
 
-        # -- VIS: emit attack state --
-        if self._role == 1:
-            from vis import Tiles, emit
-
-            a = self._attack
-            gap_tiles: list[tuple[int, int]] = []
-            if hasattr(a, "_last_gaps"):
-                gap_tiles = a._last_gaps
-            vis_fields: dict = {"flow_gaps": Tiles(gap_tiles)}
-            if a.target is not None:
-                tx, ty = a.target % s.w, a.target // s.w
-                vis_fields["atk_target"] = Tiles([(tx, ty)])
-            emit(**vis_fields)
+        # -- VIS disabled for server --
 
         new_pos = ct.get_position()
         r = _ROLE_NAME[self._role] if self._role < 3 else "?"
@@ -1131,9 +1119,16 @@ class Builder(Unit):
         if best_pos is None or best_ratio >= 1.0:
             return None
 
-        if pos.distance_squared(best_pos) <= 2 and ct.can_heal(best_pos):
-            ct.heal(best_pos)
-            return f"heal_infra:heal({best_pos.x},{best_pos.y})", True
+        # Only heal when missing HP >= 4 (heal restores 4 HP, don't waste Ti)
+        # But still walk to buildings being attacked
+        if pos.distance_squared(best_pos) <= 2:
+            bid_h = ct.get_tile_building_id(best_pos)
+            if bid_h is not None:
+                missing = ct.get_max_hp(bid_h) - ct.get_hp(bid_h)
+                if missing >= 4 and ct.can_heal(best_pos):
+                    ct.heal(best_pos)
+                    return f"heal_infra:heal({best_pos.x},{best_pos.y})", True
+            return f"heal_infra:guard({best_pos.x},{best_pos.y})", False
         self.nav.set_goal(best_pos)
         moved = self.nav.step(ct)
         return f"heal_infra:walk({best_pos.x},{best_pos.y})", moved
@@ -1736,20 +1731,18 @@ class _Attack:
                     ax, ay = hpos.x + ddx, hpos.y + ddy
                     if s.in_bounds(ax, ay):
                         abld = s.building[ay * w + ax]
-                        if (
-                            abld is not None
-                            and abld.team == my_team
-                            and isinstance(
+                        if abld is not None and abld.team == my_team:
+                            # Count transport + Ti-consuming turrets (not launchers/roads/markers/barriers)
+                            if not isinstance(
                                 abld,
                                 (
-                                    BuildingConveyor,
-                                    BuildingArmouredConveyor,
-                                    BuildingSplitter,
-                                    BuildingBridge,
+                                    BuildingRoad,
+                                    BuildingMarker,
+                                    BuildingBarrier,
+                                    BuildingLauncher,
                                 ),
-                            )
-                        ):
-                            own_transport_count += 1
+                            ):
+                                own_transport_count += 1
                 # On enemy half: allow if only 1 conveyor (attack can use other sides)
                 # On our half: skip if any conveyor (econ's territory)
                 mid = s.w // 2
@@ -1922,6 +1915,56 @@ class _Attack:
         fdy = 0 if ey == gy else (1 if ey > gy else -1)
         if fdx == 0 and fdy == 0:
             return f"atk:no_face({gx},{gy})", False
+
+        # Check all adjacent tiles for ammo sources. If the ONLY source
+        # is in the facing direction, the turret gets no ammo — skip.
+        has_non_facing_feed = False
+        for adx, ady in DIR4_DELTA:
+            ax, ay = gx + adx, gy + ady
+            if not s.in_bounds(ax, ay):
+                continue
+            abld = s.building[ay * w + ax]
+            if abld is None or abld.team != s.my_team:
+                continue
+            if isinstance(
+                abld,
+                (
+                    BuildingHarvester,
+                    BuildingConveyor,
+                    BuildingArmouredConveyor,
+                    BuildingSplitter,
+                    BuildingBridge,
+                ),
+            ):
+                if (adx, ady) != (fdx, fdy):
+                    has_non_facing_feed = True
+                    break
+        # If there are feed sources but ALL are in facing direction, skip
+        has_any_feed = False
+        for adx, ady in DIR4_DELTA:
+            ax, ay = gx + adx, gy + ady
+            if not s.in_bounds(ax, ay):
+                continue
+            abld = s.building[ay * w + ax]
+            if (
+                abld is not None
+                and abld.team == s.my_team
+                and isinstance(
+                    abld,
+                    (
+                        BuildingHarvester,
+                        BuildingConveyor,
+                        BuildingArmouredConveyor,
+                        BuildingSplitter,
+                        BuildingBridge,
+                    ),
+                )
+            ):
+                has_any_feed = True
+                break
+        if has_any_feed and not has_non_facing_feed:
+            return f"atk:face_feed({gx},{gy})", False
+
         facing = DELTA_TO_DIR.get((fdx, fdy))
         if facing is None:
             return f"atk:no_face({gx},{gy})", False
