@@ -47,8 +47,8 @@ _ENV_INT: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
 _ET_INT: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
 
 
-def _log(msg: str, _bot_id: int = 0) -> None:
-    print(msg)
+def _log(_msg: str, _bot_id: int = 0) -> None:
+    pass
 
 
 def _can_place_gunner_at(s: State, gi: int) -> bool:
