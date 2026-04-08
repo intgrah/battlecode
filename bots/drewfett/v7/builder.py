@@ -1084,6 +1084,7 @@ class Builder(Unit):
             return None
 
         # Find lowest HP% friendly building in vision
+        # Skip buildings that already have a friendly bot adjacent (avoid clustering)
         best_pos: Position | None = None
         best_ratio = 1.0
         for bid in ct.get_nearby_buildings():
@@ -1096,10 +1097,14 @@ class Builder(Unit):
             max_hp = ct.get_max_hp(bid)
             if hp >= max_hp:
                 continue
+            bpos = ct.get_position(bid)
+            # Skip if another friendly bot is already adjacent
+            if bpos in s.unit_tiles and bpos != pos:
+                continue
             ratio = hp / max_hp
             if ratio < best_ratio:
                 best_ratio = ratio
-                best_pos = ct.get_position(bid)
+                best_pos = bpos
 
         if best_pos is None or best_ratio >= 0.8:
             return None
@@ -1469,6 +1474,10 @@ class _Attack:
             if result is not None:
                 return result
 
+            # In enemy turret danger zone? Place turret to counter
+            if out_ti in s.danger_zones:
+                return self._place_turret(ct, nav, s, src_ti, out_ti)
+
             # Empty and buildable → extend chain
             out_env = s.env[out_ti]
             if out_env is None or out_env not in _BUILDABLE_ENV:
@@ -1495,6 +1504,23 @@ class _Attack:
                             s.my_transport.add(out_ti)
                             return f"atk:conv({out_x},{out_y})->{conv_dir.name}", True
                     return "atk:wait_ti", False
+
+        # No nearby gap — check bridges whose landing tile needs extending
+        from building import BuildingBridge as _BldBridge
+
+        for ti in s.my_transport:
+            bld = s.building[ti]
+            if not isinstance(bld, _BldBridge) or bld.team != s.my_team:
+                continue
+            tgt = bld.target
+            tgt_ti = tgt.y * w + tgt.x
+            tgt_bld = s.building[tgt_ti]
+            if tgt_bld is not None and tgt_bld.team == s.my_team:
+                continue  # already extended
+            # Bridge target is empty or enemy — walk there
+            nav.set_goal(tgt)
+            moved = nav.step(ct)
+            return f"atk:walk_bridge_tgt({tgt.x},{tgt.y})", moved
 
         return "atk:no_gap", False
 
