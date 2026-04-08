@@ -1,4 +1,4 @@
-"""Attack role: flow-gap chain extension + turret placement + launcher harassment."""
+"""Attack role: flow-gap chain extension + turret placement."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 from builder_econ import _task_explore_enemy, _task_harvest
 from builder_helpers import (
+    _UNBUILDABLE_ENV,
     _GUNNER_OFFSETS,
     _SENTINEL_OFFSETS,
-    _UNBUILDABLE_ENV,
     _can_place_gunner,
     _clear_tile,
     _has_los,
@@ -17,7 +17,6 @@ from builder_helpers import (
     _tile_has_correct_transport,
 )
 from building import (
-    CHEAP_DESTROYABLE,
     MINOR_DESTROYABLE,
     BuildingBarrier,
     BuildingBridge,
@@ -27,7 +26,7 @@ from building import (
     BuildingMarker,
     BuildingRoad,
 )
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Position
 from chain_astar import AttackAstar
 from util import DELTA_TO_DIR, DIR4_DELTA
 
@@ -167,13 +166,13 @@ class Attack:
                 ni = path[1]
                 if ni == src_ti or ni in s.my_transport:
                     nx2, ny2 = ni % w, ni // w
-                    _log(
-                        f"  A* loop: ({out_x},{out_y}) -> ({nx2},{ny2}) in my_transport"
-                    )
+                    _log(f"  A* loop: ({out_x},{out_y}) -> ({nx2},{ny2}) in my_transport")
                     return "atk:no_path", False
                 nx, ny = ni % w, ni // w
                 path_preview = [(pi % w, pi // w) for pi in path[:6]]
-                _log(f"  A* path: {path_preview} (len={len(path)}) target=({tx},{ty})")
+                _log(
+                    f"  A* path: {path_preview} (len={len(path)}) target=({tx},{ty})"
+                )
                 dx, dy = nx - out_x, ny - out_y
                 conv_dir = DELTA_TO_DIR.get((dx, dy))
                 if conv_dir is None:
@@ -320,10 +319,7 @@ class Attack:
                     if not isinstance(
                         out_bld, (BuildingRoad, BuildingMarker, BuildingBarrier)
                     ):
-                        _log(
-                            f"    reject ({ox},{oy}): own {type(out_bld).__name__[8:]}",
-                            ct.get_id(),
-                        )
+                        _log(f"    reject ({ox},{oy}): own {type(out_bld).__name__[8:]}", ct.get_id())
                         continue
                 # Skip useless gaps
                 if oi in s.danger_zones:
@@ -339,10 +335,7 @@ class Attack:
                     and out_bld.team != my_team
                     and not isinstance(out_bld, MINOR_DESTROYABLE)
                 ):
-                    _log(
-                        f"    reject ({ox},{oy}): enemy {type(out_bld).__name__[8:]}",
-                        ct.get_id(),
-                    )
+                    _log(f"    reject ({ox},{oy}): enemy {type(out_bld).__name__[8:]}", ct.get_id())
                     continue
                 self._last_gaps.append((ox, oy))
                 # Score: walk distance + distance to target (prefer gaps toward enemy)
@@ -560,132 +553,10 @@ class Attack:
         return None
 
 
-def _try_place_launcher(
-    ct: Controller, s: State, nav: NavBfs, pos: Position
-) -> tuple[str, bool] | None:
-    """Place a launcher near enemy bots that are defending enemy infra.
-
-    Triggers when we see enemy builder bots adjacent to enemy buildings —
-    the launcher will throw them away so our attack builders can destroy
-    the infra without being out-healed.
-    """
-    w = s.w
-    my_team = s.my_team
-
-    if ct.get_action_cooldown() != 0:
-        return None
-
-    l_cost, _ = ct.get_launcher_cost()
-    ti_res, _ = ct.get_global_resources()
-    if ti_res < l_cost:
-        return None
-
-    # Don't place launcher if we already have a friendly one nearby
-    for ti in s.my_turrets:
-        if isinstance(s.building[ti], BuildingLauncher):
-            tx, ty = ti % w, ti // w
-            if abs(pos.x - tx) + abs(pos.y - ty) <= 6:
-                return None
-
-    # Find enemy builder bots in vision
-    enemy_bot_positions: list[Position] = []
-    for uid in ct.get_nearby_units():
-        if ct.get_team(uid) == my_team:
-            continue
-        if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
-            continue
-        enemy_bot_positions.append(ct.get_position(uid))
-
-    if not enemy_bot_positions:
-        return None
-
-    # Check if any enemy bot is near enemy infra (defending it)
-    en_infra = s.en_transport | s.en_harvesters | s.en_turrets | s.en_core_tiles
-    defending_bots: list[Position] = []
-    for epos in enemy_bot_positions:
-        for ei in en_infra:
-            ex, ey = ei % w, ei // w
-            if abs(epos.x - ex) + abs(epos.y - ey) <= 2:
-                defending_bots.append(epos)
-                break
-
-    if not defending_bots:
-        return None
-
-    # Find best tile to place launcher: adjacent to an enemy bot, placeable
-    # Prefer tiles closest to us. We'll destroy own roads/markers/barriers.
-    best_pos: Position | None = None
-    best_dist = 1_000_000
-    for ebot in defending_bots:
-        # Check tiles adjacent to enemy bot (launcher pickup r²=2)
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                if dx == 0 and dy == 0:
-                    continue
-                lx, ly = ebot.x + dx, ebot.y + dy
-                if not s.in_bounds(lx, ly):
-                    continue
-                li = ly * w + lx
-                lpos = Position(lx, ly)
-                env = s.env[li]
-                if env == Environment.WALL:
-                    continue
-                bld = s.building[li]
-                if bld is not None:
-                    if isinstance(bld, BuildingMarker):
-                        pass  # can build over
-                    elif bld.team == my_team and isinstance(bld, CHEAP_DESTROYABLE):
-                        pass  # can destroy to make room
-                    else:
-                        continue  # can't clear
-                d = abs(pos.x - lx) + abs(pos.y - ly)
-                if d < best_dist:
-                    best_dist = d
-                    best_pos = lpos
-
-    if best_pos is None:
-        return None
-
-    li = best_pos.y * w + best_pos.x
-
-    # Need to stand adjacent (action r²=2) but NOT on the tile
-    if pos == best_pos:
-        # Step off
-        for d in Direction:
-            if d != Direction.CENTRE and ct.can_move(d):
-                ct.move(d)
-                return "atk:launcher_stepoff", True
-        return None
-
-    if pos.distance_squared(best_pos) > 2:
-        nav.set_goal(best_pos)
-        moved = nav.step(ct)
-        return f"atk:launcher_walk({best_pos.x},{best_pos.y})", moved
-
-    # Clear the tile if needed
-    _clear_tile(ct, s, li, best_pos)
-
-    if ct.can_build_launcher(best_pos):
-        ct.build_launcher(best_pos)
-        s.building[li] = BuildingLauncher(s.my_team)
-        s.my_turrets.add(li)
-        _log(
-            f"  PLACED launcher({best_pos.x},{best_pos.y}) near enemy bots", ct.get_id()
-        )
-        return f"atk:launcher({best_pos.x},{best_pos.y})", True
-
-    return None
-
-
 def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
     a = builder._attack
     s = builder.state
     pos = ct.get_position()
-
-    # Place launcher to clear enemy defenders before attacking infra
-    launcher_result = _try_place_launcher(ct, s, builder.nav, pos)
-    if launcher_result is not None:
-        return launcher_result
 
     # Fire at enemy transport we're standing on (not random roads)
     if ct.get_action_cooldown() == 0:
