@@ -167,11 +167,13 @@ Challenge another team to an unrated match using both teams' latest submissions.
 ```bash  theme={"dark"}
 cambc unrated <opponent_team_id>
 cambc unrated <opponent_team_id> --match <source_match_id>
+cambc unrated <opponent_team_id> --map arena --map fortress
 ```
 
 | Option       | Description                                                                              |
 | ------------ | ---------------------------------------------------------------------------------------- |
 | `--match ID` | Use the opponent's submission version from a specific past match instead of their latest |
+| `--map NAME` | Map name to play on (repeatable, up to 5). Omit for random map selection                 |
 
 Unrated matches run on the same AWS infrastructure as ladder matches with full time limit enforcement but do not affect ratings. They are prioritised over ladder matches for faster results.
 
