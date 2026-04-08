@@ -183,22 +183,20 @@ class ChainAstar:
     def set_goal(self, x: int, y: int) -> None:
         self._gx, self._gy = x, y
 
-    def ore_offset(
-        self, ore: tuple[int, int], ref: tuple[int, int]
-    ) -> tuple[int, int] | None:
-        """Pick the best cardinally-adjacent tile to `ore`.
+    def offset_goal(self) -> None:
+        """Move the goal to the best cardinally-adjacent tile.
 
         Picks the neighbor with the lowest `_CARD_COST`; ties broken by
-        smallest Manhattan distance to `ref`. Returns the chosen
-        ``(x, y)`` (or ``None`` if no valid neighbor exists).
+        smallest Manhattan distance to `starts[0]`.
         """
         w, h = self.map_w, self.map_h
         cls = self._cls
-        ox, oy = ore
-        sx, sy = ref
+        if not self._starts:
+            return
+        sx, sy = self._starts[0]
         best: tuple[int, int, int, int] | None = None  # (cost, dist, x, y)
         for dx, dy in CARDINAL_DELTAS:
-            nx, ny = ox + dx, oy + dy
+            nx, ny = self._gx + dx, self._gy + dy
             if not (0 <= nx < w and 0 <= ny < h):
                 continue
             ni = self._pi(nx, ny)
@@ -207,9 +205,8 @@ class ChainAstar:
             key = (cost, dist, nx, ny)
             if best is None or key < best:
                 best = key
-        if best is None:
-            return None
-        return (best[2], best[3])
+        if best is not None:
+            self.set_goal(best[2], best[3])
 
     def plan(
         self,

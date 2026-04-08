@@ -30,18 +30,11 @@ class Tracker:
         self._allied_only = allied_only
         self.positions: set[int] = set()
         self._changed: bool = False
-        self._last_round: int = -(10**9)
 
-    def take_changed(self, round: int) -> bool:
-        """Return whether the tracked set changed since the last call.
-
-        Also returns True if at least 2 rounds have elapsed since the
-        previous call, so callers can refresh on a stale interval even
-        when nothing visibly changed.
-        """
-        changed = self._changed or (round - self._last_round) >= 2
+    def take_changed(self) -> bool:
+        """Return whether the tracked set changed, and reset the flag."""
+        changed = self._changed
         self._changed = False
-        self._last_round = round
         return changed
 
     def _matches(

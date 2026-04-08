@@ -10,7 +10,6 @@ from explore import ExploreGrid
 from symmetry import Symmetry, SymmetryDetector
 from tile_codec import UNSEEN, _ET_INT, encode_tile, tile_building_type, tile_is_allied
 from env_tracker import EnvTracker
-from tracker import Tracker
 from unit import Unit
 from utils import try_move_away
 
@@ -23,7 +22,6 @@ def _update_nearby_tiles(
     ct: Controller,
     tile_cache: list[int],
     env_trackers: list[EnvTracker],
-    trackers: list[Tracker],
     chain: ChainAstar,
 ) -> None:
     """Read nearby tiles from the controller and feed raw data to nav."""
@@ -43,8 +41,6 @@ def _update_nearby_tiles(
         nav.update_tile(i, env, building_type, is_allied, sym)
         for tracker in env_trackers:
             tracker.update_tile(i, env, building_type, is_allied, sym)
-        for tracker in trackers:
-            tracker.update_tile(i, env, building_type, is_allied)
         reachable.update_tile(i, env)
         chain.update_tile(tile.x, tile.y, env, building_type, is_allied)
     reachable.compute(tile_cache, chain)
@@ -66,16 +62,9 @@ class Builder(Unit):
         self.ti_ore = EnvTracker(w, h, Environment.ORE_TITANIUM, entity_types=_BUILDABLE)
         self.ax_ore = EnvTracker(w, h, Environment.ORE_AXIONITE, entity_types=_BUILDABLE)
         self.env_trackers: list[EnvTracker] = [self.ti_ore, self.ax_ore]
-        self.allied_conveyors = Tracker(
-            w, h, entity_type=EntityType.CONVEYOR, allied_only=True
-        )
-        self.trackers: list[Tracker] = [self.allied_conveyors]
         self.chain = ChainAstar(w, h)
         self._chain_plan: list[BuildInstruction] | None = None
         self._plan_progress: int = 0
-        self.first_ore_pos: Position | None = None
-        self.first_ore_env: Environment | None = None
-        self.plan_done: bool = False
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -112,8 +101,7 @@ class Builder(Unit):
         resolved = self.sym.resolved
 
         _update_nearby_tiles(
-            self.nav, self.reachable, resolved, ct, self._tile_cache,
-            self.env_trackers, self.trackers, self.chain,
+            self.nav, self.reachable, resolved, ct, self._tile_cache, self.env_trackers, self.chain
         )
         self.explore.update(ct, pos, self.core_pos)
 
@@ -126,15 +114,20 @@ class Builder(Unit):
 
         # Plan execution takes precedence over normal navigation. The plan
         # itself sets the nav goal each turn.
-        if self.plan_done:
-            if self.allied_conveyors.take_changed(ct.get_current_round()):
-                self.nav.set_goals(self.allied_conveyors.as_positions())
-            self.allied_conveyors.draw_tracked(ct, 0, 200, 255)
-            self._upgrade_adjacent_conveyor(ct, new_pos)
-        elif self.plan_ok(ct) == -1:
+        if self.plan_ok(ct) == -1:
             self._execute_plan(ct)
         else:
-            self._handle_ore_phase(ct, new_pos)
+            has_ore = self.ti_ore.any_positions()
+            # No active plan — fall back to ore harvesting / exploring.
+            if has_ore and (self.ti_ore.take_changed() or not self.nav._gis):
+                self.nav.set_goals(self.ti_ore.as_positions())
+            elif not has_ore:
+                self.nav.set_goal(self.explore.target)
+
+            if has_ore:
+                self._handle_ore(ct)
+            else:
+                self._handle_explore(ct, new_pos)
 
         if self._chain_plan is not None:
             self.chain.draw_path(ct, self._chain_plan)
@@ -144,95 +137,19 @@ class Builder(Unit):
         self.nav.emit_vis()
 
 
-    def _upgrade_adjacent_conveyor(self, ct: Controller, pos: Position) -> None:
-        """If a friendly conveyor is in action range (r²<=2), destroy it
-        and rebuild as an armoured conveyor in the same direction.
+    def _handle_ore(self, ct: Controller) -> None:
+        """No active plan — generate one for the nearest reachable ore so
+        the next turn (or this turn's later draw) can execute it.
         """
-        ti_have, ax_have = ct.get_global_resources()
-        ti_cost, ax_cost = ct.get_armoured_conveyor_cost()
-        if ti_have < ti_cost or ax_have < ax_cost:
-            return
-        my_team = ct.get_team()
-        for bid in ct.get_nearby_buildings(2):
-            if ct.get_entity_type(bid) != EntityType.CONVEYOR:
-                continue
-            if ct.get_team(bid) != my_team:
-                continue
-            p = ct.get_position(bid)
-            direction = ct.get_direction(bid)
-            if not ct.can_destroy(p):
-                return
-            ct.destroy(p)
-            if ct.can_build_armoured_conveyor(p, direction):
-                ct.build_armoured_conveyor(p, direction)
+        self.ti_ore.draw_tracked(ct, 0, 255, 255)
+
+        nearest_ore = self.nav.nearest_goal(ct)
+        if nearest_ore is None:
             return
 
-    def _ore_env_at(self, pos: Position) -> Environment | None:
-        """Return the ore type at `pos` if it's a tracked ore tile."""
-        i = pos.y * self.w + pos.x
-        if self.ti_ore.positions.get(i):
-            return Environment.ORE_TITANIUM
-        if self.ax_ore.positions.get(i):
-            return Environment.ORE_AXIONITE
-        return None
-
-    def _handle_ore_phase(self, ct: Controller, pos: Position) -> None:
-        """Two-phase ore acquisition:
-        Phase 1: navigate to the union of all known ti/ax ore. On arrival,
-                 record the ore type and position.
-        Phase 2: navigate to ore of the OPPOSITE type. On arrival, build
-                 a chain plan from the first ore to the second.
-        """
-        if self.first_ore_pos is None:
-            r = ct.get_current_round()
-            ti_changed = self.ti_ore.take_changed(r)
-            ax_changed = self.ax_ore.take_changed(r)
-            goals = self.ti_ore.as_positions() + self.ax_ore.as_positions()
-            if goals:
-                if ti_changed or ax_changed:
-                    self.nav.set_goals(goals)
-                self.ti_ore.draw_tracked(ct, 0, 255, 255)
-                self.ax_ore.draw_tracked(ct, 255, 255, 0)
-            else:
-                self.nav.set_goal(self.explore.target)
-                self._handle_explore(ct, pos)
-                return
-        else:
-            other = (
-                self.ax_ore
-                if self.first_ore_env == Environment.ORE_TITANIUM
-                else self.ti_ore
-            )
-            goals = other.as_positions()
-            if goals:
-                if other.take_changed(ct.get_current_round()):
-                    self.nav.set_goals(goals)
-                other.draw_tracked(ct, 0, 255, 255)
-                ct.draw_indicator_dot(self.first_ore_pos, 0, 255, 0)
-            else:
-                self.nav.set_goal(self.explore.target)
-                self._handle_explore(ct, pos)
-                return
-
-        nearest = self.nav.nearest_goal(ct)
-        if nearest is None:
-            return
-        here = self._ore_env_at(nearest)
-        if here is None:
-            return
-        if self.first_ore_pos is None:
-            self.first_ore_pos = nearest
-            self.first_ore_env = here
-            return
-        if here != self.first_ore_env and nearest != self.first_ore_pos:
-            ct.draw_indicator_dot(nearest, 0, 255, 0)
-            self._chain_plan = self._chain_plan_from(
-                ct, self.first_ore_pos, nearest
-            )
-            self._plan_progress = 0
-            if self._chain_plan:
-                _, gpos, _ = self._chain_plan[0]
-                self.nav.set_goal(gpos)
+        ct.draw_indicator_dot(nearest_ore, 0, 255, 0)
+        self._chain_plan = self._chain_plan_for(ct, nearest_ore)
+        self._plan_progress = 0
 
     def _execute_plan(self, ct: Controller) -> None:
         """Pathfind to the next instruction's tile and try to place its
@@ -247,7 +164,6 @@ class Builder(Unit):
         if self._plan_progress >= len(self._chain_plan):
             self._chain_plan = None
             self._plan_progress = 0
-            self.plan_done = True
             return
         
         _, pos, _ = self._chain_plan[self._plan_progress]
@@ -280,13 +196,6 @@ class Builder(Unit):
                 return False
             ct.build_harvester(pos)
             return True
-        if entity == EntityType.FOUNDRY:
-            if ct.get_position() == pos:
-                try_move_away(ct, pos)
-            if not ct.can_build_foundry(pos):
-                return False
-            ct.build_foundry(pos)
-            return True
         if entity == EntityType.CONVEYOR:
             if not ct.can_build_conveyor(pos, extra):
                 return False
@@ -299,72 +208,28 @@ class Builder(Unit):
             return True
         return False
 
-    def _chain_plan_from(
-        self, ct: Controller, first_ore: Position, second_ore: Position
+    def _chain_plan_for(
+        self, ct: Controller, nearest_ore: Position
     ) -> list[BuildInstruction] | None:
-        """Plan a fresh chain from `first_ore` to `second_ore`. Prepends
-        harvester instructions at both ore tiles if not already harvested.
+        """Plan a fresh chain from the core area to `nearest_ore`. Prepends
+        a harvester instruction at the ore tile if it isn't already
+        harvested.
         """
-        # Force impassible for pathfinding (as they will be once harvested).
-        self.chain.update_tile(first_ore.x, first_ore.y, Environment.WALL, None, True)
-        self.chain.update_tile(second_ore.x, second_ore.y, Environment.WALL, None, True)
-
-        first_xy = (first_ore.x, first_ore.y)
-        second_xy = (second_ore.x, second_ore.y)
-        first_offset = self.chain.ore_offset(first_xy, second_xy)
-        if first_offset is None:
-            return None
-        second_offset = self.chain.ore_offset(second_xy, first_offset)
-
-        # Stage 1: chain from second_ore to first_ore.
-        self.chain.set_starts([first_offset])
-        self.chain.set_goal(*(second_offset if second_offset is not None else second_xy))
-        stage1 = self.chain.plan()
-        if stage1 is None:
-            return None
-
-        # Block every stage 1 tile so stage 2 cannot reuse it.
-        for _entity, p, _extra in stage1:
-            self.chain.update_tile(p.x, p.y, Environment.WALL, None, True)
-
-        # Stage 2: chain from the core to a tile cardinally adjacent to the
-        # foundry (which will sit on first_offset). Block the 4 cardinal
-        # neighbors of first_ore so stage 2 can't pathfind through them
-        # (they're reserved for the foundry / harvester adjacency).
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            self.chain.update_tile(
-                first_ore.x + dx, first_ore.y + dy, Environment.WALL, None, True
-            )
         cx, cy = self.core_pos.x, self.core_pos.y
-        foundry_offset = self.chain.ore_offset(first_offset, (cx, cy))
-        if foundry_offset is None:
-            return None
         self.chain.set_starts(
             (cx + dx, cy + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
         )
-        self.chain.set_goal(*foundry_offset)
-        stage2 = self.chain.plan()
-        if stage2 is None:
+        # force impassible for pathfinding (as it will be once we place the harvester)
+        self.chain.update_tile(nearest_ore.x, nearest_ore.y, Environment.WALL, None, True)
+        self.chain.set_goal(nearest_ore.x, nearest_ore.y)
+        self.chain.offset_goal()
+        plan = self.chain.plan()
+        if plan is None:
             return None
 
-        plan = stage1
-        # Insert harvester at second_ore (built first, before stage1 chain).
-        cached = self._tile_cache[second_ore.y * self.w + second_ore.x]
+        cached = self._tile_cache[nearest_ore.y * self.w + nearest_ore.x]
         if cached == UNSEEN or tile_building_type(cached) != EntityType.HARVESTER:
-            plan.insert(0, (EntityType.HARVESTER, second_ore, None))
-
-        # Insert harvester at first_ore between the two stages.
-        cached = self._tile_cache[first_ore.y * self.w + first_ore.x]
-        if cached == UNSEEN or tile_building_type(cached) != EntityType.HARVESTER:
-            plan.append((EntityType.HARVESTER, first_ore, None))
-
-        # Foundry sits on first_offset, fed by stage 1 and consumed by stage 2.
-        foundry_pos = Position(*first_offset)
-        cached = self._tile_cache[foundry_pos.y * self.w + foundry_pos.x]
-        if cached == UNSEEN or tile_building_type(cached) != EntityType.FOUNDRY:
-            plan.append((EntityType.FOUNDRY, foundry_pos, None))
-
-        plan.extend(stage2)
+            plan.insert(0, (EntityType.HARVESTER, nearest_ore, None))
         return plan
 
     def plan_ok(self, ct: Controller) -> int:

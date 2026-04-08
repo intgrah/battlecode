@@ -334,13 +334,13 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                     .values()
                     .find(|e| e.pos == from_pos)
                     .and_then(|e| get_stored_resource(&e.kind))
-                    .unwrap_or(proto::ResourceType::ResourceTitanium);
+                    .unwrap_or(proto::ResourceType::ResourceNone);
 
                 if let Some(src) = state.entities.values_mut().find(|e| e.pos == from_pos) {
                     set_stored_resource(&mut src.kind, proto::ResourceType::ResourceNone);
                 }
                 if let Some(dst) = state.entities.values_mut().find(|e| e.pos == to_pos) {
-                    set_stored_resource(&mut dst.kind, resource);
+                    deliver_stored_resource(&mut dst.kind, resource);
                 }
             }
         }
@@ -357,6 +357,23 @@ const fn get_stored_resource(kind: &EntityKind) -> Option<proto::ResourceType> {
         EntityKind::Harvester { resource_type, .. } => Some(*resource_type),
         _ => None,
     }
+}
+
+// Mirrors engine `Entity::receive_resource` for foundries: Ti + RawAx combine
+// into RefinedAxionite in-place. For all other entities (and for foundries
+// receiving into an empty slot) this is a plain overwrite.
+const fn deliver_stored_resource(kind: &mut EntityKind, res: proto::ResourceType) {
+    if let EntityKind::Foundry { stored } = kind {
+        match (*stored, res) {
+            (proto::ResourceType::ResourceTitanium, proto::ResourceType::ResourceRawAxionite)
+            | (proto::ResourceType::ResourceRawAxionite, proto::ResourceType::ResourceTitanium) => {
+                *stored = proto::ResourceType::ResourceRefinedAxionite;
+                return;
+            }
+            _ => {}
+        }
+    }
+    set_stored_resource(kind, res);
 }
 
 const fn set_stored_resource(kind: &mut EntityKind, res: proto::ResourceType) {
