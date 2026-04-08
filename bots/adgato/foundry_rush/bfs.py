@@ -91,10 +91,10 @@ class NavBfs:
         self._rn = w * h  # real tile count
         n = pw * (h + 2)  # padded tile count
         self._n = n
-        self._gi = -1
 
-        # Passable grid: border=0, interior=1 (assume all passable initially)
-        self._passable: list[int] = [1] * n
+        # Passable grid: border=0, interior=2 (unseen, treated as passable
+        # by the truthy checks but distinguishable from observed-passable=1).
+        self._passable: list[int] = [2] * n
         row_data = [0] * pw
         self._passable[0:pw] = row_data
         self._passable[(h + 1) * pw : (h + 1) * pw + pw] = row_data
@@ -124,7 +124,6 @@ class NavBfs:
         self._dist: list[int] = [INF] * n
 
         self._q: list[int] = []
-        self._cur_dist = INF
         self._cur_idx = -1
         self._gis: list[int] = []
 
@@ -152,17 +151,22 @@ class NavBfs:
 
         if sym is not Symmetry.UNKNOWN:
             mi = mirror_idx(i, sym, self.w, self.h)
-            self._set_passable(mi, passable=env != Environment.WALL)
+            self._set_passable(mi, passable=env != Environment.WALL, mirror = True)
 
-    def _set_passable(self, i: int, passable: bool) -> None:
+    def _set_passable(self, i: int, passable: bool, mirror: bool = False) -> None:
         """Write passability to grid and mark dirty if a closer tile changed."""
         # real (x,y) where y=i//w, x=i%w -> padded (y+1)*pw + (x+1)
         # = y*pw + pw + x + 1 = (y*w + x) + 2*y + pw + 1 = i + 2*(i//w) + pw + 1
         pi = i + 2 * (i // self.w) + self._pw + 1
 
         old = self._passable[pi]
+        if mirror and old != 2:
+            return
+        
         if old != passable:
             self._passable[pi] = passable
+            if old and passable:
+                return
             pnb_dirty = self._pnb_dirty
             if passable:
                 pnb_dirty.add(pi)
@@ -174,9 +178,7 @@ class NavBfs:
                     pnb_dirty.add(ni)
                 else:
                     pnb_dirty.discard(ni)
-            # Only dirty BFS if tile is closer to goal than agent
-            if self._dist[pi] < self._cur_dist:
-                self._dirty = True
+            self._dirty = True
 
     def _init_pnb_chunk(self, within_budget: Callable[[], bool]) -> bool:
         """Build pnb tables incrementally, assuming all real tiles passable.
@@ -274,15 +276,16 @@ class NavBfs:
 
     def set_goal(self, goal: Position) -> None:
         """Change to a single goal. Marks dirty so the search resets."""
-        self.set_goals([goal])
+        gi = (goal.y + 1) * self._pw + (goal.x + 1) 
+        ng = len(self._gis)
+        if ng != 1 or ng == 1 and gi != self._gis[0]:
+            self.set_goals([goal])
 
     def set_goals(self, goals: list[Position]) -> None:
         """Change to multiple goals. Marks dirty so the search resets."""
         pw = self._pw
-        gis = [(g.y + 1) * pw + (g.x + 1) for g in goals]
-        if gis != self._gis:
-            self._gis = gis
-            self._dirty = True
+        self._gis = [(g.y + 1) * pw + (g.x + 1) for g in goals]
+        self._dirty = True
 
     def _compute(self) -> None:
         """Reset BFS state for a fresh search from goals."""
@@ -298,23 +301,22 @@ class NavBfs:
     def emit_vis(self) -> None:
         """Emit the BFS distance field and direction arrows to the visualiser."""
         dist = self._dist
+        passable = self._passable
         pw = self._pw
         w, h = self.w, self.h
         rn = self._rn
         pnb_push = self._pnb_push
         pnb_set = self._pnb_set
         angles: list[float | None] = [None] * rn
-        dist_list: list[int] = [-1] * rn
+        passable_list: list[int] = [-1] * rn
 
         for ry in range(h):
             for rx in range(w):
                 pi = (ry + 1) * pw + (rx + 1)
                 ri = ry * w + rx
                 di = dist[pi]
-                if di >= INF:
-                    continue
-                dist_list[ri] = di
-                if di <= 0:
+                passable_list[ri] = passable[pi]
+                if di >= INF or di <= 0:
                     continue
                 best = di
                 bx, by = 0, 0
@@ -328,8 +330,8 @@ class NavBfs:
                     angles[ri] = math.atan2(by, bx)
 
         emit(
-            dist=Grid(
-                dist_list,
+            passable=Grid(
+                passable_list,
                 palette=Palette(
                     stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)],
                     special={-1: (0, 0, 0, 0)},
@@ -338,6 +340,36 @@ class NavBfs:
             bfs=VectorField(angles),
         )
 
+
+    def nearest_goal(self, ct: Controller) -> Position | None:
+        """Walk the BFS distance field from the agent toward a goal.
+
+        Follows greedy descent in `_dist` (first 8-neighbor with strictly
+        smaller distance). Returns the reached goal `Position` (dist==0).
+        Returns None as soon as the next step would land on an impassable
+        or unseen tile, or no descending neighbor exists.
+        """
+        pw = self._pw
+        passable = self._passable
+        dist = self._dist
+        offsets = self._offsets
+
+        pos = ct.get_position()
+        pi = (pos.y + 1) * pw + (pos.x + 1)
+        d = dist[pi]
+        if d >= INF:
+            return None
+        while d > 0:
+            for off in offsets:
+                ni = pi + off
+                dn = dist[ni]
+                if dn < d and passable[ni] == 1:
+                    pi = ni
+                    d = dn
+                    break
+            else:
+                return None
+        return Position(pi % pw - 1, pi // pw - 1)
 
     def step(
         self,
@@ -349,6 +381,7 @@ class NavBfs:
         if self._pnb_init_progress < self._rn:
             self._init_pnb_chunk(within_budget)
             return False
+        
 
         # Rebuild pnb for tiles with passability changes
         if self._pnb_dirty:
@@ -363,17 +396,21 @@ class NavBfs:
             self._compute()
             self._dirty = False
 
+        if ct.get_move_cooldown() > 0:
+            return False
+        
         cur_idx = self._cur_idx
         dist = self._dist
         d = dist[cur_idx]
-        self._cur_dist = d
+        print(f"dist {d}")
 
         if d <= 0 or d >= INF:
             return False
 
-        print(f"dist {d}")
+        nzcd = ct.get_action_cooldown() > 0
+        options = (d - 1,) if nzcd else (d - 1, d, d + 1)
         pnb = self._pnb_push[cur_idx] + self._pnb_set[cur_idx]
-        for target in (d - 1, d, d + 1):
+        for target in options:
             # Prefer tiles that are already passable (no road build needed)
             for ni in pnb:
                 if dist[ni] != target:
@@ -394,7 +431,10 @@ class NavBfs:
                 if ct.can_move(direction):
                     ct.move(direction)
                     return True
-
+        
+        if nzcd:
+            return False
+        
         # Just move in any direction
         for ni in pnb:
             next_pos = Position(ni % pw - 1, ni // pw - 1)
