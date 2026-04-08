@@ -921,17 +921,14 @@ class Builder(Unit):
         pos = ct.get_position()
         core_x, core_y = s.core_pos.x, s.core_pos.y
 
-        # Collect threats: enemy turrets near core + enemy bots attacking our buildings
-        # Skip threats that already have a friendly gunner within r²=13
+        # Collect threats: ALL enemy turrets (not launchers) + enemy bots attacking
+        # Skip threats that already have a friendly gunner covering them
         threats: list[int] = []
         for ti in s.en_turrets:
             if isinstance(s.building[ti], BuildingLauncher):
-                continue  # launchers are nav threats but don't need gunner response
-            tx, ty = ti % w, ti // w
-            dist_sq = (tx - core_x) ** 2 + (ty - core_y) ** 2
-            if dist_sq <= 100:
-                if not _has_friendly_gunner_covering(s, ti):
-                    threats.append(ti)
+                continue
+            if not _has_friendly_gunner_covering(s, ti):
+                threats.append(ti)
 
         # Enemy bots actually attacking our infrastructure (building damaged)
         for uid in ct.get_nearby_units():
