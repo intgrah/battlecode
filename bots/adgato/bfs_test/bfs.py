@@ -53,15 +53,15 @@ def _bfs_compute(
     dist: list[int],
     q: list[int],
     cur_idx: int,
+    stop_at: int = INF
 ) -> None:
     """Run backwards BFS to completion (one level past the agent)."""
-    stop_at = INF
     for node in q:
         d = dist[node] + 1
-        if node == cur_idx:
-            stop_at = d
         if d > stop_at:
             return
+        if node == cur_idx:
+            stop_at = d
         for ni in pnb_push[node]:
             if d < dist[ni]:
                 dist[ni] = d
