@@ -33,7 +33,7 @@ IMPASSABLE = 0
 FRIENDLY_ROAD = 1
 ENEMY_ROAD = 2
 ORE = 3
-UNSEEN = 4
+UNREACHABLE = 4
 _CARD_COST: tuple[int, ...] = (INF, 1, 4, 4, INF)
 _BRIDGE_COST: tuple[int, ...] = (INF, 10, 15, 10, INF)
 
@@ -70,7 +70,7 @@ class ChainAstar:
         self._cls: list[int] = [IMPASSABLE] * n
         for ry in range(map_h):
             row = (ry + _PAD) * pw + _PAD
-            self._cls[row : row + map_w] = [UNSEEN] * map_w
+            self._cls[row : row + map_w] = [UNREACHABLE] * map_w
 
         # Flat-index neighbor offsets in padded coordinates.
         self._card_offsets: tuple[int, ...] = tuple(
@@ -152,7 +152,12 @@ class ChainAstar:
         env: Environment,
         building_type: EntityType | None,
         is_allied: bool,
+        force_update: bool = False
     ) -> None:
+        
+        pi = self._pi(x, y)
+        if not force_update and self._cls[pi] == UNREACHABLE:
+            return
         
         if env == Environment.WALL:
             cls = IMPASSABLE
@@ -170,7 +175,7 @@ class ChainAstar:
             else:
                 cls = IMPASSABLE
 
-        self._cls[self._pi(x, y)] = cls
+        self._cls[pi] = cls
 
     def set_starts(self, starts: Iterable[tuple[int, int]]) -> None:
         self._starts = tuple(starts)
@@ -234,7 +239,7 @@ class ChainAstar:
         pw = self._pw
         cls = self._cls
         dist_list: list[int] = [-1] * (w * h)
-        cls_list: list[int] = [UNSEEN] * (w * h)
+        cls_list: list[int] = [UNREACHABLE] * (w * h)
         for i, g in self._last_g.items():
             py, px = divmod(i, pw)
             ry, rx = py - _PAD, px - _PAD

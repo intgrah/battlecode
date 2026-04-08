@@ -219,12 +219,11 @@ class NavBfs:
         return True
 
     def _rebuild_pnb(self) -> None:
-        """Rebuild _pnb for passable tiles affected by passability changes."""
+        """Rebuild pnb for dirty tiles."""
         passable = self._passable
         pnb_push = self._pnb_push
         pnb_set = self._pnb_set
-        offsets = self._offsets
-
+        ne_off, se_off, sw_off, nw_off, n_off, e_off, s_off, w_off = self._offsets
         for pi in self._pnb_dirty:
             push = pnb_push[pi]
             assign = pnb_set[pi]
@@ -232,33 +231,26 @@ class NavBfs:
             assign.clear()
             if not passable[pi]:
                 continue
-
-            ne, se, sw, nw, n, e, s, w = tuple(pi + off for off in offsets)
-
-            # Diagonals — always enqueue
+            ne = pi + ne_off
+            se = pi + se_off
+            sw = pi + sw_off
+            nw = pi + nw_off
+            n = pi + n_off
+            e = pi + e_off
+            s = pi + s_off
+            w = pi + w_off
             has_ne = passable[ne]
             has_se = passable[se]
             has_sw = passable[sw]
             has_nw = passable[nw]
-            if has_ne:
-                push.append(ne)
-            if has_se:
-                push.append(se)
-            if has_sw:
-                push.append(sw)
-            if has_nw:
-                push.append(nw)
-
-            # Cardinals — skip enqueue if both adjacent diagonals are passable
-            if passable[n]:
-                (assign if has_ne and has_nw else push).append(n)
-            if passable[e]:
-                (assign if has_ne and has_se else push).append(e)
-            if passable[s]:
-                (assign if has_se and has_sw else push).append(s)
-            if passable[w]:
-                (assign if has_sw and has_nw else push).append(w)
-
+            if has_ne: push.append(ne)
+            if has_se: push.append(se)
+            if has_sw: push.append(sw)
+            if has_nw: push.append(nw)
+            if passable[n]: (assign if has_ne and has_nw else push).append(n)
+            if passable[e]: (assign if has_ne and has_se else push).append(e)
+            if passable[s]: (assign if has_se and has_sw else push).append(s)
+            if passable[w]: (assign if has_sw and has_nw else push).append(w)
         self._pnb_dirty.clear()
 
     def mirror_known(self, sym: Symmetry, known_env: dict[int, Environment]) -> None:
@@ -266,7 +258,7 @@ class NavBfs:
         w, h = self.w, self.h
         for i, env in known_env.items():
             mi = mirror_idx(i, sym, w, h)
-            self._set_passable(mi, passable=env != Environment.WALL)
+            self._set_passable(mi, passable=env != Environment.WALL, mirror=True)
         self._dirty = True
 
     def get_passable(self, pos: Position) -> bool:
