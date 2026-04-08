@@ -87,6 +87,13 @@ class Sentinel(Unit):
 
         protected = _find_protected_buildings(ct, my_team)
 
+        # Track friendly bot positions to avoid friendly fire
+        friendly_tiles: set[tuple[int, int]] = set()
+        for uid in ct.get_nearby_units():
+            if ct.get_team(uid) == my_team:
+                fp = ct.get_position(uid)
+                friendly_tiles.add((fp.x, fp.y))
+
         for bid in ct.get_nearby_buildings():
             if ct.get_team(bid) == my_team:
                 continue
@@ -101,12 +108,17 @@ class Sentinel(Unit):
                 for dx in range(-1, 2):
                     for dy in range(-1, 2):
                         tp = Position(bp.x + dx, bp.y + dy)
+                        if (tp.x, tp.y) in friendly_tiles:
+                            continue  # friendly bot there
                         if ct.can_fire(tp):
                             best_priority = priority
                             best_target = tp
-            elif ct.can_fire(bp):
-                best_priority = priority
-                best_target = bp
+            else:
+                if (bp.x, bp.y) in friendly_tiles:
+                    continue  # friendly bot on target
+                if ct.can_fire(bp):
+                    best_priority = priority
+                    best_target = bp
 
         for uid in ct.get_nearby_units():
             if ct.get_team(uid) == my_team:
@@ -156,21 +168,23 @@ def _target_priority(etype: EntityType) -> int:
             | EntityType.BREACH
             | EntityType.LAUNCHER
         ):
-            return 5
-        case EntityType.CORE:
-            return 4
+            return 7
+        case EntityType.BUILDER_BOT:
+            return 6
         case EntityType.HARVESTER:
-            return 3
+            return 5
         case (
             EntityType.CONVEYOR
             | EntityType.SPLITTER
             | EntityType.ARMOURED_CONVEYOR
             | EntityType.BRIDGE
         ):
-            return 2
-        case EntityType.BUILDER_BOT:
-            return 2
+            return 4
+        case EntityType.CORE:
+            return 3
         case EntityType.BARRIER:
+            return 2
+        case EntityType.ROAD:
             return 1
         case _:
             return 0

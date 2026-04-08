@@ -1731,7 +1731,7 @@ class _Attack:
             # Skip harvesters that already have our transport adjacent (econ's)
             if etype == EntityType.HARVESTER and ct.get_team(bid) == my_team:
                 hpos = ct.get_position(bid)
-                has_own_transport = False
+                own_transport_count = 0
                 for ddx, ddy in DIR4_DELTA:
                     ax, ay = hpos.x + ddx, hpos.y + ddy
                     if s.in_bounds(ax, ay):
@@ -1749,9 +1749,16 @@ class _Attack:
                                 ),
                             )
                         ):
-                            has_own_transport = True
-                            break
-                if has_own_transport:
+                            own_transport_count += 1
+                # On enemy half: allow if only 1 conveyor (attack can use other sides)
+                # On our half: skip if any conveyor (econ's territory)
+                mid = s.w // 2
+                on_enemy_half = (
+                    abs(hpos.x - s.core_pos.x) > mid // 2
+                    or abs(hpos.y - s.core_pos.y) > mid // 2
+                )
+                threshold = 2 if on_enemy_half else 1
+                if own_transport_count >= threshold:
                     continue
             if etype in (
                 EntityType.CONVEYOR,
@@ -1875,14 +1882,19 @@ class _Attack:
         """If placing a turret at ti can hit a high-value enemy target, do it."""
         w = s.w
         tx, ty = ti % w, ti // w
+        # Don't place turrets in danger zones
+        if ti in s.danger_zones:
+            return None
         en_hvt = s.en_core_tiles | s.en_turrets | s.en_harvesters
 
         for eti in en_hvt:
             ex, ey = eti % w, eti // w
             delta = (ex - tx, ey - ty)
             if delta in _GUNNER_OFFSETS:
+                _log(f"  turret_value: gunner at ({tx},{ty}) -> enemy ({ex},{ey})")
                 return self._place_turret(ct, nav, s, ti, eti)
             if delta in _SENTINEL_OFFSETS and eti in (s.en_core_tiles | s.en_turrets):
+                _log(f"  turret_value: sentinel at ({tx},{ty}) -> enemy ({ex},{ey})")
                 return self._place_turret(ct, nav, s, ti, eti, sentinel=True)
 
         return None
