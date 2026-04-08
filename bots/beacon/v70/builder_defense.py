@@ -99,14 +99,13 @@ def _ray_clear_to(
 
 
 def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
-    """Place a gunner adjacent to our transport chain to kill enemy raiders.
+    """Place a gunner to kill enemy builder bots attacking our infrastructure.
 
-    Triggers when an enemy builder bot is attacking our infrastructure
-    (standing on a tile where our building has HP < max). We find an empty
-    or clearable tile adjacent to connected transport with flow, with LoS
-    to the raider tile. The transport feeds the gunner from a non-facing side.
-    The gunner kills the raider (10 dmg/shot vs 40 HP = 4 shots), then
-    self-destructs after 15 idle rounds.
+    Triggers when an enemy builder bot is near our buildings (within Manhattan
+    distance 2). Searches for any buildable tile within gunner range (r²≤13)
+    of the raider that has a friendly transport or harvester on a non-facing
+    side to feed ammo. Does NOT require connected transport or active flow —
+    even a disconnected conveyor with stored resources works.
     """
     s = builder.state
     w = s.w
@@ -121,61 +120,66 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
     if ti_res < g_cost:
         return None
 
-    # Find enemy builder bots actively attacking our buildings
-    raider_tiles: list[tuple[int, Position]] = []  # (building_tile_idx, bot_pos)
+    # Find enemy builder bots near our buildings (not just standing ON them)
+    raider_positions: list[Position] = []
     for uid in ct.get_nearby_units():
         if ct.get_team(uid) == my_team:
             continue
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
         epos = ct.get_position(uid)
-        ei = epos.y * w + epos.x
-        # Enemy bot must be standing on our building that's damaged
-        bld = s.building[ei]
-        if bld is None or bld.team != my_team:
-            continue
-        if isinstance(bld, (BuildingMarker, BuildingRoad)):
-            continue  # don't care about roads/markers
-        bid = ct.get_tile_building_id(epos)
-        if bid is None:
-            continue
-        if ct.get_hp(bid) >= ct.get_max_hp(bid):
-            continue  # not damaged — bot is just passing through
-        raider_tiles.append((ei, epos))
+        ex, ey = epos.x, epos.y
+        # Check if enemy bot is near any of our non-trivial buildings
+        near_our_stuff = False
+        for ddx in range(-2, 3):
+            for ddy in range(-2, 3):
+                ax, ay = ex + ddx, ey + ddy
+                if not s.in_bounds(ax, ay):
+                    continue
+                ai = ay * w + ax
+                abld = s.building[ai]
+                if abld is None or abld.team != my_team:
+                    continue
+                if isinstance(abld, (BuildingMarker, BuildingRoad)):
+                    continue
+                near_our_stuff = True
+                break
+            if near_our_stuff:
+                break
+        if near_our_stuff:
+            raider_positions.append(epos)
 
-    if not raider_tiles:
+    if not raider_positions:
         return None
 
     # Don't place if we already have a friendly gunner covering any raider
-    for _, epos in raider_tiles:
+    for epos in raider_positions:
         eti = epos.y * w + epos.x
         if _has_friendly_gunner_covering(s, eti):
             return None  # already handled
 
-    # For each raider, find an empty/clearable tile ADJACENT to connected
-    # transport with flow. The gunner faces the raider; the transport feeds
-    # from a non-facing side.
+    # Search for any buildable tile within gunner range that has a friendly
+    # transport/harvester on a non-facing side for ammo feed.
     best_gpos: Position | None = None
     best_facing: Direction | None = None
     best_gdist = 1_000_000
 
-    for _, epos in raider_tiles:
+    # Collect all friendly transport + harvester tiles as potential feeders
+    feeder_tiles: set[int] = s.my_transport | s.my_harvesters
+
+    for epos in raider_positions:
         ex, ey = epos.x, epos.y
-        # Search connected transport tiles with flow
-        for ti in s.connected_transport:
-            if ti not in s.tiles_with_flow and ti not in s.flow_seen:
-                continue
-            ftx, fty = ti % w, ti // w
-            # Check cardinal neighbors of this transport for gunner placement
-            for adx, ady in DIR4_DELTA:
-                gx, gy = ftx + adx, fty + ady
+        # Search tiles within gunner range of the raider
+        for gdx in range(-3, 4):
+            for gdy in range(-3, 4):
+                if gdx * gdx + gdy * gdy > 13:
+                    continue
+                if gdx == 0 and gdy == 0:
+                    continue
+                gx, gy = ex + gdx, ey + gdy
                 if not s.in_bounds(gx, gy):
                     continue
                 gi = gy * w + gx
-                # Must be within gunner range of raider (r²≤13)
-                if (gx - ex) ** 2 + (gy - ey) ** 2 > 13:
-                    continue
-                # Tile must be buildable (empty, or own road/marker/barrier)
                 if not _can_place_gunner_at(s, gi):
                     continue
                 # Compute facing toward raider
@@ -183,21 +187,35 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
                 fdy = 0 if ey == gy else (1 if ey > gy else -1)
                 if fdx == 0 and fdy == 0:
                     continue
-                # Transport must feed from non-facing side
-                feed_dx, feed_dy = ftx - gx, fty - gy
-                if (feed_dx, feed_dy) == (fdx, fdy):
-                    continue  # transport is on the facing side — can't receive
-                # Verify transport actually outputs toward the gunner tile
-                if not _tile_has_correct_transport(s, ti, gi, w):
-                    # Also accept harvesters (output all cardinal)
-                    tbld = s.building[ti]
-                    if not isinstance(tbld, BuildingHarvester):
-                        continue
-                # Verify LoS to raider
-                if not _ray_clear_to(s, gx, gy, fdx, fdy, ex, ey):
-                    continue
                 facing = DELTA_TO_DIR.get((fdx, fdy))
                 if facing is None:
+                    continue
+                # Check non-facing cardinal sides for any friendly feeder
+                has_feed = False
+                for adx, ady in DIR4_DELTA:
+                    if (adx, ady) == (fdx, fdy):
+                        continue  # facing side — can't receive ammo
+                    fax, fay = gx + adx, gy + ady
+                    if not s.in_bounds(fax, fay):
+                        continue
+                    fai = fay * w + fax
+                    if fai not in feeder_tiles:
+                        continue
+                    fbld = s.building[fai]
+                    if fbld is None or fbld.team != my_team:
+                        continue
+                    # Harvester outputs all cardinal — always valid
+                    if isinstance(fbld, BuildingHarvester):
+                        has_feed = True
+                        break
+                    # Transport: must output toward gunner tile
+                    if _tile_has_correct_transport(s, fai, gi, w):
+                        has_feed = True
+                        break
+                if not has_feed:
+                    continue
+                # Verify LoS to raider
+                if not _ray_clear_to(s, gx, gy, fdx, fdy, ex, ey):
                     continue
                 d = abs(pos.x - gx) + abs(pos.y - gy)
                 if d < best_gdist:
@@ -209,12 +227,6 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
         return None
 
     gi = best_gpos.y * w + best_gpos.x
-
-    _log(
-        f"  intercept_raider: gunner at ({best_gpos.x},{best_gpos.y}) "
-        f"facing={best_facing.name}",
-        ct.get_id(),
-    )
 
     # Walk to the tile if not adjacent
     if pos.distance_squared(best_gpos) > 2:
@@ -237,11 +249,6 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
         ct.build_gunner(best_gpos, best_facing)
         s.building[gi] = BuildingGunner(s.my_team, best_facing)
         s.my_turrets.add(gi)
-        _log(
-            f"  PLACED intercept gunner({best_gpos.x},{best_gpos.y}) "
-            f"facing={best_facing.name}",
-            ct.get_id(),
-        )
         return f"def:intercept_gunner({best_gpos.x},{best_gpos.y})", True
 
     return None
