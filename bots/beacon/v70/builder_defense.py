@@ -172,26 +172,35 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
     # Collect all friendly transport + harvester tiles as potential feeders
     feeder_tiles: set[int] = s.my_transport | s.my_harvesters
 
+    # Gunners fire along a ray (cardinal or diagonal). The raider must be
+    # exactly on that ray to get hit. So we only consider gunner positions
+    # on the same row, column, or diagonal as the raider.
+    ray_dirs: tuple[tuple[int, int], ...] = (
+        (1, 0),
+        (-1, 0),
+        (0, 1),
+        (0, -1),
+        (1, 1),
+        (1, -1),
+        (-1, 1),
+        (-1, -1),
+    )
+
     for epos in raider_positions:
         ex, ey = epos.x, epos.y
-        # Search tiles within gunner range of the raider
-        for gdx in range(-3, 4):
-            for gdy in range(-3, 4):
-                if gdx * gdx + gdy * gdy > 13:
-                    continue
-                if gdx == 0 and gdy == 0:
-                    continue
-                gx, gy = ex + gdx, ey + gdy
+        # Walk each ray direction FROM the raider to find gunner placements
+        for rdx, rdy in ray_dirs:
+            for dist in range(1, 4):  # up to distance 3 (r²≤9 < 13)
+                gx, gy = ex + rdx * dist, ey + rdy * dist
                 if not s.in_bounds(gx, gy):
-                    continue
+                    break  # off map, farther tiles won't help
+                if (gx - ex) ** 2 + (gy - ey) ** 2 > 13:
+                    break
                 gi = gy * w + gx
                 if not _can_place_gunner_at(s, gi):
                     continue
-                # Compute facing toward raider
-                fdx = 0 if ex == gx else (1 if ex > gx else -1)
-                fdy = 0 if ey == gy else (1 if ey > gy else -1)
-                if fdx == 0 and fdy == 0:
-                    continue
+                # Gunner faces back toward raider (opposite of ray direction)
+                fdx, fdy = -rdx, -rdy
                 facing = DELTA_TO_DIR.get((fdx, fdy))
                 if facing is None:
                     continue
@@ -219,7 +228,8 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
                         break
                 if not has_feed:
                     continue
-                # Verify LoS to raider
+                # Verify LoS — walk from gunner toward raider, check no
+                # walls or own buildings block the ray
                 if not _ray_clear_to(s, gx, gy, fdx, fdy, ex, ey):
                     continue
                 d = abs(pos.x - gx) + abs(pos.y - gy)
