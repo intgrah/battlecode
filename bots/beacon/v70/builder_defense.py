@@ -152,11 +152,16 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
     if not raider_positions:
         return None
 
-    # Don't place if we already have a friendly gunner covering any raider
+    # Filter out raiders already covered by a friendly gunner
+    uncovered: list[Position] = []
     for epos in raider_positions:
         eti = epos.y * w + epos.x
-        if _has_friendly_gunner_covering(s, eti):
-            return None  # already handled
+        if not _has_friendly_gunner_covering(s, eti):
+            uncovered.append(epos)
+    raider_positions = uncovered
+
+    if not raider_positions:
+        return None
 
     # Search for any buildable tile within gunner range that has a friendly
     # transport/harvester on a non-facing side for ammo feed.
