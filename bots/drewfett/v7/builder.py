@@ -157,6 +157,20 @@ class Builder(Unit):
         _ROLE_NAME = ("E", "A", "D")
         task_name, moved = self._run_tasks(ct)
 
+        # -- VIS: emit attack state --
+        if self._role == 1:
+            from vis import Tiles, emit
+
+            a = self._attack
+            gap_tiles: list[tuple[int, int]] = []
+            if hasattr(a, "_last_gaps"):
+                gap_tiles = a._last_gaps
+            vis_fields: dict = {"flow_gaps": Tiles(gap_tiles)}
+            if a.target is not None:
+                tx, ty = a.target % s.w, a.target // s.w
+                vis_fields["atk_target"] = Tiles([(tx, ty)])
+            emit(**vis_fields)
+
         new_pos = ct.get_position()
         r = _ROLE_NAME[self._role] if self._role < 3 else "?"
         m = "M" if pos != new_pos else "."
@@ -1133,52 +1147,35 @@ class Builder(Unit):
     # -- Task: Patrol (defense) --
 
     def _task_patrol(self, ct: Controller) -> tuple[str, bool]:
-        """Walk to least-recently-seen infra tile. Sticky until arrived."""
+        """Walk to least-recently-seen walkable infra tile."""
         s = self.state
         w = s.w
         pos = ct.get_position()
 
-        # Only walkable infra — transport + core (not harvesters, they're unwalkable)
+        # Only walkable infra — transport + core
         infra = s.connected_transport | s.core_tiles
         if not infra:
             return self._task_explore(ct)
 
-        # Sticky target — repick when arrived or gone
-        pt = getattr(self, "_patrol_target", None)
-        if pt is not None:
-            if pt not in infra:
-                pt = None
-            else:
-                ptx, pty = pt % w, pt // w
-                if (pos.x - ptx) ** 2 + (pos.y - pty) ** 2 <= 2:
-                    pt = None  # arrived
+        # Pick stalest tile (no sticky — repick each turn like v50)
+        best_ti = -1
+        best_seen = s.age + s.birthday + 1
+        pos_i = pos.y * w + pos.x
+        for ti in infra:
+            if ti == pos_i:
+                continue
+            if s.last_seen[ti] < best_seen:
+                best_seen = s.last_seen[ti]
+                best_ti = ti
 
-        if pt is None:
-            # Pick tile with best score: stale + nearby
-            now = s.age + s.birthday
-            best_ti: int | None = None
-            best_score = -1_000_000
-            for ti in infra:
-                if ti == pos.y * w + pos.x:
-                    continue
-                staleness = now - s.last_seen[ti]
-                tx, ty = ti % w, ti // w
-                dist = abs(pos.x - tx) + abs(pos.y - ty)
-                # Prefer stale tiles, penalize distance
-                score = staleness - dist * 2
-                if score > best_score:
-                    best_score = score
-                    best_ti = ti
-            pt = best_ti
-            self._patrol_target = pt
+        if best_ti == -1:
+            return self._task_explore(ct)
 
-        if pt is not None:
-            tx, ty = pt % w, pt // w
-            self.nav.set_goal(Position(tx, ty))
-            moved = self.nav.step(ct)
-            return f"patrol:walk({tx},{ty})", moved
-
-        return self._task_explore(ct)
+        tx, ty = best_ti % w, best_ti // w
+        target = Position(tx, ty)
+        self.nav.set_goal(target)
+        moved = self.nav.step(ct)
+        return f"patrol:walk({tx},{ty})", moved
 
     # -- Visualiser --
 
@@ -1445,6 +1442,7 @@ class _Attack:
         my_team = s.my_team
         best: tuple[int, int, int, int] | None = None
         best_dist = 1_000_000
+        self._last_gaps: list[tuple[int, int]] = []
 
         from building import (
             BuildingArmouredConveyor,
@@ -1465,13 +1463,16 @@ class _Attack:
                 EntityType.HARVESTER,
             ):
                 continue
-            if etype != EntityType.HARVESTER:
-                try:
-                    has_resource = ct.get_stored_resource(bid) is not None
-                except Exception:  # noqa: BLE001
-                    has_resource = False
-                if not has_resource:
+            if etype in (
+                EntityType.CONVEYOR,
+                EntityType.ARMOURED_CONVEYOR,
+                EntityType.SPLITTER,
+                EntityType.BRIDGE,
+            ):
+                if ct.get_stored_resource(bid) is None:
                     continue
+            elif etype != EntityType.HARVESTER:
+                continue
 
             bpos = ct.get_position(bid)
             si = bpos.y * w + bpos.x
@@ -1506,9 +1507,24 @@ class _Attack:
                 # Gap = output goes to empty tile or enemy building
                 if out_bld is not None and out_bld.team == my_team:
                     continue  # already our transport, not a gap
-                # Visualize gap
-                ct.draw_indicator_dot(Position(ox, oy), 255, 0, 0)
-                ct.draw_indicator_line(bpos, Position(ox, oy), 255, 128, 0)
+                # Skip useless gaps
+                if oi in s.danger_zones:
+                    continue  # launcher/turret danger
+                out_env = s.env[oi]
+                if out_env == Environment.WALL:
+                    continue  # wall (ore is OK)
+                if isinstance(out_bld, BuildingBarrier):
+                    continue  # barriered
+                # Skip if in range of enemy turret (will get shot)
+                skip = False
+                for eti in s.en_turrets:
+                    etx, ety = eti % w, eti // w
+                    if (ox - etx) ** 2 + (oy - ety) ** 2 <= 13:
+                        skip = True
+                        break
+                if skip:
+                    continue
+                self._last_gaps.append((ox, oy))
                 d = abs(pos.x - ox) + abs(pos.y - oy)
                 if d < best_dist:
                     best_dist = d
