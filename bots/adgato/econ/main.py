@@ -1,9 +1,9 @@
-import sys
-import traceback
+"""A* test bot — core spawns builders that walk to random targets."""
+
 from typing import TYPE_CHECKING
 
 from builder import Builder
-from cambc import Controller, EntityType, GameError
+from cambc import Controller, EntityType
 from core import Core
 
 if TYPE_CHECKING:
@@ -23,17 +23,4 @@ class Player:
                     self.unit = Builder(ct)
                 case _:
                     return
-        try:
-            self.unit.run(ct)
-        except GameError as e:
-            print(traceback.format_exc())
-            print(f"GAME_ERROR: {e}")
-            print(traceback.format_exc(), file=sys.stderr)
-            print(f"GAME_ERROR: {e}", file=sys.stderr)
-            ct.resign()
-        except Exception as e:  # noqa: BLE001
-            print(traceback.format_exc())
-            print(f"EXCEPTION: {e}")
-            print(traceback.format_exc(), file=sys.stderr)
-            print(f"EXCEPTION: {e}", file=sys.stderr)
-            ct.resign()
+        self.unit.run(ct)
