@@ -47,8 +47,8 @@ _ENV_INT: dict[Environment, int] = {e: i for i, e in enumerate(Environment)}
 _ET_INT: dict[EntityType, int] = {e: i + 1 for i, e in enumerate(EntityType)}
 
 
-def _log(_msg: str, _bot_id: int = 0) -> None:
-    pass
+def _log(msg: str, _bot_id: int = 0) -> None:
+    print(msg)
 
 
 def _can_place_gunner_at(s: State, gi: int) -> bool:
@@ -1467,7 +1467,7 @@ class _Attack:
                 EntityType.HARVESTER,
             ):
                 continue
-            if ct.get_stored_resource(bid) <= 0 and etype != EntityType.HARVESTER:
+            if ct.get_stored_resource(bid) is None and etype != EntityType.HARVESTER:
                 continue
 
             bpos = ct.get_position(bid)
@@ -1503,6 +1503,9 @@ class _Attack:
                 # Gap = output goes to empty tile or enemy building
                 if out_bld is not None and out_bld.team == my_team:
                     continue  # already our transport, not a gap
+                # Visualize gap
+                ct.draw_indicator_dot(Position(ox, oy), 255, 0, 0)
+                ct.draw_indicator_line(bpos, Position(ox, oy), 255, 128, 0)
                 d = abs(pos.x - ox) + abs(pos.y - oy)
                 if d < best_dist:
                     best_dist = d
