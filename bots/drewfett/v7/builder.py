@@ -264,6 +264,14 @@ class Builder(Unit):
     def _run_attack(self, ct: Controller) -> tuple[str, bool]:
         a = self._attack
         s = self.state
+        pos = ct.get_position()
+
+        # Always fire at enemy building we're standing on
+        if ct.get_action_cooldown() == 0:
+            bid = ct.get_tile_building_id(pos)
+            if bid is not None and ct.get_team(bid) != s.my_team and ct.can_fire(pos):
+                ct.fire(pos)
+                return "atk:fire_infra", True
 
         # Find target if needed
         if a.target is None:
