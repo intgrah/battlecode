@@ -1855,30 +1855,29 @@ def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
 
 
 def sssp_dijkstra_bucket_noparent_beacon(md: MapData, si: int) -> list[int]:
-    """I guess bro"""
+    """Counting sort queue: one list per distance value, preallocated."""
     cost, pnb = md.cost, md.pnb
+    max_dist = md.n * 3
     dist: list[int] = [INF] * md.n
     dist[si] = 0
-    bk: list[deque[int]] = [deque() for _ in range(4)]
+    bk: list[list[int]] = [[] for _ in range(max_dist)]
     bk[0].append(si)
     cur_d = 0
     emp = 0
     while emp < 4:
-        bki = bk[cur_d & 3]
-        if not bki:
+        if not bk[cur_d]:
             cur_d += 1
             emp += 1
             continue
         emp = 0
-        popleft = bki.popleft
-
-        while bki:
-            node = popleft()
+        for node in bk[cur_d]:
+            if dist[node] != cur_d:
+                continue
             for ni in pnb[node]:
                 nd = cur_d + cost[ni]
                 if nd < dist[ni]:
                     dist[ni] = nd
-                    bk[nd & 3].append(ni)
+                    bk[nd].append(ni)
         cur_d += 1
     return dist
 
