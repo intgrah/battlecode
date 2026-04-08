@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from astar import BuildInstruction, ChainAstar
 from bfs import NavBfs
+from reachable import Reachable
 from cambc import Controller, Direction, EntityType, Environment, Position
 from explore import ExploreGrid
 from symmetry import Symmetry, SymmetryDetector
@@ -16,6 +17,7 @@ _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, None))
 
 def _update_nearby_tiles(
     nav: NavBfs,
+    reachable: Reachable,
     sym: Symmetry,
     ct: Controller,
     tile_cache: list[int],
@@ -25,7 +27,8 @@ def _update_nearby_tiles(
     """Read nearby tiles from the controller and feed raw data to nav."""
     w = nav.w
     my_team = ct.get_team()
-    for tile in ct.get_nearby_tiles():
+    nearby = ct.get_nearby_tiles()
+    for tile in nearby:
         i = tile.y * w + tile.x
         env = ct.get_tile_env(tile)
         bid = ct.get_tile_building_id(tile)
@@ -38,7 +41,9 @@ def _update_nearby_tiles(
         nav.update_tile(i, env, building_type, is_allied, sym)
         for tracker in env_trackers:
             tracker.update_tile(i, env, building_type, is_allied, sym)
+        reachable.update_tile(i, env)
         chain.update_tile(tile.x, tile.y, env, building_type, is_allied)
+    reachable.compute(tile_cache, chain)
 
 
 class Builder(Unit):
@@ -46,6 +51,7 @@ class Builder(Unit):
         w = ct.get_map_width()
         h = ct.get_map_height()
         self.nav = NavBfs(w, h)
+        self.reachable = Reachable(w, h)
         self.sym: SymmetryDetector | None = None
         self.core_pos: Position | None = None
         self.w = w
@@ -75,6 +81,8 @@ class Builder(Unit):
                 ):
                     self.core_pos = ct.get_position(bid)
                     self.sym = SymmetryDetector(self.w, self.h, self.core_pos)
+                    self.reachable.set_source(self.core_pos)
+                    self.chain.update_tile(self.core_pos.x, self.core_pos.y, Environment.EMPTY, EntityType.CORE, True, force_update=True)
                     break
             assert self.core_pos is not None
 
@@ -93,7 +101,7 @@ class Builder(Unit):
         resolved = self.sym.resolved
 
         _update_nearby_tiles(
-            self.nav, resolved, ct, self._tile_cache, self.env_trackers, self.chain
+            self.nav, self.reachable, resolved, ct, self._tile_cache, self.env_trackers, self.chain
         )
         self.explore.update(ct, pos, self.core_pos)
 
@@ -123,7 +131,7 @@ class Builder(Unit):
 
         if self._chain_plan is not None:
             self.chain.draw_path(ct, self._chain_plan)
-            self.chain.emit_vis()
+        self.chain.emit_vis()
 
         self.nav.step(ct)
         self.nav.emit_vis()
