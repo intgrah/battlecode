@@ -1203,7 +1203,8 @@ class Builder(Unit):
         w = s.w
         pos = ct.get_position()
 
-        infra = s.connected_transport | s.my_harvesters | s.core_tiles
+        # Only walkable infra — transport + core (not harvesters, they're unwalkable)
+        infra = s.connected_transport | s.core_tiles
         if not infra:
             return self._task_explore(ct)
 
