@@ -1505,23 +1505,6 @@ class _Attack:
                             return f"atk:conv({out_x},{out_y})->{conv_dir.name}", True
                     return "atk:wait_ti", False
 
-        # No nearby gap — check bridges whose landing tile needs extending
-        from building import BuildingBridge as _BldBridge
-
-        for ti in s.my_transport:
-            bld = s.building[ti]
-            if not isinstance(bld, _BldBridge) or bld.team != s.my_team:
-                continue
-            tgt = bld.target
-            tgt_ti = tgt.y * w + tgt.x
-            tgt_bld = s.building[tgt_ti]
-            if tgt_bld is not None and tgt_bld.team == s.my_team:
-                continue  # already extended
-            # Bridge target is empty or enemy — walk there
-            nav.set_goal(tgt)
-            moved = nav.step(ct)
-            return f"atk:walk_bridge_tgt({tgt.x},{tgt.y})", moved
-
         return "atk:no_gap", False
 
     def _find_best_gap(
