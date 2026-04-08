@@ -599,7 +599,11 @@ class Builder(Unit):
 
         # Cardinal conveyor — verify tiles
         next_env = s.env[ni]
-        if next_env == Environment.WALL:
+        if next_env is not None and next_env in (
+            Environment.WALL,
+            Environment.ORE_TITANIUM,
+            Environment.ORE_AXIONITE,
+        ):
             if destroy_barriers:
                 pass  # frontier model — caller handles replan
             else:
@@ -794,6 +798,17 @@ class Builder(Unit):
                 return None
             self.nav.set_goal(best_adj)
             moved = self.nav.step(ct)
+            if not moved:
+                # Can't reach — count stuck turns
+                self._harvest_stuck = getattr(self, "_harvest_stuck", 0) + 1
+                if self._harvest_stuck >= 5:
+                    self._harvest_target = None
+                    self._harvest_stuck = 0
+                    self._blocked_ore = getattr(self, "_blocked_ore", {})
+                    self._blocked_ore[ht] = s.age + s.birthday + 50
+                    return None
+            else:
+                self._harvest_stuck = 0
             return f"harvest:walk->ore({ore_pos.x},{ore_pos.y})", moved
 
         return None
@@ -1128,7 +1143,11 @@ class Builder(Unit):
                 if missing >= 4 and ct.can_heal(best_pos):
                     ct.heal(best_pos)
                     return f"heal_infra:heal({best_pos.x},{best_pos.y})", True
-            return f"heal_infra:guard({best_pos.x},{best_pos.y})", False
+            # Only guard (block other tasks) if enemy bot is actively attacking
+            if best_pos in s.unit_tiles:
+                return f"heal_infra:guard({best_pos.x},{best_pos.y})", False
+            # Not under active attack, missing < 4 — let other tasks run
+            return None
         self.nav.set_goal(best_pos)
         moved = self.nav.step(ct)
         return f"heal_infra:walk({best_pos.x},{best_pos.y})", moved
@@ -1743,13 +1762,18 @@ class _Attack:
                                 ),
                             ):
                                 own_transport_count += 1
-                # On enemy half: allow if only 1 conveyor (attack can use other sides)
-                # On our half: skip if any conveyor (econ's territory)
-                mid = s.w // 2
-                on_enemy_half = (
-                    abs(hpos.x - s.core_pos.x) > mid // 2
-                    or abs(hpos.y - s.core_pos.y) > mid // 2
-                )
+                # On enemy half (or within 3 tiles of midpoint): attack can use
+                # On our half: skip if any own building adjacent (econ's territory)
+                cx, cy = s.core_pos.x, s.core_pos.y
+                if s.en_core_pos is not None:
+                    ex, ey = s.en_core_pos.x, s.en_core_pos.y
+                else:
+                    ex, ey = s.w - 1 - cx, s.h - 1 - cy
+                mid_x, mid_y = (cx + ex) // 2, (cy + ey) // 2
+                # Distance from harvester to midpoint toward enemy
+                to_enemy = abs(hpos.x - ex) + abs(hpos.y - ey)
+                to_core = abs(hpos.x - cx) + abs(hpos.y - cy)
+                on_enemy_half = to_enemy <= to_core + 3
                 threshold = 2 if on_enemy_half else 1
                 if own_transport_count >= threshold:
                     continue
@@ -1911,59 +1935,39 @@ class _Attack:
         if not _can_place_gunner(s, gi):
             return f"atk:cant_place({gx},{gy})", False
 
+        # Verify target is actually hittable from this tile
+        delta = (ex - gx, ey - gy)
+        if not sentinel and delta not in _GUNNER_OFFSETS:
+            return f"atk:out_of_range({gx},{gy})", False
+        if sentinel and delta not in _SENTINEL_OFFSETS:
+            return f"atk:out_of_range({gx},{gy})", False
+
         fdx = 0 if ex == gx else (1 if ex > gx else -1)
         fdy = 0 if ey == gy else (1 if ey > gy else -1)
         if fdx == 0 and fdy == 0:
             return f"atk:no_face({gx},{gy})", False
 
-        # Check all adjacent tiles for ammo sources. If the ONLY source
-        # is in the facing direction, the turret gets no ammo — skip.
-        has_non_facing_feed = False
+        # Check adjacent non-facing tiles for valid ammo sources.
+        # Must actually OUTPUT toward turret tile, not just be adjacent.
+        has_valid_feed = False
         for adx, ady in DIR4_DELTA:
+            if (adx, ady) == (fdx, fdy):
+                continue  # facing side — turret can't receive from here
             ax, ay = gx + adx, gy + ady
             if not s.in_bounds(ax, ay):
                 continue
-            abld = s.building[ay * w + ax]
-            if abld is None or abld.team != s.my_team:
+            ai = ay * w + ax
+            abld = s.building[ai]
+            if abld is None:
                 continue
-            if isinstance(
-                abld,
-                (
-                    BuildingHarvester,
-                    BuildingConveyor,
-                    BuildingArmouredConveyor,
-                    BuildingSplitter,
-                    BuildingBridge,
-                ),
-            ):
-                if (adx, ady) != (fdx, fdy):
-                    has_non_facing_feed = True
-                    break
-        # If there are feed sources but ALL are in facing direction, skip
-        has_any_feed = False
-        for adx, ady in DIR4_DELTA:
-            ax, ay = gx + adx, gy + ady
-            if not s.in_bounds(ax, ay):
-                continue
-            abld = s.building[ay * w + ax]
-            if (
-                abld is not None
-                and abld.team == s.my_team
-                and isinstance(
-                    abld,
-                    (
-                        BuildingHarvester,
-                        BuildingConveyor,
-                        BuildingArmouredConveyor,
-                        BuildingSplitter,
-                        BuildingBridge,
-                    ),
-                )
-            ):
-                has_any_feed = True
+            if isinstance(abld, BuildingHarvester) and abld.team == s.my_team:
+                has_valid_feed = True  # harvesters output all directions
                 break
-        if has_any_feed and not has_non_facing_feed:
-            return f"atk:face_feed({gx},{gy})", False
+            if abld.team == s.my_team and _tile_has_correct_transport(s, ai, gi, w):
+                has_valid_feed = True  # transport outputs toward us
+                break
+        if not has_valid_feed:
+            return f"atk:no_feed({gx},{gy})", False
 
         facing = DELTA_TO_DIR.get((fdx, fdy))
         if facing is None:
@@ -2006,13 +2010,6 @@ class _Attack:
             self.gunner = gi  # track same way
             return f"atk:sentinel({gx},{gy})", True
 
-        # Force destroy own building to make room
-        bid = ct.get_tile_building_id(gpos)
-        if bid is not None and ct.get_team(bid) == s.my_team:
-            if ct.can_destroy(gpos):
-                ct.destroy(gpos)
-                s.building[gi] = None
-                s.my_transport.discard(gi)
         return f"atk:turret_fail({gx},{gy})", False
 
     def _target_xy(self, s: State, w: int) -> tuple[int, int]:
