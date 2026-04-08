@@ -166,8 +166,6 @@ class Builder(Unit):
             parts = []
             if a.target is not None:
                 parts.append(f"tgt=({a.target % s.w},{a.target // s.w})")
-            if a.frontier is not None:
-                parts.append(f"fr=({a.frontier % s.w},{a.frontier // s.w})")
             if a.gunner is not None:
                 parts.append(f"gun=({a.gunner % s.w},{a.gunner // s.w})")
             extra = f" [{' '.join(parts)}]"
@@ -1467,8 +1465,13 @@ class _Attack:
                 EntityType.HARVESTER,
             ):
                 continue
-            if ct.get_stored_resource(bid) is None and etype != EntityType.HARVESTER:
-                continue
+            if etype != EntityType.HARVESTER:
+                try:
+                    has_resource = ct.get_stored_resource(bid) is not None
+                except Exception:  # noqa: BLE001
+                    has_resource = False
+                if not has_resource:
+                    continue
 
             bpos = ct.get_position(bid)
             si = bpos.y * w + bpos.x
