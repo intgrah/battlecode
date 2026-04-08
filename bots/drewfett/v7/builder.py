@@ -1582,18 +1582,12 @@ class _Attack:
         w = s.w
         pos = ct.get_position()
 
-        # Recycle idle turret
+        # Check if our turret is still alive — don't wait by it
         if self.gunner is not None:
             result = self._recycle(ct, s)
             if result is not None:
                 return result
-            gx, gy = self.gunner % w, self.gunner // w
-            gpos = Position(gx, gy)
-            if pos.distance_squared(gpos) > 2:
-                nav.set_goal(gpos)
-                moved = nav.step(ct)
-                return f"atk:wait({gx},{gy})", moved
-            return "atk:turret_active", False
+            # Turret is active — continue with other tasks, don't wait
 
         if ct.get_action_cooldown() != 0:
             return "atk:cooldown", False

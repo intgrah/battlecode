@@ -143,20 +143,42 @@ class Sentinel(Unit):
                 ct.fire(best_target)
                 return
 
-        self._idle_rounds += 1
+        # Check if we have ANY attackable enemy tiles
+        has_enemy_target = False
+        for tile in ct.get_attackable_tiles():
+            bid = ct.get_tile_building_id(tile)
+            if bid is not None and ct.get_team(bid) != my_team:
+                # Skip if friendly bot on tile (would hit our bot)
+                if (tile.x, tile.y) not in friendly_tiles:
+                    has_enemy_target = True
+                    break
+            bot_id = ct.get_tile_builder_bot_id(tile)
+            if bot_id is not None and ct.get_team(bot_id) != my_team:
+                has_enemy_target = True
+                break
+
+        if not has_enemy_target:
+            self._idle_rounds += 1
+        else:
+            self._idle_rounds = 0
+
         if self._idle_rounds >= _IDLE_LIMIT:
-            has_ally_builder = False
-            has_enemy = False
+            # Self-destruct if ally builder closer than any enemy
+            closest_ally = 1_000_000
+            closest_enemy = 1_000_000
+            spos = ct.get_position()
             for uid in ct.get_nearby_units():
-                team = ct.get_team(uid)
-                if (
-                    team == my_team
-                    and ct.get_entity_type(uid) == EntityType.BUILDER_BOT
-                ):
-                    has_ally_builder = True
-                elif team != my_team:
-                    has_enemy = True
-            if has_ally_builder and not has_enemy:
+                upos = ct.get_position(uid)
+                d = spos.distance_squared(upos)
+                if ct.get_team(uid) == my_team:
+                    if (
+                        ct.get_entity_type(uid) == EntityType.BUILDER_BOT
+                        and d < closest_ally
+                    ):
+                        closest_ally = d
+                elif d < closest_enemy:
+                    closest_enemy = d
+            if closest_ally <= closest_enemy:
                 ct.self_destruct()
 
 
