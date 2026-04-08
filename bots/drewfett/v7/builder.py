@@ -311,22 +311,6 @@ class Builder(Unit):
             infra = self._task_destroy_enemy_infra(ct)
             if infra is not None:
                 return infra
-            # Walk toward nearest harvester with a free side
-            w = s.w
-            pos = ct.get_position()
-            for hi in s.my_harvesters:
-                hx, hy = hi % w, hi // w
-                for dx, dy in DIR4_DELTA:
-                    nx, ny = hx + dx, hy + dy
-                    if not s.in_bounds(nx, ny):
-                        continue
-                    ni = ny * w + nx
-                    bld = s.building[ni]
-                    if bld is None or (bld.team != s.my_team):
-                        # Free side — walk toward it
-                        self.nav.set_goal(Position(nx, ny))
-                        moved = self.nav.step(ct)
-                        return f"atk:walk_gap({nx},{ny})", moved
             return self._task_explore_enemy(ct)
 
         return result
