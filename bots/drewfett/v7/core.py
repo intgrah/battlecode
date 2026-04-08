@@ -42,6 +42,7 @@ class Core(Unit):
     def __init__(self, ct: Controller) -> None:
         self.core_pos: Position = ct.get_position()
         self.spawned: int = 0
+        self._blocked_turns: int = 0
 
     def run(self, ct: Controller) -> None:
         if ct.get_action_cooldown() != 0:
@@ -78,36 +79,38 @@ class Core(Unit):
         self._spawn(ct)
 
     def _spawn(self, ct: Controller) -> None:
-        sp = _best_spawn_pos(ct, self.core_pos, self.spawned)
+        sp = _best_spawn_pos(ct, self.core_pos, self.spawned, self._blocked_turns)
         if sp is None:
+            self._blocked_turns += 1
             return
         ct.spawn_builder(sp)
         self.spawned += 1
+        self._blocked_turns = 0
 
 
-def _best_spawn_pos(ct: Controller, pos: Position, spawned: int) -> Position | None:
-    n = len(_DIRECTIONS)
-    for i in range(n):
-        d = _DIRECTIONS[(spawned + i) % n]
-        sp = pos.add(d)
-        if not ct.can_spawn(sp):
-            continue
-        w, h = ct.get_map_width(), ct.get_map_height()
-        walls = 0
-        for d2 in _DIRECTIONS:
-            adj = sp.add(d2)
-            if not (0 <= adj.x < w and 0 <= adj.y < h):
-                walls += 1
-                continue
-            if not ct.is_in_vision(adj):
-                continue
-            if ct.get_tile_env(adj) == Environment.WALL:
-                walls += 1
-        if walls < 6:
-            return sp
+# Precompute: for each role, which direction indices produce it
+_ROLE_TO_INDICES: dict[int, list[int]] = {}
+for _i, _d in enumerate(_DIRECTIONS):
+    _r = role_for_spawn(_i)
+    _ROLE_TO_INDICES.setdefault(_r, []).append(_i)
 
-    for d in _DIRECTIONS:
-        sp = pos.add(d)
+
+def _best_spawn_pos(
+    ct: Controller, pos: Position, spawned: int, blocked_turns: int
+) -> Position | None:
+    """Pick a spawn tile that maps to the desired role."""
+    desired_role = role_for_spawn(spawned)
+
+    # Try tiles that produce the desired role first
+    for idx in _ROLE_TO_INDICES.get(desired_role, []):
+        sp = pos.add(_DIRECTIONS[idx])
         if ct.can_spawn(sp):
             return sp
+
+    # Only fallback to wrong-role tile after 5 blocked turns
+    if blocked_turns >= 5:
+        for d in _DIRECTIONS:
+            sp = pos.add(d)
+            if ct.can_spawn(sp):
+                return sp
     return None
