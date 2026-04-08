@@ -6,7 +6,6 @@ from builder import Builder
 from cambc import Controller, EntityType
 from core import Core
 from gunner import Gunner
-from launcher import Launcher
 from sentinel import Sentinel
 
 if TYPE_CHECKING:
@@ -28,8 +27,6 @@ class Player:
                     self.unit = Sentinel(ct)
                 case EntityType.GUNNER:
                     self.unit = Gunner(ct)
-                case EntityType.LAUNCHER:
-                    self.unit = Launcher(ct)
                 case _:
                     return
         self.unit.run(ct)
