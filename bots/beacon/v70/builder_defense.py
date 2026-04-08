@@ -1,4 +1,4 @@
-"""Defense role: reactive gunner, heal, barrier, patrol."""
+"""Defense role: reactive gunner, heal, barrier, patrol, intercept raiders."""
 
 from __future__ import annotations
 
@@ -16,47 +16,242 @@ from builder_helpers import (
     _tile_has_correct_transport,
 )
 from building import (
+    BuildingGunner,
     BuildingHarvester,
     BuildingLauncher,
     BuildingMarker,
     BuildingRoad,
 )
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, Direction, EntityType, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA
 
 if TYPE_CHECKING:
     from builder import Builder
+    from state import State
 
 
 def _run_defense(builder: Builder, ct: Controller) -> tuple[str, bool]:
 
-    # 1. Reactive gunner against enemy turret in our base
+    # 1. Intercept enemy raiders attacking our infrastructure
+    result = _task_intercept_raider(builder, ct)
+    if result is not None:
+        return result
+
+    # 2. Reactive gunner against enemy turret in our base
     result = _task_reactive_gunner(builder, ct)
     if result is not None:
         return result
 
-    # 2. Repair broken chains
+    # 3. Repair broken chains
     result = _task_repair_chain(builder, ct)
     if result is not None:
         return result
 
-    # 3. Heal damaged infra
+    # 4. Heal damaged infra
     result = _task_heal_infra(builder, ct)
     if result is not None:
         return result
 
-    # 4. Barrier harvesters
+    # 5. Barrier harvesters
     result = _task_barrier_harvesters(builder, ct)
     if result is not None:
         return result
 
-    # 5. Destroy nearby enemy infra (low priority for defense)
+    # 6. Destroy nearby enemy infra (low priority for defense)
     result = _task_destroy_enemy_infra(builder.state, builder.nav, ct)
     if result is not None:
         return result
 
-    # 5. Patrol
+    # 7. Patrol
     return _task_patrol(builder, ct)
+
+
+def _ray_clear_to(
+    s: State, gx: int, gy: int, fdx: int, fdy: int, tx: int, ty: int
+) -> bool:
+    """Check if a gunner ray from (gx,gy) in direction (fdx,fdy) reaches (tx,ty).
+
+    Returns True if the ray can reach the target tile without being blocked
+    by walls or friendly buildings. Enemy buildings/bots on the way are fine
+    (they're targetable and the gunner will shoot them).
+    """
+    w, h = s.w, s.h
+    my_team = s.my_team
+    x, y = gx + fdx, gy + fdy
+    while 0 <= x < w and 0 <= y < h:
+        if (x - gx) ** 2 + (y - gy) ** 2 > 13:
+            break
+        if x == tx and y == ty:
+            return True  # reached the target tile
+        ni = y * w + x
+        env = s.env[ni]
+        if env == Environment.WALL:
+            return False
+        bld = s.building[ni]
+        if bld is not None and not isinstance(bld, BuildingMarker):
+            if bld.team == my_team:
+                return False  # own building blocks
+            # Enemy building: targetable, blocks further ray — target must be here
+            return x == tx and y == ty
+        x += fdx
+        y += fdy
+    return False
+
+
+def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
+    """Sacrifice a conveyor with flow to build a gunner that kills enemy raiders.
+
+    Triggers when an enemy builder bot is attacking our infrastructure
+    (standing on a tile where our building has HP < max). We find a nearby
+    connected transport tile with flow, verify gunner LoS + ammo feed from
+    the chain, then destroy the transport and build a gunner in its place.
+    The gunner kills the raider (10 dmg/shot vs 40 HP = 4 shots), then
+    self-destructs after 15 idle rounds. Defense repair task reconnects the chain.
+    """
+    s = builder.state
+    w = s.w
+    pos = ct.get_position()
+    my_team = s.my_team
+
+    if ct.get_action_cooldown() != 0:
+        return None
+
+    g_cost, _ = ct.get_gunner_cost()
+    ti_res, _ = ct.get_global_resources()
+    if ti_res < g_cost:
+        return None
+
+    # Find enemy builder bots actively attacking our buildings
+    raider_tiles: list[tuple[int, Position]] = []  # (building_tile_idx, bot_pos)
+    for uid in ct.get_nearby_units():
+        if ct.get_team(uid) == my_team:
+            continue
+        if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
+            continue
+        epos = ct.get_position(uid)
+        ei = epos.y * w + epos.x
+        # Enemy bot must be standing on our building that's damaged
+        bld = s.building[ei]
+        if bld is None or bld.team != my_team:
+            continue
+        if isinstance(bld, (BuildingMarker, BuildingRoad)):
+            continue  # don't care about roads/markers
+        bid = ct.get_tile_building_id(epos)
+        if bid is None:
+            continue
+        if ct.get_hp(bid) >= ct.get_max_hp(bid):
+            continue  # not damaged — bot is just passing through
+        raider_tiles.append((ei, epos))
+
+    if not raider_tiles:
+        return None
+
+    # Don't place if we already have a friendly gunner covering any raider
+    for _, epos in raider_tiles:
+        eti = epos.y * w + epos.x
+        if _has_friendly_gunner_covering(s, eti):
+            return None  # already handled
+
+    # For each raider, find a connected transport tile with flow that we can
+    # sacrifice for a gunner with LoS to the raider
+    best_gpos: Position | None = None
+    best_facing: Direction | None = None
+    best_gdist = 1_000_000
+
+    for _, epos in raider_tiles:
+        ex, ey = epos.x, epos.y
+        # Search connected transport tiles near the raider
+        for ti in s.connected_transport:
+            # Must have flow (active resource movement)
+            if ti not in s.tiles_with_flow and ti not in s.flow_seen:
+                continue
+            tx, ty = ti % w, ti // w
+            # Must be within gunner range (r²≤13)
+            if (tx - ex) ** 2 + (ty - ey) ** 2 > 13:
+                continue
+            # Compute facing direction toward the raider
+            fdx = 0 if ex == tx else (1 if ex > tx else -1)
+            fdy = 0 if ey == ty else (1 if ey > ty else -1)
+            if fdx == 0 and fdy == 0:
+                continue
+            # Verify LoS to raider position
+            if not _ray_clear_to(s, tx, ty, fdx, fdy, ex, ey):
+                continue
+            facing = DELTA_TO_DIR.get((fdx, fdy))
+            if facing is None:
+                continue
+            # Verify ammo feed: upstream transport must feed from a non-facing side
+            has_feed = False
+            for adx, ady in DIR4_DELTA:
+                if (adx, ady) == (fdx, fdy):
+                    continue  # facing side — can't receive
+                fax, fay = tx + adx, ty + ady
+                if not s.in_bounds(fax, fay):
+                    continue
+                fai = fay * w + fax
+                fbld = s.building[fai]
+                if fbld is None or fbld.team != my_team:
+                    continue
+                if isinstance(fbld, BuildingHarvester):
+                    has_feed = True
+                    break
+                if fai in s.connected_transport and _tile_has_correct_transport(
+                    s, fai, ti, w
+                ):
+                    has_feed = True
+                    break
+            if not has_feed:
+                continue
+            d = abs(pos.x - tx) + abs(pos.y - ty)
+            if d < best_gdist:
+                best_gdist = d
+                best_gpos = Position(tx, ty)
+                best_facing = facing
+
+    if best_gpos is None or best_facing is None:
+        return None
+
+    gi = best_gpos.y * w + best_gpos.x
+
+    _log(
+        f"  intercept_raider: gunner at ({best_gpos.x},{best_gpos.y}) "
+        f"facing={best_facing.name}",
+        ct.get_id(),
+    )
+
+    # Walk to the tile if not adjacent
+    if pos.distance_squared(best_gpos) > 2:
+        builder.nav.set_goal(best_gpos)
+        moved = builder.nav.step(ct)
+        return f"def:intercept_walk({best_gpos.x},{best_gpos.y})", moved
+
+    # Step off if standing on it
+    if pos == best_gpos:
+        for d in Direction:
+            if d != Direction.CENTRE and ct.can_move(d):
+                ct.move(d)
+                return "def:intercept_stepoff", True
+        return None
+
+    # Destroy the transport and build gunner
+    if ct.can_destroy(best_gpos):
+        ct.destroy(best_gpos)
+        s.building[gi] = None
+        s.my_transport.discard(gi)
+        s.connected_transport.discard(gi)
+
+    if ct.can_build_gunner(best_gpos, best_facing):
+        ct.build_gunner(best_gpos, best_facing)
+        s.building[gi] = BuildingGunner(s.my_team, best_facing)
+        s.my_turrets.add(gi)
+        _log(
+            f"  PLACED intercept gunner({best_gpos.x},{best_gpos.y}) "
+            f"facing={best_facing.name}",
+            ct.get_id(),
+        )
+        return f"def:intercept_gunner({best_gpos.x},{best_gpos.y})", True
+
+    return None
 
 
 def _task_reactive_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
@@ -115,7 +310,17 @@ def _task_reactive_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
                 if not _can_place_gunner_at(s, gi):
                     bld = s.building[gi]
                     env = s.env[gi]
-                    reason = env.name if env and env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE) else (type(bld).__name__[8:] if bld else "?")
+                    reason = (
+                        env.name
+                        if env
+                        and env
+                        in (
+                            Environment.WALL,
+                            Environment.ORE_TITANIUM,
+                            Environment.ORE_AXIONITE,
+                        )
+                        else (type(bld).__name__[8:] if bld else "?")
+                    )
                     _log(f"    ({gx},{gy}) cant_place: {reason}", ct.get_id())
                     continue
                 fdx = 0 if ttx == gx else (1 if ttx > gx else -1)
