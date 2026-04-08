@@ -1,8 +1,10 @@
+import argparse
 import itertools
 import json
+import os
 import subprocess
-import sys
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -50,46 +52,61 @@ def run_match(bot_a: str, bot_b: str, map_path: str, replay_path: str) -> str | 
     return "draw"
 
 
-def round_robin(bots: list[str], maps: list[str]) -> None:
+def round_robin(bots: list[str], maps: list[str], workers: int = 0) -> None:
     RESULTS_DIR.mkdir(exist_ok=True)
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
     run_dir = RESULTS_DIR / timestamp
     run_dir.mkdir()
 
-    wins = defaultdict(int)
-    losses = defaultdict(int)
-    draws = defaultdict(int)
-    results = []
+    wins: defaultdict[str, int] = defaultdict(int)
+    losses: defaultdict[str, int] = defaultdict(int)
+    draws: defaultdict[str, int] = defaultdict(int)
+    results: list[dict[str, str | None]] = []
 
+    jobs: list[tuple[str, str, str, str, str]] = []
     pairs = list(itertools.combinations(bots, 2))
-    total = len(pairs) * len(maps)
-    i = 0
-
     for bot_a, bot_b in pairs:
         for map_path in maps:
-            i += 1
             map_name = Path(map_path).stem
             replay_path = str(run_dir / f"{bot_a}_vs_{bot_b}_{map_name}.replay26")
-            print(
-                f"[{i}/{total}] {bot_a} vs {bot_b} on {map_name}...",
-                end=" ",
-                flush=True,
-            )
+            jobs.append((bot_a, bot_b, map_path, replay_path, map_name))
 
-            winner = run_match(bot_a, bot_b, map_path, replay_path)
+    total = len(jobs)
+    max_workers = workers if workers > 0 else os.cpu_count() or 1
+    print(f"Running {total} matches with {max_workers} workers\n")
+
+    completed = 0
+    with ProcessPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(run_match, bot_a, bot_b, map_path, replay_path): (
+                bot_a,
+                bot_b,
+                map_name,
+                replay_path,
+            )
+            for bot_a, bot_b, map_path, replay_path, map_name in jobs
+        }
+        for future in as_completed(futures):
+            bot_a, bot_b, map_name, replay_path = futures[future]
+            winner = future.result()
+            completed += 1
 
             if winner == "A":
                 wins[bot_a] += 1
                 losses[bot_b] += 1
-                print(f"{bot_a} wins")
+                label = f"{bot_a} wins"
             elif winner == "B":
                 wins[bot_b] += 1
                 losses[bot_a] += 1
-                print(f"{bot_b} wins")
+                label = f"{bot_b} wins"
             else:
                 draws[bot_a] += 1
                 draws[bot_b] += 1
-                print("draw")
+                label = "draw"
+            print(
+                f"[{completed}/{total}] {bot_a} vs {bot_b} on {map_name}: {label}",
+                flush=True,
+            )
 
             results.append(
                 {
@@ -125,7 +142,18 @@ def round_robin(bots: list[str], maps: list[str]) -> None:
 
 
 def main() -> None:
-    bots = sys.argv[1:] if len(sys.argv) > 1 else list_bots()
+    parser = argparse.ArgumentParser(description="Round-robin tournament")
+    parser.add_argument("bots", nargs="*", help="Bot names (default: all)")
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=0,
+        help="Parallel workers (default: number of CPU cores)",
+    )
+    args = parser.parse_args()
+
+    bots = args.bots or list_bots()
     if len(bots) < 2:
         print("Need at least 2 bots")
         return
@@ -133,7 +161,7 @@ def main() -> None:
     if not maps:
         print("No maps found")
         return
-    round_robin(bots, maps)
+    round_robin(bots, maps, workers=args.jobs)
 
 
 if __name__ == "__main__":
