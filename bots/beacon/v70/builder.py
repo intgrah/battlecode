@@ -12,7 +12,7 @@ import random
 
 from bbot_tracker import BbotTracker
 from builder_attack import Attack, _run_attack
-from builder_defense import _run_defense
+from builder_defense import _run_defense, _task_intercept_raider
 from builder_econ import _run_econ
 from builder_helpers import (
     _find_core,
@@ -184,6 +184,11 @@ class Builder(Unit):
 
         # Cut feed (stop our buildings feeding enemy turrets)
         result = _task_cut_feed(s, self.nav, ct)
+        if result is not None:
+            return result
+
+        # Intercept raiders — all roles respond to enemy bots attacking our infra
+        result = _task_intercept_raider(self, ct)
         if result is not None:
             return result
 
