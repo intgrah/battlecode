@@ -55,18 +55,24 @@ class Core(Unit):
             return
 
         my_team = ct.get_team()
+
+        # Emergency: core damaged or enemy nearby — spawn with small reserve
+        emergency = False
         if ct.get_hp() < ct.get_max_hp():
-            if ti >= builder_cost:
+            emergency = True
+        else:
+            for uid in ct.get_nearby_units():
+                if ct.get_team(uid) != my_team:
+                    emergency = True
+                    break
+
+        if emergency:
+            if ti >= builder_cost * 2:
                 self._spawn(ct)
             return
 
-        for uid in ct.get_nearby_units():
-            if ct.get_team(uid) != my_team:
-                if ti >= builder_cost:
-                    self._spawn(ct)
-                return
-
-        reserve = 0 if alive < 4 else builder_cost * 6
+        # Normal: maintain reserve before spawning
+        reserve = 0 if alive < 4 else builder_cost * 8
         if ti < builder_cost + reserve:
             return
         self._spawn(ct)
