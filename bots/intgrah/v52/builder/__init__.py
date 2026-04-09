@@ -91,8 +91,8 @@ class AStarSearch:
     ) -> None:
         self._neighbors = neighbors
         self._heuristic = heuristic
-        self._cost_attr = cost_grid_attr
-        self._relax = allow_relaxation
+        self._cost_attr: Final[str] = cost_grid_attr
+        self._relax: Final[bool] = allow_relaxation
 
         self._w = 0
         self._h = 0
@@ -182,7 +182,7 @@ class AStarSearch:
 
         idx = goal.y * w + goal.x
         dist[idx] = 0
-        visited[idx // 8] |= 1 << (idx % 8)
+        visited[idx >> 3] |= 1 << (idx & 0b111)
         heapq.heappush(q, (0, goal))
 
         while q:
@@ -198,12 +198,12 @@ class AStarSearch:
                 if not (0 <= nx < self._w and 0 <= ny < self._h):
                     continue
                 idx = ny * w + nx
-                seen = visited[idx // 8] & (1 << (idx % 8))
+                seen = visited[idx >> 3] & (1 << (idx & 0b111))
                 if relax and not seen:
                     dist[idx] = _INF
                 if not relax and seen:
                     continue
-                visited[idx // 8] |= 1 << (idx % 8)
+                visited[idx >> 3] |= 1 << (idx & 0b111)
                 move_cost = cost[idx]
                 if move_cost == _INF:
                     continue
@@ -467,8 +467,8 @@ class Builder(Unit):
         super().__init__(ct)
         self.my_core: Final[Position] = Builder._find_core(ct)
         self.opportunistic: Final[bool] = self.rng.random() < 0.5
+        self.en_team: Final[Team] = Team.B if self.my_team == Team.A else Team.A
 
-        self.en_team = Team.B if self.my_team == Team.A else Team.A
         w, h = self.w, self.h
         n = w * h
 
@@ -921,15 +921,11 @@ class Builder(Unit):
         for dx in range(-1, 2):
             for dy in range(-1, 2):
                 cx, cy = core.x + dx, core.y + dy
-                if 0 <= cx < self.w and 0 <= cy < self.h:
-                    self.cost_grid[cy * w + cx] = float("inf")
+                self.cost_grid[cy * w + cx] = float("inf")
 
-    def _apply_symmetry(
-        self,
-        new_tiles: list[tuple[Position, Environment]],
-    ) -> None:
+    def _apply_symmetry(self, new_tiles: list[tuple[Position, Environment]]) -> None:
         had_symmetry = self.symmetry is not None
-        if not had_symmetry:
+        if self.symmetry is None:
             self._eliminate_symmetries(new_tiles)
         if self.symmetry is None:
             return
@@ -943,14 +939,13 @@ class Builder(Unit):
                 for i, e in enumerate(self.env)
                 if e is not None
             ]
-        pending = self.reflect_queue
         for t, env in source:
             m = self._mirror(t)
             mi = m.y * w + m.x
             if self.env[mi] is not None:
                 continue
             self.env[mi] = env
-            pending.append(mi)
+            self.reflect_queue.append(mi)
 
     def _drain_reflect_queue(self) -> None:
         pending = self.reflect_queue
@@ -1795,34 +1790,36 @@ class Builder(Unit):
                                     return d
         return None
 
-    def _sentinel_facing(self, ct: Controller, position: Position) -> Direction | None:
-        b = self.get_building(position)
+    def _sentinel_facing(self, ct: Controller, pos: Position) -> Direction | None:
+        if not self.in_bounds(pos):
+            return None
+        b = self.get_building(pos)
         if (
             not self.nearest_enemy_turret
-            or position.distance_squared(self.nearest_enemy_turret)
+            or pos.distance_squared(self.nearest_enemy_turret)
             > GameConstants.SENTINEL_VISION_RADIUS_SQ
-            or position not in self.adjacent_to_harvester
-            or not self.is_buildable(position)
+            or pos not in self.adjacent_to_harvester
+            or not self.is_buildable(pos)
             or Builder._is_turret_or_transport(b)
-            or not self.in_bounds(position)
-            or not ct.is_in_vision(position)
+            or not self.in_bounds(pos)
+            or not ct.is_in_vision(pos)
         ):
             return None
-        builder = ct.get_tile_builder_bot_id(position)
+        builder = ct.get_tile_builder_bot_id(pos)
         if builder is not None and builder != ct.get_id():
             return None
 
-        d = position.direction_to(self.nearest_enemy_turret)
+        d = pos.direction_to(self.nearest_enemy_turret)
         found_harvester = False
         for harvester_direction in DIR4:
             if harvester_direction != d:
-                match self.get_building(position.add(harvester_direction)):
+                match self.get_building(pos.add(harvester_direction)):
                     case BuildingHarvester():
                         found_harvester = True
         if not found_harvester:
             return None
 
-        shootable_tiles = ct.get_attackable_tiles_from(position, d, EntityType.SENTINEL)
+        shootable_tiles = ct.get_attackable_tiles_from(pos, d, EntityType.SENTINEL)
         if self.nearest_enemy_turret in shootable_tiles:
             return d
         return None
@@ -1892,10 +1889,10 @@ class Builder(Unit):
         if not path:
             return False
 
-        building_id = ct.get_tile_building_id(start_pos)
-        if building_id is None:
+        bid = ct.get_tile_building_id(start_pos)
+        if bid is None:
             return False
-        entity_type = ct.get_entity_type(building_id)
+        entity_type = ct.get_entity_type(bid)
         direction: Direction | None = None
         if (
             self.my_core
@@ -1909,13 +1906,12 @@ class Builder(Unit):
                     break
         else:
             direction = get_direction_object(start_pos, path[1])
-        assert direction is not None
 
         if entity_type == EntityType.CONVEYOR:
-            if ct.get_direction(building_id) == direction:
+            if ct.get_direction(bid) == direction:
                 return True
         elif entity_type == EntityType.BRIDGE:
-            bridge_output = ct.get_bridge_target(building_id)
+            bridge_output = ct.get_bridge_target(bid)
             if not ct.is_in_vision(bridge_output) or self.is_buildable(bridge_output):
                 return True
 
