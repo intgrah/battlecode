@@ -329,22 +329,51 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                 let from_pos = (from.x, from.y);
                 let to_pos = (to.x, to.y);
 
+                // Multiple entities can share a tile (e.g. a builder bot standing
+                // on a conveyor). HashMap iteration is non-deterministic, so we
+                // must explicitly target the storage entity, not whichever entity
+                // `find` happens to return first.
                 let resource = state
                     .entities
                     .values()
-                    .find(|e| e.pos == from_pos)
+                    .find(|e| e.pos == from_pos && is_resource_holder(&e.kind))
                     .and_then(|e| get_stored_resource(&e.kind))
                     .unwrap_or(proto::ResourceType::ResourceNone);
 
-                if let Some(src) = state.entities.values_mut().find(|e| e.pos == from_pos) {
+                if let Some(src) = state
+                    .entities
+                    .values_mut()
+                    .find(|e| e.pos == from_pos && is_resource_holder(&e.kind))
+                {
                     set_stored_resource(&mut src.kind, proto::ResourceType::ResourceNone);
                 }
-                if let Some(dst) = state.entities.values_mut().find(|e| e.pos == to_pos) {
+                if let Some(dst) = state
+                    .entities
+                    .values_mut()
+                    .find(|e| e.pos == to_pos && is_resource_holder(&e.kind))
+                {
                     deliver_stored_resource(&mut dst.kind, resource);
                 }
             }
         }
     }
+}
+
+const fn is_resource_holder(kind: &EntityKind) -> bool {
+    matches!(
+        kind,
+        EntityKind::Conveyor { .. }
+            | EntityKind::ArmouredConveyor { .. }
+            | EntityKind::Splitter { .. }
+            | EntityKind::Bridge { .. }
+            | EntityKind::Foundry { .. }
+            | EntityKind::Harvester { .. }
+            | EntityKind::Core { .. }
+            | EntityKind::Gunner { .. }
+            | EntityKind::Sentinel { .. }
+            | EntityKind::Breach { .. }
+            | EntityKind::Launcher { .. }
+    )
 }
 
 const fn get_stored_resource(kind: &EntityKind) -> Option<proto::ResourceType> {

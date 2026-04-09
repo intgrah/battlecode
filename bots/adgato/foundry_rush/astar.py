@@ -72,6 +72,13 @@ class ChainAstar:
             row = (ry + _PAD) * pw + _PAD
             self._cls[row : row + map_w] = [UNREACHABLE] * map_w
 
+        # Effective classification used by the pathfinder. Mirrors `_cls`
+        # except where `block()` has overlaid IMPASSABLE for the current
+        # plan attempt. Cleared between plan attempts via `clear_blocked()`
+        # without disturbing observations on `_cls`.
+        self._eff_cls: list[int] = list(self._cls)
+        self._blocked: set[int] = set()
+
         # Flat-index neighbor offsets in padded coordinates.
         self._card_offsets: tuple[int, ...] = tuple(
             dy * pw + dx for dx, dy in CARDINAL_DELTAS
@@ -176,6 +183,25 @@ class ChainAstar:
                 cls = IMPASSABLE
 
         self._cls[pi] = cls
+        if pi not in self._blocked:
+            self._eff_cls[pi] = cls
+
+    def block(self, x: int, y: int) -> None:
+        """Mark (x, y) as IMPASSABLE for the current plan attempt only.
+        Does not mutate `_cls`; observations remain authoritative.
+        """
+        pi = self._pi(x, y)
+        if pi not in self._blocked:
+            self._blocked.add(pi)
+            self._eff_cls[pi] = IMPASSABLE
+
+    def clear_blocked(self) -> None:
+        """Drop all per-plan blocks, restoring `_eff_cls` from `_cls`."""
+        cls = self._cls
+        eff = self._eff_cls
+        for pi in self._blocked:
+            eff[pi] = cls[pi]
+        self._blocked.clear()
 
     def set_starts(self, starts: Iterable[tuple[int, int]]) -> None:
         self._starts = tuple(starts)
@@ -189,14 +215,14 @@ class ChainAstar:
         """Pick the best cardinally-adjacent tile to `ore`.
 
         Picks the neighbor with the lowest `_CARD_COST`; ties broken by
-        smallest Manhattan distance to `ref`. Returns the chosen
-        ``(x, y)`` (or ``None`` if no valid neighbor exists).
+        smallest Manhattan distance to `ref`. Returns ``None`` if every
+        candidate neighbor has INF cost (out of bounds or impassable).
         """
         w, h = self.map_w, self.map_h
-        cls = self._cls
+        cls = self._eff_cls
         ox, oy = ore
         sx, sy = ref
-        best: tuple[int, int, int, int] | None = None  # (cost, dist, x, y)
+        best: tuple[int, int, int, int] = (INF, 0, ox, oy)
         for dx, dy in CARDINAL_DELTAS:
             nx, ny = ox + dx, oy + dy
             if not (0 <= nx < w and 0 <= ny < h):
@@ -205,9 +231,9 @@ class ChainAstar:
             cost = _CARD_COST[cls[ni]]
             dist = abs(nx - sx) + abs(ny - sy)
             key = (cost, dist, nx, ny)
-            if best is None or key < best:
+            if key < best:
                 best = key
-        if best is None:
+        if best[0] >= INF:
             return None
         return (best[2], best[3])
 
@@ -310,7 +336,7 @@ class ChainAstar:
         within_budget: Callable[[], bool] = lambda: True,
     ) -> list[BuildInstruction] | None:
         pw = self._pw
-        cls = self._cls
+        cls = self._eff_cls
         cnb = self._cnb
         bnb = self._bnb
         card_cost = _CARD_COST
@@ -333,6 +359,7 @@ class ChainAstar:
         counter = 0
 
         if not self._starts:
+            print("no starts in AStar!")
             return None
 
         best_h_node = self._pi(*self._starts[0])
@@ -405,6 +432,8 @@ class ChainAstar:
             if iterations & 255 == 0 and not within_budget():
                 if best_h_node in came_from:
                     return self._reconstruct(best_h_node, came_from)
+                print("no best node in AStar!")
                 return None
-
+            
+        print("no route found in AStar!")
         return None
