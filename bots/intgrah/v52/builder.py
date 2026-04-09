@@ -3,7 +3,6 @@ from __future__ import annotations
 import heapq
 import math
 import random
-from array import array
 from collections import deque
 from collections.abc import Callable
 from enum import IntEnum
@@ -124,7 +123,7 @@ class AStarSearch:
         self._visited = bytearray((self._w * self._h + 7) // 8)
         self._q = []
 
-    def _cost_grid(self, state: Builder) -> array[float]:
+    def _cost_grid(self, state: Builder) -> list[float]:
         return getattr(state, self._cost_attr)
 
     def _extract_path(
@@ -310,10 +309,6 @@ class WallFollow:
 _bug_states: dict[int, WallFollow] = {}
 
 
-def _bug_chebyshev(p1: Position, p2: Position) -> int:
-    return max(abs(p1.x - p2.x), abs(p1.y - p2.y))
-
-
 def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
     dx_total = goal.x - start.x
     dy_total = goal.y - start.y
@@ -324,9 +319,7 @@ def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
 
     if cross_product <= max(abs(dx_total), abs(dy_total)) // 2:
         dot_product = dx_curr * dx_total + dy_curr * dy_total
-        return dot_product > 0 and _bug_chebyshev(curr, goal) < _bug_chebyshev(
-            start, goal
-        )
+        return dot_product > 0 and chebyshev(curr, goal) < chebyshev(start, goal)
     return False
 
 
@@ -381,7 +374,7 @@ def _fallback_step(
         if (
             bug.hit_point
             and _on_baseline(curr, bug.start, target)
-            and _bug_chebyshev(curr, target) < _bug_chebyshev(bug.hit_point, target)
+            and chebyshev(curr, target) < chebyshev(bug.hit_point, target)
         ):
             bug.mode = BugMode.MODE_GOAL_SEEK
             return _fallback_step(state, ct, target, blocked)
@@ -495,8 +488,8 @@ class Builder(Unit):
         self.buildings: list[Building | None] = [None] * n
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
-        self.cost_grid = array("f", [1.0] * n)
-        self.conveyor_cost_grid = array("f", [1.0] * n)
+        self.cost_grid = [1.0] * n
+        self.conveyor_cost_grid = [1.0] * n
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
