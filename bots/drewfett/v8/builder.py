@@ -13,6 +13,7 @@ import random
 from bbot_tracker import BbotTracker
 from builder_attack import Attack, _run_attack
 from builder_defense import _run_defense
+from flow import FlowModel
 from builder_econ import _run_econ
 from builder_helpers import (
     _find_core,
@@ -68,6 +69,7 @@ class Builder(Unit):
         self.state = State(ct, core_pos)
         self.state.nav = self.nav
         self.state.reachable = self.reachable
+        self.flow = FlowModel(self.state)
 
         self._stuck_turns = 0
         self._osc_anchor: Position | None = None  # oscillation detection
@@ -122,11 +124,7 @@ class Builder(Unit):
         state_update(s, ct)
 
         # Build flow model (replaces connectivity/capacity in state_update)
-        from flow import FlowModel
-        if not hasattr(self, 'flow'):
-            self.flow = FlowModel(s)
-        else:
-            self.flow._s = s
+        self.flow._s = s
         self.flow.build()
         # Copy back to State for backward compatibility
         s.connected_transport = self.flow.connected
