@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections import deque
 from typing import Final, override
 
-from cambc import Controller, Direction, EntityType, Position, ResourceType
-from unit import Unit
+from cambc import Controller, Direction, EntityType, ResourceType
+from unit import StationaryUnit
 from util import DIR4, DIR8
 
 __all__ = ["Core"]
 
 
-class Core(Unit):
+class Core(StationaryUnit):
     INITIAL_SPAWNS = 6
     INCOME_SAMPLES = 16
     MAX_BUILDERS = 12
@@ -20,7 +20,6 @@ class Core(Unit):
 
     @override
     def __init__(self, ct: Controller) -> None:
-        self.my_pos: Final[Position] = ct.get_position()
         self.spawned: int = 0
         self.deliveries: Final[deque[int]] = deque(
             [0] * Core.INCOME_SAMPLES, maxlen=Core.INCOME_SAMPLES

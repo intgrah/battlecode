@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from random import Random
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, override
 
 if TYPE_CHECKING:
     from cambc import Controller, Position, Team
@@ -27,3 +27,10 @@ class Unit(ABC):
     def in_bounds(self, pos: Position) -> bool:
         """Is in bounds of map"""
         return 0 <= pos.x < self.w and 0 <= pos.y < self.h
+
+
+class StationaryUnit(Unit):
+    @override
+    def __init__(self, ct: Controller) -> None:
+        super().__init__(ct)
+        self.my_pos: Final[Position] = ct.get_position()
