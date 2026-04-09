@@ -35,7 +35,7 @@ from cambc import (
 from config import DEBUG_DUMP, USE_HARDCODED_MAPS
 from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
 from unit import Unit
-from util import DIR4, DIR8, DIR8_DELTA, Symmetry
+from util import DIR4, DIR8, DIR8_DELTA, INF, Symmetry
 from util_extra import (
     can_afford,
     chebyshev,
@@ -540,9 +540,6 @@ class Builder(Unit):
         self.scout_target: Position | None = None
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
-        self.scout_initial_target: Position | None = None
-        self.scout_initial_age: int = 0
-        self.scout_initial_radius: float = 10.0
 
     # ================================================================================
     #  Map State Queries
@@ -1403,11 +1400,12 @@ class Builder(Unit):
     def _explore(self, ct: Controller) -> None:
         self.scout_age += 1
         t = self.scout_target
+        my_pos = ct.get_position()
 
         if (
             self.scout_age > 20
             or t is None
-            or (ct.get_position().x - t.x) ** 2 + (ct.get_position().y - t.y) ** 2 < 3
+            or my_pos.distance_squared(t) < 3
             or self.get_cost(t) == float("inf")
         ):
             t = Position(-10, -10)
@@ -1418,66 +1416,16 @@ class Builder(Unit):
                 or t.y >= self.h
                 or self.get_cost(t) == float("inf")
             ):
-                theta = self.rng.random() * 2 * math.pi
+                theta = self.rng.random() * math.tau
                 t = Position(
-                    ct.get_position().x + round(math.cos(theta) * self.scout_radius),
-                    ct.get_position().y + round(math.sin(theta) * self.scout_radius),
+                    my_pos.x + round(math.cos(theta) * self.scout_radius),
+                    my_pos.y + round(math.sin(theta) * self.scout_radius),
                 )
                 if self.scout_radius >= self.w / 2 or self.scout_radius >= self.h / 2:
                     self.scout_radius -= 1.0
 
             self.scout_age = 0
             self.scout_target = t
-            ct.draw_indicator_dot(t, 255, 0, 255)
-            self._move_via_path(ct, t)
-        else:
-            ct.draw_indicator_dot(t, 10, 0, 10)
-            self._move_via_path(ct, t)
-
-    def _initial_explore(self, ct: Controller, vertical: int = 0) -> None:
-        self.scout_initial_age += 1
-        t = self.scout_initial_target
-        number_tries = 0
-
-        if (
-            self.scout_initial_age > 10
-            or t is None
-            or (ct.get_position().x - t.x) ** 2 + (ct.get_position().y - t.y) ** 2 < 3
-            or self.get_cost(t) == float("inf")
-        ):
-            t = Position(-10, -10)
-            while (
-                t.x < 0
-                or t.y < 0
-                or t.x >= self.w
-                or t.y >= self.h
-                or self.get_cost(t) == float("inf")
-            ):
-                up_down = self.rng.randint(0, 1)
-                theta = self.rng.random() * math.pi / 2
-                if vertical == 0:
-                    theta = theta + up_down * math.pi + math.pi / 4
-                elif vertical == 1:
-                    theta = theta + up_down * math.pi - math.pi / 4
-                else:
-                    theta = self.rng.random() * math.pi * 2
-                if number_tries > 5:
-                    vertical = -1
-                t = Position(
-                    ct.get_position().x
-                    + round(math.cos(theta) * self.scout_initial_radius),
-                    ct.get_position().y
-                    + round(math.sin(theta) * self.scout_initial_radius),
-                )
-                if (
-                    self.scout_initial_radius >= self.w / 2
-                    or self.scout_initial_radius >= self.h / 2
-                ):
-                    self.scout_initial_radius -= 1.0
-                number_tries += 1
-
-            self.scout_initial_age = 0
-            self.scout_initial_target = t
             ct.draw_indicator_dot(t, 255, 0, 255)
             self._move_via_path(ct, t)
         else:
@@ -1501,28 +1449,23 @@ class Builder(Unit):
         return True
 
     def _pick_ore_target(self, ct: Controller) -> Position | None:
-        current_pos = ct.get_position()
-
+        my_pos = ct.get_position()
         best_target = None
-        min_dist = float("inf")
+        min_dist = INF
 
         for pos in ct.get_nearby_tiles():
             terrain = self.get_env(pos)
 
             if terrain == Environment.ORE_TITANIUM:
                 match self.get_building(pos):
-                    case BuildingHarvester():
-                        continue
                     case None | BuildingRoad():
-                        pass
+                        if self._ore_available(ct, pos):
+                            dist = my_pos.distance_squared(pos)
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_target = pos
                     case _:
                         continue
-
-                if self._ore_available(ct, pos):
-                    dist = current_pos.distance_squared(pos)
-                    if dist < min_dist:
-                        min_dist = dist
-                        best_target = pos
 
         return best_target
 
