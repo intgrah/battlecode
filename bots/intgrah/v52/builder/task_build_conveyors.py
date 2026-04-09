@@ -1,6 +1,7 @@
 from building import BuildingConveyor, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Environment, Position
 from util import DIR4, DIR8
+from util_extra import can_afford, chebyshev, get_direction_object, reachable_path_end
 
 from .algorithms.pathfind import conv_pathfind, conv_unreachable
 from .helpers import (
@@ -43,7 +44,8 @@ def lay_segment(
         return False
 
     building_id = ct.get_tile_building_id(start_pos)
-    assert building_id is not None
+    if building_id is None:
+        return False
     entity_type = ct.get_entity_type(building_id)
     direction: Direction | None = None
     if (
@@ -59,6 +61,7 @@ def lay_segment(
     else:
         direction = get_direction_object(start_pos, path[1])
     assert direction is not None
+
     if entity_type == EntityType.CONVEYOR:
         if ct.get_direction(building_id) == direction:
             return True
