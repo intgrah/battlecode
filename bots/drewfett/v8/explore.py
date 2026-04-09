@@ -1,0 +1,66 @@
+"""Exploration targets on a coarse grid. Ported from adgato/mesh."""
+
+from __future__ import annotations
+
+import random
+
+from cambc import Controller, Position
+from util import chebyshev
+
+
+class ExploreGrid:
+    def __init__(self, w: int, h: int) -> None:
+        self._unvisited: set[Position] = set()
+        self._next_target: Position | None = None
+        self._changed: bool = False
+
+        _SPACING = 9
+
+        def _axis_coords(size: int) -> list[int]:
+            n = max(1, (size - 1) // _SPACING)
+            step = (size - 1) / n
+            jitter = random.random() * step * 0.5
+            coords: list[int] = [0]
+            for i in range(1, n):
+                coords.append(round(i * step + jitter))
+            last = coords[-1] if coords else 0
+            gap = (size - 1) - last
+            if gap <= _SPACING * 3 // 4:
+                coords[-1] = size - 1
+            else:
+                coords.append(size - 1)
+            return coords
+
+        xs = _axis_coords(w)
+        ys = _axis_coords(h)
+        for y in ys:
+            for x in xs:
+                self._unvisited.add(Position(x, y))
+
+    def take_changed(self) -> bool:
+        changed = self._changed
+        self._changed = False
+        return changed
+
+    @property
+    def target(self) -> Position | None:
+        return self._next_target
+
+    def update(self, ct: Controller, pos: Position, core: Position) -> None:
+        self._unvisited -= {p for p in self._unvisited if ct.is_in_vision(p)}
+        if not self._unvisited:
+            return
+        cur = self._next_target
+        if cur is not None and cur in self._unvisited:
+            return
+
+        best_dist = 1_000_000
+        best: Position | None = None
+        for cell in self._unvisited:
+            d = chebyshev(core, cell) * 2 + chebyshev(pos, cell)
+            if d < best_dist:
+                best_dist = d
+                best = cell
+
+        self._next_target = best
+        self._changed = True
