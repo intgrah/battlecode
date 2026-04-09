@@ -762,8 +762,8 @@ def _task_parasite_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
             continue
         cx, cy = ti % w, ti // w
 
-        # Reachability gate: don't trek across the whole map
-        if abs(pos.x - cx) + abs(pos.y - cy) > 12:
+        # Reachability gate: must be within easy walking distance
+        if abs(pos.x - cx) + abs(pos.y - cy) > 8:
             continue
 
         # Score the 8 perimeter tiles for cover
@@ -789,8 +789,8 @@ def _task_parasite_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
                 elif nbld.team == my_team:
                     cover += 1  # our own buildings count as cover
 
-        # Need at least some cover (3 of 8 sides)
-        if cover < 3:
+        # Need substantial cover (5 of 8 sides) — don't expose ourselves
+        if cover < 5:
             continue
 
         # Count cardinal flow IN — enemy transport outputting toward center
@@ -817,7 +817,7 @@ def _task_parasite_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
             ) and _tile_has_correct_transport(s, ni, ti, w):
                 flow_in += 1
 
-        # No flow = no parasitic feed = useless
+        # No flow = no parasitic feed = useless. Need 2+ feeders for sustainability.
         if flow_in < 2:
             continue
 
@@ -839,7 +839,8 @@ def _task_parasite_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
                 ):
                     targets.append(tti)
 
-        if not targets:
+        # Need at least 2 valuable targets to be worth the investment
+        if len(targets) < 2:
             continue
 
         # Score: cover + flow + targets
