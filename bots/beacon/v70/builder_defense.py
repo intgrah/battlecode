@@ -120,34 +120,15 @@ def _task_intercept_raider(builder: Builder, ct: Controller) -> tuple[str, bool]
     if ti_res < g_cost:
         return None
 
-    # Find enemy builder bots near our buildings (not just standing ON them)
+    # Any visible enemy builder bot is a raider candidate.
+    # Defense priority is to drop a gunner on them ASAP.
     raider_positions: list[Position] = []
     for uid in ct.get_nearby_units():
         if ct.get_team(uid) == my_team:
             continue
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
-        epos = ct.get_position(uid)
-        ex, ey = epos.x, epos.y
-        # Check if enemy bot is near any of our non-trivial buildings
-        near_our_stuff = False
-        for ddx in range(-2, 3):
-            for ddy in range(-2, 3):
-                ax, ay = ex + ddx, ey + ddy
-                if not s.in_bounds(ax, ay):
-                    continue
-                ai = ay * w + ax
-                abld = s.building[ai]
-                if abld is None or abld.team != my_team:
-                    continue
-                if isinstance(abld, (BuildingMarker, BuildingRoad)):
-                    continue
-                near_our_stuff = True
-                break
-            if near_our_stuff:
-                break
-        if near_our_stuff:
-            raider_positions.append(epos)
+        raider_positions.append(ct.get_position(uid))
 
     if not raider_positions:
         return None
