@@ -430,12 +430,12 @@ _P_COST = Palette(
 ROAD_COST = 3
 
 _OPENING_ROLES = [
-    (Role.ECON, True, 0),
-    (Role.ECON, False, 1),
-    (Role.DEFENSE, True, None),
-    (Role.OFFENSE, False, None),
-    (Role.OFFENSE, False, None),
-    (Role.OFFENSE, False, None),
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.DEFENSE, True),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
 ]
 
 _INITIAL_WEIGHTS = {
@@ -512,7 +512,6 @@ class Builder(Unit):
                 self.symmetry_candidates.clear()
                 self._load_map_tiles()
 
-        self.nearby_positions: list[Position] = []
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
         self.adjacent_to_unconnected_harvester: set[Position] = set()
@@ -530,8 +529,6 @@ class Builder(Unit):
         self.pending_bridge: Position | None = None
         self.dangling_output: Position | None = None
         self.branch_start: Position | None = None
-        self.income_window: list[int] = [0] * 16
-        self.spawned: int = 0
 
         self.repair_pos: Position | None = None
         self.repaired_prev: bool = True
@@ -545,8 +542,6 @@ class Builder(Unit):
         self.patrol_head: Position | None = None
         self.patrol_trail: list[Position] = []
 
-        self.scout_active: bool = False
-        self.scout_direction: int | None = None
         self.scout_target: Position | None = None
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
@@ -757,11 +752,7 @@ class Builder(Unit):
 
     def _update_map(self, ct: Controller) -> None:
         w = self.w
-        nearby_positions = ct.get_nearby_tiles(
-            GameConstants.BUILDER_BOT_VISION_RADIUS_SQ
-        )
-        self.nearby_positions = nearby_positions
-        self.nearby_buildings = []
+        nearby_tiles = ct.get_nearby_tiles()
 
         self.healable_buildings = [
             p for p in self.healable_buildings if not ct.is_in_vision(p)
@@ -770,7 +761,7 @@ class Builder(Unit):
             p for p in self.adjacent_to_enemy_launcher if not ct.is_in_vision(p)
         }
 
-        for pos in nearby_positions:
+        for pos in nearby_tiles:
             if 0 <= pos.x < self.w and 0 <= pos.y < self.h:
                 i = pos.y * w + pos.x
                 self.conveyors_to_here[i] = [
@@ -780,7 +771,7 @@ class Builder(Unit):
                     p for p in self.splitters_to_here[i] if not ct.is_in_vision(p)
                 ]
 
-        for pos in nearby_positions:
+        for pos in nearby_tiles:
             if 0 <= pos.x < self.w and 0 <= pos.y < self.h:
                 i = pos.y * w + pos.x
                 self.env[i] = ct.get_tile_env(pos)
@@ -882,7 +873,7 @@ class Builder(Unit):
                 self.conveyor_cost_grid[i] = conveyor_cost
 
         my_pos = ct.get_position()
-        for pos in nearby_positions:
+        for pos in nearby_tiles:
             if (
                 self.env[pos.y * w + pos.x]
                 in [Environment.ORE_TITANIUM, Environment.ORE_AXIONITE]
@@ -899,7 +890,7 @@ class Builder(Unit):
                 case _:
                     self.nearest_enemy_turret = None
         min_dist = float("inf")
-        for pos in nearby_positions:
+        for pos in nearby_tiles:
             match self.buildings[pos.y * w + pos.x]:
                 case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
                     t != ct.get_team()
@@ -917,7 +908,7 @@ class Builder(Unit):
         self.adjacent_to_harvester = {
             p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
         }
-        for pos in self.nearby_positions:
+        for pos in ct.get_nearby_tiles():
             i = pos.y * w + pos.x
             bld = self.get_building(pos)
             match bld:
@@ -957,7 +948,7 @@ class Builder(Unit):
             ct, self.nearest_junction_site
         ):
             self.nearest_junction_site = None
-        for pos in self.nearby_positions:
+        for pos in ct.get_nearby_tiles():
             if (
                 self.nearest_junction_site is None
                 or (
@@ -1096,19 +1087,14 @@ class Builder(Unit):
             return self.rng.choices(roles, weights=weights)[0]
         idx = ct.get_unit_count() - 3
         if idx < len(_OPENING_ROLES):
-            role, perm, scout_dir = _OPENING_ROLES[idx]
+            role, perm = _OPENING_ROLES[idx]
             self.permanent_role = perm
-            if scout_dir is not None:
-                self.scout_active = True
-                self.scout_direction = scout_dir
             return role
         return Role.ECON
 
     def _update_role(self, ct: Controller) -> None:
         if self.role is None:
             self.role = self._pick_initial_role(ct)
-        if ct.get_current_round() > 25:
-            self.scout_active = False
 
         if (
             self.role_age > _REASSIGN_PERIOD
