@@ -37,6 +37,9 @@ WALKABLE_ENTITIES = [
 class State:
     @staticmethod
     def find_core(ct: Controller) -> Position:
+        """
+        Find the friendly core. Should not raise, since this method is intended to be called at spawn time only.
+        """
         my_team = ct.get_team()
         for bid in ct.get_nearby_buildings():
             if (
@@ -45,7 +48,7 @@ class State:
             ):
                 return ct.get_position(bid)
         msg = "Core not visible at spawn"
-        raise RuntimeError(msg)
+        raise AssertionError(msg)
 
     def __init__(self, ct: Controller) -> None:
         self.w = ct.get_map_width()
