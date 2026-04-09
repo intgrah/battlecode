@@ -19,7 +19,9 @@ from builder_helpers import (
 )
 from building import (
     MINOR_DESTROYABLE,
+    BuildingArmouredConveyor,
     BuildingBarrier,
+    BuildingBreach,
     BuildingBridge,
     BuildingConveyor,
     BuildingGunner,
@@ -27,6 +29,8 @@ from building import (
     BuildingLauncher,
     BuildingMarker,
     BuildingRoad,
+    BuildingSentinel,
+    BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
 from chain_astar import AttackAstar
@@ -722,10 +726,317 @@ def _task_raid_harvester(builder: Builder, ct: Controller) -> tuple[str, bool] |
     return None
 
 
+def _task_parasite_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
+    """Find an enemy bridge/conveyor with surrounding cover, walk onto it,
+    fire it down, then plop a gunner on the empty tile.
+
+    The gunner is parasitically fed by whatever was feeding the conveyor —
+    enemy transport that outputs into this tile keeps doing so, but now
+    the resources go into our gunner as ammo.
+
+    Target scoring:
+    - Cover: how many of the 8 perimeter tiles are blocked (harvester,
+      barrier, wall, friendly building, off-map)
+    - Flow in: cardinal sides with enemy transport outputting into center
+    - Targets: enemy harvesters/turrets within r²≤13 of center
+    """
+    s = builder.state
+    w = s.w
+    pos = ct.get_position()
+    my_team = s.my_team
+
+    if not s.en_transport:
+        return None
+
+    # Find best parasite target
+    best_ti: int | None = None
+    best_score = -1
+    best_targets: list[int] = []
+
+    for ti in s.en_transport:
+        bld = s.building[ti]
+        # Only conveyors/bridges in the middle (not splitters — direction-sensitive)
+        if not isinstance(
+            bld, (BuildingBridge, BuildingConveyor, BuildingArmouredConveyor)
+        ):
+            continue
+        cx, cy = ti % w, ti // w
+
+        # Reachability gate: don't trek across the whole map
+        if abs(pos.x - cx) + abs(pos.y - cy) > 12:
+            continue
+
+        # Score the 8 perimeter tiles for cover
+        cover = 0
+        for ddx in (-1, 0, 1):
+            for ddy in (-1, 0, 1):
+                if ddx == 0 and ddy == 0:
+                    continue
+                nx, ny = cx + ddx, cy + ddy
+                if not s.in_bounds(nx, ny):
+                    cover += 1
+                    continue
+                ni = ny * w + nx
+                env = s.env[ni]
+                if env == Environment.WALL:
+                    cover += 1
+                    continue
+                nbld = s.building[ni]
+                if nbld is None:
+                    continue
+                if isinstance(nbld, (BuildingHarvester, BuildingBarrier)):
+                    cover += 1
+                elif nbld.team == my_team:
+                    cover += 1  # our own buildings count as cover
+
+        # Need at least some cover (3 of 8 sides)
+        if cover < 3:
+            continue
+
+        # Count cardinal flow IN — enemy transport outputting toward center
+        flow_in = 0
+        for ddx, ddy in DIR4_DELTA:
+            nx, ny = cx + ddx, cy + ddy
+            if not s.in_bounds(nx, ny):
+                continue
+            ni = ny * w + nx
+            nbld = s.building[ni]
+            if nbld is None or nbld.team == my_team:
+                continue
+            if isinstance(nbld, BuildingHarvester):
+                flow_in += 1  # outputs all cardinal
+                continue
+            if isinstance(
+                nbld,
+                (
+                    BuildingConveyor,
+                    BuildingArmouredConveyor,
+                    BuildingSplitter,
+                    BuildingBridge,
+                ),
+            ) and _tile_has_correct_transport(s, ni, ti, w):
+                flow_in += 1
+
+        # No flow = no parasitic feed = useless
+        if flow_in < 2:
+            continue
+
+        # Find enemy targets within gunner range of center
+        targets: list[int] = []
+        for ddx in range(-3, 4):
+            for ddy in range(-3, 4):
+                d2 = ddx * ddx + ddy * ddy
+                if d2 == 0 or d2 > 13:
+                    continue
+                tx, ty = cx + ddx, cy + ddy
+                if not s.in_bounds(tx, ty):
+                    continue
+                tti = ty * w + tx
+                if (
+                    tti in s.en_harvesters
+                    or tti in s.en_turrets
+                    or tti in s.en_core_tiles
+                ):
+                    targets.append(tti)
+
+        if not targets:
+            continue
+
+        # Score: cover + flow + targets
+        score = cover + flow_in * 2 + len(targets) * 3
+        if score > best_score:
+            best_score = score
+            best_ti = ti
+            best_targets = targets
+
+    if best_ti is None:
+        return None
+
+    cx, cy = best_ti % w, best_ti // w
+    cpos = Position(cx, cy)
+    ci = best_ti
+
+    # Walk to the center tile (it's a conveyor/bridge — walkable)
+    if pos != cpos:
+        # If center has been destroyed by another bot, abort
+        if s.building[ci] is None:
+            return None
+        if not builder.nav.is_passable(cpos):
+            return None
+        builder.nav.set_goal(cpos)
+        moved = builder.nav.step(ct)
+        return f"atk:para_walk({cx},{cy})", moved
+
+    # We're standing on the center tile.
+    # Phase 1: building still exists -> fire it down.
+    bid = ct.get_tile_building_id(cpos)
+    if bid is not None and ct.get_team(bid) != my_team:
+        etype = ct.get_entity_type(bid)
+        if etype in (
+            EntityType.CONVEYOR,
+            EntityType.ARMOURED_CONVEYOR,
+            EntityType.BRIDGE,
+        ):
+            if ct.get_action_cooldown() == 0 and ct.can_fire(cpos):
+                ct.fire(cpos)
+                # Update belief if destroyed
+                if ct.get_tile_building_id(cpos) is None:
+                    s.building[ci] = None
+                    s.en_transport.discard(ci)
+                return f"atk:para_fire({cx},{cy})", True
+            return f"atk:para_cd({cx},{cy})", False
+
+    # Phase 2: tile is empty. Step off and let next-turn place the gunner.
+    if bid is None or s.building[ci] is None:
+        s.building[ci] = None
+        s.en_transport.discard(ci)
+        # Step off in any direction
+        for d in Direction:
+            if d != Direction.CENTRE and ct.can_move(d):
+                ct.move(d)
+                return f"atk:para_stepoff({cx},{cy})", True
+        return f"atk:para_stuck({cx},{cy})", False
+
+    return None
+
+
+def _task_place_parasite_gunner(
+    builder: Builder, ct: Controller
+) -> tuple[str, bool] | None:
+    """Second phase of parasite gunner: bot is now adjacent to an empty
+    tile that used to be enemy transport. Build a gunner there facing the
+    best enemy target.
+    """
+    s = builder.state
+    w = s.w
+    pos = ct.get_position()
+
+    if ct.get_action_cooldown() != 0:
+        return None
+
+    g_cost, _ = ct.get_gunner_cost()
+    ti_res, _ = ct.get_global_resources()
+    if ti_res < g_cost:
+        return None
+
+    # Look for an empty tile adjacent to us that has enemy flow on a
+    # non-facing side, and at least one valuable enemy target on a ray.
+    best_gpos: Position | None = None
+    best_facing: Direction | None = None
+    best_score = -1
+
+    for ddx in range(-1, 2):
+        for ddy in range(-1, 2):
+            if ddx == 0 and ddy == 0:
+                continue
+            gx, gy = pos.x + ddx, pos.y + ddy
+            if not s.in_bounds(gx, gy):
+                continue
+            gi = gy * w + gx
+            # Tile must be empty and buildable
+            if s.building[gi] is not None:
+                continue
+            env = s.env[gi]
+            if env == Environment.WALL:
+                continue
+
+            # For each ray direction, check if (a) there's a feeder on a
+            # non-facing side and (b) a valuable enemy is on the ray
+            for rdx, rdy in _RAY_DIRS_8:
+                facing = DELTA_TO_DIR.get((rdx, rdy))
+                if facing is None:
+                    continue
+                # Check ammo feed: any cardinal non-facing side with enemy/own
+                # transport outputting into us
+                has_feed = False
+                for adx, ady in DIR4_DELTA:
+                    if (adx, ady) == (rdx, rdy):
+                        continue
+                    fax, fay = gx + adx, gy + ady
+                    if not s.in_bounds(fax, fay):
+                        continue
+                    fai = fay * w + fax
+                    fbld = s.building[fai]
+                    if fbld is None:
+                        continue
+                    if isinstance(fbld, BuildingHarvester):
+                        has_feed = True
+                        break
+                    if isinstance(
+                        fbld,
+                        (
+                            BuildingConveyor,
+                            BuildingArmouredConveyor,
+                            BuildingSplitter,
+                            BuildingBridge,
+                        ),
+                    ) and _tile_has_correct_transport(s, fai, gi, w):
+                        has_feed = True
+                        break
+                if not has_feed:
+                    continue
+
+                # Find first enemy on the ray for value scoring
+                value = 0
+                tx, ty = gx + rdx, gy + rdy
+                while s.in_bounds(tx, ty):
+                    if (tx - gx) ** 2 + (ty - gy) ** 2 > 13:
+                        break
+                    tti = ty * w + tx
+                    if s.env[tti] == Environment.WALL:
+                        break
+                    tbld = s.building[tti]
+                    if tbld is not None and not isinstance(tbld, BuildingMarker):
+                        if tbld.team == s.my_team:
+                            break  # own building blocks LoS
+                        # Enemy target — score by type
+                        if isinstance(tbld, BuildingHarvester):
+                            value = 5
+                        elif isinstance(
+                            tbld,
+                            (
+                                BuildingGunner,
+                                BuildingSentinel,
+                                BuildingBreach,
+                                BuildingLauncher,
+                            ),
+                        ):
+                            value = 8
+                        else:
+                            value = 3
+                        break
+                    tx += rdx
+                    ty += rdy
+
+                if value > best_score:
+                    best_score = value
+                    best_gpos = Position(gx, gy)
+                    best_facing = facing
+
+    if best_gpos is None or best_facing is None or best_score <= 0:
+        return None
+
+    gi = best_gpos.y * w + best_gpos.x
+    if ct.can_build_gunner(best_gpos, best_facing):
+        ct.build_gunner(best_gpos, best_facing)
+        s.building[gi] = BuildingGunner(s.my_team, best_facing)
+        s.my_turrets.add(gi)
+        return f"atk:para_g({best_gpos.x},{best_gpos.y})", True
+    return None
+
+
 def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
     a = builder._attack
     s = builder.state
     pos = ct.get_position()
+
+    # Parasite gunner: turn enemy transport into our gunner via parasitic feed
+    para_place = _task_place_parasite_gunner(builder, ct)
+    if para_place is not None:
+        return para_place
+    para = _task_parasite_gunner(builder, ct)
+    if para is not None:
+        return para
 
     # Raid disabled — too unreliable, pulls attack builders off flow-gap
     # extension which produces better results. Code kept for iteration.
