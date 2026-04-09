@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import override
 
-from cambc import Controller, EntityType, Position, Team
+from cambc import Controller, EntityType, GameConstants, Position, Team
 from unit import Unit
 
 __all__ = ["Sentinel"]
@@ -48,7 +48,7 @@ def _score_entity(
         return None
 
     score = _PRIORITY.get(etype, 0)
-    if ct.get_hp(entity) <= 18:
+    if ct.get_hp(entity) <= GameConstants.SENTINEL_DAMAGE:
         score += 1
 
     return score, fire_pos
