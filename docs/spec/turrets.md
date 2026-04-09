@@ -6,16 +6,15 @@
 
 > Defensive and offensive combat units — gunner, sentinel, breach, and launcher.
 
-Every turret **except the launcher** faces in one of **8 directions**. Ammo must be fed to turrets via conveyors, from any direction except the direction the turret is facing. Diagonal turrets can be fed from all four sides.
+Every turret **except the launcher** faces in one of **8 directions**.
+
+## Ammo
+
+Gunners, sentinels, and breaches require **ammo** to fire. Ammo is simply a stack of resources sitting inside the turret — each shot consumes a fixed number of resources from that stack (see per-turret tables below). Launchers do not use ammo.
+
+Ammo must be fed to turrets via conveyors, an adjacent harvester, an adjacent foundry, or a bridge targeting the turret's tile, from any direction except the direction the turret is facing. Diagonal turrets can be fed from all four sides.
 
 Ammo-based turrets can hold up to one stack of one resource type and only accept incoming resources when completely empty.
-
-You can inspect raw turret geometry with `c.get_attackable_tiles()` on a real
-turret or `c.get_attackable_tiles_from(position, direction, turret_type)` from
-any controller. These queries ignore ammo, cooldown, occupancy, blockers, and
-other legality checks. Use `c.can_fire()` to check a real turret's current shot
-legality, or `c.can_fire_from(...)` to test a hypothetical shot against the
-current map's range and obstruction rules.
 
 <Info>
   If a builder bot is standing on a building, turret attacks on that tile hit
@@ -130,11 +129,11 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 
 <Tabs>
   <Tab title="Cardinal">
-        <img src="https://mintcdn.com/cambridgebattlecode/Jrocgfi7ovGO1A5q/images/ranges/breach-cardinal.png?fit=max&auto=format&n=Jrocgfi7ovGO1A5q&q=85&s=3b29d8f94e4928f003d6068959e50ae0" alt="Breach range — cardinal direction" width="1053" height="964" data-path="images/ranges/breach-cardinal.png" />
+        <img src="https://mintcdn.com/cambridgebattlecode/bEKoWKyuhVPrb0vz/images/ranges/breach-cardinal.png?fit=max&auto=format&n=bEKoWKyuhVPrb0vz&q=85&s=9f486aea38317b37d0828ad8a1aaf760" alt="Breach range — cardinal direction" width="1012" height="879" data-path="images/ranges/breach-cardinal.png" />
   </Tab>
 
   <Tab title="Diagonal">
-        <img src="https://mintcdn.com/cambridgebattlecode/Jrocgfi7ovGO1A5q/images/ranges/breach-diagonal.png?fit=max&auto=format&n=Jrocgfi7ovGO1A5q&q=85&s=5f97deeafb0851e2a13d808982e7767f" alt="Breach range — diagonal direction" width="1053" height="964" data-path="images/ranges/breach-diagonal.png" />
+        <img src="https://mintcdn.com/cambridgebattlecode/bEKoWKyuhVPrb0vz/images/ranges/breach-diagonal.png?fit=max&auto=format&n=bEKoWKyuhVPrb0vz&q=85&s=270af3b88dc6fe612f5814a6dbe1ce5d" alt="Breach range — diagonal direction" width="890" height="878" data-path="images/ranges/breach-diagonal.png" />
   </Tab>
 </Tabs>
 
@@ -175,6 +174,20 @@ c.build_launcher(pos)
 if c.can_launch(bot_pos, target_pos):
     c.launch(bot_pos, target_pos)
 ```
+
+## Querying turret geometry
+
+`c.get_attackable_tiles()` returns the raw geometric attack pattern for the
+turret you are controlling, and
+`c.get_attackable_tiles_from(position, direction, turret_type)` returns the same
+pattern for a hypothetical turret at any position — callable from any controller.
+Both ignore ammo, cooldown, occupancy, blockers, and other legality checks.
+
+To check whether a shot is actually legal right now, use `c.can_fire(target)` on
+a real turret, or `c.can_fire_from(position, direction, turret_type, target)` to
+test a hypothetical shot against the current map's range and obstruction rules.
+
+See the [Controller reference](/api/controller) for full method signatures.
 
 
 Built with [Mintlify](https://mintlify.com).
