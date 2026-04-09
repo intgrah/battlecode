@@ -40,7 +40,7 @@ Cost scaling: additive. Each entity built increases scale by its % contribution.
 
 All units have action r²=2 (for building/markers/destroy) except core (r²=8 from centre). Turrets have separate attack ranges listed above.
 
-Turrets (except launcher) face one of 8 directions, receive ammo from non-facing sides. Diagonal turrets can be fed from all four cardinal sides. Turrets hold max one stack, only accept when empty. Raw axionite fed to turrets is destroyed. If a builder bot stands on a building, turret attacks hit only the bot.
+Turrets (except launcher) face one of 8 directions, receive ammo from non-facing sides (via conveyors, adjacent harvesters, adjacent foundries, or bridges targeting the turret's tile). Diagonal turrets can be fed from all four cardinal sides. Turrets hold max one stack, only accept when empty. Raw axionite fed to turrets is destroyed. If a builder bot stands on a building, turret attacks hit only the bot.
 
 Communication: markers only (each unit is an isolated Python instance, no shared globals). Can overwrite friendly markers but not enemy markers.
 
