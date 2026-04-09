@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Callable
 from enum import IntEnum
 from random import Random
-from typing import TYPE_CHECKING
+from typing import override
 
 from building import (
     ETYPE_BUILDING,
@@ -30,6 +30,7 @@ from cambc import (
     Environment,
     GameConstants,
     Position,
+    Team,
 )
 from config import DEBUG_DUMP, USE_HARDCODED_MAPS
 from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
@@ -44,9 +45,6 @@ from util_extra import (
     try_move,
 )
 from visualiser import Grid, Palette, Scalar, Tiles, emit
-
-if TYPE_CHECKING:
-    from hardcode.known import KnownMap
 
 __all__ = ["Builder"]
 
@@ -475,10 +473,12 @@ class Builder(Unit):
         msg = "Core not visible at spawn"
         raise AssertionError(msg)
 
+    @override
     def __init__(self, ct: Controller) -> None:
         self.w = ct.get_map_width()
         self.h = ct.get_map_height()
         self.my_team = ct.get_team()
+        self.en_team = Team.B if self.my_team == Team.A else Team.A
         self.my_core: Position = Builder._find_core(ct)
         self.rng = Random(ct.get_id())
         w, h = self.w, self.h
@@ -496,21 +496,16 @@ class Builder(Unit):
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
 
-        self.symmetry_candidates: set[Symmetry] = {
-            Symmetry.ROT,
-            Symmetry.HOR,
-            Symmetry.VER,
-        }
+        self.symmetry_candidates: set[Symmetry] = set(Symmetry)
         self.symmetry: Symmetry | None = None
         self.reflect_queue: deque[int] = deque()
 
-        self.known_map: KnownMap | None = None
         if USE_HARDCODED_MAPS:
-            self.known_map = CANDIDATES.get((w, h, self.my_core))
-            if self.known_map is not None:
-                self.symmetry = SYMMETRY[self.known_map]
-                self.symmetry_candidates.clear()
-                self._load_map_tiles()
+            known_map = CANDIDATES.get((w, h, self.my_core))
+            if known_map is not None:
+                self.symmetry = SYMMETRY[known_map]
+                self.symmetry_candidates = {self.symmetry}
+                self.env = decode(TILES[known_map](), n)
 
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
@@ -553,7 +548,7 @@ class Builder(Unit):
     #  Map State Queries
     # ================================================================================
 
-    def _idx(self, pos: Position) -> int:
+    def idx(self, pos: Position) -> int:
         return pos.y * self.w + pos.x
 
     def in_bounds(self, pos: Position) -> bool:
@@ -561,17 +556,17 @@ class Builder(Unit):
 
     def get_env(self, pos: Position) -> Environment | None:
         if self.in_bounds(pos):
-            return self.env[self._idx(pos)]
+            return self.env[self.idx(pos)]
         return None
 
     def get_building(self, pos: Position) -> Building | None:
         if self.in_bounds(pos):
-            return self.buildings[self._idx(pos)]
+            return self.buildings[self.idx(pos)]
         return None
 
     def get_cost(self, pos: Position) -> float:
         if self.in_bounds(pos):
-            return self.cost_grid[self._idx(pos)]
+            return self.cost_grid[self.idx(pos)]
         return float("inf")
 
     def is_passable(self, pos: Position) -> bool | None:
@@ -599,12 +594,12 @@ class Builder(Unit):
 
     def get_conveyors_to_here(self, pos: Position) -> list[Position]:
         if self.in_bounds(pos):
-            return self.conveyors_to_here[self._idx(pos)]
+            return self.conveyors_to_here[self.idx(pos)]
         return []
 
     def is_buildable(self, pos: Position) -> bool:
         if self.in_bounds(pos):
-            i = self._idx(pos)
+            i = self.idx(pos)
             b = self.buildings[i]
             return self.env[i] != Environment.WALL and (
                 b is None or b.team == self.my_team
@@ -614,7 +609,7 @@ class Builder(Unit):
     def is_friendly_turret(self, pos: Position) -> bool:
         if not self.in_bounds(pos):
             return False
-        b = self.buildings[self._idx(pos)]
+        b = self.buildings[self.idx(pos)]
         match b:
             case (
                 None
@@ -630,24 +625,19 @@ class Builder(Unit):
 
     def is_enemy_building(self, pos: Position) -> bool:
         if self.in_bounds(pos):
-            b = self.buildings[self._idx(pos)]
+            b = self.buildings[self.idx(pos)]
             return b is not None and b.team != self.my_team
         return False
 
     def leads_to_enemy_building(self, pos: Position) -> bool:
         if self.in_bounds(pos):
-            b = self.buildings[self._idx(pos)]
-            if b is None or b.team != self.my_team:
-                return False
-
-            match b:
-                case BuildingConveyor(direction=d):
-                    output_location = pos.add(d)
-                case BuildingBridge(target=t):
-                    output_location = t
+            match self.buildings[self.idx(pos)]:
+                case BuildingConveyor(team=self.en_team, direction=d):
+                    return self.is_enemy_building(pos.add(d))
+                case BuildingBridge(team=self.en_team, target=t):
+                    return self.is_enemy_building(t)
                 case _:
                     return False
-            return self.is_enemy_building(output_location)
         return False
 
     def update_line_load_counts(self, pos: Position | None) -> int:
@@ -655,7 +645,7 @@ class Builder(Unit):
             return 0
         if not self.in_bounds(pos):
             return 4
-        i = self._idx(pos)
+        i = self.idx(pos)
         if self.line_loads_computed[i]:
             return self.line_load_counts[i]
         b = self.buildings[i]
@@ -676,14 +666,6 @@ class Builder(Unit):
         self.line_load_counts[i] = result
         return result
 
-    def _load_map_tiles(self) -> None:
-        km = self.known_map
-        assert km is not None
-        n = self.w * self.h
-        tiles = decode(TILES[km](), n)
-        for i in range(n):
-            self.env[i] = tiles[i]
-
     # ================================================================================
     #  Map Update
     # ================================================================================
@@ -693,11 +675,13 @@ class Builder(Unit):
         team = ct.get_team(bid)
         match etype:
             case (
-                EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR | EntityType.SPLITTER
+                EntityType.CONVEYOR
+                | EntityType.ARMOURED_CONVEYOR
+                | EntityType.SPLITTER
+                | EntityType.GUNNER
+                | EntityType.SENTINEL
+                | EntityType.BREACH
             ):
-                cls = ETYPE_BUILDING[etype]
-                return cls(team, ct.get_direction(bid))
-            case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
                 cls = ETYPE_BUILDING[etype]
                 return cls(team, ct.get_direction(bid))
             case EntityType.BRIDGE:
@@ -733,7 +717,7 @@ class Builder(Unit):
 
         conveyors = self.get_conveyors_to_here(pos)
         adjacent_conveyors = [c for c in conveyors if c.distance_squared(pos) <= 2]
-        if len(adjacent_conveyors) > 1 or len(conveyors) < 1:
+        if len(adjacent_conveyors) > 1 or len(conveyors) == 0:
             return False
         buildable_count = 0
         for d in DIR4:
@@ -1317,7 +1301,7 @@ class Builder(Unit):
         self, ct: Controller, position: Position, *, conserve_ti: bool = True
     ) -> bool:
         if conserve_ti and self.repair_pos is not None:
-            i = self._idx(self.repair_pos)
+            i = self.idx(self.repair_pos)
             if not self.buildings[i] or self.hp[i] > self.max_hp[i] - 4:
                 return False
         if ct.can_heal(position):
@@ -1681,7 +1665,7 @@ class Builder(Unit):
         best: Position | None = None
         best_score: tuple[int, int, int] = (0, 0, 0)
         for pos in self.healable_buildings:
-            i = self._idx(pos)
+            i = self.idx(pos)
             hp = self.hp[i]
             max_hp = self.max_hp[i]
             damage = max_hp - hp
@@ -1727,7 +1711,7 @@ class Builder(Unit):
         self.healable_buildings = [
             p
             for p in self.healable_buildings
-            if self.hp[self._idx(p)] < self.max_hp[self._idx(p)]
+            if self.hp[self.idx(p)] < self.max_hp[self.idx(p)]
         ]
         return best
 
@@ -1735,7 +1719,7 @@ class Builder(Unit):
         best: Position | None = None
         best_score: tuple[int, int] = (0, 0)
         for pos in self.healable_buildings:
-            i = self._idx(pos)
+            i = self.idx(pos)
             hp = self.hp[i]
             max_hp = self.max_hp[i]
             damage = max_hp - hp
@@ -1750,7 +1734,7 @@ class Builder(Unit):
     def _run_heal(self, ct: Controller) -> bool:
         if self.repair_pos and ct.is_in_vision(self.repair_pos):
             b = self.get_building(self.repair_pos)
-            ti = self._idx(self.repair_pos)
+            ti = self.idx(self.repair_pos)
             if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == ct.get_team():
                 pass
             else:
@@ -1793,7 +1777,7 @@ class Builder(Unit):
         b = self.get_building(position)
         if not b:
             return False
-        i = self._idx(position)
+        i = self.idx(position)
         return b.team != ct.get_team() and self.hp[i] < self.max_hp[i]
 
     def _heal_adjacent_builders(self, ct: Controller) -> bool:
@@ -1830,7 +1814,7 @@ class Builder(Unit):
     def _heal_builders(self, ct: Controller) -> bool:
         b = self.get_building(ct.get_position())
         if b and b.team != ct.get_team():
-            i = self._idx(ct.get_position())
+            i = self.idx(ct.get_position())
             if self.hp[i] <= 2:
                 return False
             if self.hp[i] <= 6 and ct.get_hp() > 18:
@@ -2227,7 +2211,7 @@ class Builder(Unit):
 
     def _should_attack(self, ct: Controller, pos: Position) -> bool:
         enemy_builder = Builder._nearest_enemy_bot(ct)
-        i = self._idx(pos)
+        i = self.idx(pos)
         return (
             (enemy_builder is None)
             or chebyshev(ct.get_position(), enemy_builder) > 2
@@ -2531,8 +2515,6 @@ class Builder(Unit):
     #  Policy Dispatch & Main Loop
     # ================================================================================
 
-    type TaskFn = Callable[["Builder", Controller], bool]
-
     def _connect_close(self, ct: Controller) -> bool:
         my_pos = ct.get_position()
         if self.branch_start and my_pos.distance_squared(self.branch_start) <= 2:
@@ -2590,7 +2572,7 @@ class Builder(Unit):
         self._explore(ct)
         return True
 
-    def _wander(self, ct: Controller) -> bool:
+    def _task_wander(self, ct: Controller) -> bool:
         dir8 = DIR8[:]
         self.rng.shuffle(dir8)
         my_pos = ct.get_position()
@@ -2602,42 +2584,6 @@ class Builder(Unit):
     def _attack(self, ct: Controller) -> bool:
         self._run_attack(ct)
         return True
-
-    def _get_offense_tasks(self) -> list[Builder.TaskFn]:
-        return [
-            Builder._heal,
-            Builder._attack,
-        ]
-
-    def _get_econ_tasks(self) -> list[Builder.TaskFn]:
-        return [
-            Builder._place_gunner_nearby,
-            Builder._fix_enemy_conveyor,
-            Builder._pave_near_harvesters,
-            Builder._connect_close,
-            Builder._heal,
-            Builder._connect_far,
-            Builder._harvest,
-            Builder._opportunistic_attack,
-            Builder._task_explore,
-            Builder._wander,
-        ]
-
-    def _get_defense_tasks(self) -> list[Builder.TaskFn]:
-        return [
-            Builder._place_gunner_nearby,
-            Builder._fix_enemy_conveyor,
-            Builder._pave_near_harvesters,
-            Builder._connect_close,
-            Builder._heal,
-            Builder._connect_far,
-            Builder._patrol_cheap,
-            Builder._harvest,
-            Builder._patrol_late,
-            Builder._opportunistic_attack,
-            Builder._task_explore,
-            Builder._wander,
-        ]
 
     def _end_of_turn_heal(self, ct: Controller) -> None:
         my_pos = ct.get_position()
@@ -2670,6 +2616,7 @@ class Builder(Unit):
             ):
                 ct.heal(ct.get_position(unit))
 
+    @override
     def run(self, ct: Controller) -> None:
         t0 = ct.get_cpu_time_elapsed()
         self._update_map(ct)
@@ -2694,10 +2641,37 @@ class Builder(Unit):
             t4 = t3
 
         assert self.role is not None
-        policies: dict[Role, list[Builder.TaskFn]] = {
-            Role.OFFENSE: self._get_offense_tasks(),
-            Role.ECON: self._get_econ_tasks(),
-            Role.DEFENSE: self._get_defense_tasks(),
+        policies: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
+            Role.OFFENSE: [
+                Builder._heal,
+                Builder._attack,
+            ],
+            Role.ECON: [
+                Builder._place_gunner_nearby,
+                Builder._fix_enemy_conveyor,
+                Builder._pave_near_harvesters,
+                Builder._connect_close,
+                Builder._heal,
+                Builder._connect_far,
+                Builder._harvest,
+                Builder._opportunistic_attack,
+                Builder._task_explore,
+                Builder._task_wander,
+            ],
+            Role.DEFENSE: [
+                Builder._place_gunner_nearby,
+                Builder._fix_enemy_conveyor,
+                Builder._pave_near_harvesters,
+                Builder._connect_close,
+                Builder._heal,
+                Builder._connect_far,
+                Builder._patrol_cheap,
+                Builder._harvest,
+                Builder._patrol_late,
+                Builder._opportunistic_attack,
+                Builder._task_explore,
+                Builder._task_wander,
+            ],
         }
         for task in policies[self.role]:
             if task(self, ct):

@@ -237,8 +237,8 @@ _TILE_TO_ENV: tuple[Environment, ...] = (
 )
 
 
-def decode(data: bytes, n: int) -> list[Environment]:
-    tiles: list[Environment] = []
+def decode(data: bytes, n: int) -> list[Environment | None]:
+    tiles: list[Environment | None] = []
     for b in data:
         for j in range(4):
             if len(tiles) >= n:
