@@ -225,7 +225,7 @@ class Builder(Unit):
                 return
 
         nearest = self.nav.nearest_goal(ct)
-        if nearest is None:
+        if nearest is None or not self.reachable.is_reachable(nearest):
             return
         here = self._ore_env_at(nearest)
         if here is None:
@@ -398,13 +398,29 @@ class Builder(Unit):
         return self.chain.plan()
 
     def _chain_plan_from(
-        self, ct: Controller, first_ore: Position, second_ore: Position
+        self,
+        ct: Controller,
+        first_ore: Position,
+        second_ore: Position,
+        chain_start: tuple[int, int] | None  = None,
+        *,
+        place_second_harvester: bool = True,
+        place_first_harvester: bool = True,
+        place_foundry: bool = True,
     ) -> list[BuildInstruction] | None:
         """Plan a fresh chain: stage1 (harvesters+foundry+chain) then stage2
-        (core→foundry chain).
+        (core→foundry chain). `place_*` flags omit terminals already
+        present in an executed prefix.
         """
         self.chain.clear_blocked()
-        stage1 = self._plan_stage1(first_ore, second_ore)
+        stage1 = self._plan_stage1(
+            first_ore,
+            second_ore,
+            chain_start=chain_start,
+            place_second_harvester=place_second_harvester,
+            place_first_harvester=place_first_harvester,
+            place_foundry=place_foundry,
+        )
         if stage1 is None:
             return None
 
@@ -541,6 +557,20 @@ class Builder(Unit):
                     return
                 second_ore_pos = new
 
+        # Walk the executed prefix to see what stage-1 terminals are done.
+        placed_second = False
+        placed_first = False
+        placed_foundry = False
+        for entity, p, _x in self._chain_plan[:cur]:
+            if entity == EntityType.HARVESTER and p == second_ore_pos:
+                placed_second = True
+            elif entity == EntityType.HARVESTER and p == self.first_ore_pos:
+                placed_first = True
+            elif entity == EntityType.FOUNDRY:
+                placed_foundry = True
+
+        print(f"placed_second {placed_second} placed_first {placed_first} placed_foundry {placed_foundry}")
+
         if fail_entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
             if second_ore_pos is None:
                 print("  second_ore_pos is None after special-case; abandoning plan")
@@ -551,7 +581,15 @@ class Builder(Unit):
                 f"  full _chain_plan_from(first_ore={self.first_ore_pos}, "
                 f"second_ore={second_ore_pos})"
             )
-            new_plan = self._chain_plan_from(ct, self.first_ore_pos, second_ore_pos)
+            new_plan = self._chain_plan_from(
+                ct, 
+                self.first_ore_pos, 
+                second_ore_pos, 
+                chain_start=chain_start if placed_second else None,
+                place_second_harvester=not placed_second,
+                place_first_harvester=not placed_first,
+                place_foundry=not placed_foundry
+            )
             if new_plan is None:
                 print("  _chain_plan_from returned None; abandoning plan")
                 self._chain_plan = None
@@ -587,19 +625,6 @@ class Builder(Unit):
             self._plan_progress = 0
             return
 
-        # Walk the executed prefix to see what stage-1 terminals are done.
-        placed_second = False
-        placed_first = False
-        placed_foundry = False
-        for entity, p, _x in self._chain_plan[:cur]:
-            if entity == EntityType.HARVESTER and p == second_ore_pos:
-                placed_second = True
-            elif entity == EntityType.HARVESTER and p == self.first_ore_pos:
-                placed_first = True
-            elif entity == EntityType.FOUNDRY:
-                placed_foundry = True
-
-        print(f"placed_second {placed_second} placed_first {placed_first} placed_foundry {placed_foundry}")
         stage1 = self._plan_stage1(
             self.first_ore_pos,
             second_ore_pos,

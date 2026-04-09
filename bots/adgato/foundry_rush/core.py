@@ -12,6 +12,10 @@ class Core(Unit):
         self.spawned = 0
 
     def run(self, ct: Controller) -> None:
+
+        if ct.get_current_round() > 400:
+            ct.resign()
+            
         if self.spawned < 1:
             pos = self.pos
             for dx in range(-1, 2):
