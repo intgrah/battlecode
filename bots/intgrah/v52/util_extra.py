@@ -19,7 +19,7 @@ def chebyshev(pos1: Position, pos2: Position) -> int:
 
 
 def reachable_path_end(
-    path: list[Position], current_pos: Position, max_range: int
+    path: list[Position], current_pos: Position, max_range: int,
 ) -> Position:
     for pos in reversed(path):
         if current_pos.distance_squared(pos) <= max_range**2:
@@ -45,7 +45,7 @@ _IS_UNIT = frozenset(
         EntityType.SENTINEL,
         EntityType.GUNNER,
         EntityType.LAUNCHER,
-    }
+    },
 )
 _EARLY_GAME_ROUND = 35
 _HARVESTER_RESERVE_EARLY = 10

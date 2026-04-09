@@ -4,10 +4,8 @@ import heapq
 import math
 import random
 from collections import deque
-from collections.abc import Callable
 from enum import IntEnum
-from random import Random
-from typing import override
+from typing import TYPE_CHECKING, Final, override
 
 from building import (
     ETYPE_BUILDING,
@@ -46,6 +44,9 @@ from util_extra import (
 )
 from visualiser import Grid, Palette, Scalar, Tiles, emit
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 __all__ = ["Builder"]
 
 WALKABLE_ENTITIES = [
@@ -60,15 +61,6 @@ WALKABLE_ENTITIES = [
 # ================================================================================
 #  Role
 # ================================================================================
-
-
-class Role(IntEnum):
-    ECON = 0
-    DEFENSE = 1
-    OFFENSE = 2
-
-    def __str__(self) -> str:
-        return self.name.lower()
 
 
 # ================================================================================
@@ -125,7 +117,10 @@ class AStarSearch:
         return getattr(state, self._cost_attr)
 
     def _extract_path(
-        self, state: Builder, start: Position, target: Position
+        self,
+        state: Builder,
+        start: Position,
+        target: Position,
     ) -> list[Position]:
         cost = self._cost_grid(state)
         w = self._w
@@ -155,7 +150,11 @@ class AStarSearch:
         return path
 
     def _run(
-        self, state: Builder, ct: Controller, start: Position, goal: Position
+        self,
+        state: Builder,
+        ct: Controller,
+        start: Position,
+        goal: Position,
     ) -> bool:
         cost = self._cost_grid(state)
         w = self._w
@@ -203,7 +202,11 @@ class AStarSearch:
         return True
 
     def search(
-        self, state: Builder, ct: Controller, start: Position, target: Position
+        self,
+        state: Builder,
+        ct: Controller,
+        start: Position,
+        target: Position,
     ) -> list[Position] | None:
         if (
             self._finished
@@ -232,7 +235,11 @@ class AStarSearch:
         return None
 
     def search_blocked(
-        self, state: Builder, ct: Controller, start: Position, goal: Position
+        self,
+        state: Builder,
+        ct: Controller,
+        start: Position,
+        goal: Position,
     ) -> list[Position] | None:
         cost = self._cost_grid(state)
         saved: list[tuple[int, float]] = []
@@ -280,7 +287,10 @@ random.shuffle(_CONV_NEIGHBORS)
 
 move_search = AStarSearch(_MOVE_NEIGHBORS, _astar_chebyshev, "cost_grid")
 conv_search = AStarSearch(
-    _CONV_NEIGHBORS, _astar_manhattan, "conveyor_cost_grid", allow_relaxation=True
+    _CONV_NEIGHBORS,
+    _astar_manhattan,
+    "conveyor_cost_grid",
+    allow_relaxation=True,
 )
 
 
@@ -384,7 +394,8 @@ def _fallback_step(
         ideal_angle = math.atan2(goal_dy, goal_dx)
 
         sorted_dirs = sorted(
-            dirs, key=lambda d: abs(math.atan2(d[1], d[0]) - ideal_angle)
+            dirs,
+            key=lambda d: abs(math.atan2(d[1], d[0]) - ideal_angle),
         )
 
         for dx, dy in sorted_dirs:
@@ -427,14 +438,15 @@ _P_COST = Palette(
 
 ROAD_COST = 3
 
-_OPENING_ROLES = [
-    (Role.ECON, True),
-    (Role.ECON, False),
-    (Role.DEFENSE, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
-]
+
+class Role(IntEnum):
+    ECON = 0
+    DEFENSE = 1
+    OFFENSE = 2
+
+    def __str__(self) -> str:
+        return self.name.lower()
+
 
 _INITIAL_WEIGHTS = {
     True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
@@ -447,9 +459,6 @@ _TRANSITION: dict[Role, dict[Role, int]] = {
     Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
 }
 
-_REASSIGN_PERIOD = 150
-_REASSIGN_AFTER = 400
-
 
 # ================================================================================
 #  Builder
@@ -457,6 +466,18 @@ _REASSIGN_AFTER = 400
 
 
 class Builder(Unit):
+    OPENING_ROLES: Final[tuple[tuple[Role, bool], ...]] = (
+        (Role.ECON, True),
+        (Role.ECON, False),
+        (Role.DEFENSE, True),
+        (Role.OFFENSE, False),
+        (Role.OFFENSE, False),
+        (Role.OFFENSE, False),
+    )
+
+    REASSIGN_PERIOD: Final[int] = 150
+    REASSIGN_AFTER: Final[int] = 400
+
     # ================================================================================
     #  Initialization
     # ================================================================================
@@ -475,12 +496,11 @@ class Builder(Unit):
 
     @override
     def __init__(self, ct: Controller) -> None:
-        self.w = ct.get_map_width()
-        self.h = ct.get_map_height()
-        self.my_team = ct.get_team()
+        super().__init__(ct)
+        self.my_core: Final[Position] = Builder._find_core(ct)
+        self.opportunistic: Final[bool] = self.rng.random() < 0.5
+
         self.en_team = Team.B if self.my_team == Team.A else Team.A
-        self.my_core: Position = Builder._find_core(ct)
-        self.rng = Random(ct.get_id())
         w, h = self.w, self.h
         n = w * h
 
@@ -493,8 +513,7 @@ class Builder(Unit):
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
-        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
-        self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
+        self.network_in_edges: list[list[Position]] = [[] for _ in range(n)]
 
         self.symmetry_candidates: set[Symmetry] = set(Symmetry)
         self.symmetry: Symmetry | None = None
@@ -518,7 +537,6 @@ class Builder(Unit):
         self.role: Role | None = None
         self.role_age: int = 0
         self.permanent_role: bool = False
-        self.opportunistic: bool = self.rng.random() < 0.5
 
         self.ore_target: Position | None = None
         self.pending_bridge: Position | None = None
@@ -545,54 +563,35 @@ class Builder(Unit):
     #  Map State Queries
     # ================================================================================
 
-    def idx(self, pos: Position) -> int:
-        return pos.y * self.w + pos.x
-
-    def in_bounds(self, pos: Position) -> bool:
-        return 0 <= pos.x < self.w and 0 <= pos.y < self.h
-
     def get_env(self, pos: Position) -> Environment | None:
-        if self.in_bounds(pos):
-            return self.env[self.idx(pos)]
-        return None
+        return self.env[self.idx(pos)]
 
     def get_building(self, pos: Position) -> Building | None:
-        if self.in_bounds(pos):
-            return self.buildings[self.idx(pos)]
-        return None
+        return self.buildings[self.idx(pos)]
 
     def get_cost(self, pos: Position) -> float:
-        if self.in_bounds(pos):
-            return self.cost_grid[self.idx(pos)]
-        return float("inf")
+        return self.cost_grid[self.idx(pos)]
 
-    def is_passable(self, pos: Position) -> bool | None:
-        cost = self.get_cost(pos)
-        if cost == float("inf"):
-            return False
-        if cost < float("inf"):
-            return True
-        return None
+    def is_passable(self, pos: Position) -> bool:
+        return self.get_cost(pos) != float("inf")
 
-    def is_walkable(self, pos: Position) -> bool | None:
+    def is_walkable(self, pos: Position) -> bool:
         if not self.is_passable(pos):
             return False
         match self.get_building(pos):
             case (
-                BuildingConveyor()
+                BuildingArmouredConveyor()
+                | BuildingConveyor()
+                | BuildingBridge()
                 | BuildingRoad()
                 | BuildingSplitter()
-                | BuildingArmouredConveyor()
-                | BuildingBridge()
             ):
                 return True
             case _:
                 return False
 
     def get_conveyors_to_here(self, pos: Position) -> list[Position]:
-        if self.in_bounds(pos):
-            return self.conveyors_to_here[self.idx(pos)]
-        return []
+        return self.network_in_edges[self.idx(pos)]
 
     def is_buildable(self, pos: Position) -> bool:
         if self.in_bounds(pos):
@@ -656,10 +655,7 @@ class Builder(Unit):
                 pass
 
         self.line_loads_computed[i] = True
-        result = max(
-            self.belt_load_counts[i],
-            self.update_line_load_counts(next_pos),
-        )
+        result = max(self.belt_load_counts[i], self.update_line_load_counts(next_pos))
         self.line_load_counts[i] = result
         return result
 
@@ -745,11 +741,8 @@ class Builder(Unit):
         for pos in nearby_tiles:
             if 0 <= pos.x < self.w and 0 <= pos.y < self.h:
                 i = pos.y * w + pos.x
-                self.conveyors_to_here[i] = [
-                    p for p in self.conveyors_to_here[i] if not ct.is_in_vision(p)
-                ]
-                self.splitters_to_here[i] = [
-                    p for p in self.splitters_to_here[i] if not ct.is_in_vision(p)
+                self.network_in_edges[i] = [
+                    p for p in self.network_in_edges[i] if not ct.is_in_vision(p)
                 ]
 
         for pos in nearby_tiles:
@@ -784,11 +777,11 @@ class Builder(Unit):
                                 and 0 <= target_pos.y < self.h
                             ):
                                 ti = target_pos.y * w + target_pos.x
-                                self.conveyors_to_here[ti].append(pos)
+                                self.network_in_edges[ti].append(pos)
                         case BuildingBridge(target=t):
                             if 0 <= t.x < self.w and 0 <= t.y < self.h:
                                 ti = t.y * w + t.x
-                                self.conveyors_to_here[ti].append(pos)
+                                self.network_in_edges[ti].append(pos)
                         case BuildingSplitter(direction=d):
                             for sd in [
                                 d,
@@ -801,7 +794,6 @@ class Builder(Unit):
                                     and 0 <= target_pos.y < self.h
                                 ):
                                     ti = target_pos.y * w + target_pos.x
-                                    self.splitters_to_here[ti].append(pos)
 
                     self.nearby_buildings.append(pos)
                     if (
@@ -921,12 +913,13 @@ class Builder(Unit):
                     | BuildingBridge(team=t)
                 ) if t == ct.get_team():
                     self.conveyor_cost_grid[i] += Builder._load_penalty(
-                        self.update_line_load_counts(pos)
+                        self.update_line_load_counts(pos),
                     )
 
         my_position = ct.get_position()
         if self.nearest_junction_site and not self._can_place_junction(
-            ct, self.nearest_junction_site
+            ct,
+            self.nearest_junction_site,
         ):
             self.nearest_junction_site = None
         for pos in ct.get_nearby_tiles():
@@ -1012,7 +1005,8 @@ class Builder(Unit):
                 self.conveyor_cost_grid[i] = 1 if terrain == Environment.EMPTY else 50.0
 
     def _eliminate_symmetries(
-        self, new_tiles: list[tuple[Position, Environment]]
+        self,
+        new_tiles: list[tuple[Position, Environment]],
     ) -> None:
         if not self.symmetry_candidates:
             return
@@ -1067,8 +1061,8 @@ class Builder(Unit):
             roles, weights = zip(*w.items(), strict=False)
             return self.rng.choices(roles, weights=weights)[0]
         idx = ct.get_unit_count() - 3
-        if idx < len(_OPENING_ROLES):
-            role, perm = _OPENING_ROLES[idx]
+        if idx < len(Builder.OPENING_ROLES):
+            role, perm = Builder.OPENING_ROLES[idx]
             self.permanent_role = perm
             return role
         return Role.ECON
@@ -1078,8 +1072,8 @@ class Builder(Unit):
             self.role = self._pick_initial_role(ct)
 
         if (
-            self.role_age > _REASSIGN_PERIOD
-            and ct.get_current_round() > _REASSIGN_AFTER
+            self.role_age > Builder.REASSIGN_PERIOD
+            and ct.get_current_round() > Builder.REASSIGN_AFTER
             and not self.permanent_role
         ):
             self.role_age = 0
@@ -1108,7 +1102,7 @@ class Builder(Unit):
         elif not isinstance(b, BuildingRoad) or b.team != ct.get_team():
             return False
 
-        if self.conveyors_to_here[i]:
+        if self.network_in_edges[i]:
             return True
 
         return pos in self.adjacent_to_unconnected_harvester
@@ -1168,7 +1162,8 @@ class Builder(Unit):
         if self.pending_bridge:
             self.dangling_output = self.pending_bridge
         elif self.dangling_output is None or not self._is_dangling(
-            ct, self.dangling_output
+            ct,
+            self.dangling_output,
         ):
             self.dangling_output = self._find_dangling(ct)
 
@@ -1200,7 +1195,10 @@ class Builder(Unit):
     # ================================================================================
 
     def _find_path(
-        self, ct: Controller, start: Position, target: Position
+        self,
+        ct: Controller,
+        start: Position,
+        target: Position,
     ) -> list[Position] | None:
         return move_search.search_blocked(self, ct, start, target)
 
@@ -1278,7 +1276,9 @@ class Builder(Unit):
                         new_pos = current_pos.add(sd)
                         if target_head:
                             new_path = self._trace_downstream(
-                                new_pos, target_head, path=path[:]
+                                new_pos,
+                                target_head,
+                                path=path[:],
                             )
                             if new_path and target_head in new_path:
                                 return new_path
@@ -1295,7 +1295,11 @@ class Builder(Unit):
         return path
 
     def _try_heal(
-        self, ct: Controller, position: Position, *, conserve_ti: bool = True
+        self,
+        ct: Controller,
+        position: Position,
+        *,
+        conserve_ti: bool = True,
     ) -> bool:
         if conserve_ti and self.repair_pos is not None:
             i = self.idx(self.repair_pos)
@@ -1381,7 +1385,11 @@ class Builder(Unit):
     # ================================================================================
 
     def _move_via_path(
-        self, ct: Controller, target: Position, *, check_money: bool = True
+        self,
+        ct: Controller,
+        target: Position,
+        *,
+        check_money: bool = True,
     ) -> None:
         start = ct.get_position()
         path = self._find_path(ct, start, target)
@@ -1547,7 +1555,8 @@ class Builder(Unit):
                         return True
 
                 target_has_road = isinstance(
-                    self.get_building(target_pos), BuildingRoad
+                    self.get_building(target_pos),
+                    BuildingRoad,
                 )
 
                 if target_has_road:
@@ -1703,7 +1712,9 @@ class Builder(Unit):
         save_money = being_attacked and self.repaired_prev
         if building_to_heal:
             self.repaired_prev = self._try_heal(
-                ct, building_to_heal, conserve_ti=save_money
+                ct,
+                building_to_heal,
+                conserve_ti=save_money,
             )
         else:
             self.repaired_prev = False
@@ -1727,7 +1738,7 @@ class Builder(Unit):
         adjacent_builders = ct.get_nearby_units(2)
         for eid in adjacent_builders:
             if (ct.get_hp(eid) <= ct.get_max_hp(eid) - 4) and ct.get_team(
-                eid
+                eid,
             ) == ct.get_team():
                 position = ct.get_position(eid)
                 if self._has_wounded_enemy(ct, position):
@@ -1854,7 +1865,10 @@ class Builder(Unit):
             result = self._sentinel_facing(ct, test_position)
             if result is not None:
                 return Builder._try_place(
-                    ct, EntityType.SENTINEL, test_position, result
+                    ct,
+                    EntityType.SENTINEL,
+                    test_position,
+                    result,
                 )
         result = self._sentinel_facing(ct, my_pos)
         if result and self._move_random(ct):
@@ -1880,7 +1894,10 @@ class Builder(Unit):
     # ================================================================================
 
     def _clear_with_turret(
-        self, ct: Controller, build_pos: Position, target_pos: Position
+        self,
+        ct: Controller,
+        build_pos: Position,
+        target_pos: Position,
     ) -> bool:
         if build_pos == ct.get_position():
             for d in DIR8:
@@ -1973,7 +1990,9 @@ class Builder(Unit):
         return False
 
     def _best_junction_site(
-        self, ct: Controller, path: list[Position]
+        self,
+        ct: Controller,
+        path: list[Position],
     ) -> Position | None:
         for pos in path[::-1]:
             if self._can_place_junction(ct, pos):
@@ -2100,7 +2119,9 @@ class Builder(Unit):
 
     @staticmethod
     def _open_tiles(
-        state: Builder, ct: Controller, positions: list[Position]
+        state: Builder,
+        ct: Controller,
+        positions: list[Position],
     ) -> list[Position]:
         return [
             p
@@ -2111,7 +2132,9 @@ class Builder(Unit):
 
     @staticmethod
     def _is_allied_transport(
-        state: Builder, ct: Controller, position: Position
+        state: Builder,
+        ct: Controller,
+        position: Position,
     ) -> bool:
         match state.get_building(position):
             case (
@@ -2126,7 +2149,9 @@ class Builder(Unit):
 
     @staticmethod
     def _without_allied_transport(
-        state: Builder, ct: Controller, positions: list[Position]
+        state: Builder,
+        ct: Controller,
+        positions: list[Position],
     ) -> list[Position]:
         return [
             pos for pos in positions if not Builder._is_allied_transport(state, ct, pos)
@@ -2189,7 +2214,9 @@ class Builder(Unit):
                     self.is_passable(position.add(direction))
                     and not occupied
                     and not Builder._is_allied_transport(
-                        self, ct, position.add(direction)
+                        self,
+                        ct,
+                        position.add(direction),
                     )
                 ):
                     return True
@@ -2220,7 +2247,9 @@ class Builder(Unit):
             target = closest(ct.get_position(), vulnerable_harvesters)
             assert target is not None
             on_friendly_conveyor = Builder._is_allied_transport(
-                self, ct, ct.get_position()
+                self,
+                ct,
+                ct.get_position(),
             )
             if (
                 ct.get_position().distance_squared(target) == 1
@@ -2249,7 +2278,10 @@ class Builder(Unit):
                                 num_existing_sentinels += 1
                         if num_existing_sentinels < 2:
                             Builder._try_place(
-                                ct, EntityType.SENTINEL, build_position, direction
+                                ct,
+                                EntityType.SENTINEL,
+                                build_position,
+                                direction,
                             )
                         else:
                             Builder._try_place(ct, EntityType.BARRIER, build_position)
@@ -2326,7 +2358,8 @@ class Builder(Unit):
             self.offense_target
             and self.offense_launcher
             and isinstance(
-                rl := self.get_building(self.offense_launcher), BuildingLauncher
+                rl := self.get_building(self.offense_launcher),
+                BuildingLauncher,
             )
             and rl.team == ct.get_team()
             and ct.get_position().distance_squared(self.offense_target) > 8
@@ -2345,7 +2378,7 @@ class Builder(Unit):
         if not self.enemy_core_seen:
             self._make_move(ct, en_core)
         elif ct.get_position().distance_squared(
-            en_core
+            en_core,
         ) <= 20 or ct.get_global_resources()[0] >= (
             GameConstants.HARVESTER_BASE_COST[0] + 50
         ) * (1 + ct.get_scale_percent() / 100):
