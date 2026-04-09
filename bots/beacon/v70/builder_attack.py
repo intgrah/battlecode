@@ -601,118 +601,100 @@ def _ray_clear_to_target(
 
 
 def _task_raid_harvester(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
-    """Walk to enemy harvesters and place a gunner that kills them.
+    """Place a gunner adjacent to a visible enemy harvester to kill it.
 
-    The gunner is fed by ANY adjacent transport on a non-facing side —
-    friendly OR enemy. Enemy conveyors will gladly send resources to our
-    gunner, parasitizing their own economy as ammo.
+    Only triggers when we already see an enemy harvester AND can find a
+    valid gunner placement (LoS + ammo feed). Otherwise returns None and
+    the builder falls through to the existing flow-gap attack logic.
+
+    Ammo feed accepts any transport on a non-facing side — friendly OR
+    enemy (parasitizing enemy flow as ammo).
     """
     s = builder.state
     w = s.w
     pos = ct.get_position()
     my_team = s.my_team
 
+    if ct.get_action_cooldown() != 0:
+        return None
+
     if not s.en_harvesters:
         return None
-
-    # Pick the closest enemy harvester (Manhattan distance)
-    best_hi: int | None = None
-    best_d = 1_000_000
-    for hi in s.en_harvesters:
-        hx, hy = hi % w, hi // w
-        d = abs(pos.x - hx) + abs(pos.y - hy)
-        if d < best_d:
-            best_d = d
-            best_hi = hi
-    if best_hi is None:
-        return None
-
-    hx, hy = best_hi % w, best_hi // w
-    hpos = Position(hx, hy)
-
-    # If we're far away, walk toward the harvester
-    if pos.distance_squared(hpos) > 13:
-        builder.nav.set_goal(hpos)
-        moved = builder.nav.step(ct)
-        return f"atk:raid_walk({hx},{hy})", moved
-
-    if ct.get_action_cooldown() != 0:
-        return f"atk:raid_cd({hx},{hy})", False
 
     g_cost, _ = ct.get_gunner_cost()
     ti_res, _ = ct.get_global_resources()
     if ti_res < g_cost:
-        return f"atk:raid_wait_ti({hx},{hy})", False
-
-    # Already covered by friendly gunner?
-    if _has_friendly_gunner_covering(s, best_hi):
         return None
 
-    # Search ray placements from the harvester outward
+    # Search all visible enemy harvesters for one with a valid placement
     feeder_tiles_friendly: set[int] = s.my_transport | s.my_harvesters
     enemy_transport: set[int] = s.en_transport | s.en_harvesters
 
     best_gpos: Position | None = None
     best_facing: Direction | None = None
-    best_gdist = 1_000_000
+    best_walk = 1_000_000
+    best_target_hi: int | None = None
 
-    for rdx, rdy in _RAY_DIRS_8:
-        for dist in range(1, 4):  # r²≤9 < 13
-            gx, gy = hx + rdx * dist, hy + rdy * dist
-            if not s.in_bounds(gx, gy):
-                break
-            if (gx - hx) ** 2 + (gy - hy) ** 2 > 13:
-                break
-            gi = gy * w + gx
-            if not _can_place_gunner(s, gi):
-                continue
-            # Gunner faces back toward harvester
-            fdx, fdy = -rdx, -rdy
-            facing = DELTA_TO_DIR.get((fdx, fdy))
-            if facing is None:
-                continue
-            # Check non-facing sides for ANY transport feeder (friendly or enemy)
-            has_feed = False
-            for adx, ady in DIR4_DELTA:
-                if (adx, ady) == (fdx, fdy):
-                    continue
-                fax, fay = gx + adx, gy + ady
-                if not s.in_bounds(fax, fay):
-                    continue
-                fai = fay * w + fax
-                fbld = s.building[fai]
-                if fbld is None:
-                    continue
-                # Friendly harvester (any direction output) — instant ammo
-                if isinstance(fbld, BuildingHarvester) and fbld.team == my_team:
-                    has_feed = True
+    for hi in s.en_harvesters:
+        hx, hy = hi % w, hi // w
+        # Already covered by a friendly gunner? Skip.
+        if _has_friendly_gunner_covering(s, hi):
+            continue
+        # Need to be within reasonable walk distance — don't trek across map
+        if abs(pos.x - hx) + abs(pos.y - hy) > 10:
+            continue
+        for rdx, rdy in _RAY_DIRS_8:
+            for dist in range(1, 4):
+                gx, gy = hx + rdx * dist, hy + rdy * dist
+                if not s.in_bounds(gx, gy):
                     break
-                # Friendly transport that outputs toward us
-                if fai in feeder_tiles_friendly and _tile_has_correct_transport(
-                    s, fai, gi, w
-                ):
-                    has_feed = True
+                if (gx - hx) ** 2 + (gy - hy) ** 2 > 13:
                     break
-                # ENEMY transport/harvester that outputs toward us — parasitic feed
-                if fai in enemy_transport:
-                    if isinstance(fbld, BuildingHarvester):
-                        has_feed = True  # outputs all directions
-                        break
-                    if _tile_has_correct_transport(s, fai, gi, w):
+                gi = gy * w + gx
+                if not _can_place_gunner(s, gi):
+                    continue
+                fdx, fdy = -rdx, -rdy
+                facing = DELTA_TO_DIR.get((fdx, fdy))
+                if facing is None:
+                    continue
+                has_feed = False
+                for adx, ady in DIR4_DELTA:
+                    if (adx, ady) == (fdx, fdy):
+                        continue
+                    fax, fay = gx + adx, gy + ady
+                    if not s.in_bounds(fax, fay):
+                        continue
+                    fai = fay * w + fax
+                    fbld = s.building[fai]
+                    if fbld is None:
+                        continue
+                    if isinstance(fbld, BuildingHarvester) and fbld.team == my_team:
                         has_feed = True
                         break
-            if not has_feed:
-                continue
-            # Verify LoS to harvester (no walls/own buildings on the way)
-            if not _ray_clear_to_target(s, gx, gy, fdx, fdy, hx, hy):
-                continue
-            d = abs(pos.x - gx) + abs(pos.y - gy)
-            if d < best_gdist:
-                best_gdist = d
-                best_gpos = Position(gx, gy)
-                best_facing = facing
+                    if fai in feeder_tiles_friendly and _tile_has_correct_transport(
+                        s, fai, gi, w
+                    ):
+                        has_feed = True
+                        break
+                    if fai in enemy_transport:
+                        if isinstance(fbld, BuildingHarvester):
+                            has_feed = True
+                            break
+                        if _tile_has_correct_transport(s, fai, gi, w):
+                            has_feed = True
+                            break
+                if not has_feed:
+                    continue
+                if not _ray_clear_to_target(s, gx, gy, fdx, fdy, hx, hy):
+                    continue
+                walk = abs(pos.x - gx) + abs(pos.y - gy)
+                if walk < best_walk:
+                    best_walk = walk
+                    best_gpos = Position(gx, gy)
+                    best_facing = facing
+                    best_target_hi = hi
 
-    if best_gpos is None or best_facing is None:
+    if best_gpos is None or best_facing is None or best_target_hi is None:
         return None
 
     gi = best_gpos.y * w + best_gpos.x
@@ -745,10 +727,11 @@ def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
     s = builder.state
     pos = ct.get_position()
 
-    # Raid: place gunners next to enemy harvesters (parasitic feed allowed)
-    raid = _task_raid_harvester(builder, ct)
-    if raid is not None:
-        return raid
+    # Raid disabled — too unreliable, pulls attack builders off flow-gap
+    # extension which produces better results. Code kept for iteration.
+    # raid = _task_raid_harvester(builder, ct)
+    # if raid is not None:
+    #     return raid
 
     # Fire at enemy transport we're standing on (not random roads)
     if ct.get_action_cooldown() == 0:
