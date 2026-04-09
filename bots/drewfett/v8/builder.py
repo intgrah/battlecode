@@ -121,6 +121,23 @@ class Builder(Unit):
         self.explore.update(ct, pos, s.core_pos)
         state_update(s, ct)
 
+        # Build flow model (replaces connectivity/capacity in state_update)
+        from flow import FlowModel
+        if not hasattr(self, 'flow'):
+            self.flow = FlowModel(s)
+        else:
+            self.flow._s = s
+        self.flow.build()
+        # Copy back to State for backward compatibility
+        s.connected_transport = self.flow.connected
+        s.connected_harvesters = self.flow.connected_harvesters
+        s._parent = self.flow._parent
+        s.load = self.flow.load
+        s.bottleneck = self.flow.bottleneck
+        s.branch_load = self.flow.branch_load
+        s.tile_branch = self.flow.tile_branch
+        s.flow = self.flow  # make flow model accessible to helpers via state
+
         # Sync _my_harvesters with state (remove destroyed ones)
         self._my_harvesters &= s.my_harvesters
 

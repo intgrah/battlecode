@@ -50,12 +50,7 @@ def _run_defense(builder: Builder, ct: Controller) -> tuple[str, bool]:
     if result is not None:
         return result
 
-    # 5. Destroy nearby enemy infra (low priority for defense)
-    result = _task_destroy_enemy_infra(builder.state, builder.nav, ct)
-    if result is not None:
-        return result
-
-    # 5. Patrol
+    # 5. Patrol (don't waste turns firing at enemy transport — turrets handle that)
     return _task_patrol(builder, ct)
 
 
@@ -116,23 +111,22 @@ def _task_reactive_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
                     continue
                 gi = gy * w + gx
 
-                # Find a feed source for this candidate tile
+                # Find feed source using flow model
+                flow = getattr(s, 'flow', None)
                 feed_ti: int | None = None
-                for adx, ady in DIR4_DELTA:
-                    fax, fay = gx + adx, gy + ady
-                    if not s.in_bounds(fax, fay):
-                        continue
-                    fai = fay * w + fax
-                    fbld = s.building[fai]
-                    if fbld is None:
-                        continue
-                    if isinstance(fbld, BuildingHarvester):
-                        feed_ti = fai
-                        break
-                    if fbld.team == s.my_team and fai in s.connected_transport:
-                        if _tile_has_correct_transport(s, fai, gi, w):
-                            feed_ti = fai
-                            break
+                if flow is not None:
+                    inputs = flow.inputs_to(gi)
+                    if inputs:
+                        feed_ti = inputs[0]
+                if feed_ti is None:
+                    # Check adjacent harvesters as fallback
+                    for adx, ady in DIR4_DELTA:
+                        fax, fay = gx + adx, gy + ady
+                        if s.in_bounds(fax, fay):
+                            fai = fay * w + fax
+                            if fai in s.my_harvesters or fai in s.en_harvesters:
+                                feed_ti = fai
+                                break
 
                 result = try_place_turret_at(
                     s, ct, builder.nav, gi, feed_ti, pos, max_walk=8
@@ -228,6 +222,11 @@ def _task_heal_infra(builder: Builder, ct: Controller) -> tuple[str, bool] | Non
         if any(fp.distance_squared(bpos) <= 2 for fp in friendly_positions):
             continue
         ratio = hp / max_hp
+        # Boost priority for buildings carrying flow
+        bi = bpos.y * w + bpos.x
+        flow = getattr(s, 'flow', None)
+        if flow is not None and bi in flow.connected:
+            ratio *= 0.5  # halve ratio = double priority for flow-carrying buildings
         if ratio < best_ratio:
             best_ratio = ratio
             best_pos = bpos

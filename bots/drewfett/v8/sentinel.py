@@ -82,7 +82,6 @@ def _find_protected_buildings(ct: Controller, my_team: int) -> set[int]:
 class Sentinel(Unit):
     def __init__(self, ct: Controller) -> None:
         self._idle_rounds = 0
-        self._last_target_hp: int = 0
 
     def run(self, ct: Controller) -> None:
         my_team = ct.get_team()
@@ -136,16 +135,12 @@ class Sentinel(Unit):
                 best_target = up
 
         if best_target is not None:
-            # Detect healed targets — if HP went up, stop wasting ammo
-            bid = ct.get_tile_building_id(best_target)
-            hp = ct.get_hp(bid) if bid is not None else 0
-            if hp > self._last_target_hp and self._last_target_hp > 0:
-                self._idle_rounds = _IDLE_LIMIT  # force idle
-            else:
-                self._idle_rounds = 0
-                self._last_target_hp = hp - 18  # sentinel does 18 dmg
-                ct.fire(best_target)
-                return
+            # Just fire — don't do heal detection on sentinels.
+            # Core gets healed constantly but we should keep shooting it.
+            # Sentinels are expensive (30 Ti), don't waste them being idle.
+            self._idle_rounds = 0
+            ct.fire(best_target)
+            return
 
         # Check if we have ANY attackable enemy tiles
         has_enemy_target = False

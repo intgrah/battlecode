@@ -54,9 +54,8 @@ def update(state: State, ct: Controller) -> None:
     _update_ephemeral(state, ct)
     _scan_vision(state, ct)
     _decay_flow(state)
-    _build_bridge_lookup(state)
-    _update_connectivity(state)
-    _update_capacity(state)
+    _build_bridge_lookup(state)  # still needed for bridges_by_target
+    # Connectivity + capacity now computed by FlowModel in builder.py
     _rebuild_danger_zones(state)
 
 
