@@ -5,7 +5,7 @@ import traceback
 from typing import TYPE_CHECKING
 
 from builder import Builder
-from cambc import Controller, EntityType, GameError
+from cambc import Controller, EntityType
 from core import Core
 from gunner import Gunner
 from launcher import Launcher
@@ -36,12 +36,6 @@ class Player:
                     return
         try:
             self.unit.run(ct)
-        except GameError as e:
-            print(traceback.format_exc())
-            print(f"GAME_ERROR: {e}")
-            print(traceback.format_exc(), file=sys.stderr)
-            print(f"GAME_ERROR: {e}", file=sys.stderr)
-            ct.resign(str(e))
         except Exception as e:  # noqa: BLE001
             print(traceback.format_exc())
             print(f"EXCEPTION: {e}")
