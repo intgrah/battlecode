@@ -315,9 +315,6 @@ class NavBfs:
                     return True
                 if ct.can_build_road(next_pos):
                     ct.build_road(next_pos)
-                    # Road built — try to move onto it same turn (separate cooldowns)
-                    if ct.can_move(direction):
-                        ct.move(direction)
                     return True
 
         # Backtrack: move in any passable direction
@@ -329,8 +326,6 @@ class NavBfs:
                 return True
             if ct.can_build_road(next_pos):
                 ct.build_road(next_pos)
-                if ct.can_move(direction):
-                    ct.move(direction)
                 return True
 
         return False
