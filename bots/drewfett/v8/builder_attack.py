@@ -52,10 +52,13 @@ def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
     # Expire blocked ore
     a._blocked_ore = {k: v for k, v in a._blocked_ore.items() if rnd - v < 50}
 
-    # 1. Validate source (has feed reaching it?)
+    # CPU guard — bail early if already over budget
+    if ct.get_cpu_time_elapsed() > 1000:
+        return _fallback(builder, ct, s, pos)
+
+    # 1. Validate source (cheap check: has inputs or adjacent harvester?)
     if a.source_ti is not None:
-        # Source valid if anything feeds it (transport or adjacent harvester)
-        if not flow.has_source(a.source_ti) and not _has_adjacent_harvester(s, a.source_ti):
+        if not flow.inputs_to(a.source_ti) and not _has_adjacent_harvester(s, a.source_ti):
             a.source_ti = None
 
     # 2. Find source if none
@@ -63,10 +66,6 @@ def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
         a.source_ti = _pick_source(flow, s, pos)
     if a.source_ti is None:
         return _fallback(builder, ct, s, pos)
-
-    if DEBUG:
-        from vis import Tiles, emit
-        emit(atk_source=Tiles(data=[(a.source_ti % w, a.source_ti // w)]))
 
     # 3. Try turret at source (maybe already near enemy)
     feeder = _feeder_of(flow, s, a.source_ti)
@@ -83,11 +82,11 @@ def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
     if not goals:
         return _fallback(builder, ct, s, pos)
 
-    if ct.get_cpu_time_elapsed() > 1300:
+    if ct.get_cpu_time_elapsed() > 1200:
         return _fallback(builder, ct, s, pos)
 
     chain = AttackAstar(s, a.source_ti, goals).compute(
-        within_budget=lambda: ct.get_cpu_time_elapsed() < 1500
+        within_budget=lambda: ct.get_cpu_time_elapsed() < 1400
     )
     if chain is None or len(chain) < 2:
         a.source_ti = None

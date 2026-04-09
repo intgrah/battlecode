@@ -1,11 +1,4 @@
-"""Unified flow model — directed graph of transport connections.
-
-Computed once per turn after state_update. All builder roles query this
-instead of doing ad-hoc scanning.
-
-Key invariant: `_get_outputs(ti)` is the SINGLE source of truth for
-what tiles a building outputs to. No other code should duplicate this.
-"""
+"""Unified flow model — directed graph of transport connections."""
 
 from __future__ import annotations
 
@@ -65,6 +58,7 @@ class FlowModel:
         self._leaks: set[int] = set()
         self.connected: set[int] = set()
         self.connected_harvesters: set[int] = set()
+        self._fed: set[int] = set()  # tiles reachable from any harvester via _fwd
         self._parent: dict[int, int] = {}
         self.load: dict[int, int] = {}
         self.bottleneck: dict[int, int] = {}
@@ -79,6 +73,7 @@ class FlowModel:
         self._build_graph()
         self._classify()
         self._bfs_connectivity()
+        self._bfs_from_sources()  # mark tiles fed by any harvester
         self._trace_capacity()
         self._build_enemy_graph()
 
@@ -172,6 +167,18 @@ class FlowModel:
         self.connected = connected_transport
         self.connected_harvesters = connected_harvesters
         self._parent = parent
+
+    def _bfs_from_sources(self) -> None:
+        """BFS forward from all harvesters through _fwd. Marks all tiles that are fed."""
+        fed: set[int] = set(self._sources)
+        queue: deque[int] = deque(self._sources)
+        while queue:
+            ti = queue.popleft()
+            for ni in self._fwd.get(ti, []):
+                if ni not in fed:
+                    fed.add(ni)
+                    queue.append(ni)
+        self._fed = fed
 
     def _trace_capacity(self) -> None:
         """Compute load and bottleneck. Replaces state_update._update_capacity."""
@@ -358,21 +365,8 @@ class FlowModel:
         return False
 
     def has_source(self, tile: int) -> bool:
-        """Is this tile fed by a harvester (trace backward)?"""
-        visited: set[int] = {tile}
-        current = tile
-        for _ in range(50):
-            inputs = self._bwd.get(current, [])
-            if not inputs:
-                return False
-            nxt = inputs[0]
-            if nxt in self._sources:
-                return True
-            if nxt in visited:
-                return False
-            visited.add(nxt)
-            current = nxt
-        return False
+        """Is this tile fed by a harvester? O(1) lookup from precomputed _fed set."""
+        return tile in self._fed
 
     def has_feed_for_turret(self, turret_ti: int, facing_dx: int, facing_dy: int) -> bool:
         """Check if a turret at turret_ti with given facing has verified ammo feed.
