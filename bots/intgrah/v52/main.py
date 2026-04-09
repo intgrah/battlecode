@@ -37,8 +37,5 @@ class Player:
         try:
             self.unit.run(ct)
         except Exception as e:  # noqa: BLE001
-            print(traceback.format_exc())
-            print(f"EXCEPTION: {e}")
             print(traceback.format_exc(), file=sys.stderr)
-            print(f"EXCEPTION: {e}", file=sys.stderr)
             ct.resign(str(e))

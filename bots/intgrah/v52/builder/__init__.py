@@ -44,6 +44,15 @@ from util_extra import (
 )
 from visualiser import Grid, Palette, Scalar, Tiles, emit
 
+from .role import (
+    ROLE_OPENING,
+    ROLE_REASSIGN_AFTER,
+    ROLE_REASSIGN_PERIOD,
+    ROLE_TRANSITION,
+    ROLE_WEIGHTS,
+    Role,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -96,6 +105,18 @@ class AStarSearch:
         self._prev_no_path = False
         self._running_target: Position | None = None
         self._prev_target: Position | None = None
+
+    @staticmethod
+    def chebyshev(a: Position, b: Position) -> float:
+        dx = abs(a.x - b.x)
+        dy = abs(a.y - b.y)
+        return max(dx, dy) + _TIEBREAK_EPS * (dx + dy)
+
+    @staticmethod
+    def manhattan(a: Position, b: Position) -> float:
+        dx = abs(a.x - b.x)
+        dy = abs(a.y - b.y)
+        return (dx + dy) + _TIEBREAK_EPS * (dx + dy)
 
     def _init_grid(self, state: Builder) -> None:
         self._w, self._h = state.w, state.h
@@ -253,18 +274,6 @@ class AStarSearch:
         return self._prev_no_path
 
 
-def _astar_chebyshev(a: Position, b: Position) -> float:
-    dx = abs(a.x - b.x)
-    dy = abs(a.y - b.y)
-    return max(dx, dy) + _TIEBREAK_EPS * (dx + dy)
-
-
-def _astar_manhattan(a: Position, b: Position) -> float:
-    dx = abs(a.x - b.x)
-    dy = abs(a.y - b.y)
-    return (dx + dy) + _TIEBREAK_EPS * (dx + dy)
-
-
 DIAG_WEIGHT = 4
 
 _MOVE_NEIGHBORS = [(dx, dy, 0) for dx, dy in _DIR8_DELTA]
@@ -280,12 +289,9 @@ _CONV_NEIGHBORS = [
 ]
 random.shuffle(_CONV_NEIGHBORS)
 
-move_search = AStarSearch(_MOVE_NEIGHBORS, _astar_chebyshev, "cost_grid")
+move_search = AStarSearch(_MOVE_NEIGHBORS, AStarSearch.chebyshev, "cost_grid")
 conv_search = AStarSearch(
-    _CONV_NEIGHBORS,
-    _astar_manhattan,
-    "conveyor_cost_grid",
-    allow_relaxation=True,
+    _CONV_NEIGHBORS, AStarSearch.manhattan, "conveyor_cost_grid", allow_relaxation=True
 )
 
 
@@ -333,10 +339,10 @@ def _fallback_step(
     blocked: set[Position] | None = None,
 ) -> Position | None:
     unit_id = ct.get_id()
-    curr = ct.get_position()
+    my_pos = ct.get_position()
 
     if unit_id not in _bug_states or _bug_states[unit_id].goal != target:
-        _bug_states[unit_id] = WallFollow(curr, target)
+        _bug_states[unit_id] = WallFollow(my_pos, target)
 
     bug = _bug_states[unit_id]
     if blocked is None:
@@ -345,23 +351,23 @@ def _fallback_step(
     cost_grid = state.cost_grid
     w, h = state.w, state.h
 
-    if curr == target:
+    if my_pos == target:
         return None
 
-    if bug.last_pos == curr and bug.mode == BugMode.MODE_GOAL_SEEK:
+    if bug.last_pos == my_pos and bug.mode == BugMode.MODE_GOAL_SEEK:
         bug.mode = BugMode.MODE_WALL_FOLLOW
-        bug.hit_point = curr
+        bug.hit_point = my_pos
 
-    bug.last_pos = curr
+    bug.last_pos = my_pos
 
     if bug.mode == BugMode.MODE_GOAL_SEEK:
-        dx = target.x - curr.x
-        dy = target.y - curr.y
+        dx = target.x - my_pos.x
+        dy = target.y - my_pos.y
 
         step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
         step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
 
-        next_pos = Position(curr.x + step_x, curr.y + step_y)
+        next_pos = Position(my_pos.x + step_x, my_pos.y + step_y)
 
         if (
             0 <= next_pos.x < w
@@ -371,21 +377,21 @@ def _fallback_step(
         ):
             return next_pos
         bug.mode = BugMode.MODE_WALL_FOLLOW
-        bug.hit_point = curr
+        bug.hit_point = my_pos
 
     if bug.mode == BugMode.MODE_WALL_FOLLOW:
         if (
             bug.hit_point
-            and _on_baseline(curr, bug.start, target)
-            and chebyshev(curr, target) < chebyshev(bug.hit_point, target)
+            and _on_baseline(my_pos, bug.start, target)
+            and chebyshev(my_pos, target) < chebyshev(bug.hit_point, target)
         ):
             bug.mode = BugMode.MODE_GOAL_SEEK
             return _fallback_step(state, ct, target, blocked)
 
         dirs = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
 
-        goal_dx = target.x - curr.x
-        goal_dy = target.y - curr.y
+        goal_dx = target.x - my_pos.x
+        goal_dy = target.y - my_pos.y
         ideal_angle = math.atan2(goal_dy, goal_dx)
 
         sorted_dirs = sorted(
@@ -394,7 +400,7 @@ def _fallback_step(
         )
 
         for dx, dy in sorted_dirs:
-            nx, ny = curr.x + dx, curr.y + dy
+            nx, ny = my_pos.x + dx, my_pos.y + dy
             if not (0 <= nx < w and 0 <= ny < h):
                 continue
 
@@ -434,45 +440,12 @@ _P_COST = Palette(
 ROAD_COST = 3
 
 
-class Role(IntEnum):
-    ECON = 0
-    DEFENSE = 1
-    OFFENSE = 2
-
-    def __str__(self) -> str:
-        return self.name.lower()
-
-
-_INITIAL_WEIGHTS = {
-    True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
-    False: {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3},
-}
-
-_TRANSITION: dict[Role, dict[Role, int]] = {
-    Role.ECON: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
-    Role.DEFENSE: {Role.OFFENSE: 10, Role.DEFENSE: 80, Role.ECON: 10},
-    Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
-}
-
-
 # ================================================================================
 #  Builder
 # ================================================================================
 
 
 class Builder(Unit):
-    OPENING_ROLES: Final[tuple[tuple[Role, bool], ...]] = (
-        (Role.ECON, True),
-        (Role.ECON, False),
-        (Role.DEFENSE, True),
-        (Role.OFFENSE, False),
-        (Role.OFFENSE, False),
-        (Role.OFFENSE, False),
-    )
-
-    REASSIGN_PERIOD: Final[int] = 150
-    REASSIGN_AFTER: Final[int] = 400
-
     # ================================================================================
     #  Initialization
     # ================================================================================
@@ -1052,12 +1025,12 @@ class Builder(Unit):
     def _pick_initial_role(self, ct: Controller) -> Role:
         if ct.get_current_round() > 10:
             early = ct.get_current_round() < 200
-            w = _INITIAL_WEIGHTS[early]
+            w = ROLE_WEIGHTS[early]
             roles, weights = zip(*w.items(), strict=False)
             return self.rng.choices(roles, weights=weights)[0]
         idx = ct.get_unit_count() - 3
-        if idx < len(Builder.OPENING_ROLES):
-            role, perm = Builder.OPENING_ROLES[idx]
+        if idx < len(ROLE_OPENING):
+            role, perm = ROLE_OPENING[idx]
             self.permanent_role = perm
             return role
         return Role.ECON
@@ -1067,12 +1040,12 @@ class Builder(Unit):
             self.role = self._pick_initial_role(ct)
 
         if (
-            self.role_age > Builder.REASSIGN_PERIOD
-            and ct.get_current_round() > Builder.REASSIGN_AFTER
+            self.role_age > ROLE_REASSIGN_PERIOD
+            and ct.get_current_round() > ROLE_REASSIGN_AFTER
             and not self.permanent_role
         ):
             self.role_age = 0
-            row = _TRANSITION[self.role]
+            row = ROLE_TRANSITION[self.role]
             roles, weights = zip(*row.items(), strict=False)
             self.role = self.rng.choices(roles, weights=weights)[0]
             if self.role == Role.OFFENSE:
