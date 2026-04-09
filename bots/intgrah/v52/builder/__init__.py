@@ -1046,7 +1046,8 @@ class Builder(Unit):
         ):
             self.role_age = 0
             row = ROLE_TRANSITION[self.role]
-            roles, weights = zip(*row.items(), strict=False)
+            roles = list(row)
+            weights = [row[role] for role in roles]
             self.role = self.rng.choices(roles, weights=weights)[0]
             if self.role == Role.OFFENSE:
                 self.role_age = -300
