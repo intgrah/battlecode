@@ -12,7 +12,7 @@ from tile_codec import UNSEEN, _ET_INT, encode_tile, tile_building_type, tile_is
 from env_tracker import EnvTracker
 from tracker import Tracker
 from unit import Unit
-from utils import try_move_away
+from utils import _ALL_DIRS, in_bounds, try_move_away
 
 _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, None))
 
@@ -73,12 +73,19 @@ class Builder(Unit):
         self.chain = ChainAstar(w, h)
         self._chain_plan: list[BuildInstruction] | None = None
         self._plan_progress: int = 0
+        self._stage2_start: int = 0
         self.first_ore_pos: Position | None = None
         self.first_ore_env: Environment | None = None
         self.plan_done: bool = False
+        self.first_offset: tuple[int, int] | None = None
+        self.unitID: int | None = None
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
+
+        if self.unitID is None:
+            self.unitID = ct.get_id() % 64
+        print(f"unit {self.unitID}")
 
         # Initialize symmetry detector once we know our core position
         if self.core_pos is None:
@@ -121,8 +128,6 @@ class Builder(Unit):
 
         new_pos = ct.get_position()
 
-        if self._chain_plan:
-            print(self._chain_plan[self._plan_progress:])
 
         # Plan execution takes precedence over normal navigation. The plan
         # itself sets the nav goal each turn.
@@ -131,10 +136,15 @@ class Builder(Unit):
                 self.nav.set_goals(self.allied_conveyors.as_positions())
             self.allied_conveyors.draw_tracked(ct, 0, 200, 255)
             self._upgrade_adjacent_conveyor(ct, new_pos)
-        elif self.plan_ok(ct) == -1:
-            self._execute_plan(ct)
         else:
-            self._handle_ore_phase(ct, new_pos)
+            fail_idx = self.plan_ok(ct)
+            if self._chain_plan is not None and fail_idx != -1:
+                self._replan(ct, fail_idx)
+            if self._chain_plan is not None:
+                print(self._chain_plan[self._plan_progress:])
+                self._execute_plan(ct)
+            else:
+                self._handle_ore_phase(ct, new_pos)
 
         if self._chain_plan is not None:
             self.chain.draw_path(ct, self._chain_plan)
@@ -223,7 +233,18 @@ class Builder(Unit):
         if self.first_ore_pos is None:
             self.first_ore_pos = nearest
             self.first_ore_env = here
+            # Force a phase-2 goal update now: phase 1 already consumed
+            # the opposite tracker's change flag this round, so the next
+            # call to take_changed() would return False and the nav would
+            # never be redirected.
+            other = (
+                self.ax_ore if here == Environment.ORE_TITANIUM else self.ti_ore
+            )
+            other_goals = other.as_positions()
+            if other_goals:
+                self.nav.set_goals(other_goals)
             return
+        
         if here != self.first_ore_env and nearest != self.first_ore_pos:
             ct.draw_indicator_dot(nearest, 0, 255, 0)
             self._chain_plan = self._chain_plan_from(
@@ -273,6 +294,19 @@ class Builder(Unit):
                 if ct.can_fire(pos):
                     ct.fire(pos)
 
+        if entity == EntityType.CORE:
+            # Special flag: destroy whatever allied building is at pos.
+            if cached == UNSEEN:
+                return False
+            ttype = tile_building_type(cached)
+            if ttype is not None:
+                if not ct.can_destroy(pos):
+                    return False
+                ct.destroy(pos)
+            
+            self._plan_progress += 1
+            entity, pos, extra = self._chain_plan[self._plan_progress]
+        
         if entity == EntityType.HARVESTER:
             if ct.get_position() == pos:
                 try_move_away(ct, pos)
@@ -299,73 +333,314 @@ class Builder(Unit):
             return True
         return False
 
-    def _chain_plan_from(
-        self, ct: Controller, first_ore: Position, second_ore: Position
+    def _plan_stage1(
+        self,
+        first_ore: Position,
+        second_ore: Position,
+        *,
+        chain_start: tuple[int, int] | None = None,
+        place_second_harvester: bool = True,
+        place_first_harvester: bool = True,
+        place_foundry: bool = True,
     ) -> list[BuildInstruction] | None:
-        """Plan a fresh chain from `first_ore` to `second_ore`. Prepends
-        harvester instructions at both ore tiles if not already harvested.
+        """Stage 1: harvester(second_ore) + chain(first_offset→second_offset)
+        + harvester(first_ore) + foundry(first_offset). Sets self.first_offset.
         """
-        # Force impassible for pathfinding (as they will be once harvested).
-        self.chain.update_tile(first_ore.x, first_ore.y, Environment.WALL, None, True)
-        self.chain.update_tile(second_ore.x, second_ore.y, Environment.WALL, None, True)
+        # Reserve the ore tiles for this plan attempt — they'll become
+        # harvesters and shouldn't be routed through. Soft block, cleared
+        # by the next clear_blocked() call so it doesn't leak across plans.
+        self.chain.block(first_ore.x, first_ore.y)
+        self.chain.block(second_ore.x, second_ore.y)
 
         first_xy = (first_ore.x, first_ore.y)
         second_xy = (second_ore.x, second_ore.y)
         first_offset = self.chain.ore_offset(first_xy, second_xy)
         if first_offset is None:
+            print("stage 1 first_offset is None")
             return None
-        second_offset = self.chain.ore_offset(second_xy, first_offset)
-
-        # Stage 1: chain from second_ore to first_ore.
+        
         self.chain.set_starts([first_offset])
-        self.chain.set_goal(*(second_offset if second_offset is not None else second_xy))
-        stage1 = self.chain.plan()
+        if chain_start is not None:
+            self.chain.set_goal(*chain_start)
+        else:
+            second_offset = self.chain.ore_offset(second_xy, first_offset)
+            self.chain.set_goal(*(second_offset if second_offset is not None else second_xy))
+        chain = self.chain.plan()
+        if chain is None:
+            print("stage 1 chain is None")
+            return None
+
+        plan = chain
+        if place_second_harvester:
+            plan.insert(0, (EntityType.HARVESTER, second_ore, None))
+        if place_first_harvester:
+            plan.append((EntityType.HARVESTER, first_ore, None))
+        if place_foundry:
+            plan.append((EntityType.FOUNDRY, Position(*first_offset), None))
+
+        self.first_offset = first_offset
+        return plan
+
+    def _plan_stage2(
+        self, first_ore: Position, goal_xy: tuple[int, int]
+    ) -> list[BuildInstruction] | None:
+        """Stage 2: chain from core neighbors to `goal_xy`. Blocks the 4
+        cardinal neighbors of `first_ore` so the chain doesn't crowd the
+        foundry / harvester adjacency.
+        """
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            self.chain.block(first_ore.x + dx, first_ore.y + dy)
+        cx, cy = self.core_pos.x, self.core_pos.y
+        self.chain.set_starts(
+            (cx + dx, cy + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+        )
+        self.chain.set_goal(*goal_xy)
+        return self.chain.plan()
+
+    def _chain_plan_from(
+        self, ct: Controller, first_ore: Position, second_ore: Position
+    ) -> list[BuildInstruction] | None:
+        """Plan a fresh chain: stage1 (harvesters+foundry+chain) then stage2
+        (core→foundry chain).
+        """
+        self.chain.clear_blocked()
+        stage1 = self._plan_stage1(first_ore, second_ore)
         if stage1 is None:
             return None
 
         # Block every stage 1 tile so stage 2 cannot reuse it.
         for _entity, p, _extra in stage1:
-            self.chain.update_tile(p.x, p.y, Environment.WALL, None, True)
+            self.chain.block(p.x, p.y)
 
-        # Stage 2: chain from the core to a tile cardinally adjacent to the
-        # foundry (which will sit on first_offset). Block the 4 cardinal
-        # neighbors of first_ore so stage 2 can't pathfind through them
-        # (they're reserved for the foundry / harvester adjacency).
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            self.chain.update_tile(
-                first_ore.x + dx, first_ore.y + dy, Environment.WALL, None, True
-            )
         cx, cy = self.core_pos.x, self.core_pos.y
-        foundry_offset = self.chain.ore_offset(first_offset, (cx, cy))
+        foundry_offset = self.chain.ore_offset(self.first_offset, (cx, cy))
         if foundry_offset is None:
             return None
-        self.chain.set_starts(
-            (cx + dx, cy + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
-        )
-        self.chain.set_goal(*foundry_offset)
-        stage2 = self.chain.plan()
+        stage2 = self._plan_stage2(first_ore, foundry_offset)
         if stage2 is None:
             return None
 
-        plan = stage1
-        # Insert harvester at second_ore (built first, before stage1 chain).
-        cached = self._tile_cache[second_ore.y * self.w + second_ore.x]
-        if cached == UNSEEN or tile_building_type(cached) != EntityType.HARVESTER:
-            plan.insert(0, (EntityType.HARVESTER, second_ore, None))
+        self._stage2_start = len(stage1)
+        return stage1 + stage2
 
-        # Insert harvester at first_ore between the two stages.
-        cached = self._tile_cache[first_ore.y * self.w + first_ore.x]
-        if cached == UNSEEN or tile_building_type(cached) != EntityType.HARVESTER:
-            plan.append((EntityType.HARVESTER, first_ore, None))
+    def _pick_alt_ore(
+        self, env: Environment, exclude: Position
+    ) -> Position | None:
+        """Pick an ore tile of `env` from the tracker, excluding `exclude`.
+        env_tracker has already filtered out tiles blocked by non-buildable
+        buildings. Returns the candidate closest to the core.
+        """
+        tracker = self.ti_ore if env == Environment.ORE_TITANIUM else self.ax_ore
+        candidates = [p for p in tracker.as_positions() if p != exclude]
+        if not candidates:
+            return None
+        cx, cy = self.core_pos.x, self.core_pos.y
+        return min(
+            candidates, key=lambda p: abs(p.x - cx) + abs(p.y - cy)
+        )
 
-        # Foundry sits on first_offset, fed by stage 1 and consumed by stage 2.
-        foundry_pos = Position(*first_offset)
-        cached = self._tile_cache[foundry_pos.y * self.w + foundry_pos.x]
-        if cached == UNSEEN or tile_building_type(cached) != EntityType.FOUNDRY:
-            plan.append((EntityType.FOUNDRY, foundry_pos, None))
+    def _replan(self, ct: Controller, fail_idx: int) -> None:
+        """Re-plan from the failure point. If we've already entered stage 2,
+        only stage 2 is replanned; otherwise stage 1 (skipping anything
+        already placed) followed by a fresh stage 2.
+        """
 
-        plan.extend(stage2)
-        return plan
+        print(f"replanning {fail_idx}")
+
+        # Drop any per-plan blocks left over from prior planning sessions
+        # so this attempt sees a clean slate.
+        self.chain.clear_blocked()
+
+        plan_idx = self._plan_progress + fail_idx
+
+        destroy_prefix: list[BuildInstruction] = []
+        cut_chain = plan_idx > 0 and fail_idx == 0
+        if cut_chain:
+            _pe, prev_pos, _px = self._chain_plan[plan_idx - 1]
+            destroy_prefix = [(EntityType.CORE, prev_pos, None)]
+
+        if self.first_ore_pos is None:
+            self._chain_plan = None
+            self._plan_progress = 0
+            return
+
+        # Derive the foundry tile and the second-ore position from the
+        # plan. Both appear somewhere in the full plan (including the
+        # executed prefix). Stage-2 goal (foundry_offset) is recomputed
+        # from the foundry tile via ore_offset at use site.
+        foundry_pos: Position | None = None
+        second_ore_pos: Position | None = None
+        for entity, p, _x in self._chain_plan:
+            if entity == EntityType.FOUNDRY:
+                foundry_pos = p
+            elif entity == EntityType.HARVESTER and p != self.first_ore_pos:
+                second_ore_pos = p
+
+        cur = self._plan_progress
+        fail_entity, fail_pos, _x = self._chain_plan[plan_idx]
+        _, chain_start_pos, _x = self._chain_plan[cur]
+        chain_start = (prev_pos.x, prev_pos.y) if cut_chain else (chain_start_pos.x, chain_start_pos.y)
+        in_stage2 = cur >= self._stage2_start
+
+        print(
+            f"replan fail_entity={fail_entity.name if fail_entity else None} "
+            f"chain_start={chain_start} fail_pos={fail_pos}"
+            f"stage2_start={self._stage2_start} "
+            f"in_stage2={in_stage2} first_ore={self.first_ore_pos} "
+            f"second_ore={second_ore_pos} foundry_pos={foundry_pos} "
+            f"destroy_prefix={destroy_prefix}"
+        )
+
+        # Special handling: a HARVESTER or FOUNDRY tile is blocked. We need
+        # to change targets, not just reroute the chain.
+        if fail_entity == EntityType.FOUNDRY:
+            print(f"replan FOUNDRY fail at {fail_pos}; walling and retrying offset")
+            self.chain.update_tile(
+                fail_pos.x, fail_pos.y, Environment.WALL, None, True
+            )
+            cx, cy = self.core_pos.x, self.core_pos.y
+            retry = self.chain.ore_offset(
+                (self.first_ore_pos.x, self.first_ore_pos.y), (cx, cy)
+            )
+            print(f"  ore_offset retry -> {retry}")
+            if retry is None:
+                print("  no alternative offset; escalating to first-ore harvester fail")
+                fail_entity = EntityType.HARVESTER
+                fail_pos = self.first_ore_pos
+
+        if fail_entity == EntityType.HARVESTER:
+            print(f"replan HARVESTER fail at {fail_pos}; picking alternative ore")
+            self.chain.update_tile(
+                fail_pos.x, fail_pos.y, Environment.WALL, None, True
+            )
+            if fail_pos == self.first_ore_pos:
+                print(
+                    f"  fail is first_ore (env={self.first_ore_env.name if self.first_ore_env else None})"
+                )
+                new = self._pick_alt_ore(self.first_ore_env, self.first_ore_pos)
+                print(f"  new first_ore -> {new}")
+                if new is None:
+                    print("  no alternative first_ore; abandoning plan")
+                    self._chain_plan = None
+                    self._plan_progress = 0
+                    return
+                self.first_ore_pos = new
+            else:
+                other_env = (
+                    Environment.ORE_AXIONITE
+                    if self.first_ore_env == Environment.ORE_TITANIUM
+                    else Environment.ORE_TITANIUM
+                )
+                print(f"  fail is second_ore (env={other_env.name})")
+                new = self._pick_alt_ore(other_env, fail_pos)
+                print(f"  new second_ore -> {new}")
+                if new is None:
+                    print("  no alternative second_ore; abandoning plan")
+                    self._chain_plan = None
+                    self._plan_progress = 0
+                    return
+                second_ore_pos = new
+
+        if fail_entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
+            if second_ore_pos is None:
+                print("  second_ore_pos is None after special-case; abandoning plan")
+                self._chain_plan = None
+                self._plan_progress = 0
+                return
+            print(
+                f"  full _chain_plan_from(first_ore={self.first_ore_pos}, "
+                f"second_ore={second_ore_pos})"
+            )
+            new_plan = self._chain_plan_from(ct, self.first_ore_pos, second_ore_pos)
+            if new_plan is None:
+                print("  _chain_plan_from returned None; abandoning plan")
+                self._chain_plan = None
+                self._plan_progress = 0
+                return
+            old_stage2_start = self._stage2_start
+            self._stage2_start = cur + len(destroy_prefix) + self._stage2_start
+            self._chain_plan = (
+                self._chain_plan[:cur] + destroy_prefix + new_plan
+            )
+            self._plan_progress = cur
+            print(
+                f"  spliced new plan: prefix_len={cur} destroy_len={len(destroy_prefix)} "
+                f"new_plan_len={len(new_plan)} "
+                f"new_stage2_start={self._stage2_start} (was internal={old_stage2_start})"
+            )
+            return
+
+        if in_stage2:
+            print(f"replanning stage 2")
+            plan = self._plan_stage2(self.first_ore_pos, chain_start)
+            if plan is None:
+                self._chain_plan = None
+                self._plan_progress = 0
+                return
+            # Splice: keep already-executed prefix, replace the rest.
+            self._chain_plan = self._chain_plan[:cur] + destroy_prefix + plan
+            self._plan_progress = cur
+            return
+
+        if second_ore_pos is None:
+            self._chain_plan = None
+            self._plan_progress = 0
+            return
+
+        # Walk the executed prefix to see what stage-1 terminals are done.
+        placed_second = False
+        placed_first = False
+        placed_foundry = False
+        for entity, p, _x in self._chain_plan[:cur]:
+            if entity == EntityType.HARVESTER and p == second_ore_pos:
+                placed_second = True
+            elif entity == EntityType.HARVESTER and p == self.first_ore_pos:
+                placed_first = True
+            elif entity == EntityType.FOUNDRY:
+                placed_foundry = True
+
+        print(f"placed_second {placed_second} placed_first {placed_first} placed_foundry {placed_foundry}")
+        stage1 = self._plan_stage1(
+            self.first_ore_pos,
+            second_ore_pos,
+            chain_start=chain_start,
+            place_second_harvester=not placed_second,
+            place_first_harvester=not placed_first,
+            place_foundry=not placed_foundry,
+        )
+        if stage1 is None:
+            print("could not replan stage 1")
+            self._chain_plan = None
+            self._plan_progress = 0
+            return
+
+        for _entity, p, _extra in stage1:
+            self.chain.block(p.x, p.y)
+        if foundry_pos is None:
+            print("could not derive foundry_pos for stage 2 replan")
+            self._chain_plan = None
+            self._plan_progress = 0
+            return
+        cx, cy = self.core_pos.x, self.core_pos.y
+        foundry_offset = self.chain.ore_offset(
+            (foundry_pos.x, foundry_pos.y), (cx, cy)
+        )
+        if foundry_offset is None:
+            print("no foundry_offset for stage 2 replan")
+            self._chain_plan = None
+            self._plan_progress = 0
+            return
+        stage2 = self._plan_stage2(self.first_ore_pos, foundry_offset)
+        if stage2 is None:
+            print("could not replan stage 2")
+            self._chain_plan = None
+            self._plan_progress = 0
+            return
+
+        self._chain_plan = self._chain_plan[:cur] + destroy_prefix + stage1 + stage2
+        self._stage2_start = cur + len(destroy_prefix) + len(stage1)
+        self._plan_progress = cur
+
 
     def plan_ok(self, ct: Controller) -> int:
         """Return the index of the first plan entry whose tile is not
@@ -376,12 +651,18 @@ class Builder(Unit):
         if self._chain_plan is None:
             return 0
         i = 0
-        for _entity, pos, _extra in self._chain_plan[self._plan_progress:]:
+        for entity, pos, _extra in self._chain_plan[self._plan_progress:]:
             cached = self._tile_cache[pos.y * self.w + pos.x]
             if cached == UNSEEN:
                 i += 1
                 continue
             bt = tile_building_type(cached)
+            if entity == EntityType.CORE:
+                # Destroy instruction: ok unless an enemy building sits here.
+                if bt is None or tile_is_allied(cached):
+                    i += 1
+                    continue
+                return i
             if bt in _BUILDABLE:
                 i += 1
                 continue
@@ -389,6 +670,27 @@ class Builder(Unit):
         return -1
 
     def _handle_explore(self, ct: Controller, new_pos: Position) -> None:
+        # If a friendly builder bot with a smaller entity id is visible,
+        # follow it instead of exploring on our own.
+        my_team = ct.get_team()
+        my_id = ct.get_id()
+        leader_id: int | None = None
+        leader_pos: Position | None = None
+        for uid in ct.get_nearby_units():
+            if uid >= my_id:
+                continue
+            if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
+                continue
+            if ct.get_team(uid) != my_team:
+                continue
+            if leader_id is None or uid < leader_id:
+                leader_id = uid
+                leader_pos = ct.get_position(uid)
+        if leader_pos is not None:
+            self.nav.set_goal(leader_pos)
+            ct.draw_indicator_line(new_pos, leader_pos, 0, 200, 200)
+            return
+
         if self.explore.target is not None:
             ct.draw_indicator_line(new_pos, self.explore.target, 0, 128, 0)
             self.explore.draw_unvisited(ct, 255, 0, 0)
