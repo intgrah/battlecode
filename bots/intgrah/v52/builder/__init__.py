@@ -41,7 +41,7 @@ from util_extra import (
     reachable_path_end,
     try_move,
 )
-from visualiser import Grid, Palette, Scalar, Tiles, emit
+from visualiser import Grid, Palette, Scalar, Tiles, VectorField, emit
 
 from .role import (
     ROLE_OPENING,
@@ -67,215 +67,15 @@ WALKABLE_ENTITIES = [
 
 
 # ================================================================================
-#  Pathfinding (A*)
+#  Conveyor A* (weighted pathfinding for conveyor routing only)
 # ================================================================================
 
-_INF = float("inf")
-_TARGET_DRIFT_SQ = 25
-_CPU_BUDGET = 1729
-_TIEBREAK_EPS = 1e-5
-
-_DIR8_DELTA = DIR8_DELTA.copy()
-random.shuffle(_DIR8_DELTA)
-
-
-class AStarSearch:
-    def __init__(
-        self,
-        neighbors: list[tuple[int, int, int]],
-        heuristic: Callable[[Position, Position], float],
-        cost_grid_attr: str,
-        *,
-        allow_relaxation: bool = False,
-    ) -> None:
-        self._neighbors = neighbors
-        self._heuristic = heuristic
-        self._cost_attr: Final[str] = cost_grid_attr
-        self._relax: Final[bool] = allow_relaxation
-
-        self._w = 0
-        self._h = 0
-        self._dist: list[float] = []
-        self._visited = bytearray()
-        self._prev_visited = bytearray()
-        self._q: list[tuple[float, Position]] = []
-        self._finished = True
-        self._no_path = False
-        self._prev_no_path = False
-        self._running_target: Position | None = None
-        self._prev_target: Position | None = None
-
-    @staticmethod
-    def chebyshev(a: Position, b: Position) -> float:
-        dx = abs(a.x - b.x)
-        dy = abs(a.y - b.y)
-        return max(dx, dy) + _TIEBREAK_EPS * (dx + dy)
-
-    @staticmethod
-    def manhattan(a: Position, b: Position) -> float:
-        dx = abs(a.x - b.x)
-        dy = abs(a.y - b.y)
-        return (dx + dy) + _TIEBREAK_EPS * (dx + dy)
-
-    def _init_grid(self, state: Builder) -> None:
-        self._w, self._h = state.w, state.h
-        self._dist = [_INF] * (self._w * self._h)
-
-    def _reset(self, state: Builder) -> None:
-        if not self._dist:
-            self._init_grid(state)
-        self._no_path = False
-        self._visited = bytearray((self._w * self._h + 7) // 8)
-        self._q = []
-
-    def _cost_grid(self, state: Builder) -> list[float]:
-        return getattr(state, self._cost_attr)
-
-    def _extract_path(
-        self,
-        state: Builder,
-        start: Position,
-        target: Position,
-    ) -> list[Position]:
-        cost = self._cost_grid(state)
-        w = self._w
-        path: list[Position] = []
-        current = start
-        while current != target:
-            if current in path:
-                break
-            path.append(current)
-            best_dist = _INF
-            best = current
-            for dx, dy, extra in self._neighbors:
-                nx, ny = current.x + dx, current.y + dy
-                idx = ny * w + nx
-                if (
-                    0 <= nx < self._w
-                    and 0 <= ny < self._h
-                    and (self._prev_visited[idx // 8] & (1 << (idx % 8)))
-                    and cost[idx] != _INF
-                ):
-                    d = self._dist[idx] + extra
-                    if d < best_dist:
-                        best_dist = d
-                        best = Position(nx, ny)
-            current = best
-        path.append(target)
-        return path
-
-    def _run(
-        self,
-        state: Builder,
-        ct: Controller,
-        start: Position,
-        goal: Position,
-    ) -> bool:
-        cost = self._cost_grid(state)
-        w = self._w
-        h = self._heuristic
-        dist = self._dist
-        visited = self._visited
-        q = self._q
-        relax = self._relax
-
-        idx = goal.y * w + goal.x
-        dist[idx] = 0
-        visited[idx >> 3] |= 1 << (idx & 0b111)
-        heapq.heappush(q, (0, goal))
-
-        while q:
-            _, current = heapq.heappop(q)
-            if current == start:
-                return True
-            if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
-                return False
-
-            cur_dist = dist[current.y * w + current.x]
-            for dx, dy, extra in self._neighbors:
-                nx, ny = current.x + dx, current.y + dy
-                if not (0 <= nx < self._w and 0 <= ny < self._h):
-                    continue
-                idx = ny * w + nx
-                seen = visited[idx >> 3] & (1 << (idx & 0b111))
-                if relax and not seen:
-                    dist[idx] = _INF
-                if not relax and seen:
-                    continue
-                visited[idx >> 3] |= 1 << (idx & 0b111)
-                move_cost = cost[idx]
-                if move_cost == _INF:
-                    continue
-                new_dist = cur_dist + move_cost + extra
-                if relax and new_dist >= dist[idx]:
-                    continue
-                dist[idx] = new_dist
-                nb = Position(nx, ny)
-                heapq.heappush(q, (new_dist + h(nb, start), nb))
-
-        self._no_path = True
-        return True
-
-    def search(
-        self,
-        state: Builder,
-        ct: Controller,
-        start: Position,
-        target: Position,
-    ) -> list[Position] | None:
-        if (
-            self._finished
-            or self._running_target is None
-            or target.distance_squared(self._running_target) > _TARGET_DRIFT_SQ
-        ):
-            self._reset(state)
-        else:
-            target = self._running_target
-
-        self._running_target = target
-        self._finished = self._run(state, ct, start, target)
-
-        if self._finished:
-            self._prev_visited = self._visited
-            self._prev_target = target
-            self._prev_no_path = self._no_path
-
-        if self._prev_target is None:
-            return None
-        diff = target.distance_squared(self._prev_target)
-        if diff <= _TARGET_DRIFT_SQ and diff < start.distance_squared(target):
-            if self._no_path:
-                return None
-            return self._extract_path(state, start, target)
-        return None
-
-    def search_blocked(
-        self,
-        state: Builder,
-        ct: Controller,
-        start: Position,
-        goal: Position,
-    ) -> list[Position] | None:
-        cost = self._cost_grid(state)
-        saved: list[tuple[int, float]] = []
-        for pos in ct.get_nearby_tiles(2):
-            if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
-                idx = pos.y * state.w + pos.x
-                saved.append((idx, cost[idx]))
-                cost[idx] = _INF
-        result = self.search(state, ct, start, goal)
-        for idx, val in saved:
-            cost[idx] = val
-        return result
-
-    @property
-    def no_path(self) -> bool:
-        return self._prev_no_path
-
-
+_CONV_INF = float("inf")
+_CONV_CPU_BUDGET = 1729
+_CONV_TARGET_DRIFT_SQ = 25
+_CONV_TIEBREAK_EPS = 1e-5
 DIAG_WEIGHT = 4
 
-_MOVE_NEIGHBORS = [(dx, dy, 0) for dx, dy in _DIR8_DELTA]
 _CONV_NEIGHBORS = [
     (1, 0, 0),
     (-1, 0, 0),
@@ -288,118 +88,170 @@ _CONV_NEIGHBORS = [
 ]
 random.shuffle(_CONV_NEIGHBORS)
 
-move_search = AStarSearch(_MOVE_NEIGHBORS, AStarSearch.chebyshev, "cost_grid")
-conv_search = AStarSearch(
-    _CONV_NEIGHBORS, AStarSearch.manhattan, "conveyor_cost_grid", allow_relaxation=True
-)
 
-
-# ================================================================================
-#  Fallback Navigation (Bug Algorithm)
-# ================================================================================
-
-
-class BugNav:
+class ConvAstar:
     def __init__(self) -> None:
-        self._goal: Position | None = None
-        self._start: Position | None = None
-        self._hit: Position | None = None
-        self._last: Position | None = None
-        self._walling: bool = False
+        self._w = 0
+        self._h = 0
+        self._dist: list[float] = []
+        self._visited = bytearray()
+        self._prev_visited = bytearray()
+        self._q: list[tuple[float, Position]] = []
+        self._finished = True
+        self._no_path = False
+        self._prev_no_path = False
+        self._running_target: Position | None = None
+        self._prev_target: Position | None = None
 
-    @staticmethod
-    def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
-        dx_total = goal.x - start.x
-        dy_total = goal.y - start.y
-        dx_curr = curr.x - start.x
-        dy_curr = curr.y - start.y
-        cross = abs(dy_curr * dx_total - dx_curr * dy_total)
-        if cross <= max(abs(dx_total), abs(dy_total)) // 2:
-            dot = dx_curr * dx_total + dy_curr * dy_total
-            return dot > 0 and chebyshev(curr, goal) < chebyshev(start, goal)
-        return False
+    def _reset(self, w: int, h: int) -> None:
+        if self._w != w or self._h != h:
+            self._w, self._h = w, h
+            self._dist = [_CONV_INF] * (w * h)
+        self._no_path = False
+        self._visited = bytearray((self._w * self._h + 7) // 8)
+        self._q = []
 
-    def step(
+    def _run(
         self,
-        cost_grid: list[float],
-        w: int,
-        h: int,
-        my_pos: Position,
+        cost: list[float],
+        ct: Controller,
+        start: Position,
+        goal: Position,
+    ) -> bool:
+        w = self._w
+        dist = self._dist
+        visited = self._visited
+        q = self._q
+
+        idx = goal.y * w + goal.x
+        dist[idx] = 0
+        visited[idx >> 3] |= 1 << (idx & 0b111)
+        heapq.heappush(q, (0.0, goal))
+
+        while q:
+            _, current = heapq.heappop(q)
+            if current == start:
+                return True
+            if ct.get_cpu_time_elapsed() > _CONV_CPU_BUDGET:
+                return False
+
+            cur_dist = dist[current.y * w + current.x]
+            for dx, dy, extra in _CONV_NEIGHBORS:
+                nx, ny = current.x + dx, current.y + dy
+                if not (0 <= nx < self._w and 0 <= ny < self._h):
+                    continue
+                idx = ny * w + nx
+                seen = visited[idx >> 3] & (1 << (idx & 0b111))
+                if not seen:
+                    dist[idx] = _CONV_INF
+                visited[idx >> 3] |= 1 << (idx & 0b111)
+                move_cost = cost[idx]
+                if move_cost == _CONV_INF:
+                    continue
+                new_dist = cur_dist + move_cost + extra
+                if new_dist >= dist[idx]:
+                    continue
+                dist[idx] = new_dist
+                nb = Position(nx, ny)
+                h = (abs(nb.x - start.x) + abs(nb.y - start.y)) + _CONV_TIEBREAK_EPS * (
+                    abs(nb.x - start.x) + abs(nb.y - start.y)
+                )
+                heapq.heappush(q, (new_dist + h, nb))
+
+        self._no_path = True
+        return True
+
+    def _extract_path(
+        self,
+        cost: list[float],
+        start: Position,
         target: Position,
-        blocked: set[Position],
-    ) -> Position | None:
-        if my_pos == target:
-            return None
-
-        if self._goal != target:
-            self._goal = target
-            self._start = my_pos
-            self._hit = None
-            self._last = None
-            self._walling = False
-
-        if self._last == my_pos and not self._walling:
-            self._walling = True
-            self._hit = my_pos
-
-        self._last = my_pos
-
-        if not self._walling:
-            dx = target.x - my_pos.x
-            dy = target.y - my_pos.y
-            sx = 0 if dx == 0 else (1 if dx > 0 else -1)
-            sy = 0 if dy == 0 else (1 if dy > 0 else -1)
-            nxt = Position(my_pos.x + sx, my_pos.y + sy)
-            if (
-                0 <= nxt.x < w
-                and 0 <= nxt.y < h
-                and cost_grid[nxt.y * w + nxt.x] != float("inf")
-                and nxt not in blocked
-            ):
-                return nxt
-            self._walling = True
-            self._hit = my_pos
-
-        if self._walling:
-            assert self._start is not None
-            if (
-                self._hit
-                and BugNav._on_baseline(my_pos, self._start, target)
-                and chebyshev(my_pos, target) < chebyshev(self._hit, target)
-            ):
-                self._walling = False
-                return self.step(cost_grid, w, h, my_pos, target, blocked)
-
-            goal_angle = math.atan2(target.y - my_pos.y, target.x - my_pos.x)
-            for dx, dy in sorted(
-                DIR8_DELTA,
-                key=lambda d: abs(math.atan2(d[1], d[0]) - goal_angle),
-            ):
-                nx, ny = my_pos.x + dx, my_pos.y + dy
+    ) -> list[Position]:
+        w = self._w
+        path: list[Position] = []
+        current = start
+        while current != target:
+            if current in path:
+                break
+            path.append(current)
+            best_dist = _CONV_INF
+            best = current
+            for dx, dy, extra in _CONV_NEIGHBORS:
+                nx, ny = current.x + dx, current.y + dy
+                idx = ny * w + nx
                 if (
-                    0 <= nx < w
-                    and 0 <= ny < h
-                    and cost_grid[ny * w + nx] != float("inf")
-                    and Position(nx, ny) not in blocked
+                    0 <= nx < self._w
+                    and 0 <= ny < self._h
+                    and (self._prev_visited[idx // 8] & (1 << (idx % 8)))
+                    and cost[idx] != _CONV_INF
                 ):
-                    return Position(nx, ny)
+                    d = self._dist[idx] + extra
+                    if d < best_dist:
+                        best_dist = d
+                        best = Position(nx, ny)
+            current = best
+        path.append(target)
+        return path
 
+    def search(
+        self,
+        state: Builder,
+        ct: Controller,
+        start: Position,
+        target: Position,
+    ) -> list[Position] | None:
+        cost = state.conveyor_cost_grid
+        if (
+            self._finished
+            or self._running_target is None
+            or target.distance_squared(self._running_target) > _CONV_TARGET_DRIFT_SQ
+        ):
+            self._reset(state.w, state.h)
+        else:
+            target = self._running_target
+
+        self._running_target = target
+        self._finished = self._run(cost, ct, start, target)
+
+        if self._finished:
+            self._prev_visited = self._visited
+            self._prev_target = target
+            self._prev_no_path = self._no_path
+
+        if self._prev_target is None:
+            return None
+        diff = target.distance_squared(self._prev_target)
+        if diff <= _CONV_TARGET_DRIFT_SQ and diff < start.distance_squared(target):
+            if self._no_path:
+                return None
+            return self._extract_path(cost, start, target)
         return None
 
-    def navigate(
+    def search_blocked(
         self,
-        cost_grid: list[float],
-        w: int,
-        h: int,
+        state: Builder,
         ct: Controller,
-        target: Position,
-    ) -> Position | None:
-        my_pos = ct.get_position()
-        blocked: set[Position] = set()
+        start: Position,
+        goal: Position,
+    ) -> list[Position] | None:
+        cost = state.conveyor_cost_grid
+        saved: list[tuple[int, float]] = []
         for pos in ct.get_nearby_tiles(2):
-            if pos != my_pos and ct.get_tile_builder_bot_id(pos) is not None:
-                blocked.add(pos)
-        return self.step(cost_grid, w, h, my_pos, target, blocked)
+            if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
+                idx = pos.y * state.w + pos.x
+                saved.append((idx, cost[idx]))
+                cost[idx] = _CONV_INF
+        result = self.search(state, ct, start, goal)
+        for idx, val in saved:
+            cost[idx] = val
+        return result
+
+    @property
+    def no_path(self) -> bool:
+        return self._prev_no_path
+
+
+conv_search = ConvAstar()
 
 
 # ================================================================================
@@ -416,6 +268,23 @@ _P_COST = Palette(
     stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
     special={-1: _TRANSPARENT},
 )
+_P_DIST = Palette(
+    stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
+    special={-1: _TRANSPARENT},
+)
+
+
+def _parent_to_angles(parent: list[int], w: int) -> list[float | None]:
+    result: list[float | None] = []
+    for i, p in enumerate(parent):
+        if p < 0 or p == i:
+            result.append(None)
+        else:
+            dx = p % w - i % w
+            dy = p // w - i // w
+            result.append(math.atan2(dy, dx))
+    return result
+
 
 ROAD_COST = 3
 
@@ -442,6 +311,49 @@ class Builder(Unit):
         msg = "Core not visible at spawn"
         raise AssertionError(msg)
 
+    @staticmethod
+    def init_pnb(w: int, h: int) -> list[list[int]]:
+        n = w * h
+        pnb: list[list[int]] = [[] for _ in range(n)]
+        for i in range(n):
+            cx, cy = i % w, i // w
+            for dx, dy in DIR8_DELTA:
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    pnb[i].append(ny * w + nx)
+        return pnb
+
+    @staticmethod
+    def update_pnb(
+        w: int,
+        h: int,
+        cost: list[int],
+        pnb: list[list[int]],
+        i: int,
+    ) -> None:
+        cx, cy = i % w, i // w
+        passable = cost[i] < INF
+        pnb[i] = []
+        if passable:
+            for dx, dy in DIR8_DELTA:
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if cost[ni] < INF:
+                        pnb[i].append(ni)
+        for dx, dy in DIR8_DELTA:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                if cost[ni] >= INF:
+                    continue
+                nb_list = pnb[ni]
+                if passable:
+                    if i not in nb_list:
+                        nb_list.append(i)
+                elif i in nb_list:
+                    nb_list.remove(i)
+
     @override
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
@@ -456,7 +368,7 @@ class Builder(Unit):
         self.buildings: list[Building | None] = [None] * n
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
-        self.cost_grid = [1.0] * n
+        self.cost_grid: list[int] = [1] * n
         self.conveyor_cost_grid = [1.0] * n
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
@@ -507,7 +419,9 @@ class Builder(Unit):
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
 
-        self.bugnav = BugNav()
+        self.pnb: list[list[int]] = Builder.init_pnb(w, h)
+        self.nav_parent: list[int] = [-1] * n
+        self.nav_dist: list[int] = [-1] * n
 
     # ================================================================================
     #  Map State Queries
@@ -523,7 +437,7 @@ class Builder(Unit):
         return self.cost_grid[self.idx(pos)]
 
     def is_passable(self, pos: Position) -> bool:
-        return self.get_cost(pos) != float("inf")
+        return self.get_cost(pos) < INF
 
     def is_walkable(self, pos: Position) -> bool:
         if not self.is_passable(pos):
@@ -762,7 +676,7 @@ class Builder(Unit):
                 terrain = self.env[i]
                 bld = self.buildings[i]
                 if terrain == Environment.WALL:
-                    cost = float("inf")
+                    cost = INF
                     conveyor_cost = float("inf")
                 elif bld is not None:
                     match bld:
@@ -779,7 +693,7 @@ class Builder(Unit):
                             cost = 1
                             conveyor_cost = 1
                         case _:
-                            cost = float("inf")
+                            cost = INF
                             conveyor_cost = float("inf")
                 elif terrain in (
                     Environment.EMPTY,
@@ -791,9 +705,14 @@ class Builder(Unit):
                 else:
                     cost = 1
                     conveyor_cost = 1
+                old_cost = self.cost_grid[i]
                 self.cost_grid[i] = cost
                 self.line_loads_computed[i] = False
                 self.conveyor_cost_grid[i] = conveyor_cost
+                old_pass = old_cost < INF
+                new_pass = cost < INF
+                if old_pass != new_pass:
+                    Builder.update_pnb(self.w, self.h, self.cost_grid, self.pnb, i)
 
         my_pos = ct.get_position()
         for pos in nearby_tiles:
@@ -903,7 +822,7 @@ class Builder(Unit):
         for dx in range(-1, 2):
             for dy in range(-1, 2):
                 cx, cy = core.x + dx, core.y + dy
-                self.cost_grid[cy * w + cx] = float("inf")
+                self.cost_grid[cy * w + cx] = INF
 
     def _apply_symmetry(self, new_tiles: list[tuple[Position, Environment]]) -> None:
         had_symmetry = self.symmetry is not None
@@ -939,7 +858,7 @@ class Builder(Unit):
             i = pending.popleft()
             terrain = self.env[i]
             if terrain == Environment.WALL:
-                self.cost_grid[i] = float("inf")
+                self.cost_grid[i] = INF
                 self.conveyor_cost_grid[i] = float("inf")
             elif terrain in (
                 Environment.EMPTY,
@@ -1137,29 +1056,64 @@ class Builder(Unit):
         print(f"  ore={t2 - t1}us")
 
     # ================================================================================
-    #  Helpers: Movement & Building
+    #  BFS Update
     # ================================================================================
 
-    def _find_path(
-        self,
-        ct: Controller,
-        start: Position,
-        target: Position,
-    ) -> list[Position] | None:
-        return move_search.search_blocked(self, ct, start, target)
+    def _update_bfs(self, ct: Controller) -> None:
+        w = self.w
+        n = w * self.h
+        pos = ct.get_position()
+        si = pos.y * w + pos.x
+        pnb = self.pnb
+        parent = self.nav_parent
+        dist = self.nav_dist
+
+        for i in range(n):
+            parent[i] = -1
+            dist[i] = -1
+
+        parent[si] = si
+        dist[si] = 0
+
+        q: deque[int] = deque([si])
+        while q:
+            node = q.popleft()
+            d = dist[node] + 1
+            for ni in pnb[node]:
+                if parent[ni] != -1:
+                    continue
+                parent[ni] = node
+                dist[ni] = d
+                q.append(ni)
+
+    def _extract_path(self, gx: int, gy: int) -> list[int] | None:
+        w = self.w
+        gi = gy * w + gx
+        parent = self.nav_parent
+        if parent[gi] == -1:
+            return None
+        path: list[int] = []
+        cur = gi
+        while parent[cur] != cur:
+            path.append(cur)
+            cur = parent[cur]
+        path.append(cur)
+        path.reverse()
+        return path
+
+    # ================================================================================
+    #  Helpers: Movement & Building
+    # ================================================================================
 
     def _make_move(self, ct: Controller, target: Position) -> bool:
         if ct.get_position() == target:
             return True
 
-        path = self._find_path(ct, ct.get_position(), target)
-        if path and len(path) > 1:
-            next_step = path[1]
-            self._try_move_with_build(ct, next_step)
-            return True
-        next_move = self.bugnav.navigate(self.cost_grid, self.w, self.h, ct, target)
-        if next_move:
-            self._try_move_with_build(ct, next_move)
+        path = self._extract_path(target.x, target.y)
+        if path and len(path) >= 2:
+            w = self.w
+            nx, ny = path[1] % w, path[1] // w
+            self._try_move_with_build(ct, Position(nx, ny))
             return True
         return False
 
@@ -1324,6 +1278,8 @@ class Builder(Unit):
             symmetry=Scalar(str(self.symmetry)),
             symmetry_candidates=Scalar(str(self.symmetry_candidates)),
             role=Scalar(str(self.role)),
+            bfs_dist=Grid(self.nav_dist, palette=_P_DIST),
+            bfs_parent=VectorField(_parent_to_angles(self.nav_parent, self.w)),
         )
 
     # ================================================================================
@@ -1337,10 +1293,11 @@ class Builder(Unit):
         *,
         check_money: bool = True,
     ) -> None:
-        start = ct.get_position()
-        path = self._find_path(ct, start, target)
+        path = self._extract_path(target.x, target.y)
         if path and len(path) > 1:
-            next_pos = path[1]
+            w = self.w
+            nx, ny = path[1] % w, path[1] // w
+            next_pos = Position(nx, ny)
             if check_money and ct.get_global_resources()[0] < 75:
                 dirs = DIR8
                 self.rng.shuffle(dirs)
@@ -1360,7 +1317,7 @@ class Builder(Unit):
             self.scout_age > 20
             or t is None
             or my_pos.distance_squared(t) < 3
-            or self.get_cost(t) == float("inf")
+            or self.get_cost(t) >= INF
         ):
             t = Position(-10, -10)
             while (
@@ -1368,7 +1325,7 @@ class Builder(Unit):
                 or t.y < 0
                 or t.x >= self.w
                 or t.y >= self.h
-                or self.get_cost(t) == float("inf")
+                or self.get_cost(t) >= INF
             ):
                 theta = self.rng.random() * math.tau
                 t = Position(
@@ -1748,26 +1705,28 @@ class Builder(Unit):
             case _:
                 return False
 
-    def _gunner_facing(self, ct: Controller, position: Position) -> Direction | None:
-        if position not in self.adjacent_to_harvester:
+    def _gunner_facing(self, ct: Controller, pos: Position) -> Direction | None:
+        if not self.in_bounds(pos):
             return None
-        if not self.is_buildable(position):
+        if pos not in self.adjacent_to_harvester:
             return None
-        if Builder._is_turret(self.get_building(position)):
+        if not self.is_buildable(pos):
             return None
-        if not self.in_bounds(position) or not ct.is_in_vision(position):
+        if Builder._is_turret(self.get_building(pos)):
             return None
-        builder = ct.get_tile_builder_bot_id(position)
+        if not self.in_bounds(pos) or not ct.is_in_vision(pos):
+            return None
+        builder = ct.get_tile_builder_bot_id(pos)
         if builder is not None and builder != ct.get_id():
             return None
         for d in DIR8:
-            match self.get_building(position.add(d)):
+            match self.get_building(pos.add(d)):
                 case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
                     t != ct.get_team()
                 ):
                     for harvester_direction in DIR4:
                         if harvester_direction != d:
-                            match self.get_building(position.add(harvester_direction)):
+                            match self.get_building(pos.add(harvester_direction)):
                                 case BuildingHarvester():
                                     return d
         return None
@@ -2551,7 +2510,10 @@ class Builder(Unit):
         self._update_role(ct)
         t3 = ct.get_cpu_time_elapsed()
         print(f"  role={t3 - t2}us")
-        print(f"update={t3 - t0}us")
+        self._update_bfs(ct)
+        t3b = ct.get_cpu_time_elapsed()
+        print(f"  bfs={t3b - t3}us")
+        print(f"update={t3b - t0}us")
 
         if DEBUG_DUMP:
             self._dump(ct)
