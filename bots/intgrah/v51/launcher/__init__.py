@@ -26,7 +26,13 @@ _PASSABLE_BUILDINGS = frozenset(
 
 
 def _is_walkable(ct: Controller, pos: Position) -> bool:
-    if not ct.is_in_vision(pos):
+    if (
+        pos.x < 0
+        or pos.x >= ct.get_map_width()
+        or pos.y < 0
+        or pos.y >= ct.get_map_height()
+        or not ct.is_in_vision(pos)
+    ):
         return False
     if ct.get_tile_env(pos) == Environment.WALL:
         return False
@@ -73,10 +79,17 @@ def _find_harvester_attack_tiles(ct: Controller, my_team: Team) -> list[Position
                 and ct.get_team(adj_bid) != my_team
             ):
                 targets.append(adj)
-            elif not ct.is_in_vision(adj) or ct.get_tile_building_id(adj) is None:
+            elif (
+                adj.x < 0
+                or adj.x >= ct.get_map_width()
+                or adj.y < 0
+                or adj.y >= ct.get_map_height()
+                or not ct.is_in_vision(adj)
+                or ct.get_tile_building_id(adj) is None
+            ):
                 for d2 in _DIR8:
                     adj2 = pos.add(d2)
-                    if ct.is_in_vision(adj2) and _is_empty_walkable(ct, adj2):
+                    if _is_empty_walkable(ct, adj2):
                         targets.append(adj2)
                 break
     return targets
