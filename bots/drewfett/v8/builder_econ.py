@@ -643,6 +643,16 @@ def _task_explore(builder: Builder, ct: Controller) -> tuple[str, bool]:
     if target is None:
         return "explore:no_target", False
 
+    # Econ builders: don't wander too far from core
+    s = builder.state
+    pos = ct.get_position()
+    core_dist = abs(pos.x - s.core_pos.x) + abs(pos.y - s.core_pos.y)
+    if core_dist > 20:
+        # Too far — walk back toward core
+        builder.nav.set_goal(s.core_pos)
+        moved = builder.nav.step(ct)
+        return "explore:return_core", moved
+
     builder.nav.set_goal(target)
     moved = builder.nav.step(ct)
     return f"explore:walk->({target.x},{target.y})", moved

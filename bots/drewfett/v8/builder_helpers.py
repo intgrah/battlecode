@@ -268,22 +268,28 @@ def _has_nearby_threat(s: State, tile_idx: int) -> bool:
 
 
 def _tile_has_correct_transport(s: State, ci: int, ni: int, w: int) -> bool:
-    """Check if tile ci already has transport outputting toward ni."""
+    """Check if tile ci already has transport outputting toward ni.
+
+    Uses flow model if available, falls back to manual check.
+    """
     if ci in s.core_tiles:
         return True
     bld = s.building[ci]
     if isinstance(bld, BuildingHarvester):
         return True
-
     if bld is None:
         return False
-
     if bld.team != s.my_team:
         return False
 
+    # Use flow model (single source of truth for outputs)
+    flow = getattr(s, 'flow', None)
+    if flow is not None:
+        return ni in flow.outputs_of(ci)
+
+    # Fallback (before flow model is built, e.g. first turn)
     cx, cy = ci % w, ci // w
     nx, ny = ni % w, ni // w
-
     match bld:
         case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
             ddx, ddy = d.delta()
@@ -613,11 +619,14 @@ def try_place_turret_at(
                 continue
             if isinstance(hit_bld, _TURRET_SKIP):
                 continue
-            if hit not in en_targets:
-                continue  # not a valid target (transport, barrier, etc.)
+            # Any non-skipped enemy building in LoS is a valid target
             facing = DELTA_TO_DIR.get((fdx, fdy))
             if facing is None:
                 continue
+            # VERIFY FEED before committing (the key invariant)
+            flow = getattr(s, 'flow', None)
+            if flow is not None and not flow.has_feed_for_turret(ti, fdx, fdy):
+                continue  # no verified feed — skip this direction
             hx, hy = hit % w, hit // w
             _log(f"  turret({tx},{ty}): gunner face={facing.name} -> ({hx},{hy})", ct.get_id())
             return _do_place(s, ct, nav, ti, tpos, pos, facing, sentinel=False)
@@ -641,6 +650,10 @@ def try_place_turret_at(
             if _in_sentinel_arc(tx, ty, fdx, fdy, ex, ey):
                 facing = DELTA_TO_DIR.get((fdx, fdy))
                 if facing is None:
+                    continue
+                # VERIFY FEED
+                flow = getattr(s, 'flow', None)
+                if flow is not None and not flow.has_feed_for_turret(ti, fdx, fdy):
                     continue
                 _log(f"  turret({tx},{ty}): sentinel face={facing.name} -> ({ex},{ey})", ct.get_id())
                 return _do_place(s, ct, nav, ti, tpos, pos, facing, sentinel=True)
@@ -708,9 +721,9 @@ def _do_place(
                 break
     else:
         hit = _has_los(s, tx, ty, fdx, fdy)
-        if hit is not None and hit in en_targets:
+        if hit is not None:
             hbld = s.building[hit]
-            if hbld is not None and not isinstance(hbld, _TURRET_SKIP):
+            if hbld is not None and hbld.team != s.my_team and not isinstance(hbld, _TURRET_SKIP):
                 has_target = True
 
     if not has_target:

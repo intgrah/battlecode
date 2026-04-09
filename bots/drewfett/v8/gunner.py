@@ -94,8 +94,6 @@ def _compute_feed_chain(ct: Controller, pos: Position, my_team: int) -> set[int]
 class Gunner(Unit):
     def __init__(self, ct: Controller) -> None:
         self._idle_rounds = 0
-        self._last_target_pos: Position | None = None
-        self._last_target_hp: int = 0
 
     def run(self, ct: Controller) -> None:
         my_team = ct.get_team()
@@ -109,23 +107,14 @@ class Gunner(Unit):
         # Try to fire along current facing
         target = _scan_ray(ct, pos, direction, my_team, protected, w)
         if target is not None and ct.can_fire(target):
-            # Reset heal tracking if target changed
-            if self._last_target_pos != target:
-                self._last_target_hp = 0
-                self._last_target_pos = target
-            # Check if target HP went UP (being healed)
-            bid = ct.get_tile_building_id(target)
-            hp = ct.get_hp(bid) if bid is not None else 0
-            if hp > self._last_target_hp and self._last_target_hp > 0:
-                self._idle_rounds = _IDLE_LIMIT
-            else:
-                ct.fire(target)
-                self._last_target_hp = hp - 10
-                self._idle_rounds = 0
-                return
+            ct.fire(target)
+            self._idle_rounds = 0
+            return
 
-        # Try rotating to find a better target
-        # Lookahead: if first hit is a road, peek behind for higher-value targets
+        # Try rotating to find a target worth the 10 Ti rotation cost
+        # Only rotate for priority >= 3 (transport, turrets, core)
+        # Don't rotate for roads (1), barriers (2), or bots (dodge)
+        _MIN_ROTATE_PRIORITY = 3
         best_target: Position | None = None
         best_priority = -1
         best_dir: Direction | None = None
@@ -134,34 +123,35 @@ class Gunner(Unit):
             if t is None:
                 continue
             bid = ct.get_tile_building_id(t)
-            bot_id = ct.get_tile_builder_bot_id(t)
-            if bid is not None and ct.get_team(bid) != my_team:
-                etype = ct.get_entity_type(bid)
-                p = _target_priority(etype)
-                # If it's a road, peek behind for better targets
-                if etype == EntityType.ROAD:
-                    behind = _scan_ray_from(ct, t, d, my_team)
-                    if behind is not None:
-                        bbid = ct.get_tile_building_id(behind)
-                        if bbid is not None and ct.get_team(bbid) != my_team:
-                            bp = _target_priority(ct.get_entity_type(bbid))
-                            if bp > p:
-                                p = bp  # boost this direction's priority
-            else:
-                # Don't rotate for enemy bots — they dodge, wastes 10 Ti rotation
-                continue
+            if bid is None or ct.get_team(bid) == my_team:
+                continue  # skip own buildings / bot-only tiles
+            etype = ct.get_entity_type(bid)
+            p = _target_priority(etype)
+            if p <= 0:
+                continue  # never shoot (harvesters)
+            # Lookahead: if low-priority target (road/barrier), peek behind
+            if p <= 2:
+                behind = _scan_ray_from(ct, t, d, my_team)
+                if behind is not None:
+                    bbid = ct.get_tile_building_id(behind)
+                    if bbid is not None and ct.get_team(bbid) != my_team:
+                        bp = _target_priority(ct.get_entity_type(bbid))
+                        if bp > p:
+                            p = bp
             if p > best_priority:
                 best_priority = p
                 best_target = t
                 best_dir = d
 
-        if best_dir is not None and best_dir != direction and ct.can_rotate(best_dir):
-            ct.rotate(best_dir)
-            self._idle_rounds = 0
-            return
+        # Rotate only for high-value targets
+        if best_dir is not None and best_priority >= _MIN_ROTATE_PRIORITY and best_dir != direction:
+            if ct.can_rotate(best_dir):
+                ct.rotate(best_dir)
+                self._idle_rounds = 0
+                return
 
-        # If already facing correct direction and can fire, do it
-        if best_target is not None and ct.can_fire(best_target):
+        # Fire at whatever we're facing if it's worth shooting
+        if best_target is not None and best_dir == direction and ct.can_fire(best_target):
             ct.fire(best_target)
             self._idle_rounds = 0
             return
@@ -279,30 +269,33 @@ def _scan_ray_from(
 
 
 def _target_priority(etype: EntityType) -> int:
+    """Priority for what to shoot. Higher = more important.
+
+    For ROTATION decisions (10 Ti cost), only rotate for priority >= 3.
+    For FIRING decisions (already facing), shoot anything priority >= 1.
+    """
     match etype:
+        case EntityType.CORE:
+            return 8  # highest — this wins the game
         case (
             EntityType.GUNNER
             | EntityType.SENTINEL
             | EntityType.BREACH
             | EntityType.LAUNCHER
         ):
-            return 6
-        case EntityType.BUILDER_BOT:
-            return 5
-        case EntityType.HARVESTER:
-            return 0  # never shoot — might be feeding us via parasitization
+            return 6  # enemy turrets — high threat
         case (
             EntityType.CONVEYOR
             | EntityType.SPLITTER
             | EntityType.ARMOURED_CONVEYOR
             | EntityType.BRIDGE
         ):
-            return 3
-        case EntityType.CORE:
-            return 2
-        case EntityType.ROAD:
-            return 2  # cheap to kill (5 HP), often screens better targets
+            return 4  # enemy transport — disrupts their economy
         case EntityType.BARRIER:
-            return 1
+            return 2  # blocks space but low value
+        case EntityType.ROAD:
+            return 1  # cheapest — don't rotate for this, but fire if facing
+        case EntityType.HARVESTER:
+            return 0  # never — might be feeding us
         case _:
             return 0
