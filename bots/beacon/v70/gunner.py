@@ -35,7 +35,6 @@ class Gunner(Unit):
                 return
 
         # Try rotating to find a better target
-        # Lookahead: if first hit is a road, peek behind for higher-value targets
         best_target: Position | None = None
         best_priority = -1
         best_dir: Direction | None = None
@@ -48,14 +47,6 @@ class Gunner(Unit):
             if bid is not None and ct.get_team(bid) != my_team:
                 etype = ct.get_entity_type(bid)
                 p = _target_priority(etype)
-                # If it's a road, peek behind for better targets
-                if etype == EntityType.ROAD:
-                    behind = _scan_ray_from(ct, t, d, my_team)
-                    if behind is not None:
-                        bbid = ct.get_tile_building_id(behind)
-                        if bbid is not None and ct.get_team(bbid) != my_team:
-                            bp = _target_priority(ct.get_entity_type(bbid))
-                            p = max(p, bp)  # boost this direction's priority
             elif bot_id is not None and ct.get_team(bot_id) != my_team:
                 p = _target_priority(EntityType.BUILDER_BOT)
             else:
@@ -102,7 +93,12 @@ def _scan_ray(
     direction: Direction,
     my_team: int,
 ) -> Position | None:
-    """Walk ray from pos in direction, return first targetable enemy or None."""
+    """Walk ray from pos in direction, return first targetable enemy or None.
+
+    Special case: if a friendly road blocks LoS, peek along the rest of the
+    ray for an enemy target. If found, return the road (gunner clears it
+    next shot to reach the target). Otherwise the road blocks normally.
+    """
     dx, dy = direction.delta()
     x, y = pos.x + dx, pos.y + dy
     w = ct.get_map_width()
@@ -114,6 +110,13 @@ def _scan_ray(
         env = ct.get_tile_env(p)
         if env == Environment.WALL:
             break  # wall blocks, not targetable
+        # Check for builder bot FIRST. Per game rules, when a bot stands on
+        # a building, turret damage hits the bot, not the building.
+        bot_id = ct.get_tile_builder_bot_id(p)
+        if bot_id is not None:
+            if ct.get_team(bot_id) == my_team:
+                break  # friendly bot blocks LoS — no friendly fire
+            return p  # enemy bot — shoot it (even if on a building)
         bid = ct.get_tile_building_id(p)
         if bid is not None:
             etype = ct.get_entity_type(bid)
@@ -125,44 +128,43 @@ def _scan_ray(
                 if etype == EntityType.HARVESTER:
                     break  # don't shoot harvesters — might feed us
                 return p  # enemy target
-            # Own roads are cheap (5 HP) — treat as shootable obstacle,
-            # gunner will destroy them to reach targets behind
-            if etype == EntityType.ROAD:
-                return p  # targetable — will clear for LoS
-            break  # other own buildings block
-        # Check for builder bot on this tile (bots block LoS)
-        bot_id = ct.get_tile_builder_bot_id(p)
-        if bot_id is not None:
-            if ct.get_team(bot_id) != my_team:
-                return p  # enemy bot — targetable
-            break  # friendly bot — blocks LoS
+            # Friendly building. Roads are cheap to clear if there's a real
+            # target behind them — peek the rest of the ray.
+            if etype == EntityType.ROAD and _has_enemy_behind(
+                ct, x, y, dx, dy, pos, my_team
+            ):
+                return p  # shoot the road to clear LoS for next turn
+            break  # other friendly building blocks
         x += dx
         y += dy
     return None
 
 
-def _scan_ray_from(
+def _has_enemy_behind(
     ct: Controller,
-    start: Position,
-    direction: Direction,
+    rx: int,
+    ry: int,
+    dx: int,
+    dy: int,
+    origin: Position,
     my_team: int,
-) -> Position | None:
-    """Like _scan_ray but starts one tile past 'start'. Used for lookahead."""
-    dx, dy = direction.delta()
-    # Start from one tile past 'start'
-    x, y = start.x + dx, start.y + dy
+) -> bool:
+    """Walk past (rx,ry) along (dx,dy) and return True if a worthwhile enemy
+    target is found before LoS is permanently blocked. Used to decide whether
+    a friendly road in front of the gunner is worth clearing."""
     w = ct.get_map_width()
     h = ct.get_map_height()
-    # Only look a few tiles ahead (don't need full range)
-    for _ in range(3):
-        if not (0 <= x < w and 0 <= y < h):
+    x, y = rx + dx, ry + dy
+    while 0 <= x < w and 0 <= y < h:
+        if (x - origin.x) ** 2 + (y - origin.y) ** 2 > 13:
             break
         p = Position(x, y)
-        if not ct.is_in_vision(p):
-            break
         env = ct.get_tile_env(p)
         if env == Environment.WALL:
-            break
+            return False
+        bot_id = ct.get_tile_builder_bot_id(p)
+        if bot_id is not None and ct.get_team(bot_id) == my_team:
+            return False  # friendly bot blocks
         bid = ct.get_tile_building_id(p)
         if bid is not None:
             etype = ct.get_entity_type(bid)
@@ -171,11 +173,14 @@ def _scan_ray_from(
                 y += dy
                 continue
             if ct.get_team(bid) != my_team:
-                return p
-            break
+                # Worth clearing road for any enemy except harvesters
+                return etype != EntityType.HARVESTER
+            return False  # another friendly building blocks
+        if bot_id is not None:
+            return True  # enemy bot
         x += dx
         y += dy
-    return None
+    return False
 
 
 def _target_priority(etype: EntityType) -> int:
