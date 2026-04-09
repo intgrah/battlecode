@@ -110,11 +110,13 @@ def _scan_ray(
         env = ct.get_tile_env(p)
         if env == Environment.WALL:
             break  # wall blocks, not targetable
-        # Check for builder bot FIRST — if friendly bot is on a building,
-        # turret damage hits the bot, not the building. Don't friendly-fire.
+        # Check for builder bot FIRST. Per game rules, when a bot stands on
+        # a building, turret damage hits the bot, not the building.
         bot_id = ct.get_tile_builder_bot_id(p)
-        if bot_id is not None and ct.get_team(bot_id) == my_team:
-            break  # friendly bot — blocks LoS, don't shoot
+        if bot_id is not None:
+            if ct.get_team(bot_id) == my_team:
+                break  # friendly bot blocks LoS — no friendly fire
+            return p  # enemy bot — shoot it (even if on a building)
         bid = ct.get_tile_building_id(p)
         if bid is not None:
             etype = ct.get_entity_type(bid)
@@ -125,7 +127,7 @@ def _scan_ray(
             if ct.get_team(bid) != my_team:
                 if etype == EntityType.HARVESTER:
                     break  # don't shoot harvesters — might feed us
-                return p  # enemy target (also hits enemy bot if standing on it)
+                return p  # enemy target
             # Friendly building. Roads are cheap to clear if there's a real
             # target behind them — peek the rest of the ray.
             if etype == EntityType.ROAD and _has_enemy_behind(
@@ -133,9 +135,6 @@ def _scan_ray(
             ):
                 return p  # shoot the road to clear LoS for next turn
             break  # other friendly building blocks
-        # No building, but enemy bot on this tile
-        if bot_id is not None:
-            return p  # enemy bot — targetable
         x += dx
         y += dy
     return None
