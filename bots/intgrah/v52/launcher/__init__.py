@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Final, override
+from typing import override
 
 from cambc import Controller, EntityType, Environment, Position
-from unit import Unit
+from unit import StationaryUnit
 from util import DIR4, DIR8
 
 __all__ = ["Launcher"]
@@ -19,12 +19,7 @@ _PASSABLE_BUILDINGS = frozenset(
 )
 
 
-class Launcher(Unit):
-    @override
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
-        self.my_pos: Final[Position] = ct.get_position()
-
+class Launcher(StationaryUnit):
     @override
     def run(self, ct: Controller) -> None:
 

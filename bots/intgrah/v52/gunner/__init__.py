@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final, override
 
-from cambc import Controller, EntityType, Position
-from unit import Unit
+from cambc import Controller, EntityType
+from unit import StationaryUnit
 
 if TYPE_CHECKING:
     from cambc import Direction
@@ -11,13 +11,12 @@ if TYPE_CHECKING:
 __all__ = ["Gunner"]
 
 
-class Gunner(Unit):
+class Gunner(StationaryUnit):
     SELF_DESTRUCT_THRESHOLD: Final[int] = 10
 
     @override
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
-        self.my_pos: Final[Position] = ct.get_position()
         self.idle_turns: int = 0
 
     @override
