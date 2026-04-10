@@ -61,7 +61,6 @@ members = [
     "bot-v51",
     "bot-v52",
     "bot-v52-lockedin",
-    "cambcpypy",
     "proto",
     "util",
     "visualiser",
@@ -728,23 +727,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/23/2c/04aad294d4a3c6a6c8817605579d82a64e7d2f46c5deaf9cfce9fccf043f/cambc-1.6.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:14e9eb83d3738418d55d13f41c17c9d3ea8a940e09af7539c0c9218db7451261", size = 12734110, upload-time = "2026-04-07T20:12:00.753Z" },
     { url = "https://files.pythonhosted.org/packages/d1/4a/cb4633b98be187536ca9101e60289425d94d6b8b9d5fab3ea744bb3a4c34/cambc-1.6.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7aff5066bd4b84f78bd038e691b32073ca13349d402a8f1471716cb66d522cca", size = 12752954, upload-time = "2026-04-07T20:12:03.188Z" },
     { url = "https://files.pythonhosted.org/packages/57/d3/bfed7e33770cd24346e35904aa7f876ddca179489e80bdd5537a0f2078c6/cambc-1.6.2-cp313-cp313-win_amd64.whl", hash = "sha256:e4b3675aa90bb44233c879a203e95840e5421db7b8c0d0dcb7004a33e8679f21", size = 12574856, upload-time = "2026-04-07T20:12:05.675Z" },
-]
-
-[[package]]
-name = "cambcpypy"
-version = "1.6.2"
-source = { editable = "cambcpypy" }
-dependencies = [
-    { name = "click" },
-    { name = "proto" },
-    { name = "rich" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click" },
-    { name = "proto", editable = "lib/proto" },
-    { name = "rich" },
 ]
 
 [[package]]
