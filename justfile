@@ -5,6 +5,9 @@ _analysis := "uv run replay-analyze"
 run a b map=default_map:
     cambc run {{ a }} {{ b }} {{ map }}
 
+r a b map=default_map:
+    VIRTUAL_ENV= uv run --project cambcpypy cambcpypy run {{ a }} {{ b }} {{ map }}
+
 v replay="replay.replay26": vv
     lib/visualiser/viewer/target/release/visualiser-viewer {{ replay }}
 
