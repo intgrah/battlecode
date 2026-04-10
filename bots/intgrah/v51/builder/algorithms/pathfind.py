@@ -53,10 +53,11 @@ class AStarSearch:
         self._dist = [_INF] * (self._w * self._h)
 
     def _reset(self, state: State) -> None:
-        if not self._dist:
+        n = state.w * state.h
+        if len(self._dist) != n:
             self._init_grid(state)
         self._no_path = False
-        self._visited = bytearray((self._w * self._h + 7) // 8)
+        self._visited = bytearray((n + 7) // 8)
         self._q = []
 
     def _cost_grid(self, state: State) -> array[float]:
