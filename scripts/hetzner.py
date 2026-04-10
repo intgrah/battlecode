@@ -432,11 +432,13 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             if replay_b64:
                 (replay_dir / replay_name).write_bytes(base64.b64decode(replay_b64))
 
+            resign_msg = result.get("resign_message")
+            suffix = f" [{resign_msg}]" if resign_msg else ""
             print(
                 f"  [{result.get('score', '?')}] "
                 f"game {result['game']:>2}: {result['winner']:<20} "
                 f"{result['map']:<16} t={result['turns']:>4} "
-                f"({result['condition']}, {result['time']:.1f}s) "
+                f"({result['condition']}, {result['time']:.1f}s){suffix} "
                 f"-> {(replay_dir / replay_name).relative_to(_PROJECT_ROOT)}"
             )
     finally:
