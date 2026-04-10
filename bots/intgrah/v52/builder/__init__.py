@@ -606,6 +606,9 @@ class Builder(Unit):
         w = self.w
         nearby_tiles = ct.get_nearby_tiles()
 
+        self.nearby_buildings = [
+            p for p in self.nearby_buildings if not ct.is_in_vision(p)
+        ]
         self.healable_buildings = [
             p for p in self.healable_buildings if not ct.is_in_vision(p)
         ]
@@ -2067,6 +2070,7 @@ class Builder(Unit):
         )
 
     def _run_attack(self, ct: Controller) -> None:
+        _ta = ct.get_cpu_time_elapsed()
         team = ct.get_team()
         enemy_buildings = [
             p
@@ -2078,6 +2082,8 @@ class Builder(Unit):
             for p in enemy_buildings
             if isinstance(self.get_building(p), BuildingHarvester)
         ]
+        _tb = ct.get_cpu_time_elapsed()
+        print(f"    atk_setup={_tb - _ta}us eb={len(enemy_buildings)} eh={len(enemy_harvesters)} nb={len(self.nearby_buildings)}")
 
         def has_open_side(position: Position) -> bool:
             for direction in DIR4:
@@ -2101,6 +2107,8 @@ class Builder(Unit):
             return False
 
         vulnerable_harvesters = [p for p in enemy_harvesters if has_open_side(p)]
+        _tc = ct.get_cpu_time_elapsed()
+        print(f"    atk_vuln={_tc - _tb}us vh={len(vulnerable_harvesters)}")
         enemy_core = self._get_enemy_core_pos()
 
         if (self.offense_turns > 25) or (
@@ -2247,6 +2255,8 @@ class Builder(Unit):
             self._make_move(ct, self.offense_target)
         else:
             self._scout_toward_enemy(ct)
+        _td = ct.get_cpu_time_elapsed()
+        print(f"    atk_body={_td - _tc}us")
 
     def _scout_toward_enemy(self, ct: Controller) -> None:
         en_core = self._get_enemy_core_pos()
@@ -2538,7 +2548,13 @@ class Builder(Unit):
             ],
         }
         for task in policies[self.role]:
-            if task(self, ct):
+            tt0 = ct.get_cpu_time_elapsed()
+            hit = task(self, ct)
+            tt1 = ct.get_cpu_time_elapsed()
+            dt = tt1 - tt0
+            if dt > 100:
+                print(f"  {task.__name__}={dt}us")
+            if hit:
                 break
 
         if self.role != Role.OFFENSE:
