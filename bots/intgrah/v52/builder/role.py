@@ -17,20 +17,17 @@ ROLE_WEIGHTS: Final[dict[bool, dict[Role, int]]] = {
 }
 
 ROLE_TRANSITION: dict[Role, dict[Role, int]] = {
-    Role.ECON: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
-    Role.DEFENSE: {Role.OFFENSE: 10, Role.DEFENSE: 80, Role.ECON: 10},
-    Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
+    Role.ECON: {Role.OFFENSE: 12, Role.DEFENSE: 1, Role.ECON: 7},
+    Role.DEFENSE: {Role.OFFENSE: 2, Role.DEFENSE: 16, Role.ECON: 2},
+    Role.OFFENSE: {Role.OFFENSE: 12, Role.DEFENSE: 0, Role.ECON: 8},
 }
 
 
-ROLE_OPENING: Final[tuple[tuple[Role, bool], ...]] = (
-    (Role.ECON, True),
-    (Role.ECON, False),
-    (Role.DEFENSE, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
+ROLE_OPENING: Final[tuple[Role, ...]] = (
+    Role.ECON,
+    Role.ECON,
+    Role.DEFENSE,
+    Role.OFFENSE,
+    Role.OFFENSE,
+    Role.OFFENSE,
 )
-
-ROLE_REASSIGN_PERIOD: Final[int] = 150
-ROLE_REASSIGN_AFTER: Final[int] = 400

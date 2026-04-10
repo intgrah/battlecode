@@ -44,8 +44,6 @@ from visualiser import Grid, Palette, Scalar, Tiles, VectorField, emit
 
 from .role import (
     ROLE_OPENING,
-    ROLE_REASSIGN_AFTER,
-    ROLE_REASSIGN_PERIOD,
     ROLE_TRANSITION,
     ROLE_WEIGHTS,
     Role,
@@ -400,8 +398,7 @@ class Builder(Unit):
         self.nearest_junction_site: Position | None = None
 
         self.role: Role | None = None
-        self.role_age: int = 0
-        self.permanent_role: bool = False
+        self.role_ttl: int = 0
 
         self.ore_target: Position | None = None
         self.pending_bridge: Position | None = None
@@ -966,29 +963,23 @@ class Builder(Unit):
             return self.rng.choices(roles, weights=weights)[0]
         idx = ct.get_unit_count() - 3
         if idx < len(ROLE_OPENING):
-            role, perm = ROLE_OPENING[idx]
-            self.permanent_role = perm
-            return role
+            return ROLE_OPENING[idx]
         return Role.ECON
 
     def _update_role(self, ct: Controller) -> None:
         if self.role is None:
             self.role = self._pick_initial_role(ct)
 
-        if (
-            self.role_age > ROLE_REASSIGN_PERIOD
-            and ct.get_current_round() > ROLE_REASSIGN_AFTER
-            and not self.permanent_role
-        ):
-            self.role_age = 0
+        if self.role_ttl > 120 and ct.get_current_round() > 350:
+            self.role_ttl = 0
             row = ROLE_TRANSITION[self.role]
             roles = list(row)
             weights = [row[role] for role in roles]
             self.role = self.rng.choices(roles, weights=weights)[0]
             if self.role == Role.OFFENSE:
-                self.role_age = -300
+                self.role_ttl = 0
 
-        self.role_age += 1
+        self.role_ttl += 1
 
     # ================================================================================
     #  Economy Update
@@ -1786,7 +1777,7 @@ class Builder(Unit):
             return True
         return False
 
-    def _place_gunner_nearby(self, ct: Controller) -> bool:
+    def _task_gunner_defend(self, ct: Controller) -> bool:
         my_pos = ct.get_position()
         for d in DIR8:
             test_position = my_pos.add(d)
@@ -2370,9 +2361,8 @@ class Builder(Unit):
     #  Task: Extra (Fix Enemy Conveyor, Pave Near Harvesters)
     # ================================================================================
 
-    def _fix_enemy_conveyor(self, ct: Controller) -> bool:
-        nearby_positions = ct.get_nearby_tiles(2)
-        for pos in nearby_positions:
+    def _task_en_conv(self, ct: Controller) -> bool:
+        for pos in ct.get_nearby_tiles(2):
             if self.leads_to_enemy_building(pos) and ct.can_destroy(pos):
                 ct.destroy(pos)
                 if ct.can_build_road(pos):
@@ -2380,9 +2370,8 @@ class Builder(Unit):
                     return True
         return False
 
-    def _pave_near_harvesters(self, ct: Controller) -> bool:
-        nearby_positions = ct.get_nearby_tiles(2)
-        for pos in nearby_positions:
+    def _task_mov_harvester(self, ct: Controller) -> bool:
+        for pos in ct.get_nearby_tiles(2):
             if (
                 pos in self.adjacent_to_harvester
                 and not self.get_building(pos)
@@ -2400,7 +2389,7 @@ class Builder(Unit):
     #  Policy Dispatch & Main Loop
     # ================================================================================
 
-    def _connect_close(self, ct: Controller) -> bool:
+    def _task_conn_clos(self, ct: Controller) -> bool:
         my_pos = ct.get_position()
         if self.branch_start and my_pos.distance_squared(self.branch_start) <= 2:
             self._route_to_core(ct, self.branch_start)
@@ -2410,7 +2399,7 @@ class Builder(Unit):
             return True
         return False
 
-    def _connect_far(self, ct: Controller) -> bool:
+    def _task_connect_excess(self, ct: Controller) -> bool:
         if self.branch_start:
             self._route_to_core(ct, self.branch_start)
             return True
@@ -2419,31 +2408,34 @@ class Builder(Unit):
             return True
         return False
 
-    def _heal(self, ct: Controller) -> bool:
+    def _task_heal(self, ct: Controller) -> bool:
         return self._run_heal(ct) or self._heal_builders(ct)
 
-    def _patrol_cheap(self, ct: Controller) -> bool:
+    def _task_patrol_early(self, ct: Controller) -> bool:
         return (
             self.role == Role.DEFENSE
             and not can_afford(ct, EntityType.HARVESTER)
             and self._run_patrol(ct)
         )
 
-    def _harvest(self, ct: Controller) -> bool:
+    def _task_harvest_ti(self, ct: Controller) -> bool:
         return self.ore_target is not None and self._build_at_ore(ct, self.ore_target)
 
-    def _patrol_late(self, ct: Controller) -> bool:
+    def _task_harvest_ax(self, _ct: Controller) -> bool:
+        return False
+
+    def _task_patrol(self, ct: Controller) -> bool:
         return (
             self.role == Role.DEFENSE
             and len(self.adjacent_to_harvester) > 0
             and self._run_patrol(ct)
         )
 
-    def _opportunistic_attack(self, ct: Controller) -> bool:
+    def _task_attack_rand(self, ct: Controller) -> bool:
         if (
             self.opportunistic
-            and self.rng.random() < 0.2
-            and ct.get_current_round() > 100
+            and self.rng.random() < 0.15
+            and ct.get_current_round() > 95
             and ct.can_fire(ct.get_position())
             and ct.get_team(ct.get_tile_building_id(ct.get_position())) != ct.get_team()
         ):
@@ -2451,15 +2443,15 @@ class Builder(Unit):
             return True
         return False
 
-    def _task_explore(self, ct: Controller) -> bool:
+    def _task_scout(self, ct: Controller) -> bool:
         if not self.frontier:
             return False
-        if ct.get_global_resources()[0] <= 100:
+        if ct.get_global_resources()[0] <= 95:
             return False
         self._explore(ct)
         return True
 
-    def _task_wander(self, ct: Controller) -> bool:
+    def _task_random_walk(self, ct: Controller) -> bool:
         dir8 = DIR8[:]
         self.rng.shuffle(dir8)
         my_pos = ct.get_position()
@@ -2468,7 +2460,7 @@ class Builder(Unit):
                 return True
         return any(self._try_move_with_road(ct, my_pos.add(d)) for d in dir8)
 
-    def _attack(self, ct: Controller) -> bool:
+    def _task_attack(self, ct: Controller) -> bool:
         self._run_attack(ct)
         return True
 
@@ -2533,34 +2525,38 @@ class Builder(Unit):
         assert self.role is not None
         policies: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
             Role.OFFENSE: [
-                Builder._heal,
-                Builder._attack,
+                Builder._task_heal,
+                Builder._task_attack,
+                Builder._task_attack_rand,
+                Builder._task_scout,
             ],
             Role.ECON: [
-                Builder._place_gunner_nearby,
-                Builder._fix_enemy_conveyor,
-                Builder._pave_near_harvesters,
-                Builder._connect_close,
-                Builder._heal,
-                Builder._connect_far,
-                Builder._harvest,
-                Builder._opportunistic_attack,
-                Builder._task_explore,
-                Builder._task_wander,
+                Builder._task_gunner_defend,
+                Builder._task_en_conv,
+                Builder._task_mov_harvester,
+                Builder._task_conn_clos,
+                Builder._task_heal,
+                Builder._task_connect_excess,
+                Builder._task_harvest_ti,
+                Builder._task_attack_rand,
+                Builder._task_harvest_ax,
+                Builder._task_scout,
+                Builder._task_random_walk,
             ],
             Role.DEFENSE: [
-                Builder._place_gunner_nearby,
-                Builder._fix_enemy_conveyor,
-                Builder._pave_near_harvesters,
-                Builder._connect_close,
-                Builder._heal,
-                Builder._connect_far,
-                Builder._patrol_cheap,
-                Builder._harvest,
-                Builder._patrol_late,
-                Builder._opportunistic_attack,
-                Builder._task_explore,
-                Builder._task_wander,
+                Builder._task_gunner_defend,
+                Builder._task_en_conv,
+                Builder._task_mov_harvester,
+                Builder._task_conn_clos,
+                Builder._task_heal,
+                Builder._task_connect_excess,
+                Builder._task_patrol_early,
+                Builder._task_harvest_ti,
+                Builder._task_harvest_ax,
+                Builder._task_patrol,
+                Builder._task_attack_rand,
+                Builder._task_scout,
+                Builder._task_random_walk,
             ],
         }
         for task in policies[self.role]:
