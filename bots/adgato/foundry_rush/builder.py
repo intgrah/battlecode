@@ -6,14 +6,14 @@ from astar import ChainAstar
 from ti_plan import TiPlan
 from bfs import NavBfs
 from reachable import Reachable
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, Position, Direction
 from symmetry import Symmetry, SymmetryDetector
 from tile_codec import encode_tile
 from env_tracker import EnvTracker
 from rax_plan import RaxPlan
 from tracker import Tracker
 from unit import Unit
-from utils import try_move_away  # noqa: F401
+from utils import try_move_smart, _ALL_DIRS  # noqa: F401
 
 _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, EntityType.BARRIER, None))
 
@@ -81,6 +81,8 @@ class Builder(Unit):
         self._rr_idx: int = 0
         self.unitID: int | None = None
         self._got_ax: bool = False
+        self._many_units: bool = ct.get_unit_count() > 10
+        self._seen_enemy_core: bool = False
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -105,6 +107,18 @@ class Builder(Unit):
                     self.plan.set_core(self.core_pos)
                     break
             assert self.core_pos is not None
+
+        # emergency core heal
+        if ct.is_in_vision(self.core_pos):
+            bid = ct.get_tile_building_id(self.core_pos)
+            if ct.get_hp(bid) < ct.get_max_hp(bid):
+                self.nav.set_goal(self.core_pos)
+                if ct.can_heal(pos):
+                    ct.heal(pos)
+                self.nav.step(ct)
+                if ct.can_heal(pos):
+                    ct.heal(pos)
+                return
 
         # Run symmetry detection
         if self.sym.resolved is Symmetry.UNKNOWN:
@@ -135,8 +149,11 @@ class Builder(Unit):
         # TiPlan bots: patrol until refined axionite arrives, then
         # begin the ore-phase to find ti ore and build the chain.
         self._got_ax |= ct.get_global_resources()[1] > 0
+        if not self._seen_enemy_core and self.sym.enemy_core is not None:
+            self._seen_enemy_core |= ct.is_in_vision(self.sym.enemy_core)
+            
         if not self.need_plan:
-            print("post plan patrol")
+            print("cautious patrol")
             self._patrol(ct, new_pos)
         elif isinstance(self.plan, TiPlan) and not self._got_ax:
             print("pre ax patrol")
@@ -159,11 +176,11 @@ class Builder(Unit):
 
         if self.plan.has_plan:
             self.plan.chain.draw_path(ct, self.plan.plan_list)
-        #self.plan.chain.emit_vis()
-
+        
         self.nav.step(ct)
+        #self.plan.chain.emit_vis()
         #self.nav.emit_vis()
-        #self.reachable.emit_vis()
+        self.reachable.emit_vis()
 
 
     def _patrol(self, ct: Controller, pos: Position) -> None:
@@ -182,6 +199,7 @@ class Builder(Unit):
             patrol = (
                 self.allied_conveyors.as_positions()
                 + self.ti_ore.as_positions()
+                + self.ax_ore.as_positions()
             )
             if patrol:
                 self._rr_idx %= len(patrol)
@@ -195,9 +213,16 @@ class Builder(Unit):
                 self._handle_explore(ct, pos)
         self.allied_conveyors.draw_tracked(ct, 0, 200, 255)
         self.ti_ore.draw_tracked(ct, 0, 255, 255)
+        self.ax_ore.draw_tracked(ct, 0, 255, 255)
         #self._upgrade_adjacent_conveyor(ct, pos)
         self._barrier_adjacent_ore(ct)
 
+    def _consider_laucher(self, pos: Position, launcher_pos: set[Position]) -> bool:
+        for d in _ALL_DIRS:
+            if pos.add(d) in launcher_pos:
+                return False
+        return True
+    
     def _find_damaged(self, ct: Controller) -> Position | None:
         """Return the position of a visible friendly building with less
         than max HP, or None if everything is healthy.
@@ -242,7 +267,7 @@ class Builder(Unit):
             return
         for tile in ct.get_nearby_tiles(2):
             i = tile.y * self.w + tile.x
-            if not self.ti_ore.positions.get(i):
+            if not self.ti_ore.positions.get(i) and not self.ax_ore.positions.get(i):
                 continue
             if ct.can_build_barrier(tile):
                 ct.build_barrier(tile)
@@ -340,6 +365,7 @@ class Builder(Unit):
 
     def _handle_explore(self, ct: Controller, new_pos: Position) -> None:
         
+        self._barrier_adjacent_ore(ct)
         target = self.reachable.pick_frontier(new_pos, self.core_pos, self.sym.resolved)
         if target is not None:
             self.nav.set_goal(target)

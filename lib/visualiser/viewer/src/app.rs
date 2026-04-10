@@ -48,6 +48,7 @@ pub struct App {
     pub vis_overlays: std::collections::HashSet<String>,
     pub pan: egui::Vec2,
     pub zoom: f32,
+    pub interp_t: f32,
     replay_path: PathBuf,
     last_modified: SystemTime,
     last_step: Instant,
@@ -91,6 +92,7 @@ impl App {
             vis_overlays: std::collections::HashSet::new(),
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
+            interp_t: 0.0,
             replay_path,
             last_modified,
             last_step: Instant::now(),
@@ -103,6 +105,11 @@ impl App {
 
     pub const fn speed_label(&self) -> u32 {
         1 << self.speed as u32
+    }
+
+    pub fn toggle_playing(&mut self) {
+        self.playing = !self.playing;
+        self.last_step = Instant::now();
     }
 
     pub fn step_forward(&mut self, n: usize) {
@@ -163,8 +170,7 @@ impl App {
                 self.follow_entity = false;
             }
             if i.key_pressed(Key::Space) {
-                self.playing = !self.playing;
-                self.last_step = Instant::now();
+                self.toggle_playing();
             }
             if i.key_pressed(Key::ArrowRight) {
                 if shift {
@@ -245,8 +251,13 @@ impl eframe::App for App {
                 let steps = (elapsed.as_nanos() / tick.as_nanos().max(1)).min(50) as usize;
                 self.step_forward(steps.max(1));
                 self.last_step = Instant::now();
+                self.interp_t = 0.0;
+            } else {
+                self.interp_t = (elapsed.as_secs_f32() / tick.as_secs_f32()).clamp(0.0, 1.0);
             }
-            ctx.request_repaint_after(tick);
+            ctx.request_repaint();
+        } else {
+            self.interp_t = 0.0;
         }
 
         if self.follow_entity
