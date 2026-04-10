@@ -45,16 +45,18 @@ def _run_one_game(
     game_idx: int,
     bot_a_name: str,
     bot_b_name: str,
+    replay_dir: str,
 ) -> dict[str, Any]:
 
     map_name = Path(map_path).stem
+    replay_path = f"{replay_dir}/{game_idx}_{map_name}.replay26"
     t0 = time.perf_counter()
     result = run_game(
         bot_a_path,
         bot_b_path,
         "cambcpypy/src/cambcpypy",
         map_path,
-        "/dev/null",
+        replay_path,
         seed=seed,
         suppress_indicators=True,
         quiet=True,
@@ -68,6 +70,11 @@ def _run_one_game(
     else:
         winner_name = "draw"
 
+    replay_b64 = ""
+    replay_file = Path(replay_path)
+    if replay_file.is_file():
+        replay_b64 = base64.b64encode(replay_file.read_bytes()).decode()
+
     return {
         "game": game_idx,
         "map": map_name,
@@ -78,6 +85,7 @@ def _run_one_game(
         "time": round(elapsed, 2),
         "a_ti": result.player_a_titanium_collected,
         "b_ti": result.player_b_titanium_collected,
+        "replay": replay_b64,
     }
 
 
@@ -141,6 +149,10 @@ async def _handle_run(
         _write_line(writer, {"error": "no maps on server"})
         return
 
+    job_id = uuid4().hex[:12]
+    replay_dir = UPLOAD_DIR / job_id / "replays"
+    replay_dir.mkdir(parents=True, exist_ok=True)
+
     base_seed = random.randint(1, 100000)
     loop = asyncio.get_event_loop()
 
@@ -158,6 +170,7 @@ async def _handle_run(
             i,
             bot_a_name,
             bot_b_name,
+            str(replay_dir),
         )
         tasks.append(fut)
 
@@ -249,7 +262,9 @@ async def _main() -> None:
     executor = ProcessPoolExecutor()
     print(f"Starting CI daemon on {HOST}:{PORT}")
 
-    server = await asyncio.start_server(_handle_client, HOST, PORT)
+    server = await asyncio.start_server(
+        _handle_client, HOST, PORT, reuse_address=True
+    )
     async with server:
         await server.serve_forever()
 
