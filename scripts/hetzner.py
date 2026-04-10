@@ -437,7 +437,7 @@ def _cmd_ci(args: argparse.Namespace) -> None:
                 f"game {result['game']:>2}: {result['winner']:<20} "
                 f"{result['map']:<16} t={result['turns']:>4} "
                 f"({result['condition']}, {result['time']:.1f}s) "
-                f"-> {replay_dir / replay_name}"
+                f"-> {(replay_dir / replay_name).relative_to(_PROJECT_ROOT)}"
             )
     finally:
         sock.close()
