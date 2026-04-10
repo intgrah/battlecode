@@ -14,7 +14,10 @@ from __future__ import annotations
 
 from cambc import Environment, Position
 from astar import ChainAstar
+from symmetry import Symmetry, mirror_idx
 from tile_codec import tile_env, tile_building_type, tile_is_allied
+
+from lib.visualiser.src.visualiser import Grid, Palette, emit
 
 # 8-neighbour offsets (computed from padded width in __init__).
 
@@ -51,13 +54,42 @@ class Reachable:
             pw - 1,  pw,  pw + 1,
         )
 
-    def update_tile(self, i: int, env: Environment) -> None:
-        """Mark a real tile index as seen and record its environment."""
+    def update_tile(
+        self,
+        i: int,
+        env: Environment,
+        sym: Symmetry = Symmetry.UNKNOWN,
+    ) -> None:
+        """Mark a real tile index as seen and record its environment.
+
+        When `sym` is resolved, also write the mirrored tile's passability
+        — but only if that mirror tile has not already been directly
+        observed (i.e. is still `2`). Direct observations beat inferences.
+        """
         pi = i + 2 * (i // self.w) + self._pw + 1
         new = 0 if env == Environment.WALL else 1
         if self._passable[pi] != new:
             self._passable[pi] = new
             self._dirty = True
+
+        if sym is not Symmetry.UNKNOWN:
+            mi = mirror_idx(i, sym, self.w, self.h)
+            mpi = mi + 2 * (mi // self.w) + self._pw + 1
+            if self._passable[mpi] == 2:
+                self._passable[mpi] = new
+                self._dirty = True
+
+    def mirror_known(self, sym: Symmetry, known_env: dict[int, Environment]) -> None:
+        """Bulk-mirror all previously observed tile environments via symmetry."""
+        w, h = self.w, self.h
+        passable = self._passable
+        pw = self._pw
+        for i, env in known_env.items():
+            mi = mirror_idx(i, sym, w, h)
+            mpi = mi + 2 * (mi // w) + pw + 1
+            if passable[mpi] == 2:
+                passable[mpi] = 0 if env == Environment.WALL else 1
+        self._dirty = True
 
     def set_source(self, pos: Position) -> None:
         """Set (or change) the source position. Resets the flood."""
@@ -104,7 +136,88 @@ class Reachable:
         self._frontier = new_frontier
         self._dirty = False
 
+    def emit_vis(self) -> None:
+        """Emit a grid showing wall / unseen / reachable / seen-unreachable
+        / frontier state for every real tile.
+        """
+        w, h = self.w, self.h
+        pw = self._pw
+        passable = self._passable
+        reachable = self._reachable
+
+        # State encoding: 0 wall, 1 unseen, 2 reachable, 3 seen-unreachable.
+        # Frontier tiles get -1 so they're highlighted via the special map.
+        frontier_set = set(self._frontier)
+        data: list[int] = [0] * (w * h)
+        for ry in range(h):
+            for rx in range(w):
+                pi = (ry + 1) * pw + (rx + 1)
+                ri = ry * w + rx
+                if pi in frontier_set:
+                    data[ri] = -1
+                    continue
+                p = passable[pi]
+                if p == 0:
+                    data[ri] = 0
+                elif p == 2:
+                    data[ri] = 1
+                elif reachable[pi]:
+                    data[ri] = 2
+                else:
+                    data[ri] = 3
+
+        emit(
+            reachable=Grid(
+                data,
+                palette=Palette(
+                    stops=[(0.0, 0, 0, 0, 0)],
+                    special={
+                        0: (40, 40, 40, 200),     # wall — dark grey
+                        1: (0, 0, 0, 0),          # unseen — transparent
+                        2: (0, 200, 0, 80),       # reachable — green
+                        3: (200, 120, 0, 140),    # seen but unreachable — orange
+                        -1: (255, 0, 255, 220),   # frontier — magenta
+                    },
+                ),
+            ),
+        )
+
     def is_reachable(self, pos: Position) -> bool:
         """Return True if `pos` is currently known to be reachable."""
         pi = (pos.y + 1) * self._pw + (pos.x + 1)
         return self._reachable[pi]
+
+    def pick_frontier(self, cur_pos: Position, core_pos: Position, sym: Symmetry) -> Position | None:
+        """Pick a reachable frontier tile (one adjacent to unseen area).
+
+        Tie-break: chebyshev(core, cell) - chebyshev(center, cell). Staying
+        near the core is cheap; the negative center term rewards cells whose
+        center-distance is large... note: minimizing this actually prefers
+        cells close to core and *far* from center. Keeping as specified.
+        """
+        if not self._frontier:
+            return None
+        pw = self._pw
+        cx = self.w // 2
+        cy = self.h // 2
+        kx = core_pos.x
+        ky = core_pos.y
+        px = core_pos.x
+        py = core_pos.y
+        best_pi = -1
+        best_key = 1 << 30
+        
+        c_w = 1 if sym == Symmetry.UNKNOWN else 0
+        for pi in self._frontier:
+            x = pi % pw - 1
+            y = pi // pw - 1
+            cur_d = max(max(abs(x - px), abs(y - py)), 1)
+            core_d = max(max(abs(x - kx), abs(y - ky)), 1)
+            center_d = max(max(abs(x - cx), abs(y - cy)), 1)
+            key = -10 / core_d - 1 / cur_d - c_w * 5 / center_d
+            if key < best_key:
+                best_key = key
+                best_pi = pi
+        if best_pi < 0:
+            return None
+        return Position(best_pi % pw - 1, best_pi // pw - 1)
