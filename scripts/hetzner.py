@@ -119,6 +119,22 @@ def _cmd_down(_: argparse.Namespace) -> None:
     print("Done.")
 
 
+def _cmd_types(_: argparse.Namespace) -> None:
+    client = _get_client()
+    types = client.server_types.get_all()
+    types.sort(key=lambda t: (t.architecture, t.cores, t.memory))
+    print(f"{'Name':<12} {'Arch':<6} {'Cores':>5} {'RAM GB':>6} {'Disk GB':>7} {'Price/h':>8}")
+    print("-" * 50)
+    for t in types:
+        hourly = ""
+        if t.prices:
+            for p in t.prices:
+                if p.get("location") == DEFAULT_LOCATION:
+                    hourly = p.get("price_hourly", {}).get("gross", "")
+                    break
+        print(f"{t.name:<12} {t.architecture:<6} {t.cores:>5} {t.memory:>6.0f} {t.disk:>7} {hourly:>8}")
+
+
 def _cmd_status(_: argparse.Namespace) -> None:
     client = _get_client()
     server = _find_server(client)
@@ -187,8 +203,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 mkdir -p {REMOTE_DIR}
 cd {REMOTE_DIR}
-uv venv -q --python 3.12
-uv pip install -q cambc
+uv venv -q --python pypy3.11 cambcpypy/.venv
 echo "Provisioned successfully"
 """
 
@@ -200,43 +215,49 @@ def _cmd_provision(_: argparse.Namespace) -> None:
     sys.exit(rc)
 
 
+_SYNC_DIRS = [
+    ("bots/", "bots/"),
+    ("maps/", "maps/"),
+    ("cambcpypy/", "cambcpypy/"),
+    ("lib/proto/", "lib/proto/"),
+]
+
+_SYNC_FILES = [
+    ("scripts/ci.sh", "scripts/ci.sh"),
+]
+
+
 def _cmd_sync(_: argparse.Namespace) -> None:
     ip = _require_ip()
     rsync = _rsync_cmd()
     print(f"Syncing to {ip}...")
-    rc = subprocess.call(
-        [
-            rsync,
-            "-az",
-            "--delete",
-            "--exclude=__pycache__",
-            "--exclude=.venv",
-            "--exclude=*.replay26",
-            f"{_PROJECT_ROOT}/bots/",
-            f"root@{ip}:{REMOTE_DIR}/bots/",
-        ]
-    )
-    if rc != 0:
-        sys.exit(rc)
-    rc = subprocess.call(
-        [
-            rsync,
-            "-az",
-            f"{_PROJECT_ROOT}/maps/",
-            f"root@{ip}:{REMOTE_DIR}/maps/",
-        ]
-    )
-    if rc != 0:
-        sys.exit(rc)
-    rc = subprocess.call(
-        [
-            rsync,
-            "-az",
-            f"{_PROJECT_ROOT}/scripts/ci.sh",
-            f"root@{ip}:{REMOTE_DIR}/scripts/ci.sh",
-        ]
-    )
-    sys.exit(rc)
+    for local, remote in _SYNC_DIRS:
+        rc = subprocess.call(
+            [
+                rsync,
+                "-az",
+                "--delete",
+                "--exclude=__pycache__",
+                "--exclude=.venv",
+                "--exclude=*.replay26",
+                "--exclude=uv.lock",
+                f"{_PROJECT_ROOT}/{local}",
+                f"root@{ip}:{REMOTE_DIR}/{remote}",
+            ]
+        )
+        if rc != 0:
+            sys.exit(rc)
+    for local, remote in _SYNC_FILES:
+        rc = subprocess.call(
+            [
+                rsync,
+                "-az",
+                f"{_PROJECT_ROOT}/{local}",
+                f"root@{ip}:{REMOTE_DIR}/{remote}",
+            ]
+        )
+        if rc != 0:
+            sys.exit(rc)
 
 
 def _cmd_ci(args: argparse.Namespace) -> None:
@@ -246,7 +267,8 @@ def _cmd_ci(args: argparse.Namespace) -> None:
     print(f"Running CI with {n} maps...")
     rc = _ssh_run(
         ip,
-        f'export PATH="$HOME/.local/bin:$PATH" && cd {REMOTE_DIR} && bash scripts/ci.sh {n}',
+        f'export PATH="$HOME/.local/bin:$PATH" && cd {REMOTE_DIR} && '
+        f'bash scripts/ci.sh {n}',
     )
     sys.exit(rc)
 
@@ -268,6 +290,9 @@ def main() -> None:
         "--image", default=DEFAULT_IMAGE, help=f"Image (default: {DEFAULT_IMAGE})"
     )
     up.set_defaults(func=_cmd_up)
+
+    types = sub.add_parser("types", help="List available server types")
+    types.set_defaults(func=_cmd_types)
 
     down = sub.add_parser("down", help="Destroy server")
     down.set_defaults(func=_cmd_down)
