@@ -60,6 +60,7 @@ def _load_map(path: Path) -> tuple[int, int, list[int]]:
 class MapData:
     __slots__ = (
         "apsp",
+        "bfs_h_cache",
         "cost",
         "h",
         "hpa_graph",
@@ -107,6 +108,7 @@ class MapData:
         self.offsets_diag: tuple[int, ...] = (-w - 1, -w + 1, w - 1, w + 1)
         self.apsp: ApspTable | None = None
         self.hpa_graph: GatewayGraph | None = None
+        self.bfs_h_cache: dict[int, list[int]] = {}
 
     def reset_cost_no_roads(self) -> None:
         self.cost = [INF if self.tiles[i] in (1, 2, 3) else CE for i in range(self.n)]
@@ -120,6 +122,7 @@ class MapData:
         )
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
         self.hpa_graph = None
+        self.bfs_h_cache = {}
 
     def place_roads(self) -> int:
         n, nb = self.n, self.nb
@@ -171,6 +174,7 @@ class MapData:
         )
         self.passable = [i for i in range(n) if cost[i] < INF]
         self.hpa_graph = None
+        self.bfs_h_cache = {}
         return len(roads)
 
 
@@ -1310,15 +1314,14 @@ def _bfs_dist(n: int, pnb: list[list[int]], si: int) -> list[int]:
 
 
 def spsp_astar_dial_bfs(md: MapData, si: int, gi: int) -> Path_:
-    """BFS from start for heuristic, then A* (dial's) from goal to start."""
+    """A* (dial's) from goal to start, using precomputed BFS heuristic."""
     if si == gi:
         return [si]
     cost, pnb = md.cost, md.pnb
 
-    # Step 1: BFS from start to get hop-count distances (heuristic)
-    h = _bfs_dist(md.n, pnb, si)
+    h = md.bfs_h_cache[si]
 
-    # Step 2: A* from goal to start using dial's bucket queue (noparent2 style)
+    # A* from goal to start using dial's bucket queue (noparent2 style)
     # Heuristic is consistent: |h[u]-h[v]| <= 1 <= cost(u,v) for adjacent u,v
     # Max f-increase per step = CE + 1 = 4, so mod 5 buckets
     mod = CE + 2
@@ -1485,6 +1488,7 @@ def bench_spsp(args: argparse.Namespace) -> None:
     n_maps = len(map_files)
     needs_apsp = any(req for _, _, req in selected)
     needs_hpa = any("hpa" in name for name, _, _ in selected)
+    needs_bfs_h = any(name == "astar-dial-bfs" for name, _, _ in selected)
     n_algos = len(selected)
     n_scenarios = len(SCENARIOS)
     total_work = n_maps * n_scenarios * (n_algos + 1)
@@ -1541,6 +1545,12 @@ def bench_spsp(args: argparse.Namespace) -> None:
                 t0 = time.perf_counter()
                 precompute_hpa(md)
                 hpa_precomp_times.append((time.perf_counter() - t0) * 1e6)
+
+            if needs_bfs_h:
+                md.bfs_h_cache = {}
+                for si, _ in pairs:
+                    if si not in md.bfs_h_cache:
+                        md.bfs_h_cache[si] = _bfs_dist(md.n, md.pnb, si)
 
             for algo_name, algo_fn, req_apsp in selected:
                 if req_apsp and md.apsp is None and md.hpa_graph is None:
