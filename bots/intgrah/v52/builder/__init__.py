@@ -777,15 +777,17 @@ class Builder(Unit):
                 case BuildingHarvester():
                     adjacent_conveyor = False
                     for d in DIR4:
-                        match self.get_building(pos.add(d)):
-                            case (
-                                BuildingConveyor(team=self.my_team)
-                                | BuildingBridge(team=self.my_team)
-                                | BuildingSplitter(team=self.my_team)
-                                | BuildingArmouredConveyor(team=self.my_team)
-                            ):
-                                adjacent_conveyor = True
-                                break
+                        adj = pos.add(d)
+                        if self.in_bounds(adj):
+                            match self.get_building(adj):
+                                case (
+                                    BuildingConveyor(team=self.my_team)
+                                    | BuildingBridge(team=self.my_team)
+                                    | BuildingSplitter(team=self.my_team)
+                                    | BuildingArmouredConveyor(team=self.my_team)
+                                ):
+                                    adjacent_conveyor = True
+                                    break
                     if not adjacent_conveyor:
                         for d in DIR4:
                             self.adjacent_to_unconnected_harvester.add(pos.add(d))
