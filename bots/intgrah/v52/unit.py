@@ -21,11 +21,11 @@ class Unit(ABC):
     def run(self, ct: Controller) -> None: ...
 
     def idx(self, pos: Position) -> int:
-        """Position to flat index"""
+        """Position to flat index."""
         return pos.y * self.w + pos.x
 
     def in_bounds(self, pos: Position) -> bool:
-        """Is in bounds of map"""
+        """Is in bounds of map."""
         return 0 <= pos.x < self.w and 0 <= pos.y < self.h
 
 

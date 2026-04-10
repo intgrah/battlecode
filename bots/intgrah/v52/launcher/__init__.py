@@ -71,7 +71,9 @@ class Launcher(StationaryUnit):
         return self.is_walkable(ct, pos) and ct.get_tile_builder_bot_id(pos) is None
 
     def find_enemy_throw_tile(
-        self, ct: Controller, my_pos: Position
+        self,
+        ct: Controller,
+        my_pos: Position,
     ) -> tuple[Position | None, int]:
         best: Position | None = None
         best_dist = 0
@@ -107,10 +109,7 @@ class Launcher(StationaryUnit):
                 ):
                     targets.append(adj)
                 elif (
-                    adj.x < 0
-                    or adj.x >= ct.get_map_width()
-                    or adj.y < 0
-                    or adj.y >= ct.get_map_height()
+                    not self.in_bounds(adj)
                     or not ct.is_in_vision(adj)
                     or ct.get_tile_building_id(adj) is None
                 ):
