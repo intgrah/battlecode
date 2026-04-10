@@ -50,6 +50,7 @@ message Update {
     IndicatorLine indicator_line = 10;
     IndicatorDot indicator_dot = 11;
     FireTurret fire_turret = 12;
+    BuilderAttack builder_attack = 13;
   }
 }
 
@@ -73,6 +74,7 @@ message DistributeResources {
 message ResourceMove {
   Pos from = 1;
   Pos to = 2;
+  optional int32 resource_id = 3;
 }
 
 message UpdateHp {
@@ -121,6 +123,10 @@ message IndicatorDot {
 message FireTurret {
   Pos from = 1;
   Pos to = 2;
+}
+
+message BuilderAttack {
+  int32 id = 1;
 }
 
 message Pos {
