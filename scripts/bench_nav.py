@@ -1471,10 +1471,13 @@ def bench_spsp(args: argparse.Namespace) -> None:
 
     if args.algos:
         algo_set = set(args.algos)
-        selected = [(name, fn, req) for name, fn, req in ALGOS if name in algo_set]
-        if not selected:
-            print("No algorithms matched. Use --list to see names.", file=sys.stderr)
+        known = {name for name, _, _ in ALGOS}
+        unknown = algo_set - known
+        if unknown:
+            print(f"Unknown algorithms: {', '.join(sorted(unknown))}", file=sys.stderr)
+            print("Use --list to see names.", file=sys.stderr)
             sys.exit(1)
+        selected = [(name, fn, req) for name, fn, req in ALGOS if name in algo_set]
     else:
         selected = list(ALGOS)
 
@@ -2221,10 +2224,13 @@ def bench_sssp(args: argparse.Namespace) -> None:
 
     if args.algos:
         algo_set = set(args.algos)
-        selected = [(name, fn) for name, fn in SSSP_ALGOS if name in algo_set]
-        if not selected:
-            print("No algorithms matched. Use --list to see names.", file=sys.stderr)
+        known = {name for name, _ in SSSP_ALGOS}
+        unknown = algo_set - known
+        if unknown:
+            print(f"Unknown algorithms: {', '.join(sorted(unknown))}", file=sys.stderr)
+            print("Use --list to see names.", file=sys.stderr)
             sys.exit(1)
+        selected = [(name, fn) for name, fn in SSSP_ALGOS if name in algo_set]
     else:
         selected = list(SSSP_ALGOS)
 
