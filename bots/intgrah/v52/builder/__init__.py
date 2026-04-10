@@ -312,15 +312,19 @@ class Builder(Unit):
         raise AssertionError(msg)
 
     @staticmethod
-    def init_pnb(w: int, h: int) -> list[list[int]]:
+    def init_pnb(w: int, h: int, cost: list[int]) -> list[list[int]]:
         n = w * h
         pnb: list[list[int]] = [[] for _ in range(n)]
         for i in range(n):
+            if cost[i] >= INF:
+                continue
             cx, cy = i % w, i // w
             for dx, dy in DIR8_DELTA:
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    pnb[i].append(ny * w + nx)
+                    ni = ny * w + nx
+                    if cost[ni] < INF:
+                        pnb[i].append(ni)
         return pnb
 
     @staticmethod
@@ -385,6 +389,9 @@ class Builder(Unit):
                 self.symmetry = SYMMETRY[known_map]
                 self.symmetry_candidates = {self.symmetry}
                 self.env = decode(TILES[known_map](), n)
+                for i in range(n):
+                    if self.env[i] == Environment.WALL:
+                        self.cost_grid[i] = INF
 
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
@@ -419,7 +426,7 @@ class Builder(Unit):
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
 
-        self.pnb: list[list[int]] = Builder.init_pnb(w, h)
+        self.pnb: list[list[int]] = Builder.init_pnb(w, h, self.cost_grid)
         self.nav_parent: list[int] = [-1] * n
         self.nav_dist: list[int] = [-1] * n
 
