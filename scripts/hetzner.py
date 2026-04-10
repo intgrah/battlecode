@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import io
+import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -20,8 +24,7 @@ from hcloud.servers import Server
 if TYPE_CHECKING:
     from hcloud.ssh_keys import BoundSSHKey, SSHKey
 
-SERVER_NAME = "bc-ci"
-DEFAULT_TYPE = "ccx53"
+SERVER_NAME = "bc"
 DEFAULT_LOCATION = "fsn1"
 DEFAULT_IMAGE = "debian-13"
 REMOTE_DIR = "/root/battlecode2"
@@ -123,7 +126,9 @@ def _cmd_types(_: argparse.Namespace) -> None:
     client = _get_client()
     types = client.server_types.get_all()
     types.sort(key=lambda t: (t.architecture, t.cores, t.memory))
-    print(f"{'Name':<12} {'Arch':<6} {'Cores':>5} {'RAM GB':>6} {'Disk GB':>7} {'Price/h':>8}")
+    print(
+        f"{'Name':<12} {'Arch':<6} {'Cores':>5} {'RAM GB':>6} {'Disk GB':>7} {'Price/h':>8}"
+    )
     print("-" * 50)
     for t in types:
         hourly = ""
@@ -132,22 +137,22 @@ def _cmd_types(_: argparse.Namespace) -> None:
                 if p.get("location") == DEFAULT_LOCATION:
                     hourly = p.get("price_hourly", {}).get("gross", "")
                     break
-        print(f"{t.name:<12} {t.architecture:<6} {t.cores:>5} {t.memory:>6.0f} {t.disk:>7} {hourly:>8}")
+        print(
+            f"{t.name:<12} {t.architecture:<6} {t.cores:>5} {t.memory:>6.0f} {t.disk:>7} {hourly:>8}"
+        )
 
 
 def _cmd_status(_: argparse.Namespace) -> None:
     client = _get_client()
-    server = _find_server(client)
-    if not server:
-        print("No server running.")
+    servers = client.servers.get_all()
+    if not servers:
+        print("No servers running.")
         return
-    ip = _server_ip(server)
-    assert server.server_type is not None
-    print(f"Name:   {server.name}")
-    print(f"Status: {server.status}")
-    print(f"Type:   {server.server_type.name}")
-    print(f"IP:     {ip}")
-    print(f"  ssh root@{ip}")
+    for server in servers:
+        ip = _server_ip(server)
+        assert server.server_type is not None
+        print(f"{server.name:<12} {server.status:<10} {server.server_type.name:<10} {ip}")
+        print(f"  ssh root@{ip}")
 
 
 def _cmd_ssh(_: argparse.Namespace) -> None:
@@ -162,6 +167,21 @@ def _cmd_ssh(_: argparse.Namespace) -> None:
         print("ssh not found", file=sys.stderr)
         sys.exit(1)
     sys.exit(subprocess.call([ssh_path, f"root@{ip}"]))
+
+
+def _cmd_add_key(args: argparse.Namespace) -> None:
+    ip = _require_ip()
+    pubkey: str = args.pubkey
+    if Path(pubkey).is_file():
+        pubkey = Path(pubkey).read_text().strip()
+    print(f"Adding key to {ip}...")
+    rc = _ssh_run(
+        ip,
+        f'echo {pubkey!r} >> /root/.ssh/authorized_keys',
+    )
+    if rc == 0:
+        print("Done.")
+    sys.exit(rc)
 
 
 def _require_ip() -> str:
@@ -222,9 +242,7 @@ _SYNC_DIRS = [
     ("lib/proto/", "lib/proto/"),
 ]
 
-_SYNC_FILES = [
-    ("scripts/ci.sh", "scripts/ci.sh"),
-]
+_SYNC_FILES: list[tuple[str, str]] = []
 
 
 def _cmd_sync(_: argparse.Namespace) -> None:
@@ -260,15 +278,130 @@ def _cmd_sync(_: argparse.Namespace) -> None:
             sys.exit(rc)
 
 
+def _make_tarball(bot_path: str) -> bytes:
+    import tarfile
+
+    bot_dir = _PROJECT_ROOT / "bots" / bot_path
+    if not bot_dir.is_dir():
+        print(f"Bot not found: {bot_dir}", file=sys.stderr)
+        sys.exit(1)
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for f in sorted(bot_dir.rglob("*.py")):
+            tar.add(f, arcname=str(f.relative_to(bot_dir)))
+    return buf.getvalue()
+
+
+def _connect_daemon(ip: str) -> tuple[subprocess.Popen[bytes], socket.socket]:
+    local_port = 9876
+    tunnel = subprocess.Popen(
+        [
+            _ssh_cmd(),
+            "-N",
+            "-L",
+            f"{local_port}:127.0.0.1:9876",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            f"root@{ip}",
+        ],
+    )
+    time.sleep(1)
+
+    for _ in range(10):
+        try:
+            sock = socket.create_connection(("127.0.0.1", local_port), timeout=2)
+            return tunnel, sock
+        except (ConnectionRefusedError, OSError):
+            time.sleep(0.5)
+
+    tunnel.terminate()
+    print("Failed to connect to CI daemon. Is it running?", file=sys.stderr)
+    sys.exit(1)
+
+
+def _send(sock: socket.socket, msg: dict) -> None:
+    sock.sendall((json.dumps(msg) + "\n").encode())
+
+
+def _recv_line(reader: io.BufferedReader) -> dict | None:
+    line = reader.readline()
+    if not line:
+        return None
+    return json.loads(line)
+
+
 def _cmd_ci(args: argparse.Namespace) -> None:
     ip = _require_ip()
+    bot_a: str = args.bot_a
+    bot_b: str = args.bot_b
     n: int = args.n
+
+    print(f"Connecting to daemon on {ip}...")
+    tunnel, sock = _connect_daemon(ip)
+    reader = sock.makefile("rb")
+
+    try:
+        print(f"Uploading {bot_a}...")
+        tar_a = _make_tarball(bot_a)
+        _send(sock, {"cmd": "upload", "name": bot_a, "data": base64.b64encode(tar_a).decode()})
+        resp = _recv_line(reader)
+        assert resp is not None
+        if "error" in resp:
+            print(f"Upload failed: {resp['error']}", file=sys.stderr)
+            sys.exit(1)
+        uuid_a = resp["uuid"]
+
+        print(f"Uploading {bot_b}...")
+        tar_b = _make_tarball(bot_b)
+        _send(sock, {"cmd": "upload", "name": bot_b, "data": base64.b64encode(tar_b).decode()})
+        resp = _recv_line(reader)
+        assert resp is not None
+        if "error" in resp:
+            print(f"Upload failed: {resp['error']}", file=sys.stderr)
+            sys.exit(1)
+        uuid_b = resp["uuid"]
+
+        print(f"Running {n} games: {bot_a} vs {bot_b}...")
+        _send(sock, {
+            "cmd": "run",
+            "bot_a": uuid_a,
+            "bot_b": uuid_b,
+            "bot_a_name": bot_a,
+            "bot_b_name": bot_b,
+            "n": n,
+        })
+
+        while True:
+            result = _recv_line(reader)
+            if result is None:
+                print("Connection lost.", file=sys.stderr)
+                break
+            if result.get("done"):
+                print(f"\n=== {bot_a} vs {bot_b}: {result['score']} (draws: {result.get('draws', 0)}) ===")
+                break
+            if "error" in result:
+                print(f"  Error: {result['error']}", file=sys.stderr)
+                continue
+            print(
+                f"  [{result.get('score', '?')}] "
+                f"game {result['game']:>2}: {result['winner']:<20} "
+                f"{result['map']:<16} t={result['turns']:>4} "
+                f"({result['condition']}, {result['time']:.1f}s)"
+            )
+    finally:
+        sock.close()
+        tunnel.terminate()
+        tunnel.wait()
+
+
+def _cmd_daemon(args: argparse.Namespace) -> None:
+    ip = _require_ip()
     _cmd_sync(args)
-    print(f"Running CI with {n} maps...")
+    print(f"Starting CI daemon on {ip}...")
     rc = _ssh_run(
         ip,
         f'export PATH="$HOME/.local/bin:$PATH" && cd {REMOTE_DIR} && '
-        f'bash scripts/ci.sh {n}',
+        f"VIRTUAL_ENV= uv run --project cambcpypy python cambcpypy/scripts/ci_daemon.py",
     )
     sys.exit(rc)
 
@@ -278,9 +411,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     up = sub.add_parser("up", help="Create server")
-    up.add_argument(
-        "--type", default=DEFAULT_TYPE, help=f"Server type (default: {DEFAULT_TYPE})"
-    )
+    up.add_argument("type", help="Server type (e.g. ccx13, ccx33, ccx53)")
     up.add_argument(
         "--location",
         default=DEFAULT_LOCATION,
@@ -306,11 +437,20 @@ def main() -> None:
     provision = sub.add_parser("provision", help="Install Python/uv/cambc on server")
     provision.set_defaults(func=_cmd_provision)
 
+    add_key = sub.add_parser("add-key", help="Add SSH public key to server")
+    add_key.add_argument("pubkey", help="Public key string or path to .pub file")
+    add_key.set_defaults(func=_cmd_add_key)
+
     sync = sub.add_parser("sync", help="Rsync bots/maps/scripts to server")
     sync.set_defaults(func=_cmd_sync)
 
-    ci = sub.add_parser("ci", help="Sync and run CI on server")
-    ci.add_argument("-n", type=int, default=12, help="Number of maps (default: 12)")
+    daemon = sub.add_parser("daemon", help="Start CI daemon on server (blocks)")
+    daemon.set_defaults(func=_cmd_daemon)
+
+    ci = sub.add_parser("ci", help="Run parallel games via CI daemon")
+    ci.add_argument("bot_a", help="First bot (e.g. intgrah/v52)")
+    ci.add_argument("bot_b", help="Second bot (e.g. intgrah/v51)")
+    ci.add_argument("-n", type=int, default=50, help="Number of games (default: 50)")
     ci.set_defaults(func=_cmd_ci)
 
     args = parser.parse_args()
