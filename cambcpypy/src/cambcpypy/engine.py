@@ -739,17 +739,19 @@ class Game:
                 return True
         return False
 
-    def winner_team(self) -> Team | None:
+    def winner_team(self) -> tuple[Team | None, str]:
         alive: list[Team] = [t for t in Team if self.has_core(t)]
         if len(alive) == 1:
-            return alive[0]
+            return alive[0], "core_destroyed"
         if self.turn >= GameConstants.MAX_TURNS or len(alive) == 0:
             a = self.players[0]
             b = self.players[1]
             if a.axionite_collected != b.axionite_collected:
-                return Team.A if a.axionite_collected > b.axionite_collected else Team.B
+                w = Team.A if a.axionite_collected > b.axionite_collected else Team.B
+                return w, "axionite_collected"
             if a.titanium_collected != b.titanium_collected:
-                return Team.A if a.titanium_collected > b.titanium_collected else Team.B
+                w = Team.A if a.titanium_collected > b.titanium_collected else Team.B
+                return w, "titanium_collected"
             a_harv = sum(
                 1
                 for hid in self.harvesters
@@ -761,13 +763,17 @@ class Game:
                 if hid in self.entities and self.entities[hid].team is Team.B
             )
             if a_harv != b_harv:
-                return Team.A if a_harv > b_harv else Team.B
+                w = Team.A if a_harv > b_harv else Team.B
+                return w, "harvesters"
             if a.axionite != b.axionite:
-                return Team.A if a.axionite > b.axionite else Team.B
+                w = Team.A if a.axionite > b.axionite else Team.B
+                return w, "axionite_stored"
             if a.titanium != b.titanium:
-                return Team.A if a.titanium > b.titanium else Team.B
-            return Team.A if self.rng.random() < 0.5 else Team.B
-        return None
+                w = Team.A if a.titanium > b.titanium else Team.B
+                return w, "titanium_stored"
+            w = Team.A if self.rng.random() < 0.5 else Team.B
+            return w, "coinflip"
+        return None, ""
 
     def _append_diff(self, diff: Diff) -> None:
         match diff:
@@ -2437,23 +2443,13 @@ def run_game(
         if not quiet and i % 100 == 0:
             print(f"Completed turn {i}")
 
-        if game.winner_team() is not None:
+        if game.winner_team()[0] is not None:
             break
 
-    winner = game.winner_team()
-    game.write_replay(replay_path, winner)
-
-    win_condition: str
+    winner, win_condition = game.winner_team()
     if game.resign_message is not None:
         win_condition = "resigned"
-    elif winner is not None and (
-        not game.has_core(Team.A) or not game.has_core(Team.B)
-    ):
-        win_condition = "core_destroyed"
-    elif winner is not None:
-        win_condition = "resources"
-    else:
-        win_condition = "draw"
+    game.write_replay(replay_path, winner)
 
     units_a = 0
     units_b = 0
