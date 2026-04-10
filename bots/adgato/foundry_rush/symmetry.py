@@ -77,14 +77,8 @@ class SymmetryDetector:
         self._candidates = remaining
 
         # Check for resolution
-        ci = self._core.y * w + self._core.x
         if len(self._candidates) == 1:
+            ci = self._core.y * w + self._core.x
             self._resolved = self._candidates[0]
             ei = mirror_idx(ci, self._resolved, w, h)
             self._enemy_core = Position(ei % w, ei // w)
-        elif len(self._candidates) > 1:
-            positions = {mirror_idx(ci, sym, w, h) for sym in self._candidates}
-            if len(positions) == 1:
-                self._resolved = self._candidates[0]
-                ei = positions.pop()
-                self._enemy_core = Position(ei % w, ei // w)

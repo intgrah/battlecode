@@ -229,8 +229,8 @@ class NavBfs:
             assign = pnb_set[pi]
             push.clear()
             assign.clear()
-            if not passable[pi]:
-                continue
+            #if not passable[pi]:
+            #    continue
             ne = pi + ne_off
             se = pi + se_off
             sw = pi + sw_off
@@ -274,40 +274,52 @@ class NavBfs:
             self.set_goals([goal])
 
     def set_goals(self, goals: list[Position]) -> None:
-        """Change to multiple goals. Marks dirty so the search resets."""
+        """Change to multiple goals. Only marks dirty if the set changed."""
         pw = self._pw
-        self._gis = [(g.y + 1) * pw + (g.x + 1) for g in goals]
+        new_gis = [(g.y + 1) * pw + (g.x + 1) for g in goals]
+        if new_gis == self._gis:
+            return
+        self._gis = new_gis
         self._dirty = True
 
     def _compute(self) -> None:
         """Reset BFS state for a fresh search from goals."""
-        self._dist[:] = [INF] * self._n
+        dist = self._dist
+        dist[:] = [INF] * self._n
         q = self._q
         q.clear()
+        passable = self._passable
+        offsets = self._offsets
         for gi in self._gis:
-            self._dist[gi] = 0
-            q.append(gi)
-            
-        _bfs_compute(self._pnb_push, self._pnb_set, self._dist, self._q, self._cur_idx)
+            dist[gi] = 0
+            if passable[gi]:
+                q.append(gi)
+            else:
+                # Impassable goal (e.g. barrier): seed passable neighbors
+                # at dist=1 so the bot can path to an adjacent tile.
+                for off in offsets:
+                    ni = gi + off
+                    if passable[ni] and dist[ni] > 1:
+                        dist[ni] = 1
+                        q.append(ni)
+
+        _bfs_compute(self._pnb_push, self._pnb_set, dist, self._q, self._cur_idx)
 
     def emit_vis(self) -> None:
         """Emit the BFS distance field and direction arrows to the visualiser."""
         dist = self._dist
-        passable = self._passable
         pw = self._pw
         w, h = self.w, self.h
         rn = self._rn
         pnb_push = self._pnb_push
         pnb_set = self._pnb_set
         angles: list[float | None] = [None] * rn
-        passable_list: list[int] = [-1] * rn
 
         for ry in range(h):
             for rx in range(w):
                 pi = (ry + 1) * pw + (rx + 1)
                 ri = ry * w + rx
                 di = dist[pi]
-                passable_list[ri] = passable[pi]
                 if di >= INF or di <= 0:
                     continue
                 best = di
@@ -322,13 +334,6 @@ class NavBfs:
                     angles[ri] = math.atan2(by, bx)
 
         emit(
-            passable=Grid(
-                passable_list,
-                palette=Palette(
-                    stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)],
-                    special={-1: (0, 0, 0, 0)},
-                ),
-            ),
             bfs=VectorField(angles),
         )
 
@@ -351,7 +356,7 @@ class NavBfs:
         d = dist[pi]
         if d >= INF:
             return None
-        while d > 0:
+        while d > 1:
             for off in offsets:
                 ni = pi + off
                 dn = dist[ni]
@@ -361,6 +366,15 @@ class NavBfs:
                     break
             else:
                 return None
+        # d <= 1: either already on the goal (d==0) or one step away.
+        # Check neighbors for the actual goal tile (dist==0), which may
+        # be impassable (e.g. a barrier).
+        if d == 1:
+            for off in offsets:
+                ni = pi + off
+                if dist[ni] == 0:
+                    return Position(ni % pw - 1, ni // pw - 1)
+            return None
         return Position(pi % pw - 1, pi // pw - 1)
 
     def step(
