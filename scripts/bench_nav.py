@@ -22,6 +22,9 @@ from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import pandas as pd
+
 from scripts.hpastar import GatewayGraph
 from scripts.replay import load_map
 
@@ -1457,28 +1460,7 @@ CSV_FIELDS = [
 ]
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Navigation benchmark")
-    parser.add_argument(
-        "--algos",
-        nargs="*",
-        help="Algorithm names to include (exact match, default: all). "
-        "E.g. --algos bfs astar-heap-cheb1",
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List available algorithms and exit",
-    )
-    parser.add_argument(
-        "-n",
-        "--samples",
-        type=int,
-        default=N_PAIRS,
-        help=f"Number of random (source, goal) pairs per map (default: {N_PAIRS})",
-    )
-    args = parser.parse_args()
-
+def bench_spsp(args: argparse.Namespace) -> None:
     if args.list:
         for name, _, _ in ALGOS:
             print(name)
@@ -1486,18 +1468,14 @@ def main() -> None:
 
     if args.algos:
         algo_set = set(args.algos)
-        selected = [
-            (name, fn, req)
-            for name, fn, req in ALGOS
-            if name in algo_set
-        ]
+        selected = [(name, fn, req) for name, fn, req in ALGOS if name in algo_set]
         if not selected:
             print("No algorithms matched. Use --list to see names.", file=sys.stderr)
             sys.exit(1)
     else:
         selected = list(ALGOS)
 
-    n_pairs = args.samples
+    n_pairs: int = args.samples
 
     map_files = sorted(MAPS_DIR.glob("*.map26"))
     if not map_files:
@@ -1528,7 +1506,7 @@ def main() -> None:
 
         rng = random.Random(SEED)
         pairs = [
-            (rng.choice(md.passable), rng.choice(md.passable)) for _ in range(N_PAIRS)
+            (rng.choice(md.passable), rng.choice(md.passable)) for _ in range(n_pairs)
         ]
 
         if needs_apsp:
@@ -2225,31 +2203,15 @@ SSSP_ALGOS: list[tuple[str, SsspFn]] = [
 ]
 
 
-def bench_sssp() -> None:
-    parser = argparse.ArgumentParser(description="SSSP benchmark")
-    parser.add_argument(
-        "--algos",
-        nargs="*",
-        help="Algorithm name substrings to include (default: all)",
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List available algorithms and exit",
-    )
-    args = parser.parse_args()
-
+def bench_sssp(args: argparse.Namespace) -> None:
     if args.list:
         for name, _ in SSSP_ALGOS:
             print(name)
         sys.exit(0)
 
     if args.algos:
-        selected = [
-            (name, fn)
-            for name, fn in SSSP_ALGOS
-            if any(pat in name for pat in args.algos)
-        ]
+        algo_set = set(args.algos)
+        selected = [(name, fn) for name, fn in SSSP_ALGOS if name in algo_set]
         if not selected:
             print("No algorithms matched. Use --list to see names.", file=sys.stderr)
             sys.exit(1)
@@ -2261,7 +2223,7 @@ def bench_sssp() -> None:
         print(f"No .map26 files in {MAPS_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    n_sources = 1000
+    n_sources: int = args.samples
     times: dict[str, dict[str, list[float]]] = {name: {} for name, _ in selected}
 
     for mf in map_files:
@@ -2294,7 +2256,7 @@ def bench_sssp() -> None:
                     result = algo_fn(md, si)
                     us = (time.perf_counter() - t0) * 1e6
                     times[algo_name].setdefault(scenario, []).append(us)
-                    if algo_name == "dijkstra bucket noparent":
+                    if algo_name == "dijkstra-dial-np":
                         t1 = time.perf_counter()
                         extract_path_from_dist(result, md.cost, md.pnb, si, gi)
                         ex_us = (time.perf_counter() - t1) * 1e6
@@ -2310,9 +2272,9 @@ def bench_sssp() -> None:
                     if algo_name == "bfs" and scenario != "no_roads":
                         pass
                     else:
-                        if "noparent" in algo_name:
+                        if "-np" in algo_name:
                             got_dist = result
-                        elif algo_name == "bfs expand":
+                        elif algo_name == "bfs-expand":
                             got_dist = expanded_parent_to_dist(result, md.n, si)
                         elif algo_name == "bfs":
                             got_dist = parent_to_dist(
@@ -2364,6 +2326,286 @@ def bench_sssp() -> None:
             print(
                 f"  {algo_name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us",
             )
+
+
+def _add_common_args(sub: argparse.ArgumentParser) -> None:
+    sub.add_argument(
+        "--algos",
+        nargs="*",
+        help="Algorithm names to include (exact match, default: all)",
+    )
+    sub.add_argument(
+        "--list",
+        action="store_true",
+        help="List available algorithms and exit",
+    )
+    sub.add_argument(
+        "-n",
+        "--samples",
+        type=int,
+        default=N_PAIRS,
+        help=f"Number of random samples per map (default: {N_PAIRS})",
+    )
+
+
+def _csv_path_arg(sub: argparse.ArgumentParser) -> None:
+    sub.add_argument(
+        "csv",
+        nargs="?",
+        type=Path,
+        default=Path(__file__).resolve().parent / "bench_nav.csv",
+        help="Path to bench_nav.csv (default: scripts/bench_nav.csv)",
+    )
+
+
+def _load_csv(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        print(f"File not found: {path}", file=sys.stderr)
+        print("Run `bench-nav spsp` first.", file=sys.stderr)
+        sys.exit(1)
+    return pd.read_csv(path)
+
+
+def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
+    algos: list[str] = list(dict.fromkeys(df["algo"]))
+
+    hdr = (
+        f"{'Algorithm':<50}"
+        f" {'t_p50':>7} {'t_p100':>7}"
+        f" {'o_p50':>7} {'o_p100':>7}"
+        f" {'reach%':>7} {'1st_mv%':>7}"
+    )
+    print(f"\n  {scenario.upper()}")
+    print(hdr)
+    print("-" * len(hdr))
+
+    for algo in algos:
+        ad = df[df["algo"] == algo]
+        times = ad["time_us"]
+        reachable = ad[ad["reachable"] == 1]
+        opts = pd.to_numeric(reachable["opt_ratio"], errors="coerce").dropna()
+        n_reached = int(reachable["reached_goal"].sum()) if len(reachable) > 0 else 0
+        n_reachable = len(reachable)
+        fm = pd.to_numeric(reachable["first_move_correct"], errors="coerce").dropna()
+
+        t50 = times.quantile(0.5) if len(times) > 0 else 0
+        t100 = times.max() if len(times) > 0 else 0
+        o50 = opts.quantile(0.5) if len(opts) > 0 else 0
+        o100 = opts.max() if len(opts) > 0 else 0
+        reach_pct = 100 * n_reached / n_reachable if n_reachable > 0 else 0
+        fm_pct = 100 * fm.mean() if len(fm) > 0 else 0
+
+        print(
+            f"{algo:<50}"
+            f" {t50:>7.0f} {t100:>7.0f}"
+            f" {o50:>7.3f} {o100:>7.3f}"
+            f" {reach_pct:>6.1f}% {fm_pct:>6.1f}%",
+        )
+
+
+def bench_table(args: argparse.Namespace) -> None:
+    df = _load_csv(args.csv)
+    scenarios: list[str] = sorted(df["scenario"].unique())
+    for scenario in scenarios:
+        _print_scenario(df[df["scenario"] == scenario], scenario)
+
+
+ALGO_CLASS_COLORS: dict[str, str] = {
+    "astar-heap-cheb1": "#4682b4",
+    "astar-heap-cheb3": "#1e3a5f",
+    "astar-dial-cheb1": "#e07020",
+    "astar-dial-cheb3": "#8b4513",
+    "astar-heap-apsp": "#2ca02c",
+    "bfs": "#d62728",
+    "bfs-roadopt": "#b22222",
+    "bibfs": "#ff6961",
+    "gbfs": "#9467bd",
+    "dijkstra-heap": "#8c564b",
+    "dijkstra-dial": "#e377c2",
+    "hpastar": "#7f7f7f",
+}
+
+
+def _algo_class(name: str) -> str:
+    for prefix in ALGO_CLASS_COLORS:
+        if name.startswith(prefix):
+            return prefix
+    return name
+
+
+def _algo_color(name: str) -> str:
+    return ALGO_CLASS_COLORS.get(_algo_class(name), "#333333")
+
+
+def bench_plot(args: argparse.Namespace) -> None:
+
+    df = _load_csv(args.csv)
+    scenarios: list[str] = sorted(df["scenario"].unique())
+    algos: list[str] = list(dict.fromkeys(df["algo"]))
+    n_scenarios = len(scenarios)
+    n_algos = len(algos)
+    cols_per_scenario = 4
+
+    width_ratios = [4, 2, 1, 1] * n_scenarios
+    fig, axes = plt.subplots(
+        1,
+        n_scenarios * cols_per_scenario,
+        figsize=(8 * n_scenarios, 0.35 * n_algos + 1),
+        squeeze=False,
+        gridspec_kw={"width_ratios": width_ratios, "wspace": 0.15},
+    )
+    fig.suptitle("Navigation Benchmark", fontsize=14, fontweight="bold")
+
+    for si, scenario in enumerate(scenarios):
+        sd = df[df["scenario"] == scenario]
+        col_base = si * cols_per_scenario
+
+        time_data: list[list[float]] = []
+        opt_data: list[list[float]] = []
+        reach_pcts: list[float] = []
+        fm_pcts: list[float] = []
+
+        for algo in algos:
+            ad = sd[sd["algo"] == algo]
+            times = ad["time_us"].dropna().tolist()
+            time_data.append(times or [0])
+
+            reachable = ad[ad["reachable"] == 1]
+            opts = (
+                pd.to_numeric(reachable["opt_ratio"], errors="coerce").dropna().tolist()
+            )
+            opt_data.append(opts or [1.0])
+
+            reached = reachable["reached_goal"]
+            n_reachable = len(reachable)
+            n_found = int(reached.sum()) if n_reachable > 0 else 0
+            reach_pcts.append(100 * n_found / n_reachable if n_reachable > 0 else 0)
+
+            fm = pd.to_numeric(
+                reachable["first_move_correct"],
+                errors="coerce",
+            ).dropna()
+            fm_pcts.append(100 * fm.mean() if len(fm) > 0 else 0)
+
+        positions = list(range(n_algos))
+
+        ax = axes[0][col_base]
+        bp = ax.boxplot(
+            time_data,
+            vert=False,
+            positions=positions,
+            widths=0.6,
+            patch_artist=True,
+            whis=(0, 100),
+            medianprops={"color": "darkred", "linewidth": 1.2},
+        )
+        colors = [_algo_color(a) for a in algos]
+        for patch, c in zip(bp["boxes"], colors, strict=True):
+            patch.set_facecolor(c)
+            patch.set_alpha(0.7)
+        ax.axvline(2000, color="red", linestyle="--", linewidth=0.8, alpha=0.7)
+        ax.set_yticks(positions)
+        if si == 0:
+            ax.set_yticklabels(algos, fontsize=6)
+        else:
+            ax.set_yticklabels([])
+        ax.set_title(f"{scenario} — Time (us)", fontsize=8)
+        ax.tick_params(labelsize=6)
+        ax.invert_yaxis()
+
+        ax = axes[0][col_base + 1]
+        bp = ax.boxplot(
+            opt_data,
+            vert=False,
+            positions=positions,
+            widths=0.6,
+            patch_artist=True,
+            whis=(0, 100),
+            medianprops={"color": "darkred", "linewidth": 1.2},
+        )
+        for patch, c in zip(bp["boxes"], colors, strict=True):
+            patch.set_facecolor(c)
+            patch.set_alpha(0.7)
+        ax.axvline(1.0, color="black", linestyle="-", linewidth=0.5)
+        ax.set_yticks(positions)
+        ax.set_yticklabels([], fontsize=6)
+        ax.set_title(f"{scenario} — Optimality", fontsize=8)
+        ax.tick_params(labelsize=6)
+        ax.invert_yaxis()
+
+        ax = axes[0][col_base + 2]
+        ax.barh(positions, reach_pcts, color="seagreen", height=0.6, alpha=0.8)
+        for i, v in enumerate(reach_pcts):
+            ax.text(
+                max(v - 2, 1),
+                i,
+                f"{v:.0f}",
+                va="center",
+                ha="right",
+                fontsize=5,
+                color="white",
+                fontweight="bold",
+            )
+        ax.set_xlim(0, 105)
+        ax.set_yticks(positions)
+        ax.set_yticklabels([], fontsize=6)
+        ax.set_title(f"{scenario} — Reach %", fontsize=8)
+        ax.tick_params(labelsize=6)
+        ax.invert_yaxis()
+
+        ax = axes[0][col_base + 3]
+        ax.barh(positions, fm_pcts, color="mediumpurple", height=0.6, alpha=0.8)
+        for i, v in enumerate(fm_pcts):
+            ax.text(
+                max(v - 2, 1),
+                i,
+                f"{v:.0f}",
+                va="center",
+                ha="right",
+                fontsize=5,
+                color="white",
+                fontweight="bold",
+            )
+        ax.set_xlim(0, 105)
+        ax.set_yticks(positions)
+        ax.set_yticklabels([], fontsize=6)
+        ax.set_title(f"{scenario} — 1st move %", fontsize=8)
+        ax.tick_params(labelsize=6)
+        ax.invert_yaxis()
+
+    fig.subplots_adjust(left=0.12, right=0.98, top=0.93, bottom=0.05)
+    out = Path(__file__).resolve().parent / "bench_nav.png"
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved {out}", file=sys.stderr)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Navigation benchmark")
+    subs = parser.add_subparsers(dest="command", required=True)
+
+    sp_spsp = subs.add_parser("spsp", help="Run SPSP (point-to-point) benchmark")
+    _add_common_args(sp_spsp)
+
+    sp_sssp = subs.add_parser("sssp", help="Run SSSP (single-source) benchmark")
+    _add_common_args(sp_sssp)
+
+    sp_table = subs.add_parser("table", help="Print SPSP results as a terminal table")
+    _csv_path_arg(sp_table)
+
+    sp_plot = subs.add_parser("plot", help="Plot SPSP results to PNG")
+    _csv_path_arg(sp_plot)
+
+    args = parser.parse_args()
+    match args.command:
+        case "spsp":
+            bench_spsp(args)
+        case "sssp":
+            bench_sssp(args)
+        case "table":
+            bench_table(args)
+        case "plot":
+            bench_plot(args)
 
 
 if __name__ == "__main__":

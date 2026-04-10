@@ -403,7 +403,7 @@ class Builder(Unit):
 
         self.pnb: list[list[int]] = Builder.init_pnb(w, h, self.cost_grid)
         self.nav_parent: list[int] = [-1] * n
-        self.nav_dist: list[int] = [-1] * n
+        self.nav_dist: list[int] = [INF] * n
 
     # ================================================================================
     #  Map State Queries
@@ -1083,27 +1083,39 @@ class Builder(Unit):
         n = w * self.h
         pos = ct.get_position()
         si = pos.y * w + pos.x
+        cost = self.cost_grid
         pnb = self.pnb
         parent = self.nav_parent
         dist = self.nav_dist
 
         for i in range(n):
             parent[i] = -1
-            dist[i] = -1
+            dist[i] = INF
 
         parent[si] = si
         dist[si] = 0
 
-        q: deque[int] = deque([si])
-        while q:
-            node = q.popleft()
-            d = dist[node] + 1
-            for ni in pnb[node]:
-                if parent[ni] != -1:
+        nb = 4
+        bk: list[list[int]] = [[] for _ in range(n * ROAD_COST + 1)]
+        bk[0].append(si)
+        cur_d = 0
+        emp = 0
+        while emp < nb:
+            if not bk[cur_d]:
+                cur_d += 1
+                emp += 1
+                continue
+            emp = 0
+            for node in bk[cur_d]:
+                if dist[node] != cur_d:
                     continue
-                parent[ni] = node
-                dist[ni] = d
-                q.append(ni)
+                for ni in pnb[node]:
+                    nd = cur_d + cost[ni]
+                    if nd < dist[ni]:
+                        dist[ni] = nd
+                        parent[ni] = node
+                        bk[nd].append(ni)
+            cur_d += 1
 
     def _extract_path(self, gx: int, gy: int) -> list[int] | None:
         w = self.w
@@ -1314,8 +1326,8 @@ class Builder(Unit):
             return
 
         target = self.explore_target
-        if target < 0 or target not in frontier or nav_dist[target] < 0:
-            reachable = [fi for fi in frontier if nav_dist[fi] >= 0]
+        if target < 0 or target not in frontier or nav_dist[target] >= INF:
+            reachable = [fi for fi in frontier if nav_dist[fi] < INF]
             if not reachable:
                 return
             target = self.rng.choice(reachable)
