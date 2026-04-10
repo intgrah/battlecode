@@ -72,10 +72,11 @@ def _server_ip(server: Server) -> str:
 
 def _cmd_up(args: argparse.Namespace) -> None:
     client = _get_client()
-    existing = _find_server(client)
+    name: str = args.server
+    existing = _find_server(client, name)
     if existing:
         ip = _server_ip(existing)
-        print(f"Server already exists: {ip}")
+        print(f"Server '{name}' already exists: {ip}")
         print(f"  ssh root@{ip}")
         return
 
@@ -83,10 +84,10 @@ def _cmd_up(args: argparse.Namespace) -> None:
     server_type: str = args.type
     location: str = args.location
     image: str = args.image
-    print(f"Creating {server_type} in {location}...")
+    print(f"Creating '{name}' ({server_type}) in {location}...")
 
     response = client.servers.create(
-        name=SERVER_NAME,
+        name=name,
         server_type=ServerType(name=server_type),
         image=Image(name=image),
         location=Location(name=location),
@@ -110,11 +111,12 @@ def _cmd_up(args: argparse.Namespace) -> None:
     print(f"  ssh root@{ip}")
 
 
-def _cmd_down(_: argparse.Namespace) -> None:
+def _cmd_down(args: argparse.Namespace) -> None:
     client = _get_client()
-    server = _find_server(client)
+    name: str = args.server
+    server = _find_server(client, name)
     if not server:
-        print("No server found.")
+        print(f"No server '{name}' found.")
         return
 
     print(f"Destroying {server.name} ({_server_ip(server)})...")
@@ -157,11 +159,12 @@ def _cmd_status(_: argparse.Namespace) -> None:
         print(f"  ssh root@{ip}")
 
 
-def _cmd_ssh(_: argparse.Namespace) -> None:
+def _cmd_ssh(args: argparse.Namespace) -> None:
     client = _get_client()
-    server = _find_server(client)
+    name: str = args.server
+    server = _find_server(client, name)
     if not server:
-        print("No server running.")
+        print(f"No server '{name}' running.")
         sys.exit(1)
     ip = _server_ip(server)
     ssh_path = shutil.which("ssh")
