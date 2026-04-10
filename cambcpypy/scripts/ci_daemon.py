@@ -86,6 +86,8 @@ def _run_one_game(
         "time": round(elapsed, 2),
         "a_ti": result.player_a_titanium_collected,
         "b_ti": result.player_b_titanium_collected,
+        "a_ax": result.player_a_axionite_collected,
+        "b_ax": result.player_b_axionite_collected,
         "resign_message": result.resign_message,
         "replay": replay_b64,
     }
