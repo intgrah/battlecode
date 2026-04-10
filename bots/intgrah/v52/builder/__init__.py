@@ -67,21 +67,18 @@ WALKABLE_ENTITIES = [
 #  Conveyor A* (weighted pathfinding for conveyor routing only)
 # ================================================================================
 
-_CONV_INF = float("inf")
-_CONV_CPU_BUDGET = 1729
-_CONV_TARGET_DRIFT_SQ = 25
-_CONV_TIEBREAK_EPS = 1e-5
-DIAG_WEIGHT = 4
+FLOAT_INF = float("inf")
+FLOAT_EPSILON = 1e-5
 
 _CONV_NEIGHBORS = [
     (1, 0, 0),
     (-1, 0, 0),
     (0, 1, 0),
     (0, -1, 0),
-    (1, 1, DIAG_WEIGHT),
-    (1, -1, DIAG_WEIGHT),
-    (-1, 1, DIAG_WEIGHT),
-    (-1, -1, DIAG_WEIGHT),
+    (1, 1, 5),
+    (1, -1, 5),
+    (-1, 1, 5),
+    (-1, -1, 5),
 ]
 
 
@@ -102,7 +99,7 @@ class ConvAstar:
     def _reset(self, w: int, h: int) -> None:
         if self._w != w or self._h != h:
             self._w, self._h = w, h
-            self._dist = [_CONV_INF] * (w * h)
+            self._dist = [FLOAT_INF] * (w * h)
         self._no_path = False
         self._visited = bytearray((self._w * self._h + 7) // 8)
         self._q = []
@@ -128,7 +125,7 @@ class ConvAstar:
             _, current = heapq.heappop(q)
             if current == start:
                 return True
-            if ct.get_cpu_time_elapsed() > _CONV_CPU_BUDGET:
+            if ct.get_cpu_time_elapsed() > 1729:
                 return False
 
             cur_dist = dist[current.y * w + current.x]
@@ -139,17 +136,17 @@ class ConvAstar:
                 idx = ny * w + nx
                 seen = visited[idx >> 3] & (1 << (idx & 0b111))
                 if not seen:
-                    dist[idx] = _CONV_INF
+                    dist[idx] = FLOAT_INF
                 visited[idx >> 3] |= 1 << (idx & 0b111)
                 move_cost = cost[idx]
-                if move_cost == _CONV_INF:
+                if move_cost == FLOAT_INF:
                     continue
                 new_dist = cur_dist + move_cost + extra
                 if new_dist >= dist[idx]:
                     continue
                 dist[idx] = new_dist
                 nb = Position(nx, ny)
-                h = (abs(nb.x - start.x) + abs(nb.y - start.y)) + _CONV_TIEBREAK_EPS * (
+                h = (abs(nb.x - start.x) + abs(nb.y - start.y)) + FLOAT_EPSILON * (
                     abs(nb.x - start.x) + abs(nb.y - start.y)
                 )
                 heapq.heappush(q, (new_dist + h, nb))
@@ -170,7 +167,7 @@ class ConvAstar:
             if current in path:
                 break
             path.append(current)
-            best_dist = _CONV_INF
+            best_dist = FLOAT_INF
             best = current
             for dx, dy, extra in _CONV_NEIGHBORS:
                 nx, ny = current.x + dx, current.y + dy
@@ -179,7 +176,7 @@ class ConvAstar:
                     0 <= nx < self._w
                     and 0 <= ny < self._h
                     and (self._prev_visited[idx // 8] & (1 << (idx % 8)))
-                    and cost[idx] != _CONV_INF
+                    and cost[idx] != FLOAT_INF
                 ):
                     d = self._dist[idx] + extra
                     if d < best_dist:
@@ -200,7 +197,7 @@ class ConvAstar:
         if (
             self._finished
             or self._running_target is None
-            or target.distance_squared(self._running_target) > _CONV_TARGET_DRIFT_SQ
+            or target.distance_squared(self._running_target) > 32
         ):
             self._reset(state.w, state.h)
         else:
@@ -217,7 +214,7 @@ class ConvAstar:
         if self._prev_target is None:
             return None
         diff = target.distance_squared(self._prev_target)
-        if diff <= _CONV_TARGET_DRIFT_SQ and diff < start.distance_squared(target):
+        if diff <= 32 and diff < start.distance_squared(target):
             if self._no_path:
                 return None
             return self._extract_path(cost, start, target)
@@ -236,7 +233,7 @@ class ConvAstar:
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
                 idx = pos.y * state.w + pos.x
                 saved.append((idx, cost[idx]))
-                cost[idx] = _CONV_INF
+                cost[idx] = FLOAT_INF
         result = self.search(state, ct, start, goal)
         for idx, val in saved:
             cost[idx] = val
@@ -585,13 +582,13 @@ class Builder(Unit):
             case 0:
                 return 0
             case 1:
-                return 0.5
+                return 1
             case 2:
-                return 3.0
+                return 5
             case 3:
-                return 10.0
+                return 10
             case _:
-                return 500.0
+                return INF
 
     def _can_place_junction(self, ct: Controller, pos: Position) -> bool:
         match self.get_building(pos):
@@ -1915,12 +1912,12 @@ class Builder(Unit):
                 ct.build_road(new_pos)
                 return False
 
-        conveyors = self.get_conveyors_to_here(pos)
-        adjacent_conveyors = [c for c in conveyors if c.distance_squared(pos) <= 1]
-        if len(adjacent_conveyors) > 1 or len(conveyors) < 1:
+        conv = self.get_conveyors_to_here(pos)
+        adj_conv = [c for c in conv if c.distance_squared(pos) <= 1]
+        if len(adj_conv) > 1 or len(conv) < 1:
             return False
-        if len(adjacent_conveyors) >= 1:
-            splitter_direction = adjacent_conveyors[0].direction_to(pos)
+        if len(adj_conv) >= 1:
+            splitter_direction = adj_conv[0].direction_to(pos)
         elif isinstance(bld_at_pos := self.get_building(pos), BuildingConveyor):
             splitter_direction = bld_at_pos.direction
         else:
@@ -2009,9 +2006,6 @@ class Builder(Unit):
             self._lay_segment(ct, start, path)
         self._make_move(ct, start)
         return
-
-    def _route_to_core(self, ct: Controller, start: Position) -> None:
-        self._route_to(ct, start, self.my_core)
 
     # ================================================================================
     #  Task: Attack
@@ -2378,7 +2372,7 @@ class Builder(Unit):
                 and self.get_env(pos) != Environment.WALL
             ):
                 if self._is_dangling(ct, pos):
-                    self._route_to_core(ct, pos)
+                    self._route_to(ct, pos, self.my_core)
                     return True
                 if ct.can_build_road(pos):
                     ct.build_road(pos)
@@ -2392,19 +2386,19 @@ class Builder(Unit):
     def _task_conn_clos(self, ct: Controller) -> bool:
         my_pos = ct.get_position()
         if self.branch_start and my_pos.distance_squared(self.branch_start) <= 2:
-            self._route_to_core(ct, self.branch_start)
+            self._route_to(ct, self.branch_start, self.my_core)
             return True
         if self.dangling_output and my_pos.distance_squared(self.dangling_output) <= 2:
-            self._route_to_core(ct, self.dangling_output)
+            self._route_to(ct, self.dangling_output, self.my_core)
             return True
         return False
 
     def _task_connect_excess(self, ct: Controller) -> bool:
         if self.branch_start:
-            self._route_to_core(ct, self.branch_start)
+            self._route_to(ct, self.branch_start, self.my_core)
             return True
         if self.dangling_output:
-            self._route_to_core(ct, self.dangling_output)
+            self._route_to(ct, self.dangling_output, self.my_core)
             return True
         return False
 
