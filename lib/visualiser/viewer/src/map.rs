@@ -16,6 +16,12 @@ fn tile_rect(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Rect {
     Rect::from_min_size(Pos2::new(px, py), Vec2::splat(ts * zoom))
 }
 
+fn tile_rect_f32(x: f32, y: f32, ts: f32, origin: Pos2, zoom: f32) -> Rect {
+    let px = x.mul_add(ts * zoom, origin.x);
+    let py = y.mul_add(ts * zoom, origin.y);
+    Rect::from_min_size(Pos2::new(px, py), Vec2::splat(ts * zoom))
+}
+
 fn tile_center(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Pos2 {
     Pos2::new(
         (x as f32 + 0.5).mul_add(ts * zoom, origin.x),
@@ -108,6 +114,11 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         }
 
         let turn_state = &app.game.turns[app.turn];
+        let next_state = app
+            .game
+            .turns
+            .get(app.turn + 1);
+        let interp_t = app.interp_t;
         let mut entities: Vec<&Entity> = turn_state.entities.values().collect();
         entities.sort_by_key(|e| entity_z_order(&e.kind));
 
@@ -127,11 +138,29 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 }
             }
 
+            // Interpolate builder bot positions between turns.
+            let interp_pos: Option<(f32, f32)> =
+                if matches!(e.kind, EntityKind::BuilderBot { .. }) {
+                    next_state
+                        .and_then(|ns| ns.entities.get(&e.id))
+                        .map(|next_e| {
+                            let t = interp_t;
+                            (
+                                (next_e.pos.0 - e.pos.0) as f32 * t + e.pos.0 as f32,
+                                (next_e.pos.1 - e.pos.1) as f32 * t + e.pos.1 as f32,
+                            )
+                        })
+                } else {
+                    None
+                };
+
             let sprite_name = entity_sprite_name(e);
             let r = if matches!(e.kind, EntityKind::Core { .. }) {
                 let px = ((e.pos.0 - 1).max(0) as f32 * ts).mul_add(zoom, origin.x);
                 let py = ((e.pos.1 - 1).max(0) as f32 * ts).mul_add(zoom, origin.y);
                 Rect::from_min_size(Pos2::new(px, py), Vec2::splat(ts * 3.0 * zoom))
+            } else if let Some((ix, iy)) = interp_pos {
+                tile_rect_f32(ix, iy, ts, origin, zoom)
             } else {
                 tile_rect(e.pos.0, e.pos.1, ts, origin, zoom)
             };
@@ -142,14 +171,25 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 EntityKind::Core { .. } | EntityKind::CoreEdge { .. }
             ) && let Some(res_name) = entity_resource_sprite(e)
             {
-                let center = tile_center(e.pos.0, e.pos.1, ts, origin, zoom);
+                let center = if let Some((ix, iy)) = interp_pos {
+                    Pos2::new(
+                        (ix + 0.5).mul_add(ts * zoom, origin.x),
+                        (iy + 0.5).mul_add(ts * zoom, origin.y),
+                    )
+                } else {
+                    tile_center(e.pos.0, e.pos.1, ts, origin, zoom)
+                };
                 let half = ts * zoom * 0.25;
                 let rr = Rect::from_center_size(center, Vec2::splat(half * 2.0));
                 draw_sprite(&painter, app, res_name, rr);
             }
 
             if e.hp < e.max_hp && e.max_hp > 0 {
-                let tr = tile_rect(e.pos.0, e.pos.1, ts, origin, zoom);
+                let tr = if let Some((ix, iy)) = interp_pos {
+                    tile_rect_f32(ix, iy, ts, origin, zoom)
+                } else {
+                    tile_rect(e.pos.0, e.pos.1, ts, origin, zoom)
+                };
                 let bar_h = (2.0 * zoom).max(1.0);
                 let bar_y = tr.bottom() - bar_h;
                 let bg =
