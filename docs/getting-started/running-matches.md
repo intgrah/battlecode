@@ -2,6 +2,14 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
+> ## Feedback
+> If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
+> https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
+>
+> Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
+>
+> Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
+
 # Running Matches
 
 > Run local matches with the CLI and view replays in the visualiser.
@@ -51,26 +59,27 @@ Remote commands require authentication — run `cambc login` first if you haven'
 Test your bots on the **same hardware** that runs ladder matches, with full time limit enforcement:
 
 ```bash  theme={"dark"}
-cambc test-run <bot_a> <bot_b> [map]
+cambc match test <bot_a> <bot_b> [maps...]
 ```
 
 This uploads both bots and runs a match on AWS Graviton3 instances with the 2ms CPU time limit enforced. Use this to catch performance issues before submitting.
 
-Bot paths for `test-run` must be a directory containing `main.py` or a `.zip` file (unlike `cambc run`, arbitrary `.py` files are not accepted).
+Bot paths for `match test` must be a directory containing `main.py` or a `.zip` file (unlike `cambc run`, arbitrary `.py` files are not accepted).
 
 ```bash  theme={"dark"}
-cambc test-run my_bot opponent
-cambc test-run my_bot opponent maps/custom.map26
+cambc match test my_bot opponent
+cambc match test my_bot opponent maps/custom.map26
 ```
 
 <Warning>
-  Remote test runs are rate-limited: max 10 test/unrated matches per 5 minutes. Unrated matches also have a 5-minute cooldown per specific matchup.
+  Remote test runs are rate-limited: max 10 test/unrated matches per 10 minutes.
 </Warning>
 
 You can also challenge another team to an unrated match using both teams' latest submissions:
 
 ```bash  theme={"dark"}
-cambc unrated <opponent_team_id>
+cambc match unrated <opponent_team_id>
+cambc match unrated <opponent_team_id> --map arena --map galaxy   # specific maps
 ```
 
 ## Debugging

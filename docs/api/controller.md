@@ -2,6 +2,14 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
+> ## Feedback
+> If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
+> https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
+>
+> Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
+>
+> Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
+
 # Controller
 
 > Complete reference for all Controller methods available to your bot.
@@ -320,10 +328,10 @@ A single pair of methods that dispatches to the correct type-specific builder. U
   `self_destruct()` will run.
 </ResponseField>
 
-<ResponseField name="resign()" type="None">
-  Forfeit the game immediately. Destroys this team's core, ending the game as a
-  loss. **Terminates this unit's execution immediately** — no code after
-  `resign()` will run.
+<ResponseField name="resign(message: str | None = None)" type="None">
+  Forfeit the game immediately. Destroys this team's core, ending the game as a loss. **Terminates this unit's execution immediately** — no code after `resign()` will run.
+
+  The optional `message` (max 500 characters) is saved to the replay and displayed in match results.
 </ResponseField>
 
 ## Markers

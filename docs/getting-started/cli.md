@@ -2,6 +2,14 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
+> ## Feedback
+> If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
+> https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
+>
+> Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
+>
+> Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
+
 # CLI reference
 
 > Every command available in the cambc CLI.
@@ -65,11 +73,13 @@ cambc run <bot_a> <bot_b> [map]
 
 **Options:**
 
-| Option          | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `--replay PATH` | Output replay file path (overrides `cambc.toml` default) |
-| `--seed N`      | Map seed (overrides `cambc.toml` default)                |
-| `--watch`       | Open the visualiser automatically after the match        |
+| Option          | Description                                                        |
+| --------------- | ------------------------------------------------------------------ |
+| `--replay PATH` | Output replay file path (overrides `cambc.toml` default)           |
+| `--seed N`      | Map seed (overrides `cambc.toml` default)                          |
+| `--watch`       | Open the visualiser automatically after the match                  |
+| `--tle N`       | Turn time limit in milliseconds (0 to disable, server uses 2)      |
+| `--map-random`  | Pick a random map from the maps directory instead of the first one |
 
 ```bash  theme={"dark"}
 cambc run starter starter                           # bot vs itself
@@ -160,82 +170,107 @@ cambc status
 
 Displays your username, team name, category, Elo rating, matches played, and team members with roles.
 
-### `cambc unrated`
+### `cambc match`
 
-Challenge another team to an unrated match using both teams' latest submissions.
+The `cambc match` group provides all match-related commands. When called with just a match ID, it defaults to showing match details.
 
-```bash  theme={"dark"}
-cambc unrated <opponent_team_id>
-cambc unrated <opponent_team_id> --match <source_match_id>
-cambc unrated <opponent_team_id> --map arena --map fortress
-```
+#### `cambc match info`
 
-| Option       | Description                                                                              |
-| ------------ | ---------------------------------------------------------------------------------------- |
-| `--match ID` | Use the opponent's submission version from a specific past match instead of their latest |
-| `--map NAME` | Map name to play on (repeatable, up to 5). Omit for random map selection                 |
-
-Unrated matches run on the same AWS infrastructure as ladder matches with full time limit enforcement but do not affect ratings. They are prioritised over ladder matches for faster results.
-
-<Warning>
-  Rate limits apply: max 10 test/unrated matches per 5 minutes, plus a 5-minute cooldown per matchup.
-</Warning>
-
-### `cambc test-run`
-
-Upload two local bots and run a remote match with full time limit enforcement on AWS Graviton3 hardware.
+View details of a specific match including per-game results.
 
 ```bash  theme={"dark"}
-cambc test-run <bot_a> <bot_b> [map]
+cambc match info <match_id>
+cambc match <match_id>          # shorthand — defaults to info
 ```
 
-Both bots are packaged and uploaded to the server. Unlike `cambc run`, this enforces the 2ms CPU time limit per round — use this to check your bot's performance before submitting.
+Shows match status, teams, score, rating delta, timestamps, and a table of individual games with map, winner, win condition, and turns played.
 
-```bash  theme={"dark"}
-cambc test-run my_bot opponent                    # test two bots remotely
-cambc test-run my_bot opponent maps/custom.map26  # with a custom map
-```
-
-### `cambc matches`
+#### `cambc match list`
 
 View recent match history.
 
 ```bash  theme={"dark"}
-cambc matches [options]
+cambc match list [options]
 ```
 
 | Option                     | Description                                     |
 | -------------------------- | ----------------------------------------------- |
 | `--type {ladder\|unrated}` | Filter by match type                            |
-| `--team NAME`              | Filter by team name (substring match)           |
+| `--team NAME`              | Filter by team name or ID                       |
+| `--mine`                   | Show only your team's matches                   |
 | `--limit N`                | Number of matches to show (default 20, max 100) |
 | `--cursor CURSOR`          | Pagination cursor from previous results         |
 
-### `cambc match`
+#### `cambc match unrated`
 
-View details of a specific match including per-game results.
-
-```bash  theme={"dark"}
-cambc match <match_id>
-```
-
-Shows match status, teams, score, rating delta, timestamps, and a table of individual games with map, winner, win condition, and turns played.
-
-### `cambc test-matches`
-
-View your remote test run history.
+Challenge another team to an unrated match.
 
 ```bash  theme={"dark"}
-cambc test-matches [--limit N]
+cambc match unrated <opponent_team_id>
+cambc match unrated <opponent_team_id> --match <source_match_id>
+cambc match unrated <opponent_team_id> --map arena --map galaxy
 ```
 
-### `cambc teams`
+| Option       | Description                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| `--match ID` | Use the opponent's submission version from a specific past match instead of their latest |
+| `--map NAME` | Map name (repeatable, up to 5). If omitted, 5 random maps are used                       |
+
+Unrated matches run on the same AWS infrastructure as ladder matches with full time limit enforcement but do not affect ratings. They are prioritised over ladder matches for faster results.
+
+<Warning>
+  Rate limits apply: max 10 test/unrated matches per 10 minutes.
+</Warning>
+
+#### `cambc match test`
+
+Upload two local bots and run a remote match with full time limit enforcement on AWS Graviton3 hardware.
+
+```bash  theme={"dark"}
+cambc match test <bot_a> <bot_b> [maps...]
+```
+
+Both bots are packaged and uploaded to the server. Unlike `cambc run`, this enforces the 2ms CPU time limit per round — use this to check your bot's performance before submitting. You can optionally specify `.map26` files — one per game.
+
+```bash  theme={"dark"}
+cambc match test my_bot opponent                           # test two bots remotely
+cambc match test my_bot opponent maps/arena.map26          # with a specific map
+```
+
+#### `cambc match replay`
+
+Download replay files for a completed match.
+
+```bash  theme={"dark"}
+cambc match replay <match_id>              # download all 5 game replays
+cambc match replay <match_id> --game 3     # download a specific game
+cambc match replay <match_id> -o out.replay26  # custom output path
+```
+
+#### `cambc match watch`
+
+Open a match replay in the browser.
+
+```bash  theme={"dark"}
+cambc match watch <match_id>
+cambc match watch <match_id> --game 3
+```
+
+#### `cambc match tests`
+
+View your team's remote test run history.
+
+```bash  theme={"dark"}
+cambc match tests [--limit N]
+```
+
+### `cambc team`
 
 Search for teams or view team details.
 
 ```bash  theme={"dark"}
-cambc teams search <query>    # search by name
-cambc teams info <team_id>    # view team details
+cambc team search <query>     # search by name
+cambc team info <team_id>     # view team details
 ```
 
 
