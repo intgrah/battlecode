@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import heapq
 import math
-import random
 from collections import deque
 from typing import TYPE_CHECKING, Final, override
 
@@ -86,7 +85,6 @@ _CONV_NEIGHBORS = [
     (-1, 1, DIAG_WEIGHT),
     (-1, -1, DIAG_WEIGHT),
 ]
-random.shuffle(_CONV_NEIGHBORS)
 
 
 class ConvAstar:
@@ -422,9 +420,8 @@ class Builder(Unit):
         self.patrol_head: Position | None = None
         self.patrol_trail: list[Position] = []
 
-        self.scout_target: Position | None = None
-        self.scout_age: int = 0
-        self.scout_radius: float = 10.0
+        self.frontier: set[int] = self._init_frontier()
+        self.explore_target: int = -1
 
         self.pnb: list[list[int]] = Builder.init_pnb(w, h, self.cost_grid)
         self.nav_parent: list[int] = [-1] * n
@@ -433,6 +430,35 @@ class Builder(Unit):
     # ================================================================================
     #  Map State Queries
     # ================================================================================
+
+    def _init_frontier(self) -> set[int]:
+        w, h = self.w, self.h
+        env = self.env
+        frontier: set[int] = set()
+        for i in range(w * h):
+            if env[i] is not None:
+                continue
+            cx, cy = i % w, i // w
+            for dx, dy in DIR8_DELTA:
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < w and 0 <= ny < h and env[ny * w + nx] is not None:
+                    frontier.add(i)
+                    break
+        return frontier
+
+    def _update_frontier_at(self, i: int) -> None:
+        w, h = self.w, self.h
+        env = self.env
+        self.frontier.discard(i)
+        cx, cy = i % w, i // w
+        for dx, dy in DIR8_DELTA:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                if env[ni] is None:
+                    self.frontier.add(ni)
+                else:
+                    self.frontier.discard(ni)
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
@@ -610,16 +636,19 @@ class Builder(Unit):
         }
 
         for pos in nearby_tiles:
-            if 0 <= pos.x < self.w and 0 <= pos.y < self.h:
-                i = pos.y * w + pos.x
+            if self.in_bounds(pos):
+                i = self.idx(pos)
                 self.network_in_edges[i] = [
                     p for p in self.network_in_edges[i] if not ct.is_in_vision(p)
                 ]
 
         for pos in nearby_tiles:
-            if 0 <= pos.x < self.w and 0 <= pos.y < self.h:
-                i = pos.y * w + pos.x
+            if self.in_bounds(pos):
+                i = self.idx(pos)
+                was_unseen = self.env[i] is None
                 self.env[i] = ct.get_tile_env(pos)
+                if was_unseen:
+                    self._update_frontier_at(i)
                 building_id = ct.get_tile_building_id(pos)
                 if (
                     building_id is not None
@@ -863,6 +892,7 @@ class Builder(Unit):
         n = min(len(pending), _reflect_budget)
         for _ in range(n):
             i = pending.popleft()
+            old_pass = self.cost_grid[i] < INF
             terrain = self.env[i]
             if terrain == Environment.WALL:
                 self.cost_grid[i] = INF
@@ -874,6 +904,9 @@ class Builder(Unit):
             ):
                 self.cost_grid[i] = ROAD_COST
                 self.conveyor_cost_grid[i] = 1 if terrain == Environment.EMPTY else 50.0
+            new_pass = self.cost_grid[i] < INF
+            if old_pass != new_pass:
+                Builder.update_pnb(self.w, self.h, self.cost_grid, self.pnb, i)
 
     def _eliminate_symmetries(
         self,
@@ -1293,62 +1326,25 @@ class Builder(Unit):
     #  Task: Explore
     # ================================================================================
 
-    def _move_via_path(
-        self,
-        ct: Controller,
-        target: Position,
-        *,
-        check_money: bool = True,
-    ) -> None:
-        path = self._extract_path(target.x, target.y)
-        if path and len(path) > 1:
-            w = self.w
-            nx, ny = path[1] % w, path[1] // w
-            next_pos = Position(nx, ny)
-            if check_money and ct.get_global_resources()[0] < 75:
-                dirs = DIR8
-                self.rng.shuffle(dirs)
-                my_pos = ct.get_position()
-                for d in dirs:
-                    if try_move(ct, my_pos.add(d)):
-                        break
-            else:
-                self._try_move_with_build(ct, next_pos)
-
     def _explore(self, ct: Controller) -> None:
-        self.scout_age += 1
-        t = self.scout_target
-        my_pos = ct.get_position()
+        w = self.w
+        nav_dist = self.nav_dist
+        frontier = self.frontier
 
-        if (
-            self.scout_age > 20
-            or t is None
-            or my_pos.distance_squared(t) < 3
-            or self.get_cost(t) >= INF
-        ):
-            t = Position(-10, -10)
-            while (
-                t.x < 0
-                or t.y < 0
-                or t.x >= self.w
-                or t.y >= self.h
-                or self.get_cost(t) >= INF
-            ):
-                theta = self.rng.random() * math.tau
-                t = Position(
-                    my_pos.x + round(math.cos(theta) * self.scout_radius),
-                    my_pos.y + round(math.sin(theta) * self.scout_radius),
-                )
-                if self.scout_radius >= self.w / 2 or self.scout_radius >= self.h / 2:
-                    self.scout_radius -= 1.0
+        if not frontier:
+            return
 
-            self.scout_age = 0
-            self.scout_target = t
-            ct.draw_indicator_dot(t, 255, 0, 255)
-            self._move_via_path(ct, t)
-        else:
-            ct.draw_indicator_dot(t, 10, 0, 10)
-            self._move_via_path(ct, t)
+        target = self.explore_target
+        if target < 0 or target not in frontier or nav_dist[target] < 0:
+            reachable = [fi for fi in frontier if nav_dist[fi] >= 0]
+            if not reachable:
+                return
+            target = self.rng.choice(reachable)
+            self.explore_target = target
+
+        tx, ty = target % w, target // w
+        ct.draw_indicator_dot(Position(tx, ty), 255, 0, 255)
+        self._make_move(ct, Position(tx, ty))
 
     # ================================================================================
     #  Task: Harvest
@@ -2456,6 +2452,8 @@ class Builder(Unit):
         return False
 
     def _task_explore(self, ct: Controller) -> bool:
+        if not self.frontier:
+            return False
         if ct.get_global_resources()[0] <= 100:
             return False
         self._explore(ct)
