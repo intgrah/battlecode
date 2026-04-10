@@ -428,15 +428,16 @@ def _cmd_ci(args: argparse.Namespace) -> None:
                 continue
 
             replay_b64: str = result.pop("replay", "")
+            replay_name = f"{result['game']}_{result['map']}.replay26"
             if replay_b64:
-                replay_name = f"{result['game']}_{result['map']}.replay26"
                 (replay_dir / replay_name).write_bytes(base64.b64decode(replay_b64))
 
             print(
                 f"  [{result.get('score', '?')}] "
                 f"game {result['game']:>2}: {result['winner']:<20} "
                 f"{result['map']:<16} t={result['turns']:>4} "
-                f"({result['condition']}, {result['time']:.1f}s)"
+                f"({result['condition']}, {result['time']:.1f}s) "
+                f"-> {replay_dir / replay_name}"
             )
     finally:
         sock.close()
