@@ -17,9 +17,10 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 # non-centre directions
 DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
+
 class Player:
     def __init__(self):
-        self.num_spawned = 0 # number of builder bots spawned so far (core)
+        self.num_spawned = 0  # number of builder bots spawned so far (core)
 
     def run(self, ct: Controller) -> None:
         etype = ct.get_entity_type()
@@ -37,7 +38,7 @@ class Player:
                 if ct.can_build_harvester(check_pos):
                     ct.build_harvester(check_pos)
                     break
-            
+
             # move in a random direction
             move_dir = random.choice(DIRECTIONS)
             move_pos = ct.get_position().add(move_dir)

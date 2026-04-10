@@ -277,7 +277,11 @@ def _pick_and_walk(
 
     scored = sorted([(s, oi) for oi in unharvested if (s := _score(oi)) is not None])
     import sys
-    print(f"HARV: pos=({pos.x},{pos.y}) ore={len(unharvested)} scored={len(scored)} blocked={len(state.blocked_ore)}", file=sys.stderr)
+
+    print(
+        f"HARV: pos=({pos.x},{pos.y}) ore={len(unharvested)} scored={len(scored)} blocked={len(state.blocked_ore)}",
+        file=sys.stderr,
+    )
 
     for _, oi in scored:
         bld = state.building[oi]
@@ -314,25 +318,34 @@ def _pick_and_walk(
             state.blocked_ore[oi] = state.age + state.birthday
             continue
         if is_claimed(state, oi, TaskKind.NAV_ORE):
-            print(f"HARV:   ({oi%w},{oi//w}) claimed", file=sys.stderr)
+            print(f"HARV:   ({oi % w},{oi // w}) claimed", file=sys.stderr)
             continue
         ore_pos = Position(oi % w, oi // w)
         adj = cardinal_adjacent(state, pos, ore_pos)
         if adj is None:
-            print(f"HARV:   ({oi%w},{oi//w}) no adj", file=sys.stderr)
+            print(f"HARV:   ({oi % w},{oi // w}) no adj", file=sys.stderr)
             continue
         result = move_toward_with_road(state, ct, adj)
         if result is None:
-            print(f"HARV:   ({oi%w},{oi//w}) no path to ({adj.x},{adj.y})", file=sys.stderr)
+            print(
+                f"HARV:   ({oi % w},{oi // w}) no path to ({adj.x},{adj.y})",
+                file=sys.stderr,
+            )
             continue
         move, build = result
         if move == Direction.CENTRE and build is None:
-            print(f"HARV:   ({oi%w},{oi//w}) stuck at ({adj.x},{adj.y})", file=sys.stderr)
+            print(
+                f"HARV:   ({oi % w},{oi // w}) stuck at ({adj.x},{adj.y})",
+                file=sys.stderr,
+            )
             continue
         # If we'll be adjacent after moving, DON'T fast-place — let the
         # immediate check handle it next turn (with barrier + road sequence)
 
-        print(f"HARV: id={ct.get_id()} ({pos.x},{pos.y}) -> ore ({oi%w},{oi//w}) adj ({adj.x},{adj.y}) {move.name}", file=sys.stderr)
+        print(
+            f"HARV: id={ct.get_id()} ({pos.x},{pos.y}) -> ore ({oi % w},{oi // w}) adj ({adj.x},{adj.y}) {move.name}",
+            file=sys.stderr,
+        )
         state.claim = MarkerTaskClaim(TaskKind.NAV_ORE, oi, rnd)
         return move, build
 

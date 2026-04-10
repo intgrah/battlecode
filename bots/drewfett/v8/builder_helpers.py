@@ -283,7 +283,7 @@ def _tile_has_correct_transport(s: State, ci: int, ni: int, w: int) -> bool:
         return False
 
     # Use flow model (single source of truth for outputs)
-    flow = getattr(s, 'flow', None)
+    flow = getattr(s, "flow", None)
     if flow is not None:
         return ni in flow.outputs_of(ci)
 
@@ -534,9 +534,7 @@ _TRANSPORT_OR_TURRETS = TRANSPORT + TURRETS
 _TURRET_SKIP = (BuildingRoad, BuildingMarker, BuildingHarvester, BuildingLauncher)
 
 
-def _in_sentinel_arc(
-    sx: int, sy: int, fdx: int, fdy: int, tx: int, ty: int
-) -> bool:
+def _in_sentinel_arc(sx: int, sy: int, fdx: int, fdy: int, tx: int, ty: int) -> bool:
     """Check if target is in sentinel arc: within Chebyshev 1 of facing ray, r²≤32."""
     if (tx - sx) ** 2 + (ty - sy) ** 2 > 32:
         return False
@@ -576,7 +574,11 @@ def try_place_turret_at(
     if ti in s.my_transport:
         return None
     bld = s.building[ti]
-    if bld is not None and bld.team == s.my_team and isinstance(bld, _TRANSPORT_OR_TURRETS):
+    if (
+        bld is not None
+        and bld.team == s.my_team
+        and isinstance(bld, _TRANSPORT_OR_TURRETS)
+    ):
         return None
     if not nav.is_passable(tpos):
         return None
@@ -601,7 +603,8 @@ def try_place_turret_at(
     en_targets = s.en_core_tiles | s.en_turrets
     # Filter out launchers
     en_targets = {
-        e for e in en_targets
+        e
+        for e in en_targets
         if not isinstance(s.building[e], BuildingLauncher)
         and rnd - s.last_seen[e] <= 20
     }
@@ -624,11 +627,14 @@ def try_place_turret_at(
             if facing is None:
                 continue
             # VERIFY FEED before committing (the key invariant)
-            flow = getattr(s, 'flow', None)
+            flow = getattr(s, "flow", None)
             if flow is not None and not flow.has_feed_for_turret(ti, fdx, fdy):
                 continue  # no verified feed — skip this direction
             hx, hy = hit % w, hit // w
-            _log(f"  turret({tx},{ty}): gunner face={facing.name} -> ({hx},{hy})", ct.get_id())
+            _log(
+                f"  turret({tx},{ty}): gunner face={facing.name} -> ({hx},{hy})",
+                ct.get_id(),
+            )
             return _do_place(s, ct, nav, ti, tpos, pos, facing, sentinel=False)
 
     if gunner_only:
@@ -652,10 +658,13 @@ def try_place_turret_at(
                 if facing is None:
                     continue
                 # VERIFY FEED
-                flow = getattr(s, 'flow', None)
+                flow = getattr(s, "flow", None)
                 if flow is not None and not flow.has_feed_for_turret(ti, fdx, fdy):
                     continue
-                _log(f"  turret({tx},{ty}): sentinel face={facing.name} -> ({ex},{ey})", ct.get_id())
+                _log(
+                    f"  turret({tx},{ty}): sentinel face={facing.name} -> ({ex},{ey})",
+                    ct.get_id(),
+                )
                 return _do_place(s, ct, nav, ti, tpos, pos, facing, sentinel=True)
 
     return None
@@ -704,7 +713,8 @@ def _do_place(
     rnd = s.age + s.birthday
     en_targets = s.en_core_tiles | s.en_turrets
     en_targets = {
-        e for e in en_targets
+        e
+        for e in en_targets
         if not isinstance(s.building[e], BuildingLauncher)
         and rnd - s.last_seen[e] <= 20
     }
@@ -723,7 +733,11 @@ def _do_place(
         hit = _has_los(s, tx, ty, fdx, fdy)
         if hit is not None:
             hbld = s.building[hit]
-            if hbld is not None and hbld.team != s.my_team and not isinstance(hbld, _TURRET_SKIP):
+            if (
+                hbld is not None
+                and hbld.team != s.my_team
+                and not isinstance(hbld, _TURRET_SKIP)
+            ):
                 has_target = True
 
     if not has_target:

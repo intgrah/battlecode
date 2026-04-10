@@ -1,4 +1,5 @@
 """Benchmark + correctness check: noparent2 vs beacon."""
+
 from __future__ import annotations
 
 import gc
@@ -14,7 +15,10 @@ from scripts.bench_nav import (
     sssp_dijkstra_bucket_noparent_beacon,
 )
 
-MAPS_DIR = MapData.__module__ and __import__("pathlib").Path(__file__).resolve().parent.parent / "maps"
+MAPS_DIR = (
+    MapData.__module__
+    and __import__("pathlib").Path(__file__).resolve().parent.parent / "maps"
+)
 
 N_SOURCES = 1000
 
@@ -65,7 +69,9 @@ def main() -> None:
                     failures += 1
                     if failures <= 10:
                         diffs = [
-                            i for i in range(len(result_np2)) if result_np2[i] != result_beacon[i]
+                            i
+                            for i in range(len(result_np2))
+                            if result_np2[i] != result_beacon[i]
                         ]
                         print(
                             f"\nFAIL: {md.name}/{scenario} src={si} "
@@ -95,7 +101,9 @@ def main() -> None:
             p90 = ts[int(nt * 0.9)]
             p99 = ts[int(nt * 0.99)]
             p100 = ts[-1]
-            print(f"  {name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us")
+            print(
+                f"  {name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us"
+            )
         print()
 
 

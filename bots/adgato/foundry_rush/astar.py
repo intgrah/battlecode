@@ -159,13 +159,13 @@ class ChainAstar:
         env: Environment,
         building_type: EntityType | None,
         is_allied: bool,
-        force_update: bool = False
+        force_update: bool = False,
     ) -> None:
-        
+
         pi = self._pi(x, y)
         if not force_update and self._cls[pi] == UNREACHABLE:
             return
-        
+
         if env == Environment.WALL:
             cls = IMPASSABLE
         elif env == Environment.ORE_TITANIUM or env == Environment.ORE_AXIONITE:
@@ -348,7 +348,6 @@ class ChainAstar:
         goal = self._pi(self._gx, self._gy)
         gy_p, gx_p = _divmod(goal, pw)
 
-
         # Heap entries: (f, counter, node, g_at_push). Stale entries are
         # skipped via `g_at_push != g_score[node]` (canonical A* idiom),
         # avoiding a recompute of the heuristic at pop.
@@ -434,6 +433,6 @@ class ChainAstar:
                     return self._reconstruct(best_h_node, came_from)
                 print("no best node in AStar!")
                 return None
-            
+
         print("no route found in AStar!")
         return None

@@ -33,7 +33,9 @@ class NavBfs:
     has no passability check.
     """
 
-    def __init__(self, grid: PassableGrid, target_dist: int = 0, range: int = INF) -> None:
+    def __init__(
+        self, grid: PassableGrid, target_dist: int = 0, range: int = INF
+    ) -> None:
         self.grid = grid
         n = grid.n
         self._goals: list[int] = []
@@ -123,9 +125,7 @@ class NavBfs:
                 if best < di:
                     angles[ri] = math.atan2(by, bx)
 
-        emit_dict(
-            { "bfs": VectorField(angles) }
-        )
+        emit_dict({"bfs": VectorField(angles)})
 
     def _compute(self, within_budget: Callable[[], bool]) -> bool:
         """Run/resume backwards BFS. Returns True if agent tile is reached."""
@@ -273,11 +273,19 @@ class NavBfs:
         if self._dirty:
             self._restart()
             self._dirty = False
-        elif not self._resumable and self._gen[cur_idx] != self._g and self._qi < self._qlen:
+        elif (
+            not self._resumable
+            and self._gen[cur_idx] != self._g
+            and self._qi < self._qlen
+        ):
             # Agent moved beyond the computed frontier — resume
             self._resumable = True
         if self._resumable:
-            finished = self._compute(within_budget) if self._range >= INF else self._compute_range(within_budget)
+            finished = (
+                self._compute(within_budget)
+                if self._range >= INF
+                else self._compute_range(within_budget)
+            )
             if finished:
                 print(f"steps {self._qi}")
                 self._resumable = self._qi < self._qlen
@@ -295,4 +303,7 @@ class NavBfs:
         offset = abs(d - td)
         print(f"dist {offset}")
 
-        return tuple(abs(dist[cur_idx + off] - td) - offset if gen[cur_idx + off] == g else INF for off in grid.offsets)
+        return tuple(
+            abs(dist[cur_idx + off] - td) - offset if gen[cur_idx + off] == g else INF
+            for off in grid.offsets
+        )

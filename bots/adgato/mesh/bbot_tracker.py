@@ -34,7 +34,6 @@ class BbotTracker:
         friendly = self.friendly
         old = self.positions.copy()
 
-
         # Update visible enemy builder bots
         seen_ids: set[int] = set()
         for uid in ct.get_nearby_units():

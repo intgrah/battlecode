@@ -31,6 +31,7 @@ def _run_econ(builder: Builder, ct: Controller) -> tuple[str, bool]:
 
     # Reactive gunner — econ builders also counter enemy turrets threatening our infra
     from builder_defense import _task_reactive_gunner
+
     result = _task_reactive_gunner(builder, ct)
     if result is not None:
         return result
@@ -56,9 +57,7 @@ def _run_econ(builder: Builder, ct: Controller) -> tuple[str, bool]:
     return _task_explore(builder, ct)
 
 
-def _task_barrier_ore(
-    builder: Builder, ct: Controller
-) -> tuple[str, bool] | None:
+def _task_barrier_ore(builder: Builder, ct: Controller) -> tuple[str, bool] | None:
     """Barrier unprotected ore tiles if enemy bots are nearby."""
     s = builder.state
     w = s.w
@@ -85,9 +84,7 @@ def _task_barrier_ore(
             continue
 
         # Enemy bot within Manhattan 3 of this ore?
-        threat = any(
-            abs(ox - ep.x) + abs(oy - ep.y) <= 3 for ep in enemy_bots
-        )
+        threat = any(abs(ox - ep.x) + abs(oy - ep.y) <= 3 for ep in enemy_bots)
         if not threat:
             continue
 
@@ -490,7 +487,9 @@ def _task_harvest(
         # Second pass: control uncontrolled tiles (fire roads, place our roads)
         if enemy_roads:
             # Fire at closest reachable enemy road
-            for rx, ry in sorted(enemy_roads, key=lambda p: pos.distance_squared(Position(p[0], p[1]))):
+            for rx, ry in sorted(
+                enemy_roads, key=lambda p: pos.distance_squared(Position(p[0], p[1]))
+            ):
                 rpos = Position(rx, ry)
                 if pos == rpos and ct.can_fire(rpos):
                     ct.fire(rpos)
@@ -501,7 +500,9 @@ def _task_harvest(
 
         if empty_tiles:
             # Place road on closest empty tile
-            for ex, ey in sorted(empty_tiles, key=lambda p: pos.distance_squared(Position(p[0], p[1]))):
+            for ex, ey in sorted(
+                empty_tiles, key=lambda p: pos.distance_squared(Position(p[0], p[1]))
+            ):
                 epos = Position(ex, ey)
                 if pos.distance_squared(epos) <= 2 and ct.can_build_road(epos):
                     ct.build_road(epos)

@@ -12,16 +12,18 @@ def in_bounds(ct: Controller, p: Position) -> bool:
 def chebyshev(a: Position, b: Position) -> int:
     return max(abs(a.x - b.x), abs(a.y - b.y))
 
+
 _ALL_DIRS = (
-        Direction.NORTHEAST,
-        Direction.SOUTHEAST,
-        Direction.SOUTHWEST,
-        Direction.NORTHWEST,
-        Direction.NORTH,
-        Direction.EAST,
-        Direction.SOUTH,
-        Direction.WEST,
-    )
+    Direction.NORTHEAST,
+    Direction.SOUTHEAST,
+    Direction.SOUTHWEST,
+    Direction.NORTHWEST,
+    Direction.NORTH,
+    Direction.EAST,
+    Direction.SOUTH,
+    Direction.WEST,
+)
+
 
 def try_move_away(ct: Controller, pos: Position) -> bool:
     """Move in direction. Uses existing walkable tile if possible, else builds road."""
@@ -29,6 +31,7 @@ def try_move_away(ct: Controller, pos: Position) -> bool:
         if try_move_smart(ct, pos, d):
             return True
     return False
+
 
 def try_move_smart(ct: Controller, pos: Position, direction: Direction) -> bool:
     """Move in direction. Uses existing walkable tile if possible, else builds road."""

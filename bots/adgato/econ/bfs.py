@@ -47,13 +47,14 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     },
 )
 
+
 def _bfs_compute(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
     dist: list[int],
     q: list[int],
     cur_idx: int,
-    stop_at: int = INF
+    stop_at: int = INF,
 ) -> None:
     """Run backwards BFS to completion (one level past the agent)."""
     for node in q:
@@ -71,6 +72,7 @@ def _bfs_compute(
                 if ni == cur_idx:
                     stop_at = d + 1
                 dist[ni] = d
+
 
 class NavBfs:
     """Backwards-BFS navigation for builder bots.
@@ -151,7 +153,7 @@ class NavBfs:
 
         if sym is not Symmetry.UNKNOWN:
             mi = mirror_idx(i, sym, self.w, self.h)
-            self._set_passable(mi, passable=env != Environment.WALL, mirror = True)
+            self._set_passable(mi, passable=env != Environment.WALL, mirror=True)
 
     def _set_passable(self, i: int, passable: bool, mirror: bool = False) -> None:
         """Write passability to grid and mark dirty if a closer tile changed."""
@@ -162,7 +164,7 @@ class NavBfs:
         old = self._passable[pi]
         if mirror and old != 2:
             return
-        
+
         if old != passable:
             self._passable[pi] = passable
             if old and passable:
@@ -243,14 +245,22 @@ class NavBfs:
             has_se = passable[se]
             has_sw = passable[sw]
             has_nw = passable[nw]
-            if has_ne: push.append(ne)
-            if has_se: push.append(se)
-            if has_sw: push.append(sw)
-            if has_nw: push.append(nw)
-            if passable[n]: (assign if has_ne and has_nw else push).append(n)
-            if passable[e]: (assign if has_ne and has_se else push).append(e)
-            if passable[s]: (assign if has_se and has_sw else push).append(s)
-            if passable[w]: (assign if has_sw and has_nw else push).append(w)
+            if has_ne:
+                push.append(ne)
+            if has_se:
+                push.append(se)
+            if has_sw:
+                push.append(sw)
+            if has_nw:
+                push.append(nw)
+            if passable[n]:
+                (assign if has_ne and has_nw else push).append(n)
+            if passable[e]:
+                (assign if has_ne and has_se else push).append(e)
+            if passable[s]:
+                (assign if has_se and has_sw else push).append(s)
+            if passable[w]:
+                (assign if has_sw and has_nw else push).append(w)
         self._pnb_dirty.clear()
 
     def mirror_known(self, sym: Symmetry, known_env: dict[int, Environment]) -> None:
@@ -268,7 +278,7 @@ class NavBfs:
 
     def set_goal(self, goal: Position) -> None:
         """Change to a single goal. Marks dirty so the search resets."""
-        gi = (goal.y + 1) * self._pw + (goal.x + 1) 
+        gi = (goal.y + 1) * self._pw + (goal.x + 1)
         ng = len(self._gis)
         if ng != 1 or ng == 1 and gi != self._gis[0]:
             self.set_goals([goal])
@@ -287,7 +297,7 @@ class NavBfs:
         for gi in self._gis:
             self._dist[gi] = 0
             q.append(gi)
-            
+
         _bfs_compute(self._pnb_push, self._pnb_set, self._dist, self._q, self._cur_idx)
 
     def emit_vis(self) -> None:
@@ -332,7 +342,6 @@ class NavBfs:
             bfs=VectorField(angles),
         )
 
-
     def nearest_goal(self, ct: Controller) -> Position | None:
         """Walk the BFS distance field from the agent toward a goal.
 
@@ -373,7 +382,6 @@ class NavBfs:
         if self._pnb_init_progress < self._rn:
             self._init_pnb_chunk(within_budget)
             return False
-        
 
         # Rebuild pnb for tiles with passability changes
         if self._pnb_dirty:
@@ -390,7 +398,7 @@ class NavBfs:
 
         if ct.get_move_cooldown() > 0:
             return False
-        
+
         cur_idx = self._cur_idx
         dist = self._dist
         d = dist[cur_idx]
@@ -423,10 +431,10 @@ class NavBfs:
                 if ct.can_move(direction):
                     ct.move(direction)
                     return True
-        
+
         if nzcd:
             return False
-        
+
         # Just move in any direction
         for ni in pnb:
             next_pos = Position(ni % pw - 1, ni // pw - 1)

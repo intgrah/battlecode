@@ -1,4 +1,5 @@
 """Line-profile beacon SSSP on all maps."""
+
 from __future__ import annotations
 
 import random

@@ -51,7 +51,11 @@ class TiPlan:
     def set_core(self, core_pos: Position) -> None:
         self.core_pos = core_pos
         self.chain.update_tile(
-            core_pos.x, core_pos.y, Environment.EMPTY, EntityType.CORE, True,
+            core_pos.x,
+            core_pos.y,
+            Environment.EMPTY,
+            EntityType.CORE,
+            True,
             force_update=True,
         )
 
@@ -134,7 +138,7 @@ class TiPlan:
         if self._plan is None:
             return 0
         i = 0
-        for entity, pos, _extra in self._plan[self._progress:]:
+        for entity, pos, _extra in self._plan[self._progress :]:
             cached = self._tile_cache[pos.y * self.w + pos.x]
             if cached == UNSEEN:
                 i += 1
@@ -188,9 +192,7 @@ class TiPlan:
 
         if fail_entity == EntityType.HARVESTER:
             # Ore tile blocked — pick a different ore.
-            self.chain.update_tile(
-                fail_pos.x, fail_pos.y, Environment.WALL, None, True
-            )
+            self.chain.update_tile(fail_pos.x, fail_pos.y, Environment.WALL, None, True)
             new_ore = self._pick_alt_ore(fail_pos)
             if new_ore is None:
                 self._plan = None
@@ -202,7 +204,9 @@ class TiPlan:
             elif cur > 0:
                 _, start_pos, _ = self._plan[cur]
                 chain_start = (start_pos.x, start_pos.y)
-            new_plan = self._build_plan(new_ore, chain_start=chain_start, place_harvester=cur == 0)
+            new_plan = self._build_plan(
+                new_ore, chain_start=chain_start, place_harvester=cur == 0
+            )
             if new_plan is None:
                 self._plan = None
                 self._progress = 0
@@ -255,7 +259,9 @@ class TiPlan:
             if tile_env(cached) == ENV_WALL:
                 continue
             bt = tile_building_type(cached)
-            if bt is not None and not (bt == EntityType.ROAD and tile_is_allied(cached)):
+            if bt is not None and not (
+                bt == EntityType.ROAD and tile_is_allied(cached)
+            ):
                 continue
             # Exposed side — destroy friendly road if present, then barrier.
             side = Position(nx, ny)

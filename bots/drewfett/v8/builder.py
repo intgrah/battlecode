@@ -171,7 +171,10 @@ class Builder(Unit):
             self._stuck_turns = 0
 
         # Oscillation breaker (moving but not making progress)
-        if self._osc_anchor is not None and new_pos.distance_squared(self._osc_anchor) <= 2:
+        if (
+            self._osc_anchor is not None
+            and new_pos.distance_squared(self._osc_anchor) <= 2
+        ):
             self._osc_count += 1
             if self._osc_count >= 10:
                 dirs = [
