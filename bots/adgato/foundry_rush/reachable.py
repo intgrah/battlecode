@@ -202,8 +202,8 @@ class Reachable:
         cy = self.h // 2
         kx = core_pos.x
         ky = core_pos.y
-        px = core_pos.x
-        py = core_pos.y
+        px = cur_pos.x
+        py = cur_pos.y
         best_pi = -1
         best_key = 1 << 30
         
@@ -211,10 +211,9 @@ class Reachable:
         for pi in self._frontier:
             x = pi % pw - 1
             y = pi // pw - 1
-            cur_d = max(max(abs(x - px), abs(y - py)), 1)
-            core_d = max(max(abs(x - kx), abs(y - ky)), 1)
-            center_d = max(max(abs(x - cx), abs(y - cy)), 1)
-            key = -10 / core_d - 1 / cur_d - c_w * 5 / center_d
+            cur_d = max(abs(x - px), abs(y - py))
+            core_d = max(abs(x - kx), abs(y - ky))
+            key = core_d ** 0.75 + cur_d
             if key < best_key:
                 best_key = key
                 best_pi = pi

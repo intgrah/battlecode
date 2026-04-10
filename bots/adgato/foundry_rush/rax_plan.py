@@ -5,7 +5,7 @@ stage2 (core→foundry chain), plus replanning when tiles get blocked.
 from __future__ import annotations
 
 from astar import BuildInstruction, ChainAstar
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, Position, Direction
 from env_tracker import EnvTracker
 from tile_codec import UNSEEN, ENV_WALL, ENV_AX_ORE, tile_building_type, tile_env, tile_is_allied
 from utils import try_move_away
@@ -135,17 +135,25 @@ class RaxPlan:
             if tile_env(cached) == ENV_WALL:
                 continue
             bt = tile_building_type(cached)
-            if bt is not None and not (bt == EntityType.ROAD and tile_is_allied(cached)):
+            if bt is not None and not tile_is_allied(cached):
+                return True
+
+        for dx, dy in _CARDINAL:
+            nx, ny = pos.x + dx, pos.y + dy
+            if not (0 <= nx < w and 0 <= ny < self.h):
+                continue
+            cached = self._tile_cache[ny * w + nx]
+            if cached == UNSEEN:
+                continue
+            if tile_env(cached) == ENV_WALL:
+                continue
+            bt = tile_building_type(cached)
+            if bt is not None:
                 continue
             # Exposed side — destroy friendly road if present, then barrier.
             side = Position(nx, ny)
-            if bt == EntityType.ROAD and tile_is_allied(cached):
-                if ct.can_destroy(side):
-                    ct.destroy(side)
-                else:
-                    return False
-            if ct.can_build_barrier(side):
-                ct.build_barrier(side)
+            if ct.can_build_road(side):
+                ct.build_road(side)
             return False
         return True
 
@@ -176,7 +184,7 @@ class RaxPlan:
             ttype = tile_building_type(cached)
             if ttype is not None:
                 if not ct.can_destroy(pos):
-                    print("destroy unseen")
+                    print(f"can't destroy {ttype} allied {tile_is_allied(cached)}")
                     return False
                 ct.destroy(pos)
 
