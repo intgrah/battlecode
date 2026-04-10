@@ -107,7 +107,12 @@ type Building = (
 # ── Building category tuples (for isinstance checks) ──
 # Use these instead of spelling out building types at every call site.
 
-TRANSPORT = (BuildingConveyor, BuildingArmouredConveyor, BuildingSplitter, BuildingBridge)
+TRANSPORT = (
+    BuildingConveyor,
+    BuildingArmouredConveyor,
+    BuildingSplitter,
+    BuildingBridge,
+)
 TURRETS = (BuildingGunner, BuildingSentinel, BuildingBreach, BuildingLauncher)
 TURRETS_AMMO = (BuildingGunner, BuildingSentinel, BuildingBreach)  # consume ammo
 CHEAP_DESTROYABLE = (BuildingRoad, BuildingMarker, BuildingBarrier)

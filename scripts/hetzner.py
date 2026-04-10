@@ -59,8 +59,8 @@ def _get_ssh_keys(client: Client) -> list[SSHKey | BoundSSHKey]:
     return keys
 
 
-def _find_server(client: Client) -> Server | None:
-    servers = client.servers.get_all(name=SERVER_NAME)
+def _find_server(client: Client, name: str = SERVER_NAME) -> Server | None:
+    servers = client.servers.get_all(name=name)
     return servers[0] if servers else None
 
 
@@ -151,7 +151,9 @@ def _cmd_status(_: argparse.Namespace) -> None:
     for server in servers:
         ip = _server_ip(server)
         assert server.server_type is not None
-        print(f"{server.name:<12} {server.status:<10} {server.server_type.name:<10} {ip}")
+        print(
+            f"{server.name:<12} {server.status:<10} {server.server_type.name:<10} {ip}"
+        )
         print(f"  ssh root@{ip}")
 
 
@@ -170,25 +172,26 @@ def _cmd_ssh(_: argparse.Namespace) -> None:
 
 
 def _cmd_add_key(args: argparse.Namespace) -> None:
-    ip = _require_ip()
+    ip = _require_ip(args)
     pubkey: str = args.pubkey
     if Path(pubkey).is_file():
         pubkey = Path(pubkey).read_text().strip()
     print(f"Adding key to {ip}...")
     rc = _ssh_run(
         ip,
-        f'echo {pubkey!r} >> /root/.ssh/authorized_keys',
+        f"echo {pubkey!r} >> /root/.ssh/authorized_keys",
     )
     if rc == 0:
         print("Done.")
     sys.exit(rc)
 
 
-def _require_ip() -> str:
+def _require_ip(args: argparse.Namespace) -> str:
+    name: str = getattr(args, "server", SERVER_NAME)
     client = _get_client()
-    server = _find_server(client)
+    server = _find_server(client, name)
     if not server:
-        print("No server running. Run 'hetzner up' first.", file=sys.stderr)
+        print(f"No server '{name}' running. Run 'hetzner up' first.", file=sys.stderr)
         sys.exit(1)
     return _server_ip(server)
 
@@ -228,8 +231,8 @@ echo "Provisioned successfully"
 """
 
 
-def _cmd_provision(_: argparse.Namespace) -> None:
-    ip = _require_ip()
+def _cmd_provision(args: argparse.Namespace) -> None:
+    ip = _require_ip(args)
     print(f"Provisioning {ip}...")
     rc = _ssh_run(ip, _PROVISION_SCRIPT)
     sys.exit(rc)
@@ -245,8 +248,8 @@ _SYNC_DIRS = [
 _SYNC_FILES: list[tuple[str, str]] = []
 
 
-def _cmd_sync(_: argparse.Namespace) -> None:
-    ip = _require_ip()
+def _cmd_sync(args: argparse.Namespace) -> None:
+    ip = _require_ip(args)
     rsync = _rsync_cmd()
     print(f"Syncing to {ip}...")
     for local, remote in _SYNC_DIRS:
@@ -331,7 +334,7 @@ def _recv_line(reader: io.BufferedReader) -> dict | None:
 
 
 def _cmd_ci(args: argparse.Namespace) -> None:
-    ip = _require_ip()
+    ip = _require_ip(args)
     bot_a: str = args.bot_a
     bot_b: str = args.bot_b
     n: int = args.n
@@ -343,7 +346,10 @@ def _cmd_ci(args: argparse.Namespace) -> None:
     try:
         print(f"Uploading {bot_a}...")
         tar_a = _make_tarball(bot_a)
-        _send(sock, {"cmd": "upload", "name": bot_a, "data": base64.b64encode(tar_a).decode()})
+        _send(
+            sock,
+            {"cmd": "upload", "name": bot_a, "data": base64.b64encode(tar_a).decode()},
+        )
         resp = _recv_line(reader)
         assert resp is not None
         if "error" in resp:
@@ -353,7 +359,10 @@ def _cmd_ci(args: argparse.Namespace) -> None:
 
         print(f"Uploading {bot_b}...")
         tar_b = _make_tarball(bot_b)
-        _send(sock, {"cmd": "upload", "name": bot_b, "data": base64.b64encode(tar_b).decode()})
+        _send(
+            sock,
+            {"cmd": "upload", "name": bot_b, "data": base64.b64encode(tar_b).decode()},
+        )
         resp = _recv_line(reader)
         assert resp is not None
         if "error" in resp:
@@ -362,14 +371,17 @@ def _cmd_ci(args: argparse.Namespace) -> None:
         uuid_b = resp["uuid"]
 
         print(f"Running {n} games: {bot_a} vs {bot_b}...")
-        _send(sock, {
-            "cmd": "run",
-            "bot_a": uuid_a,
-            "bot_b": uuid_b,
-            "bot_a_name": bot_a,
-            "bot_b_name": bot_b,
-            "n": n,
-        })
+        _send(
+            sock,
+            {
+                "cmd": "run",
+                "bot_a": uuid_a,
+                "bot_b": uuid_b,
+                "bot_a_name": bot_a,
+                "bot_b_name": bot_b,
+                "n": n,
+            },
+        )
 
         while True:
             result = _recv_line(reader)
@@ -377,7 +389,9 @@ def _cmd_ci(args: argparse.Namespace) -> None:
                 print("Connection lost.", file=sys.stderr)
                 break
             if result.get("done"):
-                print(f"\n=== {bot_a} vs {bot_b}: {result['score']} (draws: {result.get('draws', 0)}) ===")
+                print(
+                    f"\n=== {bot_a} vs {bot_b}: {result['score']} (draws: {result.get('draws', 0)}) ==="
+                )
                 break
             if "error" in result:
                 print(f"  Error: {result['error']}", file=sys.stderr)
@@ -395,7 +409,7 @@ def _cmd_ci(args: argparse.Namespace) -> None:
 
 
 def _cmd_daemon(args: argparse.Namespace) -> None:
-    ip = _require_ip()
+    ip = _require_ip(args)
     _cmd_sync(args)
     print(f"Starting CI daemon on {ip}...")
     rc = _ssh_run(
@@ -408,6 +422,9 @@ def _cmd_daemon(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hetzner CI server management")
+    parser.add_argument(
+        "--server", default=SERVER_NAME, help=f"Server name (default: {SERVER_NAME})"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     up = sub.add_parser("up", help="Create server")

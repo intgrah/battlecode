@@ -8,10 +8,14 @@ from util import DIR4, DIR8
 
 _IDLE_LIMIT = 25
 
-_TRANSPORT_TYPES = frozenset({
-    EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR,
-    EntityType.SPLITTER, EntityType.BRIDGE,
-})
+_TRANSPORT_TYPES = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    }
+)
 
 
 def _compute_feed_chain(ct: Controller, pos: Position, my_team: int) -> set[int]:
@@ -144,14 +148,22 @@ class Gunner(Unit):
                 best_dir = d
 
         # Rotate only for high-value targets
-        if best_dir is not None and best_priority >= _MIN_ROTATE_PRIORITY and best_dir != direction:
+        if (
+            best_dir is not None
+            and best_priority >= _MIN_ROTATE_PRIORITY
+            and best_dir != direction
+        ):
             if ct.can_rotate(best_dir):
                 ct.rotate(best_dir)
                 self._idle_rounds = 0
                 return
 
         # Fire at whatever we're facing if it's worth shooting
-        if best_target is not None and best_dir == direction and ct.can_fire(best_target):
+        if (
+            best_target is not None
+            and best_dir == direction
+            and ct.can_fire(best_target)
+        ):
             ct.fire(best_target)
             self._idle_rounds = 0
             return

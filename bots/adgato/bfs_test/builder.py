@@ -111,4 +111,4 @@ class Builder(Unit):
         print(f"update={t1 - t0}us step={t2 - t1}us total={t2 - t0}us")
 
         ct.draw_indicator_line(ct.get_position(), self.target, 0, 128, 0)
-        #self.nav.emit_vis()
+        # self.nav.emit_vis()

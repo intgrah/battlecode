@@ -15,7 +15,6 @@ class Wait:
     """Hold position intentionally. Don't fall through to lower tasks."""
 
 
-
 @dataclass(frozen=True, slots=True)
 class MoveOnly:
     direction: Direction

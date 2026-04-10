@@ -10,6 +10,7 @@ from cambc import Position, Controller
 from utils import chebyshev
 import random
 
+
 class ExploreGrid:
     def __init__(self, w: int, h: int) -> None:
         self._unvisited: set[Position] = set()
@@ -43,7 +44,6 @@ class ExploreGrid:
             for x in xs:
                 self._unvisited.add(Position(x, y))
 
-
     @property
     def target(self) -> Position | None:
         return self._next_target
@@ -68,7 +68,7 @@ class ExploreGrid:
                 best = cell
 
         self._next_target = best
-    
+
     def draw_unvisited(self, ct: Controller, r: int, g: int, b: int) -> None:
         for cell in self._unvisited:
             ct.draw_indicator_dot(cell, r, g, b)

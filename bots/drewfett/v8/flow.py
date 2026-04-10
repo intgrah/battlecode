@@ -39,13 +39,22 @@ class FlowModel:
     """
 
     __slots__ = (
-        "_s", "_w",
-        "_fwd", "_bwd",
-        "_sources", "_sinks", "_leaks",
-        "connected", "connected_harvesters",
+        "_s",
+        "_w",
+        "_fwd",
+        "_bwd",
+        "_sources",
+        "_sinks",
+        "_leaks",
+        "connected",
+        "connected_harvesters",
         "_parent",
-        "load", "bottleneck", "branch_load", "tile_branch",
-        "_en_fwd", "_en_sources",
+        "load",
+        "bottleneck",
+        "branch_load",
+        "tile_branch",
+        "_en_fwd",
+        "_en_sources",
     )
 
     def __init__(self, s: State) -> None:
@@ -368,7 +377,9 @@ class FlowModel:
         """Is this tile fed by a harvester? O(1) lookup from precomputed _fed set."""
         return tile in self._fed
 
-    def has_feed_for_turret(self, turret_ti: int, facing_dx: int, facing_dy: int) -> bool:
+    def has_feed_for_turret(
+        self, turret_ti: int, facing_dx: int, facing_dy: int
+    ) -> bool:
         """Check if a turret at turret_ti with given facing has verified ammo feed.
 
         Valid feed = adjacent non-facing cardinal tile with:
@@ -393,10 +404,9 @@ class FlowModel:
             if isinstance(bld, BuildingHarvester):
                 return True  # harvester outputs all 4 cardinal
             # Transport pointing at turret?
-            outputs_here = (
-                turret_ti in self._fwd.get(ai, [])
-                or turret_ti in self._en_fwd.get(ai, [])
-            )
+            outputs_here = turret_ti in self._fwd.get(
+                ai, []
+            ) or turret_ti in self._en_fwd.get(ai, [])
             if not outputs_here:
                 continue
             # Has flow now?

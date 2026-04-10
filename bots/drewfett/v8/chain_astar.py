@@ -311,7 +311,10 @@ class AttackAstar(Astar[int]):
         ):
             out_tiles: list[tuple[int, int]] = []
             match bld:
-                case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
+                case (
+                    BuildingConveyor(direction=d)
+                    | BuildingArmouredConveyor(direction=d)
+                ):
                     ddx, ddy = d.delta()
                     out_tiles.append((cx + ddx, cy + ddy))
                 case BuildingSplitter(direction=d):

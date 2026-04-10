@@ -166,13 +166,13 @@ class Attack:
                 ni = path[1]
                 if ni == src_ti or ni in s.my_transport:
                     nx2, ny2 = ni % w, ni // w
-                    _log(f"  A* loop: ({out_x},{out_y}) -> ({nx2},{ny2}) in my_transport")
+                    _log(
+                        f"  A* loop: ({out_x},{out_y}) -> ({nx2},{ny2}) in my_transport"
+                    )
                     return "atk:no_path", False
                 nx, ny = ni % w, ni // w
                 path_preview = [(pi % w, pi // w) for pi in path[:6]]
-                _log(
-                    f"  A* path: {path_preview} (len={len(path)}) target=({tx},{ty})"
-                )
+                _log(f"  A* path: {path_preview} (len={len(path)}) target=({tx},{ty})")
                 dx, dy = nx - out_x, ny - out_y
                 conv_dir = DELTA_TO_DIR.get((dx, dy))
                 if conv_dir is None:
@@ -319,7 +319,10 @@ class Attack:
                     if not isinstance(
                         out_bld, (BuildingRoad, BuildingMarker, BuildingBarrier)
                     ):
-                        _log(f"    reject ({ox},{oy}): own {type(out_bld).__name__[8:]}", ct.get_id())
+                        _log(
+                            f"    reject ({ox},{oy}): own {type(out_bld).__name__[8:]}",
+                            ct.get_id(),
+                        )
                         continue
                 # Skip useless gaps
                 if oi in s.danger_zones:
@@ -335,7 +338,10 @@ class Attack:
                     and out_bld.team != my_team
                     and not isinstance(out_bld, MINOR_DESTROYABLE)
                 ):
-                    _log(f"    reject ({ox},{oy}): enemy {type(out_bld).__name__[8:]}", ct.get_id())
+                    _log(
+                        f"    reject ({ox},{oy}): enemy {type(out_bld).__name__[8:]}",
+                        ct.get_id(),
+                    )
                     continue
                 self._last_gaps.append((ox, oy))
                 # Score: walk distance + distance to target (prefer gaps toward enemy)

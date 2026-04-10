@@ -81,7 +81,7 @@ class Tracker:
         """Return tracked indices as ``Position`` objects."""
         w = self.w
         return [Position(i % w, i // w) for i in self.positions]
-    
+
     def draw_tracked(self, ct: Controller, r: int, g: int, b: int) -> None:
         """Draw an indicator dot on each tracked position."""
         w = self.w

@@ -58,7 +58,9 @@ def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
 
     # 1. Validate source (cheap check: has inputs or adjacent harvester?)
     if a.source_ti is not None:
-        if not flow.inputs_to(a.source_ti) and not _has_adjacent_harvester(s, a.source_ti):
+        if not flow.inputs_to(a.source_ti) and not _has_adjacent_harvester(
+            s, a.source_ti
+        ):
             a.source_ti = None
 
     # 2. Find source if none
@@ -98,8 +100,12 @@ def _run_attack(builder: Builder, ct: Controller) -> tuple[str, bool]:
             path_str += f"...({len(chain)})"
         goal_bld = s.building[chain[-1]]
         gname = type(goal_bld).__name__[8:] if goal_bld else "?"
-        _log(f"  chain: {path_str} goal=({chain[-1] % w},{chain[-1] // w})={gname}", ct.get_id())
+        _log(
+            f"  chain: {path_str} goal=({chain[-1] % w},{chain[-1] // w})={gname}",
+            ct.get_id(),
+        )
         from vis import Tiles, emit
+
         emit(atk_chain=Tiles(data=[(c % w, c // w) for c in chain]))
 
     # 5. Handle first gap
@@ -149,21 +155,36 @@ def _handle_gap(
             ci_name = type(ci_bld).__name__[8:] if ci_bld else "empty"
             ni_bld = s.building[ni]
             ni_name = type(ni_bld).__name__[8:] if ni_bld else "empty"
-            _log(f"  gap k={k} ({cx},{cy})={ci_name} -> ({ni % w},{ni // w})={ni_name}", ct.get_id())
+            _log(
+                f"  gap k={k} ({cx},{cy})={ci_name} -> ({ni % w},{ni // w})={ni_name}",
+                ct.get_id(),
+            )
 
         # Our transport/turret at gap → don't destroy
-        if ci_bld is not None and ci_bld.team == s.my_team and isinstance(ci_bld, _TRANSPORT_OR_TURRETS):
+        if (
+            ci_bld is not None
+            and ci_bld.team == s.my_team
+            and isinstance(ci_bld, _TRANSPORT_OR_TURRETS)
+        ):
             a.source_ti = None
             return "atk:redir", False
 
         # Our transport/turret at next tile → don't build into
         ni_bld = s.building[ni]
-        if ni_bld is not None and ni_bld.team == s.my_team and isinstance(ni_bld, _TRANSPORT_OR_TURRETS):
+        if (
+            ni_bld is not None
+            and ni_bld.team == s.my_team
+            and isinstance(ni_bld, _TRANSPORT_OR_TURRETS)
+        ):
             a.source_ti = None
             return "atk:redir_ni", False
 
         # Enemy non-marker building at gap
-        if ci_bld is not None and ci_bld.team != s.my_team and not isinstance(ci_bld, BuildingMarker):
+        if (
+            ci_bld is not None
+            and ci_bld.team != s.my_team
+            and not isinstance(ci_bld, BuildingMarker)
+        ):
             if isinstance(ci_bld, BuildingRoad):
                 # Fire at enemy road
                 if ci in s.danger_zones and pos != build_pos:
@@ -179,8 +200,14 @@ def _handle_gap(
             else:
                 # Non-road enemy: try turret at prev tile
                 if prev_ti is not None:
-                    turret = try_place_turret_at(s, ct, nav, prev_ti,
-                        chain[k - 2] if k >= 2 else _feeder_of(flow, s, prev_ti), pos)
+                    turret = try_place_turret_at(
+                        s,
+                        ct,
+                        nav,
+                        prev_ti,
+                        chain[k - 2] if k >= 2 else _feeder_of(flow, s, prev_ti),
+                        pos,
+                    )
                     if turret is not None:
                         a.source_ti = None
                         return turret
@@ -188,7 +215,11 @@ def _handle_gap(
                 return "atk:blocked", False
 
         # Enemy non-marker at next tile → don't build into, try turret
-        if ni_bld is not None and ni_bld.team != s.my_team and not isinstance(ni_bld, BuildingMarker):
+        if (
+            ni_bld is not None
+            and ni_bld.team != s.my_team
+            and not isinstance(ni_bld, BuildingMarker)
+        ):
             turret = try_place_turret_at(s, ct, nav, ci, prev_ti, pos)
             if turret is not None:
                 a.source_ti = None
@@ -218,8 +249,17 @@ def _handle_gap(
 
         nx, ny = ni % w, ni // w
         result = _build_at_gap(
-            builder, ct, cx, cy, nx, ny, build_pos,
-            "atk:chain", path=chain, gap_idx=k, destroy_barriers=True,
+            builder,
+            ct,
+            cx,
+            cy,
+            nx,
+            ny,
+            build_pos,
+            "atk:chain",
+            path=chain,
+            gap_idx=k,
+            destroy_barriers=True,
         )
         if "conv" in result[0] or "bridge" in result[0]:
             if ni not in s.danger_zones:
@@ -229,7 +269,9 @@ def _handle_gap(
 
         # If build failed, try sentinel
         if "cant_build" in result[0] or "recompute" in result[0]:
-            sentinel = try_place_turret_at(s, ct, nav, ci, prev_ti, pos, sentinel_only=True)
+            sentinel = try_place_turret_at(
+                s, ct, nav, ci, prev_ti, pos, sentinel_only=True
+            )
             if sentinel is not None:
                 a.source_ti = None
                 return sentinel
@@ -287,7 +329,8 @@ def _pick_source(flow: FlowModel, s: State, pos: Position) -> int | None:
         # Count existing taps
         hx, hy = hi % w, hi // w
         taps = sum(
-            1 for dx, dy in DIR4_DELTA
+            1
+            for dx, dy in DIR4_DELTA
             if s.in_bounds(hx + dx, hy + dy)
             and (hy + dy) * w + (hx + dx) not in flow.connected
             and s.building[(hy + dy) * w + (hx + dx)] is not None
@@ -400,8 +443,14 @@ def _fallback(
     # Harvest ore if right next to it
     for dx, dy in DIR4_DELTA:
         ni = (pos.y + dy) * w + (pos.x + dx)
-        if ni in builder.ti_ore.positions and ni not in s.my_harvesters and ni not in s.en_harvesters:
-            tgt = s.en_core_pos or Position(w - 1 - s.core_pos.x, s.h - 1 - s.core_pos.y)
+        if (
+            ni in builder.ti_ore.positions
+            and ni not in s.my_harvesters
+            and ni not in s.en_harvesters
+        ):
+            tgt = s.en_core_pos or Position(
+                w - 1 - s.core_pos.x, s.h - 1 - s.core_pos.y
+            )
             harvest = _task_harvest(builder, ct, target_pos=tgt)
             if harvest is not None:
                 if "place" in harvest[0]:

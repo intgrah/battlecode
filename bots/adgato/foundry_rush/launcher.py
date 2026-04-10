@@ -47,7 +47,11 @@ class Launcher(Unit):
                     return
                 for d in _ALL_DIRS:
                     adj = self._enemy_core.add(d)
-                    if 0 <= adj.x < w and 0 <= adj.y < h and ct.can_launch(bot_pos, adj):
+                    if (
+                        0 <= adj.x < w
+                        and 0 <= adj.y < h
+                        and ct.can_launch(bot_pos, adj)
+                    ):
                         ct.launch(bot_pos, adj)
                         return
 

@@ -47,13 +47,14 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     },
 )
 
+
 def _bfs_compute(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
     dist: list[int],
     q: list[int],
     cur_idx: int,
-    stop_at: int = INF
+    stop_at: int = INF,
 ) -> None:
     """Run backwards BFS to completion (one level past the agent)."""
     for node in q:
@@ -71,6 +72,7 @@ def _bfs_compute(
                 if ni == cur_idx:
                     stop_at = d + 1
                 dist[ni] = d
+
 
 class NavBfs:
     """Backwards-BFS navigation for builder bots.
@@ -292,7 +294,7 @@ class NavBfs:
         for gi in self._gis:
             self._dist[gi] = 0
             q.append(gi)
-            
+
         _bfs_compute(self._pnb_push, self._pnb_set, self._dist, self._q, self._cur_idx)
 
     def emit_vis(self) -> None:
@@ -337,7 +339,6 @@ class NavBfs:
             ),
             bfs=VectorField(angles),
         )
-
 
     def step(
         self,

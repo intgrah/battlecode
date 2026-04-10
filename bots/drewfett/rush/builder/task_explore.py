@@ -43,7 +43,11 @@ def explore(
         return None
 
     import sys
-    print(f"  EXPL: target=({state.explore_target.x},{state.explore_target.y}) radius={state.explore_radius}", file=sys.stderr)
+
+    print(
+        f"  EXPL: target=({state.explore_target.x},{state.explore_target.y}) radius={state.explore_radius}",
+        file=sys.stderr,
+    )
     result = move_toward_with_road(state, ct, state.explore_target)
     if result is None:
         print(f"  EXPL: no path to target", file=sys.stderr)

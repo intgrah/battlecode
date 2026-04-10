@@ -7,7 +7,14 @@ from __future__ import annotations
 from astar import BuildInstruction, ChainAstar
 from cambc import Controller, EntityType, Environment, Position, Direction
 from env_tracker import EnvTracker
-from tile_codec import UNSEEN, ENV_WALL, ENV_AX_ORE, tile_building_type, tile_env, tile_is_allied
+from tile_codec import (
+    UNSEEN,
+    ENV_WALL,
+    ENV_AX_ORE,
+    tile_building_type,
+    tile_env,
+    tile_is_allied,
+)
 from utils import try_move_away
 
 _CARDINAL = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -54,7 +61,11 @@ class RaxPlan:
     def set_core(self, core_pos: Position) -> None:
         self.core_pos = core_pos
         self.chain.update_tile(
-            core_pos.x, core_pos.y, Environment.EMPTY, EntityType.CORE, True,
+            core_pos.x,
+            core_pos.y,
+            Environment.EMPTY,
+            EntityType.CORE,
+            True,
             force_update=True,
         )
 
@@ -62,7 +73,9 @@ class RaxPlan:
         self.first_ore_pos = pos
         self.first_ore_env = env
 
-    def begin_plan(self, ct: Controller, first_ore: Position, second_ore: Position) -> Position | None:
+    def begin_plan(
+        self, ct: Controller, first_ore: Position, second_ore: Position
+    ) -> Position | None:
         """Build a fresh plan from first→second ore. Returns the next nav goal."""
         self._chain_plan = self._chain_plan_from(ct, first_ore, second_ore)
         self._plan_progress = 0
@@ -99,7 +112,7 @@ class RaxPlan:
         if self._chain_plan is None:
             return 0
         i = 0
-        for entity, pos, _extra in self._chain_plan[self._plan_progress:]:
+        for entity, pos, _extra in self._chain_plan[self._plan_progress :]:
             cached = self._tile_cache[pos.y * self.w + pos.x]
             if cached == UNSEEN:
                 i += 1
@@ -193,7 +206,11 @@ class RaxPlan:
 
         if entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
             cached_env = self._tile_cache[pos.y * self.w + pos.x]
-            if entity == EntityType.FOUNDRY or cached_env != UNSEEN and tile_env(cached_env) != ENV_AX_ORE:
+            if (
+                entity == EntityType.FOUNDRY
+                or cached_env != UNSEEN
+                and tile_env(cached_env) != ENV_AX_ORE
+            ):
                 if not self._ensure_sides_covered(ct, pos):
                     return False
             if entity == EntityType.HARVESTER:
@@ -342,9 +359,7 @@ class RaxPlan:
         self._stage2_start = len(stage1)
         return stage1 + stage2
 
-    def _pick_alt_ore(
-        self, env: Environment, exclude: Position
-    ) -> Position | None:
+    def _pick_alt_ore(self, env: Environment, exclude: Position) -> Position | None:
         """Pick an ore tile of `env` from the tracker, excluding `exclude`.
         env_tracker has already filtered out tiles blocked by non-buildable
         buildings. Returns the candidate closest to the core.
@@ -355,9 +370,7 @@ class RaxPlan:
             return None
         assert self.core_pos is not None
         cx, cy = self.core_pos.x, self.core_pos.y
-        return min(
-            candidates, key=lambda p: abs(p.x - cx) + abs(p.y - cy)
-        )
+        return min(candidates, key=lambda p: abs(p.x - cx) + abs(p.y - cy))
 
     def replan(self, ct: Controller, fail_idx: int) -> None:
         """Re-plan from the failure point. If we've already entered stage 2,
@@ -400,7 +413,11 @@ class RaxPlan:
         cur = self._plan_progress
         fail_entity, fail_pos, _x = self._chain_plan[plan_idx]
         _, chain_start_pos, _x = self._chain_plan[cur]
-        chain_start = (prev_pos.x, prev_pos.y) if cut_chain else (chain_start_pos.x, chain_start_pos.y)
+        chain_start = (
+            (prev_pos.x, prev_pos.y)
+            if cut_chain
+            else (chain_start_pos.x, chain_start_pos.y)
+        )
         in_stage2 = cur >= self._stage2_start
 
         print(
@@ -416,9 +433,7 @@ class RaxPlan:
         # to change targets, not just reroute the chain.
         if fail_entity == EntityType.FOUNDRY:
             print(f"replan FOUNDRY fail at {fail_pos}; walling and retrying offset")
-            self.chain.update_tile(
-                fail_pos.x, fail_pos.y, Environment.WALL, None, True
-            )
+            self.chain.update_tile(fail_pos.x, fail_pos.y, Environment.WALL, None, True)
             assert self.core_pos is not None
             cx, cy = self.core_pos.x, self.core_pos.y
             retry = self.chain.ore_offset(
@@ -432,9 +447,7 @@ class RaxPlan:
 
         if fail_entity == EntityType.HARVESTER:
             print(f"replan HARVESTER fail at {fail_pos}; picking alternative ore")
-            self.chain.update_tile(
-                fail_pos.x, fail_pos.y, Environment.WALL, None, True
-            )
+            self.chain.update_tile(fail_pos.x, fail_pos.y, Environment.WALL, None, True)
             if fail_pos == self.first_ore_pos:
                 print(
                     f"  fail is first_ore (env={self.first_ore_env.name if self.first_ore_env else None})"
@@ -476,7 +489,9 @@ class RaxPlan:
             elif entity == EntityType.FOUNDRY:
                 placed_foundry = True
 
-        print(f"placed_second {placed_second} placed_first {placed_first} placed_foundry {placed_foundry}")
+        print(
+            f"placed_second {placed_second} placed_first {placed_first} placed_foundry {placed_foundry}"
+        )
 
         if fail_entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
             if second_ore_pos is None:
@@ -504,9 +519,7 @@ class RaxPlan:
                 return
             old_stage2_start = self._stage2_start
             self._stage2_start = cur + len(destroy_prefix) + self._stage2_start
-            self._chain_plan = (
-                self._chain_plan[:cur] + destroy_prefix + new_plan
-            )
+            self._chain_plan = self._chain_plan[:cur] + destroy_prefix + new_plan
             self._plan_progress = cur
             print(
                 f"  spliced new plan: prefix_len={cur} destroy_len={len(destroy_prefix)} "
@@ -555,9 +568,7 @@ class RaxPlan:
             return
         assert self.core_pos is not None
         cx, cy = self.core_pos.x, self.core_pos.y
-        foundry_offset = self.chain.ore_offset(
-            (foundry_pos.x, foundry_pos.y), (cx, cy)
-        )
+        foundry_offset = self.chain.ore_offset((foundry_pos.x, foundry_pos.y), (cx, cy))
         if foundry_offset is None:
             print("no foundry_offset for stage 2 replan")
             self._chain_plan = None

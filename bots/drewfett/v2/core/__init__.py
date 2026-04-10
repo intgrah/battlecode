@@ -66,7 +66,9 @@ class Core(Unit):
 
 
 def _best_spawn_pos(
-    ct: Controller, pos: Position, spawned: int = 0,
+    ct: Controller,
+    pos: Position,
+    spawned: int = 0,
 ) -> Position | None:
     n = len(_DIRECTIONS)
     for i in range(n):

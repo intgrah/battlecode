@@ -61,6 +61,7 @@ def _update_nearby_tiles(
         for tracker in trackers:
             tracker.update_tile(i, env, building_type, is_allied, sym)
 
+
 def _combine_weights(*weighted: tuple[tuple[int, ...], int]) -> tuple[int, ...]:
     """Linear combination of weight tuples. INF in any input produces INF."""
     result = [0] * 8
@@ -69,12 +70,14 @@ def _combine_weights(*weighted: tuple[tuple[int, ...], int]) -> tuple[int, ...]:
             result[i] += weights[i] * scale
     return tuple(v if v < INF else INF for v in result)
 
+
 NV_EXPLORE = 0
 NV_TI_ORE = 1
 NV_BBOTS = 2
 NV_CORE = 3
 
 TK_TI_ORE = 0
+
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
@@ -89,13 +92,13 @@ class Builder(Unit):
         self._mirrored = False
         self._tile_cache: bytearray = bytearray(b"\xff" * (w * h))
         self.grid.navs = [
-            NavBfs(self.grid), # NV_EXPLORE = 0
-            NavBfs(self.grid, range=20), # NV_TI_ORE = 1
-            NavBfs(self.grid, target_dist=5, range=10), # NV_BBOTS = 2
-            NavBfs(self.grid, target_dist=5) # NV_CORE = 3
+            NavBfs(self.grid),  # NV_EXPLORE = 0
+            NavBfs(self.grid, range=20),  # NV_TI_ORE = 1
+            NavBfs(self.grid, target_dist=5, range=10),  # NV_BBOTS = 2
+            NavBfs(self.grid, target_dist=5),  # NV_CORE = 3
         ]
         self.trackers: list[Tracker] = [
-            Tracker(w, h, environment=Environment.ORE_TITANIUM) # TK_TI_ORE = 0
+            Tracker(w, h, environment=Environment.ORE_TITANIUM)  # TK_TI_ORE = 0
         ]
         self.friend_tracker: BbotTracker = BbotTracker(w, friendly=True)
 
@@ -194,14 +197,16 @@ class Builder(Unit):
         t2 = ct.get_cpu_time_elapsed()
         print(f"sym={resolved.name} enemy={self.sym.enemy_core}")
         print(f"update={t1 - t0}us step={t2 - t1}us total={t2 - t0}us")
-        
+
         self._move(ct, pos, weights)
 
         nav = self.grid.navs[active_nav]
         pw = self.grid.pw
         new_pos = ct.get_position()
         for gi in nav._goals:
-            ct.draw_indicator_line(new_pos, Position(gi % pw - 1, gi // pw - 1), 0, 128, 0)
+            ct.draw_indicator_line(
+                new_pos, Position(gi % pw - 1, gi // pw - 1), 0, 128, 0
+            )
         self.grid.navs[NV_CORE].emit_vis()
         if use_ore:
             self.trackers[TK_TI_ORE].draw_tracked(ct, 0, 255, 255)

@@ -115,7 +115,17 @@ def _task_reactive_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
                 if not _can_place_gunner_at(s, gi):
                     bld = s.building[gi]
                     env = s.env[gi]
-                    reason = env.name if env and env in (Environment.WALL, Environment.ORE_TITANIUM, Environment.ORE_AXIONITE) else (type(bld).__name__[8:] if bld else "?")
+                    reason = (
+                        env.name
+                        if env
+                        and env
+                        in (
+                            Environment.WALL,
+                            Environment.ORE_TITANIUM,
+                            Environment.ORE_AXIONITE,
+                        )
+                        else (type(bld).__name__[8:] if bld else "?")
+                    )
                     _log(f"    ({gx},{gy}) cant_place: {reason}", ct.get_id())
                     continue
                 fdx = 0 if ttx == gx else (1 if ttx > gx else -1)

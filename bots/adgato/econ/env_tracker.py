@@ -41,7 +41,9 @@ class EnvTracker:
         building_type: EntityType | None,
         is_allied: bool,
     ) -> bool:
-        return building_type in self._entity_types and (not self._allied_only or is_allied)
+        return building_type in self._entity_types and (
+            not self._allied_only or is_allied
+        )
 
     def update_tile(
         self,
@@ -55,7 +57,7 @@ class EnvTracker:
 
         if env != self._environment:
             return
-        
+
         positions = self.positions
         matches = self._matches(building_type, is_allied)
         if i not in positions:
@@ -88,12 +90,12 @@ class EnvTracker:
 
     def any_positions(self) -> bool:
         return any(self.positions.values())
-    
+
     def as_positions(self) -> list[Position]:
         """Return tracked indices as ``Position`` objects."""
         w = self.w
         return [Position(i % w, i // w) for i, v in self.positions.items() if v]
-    
+
     def draw_tracked(self, ct: Controller, r: int, g: int, b: int) -> None:
         """Draw an indicator dot on each tracked position."""
         for p in self.as_positions():

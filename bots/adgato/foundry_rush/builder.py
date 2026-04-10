@@ -17,6 +17,7 @@ from utils import try_move_smart, _ALL_DIRS  # noqa: F401
 
 _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, EntityType.BARRIER, None))
 
+
 def _update_nearby_tiles(
     nav: NavBfs,
     reachable: Reachable,
@@ -63,8 +64,12 @@ class Builder(Unit):
         self.h = h
         self._tile_cache: list[int] = [0xFF] * (w * h)
         self._mirrored = False
-        self.ti_ore = EnvTracker(w, h, Environment.ORE_TITANIUM, entity_types=_BUILDABLE, allied_only=True)
-        self.ax_ore = EnvTracker(w, h, Environment.ORE_AXIONITE, entity_types=_BUILDABLE, allied_only=True)
+        self.ti_ore = EnvTracker(
+            w, h, Environment.ORE_TITANIUM, entity_types=_BUILDABLE, allied_only=True
+        )
+        self.ax_ore = EnvTracker(
+            w, h, Environment.ORE_AXIONITE, entity_types=_BUILDABLE, allied_only=True
+        )
         self.env_trackers: list[EnvTracker] = [self.ti_ore, self.ax_ore]
         self.allied_conveyors = Tracker(
             w, h, entity_type=EntityType.CONVEYOR, allied_only=True
@@ -73,9 +78,7 @@ class Builder(Unit):
         self.plan: RaxPlan | TiPlan
         self.need_plan = ct.get_current_round() < 5
         if ct.get_current_round() > 1:
-            self.plan = TiPlan(
-                w, h, self._tile_cache, ChainAstar(w, h), self.ti_ore
-            )
+            self.plan = TiPlan(w, h, self._tile_cache, ChainAstar(w, h), self.ti_ore)
         else:
             self.plan = RaxPlan(w, h, self._tile_cache, self.ti_ore, self.ax_ore)
         self._rr_idx: int = 0
@@ -136,13 +139,18 @@ class Builder(Unit):
         resolved = self.sym.resolved
 
         _update_nearby_tiles(
-            self.nav, self.reachable, resolved, ct, self._tile_cache,
-            self.env_trackers, self.trackers, self.plan.chain,
+            self.nav,
+            self.reachable,
+            resolved,
+            ct,
+            self._tile_cache,
+            self.env_trackers,
+            self.trackers,
+            self.plan.chain,
         )
         print(f"sym {resolved.name}")
 
         new_pos = ct.get_position()
-
 
         # Plan execution takes precedence over normal navigation. The plan
         # itself sets the nav goal each turn.
@@ -151,7 +159,7 @@ class Builder(Unit):
         self._got_ax |= ct.get_global_resources()[1] > 0
         if not self._seen_enemy_core and self.sym.enemy_core is not None:
             self._seen_enemy_core |= ct.is_in_vision(self.sym.enemy_core)
-            
+
         if not self.need_plan:
             print("cautious patrol")
             self._patrol(ct, new_pos)
@@ -167,7 +175,7 @@ class Builder(Unit):
                 print("replanning")
                 self.plan.replan(ct, fail_idx)
             if self.plan.has_plan:
-                print(self.plan.plan_list[self.plan.plan_progress:])
+                print(self.plan.plan_list[self.plan.plan_progress :])
                 goal = self.plan.execute(ct)
                 if goal is not None:
                     self.nav.set_goal(goal)
@@ -176,12 +184,11 @@ class Builder(Unit):
 
         if self.plan.has_plan:
             self.plan.chain.draw_path(ct, self.plan.plan_list)
-        
-        self.nav.step(ct)
-        #self.plan.chain.emit_vis()
-        #self.nav.emit_vis()
-        self.reachable.emit_vis()
 
+        self.nav.step(ct)
+        # self.plan.chain.emit_vis()
+        # self.nav.emit_vis()
+        self.reachable.emit_vis()
 
     def _patrol(self, ct: Controller, pos: Position) -> None:
         """Round-robin patrol over allied conveyors and ti-ore tiles.
@@ -214,7 +221,7 @@ class Builder(Unit):
         self.allied_conveyors.draw_tracked(ct, 0, 200, 255)
         self.ti_ore.draw_tracked(ct, 0, 255, 255)
         self.ax_ore.draw_tracked(ct, 0, 255, 255)
-        #self._upgrade_adjacent_conveyor(ct, pos)
+        # self._upgrade_adjacent_conveyor(ct, pos)
         self._barrier_adjacent_ore(ct)
 
     def _consider_laucher(self, pos: Position, launcher_pos: set[Position]) -> bool:
@@ -222,7 +229,7 @@ class Builder(Unit):
             if pos.add(d) in launcher_pos:
                 return False
         return True
-    
+
     def _find_damaged(self, ct: Controller) -> Position | None:
         """Return the position of a visible friendly building with less
         than max HP, or None if everything is healthy.
@@ -364,7 +371,7 @@ class Builder(Unit):
             self.nav.set_goal(goal)
 
     def _handle_explore(self, ct: Controller, new_pos: Position) -> None:
-        
+
         self._barrier_adjacent_ore(ct)
         target = self.reachable.pick_frontier(new_pos, self.core_pos, self.sym.resolved)
         if target is not None:

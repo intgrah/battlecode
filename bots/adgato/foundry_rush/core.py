@@ -47,7 +47,6 @@ class Core(Unit):
         ti, ax = ct.get_global_resources()
         self._got_ax |= ax > 0
 
-
         hurt = ct.get_hp() < ct.get_max_hp()
         if hurt:
             bti, _ = ct.get_builder_bot_cost()
@@ -55,18 +54,16 @@ class Core(Unit):
             need_ax = (need_ti + 3) // 4
             ct.convert(min(need_ax, ax + 1 - need_ax))
 
-        should_spawn = self.spawned < 3 or self._got_ax and ct.get_unit_count() < 10 or hurt
+        should_spawn = (
+            self.spawned < 3 or self._got_ax and ct.get_unit_count() < 10 or hurt
+        )
 
         if should_spawn:
             pos = self.pos
             pdx, pdy = self._preferred_direction(ct)
             # Sort the 3x3 spawn tiles so the one closest to the
             # preferred direction is tried first.
-            candidates = [
-                (dx, dy)
-                for dx in range(-1, 2)
-                for dy in range(-1, 2)
-            ]
+            candidates = [(dx, dy) for dx in range(-1, 2) for dy in range(-1, 2)]
             candidates.sort(key=lambda t: max(abs(t[0] - pdx), abs(t[1] - pdy)))
             for dx, dy in candidates:
                 p = Position(pos.x + dx, pos.y + dy)
@@ -82,4 +79,3 @@ def _sign(x: int) -> int:
     if x < 0:
         return -1
     return 0
-

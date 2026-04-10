@@ -15,6 +15,7 @@ from utils import try_move_away
 
 _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, None))
 
+
 def _update_nearby_tiles(
     nav: NavBfs,
     reachable: Reachable,
@@ -59,8 +60,12 @@ class Builder(Unit):
         self._tile_cache: list[int] = [0xFF] * (w * h)
         self._mirrored = False
         self.explore = ExploreGrid(w, h)
-        self.ti_ore = EnvTracker(w, h, Environment.ORE_TITANIUM, entity_types=_BUILDABLE)
-        self.ax_ore = EnvTracker(w, h, Environment.ORE_AXIONITE, entity_types=_BUILDABLE)
+        self.ti_ore = EnvTracker(
+            w, h, Environment.ORE_TITANIUM, entity_types=_BUILDABLE
+        )
+        self.ax_ore = EnvTracker(
+            w, h, Environment.ORE_AXIONITE, entity_types=_BUILDABLE
+        )
         self.env_trackers: list[EnvTracker] = [self.ti_ore, self.ax_ore]
         self.chain = ChainAstar(w, h)
         self._chain_plan: list[BuildInstruction] | None = None
@@ -82,7 +87,14 @@ class Builder(Unit):
                     self.core_pos = ct.get_position(bid)
                     self.sym = SymmetryDetector(self.w, self.h, self.core_pos)
                     self.reachable.set_source(self.core_pos)
-                    self.chain.update_tile(self.core_pos.x, self.core_pos.y, Environment.EMPTY, EntityType.CORE, True, force_update=True)
+                    self.chain.update_tile(
+                        self.core_pos.x,
+                        self.core_pos.y,
+                        Environment.EMPTY,
+                        EntityType.CORE,
+                        True,
+                        force_update=True,
+                    )
                     break
             assert self.core_pos is not None
 
@@ -101,7 +113,13 @@ class Builder(Unit):
         resolved = self.sym.resolved
 
         _update_nearby_tiles(
-            self.nav, self.reachable, resolved, ct, self._tile_cache, self.env_trackers, self.chain
+            self.nav,
+            self.reachable,
+            resolved,
+            ct,
+            self._tile_cache,
+            self.env_trackers,
+            self.chain,
         )
         self.explore.update(ct, pos, self.core_pos)
 
@@ -110,7 +128,7 @@ class Builder(Unit):
         new_pos = ct.get_position()
 
         if self._chain_plan:
-            print(self._chain_plan[self._plan_progress:])
+            print(self._chain_plan[self._plan_progress :])
 
         # Plan execution takes precedence over normal navigation. The plan
         # itself sets the nav goal each turn.
@@ -136,7 +154,6 @@ class Builder(Unit):
         self.nav.step(ct)
         self.nav.emit_vis()
 
-
     def _handle_ore(self, ct: Controller) -> None:
         """No active plan — generate one for the nearest reachable ore so
         the next turn (or this turn's later draw) can execute it.
@@ -160,12 +177,12 @@ class Builder(Unit):
 
         if self._try_place(ct, entity, pos, extra):
             self._plan_progress += 1
-        
+
         if self._plan_progress >= len(self._chain_plan):
             self._chain_plan = None
             self._plan_progress = 0
             return
-        
+
         _, pos, _ = self._chain_plan[self._plan_progress]
         self.nav.set_goal(pos)
 
@@ -179,7 +196,7 @@ class Builder(Unit):
         # Clear any road sitting on the target tile first. We only act if
         # we've actually observed the tile (not UNSEEN). Allied roads are
         # destroyed; enemy roads are fired upon.
-        
+
         cached = self._tile_cache[pos.y * self.w + pos.x]
         if cached != UNSEEN and tile_building_type(cached) == EntityType.ROAD:
             if tile_is_allied(cached):
@@ -220,7 +237,9 @@ class Builder(Unit):
             (cx + dx, cy + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
         )
         # force impassible for pathfinding (as it will be once we place the harvester)
-        self.chain.update_tile(nearest_ore.x, nearest_ore.y, Environment.WALL, None, True)
+        self.chain.update_tile(
+            nearest_ore.x, nearest_ore.y, Environment.WALL, None, True
+        )
         self.chain.set_goal(nearest_ore.x, nearest_ore.y)
         self.chain.offset_goal()
         plan = self.chain.plan()
@@ -241,7 +260,7 @@ class Builder(Unit):
         if self._chain_plan is None:
             return 0
         i = 0
-        for _entity, pos, _extra in self._chain_plan[self._plan_progress:]:
+        for _entity, pos, _extra in self._chain_plan[self._plan_progress :]:
             cached = self._tile_cache[pos.y * self.w + pos.x]
             if cached == UNSEEN:
                 i += 1

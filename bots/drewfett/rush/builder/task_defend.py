@@ -120,10 +120,14 @@ def defend(
             bld = state.building[gi]
             if bld is not None:
                 # Enemy buildings: roads/markers can be fired on to clear, others block
-                if bld.team != my_team and not isinstance(bld, (BuildingRoad, BuildingMarker)):
+                if bld.team != my_team and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
                     break
                 # Allied non-road buildings block placement
-                if bld.team == my_team and not isinstance(bld, (BuildingRoad, BuildingMarker)):
+                if bld.team == my_team and not isinstance(
+                    bld, (BuildingRoad, BuildingMarker)
+                ):
                     break
 
             # Check LoS back to threat (nothing blocking in between)
@@ -202,12 +206,17 @@ def defend(
         return None
 
     import sys
-    print(f"  DEFEND: id={ct.get_id()} threat=({tx},{ty}) gunner=({best_gpos.x},{best_gpos.y}) facing={best_facing.name}", file=sys.stderr)
+
+    print(
+        f"  DEFEND: id={ct.get_id()} threat=({tx},{ty}) gunner=({best_gpos.x},{best_gpos.y}) facing={best_facing.name}",
+        file=sys.stderr,
+    )
     # Place the gunner
     g_cost, _ = ct.get_gunner_cost()
     ti_res, _ = ct.get_global_resources()
 
     from .action import Fire
+
     ni = best_gpos.y * w + best_gpos.x
     bld = state.building[ni]
 

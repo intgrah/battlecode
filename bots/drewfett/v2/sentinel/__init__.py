@@ -12,10 +12,14 @@ _DELTA_TO_DIR: dict[tuple[int, int], Direction] = {
     (0, 1): Direction.SOUTH,
     (-1, 0): Direction.WEST,
 }
-_TRANSPORT = frozenset({
-    EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR,
-    EntityType.SPLITTER, EntityType.BRIDGE,
-})
+_TRANSPORT = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    }
+)
 
 
 def _find_protected_buildings(ct: Controller, my_team: int) -> set[int]:
@@ -154,10 +158,14 @@ class Sentinel(Unit):
                 return
 
 
-
 def _target_priority(etype: EntityType) -> int:
     match etype:
-        case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH | EntityType.LAUNCHER:
+        case (
+            EntityType.GUNNER
+            | EntityType.SENTINEL
+            | EntityType.BREACH
+            | EntityType.LAUNCHER
+        ):
             return 5  # enemy turrets — biggest threat
         case EntityType.CORE:
             return 4  # win condition

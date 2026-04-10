@@ -46,9 +46,14 @@ class Reachable:
         self._dirty = True
 
         self._offsets: tuple[int, ...] = (
-            -pw - 1, -pw, -pw + 1,
-            -1,            1,
-            pw - 1,  pw,  pw + 1,
+            -pw - 1,
+            -pw,
+            -pw + 1,
+            -1,
+            1,
+            pw - 1,
+            pw,
+            pw + 1,
         )
 
     def update_tile(self, i: int, env: Environment) -> None:
@@ -81,7 +86,7 @@ class Reachable:
         offsets = self._offsets
         w = self.w
         pw = self._pw
-        
+
         q = self._frontier
         new_frontier: list[int] = []
         for node in q:
@@ -98,7 +103,14 @@ class Reachable:
                         ry = ni // pw - 1
                         rx = ni % pw - 1
                         tile = tile_cache[ry * w + rx]
-                        chain.update_tile(rx, ry, tile_env(tile), tile_building_type(tile), tile_is_allied(tile), force_update=True)
+                        chain.update_tile(
+                            rx,
+                            ry,
+                            tile_env(tile),
+                            tile_building_type(tile),
+                            tile_is_allied(tile),
+                            force_update=True,
+                        )
                         q.append(ni)
 
         self._frontier = new_frontier

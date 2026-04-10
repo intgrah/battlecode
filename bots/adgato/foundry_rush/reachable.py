@@ -49,9 +49,14 @@ class Reachable:
         self._dirty = True
 
         self._offsets: tuple[int, ...] = (
-            -pw - 1, -pw, -pw + 1,
-            -1,            1,
-            pw - 1,  pw,  pw + 1,
+            -pw - 1,
+            -pw,
+            -pw + 1,
+            -1,
+            1,
+            pw - 1,
+            pw,
+            pw + 1,
         )
 
     def update_tile(
@@ -113,7 +118,7 @@ class Reachable:
         offsets = self._offsets
         w = self.w
         pw = self._pw
-        
+
         q = self._frontier
         new_frontier: list[int] = []
         for node in q:
@@ -130,7 +135,14 @@ class Reachable:
                         ry = ni // pw - 1
                         rx = ni % pw - 1
                         tile = tile_cache[ry * w + rx]
-                        chain.update_tile(rx, ry, tile_env(tile), tile_building_type(tile), tile_is_allied(tile), force_update=True)
+                        chain.update_tile(
+                            rx,
+                            ry,
+                            tile_env(tile),
+                            tile_building_type(tile),
+                            tile_is_allied(tile),
+                            force_update=True,
+                        )
                         q.append(ni)
 
         self._frontier = new_frontier
@@ -172,11 +184,11 @@ class Reachable:
                 palette=Palette(
                     stops=[(0.0, 0, 0, 0, 0)],
                     special={
-                        0: (40, 40, 40, 200),     # wall — dark grey
-                        1: (0, 0, 0, 0),          # unseen — transparent
-                        2: (0, 200, 0, 80),       # reachable — green
-                        3: (200, 120, 0, 140),    # seen but unreachable — orange
-                        -1: (255, 0, 255, 220),   # frontier — magenta
+                        0: (40, 40, 40, 200),  # wall — dark grey
+                        1: (0, 0, 0, 0),  # unseen — transparent
+                        2: (0, 200, 0, 80),  # reachable — green
+                        3: (200, 120, 0, 140),  # seen but unreachable — orange
+                        -1: (255, 0, 255, 220),  # frontier — magenta
                     },
                 ),
             ),
@@ -187,7 +199,9 @@ class Reachable:
         pi = (pos.y + 1) * self._pw + (pos.x + 1)
         return self._reachable[pi]
 
-    def pick_frontier(self, cur_pos: Position, core_pos: Position, sym: Symmetry) -> Position | None:
+    def pick_frontier(
+        self, cur_pos: Position, core_pos: Position, sym: Symmetry
+    ) -> Position | None:
         """Pick a reachable frontier tile (one adjacent to unseen area).
 
         Tie-break: chebyshev(core, cell) - chebyshev(center, cell). Staying
@@ -206,14 +220,14 @@ class Reachable:
         py = cur_pos.y
         best_pi = -1
         best_key = 1 << 30
-        
+
         c_w = 1 if sym == Symmetry.UNKNOWN else 0
         for pi in self._frontier:
             x = pi % pw - 1
             y = pi // pw - 1
             cur_d = max(abs(x - px), abs(y - py))
             core_d = max(abs(x - kx), abs(y - ky))
-            key = core_d ** 0.75 + cur_d
+            key = core_d**0.75 + cur_d
             if key < best_key:
                 best_key = key
                 best_pi = pi

@@ -112,7 +112,7 @@ def _task_reactive_gunner(builder: Builder, ct: Controller) -> tuple[str, bool] 
                 gi = gy * w + gx
 
                 # Find feed source using flow model
-                flow = getattr(s, 'flow', None)
+                flow = getattr(s, "flow", None)
                 feed_ti: int | None = None
                 if flow is not None:
                     inputs = flow.inputs_to(gi)
@@ -224,7 +224,7 @@ def _task_heal_infra(builder: Builder, ct: Controller) -> tuple[str, bool] | Non
         ratio = hp / max_hp
         # Boost priority for buildings carrying flow
         bi = bpos.y * w + bpos.x
-        flow = getattr(s, 'flow', None)
+        flow = getattr(s, "flow", None)
         if flow is not None and bi in flow.connected:
             ratio *= 0.5  # halve ratio = double priority for flow-carrying buildings
         if ratio < best_ratio:
