@@ -574,11 +574,11 @@ class Builder(Unit):
             case _:
                 return INF
 
-    def _can_place_junction(self, ct: Controller, pos: Position) -> bool:
+    def _can_place_junction(self, pos: Position) -> bool:
         match self.get_building(pos):
             case None:
                 pass
-            case BuildingConveyor(team=t) | BuildingRoad(team=t) if t == ct.get_team():
+            case BuildingConveyor(team=t) | BuildingRoad(team=t) if t == self.my_team:
                 pass
             case _:
                 return False
@@ -590,14 +590,17 @@ class Builder(Unit):
         buildable_count = 0
         for d in DIR4:
             new_pos = pos.add(d)
-            if self.get_env(new_pos) != Environment.EMPTY:
+            if (
+                not self.in_bounds(new_pos)
+                or self.get_env(new_pos) != Environment.EMPTY
+            ):
                 continue
             match self.get_building(new_pos):
                 case None:
                     buildable_count += 1
                 case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
                     pass
-                case b if b.team == ct.get_team():
+                case b if b.team == self.my_team:
                     buildable_count += 1
 
         return buildable_count >= 1
@@ -680,11 +683,11 @@ class Builder(Unit):
                     if (
                         self.hp[i] < self.max_hp[i]
                         and bld is not None
-                        and bld.team == ct.get_team()
+                        and bld.team == self.my_team
                     ):
                         self.healable_buildings.append(pos)
                     match bld:
-                        case BuildingLauncher(team=t) if t != ct.get_team():
+                        case BuildingLauncher(team=t) if t != self.my_team:
                             for d in DIR8:
                                 self.adjacent_to_enemy_launcher.add(pos.add(d))
                 else:
@@ -706,7 +709,7 @@ class Builder(Unit):
                         ):
                             cost = 1
                             conveyor_cost = 1
-                        case BuildingCore(team=t) if t == ct.get_team():
+                        case BuildingCore(team=self.my_team):
                             cost = 1
                             conveyor_cost = 1
                         case _:
@@ -743,7 +746,7 @@ class Builder(Unit):
         if self.nearest_enemy_turret:
             match self.buildings[pos.y * w + pos.x]:
                 case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                    t != ct.get_team()
+                    t != self.my_team
                 ):
                     pass
                 case _:
@@ -752,7 +755,7 @@ class Builder(Unit):
         for pos in nearby_tiles:
             match self.buildings[pos.y * w + pos.x]:
                 case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                    t != ct.get_team()
+                    t != self.my_team
                 ):
                     dist = (pos.x - my_pos.x) ** 2 + (pos.y - my_pos.y) ** 2
                     if dist < min_dist:
@@ -776,11 +779,11 @@ class Builder(Unit):
                     for d in DIR4:
                         match self.get_building(pos.add(d)):
                             case (
-                                BuildingConveyor(team=t)
-                                | BuildingBridge(team=t)
-                                | BuildingSplitter(team=t)
-                                | BuildingArmouredConveyor(team=t)
-                            ) if t == ct.get_team():
+                                BuildingConveyor(team=self.my_team)
+                                | BuildingBridge(team=self.my_team)
+                                | BuildingSplitter(team=self.my_team)
+                                | BuildingArmouredConveyor(team=self.my_team)
+                            ):
                                 adjacent_conveyor = True
                                 break
                     if not adjacent_conveyor:
@@ -793,18 +796,17 @@ class Builder(Unit):
 
             match bld:
                 case (
-                    BuildingConveyor(team=t)
-                    | BuildingArmouredConveyor(team=t)
-                    | BuildingSplitter(team=t)
-                    | BuildingBridge(team=t)
-                ) if t == ct.get_team():
+                    BuildingConveyor(team=self.my_team)
+                    | BuildingArmouredConveyor(team=self.my_team)
+                    | BuildingSplitter(team=self.my_team)
+                    | BuildingBridge(team=self.my_team)
+                ):
                     self.conveyor_cost_grid[i] += Builder._load_penalty(
                         self.update_line_load_counts(pos),
                     )
 
         my_position = ct.get_position()
         if self.nearest_junction_site and not self._can_place_junction(
-            ct,
             self.nearest_junction_site,
         ):
             self.nearest_junction_site = None
@@ -815,7 +817,7 @@ class Builder(Unit):
                     self.nearest_junction_site.distance_squared(my_position)
                     < pos.distance_squared(my_position)
                 )
-            ) and self._can_place_junction(ct, pos):
+            ) and self._can_place_junction(pos):
                 self.nearest_junction_site = pos
 
     # ================================================================================
@@ -969,7 +971,7 @@ class Builder(Unit):
     #  Economy Update
     # ================================================================================
 
-    def _is_dangling(self, ct: Controller, pos: Position) -> bool:
+    def _is_dangling(self, pos: Position) -> bool:
         if not self.in_bounds(pos):
             return False
 
@@ -979,7 +981,7 @@ class Builder(Unit):
             if self.env[i] == Environment.WALL:
                 return False
 
-        elif not isinstance(b, BuildingRoad) or b.team != ct.get_team():
+        elif not isinstance(b, BuildingRoad) or b.team != self.my_team:
             return False
 
         if self.network_in_edges[i]:
@@ -988,13 +990,13 @@ class Builder(Unit):
         return pos in self.adjacent_to_unconnected_harvester
 
     def _is_valid_loose_end_target(self, ct: Controller, pos: Position) -> bool:
-        if not self._is_dangling(ct, pos):
+        if not self._is_dangling(pos):
             return False
 
         my_id = ct.get_id()
         if ct.is_in_vision(pos):
             bid = ct.get_tile_builder_bot_id(pos)
-            friendly = ct.get_team(bid) == ct.get_team()
+            friendly = ct.get_team(bid) == self.my_team
             if bid is not None and bid != my_id and friendly:
                 return False
 
@@ -1003,7 +1005,7 @@ class Builder(Unit):
             if not ct.is_in_vision(lpos):
                 continue
             lbid = ct.get_tile_builder_bot_id(lpos)
-            friendly = ct.get_team(lbid) == ct.get_team()
+            friendly = ct.get_team(lbid) == self.my_team
             if lbid is not None and lbid != my_id and friendly:
                 return False
         return True
@@ -1022,7 +1024,7 @@ class Builder(Unit):
 
     def _update_dangling(self, ct: Controller) -> None:
         my_pos = ct.get_position()
-        if self._is_dangling(ct, my_pos):
+        if self._is_dangling(my_pos):
             self.dangling_output = my_pos
         else:
             match self.get_building(my_pos):
@@ -1031,18 +1033,17 @@ class Builder(Unit):
                     | BuildingArmouredConveyor(direction=d)
                 ):
                     target = my_pos.add(d)
-                    if self._is_dangling(ct, target):
+                    if self._is_dangling(target):
                         self.dangling_output = target
                 case _:
                     for d in DIR8:
                         n = my_pos.add(d)
-                        if self._is_dangling(ct, n):
+                        if self._is_dangling(n):
                             self.dangling_output = n
                             break
         if self.pending_bridge:
             self.dangling_output = self.pending_bridge
         elif self.dangling_output is None or not self._is_dangling(
-            ct,
             self.dangling_output,
         ):
             self.dangling_output = self._find_dangling(ct)
@@ -1259,9 +1260,9 @@ class Builder(Unit):
             path.append(position)
         return path
 
-    def _is_enemy_building_at(self, ct: Controller, pos: Position) -> bool:
+    def _is_enemy_building_at(self, pos: Position) -> bool:
         b = self.get_building(pos)
-        return b is not None and b.team != ct.get_team()
+        return b is not None and b.team != self.my_team
 
     # ================================================================================
     #  Visualiser Dump
@@ -1510,10 +1511,7 @@ class Builder(Unit):
                     test_position = pos.add(d)
                     if self.in_bounds(test_position) and ct.is_in_vision(test_position):
                         builder = ct.get_tile_builder_bot_id(test_position)
-                        if (
-                            builder is not None
-                            and ct.get_team(builder) == ct.get_team()
-                        ):
+                        if builder is not None and ct.get_team(builder) == self.my_team:
                             closer_friend = True
                             self.ally_sightings[test_position] = ct.get_current_round()
                         elif test_position in self.ally_sightings:
@@ -1568,7 +1566,7 @@ class Builder(Unit):
         if self.repair_pos and ct.is_in_vision(self.repair_pos):
             b = self.get_building(self.repair_pos)
             ti = self.idx(self.repair_pos)
-            if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == ct.get_team():
+            if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == self.my_team:
                 pass
             else:
                 self.repair_pos = None
@@ -1586,7 +1584,7 @@ class Builder(Unit):
         if ct.is_in_vision(heal_position):
             builder = ct.get_tile_builder_bot_id(heal_position)
             being_attacked = (
-                builder is not None and ct.get_team(builder) != ct.get_team()
+                builder is not None and ct.get_team(builder) != self.my_team
             )
 
         building_to_heal = self._best_adjacent_healable_building(ct)
@@ -1608,21 +1606,21 @@ class Builder(Unit):
             )
         return True
 
-    def _has_wounded_enemy(self, ct: Controller, position: Position) -> bool:
+    def _has_wounded_enemy(self, position: Position) -> bool:
         b = self.get_building(position)
         if not b:
             return False
         i = self.idx(position)
-        return b.team != ct.get_team() and self.hp[i] < self.max_hp[i]
+        return b.team == self.en_team and self.hp[i] < self.max_hp[i]
 
     def _heal_adjacent_builders(self, ct: Controller) -> bool:
         adjacent_builders = ct.get_nearby_units(2)
         for eid in adjacent_builders:
             if (ct.get_hp(eid) <= ct.get_max_hp(eid) - 4) and ct.get_team(
                 eid,
-            ) == ct.get_team():
+            ) == self.my_team:
                 position = ct.get_position(eid)
-                if self._has_wounded_enemy(ct, position):
+                if self._has_wounded_enemy(position):
                     continue
                 if self._try_heal(ct, position, conserve_ti=False):
                     return True
@@ -1633,13 +1631,13 @@ class Builder(Unit):
             return False
 
         my_pos = ct.get_position()
-        if not self._has_wounded_enemy(ct, my_pos):
+        if not self._has_wounded_enemy(my_pos):
             self._try_heal(ct, my_pos, conserve_ti=False)
             self._move_random(ct)
             return True
 
         for d in DIR8:
-            if ct.can_move(d) and not self._has_wounded_enemy(ct, my_pos.add(d)):
+            if ct.can_move(d) and not self._has_wounded_enemy(my_pos.add(d)):
                 ct.move(d)
                 self._try_heal(ct, ct.get_position(), conserve_ti=False)
                 return True
@@ -1648,7 +1646,7 @@ class Builder(Unit):
 
     def _heal_builders(self, ct: Controller) -> bool:
         b = self.get_building(ct.get_position())
-        if b and b.team != ct.get_team():
+        if b and b.team != self.my_team:
             i = self.idx(ct.get_position())
             if self.hp[i] <= 2:
                 return False
@@ -1701,9 +1699,10 @@ class Builder(Unit):
             pos = pos.add(d)
             if self.in_bounds(pos):
                 match self.get_building(pos):
-                    case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                        t != ct.get_team()
-                    ):
+                    case (
+                        BuildingGunner(team=self.en_team)
+                        | BuildingSentinel(team=self.en_team)
+                    ) if ():
                         for harvester_direction in DIR4:
                             if harvester_direction != d:
                                 match self.get_building(pos.add(harvester_direction)):
@@ -1858,14 +1857,14 @@ class Builder(Unit):
             direction in DIR4
             and (
                 (not destination_building)
-                or destination_team == ct.get_team()
+                or destination_team == self.my_team
                 or destination_is_marker
             )
             and self.get_env(path[1]) == Environment.EMPTY
         ):
             return Builder._try_place(ct, EntityType.CONVEYOR, start_pos, direction)
         pending_bridge = reachable_path_end(path, start_pos, 3)
-        if self._is_enemy_building_at(ct, pending_bridge):
+        if self._is_enemy_building_at(pending_bridge):
             if self._clear_with_turret(ct, start_pos, pending_bridge):
                 self.branch_start = start_pos
             return False
@@ -1875,13 +1874,9 @@ class Builder(Unit):
             return True
         return False
 
-    def _best_junction_site(
-        self,
-        ct: Controller,
-        path: list[Position],
-    ) -> Position | None:
+    def _best_junction_site(self, path: list[Position]) -> Position | None:
         for pos in path[::-1]:
-            if self._can_place_junction(ct, pos):
+            if self._can_place_junction(pos):
                 return pos
         return None
 
@@ -1957,7 +1952,7 @@ class Builder(Unit):
             return
 
         if self.is_friendly_turret(start) or all_blocked:
-            split_location = self._best_junction_site(ct, existing_path)
+            split_location = self._best_junction_site(existing_path)
             if split_location:
                 self._make_move(ct, split_location)
                 if self._place_junction(ct, split_location):
@@ -2013,32 +2008,23 @@ class Builder(Unit):
             and (not ct.is_in_vision(p) or ct.get_tile_builder_bot_id(p) is None)
         ]
 
-    @staticmethod
     def _is_allied_transport(
-        state: Builder,
-        ct: Controller,
+        self,
         position: Position,
     ) -> bool:
-        match state.get_building(position):
+        match self.get_building(position):
             case (
-                BuildingConveyor(team=t)
-                | BuildingArmouredConveyor(team=t)
-                | BuildingSplitter(team=t)
-                | BuildingBridge(team=t)
-            ) if t == ct.get_team():
+                BuildingConveyor(team=self.my_team)
+                | BuildingArmouredConveyor(team=self.my_team)
+                | BuildingSplitter(team=self.my_team)
+                | BuildingBridge(team=self.my_team)
+            ):
                 return True
             case _:
                 return False
 
-    @staticmethod
-    def _without_allied_transport(
-        state: Builder,
-        ct: Controller,
-        positions: list[Position],
-    ) -> list[Position]:
-        return [
-            pos for pos in positions if not Builder._is_allied_transport(state, ct, pos)
-        ]
+    def _without_allied_transport(self, positions: list[Position]) -> list[Position]:
+        return [pos for pos in positions if not self._is_allied_transport(pos)]
 
     @staticmethod
     def _buildable(state: Builder, positions: list[Position]) -> list[Position]:
@@ -2086,7 +2072,7 @@ class Builder(Unit):
         ]
         _tb = ct.get_cpu_time_elapsed()
         print(
-            f"    atk_setup={_tb - _ta}us eb={len(enemy_buildings)} eh={len(enemy_harvesters)} nb={len(self.nearby_buildings)}"
+            f"    atk_setup={_tb - _ta}us eb={len(enemy_buildings)} eh={len(enemy_harvesters)} nb={len(self.nearby_buildings)}",
         )
 
         def has_open_side(position: Position) -> bool:
@@ -2101,11 +2087,7 @@ class Builder(Unit):
                 if (
                     self.is_passable(position.add(direction))
                     and not occupied
-                    and not Builder._is_allied_transport(
-                        self,
-                        ct,
-                        position.add(direction),
-                    )
+                    and not self._is_allied_transport(position.add(direction))
                 ):
                     return True
             return False
@@ -2136,11 +2118,7 @@ class Builder(Unit):
         if len(vulnerable_harvesters) > 0:
             target = closest(ct.get_position(), vulnerable_harvesters)
             assert target is not None
-            on_friendly_conveyor = Builder._is_allied_transport(
-                self,
-                ct,
-                ct.get_position(),
-            )
+            on_friendly_conveyor = self._is_allied_transport(ct.get_position())
             if (
                 ct.get_position().distance_squared(target) == 1
                 and not on_friendly_conveyor
@@ -2186,9 +2164,7 @@ class Builder(Unit):
             else:
                 destination = closest(
                     ct.get_position(),
-                    Builder._without_allied_transport(
-                        self,
-                        ct,
+                    self._without_allied_transport(
                         Builder._open_tiles(self, ct, [target.add(d) for d in DIR4]),
                     ),
                 )
@@ -2370,7 +2346,7 @@ class Builder(Unit):
                 and not self.get_building(pos)
                 and self.get_env(pos) != Environment.WALL
             ):
-                if self._is_dangling(ct, pos):
+                if self._is_dangling(pos):
                     self._route_to(ct, pos, self.my_core)
                     return True
                 if ct.can_build_road(pos):

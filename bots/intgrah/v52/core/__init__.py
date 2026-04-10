@@ -23,7 +23,8 @@ class Core(StationaryUnit):
         super().__init__(ct)
         self.spawned: int = 0
         self.deliveries: Final[deque[int]] = deque(
-            [0] * Core.INCOME_SAMPLES, maxlen=Core.INCOME_SAMPLES
+            [0] * Core.INCOME_SAMPLES,
+            maxlen=Core.INCOME_SAMPLES,
         )
 
     @override
