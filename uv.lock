@@ -50,6 +50,7 @@ members = [
     "bot-se",
     "bot-starter",
     "bot-test-core-spawn",
+    "bot-test-rotate",
     "bot-v44",
     "bot-v45",
     "bot-v46",
@@ -71,6 +72,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cambc" },
     { name = "cython" },
+    { name = "hetzner" },
     { name = "networkx" },
     { name = "pandas" },
     { name = "pillow" },
@@ -89,6 +91,7 @@ dev = [
 requires-dist = [
     { name = "cambc", specifier = ">=1.6.2" },
     { name = "cython", specifier = ">=3.2.4" },
+    { name = "hetzner", specifier = ">=0.8.3" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "pillow", specifier = ">=12.1.1" },
@@ -560,6 +563,17 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.6.2" }]
 
 [[package]]
+name = "bot-test-rotate"
+version = "0.0.0"
+source = { virtual = "bots/test/rotate_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.6.2" }]
+
+[[package]]
 name = "bot-v44"
 version = "0.0.0"
 source = { virtual = "bots/intgrah/v44" }
@@ -743,6 +757,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/2d/d8/319a1263b9c33b71343adfd407e5daffd453daef47ebc7b642820a8b68ed/cython-3.2.4-cp39-abi3-win_arm64.whl", hash = "sha256:3b8e62049afef9da931d55de82d8f46c9a147313b69d5ff6af6e9121d545ce7a", size = 2442754, upload-time = "2026-01-04T14:15:55.382Z" },
     { url = "https://files.pythonhosted.org/packages/ff/fa/d3c15189f7c52aaefbaea76fb012119b04b9013f4bf446cb4eb4c26c4e6b/cython-3.2.4-py3-none-any.whl", hash = "sha256:732fc93bc33ae4b14f6afaca663b916c2fdd5dcbfad7114e17fb2434eeaea45c", size = 1257078, upload-time = "2026-01-04T14:14:12.373Z" },
 ]
+
+[[package]]
+name = "hetzner"
+version = "0.8.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/ca/aa8ce25c31be35c4c1eff5bf7039abbcfea182e53f8093551a07fcd93f9d/hetzner-0.8.3.tar.gz", hash = "sha256:9a43dbbeb4a1f3efc86c5fe1c1d7039aaa635dfdb829506ec3aa34382d3a7114", size = 18109, upload-time = "2021-01-11T18:37:15.974Z" }
 
 [[package]]
 name = "markdown-it-py"
