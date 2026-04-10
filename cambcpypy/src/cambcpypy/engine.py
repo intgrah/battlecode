@@ -5,8 +5,6 @@ from __future__ import annotations
 import copy
 import gc
 import heapq
-import importlib.abc
-import importlib.machinery
 import importlib.util
 import math
 import random
@@ -17,6 +15,7 @@ import traceback
 import typing
 from dataclasses import dataclass, field
 from enum import Enum
+from importlib.abc import Loader
 from io import StringIO
 from pathlib import Path
 from typing import Final, NamedTuple, Protocol, cast
@@ -26,6 +25,7 @@ from proto import cambc_pb2 as pb
 if typing.TYPE_CHECKING:
     import types
     from collections.abc import Sequence
+    from importlib.machinery import ModuleSpec
 
 
 class GameError(Exception):
@@ -2226,7 +2226,7 @@ def load_map(path: str) -> tuple[list[list[int]], list[tuple[int, int, int]]]:
 def _patch_typing_compat() -> None:
 
     if not hasattr(typing, "override"):
-        typing.override = lambda f: f  # type: ignore[attr-defined]
+        typing.override = lambda f: f
 
     import cambcpypy
 
@@ -2241,12 +2241,10 @@ def _transpile_312_to_311(source: str) -> str:
     return _TYPE_STMT_RE.sub(r"\1 =", source)
 
 
-class _TranspilingLoader:
+class _TranspilingLoader(Loader):
     """Wraps a file loader to transpile 3.12 syntax before execution."""
 
-    def __init__(
-        self, orig_loader: importlib.abc.Loader | None, file_path: str
-    ) -> None:
+    def __init__(self, orig_loader: Loader | None, file_path: str) -> None:
         self._orig = orig_loader
         self._path = file_path
 
@@ -2255,9 +2253,6 @@ class _TranspilingLoader:
         source = _transpile_312_to_311(source)
         code = compile(source, self._path, "exec")
         exec(code, module.__dict__)  # noqa: S102
-
-    def create_module(self, _spec: importlib.machinery.ModuleSpec) -> None:
-        return None
 
 
 class _TranspilingFinder:
@@ -2271,7 +2266,7 @@ class _TranspilingFinder:
         fullname: str,
         path: Sequence[str] | None,  # noqa: ARG002
         target: types.ModuleType | None = None,  # noqa: ARG002
-    ) -> importlib.machinery.ModuleSpec | None:
+    ) -> ModuleSpec | None:
         parts = fullname.split(".")
         for bot_dir in self._bot_dirs:
             candidate = Path(bot_dir)
@@ -2285,7 +2280,7 @@ class _TranspilingFinder:
                     submodule_search_locations=[str(candidate)],
                 )
                 if spec:
-                    spec.loader = _TranspilingLoader(spec.loader, str(pkg_init))  # type: ignore[assignment]
+                    spec.loader = _TranspilingLoader(spec.loader, str(pkg_init))
                     return spec
             mod_file = candidate.with_suffix(".py")
             if mod_file.is_file():
@@ -2294,7 +2289,7 @@ class _TranspilingFinder:
                     str(mod_file),
                 )
                 if spec:
-                    spec.loader = _TranspilingLoader(spec.loader, str(mod_file))  # type: ignore[assignment]
+                    spec.loader = _TranspilingLoader(spec.loader, str(mod_file))
                     return spec
         return None
 
@@ -2451,7 +2446,9 @@ def run_game(
     win_condition: str
     if game.resign_message is not None:
         win_condition = "resigned"
-    elif winner is not None and (not game.has_core(Team.A) or not game.has_core(Team.B)):
+    elif winner is not None and (
+        not game.has_core(Team.A) or not game.has_core(Team.B)
+    ):
         win_condition = "core_destroyed"
     elif winner is not None:
         win_condition = "resources"
