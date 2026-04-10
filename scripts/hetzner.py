@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 SERVER_NAME = "bc"
 DEFAULT_LOCATION = "fsn1"
 DEFAULT_IMAGE = "debian-13"
-REMOTE_DIR = "/root/battlecode2"
+REMOTE_DIR = "/root/battlecode"
 
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -227,9 +227,28 @@ apt-get update -qq
 apt-get install -y -qq python3 python3-venv rsync > /dev/null
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-mkdir -p {REMOTE_DIR}
-cd {REMOTE_DIR}
-uv venv -q --python pypy3.11 cambcpypy/.venv
+mkdir -p {REMOTE_DIR}/bots {REMOTE_DIR}/maps {REMOTE_DIR}/lib {REMOTE_DIR}/scripts {REMOTE_DIR}/cambcpypy
+
+cat > /etc/systemd/system/ci-daemon.service <<UNIT
+[Unit]
+Description=Battlecode CI Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory={REMOTE_DIR}
+Environment=PATH=/root/.local/bin:/usr/bin:/bin
+Environment=VIRTUAL_ENV=
+ExecStart=/root/.local/bin/uv run --project cambcpypy python cambcpypy/scripts/ci_daemon.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable ci-daemon
 echo "Provisioned successfully"
 """
 
@@ -260,6 +279,7 @@ def _cmd_sync(args: argparse.Namespace) -> None:
             [
                 rsync,
                 "-az",
+                "--mkpath",
                 "--delete",
                 "--exclude=__pycache__",
                 "--exclude=.venv",
@@ -276,12 +296,15 @@ def _cmd_sync(args: argparse.Namespace) -> None:
             [
                 rsync,
                 "-az",
+                "--mkpath",
                 f"{_PROJECT_ROOT}/{local}",
                 f"root@{ip}:{REMOTE_DIR}/{remote}",
             ]
         )
         if rc != 0:
             sys.exit(rc)
+    _ssh_run(ip, "systemctl restart ci-daemon 2>/dev/null || true")
+    print("Daemon restarted.")
 
 
 def _make_tarball(bot_path: str) -> bytes:
@@ -316,6 +339,7 @@ def _connect_daemon(ip: str) -> tuple[subprocess.Popen[bytes], socket.socket]:
     for _ in range(10):
         try:
             sock = socket.create_connection(("127.0.0.1", local_port), timeout=2)
+            sock.settimeout(None)
             return tunnel, sock
         except (ConnectionRefusedError, OSError):
             time.sleep(0.5)
@@ -411,18 +435,6 @@ def _cmd_ci(args: argparse.Namespace) -> None:
         tunnel.wait()
 
 
-def _cmd_daemon(args: argparse.Namespace) -> None:
-    ip = _require_ip(args)
-    _cmd_sync(args)
-    print(f"Starting CI daemon on {ip}...")
-    rc = _ssh_run(
-        ip,
-        f'export PATH="$HOME/.local/bin:$PATH" && cd {REMOTE_DIR} && '
-        f"VIRTUAL_ENV= uv run --project cambcpypy python cambcpypy/scripts/ci_daemon.py",
-    )
-    sys.exit(rc)
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Hetzner CI server management")
     parser.add_argument(
@@ -463,9 +475,6 @@ def main() -> None:
 
     sync = sub.add_parser("sync", help="Rsync bots/maps/scripts to server")
     sync.set_defaults(func=_cmd_sync)
-
-    daemon = sub.add_parser("daemon", help="Start CI daemon on server (blocks)")
-    daemon.set_defaults(func=_cmd_daemon)
 
     ci = sub.add_parser("ci", help="Run parallel games via CI daemon")
     ci.add_argument("bot_a", help="First bot (e.g. intgrah/v52)")
