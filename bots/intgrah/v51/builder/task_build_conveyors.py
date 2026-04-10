@@ -1,6 +1,13 @@
 from building import BuildingConveyor, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Environment, Position
-from util import DIR4, DIR8
+from util import (
+    DIR4,
+    DIR8,
+    can_afford,
+    chebyshev,
+    get_direction_object,
+    reachable_path_end,
+)
 
 from .algorithms.pathfind import conv_pathfind, conv_unreachable
 from .helpers import (
@@ -43,9 +50,8 @@ def lay_segment(
         return False
 
     building_id = ct.get_tile_building_id(start_pos)
-    assert building_id is not None
-    entity_type = ct.get_entity_type(building_id)
-    direction: Direction | None = None
+    entity_type = ct.get_entity_type(building_id) if building_id else None
+
     if (
         state.my_core
         and start_pos.distance_squared(state.my_core) <= 5
@@ -58,7 +64,7 @@ def lay_segment(
                 break
     else:
         direction = get_direction_object(start_pos, path[1])
-    assert direction is not None
+
     if entity_type == EntityType.CONVEYOR:
         if ct.get_direction(building_id) == direction:
             return True
@@ -69,9 +75,7 @@ def lay_segment(
 
     next_pos = path[1]
     if not ct.is_in_vision(next_pos):
-        return try_place(
-            ct, EntityType.BRIDGE, start_pos, reachable_path_end(path, start_pos, 3)
-        )
+        return try_place(ct, EntityType.BRIDGE, start_pos, reachable_path_end(path, start_pos, 3))
     destination_building = ct.get_tile_building_id(next_pos)
     destination_team = (
         ct.get_team(destination_building) if destination_building else None
@@ -160,10 +164,10 @@ def route_to(
     state.branch_start = None
 
     if start == target:
-        return
+        return None
 
     if chebyshev(start, target) <= 1 and target == state.my_core:
-        return
+        return None
 
     current_pos = ct.get_position()
 
@@ -183,7 +187,7 @@ def route_to(
 
     existing_path = trace_upstream(state, start)
     if len(existing_path) < 1:
-        return
+        return None
 
     if state.is_friendly_turret(start) or all_blocked:
         split_location = best_junction_site(state, ct, existing_path)
@@ -193,13 +197,13 @@ def route_to(
                 state.branch_start = split_location
             else:
                 state.branch_start = start
-        return
+        return None
 
     if not state.is_passable(start):
         if len(existing_path) > 1:
             start = existing_path[-2]
         else:
-            return
+            return None
 
     path = conv_pathfind(state, ct, start, target)
     if path:
@@ -212,11 +216,11 @@ def route_to(
 
     if chebyshev(current_pos, start) <= 1:
         if not path or (conv_unreachable(target) and not path) or len(path) < 2:
-            return
+            return True
         lay_segment(ct, start, path, state)
     make_move(state, ct, start)
-    return
+    return None
 
 
 def route_to_core(state: State, ct: Controller, start: Position) -> None:
-    route_to(state, ct, start, state.my_core)
+    return route_to(state, ct, start, state.my_core)
