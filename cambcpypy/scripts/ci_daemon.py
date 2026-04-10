@@ -8,6 +8,7 @@ import io
 import json
 import random
 import shutil
+import socket
 import sys
 import tarfile
 import time
@@ -262,9 +263,11 @@ async def _main() -> None:
     executor = ProcessPoolExecutor()
     print(f"Starting CI daemon on {HOST}:{PORT}")
 
-    server = await asyncio.start_server(
-        _handle_client, HOST, PORT, reuse_address=True
-    )
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((HOST, PORT))
+    sock.setblocking(False)
+    server = await asyncio.start_server(_handle_client, sock=sock)
     async with server:
         await server.serve_forever()
 
