@@ -2083,7 +2083,9 @@ class Builder(Unit):
             if isinstance(self.get_building(p), BuildingHarvester)
         ]
         _tb = ct.get_cpu_time_elapsed()
-        print(f"    atk_setup={_tb - _ta}us eb={len(enemy_buildings)} eh={len(enemy_harvesters)} nb={len(self.nearby_buildings)}")
+        print(
+            f"    atk_setup={_tb - _ta}us eb={len(enemy_buildings)} eh={len(enemy_harvesters)} nb={len(self.nearby_buildings)}"
+        )
 
         def has_open_side(position: Position) -> bool:
             for direction in DIR4:
@@ -2196,7 +2198,8 @@ class Builder(Unit):
                 adjacent_launchers = [
                     p
                     for p in [ct.get_position().add(d) for d in DIR8]
-                    if isinstance(self.get_building(p), BuildingLauncher)
+                    if self.in_bounds(p)
+                    and isinstance(self.get_building(p), BuildingLauncher)
                 ]
 
                 best_adjacent_launcher = closest(destination, adjacent_launchers)
