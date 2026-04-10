@@ -94,7 +94,9 @@ class MapData:
         self.pnb_navbfs_push: list[list[int]]
         self.pnb_navbfs_set: list[list[int]]
         self.pnb_navbfs_push, self.pnb_navbfs_set = _build_pnb_navbfs(
-            self.w, self.h, self.cost,
+            self.w,
+            self.h,
+            self.cost,
         )
         self.passable: list[int] = [i for i in range(self.n) if self.cost[i] < INF]
         self.offsets_card: tuple[int, ...] = (-self.w, -1, 1, self.w)
@@ -109,7 +111,9 @@ class MapData:
         self.pnbc = _build_pnbc(self.nb, self.cost)
         self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, self.cost)
         self.pnb_navbfs_push, self.pnb_navbfs_set = _build_pnb_navbfs(
-            self.w, self.h, self.cost,
+            self.w,
+            self.h,
+            self.cost,
         )
         self.passable = [i for i in range(self.n) if self.cost[i] < INF]
         self.hpa_graph = None
@@ -158,7 +162,9 @@ class MapData:
         self.pnbc = _build_pnbc(self.nb, cost)
         self.pnb1, self.pnb3 = _build_pnb_dual(self.nb, cost)
         self.pnb_navbfs_push, self.pnb_navbfs_set = _build_pnb_navbfs(
-            self.w, self.h, cost,
+            self.w,
+            self.h,
+            cost,
         )
         self.passable = [i for i in range(n) if cost[i] < INF]
         self.hpa_graph = None
@@ -186,7 +192,9 @@ def _build_pnbc(nb: list[list[int]], cost: list[int]) -> list[list[tuple[int, in
 
 
 def _build_pnb_navbfs(
-    w: int, h: int, cost: list[int],
+    w: int,
+    h: int,
+    cost: list[int],
 ) -> tuple[list[list[int]], list[list[int]]]:
     """Split passable neighbours into push (always enqueue) and set (no enqueue).
 
@@ -1278,6 +1286,91 @@ def validate_path(md: MapData, path: list[int], si: int, algo_name: str) -> bool
 
 
 # ---------------------------------------------------------------------------
+# BFS heuristic A* (BFS from start, then A* from goal to start)
+# ---------------------------------------------------------------------------
+
+
+def _bfs_dist(n: int, pnb: list[list[int]], si: int) -> list[int]:
+    """BFS hop-count distances from si. Same logic as sssp_bfs."""
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    q: deque[int] = deque([si])
+    while q:
+        node = q.popleft()
+        d1 = dist[node] + 1
+        for ni in pnb[node]:
+            if dist[ni] != INF:
+                continue
+            dist[ni] = d1
+            q.append(ni)
+    return dist
+
+
+def algo_astar_bfs_heuristic(md: MapData, si: int, gi: int) -> Path_:
+    """BFS from start for heuristic, then A* (dial's) from goal to start."""
+    if si == gi:
+        return [si]
+    cost, pnb = md.cost, md.pnb
+
+    # Step 1: BFS from start to get hop-count distances (heuristic)
+    h = _bfs_dist(md.n, pnb, si)
+
+    # Step 2: A* from goal to start using dial's bucket queue (noparent2 style)
+    # Heuristic is consistent: |h[u]-h[v]| <= 1 <= cost(u,v) for adjacent u,v
+    # Max f-increase per step = CE + 1 = 4, so mod 5 buckets
+    mod = CE + 2
+    g: list[int] = [INF] * md.n
+    g[gi] = 0
+    h_gi = h[gi]
+    if h_gi >= INF:
+        return None
+    bk: list[deque[int]] = [deque() for _ in range(mod)]
+    bk[h_gi % mod].append(gi)
+    cur_f = h_gi
+    emp = 0
+    found = False
+    while emp < mod:
+        bki = bk[cur_f % mod]
+        if not bki:
+            cur_f += 1
+            emp += 1
+            continue
+        emp = 0
+        popleft = bki.popleft
+        while bki:
+            node = popleft()
+            gn = g[node]
+            if gn + h[node] != cur_f:
+                continue
+            if node == si:
+                found = True
+                break
+            for ni in pnb[node]:
+                nd = gn + cost[ni]
+                if nd < g[ni]:
+                    g[ni] = nd
+                    bk[(nd + h[ni]) % mod].append(ni)
+        if found:
+            break
+        cur_f += 1
+    if not found:
+        return None
+    # Extract path from si to gi by backtracking through g-values
+    path = [si]
+    cur = si
+    while cur != gi:
+        d = g[cur]
+        for ni in pnb[cur]:
+            if g[ni] + cost[cur] == d:
+                path.append(ni)
+                cur = ni
+                break
+        else:
+            return None
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Algorithm registry
 # ---------------------------------------------------------------------------
 
@@ -1327,6 +1420,7 @@ def _make_algos() -> list[AlgoEntry]:
         ("dijkstra bucket noparent dual4", algo_dijkstra_bucket_noparent_dual4, False),
     )
     algos.append(("hpastar excl precomp", algo_hpa, True))
+    algos.append(("astar bfs heuristic", algo_astar_bfs_heuristic, False))
 
     return algos
 
