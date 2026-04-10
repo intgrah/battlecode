@@ -2,6 +2,14 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
+> ## Feedback
+> If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
+> https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
+>
+> Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
+>
+> Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
+
 # How Matches Work
 
 > How ladder matches, Elo ratings, and the 5-game format work.
@@ -14,11 +22,18 @@ Every match consists of **5 games**. Each game is played on a different map with
 
 A game ends when:
 
-| Condition          | Description                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| **Core destroyed** | One team's core reaches 0 HP                                                                      |
-| **Resources**      | After 2000 rounds, the [tiebreaker sequence](/spec/overview#win-conditions) determines the winner |
-| **Timeout**        | After 2000 rounds with equal tiebreakers — decided by coinflip                                    |
+| Condition              | Description                                                                                              |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Core destroyed**     | One team's core reaches 0 HP                                                                             |
+| **Resigned**           | A team called [`resign()`](/api/controller#healing--destruction) — their core is destroyed and they lose |
+| **Axionite collected** | Tiebreaker 1: most total refined axionite delivered to the core                                          |
+| **Titanium collected** | Tiebreaker 2: most total titanium delivered to the core                                                  |
+| **Harvesters**         | Tiebreaker 3: most harvesters currently alive                                                            |
+| **Axionite stored**    | Tiebreaker 4: most axionite currently stored                                                             |
+| **Titanium stored**    | Tiebreaker 5: most titanium currently stored                                                             |
+| **Coinflip**           | Tiebreaker 6: random coinflip if all above are tied                                                      |
+
+If both cores survive 2000 rounds, the [tiebreaker sequence](/spec/overview#win-conditions) is evaluated in order. The match result shows exactly which condition decided the game.
 
 ## Ladder
 
@@ -45,23 +60,24 @@ Each team has a single Elo rating that moves up or down after each match.
 You can challenge any team to an unrated match that doesn't affect ratings:
 
 ```bash  theme={"dark"}
-cambc unrated <opponent_team_id>
+cambc match unrated <opponent_team_id>
+cambc match unrated <opponent_team_id> --map arena --map galaxy   # specific maps
 ```
 
-Unrated matches use the same infrastructure and time limits as ladder matches but are prioritised for faster execution.
+Unrated matches use the same infrastructure and time limits as ladder matches but are prioritised for faster execution. You can optionally specify up to 5 maps — if omitted, 5 random maps are used.
 
 ## Test runs
 
 Test runs let you upload two local bots and run them against each other on the same hardware as ladder matches:
 
 ```bash  theme={"dark"}
-cambc test-run my_bot opponent
+cambc match test my_bot opponent
 ```
 
 This is the best way to verify your bot works within the 2ms CPU time limit before submitting to the ladder.
 
 <Warning>
-  Rate limits: max 10 test/unrated matches per 5 minutes. Unrated matches also have a 5-minute cooldown per specific matchup.
+  Rate limits: max 10 test/unrated matches per 10 minutes.
 </Warning>
 
 

@@ -2,6 +2,14 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
+> ## Feedback
+> If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
+> https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
+>
+> Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
+>
+> Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
+
 # Game Overview
 
 > Objective, map, units, buildings, and win conditions for Cambridge Battlecode.
@@ -24,7 +32,7 @@ To do this, you must find ore deposits, build harvesters, deliver resources back
 
 ## Win conditions
 
-If both cores are still alive after **2000 rounds**, the winner is decided by tiebreakers in order:
+A game ends immediately if a core is destroyed or a team calls [`resign()`](/api/controller#healing--destruction). Otherwise, if both cores are still alive after **2000 rounds**, the winner is decided by tiebreakers in order:
 
 <Steps>
   <Step title="Axionite delivered">
@@ -175,7 +183,7 @@ Each bot process has a **1 GB memory limit**. Exceeding this will terminate the 
 Only Python standard library modules are available. External packages (e.g. `numpy`, `scipy`) cannot be imported — bots run in a sandboxed environment with no `pip install`.
 
 <Warning>
-  The local runner (`cambc run`) does **not** enforce time limits. Use `cambc test-run` to test on the same AWS Graviton3 hardware that runs ladder matches.
+  The local runner (`cambc run`) does **not** enforce time limits. Use `cambc match test` to test on the same AWS Graviton3 hardware that runs ladder matches.
 </Warning>
 
 ## Debugging

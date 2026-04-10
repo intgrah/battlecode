@@ -2,6 +2,14 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
+> ## Feedback
+> If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
+> https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
+>
+> Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
+>
+> Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
+
 # Submitting
 
 > Upload your bot to the platform to compete on the ladder.
@@ -50,7 +58,7 @@ Your submission must contain a `main.py` file with a `Player` class. The file ca
 
 1. Your zip is validated (structure, size, no native extensions)
 2. Status is set to **ready**
-3. Your latest ready submission becomes your active bot on the ladder
+3. Your latest ready submission becomes your active bot on the ladder (you can also manually select which submission is active from the Submissions page)
 4. The scheduler pairs you against other teams every 10 minutes
 
 ## Ladder
@@ -58,7 +66,7 @@ Your submission must contain a `main.py` file with a `Player` class. The file ca
 The [ladder](https://game.battlecode.cam/ladder) ranks all teams by Elo rating. Every 10 minutes, the scheduler creates one match per team, pairing you with a nearby-rated opponent using greedy nearest-rating matching with small random jitter. Each match consists of **5 games** — the team that wins more games wins the match. Ratings update immediately after each match. See [How matches work](/getting-started/matches) for details.
 
 <Tip>
-  Use `cambc test-run` to test your bot with full time limits on the same hardware as the ladder before submitting. Use `cambc unrated` to challenge specific teams without affecting your rating.
+  Use `cambc match test` to test your bot with full time limits on the same hardware as the ladder before submitting. Use `cambc match unrated` to challenge specific teams without affecting your rating.
 </Tip>
 
 
