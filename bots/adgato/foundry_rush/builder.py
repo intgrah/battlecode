@@ -6,14 +6,14 @@ from astar import ChainAstar
 from ti_plan import TiPlan
 from bfs import NavBfs
 from reachable import Reachable
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, Position, Direction
 from symmetry import Symmetry, SymmetryDetector
 from tile_codec import encode_tile
 from env_tracker import EnvTracker
 from rax_plan import RaxPlan
 from tracker import Tracker
 from unit import Unit
-from utils import try_move_away  # noqa: F401
+from utils import try_move_smart, _ALL_DIRS  # noqa: F401
 
 _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, EntityType.BARRIER, None))
 
@@ -81,6 +81,8 @@ class Builder(Unit):
         self._rr_idx: int = 0
         self.unitID: int | None = None
         self._got_ax: bool = False
+        self._many_units: bool = ct.get_unit_count() > 10
+        self._seen_enemy_core: bool = False
 
     def run(self, ct: Controller) -> None:
         pos = ct.get_position()
@@ -135,9 +137,16 @@ class Builder(Unit):
         # TiPlan bots: patrol until refined axionite arrives, then
         # begin the ore-phase to find ti ore and build the chain.
         self._got_ax |= ct.get_global_resources()[1] > 0
+        if not self._seen_enemy_core and self.sym.enemy_core is not None:
+            self._seen_enemy_core |= ct.is_in_vision(self.sym.enemy_core)
         if not self.need_plan:
-            print("post plan patrol")
-            self._patrol(ct, new_pos)
+            print(f"unit count {ct.get_unit_count()}")
+            if self._many_units:
+                print("many units mode")
+                self._swarm(ct, new_pos)
+            else:
+                print("cautious patrol")
+                self._patrol(ct, new_pos)
         elif isinstance(self.plan, TiPlan) and not self._got_ax:
             print("pre ax patrol")
             self._patrol(ct, new_pos)
@@ -197,6 +206,151 @@ class Builder(Unit):
         self.ti_ore.draw_tracked(ct, 0, 255, 255)
         #self._upgrade_adjacent_conveyor(ct, pos)
         self._barrier_adjacent_ore(ct)
+
+    def _consider_laucher(self, pos: Position, launcher_pos: set[Position]) -> bool:
+        for d in _ALL_DIRS:
+            if pos.add(d) in launcher_pos:
+                return False
+        return True
+    
+    def _swarm(self, ct: Controller, pos: Position) -> None:
+        """When many units are alive, group up and push toward the enemy.
+
+        Priority:
+        1. Navigate toward a friendly builder bot with a smaller ID.
+        2. If symmetry is resolved, navigate toward the enemy core.
+        3. Otherwise, explore.
+        """
+        my_team = ct.get_team()
+
+        w = self.w
+        h = self.h
+
+        enemy_infra_range = 5
+
+        # Check for enemy conveyors/bridges near enemy core.
+        enemy_infra: list[Position] = []
+        damaged_enemy_conveyors: list[Position] = []
+        hurt_infra_adjacent = False
+        enemy_adj_pos: Position | None = None
+        hurt_adj_pos: Position | None = None
+        dist_to_enemy_core = 999
+        enemy_adjacent = False
+        launcher_target: Position | None = None
+        launcher_pos: set[Position] | None = None
+
+        if self.sym.enemy_core is not None:
+            ec = self.sym.enemy_core
+            dist_to_enemy_core = max(abs(pos.x - ec.x), abs(pos.y - ec.y))
+            for bid in ct.get_nearby_buildings():
+                if ct.get_team(bid) == my_team:
+                    continue
+                bp = ct.get_position(bid)
+                infra_range = max(abs(bp.x - ec.x), abs(bp.y - ec.y))
+                if infra_range > 2 and infra_range <= enemy_infra_range:
+                    enemy_infra.append(bp)
+                if ct.get_hp(bid) < ct.get_max_hp(bid):
+                    if pos.distance_squared(bp) <= 2:
+                        hurt_infra_adjacent = True
+                        hurt_adj_pos = bp
+                    damaged_enemy_conveyors.append(bp)
+            for bid in ct.get_nearby_units(2):
+                if ct.get_team(bid) != my_team and ct.get_entity_type(bid) == EntityType.BUILDER_BOT:
+                    enemy_adjacent = True
+                    enemy_adj_pos = ct.get_position(bid)
+                    break
+
+            launcher_pos = set(
+                ct.get_position(bid) \
+                for bid in ct.get_nearby_units() \
+                if ct.get_entity_type(bid) == EntityType.LAUNCHER and ct.get_team() == ct.get_team(bid)
+            )
+                 
+            for bp in ct.get_nearby_tiles(2):
+                infra_range = max(abs(bp.x - ec.x), abs(bp.y - ec.y))
+                if infra_range > 2 and infra_range <= enemy_infra_range:
+                    continue
+                bid = ct.get_tile_building_id(bp)
+                if bid is None and self._consider_laucher(bp, launcher_pos):
+                    launcher_target = bp
+                    break
+                etype = ct.get_entity_type(bid)
+                if etype == EntityType.MARKER and self._consider_laucher(bp, launcher_pos):
+                    launcher_target = bp
+                    break
+                if ct.get_team(bid) == ct.get_team() and etype == EntityType.ROAD and self._consider_laucher(bp, launcher_pos):
+                    launcher_target = bp
+                    break
+        
+        if not enemy_adjacent and dist_to_enemy_core <= enemy_infra_range:
+            pos_bid = ct.get_tile_building_id(pos)
+            if pos_bid is not None and ct.get_team() != ct.get_team(pos_bid) and ct.can_fire(pos):
+                ct.fire(pos)
+                if self._consider_laucher(pos, launcher_pos):
+                    launcher_target = bp
+                elif ct.can_build_road(pos):
+                    ct.build_road(pos)
+
+        if launcher_target is not None:
+            if pos == launcher_target:
+                for d in _ALL_DIRS:
+                    if ct.can_move(d):
+                        ct.move(d)
+                        pos = pos.add(d)
+                        break
+
+            gti, _ = ct.get_global_resources()
+            lti, _ = ct.get_launcher_cost()
+            can_afford = gti > lti + 10
+
+            if (can_afford and \
+                ct.get_tile_builder_bot_id(launcher_target) is None and \
+                ct.can_destroy(launcher_target)
+            ):
+                ct.destroy(launcher_target)
+            if ct.can_build_launcher(launcher_target):
+                ct.build_launcher(launcher_target)
+            if ct.can_build_road(launcher_target):
+                ct.build_road(launcher_target)
+            
+        if ct.can_heal(pos):
+            ct.heal(pos)
+
+        for d in _ALL_DIRS:
+            adj = pos.add(d)
+            if 0 <= adj.x < w and 0 <= adj.y < h and ct.can_build_road(adj):
+                ct.build_road(adj)  
+
+        if enemy_adjacent and hurt_infra_adjacent:
+            print("guarding hurt infra")
+            self.nav.set_goal(pos)
+            enemy_dist = pos.distance_squared(enemy_adj_pos)
+            for d in _ALL_DIRS:
+                adj = pos.add(d)
+                if (0 <= adj.x < w and \
+                    0 <= adj.y < h and \
+                    adj.distance_squared(enemy_adj_pos) < enemy_dist and \
+                    adj.distance_squared(hurt_adj_pos) <= 2 and \
+                    try_move_smart(ct, pos, d)
+                ):
+                    break
+        elif damaged_enemy_conveyors:
+            print(f"swarm: damaged enemy infra ({len(damaged_enemy_conveyors)})")
+            self.nav.set_goals(damaged_enemy_conveyors)
+            for p in damaged_enemy_conveyors:
+                ct.draw_indicator_line(pos, p, 0, 255, 0)
+        elif enemy_infra:
+            print(f"swarm: target enemy infra ({len(enemy_infra)})")
+            self.nav.set_goals(enemy_infra)
+            for p in enemy_infra:
+                ct.draw_indicator_line(pos, p, 255, 0, 0)
+        elif self.sym.resolved is not Symmetry.UNKNOWN and self.sym.enemy_core is not None:
+            print("swarm: push enemy core")
+            self.nav.set_goal(self.sym.enemy_core)
+            ct.draw_indicator_line(pos, self.sym.enemy_core, 255, 128, 0)
+        else:
+            print("swarm: explore")
+            self._handle_explore(ct, pos)
 
     def _find_damaged(self, ct: Controller) -> Position | None:
         """Return the position of a visible friendly building with less
