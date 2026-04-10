@@ -19,6 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
+hetzner = "scripts.hetzner:main"
 batch-analyze = "scripts.batch_analyze:main"
 compare-belief = "scripts.compare_belief:main"
 decode-exfil = "scripts.exploit.decode_exfil:main"
