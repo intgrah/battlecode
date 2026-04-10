@@ -786,7 +786,7 @@ pub fn render_scrubber(ui: &mut egui::Ui, app: &mut App) {
 
                 let play_icon = if app.playing { "\u{F04C}" } else { "\u{F04B}" };
                 if icon_button(ui, play_icon, icon_size).clicked() {
-                    app.playing = !app.playing;
+                    app.toggle_playing();
                 }
 
                 if icon_button(ui, "\u{F051}", icon_size).clicked() {

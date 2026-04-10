@@ -5,9 +5,9 @@ stage2 (core→foundry chain), plus replanning when tiles get blocked.
 from __future__ import annotations
 
 from astar import BuildInstruction, ChainAstar
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, Position, Direction
 from env_tracker import EnvTracker
-from tile_codec import UNSEEN, ENV_WALL, tile_building_type, tile_env, tile_is_allied
+from tile_codec import UNSEEN, ENV_WALL, ENV_AX_ORE, tile_building_type, tile_env, tile_is_allied
 from utils import try_move_away
 
 _CARDINAL = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -135,17 +135,25 @@ class RaxPlan:
             if tile_env(cached) == ENV_WALL:
                 continue
             bt = tile_building_type(cached)
-            if bt is not None and not (bt == EntityType.ROAD and tile_is_allied(cached)):
+            if bt is not None and not tile_is_allied(cached):
+                return True
+
+        for dx, dy in _CARDINAL:
+            nx, ny = pos.x + dx, pos.y + dy
+            if not (0 <= nx < w and 0 <= ny < self.h):
+                continue
+            cached = self._tile_cache[ny * w + nx]
+            if cached == UNSEEN:
+                continue
+            if tile_env(cached) == ENV_WALL:
+                continue
+            bt = tile_building_type(cached)
+            if bt is not None:
                 continue
             # Exposed side — destroy friendly road if present, then barrier.
             side = Position(nx, ny)
-            if bt == EntityType.ROAD and tile_is_allied(cached):
-                if ct.can_destroy(side):
-                    ct.destroy(side)
-                else:
-                    return False
-            if ct.can_build_barrier(side):
-                ct.build_barrier(side)
+            if ct.can_build_road(side):
+                ct.build_road(side)
             return False
         return True
 
@@ -171,10 +179,12 @@ class RaxPlan:
         if entity == EntityType.CORE:
             # Special flag: destroy whatever allied building is at pos.
             if cached == UNSEEN:
+                print("can't destroy unseen")
                 return False
             ttype = tile_building_type(cached)
             if ttype is not None:
                 if not ct.can_destroy(pos):
+                    print(f"can't destroy {ttype} allied {tile_is_allied(cached)}")
                     return False
                 ct.destroy(pos)
 
@@ -182,8 +192,10 @@ class RaxPlan:
             entity, pos, extra = self._chain_plan[self._plan_progress]
 
         if entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
-            if not self._ensure_sides_covered(ct, pos):
-                return False
+            cached_env = self._tile_cache[pos.y * self.w + pos.x]
+            if entity == EntityType.FOUNDRY or cached_env != UNSEEN and tile_env(cached_env) != ENV_AX_ORE:
+                if not self._ensure_sides_covered(ct, pos):
+                    return False
             if entity == EntityType.HARVESTER:
                 if ct.get_global_resources() < ct.get_harvester_cost():
                     return False
@@ -204,11 +216,13 @@ class RaxPlan:
             return True
         if entity == EntityType.CONVEYOR:
             if not ct.can_build_conveyor(pos, extra):
+                print("can't build conveyor")
                 return False
             ct.build_conveyor(pos, extra)
             return True
         if entity == EntityType.BRIDGE:
             if not ct.can_build_bridge(pos, extra):
+                print("can't build bridge")
                 return False
             ct.build_bridge(pos, extra)
             return True

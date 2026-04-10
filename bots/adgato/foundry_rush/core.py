@@ -41,15 +41,21 @@ class Core(Unit):
 
     def run(self, ct: Controller) -> None:
 
-        #if ct.get_current_round() > 400:
-        #    ct.resign()
+        if ct.get_current_round() > 400:
+            ct.resign()
 
-        ax = ct.get_global_resources()[1]
-
+        ti, ax = ct.get_global_resources()
         self._got_ax |= ax > 0
-        ct.convert(max(0, ax - ct.get_breach_cost()[1]))
 
-        should_spawn = self.spawned < 3 or self._got_ax and ct.get_builder_bot_cost() < ct.get_global_resources()
+
+        hurt = ct.get_hp() < ct.get_max_hp()
+        if hurt:
+            bti, _ = ct.get_builder_bot_cost()
+            need_ti = max(bti - ti, 0)
+            need_ax = (need_ti + 3) // 4
+            ct.convert(min(need_ax, ax + 1 - need_ax))
+
+        should_spawn = self.spawned < 3 or self._got_ax and ct.get_unit_count() < 10 or hurt
 
         if should_spawn:
             pos = self.pos
