@@ -794,7 +794,8 @@ class Builder(Unit):
                     for d in DIR4:
                         self.adjacent_to_harvester.add(pos.add(d))
             if pos in self.adjacent_to_enemy_launcher:
-                self.cost_grid[i] += 20
+                self.cost_grid[i] = INF
+                Builder.update_pnb(self.w, self.h, self.cost_grid, self.pnb, i)
 
             match bld:
                 case (

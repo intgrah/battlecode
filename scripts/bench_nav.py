@@ -320,7 +320,7 @@ def _extract(parent: list[int], si: int, node: int) -> Path_:
     return path
 
 
-def algo_astar_heap(
+def spsp_astar_heap_cheb(
     md: MapData,
     si: int,
     gi: int,
@@ -366,7 +366,7 @@ def algo_astar_heap(
     return None
 
 
-def algo_astar_bucket(
+def spsp_astar_dial_cheb(
     md: MapData,
     si: int,
     gi: int,
@@ -428,7 +428,7 @@ def algo_astar_bucket(
     return None
 
 
-def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
+def spsp_bfs(md: MapData, si: int, gi: int) -> Path_:
     n, pnb = md.n, md.pnb
     if si == gi:
         return [si]
@@ -460,7 +460,7 @@ def algo_bfs(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
+def spsp_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
     n, cost, pnb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
@@ -523,7 +523,7 @@ def algo_bfs_expand(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
+def spsp_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
     n, cost, pnb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
@@ -572,7 +572,7 @@ def algo_bfs_roadopt(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_navbfs(md: MapData, si: int, gi: int) -> Path_:
+def spsp_navbfs(md: MapData, si: int, gi: int) -> Path_:
     """Mirrors bots/adgato/bfs_test/bfs.py::_bfs_compute.
 
     Uses precomputed pnb_push/pnb_set split: cardinals bracketed by two
@@ -607,7 +607,7 @@ def algo_navbfs(md: MapData, si: int, gi: int) -> Path_:
     return None
 
 
-def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
+def spsp_bibfs(md: MapData, si: int, gi: int) -> Path_:
     n, pnb = md.n, md.pnb
     if si == gi:
         return [si]
@@ -673,7 +673,7 @@ def algo_bibfs(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
+def spsp_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     w, n, pnb = md.w, md.n, md.pnb
     if si == gi:
         return [si]
@@ -719,7 +719,7 @@ def algo_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     return path
 
 
-def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
+def spsp_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     n, cost, pnb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
@@ -750,7 +750,7 @@ def algo_dijkstra_heap(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     return _extract(parent, si, last_node)
 
 
-def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
+def spsp_dijkstra_dial(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     n, cost, pnb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
@@ -789,7 +789,7 @@ def algo_dijkstra_bucket(md: MapData, si: int, gi: int, budget: int = 0) -> Path
     return None
 
 
-def algo_dijkstra_bucket_noparent(md: MapData, si: int, gi: int) -> Path_:
+def spsp_dijkstra_dial_np(md: MapData, si: int, gi: int) -> Path_:
     n, cost, pnb = md.n, md.cost, md.pnb
     if si == gi:
         return [si]
@@ -837,7 +837,7 @@ def algo_dijkstra_bucket_noparent(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_dijkstra_bucket_noparent_dual(md: MapData, si: int, gi: int) -> Path_:
+def spsp_dijkstra_dial_np_dual(md: MapData, si: int, gi: int) -> Path_:
     if si == gi:
         return [si]
     pnb1, pnb3 = md.pnb1, md.pnb3
@@ -892,7 +892,7 @@ def algo_dijkstra_bucket_noparent_dual(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_dijkstra_bucket_noparent_dual2(md: MapData, si: int, gi: int) -> Path_:
+def spsp_dijkstra_dial_np_dual2(md: MapData, si: int, gi: int) -> Path_:
     if si == gi:
         return [si]
     pnb1, pnb3 = md.pnb1, md.pnb3
@@ -948,7 +948,7 @@ def algo_dijkstra_bucket_noparent_dual2(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_dijkstra_bucket_noparent2(md: MapData, si: int, gi: int) -> Path_:
+def spsp_dijkstra_dial_np2(md: MapData, si: int, gi: int) -> Path_:
     """Noparent + drain loop + inlined bi + no gn alias."""
     if si == gi:
         return [si]
@@ -1000,7 +1000,7 @@ def algo_dijkstra_bucket_noparent2(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_dijkstra_bucket_noparent_dual3(md: MapData, si: int, gi: int) -> Path_:
+def spsp_dijkstra_dial_np_dual3(md: MapData, si: int, gi: int) -> Path_:
     """Dual + drain loop + inlined bi + no gn alias."""
     if si == gi:
         return [si]
@@ -1060,7 +1060,7 @@ def algo_dijkstra_bucket_noparent_dual3(md: MapData, si: int, gi: int) -> Path_:
     return path
 
 
-def algo_dijkstra_bucket_noparent_dual4(md: MapData, si: int, gi: int) -> Path_:
+def spsp_dijkstra_dial_np_dual4(md: MapData, si: int, gi: int) -> Path_:
     """dual3 + bound append methods per distance level."""
     if si == gi:
         return [si]
@@ -1159,7 +1159,7 @@ def precompute_apsp(md: MapData) -> None:
     md.apsp = ApspTable(rows)
 
 
-def algo_astar_apsp(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
+def spsp_astar_heap_apsp(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
     w, n, cost = md.w, md.n, md.cost
     apsp = md.apsp
     assert apsp is not None
@@ -1217,7 +1217,7 @@ def precompute_hpa(md: MapData) -> None:
     md.hpa_graph = GatewayGraph(md.w, md.h, tile_cost, cluster_size=7)
 
 
-def algo_hpa(md: MapData, si: int, gi: int) -> Path_:
+def spsp_hpastar(md: MapData, si: int, gi: int) -> Path_:
     assert md.hpa_graph is not None
     sx, sy = si % md.w, si // md.w
     gx, gy = gi % md.w, gi // md.w
@@ -1306,7 +1306,7 @@ def _bfs_dist(n: int, pnb: list[list[int]], si: int) -> list[int]:
     return dist
 
 
-def algo_astar_bfs_heuristic(md: MapData, si: int, gi: int) -> Path_:
+def spsp_astar_dial_bfs(md: MapData, si: int, gi: int) -> Path_:
     """BFS from start for heuristic, then A* (dial's) from goal to start."""
     if si == gi:
         return [si]
@@ -1380,8 +1380,8 @@ def _make_algos() -> list[AlgoEntry]:
 
     algos.extend(
         (
-            f"astar heap cheb w={w}",
-            lambda md, si, gi, _w=w: algo_astar_heap(md, si, gi, weight=_w),
+            f"astar-heap-cheb{w}",
+            lambda md, si, gi, _w=w: spsp_astar_heap_cheb(md, si, gi, weight=_w),
             False,
         )
         for w in [1, 3]
@@ -1389,38 +1389,30 @@ def _make_algos() -> list[AlgoEntry]:
 
     algos.extend(
         (
-            f"astar bucket cheb w={w}",
-            lambda md, si, gi, _w=w: algo_astar_bucket(md, si, gi, weight=_w),
+            f"astar-dial-cheb{w}",
+            lambda md, si, gi, _w=w: spsp_astar_dial_cheb(md, si, gi, weight=_w),
             False,
         )
         for w in [1, 3]
     )
 
-    algos.append(("astar heap apsp", algo_astar_apsp, True))
-    algos.append(("bfs", algo_bfs, False))
-    algos.append(("bfs expand", algo_bfs_expand, False))
-    algos.append(("bfs roadopt", algo_bfs_roadopt, False))
-    algos.append(("navbfs", algo_navbfs, False))
-    algos.append(("bibfs", algo_bibfs, False))
-    algos.append(("gbfs", algo_gbfs, False))
-    algos.append(("dijkstra heap", algo_dijkstra_heap, False))
-    algos.append(("dijkstra bucket", algo_dijkstra_bucket, False))
-    algos.append(("dijkstra bucket noparent", algo_dijkstra_bucket_noparent, False))
-    algos.append(
-        ("dijkstra bucket noparent dual", algo_dijkstra_bucket_noparent_dual, False),
-    )
-    algos.append(
-        ("dijkstra bucket noparent dual2", algo_dijkstra_bucket_noparent_dual2, False),
-    )
-    algos.append(("dijkstra bucket noparent2", algo_dijkstra_bucket_noparent2, False))
-    algos.append(
-        ("dijkstra bucket noparent dual3", algo_dijkstra_bucket_noparent_dual3, False),
-    )
-    algos.append(
-        ("dijkstra bucket noparent dual4", algo_dijkstra_bucket_noparent_dual4, False),
-    )
-    algos.append(("hpastar excl precomp", algo_hpa, True))
-    algos.append(("astar bfs heuristic", algo_astar_bfs_heuristic, False))
+    algos.append(("astar-heap-apsp", spsp_astar_heap_apsp, True))
+    algos.append(("bfs", spsp_bfs, False))
+    algos.append(("bfs-expand", spsp_bfs_expand, False))
+    algos.append(("bfs-roadopt", spsp_bfs_roadopt, False))
+    algos.append(("navbfs", spsp_navbfs, False))
+    algos.append(("bibfs", spsp_bibfs, False))
+    algos.append(("gbfs", spsp_gbfs, False))
+    algos.append(("dijkstra-heap", spsp_dijkstra_heap, False))
+    algos.append(("dijkstra-dial", spsp_dijkstra_dial, False))
+    algos.append(("dijkstra-dial-np", spsp_dijkstra_dial_np, False))
+    algos.append(("dijkstra-dial-np-dual", spsp_dijkstra_dial_np_dual, False))
+    algos.append(("dijkstra-dial-np-dual2", spsp_dijkstra_dial_np_dual2, False))
+    algos.append(("dijkstra-dial-np2", spsp_dijkstra_dial_np2, False))
+    algos.append(("dijkstra-dial-np-dual3", spsp_dijkstra_dial_np_dual3, False))
+    algos.append(("dijkstra-dial-np-dual4", spsp_dijkstra_dial_np_dual4, False))
+    algos.append(("hpastar", spsp_hpastar, True))
+    algos.append(("astar-dial-bfs", spsp_astar_dial_bfs, False))
 
     return algos
 
@@ -1470,13 +1462,20 @@ def main() -> None:
     parser.add_argument(
         "--algos",
         nargs="*",
-        help="Algorithm name substrings to include (default: all). "
-        "E.g. --algos bfs 'astar heap'",
+        help="Algorithm names to include (exact match, default: all). "
+        "E.g. --algos bfs astar-heap-cheb1",
     )
     parser.add_argument(
         "--list",
         action="store_true",
         help="List available algorithms and exit",
+    )
+    parser.add_argument(
+        "-n",
+        "--samples",
+        type=int,
+        default=N_PAIRS,
+        help=f"Number of random (source, goal) pairs per map (default: {N_PAIRS})",
     )
     args = parser.parse_args()
 
@@ -1486,16 +1485,19 @@ def main() -> None:
         sys.exit(0)
 
     if args.algos:
+        algo_set = set(args.algos)
         selected = [
             (name, fn, req)
             for name, fn, req in ALGOS
-            if any(pat in name for pat in args.algos)
+            if name in algo_set
         ]
         if not selected:
             print("No algorithms matched. Use --list to see names.", file=sys.stderr)
             sys.exit(1)
     else:
         selected = list(ALGOS)
+
+    n_pairs = args.samples
 
     map_files = sorted(MAPS_DIR.glob("*.map26"))
     if not map_files:
@@ -1727,7 +1729,7 @@ def sssp_dijkstra_heap(md: MapData, si: int) -> list[int]:
     return parent
 
 
-def sssp_dijkstra_bucket(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial(md: MapData, si: int) -> list[int]:
     n, cost, pnb = md.n, md.cost, md.pnb
     mod = CE + 1
     dist: list[int] = [INF] * n
@@ -1759,7 +1761,7 @@ def sssp_dijkstra_bucket(md: MapData, si: int) -> list[int]:
     return parent
 
 
-def sssp_dijkstra_bucket_inline(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_inline(md: MapData, si: int) -> list[int]:
     n, cost, pnb = md.n, md.cost, md.pnb
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
@@ -1790,7 +1792,7 @@ def sssp_dijkstra_bucket_inline(md: MapData, si: int) -> list[int]:
     return parent
 
 
-def sssp_dijkstra_bucket_pnbc(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_pnbc(md: MapData, si: int) -> list[int]:
     n, pnbc = md.n, md.pnbc
     dist: list[int] = [INF] * n
     parent: list[int] = [-1] * n
@@ -1821,7 +1823,7 @@ def sssp_dijkstra_bucket_pnbc(md: MapData, si: int) -> list[int]:
     return parent
 
 
-def sssp_dijkstra_bucket_noparent(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np(md: MapData, si: int) -> list[int]:
     n, cost, pnb = md.n, md.cost, md.pnb
     dist: list[int] = [INF] * n
     dist[si] = 0
@@ -1849,7 +1851,7 @@ def sssp_dijkstra_bucket_noparent(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent_dual(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np_dual(md: MapData, si: int) -> list[int]:
     n = md.n
     pnb1, pnb3 = md.pnb1, md.pnb3
     dist: list[int] = [INF] * n
@@ -1883,7 +1885,7 @@ def sssp_dijkstra_bucket_noparent_dual(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent_dual2(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np_dual2(md: MapData, si: int) -> list[int]:
     n = md.n
     pnb1, pnb3 = md.pnb1, md.pnb3
     cr, ce = CR, CE
@@ -1918,7 +1920,7 @@ def sssp_dijkstra_bucket_noparent_dual2(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np2(md: MapData, si: int) -> list[int]:
     """Noparent + drain loop + inlined bi + no gn alias."""
     cost, pnb = md.cost, md.pnb
     dist: list[int] = [INF] * md.n
@@ -1948,7 +1950,7 @@ def sssp_dijkstra_bucket_noparent2(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent_beacon(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np_beacon(md: MapData, si: int) -> list[int]:
     """Counting sort queue: one list per distance value, preallocated."""
     cost, pnb = md.cost, md.pnb
     max_dist = md.n * 3
@@ -1976,7 +1978,7 @@ def sssp_dijkstra_bucket_noparent_beacon(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent_dual3(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np_dual3(md: MapData, si: int) -> list[int]:
     """Dual + drain loop + inlined bi + no gn alias."""
     pnb1, pnb3 = md.pnb1, md.pnb3
     dist: list[int] = [INF] * md.n
@@ -2013,7 +2015,7 @@ def sssp_dijkstra_bucket_noparent_dual3(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent_dual4(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np_dual4(md: MapData, si: int) -> list[int]:
     """dual3 + bound append methods per distance level."""
     pnb1, pnb3 = md.pnb1, md.pnb3
     dist: list[int] = [INF] * md.n
@@ -2050,7 +2052,7 @@ def sssp_dijkstra_bucket_noparent_dual4(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent5(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np5(md: MapData, si: int) -> list[int]:
     """Noparent + drain + clean control flow (no emp)."""
     cost, pnb = md.cost, md.pnb
     dist: list[int] = [INF] * md.n
@@ -2079,7 +2081,7 @@ def sssp_dijkstra_bucket_noparent5(md: MapData, si: int) -> list[int]:
     return dist
 
 
-def sssp_dijkstra_bucket_noparent_dual5(md: MapData, si: int) -> list[int]:
+def sssp_dijkstra_dial_np_dual5(md: MapData, si: int) -> list[int]:
     """Dual + drain + clean control flow (no emp)."""
     pnb1, pnb3 = md.pnb1, md.pnb3
     dist: list[int] = [INF] * md.n
@@ -2206,20 +2208,20 @@ type SsspFn = Callable[[MapData, int], list[int]]
 
 SSSP_ALGOS: list[tuple[str, SsspFn]] = [
     ("bfs", sssp_bfs),
-    ("bfs expand", sssp_bfs_expand),
-    ("dijkstra heap", sssp_dijkstra_heap),
-    ("dijkstra bucket", sssp_dijkstra_bucket),
-    ("dijkstra bucket inline", sssp_dijkstra_bucket_inline),
-    ("dijkstra bucket pnbc", sssp_dijkstra_bucket_pnbc),
-    ("dijkstra bucket noparent", sssp_dijkstra_bucket_noparent),
-    ("dijkstra bucket noparent dual", sssp_dijkstra_bucket_noparent_dual),
-    ("dijkstra bucket noparent dual2", sssp_dijkstra_bucket_noparent_dual2),
-    ("dijkstra bucket noparent2", sssp_dijkstra_bucket_noparent2),
-    ("dijkstra bucket noparent beacon", sssp_dijkstra_bucket_noparent_beacon),
-    ("dijkstra bucket noparent dual3", sssp_dijkstra_bucket_noparent_dual3),
-    ("dijkstra bucket noparent dual4", sssp_dijkstra_bucket_noparent_dual4),
-    ("dijkstra bucket noparent5", sssp_dijkstra_bucket_noparent5),
-    ("dijkstra bucket noparent dual5", sssp_dijkstra_bucket_noparent_dual5),
+    ("bfs-expand", sssp_bfs_expand),
+    ("dijkstra-heap", sssp_dijkstra_heap),
+    ("dijkstra-dial", sssp_dijkstra_dial),
+    ("dijkstra-dial-inline", sssp_dijkstra_dial_inline),
+    ("dijkstra-dial-pnbc", sssp_dijkstra_dial_pnbc),
+    ("dijkstra-dial-np", sssp_dijkstra_dial_np),
+    ("dijkstra-dial-np-dual", sssp_dijkstra_dial_np_dual),
+    ("dijkstra-dial-np-dual2", sssp_dijkstra_dial_np_dual2),
+    ("dijkstra-dial-np2", sssp_dijkstra_dial_np2),
+    ("dijkstra-dial-np-beacon", sssp_dijkstra_dial_np_beacon),
+    ("dijkstra-dial-np-dual3", sssp_dijkstra_dial_np_dual3),
+    ("dijkstra-dial-np-dual4", sssp_dijkstra_dial_np_dual4),
+    ("dijkstra-dial-np5", sssp_dijkstra_dial_np5),
+    ("dijkstra-dial-np-dual5", sssp_dijkstra_dial_np_dual5),
 ]
 
 
