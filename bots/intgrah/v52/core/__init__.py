@@ -13,7 +13,7 @@ __all__ = ["Core"]
 class Core(StationaryUnit):
     INITIAL_SPAWNS = 6
     INCOME_SAMPLES = 16
-    MAX_BUILDERS = 12
+    MAX_BUILDERS = 15
     INCOME_HEADROOM = 5
     SURPLUS_BASELINE = 50
     SURPLUS_SCALE_FACTOR = 60
