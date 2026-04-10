@@ -438,6 +438,8 @@ def _cmd_ci(args: argparse.Namespace) -> None:
                 f"  [{result.get('score', '?')}] "
                 f"game {result['game']:>2}: {result['winner']:<20} "
                 f"{result['map']:<16} t={result['turns']:>4} "
+                f"Ti {result.get('a_ti', 0):>5}/{result.get('b_ti', 0):<5} "
+                f"Ax {result.get('a_ax', 0):>5}/{result.get('b_ax', 0):<5} "
                 f"({result['condition']}, {result['time']:.1f}s){suffix} "
                 f"-> {(replay_dir / replay_name).relative_to(_PROJECT_ROOT)}"
             )
