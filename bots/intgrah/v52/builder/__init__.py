@@ -67,96 +67,79 @@ WALKABLE_ENTITIES = [
 #  Conveyor A* (weighted pathfinding for conveyor routing only)
 # ================================================================================
 
-FLOAT_INF = float("inf")
-FLOAT_EPSILON = 1e-5
-
-_CONV_NEIGHBORS = [
-    (1, 0, 0),
-    (-1, 0, 0),
-    (0, 1, 0),
-    (0, -1, 0),
-    (1, 1, 5),
-    (1, -1, 5),
-    (-1, 1, 5),
-    (-1, -1, 5),
-]
-
 
 class ConvAstar:
     def __init__(self) -> None:
         self._w = 0
         self._h = 0
-        self._dist: list[float] = []
-        self._visited = bytearray()
-        self._prev_visited = bytearray()
-        self._q: list[tuple[float, Position]] = []
+        self._g: list[int] = []
+        self._visited: list[bool] = []
+        self._prev_visited: list[bool] = []
+        self._q: list[tuple[int, int, Position]] = []
         self._finished = True
         self._no_path = False
-        self._prev_no_path = False
-        self._running_target: Position | None = None
+        self._failed_previously = False
+        self._target: Position | None = None
         self._prev_target: Position | None = None
 
     def _reset(self, w: int, h: int) -> None:
         if self._w != w or self._h != h:
             self._w, self._h = w, h
-            self._dist = [FLOAT_INF] * (w * h)
+            self._g = [INF] * (w * h)
         self._no_path = False
-        self._visited = bytearray((self._w * self._h + 7) // 8)
+        self._visited = [False] * (self._w * self._h)
         self._q = []
 
     def _run(
         self,
-        cost: list[float],
+        cost: list[int],
         ct: Controller,
         start: Position,
         goal: Position,
     ) -> bool:
         w = self._w
-        dist = self._dist
+        g = self._g
         visited = self._visited
         q = self._q
 
         idx = goal.y * w + goal.x
-        dist[idx] = 0
-        visited[idx >> 3] |= 1 << (idx & 0b111)
-        heapq.heappush(q, (0.0, goal))
+        g[idx] = 0
+        visited[idx] = True
+        heapq.heappush(q, (0, 0, goal))
 
         while q:
-            _, current = heapq.heappop(q)
+            _, _, current = heapq.heappop(q)
             if current == start:
                 return True
             if ct.get_cpu_time_elapsed() > 1729:
                 return False
 
-            cur_dist = dist[current.y * w + current.x]
-            for dx, dy, extra in _CONV_NEIGHBORS:
+            cur_dist = g[current.y * w + current.x]
+            for dx, dy in DIR8_DELTA:
                 nx, ny = current.x + dx, current.y + dy
                 if not (0 <= nx < self._w and 0 <= ny < self._h):
                     continue
                 idx = ny * w + nx
-                seen = visited[idx >> 3] & (1 << (idx & 0b111))
-                if not seen:
-                    dist[idx] = FLOAT_INF
-                visited[idx >> 3] |= 1 << (idx & 0b111)
+                if not visited[idx]:
+                    g[idx] = INF
+                visited[idx] = True
                 move_cost = cost[idx]
-                if move_cost == FLOAT_INF:
+                if move_cost == INF:
                     continue
+                extra = 5 if dx != 0 and dy != 0 else 0
                 new_dist = cur_dist + move_cost + extra
-                if new_dist >= dist[idx]:
+                if new_dist >= g[idx]:
                     continue
-                dist[idx] = new_dist
-                nb = Position(nx, ny)
-                h = (abs(nb.x - start.x) + abs(nb.y - start.y)) + FLOAT_EPSILON * (
-                    abs(nb.x - start.x) + abs(nb.y - start.y)
-                )
-                heapq.heappush(q, (new_dist + h, nb))
+                g[idx] = new_dist
+                h = abs(nx - start.x) + abs(ny - start.y)
+                heapq.heappush(q, (new_dist + h, h, Position(nx, ny)))
 
         self._no_path = True
         return True
 
     def _extract_path(
         self,
-        cost: list[float],
+        cost: list[int],
         start: Position,
         target: Position,
     ) -> list[Position]:
@@ -167,18 +150,19 @@ class ConvAstar:
             if current in path:
                 break
             path.append(current)
-            best_dist = FLOAT_INF
+            best_dist = INF
             best = current
-            for dx, dy, extra in _CONV_NEIGHBORS:
+            for dx, dy in DIR8_DELTA:
                 nx, ny = current.x + dx, current.y + dy
                 idx = ny * w + nx
                 if (
                     0 <= nx < self._w
                     and 0 <= ny < self._h
-                    and (self._prev_visited[idx // 8] & (1 << (idx % 8)))
-                    and cost[idx] != FLOAT_INF
+                    and self._prev_visited[idx]
+                    and cost[idx] < INF
                 ):
-                    d = self._dist[idx] + extra
+                    extra = 5 if dx != 0 and dy != 0 else 0
+                    d = self._g[idx] + extra
                     if d < best_dist:
                         best_dist = d
                         best = Position(nx, ny)
@@ -196,20 +180,20 @@ class ConvAstar:
         cost = state.conveyor_cost_grid
         if (
             self._finished
-            or self._running_target is None
-            or target.distance_squared(self._running_target) > 32
+            or self._target is None
+            or target.distance_squared(self._target) > 32
         ):
             self._reset(state.w, state.h)
         else:
-            target = self._running_target
+            target = self._target
 
-        self._running_target = target
+        self._target = target
         self._finished = self._run(cost, ct, start, target)
 
         if self._finished:
             self._prev_visited = self._visited
             self._prev_target = target
-            self._prev_no_path = self._no_path
+            self._failed_previously = self._no_path
 
         if self._prev_target is None:
             return None
@@ -228,12 +212,12 @@ class ConvAstar:
         goal: Position,
     ) -> list[Position] | None:
         cost = state.conveyor_cost_grid
-        saved: list[tuple[int, float]] = []
+        saved: list[tuple[int, int]] = []
         for pos in ct.get_nearby_tiles(2):
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
                 idx = pos.y * state.w + pos.x
                 saved.append((idx, cost[idx]))
-                cost[idx] = FLOAT_INF
+                cost[idx] = INF
         result = self.search(state, ct, start, goal)
         for idx, val in saved:
             cost[idx] = val
@@ -241,7 +225,7 @@ class ConvAstar:
 
     @property
     def no_path(self) -> bool:
-        return self._prev_no_path
+        return self._failed_previously
 
 
 conv_search = ConvAstar()
@@ -366,7 +350,7 @@ class Builder(Unit):
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
         self.cost_grid: list[int] = [1] * n
-        self.conveyor_cost_grid = [1.0] * n
+        self.conveyor_cost_grid: list[int] = [1] * n
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
@@ -577,7 +561,7 @@ class Builder(Unit):
                 return cls(team)
 
     @staticmethod
-    def _load_penalty(load: int) -> float:
+    def _load_penalty(load: int) -> int:
         match load:
             case 0:
                 return 0
@@ -707,7 +691,7 @@ class Builder(Unit):
                 bld = self.buildings[i]
                 if terrain == Environment.WALL:
                     cost = INF
-                    conveyor_cost = float("inf")
+                    conveyor_cost = INF
                 elif bld is not None:
                     match bld:
                         case (
@@ -724,14 +708,14 @@ class Builder(Unit):
                             conveyor_cost = 1
                         case _:
                             cost = INF
-                            conveyor_cost = float("inf")
+                            conveyor_cost = INF
                 elif terrain in (
                     Environment.EMPTY,
                     Environment.ORE_TITANIUM,
                     Environment.ORE_AXIONITE,
                 ):
                     cost = ROAD_COST
-                    conveyor_cost = 1 if terrain == Environment.EMPTY else 50.0
+                    conveyor_cost = 1 if terrain == Environment.EMPTY else 50
                 else:
                     cost = 1
                     conveyor_cost = 1
@@ -890,14 +874,14 @@ class Builder(Unit):
             terrain = self.env[i]
             if terrain == Environment.WALL:
                 self.cost_grid[i] = INF
-                self.conveyor_cost_grid[i] = float("inf")
+                self.conveyor_cost_grid[i] = INF
             elif terrain in (
                 Environment.EMPTY,
                 Environment.ORE_TITANIUM,
                 Environment.ORE_AXIONITE,
             ):
                 self.cost_grid[i] = ROAD_COST
-                self.conveyor_cost_grid[i] = 1 if terrain == Environment.EMPTY else 50.0
+                self.conveyor_cost_grid[i] = 1 if terrain == Environment.EMPTY else 50
             new_pass = self.cost_grid[i] < INF
             if old_pass != new_pass:
                 Builder.update_pnb(self.w, self.h, self.cost_grid, self.pnb, i)

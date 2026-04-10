@@ -62,7 +62,7 @@ class Core(StationaryUnit):
         has_surplus = ti > Core.SURPLUS_BASELINE + Core.SURPLUS_SCALE_FACTOR * (
             ct.get_scale_percent() / 100
         )
-        return (rnd > 20 and has_income) or (rnd > 40 and has_surplus)
+        return (rnd > 24 and has_income) or (rnd > 48 and has_surplus)
 
     def try_spawn(self, ct: Controller) -> None:
         dir9 = [*DIR8, Direction.CENTRE]
