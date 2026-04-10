@@ -263,7 +263,7 @@ async def _main() -> None:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     _prune_uploads()
 
-    executor = ProcessPoolExecutor()
+    executor = ProcessPoolExecutor(max_tasks_per_child=1)
     print(f"Starting CI daemon on {HOST}:{PORT}")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
