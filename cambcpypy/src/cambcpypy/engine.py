@@ -656,6 +656,7 @@ class Game:
         self._cores_init: list[tuple[int, int, int]] = cores
         self.replay_diffs: list[list[Diff]] = []
         self._current_diffs: list[Diff] = []
+        self.resign_message: str | None = None
 
         for idx, (cx, cy, team_idx) in enumerate(cores):
             eid = idx + 1
@@ -2323,6 +2324,7 @@ class GameResult:
     winner: int | None
     turns_played: int
     win_condition: str
+    resign_message: str | None
     player_a_titanium: int
     player_a_axionite: int
     player_a_titanium_collected: int
@@ -2447,7 +2449,9 @@ def run_game(
     game.write_replay(replay_path, winner)
 
     win_condition: str
-    if winner is not None and (not game.has_core(Team.A) or not game.has_core(Team.B)):
+    if game.resign_message is not None:
+        win_condition = "resigned"
+    elif winner is not None and (not game.has_core(Team.A) or not game.has_core(Team.B)):
         win_condition = "core_destroyed"
     elif winner is not None:
         win_condition = "resources"
@@ -2477,6 +2481,7 @@ def run_game(
         winner=_TEAM_IDX[winner] if winner is not None else None,
         turns_played=game.turn,
         win_condition=win_condition,
+        resign_message=game.resign_message,
         player_a_titanium=pa.titanium,
         player_a_axionite=pa.axionite,
         player_a_titanium_collected=pa.titanium_collected,
@@ -3225,8 +3230,9 @@ class Controller:
             self._game.destroy_entity(self._unit)
         raise SystemExit
 
-    def resign(self) -> None:
+    def resign(self, message: str | None = None) -> None:
         """Forfeit the game immediately. Destroys this team's core."""
+        self._game.resign_message = message
         team = self._me().team
         for eid in list(self._game.entities.keys()):
             e = self._game.entities.get(eid)
