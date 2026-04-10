@@ -2303,6 +2303,8 @@ class _TranspilingFinder:
 def _load_player_class(bot_main: str) -> type:
     _patch_typing_compat()
     bot_dir = str(Path(bot_main).resolve().parent)
+    modules_before = set(sys.modules.keys())
+
     if bot_dir not in sys.path:
         sys.path.insert(0, bot_dir)
 
@@ -2318,6 +2320,11 @@ def _load_player_class(bot_main: str) -> type:
         return mod.Player
     finally:
         sys.meta_path.remove(finder)
+        if bot_dir in sys.path:
+            sys.path.remove(bot_dir)
+        for name in list(sys.modules.keys()):
+            if name not in modules_before:
+                del sys.modules[name]
 
 
 @dataclass(slots=True)
