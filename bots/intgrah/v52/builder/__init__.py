@@ -1698,15 +1698,17 @@ class Builder(Unit):
         if builder is not None and builder != ct.get_id():
             return None
         for d in DIR8:
-            match self.get_building(pos.add(d)):
-                case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                    t != ct.get_team()
-                ):
-                    for harvester_direction in DIR4:
-                        if harvester_direction != d:
-                            match self.get_building(pos.add(harvester_direction)):
-                                case BuildingHarvester():
-                                    return d
+            pos = pos.add(d)
+            if self.in_bounds(pos):
+                match self.get_building(pos):
+                    case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
+                        t != ct.get_team()
+                    ):
+                        for harvester_direction in DIR4:
+                            if harvester_direction != d:
+                                match self.get_building(pos.add(harvester_direction)):
+                                    case BuildingHarvester():
+                                        return d
         return None
 
     def _sentinel_facing(self, ct: Controller, pos: Position) -> Direction | None:
