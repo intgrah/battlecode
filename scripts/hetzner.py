@@ -397,6 +397,9 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             sys.exit(1)
         uuid_b = resp["uuid"]
 
+        replay_dir = _PROJECT_ROOT / "replays_ci"
+        replay_dir.mkdir(exist_ok=True)
+
         print(f"Running {n} games: {bot_a} vs {bot_b}...")
         _send(
             sock,
@@ -423,6 +426,12 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             if "error" in result:
                 print(f"  Error: {result['error']}", file=sys.stderr)
                 continue
+
+            replay_b64: str = result.pop("replay", "")
+            if replay_b64:
+                replay_name = f"{result['game']}_{result['map']}.replay26"
+                (replay_dir / replay_name).write_bytes(base64.b64decode(replay_b64))
+
             print(
                 f"  [{result.get('score', '?')}] "
                 f"game {result['game']:>2}: {result['winner']:<20} "
