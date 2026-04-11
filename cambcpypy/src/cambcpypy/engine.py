@@ -2698,7 +2698,10 @@ class Controller:
 
     def is_in_vision(self, pos: Position) -> bool:
         """Return True if pos is within this unit's vision radius."""
-        return self._in_bounds(pos.x, pos.y)
+        if not self._in_bounds(pos.x, pos.y):
+            return False
+        me = self._me()
+        return pos.distance_squared(Position(me.x, me.y)) <= vision_radius_sq(me)
 
     def assert_entity_in_vision(self, _id: int) -> None:
         pass
