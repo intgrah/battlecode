@@ -4,7 +4,7 @@ import math
 from typing import TYPE_CHECKING
 
 from cambc import Position
-from util import DIR8, try_move
+from util import INF, DIR8, try_move
 
 from .helpers import find_path, try_move_with_build
 
@@ -43,7 +43,7 @@ def explore(state: State, ct: Controller) -> None:
         state.scout_age > 20
         or t is None
         or (ct.get_position().x - t.x) ** 2 + (ct.get_position().y - t.y) ** 2 < 3
-        or m.get_cost(t) == float("inf")
+        or m.get_cost(t) == INF
     ):
         t = Position(-10, -10)
         while (
@@ -51,7 +51,7 @@ def explore(state: State, ct: Controller) -> None:
             or t.y < 0
             or t.x >= m.w
             or t.y >= m.h
-            or m.get_cost(t) == float("inf")
+            or m.get_cost(t) == INF
         ):
             theta = state.rng.random() * 2 * math.pi
             t = Position(
@@ -80,7 +80,7 @@ def initial_explore(state: State, ct: Controller, vertical: int = 0) -> None:
         state.scout_initial_age > 10
         or t is None
         or (ct.get_position().x - t.x) ** 2 + (ct.get_position().y - t.y) ** 2 < 3
-        or m.get_cost(t) == float("inf")
+        or m.get_cost(t) == INF
     ):
         t = Position(-10, -10)
         while (
@@ -88,7 +88,7 @@ def initial_explore(state: State, ct: Controller, vertical: int = 0) -> None:
             or t.y < 0
             or t.x >= m.w
             or t.y >= m.h
-            or m.get_cost(t) == float("inf")
+            or m.get_cost(t) == INF
         ):
             up_down = state.rng.randint(0, 1)
             theta = state.rng.random() * math.pi / 2

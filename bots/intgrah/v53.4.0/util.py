@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Final
 
 from cambc import Controller, Direction, EntityType, GameConstants, Position
 
@@ -8,6 +9,8 @@ class Symmetry(StrEnum):
     HOR = "hor"
     VER = "ver"
 
+
+INF: Final[int] = 1_000_000
 
 DIR8 = [d for d in Direction if d != Direction.CENTRE]
 DIR4 = [

@@ -3,6 +3,7 @@ from enum import IntEnum
 
 from builder.state import State
 from cambc import Controller, Position
+from util import INF
 
 __all__ = ["fallback_nav"]
 
@@ -80,7 +81,7 @@ def fallback_step(
         if (
             0 <= next_pos.x < w
             and 0 <= next_pos.y < h
-            and cost_grid[next_pos.y * w + next_pos.x] != float("inf")
+            and cost_grid[next_pos.y * w + next_pos.x] != INF
             and next_pos not in blocked
         ):
             return next_pos
@@ -112,7 +113,7 @@ def fallback_step(
                 continue
 
             pos = Position(nx, ny)
-            if cost_grid[ny * w + nx] != float("inf") and pos not in blocked:
+            if cost_grid[ny * w + nx] != INF and pos not in blocked:
                 return pos
 
     return None

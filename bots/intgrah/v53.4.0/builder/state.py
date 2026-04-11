@@ -16,7 +16,7 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position
 from config import USE_HARDCODED_MAPS
 from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
-from util import Symmetry
+from util import INF, Symmetry
 
 if TYPE_CHECKING:
     from hardcode.known import KnownMap
@@ -61,8 +61,8 @@ class State:
         self.buildings: list[Building | None] = [None] * n
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
-        self.cost_grid = array("f", [1.0] * n)
-        self.conveyor_cost_grid = array("f", [1.0] * n)
+        self.cost_grid: list[int] = [1] * n
+        self.conveyor_cost_grid: list[int] = [1] * n
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
@@ -190,13 +190,13 @@ class State:
     def get_cost(self, pos: Position) -> float:
         if self.in_bounds(pos):
             return self.cost_grid[self._idx(pos)]
-        return float("inf")
+        return INF
 
     def is_passable(self, pos: Position) -> bool | None:
         cost = self.get_cost(pos)
-        if cost == float("inf"):
+        if cost == INF:
             return False
-        if cost < float("inf"):
+        if cost < INF:
             return True
         return None
 
