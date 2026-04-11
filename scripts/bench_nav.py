@@ -591,7 +591,54 @@ def spsp_navbfs(md: MapData, si: int, gi: int) -> Path_:
     pnb_push = md.pnb_navbfs_push
     pnb_set = md.pnb_navbfs_set
     if si == gi:
+        return [si]
+    pnb = md.pnb
+    dist: list[int] = [INF] * n
+    dist[si] = 0
+    q: list[int] = [si]
+    stop_at = INF
+    for node in q:
+        d = dist[node] + 1
+        if node == gi:
+            stop_at = d
+        if d > stop_at:
+            break
+        for ni in pnb_push[node]:
+            if d < dist[ni]:
+                dist[ni] = d
+                q.append(ni)
+        for ni in pnb_set[node]:
+            if d < dist[ni]:
+                if ni == gi:
+                    stop_at = d + 1
+                dist[ni] = d
+    if dist[gi] >= INF:
         return None
+    cost = md.cost
+    path = [gi]
+    cur = gi
+    while cur != si:
+        d = dist[cur]
+        best = -1
+        best_cost = INF + 1
+        for ni in pnb[cur]:
+            if dist[ni] == d - 1 and cost[ni] < best_cost:
+                best = ni
+                best_cost = cost[ni]
+        if best == -1:
+            return None
+        path.append(best)
+        cur = best
+    path.reverse()
+    return path
+
+
+def spsp_navbfs_noextract(md: MapData, si: int, gi: int) -> Path_:
+    n = md.n
+    pnb_push = md.pnb_navbfs_push
+    pnb_set = md.pnb_navbfs_set
+    if si == gi:
+        return [si]
     dist: list[int] = [INF] * n
     dist[si] = 0
     q: list[int] = [si]
@@ -1665,6 +1712,7 @@ def _make_algos() -> list[AlgoEntry]:
     algos.append(("bfs-expand", spsp_bfs_expand, False))
     algos.append(("bfs-roadopt", spsp_bfs_roadopt, False))
     algos.append(("navbfs", spsp_navbfs, False))
+    algos.append(("navbfs-noextract", spsp_navbfs_noextract, False))
     algos.append(("bibfs", spsp_bibfs, False))
     algos.append(("gbfs", spsp_gbfs, False))
     algos.append(("dijkstra-heap", spsp_dijkstra_heap, False))
@@ -2648,8 +2696,8 @@ def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
 
     hdr = (
         f"{'Algorithm':<50}"
-        f" {'t_p50':>7} {'t_p100':>7}"
-        f" {'o_p50':>7} {'o_p100':>7}"
+        f" {'t_p50':>7} {'t_p99':>7} {'t_p100':>7}"
+        f" {'o_p50':>7} {'o_p99':>7} {'o_p100':>7}"
         f" {'reach%':>7} {'1st_mv%':>7}"
     )
     print(f"\n  {scenario.upper()}")
@@ -2666,16 +2714,18 @@ def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
         fm = pd.to_numeric(reachable["first_move_correct"], errors="coerce").dropna()
 
         t50 = times.quantile(0.5) if len(times) > 0 else 0
+        t99 = times.quantile(0.99) if len(times) > 0 else 0
         t100 = times.max() if len(times) > 0 else 0
         o50 = opts.quantile(0.5) if len(opts) > 0 else 0
+        o99 = opts.quantile(0.99) if len(opts) > 0 else 0
         o100 = opts.max() if len(opts) > 0 else 0
         reach_pct = 100 * n_reached / n_reachable if n_reachable > 0 else 0
         fm_pct = 100 * fm.mean() if len(fm) > 0 else 0
 
         print(
             f"{algo:<50}"
-            f" {t50:>7.0f} {t100:>7.0f}"
-            f" {o50:>7.3f} {o100:>7.3f}"
+            f" {t50:>7.0f} {t99:>7.0f} {t100:>7.0f}"
+            f" {o50:>7.3f} {o99:>7.3f} {o100:>7.3f}"
             f" {reach_pct:>6.1f}% {fm_pct:>6.1f}%",
         )
 
