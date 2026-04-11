@@ -15,8 +15,8 @@ __all__ = ["extract_path", "update_bfs"]
 def update_bfs(state: State, sx: int, sy: int) -> None:
     w = state.w
     h = state.h
-    cost = state.cost_grid
-    dist = state.nav_dist
+    cost = state.nav_cost
+    dist = state.bfs_dist
     n = w * h
 
     for i in range(n):
@@ -48,8 +48,8 @@ def extract_path(
 ) -> list[Position] | None:
     w = state.w
     h = state.h
-    dist = state.nav_dist
-    cost = state.cost_grid
+    dist = state.bfs_dist
+    cost = state.nav_cost
     si = sy * w + sx
     gi = gy * w + gx
 

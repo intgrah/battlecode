@@ -1,8 +1,8 @@
 from cambc import Controller, Position
 from util import DIR8, chebyshev
 
-from .helpers import make_move, move_random, try_heal
-from .state import State
+from builder.helpers import make_move, move_random, try_heal
+from builder.state import State
 
 
 def best_healable_building(state: State, ct: Controller) -> Position | None:

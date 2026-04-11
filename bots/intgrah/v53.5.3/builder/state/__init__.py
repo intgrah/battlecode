@@ -20,7 +20,7 @@ from util import INF, Symmetry
 if TYPE_CHECKING:
     from hardcode.known import KnownMap
 
-    from .role import Role
+    from builder.state.role import Role
 
 __all__ = ["State"]
 
@@ -52,10 +52,10 @@ class State:
         self.buildings: list[Building | None] = [None] * n
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
-        self.cost_grid: list[int] = [2] * n
+        self.nav_cost: list[int] = [2] * n
         self.conveyor_cost_grid: list[int] = [1] * n
         self.flow_history: list[int] = [0] * n
-        self.nav_dist: list[int] = [-1] * n
+        self.bfs_dist: list[int] = [-1] * n
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
 
@@ -174,7 +174,7 @@ class State:
 
     def get_cost(self, pos: Position) -> float:
         if self.in_bounds(pos):
-            return self.cost_grid[self._idx(pos)]
+            return self.nav_cost[self._idx(pos)]
         return INF
 
     def is_passable(self, pos: Position) -> bool | None:

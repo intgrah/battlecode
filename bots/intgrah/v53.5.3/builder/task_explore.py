@@ -6,15 +6,15 @@ from typing import TYPE_CHECKING
 from cambc import Position
 from util import DIR8, INF, try_move
 
-from .algorithms.astar import pathfind_move
-from .helpers import try_move_with_build
+from builder.algorithms.astar import pathfind_move
+from builder.helpers import try_move_with_build
 
 if TYPE_CHECKING:
     from cambc import Controller
 
-    from .state import State
+    from builder.state import State
 
-__all__ = ["initial_explore", "task_xplore"]
+__all__ = ["task_xplore"]
 
 
 def _move_via_path(
@@ -56,52 +56,6 @@ def task_xplore(state: State, ct: Controller) -> None:
                 state.scout_radius -= 1.0
 
         state.scout_age = 0
-        ct.draw_indicator_dot(t, 255, 0, 255)
-        _move_via_path(state, ct, t)
-    else:
-        ct.draw_indicator_dot(t, 10, 0, 10)
-        _move_via_path(state, ct, t)
-
-
-def initial_explore(state: State, ct: Controller, vertical: int = 0) -> None:
-    state.scout_initial_age += 1
-    m = state
-    t = state.scout_initial_target
-    number_tries = 0
-
-    if (
-        state.scout_initial_age > 10
-        or t is None
-        or (ct.get_position().x - t.x) ** 2 + (ct.get_position().y - t.y) ** 2 < 3
-        or m.get_cost(t) == INF
-    ):
-        t = Position(-10, -10)
-        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or m.get_cost(t) == INF:
-            up_down = state.rng.randint(0, 1)
-            theta = state.rng.random() * math.pi / 2
-            if vertical == 0:
-                theta = theta + up_down * math.pi + math.pi / 4
-            elif vertical == 1:
-                theta = theta + up_down * math.pi - math.pi / 4
-            else:
-                theta = state.rng.random() * math.pi * 2
-            if number_tries > 5:
-                vertical = -1
-            t = Position(
-                ct.get_position().x
-                + round(math.cos(theta) * state.scout_initial_radius),
-                ct.get_position().y
-                + round(math.sin(theta) * state.scout_initial_radius),
-            )
-            if (
-                state.scout_initial_radius >= m.w / 2
-                or state.scout_initial_radius >= m.h / 2
-            ):
-                state.scout_initial_radius -= 1.0
-            number_tries += 1
-
-        state.scout_initial_age = 0
-        state.scout_initial_target = t
         ct.draw_indicator_dot(t, 255, 0, 255)
         _move_via_path(state, ct, t)
     else:

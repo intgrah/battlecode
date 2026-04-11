@@ -11,8 +11,8 @@ from building import (
 from cambc import Controller, Direction, EntityType, GameConstants, Position
 from util import DIR4, DIR8
 
-from .helpers import move_random, try_place
-from .state import State
+from builder.helpers import move_random, try_place
+from builder.state import State
 
 
 def _is_turret(b: Building | None) -> bool:

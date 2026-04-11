@@ -7,22 +7,20 @@ from config import DEBUG_DUMP
 from unit import Unit
 from util import DIR8, can_afford, try_move
 
-from .extra import fix_enemy_conveyor, pave_near_harvesters
-from .helpers import try_move_with_road
-from .role import Role
-from .state import State
-from .state_dump import dump
-from .state_update import update_economy, update_role
-from .state_update_bfs import update_bfs
-from .state_update_map import update_econ, update_map
-from .task_attack import task_attack
-from .task_build_conveyors import route_to_core
-from .task_defend import place_gunner_nearby
-from .task_explore import task_xplore
-from .task_foundry import task_place_foundry, task_place_splitter
-from .task_harvest import task_harvest_ti
-from .task_heal import run_heal, task_heal
-from .task_patrol import run_patrol
+from builder.extra import fix_enemy_conveyor, pave_near_harvesters
+from builder.helpers import try_move_with_road
+from builder.state import State
+from builder.state.dump import dump
+from builder.state.role import Role
+from builder.state.update import update
+from builder.task_attack import task_attack
+from builder.task_build_conveyors import route_to_core
+from builder.task_defend import place_gunner_nearby
+from builder.task_explore import task_xplore
+from builder.task_foundry import task_place_foundry, task_place_splitter
+from builder.task_harvest import task_harvest_ti
+from builder.task_heal import run_heal, task_heal
+from builder.task_patrol import run_patrol
 
 __all__ = ["Builder"]
 
@@ -168,31 +166,12 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
-        pos = ct.get_position()
         t0 = ct.get_cpu_time_elapsed()
-        update_map(s, ct)
+        update(s, ct)
         t1 = ct.get_cpu_time_elapsed()
-        print(f"  map={t1 - t0}us")
-        update_bfs(s, pos.x, pos.y)
-        t2 = ct.get_cpu_time_elapsed()
-        print(f"  bfs={t2 - t1}us")
-        update_econ(s, ct)
-        t3 = ct.get_cpu_time_elapsed()
-        print(f"  econ_map={t3 - t2}us")
-        update_role(s, ct)
-        t4 = ct.get_cpu_time_elapsed()
-        print(f"  role={t4 - t3}us")
-        print(f"update={t4 - t0}us")
 
         if DEBUG_DUMP:
             dump(s, ct)
-
-        if s.role not in (Role.OFFENSE, Role.PERM_OFFENSE):
-            update_economy(s, ct)
-            t5 = ct.get_cpu_time_elapsed()
-            print(f"  econ={t5 - t4}us")
-        else:
-            t5 = t4
 
         assert s.role is not None
         chosen = "none"
@@ -204,9 +183,9 @@ class Builder(Unit):
         if s.role not in (Role.OFFENSE, Role.PERM_OFFENSE):
             _end_of_turn_heal(ct)
 
-        t6 = ct.get_cpu_time_elapsed()
-        print(f"task={t6 - t5}us [{chosen}]")
-        print(f"total={t6 - t0}us")
+        t2 = ct.get_cpu_time_elapsed()
+        print(f"task={t2 - t1}us [{chosen}]")
+        print(f"total={t2 - t0}us")
 
 
 def _end_of_turn_heal(ct: Controller) -> None:

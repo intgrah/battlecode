@@ -23,15 +23,15 @@ from util import (
     try_move,
 )
 
-from .helpers import (
+from builder.helpers import (
     get_enemy_core_pos,
     make_move,
     move_random,
     try_attack,
     try_place,
 )
-from .state import State
-from .task_explore import task_xplore
+from builder.state import State
+from builder.task_explore import task_xplore
 
 
 def open_tiles(

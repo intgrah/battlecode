@@ -1,7 +1,7 @@
 from cambc import Controller, Direction, Position
 
-from .helpers import make_move
-from .state import State
+from builder.helpers import make_move
+from builder.state import State
 
 
 def trace_upstream(state: State, position: Position) -> list[Position]:

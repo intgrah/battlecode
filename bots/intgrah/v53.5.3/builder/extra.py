@@ -1,8 +1,8 @@
 from cambc import Controller, Environment
 
-from .state import State
-from .task_build_conveyors import route_to_core
-from .task_repair import is_dangling
+from builder.helpers import is_dangling
+from builder.state import State
+from builder.task_build_conveyors import route_to_core
 
 
 def fix_enemy_conveyor(state: State, ct: Controller) -> bool:

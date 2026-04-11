@@ -2,13 +2,15 @@ from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
     BuildingConveyor,
+    BuildingHarvester,
+    BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Position
-from util import DIR4, DIR8, Symmetry, can_afford, try_move
+from cambc import Controller, Direction, EntityType, Environment, Position
+from util import DIR4, DIR8, INF, Symmetry, can_afford, closest, try_move
 
-from .algorithms.astar import pathfind_move
-from .state import State
+from builder.algorithms.astar import pathfind_move
+from builder.state import State
 
 
 def make_move(state: State, ct: Controller, target: Position) -> bool:
@@ -150,3 +152,112 @@ def trace_upstream(state: State, position: Position) -> list[Position]:
 def is_enemy_building(state: State, ct: Controller, pos: Position) -> bool:
     b = state.get_building(pos)
     return b is not None and b.team != ct.get_team()
+
+
+def ore_available(state: State, ct: Controller, pos: Position) -> bool:
+    b = state.get_building(pos)
+    if b is not None and not isinstance(b, BuildingRoad):
+        return False
+
+    if ct.is_in_vision(pos):
+        worker_id = ct.get_tile_builder_bot_id(pos)
+        if worker_id is not None and worker_id != ct.get_id():
+            return False
+
+    return True
+
+
+def pick_ore_target(state: State, ct: Controller) -> Position | None:
+    w = state.w
+    nav_dist = state.bfs_dist
+
+    best_target = None
+    min_dist = INF
+
+    for pos in ct.get_nearby_tiles():
+        terrain = state.get_env(pos)
+
+        if terrain == Environment.ORE_TITANIUM or (
+            terrain == Environment.ORE_AXIONITE and ct.get_current_round() >= 500
+        ):
+            match state.get_building(pos):
+                case BuildingHarvester():
+                    continue
+                case None | BuildingRoad():
+                    pass
+                case _:
+                    continue
+
+            d = nav_dist[pos.y * w + pos.x]
+            if d == -1:
+                continue
+
+            if ore_available(state, ct, pos) and d < min_dist:
+                min_dist = d
+                best_target = pos
+
+    return best_target
+
+
+def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
+    if not state.in_bounds(pos):
+        return False
+
+    i = pos.y * state.w + pos.x
+    b = state.buildings[i]
+    if b is None:
+        if state.env[i] == Environment.WALL:
+            return False
+
+    elif not isinstance(b, BuildingRoad) or b.team != ct.get_team():
+        return False
+
+    if state.conveyors_to_here[i]:
+        return True
+
+    return (
+        pos in state.adjacent_to_unconnected_harvester
+        or pos in state.adjacent_to_unconnected_foundry
+    )
+
+
+def is_valid_loose_end_target(state: State, ct: Controller, pos: Position) -> bool:
+    if not is_dangling(state, ct, pos):
+        return False
+
+    my_id = ct.get_id()
+    if ct.is_in_vision(pos):
+        bid = ct.get_tile_builder_bot_id(pos)
+        friendly = ct.get_team(bid) == ct.get_team()
+        if bid is not None and bid != my_id and friendly:
+            return False
+
+    leading = state.get_conveyors_to_here(pos)
+    for lpos in leading:
+        if not ct.is_in_vision(lpos):
+            continue
+        lbid = ct.get_tile_builder_bot_id(lpos)
+        friendly = ct.get_team(lbid) == ct.get_team()
+        if lbid is not None and lbid != my_id and friendly:
+            return False
+    return True
+
+
+def find_dangling(state: State, ct: Controller) -> Position | None:
+    w = state.w
+    nav_dist = state.bfs_dist
+    vision_radius = ct.get_vision_radius_sq()
+    nearby = ct.get_nearby_tiles(vision_radius)
+
+    candidates = [
+        pos
+        for pos in nearby
+        if is_valid_loose_end_target(state, ct, pos)
+        and nav_dist[pos.y * w + pos.x] != -1
+    ]
+
+    if not candidates:
+        return None
+
+    my_pos = ct.get_position()
+    return closest(my_pos, candidates)

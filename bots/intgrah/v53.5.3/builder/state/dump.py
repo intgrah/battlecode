@@ -8,7 +8,7 @@ from visualiser import Grid, Palette, Scalar, Tiles, emit
 if TYPE_CHECKING:
     from cambc import Controller
 
-    from .state import State
+    from builder.state import State
 
 __all__ = ["dump"]
 
@@ -47,7 +47,7 @@ def dump(state: State, _ct: Controller) -> None:
             palette=P_FOG,
         ),
         cost=Grid(
-            [c if c < 1e6 else -1 for c in state.cost_grid],
+            [c if c < 1e6 else -1 for c in state.nav_cost],
             palette=P_COST,
         ),
         conv_cost=Grid(
@@ -87,7 +87,7 @@ def dump(state: State, _ct: Controller) -> None:
         harvester_adjacent=Tiles(
             [(p.x, p.y) for p in state.adjacent_to_harvester],
         ),
-        bfs_dist=Grid(state.nav_dist, palette=P_DIST),
+        bfs_dist=Grid(state.bfs_dist, palette=P_DIST),
         symmetry=Scalar(str(state.symmetry)),
         symmetry_candidates=Scalar(str(state.symmetry_candidates)),
         role=Scalar(str(state.role)),
