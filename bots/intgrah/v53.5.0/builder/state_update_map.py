@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, GameConstants, Position
-from util import INF, DIR4, DIR8, Symmetry
+from util import DIR4, DIR8, INF, Symmetry
 
 if TYPE_CHECKING:
     from .state import State
@@ -248,7 +248,7 @@ def update_map(state: State, ct: Controller) -> None:
                     state.nearest_enemy_turret = pos
 
 
-def update_splittable_locations(state: State, ct: Controller) -> None:
+def update_econ(state: State, ct: Controller) -> None:
     w = state.w
     state.adjacent_to_unconnected_harvester = {
         p for p in state.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
