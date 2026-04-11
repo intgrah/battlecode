@@ -366,24 +366,16 @@ def run_attack(state: State, ct: Controller) -> None:
                     elif isinstance(nb, BuildingSentinel):
                         n_sentinel += 1
 
-                placed = False
                 if n_gunner == 0:
                     gdir = _gunner_chain_facing(state, ct, build_position)
-                    if gdir is not None and try_place(
-                        ct, EntityType.GUNNER, build_position, gdir
-                    ):
-                        placed = True
+                    if gdir is not None:
+                        try_place(ct, EntityType.GUNNER, build_position, gdir)
 
                 if (
-                    not placed
-                    and n_sentinel == 0
+                    n_sentinel == 0
                     and state.get_env(target) == Environment.ORE_TITANIUM
-                    and try_place(ct, EntityType.SENTINEL, build_position, direction)
                 ):
-                    placed = True
-
-                if not placed:
-                    try_place(ct, EntityType.BARRIER, build_position)
+                    try_place(ct, EntityType.SENTINEL, build_position, direction)
 
                 if ct.can_build_road(build_position):
                     ct.build_road(build_position)
