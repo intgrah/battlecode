@@ -2403,7 +2403,8 @@ def run_game(
             captured = StringIO()
             sys.stdout = captured
 
-            t0 = time.perf_counter()
+            t0 = time.perf_counter_ns()
+            controller._turn_start = t0
             try:
                 player_obj.run(controller)
             except SystemExit:
@@ -2415,7 +2416,7 @@ def run_game(
             finally:
                 sys.stdout = old_stdout
 
-            elapsed_us = int((time.perf_counter() - t0) * 1_000_000)
+            elapsed_us = (time.perf_counter_ns() - t0) // 1000
             stdout_text = captured.getvalue()
             tled = turn_timeout_ms > 0 and elapsed_us > turn_timeout_ms * 1000
 
@@ -2533,12 +2534,13 @@ def _entity_type(e: Entity) -> EntityType:
 
 
 class Controller:
-    __slots__ = ("_game", "_placed_marker", "_unit")
+    __slots__ = ("_game", "_placed_marker", "_turn_start", "_unit")
 
     def __init__(self, game: Game, unit_id: int) -> None:
         self._game: Game = game
         self._unit: int = unit_id
         self._placed_marker: bool = False
+        self._turn_start: int = 0
 
     def _me(self) -> Entity:
         return self._game.entities[self._unit]
@@ -2793,7 +2795,7 @@ class Controller:
 
     def get_cpu_time_elapsed(self) -> int:
         """Return the CPU time elapsed this turn in microseconds."""
-        return 0
+        return (time.perf_counter_ns() - self._turn_start) // 1000
 
     def get_unit_count(self) -> int:
         """Return the number of living units currently on this unit's team, including the core."""
