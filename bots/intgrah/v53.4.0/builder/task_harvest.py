@@ -1,6 +1,6 @@
 from building import BuildingHarvester, BuildingRoad
 from cambc import Controller, EntityType, Environment, Position
-from util import DIR4, can_afford, get_direction_object
+from util import INF, DIR4, can_afford, get_direction_object
 
 from .algorithms.pathfind import conv_pathfind, conv_pathfind_blocked
 from .helpers import make_move, try_move_with_build
@@ -24,7 +24,7 @@ def pick_ore_target(state: State, ct: Controller) -> Position | None:
     current_pos = ct.get_position()
 
     best_target = None
-    min_dist = float("inf")
+    min_dist = INF
 
     for pos in ct.get_nearby_tiles():
         terrain = state.get_env(pos)

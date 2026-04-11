@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from builder.state import State
 
-_INF = float("inf")
+from util import INF as _INF
 _TARGET_DRIFT_SQ = 25
 _CPU_BUDGET = 1729
 _TIEBREAK_EPS = 1e-5
@@ -101,42 +101,56 @@ class AStarSearch:
         h = self._heuristic
         dist = self._dist
         visited = self._visited
-        q = self._q
-        relax = self._relax
 
-        idx = goal.y * w + goal.x
-        dist[idx] = 0
-        visited[idx // 8] |= 1 << (idx % 8)
-        heapq.heappush(q, (0, goal))
+        gi = goal.y * w + goal.x
+        si = start.y * w + start.x
+        dist[gi] = 0
+        visited[gi // 8] |= 1 << (gi % 8)
 
-        while q:
-            _, current = heapq.heappop(q)
-            if current == start:
-                return True
-            if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
-                return False
+        nb_count = 5
+        f0 = int(h(goal, start))
+        bk: list[list[int]] = [[] for _ in range(nb_count)]
+        bk[f0 % nb_count].append(gi)
+        cur_f = f0
+        emp = 0
 
-            cur_dist = dist[current.y * w + current.x]
-            for dx, dy, extra in self._neighbors:
-                nx, ny = current.x + dx, current.y + dy
-                if not (0 <= nx < self._w and 0 <= ny < self._h):
+        while emp < nb_count:
+            bucket = bk[cur_f % nb_count]
+            if not bucket:
+                cur_f += 1
+                emp += 1
+                continue
+            emp = 0
+            for node_i in bucket:
+                if dist[node_i] + int(h(Position(node_i % w, node_i // w), start)) != cur_f:
                     continue
-                idx = ny * w + nx
-                seen = visited[idx // 8] & (1 << (idx % 8))
-                if relax and not seen:
-                    dist[idx] = _INF
-                if not relax and seen:
-                    continue
-                visited[idx // 8] |= 1 << (idx % 8)
-                move_cost = cost[idx]
-                if move_cost == _INF:
-                    continue
-                new_dist = cur_dist + move_cost + extra
-                if relax and new_dist >= dist[idx]:
-                    continue
-                dist[idx] = new_dist
-                nb = Position(nx, ny)
-                heapq.heappush(q, (new_dist + h(nb, start), nb))
+                if node_i == si:
+                    return True
+                if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
+                    return False
+                gn = dist[node_i]
+                for dx, dy, extra in self._neighbors:
+                    nx, ny = node_i % w + dx, node_i // w + dy
+                    if not (0 <= nx < self._w and 0 <= ny < self._h):
+                        continue
+                    ni = ny * w + nx
+                    seen = visited[ni // 8] & (1 << (ni % 8))
+                    if self._relax and not seen:
+                        dist[ni] = _INF
+                    if not self._relax and seen:
+                        continue
+                    visited[ni // 8] |= 1 << (ni % 8)
+                    mc = cost[ni]
+                    if mc >= _INF:
+                        continue
+                    nd = gn + int(mc) + extra
+                    if self._relax and nd >= dist[ni]:
+                        continue
+                    dist[ni] = nd
+                    f = nd + int(h(Position(nx, ny), start))
+                    bk[f % nb_count].append(ni)
+            bk[cur_f % nb_count] = []
+            cur_f += 1
 
         self._no_path = True
         return True
