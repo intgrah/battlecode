@@ -2019,7 +2019,8 @@ class Builder(Unit):
         return [
             p
             for p in positions
-            if state.is_passable(p)
+            if state.in_bounds(p)
+            and state.is_passable(p)
             and (not ct.is_in_vision(p) or ct.get_tile_builder_bot_id(p) is None)
         ]
 
@@ -2499,7 +2500,7 @@ class Builder(Unit):
         if DEBUG_DUMP:
             self._dump(ct)
 
-        if self.role != Role.OFFENSE:
+        if self.role not in (Role.OFFENSE, Role.PERM_OFFENSE):
             self._update_economy(ct)
             t4 = ct.get_cpu_time_elapsed()
             print(f"  econ={t4 - t3}us")
@@ -2507,41 +2508,46 @@ class Builder(Unit):
             t4 = t3
 
         assert self.role is not None
+        offense_tasks: list[Callable[[Builder, Controller], bool]] = [
+            Builder._task_heal,
+            Builder._task_attack,
+            Builder._task_attack_rand,
+            Builder._task_scout,
+        ]
+        econ_tasks: list[Callable[[Builder, Controller], bool]] = [
+            Builder._task_gunner_defend,
+            Builder._task_en_conv,
+            Builder._task_mov_harvester,
+            Builder._task_conn_clos,
+            Builder._task_heal,
+            Builder._task_connect_excess,
+            Builder._task_harvest_ti,
+            Builder._task_attack_rand,
+            Builder._task_harvest_ax,
+            Builder._task_scout,
+            Builder._task_random_walk,
+        ]
+        defense_tasks: list[Callable[[Builder, Controller], bool]] = [
+            Builder._task_gunner_defend,
+            Builder._task_en_conv,
+            Builder._task_mov_harvester,
+            Builder._task_conn_clos,
+            Builder._task_heal,
+            Builder._task_connect_excess,
+            Builder._task_patrol_early,
+            Builder._task_harvest_ti,
+            Builder._task_harvest_ax,
+            Builder._task_patrol,
+            Builder._task_attack_rand,
+            Builder._task_scout,
+            Builder._task_random_walk,
+        ]
         policies: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
-            Role.OFFENSE: [
-                Builder._task_heal,
-                Builder._task_attack,
-                Builder._task_attack_rand,
-                Builder._task_scout,
-            ],
-            Role.ECON: [
-                Builder._task_gunner_defend,
-                Builder._task_en_conv,
-                Builder._task_mov_harvester,
-                Builder._task_conn_clos,
-                Builder._task_heal,
-                Builder._task_connect_excess,
-                Builder._task_harvest_ti,
-                Builder._task_attack_rand,
-                Builder._task_harvest_ax,
-                Builder._task_scout,
-                Builder._task_random_walk,
-            ],
-            Role.DEFENSE: [
-                Builder._task_gunner_defend,
-                Builder._task_en_conv,
-                Builder._task_mov_harvester,
-                Builder._task_conn_clos,
-                Builder._task_heal,
-                Builder._task_connect_excess,
-                Builder._task_patrol_early,
-                Builder._task_harvest_ti,
-                Builder._task_harvest_ax,
-                Builder._task_patrol,
-                Builder._task_attack_rand,
-                Builder._task_scout,
-                Builder._task_random_walk,
-            ],
+            Role.OFFENSE: offense_tasks,
+            Role.PERM_OFFENSE: offense_tasks,
+            Role.ECON: econ_tasks,
+            Role.PERM_ECON: econ_tasks,
+            Role.DEFENSE: defense_tasks,
         }
         for task in policies[self.role]:
             tt0 = ct.get_cpu_time_elapsed()
@@ -2553,7 +2559,7 @@ class Builder(Unit):
             if hit:
                 break
 
-        if self.role != Role.OFFENSE:
+        if self.role not in (Role.OFFENSE, Role.PERM_OFFENSE):
             self._end_of_turn_heal(ct)
 
         t5 = ct.get_cpu_time_elapsed()
