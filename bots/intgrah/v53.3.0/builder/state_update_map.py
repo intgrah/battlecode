@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, GameConstants, Position
-from util import DIR4, DIR8, Symmetry
+from util import DIR4, DIR8, INF, Symmetry
 
 if TYPE_CHECKING:
     from .state import State
@@ -177,8 +177,8 @@ def update_map(state: State, ct: Controller) -> None:
             terrain = state.env[i]
             bld = state.buildings[i]
             if terrain == Environment.WALL:
-                cost = float("inf")
-                conveyor_cost = float("inf")
+                cost = INF
+                conveyor_cost = INF
             elif bld is not None:
                 match bld:
                     case (
@@ -194,8 +194,8 @@ def update_map(state: State, ct: Controller) -> None:
                         cost = 1
                         conveyor_cost = 1
                     case _:
-                        cost = float("inf")
-                        conveyor_cost = float("inf")
+                        cost = INF
+                        conveyor_cost = INF
             elif terrain in (
                 Environment.EMPTY,
                 Environment.ORE_TITANIUM,
@@ -206,9 +206,13 @@ def update_map(state: State, ct: Controller) -> None:
             else:
                 cost = 1
                 conveyor_cost = 1
+            old_pass = state.cost_grid[i] < INF
             state.cost_grid[i] = cost
             state.line_loads_computed[i] = False
             state.conveyor_cost_grid[i] = conveyor_cost
+            new_pass = cost < INF
+            if old_pass != new_pass:
+                state.update_pnb_at(i)
 
     # new_tiles: list[tuple[Position, Environment]] = []
     # for pos in nearby_positions:
@@ -236,7 +240,7 @@ def update_map(state: State, ct: Controller) -> None:
                 pass
             case _:
                 state.nearest_enemy_turret = None
-    min_dist = float("inf")
+    min_dist = INF
     for pos in nearby_positions:
         match state.buildings[pos.y * w + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
@@ -278,7 +282,8 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
                 for d in DIR4:
                     state.adjacent_to_harvester.add(pos.add(d))
         if pos in state.adjacent_to_enemy_launcher:
-            state.cost_grid[i] = float("inf")
+            state.cost_grid[i] = INF
+            state.update_pnb_at(i)
 
         match bld:
             case (
@@ -329,7 +334,7 @@ def _set_enemy_core(state: State) -> None:
         for dy in range(-1, 2):
             cx, cy = core.x + dx, core.y + dy
             if 0 <= cx < state.w and 0 <= cy < state.h:
-                state.cost_grid[cy * w + cx] = float("inf")
+                state.cost_grid[cy * w + cx] = INF
 
 
 def _apply_symmetry(
@@ -370,8 +375,8 @@ def _drain_reflect_queue(state: State) -> None:
         i = pending.popleft()
         terrain = state.env[i]
         if terrain == Environment.WALL:
-            state.cost_grid[i] = float("inf")
-            state.conveyor_cost_grid[i] = float("inf")
+            state.cost_grid[i] = INF
+            state.conveyor_cost_grid[i] = INF
         elif terrain in (
             Environment.EMPTY,
             Environment.ORE_TITANIUM,

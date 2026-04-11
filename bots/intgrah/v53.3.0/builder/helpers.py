@@ -9,6 +9,7 @@ from util import DIR4, DIR8, Symmetry, can_afford, try_move
 
 from .algorithms.fallback_nav import fallback_nav
 from .algorithms.pathfind import pathfind_blocked
+from .nav import nav_first_hop
 from .state import State
 
 
@@ -21,11 +22,9 @@ def find_path(
 def make_move(state: State, ct: Controller, target: Position) -> bool:
     if ct.get_position() == target:
         return True
-
-    path = find_path(state, ct, ct.get_position(), target)
-    if path and len(path) > 1:
-        next_step = path[1]
-        try_move_with_build(state, ct, next_step)
+    hop = nav_first_hop(state, ct, target)
+    if hop is not None:
+        try_move_with_build(state, ct, hop)
         return True
     next_move = fallback_nav(state, ct, target)
     if next_move:
