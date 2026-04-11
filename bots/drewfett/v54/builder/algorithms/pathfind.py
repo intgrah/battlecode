@@ -310,6 +310,326 @@ _CONV_NEIGHBORS = [
 ] + [(dx, dy, COST_BRIDGE_EXTRA) for dx, dy in _BRIDGE_DELTAS]
 random.shuffle(_CONV_NEIGHBORS)
 
+
+def _turret_blocked_tiles(
+    state: State, ct: Controller, near: Position
+) -> set[Position]:
+    """Return the set of tiles within king-move of `near` that are
+    inside an enemy turret's current attack pattern — movement
+    should avoid stepping onto these.
+
+    Only considers turrets the bot can actually see (in vision).
+    We scan `state.nearby_buildings` (already computed this turn)
+    rather than querying the controller again.
+
+    Covers:
+    - Gunners: forward ray along their facing direction, up to r²≤13
+    - Sentinels: 1-king-wide forward arc, up to r²≤32
+    - Launchers / breach: vision-radius hazard zone (r²≤2 for
+      launcher pickup, r²≤13 for breach) — treat as blocked if
+      any of our 8 neighbours is within their attack envelope.
+
+    Keeps the check cheap: only tiles within 3 of `near` are
+    candidates (we only care about our next step).
+    """
+    # Quick-exit: on most turns there are no visible enemy turrets,
+    # so we shouldn't waste time scanning. `nearest_enemy_turret`
+    # is already tracked and cleared per turn in state_update_map.
+    if state.nearest_enemy_turret is None:
+        return set()
+    my_team = ct.get_team()
+    blocked: set[Position] = set()
+    for bp in state.nearby_buildings:
+        bld = state.get_building(bp)
+        if bld is None or getattr(bld, "team", None) == my_team:
+            continue
+        etype = type(bld).__name__
+        if etype == "BuildingGunner":
+            # Forward ray along facing direction.
+            direction = getattr(bld, "direction", None)
+            if direction is None:
+                continue
+            cur = bp
+            for _ in range(4):  # r²≤13 → max 3 tiles cardinal
+                cur = cur.add(direction)
+                if cur.distance_squared(near) > 2:
+                    break
+                blocked.add(cur)
+        elif etype == "BuildingSentinel":
+            # Sentinels hit within 1 king-move of the forward line.
+            direction = getattr(bld, "direction", None)
+            if direction is None:
+                continue
+            cur = bp
+            for _ in range(6):  # r²≤32 → up to ~5.6 tiles
+                cur = cur.add(direction)
+                if cur.distance_squared(bp) > 32:
+                    break
+                if cur.distance_squared(near) > 4:
+                    continue
+                blocked.add(cur)
+                # +1 king-move band around the line.
+                for d in _DIR8_DELTA:
+                    blocked.add(Position(cur.x + d[0], cur.y + d[1]))
+    return blocked
+
+
+class NavBfs:
+    """Backward-BFS movement pathfinder.
+
+    Runs BFS from the goal backward to fill a distance field over
+    all reachable tiles. Each subsequent turn (while the goal is
+    stable) just looks at the bot's 8 neighbours and picks the one
+    with the lowest `dist` — O(8) per step, independent of path
+    length.
+
+    Design trade-offs vs A*:
+    - **No variable edge costs**: all walkable tiles cost 1 step.
+      Transport preference, danger-zone avoidance, and other cost
+      tricks that `AStarSearch` handled are NOT respected here.
+      Walls and enemy buildings (cost_grid[i] >= INF) are the only
+      impassable tiles. Caller is responsible for micro-avoiding
+      turret firing lines at step time.
+    - **Budget-gated + resumable**: BFS state (`_q`, `_qi`, `_qlen`,
+      `_gen`) persists across turns. If CPU runs out mid-fill, next
+      turn picks up where we left off. Complete fill of a 50x50
+      map is ~2500 node expansions x ~8 neighbours = 20k ops;
+      typically done in 1 turn on CPython, 1-2 turns worst-case.
+    - **Generation counter trick**: `_gen[i] == _g` indicates "this
+      tile has a valid dist for the current search". Avoids having
+      to clear `_dist` on restart — we just bump `_g`.
+
+    Same external interface as `AStarSearch`: `search`,
+    `search_blocked`, `no_path`, for drop-in replacement in
+    `move_search`.
+    """
+
+    def __init__(self) -> None:
+        self._w = 0
+        self._h = 0
+        self._pw = 0
+        self._pad = 0
+        self._pn = 0
+        # Padded flat-index offsets for 8 neighbours, computed at
+        # _init_grid time once pw is known. Each entry is
+        # (flat_offset, dx, dy) — we store dx/dy explicitly so
+        # `_best_step` doesn't need to reverse-engineer them from
+        # the flat offset (Python's divmod floor semantics make
+        # that surprisingly error-prone for negative offsets).
+        self._neighbor_offsets: list[tuple[int, int, int]] = []
+        # Flat-only list for the BFS inner loop (hot path).
+        self._neighbor_flat: list[int] = []
+        # dist: steps from goal (BFS fills outward); gen: marks
+        # which tiles have valid dist for the current search. BFS
+        # "resets" by bumping _g instead of zeroing dist.
+        self._dist: list[int] = []
+        self._gen: bytearray = bytearray()
+        self._g: int = 0
+        # FIFO queue as a ring-style flat array.
+        self._q: list[int] = []
+        self._qi: int = 0
+        self._qlen: int = 0
+        # Previous goal index, used to detect target change.
+        self._goal_idx: int = -1
+        self._finished = True
+        self._no_path = False
+        self._prev_no_path = False
+        self._running_target: Position | None = None
+        self._prev_target: Position | None = None
+
+    def _init_grid(self, state: State) -> None:
+        self._w, self._h = state.w, state.h
+        self._pw = state.pw
+        self._pad = state.pad
+        self._pn = state.pw * state.ph
+        self._dist = [0] * self._pn
+        self._gen = bytearray(self._pn)
+        self._q = [0] * self._pn
+        pw = self._pw
+        self._neighbor_offsets = [
+            (-pw - 1, -1, -1), (-pw, 0, -1), (-pw + 1, 1, -1),
+            (-1, -1, 0),                     (1, 1, 0),
+            (pw - 1, -1, 1),   (pw, 0, 1),   (pw + 1, 1, 1),
+        ]
+        self._neighbor_flat = [off for off, _, _ in self._neighbor_offsets]
+
+    def _reset_for_goal(self, state: State, goal: Position) -> None:
+        if self._pn != state.pw * state.ph:
+            self._init_grid(state)
+        # Bump generation counter. This invalidates all previous
+        # dist values without needing to clear the array.
+        self._g = (self._g + 1) & 0xFF
+        if self._g == 0:
+            # Wrap: actually clear gen so stale bytes don't alias.
+            self._gen = bytearray(self._pn)
+            self._g = 1
+        pw = self._pw
+        pad = self._pad
+        gi = (goal.y + pad) * pw + (goal.x + pad)
+        self._goal_idx = gi
+        self._dist[gi] = 0
+        self._gen[gi] = self._g
+        self._q[0] = gi
+        self._qi = 0
+        self._qlen = 1
+        self._no_path = False
+
+    def _compute(self, state: State, ct: Controller) -> bool:
+        """Run (or resume) BFS fill. Returns True if fully complete
+        (queue empty), False if we bailed on CPU budget and want
+        to resume next turn.
+
+        A tile is passable iff its `cost_grid` value is strictly
+        below the launcher-penalty threshold (20): walls, enemy
+        buildings, AND launcher-adjacent danger zones are all
+        treated as hard-impassable so BFS never routes through
+        them. In v54, `adjacent_to_enemy_launcher` tiles are
+        cost_grid entries with +20 added — seen empty (3) + 20 =
+        23, which exceeds our gate.
+        """
+        cost = state.cost_grid
+        neighbor_flat = self._neighbor_flat
+        dist = self._dist
+        gen = self._gen
+        g = self._g
+        q = self._q
+        qi = self._qi
+        qlen = self._qlen
+
+        while qi < qlen:
+            node = q[qi]
+            qi += 1
+            nd = dist[node] + 1
+            for off in neighbor_flat:
+                ni = node + off
+                if gen[ni] == g:
+                    continue
+                if cost[ni] >= 20:
+                    continue
+                gen[ni] = g
+                dist[ni] = nd
+                q[qlen] = ni
+                qlen += 1
+            if qi & 255 == 0 and ct.get_cpu_time_elapsed() > _CPU_BUDGET:
+                self._qi = qi
+                self._qlen = qlen
+                return False
+
+        self._qi = qi
+        self._qlen = qlen
+        return True
+
+    def _best_step(
+        self, state: State, ct: Controller, start: Position
+    ) -> Position | None:
+        """Look at start's 8 neighbours and pick the best one.
+
+        Selection criteria (in order):
+        1. Lowest `dist` field (closest to goal).
+        2. Tiebreak: prefer `cost_grid == 1` (existing friendly
+           transport — walking onto it is FREE, whereas walking
+           onto empty terrain triggers a road-build that costs Ti).
+        3. Hard-skip: any neighbour inside an enemy turret's
+           current attack pattern. The cost_grid already excludes
+           launcher-adjacent zones via the `cost[ni] >= 20` gate
+           in `_compute`, but gunners / sentinels / breach attack
+           along forward rays that aren't captured in the static
+           cost grid. We ask the controller per-step here.
+        """
+        pw = self._pw
+        pad = self._pad
+        dist = self._dist
+        gen = self._gen
+        g = self._g
+        cost = state.cost_grid
+        blocked = _turret_blocked_tiles(state, ct, start)
+        ci = (start.y + pad) * pw + (start.x + pad)
+        best_d = _INF
+        best_tie = _INF
+        best_dx = 0
+        best_dy = 0
+        for off, dx, dy in self._neighbor_offsets:
+            ni = ci + off
+            if gen[ni] != g:
+                continue
+            if cost[ni] >= 20:
+                continue
+            cand = Position(start.x + dx, start.y + dy)
+            if cand in blocked:
+                continue
+            d = dist[ni]
+            # Tie-break: prefer tiles with lower cost_grid value.
+            # Existing transport = 1 (free step), empty = 3 (costs
+            # a road build). So at same `d`, transport wins.
+            tie = cost[ni]
+            if d < best_d or (d == best_d and tie < best_tie):
+                best_d = d
+                best_tie = tie
+                best_dx = dx
+                best_dy = dy
+        if best_d >= _INF:
+            return None
+        return Position(start.x + best_dx, start.y + best_dy)
+
+    def search(
+        self, state: State, ct: Controller, start: Position, target: Position
+    ) -> list[Position] | None:
+        """Return a 2-element `[start, next_step]` path toward target,
+        or None if no path. Matches AStarSearch's external contract."""
+        if self._pn != state.pw * state.ph:
+            self._init_grid(state)
+        pw = self._pw
+        pad = self._pad
+        goal_idx = (target.y + pad) * pw + (target.x + pad)
+        if goal_idx != self._goal_idx:
+            self._reset_for_goal(state, target)
+        # Continue BFS fill until budget exhausted or queue empty.
+        self._compute(state, ct)
+        # Pick best next step from current position regardless of
+        # whether BFS has completed — partial fill is often enough
+        # when start is close to goal.
+        self._running_target = target
+        self._prev_target = target
+        next_step = self._best_step(state, ct, start)
+        if next_step is None:
+            # Goal itself is unreachable or no BFS progress reached
+            # us yet. Report no_path so caller can fall back.
+            self._no_path = True
+            self._prev_no_path = True
+            return None
+        self._no_path = False
+        self._prev_no_path = False
+        return [start, next_step]
+
+    def search_blocked(
+        self, state: State, ct: Controller, start: Position, goal: Position
+    ) -> list[Position] | None:
+        """Same as `search` but temporarily masks tiles occupied by
+        other bots as impassable during the search."""
+        cost = state.cost_grid
+        pw = state.pw
+        pad = state.pad
+        saved: list[tuple[int, int]] = []
+        for pos in ct.get_nearby_tiles(2):
+            if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
+                idx = (pos.y + pad) * pw + (pos.x + pad)
+                saved.append((idx, cost[idx]))
+                cost[idx] = _INF
+        # Temporarily blocked tiles: invalidate the distance field
+        # since tiles may have flipped passability under our feet.
+        self._goal_idx = -1
+        result = self.search(state, ct, start, goal)
+        for idx, val in saved:
+            cost[idx] = val
+        # Also invalidate so next search rebuilds without the blocks.
+        self._goal_idx = -1
+        return result
+
+    @property
+    def no_path(self) -> bool:
+        return self._prev_no_path
+
+
 class MoveHeapAstar:
     """Heap-based A* dedicated to builder-bot movement pathfinding.
 
@@ -502,7 +822,7 @@ class MoveHeapAstar:
         return self._prev_no_path
 
 
-move_search = MoveHeapAstar()
+move_search = NavBfs()
 # Empirically, allow_relaxation=True is load-bearing for path
 # quality, not just bucket-overflow protection. Theory says Dial's
 # bucket A* with a consistent heuristic shouldn't need it, but every
