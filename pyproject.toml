@@ -58,6 +58,7 @@ dev = [
     "pandas>=3.0.2",
     "pillow>=12.1.1",
     "protobuf>=7.34.1",
+    "pydeps>=3.0.2",
     "pyright",
     "ruff",
     "scipy>=1.17.1",
@@ -67,7 +68,6 @@ dev = [
 
 [tool.uv.sources]
 proto = { workspace = true }
-util = { workspace = true }
 visualiser = { workspace = true }
 
 [tool.uv.build-backend]
@@ -125,5 +125,4 @@ members = [
     "bots/adgato/*",
     "lib/visualiser",
     "lib/proto",
-    "lib/util",
 ]

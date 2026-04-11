@@ -11,6 +11,7 @@ class Symmetry(StrEnum):
 
 
 INF: Final[int] = 1_000_000
+ROAD_COST: Final[int] = 6
 
 DIR8 = [d for d in Direction if d != Direction.CENTRE]
 DIR4 = [

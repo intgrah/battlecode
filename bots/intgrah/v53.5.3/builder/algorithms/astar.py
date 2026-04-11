@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
-from builder.state_update_bfs import extract_path
+from builder.algorithms.bfs import extract_path
 from cambc import Controller, Position
 from config import DEBUG_DUMP
 from util import DIR8_DELTA, INF
@@ -11,7 +11,7 @@ from util import DIR8_DELTA, INF
 if TYPE_CHECKING:
     from builder.state import State
 
-_CPU_BUDGET = 1729
+ASTAR_BUDGET_MICROSECONDS = 1729
 
 _DIR8_DELTA = DIR8_DELTA.copy()
 random.shuffle(_DIR8_DELTA)
@@ -82,7 +82,7 @@ def _move_astar(
                         best_d = d
                         best_pos = Position(nx, ny)
                 return best_pos
-            if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
+            if ct.get_cpu_time_elapsed() > ASTAR_BUDGET_MICROSECONDS:
                 return None
             gn = dist[node_i]
             for dx, dy, extra in _MOVE_NEIGHBORS:
@@ -114,7 +114,7 @@ def _draw_path(ct: Controller, path: list[Position]) -> None:
 def pathfind_move(
     state: State, ct: Controller, start: Position, goal: Position
 ) -> Position | None:
-    cost = state.cost_grid
+    cost = state.nav_cost
     saved: list[tuple[int, int]] = []
     for pos in ct.get_nearby_tiles(2):
         if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
@@ -123,7 +123,7 @@ def pathfind_move(
             cost[idx] = INF
 
     t0 = ct.get_cpu_time_elapsed()
-    result = _move_astar(cost, state.nav_dist, state.w, state.h, ct, start, goal)
+    result = _move_astar(cost, state.bfs_dist, state.w, state.h, ct, start, goal)
     t1 = ct.get_cpu_time_elapsed()
 
     for idx, val in saved:

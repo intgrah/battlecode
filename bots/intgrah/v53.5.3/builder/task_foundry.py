@@ -11,12 +11,12 @@ from building import (
 from cambc import Direction, EntityType, Environment, Position
 from util import DIR4, can_afford
 
-from .helpers import make_move, try_place
+from builder.helpers import make_move, try_place
 
 if TYPE_CHECKING:
     from cambc import Controller
 
-    from .state import State
+    from builder.state import State
 
 MIN_ROUND: Final[int] = 500
 

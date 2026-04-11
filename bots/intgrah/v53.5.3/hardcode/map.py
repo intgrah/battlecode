@@ -3,7 +3,7 @@ from collections.abc import Callable
 from cambc import Environment, Position
 from util import Symmetry
 
-from .known import KnownMap
+from hardcode.known import KnownMap
 
 DIMENSIONS: dict[KnownMap, tuple[int, int]] = {
     KnownMap.ARENA: (25, 25),

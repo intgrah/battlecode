@@ -1,56 +1,11 @@
-from building import BuildingHarvester, BuildingRoad
+from building import BuildingRoad
 from cambc import Controller, EntityType, Environment, Position
-from util import DIR4, INF, can_afford, get_direction_object
+from util import DIR4, can_afford, get_direction_object
 
-from .algorithms.astar import pathfind_move
-from .algorithms.econ_astar import conv_pathfind
-from .helpers import make_move, try_move_with_build
-from .state import State
-
-
-def ore_available(state: State, ct: Controller, pos: Position) -> bool:
-    b = state.get_building(pos)
-    if b is not None and not isinstance(b, BuildingRoad):
-        return False
-
-    if ct.is_in_vision(pos):
-        worker_id = ct.get_tile_builder_bot_id(pos)
-        if worker_id is not None and worker_id != ct.get_id():
-            return False
-
-    return True
-
-
-def pick_ore_target(state: State, ct: Controller) -> Position | None:
-    w = state.w
-    nav_dist = state.nav_dist
-
-    best_target = None
-    min_dist = INF
-
-    for pos in ct.get_nearby_tiles():
-        terrain = state.get_env(pos)
-
-        if terrain == Environment.ORE_TITANIUM or (
-            terrain == Environment.ORE_AXIONITE and ct.get_current_round() >= 500
-        ):
-            match state.get_building(pos):
-                case BuildingHarvester():
-                    continue
-                case None | BuildingRoad():
-                    pass
-                case _:
-                    continue
-
-            d = nav_dist[pos.y * w + pos.x]
-            if d == -1:
-                continue
-
-            if ore_available(state, ct, pos) and d < min_dist:
-                min_dist = d
-                best_target = pos
-
-    return best_target
+from builder.algorithms.astar import pathfind_move
+from builder.algorithms.econ_astar import conv_pathfind
+from builder.helpers import make_move, ore_available, try_move_with_build
+from builder.state import State
 
 
 def task_harvest_ti(state: State, ct: Controller, target_pos: Position) -> bool:
