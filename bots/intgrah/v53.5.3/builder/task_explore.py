@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from cambc import Position
 from util import DIR8, INF, try_move
 
-from .algorithms.pathfind import pathfind_blocked
+from .algorithms.astar import pathfind_move
 from .helpers import try_move_with_build
 
 if TYPE_CHECKING:
@@ -21,9 +21,8 @@ def _move_via_path(
     state: State, ct: Controller, target: Position, *, check_money: bool = True
 ) -> None:
     start = ct.get_position()
-    path = pathfind_blocked(state, ct, start, target)
-    if path and len(path) > 1:
-        next_pos = path[1]
+    next_pos = pathfind_move(state, ct, start, target)
+    if next_pos is not None:
         if check_money and ct.get_global_resources()[0] < 75:
             dirs = DIR8
             state.rng.shuffle(dirs)
