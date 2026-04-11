@@ -322,7 +322,10 @@ def _make_tarball(bot_path: str) -> bytes:
 
 
 def _connect_daemon(ip: str) -> tuple[subprocess.Popen[bytes], socket.socket]:
-    local_port = 9876
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    local_port = s.getsockname()[1]
+    s.close()
     tunnel = subprocess.Popen(
         [
             _ssh_cmd(),
