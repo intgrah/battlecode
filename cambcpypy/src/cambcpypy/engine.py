@@ -610,8 +610,10 @@ def vision_radius_sq(entity: Entity) -> int:
             return GameConstants.GUNNER_VISION_RADIUS_SQ
         case Sentinel():
             return GameConstants.SENTINEL_VISION_RADIUS_SQ
-        case Breach() | Launcher():
+        case Breach():
             return GameConstants.BREACH_VISION_RADIUS_SQ
+        case Launcher():
+            return GameConstants.LAUNCHER_VISION_RADIUS_SQ
         case _:
             return 0
 
@@ -621,7 +623,7 @@ def action_radius_sq(entity: Entity) -> int:
         case Core():
             return GameConstants.CORE_ACTION_RADIUS_SQ
         case Launcher():
-            return GameConstants.BREACH_VISION_RADIUS_SQ
+            return GameConstants.ACTION_RADIUS_SQ
         case BuilderBot() | Gunner() | Sentinel() | Breach():
             return GameConstants.ACTION_RADIUS_SQ
         case _:
@@ -1399,7 +1401,7 @@ class Game:
         e = self.entities[turret_id]
         ox, oy = e.x, e.y
         dsq = _distance_squared(ox, oy, tx, ty)
-        return dsq > 0 and dsq <= GameConstants.BREACH_VISION_RADIUS_SQ
+        return dsq > 0 and dsq <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
 
     def fire_gunner(self, turret_id: int, *, axionite: bool) -> None:
         damage = (
