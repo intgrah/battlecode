@@ -102,6 +102,9 @@ def update_map(state: State, ct: Controller) -> None:
     state.adjacent_to_enemy_launcher = {
         p for p in state.adjacent_to_enemy_launcher if not ct.is_in_vision(p)
     }
+    state.enemy_turret_ray_tiles = {
+        p for p in state.enemy_turret_ray_tiles if not ct.is_in_vision(p)
+    }
 
     for pos in nearby_positions:
         if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
@@ -115,6 +118,8 @@ def update_map(state: State, ct: Controller) -> None:
 
     pad = state.pad
     pw = state.pw
+    my_team = ct.get_team()
+    pass_grid = state.pass_grid
     for pos in nearby_positions:
         if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
             i = pos.y * w + pos.x
@@ -130,6 +135,13 @@ def update_map(state: State, ct: Controller) -> None:
                 state.buildings[i] = bld
                 state.hp[i] = ct.get_hp(building_id)
                 state.max_hp[i] = ct.get_max_hp(building_id)
+                # Feed adgato PassableGrid with the real observed tile.
+                pass_grid.update_tile(
+                    i,
+                    state.env[i],
+                    etype,
+                    is_allied_building=ct.get_team(building_id) == my_team,
+                )
 
                 match bld:
                     case BuildingConveyor() | BuildingBridge():
@@ -177,8 +189,46 @@ def update_map(state: State, ct: Controller) -> None:
                             n = pos.add(d)
                             if 0 <= n.x < state.w and 0 <= n.y < state.h:
                                 state.adjacent_to_enemy_launcher.add(n)
+                    case BuildingGunner(team=t, direction=d) if (
+                        t != ct.get_team()
+                    ):
+                        # Gunner forward ray: up to r²≤13 (3 cardinal
+                        # or ~2.5 diagonal steps). Each tile along the
+                        # ray is a soft-penalty zone for movement.
+                        ray = pos
+                        for _ in range(4):
+                            ray = ray.add(d)
+                            if pos.distance_squared(ray) > 13:
+                                break
+                            if 0 <= ray.x < state.w and 0 <= ray.y < state.h:
+                                state.enemy_turret_ray_tiles.add(ray)
+                    case BuildingSentinel(team=t, direction=d) if (
+                        t != ct.get_team()
+                    ):
+                        # Sentinel: forward line plus 1 king-move
+                        # halo, up to r²≤32. Add the core line and
+                        # its 8-neighbour halo for each step.
+                        ray = pos
+                        for _ in range(6):
+                            ray = ray.add(d)
+                            if pos.distance_squared(ray) > 32:
+                                break
+                            if 0 <= ray.x < state.w and 0 <= ray.y < state.h:
+                                state.enemy_turret_ray_tiles.add(ray)
+                            for hd in DIR8:
+                                h = ray.add(hd)
+                                if 0 <= h.x < state.w and 0 <= h.y < state.h:
+                                    state.enemy_turret_ray_tiles.add(h)
             else:
                 state.buildings[i] = None
+                # Marker or empty tile: let pass_grid decide based
+                # on terrain alone (walls impassable, rest walkable).
+                pass_grid.update_tile(
+                    i,
+                    state.env[i],
+                    None,
+                    is_allied_building=False,
+                )
 
             terrain = state.env[i]
             bld = state.buildings[i]
@@ -260,7 +310,6 @@ def update_map(state: State, ct: Controller) -> None:
 
 
 def update_splittable_locations(state: State, ct: Controller) -> None:
-    w = state.w
     pad = state.pad
     pw = state.pw
     state.adjacent_to_unconnected_harvester = {
@@ -296,6 +345,14 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
                         state.adjacent_to_harvester.add(n)
         if pos in state.adjacent_to_enemy_launcher:
             state.cost_grid[pi] += 20
+        if pos in state.enemy_turret_ray_tiles:
+            # Soft penalty: bots route around enemy gunner/sentinel
+            # firing lines when the detour is cheap. Not hard
+            # impassable because sometimes we have to walk through
+            # one (e.g. healing a tile on the other side, or closing
+            # in on the turret itself). +15 makes ~5 tiles of detour
+            # a break-even.
+            state.cost_grid[pi] += 15
 
         match bld:
             case (

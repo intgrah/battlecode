@@ -15,6 +15,8 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position
 from util import INF, Symmetry
 
+from .algorithms.nav_bfs import NavBfs, PassableGrid
+
 if TYPE_CHECKING:
     from .role import Role
 
@@ -73,6 +75,12 @@ class State:
         self.cost_grid: list[int] = [INF] * pn
         self.conveyor_cost_grid: list[int] = [INF] * pn
         self._init_pad_interior()
+        # Per-bot adgato-style passability grid + BFS navigator for
+        # movement. Shared across all `move_search` calls for this
+        # bot (which is why NavBfs lives on State, not at module
+        # level like v54's old AStarSearch singletons).
+        self.pass_grid: PassableGrid = PassableGrid(w, h)
+        self.nav: NavBfs = NavBfs(self.pass_grid)
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
@@ -95,6 +103,11 @@ class State:
         self.adjacent_to_unconnected_harvester: set[Position] = set()
         self.adjacent_to_harvester: set[Position] = set()
         self.adjacent_to_enemy_launcher: set[Position] = set()
+        # Tiles that are in the forward firing ray of an enemy gunner
+        # or sentinel. Populated per-turn in state_update_map when a
+        # visible enemy turret is encountered. Used as a soft cost
+        # penalty in cost_grid so move_search routes bots around them.
+        self.enemy_turret_ray_tiles: set[Position] = set()
         self.nearest_enemy_turret: Position | None = None
         self.nearest_junction_site: Position | None = None
 

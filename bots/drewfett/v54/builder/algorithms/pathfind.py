@@ -474,10 +474,23 @@ class NavBfs:
         self._qlen = 1
         self._no_path = False
 
-    def _compute(self, state: State, ct: Controller) -> bool:
+    def _compute(
+        self,
+        state: State,
+        ct: Controller,
+        cur_idx: int,
+    ) -> bool:
         """Run (or resume) BFS fill. Returns True if fully complete
-        (queue empty), False if we bailed on CPU budget and want
-        to resume next turn.
+        (queue empty or bot's tile reached), False if we bailed on
+        CPU budget and want to resume next turn.
+
+        Goal-directedness: `cur_idx` is the padded flat index of
+        the bot asking for a path. BFS stops one level past the
+        wave that contains the bot — we don't need to fill the
+        rest of the map. This turns BFS back into a goal-directed
+        search with node count comparable to A*, avoiding the
+        "BFS spends 3 turns filling a huge maze before the bot
+        has any dist info" failure mode on large maps.
 
         A tile is passable iff its `cost_grid` value is strictly
         below the launcher-penalty threshold (20): walls, enemy
@@ -495,11 +508,23 @@ class NavBfs:
         q = self._q
         qi = self._qi
         qlen = self._qlen
+        # Stop as soon as we've processed the wave after the bot.
+        # `stop_at` is the max depth we'll process; it starts
+        # unbounded and gets clamped once we touch cur_idx.
+        stop_at = dist[cur_idx] + 1 if gen[cur_idx] == g else _INF
 
         while qi < qlen:
             node = q[qi]
             qi += 1
             nd = dist[node] + 1
+            if nd > stop_at:
+                # We've already expanded one wave past the bot.
+                # Reset qi so `resume` on next call can continue
+                # if the bot moves further away.
+                qi -= 1
+                self._qi = qi
+                self._qlen = qlen
+                return True
             for off in neighbor_flat:
                 ni = node + off
                 if gen[ni] == g:
@@ -510,6 +535,8 @@ class NavBfs:
                 dist[ni] = nd
                 q[qlen] = ni
                 qlen += 1
+                if ni == cur_idx:
+                    stop_at = nd + 1
             if qi & 255 == 0 and ct.get_cpu_time_elapsed() > _CPU_BUDGET:
                 self._qi = qi
                 self._qlen = qlen
@@ -581,19 +608,19 @@ class NavBfs:
         pw = self._pw
         pad = self._pad
         goal_idx = (target.y + pad) * pw + (target.x + pad)
+        cur_idx = (start.y + pad) * pw + (start.x + pad)
         if goal_idx != self._goal_idx:
             self._reset_for_goal(state, target)
-        # Continue BFS fill until budget exhausted or queue empty.
-        self._compute(state, ct)
-        # Pick best next step from current position regardless of
-        # whether BFS has completed — partial fill is often enough
-        # when start is close to goal.
+        # Continue BFS fill until budget exhausted or the wave
+        # containing the bot has been processed. Stopping early
+        # keeps BFS goal-directed instead of filling the whole map.
+        self._compute(state, ct, cur_idx)
         self._running_target = target
         self._prev_target = target
         next_step = self._best_step(state, ct, start)
         if next_step is None:
-            # Goal itself is unreachable or no BFS progress reached
-            # us yet. Report no_path so caller can fall back.
+            # BFS hasn't reached us yet (or goal is unreachable).
+            # Report no_path so callers fall through to fallback_nav.
             self._no_path = True
             self._prev_no_path = True
             return None
@@ -822,7 +849,7 @@ class MoveHeapAstar:
         return self._prev_no_path
 
 
-move_search = NavBfs()
+move_search = MoveHeapAstar()
 # Empirically, allow_relaxation=True is load-bearing for path
 # quality, not just bucket-overflow protection. Theory says Dial's
 # bucket A* with a consistent heuristic shouldn't need it, but every
