@@ -118,9 +118,6 @@ build bot:
     find build/bot -type f \( -name "*.pyi" -o -name pyproject.toml \) -delete
     echo "Built {{ bot }} -> build/bot"
 
-submit bot: (build bot)
-    cambc submit build/bot
-
 challenge bot opponent:
     #!/usr/bin/env bash
     ranked="${RANKED:-v21}"
