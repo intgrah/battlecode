@@ -782,14 +782,6 @@ class Game:
             case DiffIndicatorLine() | DiffIndicatorDot():
                 if self.suppress_indicators:
                     return
-            case DiffBotOutput():
-                if self.suppress_indicators:
-                    diff = DiffBotOutput(
-                        id=diff.id,
-                        stdout="",
-                        exec_time_us=diff.exec_time_us,
-                        tled=diff.tled,
-                    )
         self._current_diffs.append(diff)
 
     def new_turn(self) -> None:
