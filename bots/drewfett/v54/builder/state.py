@@ -13,13 +13,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from config import USE_HARDCODED_MAPS
-from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
 from util import INF, Symmetry
 
 if TYPE_CHECKING:
-    from hardcode.known import KnownMap
-
     from .role import Role
 
 __all__ = ["State"]
@@ -91,15 +87,6 @@ class State:
         }
         self.symmetry: Symmetry | None = None
         self.reflect_queue: deque[int] = deque()
-
-        # Hardcoded map knowledge
-        self.known_map: KnownMap | None = None
-        if USE_HARDCODED_MAPS:
-            self.known_map = _try_identify_map(self)
-            if self.known_map is not None:
-                self.symmetry = SYMMETRY[self.known_map]
-                self.symmetry_candidates.clear()
-                _load_map_tiles(self)
 
         # Ephemeral (recomputed each turn)
         self.nearby_positions: list[Position] = []
@@ -305,18 +292,3 @@ class State:
         return result
 
 
-def _try_identify_map(state: State) -> KnownMap | None:
-    key = (state.w, state.h, state.my_core)
-    candidates = CANDIDATES.get(key)
-    if candidates is None or len(candidates) != 1:
-        return None
-    return candidates[0]
-
-
-def _load_map_tiles(state: State) -> None:
-    km = state.known_map
-    assert km is not None
-    n = state.w * state.h
-    tiles = decode(TILES[km](), n)
-    for i in range(n):
-        state.env[i] = tiles[i]
