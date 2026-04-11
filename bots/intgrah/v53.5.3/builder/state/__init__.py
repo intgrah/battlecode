@@ -79,7 +79,7 @@ class State:
 
         # Ephemeral (recomputed each turn)
         self.nearby_buildings: list[Position] = []
-        self.healable_buildings: list[Position] = []
+        self.healable_buildings: set[Position] = set()
         self.adjacent_to_unconnected_harvester: set[Position] = set()
         self.adjacent_to_unconnected_foundry: set[Position] = set()
         self.adjacent_to_harvester: set[Position] = set()

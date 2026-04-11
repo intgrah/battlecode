@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from builder.algorithms.bfs import extract_path
 from cambc import Controller, Position
-from config import DEBUG_DUMP
 from util import DIR8_DELTA, INF
 
 if TYPE_CHECKING:
@@ -131,15 +130,14 @@ def pathfind_move(
 
     if result is not None:
         print(f"    move_astar={t1 - t0}us")
-        if DEBUG_DUMP:
-            ct.draw_indicator_dot(goal, 255, 255, 255)
+        ct.draw_indicator_dot(goal, 255, 255, 255)
         return result
 
     path = extract_path(state, start.x, start.y, goal.x, goal.y)
     t2 = ct.get_cpu_time_elapsed()
-    print(f"    move_astar={t1 - t0}us bfs_extract={t2 - t1}us")
+    gi = goal.y * state.w + goal.x
+    print(f"    move_astar={t1 - t0}us bfs_extract={t2 - t1}us bfs_goal={state.bfs_dist[gi]} path_len={len(path) if path else 0}")
     if path and len(path) > 1:
-        if DEBUG_DUMP:
-            _draw_path(ct, path)
+        _draw_path(ct, path)
         return path[1]
     return None

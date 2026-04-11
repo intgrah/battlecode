@@ -48,11 +48,11 @@ def best_healable_building(state: State, ct: Controller) -> Position | None:
         if score > best_score:
             best = pos
             best_score = score
-    state.healable_buildings = [
+    state.healable_buildings = {
         p
         for p in state.healable_buildings
         if state.hp[state.idx(p)] < state.max_hp[state.idx(p)]
-    ]
+    }
     return best
 
 
