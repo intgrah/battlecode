@@ -265,7 +265,7 @@ class AStarSearch:
 def _chebyshev(a: Position, b: Position) -> int:
     dx = abs(a.x - b.x)
     dy = abs(a.y - b.y)
-    return max(dx, dy) * 2 + (1 if dx != 0 and dy != 0 and dx != dy else 0)
+    return max(dx, dy) * 2 + (1 if dx != 0 and dy not in (0, dx) else 0)
 
 
 def _manhattan(a: Position, b: Position) -> float:

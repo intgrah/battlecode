@@ -8,7 +8,7 @@ from unit import Unit
 from util import DIR8, can_afford, try_move
 
 from .extra import fix_enemy_conveyor, pave_near_harvesters
-from .helpers import make_move, try_move_with_road
+from .helpers import try_move_with_road
 from .role import Role
 from .state import State
 from .state_dump import dump
@@ -59,13 +59,6 @@ def _patrol_cheap(s: State, ct: Controller) -> bool:
         and not can_afford(ct, EntityType.HARVESTER)
         and run_patrol(s, ct)
     )
-
-
-def _patrol_core(s: State, ct: Controller) -> bool:
-    if ct.get_position().distance_squared(s.my_core) <= 8:
-        return False
-    make_move(s, ct, s.my_core)
-    return True
 
 
 def _splitter(s: State, ct: Controller) -> bool:
@@ -158,16 +151,6 @@ DEFENSE_TASKS: list[TaskFn] = [
     _wander,
 ]
 
-AX_ECON_TASKS: list[TaskFn] = [
-    _splitter,
-    _foundry,
-    _heal,
-    _connect_close,
-    _connect_far,
-    _harvest,
-    _patrol_core,
-]
-
 POLICIES: dict[Role, list[TaskFn]] = {
     Role.OFFENSE: OFFENSE_TASKS,
     Role.PERM_OFFENSE: OFFENSE_TASKS,
@@ -175,7 +158,6 @@ POLICIES: dict[Role, list[TaskFn]] = {
     Role.PERM_ECON: ECON_TASKS,
     Role.DEFENSE: DEFENSE_TASKS,
     Role.PERM_DEFENSE: DEFENSE_TASKS,
-    Role.AX_ECON: AX_ECON_TASKS,
 }
 
 

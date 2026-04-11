@@ -12,7 +12,7 @@ _OPENING_ROLES = [
     Role.ECON,
     Role.PERM_DEFENSE,
     Role.OFFENSE,
-    Role.AX_ECON,
+    Role.OFFENSE,
     Role.OFFENSE,
 ]
 
@@ -27,7 +27,6 @@ _TRANSITION: dict[Role, dict[Role, int]] = {
     Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
     Role.PERM_ECON: {Role.PERM_ECON: 1},
     Role.PERM_OFFENSE: {Role.PERM_OFFENSE: 1},
-    Role.AX_ECON: {Role.AX_ECON: 1},
     Role.PERM_DEFENSE: {Role.PERM_DEFENSE: 1},
 }
 
