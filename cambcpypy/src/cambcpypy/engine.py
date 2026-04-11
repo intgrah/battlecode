@@ -2264,8 +2264,8 @@ class _TranspilingLoader(Loader):
 class _TranspilingFinder:
     """Meta path finder that intercepts imports from bot directories."""
 
-    def __init__(self, bot_dirs: list[str]) -> None:
-        self._bot_dirs = bot_dirs
+    def __init__(self, bot_dir: str) -> None:
+        self._bot_dir = bot_dir
 
     def find_spec(
         self,
@@ -2274,41 +2274,43 @@ class _TranspilingFinder:
         target: types.ModuleType | None = None,  # noqa: ARG002
     ) -> ModuleSpec | None:
         parts = fullname.split(".")
-        for bot_dir in self._bot_dirs:
-            candidate = Path(bot_dir)
-            for part in parts:
-                candidate = candidate / part
-            pkg_init = candidate / "__init__.py"
-            if pkg_init.is_file():
-                spec = importlib.util.spec_from_file_location(
-                    fullname,
-                    str(pkg_init),
-                    submodule_search_locations=[str(candidate)],
-                )
-                if spec:
-                    spec.loader = _TranspilingLoader(spec.loader, str(pkg_init))
-                    return spec
-            mod_file = candidate.with_suffix(".py")
-            if mod_file.is_file():
-                spec = importlib.util.spec_from_file_location(
-                    fullname,
-                    str(mod_file),
-                )
-                if spec:
-                    spec.loader = _TranspilingLoader(spec.loader, str(mod_file))
-                    return spec
+        candidate = Path(self._bot_dir)
+        for part in parts:
+            candidate = candidate / part
+
+        pkg_init = candidate / "__init__.py"
+        if pkg_init.is_file():
+            spec = importlib.util.spec_from_file_location(
+                fullname,
+                str(pkg_init),
+                submodule_search_locations=[str(candidate)],
+            )
+            if spec:
+                spec.loader = _TranspilingLoader(spec.loader, str(pkg_init))
+                return spec
+
+        mod_file = candidate.with_suffix(".py")
+        if mod_file.is_file():
+            spec = importlib.util.spec_from_file_location(
+                fullname,
+                str(mod_file),
+            )
+            if spec:
+                spec.loader = _TranspilingLoader(spec.loader, str(mod_file))
+                return spec
+
         return None
 
 
 def _load_player_class(bot_main: str) -> type:
     _patch_typing_compat()
     bot_dir = str(Path(bot_main).resolve().parent)
-    modules_before = set(sys.modules.keys())
 
-    if bot_dir not in sys.path:
-        sys.path.insert(0, bot_dir)
+    saved_modules = sys.modules.copy()
+    saved_path = sys.path[:]
 
-    finder = _TranspilingFinder([bot_dir])
+    sys.path.insert(0, bot_dir)
+    finder = _TranspilingFinder(bot_dir)
     sys.meta_path.insert(0, finder)
     try:
         spec = importlib.util.spec_from_file_location("bot_main", bot_main)
@@ -2320,11 +2322,9 @@ def _load_player_class(bot_main: str) -> type:
         return mod.Player
     finally:
         sys.meta_path.remove(finder)
-        if bot_dir in sys.path:
-            sys.path.remove(bot_dir)
-        for name in list(sys.modules.keys()):
-            if name not in modules_before:
-                del sys.modules[name]
+        sys.path[:] = saved_path
+        sys.modules.clear()
+        sys.modules.update(saved_modules)
 
 
 @dataclass(slots=True)
@@ -2676,24 +2676,34 @@ class Controller:
         msg = "Entity has no stored resource"
         raise GameError(msg)
 
+    def _assert_in_vision(self, pos: Position) -> None:
+        if not self.is_in_vision(pos):
+            msg = "Position is not in vision"
+            raise GameError(msg)
+
     def get_tile_env(self, pos: Position) -> Environment:
         """Return the environment type (empty, wall, ore) of the tile at pos."""
+        self._assert_in_vision(pos)
         return self._game.tiles[pos.y][pos.x].env
 
     def get_tile_building_id(self, pos: Position) -> int | None:
         """Return the id of the building on the tile at pos, or None if there is none."""
+        self._assert_in_vision(pos)
         return self._game.tiles[pos.y][pos.x].building
 
     def get_tile_builder_bot_id(self, pos: Position) -> int | None:
         """Return the id of the builder bot on the tile at pos, or None if there is none."""
+        self._assert_in_vision(pos)
         return self._game.tiles[pos.y][pos.x].bot
 
     def is_tile_empty(self, pos: Position) -> bool:
         """Return True if the tile has no building and is not a wall."""
+        self._assert_in_vision(pos)
         return self._game.is_tile_empty(pos.x, pos.y)
 
     def is_tile_passable(self, pos: Position) -> bool:
         """Return True if a builder bot belonging to this team could stand on the tile."""
+        self._assert_in_vision(pos)
         return self._game.is_tile_bot_passable(pos.x, pos.y, self._me().team)
 
     def is_in_vision(self, pos: Position) -> bool:
