@@ -10,7 +10,7 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import EntityType, Environment, Position, ResourceType
+from cambc import EntityType, Environment, Position
 from util import DIR4, can_afford
 
 from .helpers import make_move, try_place
@@ -21,6 +21,10 @@ if TYPE_CHECKING:
     from .state import State
 
 MIN_ROUND: Final[int] = 500
+
+
+def _has_ax_ore_known(state: State) -> bool:
+    return any(env == Environment.ORE_AXIONITE for env in state.env)
 
 
 def _core_adj_tiles(state: State) -> list[Position]:
@@ -59,7 +63,9 @@ def task_harvest_ax(state: State, ct: Controller) -> bool:
 def task_place_splitter(state: State, ct: Controller) -> bool:
     if ct.get_current_round() < MIN_ROUND:
         return False
-    pair = _find_conv_with_raw_ax(state, ct)
+    if not state.seen_raw_ax_near_core:
+        return False
+    pair = _find_conv_for_splitter(state, ct)
     if pair is None:
         return False
     conv_pos, fnd_pos = pair
@@ -78,6 +84,10 @@ def task_place_splitter(state: State, ct: Controller) -> bool:
 
 def task_place_foundry(state: State, ct: Controller) -> bool:
     if ct.get_current_round() < MIN_ROUND:
+        return False
+    if _has_foundry(state, ct):
+        return False
+    if not _has_ax_ore_known(state):
         return False
     if not can_afford(ct, EntityType.FOUNDRY):
         return False
@@ -105,10 +115,9 @@ def _pick_ax_ore_target(state: State, ct: Controller) -> Position | None:
                 pass
             case _:
                 continue
-        if ct.is_in_vision(pos):
-            bid = ct.get_tile_builder_bot_id(pos)
-            if bid is not None and bid != ct.get_id():
-                continue
+        bid = ct.get_tile_builder_bot_id(pos)
+        if bid is not None and bid != ct.get_id():
+            continue
         d = my_pos.distance_squared(pos)
         if d < best_dist:
             best_dist = d
@@ -116,21 +125,39 @@ def _pick_ax_ore_target(state: State, ct: Controller) -> Position | None:
     return best
 
 
-def _find_conv_with_raw_ax(
+def _has_ax_harvester(state: State, ct: Controller) -> bool:
+    for i, bld in enumerate(state.buildings):
+        if isinstance(bld, BuildingHarvester) and bld.team == ct.get_team():
+            if state.env[i] == Environment.ORE_AXIONITE:
+                return True
+    return False
+
+
+def _has_foundry(state: State, ct: Controller) -> bool:
+    for bld in state.buildings:
+        if isinstance(bld, BuildingFoundry) and bld.team == ct.get_team():
+            return True
+    return False
+
+
+def _has_splitter_near_core(state: State, ct: Controller) -> bool:
+    for pos in _core_adj_tiles(state):
+        bld = state.get_building(pos)
+        if isinstance(bld, BuildingSplitter) and bld.team == ct.get_team():
+            return True
+    return False
+
+
+def _find_conv_for_splitter(
     state: State, ct: Controller
 ) -> tuple[Position, Position] | None:
+    if _has_splitter_near_core(state, ct):
+        return None
     for pos in _core_adj_tiles(state):
-        if not ct.is_in_vision(pos):
+        bld = state.get_building(pos)
+        if not isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor)):
             continue
-        bid = ct.get_tile_building_id(pos)
-        if bid is None:
-            continue
-        if ct.get_entity_type(bid) != EntityType.CONVEYOR:
-            continue
-        if ct.get_team(bid) != ct.get_team():
-            continue
-        res = ct.get_stored_resource(bid)
-        if res != ResourceType.RAW_AXIONITE:
+        if bld.team != ct.get_team():
             continue
         for d in DIR4:
             fnd_pos = pos.add(d)
