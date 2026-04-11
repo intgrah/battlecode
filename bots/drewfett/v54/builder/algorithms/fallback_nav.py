@@ -59,6 +59,8 @@ def fallback_step(
 
     cost_grid = state.cost_grid
     w, h = state.w, state.h
+    pad = state.pad
+    pw = state.pw
 
     if curr == target:
         return None
@@ -81,7 +83,7 @@ def fallback_step(
         if (
             0 <= next_pos.x < w
             and 0 <= next_pos.y < h
-            and cost_grid[next_pos.y * w + next_pos.x] != INF
+            and cost_grid[(next_pos.y + pad) * pw + (next_pos.x + pad)] != INF
             and next_pos not in blocked
         ):
             return next_pos
@@ -113,7 +115,7 @@ def fallback_step(
                 continue
 
             pos = Position(nx, ny)
-            if cost_grid[ny * w + nx] != INF and pos not in blocked:
+            if cost_grid[(ny + pad) * pw + (nx + pad)] != INF and pos not in blocked:
                 return pos
 
     return None

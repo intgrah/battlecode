@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, GameConstants, Position
-from util import INF, DIR4, DIR8, Symmetry
+from util import DIR4, DIR8, INF, Symmetry
 
 if TYPE_CHECKING:
     from .state import State
@@ -113,9 +113,12 @@ def update_map(state: State, ct: Controller) -> None:
                 p for p in state.splitters_to_here[i] if not ct.is_in_vision(p)
             ]
 
+    pad = state.pad
+    pw = state.pw
     for pos in nearby_positions:
         if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
             i = pos.y * w + pos.x
+            pi = (pos.y + pad) * pw + (pos.x + pad)
             state.env[i] = ct.get_tile_env(pos)
             building_id = ct.get_tile_building_id(pos)
             if (
@@ -205,13 +208,18 @@ def update_map(state: State, ct: Controller) -> None:
                 Environment.ORE_AXIONITE,
             ):
                 cost = ROAD_COST
-                conveyor_cost = 1 if terrain == Environment.EMPTY else 50
+                # Ore tiles cost 10 (vs 1 for empty): strongly prefer
+                # non-ore routes but still permit chains to cross ore
+                # when needed. Was 50 which over-penalized and blew
+                # up Dial's bucket budget (max edge = 50 + bridge 7 +
+                # h_diff 3 = 60). With 10 we cap max edge at ~20.
+                conveyor_cost = 1 if terrain == Environment.EMPTY else 10
             else:
                 cost = 1
                 conveyor_cost = 1
-            state.cost_grid[i] = cost
+            state.cost_grid[pi] = cost
             state.line_loads_computed[i] = False
-            state.conveyor_cost_grid[i] = conveyor_cost
+            state.conveyor_cost_grid[pi] = conveyor_cost
 
     # new_tiles: list[tuple[Position, Environment]] = []
     # for pos in nearby_positions:
@@ -253,6 +261,8 @@ def update_map(state: State, ct: Controller) -> None:
 
 def update_splittable_locations(state: State, ct: Controller) -> None:
     w = state.w
+    pad = state.pad
+    pw = state.pw
     state.adjacent_to_unconnected_harvester = {
         p for p in state.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
@@ -260,7 +270,7 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
         p for p in state.adjacent_to_harvester if not ct.is_in_vision(p)
     }
     for pos in state.nearby_positions:
-        i = pos.y * w + pos.x
+        pi = (pos.y + pad) * pw + (pos.x + pad)
         bld = state.get_building(pos)
         match bld:
             case BuildingHarvester():
@@ -285,7 +295,7 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
                     if 0 <= n.x < state.w and 0 <= n.y < state.h:
                         state.adjacent_to_harvester.add(n)
         if pos in state.adjacent_to_enemy_launcher:
-            state.cost_grid[i] += 20
+            state.cost_grid[pi] += 20
 
         match bld:
             case (
@@ -294,7 +304,7 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
                 | BuildingSplitter(team=t)
                 | BuildingBridge(team=t)
             ) if t == ct.get_team():
-                state.conveyor_cost_grid[i] += load_penalty(
+                state.conveyor_cost_grid[pi] += load_penalty(
                     state.update_line_load_counts(pos)
                 )
 
@@ -331,12 +341,13 @@ def _mirror(state: State, pos: Position) -> Position:
 
 def _set_enemy_core(state: State) -> None:
     core = _mirror(state, state.my_core)
-    w = state.w
+    pad = state.pad
+    pw = state.pw
     for dx in range(-1, 2):
         for dy in range(-1, 2):
             cx, cy = core.x + dx, core.y + dy
             if 0 <= cx < state.w and 0 <= cy < state.h:
-                state.cost_grid[cy * w + cx] = INF
+                state.cost_grid[(cy + pad) * pw + (cx + pad)] = INF
 
 
 def _apply_symmetry(
@@ -372,20 +383,24 @@ def _drain_reflect_queue(state: State) -> None:
     pending = state.reflect_queue
     if not pending:
         return
-    n = min(len(pending), _REFLECT_BUDGET)
-    for _ in range(n):
+    w = state.w
+    pad = state.pad
+    pw = state.pw
+    limit = min(len(pending), _REFLECT_BUDGET)
+    for _ in range(limit):
         i = pending.popleft()
         terrain = state.env[i]
+        pi = ((i // w) + pad) * pw + ((i % w) + pad)
         if terrain == Environment.WALL:
-            state.cost_grid[i] = INF
-            state.conveyor_cost_grid[i] = INF
+            state.cost_grid[pi] = INF
+            state.conveyor_cost_grid[pi] = INF
         elif terrain in (
             Environment.EMPTY,
             Environment.ORE_TITANIUM,
             Environment.ORE_AXIONITE,
         ):
-            state.cost_grid[i] = ROAD_COST
-            state.conveyor_cost_grid[i] = 1 if terrain == Environment.EMPTY else 50
+            state.cost_grid[pi] = ROAD_COST
+            state.conveyor_cost_grid[pi] = 1 if terrain == Environment.EMPTY else 10
 
 
 def _eliminate_symmetries(

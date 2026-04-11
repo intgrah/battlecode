@@ -55,19 +55,28 @@ class State:
         w, h = self.w, self.h
         n = w * h
 
+        # Padded cost-grid dimensions. A 3-tile border on every side
+        # gives A* unconditional neighbor lookups for the bridge
+        # r²≤9 set — any out-of-bounds neighbor lands on the padding
+        # which is permanently INF, so the inner loop drops bounds
+        # checks entirely. Only `cost_grid` and `conveyor_cost_grid`
+        # use the padded layout; env/buildings/hp/... stay real-sized.
+        self.pad: int = 3
+        self.pw: int = w + 2 * self.pad
+        self.ph: int = h + 2 * self.pad
+        pn = self.pw * self.ph
+
         # Per-tile arrays (indexed by y * w + x)
         self.env: list[Environment | None] = [None] * n
         self.buildings: list[Building | None] = [None] * n
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
-        self.cost_grid: list[int] = [1] * n
-        # Unseen tiles get a moderate conveyor-cost penalty so A*
-        # doesn't treat unmapped territory as a free highway. With
-        # unseen=1 (= seen-empty), A* would prefer winding 25-tile
-        # routes through fog over a single 30-cost bridge. With
-        # unseen=5, bridges become preferable to fog detours longer
-        # than ~7 tiles. Seen tiles overwrite this on first sight.
-        self.conveyor_cost_grid: list[int] = [5] * n
+        # Padded cost grids: border = INF, interior initialised to
+        # the default cost for an unseen tile. Real tile (x, y) lives
+        # at padded index (y + pad) * pw + (x + pad).
+        self.cost_grid: list[int] = [INF] * pn
+        self.conveyor_cost_grid: list[int] = [INF] * pn
+        self._init_pad_interior()
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
@@ -148,8 +157,31 @@ class State:
         self.scout_initial_age: int = 0
         self.scout_initial_radius: float = 10.0
 
+    def _init_pad_interior(self) -> None:
+        """Seed interior cells of the padded cost grids. The border
+        was already filled with INF by the constructor."""
+        pad = self.pad
+        pw = self.pw
+        w = self.w
+        h = self.h
+        # cost_grid interior default: 1 (seen-empty equivalent, will
+        # be overwritten when tiles come into vision).
+        # conveyor_cost_grid interior default: 5 (unseen penalty so
+        # A* doesn't plan long fog detours through unmapped terrain).
+        cg = self.cost_grid
+        ccg = self.conveyor_cost_grid
+        for y in range(h):
+            row_start = (y + pad) * pw + pad
+            for x in range(w):
+                cg[row_start + x] = 1
+                ccg[row_start + x] = 5
+
     def _idx(self, pos: Position) -> int:
         return pos.y * self.w + pos.x
+
+    def _pidx(self, pos: Position) -> int:
+        """Padded flat index for cost_grid / conveyor_cost_grid."""
+        return (pos.y + self.pad) * self.pw + (pos.x + self.pad)
 
     def in_bounds(self, pos: Position) -> bool:
         return 0 <= pos.x < self.w and 0 <= pos.y < self.h
@@ -166,7 +198,7 @@ class State:
 
     def get_cost(self, pos: Position) -> int:
         if self.in_bounds(pos):
-            return self.cost_grid[self._idx(pos)]
+            return self.cost_grid[self._pidx(pos)]
         return INF
 
     def is_passable(self, pos: Position) -> bool | None:
