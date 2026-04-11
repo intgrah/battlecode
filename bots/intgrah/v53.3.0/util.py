@@ -9,6 +9,8 @@ class Symmetry(StrEnum):
     VER = "ver"
 
 
+INF = 10**9
+
 DIR8 = [d for d in Direction if d != Direction.CENTRE]
 DIR4 = [
     Direction.NORTH,

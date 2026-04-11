@@ -8,6 +8,7 @@ from unit import Unit
 from util import DIR8, can_afford, try_move
 
 from .extra import fix_enemy_conveyor, pave_near_harvesters
+from .nav import update_bfs
 from .helpers import try_move_with_road
 from .role import Role
 from .state import State
@@ -166,7 +167,10 @@ class Builder(Unit):
         update_role(s, ct)
         t3 = ct.get_cpu_time_elapsed()
         print(f"  role={t3 - t2}us")
-        print(f"update={t3 - t0}us")
+        update_bfs(s, ct)
+        t3b = ct.get_cpu_time_elapsed()
+        print(f"  bfs={t3b - t3}us")
+        print(f"update={t3b - t0}us")
 
         if DEBUG_DUMP:
             dump(s, ct)

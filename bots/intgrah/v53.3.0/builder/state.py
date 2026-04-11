@@ -16,7 +16,7 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position
 from config import USE_HARDCODED_MAPS
 from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
-from util import Symmetry
+from util import INF, Symmetry
 
 if TYPE_CHECKING:
     from hardcode.known import KnownMap
@@ -61,12 +61,15 @@ class State:
         self.buildings: list[Building | None] = [None] * n
         self.hp: list[int] = [0] * n
         self.max_hp: list[int] = [0] * n
-        self.cost_grid = array("f", [1.0] * n)
-        self.conveyor_cost_grid = array("f", [1.0] * n)
+        self.cost_grid: list[int] = [1] * n
+        self.conveyor_cost_grid: list[int] = [1] * n
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
+
+        self.nav_dist: list[int] = [-1] * n
+        self.pnb: list[list[int]] = self._init_pnb()
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
 
         # Symmetry
@@ -140,6 +143,51 @@ class State:
         self.frontier: set[int] = self._init_frontier()
         self.explore_target: int = -1
 
+    _DELTAS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+
+    def _init_pnb(self) -> list[list[int]]:
+        w, h = self.w, self.h
+        n = w * h
+        cost = self.cost_grid
+        pnb: list[list[int]] = [[] for _ in range(n)]
+        for i in range(n):
+            if cost[i] >= INF:
+                continue
+            cx, cy = i % w, i // w
+            for dx, dy in self._DELTAS:
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if cost[ni] < INF:
+                        pnb[i].append(ni)
+        return pnb
+
+    def update_pnb_at(self, i: int) -> None:
+        w, h = self.w, self.h
+        cost = self.cost_grid
+        cx, cy = i % w, i // w
+        passable = cost[i] < INF
+        self.pnb[i] = []
+        if passable:
+            for dx, dy in self._DELTAS:
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    ni = ny * w + nx
+                    if cost[ni] < INF:
+                        self.pnb[i].append(ni)
+        for dx, dy in self._DELTAS:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                if cost[ni] >= INF:
+                    continue
+                nb = self.pnb[ni]
+                if passable:
+                    if i not in nb:
+                        nb.append(i)
+                elif i in nb:
+                    nb.remove(i)
+
     def _idx(self, pos: Position) -> int:
         return pos.y * self.w + pos.x
 
@@ -190,13 +238,13 @@ class State:
     def get_cost(self, pos: Position) -> float:
         if self.in_bounds(pos):
             return self.cost_grid[self._idx(pos)]
-        return float("inf")
+        return INF
 
     def is_passable(self, pos: Position) -> bool | None:
         cost = self.get_cost(pos)
-        if cost == float("inf"):
+        if cost == INF:
             return False
-        if cost < float("inf"):
+        if cost < INF:
             return True
         return None
 
