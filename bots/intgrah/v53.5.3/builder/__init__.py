@@ -7,6 +7,7 @@ from config import DEBUG_DUMP
 from unit import Unit
 from util import DIR8, can_afford, try_move
 
+from .algorithms.bfs import update_bfs
 from .extra import fix_enemy_conveyor, pave_near_harvesters
 from .helpers import try_move_with_road
 from .role import Role
@@ -167,27 +168,31 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
+        pos = ct.get_position()
         t0 = ct.get_cpu_time_elapsed()
         update_map(s, ct)
         t1 = ct.get_cpu_time_elapsed()
         print(f"  map={t1 - t0}us")
-        update_econ(s, ct)
+        update_bfs(s, pos.x, pos.y)
         t2 = ct.get_cpu_time_elapsed()
-        print(f"  splittable={t2 - t1}us")
-        update_role(s, ct)
+        print(f"  bfs={t2 - t1}us")
+        update_econ(s, ct)
         t3 = ct.get_cpu_time_elapsed()
-        print(f"  role={t3 - t2}us")
-        print(f"update={t3 - t0}us")
+        print(f"  econ_map={t3 - t2}us")
+        update_role(s, ct)
+        t4 = ct.get_cpu_time_elapsed()
+        print(f"  role={t4 - t3}us")
+        print(f"update={t4 - t0}us")
 
         if DEBUG_DUMP:
             dump(s, ct)
 
         if s.role not in (Role.OFFENSE, Role.PERM_OFFENSE):
             update_economy(s, ct)
-            t4 = ct.get_cpu_time_elapsed()
-            print(f"  econ={t4 - t3}us")
+            t5 = ct.get_cpu_time_elapsed()
+            print(f"  econ={t5 - t4}us")
         else:
-            t4 = t3
+            t5 = t4
 
         assert s.role is not None
         chosen = "none"
@@ -199,9 +204,9 @@ class Builder(Unit):
         if s.role not in (Role.OFFENSE, Role.PERM_OFFENSE):
             _end_of_turn_heal(ct)
 
-        t5 = ct.get_cpu_time_elapsed()
-        print(f"task={t5 - t4}us [{chosen}]")
-        print(f"total={t5 - t0}us")
+        t6 = ct.get_cpu_time_elapsed()
+        print(f"task={t6 - t5}us [{chosen}]")
+        print(f"total={t6 - t0}us")
 
 
 def _end_of_turn_heal(ct: Controller) -> None:

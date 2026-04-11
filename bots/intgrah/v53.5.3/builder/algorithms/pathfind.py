@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from cambc import Controller, Position
 from util import DIR8_DELTA
 
+from .bfs import extract_path
+
 if TYPE_CHECKING:
     from array import array
     from collections.abc import Callable
@@ -301,7 +303,12 @@ def pathfind_blocked(
     t0 = ct.get_cpu_time_elapsed()
     result = move_search.search_blocked(state, ct, start, goal)
     t1 = ct.get_cpu_time_elapsed()
-    print(f"    move_astar={t1 - t0}us")
+    if result is not None:
+        print(f"    move_astar={t1 - t0}us")
+        return result
+    result = extract_path(state, start.x, start.y, goal.x, goal.y)
+    t2 = ct.get_cpu_time_elapsed()
+    print(f"    move_astar={t1 - t0}us bfs_extract={t2 - t1}us")
     return result
 
 
