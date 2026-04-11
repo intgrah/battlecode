@@ -78,7 +78,6 @@ class State:
                 _load_map_tiles(self)
 
         # Ephemeral (recomputed each turn)
-        self.nearby_positions: list[Position] = []
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
         self.adjacent_to_unconnected_harvester: set[Position] = set()

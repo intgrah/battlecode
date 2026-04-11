@@ -62,8 +62,7 @@ def update_map_econ(state: State, ct: Controller) -> None:
     state.adjacent_to_harvester = {
         p for p in state.adjacent_to_harvester if not ct.is_in_vision(p)
     }
-    my_team = ct.get_team()
-    for pos in state.nearby_positions:
+    for pos in ct.get_nearby_tiles():
         i = pos.y * w + pos.x
         bld = state.get_building(pos)
         match bld:
@@ -72,11 +71,11 @@ def update_map_econ(state: State, ct: Controller) -> None:
                 for d in DIR4:
                     match state.get_building(pos.add(d)):
                         case (
-                            BuildingConveyor(team=t)
-                            | BuildingBridge(team=t)
-                            | BuildingSplitter(team=t)
-                            | BuildingArmouredConveyor(team=t)
-                        ) if t == my_team:
+                            BuildingConveyor(team=state.my_team)
+                            | BuildingBridge(team=state.my_team)
+                            | BuildingSplitter(team=state.my_team)
+                            | BuildingArmouredConveyor(team=state.my_team)
+                        ):
                             adjacent_conveyor = True
                             break
                 if not adjacent_conveyor:
@@ -84,15 +83,15 @@ def update_map_econ(state: State, ct: Controller) -> None:
                         state.adjacent_to_unconnected_harvester.add(pos.add(d))
                 for d in DIR4:
                     state.adjacent_to_harvester.add(pos.add(d))
-            case BuildingFoundry(team=t) if t == my_team:
+            case BuildingFoundry(team=state.my_team):
                 adjacent_conveyor = False
                 for d in DIR4:
                     match state.get_building(pos.add(d)):
                         case (
-                            BuildingConveyor(team=t2)
-                            | BuildingBridge(team=t2)
-                            | BuildingArmouredConveyor(team=t2)
-                        ) if t2 == my_team:
+                            BuildingConveyor(team=state.my_team)
+                            | BuildingBridge(team=state.my_team)
+                            | BuildingArmouredConveyor(team=state.my_team)
+                        ):
                             adjacent_conveyor = True
                             break
                 if not adjacent_conveyor:
@@ -117,7 +116,7 @@ def update_map_econ(state: State, ct: Controller) -> None:
         state, ct, state.nearest_junction_site
     ):
         state.nearest_junction_site = None
-    for pos in state.nearby_positions:
+    for pos in ct.get_nearby_tiles():
         if (
             state.nearest_junction_site is None
             or (
@@ -133,7 +132,7 @@ def update_dangling(state: State, ct: Controller) -> None:
     if is_dangling(state, ct, my_pos):
         state.dangling_output = my_pos
     else:
-        match state.get_building(my_pos):
+        match state.buildings[state.idx(my_pos)]:
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 target = my_pos.add(d)
                 if is_dangling(state, ct, target):

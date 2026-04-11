@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import BuildingCore
-from cambc import Environment, Position
+from cambc import Controller, Environment, Position
 from util import INF, ROAD_COST, Symmetry
 
 if TYPE_CHECKING:
@@ -80,14 +80,13 @@ def _eliminate_symmetries(
         state.symmetry = next(iter(state.symmetry_candidates))
 
 
-def update_symmetry(state: State) -> None:
+def update_symmetry(state: State, ct: Controller) -> None:
     w = state.w
     new_tiles: list[tuple[Position, Environment]] = []
-    for pos in state.nearby_positions:
-        if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
-            e = state.env[pos.y * w + pos.x]
-            if e is not None:
-                new_tiles.append((pos, e))
+    for pos in ct.get_nearby_tiles():
+        e = state.env[pos.y * w + pos.x]
+        if e is not None:
+            new_tiles.append((pos, e))
 
     had_symmetry = state.symmetry is not None
     if not had_symmetry:
