@@ -38,7 +38,16 @@ class AStarSearch:
 
         self._w = 0
         self._h = 0
-        self._dist: list[float] = []
+        self._pw = 0
+        self._ph = 0
+        self._pad = 0
+        # Flat-index neighbor offsets in the PADDED grid layout.
+        # Precomputed once `pw` is known (at _init_grid) so the hot
+        # loop does `ni = node_i + off` with no per-neighbor delta
+        # math and no bounds check (out-of-map positions land on the
+        # INF-filled padding ring).
+        self._flat_neighbors: list[tuple[int, int]] = []
+        self._dist: list[int] = []
         self._visited = bytearray()
         self._prev_visited = bytearray()
         self._q: list[tuple[float, Position]] = []
@@ -50,14 +59,21 @@ class AStarSearch:
 
     def _init_grid(self, state: State) -> None:
         self._w, self._h = state.w, state.h
-        self._dist = [_INF] * (self._w * self._h)
+        self._pw, self._ph = state.pw, state.ph
+        self._pad = state.pad
+        pn = self._pw * self._ph
+        self._dist = [_INF] * pn
+        # Bake in the padded-row stride now that pw is known.
+        self._flat_neighbors = [
+            (dy * self._pw + dx, extra) for dx, dy, extra in self._neighbors
+        ]
 
     def _reset(self, state: State) -> None:
-        n = state.w * state.h
-        if len(self._dist) != n:
+        pn = state.pw * state.ph
+        if len(self._dist) != pn:
             self._init_grid(state)
         self._no_path = False
-        self._visited = bytearray((n + 7) // 8)
+        self._visited = bytearray((pn + 7) // 8)
         self._q = []
 
     def _cost_grid(self, state: State) -> array[float]:
@@ -67,7 +83,11 @@ class AStarSearch:
         self, state: State, start: Position, target: Position
     ) -> list[Position]:
         cost = self._cost_grid(state)
-        w = self._w
+        pw = self._pw
+        pad = self._pad
+        flat_neighbors = self._flat_neighbors
+        prev_visited = self._prev_visited
+        dist = self._dist
         path: list[Position] = []
         current = start
         while current != target:
@@ -76,19 +96,18 @@ class AStarSearch:
             path.append(current)
             best_dist = _INF
             best = current
-            for dx, dy, extra in self._neighbors:
-                nx, ny = current.x + dx, current.y + dy
-                idx = ny * w + nx
-                if (
-                    0 <= nx < self._w
-                    and 0 <= ny < self._h
-                    and (self._prev_visited[idx // 8] & (1 << (idx % 8)))
-                    and cost[idx] != _INF
-                ):
-                    d = self._dist[idx] + extra
-                    if d < best_dist:
-                        best_dist = d
-                        best = Position(nx, ny)
+            ci = (current.y + pad) * pw + (current.x + pad)
+            for off, extra in flat_neighbors:
+                idx = ci + off
+                if not (prev_visited[idx >> 3] & (1 << (idx & 7))):
+                    continue
+                if cost[idx] >= _INF:
+                    continue
+                d = dist[idx] + extra
+                if d < best_dist:
+                    best_dist = d
+                    y_p, x_p = divmod(idx, pw)
+                    best = Position(x_p - pad, y_p - pad)
             current = best
         path.append(target)
         return path
@@ -97,33 +116,40 @@ class AStarSearch:
         self, state: State, ct: Controller, start: Position, goal: Position
     ) -> bool:
         cost = self._cost_grid(state)
-        w = self._w
+        pw = self._pw
+        pad = self._pad
         dist = self._dist
         visited = self._visited
-        neighbors = self._neighbors
+        flat_neighbors = self._flat_neighbors
         relax = self._relax
-        sx, sy = start.x, start.y
-        w_bound = self._w
-        h_bound = self._h
+        # Work entirely in PADDED coordinates — start/goal indices,
+        # neighbor lookups, and heuristic all use (x+pad, y+pad).
+        # The INF border means the inner loop never needs a bounds
+        # check; out-of-map neighbors land on padding and get
+        # rejected by the `mc >= _INF` guard that was already there.
+        sx_p = start.x + pad
+        sy_p = start.y + pad
+        gx_p = goal.x + pad
+        gy_p = goal.y + pad
         # conv_search uses manhattan, move_search uses chebyshev.
-        # Branching on an int flag once per call is cheap; branching
-        # per-neighbor inside the loop is not.
         is_chebyshev = _HEURISTIC_KIND.get(id(self._heuristic)) == _H_CHEBYSHEV
 
-        gi = goal.y * w + goal.x
-        si = sy * w + sx
+        gi = gy_p * pw + gx_p
+        si = sy_p * pw + sx_p
         dist[gi] = 0
-        visited[gi // 8] |= 1 << (gi % 8)
+        visited[gi >> 3] |= 1 << (gi & 7)
 
-        # Bucket capacity must cover max edge weight + heuristic delta.
-        # Bridges add ~8 cost, +2 heuristic swing = ~10. 20 is safe.
-        nb_count = 20
-        gx, gy = goal.x, goal.y
+        # Bucket capacity must STRICTLY exceed max (edge_cost + h_diff).
+        # With ore tiles capped at 10, max edge = 10 + COST_BRIDGE_EXTRA=7
+        # + h_diff=3 = 20. nb_count=24 gives safe margin. Smaller
+        # nb_count also means cheaper per-cycle iteration over empty
+        # buckets in the outer `while` loop.
+        nb_count = 24
         if is_chebyshev:
-            dx0, dy0 = abs(gx - sx), abs(gy - sy)
-            f0 = max(dy0, dx0)
+            dx0, dy0 = abs(gx_p - sx_p), abs(gy_p - sy_p)
+            f0 = max(dx0, dy0)
         else:
-            f0 = abs(gx - sx) + abs(gy - sy)
+            f0 = abs(gx_p - sx_p) + abs(gy_p - sy_p)
         bk: list[list[int]] = [[] for _ in range(nb_count)]
         bk[f0 % nb_count].append(gi)
         cur_f = f0
@@ -137,12 +163,12 @@ class AStarSearch:
                 continue
             emp = 0
             for node_i in bucket:
-                ny_, nx_ = divmod(node_i, w)
+                ny_, nx_ = divmod(node_i, pw)
                 if is_chebyshev:
-                    dxn, dyn = abs(nx_ - sx), abs(ny_ - sy)
-                    node_h = max(dyn, dxn)
+                    dxn, dyn = abs(nx_ - sx_p), abs(ny_ - sy_p)
+                    node_h = max(dxn, dyn)
                 else:
-                    node_h = abs(nx_ - sx) + abs(ny_ - sy)
+                    node_h = abs(nx_ - sx_p) + abs(ny_ - sy_p)
                 if dist[node_i] + node_h != cur_f:
                     continue
                 if node_i == si:
@@ -150,30 +176,27 @@ class AStarSearch:
                 if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
                     return False
                 gn = dist[node_i]
-                for dx, dy, extra in neighbors:
-                    nx = nx_ + dx
-                    ny = ny_ + dy
-                    if nx < 0 or nx >= w_bound or ny < 0 or ny >= h_bound:
+                for off, extra in flat_neighbors:
+                    ni = node_i + off
+                    mc = cost[ni]
+                    if mc >= _INF:
                         continue
-                    ni = ny * w + nx
-                    seen = visited[ni // 8] & (1 << (ni % 8))
+                    seen = visited[ni >> 3] & (1 << (ni & 7))
                     if relax and not seen:
                         dist[ni] = _INF
                     if not relax and seen:
                         continue
-                    visited[ni // 8] |= 1 << (ni % 8)
-                    mc = cost[ni]
-                    if mc >= _INF:
-                        continue
+                    visited[ni >> 3] |= 1 << (ni & 7)
                     nd = gn + mc + extra
                     if relax and nd >= dist[ni]:
                         continue
                     dist[ni] = nd
+                    ny2, nx2 = divmod(ni, pw)
                     if is_chebyshev:
-                        dxn, dyn = abs(nx - sx), abs(ny - sy)
-                        h_val = max(dyn, dxn)
+                        dxn, dyn = abs(nx2 - sx_p), abs(ny2 - sy_p)
+                        h_val = max(dxn, dyn)
                     else:
-                        h_val = abs(nx - sx) + abs(ny - sy)
+                        h_val = abs(nx2 - sx_p) + abs(ny2 - sy_p)
                     f = nd + h_val
                     bk[f % nb_count].append(ni)
             bk[cur_f % nb_count] = []
@@ -215,10 +238,12 @@ class AStarSearch:
         self, state: State, ct: Controller, start: Position, goal: Position
     ) -> list[Position] | None:
         cost = self._cost_grid(state)
-        saved: list[tuple[int, float]] = []
+        pw = state.pw
+        pad = state.pad
+        saved: list[tuple[int, int]] = []
         for pos in ct.get_nearby_tiles(2):
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
-                idx = pos.y * state.w + pos.x
+                idx = (pos.y + pad) * pw + (pos.x + pad)
                 saved.append((idx, cost[idx]))
                 cost[idx] = _INF
         result = self.search(state, ct, start, goal)
@@ -256,16 +281,19 @@ _HEURISTIC_KIND: dict = {
 
 
 DIAG_WEIGHT = 4
-# Bridge edges: cardinal ±2/±3 plus the four 2-tile diagonals. 12
-# neighbors total — a compromise between the full 24-neighbor r²≤9
-# set (too slow on CPython's per-op budget) and cardinal-only (too
-# restrictive on maps where walls run at 45°). Covers straight walls
-# and most diagonal obstacles.
+# Bridge neighborhood: every (dx, dy) with 3 ≤ dx²+dy² ≤ 9. 20 deltas.
+# Excludes d²=1 (cardinal, already in _CONV_NEIGHBORS as cheap
+# conveyor edges) AND d²=2 (the four ±(1,1) diagonals, already in
+# _CONV_NEIGHBORS as DIAG_WEIGHT=4 conveyor edges). Those diagonals
+# used to be duplicated here as cost-7 bridge edges — A* always
+# picked the cheaper cost-5 diagonal, so the bridge copies were
+# dead work. Dropping them = 4 fewer per-node iterations.
 COST_BRIDGE_EXTRA = 7
 _BRIDGE_DELTAS = [
-    (2, 0), (-2, 0), (0, 2), (0, -2),
-    (3, 0), (-3, 0), (0, 3), (0, -3),
-    (2, 2), (2, -2), (-2, 2), (-2, -2),
+    (dx, dy)
+    for dx in range(-3, 4)
+    for dy in range(-3, 4)
+    if 3 <= dx * dx + dy * dy <= 9
 ]
 
 _MOVE_NEIGHBORS = [(dx, dy, 0) for dx, dy in _DIR8_DELTA]
@@ -282,6 +310,11 @@ _CONV_NEIGHBORS = [
 random.shuffle(_CONV_NEIGHBORS)
 
 move_search = AStarSearch(_MOVE_NEIGHBORS, _chebyshev, "cost_grid")
+# Empirically, allow_relaxation=True is load-bearing for path
+# quality, not just bucket-overflow protection. Theory says Dial's
+# bucket A* with a consistent heuristic shouldn't need it, but every
+# relax-off sweep regressed to ~35-40% (vs 80% with relax on).
+# Leaving it on.
 conv_search = AStarSearch(
     _CONV_NEIGHBORS, _manhattan, "conveyor_cost_grid", allow_relaxation=True
 )

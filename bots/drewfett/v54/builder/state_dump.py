@@ -35,6 +35,17 @@ P_RED = Palette(
 )
 
 
+def _unpad(grid: list[int], state: State) -> list[int]:
+    """Extract the real w*h interior from a padded pw*ph cost grid."""
+    w, h, pad, pw = state.w, state.h, state.pad, state.pw
+    out: list[int] = [0] * (w * h)
+    for y in range(h):
+        row_start = (y + pad) * pw + pad
+        for x in range(w):
+            out[y * w + x] = grid[row_start + x]
+    return out
+
+
 def dump(state: State, _ct: Controller) -> None:
     emit(
         unseen=Grid(
@@ -42,11 +53,11 @@ def dump(state: State, _ct: Controller) -> None:
             palette=P_FOG,
         ),
         cost=Grid(
-            [c if c < 1e6 else -1 for c in state.cost_grid],
+            [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
             palette=P_COST,
         ),
         conv_cost=Grid(
-            [c if c < 1e6 else -1 for c in state.conveyor_cost_grid],
+            [c if c < 1e6 else -1 for c in _unpad(state.conveyor_cost_grid, state)],
             palette=P_COST,
         ),
         enemy_launcher=Tiles(
