@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import heapq
 import random
 from typing import TYPE_CHECKING
 
@@ -309,7 +310,199 @@ _CONV_NEIGHBORS = [
 ] + [(dx, dy, COST_BRIDGE_EXTRA) for dx, dy in _BRIDGE_DELTAS]
 random.shuffle(_CONV_NEIGHBORS)
 
-move_search = AStarSearch(_MOVE_NEIGHBORS, _chebyshev, "cost_grid")
+class MoveHeapAstar:
+    """Heap-based A* dedicated to builder-bot movement pathfinding.
+
+    This is a slimmed-down port of v52_live's `AStarSearch`, adapted
+    to read v54's PADDED `cost_grid` via `(y+pad)*pw + (x+pad)`.
+    Kept deliberately separate from the bucket `AStarSearch` used
+    for chain routing — that class has lots of per-search
+    infrastructure (coord arrays, bridge neighbourhoods, bucket
+    tuning) that movement doesn't need, and its initialisation cost
+    makes the first turn of every bot slow on CPython.
+
+    Movement paths want:
+    - 8-direction neighbourhood (cardinal + diagonal, cost 0 extra)
+    - Chebyshev heuristic (admissible + consistent for 8-connected)
+    - Minimal per-search state (just `dist` + visited bitmap)
+    - Simple heap priority queue (no bucket math, no relaxation)
+
+    Same external interface as `AStarSearch`: `search`,
+    `search_blocked`, `no_path`.
+    """
+
+    def __init__(self) -> None:
+        self._w = 0
+        self._h = 0
+        self._pw = 0
+        self._pad = 0
+        self._dist: list[int] = []
+        self._visited = bytearray()
+        self._prev_visited = bytearray()
+        self._q: list[tuple[float, int, Position]] = []
+        self._finished = True
+        self._no_path = False
+        self._prev_no_path = False
+        self._running_target: Position | None = None
+        self._prev_target: Position | None = None
+
+    def _init_grid(self, state: State) -> None:
+        self._w, self._h = state.w, state.h
+        self._pw = state.pw
+        self._pad = state.pad
+        pn = state.pw * state.ph
+        self._dist = [_INF] * pn
+
+    def _reset(self, state: State) -> None:
+        pn = state.pw * state.ph
+        if len(self._dist) != pn:
+            self._init_grid(state)
+        self._no_path = False
+        self._visited = bytearray((pn + 7) // 8)
+        self._q = []
+
+    def _pidx(self, pos: Position) -> int:
+        return (pos.y + self._pad) * self._pw + (pos.x + self._pad)
+
+    def _extract_path(
+        self, state: State, start: Position, target: Position
+    ) -> list[Position]:
+        cost = state.cost_grid
+        pw = self._pw
+        pad = self._pad
+        path: list[Position] = []
+        current = start
+        while current != target:
+            if current in path:
+                break
+            path.append(current)
+            best_dist = _INF
+            best = current
+            ci = (current.y + pad) * pw + (current.x + pad)
+            for dx, dy in _DIR8_DELTA:
+                nx = current.x + dx
+                ny = current.y + dy
+                if not (0 <= nx < self._w and 0 <= ny < self._h):
+                    continue
+                idx = ci + dy * pw + dx
+                if (
+                    (self._prev_visited[idx >> 3] & (1 << (idx & 7)))
+                    and cost[idx] < _INF
+                ):
+                    d = self._dist[idx]
+                    if d < best_dist:
+                        best_dist = d
+                        best = Position(nx, ny)
+            current = best
+        path.append(target)
+        return path
+
+    def _run(
+        self, state: State, ct: Controller, start: Position, goal: Position
+    ) -> bool:
+        cost = state.cost_grid
+        pw = self._pw
+        pad = self._pad
+        w_bound = self._w
+        h_bound = self._h
+        dist = self._dist
+        visited = self._visited
+        q = self._q
+
+        gi = (goal.y + pad) * pw + (goal.x + pad)
+        dist[gi] = 0
+        visited[gi >> 3] |= 1 << (gi & 7)
+        # Tuple (f, counter, node_pos) — counter for stable ordering.
+        counter = 0
+        heapq.heappush(q, (0, counter, goal))
+        counter += 1
+
+        sx, sy = start.x, start.y
+        while q:
+            _, _, current = heapq.heappop(q)
+            if current == start:
+                return True
+            if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
+                return False
+
+            ci = (current.y + pad) * pw + (current.x + pad)
+            cur_dist = dist[ci]
+            for dx, dy in _DIR8_DELTA:
+                nx = current.x + dx
+                ny = current.y + dy
+                if nx < 0 or nx >= w_bound or ny < 0 or ny >= h_bound:
+                    continue
+                idx = ci + dy * pw + dx
+                if visited[idx >> 3] & (1 << (idx & 7)):
+                    continue
+                move_cost = cost[idx]
+                if move_cost >= _INF:
+                    continue
+                visited[idx >> 3] |= 1 << (idx & 7)
+                new_dist = cur_dist + move_cost
+                dist[idx] = new_dist
+                # Chebyshev heuristic (admissible for 8-connected).
+                dxh = abs(nx - sx)
+                dyh = abs(ny - sy)
+                f = new_dist + (max(dyh, dxh))
+                heapq.heappush(q, (f, counter, Position(nx, ny)))
+                counter += 1
+
+        self._no_path = True
+        return True
+
+    def search(
+        self, state: State, ct: Controller, start: Position, target: Position
+    ) -> list[Position] | None:
+        if (
+            self._finished
+            or self._running_target is None
+            or target.distance_squared(self._running_target) > _TARGET_DRIFT_SQ
+        ):
+            self._reset(state)
+        else:
+            target = self._running_target
+
+        self._running_target = target
+        self._finished = self._run(state, ct, start, target)
+
+        if self._finished:
+            self._prev_visited = self._visited
+            self._prev_target = target
+            self._prev_no_path = self._no_path
+
+        if self._prev_target is None:
+            return None
+        diff = target.distance_squared(self._prev_target)
+        if diff <= _TARGET_DRIFT_SQ and diff < start.distance_squared(target):
+            if self._no_path:
+                return None
+            return self._extract_path(state, start, target)
+        return None
+
+    def search_blocked(
+        self, state: State, ct: Controller, start: Position, goal: Position
+    ) -> list[Position] | None:
+        cost = state.cost_grid
+        pw = state.pw
+        pad = state.pad
+        saved: list[tuple[int, int]] = []
+        for pos in ct.get_nearby_tiles(2):
+            if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
+                idx = (pos.y + pad) * pw + (pos.x + pad)
+                saved.append((idx, cost[idx]))
+                cost[idx] = _INF
+        result = self.search(state, ct, start, goal)
+        for idx, val in saved:
+            cost[idx] = val
+        return result
+
+    @property
+    def no_path(self) -> bool:
+        return self._prev_no_path
+
+
+move_search = MoveHeapAstar()
 # Empirically, allow_relaxation=True is load-bearing for path
 # quality, not just bucket-overflow protection. Theory says Dial's
 # bucket A* with a consistent heuristic shouldn't need it, but every
