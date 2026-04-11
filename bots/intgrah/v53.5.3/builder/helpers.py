@@ -7,7 +7,7 @@ from building import (
 from cambc import Controller, Direction, EntityType, Position
 from util import DIR4, DIR8, Symmetry, can_afford, try_move
 
-from .algorithms.pathfind import pathfind_blocked
+from .algorithms.astar import pathfind_move
 from .state import State
 
 
@@ -15,9 +15,9 @@ def make_move(state: State, ct: Controller, target: Position) -> bool:
     if ct.get_position() == target:
         return True
 
-    path = pathfind_blocked(state, ct, ct.get_position(), target)
-    if path and len(path) > 1:
-        try_move_with_build(state, ct, path[1])
+    next_pos = pathfind_move(state, ct, ct.get_position(), target)
+    if next_pos is not None:
+        try_move_with_build(state, ct, next_pos)
         return True
     return False
 

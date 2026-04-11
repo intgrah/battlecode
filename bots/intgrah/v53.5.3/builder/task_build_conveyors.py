@@ -9,7 +9,7 @@ from util import (
     reachable_path_end,
 )
 
-from .algorithms.pathfind import conv_pathfind, conv_unreachable
+from .algorithms.econ_astar import conv_pathfind, conv_unreachable
 from .helpers import (
     is_enemy_building,
     make_move,

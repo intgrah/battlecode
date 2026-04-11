@@ -2,7 +2,8 @@ from building import BuildingHarvester, BuildingRoad
 from cambc import Controller, EntityType, Environment, Position
 from util import DIR4, INF, can_afford, get_direction_object
 
-from .algorithms.pathfind import conv_pathfind, conv_pathfind_blocked
+from .algorithms.astar import pathfind_move
+from .algorithms.econ_astar import conv_pathfind
 from .helpers import make_move, try_move_with_build
 from .state import State
 
@@ -136,9 +137,9 @@ def task_harvest_ti(state: State, ct: Controller, target_pos: Position) -> bool:
                     return True
             else:
                 target_n = unpaved_neighbors[0]
-                path = conv_pathfind_blocked(state, ct, my_pos, target_n)
-                if path and len(path) > 1:
-                    try_move_with_build(state, ct, path[1])
+                next_pos = pathfind_move(state, ct, my_pos, target_n)
+                if next_pos is not None:
+                    try_move_with_build(state, ct, next_pos)
                     return True
             return True
 

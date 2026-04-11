@@ -9,6 +9,8 @@ from util import DIR8_DELTA, INF
 if TYPE_CHECKING:
     from builder.state import State
 
+__all__ = ["extract_path", "update_bfs"]
+
 
 def update_bfs(state: State, sx: int, sy: int) -> None:
     w = state.w

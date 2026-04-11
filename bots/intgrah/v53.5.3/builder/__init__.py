@@ -7,13 +7,13 @@ from config import DEBUG_DUMP
 from unit import Unit
 from util import DIR8, can_afford, try_move
 
-from .algorithms.bfs import update_bfs
 from .extra import fix_enemy_conveyor, pave_near_harvesters
 from .helpers import try_move_with_road
 from .role import Role
 from .state import State
 from .state_dump import dump
 from .state_update import update_economy, update_role
+from .state_update_bfs import update_bfs
 from .state_update_map import update_econ, update_map
 from .task_attack import task_attack
 from .task_build_conveyors import route_to_core
