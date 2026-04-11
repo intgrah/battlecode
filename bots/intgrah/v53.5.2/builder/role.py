@@ -8,7 +8,6 @@ class Role(IntEnum):
     PERM_ECON = 3
     PERM_OFFENSE = 4
     PERM_DEFENSE = 5
-    AX_ECON = 6
 
     def __str__(self) -> str:
         return self.name.lower()

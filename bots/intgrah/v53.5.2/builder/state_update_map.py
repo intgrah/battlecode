@@ -9,6 +9,7 @@ from building import (
     BuildingBridge,
     BuildingConveyor,
     BuildingCore,
+    BuildingFoundry,
     BuildingGunner,
     BuildingHarvester,
     BuildingLauncher,
@@ -257,9 +258,13 @@ def update_econ(state: State, ct: Controller) -> None:
     state.adjacent_to_unconnected_harvester = {
         p for p in state.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
+    state.adjacent_to_unconnected_foundry = {
+        p for p in state.adjacent_to_unconnected_foundry if not ct.is_in_vision(p)
+    }
     state.adjacent_to_harvester = {
         p for p in state.adjacent_to_harvester if not ct.is_in_vision(p)
     }
+    my_team = ct.get_team()
     for pos in state.nearby_positions:
         i = pos.y * w + pos.x
         bld = state.get_building(pos)
@@ -273,7 +278,7 @@ def update_econ(state: State, ct: Controller) -> None:
                             | BuildingBridge(team=t)
                             | BuildingSplitter(team=t)
                             | BuildingArmouredConveyor(team=t)
-                        ) if t == ct.get_team():
+                        ) if t == my_team:
                             adjacent_conveyor = True
                             break
                 if not adjacent_conveyor:
@@ -281,6 +286,20 @@ def update_econ(state: State, ct: Controller) -> None:
                         state.adjacent_to_unconnected_harvester.add(pos.add(d))
                 for d in DIR4:
                     state.adjacent_to_harvester.add(pos.add(d))
+            case BuildingFoundry(team=t) if t == my_team:
+                adjacent_conveyor = False
+                for d in DIR4:
+                    match state.get_building(pos.add(d)):
+                        case (
+                            BuildingConveyor(team=t2)
+                            | BuildingBridge(team=t2)
+                            | BuildingArmouredConveyor(team=t2)
+                        ) if t2 == my_team:
+                            adjacent_conveyor = True
+                            break
+                if not adjacent_conveyor:
+                    for d in DIR4:
+                        state.adjacent_to_unconnected_foundry.add(pos.add(d))
         if pos in state.adjacent_to_enemy_launcher:
             state.cost_grid[i] = INF
 

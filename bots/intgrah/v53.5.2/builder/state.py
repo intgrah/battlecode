@@ -81,6 +81,7 @@ class State:
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
         self.adjacent_to_unconnected_harvester: set[Position] = set()
+        self.adjacent_to_unconnected_foundry: set[Position] = set()
         self.adjacent_to_harvester: set[Position] = set()
         self.adjacent_to_enemy_launcher: set[Position] = set()
         self.nearest_enemy_turret: Position | None = None
@@ -251,32 +252,6 @@ class State:
                     return False
             return self.is_enemy_building(output_location)
         return False
-
-    def update_line_load_counts(self, pos: Position | None) -> int:
-        if pos is None:
-            return 0
-        if not self.in_bounds(pos):
-            return 4
-        i = self._idx(pos)
-        if self.line_loads_computed[i]:
-            return self.line_load_counts[i]
-        b = self.buildings[i]
-        next_pos = None
-        match b:
-            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                next_pos = pos.add(d)
-            case BuildingBridge(target=t):
-                next_pos = t
-            case _:
-                pass
-
-        self.line_loads_computed[i] = True
-        result = max(
-            self.belt_load_counts[i],
-            self.update_line_load_counts(next_pos),
-        )
-        self.line_load_counts[i] = result
-        return result
 
 
 def _try_identify_map(state: State) -> KnownMap | None:

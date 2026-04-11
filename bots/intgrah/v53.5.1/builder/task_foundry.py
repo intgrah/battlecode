@@ -10,7 +10,7 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import EntityType, Environment, Position
+from cambc import Direction, EntityType, Environment, Position
 from util import DIR4, can_afford
 
 from .helpers import make_move, try_place
@@ -50,20 +50,51 @@ def _core_adj_tiles(state: State) -> list[Position]:
 def task_harvest_ax(state: State, ct: Controller) -> bool:
     if ct.get_current_round() < MIN_ROUND:
         return False
+    if state.ore_target is not None:
+        return False
     ax_target = _pick_ax_ore_target(state, ct)
     if ax_target is None:
         return False
-    if ct.get_position().distance_squared(ax_target) <= 2 and can_afford(ct, EntityType.HARVESTER):
-        try_place(ct, EntityType.HARVESTER, ax_target)
-        return True
+    state.ore_target = ax_target
     make_move(state, ct, ax_target)
     return True
+
+
+def _detect_input_direction(state: State, pos: Position) -> Direction | None:
+    for d in DIR4:
+        neighbor = pos.add(d)
+        nb = state.get_building(neighbor)
+        if isinstance(nb, (BuildingConveyor, BuildingArmouredConveyor)):
+            if nb.direction == d.opposite():
+                return d.opposite()
+        elif isinstance(nb, BuildingSplitter) and nb.direction != d:
+            return d.opposite()
+    return None
+
+
+def _sees_raw_ax_near_core(state: State, ct: Controller) -> bool:
+    from cambc import ResourceType
+
+    for pos in _core_adj_tiles(state):
+        if not ct.is_in_vision(pos):
+            continue
+        bid = ct.get_tile_building_id(pos)
+        if bid is None:
+            continue
+        etype = ct.get_entity_type(bid)
+        if etype not in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR):
+            continue
+        if ct.get_team(bid) != ct.get_team():
+            continue
+        if ct.get_stored_resource(bid) == ResourceType.RAW_AXIONITE:
+            return True
+    return False
 
 
 def task_place_splitter(state: State, ct: Controller) -> bool:
     if ct.get_current_round() < MIN_ROUND:
         return False
-    if not state.seen_raw_ax_near_core:
+    if not _sees_raw_ax_near_core(state, ct):
         return False
     pair = _find_conv_for_splitter(state, ct)
     if pair is None:
@@ -74,11 +105,13 @@ def task_place_splitter(state: State, ct: Controller) -> bool:
         return True
     bld = state.get_building(conv_pos)
     if isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor)):
-        splitter_dir = bld.direction
+        input_dir = _detect_input_direction(state, conv_pos)
+        if input_dir is None:
+            return False
         if ct.can_destroy(conv_pos):
             ct.destroy(conv_pos)
-        if ct.can_build(EntityType.SPLITTER, conv_pos, splitter_dir):
-            ct.build(EntityType.SPLITTER, conv_pos, splitter_dir)
+        if ct.can_build(EntityType.SPLITTER, conv_pos, input_dir):
+            ct.build(EntityType.SPLITTER, conv_pos, input_dir)
     return True
 
 
