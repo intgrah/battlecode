@@ -15,7 +15,7 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position
 from config import USE_HARDCODED_MAPS
 from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
-from util import INF, Symmetry
+from util import DIR8_DELTA, INF, Symmetry
 
 if TYPE_CHECKING:
     from hardcode.known import KnownMap
@@ -23,6 +23,42 @@ if TYPE_CHECKING:
     from builder.state.role import Role
 
 __all__ = ["State"]
+
+
+def _init_pnb(w: int, h: int, n: int) -> list[list[int]]:
+    pnb: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        cx, cy = i % w, i // w
+        for dx, dy in DIR8_DELTA:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                pnb[i].append(ny * w + nx)
+    return pnb
+
+
+def update_pnb(w: int, h: int, cost: list[int], pnb: list[list[int]], i: int) -> None:
+    cx, cy = i % w, i // w
+    passable = cost[i] < INF
+    pnb[i] = []
+    if passable:
+        for dx, dy in DIR8_DELTA:
+            nx, ny = cx + dx, cy + dy
+            if 0 <= nx < w and 0 <= ny < h:
+                ni = ny * w + nx
+                if cost[ni] < INF:
+                    pnb[i].append(ni)
+    for dx, dy in DIR8_DELTA:
+        nx, ny = cx + dx, cy + dy
+        if 0 <= nx < w and 0 <= ny < h:
+            ni = ny * w + nx
+            if cost[ni] >= INF:
+                continue
+            nb_list = pnb[ni]
+            if passable:
+                if i not in nb_list:
+                    nb_list.append(i)
+            elif i in nb_list:
+                nb_list.remove(i)
 
 
 class State:
@@ -56,6 +92,7 @@ class State:
         self.conveyor_cost_grid: list[int] = [1] * n
         self.flow_history: list[int] = [0] * n
         self.bfs_dist: list[int] = [-1] * n
+        self.pnb: list[list[int]] = _init_pnb(w, h, n)
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
 
