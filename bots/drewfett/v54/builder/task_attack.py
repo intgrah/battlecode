@@ -127,6 +127,113 @@ def _enemy_healer_near(ct: Controller, pos: Position) -> bool:
     return False
 
 
+def _friendly_bot_adjacent(ct: Controller, pos: Position) -> bool:
+    """True if any friendly builder bot (other than us) sits on a
+    cardinal neighbour of `pos`. Used to skip harvesters already
+    being attacked by another bot — spreads us across targets
+    instead of dogpiling. Vision-only: if we can't see the tile
+    we assume nobody is there.
+    """
+    my_team = ct.get_team()
+    my_id = ct.get_id()
+    w = ct.get_map_width()
+    h = ct.get_map_height()
+    for d in DIR4:
+        n = pos.add(d)
+        if not (0 <= n.x < w and 0 <= n.y < h):
+            continue
+        if not ct.is_in_vision(n):
+            continue
+        uid = ct.get_tile_builder_bot_id(n)
+        if uid is not None and uid != my_id and ct.get_team(uid) == my_team:
+            return True
+    return False
+
+
+def _min_friendly_chebyshev(ct: Controller, pos: Position) -> int:
+    """Chebyshev distance from `pos` to the nearest OTHER friendly
+    builder bot. Used to score attack spacing: an enemy healer
+    (heal radius r²≤2 ≈ 1 king-move) can cover at most one of us
+    when we're ≥3 chebyshev apart, so we prefer targets that are
+    well away from our other attackers.
+    """
+    my_team = ct.get_team()
+    my_id = ct.get_id()
+    best = 999
+    for uid in ct.get_nearby_units():
+        if uid == my_id:
+            continue
+        if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
+            continue
+        if ct.get_team(uid) != my_team:
+            continue
+        d = chebyshev(pos, ct.get_position(uid))
+        if d < best:
+            best = d
+    return best
+
+
+def _pick_conveyor_target(
+    state: State, ct: Controller, enemy_core: Position, my_pos: Position
+) -> Position | None:
+    """Pick an enemy conveyor/bridge/splitter tile to attack, falling
+    back when no harvester is vulnerable. Preference in order:
+      1. near enemy core (r²≤25)
+      2. conveyor currently carrying a Ti stack (visible flow)
+    Spacing: prefer tiles far from our other attackers (cap at
+    chebyshev 3 — past that point spacing gains are moot since one
+    enemy healer already can't reach two of us).
+    """
+    my_team = ct.get_team()
+    best: Position | None = None
+    best_score: tuple[int, int, int] | None = None
+    for pos in state.nearby_buildings:
+        b = state.get_building(pos)
+        if b is None or getattr(b, "team", None) == my_team:
+            continue
+        if not isinstance(
+            b,
+            (
+                BuildingConveyor,
+                BuildingArmouredConveyor,
+                BuildingSplitter,
+                BuildingBridge,
+            ),
+        ):
+            continue
+        if not state.is_passable(pos):
+            continue
+        if pos in state.attack_tile_blacklist:
+            continue
+        if pos in state.friendly_turret_ray_tiles:
+            continue
+        if ct.is_in_vision(pos):
+            uid = ct.get_tile_builder_bot_id(pos)
+            if uid is not None and uid != ct.get_id():
+                continue
+        if _enemy_healer_near(ct, pos):
+            continue
+        near_core = pos.distance_squared(enemy_core) <= 25
+        has_flow = False
+        if ct.is_in_vision(pos):
+            bid = ct.get_tile_building_id(pos)
+            if bid is not None and ct.get_stored_resource(bid) is not None:
+                has_flow = True
+        if near_core:
+            tier = 0
+        elif has_flow:
+            tier = 1
+        else:
+            continue
+        spacing = _min_friendly_chebyshev(ct, pos)
+        my_dist = my_pos.distance_squared(pos)
+        score = (tier, -min(spacing, 3), my_dist)
+        if best_score is None or score < best_score:
+            best = pos
+            best_score = score
+    return best
+
+
 def _pick_attack_destination(
     state: State, ct: Controller, target: Position, *, avoid_healers: bool = True
 ) -> Position | None:
@@ -143,7 +250,7 @@ def _pick_attack_destination(
     """
     my_pos = ct.get_position()
     my_team = ct.get_team()
-    candidates: list[tuple[int, int, Position]] = []
+    candidates: list[tuple[int, int, int, Position]] = []
     for d in DIR4:
         pos = target.add(d)
         if not state.in_bounds(pos):
@@ -156,6 +263,13 @@ def _pick_attack_destination(
             uid = ct.get_tile_builder_bot_id(pos)
             if uid is not None and uid != ct.get_id():
                 continue
+        if pos in state.attack_tile_blacklist:
+            continue
+        # Standing here would block our own gunner/sentinel shot —
+        # the engine treats friendly bots as LoS obstacles. Don't
+        # attack from inside one of our turrets' kill lanes.
+        if pos in state.friendly_turret_ray_tiles:
+            continue
         b = state.get_building(pos)
         if b is None:
             # Empty terrain — a bot can walk here (building a road
@@ -173,34 +287,38 @@ def _pick_attack_destination(
             cost = 5  # enemy road, 5 HP
         if avoid_healers and _enemy_healer_near(ct, pos):
             continue
+        # Soft-deprioritise tiles that sit in an enemy gunner/sentinel
+        # firing ray. We don't filter them out — sometimes the only
+        # way to hit the harvester is to cross a ray — but we'd rather
+        # stand somewhere safer if equivalent on cost and distance.
+        in_ray = 1 if pos in state.enemy_turret_ray_tiles else 0
         dist = my_pos.distance_squared(pos)
-        candidates.append((cost, dist, pos))
+        candidates.append((in_ray, cost, dist, pos))
     if not candidates:
         return None
     candidates.sort()
-    return candidates[0][2]
-
-
-_DIAGONALS: list[Direction] = [d for d in DIR8 if d not in DIR4]
+    return candidates[0][3]
 
 
 def _gunner_chain_facing(
     state: State, ct: Controller, pos: Position
 ) -> Direction | None:
-    """Return a diagonal direction such that a gunner placed at
+    """Return a direction (any of DIR8) such that a gunner placed at
     `pos` facing that way has an enemy conveyor/splitter/bridge as
     the first building in its forward ray. Used to position gunners
     next to enemy harvesters so they eat the harvester's output
     chain tile-by-tile.
 
-    Ray semantics: walk the diagonal out to r²=13, stop at the
+    Ray semantics: walk the direction out to r²=13, stop at the
     first wall or building. Only success case is "first building is
     enemy transport"; friendly buildings or non-transport enemies
-    block the shot and disqualify this direction.
+    (including the harvester itself) block the shot and disqualify
+    this direction — so the "don't face into the harvester" constraint
+    is enforced implicitly by the isinstance check.
     """
     team = ct.get_team()
     r_sq = GameConstants.GUNNER_VISION_RADIUS_SQ
-    for d in _DIAGONALS:
+    for d in DIR8:
         current = pos
         for _ in range(4):
             current = current.add(d)
@@ -231,6 +349,10 @@ def _gunner_chain_facing(
 
 def run_attack(state: State, ct: Controller) -> None:
     team = ct.get_team()
+    if state.attack_tile_blacklist:
+        state.attack_tile_blacklist = {
+            p: n - 1 for p, n in state.attack_tile_blacklist.items() if n > 1
+        }
     enemy_buildings = [
         p
         for p in state.nearby_buildings
@@ -287,19 +409,28 @@ def run_attack(state: State, ct: Controller) -> None:
         state.offense_turns += 1
 
     if len(vulnerable_harvesters) > 0:
-        # Prefer closest harvester with NO enemy builder adjacent
-        # (no defender/healer waiting). Fall back to closest of all.
-        # This spreads our attackers across lightly-contested targets
-        # instead of dogpiling one that already has defenders.
+        # Target preference, in order:
+        #   1. closest harvester with no enemy healer in range AND
+        #      no friendly bot already attacking it — spreads us
+        #      across lightly-contested targets.
+        #   2. closest with no enemy healer in range (dogpiles if we
+        #      have to, but avoids healers).
+        #   3. closest of all (last resort).
         my_pos = ct.get_position()
-        target = None
-        for h in sorted(
+        sorted_harvesters = sorted(
             vulnerable_harvesters,
             key=lambda p: my_pos.distance_squared(p),
-        ):
-            if not _enemy_healer_near(ct, h):
+        )
+        target = None
+        for h in sorted_harvesters:
+            if not _enemy_healer_near(ct, h) and not _friendly_bot_adjacent(ct, h):
                 target = h
                 break
+        if target is None:
+            for h in sorted_harvesters:
+                if not _enemy_healer_near(ct, h):
+                    target = h
+                    break
         if target is None:
             target = closest(my_pos, vulnerable_harvesters)
         on_friendly_conveyor = is_allied_transport(state, ct, ct.get_position())
@@ -319,6 +450,12 @@ def run_attack(state: State, ct: Controller) -> None:
                         if current_hp > state.last_fire_expected_hp:
                             being_healed = True
                 if being_healed:
+                    # Don't come back to this tile for 5 turns — the
+                    # enemy healer in range will just out-heal us
+                    # again. Let the picker try a different neighbour
+                    # (or a different harvester entirely once this
+                    # tile is off the table).
+                    state.attack_tile_blacklist[my_pos] = 5
                     alt = _pick_attack_destination(state, ct, target)
                     if alt is not None and alt != my_pos:
                         state.last_fire_pos = None
@@ -338,8 +475,17 @@ def run_attack(state: State, ct: Controller) -> None:
                 else:
                     # Not firing this turn — clear tracking so we
                     # don't false-positive heal detection on a stale
-                    # expected HP.
+                    # expected HP. Also try to rotate to a different
+                    # neighbour of the target: the reason we're not
+                    # firing is likely that an enemy bot is within 2
+                    # of our tile (would out-heal our 2 dmg), so we
+                    # want a different angle rather than sitting idle
+                    # on the tile forever.
                     state.last_fire_pos = None
+                    alt = _pick_attack_destination(state, ct, target)
+                    if alt is not None and alt != my_pos:
+                        make_move(state, ct, alt)
+                        return
                 state.offense_target = my_pos
                 state.offense_turns = 0
 
@@ -351,10 +497,10 @@ def run_attack(state: State, ct: Controller) -> None:
                     direction = direction.rotate_right()
 
                 # Cap turrets adjacent to the target harvester at
-                # 1 gunner + 1 sentinel. Gunner gets priority when it
-                # has a clean diagonal ray onto the enemy conveyor
-                # chain — it then eats the chain tile-by-tile while
-                # a sentinel applies pressure to the harvester.
+                # 2 gunners + 1 sentinel. Gunners eat the enemy
+                # conveyor chain tile-by-tile along their ray; stacking
+                # a second gunner on the opposite side roughly doubles
+                # chain pressure. Sentinel applies harvester pressure.
                 n_gunner = 0
                 n_sentinel = 0
                 for d in DIR4:
@@ -366,7 +512,7 @@ def run_attack(state: State, ct: Controller) -> None:
                     elif isinstance(nb, BuildingSentinel):
                         n_sentinel += 1
 
-                if n_gunner == 0:
+                if n_gunner < 2:
                     gdir = _gunner_chain_facing(state, ct, build_position)
                     if gdir is not None:
                         try_place(ct, EntityType.GUNNER, build_position, gdir)
@@ -469,7 +615,22 @@ def run_attack(state: State, ct: Controller) -> None:
     elif state.offense_target:
         make_move(state, ct, state.offense_target)
     else:
-        scout_toward_enemy(state, ct)
+        # No vulnerable harvester and no cached offense target —
+        # spread out to an enemy conveyor target instead. Prefer
+        # core-proximal flow tiles, then visible-flow tiles. Spacing
+        # score keeps us away from our other attackers so a single
+        # enemy healer can't cover two of us.
+        conveyor_target = _pick_conveyor_target(
+            state, ct, enemy_core, ct.get_position()
+        )
+        if conveyor_target is not None:
+            if ct.get_position() == conveyor_target:
+                if should_attack(state, ct, conveyor_target):
+                    try_attack(ct)
+            else:
+                make_move(state, ct, conveyor_target)
+        else:
+            scout_toward_enemy(state, ct)
 
 
 def scout_toward_enemy(state: State, ct: Controller) -> None:

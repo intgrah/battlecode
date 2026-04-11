@@ -1,5 +1,6 @@
 from building import BuildingArmouredConveyor, BuildingConveyor
 from cambc import Controller
+from config import DEBUG_TIMING
 from util import DIR8
 
 from .role import Role
@@ -38,7 +39,7 @@ def _pick_initial_role(state: State, ct: Controller) -> Role:
         roles, weights = zip(*w.items(), strict=False)
         return state.rng.choices(roles, weights=weights)[0]
     idx = ct.get_unit_count() - 3
-    if idx < len(_OPENING_ROLES):
+    if 0 <= idx < len(_OPENING_ROLES):
         role, perm, scout_dir = _OPENING_ROLES[idx]
         state.permanent_role = perm
         if scout_dir is not None:
@@ -109,10 +110,14 @@ def _update_ore_target(state: State, ct: Controller) -> None:
 
 
 def update_economy(state: State, ct: Controller) -> None:
-    t0 = ct.get_cpu_time_elapsed()
-    _update_dangling(state, ct)
-    t1 = ct.get_cpu_time_elapsed()
-    print(f"  loose={t1 - t0}us")
-    _update_ore_target(state, ct)
-    t2 = ct.get_cpu_time_elapsed()
-    print(f"  ore={t2 - t1}us")
+    if DEBUG_TIMING:
+        t0 = ct.get_cpu_time_elapsed()
+        _update_dangling(state, ct)
+        t1 = ct.get_cpu_time_elapsed()
+        print(f"  loose={t1 - t0}us")
+        _update_ore_target(state, ct)
+        t2 = ct.get_cpu_time_elapsed()
+        print(f"  ore={t2 - t1}us")
+    else:
+        _update_dangling(state, ct)
+        _update_ore_target(state, ct)
