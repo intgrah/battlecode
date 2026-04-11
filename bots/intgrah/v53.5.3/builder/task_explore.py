@@ -22,16 +22,23 @@ def _move_via_path(
 ) -> None:
     start = ct.get_position()
     next_pos = pathfind_move(state, ct, start, target)
+    print(f"      explore: start={start} target={target} next={next_pos} ti={ct.get_global_resources()[0]}")
     if next_pos is not None:
         if check_money and ct.get_global_resources()[0] < 75:
             dirs = DIR8
             state.rng.shuffle(dirs)
             my_pos = ct.get_position()
+            moved = False
             for d in dirs:
                 if try_move(ct, my_pos.add(d)):
+                    moved = True
                     break
+            print(f"      explore: low_ti moved={moved}")
         else:
-            try_move_with_build(state, ct, next_pos)
+            result = try_move_with_build(state, ct, next_pos)
+            print(f"      explore: try_move_with_build={result}")
+    else:
+        print("      explore: no path")
 
 
 def task_xplore(state: State, ct: Controller) -> None:

@@ -2,25 +2,19 @@ from __future__ import annotations
 
 from typing import override
 
-from cambc import Controller, Direction, EntityType, Environment, Position, Team
+from cambc import Controller, EntityType, Environment, Position, Team
 from unit import Unit
+from util import DIR4, DIR8
 
 __all__ = ["Launcher"]
 
-_DIR8: list[Direction] = [d for d in Direction if d != Direction.CENTRE]
-_DIR4: list[Direction] = [
-    Direction.NORTH,
-    Direction.SOUTH,
-    Direction.EAST,
-    Direction.WEST,
-]
 _PASSABLE_BUILDINGS = frozenset(
     {
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.BRIDGE,
         EntityType.CONVEYOR,
         EntityType.ROAD,
         EntityType.SPLITTER,
-        EntityType.ARMOURED_CONVEYOR,
-        EntityType.BRIDGE,
     }
 )
 
@@ -70,9 +64,11 @@ def _find_harvester_attack_tiles(ct: Controller, my_team: Team) -> list[Position
             continue
         if ct.get_team(bid) == my_team:
             continue
-        for d in _DIR4:
+        for d in DIR4:
             adj = pos.add(d)
-            adj_bid = ct.get_tile_building_id(pos)
+            if not ct.is_in_vision(adj):
+                continue
+            adj_bid = ct.get_tile_building_id(adj)
             if (
                 _is_empty_walkable(ct, adj)
                 and adj_bid is not None
@@ -87,7 +83,7 @@ def _find_harvester_attack_tiles(ct: Controller, my_team: Team) -> list[Position
                 or not ct.is_in_vision(adj)
                 or ct.get_tile_building_id(adj) is None
             ):
-                for d2 in _DIR8:
+                for d2 in DIR8:
                     adj2 = pos.add(d2)
                     if _is_empty_walkable(ct, adj2):
                         targets.append(adj2)

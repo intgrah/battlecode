@@ -19,19 +19,16 @@ if TYPE_CHECKING:
 
 
 def prune_stale(state: State, ct: Controller) -> None:
-    state.healable_buildings = [
-        p for p in state.healable_buildings if not ct.is_in_vision(p)
-    ]
-    state.adjacent_to_enemy_launcher = {
-        p for p in state.adjacent_to_enemy_launcher if not ct.is_in_vision(p)
-    }
-    for pos in ct.get_nearby_tiles():
+    visible = set(ct.get_nearby_tiles())
+    state.healable_buildings -= visible
+    state.adjacent_to_enemy_launcher -= visible
+    for pos in visible:
         i = state.idx(pos)
         state.conveyors_to_here[i] = [
-            p for p in state.conveyors_to_here[i] if not ct.is_in_vision(p)
+            p for p in state.conveyors_to_here[i] if p not in visible
         ]
         state.splitters_to_here[i] = [
-            p for p in state.splitters_to_here[i] if not ct.is_in_vision(p)
+            p for p in state.splitters_to_here[i] if p not in visible
         ]
 
 
@@ -91,7 +88,7 @@ def update_vision(state: State, ct: Controller) -> None:
 
         state.nearby_buildings.append(pos)
         if state.hp[i] < state.max_hp[i] and b is not None and b.team == ct.get_team():
-            state.healable_buildings.append(pos)
+            state.healable_buildings.add(pos)
         match b:
             case BuildingLauncher(team=t) if t != state.my_team:
                 for d in DIR8:
