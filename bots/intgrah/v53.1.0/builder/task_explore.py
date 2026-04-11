@@ -34,6 +34,28 @@ def _move_via_path(
             try_move_with_build(state, ct, next_pos)
 
 
+def _pick_frontier_target(state: State, ct: Controller) -> Position | None:
+    w = state.w
+    frontier = state.frontier
+    if not frontier:
+        return None
+    my_pos = ct.get_position()
+    mx, my = my_pos.x, my_pos.y
+    best = -1
+    best_dist = float("inf")
+    for fi in frontier:
+        if state.cost_grid[fi] == float("inf"):
+            continue
+        fx, fy = fi % w, fi // w
+        d = (fx - mx) ** 2 + (fy - my) ** 2
+        if d < best_dist:
+            best_dist = d
+            best = fi
+    if best < 0:
+        return None
+    return Position(best % w, best // w)
+
+
 def explore(state: State, ct: Controller) -> None:
     state.scout_age += 1
     m = state
@@ -42,31 +64,37 @@ def explore(state: State, ct: Controller) -> None:
     if (
         state.scout_age > 20
         or t is None
-        or (ct.get_position().x - t.x) ** 2 + (ct.get_position().y - t.y) ** 2 < 3
+        or ct.get_position().distance_squared(t) < 3
         or m.get_cost(t) == float("inf")
+        or (t and m._idx(t) not in state.frontier)
     ):
-        t = Position(-10, -10)
-        while (
-            t.x < 0
-            or t.y < 0
-            or t.x >= m.w
-            or t.y >= m.h
-            or m.get_cost(t) == float("inf")
-        ):
-            theta = state.rng.random() * 2 * math.pi
-            t = Position(
-                ct.get_position().x + round(math.cos(theta) * state.scout_radius),
-                ct.get_position().y + round(math.sin(theta) * state.scout_radius),
-            )
-            if state.scout_radius >= m.w / 2 or state.scout_radius >= m.h / 2:
-                state.scout_radius -= 1.0
+        ft = _pick_frontier_target(state, ct)
+        if ft is not None:
+            t = ft
+        else:
+            for _ in range(20):
+                theta = state.rng.random() * 2 * math.pi
+                candidate = Position(
+                    ct.get_position().x + round(math.cos(theta) * state.scout_radius),
+                    ct.get_position().y + round(math.sin(theta) * state.scout_radius),
+                )
+                if (
+                    0 <= candidate.x < m.w
+                    and 0 <= candidate.y < m.h
+                    and m.get_cost(candidate) != float("inf")
+                ):
+                    t = candidate
+                    break
+                if state.scout_radius >= m.w / 2 or state.scout_radius >= m.h / 2:
+                    state.scout_radius -= 1.0
+            else:
+                return
 
         state.scout_age = 0
         state.scout_target = t
+
+    if t is not None:
         ct.draw_indicator_dot(t, 255, 0, 255)
-        _move_via_path(state, ct, t)
-    else:
-        ct.draw_indicator_dot(t, 10, 0, 10)
         _move_via_path(state, ct, t)
 
 

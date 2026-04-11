@@ -61,6 +61,8 @@ members = [
     "bot-v51",
     "bot-v52",
     "bot-v52-lockedin",
+    "bot-v53",
+    "bot-v53-1-0",
     "proto",
     "util",
     "visualiser",
@@ -707,6 +709,40 @@ requires-dist = [
 name = "bot-v52-lockedin"
 version = "0.0.0"
 source = { virtual = "bots/adgato/v52_lockedin" }
+dependencies = [
+    { name = "cambc" },
+    { name = "util" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.6.2" },
+    { name = "util", editable = "lib/util" },
+    { name = "visualiser", editable = "lib/visualiser" },
+]
+
+[[package]]
+name = "bot-v53"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v53" }
+dependencies = [
+    { name = "cambc" },
+    { name = "util" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.6.2" },
+    { name = "util", editable = "lib/util" },
+    { name = "visualiser", editable = "lib/visualiser" },
+]
+
+[[package]]
+name = "bot-v53-1-0"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v53.1.0" }
 dependencies = [
     { name = "cambc" },
     { name = "util" },
