@@ -321,7 +321,6 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                 state.fire_events.push(((from.x, from.y), (to.x, to.y)));
             }
         }
-        Kind::BuilderAttack(_) => {}
         Kind::DistributeResources(dr) => {
             for m in &dr.moves {
                 let (Some(from), Some(to)) = (&m.from, &m.to) else {
@@ -356,6 +355,11 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                     deliver_stored_resource(&mut dst.kind, resource);
                 }
             }
+        }
+        Kind::BuilderAttack(_) => {
+            // Builder attacking a building they're standing on — HP
+            // delta events already update the visual state, no extra
+            // work needed here.
         }
     }
 }

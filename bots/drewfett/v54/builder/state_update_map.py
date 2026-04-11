@@ -105,6 +105,9 @@ def update_map(state: State, ct: Controller) -> None:
     state.enemy_turret_ray_tiles = {
         p for p in state.enemy_turret_ray_tiles if not ct.is_in_vision(p)
     }
+    state.friendly_turret_ray_tiles = {
+        p for p in state.friendly_turret_ray_tiles if not ct.is_in_vision(p)
+    }
 
     for pos in nearby_positions:
         if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
@@ -219,6 +222,49 @@ def update_map(state: State, ct: Controller) -> None:
                                 h = ray.add(hd)
                                 if 0 <= h.x < state.w and 0 <= h.y < state.h:
                                     state.enemy_turret_ray_tiles.add(h)
+                    case BuildingGunner(team=t, direction=d) if t == ct.get_team():
+                        # Friendly gunner ray — walk forward, add tiles
+                        # up to r²≤13, stop at the first wall or any
+                        # building (friendly or enemy). Past that tile
+                        # the gunner can't hit anything anyway, so we
+                        # don't need to warn bots off tiles past it.
+                        # Read from state cache (not `ct.*` methods):
+                        # ray tiles can extend past our bot's vision
+                        # when the gunner is near the edge, and the
+                        # controller raises on out-of-vision queries.
+                        ray = pos
+                        for _ in range(4):
+                            ray = ray.add(d)
+                            if pos.distance_squared(ray) > 13:
+                                break
+                            if not (0 <= ray.x < state.w and 0 <= ray.y < state.h):
+                                break
+                            if state.get_env(ray) == Environment.WALL:
+                                break
+                            state.friendly_turret_ray_tiles.add(ray)
+                            if state.get_building(ray) is not None:
+                                break
+                    case BuildingSentinel(team=t, direction=d) if t == ct.get_team():
+                        # Friendly sentinel ray — core line + 1-king
+                        # halo, up to r²≤32, again stopping at the
+                        # first building in the core line. Same
+                        # vision-safety reasoning as the gunner case.
+                        ray = pos
+                        for _ in range(6):
+                            ray = ray.add(d)
+                            if pos.distance_squared(ray) > 32:
+                                break
+                            if not (0 <= ray.x < state.w and 0 <= ray.y < state.h):
+                                break
+                            if state.get_env(ray) == Environment.WALL:
+                                break
+                            state.friendly_turret_ray_tiles.add(ray)
+                            for hd in DIR8:
+                                h = ray.add(hd)
+                                if 0 <= h.x < state.w and 0 <= h.y < state.h:
+                                    state.friendly_turret_ray_tiles.add(h)
+                            if state.get_building(ray) is not None:
+                                break
             else:
                 state.buildings[i] = None
                 # Marker or empty tile: let pass_grid decide based
@@ -288,6 +334,38 @@ def update_map(state: State, ct: Controller) -> None:
             and state.buildings[pos.y * w + pos.x] is None
         ):
             pass
+
+    # Ore-denial set: rebuilt each turn (cheap, bounded by vision).
+    # For each ore tile in vision with any enemy bot/building in its
+    # cardinal-8 halo, mark the ore's 4 cardinal neighbours as
+    # denial-road candidates.
+    state.deny_ore_neighbours = set()
+    my_team = ct.get_team()
+    for pos in nearby_positions:
+        if not (0 <= pos.x < state.w and 0 <= pos.y < state.h):
+            continue
+        env = state.env[pos.y * w + pos.x]
+        if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+            continue
+        has_enemy = False
+        for d in DIR8:
+            n = pos.add(d)
+            if not (0 <= n.x < state.w and 0 <= n.y < state.h):
+                continue
+            nb = state.buildings[n.y * w + n.x]
+            if nb is not None and nb.team != my_team:
+                has_enemy = True
+                break
+            if ct.is_in_vision(n):
+                uid = ct.get_tile_builder_bot_id(n)
+                if uid is not None and ct.get_team(uid) != my_team:
+                    has_enemy = True
+                    break
+        if has_enemy:
+            for d in DIR4:
+                n = pos.add(d)
+                if 0 <= n.x < state.w and 0 <= n.y < state.h:
+                    state.deny_ore_neighbours.add(n)
 
     if state.nearest_enemy_turret:
         match state.buildings[pos.y * w + pos.x]:
