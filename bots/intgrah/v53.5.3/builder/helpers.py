@@ -103,7 +103,7 @@ def try_heal(
     state: State, ct: Controller, position: Position, *, conserve_ti: bool = True
 ) -> bool:
     if conserve_ti and state.repair_pos is not None:
-        i = state._idx(state.repair_pos)
+        i = state.idx(state.repair_pos)
         if not state.buildings[i] or state.hp[i] > state.max_hp[i] - 4:
             return False
     if ct.can_heal(position):

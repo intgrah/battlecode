@@ -61,10 +61,7 @@ def update_vision(state: State, ct: Controller) -> None:
     for pos in nearby_positions:
         if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
             i = pos.y * w + pos.x
-            was_unseen = state.env[i] is None
             state.env[i] = ct.get_tile_env(pos)
-            if was_unseen:
-                state.update_frontier_at(i)
             building_id = ct.get_tile_building_id(pos)
             if (
                 building_id is not None

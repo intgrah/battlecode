@@ -168,10 +168,11 @@ class Builder(Unit):
         s = self.state
         t0 = ct.get_cpu_time_elapsed()
         update(s, ct)
-        t1 = ct.get_cpu_time_elapsed()
 
         if DEBUG_DUMP:
             dump(s, ct)
+
+        t1 = ct.get_cpu_time_elapsed()
 
         assert s.role is not None
         chosen = "none"
