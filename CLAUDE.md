@@ -70,24 +70,19 @@ Analysis scripts live in `scripts/`. Replay analysis via `just analyze`, `just s
 
 ## Development Workflow
 
-````
-hetzner script runs games on cloud. Use this.
-cambcpypy is a PyPy rewrite of the engine. ALWAYS prefer this to run games.
-```s
-
-````
-
-just match v50 v49 # run + print summary stats
-just watch v50 v49 # run with live visualiser
-just stats # quick summary of last replay
-just analyze # full analysis of last replay
-just lint # ruff check --fix
-just fmt # ruff format
-just f # ty + lint + fmt
-just submit intgrah/v50 # build + upload to ladder
-just status # check ladder rating
-
 ```
+just match v50 v49     # run + print summary stats
+just watch v50 v49     # run with live visualiser
+just stats             # quick summary of last replay
+just analyze           # full analysis of last replay
+just lint              # ruff check --fix
+just fmt               # ruff format
+just f                 # ty + lint + fmt
+just status            # check ladder rating
+```
+
+- Run games via `scripts/hetzner.py` on ephemeral Hetzner cloud servers using the `cambcpypy` PyPy engine. Server names are ephemeral — use `status` to find them. `sync` only needed when the engine changes, not bot code. `ci` uploads bots and runs games in parallel.
+- Use `COLUMNS=200` when running `cambc match list`/`cambc match tests` to avoid truncated UUIDs.
 
 ## Python Style
 
