@@ -118,8 +118,7 @@ def bugnav_step(
 def bugnav(state: State, ct: Controller, target: Position) -> Position | None:
     blocked: set[Position] = set()
     current_pos = ct.get_position()
-    nearby_positions = ct.get_nearby_tiles(2)
-    for pos in nearby_positions:
+    for pos in ct.get_nearby_tiles():
         if pos != current_pos and ct.get_tile_builder_bot_id(pos) is not None:
             blocked.add(pos)
 

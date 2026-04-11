@@ -85,7 +85,7 @@ def _find_splitter_target(state: State, ct: Controller) -> Position | None:
     best: Position | None = None
     best_dist = float("inf")
     my_pos = ct.get_position()
-    for pos in state.nearby_positions:
+    for pos in ct.get_nearby_tiles():
         i = pos.y * w + pos.x
         bld = state.buildings[i]
         if not isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor)):
@@ -138,7 +138,7 @@ def task_place_foundry(state: State, ct: Controller) -> bool:
     best_splitter: Position | None = None
     best_dist = float("inf")
     my_pos = ct.get_position()
-    for pos in state.nearby_positions:
+    for pos in ct.get_nearby_tiles():
         i = pos.y * w + pos.x
         bld = state.buildings[i]
         if not isinstance(bld, BuildingSplitter):

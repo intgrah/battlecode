@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from cambc import EntityType
+from cambc import Controller, EntityType
 
 if TYPE_CHECKING:
     from cambc import Direction, Position, Team
@@ -81,6 +81,12 @@ class BuildingLauncher:
     team: Team
 
 
+@dataclass(frozen=True, slots=True)
+class BuildingMarker:
+    team: Team
+    value: int
+
+
 type Building = (
     BuildingCore
     | BuildingHarvester
@@ -95,21 +101,41 @@ type Building = (
     | BuildingSentinel
     | BuildingBreach
     | BuildingLauncher
+    | BuildingMarker
 )
 
 
-ETYPE_BUILDING: dict[EntityType, type] = {
-    EntityType.CORE: BuildingCore,
-    EntityType.HARVESTER: BuildingHarvester,
-    EntityType.CONVEYOR: BuildingConveyor,
-    EntityType.ARMOURED_CONVEYOR: BuildingArmouredConveyor,
-    EntityType.SPLITTER: BuildingSplitter,
-    EntityType.BRIDGE: BuildingBridge,
-    EntityType.FOUNDRY: BuildingFoundry,
-    EntityType.BARRIER: BuildingBarrier,
-    EntityType.ROAD: BuildingRoad,
-    EntityType.GUNNER: BuildingGunner,
-    EntityType.SENTINEL: BuildingSentinel,
-    EntityType.BREACH: BuildingBreach,
-    EntityType.LAUNCHER: BuildingLauncher,
-}
+def make_building(ct: Controller, bid: int, etype: EntityType) -> Building:
+    team = ct.get_team(bid)
+    match etype:
+        case EntityType.CONVEYOR:
+            return BuildingConveyor(team, ct.get_direction(bid))
+        case EntityType.ARMOURED_CONVEYOR:
+            return BuildingArmouredConveyor(team, ct.get_direction(bid))
+        case EntityType.SPLITTER:
+            return BuildingSplitter(team, ct.get_direction(bid))
+        case EntityType.GUNNER:
+            return BuildingGunner(team, ct.get_direction(bid))
+        case EntityType.SENTINEL:
+            return BuildingSentinel(team, ct.get_direction(bid))
+        case EntityType.BREACH:
+            return BuildingBreach(team, ct.get_direction(bid))
+        case EntityType.BRIDGE:
+            return BuildingBridge(team, ct.get_bridge_target(bid))
+        case EntityType.CORE:
+            return BuildingCore(team)
+        case EntityType.HARVESTER:
+            return BuildingHarvester(team)
+        case EntityType.FOUNDRY:
+            return BuildingFoundry(team)
+        case EntityType.BARRIER:
+            return BuildingBarrier(team)
+        case EntityType.ROAD:
+            return BuildingRoad(team)
+        case EntityType.LAUNCHER:
+            return BuildingLauncher(team)
+        case EntityType.MARKER:
+            return BuildingMarker(team, ct.get_marker_value(bid))
+        case EntityType.BUILDER_BOT:
+            msg = f"{EntityType.BUILDER_BOT} is not a building"
+            raise ValueError(msg)
