@@ -46,6 +46,8 @@ Communication: markers only (each unit is an isolated Python instance, no shared
 
 Resources can be sent to enemy buildings — careful with conveyor placement near opponents.
 
+Typical weights for A\* pathfinding: 1 for pre-existing walkable tiles (road, conveyer, bridge, splitter), 3 for empty (requires building a road), 3 for unseen (assume pessimistically that there is no road). INF for walls or non-walkable buildings (INF: int = 1000000).
+
 ## Codebase Structure
 
 Bots live in `bots/<name>/`. Each bot folder is a self-contained package with a `main.py` containing the `Player` class. Versioned as `v1`, `v2`, ... `v50`. The latest version is the active development target.
@@ -68,16 +70,23 @@ Analysis scripts live in `scripts/`. Replay analysis via `just analyze`, `just s
 
 ## Development Workflow
 
-```
-just match v50 v49     # run + print summary stats
-just watch v50 v49     # run with live visualiser
-just stats             # quick summary of last replay
-just analyze           # full analysis of last replay
-just lint              # ruff check --fix
-just fmt               # ruff format
-just f                 # ty + lint + fmt
-just submit intgrah/v50  # build + upload to ladder
-just status            # check ladder rating
+````
+hetzner script runs games on cloud. Use this.
+cambcpypy is a PyPy rewrite of the engine. ALWAYS prefer this to run games.
+```s
+
+````
+
+just match v50 v49 # run + print summary stats
+just watch v50 v49 # run with live visualiser
+just stats # quick summary of last replay
+just analyze # full analysis of last replay
+just lint # ruff check --fix
+just fmt # ruff format
+just f # ty + lint + fmt
+just submit intgrah/v50 # build + upload to ladder
+just status # check ladder rating
+
 ```
 
 ## Python Style
@@ -110,3 +119,4 @@ Always run `ruff check --fix --unsafe-fixes` and `ruff format` before committing
 - Use `cambc` API cost getters (`c.get_conveyor_cost()`, etc.) instead of manually computing scaled costs.
 - Use `can_*` checks before performing actions to avoid `GameError` exceptions.
 - Be mindful of the 2ms CPU budget. Avoid unnecessary allocations, deep recursion, and O(n²) loops over large tile sets.
+```
