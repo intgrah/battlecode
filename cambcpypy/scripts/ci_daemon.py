@@ -66,10 +66,13 @@ def _run_one_game(
 
     if result.winner == 0:
         winner_name = bot_a_name
+        winner_side = "a"
     elif result.winner == 1:
         winner_name = bot_b_name
+        winner_side = "b"
     else:
         winner_name = "draw"
+        winner_side = "draw"
 
     replay_b64 = ""
     replay_file = Path(replay_path)
@@ -81,6 +84,7 @@ def _run_one_game(
         "map": map_name,
         "seed": seed,
         "winner": winner_name,
+        "winner_side": winner_side,
         "condition": result.win_condition,
         "turns": result.turns_played,
         "time": round(elapsed, 2),
@@ -193,9 +197,10 @@ async def _handle_run(
             except Exception as e:
                 result = {"error": str(e)}
 
-            if result.get("winner") == bot_a_name:
+            side = result.get("winner_side")
+            if side == "a":
                 wins_a += 1
-            elif result.get("winner") == bot_b_name:
+            elif side == "b":
                 wins_b += 1
             else:
                 draws += 1
