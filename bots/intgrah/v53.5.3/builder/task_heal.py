@@ -9,7 +9,7 @@ def best_healable_building(state: State, ct: Controller) -> Position | None:
     best: Position | None = None
     best_score: tuple[int, int, int] = (0, 0, 0)
     for pos in state.healable_buildings:
-        i = state._idx(pos)
+        i = state.idx(pos)
         hp = state.hp[i]
         max_hp = state.max_hp[i]
         damage = max_hp - hp
@@ -51,7 +51,7 @@ def best_healable_building(state: State, ct: Controller) -> Position | None:
     state.healable_buildings = [
         p
         for p in state.healable_buildings
-        if state.hp[state._idx(p)] < state.max_hp[state._idx(p)]
+        if state.hp[state.idx(p)] < state.max_hp[state.idx(p)]
     ]
     return best
 
@@ -60,7 +60,7 @@ def best_adjacent_healable_building(state: State, ct: Controller) -> Position | 
     best: Position | None = None
     best_score: tuple[int, int] = (0, 0)
     for pos in state.healable_buildings:
-        i = state._idx(pos)
+        i = state.idx(pos)
         hp = state.hp[i]
         max_hp = state.max_hp[i]
         damage = max_hp - hp
@@ -76,7 +76,7 @@ def best_adjacent_healable_building(state: State, ct: Controller) -> Position | 
 def run_heal(state: State, ct: Controller) -> bool:
     if state.repair_pos and ct.is_in_vision(state.repair_pos):
         b = state.get_building(state.repair_pos)
-        ti = state._idx(state.repair_pos)
+        ti = state.idx(state.repair_pos)
         if b and state.hp[ti] < state.max_hp[ti] - 2 and b.team == ct.get_team():
             pass
         else:
@@ -118,7 +118,7 @@ def has_wounded_enemy(state: State, ct: Controller, position: Position) -> bool:
     b = state.get_building(position)
     if not b:
         return False
-    i = state._idx(position)
+    i = state.idx(position)
     return b.team != ct.get_team() and state.hp[i] < state.max_hp[i]
 
 
@@ -158,7 +158,7 @@ def heal_self(state: State, ct: Controller) -> bool:
 def task_heal(state: State, ct: Controller) -> bool:
     b = state.get_building(ct.get_position())
     if b and b.team != ct.get_team():
-        i = state._idx(ct.get_position())
+        i = state.idx(ct.get_position())
         if state.hp[i] <= 2:
             return False
         if state.hp[i] <= 6 and ct.get_hp() > 18:

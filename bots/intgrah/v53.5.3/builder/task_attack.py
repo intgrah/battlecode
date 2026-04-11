@@ -85,7 +85,7 @@ def nearest_enemy_bot(ct: Controller) -> Position | None:
 
 def should_attack(state: State, ct: Controller, pos: Position) -> bool:
     enemy_builder = nearest_enemy_bot(ct)
-    i = state._idx(pos)
+    i = state.idx(pos)
     return (
         (enemy_builder is None)
         or chebyshev(ct.get_position(), enemy_builder) > 2
