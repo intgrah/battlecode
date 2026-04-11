@@ -114,4 +114,20 @@ Always run `ruff check --fix --unsafe-fixes` and `ruff format` before committing
 - Use `cambc` API cost getters (`c.get_conveyor_cost()`, etc.) instead of manually computing scaled costs.
 - Use `can_*` checks before performing actions to avoid `GameError` exceptions.
 - Be mindful of the 2ms CPU budget. Avoid unnecessary allocations, deep recursion, and O(n²) loops over large tile sets.
-```
+- All imports at top of file, never inside functions. If there are circular imports, fix the architecture.
+- Do not import between sibling state_update files. Keep the import hierarchy acyclic. Shared constants go in `util.py`.
+
+## Rules for the assistant
+
+These rules are non-negotiable. They come from repeated, costly failures.
+
+1. **Never fabricate.** Do not make up numbers, explanations, or diagnoses. If you haven't measured or read the code, say "I don't know." Every fabricated answer wastes time and destroys trust. Do not say "~120 tiles" without counting. Do not say "API calls are the cost" without profiling.
+2. **Never make autonomous decisions.** Do not choose architectures, design patterns, server names, or approaches without being told. Execute instructions only. When in doubt, ask.
+3. **Never guess at infrastructure.** Do not hardcode server names — they are ephemeral. Use `python scripts/hetzner.py status` to find servers. Always use the cambcpypy engine via `hetzner.py`, never the official `cambc` engine for running games.
+4. **Never speculate about causes.** Do not say "this is probably because X" or "likely due to Y." Either prove it from code/data or say "I don't know, let me check."
+5. **Never contradict what the user sees.** The user has visibility into the game via replays and the visualiser. Accept their observations as ground truth.
+6. **Never claim what code does without reading it.** Grep/read first, then answer with evidence. Never say "no" or "yes" about code behavior from memory.
+7. **Say "I don't know" freely.** The user would rather hear this than a confident wrong answer. Wrong answers cause more damage than no answer.
+8. **Do not touch code the user edited.** If the user made changes, do not overwrite or "fix" them. Only change exactly what is asked.
+9. **Never delete the user's comments** when editing code.
+10. **Never run `cambc` or overwrite replay files** without explicit permission. Never run `git checkout`/`restore`/`reset` that discards uncommitted changes.
