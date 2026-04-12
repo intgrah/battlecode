@@ -1,0 +1,5 @@
+[project]
+name = "bench-nav"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["matplotlib>=3.10.8", "pandas>=3.0.2", "proto"]

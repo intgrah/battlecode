@@ -6,13 +6,13 @@ run a b map=default_map:
     cambc run {{ a }} {{ b }} {{ map }}
 
 r a b map=default_map:
-    VIRTUAL_ENV= uv run --project cambcpypy cambcpypy run {{ a }} {{ b }} {{ map }}
+    VIRTUAL_ENV= uv run --project pkg/cambcpypy cambcpypy run {{ a }} {{ b }} {{ map }}
 
 v replay="replay.replay26": vv
-    lib/visualiser/viewer/target/release/visualiser-viewer {{ replay }}
+    pkg/visualiser/viewer/target/release/visualiser-viewer {{ replay }}
 
 vv:
-    cargo build --release --manifest-path lib/visualiser/viewer/Cargo.toml
+    cargo build --release --manifest-path pkg/visualiser/viewer/Cargo.toml
 
 w replay="replay.replay26":
     cambc watch {{ replay }}
@@ -48,7 +48,7 @@ bots replay="replay.replay26":
     {{ _analysis }} {{ replay }} -s bots
 
 report replay="replay.replay26" a="Team A" b="Team B":
-    PYTHONPATH=lib/proto/src python scripts/match_report.py {{ replay }} --a "{{ a }}" --b "{{ b }}"
+    PYTHONPATH=pkg/proto/src python scripts/match_report.py {{ replay }} --a "{{ a }}" --b "{{ b }}"
 
 compare replay="replay.replay26":
     {{ _analysis }} {{ replay }} -s compare
@@ -79,9 +79,13 @@ match a b map=default_map:
     {{ _analysis }} replay.replay26 -s summary
 
 proto:
-    protoc --python_out=lib/proto/src/proto --pyi_out=lib/proto/src/proto --proto_path=lib/proto/src/proto lib/proto/src/proto/cambc.proto
-    ruff check --fix lib/proto/
-    ruff format lib/proto/
+    protoc \
+      --python_out=pkg/proto/src/proto \
+      --pyi_out=pkg/proto/src/proto \
+      --proto_path=pkg/proto/src/proto \
+      pkg/proto/src/proto/cambc.proto
+    ruff check --fix pkg/proto/
+    ruff format pkg/proto/
 
 lint:
     ruff check --fix bots/ scripts/
@@ -107,9 +111,9 @@ build bot:
     rm -rf build/bot
     cp -r "bots/{{ bot }}" build/bot
     # Vendor workspace dependencies
-    for dep in lib/*/src/; do
+    for dep in pkg/*/src/; do
         name=$(basename "$(dirname "$dep")")
-        src="lib/$name/src/$name"
+        src="pkg/$name/src/$name"
         if [ -d "$src" ] && grep -q "\"$name\"" "bots/{{ bot }}/pyproject.toml" 2>/dev/null; then
             cp -r "$src" "build/bot/$name"
         fi
@@ -117,45 +121,6 @@ build bot:
     find build/bot -type d -name __pycache__ -exec rm -rf {} +
     find build/bot -type f \( -name "*.pyi" -o -name pyproject.toml \) -delete
     echo "Built {{ bot }} -> build/bot"
-
-challenge bot opponent:
-    #!/usr/bin/env bash
-    ranked="${RANKED:-v21}"
-    find "bots/{{ bot }}" -type d -name __pycache__ -exec rm -rf {} +
-    echo "Submitting {{ bot }}"
-    cambc submit "bots/{{ bot }}"
-    echo "Challenging {{ opponent }}"
-    cambc unrated "{{ opponent }}"
-    echo "Restoring $ranked"
-    cambc submit "bots/$ranked"
-
-online *args:
-    python scripts/online.py {{ args }}
-
-status:
-    cambc status
-
-[private]
-_arm := "bc"
-[private]
-_x86 := "chi"
-
-remote a b *args:
-    fish scripts/remote_match.fish {{ _arm }} bots/{{ a }} bots/{{ b }} {{ args }}
-
-remote-x86 a b *args:
-    fish scripts/remote_match.fish {{ _x86 }} bots/{{ a }} bots/{{ b }} {{ args }}
-
-remote-match a b *args:
-    fish scripts/remote_match.fish {{ _arm }} bots/{{ a }} bots/{{ b }} {{ args }}
-    {{ _analysis }} replay.replay26 -s summary
-
-ci a b:
-    fish scripts/ci.fish bots/{{ a }} bots/{{ b }}
-
-remote-match-x86 a b *args:
-    fish scripts/remote_match.fish {{ _x86 }} bots/{{ a }} bots/{{ b }} {{ args }}
-    {{ _analysis }} replay.replay26 -s summary
 
 docs:
     #!/usr/bin/env bash

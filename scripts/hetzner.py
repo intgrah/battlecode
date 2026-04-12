@@ -264,7 +264,7 @@ _SYNC_DIRS = [
     ("bots/", "bots/"),
     ("maps/", "maps/"),
     ("cambcpypy/", "cambcpypy/"),
-    ("lib/proto/", "lib/proto/"),
+    ("pkg/proto/", "pkg/proto/"),
 ]
 
 _SYNC_FILES: list[tuple[str, str]] = []
@@ -400,7 +400,7 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             sys.exit(1)
         uuid_b = resp["uuid"]
 
-        replay_dir = _PROJECT_ROOT / "replays_ci"
+        replay_dir = _PROJECT_ROOT / "replays" / "ci"
         replay_dir.mkdir(exist_ok=True)
 
         print(f"Running {n} games: {bot_a} vs {bot_b}...")
