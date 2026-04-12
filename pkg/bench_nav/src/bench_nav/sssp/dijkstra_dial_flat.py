@@ -14,7 +14,7 @@ def dijkstra_dial_flat(
     max_d = 0
     while cur_d <= max_d:
         for node in bk[cur_d]:
-            if dist[node] is cur_d:
+            if dist[node] == cur_d:
                 for nb in pnb[node]:
                     nd = cur_d + cost[nb]
                     if nd < dist[nb]:
