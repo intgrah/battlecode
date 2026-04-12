@@ -1,55 +1,32 @@
 from __future__ import annotations
 
 import heapq
-from typing import TYPE_CHECKING
 
-from bench_nav.common import CR, INF, Path_
-
-if TYPE_CHECKING:
-    from bench_nav.map_data import MapData
+from bench_nav.common import CR, INF, Path_, extract_parent
 
 
-def spsp_gbfs(md: MapData, si: int, gi: int, budget: int = 0) -> Path_:
-    w, n, pnb = md.w, md.n, md.pnb
-    if si == gi:
-        return [si]
-    gx, gy = gi % w, gi // w
-    parent: list[int] = [-1] * n
-    parent[si] = si
-    visited: list[bool] = [False] * n
-    visited[si] = True
-    h_si = max(abs(si % w - gx), abs(si // w - gy)) * CR
-    heap: list[tuple[int, int]] = [(h_si, si)]
-    exp = 0
+def gbfs(w: int, n: int, pnb: list[list[int]], start: int, goal: int) -> Path_:
+    start_x, start_y = start % w, start // w
+    goal_x, goal_y = goal % w, goal // w
+    parent = [-1] * n
+    parent[start] = start
+    h_start = max(abs(start_x - goal_x), abs(start_y - goal_y)) * CR
+    q = [(h_start, start)]
     best_h = INF
-    best_node = si
-    while heap:
-        h_node, node = heapq.heappop(heap)
-        if node == gi:
-            best_node = gi
-            break
-        if not visited[node]:
-            continue
-        exp += 1
+    best_node = start
+    while q:
+        h_node, node = heapq.heappop(q)
+        if node == goal:
+            return extract_parent(parent, start, goal)
         if h_node < best_h:
             best_h = h_node
             best_node = node
-        if budget > 0 and exp >= budget:
-            break
-        for ni in pnb[node]:
-            if visited[ni]:
+        for nb in pnb[node]:
+            if parent[nb] != -1:
                 continue
-            visited[ni] = True
-            parent[ni] = node
-            h_ni = max(abs(ni % w - gx), abs(ni // w - gy)) * CR
-            heapq.heappush(heap, (h_ni, ni))
-    if best_node == si or parent[best_node] == -1:
+            parent[nb] = node
+            h_nb = max(abs(nb % w - goal_x), abs(nb // w - goal_y)) * CR
+            heapq.heappush(q, (h_nb, nb))
+    if best_node == start:
         return None
-    path: list[int] = []
-    cur = best_node
-    while cur != si:
-        path.append(cur)
-        cur = parent[cur]
-    path.append(si)
-    path.reverse()
-    return path
+    return extract_parent(parent, start, best_node)
