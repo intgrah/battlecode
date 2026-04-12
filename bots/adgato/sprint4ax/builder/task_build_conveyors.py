@@ -75,7 +75,10 @@ def lay_segment(
 
     next_pos = path[1]
     if not ct.is_in_vision(next_pos):
-        return try_place(ct, EntityType.BRIDGE, start_pos, reachable_path_end(path, start_pos, 3))
+        target = reachable_path_end(path, start_pos, 3)
+        if start_pos != target:
+            return try_place(ct, EntityType.BRIDGE, start_pos, target)
+        return False
     destination_building = ct.get_tile_building_id(next_pos)
     destination_team = (
         ct.get_team(destination_building) if destination_building else None
@@ -93,7 +96,7 @@ def lay_segment(
             or destination_team == ct.get_team()
             or destination_is_marker
         )
-        and state.get_env(path[1]) == Environment.EMPTY
+        and state.get_env(path[1]) != Environment.WALL
     ):
         return try_place(ct, EntityType.CONVEYOR, start_pos, direction)
     pending_bridge = reachable_path_end(path, start_pos, 3)
@@ -101,7 +104,7 @@ def lay_segment(
         if clear_with_turret(state, ct, start_pos, pending_bridge):
             state.branch_start = start_pos
         return False
-    if try_place(ct, EntityType.BRIDGE, start_pos, pending_bridge):
+    if start_pos != pending_bridge and try_place(ct, EntityType.BRIDGE, start_pos, pending_bridge):
         if chebyshev(pending_bridge, state.my_core) > 1:
             state.pending_bridge = pending_bridge
         return True
@@ -144,15 +147,7 @@ def place_junction(state: State, ct: Controller, pos: Position) -> bool | None:
     else:
         splitter_direction = Direction.NORTH
 
-    if not can_afford(ct, EntityType.SPLITTER):
-        return False
-    if ct.can_destroy(pos):
-        ct.destroy(pos)
-    if ct.can_build_splitter(pos, splitter_direction):
-        ct.build_splitter(pos, splitter_direction)
-        return True
-    return None
-
+    return try_place(ct, EntityType.SPLITTER, pos, splitter_direction)
 
 def route_to(
     state: State,

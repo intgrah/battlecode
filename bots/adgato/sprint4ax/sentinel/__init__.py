@@ -98,10 +98,15 @@ class Sentinel(Unit):
     def _try_self_destruct(self, ct: Controller) -> None:
         my_team = ct.get_team()
         has_ally = False
+        adj_to_harvester = False
+        for bid in ct.get_nearby_buildings(1):
+            if ct.get_entity_type(bid) == EntityType.HARVESTER:
+                adj_to_harvester = True
+                break
         for uid in ct.get_nearby_units():
             if ct.get_team(uid) == my_team:
                 has_ally = True
             else:
                 return
-        if has_ally:
+        if has_ally and not adj_to_harvester:
             ct.self_destruct()
