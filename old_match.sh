@@ -1,3 +1,3 @@
 #!/bin/bash
-VIRTUAL_ENV= uv run --project cambcpypy cambcpypy run "$@"
+.venv/bin/cambc run "$@"
 lib/visualiser/viewer/target/release/visualiser-viewer replay.replay26
