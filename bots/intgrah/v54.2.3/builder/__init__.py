@@ -17,7 +17,6 @@ from .task_attack import run_attack
 from .task_build_conveyors import route_to_core
 from .task_defend import place_gunner_nearby
 from .task_explore import explore
-from .task_foundry import task_place_foundry, task_place_splitter
 from .task_harvest import build_at_ore
 from .task_heal import heal_builders, run_heal
 from .task_patrol import run_patrol

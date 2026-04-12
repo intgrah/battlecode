@@ -121,7 +121,7 @@ class State:
         self.conveyor_cost_grid: list[int] = [INF] * pn
         self._init_pad_interior()
         self.pnb: list[list[int]] = _init_pnb(w, h, n)
-        self.bfs_dist: list[int] = [-1] * n
+        self.bfs_dist: list[int] = [INF] * n
         self.belt_load_counts = [0] * n
         self.line_load_counts = [0] * n
         self.line_loads_computed = [False] * n

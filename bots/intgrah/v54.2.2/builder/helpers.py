@@ -191,7 +191,7 @@ def pick_ore_target(state: State, ct: Controller) -> Position | None:
                 case _:
                     continue
             d = state.bfs_dist[pos.y * state.w + pos.x]
-            if d == -1:
+            if d >= INF:
                 continue
             if ore_available(state, ct, pos) and d < min_dist:
                 min_dist = d
@@ -242,7 +242,7 @@ def find_dangling(state: State, ct: Controller) -> Position | None:
         pos
         for pos in nearby
         if is_valid_loose_end_target(state, ct, pos)
-        and state.bfs_dist[pos.y * w + pos.x] != -1
+        and state.bfs_dist[pos.y * w + pos.x] < INF
     ]
     if not candidates:
         return None

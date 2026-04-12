@@ -18,17 +18,13 @@ from building import (
 from cambc import Controller, EntityType, Environment, GameConstants, Position
 from util import DIR4, DIR8, INF, ROAD_COST, Symmetry
 
-from .state import update_pnb
+from builder.state import update_pnb
 
 if TYPE_CHECKING:
     from .state import State
 
 
 def load_penalty(load: int) -> int:
-    # Integer-only so A*'s inner loop can index buckets without
-    # casting — using 0/1/3/10/500 instead of 0/0.5/3.0/10.0/500.0.
-    # The 0.5 rounded up to 1 loses almost no resolution and the
-    # other values are already whole numbers.
     match load:
         case 0:
             return 0
@@ -39,7 +35,7 @@ def load_penalty(load: int) -> int:
         case 3:
             return 10
         case _:
-            return 500
+            return INF
 
 
 def can_place_junction(state: State, ct: Controller, pos: Position) -> bool:

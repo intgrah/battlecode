@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import heapq
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from cambc import Controller, Position
 from util import DIR8_DELTA
@@ -10,10 +10,10 @@ from util import DIR8_DELTA
 if TYPE_CHECKING:
     from builder.state import State
 
-from util import INF as _INF
+from util import INF
 
-_TARGET_DRIFT_SQ = 25
-_CPU_BUDGET = 1729
+_TARGET_DRIFT_SQ: Final[int] = 25
+_CPU_BUDGET: Final[int] = 1729
 
 _DIR8_DELTA = DIR8_DELTA.copy()
 random.shuffle(_DIR8_DELTA)
@@ -40,7 +40,7 @@ class MoveHeapAstar:
         self._pw = state.pw
         self._pad = state.pad
         pn = state.pw * state.ph
-        self._dist = [_INF] * pn
+        self._dist = [INF] * pn
 
     def _reset(self, state: State) -> None:
         pn = state.pw * state.ph
@@ -62,7 +62,7 @@ class MoveHeapAstar:
             if current in path:
                 break
             path.append(current)
-            best_dist = _INF
+            best_dist = INF
             best = current
             ci = (current.y + pad) * pw + (current.x + pad)
             for dx, dy in _DIR8_DELTA:
@@ -73,7 +73,7 @@ class MoveHeapAstar:
                 idx = ci + dy * pw + dx
                 if (self._prev_visited[idx >> 3] & (1 << (idx & 7))) and cost[
                     idx
-                ] < _INF:
+                ] < INF:
                     d = self._dist[idx]
                     if d < best_dist:
                         best_dist = d
@@ -122,13 +122,13 @@ class MoveHeapAstar:
                 if visited[idx >> 3] & (1 << (idx & 7)):
                     continue
                 move_cost = cost[idx]
-                if move_cost >= _INF:
+                if move_cost >= INF:
                     continue
                 visited[idx >> 3] |= 1 << (idx & 7)
                 new_dist = cur_dist + move_cost
                 dist[idx] = new_dist
                 bd = bfs_dist[ny * w + nx]
-                if bd >= 0:
+                if bd < INF:
                     f = new_dist + bd
                 else:
                     f = new_dist + max(abs(ny - sy), abs(nx - sx))
@@ -174,11 +174,11 @@ class MoveHeapAstar:
         pw = state.pw
         pad = state.pad
         saved: list[tuple[int, int]] = []
-        for pos in ct.get_nearby_tiles(2):
+        for pos in ct.get_nearby_tiles():
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
                 idx = (pos.y + pad) * pw + (pos.x + pad)
                 saved.append((idx, cost[idx]))
-                cost[idx] = _INF
+                cost[idx] = INF
         result = self.search(state, ct, start, goal)
         for idx, val in saved:
             cost[idx] = val

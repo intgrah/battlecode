@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections import deque
 from typing import TYPE_CHECKING
 
 from cambc import Position
+from util import INF
 
 if TYPE_CHECKING:
     from builder.state import State
@@ -18,20 +18,19 @@ def update_bfs(state: State, sx: int, sy: int) -> None:
     n = w * state.h
 
     for i in range(n):
-        dist[i] = -1
+        dist[i] = INF
 
     si = sy * w + sx
     dist[si] = 0
 
-    q: deque[int] = deque([si])
-    while q:
-        node = q.popleft()
-        d = dist[node] + 1
+    q = [si]
+    append = q.append
+    for node in q:
+        d1 = dist[node] + 1
         for ni in pnb[node]:
-            if dist[ni] != -1:
-                continue
-            dist[ni] = d
-            q.append(ni)
+            if dist[ni] == INF:
+                dist[ni] = d1
+                append(ni)
 
 
 def extract_path(
@@ -42,7 +41,7 @@ def extract_path(
     si = sy * w + sx
     gi = gy * w + gx
 
-    if dist[gi] == -1:
+    if dist[gi] == INF:
         return None
     if si == gi:
         return [Position(sx, sy)]
@@ -55,8 +54,6 @@ def extract_path(
         best_d = dist[ci]
         for ni in pnb[ci]:
             nd = dist[ni]
-            if nd == -1:
-                continue
             if nd < best_d:
                 best_d = nd
                 best_i = ni
