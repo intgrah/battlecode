@@ -19,3 +19,6 @@ results/
 *.so
 *.log
 *.env
+
+run.sh
+new_run.sh
