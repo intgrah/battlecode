@@ -59,6 +59,9 @@ from bench_nav.sssp.dijkstra_dial_dual import (
 from bench_nav.sssp.dijkstra_dial_flat import (
     dijkstra_dial_flat as sssp_dijkstra_dial_flat,
 )
+from bench_nav.sssp.dijkstra_dial_flat_prealloc import (
+    dijkstra_dial_flat_prealloc as sssp_dijkstra_dial_flat_prealloc,
+)
 from bench_nav.sssp.dijkstra_dial_pnbc import (
     dijkstra_dial_pnbc as sssp_dijkstra_dial_pnbc,
 )
@@ -222,6 +225,10 @@ def _build_sssp_algos(
         lambda start: sssp_dijkstra_dial_flat(n, cost, pnb, start),
     )
     add(
+        "dijkstra-dial-flat-prealloc",
+        lambda start: sssp_dijkstra_dial_flat_prealloc(n, cost, pnb, start),
+    )
+    add(
         "dijkstra-dial-dual",
         lambda start: sssp_dijkstra_dial_dual(n, pnb1, pnb3, start),
     )
@@ -262,6 +269,7 @@ ALL_SSSP_NAMES: list[str] = [
     "dijkstra-dial",
     "dijkstra-dial-pnbc",
     "dijkstra-dial-flat",
+    "dijkstra-dial-flat-prealloc",
     "dijkstra-dial-dual",
     "dijkstra-dial-unrolled",
 ]

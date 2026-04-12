@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import deque
 
 from bench_nav.common import INF
@@ -8,7 +6,6 @@ from bench_nav.common import INF
 def dijkstra_dial_unrolled(
     n: int, cost: list[int], pnb: list[list[int]], start: int
 ) -> list[int]:
-    """Noparent + drain + clean control flow (no emp)."""
     dist = [INF] * n
     dist[start] = 0
     bk0 = deque[int]()
