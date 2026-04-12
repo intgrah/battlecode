@@ -108,6 +108,16 @@ class State:
         # visible enemy turret is encountered. Used as a soft cost
         # penalty in cost_grid so move_search routes bots around them.
         self.enemy_turret_ray_tiles: set[Position] = set()
+        # Forward firing ray of FRIENDLY gunners/sentinels. Walking
+        # into one blocks our own shot for that turn — same soft
+        # penalty keeps bots off their own turrets' kill lanes.
+        self.friendly_turret_ray_tiles: set[Position] = set()
+        # Ore-denial tiles: for ores in our vision whose cardinal-8
+        # halo contains an enemy bot or building, the ore's 4 cardinal
+        # neighbours are candidate road-placement tiles. We pave them
+        # with cheap roads (1 Ti base) to deny the enemy a harvester
+        # feed position before they get one built.
+        self.deny_ore_neighbours: set[Position] = set()
         self.nearest_enemy_turret: Position | None = None
         self.nearest_junction_site: Position | None = None
 
@@ -142,6 +152,13 @@ class State:
         # concrete evidence we're being out-healed on this tile.
         self.last_fire_pos: Position | None = None
         self.last_fire_expected_hp: int = 0
+        # Tiles we just got out-healed on: {tile: remaining_turns}.
+        # Decremented at the top of run_attack; _pick_attack_destination
+        # skips any entry still present. Stops the bounce loop where
+        # we rotate around the same harvester's neighbours turn after
+        # turn because the picker keeps picking one of a handful of
+        # valid tiles and a nearby enemy builder just heals us off it.
+        self.attack_tile_blacklist: dict[Position, int] = {}
 
         # Patrol
         self.patrol_head: Position | None = None

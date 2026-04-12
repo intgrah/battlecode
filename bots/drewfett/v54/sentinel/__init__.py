@@ -32,6 +32,11 @@ def _score_entity(
     etype = ct.get_entity_type(entity)
     if etype == EntityType.MARKER:
         return None
+    # Never target enemy harvesters — they might be feeding a chain
+    # we've tapped into. Builder bots attack harvesters; our turrets
+    # spend their shots on other targets.
+    if etype == EntityType.HARVESTER:
+        return None
 
     entity_pos = ct.get_position(entity)
     fire_pos = entity_pos
