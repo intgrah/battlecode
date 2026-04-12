@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import deque
 
 from bench_nav.common import CE, INF
@@ -10,7 +8,6 @@ assert CE + 1 == 4
 def dijkstra_dial(
     n: int, cost: list[int], pnb: list[list[int]], start: int
 ) -> list[int]:
-    """Noparent + drain loop + inlined bi + no g_node alias."""
     dist = [INF] * n
     dist[start] = 0
     bk = [deque[int]() for _ in range(4)]

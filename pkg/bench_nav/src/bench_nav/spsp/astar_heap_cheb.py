@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import heapq
 
 from bench_nav.common import CR, INF, Path_, extract_parent

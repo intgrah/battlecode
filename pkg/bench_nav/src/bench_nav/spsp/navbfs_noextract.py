@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from bench_nav.common import INF, Path_
 
 

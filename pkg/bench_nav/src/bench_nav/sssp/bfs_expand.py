@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import deque
 
 from bench_nav.common import INF
@@ -7,9 +5,9 @@ from bench_nav.common import INF
 
 def bfs_expand(n: int, cost: list[int], pnb: list[list[int]], start: int) -> list[int]:
     n2 = n + n
-    dist: list[int] = [INF] * (n + n2)
+    dist = [INF] * (n + n2)
     dist[start] = 0
-    q: deque[int] = deque([start])
+    q = deque([start])
     popleft = q.popleft
     append = q.append
     while q:

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import deque
 
 from bench_nav.common import CE, CR, INF, Path_, extract_parent
