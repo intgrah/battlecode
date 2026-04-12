@@ -11,15 +11,18 @@ def bfs_01(
     parent = [-1] * n
     parent[start] = start
     q = deque([start])
+    popleft = q.popleft
+    appendleft = q.appendleft
+    append = q.append
     while q:
-        node = q.popleft()
+        node = popleft()
         if node == goal:
             return extract_parent(parent, start, goal)
         for nb in pnb[node]:
             if parent[nb] == -1:
                 parent[nb] = node
                 if cost[nb] == 1:
-                    q.appendleft(nb)
+                    appendleft(nb)
                 else:
-                    q.append(nb)
+                    append(nb)
     return None

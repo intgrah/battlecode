@@ -1,5 +1,3 @@
-from collections import deque
-
 from bench_nav.common import CR, Path_
 
 
@@ -9,10 +7,10 @@ def bfs_expand(
     n2 = n + n
     parent = [-1] * (n + n2)
     parent[start] = start
-    q = deque([start])
+    q = [start]
+    append = q.append
     found = False
-    while q:
-        node = q.popleft()
+    for node in q:
         if node < n:
             for nb in pnb[node]:
                 c = cost[nb]
@@ -23,19 +21,19 @@ def bfs_expand(
                     if nb == goal:
                         found = True
                         break
-                    q.append(nb)
+                    append(nb)
                 else:
                     vi = nb + n2
                     if parent[vi] != -1:
                         continue
                     parent[vi] = node
-                    q.append(vi)
+                    append(vi)
         elif node >= n2:
             nb = node - n
             if parent[nb] != -1:
                 continue
             parent[nb] = node
-            q.append(nb)
+            append(nb)
         else:
             nb = node - n
             if parent[nb] != -1:
@@ -44,7 +42,7 @@ def bfs_expand(
             if nb < n and nb == goal:
                 found = True
                 break
-            q.append(nb)
+            append(nb)
         if found:
             break
     if not found:
