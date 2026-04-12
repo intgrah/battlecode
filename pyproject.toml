@@ -11,10 +11,11 @@ dependencies = [
     "cambc>=1.6.4",
     "hcloud>=2.17.1",
     "networkx>=3.6.1",
-    "pandas>=3.0.2",
     "pillow>=12.1.1",
-    "protobuf>=7.34.0",
     "scipy>=1.17.1",
+    "bench-nav",
+    "proto",
+    "visualiser",
 ]
 
 [project.scripts]
@@ -33,7 +34,6 @@ network-visualize = "scripts.network_visualize:main"
 online = "scripts.online:main"
 online-analyze = "scripts.online_analyze:main"
 raid-trace = "scripts.raid_trace:main"
-remote-ci = "scripts.remote_ci:main"
 match-report = "scripts.match_report:main"
 replay-analyze = "scripts.analysis.__main__:main"
 replay-debug = "scripts.replay_debug:main"
@@ -46,7 +46,7 @@ trace-builder = "scripts.trace_builder:main"
 verify-network = "scripts.verify_network:main"
 wait-match = "scripts.wait_match:main"
 render-map = "scripts.render_map:main"
-bench-nav = "scripts.bench_nav:main"
+bench-nav = "bench_nav.__main__:main"
 replay-times = "scripts.replay_times:main"
 replay-livelock = "scripts.replay_livelock:main"
 
@@ -59,7 +59,6 @@ dev = [
     "pillow>=12.1.1",
     "protobuf>=7.34.1",
     "pydeps>=3.0.2",
-    "pyright",
     "ruff",
     "scipy>=1.17.1",
     "ty",
@@ -67,6 +66,7 @@ dev = [
 ]
 
 [tool.uv.sources]
+bench-nav = { workspace = true }
 proto = { workspace = true }
 visualiser = { workspace = true }
 
@@ -123,6 +123,7 @@ members = [
     "bots/exploit/*",
     "bots/nahhh/*",
     "bots/adgato/*",
-    "lib/visualiser",
-    "lib/proto",
+    "pkg/visualiser",
+    "pkg/proto",
+    "pkg/bench_nav",
 ]
