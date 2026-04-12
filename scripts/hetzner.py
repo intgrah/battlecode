@@ -11,6 +11,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tarfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -308,7 +309,6 @@ def _cmd_sync(args: argparse.Namespace) -> None:
 
 
 def _make_tarball(bot_path: str) -> bytes:
-    import tarfile
 
     bot_dir = _PROJECT_ROOT / "bots" / bot_path
     if not bot_dir.is_dir():
@@ -343,9 +343,10 @@ def _connect_daemon(ip: str) -> tuple[subprocess.Popen[bytes], socket.socket]:
         try:
             sock = socket.create_connection(("127.0.0.1", local_port), timeout=2)
             sock.settimeout(None)
-            return tunnel, sock
         except (ConnectionRefusedError, OSError):
             time.sleep(0.5)
+        else:
+            return tunnel, sock
 
     tunnel.terminate()
     print("Failed to connect to CI daemon. Is it running?", file=sys.stderr)
