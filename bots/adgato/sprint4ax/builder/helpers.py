@@ -61,13 +61,19 @@ def try_place(
     *,
     destroy: bool = True,
 ) -> bool:
-    if not can_afford(ct, etype):
+    if not can_afford(ct, etype) or ct.get_action_cooldown() > 0:
         return False
     if destroy and ct.can_destroy(pos):
         ct.destroy(pos)
     if ct.can_build(etype, pos, extra):
         ct.build(etype, pos, extra)
         return True
+    else:
+        print(f"can't build {etype} {pos} {extra}")
+        print(f"cooldown {ct.get_action_cooldown()}")
+        print(f"bid {ct.get_tile_building_id(pos)}")
+        print(f"funds {ct.get_global_resources()}")
+        print(f"cost {ct.get_global_resources()}")
     return False
 
 

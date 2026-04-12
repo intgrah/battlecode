@@ -58,28 +58,23 @@ def _bfs_compute(
     On exit, stale (already-processed) entries are trimmed from q so
     the next call picks up where we left off.
     """
-    # Stop one level past the agent. If we haven't touched the
-    # agent yet, `stop_at` starts unbounded.
-    cd = dist[cur_idx] if cur_idx >= 0 and dist[cur_idx] < INF else -1
-    stop_at = cd + 1 if cd != -1 else INF
+    # Stop at the agent.
     qi = 0
     for node in q:
-        d = dist[node] + 1
         if node == cur_idx:
-            stop_at = d
-        if d > stop_at:
-            q.clear()
+            del q[:qi]
             return True
-        qi += 1
+        d = dist[node] + 1
         for ni in pnb_push[node]:
             if d < dist[ni]:
                 dist[ni] = d
                 q.append(ni)
         for ni in pnb_set[node]:
             if d < dist[ni]:
-                if ni == cur_idx:
-                    stop_at = d + 1
                 dist[ni] = d
+                if ni == cur_idx:
+                    q.append(ni)
+        qi += 1
         if ct.get_cpu_time_elapsed() > _BUDGET:
             del q[:qi]
             return False
@@ -440,6 +435,9 @@ class NavBfs:
         # Apply any passability changes accumulated since last turn.
         if grid.has_dirty_pnb:
             grid.rebuild_pnb()
+
+        if ct.get_move_cooldown() > 0:
+            return
 
         # Update the goal if it changed.
         self.set_goal(target)
