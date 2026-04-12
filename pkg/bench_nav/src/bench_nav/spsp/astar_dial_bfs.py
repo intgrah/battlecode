@@ -2,6 +2,8 @@ from collections import deque
 
 from bench_nav.common import CE, INF, Path_
 
+assert CE + 2 == 5
+
 
 def astar_dial_bfs(
     n: int,
@@ -12,19 +14,18 @@ def astar_dial_bfs(
     goal: int,
 ) -> Path_:
     """A* (Dial's) from goal to start, using precomputed BFS heuristic."""
-    mod = CE + 2
     g = [INF] * n
     g[goal] = 0
     h_goal = bfs_h[goal]
     if h_goal >= INF:
         return None
-    bk = [deque[int]() for _ in range(mod)]
-    bk[h_goal % mod].append(goal)
+    bk = [deque[int]() for _ in range(5)]
+    bk[h_goal % 5].append(goal)
     f = h_goal
     emp = 0
     found = False
-    while emp < mod:
-        bki = bk[f % mod]
+    while emp < 5:
+        bki = bk[f % 5]
         if bki:
             emp = 0
             popleft = bki.popleft
@@ -40,7 +41,7 @@ def astar_dial_bfs(
                     nd = g_node + cost[nb]
                     if nd < g[nb]:
                         g[nb] = nd
-                        bk[(nd + bfs_h[nb]) % mod].append(nb)
+                        bk[(nd + bfs_h[nb]) % 5].append(nb)
             if found:
                 break
         else:

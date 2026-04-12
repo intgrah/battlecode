@@ -2,6 +2,8 @@ from collections import deque
 
 from bench_nav.common import CE, CR, INF, Path_, extract_parent
 
+assert CE == 3
+
 
 def astar_dial_cheb_bw_dijkstra(
     w: int,
@@ -21,16 +23,14 @@ def astar_dial_cheb_bw_dijkstra(
     """
     sx, sy = start % w, start // w
     gx, gy = goal % w, goal // w
-    mod_f = CE + 2
-    mod_b = CE + 1
 
     g_f: list[int] = [INF] * n
     parent_f: list[int] = [-1] * n
     g_f[start] = 0
     parent_f[start] = start
     h0 = max(abs(sx - gx), abs(sy - gy)) * CR
-    bk_f: list[deque[int]] = [deque() for _ in range(mod_f)]
-    bk_f[h0 % mod_f].append(start)
+    bk_f: list[deque[int]] = [deque() for _ in range(5)]
+    bk_f[h0 % 5].append(start)
     cf = h0
     ef = 0
 
@@ -38,7 +38,7 @@ def astar_dial_cheb_bw_dijkstra(
     parent_b: list[int] = [-1] * n
     g_b[goal] = 0
     parent_b[goal] = goal
-    bk_b: list[deque[int]] = [deque() for _ in range(mod_b)]
+    bk_b: list[deque[int]] = [deque() for _ in range(4)]
     bk_b[0].append(goal)
     cb = 0
     eb = 0
@@ -46,12 +46,12 @@ def astar_dial_cheb_bw_dijkstra(
     best = INF
     meet = -1
 
-    while ef < mod_f or eb < mod_b:
+    while ef < 5 or eb < 4:
         if cf >= best and cb >= best:
             break
 
-        if ef < mod_f and (eb >= mod_b or cf <= cb):
-            bi = cf % mod_f
+        if ef < 5 and (eb >= 4 or cf <= cb):
+            bi = cf % 5
             if not bk_f[bi]:
                 cf += 1
                 ef += 1
@@ -75,14 +75,14 @@ def astar_dial_cheb_bw_dijkstra(
                     parent_f[nb] = node
                     nix, niy = nb % w, nb // w
                     h_ni = max(abs(nix - gx), abs(niy - gy)) * CR
-                    bk_f[(nd + h_ni) % mod_f].append(nb)
+                    bk_f[(nd + h_ni) % 5].append(nb)
                     if g_b[nb] < INF:
                         cand = nd + g_b[nb]
                         if cand < best:
                             best = cand
                             meet = nb
-        elif eb < mod_b:
-            bki = bk_b[cb % mod_b]
+        elif eb < 4:
+            bki = bk_b[cb % 4]
             if not bki:
                 cb += 1
                 eb += 1
@@ -103,7 +103,7 @@ def astar_dial_cheb_bw_dijkstra(
                 if nd < g_b[nb]:
                     g_b[nb] = nd
                     parent_b[nb] = node
-                    bk_b[nd % mod_b].append(nb)
+                    bk_b[nd % 4].append(nb)
                     if g_f[nb] < INF:
                         cand = g_f[nb] + nd
                         if cand < best:
