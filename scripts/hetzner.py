@@ -264,7 +264,7 @@ def _cmd_provision(args: argparse.Namespace) -> None:
 _SYNC_DIRS = [
     ("bots/", "bots/"),
     ("maps/", "maps/"),
-    ("cambcpypy/", "cambcpypy/"),
+    ("pkg/cambcpypy/", "cambcpypy/"),
     ("pkg/proto/", "pkg/proto/"),
 ]
 
