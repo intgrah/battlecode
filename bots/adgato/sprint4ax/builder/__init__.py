@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from cambc import Controller, EntityType
-from config import DEBUG_DUMP, DEBUG_TIMING
+from config import DEBUG_DUMP, DEBUG_TIMING, DEBUG_TASK
 from unit import Unit
 from util import DIR8, can_afford, try_move
 
@@ -185,9 +185,12 @@ class Builder(Unit):
                 update_economy(s, ct)
         elif DEBUG_TIMING:
             t4 = t3
-
+        
         for task in POLICIES[s.role]:
             if task(s, ct):
+                if DEBUG_TASK:
+                    print(f"role={s.role}")
+                    print(f"task={task.__name__}")
                 break
 
         if s.role != Role.OFFENSE:

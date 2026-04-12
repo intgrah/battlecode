@@ -85,8 +85,8 @@ _LAUNCHER_RESERVE = 15
 
 
 def can_afford(ct: Controller, etype: EntityType) -> bool:
-    ti, _ = ct.get_global_resources()
-    ti_cost, _ax_cost = BASE_COST[etype]
+    ti, ax = ct.get_global_resources()
+    ti_cost, ax_cost = BASE_COST[etype]
     scale = ct.get_scale_percent() / 100
     if etype in _IS_UNIT:
         reserve = 0
@@ -98,8 +98,8 @@ def can_afford(ct: Controller, etype: EntityType) -> bool:
             )
         elif etype == EntityType.LAUNCHER:
             reserve = _LAUNCHER_RESERVE
-        return ti >= (ti_cost + reserve) * (1 + scale)
-    return ti >= ti_cost * scale
+        return ti >= (ti_cost + reserve) * (1 + scale) and ax >= ax_cost * scale
+    return ti >= ti_cost * scale and ax >= ax_cost * scale
 
 
 def closest(target: Position, positions: list[Position]) -> Position | None:
