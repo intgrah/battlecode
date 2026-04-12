@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from pathlib import Path
 from typing import Final
 
@@ -39,13 +40,49 @@ def find_maps_dir() -> Path:
 MAPS_DIR: Path = find_maps_dir()
 
 
-def extract_parent(parent: list[int], si: int, node: int) -> Path_:
-    if parent[node] == -1 and node != si:
-        return None
+def extract_parent(parent: list[int], start: int, node: int) -> Path_:
     path: list[int] = []
     cur = node
-    while cur != -1:
+    while cur != start:
         path.append(cur)
         cur = parent[cur]
+        if cur == -1:
+            return None
+    path.append(start)
     path.reverse()
     return path
+
+
+def extract_dist(
+    dist: list[int], cost: list[int], pnb: list[list[int]], start: int, goal: int
+) -> Path_:
+    if dist[goal] >= INF:
+        return None
+    path = [goal]
+    cur = goal
+    while cur != start:
+        d = dist[cur]
+        for nb in pnb[cur]:
+            if dist[nb] + cost[cur] == d:
+                path.append(nb)
+                cur = nb
+                break
+        else:
+            return None
+    path.reverse()
+    return path
+
+
+def bfs_dist(n: int, pnb: list[list[int]], start: int) -> list[int]:
+    dist = [INF] * n
+    dist[start] = 0
+    q: deque[int] = deque([start])
+    while q:
+        node = q.popleft()
+        d1 = dist[node] + 1
+        for nb in pnb[node]:
+            if dist[nb] != INF:
+                continue
+            dist[nb] = d1
+            q.append(nb)
+    return dist
