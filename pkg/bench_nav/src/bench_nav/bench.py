@@ -50,8 +50,11 @@ from bench_nav.spsp.hpastar import hpastar, precompute_hpa
 from bench_nav.spsp.navbfs import navbfs
 from bench_nav.spsp.navbfs_noextract import navbfs_noextract
 from bench_nav.spsp.precompute_apsp import precompute_apsp
+from bench_nav.sssp.bellman_ford import bellman_ford as sssp_bellman_ford
 from bench_nav.sssp.bfs import bfs as sssp_bfs
+from bench_nav.sssp.bfs_01 import bfs_01 as sssp_bfs_01
 from bench_nav.sssp.bfs_expand import bfs_expand as sssp_bfs_expand
+from bench_nav.sssp.dijkstra_deque import dijkstra_deque as sssp_dijkstra_deque
 from bench_nav.sssp.dijkstra_dial import dijkstra_dial as sssp_dijkstra_dial
 from bench_nav.sssp.dijkstra_dial_dual import (
     dijkstra_dial_dual as sssp_dijkstra_dial_dual,
@@ -236,6 +239,9 @@ def _build_sssp_algos(
         "dijkstra-dial-unrolled",
         lambda start: sssp_dijkstra_dial_unrolled(n, cost, pnb, start),
     )
+    add("bfs-01", lambda start: sssp_bfs_01(n, cost, pnb, start))
+    add("dijkstra-deque", lambda start: sssp_dijkstra_deque(n, cost, pnb, start))
+    add("bellman-ford", lambda start: sssp_bellman_ford(n, cost, pnb, start))
 
     return algos
 
@@ -272,6 +278,9 @@ ALL_SSSP_NAMES: list[str] = [
     "dijkstra-dial-flat-prealloc",
     "dijkstra-dial-dual",
     "dijkstra-dial-unrolled",
+    "bfs-01",
+    "dijkstra-deque",
+    "bellman-ford",
 ]
 
 
@@ -448,6 +457,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
 
     n_sources: int = args.samples
     times: dict[str, dict[str, list[float]]] = {}
+    opt_ratios: dict[str, dict[str, list[float]]] = {}
 
     for mf in map_files:
         m = load_map(mf)
@@ -488,6 +498,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
 
             algos = _build_sssp_algos(n, cost, pnb, pnbc, pnb1, pnb3, selected)
 
+            skip_validation = {"bfs-01", "dijkstra-deque"}
             for algo_name, algo_fn in algos:
                 gc.disable()
                 for idx, (start, _goal) in enumerate(zip(sources, goals, strict=True)):
@@ -496,13 +507,17 @@ def bench_sssp(args: argparse.Namespace) -> None:
                     us = (time.perf_counter() - t0) * 1e6
                     times.setdefault(algo_name, {}).setdefault(scenario, []).append(us)
 
-                    if algo_name in ("bfs", "bfs-expand") and scenario != "no_roads":
-                        pass
+                    ref = ref_dists[idx]
+                    if algo_name in skip_validation or (
+                        algo_name in ("bfs", "bfs-expand") and scenario != "no_roads"
+                    ):
+                        got = result
+                        if algo_name == "bfs":
+                            got = [d * CE if d < INF else INF for d in result]
                     else:
                         got = result
                         if algo_name == "bfs":
                             got = [d * CE if d < INF else INF for d in result]
-                        ref = ref_dists[idx]
                         for i in range(n):
                             if got[i] != ref[i]:
                                 x, y = i % w, i // w
@@ -514,14 +529,25 @@ def bench_sssp(args: argparse.Namespace) -> None:
                                     file=sys.stderr,
                                 )
                                 sys.exit(1)
+
+                    worst_ratio = 1.0
+                    for i in range(n):
+                        if ref[i] < INF and ref[i] > 0 and got[i] < INF:
+                            ratio = got[i] / ref[i]
+                            worst_ratio = max(worst_ratio, ratio)
+                    opt_ratios.setdefault(algo_name, {}).setdefault(
+                        scenario, []
+                    ).append(worst_ratio)
                 gc.enable()
 
     sys.stderr.write("\r" + " " * 60 + "\r")
 
     for scenario in SCENARIOS:
         print(f"\n  {scenario.upper()}")
-        print(f"  {'Algorithm':<24s} {'p50':>8s} {'p90':>8s} {'p99':>8s} {'p100':>8s}")
-        print(f"  {'-' * 56}")
+        print(
+            f"  {'Algorithm':<28s} {'t_p50':>8s} {'t_p90':>8s} {'t_p99':>8s} {'t_p100':>8s} {'o_p50':>7s} {'o_p99':>7s} {'o_p100':>7s}"
+        )
+        print(f"  {'-' * 86}")
         all_names = list(times.keys())
         seen: set[str] = set()
         for algo_name in all_names:
@@ -532,12 +558,21 @@ def bench_sssp(args: argparse.Namespace) -> None:
             if not ts:
                 continue
             nt = len(ts)
-            p50 = ts[nt // 2]
-            p90 = ts[int(nt * 0.9)]
-            p99 = ts[int(nt * 0.99)]
-            p100 = ts[-1]
+            t50 = ts[nt // 2]
+            t90 = ts[int(nt * 0.9)]
+            t99 = ts[int(nt * 0.99)]
+            t100 = ts[-1]
+            os = sorted(opt_ratios.get(algo_name, {}).get(scenario, []))
+            if os:
+                no = len(os)
+                o50 = os[no // 2]
+                o99 = os[int(no * 0.99)]
+                o100 = os[-1]
+                opt_str = f" {o50:>7.3f} {o99:>7.3f} {o100:>7.3f}"
+            else:
+                opt_str = ""
             print(
-                f"  {algo_name:<24s} {p50:>7.0f}us {p90:>7.0f}us {p99:>7.0f}us {p100:>7.0f}us",
+                f"  {algo_name:<28s} {t50:>7.0f}us {t90:>7.0f}us {t99:>7.0f}us {t100:>7.0f}us{opt_str}",
             )
 
 
