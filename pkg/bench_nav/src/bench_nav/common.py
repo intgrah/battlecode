@@ -1,4 +1,3 @@
-from collections import deque
 from pathlib import Path
 from typing import Final
 
@@ -74,13 +73,13 @@ def extract_dist(
 def bfs_dist(n: int, pnb: list[list[int]], start: int) -> list[int]:
     dist = [INF] * n
     dist[start] = 0
-    q: deque[int] = deque([start])
-    while q:
-        node = q.popleft()
+    q = [start]
+    append = q.append
+    for node in q:
         d1 = dist[node] + 1
         for nb in pnb[node]:
             if dist[nb] != INF:
                 continue
             dist[nb] = d1
-            q.append(nb)
+            append(nb)
     return dist

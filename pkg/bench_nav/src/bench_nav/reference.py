@@ -1,6 +1,5 @@
 import heapq
 import sys
-from collections import deque
 
 from bench_nav.common import INF
 
@@ -39,16 +38,16 @@ def optimal_first_moves(
         return set()
     on_shortest: list[bool] = [False] * n
     on_shortest[goal] = True
-    q: deque[int] = deque([goal])
-    while q:
-        node = q.popleft()
+    q = [goal]
+    append = q.append
+    for node in q:
         for nb in pnb[node]:
             if on_shortest[nb]:
                 continue
             c = cost[node]
             if dist[nb] + c == dist[node]:
                 on_shortest[nb] = True
-                q.append(nb)
+                append(nb)
     moves: set[int] = set()
     for nb in pnb[start]:
         if not on_shortest[nb]:
@@ -171,12 +170,12 @@ def parent_to_dist(parent: list[int], cost: list[int], n: int, start: int) -> li
             children[p].append(i)
     dist: list[int] = [INF] * n
     dist[start] = 0
-    q: deque[int] = deque([start])
-    while q:
-        node = q.popleft()
+    q = [start]
+    append = q.append
+    for node in q:
         for child in children[node]:
             dist[child] = dist[node] + cost[child]
-            q.append(child)
+            append(child)
     return dist
 
 
@@ -193,12 +192,12 @@ def expanded_parent_to_dist(
             children[p].append(i)
     full_dist: list[int] = [INF] * total
     full_dist[start] = 0
-    q: deque[int] = deque([start])
-    while q:
-        node = q.popleft()
+    q = [start]
+    append = q.append
+    for node in q:
         for child in children[node]:
             full_dist[child] = full_dist[node] + 1
-            q.append(child)
+            append(child)
     dist: list[int] = [INF] * n
     dist[start] = 0
     for i in range(n):

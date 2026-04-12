@@ -23,7 +23,7 @@ def astar_heap_apsp(
     parent = [-1] * n
     parent[start] = start
     h_start = h_to_goal[start]
-    q: list[tuple[int, int, int]] = [(h_start, h_start, start)]
+    q = [(h_start, h_start, start)]
     while q:
         f, h_node, node = heapq.heappop(q)
         if f > g[node] + h_node:

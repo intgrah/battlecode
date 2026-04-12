@@ -8,16 +8,19 @@ assert CR == 1
 def spfa_slf(n: int, cost: list[int], pnb: list[list[int]], start: int) -> list[int]:
     dist = [INF] * n
     dist[start] = 0
-    q: deque[int] = deque([start])
+    q = deque([start])
+    popleft = q.popleft
+    appendleft = q.appendleft
+    append = q.append
     while q:
-        node = q.popleft()
+        node = popleft()
         d = dist[node]
         for nb in pnb[node]:
             nd = d + cost[nb]
             if nd < dist[nb]:
                 dist[nb] = nd
                 if cost[nb] == 1:
-                    q.appendleft(nb)
+                    appendleft(nb)
                 else:
-                    q.append(nb)
+                    append(nb)
     return dist

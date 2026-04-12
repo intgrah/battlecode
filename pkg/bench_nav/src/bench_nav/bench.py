@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 
+from bench_nav import spsp, sssp
 from bench_nav.common import CE, INF, MAPS_DIR, SCENARIOS, SEED, Path_, bfs_dist
 from bench_nav.map_data import (
     build_cost,
@@ -29,48 +30,6 @@ from bench_nav.reference import (
     reference_dist,
     validate_path,
 )
-from bench_nav.spsp.astar_dial_apsp import astar_dial_apsp
-from bench_nav.spsp.astar_dial_bfs import astar_dial_bfs
-from bench_nav.spsp.astar_dial_cheb import astar_dial_cheb
-from bench_nav.spsp.astar_dial_cheb_bw_dijkstra import astar_dial_cheb_bw_dijkstra
-from bench_nav.spsp.astar_heap_apsp import astar_heap_apsp
-from bench_nav.spsp.astar_heap_cheb import astar_heap_cheb
-from bench_nav.spsp.bfs import bfs
-from bench_nav.spsp.bfs_01 import bfs_01
-from bench_nav.spsp.bfs_expand import bfs_expand
-from bench_nav.spsp.bfs_roadopt import bfs_roadopt
-from bench_nav.spsp.biastar_dial_cheb import biastar_dial_cheb
-from bench_nav.spsp.biastar_dial_cheb_ft import biastar_dial_cheb_ft
-from bench_nav.spsp.bibfs import bibfs
-from bench_nav.spsp.dijkstra_dial import dijkstra_dial
-from bench_nav.spsp.dijkstra_dial_dual import dijkstra_dial_dual
-from bench_nav.spsp.dijkstra_heap import dijkstra_heap
-from bench_nav.spsp.gbfs import gbfs
-from bench_nav.spsp.hpastar import hpastar, precompute_hpa
-from bench_nav.spsp.navbfs import navbfs
-from bench_nav.spsp.navbfs_noextract import navbfs_noextract
-from bench_nav.spsp.precompute_apsp import precompute_apsp
-from bench_nav.sssp.bellman_ford import bellman_ford as sssp_bellman_ford
-from bench_nav.sssp.bfs import bfs as sssp_bfs
-from bench_nav.sssp.bfs_expand import bfs_expand as sssp_bfs_expand
-from bench_nav.sssp.dijkstra_dial import dijkstra_dial as sssp_dijkstra_dial
-from bench_nav.sssp.dijkstra_dial_dual import (
-    dijkstra_dial_dual as sssp_dijkstra_dial_dual,
-)
-from bench_nav.sssp.dijkstra_dial_flat import (
-    dijkstra_dial_flat as sssp_dijkstra_dial_flat,
-)
-from bench_nav.sssp.dijkstra_dial_flat_prealloc import (
-    dijkstra_dial_flat_prealloc as sssp_dijkstra_dial_flat_prealloc,
-)
-from bench_nav.sssp.dijkstra_dial_pnbc import (
-    dijkstra_dial_pnbc as sssp_dijkstra_dial_pnbc,
-)
-from bench_nav.sssp.dijkstra_dial_unrolled import (
-    dijkstra_dial_unrolled as sssp_dijkstra_dial_unrolled,
-)
-from bench_nav.sssp.dijkstra_heap import dijkstra_heap as sssp_dijkstra_heap
-from bench_nav.sssp.spfa_slf import spfa_slf as sssp_spfa_slf
 
 if TYPE_CHECKING:
     import argparse
@@ -114,90 +73,91 @@ def _build_spsp_algos(
     pnb3: list[list[int]],
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
-    selected: set[str] | None,
+    selected: set[str],
 ) -> list[tuple[str, SpspFn]]:
     algos: list[tuple[str, SpspFn]] = []
 
     def add(name: str, fn: SpspFn) -> None:
-        if selected is None or name in selected:
+        if name in selected:
             algos.append((name, fn))
 
     add(
         "astar-heap-cheb",
-        lambda start, goal: astar_heap_cheb(w, n, cost, pnb, start, goal),
+        lambda start, goal: spsp.astar_heap_cheb(w, n, cost, pnb, start, goal),
     )
     add(
         "astar-dial-cheb",
-        lambda start, goal: astar_dial_cheb(w, n, cost, pnb, start, goal),
+        lambda start, goal: spsp.astar_dial_cheb(w, n, cost, pnb, start, goal),
     )
 
-    if (
-        selected is None
-        or "astar-heap-apsp" in selected
-        or "astar-dial-apsp" in selected
-    ):
-        apsp = precompute_apsp(n, cost, pnb)
+    if "astar-heap-apsp" in selected or "astar-dial-apsp" in selected:
+        apsp = spsp.precompute_apsp(n, cost, pnb)
         add(
             "astar-heap-apsp",
-            lambda start, goal: astar_heap_apsp(n, cost, pnb, apsp, start, goal),
+            lambda start, goal: spsp.astar_heap_apsp(n, cost, pnb, apsp, start, goal),
         )
         add(
             "astar-dial-apsp",
-            lambda start, goal: astar_dial_apsp(n, cost, pnb, apsp, start, goal),
+            lambda start, goal: spsp.astar_dial_apsp(n, cost, pnb, apsp, start, goal),
         )
 
-    add("bfs", lambda start, goal: bfs(n, pnb, start, goal))
-    add("bfs-01", lambda start, goal: bfs_01(n, cost, pnb, start, goal))
-    add("bfs-expand", lambda start, goal: bfs_expand(n, cost, pnb, start, goal))
-    add("bfs-roadopt", lambda start, goal: bfs_roadopt(n, cost, pnb, start, goal))
+    add("bfs", lambda start, goal: spsp.bfs(n, pnb, start, goal))
+    add("bfs-01", lambda start, goal: spsp.bfs_01(n, cost, pnb, start, goal))
+    add("bfs-dist", lambda start, goal: spsp.bfs_dist(n, pnb, start, goal))
+    add("bfs-expand", lambda start, goal: spsp.bfs_expand(n, cost, pnb, start, goal))
+    add("bfs-roadopt", lambda start, goal: spsp.bfs_roadopt(n, cost, pnb, start, goal))
     add(
         "navbfs",
-        lambda start, goal: navbfs(n, cost, pnb, pnb_push, pnb_set, start, goal),
+        lambda start, goal: spsp.navbfs(n, cost, pnb, pnb_push, pnb_set, start, goal),
     )
     add(
         "navbfs-noextract",
-        lambda start, goal: navbfs_noextract(n, pnb_push, pnb_set, start, goal),
+        lambda start, goal: spsp.navbfs_noextract(n, pnb_push, pnb_set, start, goal),
     )
-    add("bibfs", lambda start, goal: bibfs(n, pnb, start, goal))
-    add("gbfs", lambda start, goal: gbfs(w, n, pnb, start, goal))
+    add("bibfs", lambda start, goal: spsp.bibfs(n, pnb, start, goal))
+    add("gbfs", lambda start, goal: spsp.gbfs(w, n, pnb, start, goal))
     add(
         "dijkstra-heap",
-        lambda start, goal: dijkstra_heap(n, cost, pnb, start, goal),
+        lambda start, goal: spsp.dijkstra_heap(n, cost, pnb, start, goal),
     )
     add(
         "dijkstra-dial",
-        lambda start, goal: dijkstra_dial(n, cost, pnb, start, goal),
+        lambda start, goal: spsp.dijkstra_dial(n, cost, pnb, start, goal),
     )
     add(
         "dijkstra-dial-dual",
-        lambda start, goal: dijkstra_dial_dual(n, cost, pnb, pnb1, pnb3, start, goal),
+        lambda start, goal: spsp.dijkstra_dial_dual(
+            n, cost, pnb, pnb1, pnb3, start, goal
+        ),
     )
 
-    if selected is None or "hpastar" in selected:
-        hpa_graph = precompute_hpa(w, h, cost)
-        add("hpastar", lambda start, goal: hpastar(w, hpa_graph, start, goal))
+    if "hpastar" in selected:
+        hpa_graph = spsp.precompute_hpa(w, h, cost)
+        add("hpastar", lambda start, goal: spsp.hpastar(w, hpa_graph, start, goal))
 
-    if selected is None or "astar-dial-bfs" in selected:
+    if "astar-dial-bfs" in selected:
         bfs_h_cache: dict[int, list[int]] = {}
 
         def _astar_dial_bfs(start: int, goal: int) -> Path_:
             if start not in bfs_h_cache:
                 bfs_h_cache[start] = bfs_dist(n, pnb, start)
-            return astar_dial_bfs(n, cost, pnb, bfs_h_cache[start], start, goal)
+            return spsp.astar_dial_bfs(n, cost, pnb, bfs_h_cache[start], start, goal)
 
         add("astar-dial-bfs", _astar_dial_bfs)
 
     add(
         "biastar-dial-cheb",
-        lambda start, goal: biastar_dial_cheb(w, n, cost, pnb, start, goal),
+        lambda start, goal: spsp.biastar_dial_cheb(w, n, cost, pnb, start, goal),
     )
     add(
         "biastar-dial-cheb-ft",
-        lambda start, goal: biastar_dial_cheb_ft(w, n, cost, pnb, start, goal),
+        lambda start, goal: spsp.biastar_dial_cheb_ft(w, n, cost, pnb, start, goal),
     )
     add(
         "astar-cheb+bw-dijkstra",
-        lambda start, goal: astar_dial_cheb_bw_dijkstra(w, n, cost, pnb, start, goal),
+        lambda start, goal: spsp.astar_dial_cheb_bw_dijkstra(
+            w, n, cost, pnb, start, goal
+        ),
     )
 
     return algos
@@ -210,37 +170,37 @@ def _build_sssp_algos(
     pnbc: list[list[tuple[int, int]]],
     pnb1: list[list[int]],
     pnb3: list[list[int]],
-    selected: set[str] | None,
+    selected: set[str],
 ) -> list[tuple[str, SsspFn]]:
     algos: list[tuple[str, SsspFn]] = []
 
     def add(name: str, fn: SsspFn) -> None:
-        if selected is None or name in selected:
+        if name in selected:
             algos.append((name, fn))
 
-    add("bfs", lambda start: sssp_bfs(n, pnb, start))
-    add("bfs-expand", lambda start: sssp_bfs_expand(n, cost, pnb, start))
-    add("dijkstra-heap", lambda start: sssp_dijkstra_heap(n, cost, pnb, start))
-    add("dijkstra-dial", lambda start: sssp_dijkstra_dial(n, cost, pnb, start))
-    add("dijkstra-dial-pnbc", lambda start: sssp_dijkstra_dial_pnbc(n, pnbc, start))
+    add("bfs", lambda start: sssp.bfs(n, pnb, start))
+    add("bfs-expand", lambda start: sssp.bfs_expand(n, cost, pnb, start))
+    add("dijkstra-heap", lambda start: sssp.dijkstra_heap(n, cost, pnb, start))
+    add("dijkstra-dial", lambda start: sssp.dijkstra_dial(n, cost, pnb, start))
+    add("dijkstra-dial-pnbc", lambda start: sssp.dijkstra_dial_pnbc(n, pnbc, start))
     add(
-        "dijkstra-dial-flat",
-        lambda start: sssp_dijkstra_dial_flat(n, cost, pnb, start),
+        "dijkstra-flat",
+        lambda start: sssp.dijkstra_flat(n, cost, pnb, start),
     )
     add(
-        "dijkstra-dial-flat-prealloc",
-        lambda start: sssp_dijkstra_dial_flat_prealloc(n, cost, pnb, start),
+        "dijkstra-flat-prealloc",
+        lambda start: sssp.dijkstra_flat_prealloc(n, cost, pnb, start),
     )
     add(
         "dijkstra-dial-dual",
-        lambda start: sssp_dijkstra_dial_dual(n, pnb1, pnb3, start),
+        lambda start: sssp.dijkstra_dial_dual(n, pnb1, pnb3, start),
     )
     add(
         "dijkstra-dial-unrolled",
-        lambda start: sssp_dijkstra_dial_unrolled(n, cost, pnb, start),
+        lambda start: sssp.dijkstra_dial_unrolled(n, cost, pnb, start),
     )
-    add("spfa-slf", lambda start: sssp_spfa_slf(n, cost, pnb, start))
-    add("bellman-ford", lambda start: sssp_bellman_ford(n, cost, pnb, start))
+    add("spfa-slf", lambda start: sssp.spfa_slf(n, cost, pnb, start))
+    add("bellman-ford", lambda start: sssp.bellman_ford(n, cost, pnb, start))
 
     return algos
 
@@ -252,6 +212,7 @@ ALL_SPSP_NAMES: list[str] = [
     "astar-dial-apsp",
     "bfs",
     "bfs-01",
+    "bfs-dist",
     "bfs-expand",
     "bfs-roadopt",
     "navbfs",
@@ -274,8 +235,8 @@ ALL_SSSP_NAMES: list[str] = [
     "dijkstra-heap",
     "dijkstra-dial",
     "dijkstra-dial-pnbc",
-    "dijkstra-dial-flat",
-    "dijkstra-dial-flat-prealloc",
+    "dijkstra-flat",
+    "dijkstra-flat-prealloc",
     "dijkstra-dial-dual",
     "dijkstra-dial-unrolled",
     "spfa-slf",
@@ -289,7 +250,7 @@ def bench_spsp(args: argparse.Namespace) -> None:
             print(name)
         sys.exit(0)
 
-    selected: set[str] | None = None
+    selected: set[str] = set(ALL_SPSP_NAMES)
     if args.algos:
         selected = set(args.algos)
         unknown = selected - set(ALL_SPSP_NAMES)
@@ -440,7 +401,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
             print(name)
         sys.exit(0)
 
-    selected: set[str] | None = None
+    selected: set[str] = set(ALL_SSSP_NAMES)
     if args.algos:
         selected = set(args.algos)
         unknown = selected - set(ALL_SSSP_NAMES)

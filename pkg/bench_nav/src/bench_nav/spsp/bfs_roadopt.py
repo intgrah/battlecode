@@ -1,5 +1,3 @@
-from collections import deque
-
 from bench_nav.common import Path_, extract_parent
 
 
@@ -8,10 +6,10 @@ def bfs_roadopt(
 ) -> Path_:
     parent = [-1] * n
     parent[start] = start
-    q: deque[int] = deque([start])
+    q = [start]
+    append = q.append
     found = False
-    while q:
-        node = q.popleft()
+    for node in q:
         for nb in pnb[node]:
             if parent[nb] != -1:
                 continue
@@ -19,7 +17,7 @@ def bfs_roadopt(
             if nb == goal:
                 found = True
                 break
-            q.append(nb)
+            append(nb)
         if found:
             break
     if not found:

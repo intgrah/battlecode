@@ -4,16 +4,16 @@ from bench_nav.common import INF, Path_, extract_parent
 
 
 def bibfs(n: int, pnb: list[list[int]], start: int, goal: int) -> Path_:
-    parent_f: list[int] = [-1] * n
-    parent_b: list[int] = [-1] * n
-    dist_f: list[int] = [INF] * n
-    dist_b: list[int] = [INF] * n
+    parent_f = [-1] * n
+    parent_b = [-1] * n
+    dist_f = [INF] * n
+    dist_b = [INF] * n
     parent_f[start] = start
     parent_b[goal] = goal
     dist_f[start] = 0
     dist_b[goal] = 0
-    qf: deque[int] = deque([start])
-    qb: deque[int] = deque([goal])
+    qf = deque([start])
+    qb = deque([goal])
     best = INF
     meet = -1
     while qf or qb:

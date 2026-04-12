@@ -13,6 +13,7 @@ def navbfs_noextract(
     dist = [INF] * n
     dist[start] = 0
     q = [start]
+    append = q.append
     stop_at = INF
     for node in q:
         d = dist[node] + 1
@@ -23,7 +24,7 @@ def navbfs_noextract(
         for nb in pnb_push[node]:
             if d < dist[nb]:
                 dist[nb] = d
-                q.append(nb)
+                append(nb)
         for nb in pnb_set[node]:
             if d < dist[nb]:
                 if nb == goal:
