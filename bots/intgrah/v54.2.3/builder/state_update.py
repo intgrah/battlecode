@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .algorithms.bfs import update_bfs
-from .role import Role
-from .state_update_econ import update_dangling, update_ore_target
-from .state_update_role import update_role
-from .state_update_vision import update_map, update_splittable_locations
+from builder.algorithms.bfs import update_bfs
+from builder.role import Role
+from builder.state_update_econ import update_dangling, update_ore_target
+from builder.state_update_role import update_role
+from builder.state_update_vision import update_map, update_splittable_locations
 
 if TYPE_CHECKING:
     from cambc import Controller

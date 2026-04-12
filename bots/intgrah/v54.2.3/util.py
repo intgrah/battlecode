@@ -69,7 +69,6 @@ BASE_COST: dict[EntityType, tuple[int, int]] = {
     EntityType.BRIDGE: GameConstants.BRIDGE_BASE_COST,
     EntityType.SPLITTER: GameConstants.SPLITTER_BASE_COST,
     EntityType.BARRIER: GameConstants.BARRIER_BASE_COST,
-    EntityType.FOUNDRY: GameConstants.FOUNDRY_BASE_COST,
 }
 _IS_UNIT = frozenset(
     {
