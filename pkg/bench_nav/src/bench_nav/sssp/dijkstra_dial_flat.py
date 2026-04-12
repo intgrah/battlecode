@@ -11,10 +11,10 @@ def dijkstra_dial_flat(
     bk: list[list[int]] = [[] for _ in range(_BUCKETS)]
     bk[0].append(start)
     cur_d = 0
-    max_d = 200
+    max_d = 0
     while cur_d <= max_d:
         for node in bk[cur_d]:
-            if dist[node] == cur_d:
+            if dist[node] is cur_d:
                 for nb in pnb[node]:
                     nd = cur_d + cost[nb]
                     if nd < dist[nb]:
