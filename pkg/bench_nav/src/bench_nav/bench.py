@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import csv
 import gc
 import random
@@ -9,7 +10,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from bench_nav.common import CE, INF, MAPS_DIR, SCENARIOS, SEED
 from bench_nav.map_data import MapData
@@ -369,16 +369,41 @@ def bench_sssp(args: argparse.Namespace) -> None:
             )
 
 
-def _load_csv(path: Path) -> pd.DataFrame:
+type Row = dict[str, str]
+
+
+def _load_csv(path: Path) -> list[Row]:
     if not path.exists():
         print(f"File not found: {path}", file=sys.stderr)
         print("Run `bench-nav spsp` first.", file=sys.stderr)
         sys.exit(1)
-    return pd.read_csv(path)
+    with path.open(newline="") as f:
+        return list(csv.DictReader(f))
 
 
-def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
-    algos: list[str] = list(dict.fromkeys(df["algo"]))
+def _quantile(vals: list[float], q: float) -> float:
+    if not vals:
+        return 0.0
+    vals.sort()
+    idx = q * (len(vals) - 1)
+    lo = int(idx)
+    hi = min(lo + 1, len(vals) - 1)
+    frac = idx - lo
+    return vals[lo] * (1 - frac) + vals[hi] * frac
+
+
+def _safe_floats(rows: list[Row], key: str) -> list[float]:
+    out: list[float] = []
+    for r in rows:
+        v = r.get(key, "")
+        if v != "":
+            with contextlib.suppress(ValueError):
+                out.append(float(v))
+    return out
+
+
+def _print_scenario(rows: list[Row], scenario: str) -> None:
+    algos: list[str] = list(dict.fromkeys(r["algo"] for r in rows))
 
     hdr = (
         f"{'Algorithm':<50}"
@@ -391,22 +416,22 @@ def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
     print("-" * len(hdr))
 
     for algo in algos:
-        ad = df[df["algo"] == algo]
-        times = ad["time_us"]
-        reachable = ad[ad["reachable"] == 1]
-        opts = pd.to_numeric(reachable["opt_ratio"], errors="coerce").dropna()
-        n_reached = int(reachable["reached_goal"].sum()) if len(reachable) > 0 else 0
+        ad = [r for r in rows if r["algo"] == algo]
+        times = _safe_floats(ad, "time_us")
+        reachable = [r for r in ad if r.get("reachable") == "1"]
+        opts = _safe_floats(reachable, "opt_ratio")
+        n_reached = sum(1 for r in reachable if r.get("reached_goal") == "1")
         n_reachable = len(reachable)
-        fm = pd.to_numeric(reachable["first_move_correct"], errors="coerce").dropna()
+        fm = _safe_floats(reachable, "first_move_correct")
 
-        t50 = times.quantile(0.5) if len(times) > 0 else 0
-        t99 = times.quantile(0.99) if len(times) > 0 else 0
-        t100 = times.max() if len(times) > 0 else 0
-        o50 = opts.quantile(0.5) if len(opts) > 0 else 0
-        o99 = opts.quantile(0.99) if len(opts) > 0 else 0
-        o100 = opts.max() if len(opts) > 0 else 0
-        reach_pct = 100 * n_reached / n_reachable if n_reachable > 0 else 0
-        fm_pct = 100 * fm.mean() if len(fm) > 0 else 0
+        t50 = _quantile(times, 0.5)
+        t99 = _quantile(times, 0.99)
+        t100 = max(times) if times else 0.0
+        o50 = _quantile(opts, 0.5)
+        o99 = _quantile(opts, 0.99)
+        o100 = max(opts) if opts else 0.0
+        reach_pct = 100 * n_reached / n_reachable if n_reachable > 0 else 0.0
+        fm_pct = 100 * sum(fm) / len(fm) if fm else 0.0
 
         print(
             f"{algo:<50}"
@@ -417,10 +442,10 @@ def _print_scenario(df: pd.DataFrame, scenario: str) -> None:
 
 
 def bench_table(args: argparse.Namespace) -> None:
-    df = _load_csv(args.csv)
-    scenarios: list[str] = sorted(df["scenario"].unique())
+    rows = _load_csv(args.csv)
+    scenarios: list[str] = sorted({r["scenario"] for r in rows})
     for scenario in scenarios:
-        _print_scenario(df[df["scenario"] == scenario], scenario)
+        _print_scenario([r for r in rows if r["scenario"] == scenario], scenario)
 
 
 ALGO_CLASS_COLORS: dict[str, str] = {
@@ -453,10 +478,9 @@ def _algo_color(name: str) -> str:
 
 
 def bench_plot(args: argparse.Namespace) -> None:
-
-    df = _load_csv(args.csv)
-    scenarios: list[str] = sorted(df["scenario"].unique())
-    algos: list[str] = list(dict.fromkeys(df["algo"]))
+    all_rows = _load_csv(args.csv)
+    scenarios: list[str] = sorted({r["scenario"] for r in all_rows})
+    algos: list[str] = list(dict.fromkeys(r["algo"] for r in all_rows))
     n_scenarios = len(scenarios)
     n_algos = len(algos)
     cols_per_scenario = 4
@@ -472,7 +496,7 @@ def bench_plot(args: argparse.Namespace) -> None:
     fig.suptitle("Navigation Benchmark", fontsize=14, fontweight="bold")
 
     for si, scenario in enumerate(scenarios):
-        sd = df[df["scenario"] == scenario]
+        sd = [r for r in all_rows if r["scenario"] == scenario]
         col_base = si * cols_per_scenario
 
         time_data: list[list[float]] = []
@@ -481,26 +505,20 @@ def bench_plot(args: argparse.Namespace) -> None:
         fm_pcts: list[float] = []
 
         for algo in algos:
-            ad = sd[sd["algo"] == algo]
-            times = ad["time_us"].dropna().tolist()
-            time_data.append(times or [0])
+            ad = [r for r in sd if r["algo"] == algo]
+            times = _safe_floats(ad, "time_us")
+            time_data.append(times or [0.0])
 
-            reachable = ad[ad["reachable"] == 1]
-            opts = (
-                pd.to_numeric(reachable["opt_ratio"], errors="coerce").dropna().tolist()
-            )
+            reachable = [r for r in ad if r.get("reachable") == "1"]
+            opts = _safe_floats(reachable, "opt_ratio")
             opt_data.append(opts or [1.0])
 
-            reached = reachable["reached_goal"]
             n_reachable = len(reachable)
-            n_found = int(reached.sum()) if n_reachable > 0 else 0
-            reach_pcts.append(100 * n_found / n_reachable if n_reachable > 0 else 0)
+            n_found = sum(1 for r in reachable if r.get("reached_goal") == "1")
+            reach_pcts.append(100 * n_found / n_reachable if n_reachable > 0 else 0.0)
 
-            fm = pd.to_numeric(
-                reachable["first_move_correct"],
-                errors="coerce",
-            ).dropna()
-            fm_pcts.append(100 * fm.mean() if len(fm) > 0 else 0)
+            fm = _safe_floats(reachable, "first_move_correct")
+            fm_pcts.append(100 * sum(fm) / len(fm) if fm else 0.0)
 
         positions = list(range(n_algos))
 

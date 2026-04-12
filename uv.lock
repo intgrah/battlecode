@@ -141,14 +141,12 @@ version = "0.1.0"
 source = { editable = "pkg/bench_nav" }
 dependencies = [
     { name = "matplotlib" },
-    { name = "pandas" },
     { name = "proto" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "pandas", specifier = ">=3.0.2" },
     { name = "proto", editable = "pkg/proto" },
 ]
 
