@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import csv
-import gc
 import random
 import sys
 import time
@@ -37,6 +36,7 @@ from bench_nav.spsp.astar_dial_cheb_bw_dijkstra import astar_dial_cheb_bw_dijkst
 from bench_nav.spsp.astar_heap_apsp import astar_heap_apsp
 from bench_nav.spsp.astar_heap_cheb import astar_heap_cheb
 from bench_nav.spsp.bfs import bfs
+from bench_nav.spsp.bfs_01 import bfs_01
 from bench_nav.spsp.bfs_expand import bfs_expand
 from bench_nav.spsp.bfs_roadopt import bfs_roadopt
 from bench_nav.spsp.biastar_dial_cheb import biastar_dial_cheb
@@ -52,9 +52,7 @@ from bench_nav.spsp.navbfs_noextract import navbfs_noextract
 from bench_nav.spsp.precompute_apsp import precompute_apsp
 from bench_nav.sssp.bellman_ford import bellman_ford as sssp_bellman_ford
 from bench_nav.sssp.bfs import bfs as sssp_bfs
-from bench_nav.sssp.bfs_01 import bfs_01 as sssp_bfs_01
 from bench_nav.sssp.bfs_expand import bfs_expand as sssp_bfs_expand
-from bench_nav.sssp.dijkstra_deque import dijkstra_deque as sssp_dijkstra_deque
 from bench_nav.sssp.dijkstra_dial import dijkstra_dial as sssp_dijkstra_dial
 from bench_nav.sssp.dijkstra_dial_dual import (
     dijkstra_dial_dual as sssp_dijkstra_dial_dual,
@@ -72,6 +70,7 @@ from bench_nav.sssp.dijkstra_dial_unrolled import (
     dijkstra_dial_unrolled as sssp_dijkstra_dial_unrolled,
 )
 from bench_nav.sssp.dijkstra_heap import dijkstra_heap as sssp_dijkstra_heap
+from bench_nav.sssp.spfa_slf import spfa_slf as sssp_spfa_slf
 
 if TYPE_CHECKING:
     import argparse
@@ -148,6 +147,7 @@ def _build_spsp_algos(
         )
 
     add("bfs", lambda start, goal: bfs(n, pnb, start, goal))
+    add("bfs-01", lambda start, goal: bfs_01(n, cost, pnb, start, goal))
     add("bfs-expand", lambda start, goal: bfs_expand(n, cost, pnb, start, goal))
     add("bfs-roadopt", lambda start, goal: bfs_roadopt(n, cost, pnb, start, goal))
     add(
@@ -239,8 +239,7 @@ def _build_sssp_algos(
         "dijkstra-dial-unrolled",
         lambda start: sssp_dijkstra_dial_unrolled(n, cost, pnb, start),
     )
-    add("bfs-01", lambda start: sssp_bfs_01(n, cost, pnb, start))
-    add("dijkstra-deque", lambda start: sssp_dijkstra_deque(n, cost, pnb, start))
+    add("spfa-slf", lambda start: sssp_spfa_slf(n, cost, pnb, start))
     add("bellman-ford", lambda start: sssp_bellman_ford(n, cost, pnb, start))
 
     return algos
@@ -252,6 +251,7 @@ ALL_SPSP_NAMES: list[str] = [
     "astar-heap-apsp",
     "astar-dial-apsp",
     "bfs",
+    "bfs-01",
     "bfs-expand",
     "bfs-roadopt",
     "navbfs",
@@ -278,8 +278,7 @@ ALL_SSSP_NAMES: list[str] = [
     "dijkstra-dial-flat-prealloc",
     "dijkstra-dial-dual",
     "dijkstra-dial-unrolled",
-    "bfs-01",
-    "dijkstra-deque",
+    "spfa-slf",
     "bellman-ford",
 ]
 
@@ -498,9 +497,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
 
             algos = _build_sssp_algos(n, cost, pnb, pnbc, pnb1, pnb3, selected)
 
-            skip_validation = {"bfs-01", "dijkstra-deque"}
             for algo_name, algo_fn in algos:
-                gc.disable()
                 for idx, (start, _goal) in enumerate(zip(sources, goals, strict=True)):
                     t0 = time.perf_counter()
                     result = algo_fn(start)
@@ -508,9 +505,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
                     times.setdefault(algo_name, {}).setdefault(scenario, []).append(us)
 
                     ref = ref_dists[idx]
-                    if algo_name in skip_validation or (
-                        algo_name in ("bfs", "bfs-expand") and scenario != "no_roads"
-                    ):
+                    if algo_name in ("bfs", "bfs-expand") and scenario != "no_roads":
                         got = result
                         if algo_name == "bfs":
                             got = [d * CE if d < INF else INF for d in result]
@@ -538,7 +533,6 @@ def bench_sssp(args: argparse.Namespace) -> None:
                     opt_ratios.setdefault(algo_name, {}).setdefault(
                         scenario, []
                     ).append(worst_ratio)
-                gc.enable()
 
     sys.stderr.write("\r" + " " * 60 + "\r")
 
