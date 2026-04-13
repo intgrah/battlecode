@@ -2,7 +2,7 @@
 name = "bot-cheese"
 version = "0.0.0"
 requires-python = ">=3.12,<3.14"
-dependencies = ["cambc>=1.6.5"]
+dependencies = ["cambc>=1.7.0"]
 
 [tool.ty.environment]
 root = ["."]
