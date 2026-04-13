@@ -1,7 +1,7 @@
 from cambc import Controller
 
-from .role import Role
-from .state import State
+from builder.state import State
+from builder.state.role import Role
 
 _OPENING_ROLES = [
     (Role.ECON, True, 0),

@@ -7,7 +7,7 @@ from visualiser import Grid, Palette, Scalar, Tiles, emit
 if TYPE_CHECKING:
     from cambc import Controller
 
-    from .state import State
+    from builder.state import State
 
 __all__ = ["dump"]
 
