@@ -18,7 +18,7 @@ from .helpers import (
     try_place,
 )
 from .state import State
-from .state_update_vision import can_place_junction
+from .state.update.econ import can_place_junction
 
 
 def clear_with_turret(
