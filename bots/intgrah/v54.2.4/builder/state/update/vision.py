@@ -14,7 +14,7 @@ from building import (
     BuildingSplitter,
     make_building,
 )
-from cambc import Controller, EntityType, Environment
+from cambc import Controller, EntityType, Environment, ResourceType
 from util import DIR8, INF, ROAD_COST
 
 from builder.state import update_pnb
@@ -44,13 +44,22 @@ def update_vision(state: State, ct: Controller) -> None:
             state.max_hp[i] = ct.get_max_hp(building_id)
 
             match bld:
-                case BuildingConveyor() | BuildingBridge():
-                    if ct.get_stored_resource(building_id) is not None:
-                        state.belt_load_counts[i] += 1
-                    else:
-                        state.belt_load_counts[i] = 0
-                case BuildingSplitter():
-                    state.belt_load_counts[i] = 100
+                case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
+                    res = ct.get_stored_resource(building_id)
+                    slot = ct.get_current_round() % 8
+                    shift = slot * 2
+                    match res:
+                        case None:
+                            code = 0
+                        case ResourceType.TITANIUM:
+                            code = 1
+                        case ResourceType.RAW_AXIONITE:
+                            code = 2
+                        case _:
+                            code = 3
+                    state.flow_history[i] = (state.flow_history[i] & ~(3 << shift)) | (
+                        code << shift
+                    )
 
             match bld:
                 case BuildingConveyor(direction=d):
@@ -172,6 +181,5 @@ def update_vision(state: State, ct: Controller) -> None:
             cost = 1
             conveyor_cost = 1
         state.cost_grid[pi] = cost
-        state.line_loads_computed[i] = False
         state.conveyor_cost_grid[pi] = conveyor_cost
         update_pnb(state.w, state.h, state.cost_grid, pw, pad, state.pnb, i)
