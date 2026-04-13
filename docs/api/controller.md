@@ -97,7 +97,7 @@ class Player:
   For gunners, this is the full forward ray up to range, including tiles behind
   walls. For sentinels, this is the full +/-1 band around the forward line
   within vision radius squared 32. For breaches, this is the forward 180-degree
-  cone within distance squared 13. For launchers, this is every in-bounds tile
+  cone within distance squared 24. For launchers, this is every in-bounds tile
   with `0 < distance^2 <= 26`. Raises `GameError` if this unit is not a turret.
 </ResponseField>
 
