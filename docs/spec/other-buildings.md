@@ -24,7 +24,7 @@ Walkable tiles for builder bots to move on. The cheapest building.
 
 | Property  | Value |
 | --------- | ----- |
-| HP        | 5     |
+| HP        | 4     |
 | Base cost | 1 Ti  |
 | Scaling   | 0.5%  |
 

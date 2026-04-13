@@ -144,7 +144,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
           Road
         </td>
 
-        <td>5</td>
+        <td>4</td>
         <td>1 Ti</td>
         <td>0.5%</td>
         <td>Walkable</td>
@@ -278,7 +278,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>13</td>
         <td>2</td>
         <td>13</td>
-        <td>10 (40 with Ax)</td>
+        <td>10 (25 with Ax)</td>
         <td>1</td>
         <td>2</td>
       </tr>
@@ -297,7 +297,7 @@ export const DenseTable = ({children}) => <div className="dense-table">{children
         <td>Breach</td>
         <td>2</td>
         <td>2</td>
-        <td>13</td>
+        <td>24</td>
         <td>40 + 20 splash</td>
         <td>1</td>
         <td>5</td>
