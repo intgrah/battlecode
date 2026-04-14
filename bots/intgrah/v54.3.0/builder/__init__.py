@@ -46,11 +46,10 @@ if TYPE_CHECKING:
 
 
 def _connect_close(self: Builder, ct: Controller) -> bool:
-    my_pos = ct.get_position()
-    if self.branch_start and my_pos.distance_squared(self.branch_start) <= 2:
+    if self.branch_start and self.my_pos.distance_squared(self.branch_start) <= 2:
         route_to_core(self, ct, self.branch_start)
         return True
-    if self.dangling_output and my_pos.distance_squared(self.dangling_output) <= 2:
+    if self.dangling_output and self.my_pos.distance_squared(self.dangling_output) <= 2:
         route_to_core(self, ct, self.dangling_output)
         return True
     return False
@@ -95,10 +94,10 @@ def _opportunistic_attack(self: Builder, ct: Controller) -> bool:
         self.opportunistic
         and self.rng.random() < 0.2
         and ct.get_current_round() > 100
-        and ct.can_fire(ct.get_position())
-        and ct.get_team(ct.get_tile_building_id(ct.get_position())) != self.my_team
+        and ct.can_fire(self.my_pos)
+        and ct.get_team(ct.get_tile_building_id(self.my_pos)) != self.my_team
     ):
-        ct.fire(ct.get_position())
+        ct.fire(self.my_pos)
         return True
     return False
 
@@ -113,9 +112,8 @@ def _explore(self: Builder, ct: Controller) -> bool:
 def _wander(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
-    my_pos = ct.get_position()
-    return any(try_move(ct, my_pos.add(d)) for d in dir8) or any(
-        try_move_with_road(self, ct, my_pos.add(d)) for d in dir8
+    return any(try_move(ct, self.my_pos.add(d)) for d in dir8) or any(
+        try_move_with_road(self, ct, self.my_pos.add(d)) for d in dir8
     )
 
 

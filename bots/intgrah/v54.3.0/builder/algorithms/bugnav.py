@@ -52,10 +52,9 @@ def bugnav_step(
     blocked: set[Position] | None = None,
 ) -> Position | None:
     global _bug_state
-    my_pos = ct.get_position()
 
     if _bug_state is None or _bug_state.goal != target:
-        _bug_state = WallFollow(my_pos, target)
+        _bug_state = WallFollow(self.my_pos, target)
 
     bug = _bug_state
     if blocked is None:
@@ -66,23 +65,23 @@ def bugnav_step(
     pad = self.pad
     pw = self.pad_w
 
-    if my_pos == target:
+    if self.my_pos == target:
         return None
 
-    if bug.last_pos == my_pos and bug.mode == BugMode.MODE_GOAL_SEEK:
+    if bug.last_pos == self.my_pos and bug.mode == BugMode.MODE_GOAL_SEEK:
         bug.mode = BugMode.MODE_WALL_FOLLOW
-        bug.hit_point = my_pos
+        bug.hit_point = self.my_pos
 
-    bug.last_pos = my_pos
+    bug.last_pos = self.my_pos
 
     if bug.mode == BugMode.MODE_GOAL_SEEK:
-        dx = target.x - my_pos.x
-        dy = target.y - my_pos.y
+        dx = target.x - self.my_pos.x
+        dy = target.y - self.my_pos.y
 
         step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
         step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
 
-        next_pos = Position(my_pos.x + step_x, my_pos.y + step_y)
+        next_pos = Position(self.my_pos.x + step_x, self.my_pos.y + step_y)
 
         if (
             0 <= next_pos.x < w
@@ -92,19 +91,19 @@ def bugnav_step(
         ):
             return next_pos
         bug.mode = BugMode.MODE_WALL_FOLLOW
-        bug.hit_point = my_pos
+        bug.hit_point = self.my_pos
 
     if bug.mode == BugMode.MODE_WALL_FOLLOW:
         if (
             bug.hit_point
-            and _on_baseline(my_pos, bug.start, target)
-            and chebyshev(my_pos, target) < chebyshev(bug.hit_point, target)
+            and _on_baseline(self.my_pos, bug.start, target)
+            and chebyshev(self.my_pos, target) < chebyshev(bug.hit_point, target)
         ):
             bug.mode = BugMode.MODE_GOAL_SEEK
             return bugnav_step(self, ct, target, blocked)
 
-        goal_dx = target.x - my_pos.x
-        goal_dy = target.y - my_pos.y
+        goal_dx = target.x - self.my_pos.x
+        goal_dy = target.y - self.my_pos.y
         ideal_angle = math.atan2(goal_dy, goal_dx)
 
         def key(d: Direction) -> float:
@@ -115,7 +114,7 @@ def bugnav_step(
         dirs.sort(key=key)
 
         for d in dirs:
-            n = my_pos.add(d)
+            n = self.my_pos.add(d)
             if not (0 <= n.x < w and 0 <= n.y < h):
                 continue
 
@@ -127,9 +126,9 @@ def bugnav_step(
 
 def bugnav(self: Builder, ct: Controller, target: Position) -> Position | None:
     blocked: set[Position] = set()
-    my_pos = ct.get_position()
+
     for pos in ct.get_nearby_tiles():
-        if pos != my_pos and ct.get_tile_builder_bot_id(pos) is not None:
+        if pos != self.my_pos and ct.get_tile_builder_bot_id(pos) is not None:
             blocked.add(pos)
 
     return bugnav_step(self, ct, target, blocked)

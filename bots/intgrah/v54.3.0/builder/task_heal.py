@@ -94,7 +94,6 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     """
     best: Position | None = None
     best_score: tuple[int, int, int] = (0, 0, 0)
-    my_pos = ct.get_position()
     for pos in self.healable_buildings:
         i = self.idx(pos)
         hp = self.hp[i]
@@ -105,13 +104,13 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
 
         attackers = _count_visible_attackers(self, ct, pos)
         needed = _healers_needed(attackers)
-        rank = _deconflict_rank(self, ct, my_pos, pos)
+        rank = _deconflict_rank(self, ct, self.my_pos, pos)
         if rank >= needed:
             if not ct.is_in_vision(pos):
                 self.hp[i] = max_hp
             continue
 
-        dist = chebyshev(my_pos, pos)
+        dist = chebyshev(self.my_pos, pos)
         turns_to_reach = max(0, dist - 1)
         dmg_per_turn = max(2, attackers * 2)
         turns_to_die = max(1, hp // dmg_per_turn)
@@ -143,7 +142,7 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     return best
 
 
-def best_adjacent_healable_building(self: Builder, ct: Controller) -> Position | None:
+def best_adjacent_healable_building(self: Builder) -> Position | None:
     best: Position | None = None
     best_score: tuple[int, int] = (0, 0)
     for pos in self.healable_buildings:
@@ -151,7 +150,7 @@ def best_adjacent_healable_building(self: Builder, ct: Controller) -> Position |
         hp = self.hp[i]
         max_hp = self.max_hp[i]
         damage = max_hp - hp
-        if ct.get_position().distance_squared(pos) > 2:
+        if self.my_pos.distance_squared(pos) > 2:
             continue
         score = (0, damage) if damage < 4 else (1, damage)
         if score > best_score:
@@ -170,7 +169,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
             self.repair_pos = None
     repair_pos = best_healable_building(self, ct)
     if (
-        repair_pos and repair_pos.distance_squared(ct.get_position()) <= 2
+        repair_pos and repair_pos.distance_squared(self.my_pos) <= 2
     ) or not self.repair_pos:
         self.repair_pos = repair_pos
 
@@ -183,7 +182,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
         builder = ct.get_tile_builder_bot_id(heal_position)
         being_attacked = builder is not None and ct.get_team(builder) != ct.get_team()
 
-    building_to_heal = best_adjacent_healable_building(self, ct)
+    building_to_heal = best_adjacent_healable_building(self)
     save_money = being_attacked and self.repaired_prev
     if building_to_heal:
         self.repaired_prev = try_heal(
@@ -195,7 +194,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     else:
         self.repaired_prev = False
     make_move(self, ct, self.repair_pos)
-    building_to_heal = best_adjacent_healable_building(self, ct)
+    building_to_heal = best_adjacent_healable_building(self)
     if building_to_heal:
         self.repaired_prev = (
             try_heal(self, ct, building_to_heal, conserve_ti=save_money)
@@ -230,14 +229,13 @@ def heal_self(self: Builder, ct: Controller) -> bool:
     if ct.get_hp() > ct.get_max_hp() - 4:
         return False
 
-    my_pos = ct.get_position()
-    if not has_wounded_enemy(self, ct, my_pos):
-        try_heal(self, ct, my_pos, conserve_ti=False)
+    if not has_wounded_enemy(self, ct, self.my_pos):
+        try_heal(self, ct, self.my_pos, conserve_ti=False)
         move_random(self, ct)
         return True
 
     for d in DIR8:
-        if ct.can_move(d) and not has_wounded_enemy(self, ct, my_pos.add(d)):
+        if ct.can_move(d) and not has_wounded_enemy(self, ct, self.my_pos.add(d)):
             ct.move(d)
             try_heal(self, ct, ct.get_position(), conserve_ti=False)
             return True
@@ -246,9 +244,9 @@ def heal_self(self: Builder, ct: Controller) -> bool:
 
 
 def heal_builders(self: Builder, ct: Controller) -> bool:
-    b = self.get_building(ct.get_position())
+    b = self.get_building(self.my_pos)
     if b and b.team != ct.get_team():
-        i = self.idx(ct.get_position())
+        i = self.idx(self.my_pos)
         if self.hp[i] <= 2:
             return False
         if self.hp[i] <= 6 and ct.get_hp() > 18:

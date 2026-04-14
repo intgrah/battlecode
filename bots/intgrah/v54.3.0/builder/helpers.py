@@ -21,10 +21,10 @@ if TYPE_CHECKING:
 
 
 def make_move(self: Builder, ct: Controller, target: Position) -> bool:
-    if ct.get_position() == target:
+    if self.my_pos == target:
         return True
 
-    path = pathfind_blocked(self, ct, ct.get_position(), target)
+    path = pathfind_blocked(self, ct, self.my_pos, target)
     if path and len(path) > 1:
         next_step = path[1]
         try_move_with_road(self, ct, next_step)
@@ -42,10 +42,9 @@ def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> b
     return try_move(ct, target_pos)
 
 
-def try_attack(ct: Controller) -> bool:
-    my_pos = ct.get_position()
-    if ct.can_fire(my_pos):
-        ct.fire(my_pos)
+def try_attack(ct: Controller, pos: Position) -> bool:
+    if ct.can_fire(pos):
+        ct.fire(pos)
         return True
     return False
 
@@ -241,4 +240,4 @@ def find_dangling(self: Builder, ct: Controller) -> Position | None:
     ]
     if not candidates:
         return None
-    return closest(ct.get_position(), candidates)
+    return closest(self.my_pos, candidates)

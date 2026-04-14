@@ -38,9 +38,8 @@ def update_ore_denial(self: Builder, ct: Controller) -> None:
                     self.deny_ore_neighbours.add(n)
 
 
-def update_enemy_turrets(self: Builder, ct: Controller) -> None:
+def update_enemy_turrets(self: Builder) -> None:
     w = self.w
-    my_pos = ct.get_position()
 
     if self.nearest_enemy_turret:
         i = self.nearest_enemy_turret.y * w + self.nearest_enemy_turret.x
@@ -54,7 +53,7 @@ def update_enemy_turrets(self: Builder, ct: Controller) -> None:
     for pos in self.nearby_positions:
         match self.buildings[pos.y * w + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if t != self.my_team:
-                dist = (pos.x - my_pos.x) ** 2 + (pos.y - my_pos.y) ** 2
+                dist = self.my_pos.distance_squared(pos)
                 if dist < min_dist:
                     min_dist = dist
                     self.nearest_enemy_turret = pos
