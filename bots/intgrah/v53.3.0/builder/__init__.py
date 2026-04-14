@@ -8,8 +8,8 @@ from unit import Unit
 from util import DIR8, can_afford, try_move
 
 from .extra import fix_enemy_conveyor, pave_near_harvesters
-from .nav import update_bfs
 from .helpers import try_move_with_road
+from .nav import update_bfs
 from .role import Role
 from .state import State
 from .state_dump import dump

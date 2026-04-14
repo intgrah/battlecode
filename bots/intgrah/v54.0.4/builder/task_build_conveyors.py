@@ -75,7 +75,9 @@ def lay_segment(
 
     next_pos = path[1]
     if not ct.is_in_vision(next_pos):
-        return try_place(ct, EntityType.BRIDGE, start_pos, reachable_path_end(path, start_pos, 3))
+        return try_place(
+            ct, EntityType.BRIDGE, start_pos, reachable_path_end(path, start_pos, 3)
+        )
     destination_building = ct.get_tile_building_id(next_pos)
     destination_team = (
         ct.get_team(destination_building) if destination_building else None

@@ -91,13 +91,13 @@ class PassableGrid:
         # `rebuild_pnb`'s tuple-unpack works the same way.
         self.offsets: tuple[int, ...] = (
             -pw + 1,  # NE
-            pw + 1,   # SE
-            pw - 1,   # SW
+            pw + 1,  # SE
+            pw - 1,  # SW
             -pw - 1,  # NW
-            -pw,      # N
-            1,        # E
-            pw,       # S
-            -1,       # W
+            -pw,  # N
+            1,  # E
+            pw,  # S
+            -1,  # W
         )
 
     @property
@@ -131,10 +131,7 @@ class PassableGrid:
             passable = True
         elif building_type == EntityType.CORE:
             passable = is_allied_building
-        elif (
-            building_type == EntityType.MARKER
-            or building_type in _WALKABLE_BUILDINGS
-        ):
+        elif building_type == EntityType.MARKER or building_type in _WALKABLE_BUILDINGS:
             passable = True
         else:
             passable = False
@@ -290,10 +287,7 @@ class NavBfs:
     def notify_closer_tile_changed(self, pi: int) -> None:
         """If the tile at `pi` is closer to the goal than the agent,
         our dist field is stale and we need to restart."""
-        if (
-            self._gen[pi] == self._g
-            and self._dist[pi] < self._cur_dist
-        ):
+        if self._gen[pi] == self._g and self._dist[pi] < self._cur_dist:
             self._dirty = True
 
     def change_goal(self, goals: list[Position]) -> None:
@@ -388,8 +382,14 @@ class NavBfs:
         # Direction deltas aligned with grid.offsets order:
         # NE, SE, SW, NW, N, E, S, W.
         deltas = (
-            (1, -1), (1, 1), (-1, 1), (-1, -1),
-            (0, -1), (1, 0), (0, 1), (-1, 0),
+            (1, -1),
+            (1, 1),
+            (-1, 1),
+            (-1, -1),
+            (0, -1),
+            (1, 0),
+            (0, 1),
+            (-1, 0),
         )
         best_d = INF
         best_dx = 0
@@ -458,9 +458,7 @@ class NavBfs:
                 self._resumable = self._qi < self._qlen
 
         self._cur_dist = (
-            self._dist[self._cur_idx]
-            if self._gen[self._cur_idx] == self._g
-            else -1
+            self._dist[self._cur_idx] if self._gen[self._cur_idx] == self._g else -1
         )
         self._running_target = target
         self._prev_target = target
@@ -526,8 +524,14 @@ class NavBfs:
         my_id = ct.get_id()
         ci = (start.y + 1) * pw + (start.x + 1)
         deltas = (
-            (1, -1), (1, 1), (-1, 1), (-1, -1),
-            (0, -1), (1, 0), (0, 1), (-1, 0),
+            (1, -1),
+            (1, 1),
+            (-1, 1),
+            (-1, -1),
+            (0, -1),
+            (1, 0),
+            (0, 1),
+            (-1, 0),
         )
         best_d = INF
         best_dx = 0

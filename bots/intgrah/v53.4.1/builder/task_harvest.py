@@ -1,6 +1,6 @@
 from building import BuildingHarvester, BuildingRoad
 from cambc import Controller, EntityType, Environment, Position
-from util import INF, DIR4, can_afford, get_direction_object
+from util import DIR4, INF, can_afford, get_direction_object
 
 from .algorithms.pathfind import conv_pathfind, conv_pathfind_blocked
 from .helpers import make_move, try_move_with_build

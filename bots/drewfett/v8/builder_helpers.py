@@ -27,7 +27,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA
+from util import DELTA_TO_DIR, DIR8_DELTA
 
 if TYPE_CHECKING:
     from nav import NavBfs
@@ -753,12 +753,11 @@ def _do_place(
             s.building[ti] = BuildingSentinel(s.my_team, facing)
             _log(f"  PLACED {kind}({tx},{ty}) face={facing.name}", ct.get_id())
             return f"turret:{kind}({tx},{ty})", True
-    else:
-        if ct.can_build_gunner(tpos, facing):
-            ct.build_gunner(tpos, facing)
-            s.building[ti] = BuildingGunner(s.my_team, facing)
-            _log(f"  PLACED {kind}({tx},{ty}) face={facing.name}", ct.get_id())
-            return f"turret:{kind}({tx},{ty})", True
+    elif ct.can_build_gunner(tpos, facing):
+        ct.build_gunner(tpos, facing)
+        s.building[ti] = BuildingGunner(s.my_team, facing)
+        _log(f"  PLACED {kind}({tx},{ty}) face={facing.name}", ct.get_id())
+        return f"turret:{kind}({tx},{ty})", True
 
     return None
 

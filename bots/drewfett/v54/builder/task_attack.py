@@ -168,8 +168,7 @@ def _min_friendly_chebyshev(ct: Controller, pos: Position) -> int:
         if ct.get_team(uid) != my_team:
             continue
         d = chebyshev(pos, ct.get_position(uid))
-        if d < best:
-            best = d
+        best = min(best, d)
     return best
 
 

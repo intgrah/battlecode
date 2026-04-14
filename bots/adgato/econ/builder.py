@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from astar import BuildInstruction, ChainAstar
 from bfs import NavBfs
-from reachable import Reachable
-from cambc import Controller, Direction, EntityType, Environment, Position
-from explore import ExploreGrid
-from symmetry import Symmetry, SymmetryDetector
-from tile_codec import UNSEEN, _ET_INT, encode_tile, tile_building_type, tile_is_allied
+from cambc import Controller, EntityType, Environment, Position
 from env_tracker import EnvTracker
+from explore import ExploreGrid
+from reachable import Reachable
+from symmetry import Symmetry, SymmetryDetector
+from tile_codec import UNSEEN, encode_tile, tile_building_type, tile_is_allied
 from unit import Unit
 from utils import try_move_away
 
@@ -202,9 +202,8 @@ class Builder(Unit):
             if tile_is_allied(cached):
                 if ct.can_destroy(pos):
                     ct.destroy(pos)
-            else:
-                if ct.can_fire(pos):
-                    ct.fire(pos)
+            elif ct.can_fire(pos):
+                ct.fire(pos)
 
         if entity == EntityType.HARVESTER:
             if ct.get_position() == pos:

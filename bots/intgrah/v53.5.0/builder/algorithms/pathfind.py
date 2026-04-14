@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from builder.state import State
 
 from util import INF as _INF
+
 _TARGET_DRIFT_SQ = 25
 _CPU_BUDGET = 1729
 _TIEBREAK_EPS = 1e-5

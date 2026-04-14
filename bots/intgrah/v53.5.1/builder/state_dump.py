@@ -50,18 +50,27 @@ def dump(state: State, _ct: Controller) -> None:
             palette=P_COST,
         ),
         flow_occupied=Grid(
-            [sum((fh >> s) & 0b11 != 0 for s in range(0, 16, 2)) for fh in state.flow_history],
+            [
+                sum((fh >> s) & 0b11 != 0 for s in range(0, 16, 2))
+                for fh in state.flow_history
+            ],
             palette=Palette(
                 stops=[(0.0, 0, 0, 200, 140), (1.0, 200, 0, 0, 140)],
                 special={0: TRANSPARENT},
             ),
         ),
         flow_has_ti=Grid(
-            [sum((fh >> s) & 0b11 == 1 for s in range(0, 16, 2)) for fh in state.flow_history],
+            [
+                sum((fh >> s) & 0b11 == 1 for s in range(0, 16, 2))
+                for fh in state.flow_history
+            ],
             palette=P_GREEN,
         ),
         flow_has_rax=Grid(
-            [sum((fh >> s) & 0b11 == 2 for s in range(0, 16, 2)) for fh in state.flow_history],
+            [
+                sum((fh >> s) & 0b11 == 2 for s in range(0, 16, 2))
+                for fh in state.flow_history
+            ],
             palette=P_RED,
         ),
         enemy_launcher=Tiles(

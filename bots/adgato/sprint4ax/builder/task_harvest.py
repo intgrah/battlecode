@@ -8,7 +8,7 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position
 from util import DIR4, INF, can_afford, get_direction_object
 
-from .algorithms.pathfind import conv_pathfind, conv_pathfind_blocked
+from .algorithms.pathfind import conv_pathfind
 from .helpers import make_move, try_move_with_road
 from .state import State
 
@@ -150,7 +150,6 @@ def build_at_ore(state: State, ct: Controller, target_pos: Position) -> bool:
         return True
 
     if my_pos.distance_squared(target_pos) <= 2:
-
         if not can_afford(ct, EntityType.HARVESTER):
             if try_move_with_road(ct, target_pos):
                 return True

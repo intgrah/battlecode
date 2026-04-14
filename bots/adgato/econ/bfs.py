@@ -14,9 +14,8 @@ import math
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
-from symmetry import Symmetry, mirror_idx
-
 from lib.visualiser.src.visualiser import Grid, Palette, VectorField, emit
+from symmetry import Symmetry, mirror_idx
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -280,7 +279,7 @@ class NavBfs:
         """Change to a single goal. Marks dirty so the search resets."""
         gi = (goal.y + 1) * self._pw + (goal.x + 1)
         ng = len(self._gis)
-        if ng != 1 or ng == 1 and gi != self._gis[0]:
+        if ng != 1 or (ng == 1 and gi != self._gis[0]):
             self.set_goals([goal])
 
     def set_goals(self, goals: list[Position]) -> None:

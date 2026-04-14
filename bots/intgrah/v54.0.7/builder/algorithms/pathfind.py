@@ -447,9 +447,14 @@ class NavBfs:
         self._q = [0] * self._pn
         pw = self._pw
         self._neighbor_offsets = [
-            (-pw - 1, -1, -1), (-pw, 0, -1), (-pw + 1, 1, -1),
-            (-1, -1, 0),                     (1, 1, 0),
-            (pw - 1, -1, 1),   (pw, 0, 1),   (pw + 1, 1, 1),
+            (-pw - 1, -1, -1),
+            (-pw, 0, -1),
+            (-pw + 1, 1, -1),
+            (-1, -1, 0),
+            (1, 1, 0),
+            (pw - 1, -1, 1),
+            (pw, 0, 1),
+            (pw + 1, 1, 1),
         ]
         self._neighbor_flat = [off for off, _, _ in self._neighbor_offsets]
 
@@ -732,10 +737,9 @@ class MoveHeapAstar:
                 if not (0 <= nx < self._w and 0 <= ny < self._h):
                     continue
                 idx = ci + dy * pw + dx
-                if (
-                    (self._prev_visited[idx >> 3] & (1 << (idx & 7)))
-                    and cost[idx] < _INF
-                ):
+                if (self._prev_visited[idx >> 3] & (1 << (idx & 7))) and cost[
+                    idx
+                ] < _INF:
                     d = self._dist[idx]
                     if d < best_dist:
                         best_dist = d

@@ -6,14 +6,9 @@ from typing import TYPE_CHECKING
 
 from builder_econ import _task_connect, _task_explore
 from builder_helpers import (
-    _can_place_gunner_at,
-    _clear_tile,
     _destroy_friendly,
     _has_friendly_gunner_covering,
-    _has_los,
     _log,
-    _task_destroy_enemy_infra,
-    _tile_has_correct_transport,
 )
 from building import (
     BuildingHarvester,
@@ -22,7 +17,7 @@ from building import (
     BuildingRoad,
 )
 from cambc import Controller, EntityType, Environment, Position
-from util import DELTA_TO_DIR, DIR4_DELTA
+from util import DIR4_DELTA
 
 if TYPE_CHECKING:
     from builder import Builder

@@ -218,8 +218,6 @@ def harvest_ti(
                     return Direction.CENTRE, PlaceSentinel(sentinel_pos, facing)
 
     # Immediate: already adjacent to ore -> road around it first, then place
-    from .action import PlaceBarrier
-    from .task_road_harvesters import road_around
 
     _t1 = _t()
     for ddx, ddy in DIR4_DELTA:

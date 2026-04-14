@@ -1,11 +1,11 @@
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, Position, Team
 from util import DIR8, chebyshev
 
 from .helpers import make_move, move_random, try_heal
 from .state import State
 
 
-def _count_visible_attackers(ct: Controller, my_team, target: Position) -> int:
+def _count_visible_attackers(ct: Controller, my_team: Team, target: Position) -> int:
     """Count enemy builder bots currently in attack range of `target`
     (builder bots fire at their own tile, so anyone within 1 king-step
     of target is potentially dealing 2 dmg/turn to it).
@@ -32,7 +32,7 @@ def _count_visible_attackers(ct: Controller, my_team, target: Position) -> int:
 
 
 def _deconflict_rank(
-    ct: Controller, my_team, my_id: int, my_pos: Position, target: Position
+    ct: Controller, my_team: Team, my_id: int, my_pos: Position, target: Position
 ) -> int:
     """Count visible friendly builder bots with STRICT priority to
     heal `target` over us — strictly closer by chebyshev, or tied

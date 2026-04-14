@@ -53,10 +53,7 @@ def _heal(s: State, ct: Controller) -> bool:
 
 
 def _patrol_cheap(s: State, ct: Controller) -> bool:
-    return (
-        not can_afford(ct, EntityType.HARVESTER)
-        and run_patrol(s, ct)
-    )
+    return not can_afford(ct, EntityType.HARVESTER) and run_patrol(s, ct)
 
 
 def _harvest(s: State, ct: Controller) -> bool:
@@ -64,10 +61,7 @@ def _harvest(s: State, ct: Controller) -> bool:
 
 
 def _patrol_late(s: State, ct: Controller) -> bool:
-    return (
-        s.adjacent_to_harvester
-        and run_patrol(s, ct)
-    )
+    return s.adjacent_to_harvester and run_patrol(s, ct)
 
 
 def _opportunistic_attack(s: State, ct: Controller) -> bool:
@@ -144,6 +138,7 @@ POLICIES: dict[Role, list[TaskFn]] = {
     Role.ECON: ECON_TASKS,
     Role.DEFENSE: DEFENSE_TASKS,
 }
+
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:

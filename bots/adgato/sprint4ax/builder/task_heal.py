@@ -1,4 +1,4 @@
-from cambc import Controller, EntityType, Position, Direction
+from cambc import Controller, Direction, EntityType, Position
 from util import DIR8, chebyshev
 
 from .helpers import make_move, move_random, try_heal
@@ -135,7 +135,10 @@ def best_healable_building(state: State, ct: Controller) -> Position | None:
     ]
     return best
 
-def best_adjacent_healable_building(state: State, tile: Position) -> tuple[Position | None, tuple[int, int]]:
+
+def best_adjacent_healable_building(
+    state: State, tile: Position
+) -> tuple[Position | None, tuple[int, int]]:
     best: Position | None = None
     best_score: tuple[int, int] = (0, 0)
     dist_to_tile = tile.distance_squared
@@ -152,7 +155,10 @@ def best_adjacent_healable_building(state: State, tile: Position) -> tuple[Posit
             best_score = score
     return best, best_score
 
-def healable_all_dirs(state: State, tile: Position) -> tuple[Position | None, tuple[int, int], tuple[int, int]]:
+
+def healable_all_dirs(
+    state: State, tile: Position
+) -> tuple[Position | None, tuple[int, int], tuple[int, int]]:
 
     best_spot, best_score = best_adjacent_healable_building(state, tile)
     total_a, total_b = best_score
@@ -170,9 +176,9 @@ def healable_all_dirs(state: State, tile: Position) -> tuple[Position | None, tu
     return best_spot, (total_a, total_b)
 
 
-
-
-def best_heal_move_dir(state: State, ct: Controller) -> tuple[Direction, Position, tuple[int, int]]:
+def best_heal_move_dir(
+    state: State, ct: Controller
+) -> tuple[Direction, Position, tuple[int, int]]:
     my_pos = ct.get_position()
     best_dir = Direction.CENTRE
     best_spot, best_score = healable_all_dirs(state, my_pos)
@@ -186,6 +192,7 @@ def best_heal_move_dir(state: State, ct: Controller) -> tuple[Direction, Positio
             best_spot = spot
             best_dir = d
     return best_dir, best_spot, best_score
+
 
 def run_heal(state: State, ct: Controller) -> bool:
 
@@ -208,7 +215,9 @@ def run_heal(state: State, ct: Controller) -> bool:
         heal_position = state.repair_pos
         if ct.is_in_vision(heal_position):
             builder = ct.get_tile_builder_bot_id(heal_position)
-            being_attacked = builder is not None and ct.get_team(builder) != ct.get_team()
+            being_attacked = (
+                builder is not None and ct.get_team(builder) != ct.get_team()
+            )
 
     save_money = being_attacked and state.repaired_prev
 
@@ -228,13 +237,15 @@ def run_heal(state: State, ct: Controller) -> bool:
             return False
         make_move(state, ct, state.repair_pos)
         return True
-    elif move_dir != Direction.CENTRE:
+    if move_dir != Direction.CENTRE:
         ct.move(move_dir)
 
     if heal_spot:
         ct.draw_indicator_dot(heal_spot, 255, 0, 0)
         print(heal_spot, heal_score)
-        state.repaired_prev |= try_heal(state, ct, heal_spot, conserve_ti=save_money, heal_score=heal_score)
+        state.repaired_prev |= try_heal(
+            state, ct, heal_spot, conserve_ti=save_money, heal_score=heal_score
+        )
     else:
         state.repaired_prev = False
 
