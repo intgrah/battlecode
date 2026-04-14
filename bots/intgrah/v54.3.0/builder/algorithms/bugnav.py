@@ -5,7 +5,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, Position
-from util import DIR8, INF
+from util import DIR8, INF, chebyshev
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -31,10 +31,6 @@ class WallFollow:
 _bug_state: WallFollow | None = None
 
 
-def _chebyshev(p1: Position, p2: Position) -> int:
-    return max(abs(p1.x - p2.x), abs(p1.y - p2.y))
-
-
 def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
     dx_total = goal.x - start.x
     dy_total = goal.y - start.y
@@ -45,7 +41,7 @@ def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
 
     if cross_product <= max(abs(dx_total), abs(dy_total)) // 2:
         dot_product = dx_curr * dx_total + dy_curr * dy_total
-        return dot_product > 0 and _chebyshev(curr, goal) < _chebyshev(start, goal)
+        return dot_product > 0 and chebyshev(curr, goal) < chebyshev(start, goal)
     return False
 
 
@@ -102,7 +98,7 @@ def bugnav_step(
         if (
             bug.hit_point
             and _on_baseline(my_pos, bug.start, target)
-            and _chebyshev(my_pos, target) < _chebyshev(bug.hit_point, target)
+            and chebyshev(my_pos, target) < chebyshev(bug.hit_point, target)
         ):
             bug.mode = BugMode.MODE_GOAL_SEEK
             return bugnav_step(self, ct, target, blocked)
@@ -111,12 +107,11 @@ def bugnav_step(
         goal_dy = target.y - my_pos.y
         ideal_angle = math.atan2(goal_dy, goal_dx)
 
-        dirs = DIR8[:]
-
         def key(d: Direction) -> float:
             dx, dy = d.delta()
             return abs(math.atan2(dy, dx) - ideal_angle)
 
+        dirs = DIR8.copy()
         dirs.sort(key=key)
 
         for d in dirs:

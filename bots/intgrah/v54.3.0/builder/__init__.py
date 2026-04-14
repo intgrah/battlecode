@@ -111,7 +111,7 @@ def _explore(self: Builder, ct: Controller) -> bool:
 
 
 def _wander(self: Builder, ct: Controller) -> bool:
-    dir8 = DIR8[:]
+    dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
     my_pos = ct.get_position()
     return any(try_move(ct, my_pos.add(d)) for d in dir8) or any(

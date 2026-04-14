@@ -93,7 +93,7 @@ def trace_downstream(
                             self,
                             new_pos,
                             target_head,
-                            path=path[:],
+                            path=path.copy(),
                         )
                         if new_path and target_head in new_path:
                             return new_path
@@ -143,7 +143,7 @@ def get_enemy_core_pos(self: Builder) -> Position:
 
 
 def move_random(self: Builder, ct: Controller) -> bool:
-    dir8 = DIR8[:]
+    dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
     for direction in dir8:
         if ct.can_move(direction):
