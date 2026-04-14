@@ -14,7 +14,6 @@ _OPENING_ROLES = [
     (Role.DEFENSE, True, None),
     (Role.OFFENSE, False, None),
     (Role.OFFENSE, False, None),
-    (Role.OFFENSE, False, None),
 ]
 
 _INITIAL_WEIGHTS = {
@@ -92,8 +91,6 @@ def _update_dangling(state: State, ct: Controller) -> None:
         state, ct, state.dangling_output
     ):
         state.dangling_output = find_dangling(state, ct)
-    if state.dangling_output:
-        ct.draw_indicator_dot(state.dangling_output, 255, 0, 0)
 
 
 def _update_ore_target(state: State, ct: Controller) -> None:

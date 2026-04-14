@@ -118,7 +118,6 @@ ECON_TASKS: list[TaskFn] = [
     _connect_close,
     _heal,
     _connect_far,
-    _patrol_cheap,
     _harvest,
     _opportunistic_attack,
     _explore,
@@ -169,9 +168,6 @@ class Builder(Unit):
             update_splittable_locations(s, ct)
             update_role(s, ct)
 
-        if DEBUG_DUMP:
-            dump(s, ct)
-
         if s.role != Role.OFFENSE:
             if DEBUG_TIMING:
                 update_economy(s, ct)
@@ -196,6 +192,9 @@ class Builder(Unit):
             t5 = ct.get_cpu_time_elapsed()
             print(f"task={t5 - t4}us")
             print(f"total={t5 - t0}us")
+
+        if DEBUG_DUMP:
+            dump(s, ct)
 
 
 def _end_of_turn_heal(ct: Controller) -> None:
