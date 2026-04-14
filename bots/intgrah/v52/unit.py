@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Final, override
 if TYPE_CHECKING:
     from cambc import Controller, Position, Team
 
-__all__ = ["Unit"]
+__all__ = ["StationaryUnit", "Unit"]
 
 
 class Unit(ABC):
