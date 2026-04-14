@@ -14,6 +14,7 @@ from building import (
 )
 from cambc import Controller, EntityType, Environment, Position
 from util import INF, Symmetry
+from .flow import Flow
 
 from .algorithms.nav_bfs import NavBfs, PassableGrid
 
@@ -81,9 +82,7 @@ class State:
         # level like v54's old AStarSearch singletons).
         self.pass_grid: PassableGrid = PassableGrid(w, h)
         self.nav: NavBfs = NavBfs(self.pass_grid)
-        self.belt_load_counts = [0] * n
-        self.line_load_counts = [0] * n
-        self.line_loads_computed = [False] * n
+
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
 
@@ -136,6 +135,7 @@ class State:
         self.spawned: int = 0
         self.ti_ore: set[Position] = set()
         self.ax_ore: set[Position] = set()
+        self.flow: list[Flow] = [Flow(0, None) for _ in range(n)]
 
         # Repair
         self.repair_pos: Position | None = None
@@ -219,6 +219,11 @@ class State:
         if self.in_bounds(pos):
             return self.cost_grid[self._pidx(pos)]
         return INF
+    
+    def get_flow(self, pos: Position) -> Flow:
+        if not self.in_bounds(pos):
+            return 0
+        return self.flow[self._idx(pos)]
 
     def is_passable(self, pos: Position) -> bool | None:
         cost = self.get_cost(pos)
@@ -296,29 +301,3 @@ class State:
                     return False
             return self.is_enemy_building(output_location)
         return False
-
-    def update_line_load_counts(self, pos: Position | None) -> int:
-        if pos is None:
-            return 0
-        if not self.in_bounds(pos):
-            return 4
-        i = self._idx(pos)
-        if self.line_loads_computed[i]:
-            return self.line_load_counts[i]
-        b = self.buildings[i]
-        next_pos = None
-        match b:
-            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                next_pos = pos.add(d)
-            case BuildingBridge(target=t):
-                next_pos = t
-            case _:
-                pass
-
-        self.line_loads_computed[i] = True
-        result = max(
-            self.belt_load_counts[i],
-            self.update_line_load_counts(next_pos),
-        )
-        self.line_load_counts[i] = result
-        return result

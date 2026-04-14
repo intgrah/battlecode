@@ -10,7 +10,7 @@ from util import DIR4, DIR8
 
 __all__ = ["Core"]
 
-_INITIAL_SPAWNS = 6
+_INITIAL_SPAWNS = 5
 _INCOME_SAMPLES = 16
 # Cap on total team unit count (builders + turrets + core). Team max
 # is 50 — 40 leaves real headroom for turret builds while preventing

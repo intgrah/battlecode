@@ -56,10 +56,8 @@ def explore(state: State, ct: Controller) -> None:
 
         state.scout_age = 0
         state.scout_target = t
-        ct.draw_indicator_dot(t, 255, 0, 255)
         _move_via_path(state, ct, t)
     else:
-        ct.draw_indicator_dot(t, 10, 0, 10)
         _move_via_path(state, ct, t)
 
 
@@ -102,8 +100,6 @@ def initial_explore(state: State, ct: Controller, vertical: int = 0) -> None:
 
         state.scout_initial_age = 0
         state.scout_initial_target = t
-        ct.draw_indicator_dot(t, 255, 0, 255)
         _move_via_path(state, ct, t)
     else:
-        ct.draw_indicator_dot(t, 10, 0, 10)
         _move_via_path(state, ct, t)

@@ -6,20 +6,17 @@ from .state import State
 
 
 def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
+    
     if not state.in_bounds(pos):
         return False
-
-    print(f"checking {pos} dangling")
-
+    
     i = pos.y * state.w + pos.x
     b = state.buildings[i]
     if b is None:
-        print(f"i'm empty")
         if state.env[i] == Environment.WALL:
             return False
 
     else:
-        print(f"i'm a building")
         if b.team != ct.get_team():
             return False
         
@@ -28,14 +25,12 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
                 BuildingConveyor(direction=d)
                 | BuildingArmouredConveyor(direction=d)
             ):
-                print(f"i'm a friendly conveyor")
                 adj = pos.add(d)
                 if not state.in_bounds(adj):
                     return True
                 j = adj.y * state.w + adj.x
                 c = state.buildings[j]
                 if c is None:
-                    print(f"conveyor points to nothing")
                     return state.env[j] == Environment.WALL
                 else:
                     if c.team != ct.get_team():
@@ -45,32 +40,26 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
                             BuildingBarrier()
                             | BuildingLauncher()
                         ):
-                            print(f"conveyor points to blocked")
                             return True
                         case (
                             BuildingConveyor(direction=d2)
                             | BuildingArmouredConveyor(direction=d2)
                         ) if d == d2.opposite():
-                            print(f"conveyor points to opposing")
                             return True
                         case BuildingHarvester():
-                            print(f"conveyor points to harvester")
+                            if ct.is_in_vision(pos) and ct.get_stored_resource(ct.get_tile_building_id(pos)) is not None:
+                                return True
                             return pos in state.adjacent_to_unconnected_harvester
                         case _:
-                            print(f"conveyor points to infra")
                             return False
             case BuildingRoad():
-                print(f"i'm a road")
                 pass
             case _:
-                print(f"i'm infra")
                 return False
             
     if state.conveyors_to_here[i]:
-        print(f"conveyors lead to me")
         return True
-
-    print(f"am i adjacent to a harvester")
+    
     return pos in state.adjacent_to_unconnected_harvester
 
 
