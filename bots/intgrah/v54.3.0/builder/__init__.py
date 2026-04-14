@@ -223,6 +223,8 @@ class Builder(Unit):
 
         self.env: list[Environment | None] = [None] * n
         """Wall, Empty, Ti ore, Ax ore per tile."""
+        self.building_ids: list[int | None] = [None] * n
+        """Cached building entity ID per tile, for change detection."""
         self.buildings: list[Building | None] = [None] * n
         """Building on a tile."""
         self.hp: list[int] = [0] * n
