@@ -43,44 +43,38 @@ if TYPE_CHECKING:
 
 
 def open_tiles(
-    state: Builder,
-    ct: Controller,
-    positions: list[Position],
+    self: Builder, ct: Controller, positions: list[Position]
 ) -> list[Position]:
     return [
         p
         for p in positions
-        if state.is_passable(p)
+        if self.is_passable(p)
         and (not ct.is_in_vision(p) or ct.get_tile_builder_bot_id(p) is None)
     ]
 
 
-def is_allied_transport(state: Builder, ct: Controller, position: Position) -> bool:
-    match state.get_building(position):
+def is_allied_transport(self: Builder, position: Position) -> bool:
+    match self.get_building(position):
         case (
-            BuildingConveyor(team=t)
-            | BuildingArmouredConveyor(team=t)
-            | BuildingSplitter(team=t)
-            | BuildingBridge(team=t)
-        ) if t == ct.get_team():
+            BuildingConveyor(team=self.my_team)
+            | BuildingArmouredConveyor(team=self.my_team)
+            | BuildingSplitter(team=self.my_team)
+            | BuildingBridge(team=self.my_team)
+        ):
             return True
         case _:
             return False
 
 
 def without_allied_transport(
-    state: Builder,
-    ct: Controller,
-    positions: list[Position],
+    self: Builder, positions: list[Position]
 ) -> list[Position]:
-    return [pos for pos in positions if not is_allied_transport(state, ct, pos)]
+    return [pos for pos in positions if not is_allied_transport(self, pos)]
 
 
-def buildable(state: Builder, positions: list[Position]) -> list[Position]:
+def buildable(self: Builder, positions: list[Position]) -> list[Position]:
     return [
-        p
-        for p in positions
-        if state.is_buildable(p) and not state.is_friendly_turret(p)
+        p for p in positions if self.is_buildable(p) and not self.is_friendly_turret(p)
     ]
 
 
@@ -194,7 +188,7 @@ def _pick_conveyor_target(
     best_score: tuple[int, int, int] | None = None
     for pos in self.nearby_buildings:
         b = self.get_building(pos)
-        if b is None or getattr(b, "team", None) == self.my_team:
+        if b is None or b.team == self.my_team:
             continue
         if not isinstance(
             b,
@@ -283,7 +277,7 @@ def _pick_attack_destination(
             # Empty terrain — a bot can walk here (building a road
             # on the way) and then place sentinels from it.
             cost = 0
-        elif getattr(b, "team", None) == self.my_team:
+        elif b.team == self.my_team:
             # Friendly road / allied core — fine to stand on. Friendly
             # conveyors/splitters/bridges were already filtered above
             # via `is_allied_transport`, so anything reaching here is
@@ -322,21 +316,20 @@ def _gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
     this direction — so the "don't face into the harvester" constraint
     is enforced implicitly by the isinstance check.
     """
-    r_sq = GameConstants.GUNNER_VISION_RADIUS_SQ
     for d in DIR8:
         current = pos
         for _ in range(4):
             current = current.add(d)
             if not self.in_bounds(current):
                 break
-            if pos.distance_squared(current) > r_sq:
+            if pos.distance_squared(current) > GameConstants.GUNNER_VISION_RADIUS_SQ:
                 break
             if self.get_env(current) == Environment.WALL:
                 break
             b = self.get_building(current)
             if b is None:
                 continue
-            if getattr(b, "team", None) == self.my_team:
+            if b.team == self.my_team:
                 break
             if isinstance(
                 b,
@@ -381,7 +374,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
             if (
                 self.is_passable(position.add(direction))
                 and not occupied
-                and not is_allied_transport(self, ct, position.add(direction))
+                and not is_allied_transport(self, position.add(direction))
             ):
                 return True
         return False
@@ -392,8 +385,8 @@ def run_attack(self: Builder, ct: Controller) -> None:
     # If we've moved off the tile we last fired at, drop the stale
     # expected-HP tracking — otherwise a future visit to the same
     # tile could misread its pre-heal HP as "healed by enemy".
-    if self.last_fire_pos is not None and ct.get_position() != self.last_fire_pos:
-        self.last_fire_pos = None
+    if self.last_fire is not None and ct.get_position() != self.last_fire:
+        self.last_fire = None
 
     if (self.offense_turns > 25) or (
         self.offense_target
@@ -442,7 +435,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     break
         if target is None:
             target = closest(my_pos, vulnerable_harvesters)
-        on_friendly_conveyor = is_allied_transport(self, ct, ct.get_position())
+        on_friendly_conveyor = is_allied_transport(self, ct.get_position())
         if ct.get_position().distance_squared(target) == 1 and not on_friendly_conveyor:
             if self.is_enemy_building(ct.get_position()):
                 my_pos = ct.get_position()
@@ -452,12 +445,13 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 # must have healed. Only give up the tile when we have
                 # that concrete evidence.
                 being_healed = False
-                if self.last_fire_pos == my_pos:
-                    bid_here = ct.get_tile_building_id(my_pos)
-                    if bid_here is not None:
-                        current_hp = ct.get_hp(bid_here)
-                        if current_hp > self.last_fire_expected_hp:
-                            being_healed = True
+                match self.last_fire:
+                    case (pos, expected_hp) if pos == my_pos:
+                        bid_here = ct.get_tile_building_id(my_pos)
+                        if bid_here is not None:
+                            current_hp = ct.get_hp(bid_here)
+                            if current_hp > expected_hp:
+                                being_healed = True
                 if being_healed:
                     # Don't come back to this tile for 5 turns — the
                     # enemy healer in range will just out-heal us
@@ -467,7 +461,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     self.attack_tile_blacklist[my_pos] = 5
                     alt = _pick_attack_destination(self, ct, target)
                     if alt is not None and alt != my_pos:
-                        self.last_fire_pos = None
+                        self.last_fire = None
                         make_move(self, ct, alt)
                         return
                 if should_attack(self, ct, my_pos):
@@ -477,9 +471,8 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     bid_here = ct.get_tile_building_id(my_pos)
                     if bid_here is not None:
                         pre_hp = ct.get_hp(bid_here)
-                        self.last_fire_pos = my_pos
                         # Builder fire is 2 dmg; clamp to 0.
-                        self.last_fire_expected_hp = max(0, pre_hp - 2)
+                        self.last_fire = (my_pos, max(0, pre_hp - 2))
                     try_attack(ct)
                 else:
                     # Not firing this turn — clear tracking so we
@@ -490,7 +483,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     # of our tile (would out-heal our 2 dmg), so we
                     # want a different angle rather than sitting idle
                     # on the tile forever.
-                    self.last_fire_pos = None
+                    self.last_fire = None
                     alt = _pick_attack_destination(self, ct, target)
                     if alt is not None and alt != my_pos:
                         make_move(self, ct, alt)
@@ -541,10 +534,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
             # worse: enemy bots are common around enemy harvesters
             # (building them), and we'd reject almost every target.
             destination = _pick_attack_destination(
-                self,
-                ct,
-                target,
-                avoid_healers=False,
+                self, ct, target, avoid_healers=False
             )
             if destination is None:
                 # Original fallback: allow any walkable non-friendly-

@@ -15,13 +15,11 @@ from util import (
 
 from builder.algorithms.econ_astar import conv_search
 from builder.helpers import (
-    is_enemy_building,
     make_move,
     trace_upstream,
     try_move_with_road,
     try_place,
 )
-from builder.update.econ import can_place_junction
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -50,10 +48,10 @@ def clear_with_turret(
 
 
 def lay_segment(
+    self: Builder,
     ct: Controller,
     start_pos: Position,
     path: list[Position] | None,
-    self: Builder,
 ) -> bool:
     if not path:
         return False
@@ -111,7 +109,7 @@ def lay_segment(
     ):
         return try_place(ct, EntityType.CONVEYOR, start_pos, direction)
     pending_bridge = reachable_path_end(path, start_pos, 3)
-    if is_enemy_building(self, ct, pending_bridge):
+    if self.is_enemy_building(pending_bridge):
         if clear_with_turret(self, ct, start_pos, pending_bridge):
             self.branch_start = start_pos
         return False
@@ -128,7 +126,7 @@ def best_junction_site(
     path: list[Position],
 ) -> Position | None:
     for pos in path[::-1]:
-        if can_place_junction(self, ct, pos):
+        if self.can_place_junction(ct, pos):
             return pos
     return None
 
@@ -233,7 +231,7 @@ def route_to(
     if chebyshev(current_pos, start) <= 1:
         if not path or (conv_search.unreachable(target) and not path) or len(path) < 2:
             return
-        lay_segment(ct, start, path, self)
+        lay_segment(self, ct, start, path)
     make_move(self, ct, start)
     return
 

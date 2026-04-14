@@ -37,13 +37,13 @@ class MoveHeapAstar:
 
     def _init_grid(self, state: Builder) -> None:
         self._w, self._h = state.w, state.h
-        self._pw = state.pw
+        self._pw = state.pad_w
         self._pad = state.pad
-        pn = state.pw * state.ph
+        pn = state.pad_w * state.pad_h
         self._dist = [INF] * pn
 
     def _reset(self, state: Builder) -> None:
-        pn = state.pw * state.ph
+        pn = state.pad_w * state.pad_h
         if len(self._dist) != pn:
             self._init_grid(state)
         self._no_path = False
@@ -186,7 +186,7 @@ class MoveHeapAstar:
         goal: Position,
     ) -> list[Position] | None:
         cost = state.cost_grid
-        pw = state.pw
+        pw = state.pad_w
         pad = state.pad
         saved: list[tuple[int, int]] = []
         for pos in ct.get_nearby_tiles():

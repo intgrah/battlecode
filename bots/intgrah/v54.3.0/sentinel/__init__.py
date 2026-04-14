@@ -40,15 +40,36 @@ class Sentinel(StationaryUnit):
 
         best_score = -1
         best_target: Position | None = None
-        for entity in ct.get_nearby_entities():
-            if ct.get_team(entity) == self.my_team:
-                continue
-            result = self.score_entity(ct, entity)
-            if result is not None:
-                score, target = result
+
+        for tile in ct.get_attackable_tiles():
+            bid = ct.get_tile_building_id(tile)
+            uid = ct.get_tile_builder_bot_id(tile)
+
+            if uid is not None and ct.get_team(uid) != self.my_team:
+                score = _PRIORITY[EntityType.BUILDER_BOT]
+                if ct.get_hp(uid) <= GameConstants.SENTINEL_DAMAGE:
+                    score += 1
                 if score > best_score:
                     best_score = score
-                    best_target = target
+                    best_target = tile
+                continue
+
+            if uid is not None and ct.get_team(uid) == self.my_team:
+                continue
+
+            if bid is None:
+                continue
+            if ct.get_team(bid) == self.my_team:
+                continue
+            etype = ct.get_entity_type(bid)
+            if etype in (EntityType.MARKER, EntityType.HARVESTER):
+                continue
+            score = _PRIORITY.get(etype, 0)
+            if ct.get_hp(bid) <= GameConstants.SENTINEL_DAMAGE:
+                score += 1
+            if score > best_score:
+                best_score = score
+                best_target = tile
 
         if best_target is not None:
             ct.fire(best_target)
@@ -58,38 +79,6 @@ class Sentinel(StationaryUnit):
         self.idle_turns += 1
         if self.idle_turns > Sentinel.SELF_DESTRUCT_THRESHOLD:
             self.try_self_destruct(ct)
-
-    def score_entity(self, ct: Controller, entity: int) -> tuple[int, Position] | None:
-        etype = ct.get_entity_type(entity)
-        if etype == EntityType.MARKER:
-            return None
-        # Never target enemy harvesters — they might be feeding a chain
-        # we've tapped into. Builder bots attack harvesters; our turrets
-        # spend their shots on other targets.
-        if etype == EntityType.HARVESTER:
-            return None
-
-        entity_pos = ct.get_position(entity)
-        fire_pos = entity_pos
-
-        if etype == EntityType.CORE:
-            closer = entity_pos.add(entity_pos.direction_to(self.my_pos))
-            if ct.can_fire(closer):
-                fire_pos = closer
-
-        # Don't hit friendly builders
-        if not ct.can_fire(fire_pos):
-            return None
-
-        uid = ct.get_tile_builder_bot_id(fire_pos)
-        if uid is not None and ct.get_team(uid) == self.my_team:
-            return None
-
-        score = _PRIORITY.get(etype, 0)
-        if ct.get_hp(entity) <= GameConstants.SENTINEL_DAMAGE:
-            score += 1
-
-        return score, fire_pos
 
     def try_self_destruct(self, ct: Controller) -> None:
         has_ally = False

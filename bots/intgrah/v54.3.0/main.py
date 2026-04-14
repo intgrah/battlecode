@@ -37,6 +37,7 @@ class Player:
                 case EntityType.BREACH:
                     self.unit = Breach(ct)
                 case _:
+                    # No other entity types are controllable
                     raise ValueError
         try:
             self.unit.run(ct)
@@ -45,4 +46,5 @@ class Player:
             print(exc, file=sys.stdout)
             print(exc, file=sys.stderr)
             if DEBUG_RESIGN:
+                # Do not print the full exception as this leaks code publicly
                 ct.resign(str(e))

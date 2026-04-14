@@ -68,7 +68,7 @@ def fallback_step(
     cost_grid = self.cost_grid
     w, h = self.w, self.h
     pad = self.pad
-    pw = self.pw
+    pw = self.pad_w
 
     if curr == target:
         return None
