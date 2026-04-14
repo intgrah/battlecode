@@ -13,13 +13,23 @@ _SELF_DESTRUCT_THRESHOLD: int = 10
 _GUNNER_R2: int = 13
 
 # Valid priority targets for rotation: other enemy turrets we should
-# actually use our shot on.
+# actually use our shot on. Includes transport + core so we
+# rotate toward enemy chains near their core and shoot through them.
+# Excludes: HARVESTER (parasitism risk), ROAD (5 HP not worth a
+# rotation), MARKER (transparent).
 _VALID_ROTATION_TARGETS: frozenset[EntityType] = frozenset(
     {
+        EntityType.CORE,
         EntityType.SENTINEL,
         EntityType.GUNNER,
         EntityType.LAUNCHER,
         EntityType.BREACH,
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+        EntityType.FOUNDRY,
+        EntityType.BARRIER,
     }
 )
 
@@ -78,9 +88,7 @@ def _firing_path_clear(ct: Controller) -> bool:
                 return True
         uid = ct.get_tile_builder_bot_id(cur)
         if uid is not None:
-            if ct.get_team(uid) == my_team:
-                return False
-            return True
+            return ct.get_team(uid) != my_team
     return True
 
 
@@ -97,25 +105,23 @@ class Gunner(Unit):
         if target is not None and ct.can_fire(target):
             bid = ct.get_tile_building_id(target)
             uid = ct.get_tile_builder_bot_id(target)
-            is_enemy_building = bid is not None and ct.get_team(bid) != my_team
             is_enemy_bot = uid is not None and ct.get_team(uid) != my_team
-            is_friendly = (bid is not None and ct.get_team(bid) == my_team) or (
-                uid is not None and ct.get_team(uid) == my_team
-            )
-            # Never shoot enemy harvesters with gunners: 30 HP = 15
-            # shots to kill, not cost-effective, and the harvester
-            # might be upstream of a chain we're parasitizing — if
-            # we've tapped their belt for our own feed, killing the
-            # source takes us with it. Let builder bots deal with
-            # harvesters.
+            # Enemy bot on the tile = always fire. The shot hits the
+            # bot (topmost entity), even if the bot is standing on one
+            # of OUR buildings. This protects our infrastructure.
+            if is_enemy_bot and _firing_path_clear(ct):
+                ct.fire(target)
+                self.idle_turns = 0
+                return
+            is_enemy_building = bid is not None and ct.get_team(bid) != my_team
+            is_friendly_building = bid is not None and ct.get_team(bid) == my_team
             is_enemy_harvester = (
-                is_enemy_building
-                and ct.get_entity_type(bid) == EntityType.HARVESTER
+                is_enemy_building and ct.get_entity_type(bid) == EntityType.HARVESTER
             )
             if (
-                not is_friendly
+                not is_friendly_building
                 and not is_enemy_harvester
-                and (is_enemy_building or is_enemy_bot)
+                and is_enemy_building
                 and _firing_path_clear(ct)
             ):
                 ct.fire(target)

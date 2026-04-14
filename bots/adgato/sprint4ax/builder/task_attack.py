@@ -19,7 +19,6 @@ from cambc import (
 from util import (
     DIR4,
     DIR8,
-    can_afford,
     chebyshev,
     closest,
     try_move,
@@ -28,6 +27,7 @@ from util import (
 from .helpers import (
     get_enemy_core_pos,
     make_move,
+    make_multi_move,
     move_random,
     try_attack,
     try_place,
@@ -43,6 +43,7 @@ def open_tiles(
         p
         for p in positions
         if state.is_passable(p)
+        and p not in state.friendly_turret_ray_tiles
         and (not ct.is_in_vision(p) or ct.get_tile_builder_bot_id(p) is None)
     ]
 
@@ -72,28 +73,6 @@ def buildable(state: State, positions: list[Position]) -> list[Position]:
         for p in positions
         if state.is_buildable(p) and not state.is_friendly_turret(p)
     ]
-
-
-def nearest_enemy_bot(ct: Controller) -> Position | None:
-    builders = ct.get_nearby_units()
-    builder_positions = [
-        ct.get_position(uid) for uid in builders if ct.get_team(uid) != ct.get_team()
-    ]
-    if len(builder_positions) == 0:
-        return None
-    return closest(ct.get_position(), builder_positions)
-
-
-def should_attack(state: State, ct: Controller, pos: Position) -> bool:
-    enemy_builder = nearest_enemy_bot(ct)
-    i = state._idx(pos)
-    return (
-        (enemy_builder is None)
-        or chebyshev(ct.get_position(), enemy_builder) > 2
-        or state.hp[i] <= state.max_hp[i] - 4
-        or state.hp[i] <= 4
-        or can_afford(ct, EntityType.HARVESTER)
-    )
 
 
 def _enemy_healer_near(ct: Controller, pos: Position) -> bool:
@@ -168,8 +147,7 @@ def _min_friendly_chebyshev(ct: Controller, pos: Position) -> int:
         if ct.get_team(uid) != my_team:
             continue
         d = chebyshev(pos, ct.get_position(uid))
-        if d < best:
-            best = d
+        best = min(best, d)
     return best
 
 
@@ -179,7 +157,7 @@ def _pick_conveyor_target(
     """Pick an enemy conveyor/bridge/splitter tile to attack, falling
     back when no harvester is vulnerable. Preference in order:
       1. near enemy core (r²≤25)
-      2. conveyor currently carrying a Ti stack (visible flow)
+      2. conveyor currently carrying a resource stack (visible flow)
     Spacing: prefer tiles far from our other attackers (cap at
     chebyshev 3 — past that point spacing gains are moot since one
     enemy healer already can't reach two of us).
@@ -408,7 +386,7 @@ def run_attack(state: State, ct: Controller) -> None:
     else:
         state.offense_turns += 1
 
-    if len(vulnerable_harvesters) > 0:
+    if vulnerable_harvesters:
         # Target preference, in order:
         #   1. closest harvester with no enemy healer in range AND
         #      no friendly bot already attacking it — spreads us
@@ -417,26 +395,20 @@ def run_attack(state: State, ct: Controller) -> None:
         #      have to, but avoids healers).
         #   3. closest of all (last resort).
         my_pos = ct.get_position()
-        sorted_harvesters = sorted(
-            vulnerable_harvesters,
-            key=lambda p: my_pos.distance_squared(p),
-        )
-        target = None
-        for h in sorted_harvesters:
-            if not _enemy_healer_near(ct, h) and not _friendly_bot_adjacent(ct, h):
-                target = h
-                break
-        if target is None:
-            for h in sorted_harvesters:
-                if not _enemy_healer_near(ct, h):
-                    target = h
-                    break
-        if target is None:
-            target = closest(my_pos, vulnerable_harvesters)
-        on_friendly_conveyor = is_allied_transport(state, ct, ct.get_position())
-        if ct.get_position().distance_squared(target) == 1 and not on_friendly_conveyor:
-            if state.is_enemy_building(ct.get_position()):
-                my_pos = ct.get_position()
+        dist_to_me = my_pos.distance_squared
+
+        targets = [h for h in vulnerable_harvesters if not _enemy_healer_near(ct, h) and not _friendly_bot_adjacent(ct, h)]
+        if not targets:
+            targets = [h for h in vulnerable_harvesters if not _enemy_healer_near(ct, h)]
+        if not targets:
+            targets = vulnerable_harvesters
+
+        adj_harvesters = [h for h in targets if dist_to_me(h) == 1]
+
+        on_friendly_conveyor = is_allied_transport(state, ct, my_pos)
+        if adj_harvesters and not on_friendly_conveyor:
+            target = adj_harvesters[0]
+            if state.is_enemy_building(my_pos):
                 # Check for actual healing: if we stood here last turn
                 # and fired, we know what HP we LEFT the tile at. If
                 # the current HP is strictly higher, an enemy builder
@@ -461,31 +433,15 @@ def run_attack(state: State, ct: Controller) -> None:
                         state.last_fire_pos = None
                         make_move(state, ct, alt)
                         return
-                if should_attack(state, ct, my_pos):
-                    # Record the expected HP for next turn's healing
-                    # check BEFORE firing, because `ct.get_hp(bid)` is
-                    # still the pre-fire value right now.
-                    bid_here = ct.get_tile_building_id(my_pos)
-                    if bid_here is not None:
-                        pre_hp = ct.get_hp(bid_here)
-                        state.last_fire_pos = my_pos
-                        # Builder fire is 2 dmg; clamp to 0.
-                        state.last_fire_expected_hp = max(0, pre_hp - 2)
-                    try_attack(ct)
-                else:
-                    # Not firing this turn — clear tracking so we
-                    # don't false-positive heal detection on a stale
-                    # expected HP. Also try to rotate to a different
-                    # neighbour of the target: the reason we're not
-                    # firing is likely that an enemy bot is within 2
-                    # of our tile (would out-heal our 2 dmg), so we
-                    # want a different angle rather than sitting idle
-                    # on the tile forever.
-                    state.last_fire_pos = None
-                    alt = _pick_attack_destination(state, ct, target)
-                    if alt is not None and alt != my_pos:
-                        make_move(state, ct, alt)
-                        return
+                # Always fire — maintain pressure even if an enemy
+                # healer is nearby. being_healed detection (above)
+                # handles rotation when we're truly outpaced.
+                bid_here = ct.get_tile_building_id(my_pos)
+                if bid_here is not None:
+                    pre_hp = ct.get_hp(bid_here)
+                    state.last_fire_pos = my_pos
+                    state.last_fire_expected_hp = max(0, pre_hp - 2)
+                try_attack(ct)
                 state.offense_target = my_pos
                 state.offense_turns = 0
 
@@ -523,7 +479,9 @@ def run_attack(state: State, ct: Controller) -> None:
                 ):
                     try_place(ct, EntityType.SENTINEL, build_position, direction)
 
-                if ct.can_build_road(build_position):
+                if ct.can_build_road(build_position) and not state.get_building(
+                    build_position
+                ):
                     ct.build_road(build_position)
                 scout_toward_enemy(state, ct)
 
@@ -534,74 +492,74 @@ def run_attack(state: State, ct: Controller) -> None:
             # up on approach over every possible enemy bot nearby is
             # worse: enemy bots are common around enemy harvesters
             # (building them), and we'd reject almost every target.
-            destination = _pick_attack_destination(
-                state, ct, target, avoid_healers=False
-            )
-            if destination is None:
+            destinations = [dest for h in targets if (dest := _pick_attack_destination(state, ct, h, avoid_healers=False))]
+            if not destinations:
                 # Original fallback: allow any walkable non-friendly-
                 # transport cardinal. This covers cases where
                 # _pick_attack_destination is too strict.
-                destination = closest(
-                    ct.get_position(),
-                    without_allied_transport(
-                        state,
-                        ct,
-                        open_tiles(state, ct, [target.add(d) for d in DIR4]),
-                    ),
-                )
-                if destination is None:
+                destinations = [
+                    pos
+                    for h in targets
+                    for pos in without_allied_transport(state, ct, open_tiles(state, ct, [h.add(d) for d in DIR4]))
+                ]
+                if not destinations:
                     scout_toward_enemy(state, ct)
                     return
-            launcher_location = closest(
-                destination,
-                buildable(state, [ct.get_position().add(d) for d in DIR8]),
-            )
-            adjacent_launchers = [
-                p
-                for p in [ct.get_position().add(d) for d in DIR8]
-                if isinstance(state.get_building(p), BuildingLauncher)
-            ]
-            best_adjacent_launcher = closest(destination, adjacent_launchers)
-            if (
-                ct.get_position().distance_squared(destination) <= 2
-                or ct.get_position().distance_squared(target) < 9
-            ):
-                make_move(state, ct, destination)
-            elif (
-                best_adjacent_launcher
-                and state.is_walkable(destination)
-                and best_adjacent_launcher.distance_squared(destination)
-                <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
-            ):
-                pass
-            elif (
-                launcher_location
-                and not best_adjacent_launcher
-                and state.is_walkable(destination)
-                and launcher_location.distance_squared(destination)
-                <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
-                and try_place(ct, EntityType.LAUNCHER, launcher_location)
-            ):
-                state.offense_launcher = launcher_location
-            elif (
-                state.offense_launcher
-                and state.offense_launcher.distance_squared(ct.get_position()) < 25
-            ):
-                make_move(state, ct, state.offense_launcher)
-            elif (
-                state.offense_target
-                and state.offense_target.distance_squared(ct.get_position()) < 20
-            ):
-                make_move(state, ct, state.offense_target)
-            else:
-                make_move(state, ct, target)
 
-        if (
-            ct.get_position().distance_squared(target) == 1
-            and state.is_enemy_building(ct.get_position())
-            and should_attack(state, ct, ct.get_position())
-        ):
+            
+            nearest_dest = min(dist_to_me(d) for d in destinations)
+            nearest_target = min(dist_to_me(h) for h in targets)
+
+            if nearest_dest <= 2 or nearest_target < 9:
+                make_multi_move(state, ct, destinations)
+            else:
+                
+                my_pos_adj = [my_pos.add(d) for d in DIR8]
+                adjacent_launchers = [
+                    p
+                    for p in my_pos_adj
+                    if isinstance(state.get_building(p), BuildingLauncher)
+                ]
+
+                nearest_destination = min(destinations, key=dist_to_me)
+                best_new_launcher = closest(nearest_destination, buildable(state, my_pos_adj))
+
+                if (
+                    adjacent_launchers
+                    and state.is_walkable(nearest_destination)
+                    and min(nearest_destination.distance_squared(p) for p in adjacent_launchers)
+                    <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
+                ):
+                    pass
+                elif (
+                    best_new_launcher
+                    and not adjacent_launchers
+                    and state.is_walkable(nearest_destination)
+                    and best_new_launcher.distance_squared(nearest_destination)
+                    <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
+                    and try_place(ct, EntityType.LAUNCHER, best_new_launcher)
+                ):
+                    state.offense_launcher = best_new_launcher
+                elif (
+                    state.offense_launcher
+                    and dist_to_me(state.offense_launcher) < 25
+                ):
+                    make_move(state, ct, state.offense_launcher)
+                elif (
+                    state.offense_target
+                    and dist_to_me(state.offense_target) < 20
+                ):
+                    make_move(state, ct, state.offense_target)
+                else:
+                    make_multi_move(state, ct, targets)
+
+        # refresh position after move
+        my_pos = ct.get_position()
+        dist_to_me = my_pos.distance_squared
+        
+        if any(dist_to_me(h) == 1 for h in targets) and state.is_enemy_building(my_pos):
             try_attack(ct)
+
     elif (
         state.offense_target
         and state.offense_launcher
@@ -614,6 +572,9 @@ def run_attack(state: State, ct: Controller) -> None:
         make_move(state, ct, state.offense_launcher)
     elif state.offense_target:
         make_move(state, ct, state.offense_target)
+        if ct.get_position() == state.offense_target:
+            if try_attack(ct):
+                state.offense_turns = 0
     else:
         # No vulnerable harvester and no cached offense target —
         # spread out to an enemy conveyor target instead. Prefer
@@ -625,8 +586,9 @@ def run_attack(state: State, ct: Controller) -> None:
         )
         if conveyor_target is not None:
             if ct.get_position() == conveyor_target:
-                if should_attack(state, ct, conveyor_target):
-                    try_attack(ct)
+                if try_attack(ct):
+                    state.offense_target = conveyor_target
+                    state.offense_turns = 0
             else:
                 make_move(state, ct, conveyor_target)
         else:
