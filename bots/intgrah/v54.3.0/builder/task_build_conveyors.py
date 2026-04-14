@@ -18,7 +18,7 @@ from builder.helpers import (
     is_enemy_building,
     make_move,
     trace_upstream,
-    try_move_with_build,
+    try_move_with_road,
     try_place,
 )
 from builder.update.econ import can_place_junction
@@ -42,7 +42,7 @@ def clear_with_turret(
     if build_pos == ct.get_position():
         for d in DIR8:
             move_pos = ct.get_position().add(d)
-            if try_move_with_build(self, ct, move_pos):
+            if try_move_with_road(self, ct, move_pos):
                 break
 
     direction = build_pos.direction_to(target_pos)

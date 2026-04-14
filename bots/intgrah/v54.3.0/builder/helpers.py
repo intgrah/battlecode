@@ -20,45 +20,32 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-def find_path(
-    self: Builder,
-    ct: Controller,
-    start: Position,
-    target: Position,
-) -> list[Position] | None:
-    return pathfind_blocked(self, ct, start, target)
-
-
 def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     if ct.get_position() == target:
         return True
 
-    path = find_path(self, ct, ct.get_position(), target)
+    path = pathfind_blocked(self, ct, ct.get_position(), target)
     if path and len(path) > 1:
         next_step = path[1]
-        try_move_with_build(self, ct, next_step)
+        try_move_with_road(self, ct, next_step)
         return True
     next_move = fallback_nav(self, ct, target)
     if next_move:
-        try_move_with_build(self, ct, next_move)
+        try_move_with_road(self, ct, next_move)
         return True
     return False
 
 
-def try_move_with_road(ct: Controller, target_pos: Position, self: Builder) -> bool:
+def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> bool:
     if self.get_cost(target_pos) > 1 and ct.can_build_road(target_pos):
         ct.build_road(target_pos)
     return try_move(ct, target_pos)
 
 
-def try_move_with_build(self: Builder, ct: Controller, target_pos: Position) -> bool:
-    return try_move_with_road(ct, target_pos, self)
-
-
 def try_attack(ct: Controller) -> bool:
-    position = ct.get_position()
-    if ct.can_fire(position):
-        ct.fire(position)
+    my_pos = ct.get_position()
+    if ct.can_fire(my_pos):
+        ct.fire(my_pos)
         return True
     return False
 
