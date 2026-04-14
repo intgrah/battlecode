@@ -1,9 +1,9 @@
-from util import INF
 import math
 from enum import IntEnum
 
 from builder.state import State
 from cambc import Controller, Position
+from util import INF
 
 __all__ = ["fallback_nav"]
 

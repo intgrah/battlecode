@@ -50,9 +50,7 @@ def _deconflict_rank(
             continue
         fp = ct.get_position(uid)
         fd = chebyshev(fp, target)
-        if fd < my_d:
-            rank += 1
-        elif fd == my_d and uid < my_id:
+        if fd < my_d or (fd == my_d and uid < my_id):
             rank += 1
     return rank
 

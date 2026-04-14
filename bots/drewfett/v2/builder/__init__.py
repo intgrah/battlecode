@@ -13,6 +13,7 @@ from __future__ import annotations
 import random
 from collections.abc import Callable
 
+from action import Action, PlaceRoad
 from cambc import (
     Controller,
     Direction,
@@ -25,7 +26,6 @@ from marker import MarkerEureka
 from turn import ActionMove, ActionOnly, MoveAction, MoveOnly, Turn, Wait
 from unit import Unit
 
-from action import Action, PlaceRoad
 from .helpers import execute
 from .state import State
 from .state_update import update as state_update

@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, GameConstants, Position
-from util import INF, DIR4, DIR8, Symmetry
+from util import DIR4, DIR8, INF, Symmetry
 
 if TYPE_CHECKING:
     from .state import State

@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import random
-
+from bbot_tracker import BbotTracker
 from bfs import INF, NavBfs
 from cambc import Controller, Direction, EntityType, Environment, Position
+from explore import ExploreGrid
 from grid import PassableGrid
 from symmetry import Symmetry, SymmetryDetector
 from tracker import Tracker
-from bbot_tracker import BbotTracker
 from unit import Unit
-from explore import ExploreGrid
 
 # Direction order matching grid.offsets: NE, SE, SW, NW, N, E, S, W
 _DIRECTIONS: tuple[Direction, ...] = (
@@ -68,7 +66,7 @@ def _combine_weights(*weighted: tuple[tuple[int, ...], int]) -> tuple[int, ...]:
     for weights, scale in weighted:
         for i in range(8):
             result[i] += weights[i] * scale
-    return tuple(v if v < INF else INF for v in result)
+    return tuple(min(INF, v) for v in result)
 
 
 NV_EXPLORE = 0

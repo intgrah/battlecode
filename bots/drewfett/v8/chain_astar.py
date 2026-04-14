@@ -205,11 +205,11 @@ class ChainAstar(Astar[int]):
         for ni, c in result:
             nbld = building[ni]
             if nbld is not None:
-                if nbld.team != my_team and not isinstance(nbld, BuildingMarker):
+                if (
+                    nbld.team != my_team and not isinstance(nbld, BuildingMarker)
+                ) or isinstance(nbld, (BuildingHarvester, BuildingBarrier)):
                     continue
-                elif isinstance(nbld, (BuildingHarvester, BuildingBarrier)):
-                    continue
-                elif isinstance(nbld, BuildingSplitter) and nbld.team == my_team:
+                if isinstance(nbld, BuildingSplitter) and nbld.team == my_team:
                     # Only accept from back direction
                     sdx, sdy = nbld.direction.delta()
                     back_x = ni % w - sdx

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import heapq
 import random
 from typing import TYPE_CHECKING
 
@@ -21,6 +20,7 @@ _TIEBREAK_EPS = 1e-5
 
 _DIR8_DELTA = DIR8_DELTA.copy()
 random.shuffle(_DIR8_DELTA)
+
 
 class AStarSearch:
     def __init__(
@@ -368,6 +368,7 @@ def _turret_blocked_tiles(
                     blocked.add(Position(cur.x + d[0], cur.y + d[1]))
     return blocked
 
+
 # Empirically, allow_relaxation=True is load-bearing for path
 # quality, not just bucket-overflow protection. Theory says Dial's
 # bucket A* with a consistent heuristic shouldn't need it, but every
@@ -376,6 +377,7 @@ def _turret_blocked_tiles(
 conv_search = AStarSearch(
     _CONV_NEIGHBORS, _manhattan, "conveyor_cost_grid", allow_relaxation=True
 )
+
 
 def conv_pathfind(
     state: State, ct: Controller, start: Position, target: Position

@@ -4,8 +4,8 @@ from building import (
     BuildingConveyor,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Environment, Position
-from util import DIR4, DIR8, Symmetry, can_afford, try_move, chebyshev
+from cambc import Controller, Direction, EntityType, Position
+from util import DIR4, DIR8, Symmetry, can_afford, try_move
 
 from .algorithms.fallback_nav import fallback_nav
 from .state import State
@@ -30,11 +30,12 @@ def make_move(state: State, ct: Controller, target: Position) -> bool:
         return True
     return False
 
+
 def make_multi_move(state: State, ct: Controller, targets: list[Position]) -> bool:
     start = ct.get_position()
-    if not targets or len(targets) < 10 and start in targets:
+    if not targets or (len(targets) < 10 and start in targets):
         return True
-    
+
     next_step = find_next(state, ct, start, targets)
     if not next_step:
         next_step = fallback_nav(state, ct, targets[0])
@@ -43,10 +44,12 @@ def make_multi_move(state: State, ct: Controller, targets: list[Position]) -> bo
         return True
     return False
 
+
 def try_move_with_road(ct: Controller, target_pos: Position) -> bool:
     if ct.can_build_road(target_pos):
         ct.build_road(target_pos)
     return try_move(ct, target_pos)
+
 
 def try_move_adj_to(ct: Controller, target_pos: Position) -> bool:
     """no road built"""
@@ -59,6 +62,7 @@ def try_move_adj_to(ct: Controller, target_pos: Position) -> bool:
             return True
 
     return False
+
 
 def try_attack(ct: Controller) -> bool:
     position = ct.get_position()
@@ -135,7 +139,12 @@ def trace_downstream(
 
 
 def try_heal(
-    state: State, ct: Controller, position: Position, *, conserve_ti: bool = True, heal_score = 0
+    state: State,
+    ct: Controller,
+    position: Position,
+    *,
+    conserve_ti: bool = True,
+    heal_score=0,
 ) -> bool:
     if conserve_ti and heal_score < 4:
         return False

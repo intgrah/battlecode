@@ -109,8 +109,7 @@ class Gunner(Unit):
             # source takes us with it. Let builder bots deal with
             # harvesters.
             is_enemy_harvester = (
-                is_enemy_building
-                and ct.get_entity_type(bid) == EntityType.HARVESTER
+                is_enemy_building and ct.get_entity_type(bid) == EntityType.HARVESTER
             )
             if (
                 not is_friendly

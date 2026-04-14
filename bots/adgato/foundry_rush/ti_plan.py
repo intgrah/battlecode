@@ -8,7 +8,7 @@ from __future__ import annotations
 from astar import BuildInstruction, ChainAstar
 from cambc import Controller, EntityType, Environment, Position
 from env_tracker import EnvTracker
-from tile_codec import UNSEEN, ENV_WALL, tile_building_type, tile_env, tile_is_allied
+from tile_codec import ENV_WALL, UNSEEN, tile_building_type, tile_env, tile_is_allied
 from utils import try_move_away
 
 _CARDINAL = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -151,7 +151,7 @@ class TiPlan:
                     i += 1
                     continue
                 return i
-            if bt in _BUILDABLE or bt == EntityType.BARRIER and allied:
+            if bt in _BUILDABLE or (bt == EntityType.BARRIER and allied):
                 i += 1
                 continue
             return i
@@ -288,9 +288,8 @@ class TiPlan:
             if tile_is_allied(cached):
                 if ct.can_destroy(pos):
                     ct.destroy(pos)
-            else:
-                if ct.can_fire(pos):
-                    ct.fire(pos)
+            elif ct.can_fire(pos):
+                ct.fire(pos)
 
         if entity == EntityType.CORE:
             # Destroy whatever allied building sits at pos, then fall

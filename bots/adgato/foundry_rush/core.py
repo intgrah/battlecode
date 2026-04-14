@@ -55,7 +55,7 @@ class Core(Unit):
             ct.convert(min(need_ax, ax + 1 - need_ax))
 
         should_spawn = (
-            self.spawned < 3 or self._got_ax and ct.get_unit_count() < 10 or hurt
+            self.spawned < 3 or (self._got_ax and ct.get_unit_count() < 10) or hurt
         )
 
         if should_spawn:

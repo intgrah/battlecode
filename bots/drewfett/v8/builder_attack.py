@@ -20,9 +20,9 @@ from builder_helpers import (
     try_place_turret_at,
 )
 from building import (
+    TRANSPORT,
     BuildingMarker,
     BuildingRoad,
-    TRANSPORT,
 )
 from cambc import Controller, EntityType, Environment, Position
 from chain_astar import AttackAstar
@@ -197,22 +197,21 @@ def _handle_gap(
                     return "atk:fire_cd", False
                 nav.set_goal(build_pos)
                 return f"atk:walk_fire({cx},{cy})", nav.step(ct)
-            else:
-                # Non-road enemy: try turret at prev tile
-                if prev_ti is not None:
-                    turret = try_place_turret_at(
-                        s,
-                        ct,
-                        nav,
-                        prev_ti,
-                        chain[k - 2] if k >= 2 else _feeder_of(flow, s, prev_ti),
-                        pos,
-                    )
-                    if turret is not None:
-                        a.source_ti = None
-                        return turret
-                a.source_ti = None
-                return "atk:blocked", False
+            # Non-road enemy: try turret at prev tile
+            if prev_ti is not None:
+                turret = try_place_turret_at(
+                    s,
+                    ct,
+                    nav,
+                    prev_ti,
+                    chain[k - 2] if k >= 2 else _feeder_of(flow, s, prev_ti),
+                    pos,
+                )
+                if turret is not None:
+                    a.source_ti = None
+                    return turret
+            a.source_ti = None
+            return "atk:blocked", False
 
         # Enemy non-marker at next tile → don't build into, try turret
         if (
@@ -350,9 +349,7 @@ def _pick_source(flow: FlowModel, s: State, pos: Position) -> int | None:
                 continue
             abld = s.building[ai]
             if abld is not None:
-                if isinstance(abld, BuildingMarker):
-                    pass
-                elif isinstance(abld, BuildingRoad):
+                if isinstance(abld, BuildingMarker) or isinstance(abld, BuildingRoad):
                     pass
                 elif abld.team == s.my_team and isinstance(abld, _TRANSPORT_OR_TURRETS):
                     continue

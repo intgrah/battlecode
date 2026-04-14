@@ -231,8 +231,7 @@ class ChainAstar:
             cost = _CARD_COST[cls[ni]]
             dist = abs(nx - sx) + abs(ny - sy)
             key = (cost, dist, nx, ny)
-            if key < best:
-                best = key
+            best = min(best, key)
         if best[0] >= INF:
             return None
         return (best[2], best[3])

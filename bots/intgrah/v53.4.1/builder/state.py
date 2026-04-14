@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from array import array
 from collections import deque
 from random import Random
 from typing import TYPE_CHECKING

@@ -50,7 +50,7 @@ def explore(
     )
     result = move_toward_with_road(state, ct, state.explore_target)
     if result is None:
-        print(f"  EXPL: no path to target", file=sys.stderr)
+        print("  EXPL: no path to target", file=sys.stderr)
         state.explore_target = None
         return None
     ct.draw_indicator_dot(state.explore_target, 0, 0, 255)

@@ -172,9 +172,8 @@ class Sentinel(Unit):
                     if ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
                         if max(abs(spos.x - upos.x), abs(spos.y - upos.y)) <= 3:
                             ally_nearby = True
-                else:
-                    if spos.distance_squared(upos) <= 20:
-                        enemy_nearby = True
+                elif spos.distance_squared(upos) <= 20:
+                    enemy_nearby = True
             if ally_nearby and not enemy_nearby:
                 ct.self_destruct()
 
