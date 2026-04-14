@@ -649,7 +649,7 @@ def scout_toward_enemy(state: Builder, ct: Controller) -> None:
     ) * (1 + ct.get_scale_percent() / 100):
         explore(state, ct)
     else:
-        dir8 = DIR8[:]
+        dir8 = DIR8.copy()
         state.rng.shuffle(dir8)
         my_pos = ct.get_position()
         for d in dir8:

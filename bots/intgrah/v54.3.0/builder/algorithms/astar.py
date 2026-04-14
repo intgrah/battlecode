@@ -12,43 +12,43 @@ if TYPE_CHECKING:
 
 from util import INF
 
-_TARGET_DRIFT_SQ: Final[int] = 25
-_CPU_BUDGET: Final[int] = 1729
-
 _DIR8_DELTA = DIR8_DELTA.copy()
 random.shuffle(_DIR8_DELTA)
 
 
 class MoveHeapAstar:
+    CPU_BUDGET: Final[int] = 1729
+    TARGET_DRIFT_SQ: Final[int] = 25
+
     def __init__(self) -> None:
-        self._w = 0
-        self._h = 0
-        self._pw = 0
-        self._pad = 0
-        self._dist: list[int] = []
-        self._visited = bytearray()
-        self._prev_visited = bytearray()
-        self._q: list[tuple[float, int, Position]] = []
-        self._finished = True
+        self.w = 0
+        self.h = 0
+        self.pad_w = 0
+        self.pad = 0
+        self.dist: list[int] = []
+        self.visited = bytearray()
+        self.prev_visited = bytearray()
+        self.q: list[tuple[float, int, Position]] = []
+        self.finished = True
         self._no_path = False
         self._prev_no_path = False
-        self._running_target: Position | None = None
-        self._prev_target: Position | None = None
+        self.target: Position | None = None
+        self.prev_target: Position | None = None
 
     def _init_grid(self, state: Builder) -> None:
-        self._w, self._h = state.w, state.h
-        self._pw = state.pad_w
-        self._pad = state.pad
+        self.w, self.h = state.w, state.h
+        self.pad_w = state.pad_w
+        self.pad = state.pad
         pn = state.pad_w * state.pad_h
-        self._dist = [INF] * pn
+        self.dist = [INF] * pn
 
     def _reset(self, state: Builder) -> None:
         pn = state.pad_w * state.pad_h
-        if len(self._dist) != pn:
+        if len(self.dist) != pn:
             self._init_grid(state)
         self._no_path = False
-        self._visited = bytearray((pn + 7) // 8)
-        self._q = []
+        self.visited = bytearray((pn + 7) // 8)
+        self.q = []
 
     def _extract_path(
         self,
@@ -57,8 +57,8 @@ class MoveHeapAstar:
         target: Position,
     ) -> list[Position]:
         cost = state.cost_grid
-        pw = self._pw
-        pad = self._pad
+        pw = self.pad_w
+        pad = self.pad
         path: list[Position] = []
         current = start
         while current != target:
@@ -71,13 +71,13 @@ class MoveHeapAstar:
             for dx, dy in _DIR8_DELTA:
                 nx = current.x + dx
                 ny = current.y + dy
-                if not (0 <= nx < self._w and 0 <= ny < self._h):
+                if not (0 <= nx < self.w and 0 <= ny < self.h):
                     continue
                 idx = ci + dy * pw + dx
-                if (self._prev_visited[idx >> 3] & (1 << (idx & 7))) and cost[
+                if (self.prev_visited[idx >> 3] & (1 << (idx & 0b111))) and cost[
                     idx
                 ] < INF:
-                    d = self._dist[idx]
+                    d = self.dist[idx]
                     if d < best_dist:
                         best_dist = d
                         best = Position(nx, ny)
@@ -94,14 +94,14 @@ class MoveHeapAstar:
     ) -> bool:
         cost = state.cost_grid
         bfs_dist = state.bfs_dist
-        w = self._w
-        pw = self._pw
-        pad = self._pad
-        w_bound = self._w
-        h_bound = self._h
-        dist = self._dist
-        visited = self._visited
-        q = self._q
+        w = self.w
+        pw = self.pad_w
+        pad = self.pad
+        w_bound = self.w
+        h_bound = self.h
+        dist = self.dist
+        visited = self.visited
+        q = self.q
 
         gi = (goal.y + pad) * pw + (goal.x + pad)
         dist[gi] = 0
@@ -115,7 +115,7 @@ class MoveHeapAstar:
             _, _, current = heapq.heappop(q)
             if current == start:
                 return True
-            if ct.get_cpu_time_elapsed() > _CPU_BUDGET:
+            if ct.get_cpu_time_elapsed() > MoveHeapAstar.CPU_BUDGET:
                 return False
 
             ci = (current.y + pad) * pw + (current.x + pad)
@@ -126,12 +126,12 @@ class MoveHeapAstar:
                 if nx < 0 or nx >= w_bound or ny < 0 or ny >= h_bound:
                     continue
                 idx = ci + dy * pw + dx
-                if visited[idx >> 3] & (1 << (idx & 7)):
+                if visited[idx >> 3] & (1 << (idx & 0b111)):
                     continue
                 move_cost = cost[idx]
                 if move_cost >= INF:
                     continue
-                visited[idx >> 3] |= 1 << (idx & 7)
+                visited[idx >> 3] |= 1 << (idx & 0b111)
                 new_dist = cur_dist + move_cost
                 dist[idx] = new_dist
                 bd = bfs_dist[ny * w + nx]
@@ -153,26 +153,28 @@ class MoveHeapAstar:
         target: Position,
     ) -> list[Position] | None:
         if (
-            self._finished
-            or self._running_target is None
-            or target.distance_squared(self._running_target) > _TARGET_DRIFT_SQ
+            self.finished
+            or self.target is None
+            or target.distance_squared(self.target) > MoveHeapAstar.TARGET_DRIFT_SQ
         ):
             self._reset(state)
         else:
-            target = self._running_target
+            target = self.target
 
-        self._running_target = target
-        self._finished = self._run(state, ct, start, target)
+        self.target = target
+        self.finished = self._run(state, ct, start, target)
 
-        if self._finished:
-            self._prev_visited = self._visited
-            self._prev_target = target
+        if self.finished:
+            self.prev_visited = self.visited
+            self.prev_target = target
             self._prev_no_path = self._no_path
 
-        if self._prev_target is None:
+        if self.prev_target is None:
             return None
-        diff = target.distance_squared(self._prev_target)
-        if diff <= _TARGET_DRIFT_SQ and diff < start.distance_squared(target):
+        diff = target.distance_squared(self.prev_target)
+        if diff <= MoveHeapAstar.TARGET_DRIFT_SQ and diff < start.distance_squared(
+            target
+        ):
             if self._no_path:
                 return None
             return self._extract_path(state, start, target)
