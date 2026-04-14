@@ -464,6 +464,7 @@ class Builder(Unit):
 
     @override
     def run(self, ct: Controller) -> None:
+        super().run(ct)
         t0 = ct.get_cpu_time_elapsed()
         self.update(ct)
 

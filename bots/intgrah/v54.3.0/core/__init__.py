@@ -4,13 +4,13 @@ from collections import deque
 from typing import Final, override
 
 from cambc import Controller, Direction, EntityType, ResourceType
-from unit import StationaryUnit
+from unit import Unit
 from util import DIR4, DIR8
 
 __all__ = ["Core"]
 
 
-class Core(StationaryUnit):
+class Core(Unit):
     INITIAL_SPAWNS: Final[int] = 6
     INCOME_SAMPLES: Final[int] = 16
     MAX_TEAM_UNITS: Final[int] = 40
@@ -37,6 +37,7 @@ class Core(StationaryUnit):
 
     @override
     def run(self, ct: Controller) -> None:
+        super().run(ct)
         self.deliveries.appendleft(self._count_incoming(ct))
         income_rate = sum(self.deliveries) / len(self.deliveries)
 

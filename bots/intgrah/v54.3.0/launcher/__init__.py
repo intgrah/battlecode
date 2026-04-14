@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import override
 
 from cambc import Controller, EntityType, Environment, Position
-from unit import StationaryUnit
+from unit import Unit
 from util import DIR4
 
 __all__ = ["Launcher"]
@@ -20,13 +20,14 @@ _PASSABLE_BUILDINGS = frozenset(
 )
 
 
-class Launcher(StationaryUnit):
+class Launcher(Unit):
     @override
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
 
     @override
     def run(self, ct: Controller) -> None:
+        super().run(ct)
         enemy_throw_tile, enemy_throw_dist = self.find_enemy_throw_tile(ct)
         harvester_targets = self.find_harvester_attack_tiles(ct)
         harvest_dest = harvester_targets[0] if harvester_targets else None
