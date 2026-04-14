@@ -4,15 +4,15 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, Position, Team
 from util import DIR4, can_afford, get_direction_object
 
-from .algorithms.econ_astar import conv_pathfind, conv_pathfind_blocked
+from .algorithms.econ_astar import conv_search
 from .helpers import make_move, ore_available, try_move_with_build
 from .state import State
 
 
-def _find_contest_target(state: State, pos: Position, my_team) -> Position | None:
+def _find_contest_target(state: State, pos: Position, my_team: Team) -> Position | None:
     for d in DIR4:
         n = pos.add(d)
         if not state.in_bounds(n):
@@ -96,7 +96,7 @@ def build_at_ore(state: State, ct: Controller, target_pos: Position) -> bool:
 
         preferred_dirs = []
         if state.my_core:
-            path = conv_pathfind(state, ct, my_pos, state.my_core)
+            path = conv_search.search(state, ct, my_pos, state.my_core)
             if path and len(path) > 1:
                 next_pos = path[1]
                 d = get_direction_object(my_pos, next_pos)
@@ -132,7 +132,7 @@ def build_at_ore(state: State, ct: Controller, target_pos: Position) -> bool:
                     return True
             else:
                 target_n = unpaved_neighbors[0]
-                path = conv_pathfind_blocked(state, ct, my_pos, target_n)
+                path = conv_search.search_blocked(state, ct, my_pos, target_n)
                 if path and len(path) > 1:
                     try_move_with_build(state, ct, path[1])
                     return True

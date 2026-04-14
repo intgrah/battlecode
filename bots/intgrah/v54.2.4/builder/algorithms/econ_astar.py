@@ -217,21 +217,8 @@ class AStarSearch:
     def no_path(self) -> bool:
         return self._prev_no_path
 
+    def unreachable(self, target: Position) -> bool:
+        return self.no_path and self._prev_target == target
+
 
 conv_search = AStarSearch()
-
-
-def conv_pathfind(
-    state: State, ct: Controller, start: Position, target: Position
-) -> list[Position] | None:
-    return conv_search.search(state, ct, start, target)
-
-
-def conv_pathfind_blocked(
-    state: State, ct: Controller, start: Position, goal: Position
-) -> list[Position] | None:
-    return conv_search.search_blocked(state, ct, start, goal)
-
-
-def conv_unreachable(target: Position) -> bool:
-    return conv_search.no_path and conv_search._prev_target == target
