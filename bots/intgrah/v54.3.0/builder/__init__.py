@@ -10,7 +10,7 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, GameConstants, Position
 from config import DEBUG_DUMP
 from unit import Unit
 from util import DIR8, DIR8_DELTA, INF, Symmetry, can_afford, try_move
@@ -500,8 +500,9 @@ class Builder(Unit):
         nearby_units = [
             unit
             for unit in ct.get_nearby_units()
-            if (ct.get_position(unit).distance_squared(my_pos) <= 2)
-            or (ct.get_entity_type(unit) == EntityType.CORE)
+            if ct.get_position(unit).distance_squared(my_pos)
+            <= GameConstants.ACTION_RADIUS_SQ
+            or ct.get_entity_type(unit) == EntityType.CORE
         ]
         if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
             ct.heal(my_pos)

@@ -173,7 +173,7 @@ class MoveHeapAstar:
             return None
         diff = target.distance_squared(self.prev_target)
         if diff <= MoveHeapAstar.TARGET_DRIFT_SQ and diff < start.distance_squared(
-            target
+            target,
         ):
             if self._no_path:
                 return None

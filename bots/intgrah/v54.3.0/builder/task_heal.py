@@ -163,7 +163,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     if self.repair_pos and ct.is_in_vision(self.repair_pos):
         b = self.get_building(self.repair_pos)
         ti = self.idx(self.repair_pos)
-        if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == ct.get_team():
+        if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == self.my_team:
             pass
         else:
             self.repair_pos = None
@@ -180,7 +180,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     heal_position = self.repair_pos
     if ct.is_in_vision(heal_position):
         builder = ct.get_tile_builder_bot_id(heal_position)
-        being_attacked = builder is not None and ct.get_team(builder) != ct.get_team()
+        being_attacked = builder is not None and ct.get_team(builder) != self.my_team
 
     building_to_heal = best_adjacent_healable_building(self)
     save_money = being_attacked and self.repaired_prev
@@ -203,12 +203,12 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     return True
 
 
-def has_wounded_enemy(self: Builder, ct: Controller, position: Position) -> bool:
+def has_wounded_enemy(self: Builder, position: Position) -> bool:
     b = self.get_building(position)
     if not b:
         return False
     i = self.idx(position)
-    return b.team != ct.get_team() and self.hp[i] < self.max_hp[i]
+    return b.team != self.my_team and self.hp[i] < self.max_hp[i]
 
 
 def heal_adjacent_builders(self: Builder, ct: Controller) -> bool:
@@ -216,9 +216,9 @@ def heal_adjacent_builders(self: Builder, ct: Controller) -> bool:
     for eid in adjacent_builders:
         if (ct.get_hp(eid) <= ct.get_max_hp(eid) - 4) and ct.get_team(
             eid,
-        ) == ct.get_team():
+        ) == self.my_team:
             position = ct.get_position(eid)
-            if has_wounded_enemy(self, ct, position):
+            if has_wounded_enemy(self, position):
                 continue
             if try_heal(self, ct, position, conserve_ti=False):
                 return True
@@ -229,13 +229,13 @@ def heal_self(self: Builder, ct: Controller) -> bool:
     if ct.get_hp() > ct.get_max_hp() - 4:
         return False
 
-    if not has_wounded_enemy(self, ct, self.my_pos):
+    if not has_wounded_enemy(self, self.my_pos):
         try_heal(self, ct, self.my_pos, conserve_ti=False)
         move_random(self, ct)
         return True
 
     for d in DIR8:
-        if ct.can_move(d) and not has_wounded_enemy(self, ct, self.my_pos.add(d)):
+        if ct.can_move(d) and not has_wounded_enemy(self, self.my_pos.add(d)):
             ct.move(d)
             try_heal(self, ct, ct.get_position(), conserve_ti=False)
             return True
@@ -245,7 +245,7 @@ def heal_self(self: Builder, ct: Controller) -> bool:
 
 def heal_builders(self: Builder, ct: Controller) -> bool:
     b = self.get_building(self.my_pos)
-    if b and b.team != ct.get_team():
+    if b and b.team != self.my_team:
         i = self.idx(self.my_pos)
         if self.hp[i] <= 2:
             return False

@@ -45,7 +45,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
     # (INF cost) goal because the path-extraction formula adds the
     # goal's cost, so for the final step we use a direct ct.move()
     # in the right direction.
-    contest_pos = _find_contest_target(self, target_pos, ct.get_team())
+    contest_pos = _find_contest_target(self, target_pos, self.my_team)
     if contest_pos is not None:
         if self.my_pos == contest_pos:
             ti, _ = ct.get_global_resources()
