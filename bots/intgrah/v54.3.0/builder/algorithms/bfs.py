@@ -12,17 +12,12 @@ __all__ = ["extract_path", "update_bfs"]
 
 
 def update_bfs(self: Builder, sx: int, sy: int) -> None:
-    w = self.w
     pnb = self.pnb
     dist = self.bfs_dist
-    n = w * self.h
-
-    for i in range(n):
+    for i in range(self.w * self.h):
         dist[i] = INF
-
-    si = sy * w + sx
+    si = sy * self.w + sx
     dist[si] = 0
-
     q = [si]
     append = q.append
     for node in q:
@@ -42,16 +37,14 @@ def extract_path(
 ) -> list[Position] | None:
     w = self.w
     dist = self.bfs_dist
+    pnb = self.pnb
     si = sy * w + sx
     gi = gy * w + gx
 
     if dist[gi] == INF:
         return None
-    if si == gi:
-        return [Position(sx, sy)]
 
-    pnb = self.pnb
-    path: list[Position] = [Position(gx, gy)]
+    path = [Position(gx, gy)]
     ci = gi
     while ci != si:
         best_i = -1

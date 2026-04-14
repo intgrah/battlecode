@@ -131,7 +131,7 @@ def try_heal(
     conserve_ti: bool = True,
 ) -> bool:
     if conserve_ti and self.repair_pos is not None:
-        i = self._idx(self.repair_pos)
+        i = self.idx(self.repair_pos)
         if not self.buildings[i] or self.hp[i] > self.max_hp[i] - 4:
             return False
     if ct.can_heal(position):
