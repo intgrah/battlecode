@@ -102,7 +102,6 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 occupied = sum((fh >> s) & 0b11 != 0 for s in range(0, 16, 2))
                 self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
 
-    my_pos = ct.get_position()
     if self.nearest_junction_site and not self.can_place_junction(
         ct,
         self.nearest_junction_site,
@@ -112,26 +111,25 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
         if (
             self.nearest_junction_site is None
             or (
-                self.nearest_junction_site.distance_squared(my_pos)
-                < pos.distance_squared(my_pos)
+                self.nearest_junction_site.distance_squared(self.my_pos)
+                < pos.distance_squared(self.my_pos)
             )
         ) and self.can_place_junction(ct, pos):
             self.nearest_junction_site = pos
 
 
 def update_dangling(self: Builder, ct: Controller) -> None:
-    my_pos = ct.get_position()
-    if is_dangling(self, ct, my_pos):
-        self.dangling_output = my_pos
+    if is_dangling(self, ct, self.my_pos):
+        self.dangling_output = self.my_pos
     else:
-        match self.get_building(my_pos):
+        match self.get_building(self.my_pos):
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                target = my_pos.add(d)
+                target = self.my_pos.add(d)
                 if is_dangling(self, ct, target):
                     self.dangling_output = target
             case _:
                 for d in DIR8:
-                    n = my_pos.add(d)
+                    n = self.my_pos.add(d)
                     if is_dangling(self, ct, n):
                         self.dangling_output = n
                         break
@@ -146,15 +144,14 @@ def update_dangling(self: Builder, ct: Controller) -> None:
 
 
 def update_ore_target(self: Builder, ct: Controller) -> None:
-    my_pos = ct.get_position()
     candidate_ore = pick_ore_target(self, ct)
     if (
         not self.ore_target
         or not ore_available(self, ct, self.ore_target)
         or (
             candidate_ore
-            and candidate_ore.distance_squared(my_pos) <= 2
-            and self.ore_target.distance_squared(my_pos) > 2
+            and candidate_ore.distance_squared(self.my_pos) <= 2
+            and self.ore_target.distance_squared(self.my_pos) > 2
         )
     ):
         self.ore_target = candidate_ore

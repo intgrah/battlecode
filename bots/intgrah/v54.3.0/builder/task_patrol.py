@@ -35,9 +35,8 @@ def core_feeders(self: Builder) -> list[Position]:
 
 
 def run_patrol(self: Builder, ct: Controller) -> bool:
-    my_pos = ct.get_position()
     if self.patrol_head:
-        if my_pos.distance_squared(self.patrol_head) > PATROL_RANGE:
+        if self.my_pos.distance_squared(self.patrol_head) > PATROL_RANGE:
             make_move(self, ct, self.patrol_head)
             return True
         conveyors = self.get_conveyors_to_here(self.patrol_head)
@@ -48,7 +47,7 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
             return True
         while (
             len(conveyors) > 0
-            and my_pos.distance_squared(self.patrol_head) <= PATROL_RANGE
+            and self.my_pos.distance_squared(self.patrol_head) <= PATROL_RANGE
         ):
             self.rng.shuffle(conveyors)
             self.patrol_head = conveyors[0]
@@ -61,9 +60,9 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
             self.patrol_trail.append(self.patrol_head)
         make_move(self, ct, self.patrol_head)
         return True
-    if my_pos == self.my_core or (
-        my_pos.distance_squared(self.my_core) <= 8
-        and not ct.can_move(my_pos.direction_to(self.my_core))
+    if self.my_pos == self.my_core or (
+        self.my_pos.distance_squared(self.my_core) <= 8
+        and not ct.can_move(self.my_pos.direction_to(self.my_core))
     ):
         conveyors = core_feeders(self)
         if len(conveyors) > 0:

@@ -31,7 +31,7 @@ def clear_with_turret(
     build_pos: Position,
     target_pos: Position,
 ) -> bool:
-    if build_pos == ct.get_position():
+    if build_pos == self.my_pos:
         for d in DIR8:
             if ct.can_move(d):
                 ct.move(d)
@@ -183,7 +183,7 @@ def route_to(
     if chebyshev(start, target) <= 1 and target == self.my_core:
         return
 
-    current_pos = ct.get_position()
+    current_pos = self.my_pos
 
     start_building = self.get_building(start)
     all_blocked = True
