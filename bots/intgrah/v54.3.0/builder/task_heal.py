@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cambc import Controller, EntityType, Position, Team
+from cambc import Controller, EntityType, Position
 from util import DIR8, chebyshev
 
 from builder.helpers import make_move, move_random, try_heal
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-def _count_visible_attackers(ct: Controller, my_team: Team, target: Position) -> int:
+def _count_visible_attackers(self: Builder, ct: Controller, target: Position) -> int:
     """Count enemy builder bots currently in attack range of `target`
     (builder bots fire at their own tile, so anyone within 1 king-step
     of target is potentially dealing 2 dmg/turn to it).
@@ -20,26 +20,24 @@ def _count_visible_attackers(ct: Controller, my_team: Team, target: Position) ->
     `_enemy_healer_near` in task_attack.
     """
     n = 0
-    w = ct.get_map_width()
-    h = ct.get_map_height()
     for d in DIR8:
         p = target.add(d)
-        if not (0 <= p.x < w and 0 <= p.y < h):
+        if not self.in_bounds(p):
             continue
         if ct.is_in_vision(p):
             uid = ct.get_tile_builder_bot_id(p)
-            if uid is not None and ct.get_team(uid) != my_team:
+            if uid is not None and ct.get_team(uid) != self.my_team:
                 n += 1
-    if 0 <= target.x < w and 0 <= target.y < h and ct.is_in_vision(target):
+    if self.in_bounds(target) and ct.is_in_vision(target):
         uid = ct.get_tile_builder_bot_id(target)
-        if uid is not None and ct.get_team(uid) != my_team:
+        if uid is not None and ct.get_team(uid) != self.my_team:
             n += 1
     return n
 
 
 def _deconflict_rank(
+    self: Builder,
     ct: Controller,
-    my_team: Team,
     my_id: int,
     my_pos: Position,
     target: Position,
@@ -57,7 +55,7 @@ def _deconflict_rank(
             continue
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
-        if ct.get_team(uid) != my_team:
+        if ct.get_team(uid) != self.my_team:
             continue
         fp = ct.get_position(uid)
         fd = chebyshev(fp, target)
@@ -99,18 +97,17 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     best_score: tuple[int, int, int] = (0, 0, 0)
     my_pos = ct.get_position()
     my_id = ct.get_id()
-    my_team = ct.get_team()
     for pos in self.healable_buildings:
-        i = self._idx(pos)
+        i = self.idx(pos)
         hp = self.hp[i]
         max_hp = self.max_hp[i]
         damage = max_hp - hp
         if damage <= 0:
             continue
 
-        attackers = _count_visible_attackers(ct, my_team, pos)
+        attackers = _count_visible_attackers(self, ct, pos)
         needed = _healers_needed(attackers)
-        rank = _deconflict_rank(ct, my_team, my_id, my_pos, pos)
+        rank = _deconflict_rank(self, ct, my_id, my_pos, pos)
         if rank >= needed:
             if not ct.is_in_vision(pos):
                 self.hp[i] = max_hp
@@ -143,7 +140,7 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     self.healable_buildings = [
         p
         for p in self.healable_buildings
-        if self.hp[self._idx(p)] < self.max_hp[self._idx(p)]
+        if self.hp[self.idx(p)] < self.max_hp[self.idx(p)]
     ]
     return best
 
@@ -152,7 +149,7 @@ def best_adjacent_healable_building(self: Builder, ct: Controller) -> Position |
     best: Position | None = None
     best_score: tuple[int, int] = (0, 0)
     for pos in self.healable_buildings:
-        i = self._idx(pos)
+        i = self.idx(pos)
         hp = self.hp[i]
         max_hp = self.max_hp[i]
         damage = max_hp - hp
@@ -168,7 +165,7 @@ def best_adjacent_healable_building(self: Builder, ct: Controller) -> Position |
 def run_heal(self: Builder, ct: Controller) -> bool:
     if self.repair_pos and ct.is_in_vision(self.repair_pos):
         b = self.get_building(self.repair_pos)
-        ti = self._idx(self.repair_pos)
+        ti = self.idx(self.repair_pos)
         if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == ct.get_team():
             pass
         else:
@@ -213,7 +210,7 @@ def has_wounded_enemy(self: Builder, ct: Controller, position: Position) -> bool
     b = self.get_building(position)
     if not b:
         return False
-    i = self._idx(position)
+    i = self.idx(position)
     return b.team != ct.get_team() and self.hp[i] < self.max_hp[i]
 
 
@@ -253,7 +250,7 @@ def heal_self(self: Builder, ct: Controller) -> bool:
 def heal_builders(self: Builder, ct: Controller) -> bool:
     b = self.get_building(ct.get_position())
     if b and b.team != ct.get_team():
-        i = self._idx(ct.get_position())
+        i = self.idx(ct.get_position())
         if self.hp[i] <= 2:
             return False
         if self.hp[i] <= 6 and ct.get_hp() > 18:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from building import (
     BuildingArmouredConveyor,
@@ -211,6 +211,7 @@ class Builder(Unit):
         msg = "Core not visible at spawn"
         raise RuntimeError(msg)
 
+    @override
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
         self.my_core: Position = Builder.find_core(ct)
@@ -352,24 +353,18 @@ class Builder(Unit):
                 cg[row_start + x] = 1
                 ccg[row_start + x] = 5
 
-    def _idx(self, pos: Position) -> int:
-        return pos.y * self.w + pos.x
-
     def _pidx(self, pos: Position) -> int:
         """Padded flat index for cost_grid / conveyor_cost_grid."""
         return (pos.y + self.pad) * self.pw + (pos.x + self.pad)
 
-    def in_bounds(self, pos: Position) -> bool:
-        return 0 <= pos.x < self.w and 0 <= pos.y < self.h
-
     def get_env(self, pos: Position) -> Environment | None:
         if self.in_bounds(pos):
-            return self.env[self._idx(pos)]
+            return self.env[self.idx(pos)]
         return None
 
     def get_building(self, pos: Position) -> Building | None:
         if self.in_bounds(pos):
-            return self.buildings[self._idx(pos)]
+            return self.buildings[self.idx(pos)]
         return None
 
     def get_cost(self, pos: Position) -> int:
@@ -402,12 +397,12 @@ class Builder(Unit):
 
     def get_conveyors_to_here(self, pos: Position) -> list[Position]:
         if self.in_bounds(pos):
-            return self.conveyors_to_here[self._idx(pos)]
+            return self.conveyors_to_here[self.idx(pos)]
         return []
 
     def is_buildable(self, pos: Position) -> bool:
         if self.in_bounds(pos):
-            i = self._idx(pos)
+            i = self.idx(pos)
             b = self.buildings[i]
             return self.env[i] != Environment.WALL and (
                 b is None or b.team == self.my_team
@@ -417,8 +412,7 @@ class Builder(Unit):
     def is_friendly_turret(self, pos: Position) -> bool:
         if not self.in_bounds(pos):
             return False
-        b = self.buildings[self._idx(pos)]
-        match b:
+        match self.buildings[self.idx(pos)]:
             case (
                 None
                 | BuildingConveyor()
@@ -428,19 +422,18 @@ class Builder(Unit):
                 | BuildingBridge()
             ):
                 return False
-            case _:
+            case b:
                 return b.team == self.my_team
-        return False
 
     def is_enemy_building(self, pos: Position) -> bool:
         if self.in_bounds(pos):
-            b = self.buildings[self._idx(pos)]
+            b = self.buildings[self.idx(pos)]
             return b is not None and b.team != self.my_team
         return False
 
     def leads_to_enemy_building(self, pos: Position) -> bool:
         if self.in_bounds(pos):
-            b = self.buildings[self._idx(pos)]
+            b = self.buildings[self.idx(pos)]
             if b is None or b.team != self.my_team:
                 return False
 
@@ -457,6 +450,7 @@ class Builder(Unit):
     update = update
     dump = dump
 
+    @override
     def run(self, ct: Controller) -> None:
         t0 = ct.get_cpu_time_elapsed()
         self.update(ct)
@@ -473,40 +467,37 @@ class Builder(Unit):
                 break
 
         if self.role != Role.OFFENSE:
-            _end_of_turn_heal(ct)
+            self.end_of_turn_heal(ct)
 
         t2 = ct.get_cpu_time_elapsed()
         print(f"task={t2 - t1}us [{chosen}]")
         print(f"total={t2 - t0}us")
 
+    def end_of_turn_heal(self, ct: Controller) -> None:
+        my_pos = ct.get_position()
+        nearby_units = [
+            unit
+            for unit in ct.get_nearby_units()
+            if (ct.get_position(unit).distance_squared(my_pos) <= 2)
+            or (ct.get_entity_type(unit) == EntityType.CORE)
+        ]
+        if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
+            ct.heal(my_pos)
+        for unit in nearby_units:
+            if ct.get_entity_type(unit) == EntityType.CORE:
+                core_center = ct.get_position(unit)
+                for d in DIR8:
+                    heal_pos = core_center.add(d)
+                    if (
+                        ct.can_heal(heal_pos)
+                        and ct.get_team(unit) == self.my_team
+                        and ct.get_hp(unit) < ct.get_max_hp(unit)
+                    ):
+                        ct.heal(heal_pos)
 
-def _end_of_turn_heal(ct: Controller) -> None:
-    my_pos = ct.get_position()
-    nearby_units = [
-        unit
-        for unit in ct.get_nearby_units()
-        if (ct.get_position(unit).distance_squared(my_pos) <= 2)
-        or (ct.get_entity_type(unit) == EntityType.CORE)
-    ]
-
-    current_position = ct.get_position()
-    if ct.can_heal(current_position) and ct.get_hp() < ct.get_max_hp():
-        ct.heal(current_position)
-    for unit in nearby_units:
-        if ct.get_entity_type(unit) == EntityType.CORE:
-            core_center = ct.get_position(unit)
-            for d in DIR8:
-                heal_pos = core_center.add(d)
-                if (
-                    ct.can_heal(heal_pos)
-                    and ct.get_team(unit) == ct.get_team()
-                    and ct.get_hp(unit) < ct.get_max_hp(unit)
-                ):
-                    ct.heal(heal_pos)
-
-        if (
-            ct.can_heal(ct.get_position(unit))
-            and ct.get_team(unit) == ct.get_team()
-            and ct.get_hp(unit) < ct.get_max_hp(unit)
-        ):
-            ct.heal(ct.get_position(unit))
+            if (
+                ct.can_heal(ct.get_position(unit))
+                and ct.get_team(unit) == self.my_team
+                and ct.get_hp(unit) < ct.get_max_hp(unit)
+            ):
+                ct.heal(ct.get_position(unit))
