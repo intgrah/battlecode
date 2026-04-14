@@ -4,8 +4,8 @@ import math
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
-from cambc import Controller, Position
-from util import DIR8_DELTA, INF
+from cambc import Controller, Direction, Position
+from util import DIR8, INF
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -111,19 +111,21 @@ def bugnav_step(
         goal_dy = target.y - my_pos.y
         ideal_angle = math.atan2(goal_dy, goal_dx)
 
-        dirs = DIR8_DELTA[:]
-        dirs.sort(
-            key=lambda d: abs(math.atan2(d[1], d[0]) - ideal_angle),
-        )
+        dirs = DIR8[:]
 
-        for dx, dy in dirs:
-            nx, ny = my_pos.x + dx, my_pos.y + dy
-            if not (0 <= nx < w and 0 <= ny < h):
+        def key(d: Direction) -> float:
+            dx, dy = d.delta()
+            return abs(math.atan2(dy, dx) - ideal_angle)
+
+        dirs.sort(key=key)
+
+        for d in dirs:
+            n = my_pos.add(d)
+            if not (0 <= n.x < w and 0 <= n.y < h):
                 continue
 
-            pos = Position(nx, ny)
-            if cost_grid[(ny + pad) * pw + (nx + pad)] != INF and pos not in blocked:
-                return pos
+            if cost_grid[(n.y + pad) * pw + (n.x + pad)] != INF and n not in blocked:
+                return n
 
     return None
 
