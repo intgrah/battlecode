@@ -214,6 +214,7 @@ class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
         self.my_core: Final[Position] = self.find_core(ct)
+        """Allied core. Always known, since builders always spawn inside the core."""
         w, h = self.w, self.h
         n: Final[int] = w * h
 
@@ -228,11 +229,15 @@ class Builder(Unit):
         self.pad_h: Final[int] = h + 2 * self.pad
         pad_n: Final[int] = self.pad_w * self.pad_h
 
-        # Per-tile arrays (indexed by y * w + x)
         self.env: list[Environment | None] = [None] * n
+        """Wall, Empty, Ti ore, Ax ore per tile."""
         self.buildings: list[Building | None] = [None] * n
+        """Building on a tile."""
         self.hp: list[int] = [0] * n
+        """Hitpoints of building on tile."""
         self.max_hp: list[int] = [0] * n
+        """Max hitpoints of building on tile."""
+
         # Padded cost grids: border = INF, interior initialised to
         # the default cost for an unseen tile. Real tile (x, y) lives
         # at padded index (y + pad) * pw + (x + pad).
@@ -249,15 +254,27 @@ class Builder(Unit):
             for cx in range(w)
         ]
         """Passable neighbours."""
+
         self.bfs_dist: Final[list[int]] = [INF] * n
+        """BFS hops from the position at the start of the turn."""
+
         self.flow_history: list[int] = [0b0000000000000000] * n
+        """History of flow on this tile, encoded as a 8 entries * 2 bit = 16 bit queue.
+        None = 0, Ti = 1, Raw Ax = 2, Refined Ax = 3.
+        """
+
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
 
-        # Symmetry
         self.symmetry_candidates: set[Symmetry] = set(Symmetry)
+        """The current set of symmetry hypotheses."""
         self.symmetry: Symmetry | None = None
+        """If `symmetry == {x}`, then this is `x`, otherwise `None`."""
+
         self.reflect_queue: deque[int] = deque()
+        """At the moment symmetry is known, existing tiles in memory have to be reflected.
+        To prevent a huge spike, we process only a limited number per turn.
+        """
 
         # Ephemeral (recomputed each turn)
         self.nearby_positions: list[Position] = []
