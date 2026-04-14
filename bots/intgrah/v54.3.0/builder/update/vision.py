@@ -52,9 +52,9 @@ def update_vision(self: Builder, ct: Controller) -> None:
                             code = 1
                         case ResourceType.RAW_AXIONITE:
                             code = 2
-                        case _:
+                        case ResourceType.REFINED_AXIONITE:
                             code = 3
-                    self.flow_history[i] = (self.flow_history[i] & ~(3 << shift)) | (
+                    self.flow_history[i] = (self.flow_history[i] & ~(0b11 << shift)) | (
                         code << shift
                     )
 

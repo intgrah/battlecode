@@ -32,8 +32,8 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
             return False
 
     conv = self.get_conveyors_to_here(pos)
-    adj_conv = [c for c in conv if c.distance_squared(pos) <= 2]
-    if len(adj_conv) >= 2 or len(conv) == 0:
+    conv_adj = [c for c in conv if c.distance_squared(pos) <= 2]
+    if len(conv_adj) >= 2 or len(conv) == 0:
         return False
     buildable_count = 0
     for d in DIR4:
@@ -53,16 +53,15 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
 
 def update_map_econ(self: Builder, ct: Controller) -> None:
     pad = self.pad
-    pw = self.pad_w
+    pad_w = self.pad_w
     self.adjacent_to_unconnected_harvester = {
         p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
     self.adjacent_to_harvester = {
         p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
     }
-    my_team = ct.get_team()
     for pos in self.nearby_positions:
-        pi = (pos.y + pad) * pw + (pos.x + pad)
+        pi = (pos.y + pad) * pad_w + (pos.x + pad)
         bld = self.get_building(pos)
         match bld:
             case BuildingHarvester():
@@ -70,11 +69,11 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 for d in DIR4:
                     match self.get_building(pos.add(d)):
                         case (
-                            BuildingConveyor(team=t)
-                            | BuildingBridge(team=t)
-                            | BuildingSplitter(team=t)
-                            | BuildingArmouredConveyor(team=t)
-                        ) if t == my_team:
+                            BuildingConveyor(team=self.my_team)
+                            | BuildingBridge(team=self.my_team)
+                            | BuildingSplitter(team=self.my_team)
+                            | BuildingArmouredConveyor(team=self.my_team)
+                        ):
                             adjacent_conveyor = True
                             break
                 if not adjacent_conveyor:
@@ -93,17 +92,17 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
 
         match bld:
             case (
-                BuildingConveyor(team=t)
-                | BuildingArmouredConveyor(team=t)
-                | BuildingSplitter(team=t)
-                | BuildingBridge(team=t)
-            ) if t == my_team:
+                BuildingConveyor(team=self.my_team)
+                | BuildingArmouredConveyor(team=self.my_team)
+                | BuildingSplitter(team=self.my_team)
+                | BuildingBridge(team=self.my_team)
+            ):
                 i = pos.y * self.w + pos.x
                 fh = self.flow_history[i]
                 occupied = sum((fh >> s) & 0b11 != 0 for s in range(0, 16, 2))
                 self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
 
-    my_position = ct.get_position()
+    my_pos = ct.get_position()
     if self.nearest_junction_site and not self.can_place_junction(
         ct,
         self.nearest_junction_site,
@@ -113,8 +112,8 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
         if (
             self.nearest_junction_site is None
             or (
-                self.nearest_junction_site.distance_squared(my_position)
-                < pos.distance_squared(my_position)
+                self.nearest_junction_site.distance_squared(my_pos)
+                < pos.distance_squared(my_pos)
             )
         ) and self.can_place_junction(ct, pos):
             self.nearest_junction_site = pos
