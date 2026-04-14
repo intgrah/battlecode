@@ -10,12 +10,12 @@ if TYPE_CHECKING:
     from builder import Builder
 
 _OPENING_ROLES = [
-    (Role.ECON, True, 0),
-    (Role.ECON, False, 1),
-    (Role.DEFENSE, True, None),
-    (Role.OFFENSE, False, None),
-    (Role.OFFENSE, False, None),
-    (Role.OFFENSE, False, None),
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.DEFENSE, True),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
 ]
 
 _INITIAL_WEIGHTS = {
@@ -41,11 +41,8 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         return self.rng.choices(roles, weights=weights)[0]
     idx = ct.get_unit_count() - 3
     if 0 <= idx < len(_OPENING_ROLES):
-        role, perm, scout_dir = _OPENING_ROLES[idx]
+        role, perm = _OPENING_ROLES[idx]
         self.permanent_role = perm
-        if scout_dir is not None:
-            self.scout_active = True
-            self.scout_direction = scout_dir
         return role
     return Role.ECON
 
@@ -53,8 +50,6 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
 def update_role(self: Builder, ct: Controller) -> None:
     if self.role is None:
         self.role = _pick_initial_role(self, ct)
-    if ct.get_current_round() > 25:
-        self.scout_active = False
 
     if (
         self.role_age > _REASSIGN_PERIOD

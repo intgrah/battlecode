@@ -35,7 +35,7 @@ class Launcher(StationaryUnit):
         best_dest: Position | None = None
         best_score = 0
 
-        for uid in ct.get_nearby_units(2):
+        for uid in ct.get_nearby_units():
             if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
                 continue
 
