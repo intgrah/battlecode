@@ -222,7 +222,7 @@ class State:
     
     def get_flow(self, pos: Position) -> Flow:
         if not self.in_bounds(pos):
-            return 0
+            return Flow(0, None)
         return self.flow[self._idx(pos)]
 
     def is_passable(self, pos: Position) -> bool | None:
