@@ -238,15 +238,26 @@ class Builder(Unit):
         self.cost_grid: list[int] = [INF] * pad_n
         self.conveyor_cost_grid: list[int] = [INF] * pad_n
         self._init_pad_interior()
-        self.pnb: list[list[int]] = [
-            [
-                ny * w + nx
-                for dx, dy in DIR8_DELTA
-                if self.in_bounds(Position(nx := cx + dx, ny := cy + dy))
-            ]
-            for cy in range(h)
-            for cx in range(w)
-        ]
+
+        offsets = [dy * w + dx for dx, dy in DIR8_DELTA]
+        pnb: list[list[int]] = [[] for _ in range(n)]
+        for cy in range(1, h - 1):
+            row = cy * w
+            for cx in range(1, w - 1):
+                i = row + cx
+                pnb[i] = [i + o for o in offsets]
+        for cy in range(h):
+            row = cy * w
+            for cx in range(w):
+                if 1 <= cx < w - 1 and 1 <= cy < h - 1:
+                    continue
+                i = row + cx
+                pnb[i] = [
+                    ny * w + nx
+                    for dx, dy in DIR8_DELTA
+                    if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+                ]
+        self.pnb = pnb
         """Passable neighbours."""
 
         self.bfs_dist: Final[list[int]] = [INF] * n
