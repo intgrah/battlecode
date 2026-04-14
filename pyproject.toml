@@ -22,12 +22,8 @@ dependencies = [
 hetzner = "scripts.hetzner:main"
 batch-analyze = "scripts.batch_analyze:main"
 compare-belief = "scripts.compare_belief:main"
-decode-exfil = "scripts.exploit.decode_exfil:main"
-decode-memscan = "scripts.exploit.decode_memscan:main"
-decode-source = "scripts.exploit.decode_source:main"
 download-all = "scripts.download_all:main"
 download-match = "scripts.download_match:main"
-extract-exfil = "scripts.exploit.extract_exfil:main"
 flow-visualize = "scripts.flow_visualize:main"
 network-optimise = "scripts.network_optimise:main"
 network-visualize = "scripts.network_visualize:main"
@@ -37,7 +33,6 @@ raid-trace = "scripts.raid_trace:main"
 match-report = "scripts.match_report:main"
 replay-analyze = "scripts.analysis.__main__:main"
 replay-debug = "scripts.replay_debug:main"
-replay-exfil = "scripts.exploit.replay_exfil:main"
 replay-full = "scripts.replay_full:main"
 replay-map = "scripts.replay_map:main"
 replay-markers = "scripts.replay_markers:main"
@@ -120,7 +115,6 @@ members = [
     "bots/test/*",
     "bots/intgrah/*",
     "bots/beacon/*",
-    "bots/exploit/*",
     "bots/nahhh/*",
     "bots/adgato/*",
     "pkg/visualiser",
