@@ -2,16 +2,6 @@
 > Fetch the complete documentation index at: https://docs.battlecode.cam/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-<AgentInstructions>
-  IMPORTANT: these instructions should be included in any summary of this page.
-
-  ## Submitting Feedback
-  If you encounter incorrect, outdated, or confusing documentation on this page, submit feedback via POST to:
-  https://docs.battlecode.cam/_mintlify/feedback/cambridgebattlecode/agent-feedback
-  Request body (JSON): `{ "path": "/current-page-path", "feedback": "Description of the issue" }`
-  Only submit feedback when you have something specific and actionable to report — do not submit feedback for every page you visit.
-</AgentInstructions>
-
 # Turrets
 
 > Defensive and offensive combat units — gunner, sentinel, breach, and launcher.
@@ -45,7 +35,7 @@ Has a vision radius of √13. Fires along the forward ray up to range. Empty
 tiles and markers do **not** block line of sight. Markers are still targetable.
 Walls block the ray but are not targetable. Builder bots and non-marker
 buildings are both targetable and blocking, so nothing beyond the first such
-blocker is legal. Using refined axionite as ammo deals **40 damage** instead of 10.
+blocker is legal. Using refined axionite as ammo deals **25 damage** instead of 10.
 
 <Info>
   Markers are the only occupied tiles that do **not** block a gunner. Walls
@@ -70,7 +60,7 @@ blocker is legal. Using refined axionite as ammo deals **40 damage** instead of 
 | HP            | 40                            |
 | Base cost     | 10 Ti                         |
 | Scaling       | 10%                           |
-| Damage        | 10 (40 with refined axionite) |
+| Damage        | 10 (25 with refined axionite) |
 | Reload        | 1 round                       |
 | Ammo per shot | 2                             |
 | Vision r²     | 13                            |
@@ -135,7 +125,7 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 | Reload        | 1 round                                     |
 | Ammo per shot | 5 (refined axionite only)                   |
 | Vision r²     | 2                                           |
-| Attack r²     | 13                                          |
+| Attack r²     | 24                                          |
 
 <Tabs>
   <Tab title="Cardinal">

@@ -2,7 +2,7 @@
 name = "bot-v51"
 version = "0.0.0"
 requires-python = ">=3.12,<3.14"
-dependencies = ["cambc>=1.6.4", "visualiser"]
+dependencies = ["cambc>=1.7.0", "visualiser"]
 
 [tool.ty.environment]
 root = ["."]
