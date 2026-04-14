@@ -12,7 +12,7 @@ from cambc import Controller, EntityType, Environment, Position, Team
 from util import DIR4, can_afford, get_direction_object
 
 from builder.algorithms.econ_astar import conv_search
-from builder.helpers import make_move, ore_available, try_move_with_build
+from builder.helpers import make_move, ore_available, try_move_with_road
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -139,25 +139,25 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             target_has_road = isinstance(self.get_building(target_pos), BuildingRoad)
 
             if target_has_road:
-                if try_move_with_build(self, ct, target_pos):
+                if try_move_with_road(self, ct, target_pos):
                     return True
             else:
                 target_n = unpaved_neighbors[0]
                 path = conv_search.search_blocked(self, ct, my_pos, target_n)
                 if path and len(path) > 1:
-                    try_move_with_build(self, ct, path[1])
+                    try_move_with_road(self, ct, path[1])
                     return True
             return True
 
         if not can_afford(ct, EntityType.HARVESTER):
-            if try_move_with_build(self, ct, target_pos):
+            if try_move_with_road(self, ct, target_pos):
                 return True
             return True
 
         has_road = isinstance(self.get_building(target_pos), BuildingRoad)
 
         if has_road:
-            if try_move_with_build(self, ct, target_pos):
+            if try_move_with_road(self, ct, target_pos):
                 return True
         elif (
             ct.can_build_harvester(target_pos)
@@ -173,10 +173,10 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                     if (
                         self.is_passable(ortho_pos)
                         and my_pos.distance_squared(ortho_pos) <= 2
-                    ) and try_move_with_build(self, ct, ortho_pos):
+                    ) and try_move_with_road(self, ct, ortho_pos):
                         return True
 
-                if try_move_with_build(self, ct, target_pos):
+                if try_move_with_road(self, ct, target_pos):
                     return True
 
                 return True

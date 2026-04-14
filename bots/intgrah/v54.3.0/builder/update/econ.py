@@ -31,9 +31,9 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
         case _:
             return False
 
-    conveyors = self.get_conveyors_to_here(pos)
-    adjacent_conveyors = [c for c in conveyors if c.distance_squared(pos) <= 2]
-    if len(adjacent_conveyors) > 1 or len(conveyors) < 1:
+    conv = self.get_conveyors_to_here(pos)
+    adj_conv = [c for c in conv if c.distance_squared(pos) <= 2]
+    if len(adj_conv) >= 2 or len(conv) == 0:
         return False
     buildable_count = 0
     for d in DIR4:
@@ -107,7 +107,9 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
 
     my_position = ct.get_position()
     if self.nearest_junction_site and not can_place_junction(
-        self, ct, self.nearest_junction_site,
+        self,
+        ct,
+        self.nearest_junction_site,
     ):
         self.nearest_junction_site = None
     for pos in self.nearby_positions:
@@ -142,7 +144,9 @@ def update_dangling(self: Builder, ct: Controller) -> None:
     if self.pending_bridge:
         self.dangling_output = self.pending_bridge
     elif self.dangling_output is None or not is_dangling(
-        self, ct, self.dangling_output,
+        self,
+        ct,
+        self.dangling_output,
     ):
         self.dangling_output = find_dangling(self, ct)
 

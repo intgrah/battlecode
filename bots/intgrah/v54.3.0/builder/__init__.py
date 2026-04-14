@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from typing import TYPE_CHECKING, override
 
 from building import (
@@ -97,14 +98,14 @@ def _explore(s: Builder, ct: Controller) -> bool:
     return True
 
 
-def _wander(s: Builder, ct: Controller) -> bool:
+def _wander(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8[:]
-    s.rng.shuffle(dir8)
+    self.rng.shuffle(dir8)
     my_pos = ct.get_position()
     for d in dir8:
         if try_move(ct, my_pos.add(d)):
             return True
-    return any(try_move_with_road(ct, my_pos.add(d), s) for d in dir8)
+    return any(try_move_with_road(ct, my_pos.add(d), self) for d in dir8)
 
 
 def _attack(s: Builder, ct: Controller) -> bool:
@@ -112,13 +113,13 @@ def _attack(s: Builder, ct: Controller) -> bool:
     return True
 
 
-OFFENSE_TASKS = [
+OFFENSE_TASKS: list[Callable[[Builder, Controller], bool]] = [
     _heal,
     deny_enemy_ore,
     _attack,
 ]
 
-ECON_TASKS = [
+ECON_TASKS: list[Callable[[Builder, Controller], bool]] = [
     place_gunner_nearby,
     fix_enemy_conveyor,
     pave_near_harvesters,
@@ -132,7 +133,7 @@ ECON_TASKS = [
     _wander,
 ]
 
-DEFENSE_TASKS = [
+DEFENSE_TASKS: list[Callable[[Builder, Controller], bool]] = [
     place_gunner_nearby,
     fix_enemy_conveyor,
     pave_near_harvesters,

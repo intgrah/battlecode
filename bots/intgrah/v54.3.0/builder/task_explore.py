@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 from cambc import Position
 from util import DIR8, INF, try_move
 
-from builder.helpers import find_path, try_move_with_build
+from builder.algorithms.astar import pathfind_blocked
+from builder.helpers import try_move_with_road
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -24,7 +25,7 @@ def _move_via_path(
     check_money: bool = True,
 ) -> None:
     start = ct.get_position()
-    path = find_path(self, ct, start, target)
+    path = pathfind_blocked(self, ct, start, target)
     if path and len(path) > 1:
         next_pos = path[1]
         if check_money and ct.get_global_resources()[0] < 75:
@@ -35,7 +36,7 @@ def _move_via_path(
                 if try_move(ct, my_pos.add(d)):
                     break
         else:
-            try_move_with_build(self, ct, next_pos)
+            try_move_with_road(self, ct, next_pos)
 
 
 def explore(self: Builder, ct: Controller) -> None:
