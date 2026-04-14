@@ -1,37 +1,39 @@
 from __future__ import annotations
 
-import random
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Position
 
 if TYPE_CHECKING:
-    from array import array
-    from collections.abc import Callable
-
     from builder.state import State
 
-from util import INF as _INF
+from util import INF
 
 _TARGET_DRIFT_SQ = 25
 _CPU_BUDGET = 1729
-_TIEBREAK_EPS = 1e-5
+
+DIAG_WEIGHT = 4
+_BRIDGE_DELTAS = [
+    (dx, dy, 7)
+    for dx in range(-3, 4)
+    for dy in range(-3, 4)
+    if 3 <= dx * dx + dy * dy <= 9
+]
+_CONV_NEIGHBORS = [
+    (1, 0, 0),
+    (-1, 0, 0),
+    (0, 1, 0),
+    (0, -1, 0),
+    (1, 1, DIAG_WEIGHT),
+    (1, -1, DIAG_WEIGHT),
+    (-1, 1, DIAG_WEIGHT),
+    (-1, -1, DIAG_WEIGHT),
+    *_BRIDGE_DELTAS,
+]
 
 
 class AStarSearch:
-    def __init__(
-        self,
-        neighbors: list[tuple[int, int, int]],
-        heuristic: Callable[[Position, Position], float],
-        cost_grid_attr: str,
-        *,
-        allow_relaxation: bool = False,
-    ) -> None:
-        self._neighbors = neighbors
-        self._heuristic = heuristic
-        self._cost_attr = cost_grid_attr
-        self._relax = allow_relaxation
-
+    def __init__(self) -> None:
         self._w = 0
         self._h = 0
         self._pw = 0
@@ -53,9 +55,9 @@ class AStarSearch:
         self._pw, self._ph = state.pw, state.ph
         self._pad = state.pad
         pn = self._pw * self._ph
-        self._dist = [_INF] * pn
+        self._dist = [INF] * pn
         self._flat_neighbors = [
-            (dy * self._pw + dx, extra) for dx, dy, extra in self._neighbors
+            (dy * self._pw + dx, extra) for dx, dy, extra in _CONV_NEIGHBORS
         ]
 
     def _reset(self, state: State) -> None:
@@ -66,13 +68,10 @@ class AStarSearch:
         self._visited = bytearray((pn + 7) // 8)
         self._q = []
 
-    def _cost_grid(self, state: State) -> array[float]:
-        return getattr(state, self._cost_attr)
-
     def _extract_path(
         self, state: State, start: Position, target: Position
     ) -> list[Position]:
-        cost = self._cost_grid(state)
+        cost = state.conveyor_cost_grid
         pw = self._pw
         pad = self._pad
         flat_neighbors = self._flat_neighbors
@@ -84,14 +83,14 @@ class AStarSearch:
             if current in path:
                 break
             path.append(current)
-            best_dist = _INF
+            best_dist = INF
             best = current
             ci = (current.y + pad) * pw + (current.x + pad)
             for off, extra in flat_neighbors:
                 idx = ci + off
                 if not (prev_visited[idx >> 3] & (1 << (idx & 7))):
                     continue
-                if cost[idx] >= _INF:
+                if cost[idx] >= INF:
                     continue
                 d = dist[idx] + extra
                 if d < best_dist:
@@ -105,13 +104,12 @@ class AStarSearch:
     def _run(
         self, state: State, ct: Controller, start: Position, goal: Position
     ) -> bool:
-        cost = self._cost_grid(state)
+        cost = state.conveyor_cost_grid
         pw = self._pw
         pad = self._pad
         dist = self._dist
         visited = self._visited
         flat_neighbors = self._flat_neighbors
-        relax = self._relax
         sx_p = start.x + pad
         sy_p = start.y + pad
         gx_p = goal.x + pad
@@ -149,16 +147,14 @@ class AStarSearch:
                 for off, extra in flat_neighbors:
                     ni = node_i + off
                     mc = cost[ni]
-                    if mc >= _INF:
+                    if mc >= INF:
                         continue
                     seen = visited[ni >> 3] & (1 << (ni & 7))
-                    if relax and not seen:
-                        dist[ni] = _INF
-                    if not relax and seen:
-                        continue
+                    if not seen:
+                        dist[ni] = INF
                     visited[ni >> 3] |= 1 << (ni & 7)
                     nd = gn + mc + extra
-                    if relax and nd >= dist[ni]:
+                    if nd >= dist[ni]:
                         continue
                     dist[ni] = nd
                     ny2, nx2 = divmod(ni, pw)
@@ -203,7 +199,7 @@ class AStarSearch:
     def search_blocked(
         self, state: State, ct: Controller, start: Position, goal: Position
     ) -> list[Position] | None:
-        cost = self._cost_grid(state)
+        cost = state.conveyor_cost_grid
         pw = state.pw
         pad = state.pad
         saved: list[tuple[int, int]] = []
@@ -211,7 +207,7 @@ class AStarSearch:
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
                 idx = (pos.y + pad) * pw + (pos.x + pad)
                 saved.append((idx, cost[idx]))
-                cost[idx] = _INF
+                cost[idx] = INF
         result = self.search(state, ct, start, goal)
         for idx, val in saved:
             cost[idx] = val
@@ -222,35 +218,7 @@ class AStarSearch:
         return self._prev_no_path
 
 
-def _manhattan(a: Position, b: Position) -> float:
-    dx = abs(a.x - b.x)
-    dy = abs(a.y - b.y)
-    return (dx + dy) + _TIEBREAK_EPS * (dx + dy)
-
-
-DIAG_WEIGHT = 4
-COST_BRIDGE_EXTRA = 7
-_BRIDGE_DELTAS = [
-    (dx, dy)
-    for dx in range(-3, 4)
-    for dy in range(-3, 4)
-    if 3 <= dx * dx + dy * dy <= 9
-]
-_CONV_NEIGHBORS = [
-    (1, 0, 0),
-    (-1, 0, 0),
-    (0, 1, 0),
-    (0, -1, 0),
-    (1, 1, DIAG_WEIGHT),
-    (1, -1, DIAG_WEIGHT),
-    (-1, 1, DIAG_WEIGHT),
-    (-1, -1, DIAG_WEIGHT),
-] + [(dx, dy, COST_BRIDGE_EXTRA) for dx, dy in _BRIDGE_DELTAS]
-random.shuffle(_CONV_NEIGHBORS)
-
-conv_search = AStarSearch(
-    _CONV_NEIGHBORS, _manhattan, "conveyor_cost_grid", allow_relaxation=True
-)
+conv_search = AStarSearch()
 
 
 def conv_pathfind(

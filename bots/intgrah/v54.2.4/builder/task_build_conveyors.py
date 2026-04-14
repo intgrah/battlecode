@@ -166,10 +166,10 @@ def route_to(
     state.branch_start = None
 
     if start == target:
-        return None
+        return
 
     if chebyshev(start, target) <= 1 and target == state.my_core:
-        return None
+        return
 
     current_pos = ct.get_position()
 
@@ -189,7 +189,7 @@ def route_to(
 
     existing_path = trace_upstream(state, start)
     if len(existing_path) < 1:
-        return None
+        return
 
     if state.is_friendly_turret(start) or all_blocked:
         split_location = best_junction_site(state, ct, existing_path)
@@ -199,13 +199,13 @@ def route_to(
                 state.branch_start = split_location
             else:
                 state.branch_start = start
-        return None
+        return
 
     if not state.is_passable(start):
         if len(existing_path) > 1:
             start = existing_path[-2]
         else:
-            return None
+            return
 
     path = conv_pathfind(state, ct, start, target)
     if path:
@@ -218,10 +218,10 @@ def route_to(
 
     if chebyshev(current_pos, start) <= 1:
         if not path or (conv_unreachable(target) and not path) or len(path) < 2:
-            return True
+            return
         lay_segment(ct, start, path, state)
     make_move(state, ct, start)
-    return None
+    return
 
 
 def route_to_core(state: State, ct: Controller, start: Position) -> None:
