@@ -14,7 +14,7 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from util import DIR4, DIR8, INF, Symmetry, can_afford, closest, try_move
 
 from builder.algorithms.astar import pathfind_blocked
-from builder.algorithms.fallback_nav import fallback_nav
+from builder.algorithms.bugnav import bugnav
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -29,7 +29,7 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
         next_step = path[1]
         try_move_with_road(self, ct, next_step)
         return True
-    next_move = fallback_nav(self, ct, target)
+    next_move = bugnav(self, ct, target)
     if next_move:
         try_move_with_road(self, ct, next_move)
         return True
@@ -170,7 +170,7 @@ def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
         return False
     if ct.is_in_vision(pos):
         worker_id = ct.get_tile_builder_bot_id(pos)
-        if worker_id is not None and worker_id != ct.get_id():
+        if worker_id is not None and worker_id != self.my_id:
             return False
     return True
 
@@ -215,11 +215,10 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
 def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:
     if not is_dangling(self, ct, pos):
         return False
-    my_id = ct.get_id()
     if ct.is_in_vision(pos):
         bid = ct.get_tile_builder_bot_id(pos)
         friendly = ct.get_team(bid) == ct.get_team()
-        if bid is not None and bid != my_id and friendly:
+        if bid is not None and bid != self.my_id and friendly:
             return False
     leading = self.get_conveyors_to_here(pos)
     for lpos in leading:
@@ -227,7 +226,7 @@ def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> b
             continue
         lbid = ct.get_tile_builder_bot_id(lpos)
         friendly = ct.get_team(lbid) == ct.get_team()
-        if lbid is not None and lbid != my_id and friendly:
+        if lbid is not None and lbid != self.my_id and friendly:
             return False
     return True
 

@@ -45,36 +45,36 @@ if TYPE_CHECKING:
     from building import Building
 
 
-def _connect_close(s: Builder, ct: Controller) -> bool:
+def _connect_close(self: Builder, ct: Controller) -> bool:
     my_pos = ct.get_position()
-    if s.branch_start and my_pos.distance_squared(s.branch_start) <= 2:
-        route_to_core(s, ct, s.branch_start)
+    if self.branch_start and my_pos.distance_squared(self.branch_start) <= 2:
+        route_to_core(self, ct, self.branch_start)
         return True
-    if s.dangling_output and my_pos.distance_squared(s.dangling_output) <= 2:
-        route_to_core(s, ct, s.dangling_output)
-        return True
-    return False
-
-
-def _connect_far(s: Builder, ct: Controller) -> bool:
-    if s.branch_start:
-        route_to_core(s, ct, s.branch_start)
-        return True
-    if s.dangling_output:
-        route_to_core(s, ct, s.dangling_output)
+    if self.dangling_output and my_pos.distance_squared(self.dangling_output) <= 2:
+        route_to_core(self, ct, self.dangling_output)
         return True
     return False
 
 
-def _heal(s: Builder, ct: Controller) -> bool:
-    return run_heal(s, ct) or heal_builders(s, ct)
+def _connect_far(self: Builder, ct: Controller) -> bool:
+    if self.branch_start:
+        route_to_core(self, ct, self.branch_start)
+        return True
+    if self.dangling_output:
+        route_to_core(self, ct, self.dangling_output)
+        return True
+    return False
 
 
-def _patrol_cheap(s: Builder, ct: Controller) -> bool:
+def _heal(self: Builder, ct: Controller) -> bool:
+    return run_heal(self, ct) or heal_builders(self, ct)
+
+
+def _patrol_cheap(self: Builder, ct: Controller) -> bool:
     return (
-        s.role == Role.DEFENSE
+        self.role == Role.DEFENSE
         and not can_afford(ct, EntityType.HARVESTER)
-        and run_patrol(s, ct)
+        and run_patrol(self, ct)
     )
 
 
@@ -103,10 +103,10 @@ def _opportunistic_attack(self: Builder, ct: Controller) -> bool:
     return False
 
 
-def _explore(s: Builder, ct: Controller) -> bool:
+def _explore(self: Builder, ct: Controller) -> bool:
     if ct.get_global_resources()[0] <= 100:
         return False
-    explore(s, ct)
+    explore(self, ct)
     return True
 
 
@@ -160,7 +160,7 @@ DEFENSE_TASKS: list[Callable[[Builder, Controller], bool]] = [
     _wander,
 ]
 
-POLICIES = {
+POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     Role.OFFENSE: OFFENSE_TASKS,
     Role.ECON: ECON_TASKS,
     Role.DEFENSE: DEFENSE_TASKS,
@@ -200,12 +200,10 @@ class Builder(Unit):
                 elif i in nb_list:
                     nb_list.remove(i)
 
-    @staticmethod
-    def find_core(ct: Controller) -> Position:
-        my_team = ct.get_team()
+    def find_core(self, ct: Controller) -> Position:
         for bid in ct.get_nearby_buildings():
             if (
-                ct.get_team(bid) == my_team
+                ct.get_team(bid) == self.my_team
                 and ct.get_entity_type(bid) == EntityType.CORE
             ):
                 return ct.get_position(bid)
@@ -215,7 +213,7 @@ class Builder(Unit):
     @override
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
-        self.my_core: Position = Builder.find_core(ct)
+        self.my_core: Final[Position] = self.find_core(ct)
         w, h = self.w, self.h
         n: Final[int] = w * h
 
@@ -251,7 +249,7 @@ class Builder(Unit):
             for cx in range(w)
         ]
         """Passable neighbours."""
-        self.bfs_dist: list[int] = [INF] * n
+        self.bfs_dist: Final[list[int]] = [INF] * n
         self.flow_history: list[int] = [0b0000000000000000] * n
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
@@ -304,14 +302,13 @@ class Builder(Unit):
         self.pending_bridge: Position | None = None
         self.dangling_output: Position | None = None
         self.branch_start: Position | None = None
-        self.spawned: int = 0
 
         # Repair
         self.repair_pos: Position | None = None
         self.repaired_prev: bool = True
 
         # Offense
-        self.enemy_core_seen: bool = False
+        self.en_core: bool = False
         self.offense_target: Position | None = None
         self.offense_turns: int = 0
         self.offense_launcher: Position | None = None

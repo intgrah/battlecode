@@ -6,7 +6,6 @@ from building import (
     Building,
     BuildingArmouredConveyor,
     BuildingBreach,
-    BuildingBridge,
     BuildingConveyor,
     BuildingFoundry,
     BuildingGunner,
@@ -25,22 +24,23 @@ if TYPE_CHECKING:
 
 
 def _is_turret(b: Building | None) -> bool:
-    return isinstance(b, (BuildingGunner, BuildingSentinel, BuildingBreach))
+    return isinstance(
+        b,
+        BuildingGunner | BuildingSentinel | BuildingBreach | BuildingLauncher,
+    )
 
 
 def _is_turret_or_transport(b: Building | None) -> bool:
-    match b:
-        case (
-            BuildingGunner()
-            | BuildingSentinel()
-            | BuildingConveyor()
-            | BuildingArmouredConveyor()
-            | BuildingSplitter()
-            | BuildingBridge()
-        ):
-            return True
-        case _:
-            return False
+    return isinstance(
+        b,
+        BuildingGunner
+        | BuildingSentinel
+        | BuildingBreach
+        | BuildingLauncher
+        | BuildingConveyor
+        | BuildingArmouredConveyor
+        | BuildingSplitter,
+    )
 
 
 def _is_precious_friendly(b: Building | None, team: Team) -> bool:
@@ -72,7 +72,7 @@ def gunner_facing(
     if not self.in_bounds(position) or not ct.is_in_vision(position):
         return None
     builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != ct.get_id():
+    if builder is not None and builder != self.my_id:
         return None
     for d in DIR8:
         match self.get_building(position.add(d)):
@@ -106,7 +106,7 @@ def sentinel_facing(
     ):
         return None
     builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != ct.get_id():
+    if builder is not None and builder != self.my_id:
         return None
 
     d = position.direction_to(self.nearest_enemy_turret)

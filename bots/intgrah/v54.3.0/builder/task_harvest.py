@@ -28,7 +28,7 @@ def _find_contest_target(
         if not self.in_bounds(n):
             continue
         b = self.get_building(n)
-        if b is None or getattr(b, "team", None) == my_team:
+        if b is None or b.team == my_team:
             continue
         if isinstance(
             b,

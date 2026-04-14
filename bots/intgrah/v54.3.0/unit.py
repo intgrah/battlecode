@@ -13,9 +13,15 @@ __all__ = ["StationaryUnit", "Unit"]
 class Unit(ABC):
     def __init__(self, ct: Controller) -> None:
         self.w: Final[int] = ct.get_map_width()
+        """Map width."""
         self.h: Final[int] = ct.get_map_height()
+        """Map height."""
+        self.my_id: Final[int] = ct.get_id()
+        """This unit's entity id."""
         self.my_team: Final[Team] = ct.get_team()
-        self.rng: Final[Random] = Random(ct.get_id())
+        """Allied team."""
+        self.rng: Final[Random] = Random(self.my_id)
+        """Random source, seeded with this unit's entity id."""
 
     @abstractmethod
     def run(self, ct: Controller) -> None: ...
@@ -34,3 +40,4 @@ class StationaryUnit(Unit):
     def __init__(self, ct: Controller) -> None:
         super().__init__(ct)
         self.my_pos: Final[Position] = ct.get_position()
+        """This unit's static position."""

@@ -71,14 +71,13 @@ class Sentinel(StationaryUnit):
                 best_score = score
                 best_target = tile
 
-        if best_target is not None:
+        if best_target is not None and ct.can_fire(best_target):
             ct.fire(best_target)
             self.idle_turns = 0
-            return
-
-        self.idle_turns += 1
-        if self.idle_turns > Sentinel.SELF_DESTRUCT_THRESHOLD:
-            self.try_self_destruct(ct)
+        else:
+            self.idle_turns += 1
+            if self.idle_turns > Sentinel.SELF_DESTRUCT_THRESHOLD:
+                self.try_self_destruct(ct)
 
     def try_self_destruct(self, ct: Controller) -> None:
         has_ally = False
