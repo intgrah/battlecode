@@ -25,7 +25,7 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
         return True
 
     path = pathfind_blocked(self, ct, self.my_pos, target)
-    if path and len(path) > 1:
+    if path is not None and len(path) > 1:
         next_step = path[1]
         try_move_with_road(self, ct, next_step)
         return True
