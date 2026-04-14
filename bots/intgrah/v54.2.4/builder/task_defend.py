@@ -1,6 +1,7 @@
 from building import (
     Building,
     BuildingArmouredConveyor,
+    BuildingBreach,
     BuildingBridge,
     BuildingConveyor,
     BuildingFoundry,
@@ -10,7 +11,7 @@ from building import (
     BuildingSentinel,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, GameConstants, Position
+from cambc import Controller, Direction, EntityType, GameConstants, Position, Team
 from util import DIR4, DIR8
 
 from .helpers import move_random, try_place
@@ -18,11 +19,7 @@ from .state import State
 
 
 def _is_turret(b: Building | None) -> bool:
-    match b:
-        case BuildingGunner() | BuildingSentinel():
-            return True
-        case _:
-            return False
+    return isinstance(b, (BuildingGunner, BuildingSentinel, BuildingBreach))
 
 
 def _is_turret_or_transport(b: Building | None) -> bool:
@@ -40,13 +37,13 @@ def _is_turret_or_transport(b: Building | None) -> bool:
             return False
 
 
-def _is_precious_friendly(b: Building | None, team: int) -> bool:
+def _is_precious_friendly(b: Building | None, team: Team) -> bool:
     """True if `b` is a friendly building we must NOT destroy when
     placing a turret. Destroying conveyors / roads / markers / enemy
     stuff is fine — they're cheap or hostile — but stomping our own
     harvester wipes ore output, and stomping our own foundry /
     launcher kills a huge Ti + scaling investment."""
-    if b is None or getattr(b, "team", None) != team:
+    if b is None or b.team != team:
         return False
     return isinstance(b, BuildingHarvester | BuildingFoundry | BuildingLauncher)
 
@@ -56,9 +53,6 @@ def gunner_facing(state: State, ct: Controller, position: Position) -> Direction
         return None
     if not state.is_buildable(position):
         return None
-    # try_place destroys whatever's on the tile before building.
-    # Fine for roads/conveyors/markers, but never stomp our own
-    # harvester / foundry / launcher — too expensive to replace.
     b = state.get_building(position)
     if _is_precious_friendly(b, ct.get_team()):
         return None
