@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable
 from typing import TYPE_CHECKING, override
 
 from building import (
@@ -30,6 +29,8 @@ from builder.task_patrol import run_patrol
 from builder.update import update
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from building import Building
 
 
@@ -102,10 +103,9 @@ def _wander(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8[:]
     self.rng.shuffle(dir8)
     my_pos = ct.get_position()
-    for d in dir8:
-        if try_move(ct, my_pos.add(d)):
-            return True
-    return any(try_move_with_road(ct, my_pos.add(d), self) for d in dir8)
+    return any(try_move(ct, my_pos.add(d)) for d in dir8) or any(
+        try_move_with_road(self, ct, my_pos.add(d)) for d in dir8
+    )
 
 
 def _attack(s: Builder, ct: Controller) -> bool:
@@ -292,13 +292,11 @@ class Builder(Unit):
         self.pending_bridge: Position | None = None
         self.dangling_output: Position | None = None
         self.branch_start: Position | None = None
-        self.income_window: list[int] = [0] * 16
         self.spawned: int = 0
 
         # Repair
         self.repair_pos: Position | None = None
         self.repaired_prev: bool = True
-        self.ally_sightings: dict = {}
 
         # Offense
         self.enemy_core_seen: bool = False
@@ -325,14 +323,9 @@ class Builder(Unit):
         self.patrol_trail: list[Position] = []
 
         # Scouting
-        self.scout_active: bool = False
-        self.scout_direction: int | None = None
         self.scout_target: Position | None = None
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
-        self.scout_initial_target: Position | None = None
-        self.scout_initial_age: int = 0
-        self.scout_initial_radius: float = 10.0
 
     def _init_pad_interior(self) -> None:
         """Seed interior cells of the padded cost grids. The border

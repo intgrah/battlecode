@@ -250,7 +250,7 @@ def _pick_attack_destination(
     us to stand on and attack. Sort by:
       1. no enemy healer in range — lone attackers lose to healers
       2. lowest HP to destroy (road 5 < conveyor/splitter/bridge 20)
-      3. closest to our current position
+      3. closest to our current position.
 
     When `avoid_healers=True` (default), destinations inside an enemy
     healer's r²≤2 are filtered out entirely — the caller can then try
@@ -429,7 +429,9 @@ def run_attack(self: Builder, ct: Controller) -> None:
         target = None
         for h in sorted_harvesters:
             if not _enemy_healer_near(self, ct, h) and not _friendly_bot_adjacent(
-                self, ct, h
+                self,
+                ct,
+                h,
             ):
                 target = h
                 break

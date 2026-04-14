@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final, override
 
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, GameConstants, Position
 from unit import StationaryUnit
 
 __all__ = ["Sentinel"]
@@ -26,7 +26,7 @@ _PRIORITY: dict[EntityType, int] = {
 
 
 class Sentinel(StationaryUnit):
-    SELF_DESTRUCT_THRESHOLD: Final[int] = 15
+    SELF_DESTRUCT_THRESHOLD: Final[int] = 16
 
     @override
     def __init__(self, ct: Controller) -> None:
@@ -86,7 +86,7 @@ class Sentinel(StationaryUnit):
             return None
 
         score = _PRIORITY.get(etype, 0)
-        if ct.get_hp(entity) <= 18:
+        if ct.get_hp(entity) <= GameConstants.SENTINEL_DAMAGE:
             score += 1
 
         return score, fire_pos
