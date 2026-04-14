@@ -124,46 +124,40 @@ def _attack(s: Builder, ct: Controller) -> bool:
     return True
 
 
-OFFENSE_TASKS: list[Callable[[Builder, Controller], bool]] = [
-    _heal,
-    deny_enemy_ore,
-    _attack,
-]
-
-ECON_TASKS: list[Callable[[Builder, Controller], bool]] = [
-    place_gunner_nearby,
-    fix_enemy_conveyor,
-    pave_near_harvesters,
-    _connect_close,
-    _heal,
-    deny_enemy_ore,
-    _connect_far,
-    _harvest,
-    _opportunistic_attack,
-    _explore,
-    _wander,
-]
-
-DEFENSE_TASKS: list[Callable[[Builder, Controller], bool]] = [
-    place_gunner_nearby,
-    fix_enemy_conveyor,
-    pave_near_harvesters,
-    _connect_close,
-    _heal,
-    deny_enemy_ore,
-    _connect_far,
-    _patrol_cheap,
-    _harvest,
-    _patrol_late,
-    _opportunistic_attack,
-    _explore,
-    _wander,
-]
-
 POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
-    Role.OFFENSE: OFFENSE_TASKS,
-    Role.ECON: ECON_TASKS,
-    Role.DEFENSE: DEFENSE_TASKS,
+    Role.OFFENSE: [
+        _heal,
+        deny_enemy_ore,
+        _attack,
+    ],
+    Role.ECON: [
+        place_gunner_nearby,
+        fix_enemy_conveyor,
+        pave_near_harvesters,
+        _connect_close,
+        _heal,
+        deny_enemy_ore,
+        _connect_far,
+        _harvest,
+        _opportunistic_attack,
+        _explore,
+        _wander,
+    ],
+    Role.DEFENSE: [
+        place_gunner_nearby,
+        fix_enemy_conveyor,
+        pave_near_harvesters,
+        _connect_close,
+        _heal,
+        deny_enemy_ore,
+        _connect_far,
+        _patrol_cheap,
+        _harvest,
+        _patrol_late,
+        _opportunistic_attack,
+        _explore,
+        _wander,
+    ],
 }
 
 
