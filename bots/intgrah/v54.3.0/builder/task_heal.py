@@ -38,7 +38,6 @@ def _count_visible_attackers(self: Builder, ct: Controller, target: Position) ->
 def _deconflict_rank(
     self: Builder,
     ct: Controller,
-    my_id: int,
     my_pos: Position,
     target: Position,
 ) -> int:
@@ -51,7 +50,7 @@ def _deconflict_rank(
     my_d = chebyshev(my_pos, target)
     rank = 0
     for uid in ct.get_nearby_units():
-        if uid == my_id:
+        if uid == self.my_id:
             continue
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
@@ -59,7 +58,7 @@ def _deconflict_rank(
             continue
         fp = ct.get_position(uid)
         fd = chebyshev(fp, target)
-        if fd < my_d or (fd == my_d and uid < my_id):
+        if fd < my_d or (fd == my_d and uid < self.my_id):
             rank += 1
     return rank
 
@@ -96,7 +95,6 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     best: Position | None = None
     best_score: tuple[int, int, int] = (0, 0, 0)
     my_pos = ct.get_position()
-    my_id = ct.get_id()
     for pos in self.healable_buildings:
         i = self.idx(pos)
         hp = self.hp[i]
@@ -107,7 +105,7 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
 
         attackers = _count_visible_attackers(self, ct, pos)
         needed = _healers_needed(attackers)
-        rank = _deconflict_rank(self, ct, my_id, my_pos, pos)
+        rank = _deconflict_rank(self, ct, my_pos, pos)
         if rank >= needed:
             if not ct.is_in_vision(pos):
                 self.hp[i] = max_hp

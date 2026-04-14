@@ -20,14 +20,7 @@ from cambc import (
     GameConstants,
     Position,
 )
-from util import (
-    DIR4,
-    DIR8,
-    can_afford,
-    chebyshev,
-    closest,
-    try_move,
-)
+from util import DIR4, DIR8, can_afford, chebyshev, closest, try_move
 
 from builder.helpers import (
     get_enemy_core_pos,
@@ -43,7 +36,9 @@ if TYPE_CHECKING:
 
 
 def open_tiles(
-    self: Builder, ct: Controller, positions: list[Position]
+    self: Builder,
+    ct: Controller,
+    positions: list[Position],
 ) -> list[Position]:
     return [
         p
@@ -67,7 +62,8 @@ def is_allied_transport(self: Builder, position: Position) -> bool:
 
 
 def without_allied_transport(
-    self: Builder, positions: list[Position]
+    self: Builder,
+    positions: list[Position],
 ) -> list[Position]:
     return [pos for pos in positions if not is_allied_transport(self, pos)]
 
@@ -135,7 +131,6 @@ def _friendly_bot_adjacent(self: Builder, ct: Controller, pos: Position) -> bool
     instead of dogpiling. Vision-only: if we can't see the tile
     we assume nobody is there.
     """
-    my_id = ct.get_id()
     for d in DIR4:
         n = pos.add(d)
         if not self.in_bounds(n):
@@ -143,7 +138,7 @@ def _friendly_bot_adjacent(self: Builder, ct: Controller, pos: Position) -> bool
         if not ct.is_in_vision(n):
             continue
         uid = ct.get_tile_builder_bot_id(n)
-        if uid is not None and uid != my_id and ct.get_team(uid) == self.my_team:
+        if uid is not None and uid != self.my_id and ct.get_team(uid) == self.my_team:
             return True
     return False
 
@@ -208,7 +203,7 @@ def _pick_conveyor_target(
             continue
         if ct.is_in_vision(pos):
             uid = ct.get_tile_builder_bot_id(pos)
-            if uid is not None and uid != ct.get_id():
+            if uid is not None and uid != self.my_id:
                 continue
         if _enemy_healer_near(self, ct, pos):
             continue
@@ -259,11 +254,11 @@ def _pick_attack_destination(
             continue
         if not self.is_passable(pos):
             continue
-        if is_allied_transport(self, ct, pos):
+        if is_allied_transport(self, pos):
             continue
         if ct.is_in_vision(pos):
             uid = ct.get_tile_builder_bot_id(pos)
-            if uid is not None and uid != ct.get_id():
+            if uid is not None and uid != self.my_id:
                 continue
         if pos in self.attack_tile_blacklist:
             continue
@@ -283,7 +278,7 @@ def _pick_attack_destination(
             # via `is_allied_transport`, so anything reaching here is
             # safe to land on without breaking our own chain.
             cost = 0
-        elif isinstance(b, (BuildingConveyor, BuildingSplitter, BuildingBridge)):
+        elif isinstance(b, BuildingConveyor | BuildingSplitter | BuildingBridge):
             cost = 20  # enemy transport — can destroy by firing
         else:
             cost = 5  # enemy road, 5 HP
@@ -346,7 +341,6 @@ def _gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
 
 
 def run_attack(self: Builder, ct: Controller) -> None:
-    team = ct.get_team()
     if self.attack_tile_blacklist:
         self.attack_tile_blacklist = {
             p: n - 1 for p, n in self.attack_tile_blacklist.items() if n > 1
@@ -354,7 +348,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
     enemy_buildings = [
         p
         for p in self.nearby_buildings
-        if (b := self.get_building(p)) is not None and b.team != team
+        if (b := self.get_building(p)) is not None and b.team != self.my_team
     ]
     enemy_harvesters = [
         p
@@ -370,7 +364,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 continue
             if ct.is_in_vision(new_position):
                 occupant = ct.get_tile_builder_bot_id(new_position)
-            occupied = occupant is not None and occupant != ct.get_id()
+            occupied = occupant is not None and occupant != self.my_id
             if (
                 self.is_passable(position.add(direction))
                 and not occupied
@@ -396,7 +390,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
             or (not self.is_passable(self.offense_target))
             or (
                 ct.get_tile_builder_bot_id(self.offense_target) is not None
-                and ct.get_tile_builder_bot_id(self.offense_target) != ct.get_id()
+                and ct.get_tile_builder_bot_id(self.offense_target) != self.my_id
             )
         )
     ):
@@ -534,7 +528,10 @@ def run_attack(self: Builder, ct: Controller) -> None:
             # worse: enemy bots are common around enemy harvesters
             # (building them), and we'd reject almost every target.
             destination = _pick_attack_destination(
-                self, ct, target, avoid_healers=False
+                self,
+                ct,
+                target,
+                avoid_healers=False,
             )
             if destination is None:
                 # Original fallback: allow any walkable non-friendly-
@@ -544,7 +541,6 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     ct.get_position(),
                     without_allied_transport(
                         self,
-                        ct,
                         open_tiles(self, ct, [target.add(d) for d in DIR4]),
                     ),
                 )
@@ -638,16 +634,19 @@ def run_attack(self: Builder, ct: Controller) -> None:
 
 def scout_toward_enemy(state: Builder, ct: Controller) -> None:
     en_core = get_enemy_core_pos(state)
-    if ct.get_position().distance_squared(en_core) <= 20:
-        state.enemy_core_seen = True
-
-    if not state.enemy_core_seen:
-        make_move(state, ct, en_core)
-    elif ct.get_position().distance_squared(en_core) <= 20 or ct.get_global_resources()[
-        0
-    ] >= (GameConstants.HARVESTER_BASE_COST[0] + 50) * (
-        1 + ct.get_scale_percent() / 100
+    if (
+        ct.get_position().distance_squared(en_core)
+        <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ
     ):
+        state.en_core = True
+
+    if not state.en_core:
+        make_move(state, ct, en_core)
+    elif ct.get_position().distance_squared(
+        en_core
+    ) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ or ct.get_global_resources()[0] >= (
+        GameConstants.HARVESTER_BASE_COST[0] + 50
+    ) * (1 + ct.get_scale_percent() / 100):
         explore(state, ct)
     else:
         dir8 = DIR8[:]

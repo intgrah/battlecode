@@ -5,12 +5,12 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Position
-from util import INF
+from util import DIR8_DELTA, INF
 
 if TYPE_CHECKING:
     from builder import Builder
 
-__all__ = ["fallback_nav"]
+__all__ = ["bugnav"]
 
 
 class BugMode(IntEnum):
@@ -28,7 +28,7 @@ class WallFollow:
         self.direction = 1
 
 
-_bug_states: dict[int, WallFollow] = {}
+_bug_state: WallFollow | None = None
 
 
 def _chebyshev(p1: Position, p2: Position) -> int:
@@ -49,19 +49,19 @@ def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
     return False
 
 
-def fallback_step(
+def bugnav_step(
     self: Builder,
     ct: Controller,
     target: Position,
     blocked: set[Position] | None = None,
 ) -> Position | None:
-    unit_id = ct.get_id()
-    curr = ct.get_position()
+    global _bug_state
+    my_pos = ct.get_position()
 
-    if unit_id not in _bug_states or _bug_states[unit_id].goal != target:
-        _bug_states[unit_id] = WallFollow(curr, target)
+    if _bug_state is None or _bug_state.goal != target:
+        _bug_state = WallFollow(my_pos, target)
 
-    bug = _bug_states[unit_id]
+    bug = _bug_state
     if blocked is None:
         blocked = set()
 
@@ -70,23 +70,23 @@ def fallback_step(
     pad = self.pad
     pw = self.pad_w
 
-    if curr == target:
+    if my_pos == target:
         return None
 
-    if bug.last_pos == curr and bug.mode == BugMode.MODE_GOAL_SEEK:
+    if bug.last_pos == my_pos and bug.mode == BugMode.MODE_GOAL_SEEK:
         bug.mode = BugMode.MODE_WALL_FOLLOW
-        bug.hit_point = curr
+        bug.hit_point = my_pos
 
-    bug.last_pos = curr
+    bug.last_pos = my_pos
 
     if bug.mode == BugMode.MODE_GOAL_SEEK:
-        dx = target.x - curr.x
-        dy = target.y - curr.y
+        dx = target.x - my_pos.x
+        dy = target.y - my_pos.y
 
         step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
         step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
 
-        next_pos = Position(curr.x + step_x, curr.y + step_y)
+        next_pos = Position(my_pos.x + step_x, my_pos.y + step_y)
 
         if (
             0 <= next_pos.x < w
@@ -96,30 +96,28 @@ def fallback_step(
         ):
             return next_pos
         bug.mode = BugMode.MODE_WALL_FOLLOW
-        bug.hit_point = curr
+        bug.hit_point = my_pos
 
     if bug.mode == BugMode.MODE_WALL_FOLLOW:
         if (
             bug.hit_point
-            and _on_baseline(curr, bug.start, target)
-            and _chebyshev(curr, target) < _chebyshev(bug.hit_point, target)
+            and _on_baseline(my_pos, bug.start, target)
+            and _chebyshev(my_pos, target) < _chebyshev(bug.hit_point, target)
         ):
             bug.mode = BugMode.MODE_GOAL_SEEK
-            return fallback_step(self, ct, target, blocked)
+            return bugnav_step(self, ct, target, blocked)
 
-        dirs = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
-
-        goal_dx = target.x - curr.x
-        goal_dy = target.y - curr.y
+        goal_dx = target.x - my_pos.x
+        goal_dy = target.y - my_pos.y
         ideal_angle = math.atan2(goal_dy, goal_dx)
 
-        sorted_dirs = sorted(
-            dirs,
+        dirs = DIR8_DELTA[:]
+        dirs.sort(
             key=lambda d: abs(math.atan2(d[1], d[0]) - ideal_angle),
         )
 
-        for dx, dy in sorted_dirs:
-            nx, ny = curr.x + dx, curr.y + dy
+        for dx, dy in dirs:
+            nx, ny = my_pos.x + dx, my_pos.y + dy
             if not (0 <= nx < w and 0 <= ny < h):
                 continue
 
@@ -130,11 +128,11 @@ def fallback_step(
     return None
 
 
-def fallback_nav(self: Builder, ct: Controller, target: Position) -> Position | None:
+def bugnav(self: Builder, ct: Controller, target: Position) -> Position | None:
     blocked: set[Position] = set()
     my_pos = ct.get_position()
     for pos in ct.get_nearby_tiles():
         if pos != my_pos and ct.get_tile_builder_bot_id(pos) is not None:
             blocked.add(pos)
 
-    return fallback_step(self, ct, target, blocked)
+    return bugnav_step(self, ct, target, blocked)
