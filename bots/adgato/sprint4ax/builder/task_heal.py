@@ -1,4 +1,4 @@
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, Position, Direction
 from util import DIR8, chebyshev
 
 from .helpers import make_move, move_random, try_heal
@@ -50,9 +50,7 @@ def _deconflict_rank(
             continue
         fp = ct.get_position(uid)
         fd = chebyshev(fp, target)
-        if fd < my_d:
-            rank += 1
-        elif fd == my_d and uid < my_id:
+        if fd < my_d or (fd == my_d and uid < my_id):
             rank += 1
     return rank
 
@@ -137,25 +135,60 @@ def best_healable_building(state: State, ct: Controller) -> Position | None:
     ]
     return best
 
-
-def best_adjacent_healable_building(state: State, ct: Controller) -> Position | None:
+def best_adjacent_healable_building(state: State, tile: Position) -> tuple[Position | None, tuple[int, int]]:
     best: Position | None = None
     best_score: tuple[int, int] = (0, 0)
+    dist_to_tile = tile.distance_squared
     for pos in state.healable_buildings:
+        if dist_to_tile(pos) > 2:
+            continue
         i = state._idx(pos)
         hp = state.hp[i]
         max_hp = state.max_hp[i]
         damage = max_hp - hp
-        if ct.get_position().distance_squared(pos) > 2:
-            continue
         score = (0, damage) if damage < 4 else (1, damage)
         if score > best_score:
             best = pos
             best_score = score
-    return best
+    return best, best_score
 
+def healable_all_dirs(state: State, tile: Position) -> tuple[Position | None, tuple[int, int], tuple[int, int]]:
+
+    best_spot, best_score = best_adjacent_healable_building(state, tile)
+    total_a, total_b = best_score
+
+    for d in DIR8:
+        adj = tile.add(d)
+        spot, score = best_adjacent_healable_building(state, adj)
+        score_a, score_b = score
+        total_a += score_a
+        total_b += score_b
+        if score > best_score:
+            best_score = score
+            best_spot = spot
+
+    return best_spot, (total_a, total_b)
+
+
+
+
+def best_heal_move_dir(state: State, ct: Controller) -> tuple[Direction, Position, tuple[int, int]]:
+    my_pos = ct.get_position()
+    best_dir = Direction.CENTRE
+    best_spot, best_score = healable_all_dirs(state, my_pos)
+    for d in DIR8:
+        if not ct.can_move(d):
+            continue
+        tile = my_pos.add(d)
+        spot, score = healable_all_dirs(state, tile)
+        if score > best_score:
+            best_score = score
+            best_spot = spot
+            best_dir = d
+    return best_dir, best_spot, best_score
 
 def run_heal(state: State, ct: Controller) -> bool:
+
     if state.repair_pos and ct.is_in_vision(state.repair_pos):
         b = state.get_building(state.repair_pos)
         ti = state._idx(state.repair_pos)
@@ -163,36 +196,48 @@ def run_heal(state: State, ct: Controller) -> bool:
             pass
         else:
             state.repair_pos = None
+
     repair_pos = best_healable_building(state, ct)
     if (
         repair_pos and repair_pos.distance_squared(ct.get_position()) <= 2
     ) or not state.repair_pos:
         state.repair_pos = repair_pos
 
-    if not state.repair_pos:
-        return False
-
     being_attacked = False
-    heal_position = state.repair_pos
-    if ct.is_in_vision(heal_position):
-        builder = ct.get_tile_builder_bot_id(heal_position)
-        being_attacked = builder is not None and ct.get_team(builder) != ct.get_team()
+    if state.repair_pos:
+        heal_position = state.repair_pos
+        if ct.is_in_vision(heal_position):
+            builder = ct.get_tile_builder_bot_id(heal_position)
+            being_attacked = builder is not None and ct.get_team(builder) != ct.get_team()
 
-    building_to_heal = best_adjacent_healable_building(state, ct)
     save_money = being_attacked and state.repaired_prev
-    if building_to_heal:
-        state.repaired_prev = try_heal(
-            state, ct, building_to_heal, conserve_ti=save_money
-        )
+
+    for tile in ct.get_nearby_tiles(8):
+        i = state._idx(tile)
+        if state.hp[i] < state.max_hp[i]:
+            move_dir, heal_spot, heal_score = best_heal_move_dir(state, ct)
+            heal_score = heal_score[1]
+            break
+    else:
+        heal_score = 0
+        move_dir = Direction.CENTRE
+        heal_spot = ct.get_position()
+
+    if heal_score == 0:
+        if not state.repair_pos:
+            return False
+        make_move(state, ct, state.repair_pos)
+        return True
+    elif move_dir != Direction.CENTRE:
+        ct.move(move_dir)
+
+    if heal_spot:
+        ct.draw_indicator_dot(heal_spot, 255, 0, 0)
+        print(heal_spot, heal_score)
+        state.repaired_prev |= try_heal(state, ct, heal_spot, conserve_ti=save_money, heal_score=heal_score)
     else:
         state.repaired_prev = False
-    make_move(state, ct, state.repair_pos)
-    building_to_heal = best_adjacent_healable_building(state, ct)
-    if building_to_heal:
-        state.repaired_prev = (
-            try_heal(state, ct, building_to_heal, conserve_ti=save_money)
-            or state.repaired_prev
-        )
+
     return True
 
 

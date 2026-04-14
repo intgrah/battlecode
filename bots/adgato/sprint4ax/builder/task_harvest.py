@@ -6,16 +6,14 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from util import INF, DIR4, can_afford, get_direction_object
+from util import DIR4, INF, can_afford, get_direction_object
 
 from .algorithms.pathfind import conv_pathfind, conv_pathfind_blocked
-from .helpers import make_move, try_move_with_build
+from .helpers import make_move, try_move_with_road
 from .state import State
 
 
-def _find_contest_target(
-    state: State, pos: Position, my_team
-) -> Position | None:
+def _find_contest_target(state: State, pos: Position, my_team) -> Position | None:
     """Return the first enemy contestable building (road, conveyor,
     splitter, bridge) adjacent to `pos` that we can destroy by
     standing on it and firing. Roads are included: even though they
@@ -105,31 +103,10 @@ def build_at_ore(state: State, ct: Controller, target_pos: Position) -> bool:
         make_move(state, ct, contest_pos)
         return True
 
-    neighbors = [target_pos.add(d) for d in DIR4]
-    unpaved_neighbors = []
-    for n in neighbors:
-        if not state.in_bounds(n):
-            continue
-        if state.get_env(n) == Environment.WALL:
-            continue
-
-        b = state.get_building(n)
-        if b is None:
-            unpaved_neighbors.append(n)
-        elif not isinstance(b, BuildingRoad):
-            pass
-
     if my_pos == target_pos:
         if not ore_available(state, ct, target_pos):
             state.ore_target = None
             return False
-
-        for n in unpaved_neighbors:
-            if n == my_pos:
-                continue
-            if ct.can_build_road(n):
-                ct.build_road(n)
-                return True
 
         if not can_afford(ct, EntityType.HARVESTER):
             return True
@@ -173,34 +150,16 @@ def build_at_ore(state: State, ct: Controller, target_pos: Position) -> bool:
         return True
 
     if my_pos.distance_squared(target_pos) <= 2:
-        if unpaved_neighbors:
-            for n in unpaved_neighbors:
-                if my_pos.distance_squared(n) <= 2 and ct.can_build_road(n):
-                    ct.build_road(n)
-                    return True
-
-            target_has_road = isinstance(state.get_building(target_pos), BuildingRoad)
-
-            if target_has_road:
-                if try_move_with_build(state, ct, target_pos):
-                    return True
-            else:
-                target_n = unpaved_neighbors[0]
-                path = conv_pathfind_blocked(state, ct, my_pos, target_n)
-                if path and len(path) > 1:
-                    try_move_with_build(state, ct, path[1])
-                    return True
-            return True
 
         if not can_afford(ct, EntityType.HARVESTER):
-            if try_move_with_build(state, ct, target_pos):
+            if try_move_with_road(ct, target_pos):
                 return True
             return True
 
         has_road = isinstance(state.get_building(target_pos), BuildingRoad)
 
         if has_road:
-            if try_move_with_build(state, ct, target_pos):
+            if try_move_with_road(ct, target_pos):
                 return True
         elif (
             ct.can_build_harvester(target_pos)
@@ -216,10 +175,10 @@ def build_at_ore(state: State, ct: Controller, target_pos: Position) -> bool:
                     if (
                         state.is_passable(ortho_pos)
                         and my_pos.distance_squared(ortho_pos) <= 2
-                    ) and try_move_with_build(state, ct, ortho_pos):
+                    ) and try_move_with_road(ct, ortho_pos):
                         return True
 
-                if try_move_with_build(state, ct, target_pos):
+                if try_move_with_road(ct, target_pos):
                     return True
 
                 return True
