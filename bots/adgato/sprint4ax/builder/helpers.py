@@ -4,46 +4,61 @@ from building import (
     BuildingConveyor,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Position
-from util import DIR4, DIR8, Symmetry, can_afford, try_move
+from cambc import Controller, Direction, EntityType, Environment, Position
+from util import DIR4, DIR8, Symmetry, can_afford, try_move, chebyshev
 
 from .algorithms.fallback_nav import fallback_nav
-from .algorithms.pathfind import pathfind_blocked
 from .state import State
 
 
-def find_path(
-    state: State, ct: Controller, start: Position, target: Position
-) -> list[Position] | None:
-    return state.nav.search_blocked(state, ct, start, target)
-    #return pathfind_blocked(state, ct, start, target)
+def find_next(
+    state: State, ct: Controller, start: Position, targets: list[Position]
+) -> Position | None:
+    return state.nav.search(ct, start, targets)
 
 
 def make_move(state: State, ct: Controller, target: Position) -> bool:
-    if ct.get_position() == target:
+    start = ct.get_position()
+    if start == target:
         return True
 
-    path = find_path(state, ct, ct.get_position(), target)
-    if path and len(path) > 1:
-        next_step = path[1]
-        try_move_with_build(state, ct, next_step)
-        return True
-    next_move = fallback_nav(state, ct, target)
-    if next_move:
-        try_move_with_build(state, ct, next_move)
+    next_step = find_next(state, ct, start, [target])
+    if not next_step:
+        next_step = fallback_nav(state, ct, target)
+    if next_step:
+        try_move_with_road(ct, next_step)
         return True
     return False
 
+def make_multi_move(state: State, ct: Controller, targets: list[Position]) -> bool:
+    start = ct.get_position()
+    if not targets or len(targets) < 10 and start in targets:
+        return True
+    
+    next_step = find_next(state, ct, start, targets)
+    if not next_step:
+        next_step = fallback_nav(state, ct, targets[0])
+    if next_step:
+        try_move_with_road(ct, next_step)
+        return True
+    return False
 
-def try_move_with_road(ct: Controller, target_pos: Position, state: State) -> bool:
-    if state.get_cost(target_pos) > 1 and ct.can_build_road(target_pos):
+def try_move_with_road(ct: Controller, target_pos: Position) -> bool:
+    if ct.can_build_road(target_pos):
         ct.build_road(target_pos)
     return try_move(ct, target_pos)
 
+def try_move_adj_to(ct: Controller, target_pos: Position) -> bool:
+    """no road built"""
+    my_pos = ct.get_position()
+    dist_to_target = target_pos.distance_squared
+    for d in DIR8:
+        adj = my_pos.add(d)
+        if dist_to_target(adj) <= 2 and ct.can_move(d):
+            ct.move(d)
+            return True
 
-def try_move_with_build(state: State, ct: Controller, target_pos: Position) -> bool:
-    return try_move_with_road(ct, target_pos, state)
-
+    return False
 
 def try_attack(ct: Controller) -> bool:
     position = ct.get_position()
@@ -61,19 +76,22 @@ def try_place(
     *,
     destroy: bool = True,
 ) -> bool:
-    if not can_afford(ct, etype) or ct.get_action_cooldown() > 0:
+    if not can_afford(ct, etype):
         return False
-    if destroy and ct.can_destroy(pos):
-        ct.destroy(pos)
+    # Try without destroying first — if the tile is empty or
+    # buildable already, no destruction needed.
     if ct.can_build(etype, pos, extra):
         ct.build(etype, pos, extra)
         return True
-    else:
-        print(f"can't build {etype} {pos} {extra}")
-        print(f"cooldown {ct.get_action_cooldown()}")
-        print(f"bid {ct.get_tile_building_id(pos)}")
-        print(f"funds {ct.get_global_resources()}")
-        print(f"cost {ct.get_global_resources()}")
+    # If building failed and we're allowed to destroy, clear the
+    # tile and retry. This avoids the old bug where we'd destroy a
+    # road then fail to build the replacement (wrong facing, etc.),
+    # leaving the tile empty and causing road-rebuild thrashing.
+    if destroy and ct.can_destroy(pos):
+        ct.destroy(pos)
+        if ct.can_build(etype, pos, extra):
+            ct.build(etype, pos, extra)
+            return True
     return False
 
 
@@ -117,12 +135,10 @@ def trace_downstream(
 
 
 def try_heal(
-    state: State, ct: Controller, position: Position, *, conserve_ti: bool = True
+    state: State, ct: Controller, position: Position, *, conserve_ti: bool = True, heal_score = 0
 ) -> bool:
-    if conserve_ti and state.repair_pos is not None:
-        i = state._idx(state.repair_pos)
-        if not state.buildings[i] or state.hp[i] > state.max_hp[i] - 4:
-            return False
+    if conserve_ti and heal_score < 4:
+        return False
     if ct.can_heal(position):
         ct.heal(position)
         return True

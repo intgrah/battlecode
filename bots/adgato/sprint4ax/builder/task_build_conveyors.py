@@ -3,7 +3,6 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from util import (
     DIR4,
     DIR8,
-    can_afford,
     chebyshev,
     get_direction_object,
     reachable_path_end,
@@ -14,7 +13,7 @@ from .helpers import (
     is_enemy_building,
     make_move,
     trace_upstream,
-    try_move_with_build,
+    try_move_with_road,
     try_place,
 )
 from .state import State
@@ -33,7 +32,7 @@ def clear_with_turret(
     if build_pos == ct.get_position():
         for d in DIR8:
             move_pos = ct.get_position().add(d)
-            if try_move_with_build(state, ct, move_pos):
+            if try_move_with_road(ct, move_pos):
                 break
 
     direction = build_pos.direction_to(target_pos)
@@ -104,7 +103,9 @@ def lay_segment(
         if clear_with_turret(state, ct, start_pos, pending_bridge):
             state.branch_start = start_pos
         return False
-    if start_pos != pending_bridge and try_place(ct, EntityType.BRIDGE, start_pos, pending_bridge):
+    if start_pos != pending_bridge and try_place(
+        ct, EntityType.BRIDGE, start_pos, pending_bridge
+    ):
         if chebyshev(pending_bridge, state.my_core) > 1:
             state.pending_bridge = pending_bridge
         return True
@@ -148,6 +149,7 @@ def place_junction(state: State, ct: Controller, pos: Position) -> bool | None:
         splitter_direction = Direction.NORTH
 
     return try_place(ct, EntityType.SPLITTER, pos, splitter_direction)
+
 
 def route_to(
     state: State,

@@ -1,6 +1,6 @@
-from cambc import Controller, Direction, Position
+from cambc import Controller, Direction, Position, EntityType
 
-from .helpers import make_move
+from .helpers import make_move, make_multi_move
 from .state import State
 
 
@@ -30,9 +30,24 @@ def core_feeders(state: State) -> list[Position]:
 
 def run_patrol(state: State, ct: Controller) -> bool:
     my_pos = ct.get_position()
+    my_team = ct.get_team()
+    dist_to_me = my_pos.distance_squared
+
     if state.patrol_head:
-        if my_pos.distance_squared(state.patrol_head) > PATROL_RANGE:
-            make_move(state, ct, state.patrol_head)
+
+        mark = [
+            opp_pos
+            for uid in ct.get_nearby_units() 
+            if ct.get_entity_type(uid) == EntityType.BUILDER_BOT and \
+               my_team != ct.get_team(uid) and \
+               (opp_pos := ct.get_position(uid)).distance_squared(state.patrol_head) <= PATROL_RANGE
+        ]
+        enemies_near_head = bool(mark)
+        if not enemies_near_head:
+            mark.append(state.patrol_head)
+
+        if dist_to_me(state.patrol_head) > PATROL_RANGE:
+            make_multi_move(state, ct, mark)
             return True
         conveyors = state.get_conveyors_to_here(state.patrol_head)
         if len(conveyors) == 0:
@@ -40,24 +55,28 @@ def run_patrol(state: State, ct: Controller) -> bool:
             state.patrol_trail = []
             make_move(state, ct, state.my_core)
             return True
-        while (
-            len(conveyors) > 0
-            and my_pos.distance_squared(state.patrol_head) <= PATROL_RANGE
-        ):
-            state.rng.shuffle(conveyors)
-            state.patrol_head = conveyors[0]
-            conveyors = state.get_conveyors_to_here(state.patrol_head)
-            if state.patrol_head in state.patrol_trail:
-                state.patrol_head = None
-                state.patrol_trail = []
-                make_move(state, ct, state.my_core)
-                return True
-            state.patrol_trail.append(state.patrol_head)
-        make_move(state, ct, state.patrol_head)
+        
+        if not enemies_near_head:
+            while (
+                len(conveyors) > 0
+                and dist_to_me(state.patrol_head) <= PATROL_RANGE
+            ):
+                state.rng.shuffle(conveyors)
+                state.patrol_head = conveyors[0]
+                conveyors = state.get_conveyors_to_here(state.patrol_head)
+                if state.patrol_head in state.patrol_trail:
+                    state.patrol_head = None
+                    state.patrol_trail = []
+                    make_move(state, ct, state.my_core)
+                    return True
+                state.patrol_trail.append(state.patrol_head)
+
+        make_multi_move(state, ct, mark)
         return True
-    if my_pos == state.my_core or (
-        my_pos.distance_squared(state.my_core) <= 8
-        and not ct.can_move(my_pos.direction_to(state.my_core))
+    
+    dist_to_core = dist_to_me(state.my_core)
+    if dist_to_core <= 2 or (
+        dist_to_core <= 8 and not ct.can_move(my_pos.direction_to(state.my_core))
     ):
         conveyors = core_feeders(state)
         if len(conveyors) > 0:
@@ -67,5 +86,6 @@ def run_patrol(state: State, ct: Controller) -> bool:
             make_move(state, ct, state.patrol_head)
             return True
         return False
+    
     make_move(state, ct, state.my_core)
     return True
