@@ -118,7 +118,7 @@ def update_map(state: State, ct: Controller) -> None:
             state.splitters_to_here[i] = [
                 p for p in state.splitters_to_here[i] if not ct.is_in_vision(p)
             ]
-    
+
     pad = state.pad
     pw = state.pw
     my_team = ct.get_team()
@@ -127,7 +127,7 @@ def update_map(state: State, ct: Controller) -> None:
         if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
             i = pos.y * w + pos.x
             pi = (pos.y + pad) * pw + (pos.x + pad)
-            
+
             tile_env = ct.get_tile_env(pos)
             state.env[i] = tile_env
 
@@ -200,9 +200,7 @@ def update_map(state: State, ct: Controller) -> None:
                             n = pos.add(d)
                             if 0 <= n.x < state.w and 0 <= n.y < state.h:
                                 state.adjacent_to_enemy_launcher.add(n)
-                    case BuildingGunner(team=t, direction=d) if (
-                        t != ct.get_team()
-                    ):
+                    case BuildingGunner(team=t, direction=d) if t != ct.get_team():
                         # Gunner forward ray: up to r²≤13 (3 cardinal
                         # or ~2.5 diagonal steps). Each tile along the
                         # ray is a soft-penalty zone for movement.
@@ -213,9 +211,7 @@ def update_map(state: State, ct: Controller) -> None:
                                 break
                             if 0 <= ray.x < state.w and 0 <= ray.y < state.h:
                                 state.enemy_turret_ray_tiles.add(ray)
-                    case BuildingSentinel(team=t, direction=d) if (
-                        t != ct.get_team()
-                    ):
+                    case BuildingSentinel(team=t, direction=d) if t != ct.get_team():
                         # Sentinel: forward line plus 1 king-move
                         # halo, up to r²≤32. Add the core line and
                         # its 8-neighbour halo for each step.
@@ -291,15 +287,23 @@ def update_map(state: State, ct: Controller) -> None:
                 conveyor_cost = INF
             elif bld is not None:
                 match bld:
-                    case (
-                        BuildingConveyor()
-                        | BuildingRoad()
-                        | BuildingSplitter()
-                        | BuildingArmouredConveyor()
-                        | BuildingBridge()
-                    ):
+                    case BuildingRoad():
                         cost = 1
                         conveyor_cost = 1
+                    case BuildingConveyor(team=t) | BuildingArmouredConveyor(team=t):
+                        cost = 1
+                        if t == my_team:
+                            conveyor_cost = 1
+                        else:
+                            has_flow = ct.get_stored_resource(building_id) is not None
+                            conveyor_cost = 1 if has_flow else 10
+                    case BuildingSplitter(team=t) | BuildingBridge(team=t):
+                        cost = 1
+                        if t == my_team:
+                            conveyor_cost = 1
+                        else:
+                            has_flow = ct.get_stored_resource(building_id) is not None
+                            conveyor_cost = 1 if has_flow else 10
                     case BuildingCore(team=t) if t == ct.get_team():
                         cost = 1
                         conveyor_cost = 1
@@ -410,23 +414,25 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
         match bld:
             case BuildingHarvester():
                 adjacent_conveyor = False
-                for d in DIR4:
-                    match state.get_building(pos.add(d)):
+                for dir in DIR4:
+                    match state.get_building(pos.add(dir)):
                         case (
-                            BuildingConveyor(team=t)
-                            | BuildingBridge(team=t)
-                            | BuildingSplitter(team=t)
-                            | BuildingArmouredConveyor(team=t)
-                        ) if t == ct.get_team():
+                            BuildingConveyor(team=t, direction=d)
+                            | BuildingSplitter(team=t, direction=d)
+                            | BuildingArmouredConveyor(team=t, direction=d)
+                        ) if t == ct.get_team() and d != dir.opposite():
+                            adjacent_conveyor = True
+                            break
+                        case BuildingBridge(team=t) if t == ct.get_team():
                             adjacent_conveyor = True
                             break
                 if not adjacent_conveyor:
-                    for d in DIR4:
-                        n = pos.add(d)
+                    for dir in DIR4:
+                        n = pos.add(dir)
                         if 0 <= n.x < state.w and 0 <= n.y < state.h:
                             state.adjacent_to_unconnected_harvester.add(n)
-                for d in DIR4:
-                    n = pos.add(d)
+                for dir in DIR4:
+                    n = pos.add(dir)
                     if 0 <= n.x < state.w and 0 <= n.y < state.h:
                         state.adjacent_to_harvester.add(n)
         if pos in state.adjacent_to_enemy_launcher:

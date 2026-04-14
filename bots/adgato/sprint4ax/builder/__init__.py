@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from cambc import Controller, EntityType
-from config import DEBUG_DUMP, DEBUG_TIMING, DEBUG_TASK
+from config import DEBUG_DUMP, DEBUG_TASK, DEBUG_TIMING
 from unit import Unit
 from util import DIR8, can_afford, try_move
 
@@ -54,8 +54,7 @@ def _heal(s: State, ct: Controller) -> bool:
 
 def _patrol_cheap(s: State, ct: Controller) -> bool:
     return (
-        s.role == Role.DEFENSE
-        and not can_afford(ct, EntityType.HARVESTER)
+        not can_afford(ct, EntityType.HARVESTER)
         and run_patrol(s, ct)
     )
 
@@ -66,8 +65,7 @@ def _harvest(s: State, ct: Controller) -> bool:
 
 def _patrol_late(s: State, ct: Controller) -> bool:
     return (
-        s.role == Role.DEFENSE
-        and len(s.adjacent_to_harvester) > 0
+        s.adjacent_to_harvester
         and run_patrol(s, ct)
     )
 
@@ -99,7 +97,7 @@ def _wander(s: State, ct: Controller) -> bool:
     for d in dir8:
         if try_move(ct, my_pos.add(d)):
             return True
-    return any(try_move_with_road(ct, my_pos.add(d), s) for d in dir8)
+    return any(try_move_with_road(ct, my_pos.add(d)) for d in dir8)
 
 
 def _attack(s: State, ct: Controller) -> bool:
@@ -119,8 +117,8 @@ ECON_TASKS: list[TaskFn] = [
     pave_near_harvesters,
     _connect_close,
     _heal,
-    deny_enemy_ore,
     _connect_far,
+    _patrol_cheap,
     _harvest,
     _opportunistic_attack,
     _explore,
@@ -133,7 +131,6 @@ DEFENSE_TASKS: list[TaskFn] = [
     pave_near_harvesters,
     _connect_close,
     _heal,
-    deny_enemy_ore,
     _connect_far,
     _patrol_cheap,
     _harvest,
@@ -148,7 +145,6 @@ POLICIES: dict[Role, list[TaskFn]] = {
     Role.ECON: ECON_TASKS,
     Role.DEFENSE: DEFENSE_TASKS,
 }
-
 
 class Builder(Unit):
     def __init__(self, ct: Controller) -> None:
@@ -185,7 +181,7 @@ class Builder(Unit):
                 update_economy(s, ct)
         elif DEBUG_TIMING:
             t4 = t3
-        
+
         for task in POLICIES[s.role]:
             if task(s, ct):
                 if DEBUG_TASK:
