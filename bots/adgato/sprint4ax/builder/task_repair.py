@@ -19,7 +19,7 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
     else:
         if b.team != ct.get_team():
             return False
-        
+
         match b:
             case (
                 BuildingConveyor(direction=d)
@@ -56,7 +56,7 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
                 pass
             case _:
                 return False
-            
+
     if state.conveyors_to_here[i]:
         return True
     

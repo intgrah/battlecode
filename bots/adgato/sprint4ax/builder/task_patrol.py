@@ -1,4 +1,4 @@
-from cambc import Controller, Direction, Position, EntityType
+from cambc import Controller, Direction, EntityType, Position
 
 from .helpers import make_move, make_multi_move
 from .state import State
@@ -34,13 +34,13 @@ def run_patrol(state: State, ct: Controller) -> bool:
     dist_to_me = my_pos.distance_squared
 
     if state.patrol_head:
-
         mark = [
             opp_pos
-            for uid in ct.get_nearby_units() 
-            if ct.get_entity_type(uid) == EntityType.BUILDER_BOT and \
-               my_team != ct.get_team(uid) and \
-               (opp_pos := ct.get_position(uid)).distance_squared(state.patrol_head) <= PATROL_RANGE
+            for uid in ct.get_nearby_units()
+            if ct.get_entity_type(uid) == EntityType.BUILDER_BOT
+            and my_team != ct.get_team(uid)
+            and (opp_pos := ct.get_position(uid)).distance_squared(state.patrol_head)
+            <= PATROL_RANGE
         ]
         enemies_near_head = bool(mark)
         if not enemies_near_head:
@@ -55,12 +55,9 @@ def run_patrol(state: State, ct: Controller) -> bool:
             state.patrol_trail = []
             make_move(state, ct, state.my_core)
             return True
-        
+
         if not enemies_near_head:
-            while (
-                len(conveyors) > 0
-                and dist_to_me(state.patrol_head) <= PATROL_RANGE
-            ):
+            while len(conveyors) > 0 and dist_to_me(state.patrol_head) <= PATROL_RANGE:
                 state.rng.shuffle(conveyors)
                 state.patrol_head = conveyors[0]
                 conveyors = state.get_conveyors_to_here(state.patrol_head)
@@ -73,7 +70,7 @@ def run_patrol(state: State, ct: Controller) -> bool:
 
         make_multi_move(state, ct, mark)
         return True
-    
+
     dist_to_core = dist_to_me(state.my_core)
     if dist_to_core <= 2 or (
         dist_to_core <= 8 and not ct.can_move(my_pos.direction_to(state.my_core))
@@ -86,6 +83,6 @@ def run_patrol(state: State, ct: Controller) -> bool:
             make_move(state, ct, state.patrol_head)
             return True
         return False
-    
+
     make_move(state, ct, state.my_core)
     return True

@@ -56,10 +56,7 @@ def update_role(state: State, ct: Controller) -> None:
     if ct.get_current_round() > 25:
         state.scout_active = False
 
-    if (
-        state.role_age > _REASSIGN_PERIOD
-        and ct.get_current_round() > _REASSIGN_AFTER
-    ):
+    if state.role_age > _REASSIGN_PERIOD and ct.get_current_round() > _REASSIGN_AFTER:
         state.role_age = 0
         row = _TRANSITION[state.role]
         roles, weights = zip(*row.items(), strict=False)

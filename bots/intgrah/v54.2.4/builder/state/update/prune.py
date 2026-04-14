@@ -28,11 +28,10 @@ def prune_stale(state: State, ct: Controller) -> None:
     }
 
     for pos in nearby_positions:
-        if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
-            i = pos.y * w + pos.x
-            state.conveyors_to_here[i] = [
-                p for p in state.conveyors_to_here[i] if not ct.is_in_vision(p)
-            ]
-            state.splitters_to_here[i] = [
-                p for p in state.splitters_to_here[i] if not ct.is_in_vision(p)
-            ]
+        i = pos.y * w + pos.x
+        state.conveyors_to_here[i] = [
+            p for p in state.conveyors_to_here[i] if not ct.is_in_vision(p)
+        ]
+        state.splitters_to_here[i] = [
+            p for p in state.splitters_to_here[i] if not ct.is_in_vision(p)
+        ]

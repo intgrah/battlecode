@@ -192,9 +192,7 @@ def update_map(state: State, ct: Controller) -> None:
                             n = pos.add(d)
                             if 0 <= n.x < state.w and 0 <= n.y < state.h:
                                 state.adjacent_to_enemy_launcher.add(n)
-                    case BuildingGunner(team=t, direction=d) if (
-                        t != ct.get_team()
-                    ):
+                    case BuildingGunner(team=t, direction=d) if t != ct.get_team():
                         # Gunner forward ray: up to r²≤13 (3 cardinal
                         # or ~2.5 diagonal steps). Each tile along the
                         # ray is a soft-penalty zone for movement.
@@ -205,9 +203,7 @@ def update_map(state: State, ct: Controller) -> None:
                                 break
                             if 0 <= ray.x < state.w and 0 <= ray.y < state.h:
                                 state.enemy_turret_ray_tiles.add(ray)
-                    case BuildingSentinel(team=t, direction=d) if (
-                        t != ct.get_team()
-                    ):
+                    case BuildingSentinel(team=t, direction=d) if t != ct.get_team():
                         # Sentinel: forward line plus 1 king-move
                         # halo, up to r²≤32. Add the core line and
                         # its 8-neighbour halo for each step.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from action import Action, Fire, PlaceGunner
 from building import (
     BuildingArmouredConveyor,
     BuildingConveyor,
@@ -24,7 +25,6 @@ from building import (
 from cambc import Controller, Direction, Environment, Position
 from util import DELTA_TO_DIR, DIR4_DELTA, DIR8_DELTA
 
-from action import Action, Fire, PlaceGunner
 from .helpers import move_toward_with_road, step_off_and_build
 
 if TYPE_CHECKING:

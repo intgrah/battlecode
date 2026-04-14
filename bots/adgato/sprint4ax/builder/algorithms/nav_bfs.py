@@ -19,14 +19,7 @@ ported intact.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from cambc import Controller, EntityType, Environment, Position
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from builder.state import State
 
 INF = 1_000_000
 
@@ -42,13 +35,14 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
 
 _BUDGET = 1729
 
+
 def _bfs_compute(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
     dist: list[int],
     q: list[int],
     cur_idx: int,
-    ct: Controller
+    ct: Controller,
 ) -> bool:
     """Resumable backwards BFS. Returns True when finished.
 
@@ -262,14 +256,22 @@ class PassableGrid:
             has_se = passable[se]
             has_sw = passable[sw]
             has_nw = passable[nw]
-            if has_ne: push.append(ne)
-            if has_se: push.append(se)
-            if has_sw: push.append(sw)
-            if has_nw: push.append(nw)
-            if passable[n]: (assign if has_ne and has_nw else push).append(n)
-            if passable[e]: (assign if has_ne and has_se else push).append(e)
-            if passable[s]: (assign if has_se and has_sw else push).append(s)
-            if passable[w]: (assign if has_sw and has_nw else push).append(w)
+            if has_ne:
+                push.append(ne)
+            if has_se:
+                push.append(se)
+            if has_sw:
+                push.append(sw)
+            if has_nw:
+                push.append(nw)
+            if passable[n]:
+                (assign if has_ne and has_nw else push).append(n)
+            if passable[e]:
+                (assign if has_ne and has_se else push).append(e)
+            if passable[s]:
+                (assign if has_se and has_sw else push).append(s)
+            if passable[w]:
+                (assign if has_sw and has_nw else push).append(w)
         self._pnb_dirty.clear()
 
     def get_passable(self, pos: Position) -> bool:
@@ -306,7 +308,6 @@ class NavBfs:
         self._resumable = False
         self._cur_dist = -1
         self._cur_idx = -1
-
 
     def mark_dirty(self) -> None:
         """Force a BFS restart on the next call."""
@@ -351,9 +352,7 @@ class NavBfs:
                         q.append(ni)
         self._resumable = True
 
-    def _best_step(
-        self, ct: Controller, start: Position
-    ) -> Position | None:
+    def _best_step(self, ct: Controller, start: Position) -> Position | None:
         """Scan the agent's 8 neighbours in the padded grid and pick
         the one with the lowest BFS dist. Breaks ties by step order
         in `grid.offsets` (deterministic)."""
@@ -431,12 +430,7 @@ class NavBfs:
 
         if self._resumable:
             _bfs_compute(
-                grid.pnb_push,
-                grid.pnb_set,
-                self._dist,
-                self._q,
-                self._cur_idx,
-                ct
+                grid.pnb_push, grid.pnb_set, self._dist, self._q, self._cur_idx, ct
             )
             self._resumable = bool(self._q)
 
@@ -488,4 +482,3 @@ class NavBfs:
                     return Position(ni % pw - 1, ni // pw - 1)
             return None
         return Position(pi % pw - 1, pi // pw - 1)
-

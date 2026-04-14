@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from action import Action, Heal
 from cambc import Controller, Direction, GameConstants
 
-from action import Action, Heal
 from .helpers import move_toward_with_road
 
 if TYPE_CHECKING:

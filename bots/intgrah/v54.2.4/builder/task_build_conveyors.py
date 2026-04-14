@@ -9,7 +9,7 @@ from util import (
     reachable_path_end,
 )
 
-from .algorithms.econ_astar import conv_pathfind, conv_unreachable
+from .algorithms.econ_astar import conv_search
 from .helpers import (
     is_enemy_building,
     make_move,
@@ -49,9 +49,9 @@ def lay_segment(
     if not path:
         return False
 
-    building_id = ct.get_tile_building_id(start_pos)
-    entity_type = ct.get_entity_type(building_id) if building_id else None
-
+    bid = ct.get_tile_building_id(start_pos)
+    entity_type = ct.get_entity_type(bid) if bid else None
+    direction: Direction | None = None
     if (
         state.my_core
         and start_pos.distance_squared(state.my_core) <= 5
@@ -66,10 +66,10 @@ def lay_segment(
         direction = get_direction_object(start_pos, path[1])
 
     if entity_type == EntityType.CONVEYOR:
-        if ct.get_direction(building_id) == direction:
+        if ct.get_direction(bid) == direction:
             return True
     elif entity_type == EntityType.BRIDGE:
-        bridge_output = ct.get_bridge_target(building_id)
+        bridge_output = ct.get_bridge_target(bid)
         if not ct.is_in_vision(bridge_output) or state.is_buildable(bridge_output):
             return True
 
@@ -166,10 +166,10 @@ def route_to(
     state.branch_start = None
 
     if start == target:
-        return None
+        return
 
     if chebyshev(start, target) <= 1 and target == state.my_core:
-        return None
+        return
 
     current_pos = ct.get_position()
 
@@ -189,7 +189,7 @@ def route_to(
 
     existing_path = trace_upstream(state, start)
     if len(existing_path) < 1:
-        return None
+        return
 
     if state.is_friendly_turret(start) or all_blocked:
         split_location = best_junction_site(state, ct, existing_path)
@@ -199,15 +199,15 @@ def route_to(
                 state.branch_start = split_location
             else:
                 state.branch_start = start
-        return None
+        return
 
     if not state.is_passable(start):
         if len(existing_path) > 1:
             start = existing_path[-2]
         else:
-            return None
+            return
 
-    path = conv_pathfind(state, ct, start, target)
+    path = conv_search.search(state, ct, start, target)
     if path:
         path_start_index = 0
         for i, pos in enumerate(path):
@@ -217,11 +217,11 @@ def route_to(
         path = path[path_start_index:]
 
     if chebyshev(current_pos, start) <= 1:
-        if not path or (conv_unreachable(target) and not path) or len(path) < 2:
-            return True
+        if not path or (conv_search.unreachable(target) and not path) or len(path) < 2:
+            return
         lay_segment(ct, start, path, state)
     make_move(state, ct, start)
-    return None
+    return
 
 
 def route_to_core(state: State, ct: Controller, start: Position) -> None:

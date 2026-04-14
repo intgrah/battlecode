@@ -6,6 +6,7 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 from building import (
+    TRANSPORT,
     BuildingArmouredConveyor,
     BuildingBreach,
     BuildingBridge,
@@ -16,7 +17,6 @@ from building import (
     BuildingRoad,
     BuildingSentinel,
     BuildingSplitter,
-    TRANSPORT,
 )
 from cambc import Environment
 from util import DIR4_DELTA
@@ -39,22 +39,22 @@ class FlowModel:
     """
 
     __slots__ = (
-        "_s",
-        "_w",
-        "_fwd",
         "_bwd",
-        "_sources",
-        "_sinks",
-        "_leaks",
-        "connected",
-        "connected_harvesters",
-        "_parent",
-        "load",
-        "bottleneck",
-        "branch_load",
-        "tile_branch",
         "_en_fwd",
         "_en_sources",
+        "_fwd",
+        "_leaks",
+        "_parent",
+        "_s",
+        "_sinks",
+        "_sources",
+        "_w",
+        "bottleneck",
+        "branch_load",
+        "connected",
+        "connected_harvesters",
+        "load",
+        "tile_branch",
     )
 
     def __init__(self, s: State) -> None:

@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from astar import ChainAstar
-from ti_plan import TiPlan
 from bfs import NavBfs
-from reachable import Reachable
-from cambc import Controller, EntityType, Environment, Position, Direction
-from symmetry import Symmetry, SymmetryDetector
-from tile_codec import encode_tile
+from cambc import Controller, EntityType, Environment, Position
 from env_tracker import EnvTracker
 from rax_plan import RaxPlan
+from reachable import Reachable
+from symmetry import Symmetry, SymmetryDetector
+from ti_plan import TiPlan
+from tile_codec import encode_tile
 from tracker import Tracker
 from unit import Unit
-from utils import try_move_smart, _ALL_DIRS  # noqa: F401
+from utils import _ALL_DIRS, try_move_smart  # noqa: F401
 
 _BUILDABLE = frozenset((EntityType.ROAD, EntityType.MARKER, EntityType.BARRIER, None))
 

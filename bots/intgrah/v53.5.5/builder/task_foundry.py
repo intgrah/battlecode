@@ -115,13 +115,18 @@ def task_place_splitter(state: State, ct: Controller) -> bool:
     for pos in ct.get_nearby_tiles():
         i = pos.y * w + pos.x
         bld = state.buildings[i]
-        if isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor)) and bld.team == ct.get_team():
+        if (
+            isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor))
+            and bld.team == ct.get_team()
+        ):
             n_conv += 1
             fh = state.flow_history[i]
             if _has_mixed_flow(fh):
                 n_mixed += 1
     if ct.get_current_round() % 50 == 0:
-        print(f"    foundry: rnd={ct.get_current_round()} has_fnd={has_fnd} convs={n_conv} mixed={n_mixed}")
+        print(
+            f"    foundry: rnd={ct.get_current_round()} has_fnd={has_fnd} convs={n_conv} mixed={n_mixed}"
+        )
     conv_pos = _find_splitter_target(state, ct)
     if conv_pos is None:
         return False
