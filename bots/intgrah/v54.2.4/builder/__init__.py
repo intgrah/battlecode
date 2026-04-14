@@ -163,6 +163,7 @@ class Builder(Unit):
 
         t1 = ct.get_cpu_time_elapsed()
         chosen = "none"
+        assert s.role is not None
         for task in POLICIES[s.role]:
             if task(s, ct):
                 chosen = task.__name__
