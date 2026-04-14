@@ -50,7 +50,7 @@ class Core(Unit):
             tile = self.my_pos.add(d)
             for cd in DIR4:
                 src = tile.add(cd)
-                if not (0 <= src.x < self.w and 0 <= src.y < self.h):
+                if not self.in_bounds(src):
                     continue
                 if not ct.is_in_vision(src):
                     continue

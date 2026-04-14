@@ -62,8 +62,6 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
     }
     my_team = ct.get_team()
     for pos in self.nearby_positions:
-        if not (0 <= pos.x < self.w and 0 <= pos.y < self.h):
-            continue
         pi = (pos.y + pad) * pw + (pos.x + pad)
         bld = self.get_building(pos)
         match bld:
@@ -82,11 +80,11 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 if not adjacent_conveyor:
                     for d in DIR4:
                         n = pos.add(d)
-                        if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                        if self.in_bounds(n):
                             self.adjacent_to_unconnected_harvester.add(n)
                 for d in DIR4:
                     n = pos.add(d)
-                    if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                    if self.in_bounds(n):
                         self.adjacent_to_harvester.add(n)
         if pos in self.adjacent_to_enemy_launcher:
             self.cost_grid[pi] += 20
@@ -112,8 +110,6 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
     ):
         self.nearest_junction_site = None
     for pos in self.nearby_positions:
-        if not (0 <= pos.x < self.w and 0 <= pos.y < self.h):
-            continue
         if (
             self.nearest_junction_site is None
             or (

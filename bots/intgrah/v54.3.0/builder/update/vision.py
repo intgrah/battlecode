@@ -14,7 +14,7 @@ from building import (
     BuildingSplitter,
     make_building,
 )
-from cambc import Controller, EntityType, Environment, ResourceType
+from cambc import Controller, EntityType, Environment, GameConstants, ResourceType
 from util import DIR8, INF, ROAD_COST
 
 if TYPE_CHECKING:
@@ -25,7 +25,6 @@ def update_vision(self: Builder, ct: Controller) -> None:
     w = self.w
     pad = self.pad
     pw = self.pad_w
-    my_team = ct.get_team()
     for pos in self.nearby_positions:
         i = pos.y * w + pos.x
         pi = (pos.y + pad) * pw + (pos.x + pad)
@@ -61,81 +60,91 @@ def update_vision(self: Builder, ct: Controller) -> None:
 
             match bld:
                 case BuildingConveyor(direction=d):
-                    target_pos = pos.add(d)
-                    if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
-                        ti = target_pos.y * w + target_pos.x
-                        self.conveyors_to_here[ti].append(pos)
+                    t = pos.add(d)
+                    if self.in_bounds(t):
+                        self.conveyors_to_here[self.idx(t)].append(pos)
                 case BuildingBridge(target=t):
-                    if 0 <= t.x < self.w and 0 <= t.y < self.h:
-                        ti = t.y * w + t.x
-                        self.conveyors_to_here[ti].append(pos)
+                    if self.in_bounds(t):
+                        self.conveyors_to_here[self.idx(t)].append(pos)
                 case BuildingSplitter(direction=d):
                     for sd in [
                         d,
                         d.rotate_right().rotate_right(),
                         d.rotate_left().rotate_left(),
                     ]:
-                        target_pos = pos.add(sd)
-                        if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
-                            ti = target_pos.y * w + target_pos.x
-                            self.splitters_to_here[ti].append(pos)
+                        t = pos.add(sd)
+                        if self.in_bounds(t):
+                            self.splitters_to_here[self.idx(t)].append(pos)
 
             self.nearby_buildings.append(pos)
-            if self.hp[i] < self.max_hp[i] and bld is not None and bld.team == my_team:
+            if (
+                self.hp[i] < self.max_hp[i]
+                and bld is not None
+                and bld.team == self.my_team
+            ):
                 self.healable_buildings.append(pos)
             match bld:
-                case BuildingLauncher(team=t) if t != my_team:
+                case BuildingLauncher(team=t) if t != self.my_team:
                     for d in DIR8:
                         n = pos.add(d)
-                        if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                        if self.in_bounds(n):
                             self.adjacent_to_enemy_launcher.add(n)
-                case BuildingGunner(team=t, direction=d) if t != my_team:
+                case BuildingGunner(team=t, direction=d) if t != self.my_team:
                     ray = pos
                     for _ in range(4):
                         ray = ray.add(d)
-                        if pos.distance_squared(ray) > 13:
+                        if (
+                            pos.distance_squared(ray)
+                            > GameConstants.GUNNER_VISION_RADIUS_SQ
+                        ):
                             break
-                        if 0 <= ray.x < self.w and 0 <= ray.y < self.h:
+                        if self.in_bounds(ray):
                             self.enemy_turret_ray_tiles.add(ray)
-                case BuildingSentinel(team=t, direction=d) if t != my_team:
+                case BuildingSentinel(team=t, direction=d) if t != self.my_team:
                     ray = pos
                     for _ in range(6):
                         ray = ray.add(d)
-                        if pos.distance_squared(ray) > 32:
+                        if (
+                            pos.distance_squared(ray)
+                            > GameConstants.SENTINEL_VISION_RADIUS_SQ
+                        ):
                             break
-                        if 0 <= ray.x < self.w and 0 <= ray.y < self.h:
+                        if self.in_bounds(ray):
                             self.enemy_turret_ray_tiles.add(ray)
                         for hd in DIR8:
                             h = ray.add(hd)
-                            if 0 <= h.x < self.w and 0 <= h.y < self.h:
+                            if self.in_bounds(h):
                                 self.enemy_turret_ray_tiles.add(h)
-                case BuildingGunner(team=t, direction=d) if t == my_team:
+                case BuildingGunner(team=t, direction=d) if t == self.my_team:
                     ray = pos
                     for _ in range(4):
                         ray = ray.add(d)
-                        if pos.distance_squared(ray) > 13:
+                        if (
+                            pos.distance_squared(ray)
+                            > GameConstants.GUNNER_VISION_RADIUS_SQ
+                        ):
                             break
-                        if not (0 <= ray.x < self.w and 0 <= ray.y < self.h):
+                        if not self.in_bounds(ray):
                             break
                         if self.get_env(ray) == Environment.WALL:
                             break
                         self.friendly_turret_ray_tiles.add(ray)
                         if self.get_building(ray) is not None:
                             break
-                case BuildingSentinel(team=t, direction=d) if t == my_team:
+                case BuildingSentinel(team=t, direction=d) if t == self.my_team:
                     ray = pos
                     for _ in range(6):
                         ray = ray.add(d)
                         if pos.distance_squared(ray) > 32:
                             break
-                        if not (0 <= ray.x < self.w and 0 <= ray.y < self.h):
+                        if not self.in_bounds(ray):
                             break
                         if self.get_env(ray) == Environment.WALL:
                             break
                         self.friendly_turret_ray_tiles.add(ray)
                         for hd in DIR8:
                             h = ray.add(hd)
-                            if 0 <= h.x < self.w and 0 <= h.y < self.h:
+                            if self.in_bounds(h):
                                 self.friendly_turret_ray_tiles.add(h)
                         if self.get_building(ray) is not None:
                             break
@@ -158,7 +167,7 @@ def update_vision(self: Builder, ct: Controller) -> None:
                 ):
                     cost = 1
                     conveyor_cost = 1
-                case BuildingCore(team=t) if t == my_team:
+                case BuildingCore(team=t) if t == self.my_team:
                     cost = 1
                     conveyor_cost = 1
                 case _:
