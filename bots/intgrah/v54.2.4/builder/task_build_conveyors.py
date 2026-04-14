@@ -49,9 +49,9 @@ def lay_segment(
     if not path:
         return False
 
-    building_id = ct.get_tile_building_id(start_pos)
-    entity_type = ct.get_entity_type(building_id) if building_id else None
-
+    bid = ct.get_tile_building_id(start_pos)
+    entity_type = ct.get_entity_type(bid) if bid else None
+    direction: Direction | None = None
     if (
         state.my_core
         and start_pos.distance_squared(state.my_core) <= 5
@@ -66,10 +66,10 @@ def lay_segment(
         direction = get_direction_object(start_pos, path[1])
 
     if entity_type == EntityType.CONVEYOR:
-        if ct.get_direction(building_id) == direction:
+        if ct.get_direction(bid) == direction:
             return True
     elif entity_type == EntityType.BRIDGE:
-        bridge_output = ct.get_bridge_target(building_id)
+        bridge_output = ct.get_bridge_target(bid)
         if not ct.is_in_vision(bridge_output) or state.is_buildable(bridge_output):
             return True
 
