@@ -15,8 +15,6 @@ def update_ore_denial(state: State, ct: Controller) -> None:
     my_team = ct.get_team()
     state.deny_ore_neighbours = set()
     for pos in state.nearby_positions:
-        if not (0 <= pos.x < state.w and 0 <= pos.y < state.h):
-            continue
         env = state.env[pos.y * w + pos.x]
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
