@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Final, override
 
 from cambc import Controller, EntityType, GameConstants, Position
-from unit import StationaryUnit
+from unit import Unit
 
 __all__ = ["Sentinel"]
 
@@ -25,7 +25,7 @@ _PRIORITY: dict[EntityType, int] = {
 }
 
 
-class Sentinel(StationaryUnit):
+class Sentinel(Unit):
     SELF_DESTRUCT_THRESHOLD: Final[int] = 16
 
     @override
@@ -35,6 +35,7 @@ class Sentinel(StationaryUnit):
 
     @override
     def run(self, ct: Controller) -> None:
+        super().run(ct)
         if ct.get_action_cooldown() > 0:
             return
 

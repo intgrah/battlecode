@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Final, override
 
 from cambc import Controller, Direction, EntityType, GameConstants, Position
-from unit import StationaryUnit
+from unit import Unit
 from util import DIR8
 
 __all__ = ["Gunner"]
 
 
-class Gunner(StationaryUnit):
+class Gunner(Unit):
     SELF_DESTRUCT_THRESHOLD: Final[int] = 10
 
     VALID_ROTATION_TARGETS: Final[frozenset[EntityType]] = frozenset(
@@ -32,6 +32,7 @@ class Gunner(StationaryUnit):
 
     @override
     def run(self, ct: Controller) -> None:
+        super().run(ct)
         target = ct.get_gunner_target()
         if target is not None and ct.can_fire(target):
             bid = ct.get_tile_building_id(target)
