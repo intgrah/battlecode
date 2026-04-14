@@ -265,7 +265,7 @@ _SYNC_DIRS = [
     ("bots/", "bots/"),
     ("maps/", "maps/"),
     ("pkg/cambcpypy/", "cambcpypy/"),
-    ("pkg/proto/", "pkg/proto/"),
+    ("pkg/proto/", "proto/"),
 ]
 
 _SYNC_FILES: list[tuple[str, str]] = []
