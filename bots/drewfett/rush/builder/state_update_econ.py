@@ -53,7 +53,6 @@ def update_flow(state: State, ct: object | None = None) -> None:
     in_degree = f._in_degree
     out_edges = f._out_edges
     is_recv = f._is_recv
-    edge_push = f._edge_push
     in_rev_head = f._in_rev_head
     in_rev_next = f._in_rev_next
     in_rev_src = f._in_rev_src
@@ -177,7 +176,7 @@ def update_flow(state: State, ct: object | None = None) -> None:
                 denom = max(no, 1)
                 push = 0.25 / denom
                 excess = 0.25 - push * no
-                for oi, eidx in edges_ci:
+                for oi, _eidx in edges_ci:
                     match ore:
                         case Environment.ORE_TITANIUM:
                             f_ti[oi] += push
@@ -203,7 +202,7 @@ def update_flow(state: State, ct: object | None = None) -> None:
                 rax_in = f_rax[ci]
                 rax_out = rax_in + refined
                 push = rax_out / no if no > 0 else 0.0
-                for oi, eidx in edges_ci:
+                for oi, _eidx in edges_ci:
                     f_rax[oi] += push
                     f_total[oi] += push
                     in_degree[oi] -= 1
@@ -226,7 +225,7 @@ def update_flow(state: State, ct: object | None = None) -> None:
                 rax_push = rax_in / divisor
                 total_push = ti_push + ax_push + rax_push
                 total_out = 0.0
-                for oi, eidx in edges_ci:
+                for oi, _eidx in edges_ci:
                     f_ti[oi] += ti_push
                     f_ax[oi] += ax_push
                     f_rax[oi] += rax_push

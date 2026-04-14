@@ -27,10 +27,7 @@ _ALL_DIRS = (
 
 def try_move_away(ct: Controller, pos: Position) -> bool:
     """Move in direction. Uses existing walkable tile if possible, else builds road."""
-    for d in _ALL_DIRS:
-        if try_move_smart(ct, pos, d):
-            return True
-    return False
+    return any(try_move_smart(ct, pos, d) for d in _ALL_DIRS)
 
 
 def try_move_smart(ct: Controller, pos: Position, direction: Direction) -> bool:

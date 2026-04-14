@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from visualiser import Grid, Palette, Scalar, Tiles, emit
-from .flow import Flow, FLOW_TI, FLOW_AX, FLOW_RAX
+
+from .flow import FLOW_AX, FLOW_RAX, FLOW_TI
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -44,6 +45,7 @@ P_FLOW = Palette(
         4: (0, 220, 0, 220),
     },
 )
+
 
 def _unpad(grid: list[int], state: State) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""

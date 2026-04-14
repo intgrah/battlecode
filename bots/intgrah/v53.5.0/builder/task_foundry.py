@@ -64,7 +64,7 @@ def task_place_splitter(state: State, ct: Controller) -> bool:
     pair = _find_conv_with_raw_ax(state, ct)
     if pair is None:
         return False
-    conv_pos, fnd_pos = pair
+    conv_pos, _fnd_pos = pair
     if ct.get_position().distance_squared(conv_pos) > 2:
         make_move(state, ct, conv_pos)
         return True

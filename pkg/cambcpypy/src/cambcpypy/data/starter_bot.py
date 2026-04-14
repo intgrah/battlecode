@@ -19,7 +19,7 @@ DIRECTIONS = [d for d in Direction if d != Direction.CENTRE]
 
 
 class Player:
-    def __init__(self):
+    def __init__(self) -> None:
         self.num_spawned = 0  # number of builder bots spawned so far (core)
 
     def run(self, ct: Controller) -> None:

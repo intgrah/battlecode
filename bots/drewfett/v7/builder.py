@@ -1089,7 +1089,7 @@ class Builder(Unit):
             if etype == EntityType.ROAD:
                 # Only heal roads adjacent to our harvesters
                 rpos = ct.get_position(bid)
-                ri = rpos.y * w + rpos.x
+                rpos.y * w + rpos.x
                 adj_harv = False
                 for ddx, ddy in DIR4_DELTA:
                     ax, ay = rpos.x + ddx, rpos.y + ddy
@@ -1289,12 +1289,10 @@ def _destroy_friendly(
         return
     etype = ct.get_entity_type(bid)
     if (
-        etype == EntityType.ROAD
-        or etype == EntityType.MARKER
+        etype in (EntityType.ROAD, EntityType.MARKER)
         or (allow_barrier and etype == EntityType.BARRIER)
-    ):
-        if ct.can_destroy(pos):
-            ct.destroy(pos)
+    ) and ct.can_destroy(pos):
+        ct.destroy(pos)
 
 
 def _has_nearby_threat(s: State, tile_idx: int) -> bool:
@@ -1748,7 +1746,7 @@ class _Attack:
                     ex, ey = s.en_core_pos.x, s.en_core_pos.y
                 else:
                     ex, ey = s.w - 1 - cx, s.h - 1 - cy
-                mid_x, mid_y = (cx + ex) // 2, (cy + ey) // 2
+                _mid_x, _mid_y = (cx + ex) // 2, (cy + ey) // 2
                 # Distance from harvester to midpoint toward enemy
                 to_enemy = abs(hpos.x - ex) + abs(hpos.y - ey)
                 to_core = abs(hpos.x - cx) + abs(hpos.y - cy)

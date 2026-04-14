@@ -72,8 +72,7 @@ def fortify(
     if best_target is None:
         return None
 
-    if pos.distance_squared(best_target) <= 2:
-        if ct.can_build_barrier(best_target):
-            return Direction.CENTRE, PlaceBarrier(best_target)
+    if pos.distance_squared(best_target) <= 2 and ct.can_build_barrier(best_target):
+        return Direction.CENTRE, PlaceBarrier(best_target)
 
     return move_toward_with_road(state, ct, best_target)

@@ -4,9 +4,10 @@ stage2 (core→foundry chain), plus replanning when tiles get blocked.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from astar import BuildInstruction, ChainAstar
 from cambc import Controller, EntityType, Environment, Position
-from env_tracker import EnvTracker
 from tile_codec import (
     ENV_AX_ORE,
     ENV_WALL,
@@ -16,6 +17,9 @@ from tile_codec import (
     tile_is_allied,
 )
 from utils import try_move_away
+
+if TYPE_CHECKING:
+    from env_tracker import EnvTracker
 
 _CARDINAL = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
@@ -205,11 +209,11 @@ class RaxPlan:
 
         if entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
             cached_env = self._tile_cache[pos.y * self.w + pos.x]
-            if entity == EntityType.FOUNDRY or (
-                cached_env != UNSEEN and tile_env(cached_env) != ENV_AX_ORE
-            ):
-                if not self._ensure_sides_covered(ct, pos):
-                    return False
+            if (
+                entity == EntityType.FOUNDRY
+                or (cached_env != UNSEEN and tile_env(cached_env) != ENV_AX_ORE)
+            ) and not self._ensure_sides_covered(ct, pos):
+                return False
             if entity == EntityType.HARVESTER:
                 if ct.get_global_resources() < ct.get_harvester_cost():
                     return False
