@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import io
 import json
 import random
@@ -14,16 +15,16 @@ import tarfile
 import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 from uuid import uuid4
 
 from cambcpypy.engine import run_game
 
-HOST = "127.0.0.1"
-PORT = 9876
-UPLOAD_DIR = Path("uploads")
-MAPS_DIR = Path("maps")
-PRUNE_HOURS = 24
+HOST: Final[str] = "127.0.0.1"
+PORT: Final[int] = 9876
+UPLOAD_DIR: Final[Path] = Path("uploads")
+MAPS_DIR: Final[Path] = Path("maps")
+PRUNE_HOURS: Final[int] = 24
 
 executor: ProcessPoolExecutor
 
@@ -110,7 +111,7 @@ async def _handle_upload(msg: dict[str, Any]) -> dict[str, Any]:
     name: str = msg.get("name", "unknown")
     try:
         raw = base64.b64decode(data_b64)
-    except Exception:
+    except binascii.Error:
         return {"error": "invalid base64 data"}
 
     if len(raw) > 10 * 1024 * 1024:
@@ -124,7 +125,7 @@ async def _handle_upload(msg: dict[str, Any]) -> dict[str, Any]:
     try:
         with tarfile.open(fileobj=buf, mode="r:gz") as tar:
             tar.extractall(path=dest)
-    except Exception:
+    except tarfile.TarError:
         shutil.rmtree(dest)
         return {"error": "invalid tarball"}
 
