@@ -15,7 +15,6 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
     if b is None:
         if state.env[i] == Environment.WALL:
             return False
-
     else:
         if b.team != ct.get_team():
             return False
@@ -26,41 +25,33 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
                 | BuildingArmouredConveyor(direction=d)
             ):
                 adj = pos.add(d)
-                if not state.in_bounds(adj):
-                    return True
-                j = adj.y * state.w + adj.x
-                c = state.buildings[j]
-                if c is None:
-                    return state.env[j] == Environment.WALL
-                else:
-                    if c.team != ct.get_team():
-                        return True
-                    match c:
-                        case (
-                            BuildingBarrier()
-                            | BuildingLauncher()
-                        ):
-                            return True
-                        case (
-                            BuildingConveyor(direction=d2)
-                            | BuildingArmouredConveyor(direction=d2)
-                        ) if d == d2.opposite():
-                            return True
-                        case BuildingHarvester():
-                            if ct.is_in_vision(pos) and ct.get_stored_resource(ct.get_tile_building_id(pos)) is not None:
-                                return True
-                            return pos in state.adjacent_to_unconnected_harvester
-                        case _:
+                if state.in_bounds(adj):
+                    j = adj.y * state.w + adj.x
+                    c = state.buildings[j]
+                    if c is None:
+                        if state.env[j] != Environment.WALL:
                             return False
+                    elif c.team == ct.get_team():
+                        match c:
+                            case (
+                                BuildingBarrier()
+                                | BuildingLauncher()
+                                | BuildingHarvester()
+                            ):
+                                pass
+                            case (
+                                BuildingConveyor(direction=d2)
+                                | BuildingArmouredConveyor(direction=d2)
+                            ) if d == d2.opposite():
+                                pass
+                            case _:
+                                return False
             case BuildingRoad():
                 pass
             case _:
                 return False
 
-    if state.conveyors_to_here[i]:
-        return True
-    
-    return pos in state.adjacent_to_unconnected_harvester
+    return state.conveyors_to_here[i] or pos in state.adjacent_to_unconnected_harvester
 
 
 def is_valid_loose_end_target(state: State, ct: Controller, pos: Position) -> bool:
