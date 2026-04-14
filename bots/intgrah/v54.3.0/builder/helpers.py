@@ -196,7 +196,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
     return best_target
 
 
-def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_dangling(self: Builder, pos: Position) -> bool:
     if not self.in_bounds(pos):
         return False
     i = pos.y * self.w + pos.x
@@ -204,7 +204,7 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
     if b is None:
         if self.env[i] == Environment.WALL:
             return False
-    elif not isinstance(b, BuildingRoad) or b.team != ct.get_team():
+    elif not isinstance(b, BuildingRoad) or b.team != self.my_team:
         return False
     if self.conveyors_to_here[i]:
         return True
@@ -212,11 +212,11 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
 
 
 def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:
-    if not is_dangling(self, ct, pos):
+    if not is_dangling(self, pos):
         return False
     if ct.is_in_vision(pos):
         bid = ct.get_tile_builder_bot_id(pos)
-        friendly = ct.get_team(bid) == ct.get_team()
+        friendly = ct.get_team(bid) == self.my_team
         if bid is not None and bid != self.my_id and friendly:
             return False
     leading = self.get_conveyors_to_here(pos)
@@ -224,7 +224,7 @@ def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> b
         if not ct.is_in_vision(lpos):
             continue
         lbid = ct.get_tile_builder_bot_id(lpos)
-        friendly = ct.get_team(lbid) == ct.get_team()
+        friendly = ct.get_team(lbid) == self.my_team
         if lbid is not None and lbid != self.my_id and friendly:
             return False
     return True

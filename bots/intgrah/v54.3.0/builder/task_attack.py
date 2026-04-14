@@ -486,7 +486,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 n_sentinel = 0
                 for d in DIR4:
                     nb = self.get_building(target.add(d))
-                    if nb is None or nb.team != ct.get_team():
+                    if nb is None or nb.team != self.my_team:
                         continue
                     if isinstance(nb, BuildingGunner):
                         n_gunner += 1
@@ -589,7 +589,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
             rl := self.get_building(self.offense_launcher),
             BuildingLauncher,
         )
-        and rl.team == ct.get_team()
+        and rl.team == self.my_team
         and self.my_pos.distance_squared(self.offense_target) > 8
     ):
         make_move(self, ct, self.offense_launcher)
@@ -628,7 +628,7 @@ def scout_toward_enemy(self: Builder, ct: Controller) -> None:
     if not self.en_core:
         make_move(self, ct, en_core)
     elif self.my_pos.distance_squared(
-        en_core
+        en_core,
     ) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ or ct.get_global_resources()[0] >= (
         GameConstants.HARVESTER_BASE_COST[0] + 50
     ) * (1 + ct.get_scale_percent() / 100):

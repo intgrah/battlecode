@@ -65,7 +65,7 @@ def gunner_facing(
     if not self.is_buildable(position):
         return None
     b = self.get_building(position)
-    if _is_precious_friendly(b, ct.get_team()):
+    if _is_precious_friendly(b, self.my_team):
         return None
     if _is_turret(b):
         return None
@@ -76,9 +76,7 @@ def gunner_facing(
         return None
     for d in DIR8:
         match self.get_building(position.add(d)):
-            case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != ct.get_team()
-            ):
+            case BuildingGunner(team=t) | BuildingSentinel(team=t) if t != self.my_team:
                 for harvester_direction in DIR4:
                     if harvester_direction != d:
                         match self.get_building(position.add(harvester_direction)):
@@ -100,7 +98,7 @@ def sentinel_facing(
         or position not in self.adjacent_to_harvester
         or not self.is_buildable(position)
         or _is_turret_or_transport(b)
-        or _is_precious_friendly(b, ct.get_team())
+        or _is_precious_friendly(b, self.my_team)
         or not self.in_bounds(position)
         or not ct.is_in_vision(position)
     ):

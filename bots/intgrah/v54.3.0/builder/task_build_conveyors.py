@@ -102,7 +102,7 @@ def lay_segment(
         direction in DIR4
         and (
             (not destination_building)
-            or destination_team == ct.get_team()
+            or destination_team == self.my_team
             or destination_is_marker
         )
         and self.get_env(path[1]) == Environment.EMPTY
@@ -120,13 +120,9 @@ def lay_segment(
     return False
 
 
-def best_junction_site(
-    self: Builder,
-    ct: Controller,
-    path: list[Position],
-) -> Position | None:
+def best_junction_site(self: Builder, path: list[Position]) -> Position | None:
     for pos in path[::-1]:
-        if self.can_place_junction(ct, pos):
+        if self.can_place_junction(pos):
             return pos
     return None
 
@@ -204,7 +200,7 @@ def route_to(
         return
 
     if self.is_friendly_turret(start) or all_blocked:
-        split_location = best_junction_site(self, ct, existing_path)
+        split_location = best_junction_site(self, existing_path)
         if split_location:
             make_move(self, ct, split_location)
             if place_junction(self, ct, split_location):
