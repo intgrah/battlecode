@@ -74,6 +74,15 @@ members = [
     "bot-v54-0-5",
     "bot-v54-0-6",
     "bot-v54-0-7",
+    "bot-v54-1-0",
+    "bot-v54-1-1",
+    "bot-v54-1-2",
+    "bot-v54-1-3",
+    "bot-v54-2-0",
+    "bot-v54-2-1",
+    "bot-v54-2-2",
+    "bot-v54-2-3",
+    "bot-v54-2-4",
     "proto",
     "visualiser",
 ]
@@ -111,7 +120,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "bench-nav", editable = "pkg/bench_nav" },
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "hcloud", specifier = ">=2.17.1" },
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "pillow", specifier = ">=12.1.1" },
@@ -161,7 +170,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -174,7 +183,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-adgato-econ"
@@ -187,7 +196,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -202,7 +211,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.4.6" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -215,7 +224,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-adgato-mesh"
@@ -228,7 +237,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -241,7 +250,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-adgato-trollbot"
@@ -252,7 +261,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-adgato-trollbot-expand"
@@ -263,7 +272,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-astar-test"
@@ -274,7 +283,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-recent"
@@ -285,7 +294,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-trollbot"
@@ -296,7 +305,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-v1"
@@ -307,7 +316,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-v2"
@@ -318,7 +327,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-v3"
@@ -329,7 +338,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-v4"
@@ -340,7 +349,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-v67"
@@ -351,7 +360,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-beacon-v70"
@@ -362,7 +371,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-cheese"
@@ -373,7 +382,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-nahhh-baseline-v25"
@@ -384,7 +393,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-nahhh-harvester-punisher"
@@ -395,7 +404,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-nahhh-nahhh"
@@ -406,7 +415,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-nahhh-noop"
@@ -417,7 +426,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-nahhh-ore-capper"
@@ -428,7 +437,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-pd"
@@ -439,7 +448,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-rug"
@@ -450,7 +459,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-saboteur"
@@ -461,7 +470,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-se"
@@ -472,7 +481,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-sprint4ax"
@@ -485,7 +494,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -498,7 +507,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-test-core-spawn"
@@ -509,7 +518,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-test-rotate"
@@ -520,7 +529,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v44"
@@ -531,7 +540,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v45"
@@ -542,7 +551,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v46"
@@ -553,7 +562,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v47"
@@ -564,7 +573,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v48"
@@ -575,7 +584,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v49"
@@ -586,7 +595,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.6.4" }]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
 name = "bot-v50"
@@ -599,7 +608,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -614,7 +623,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -629,7 +638,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -644,7 +653,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -659,7 +668,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -674,7 +683,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -689,7 +698,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -704,7 +713,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -719,7 +728,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -734,7 +743,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -749,7 +758,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -764,7 +773,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -779,7 +788,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -794,7 +803,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -809,7 +818,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -824,7 +833,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -839,7 +848,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -854,7 +863,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -869,7 +878,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -884,7 +893,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -899,7 +908,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -914,7 +923,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -929,7 +938,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -944,7 +953,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
@@ -959,29 +968,164 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-1-0"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.1.0" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-1-1"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.1.1" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-1-2"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.1.2" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-1-3"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.1.3" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-2-0"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.2.0" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-2-1"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.2.1" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-2-2"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.2.2" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-2-3"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.2.3" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-2-4"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.2.4" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
     { name = "visualiser", editable = "pkg/visualiser" },
 ]
 
 [[package]]
 name = "cambc"
-version = "1.6.4"
+version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "rich" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/48/75dfc6d6ad4d50a5e46a47e3b3b8cfc114b717eb4607b1b4965ec10fe04c/cambc-1.6.4-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:5850e2a8781e4c105ab9301fb7afc49d30ff2dd7cc62622e183744c094742c5f", size = 12715086, upload-time = "2026-04-12T04:13:24.655Z" },
-    { url = "https://files.pythonhosted.org/packages/3b/b6/5f77ce1c5a9530ef53cab39e36f430dfaf4c03268b090cba7dcc770d848e/cambc-1.6.4-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:c53535bf5dc8c0eaaa78c7f622e37e2f2e54b9c10bba43ff9789845bfb576093", size = 12695083, upload-time = "2026-04-12T04:13:27.349Z" },
-    { url = "https://files.pythonhosted.org/packages/c6/4b/7359c5fd5ab44a58f2e082eeedbc6e11ea6f3f7cdda6577ecb5c191d41df/cambc-1.6.4-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e0720c6c574b067963bf28d5627149a2de806bb075a959385e081f31ed4e69ee", size = 12772503, upload-time = "2026-04-12T04:13:30.204Z" },
-    { url = "https://files.pythonhosted.org/packages/41/ec/9ed062a27d6c3cfecb2dc07a1dd14f73d1ba182947899ea0777acdaa69ca/cambc-1.6.4-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f206f2ff28617c20094a08d57f3fb3edc442c92e85cc7ce975eda293de467594", size = 12790640, upload-time = "2026-04-12T04:13:32.756Z" },
-    { url = "https://files.pythonhosted.org/packages/b8/b6/50dc9171804fa328861bcf2c8ef46defb256cfa1d1c5d55fdeefd8b63e39/cambc-1.6.4-cp312-cp312-win_amd64.whl", hash = "sha256:95ce8d1291b3a6397d057c1233508a43ed51444f7e82647f68eb28aa3ef18271", size = 12608248, upload-time = "2026-04-12T04:13:35.701Z" },
-    { url = "https://files.pythonhosted.org/packages/03/68/2368d8de054885504ed4c09270fff48ef3cd9d6a49c5405652c2e512bffe/cambc-1.6.4-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:49bdf126919e36db4ff044e5de4f5966ce288721153229070ef6bd2c4b666d71", size = 12715111, upload-time = "2026-04-12T04:13:38.472Z" },
-    { url = "https://files.pythonhosted.org/packages/09/ff/b6b4f82b52f0feb040a7d37dd07b0fa5dff9328a8ccef6631b935b852f60/cambc-1.6.4-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:0d606a2f53179070a473440ab65e51ca1c520acb1463d99a36fc0f715a3b82aa", size = 12694663, upload-time = "2026-04-12T04:13:41.453Z" },
-    { url = "https://files.pythonhosted.org/packages/8e/49/330ce0a8acd41d1a0fd3ca13fe20de9eefcfffb5bf5557051177f4ad30c2/cambc-1.6.4-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:21b20f2094fe1ab1d63fce75e9370b4165b38220ccf13e93b6f15555cf2ec5f3", size = 12771922, upload-time = "2026-04-12T04:13:44.279Z" },
-    { url = "https://files.pythonhosted.org/packages/91/bc/d20c3fa0f8fa597926d34fd215d8720f6fe8592029d14fe7a2e7dcd73952/cambc-1.6.4-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:48caf234633583bbec4fb82d4035349a2c09b6fe94b6f5bfc5238efb52ff9837", size = 12790252, upload-time = "2026-04-12T04:13:47.055Z" },
-    { url = "https://files.pythonhosted.org/packages/59/e7/73d9b3b6dcaabb4ee9badf12ee68409d5feb62f8e3d6741dc69a91535bd3/cambc-1.6.4-cp313-cp313-win_amd64.whl", hash = "sha256:3b15e3679d46f61b72b80c3e7d69c7a0c4bcf2f50ae0b665cb6555c052ba00bc", size = 12607795, upload-time = "2026-04-12T04:13:50.161Z" },
+    { url = "https://files.pythonhosted.org/packages/62/3e/22bee2bb60a5178a7aef8c4da773ebdd665b7ca05466330e0780efe5bd62/cambc-1.7.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:362a4b4edf6de97822bcb13d96811a340d53635c2d48e3fd8f77e54ff1cd1031", size = 12722623, upload-time = "2026-04-13T20:00:47.069Z" },
+    { url = "https://files.pythonhosted.org/packages/44/5a/897db6626f28700f42db0437ffebdfc217a01b1f9d4be9af92e7209c5c27/cambc-1.7.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6f2147080ac085c681dcc1efc1a8da40cbeaf081e436802d926490c4f0b014f6", size = 12702573, upload-time = "2026-04-13T20:00:49.679Z" },
+    { url = "https://files.pythonhosted.org/packages/77/a4/19e7030e940de478e63b0e0a629ac6f76aca3eebbe2e2f4330025a95918b/cambc-1.7.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a35ec39090c32b529b2b07d33a2e4041a195d75a4f09adcbe10bda5d416708f8", size = 12780090, upload-time = "2026-04-13T20:00:51.884Z" },
+    { url = "https://files.pythonhosted.org/packages/55/85/071117b266f81677f6dbd02cc9d5e2e3c28cc2b790350a5e804a9a4724e1/cambc-1.7.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:af75dec2a8f35ed0b2b9cd15bf38cbf5a5c3945a6f3fa8dd7ee3701153a21c92", size = 12798155, upload-time = "2026-04-13T20:00:53.939Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/34/872d095004c9c1e3fbe60423ce6fa63729947b8ff07330edbe3fbd91e84d/cambc-1.7.0-cp312-cp312-win_amd64.whl", hash = "sha256:613201fdff4e6420b6b2ead8643ec6e68a7a643ffa40b42f99d27a0d80dfa65f", size = 12615782, upload-time = "2026-04-13T20:00:55.947Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/27/d35e1cbbd767cf9f2023f8b823cdd842f713415ba0883efac99a63c16bfb/cambc-1.7.0-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:1c40b2bd156176ec5dff26e2ca87b0962b17d15079c82a53b3a5bf96d0e9d111", size = 12722574, upload-time = "2026-04-13T20:00:58.214Z" },
+    { url = "https://files.pythonhosted.org/packages/c8/34/764ca239cfc55f6ab19411ac65cabd10766766fe64971c2df249173b49f7/cambc-1.7.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:5ae44b5c5cdad68f9af4a69c493a1dedb9b2361d77f77c54e39c2fce423b068a", size = 12702143, upload-time = "2026-04-13T20:01:00.441Z" },
+    { url = "https://files.pythonhosted.org/packages/18/0d/3928363668678cc66d5307a35ca9748f149d36b580c56f2935a7e5541d80/cambc-1.7.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bf47aa8a0e77c388f6c73ffd3ecdac683d8c1700e838a8c0be17f01bfedfd9f9", size = 12779312, upload-time = "2026-04-13T20:01:02.712Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/14/8948b65aa031f52d241737e6dda877ba4f7158dc8201181b322730ce1fa6/cambc-1.7.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c5aeb74419c45ee68cf577472aa6a8850c44b52523739cce8836aad5873642b2", size = 12797775, upload-time = "2026-04-13T20:01:04.704Z" },
+    { url = "https://files.pythonhosted.org/packages/88/e5/bb3e1f9b5a6006e1559cfaed9a13ec604c365928c3970483ac029d0d575a/cambc-1.7.0-cp313-cp313-win_amd64.whl", hash = "sha256:4183b0a8b45c306b7f458619804969802aaee04c6d5302cb966103843666de7e", size = 12615280, upload-time = "2026-04-13T20:01:07.011Z" },
 ]
 
 [[package]]

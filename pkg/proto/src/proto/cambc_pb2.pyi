@@ -2,7 +2,13 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from typing import (
+    ClassVar as _ClassVar,
+    Iterable as _Iterable,
+    Mapping as _Mapping,
+    Optional as _Optional,
+    Union as _Union,
+)
 
 DESCRIPTOR: _descriptor.FileDescriptor
 DIR_CENTRE: Direction
@@ -31,7 +37,11 @@ class ArmouredConveyor(_message.Message):
     STORED_FIELD_NUMBER: _ClassVar[int]
     direction: Direction
     stored: ResourceType
-    def __init__(self, direction: _Optional[_Union[Direction, str]] = ..., stored: _Optional[_Union[ResourceType, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        direction: _Optional[_Union[Direction, str]] = ...,
+        stored: _Optional[_Union[ResourceType, str]] = ...,
+    ) -> None: ...
 
 class Barrier(_message.Message):
     __slots__ = []
@@ -47,7 +57,13 @@ class BotOutput(_message.Message):
     id: int
     stdout: str
     tled: bool
-    def __init__(self, id: _Optional[int] = ..., stdout: _Optional[str] = ..., exec_time_us: _Optional[int] = ..., tled: bool = ...) -> None: ...
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        stdout: _Optional[str] = ...,
+        exec_time_us: _Optional[int] = ...,
+        tled: bool = ...,
+    ) -> None: ...
 
 class Breach(_message.Message):
     __slots__ = ["ammo_amount", "ammo_type", "direction"]
@@ -57,7 +73,12 @@ class Breach(_message.Message):
     ammo_amount: int
     ammo_type: ResourceType
     direction: Direction
-    def __init__(self, direction: _Optional[_Union[Direction, str]] = ..., ammo_type: _Optional[_Union[ResourceType, str]] = ..., ammo_amount: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        direction: _Optional[_Union[Direction, str]] = ...,
+        ammo_type: _Optional[_Union[ResourceType, str]] = ...,
+        ammo_amount: _Optional[int] = ...,
+    ) -> None: ...
 
 class Bridge(_message.Message):
     __slots__ = ["stored", "target"]
@@ -65,7 +86,11 @@ class Bridge(_message.Message):
     TARGET_FIELD_NUMBER: _ClassVar[int]
     stored: ResourceType
     target: Pos
-    def __init__(self, target: _Optional[_Union[Pos, _Mapping]] = ..., stored: _Optional[_Union[ResourceType, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        target: _Optional[_Union[Pos, _Mapping]] = ...,
+        stored: _Optional[_Union[ResourceType, str]] = ...,
+    ) -> None: ...
 
 class BuilderAttack(_message.Message):
     __slots__ = ["id"]
@@ -79,7 +104,9 @@ class BuilderBot(_message.Message):
     MOVE_COOLDOWN_FIELD_NUMBER: _ClassVar[int]
     action_cooldown: int
     move_cooldown: int
-    def __init__(self, action_cooldown: _Optional[int] = ..., move_cooldown: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self, action_cooldown: _Optional[int] = ..., move_cooldown: _Optional[int] = ...
+    ) -> None: ...
 
 class Conveyor(_message.Message):
     __slots__ = ["direction", "stored"]
@@ -87,7 +114,11 @@ class Conveyor(_message.Message):
     STORED_FIELD_NUMBER: _ClassVar[int]
     direction: Direction
     stored: ResourceType
-    def __init__(self, direction: _Optional[_Union[Direction, str]] = ..., stored: _Optional[_Union[ResourceType, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        direction: _Optional[_Union[Direction, str]] = ...,
+        stored: _Optional[_Union[ResourceType, str]] = ...,
+    ) -> None: ...
 
 class Core(_message.Message):
     __slots__ = ["action_cooldown"]
@@ -103,16 +134,44 @@ class CorePosition(_message.Message):
     id: int
     position: Pos
     team: Team
-    def __init__(self, id: _Optional[int] = ..., team: _Optional[_Union[Team, str]] = ..., position: _Optional[_Union[Pos, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        team: _Optional[_Union[Team, str]] = ...,
+        position: _Optional[_Union[Pos, _Mapping]] = ...,
+    ) -> None: ...
 
 class DistributeResources(_message.Message):
     __slots__ = ["moves"]
     MOVES_FIELD_NUMBER: _ClassVar[int]
     moves: _containers.RepeatedCompositeFieldContainer[ResourceMove]
-    def __init__(self, moves: _Optional[_Iterable[_Union[ResourceMove, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self, moves: _Optional[_Iterable[_Union[ResourceMove, _Mapping]]] = ...
+    ) -> None: ...
 
 class Entity(_message.Message):
-    __slots__ = ["armoured_conveyor", "barrier", "breach", "bridge", "builder_bot", "conveyor", "core", "foundry", "gunner", "harvester", "hp", "id", "launcher", "marker", "max_hp", "position", "road", "sentinel", "splitter", "team"]
+    __slots__ = [
+        "armoured_conveyor",
+        "barrier",
+        "breach",
+        "bridge",
+        "builder_bot",
+        "conveyor",
+        "core",
+        "foundry",
+        "gunner",
+        "harvester",
+        "hp",
+        "id",
+        "launcher",
+        "marker",
+        "max_hp",
+        "position",
+        "road",
+        "sentinel",
+        "splitter",
+        "team",
+    ]
     ARMOURED_CONVEYOR_FIELD_NUMBER: _ClassVar[int]
     BARRIER_FIELD_NUMBER: _ClassVar[int]
     BREACH_FIELD_NUMBER: _ClassVar[int]
@@ -153,14 +212,38 @@ class Entity(_message.Message):
     sentinel: Sentinel
     splitter: Splitter
     team: Team
-    def __init__(self, id: _Optional[int] = ..., team: _Optional[_Union[Team, str]] = ..., position: _Optional[_Union[Pos, _Mapping]] = ..., hp: _Optional[int] = ..., max_hp: _Optional[int] = ..., builder_bot: _Optional[_Union[BuilderBot, _Mapping]] = ..., conveyor: _Optional[_Union[Conveyor, _Mapping]] = ..., splitter: _Optional[_Union[Splitter, _Mapping]] = ..., armoured_conveyor: _Optional[_Union[ArmouredConveyor, _Mapping]] = ..., bridge: _Optional[_Union[Bridge, _Mapping]] = ..., harvester: _Optional[_Union[Harvester, _Mapping]] = ..., foundry: _Optional[_Union[Foundry, _Mapping]] = ..., road: _Optional[_Union[Road, _Mapping]] = ..., barrier: _Optional[_Union[Barrier, _Mapping]] = ..., marker: _Optional[_Union[Marker, _Mapping]] = ..., core: _Optional[_Union[Core, _Mapping]] = ..., gunner: _Optional[_Union[Gunner, _Mapping]] = ..., sentinel: _Optional[_Union[Sentinel, _Mapping]] = ..., breach: _Optional[_Union[Breach, _Mapping]] = ..., launcher: _Optional[_Union[Launcher, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        team: _Optional[_Union[Team, str]] = ...,
+        position: _Optional[_Union[Pos, _Mapping]] = ...,
+        hp: _Optional[int] = ...,
+        max_hp: _Optional[int] = ...,
+        builder_bot: _Optional[_Union[BuilderBot, _Mapping]] = ...,
+        conveyor: _Optional[_Union[Conveyor, _Mapping]] = ...,
+        splitter: _Optional[_Union[Splitter, _Mapping]] = ...,
+        armoured_conveyor: _Optional[_Union[ArmouredConveyor, _Mapping]] = ...,
+        bridge: _Optional[_Union[Bridge, _Mapping]] = ...,
+        harvester: _Optional[_Union[Harvester, _Mapping]] = ...,
+        foundry: _Optional[_Union[Foundry, _Mapping]] = ...,
+        road: _Optional[_Union[Road, _Mapping]] = ...,
+        barrier: _Optional[_Union[Barrier, _Mapping]] = ...,
+        marker: _Optional[_Union[Marker, _Mapping]] = ...,
+        core: _Optional[_Union[Core, _Mapping]] = ...,
+        gunner: _Optional[_Union[Gunner, _Mapping]] = ...,
+        sentinel: _Optional[_Union[Sentinel, _Mapping]] = ...,
+        breach: _Optional[_Union[Breach, _Mapping]] = ...,
+        launcher: _Optional[_Union[Launcher, _Mapping]] = ...,
+    ) -> None: ...
 
 class FireTurret(_message.Message):
     __slots__ = ["to"]
     FROM_FIELD_NUMBER: _ClassVar[int]
     TO_FIELD_NUMBER: _ClassVar[int]
     to: Pos
-    def __init__(self, to: _Optional[_Union[Pos, _Mapping]] = ..., **kwargs) -> None: ...
+    def __init__(
+        self, to: _Optional[_Union[Pos, _Mapping]] = ..., **kwargs
+    ) -> None: ...
 
 class Foundry(_message.Message):
     __slots__ = ["stored"]
@@ -176,7 +259,12 @@ class Gunner(_message.Message):
     ammo_amount: int
     ammo_type: ResourceType
     direction: Direction
-    def __init__(self, direction: _Optional[_Union[Direction, str]] = ..., ammo_type: _Optional[_Union[ResourceType, str]] = ..., ammo_amount: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        direction: _Optional[_Union[Direction, str]] = ...,
+        ammo_type: _Optional[_Union[ResourceType, str]] = ...,
+        ammo_amount: _Optional[int] = ...,
+    ) -> None: ...
 
 class Harvester(_message.Message):
     __slots__ = ["cooldown", "resource_type"]
@@ -184,7 +272,11 @@ class Harvester(_message.Message):
     RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     cooldown: int
     resource_type: ResourceType
-    def __init__(self, cooldown: _Optional[int] = ..., resource_type: _Optional[_Union[ResourceType, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        cooldown: _Optional[int] = ...,
+        resource_type: _Optional[_Union[ResourceType, str]] = ...,
+    ) -> None: ...
 
 class IndicatorDot(_message.Message):
     __slots__ = ["b", "g", "id", "pos", "r"]
@@ -198,7 +290,14 @@ class IndicatorDot(_message.Message):
     id: int
     pos: Pos
     r: int
-    def __init__(self, id: _Optional[int] = ..., pos: _Optional[_Union[Pos, _Mapping]] = ..., r: _Optional[int] = ..., g: _Optional[int] = ..., b: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        pos: _Optional[_Union[Pos, _Mapping]] = ...,
+        r: _Optional[int] = ...,
+        g: _Optional[int] = ...,
+        b: _Optional[int] = ...,
+    ) -> None: ...
 
 class IndicatorLine(_message.Message):
     __slots__ = ["b", "g", "id", "pos_a", "pos_b", "r"]
@@ -214,7 +313,15 @@ class IndicatorLine(_message.Message):
     pos_a: Pos
     pos_b: Pos
     r: int
-    def __init__(self, id: _Optional[int] = ..., pos_a: _Optional[_Union[Pos, _Mapping]] = ..., pos_b: _Optional[_Union[Pos, _Mapping]] = ..., r: _Optional[int] = ..., g: _Optional[int] = ..., b: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        pos_a: _Optional[_Union[Pos, _Mapping]] = ...,
+        pos_b: _Optional[_Union[Pos, _Mapping]] = ...,
+        r: _Optional[int] = ...,
+        g: _Optional[int] = ...,
+        b: _Optional[int] = ...,
+    ) -> None: ...
 
 class Launcher(_message.Message):
     __slots__ = ["ammo_amount", "ammo_type"]
@@ -222,7 +329,11 @@ class Launcher(_message.Message):
     AMMO_TYPE_FIELD_NUMBER: _ClassVar[int]
     ammo_amount: int
     ammo_type: ResourceType
-    def __init__(self, ammo_type: _Optional[_Union[ResourceType, str]] = ..., ammo_amount: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        ammo_type: _Optional[_Union[ResourceType, str]] = ...,
+        ammo_amount: _Optional[int] = ...,
+    ) -> None: ...
 
 class Map(_message.Message):
     __slots__ = ["cores", "height", "rows", "width"]
@@ -234,7 +345,13 @@ class Map(_message.Message):
     height: int
     rows: _containers.RepeatedCompositeFieldContainer[TileRow]
     width: int
-    def __init__(self, width: _Optional[int] = ..., height: _Optional[int] = ..., rows: _Optional[_Iterable[_Union[TileRow, _Mapping]]] = ..., cores: _Optional[_Iterable[_Union[CorePosition, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self,
+        width: _Optional[int] = ...,
+        height: _Optional[int] = ...,
+        rows: _Optional[_Iterable[_Union[TileRow, _Mapping]]] = ...,
+        cores: _Optional[_Iterable[_Union[CorePosition, _Mapping]]] = ...,
+    ) -> None: ...
 
 class Marker(_message.Message):
     __slots__ = ["value"]
@@ -248,7 +365,9 @@ class MoveBuilderBot(_message.Message):
     TO_FIELD_NUMBER: _ClassVar[int]
     id: int
     to: Pos
-    def __init__(self, id: _Optional[int] = ..., to: _Optional[_Union[Pos, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self, id: _Optional[int] = ..., to: _Optional[_Union[Pos, _Mapping]] = ...
+    ) -> None: ...
 
 class PlaceEntity(_message.Message):
     __slots__ = ["entity"]
@@ -257,7 +376,13 @@ class PlaceEntity(_message.Message):
     def __init__(self, entity: _Optional[_Union[Entity, _Mapping]] = ...) -> None: ...
 
 class Player(_message.Message):
-    __slots__ = ["axionite", "axionite_collected", "resources_collected", "titanium", "titanium_collected"]
+    __slots__ = [
+        "axionite",
+        "axionite_collected",
+        "resources_collected",
+        "titanium",
+        "titanium_collected",
+    ]
     AXIONITE_COLLECTED_FIELD_NUMBER: _ClassVar[int]
     AXIONITE_FIELD_NUMBER: _ClassVar[int]
     RESOURCES_COLLECTED_FIELD_NUMBER: _ClassVar[int]
@@ -268,7 +393,14 @@ class Player(_message.Message):
     resources_collected: int
     titanium: int
     titanium_collected: int
-    def __init__(self, titanium: _Optional[int] = ..., axionite: _Optional[int] = ..., resources_collected: _Optional[int] = ..., titanium_collected: _Optional[int] = ..., axionite_collected: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        titanium: _Optional[int] = ...,
+        axionite: _Optional[int] = ...,
+        resources_collected: _Optional[int] = ...,
+        titanium_collected: _Optional[int] = ...,
+        axionite_collected: _Optional[int] = ...,
+    ) -> None: ...
 
 class Players(_message.Message):
     __slots__ = ["a", "b"]
@@ -276,7 +408,11 @@ class Players(_message.Message):
     B_FIELD_NUMBER: _ClassVar[int]
     a: Player
     b: Player
-    def __init__(self, a: _Optional[_Union[Player, _Mapping]] = ..., b: _Optional[_Union[Player, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        a: _Optional[_Union[Player, _Mapping]] = ...,
+        b: _Optional[_Union[Player, _Mapping]] = ...,
+    ) -> None: ...
 
 class Pos(_message.Message):
     __slots__ = ["x", "y"]
@@ -300,7 +436,12 @@ class Replay(_message.Message):
     map: Map
     turns: _containers.RepeatedCompositeFieldContainer[Turn]
     winner: Team
-    def __init__(self, map: _Optional[_Union[Map, _Mapping]] = ..., turns: _Optional[_Iterable[_Union[Turn, _Mapping]]] = ..., winner: _Optional[_Union[Team, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        map: _Optional[_Union[Map, _Mapping]] = ...,
+        turns: _Optional[_Iterable[_Union[Turn, _Mapping]]] = ...,
+        winner: _Optional[_Union[Team, str]] = ...,
+    ) -> None: ...
 
 class ResourceMove(_message.Message):
     __slots__ = ["resource_id", "to"]
@@ -309,7 +450,12 @@ class ResourceMove(_message.Message):
     TO_FIELD_NUMBER: _ClassVar[int]
     resource_id: int
     to: Pos
-    def __init__(self, to: _Optional[_Union[Pos, _Mapping]] = ..., resource_id: _Optional[int] = ..., **kwargs) -> None: ...
+    def __init__(
+        self,
+        to: _Optional[_Union[Pos, _Mapping]] = ...,
+        resource_id: _Optional[int] = ...,
+        **kwargs,
+    ) -> None: ...
 
 class Road(_message.Message):
     __slots__ = []
@@ -323,7 +469,12 @@ class Sentinel(_message.Message):
     ammo_amount: int
     ammo_type: ResourceType
     direction: Direction
-    def __init__(self, direction: _Optional[_Union[Direction, str]] = ..., ammo_type: _Optional[_Union[ResourceType, str]] = ..., ammo_amount: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        direction: _Optional[_Union[Direction, str]] = ...,
+        ammo_type: _Optional[_Union[ResourceType, str]] = ...,
+        ammo_amount: _Optional[int] = ...,
+    ) -> None: ...
 
 class SetActionCooldown(_message.Message):
     __slots__ = ["id", "value"]
@@ -331,7 +482,9 @@ class SetActionCooldown(_message.Message):
     VALUE_FIELD_NUMBER: _ClassVar[int]
     id: int
     value: int
-    def __init__(self, id: _Optional[int] = ..., value: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self, id: _Optional[int] = ..., value: _Optional[int] = ...
+    ) -> None: ...
 
 class SetMoveCooldown(_message.Message):
     __slots__ = ["id", "value"]
@@ -339,7 +492,9 @@ class SetMoveCooldown(_message.Message):
     VALUE_FIELD_NUMBER: _ClassVar[int]
     id: int
     value: int
-    def __init__(self, id: _Optional[int] = ..., value: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self, id: _Optional[int] = ..., value: _Optional[int] = ...
+    ) -> None: ...
 
 class Splitter(_message.Message):
     __slots__ = ["direction", "stored"]
@@ -347,22 +502,44 @@ class Splitter(_message.Message):
     STORED_FIELD_NUMBER: _ClassVar[int]
     direction: Direction
     stored: ResourceType
-    def __init__(self, direction: _Optional[_Union[Direction, str]] = ..., stored: _Optional[_Union[ResourceType, str]] = ...) -> None: ...
+    def __init__(
+        self,
+        direction: _Optional[_Union[Direction, str]] = ...,
+        stored: _Optional[_Union[ResourceType, str]] = ...,
+    ) -> None: ...
 
 class TileRow(_message.Message):
     __slots__ = ["tiles"]
     TILES_FIELD_NUMBER: _ClassVar[int]
     tiles: _containers.RepeatedScalarFieldContainer[Environment]
-    def __init__(self, tiles: _Optional[_Iterable[_Union[Environment, str]]] = ...) -> None: ...
+    def __init__(
+        self, tiles: _Optional[_Iterable[_Union[Environment, str]]] = ...
+    ) -> None: ...
 
 class Turn(_message.Message):
     __slots__ = ["updates"]
     UPDATES_FIELD_NUMBER: _ClassVar[int]
     updates: _containers.RepeatedCompositeFieldContainer[Update]
-    def __init__(self, updates: _Optional[_Iterable[_Union[Update, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self, updates: _Optional[_Iterable[_Union[Update, _Mapping]]] = ...
+    ) -> None: ...
 
 class Update(_message.Message):
-    __slots__ = ["bot_output", "builder_attack", "distribute_resources", "fire_turret", "indicator_dot", "indicator_line", "move_builder_bot", "place_entity", "remove_entity", "set_action_cooldown", "set_move_cooldown", "update_hp", "update_players"]
+    __slots__ = [
+        "bot_output",
+        "builder_attack",
+        "distribute_resources",
+        "fire_turret",
+        "indicator_dot",
+        "indicator_line",
+        "move_builder_bot",
+        "place_entity",
+        "remove_entity",
+        "set_action_cooldown",
+        "set_move_cooldown",
+        "update_hp",
+        "update_players",
+    ]
     BOT_OUTPUT_FIELD_NUMBER: _ClassVar[int]
     BUILDER_ATTACK_FIELD_NUMBER: _ClassVar[int]
     DISTRIBUTE_RESOURCES_FIELD_NUMBER: _ClassVar[int]
@@ -389,7 +566,22 @@ class Update(_message.Message):
     set_move_cooldown: SetMoveCooldown
     update_hp: UpdateHp
     update_players: UpdatePlayers
-    def __init__(self, place_entity: _Optional[_Union[PlaceEntity, _Mapping]] = ..., move_builder_bot: _Optional[_Union[MoveBuilderBot, _Mapping]] = ..., remove_entity: _Optional[_Union[RemoveEntity, _Mapping]] = ..., distribute_resources: _Optional[_Union[DistributeResources, _Mapping]] = ..., update_hp: _Optional[_Union[UpdateHp, _Mapping]] = ..., update_players: _Optional[_Union[UpdatePlayers, _Mapping]] = ..., set_action_cooldown: _Optional[_Union[SetActionCooldown, _Mapping]] = ..., set_move_cooldown: _Optional[_Union[SetMoveCooldown, _Mapping]] = ..., bot_output: _Optional[_Union[BotOutput, _Mapping]] = ..., indicator_line: _Optional[_Union[IndicatorLine, _Mapping]] = ..., indicator_dot: _Optional[_Union[IndicatorDot, _Mapping]] = ..., fire_turret: _Optional[_Union[FireTurret, _Mapping]] = ..., builder_attack: _Optional[_Union[BuilderAttack, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        place_entity: _Optional[_Union[PlaceEntity, _Mapping]] = ...,
+        move_builder_bot: _Optional[_Union[MoveBuilderBot, _Mapping]] = ...,
+        remove_entity: _Optional[_Union[RemoveEntity, _Mapping]] = ...,
+        distribute_resources: _Optional[_Union[DistributeResources, _Mapping]] = ...,
+        update_hp: _Optional[_Union[UpdateHp, _Mapping]] = ...,
+        update_players: _Optional[_Union[UpdatePlayers, _Mapping]] = ...,
+        set_action_cooldown: _Optional[_Union[SetActionCooldown, _Mapping]] = ...,
+        set_move_cooldown: _Optional[_Union[SetMoveCooldown, _Mapping]] = ...,
+        bot_output: _Optional[_Union[BotOutput, _Mapping]] = ...,
+        indicator_line: _Optional[_Union[IndicatorLine, _Mapping]] = ...,
+        indicator_dot: _Optional[_Union[IndicatorDot, _Mapping]] = ...,
+        fire_turret: _Optional[_Union[FireTurret, _Mapping]] = ...,
+        builder_attack: _Optional[_Union[BuilderAttack, _Mapping]] = ...,
+    ) -> None: ...
 
 class UpdateHp(_message.Message):
     __slots__ = ["delta", "id"]
@@ -397,7 +589,9 @@ class UpdateHp(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     delta: int
     id: int
-    def __init__(self, id: _Optional[int] = ..., delta: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self, id: _Optional[int] = ..., delta: _Optional[int] = ...
+    ) -> None: ...
 
 class UpdatePlayers(_message.Message):
     __slots__ = ["players"]
