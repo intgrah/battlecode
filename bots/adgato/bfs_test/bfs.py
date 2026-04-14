@@ -14,9 +14,8 @@ import math
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, Environment, Position
-from symmetry import Symmetry, mirror_idx
-
 from lib.visualiser.src.visualiser import Grid, Palette, VectorField, emit
+from symmetry import Symmetry, mirror_idx
 
 if TYPE_CHECKING:
     from collections.abc import Callable

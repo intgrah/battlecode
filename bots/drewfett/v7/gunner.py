@@ -5,7 +5,7 @@ from __future__ import annotations
 from cambc import Controller, Direction, EntityType, Environment, Position
 from marker import MarkerIdleGunner
 from unit import Unit
-from util import DIR4, DIR8
+from util import DIR8
 
 _IDLE_LIMIT = 15
 
@@ -56,8 +56,7 @@ class Gunner(Unit):
                         bbid = ct.get_tile_building_id(behind)
                         if bbid is not None and ct.get_team(bbid) != my_team:
                             bp = _target_priority(ct.get_entity_type(bbid))
-                            if bp > p:
-                                p = bp  # boost this direction's priority
+                            p = max(p, bp)  # boost this direction's priority
             elif bot_id is not None and ct.get_team(bot_id) != my_team:
                 p = _target_priority(EntityType.BUILDER_BOT)
             else:

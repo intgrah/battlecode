@@ -5,12 +5,12 @@ stage2 (core→foundry chain), plus replanning when tiles get blocked.
 from __future__ import annotations
 
 from astar import BuildInstruction, ChainAstar
-from cambc import Controller, EntityType, Environment, Position, Direction
+from cambc import Controller, EntityType, Environment, Position
 from env_tracker import EnvTracker
 from tile_codec import (
-    UNSEEN,
-    ENV_WALL,
     ENV_AX_ORE,
+    ENV_WALL,
+    UNSEEN,
     tile_building_type,
     tile_env,
     tile_is_allied,
@@ -124,7 +124,7 @@ class RaxPlan:
                     i += 1
                     continue
                 return i
-            if bt in _BUILDABLE or bt == EntityType.BARRIER and allied:
+            if bt in _BUILDABLE or (bt == EntityType.BARRIER and allied):
                 i += 1
                 continue
             return i
@@ -185,9 +185,8 @@ class RaxPlan:
             if tile_is_allied(cached):
                 if ct.can_destroy(pos):
                     ct.destroy(pos)
-            else:
-                if ct.can_fire(pos):
-                    ct.fire(pos)
+            elif ct.can_fire(pos):
+                ct.fire(pos)
 
         if entity == EntityType.CORE:
             # Special flag: destroy whatever allied building is at pos.
@@ -206,10 +205,8 @@ class RaxPlan:
 
         if entity in (EntityType.HARVESTER, EntityType.FOUNDRY):
             cached_env = self._tile_cache[pos.y * self.w + pos.x]
-            if (
-                entity == EntityType.FOUNDRY
-                or cached_env != UNSEEN
-                and tile_env(cached_env) != ENV_AX_ORE
+            if entity == EntityType.FOUNDRY or (
+                cached_env != UNSEEN and tile_env(cached_env) != ENV_AX_ORE
             ):
                 if not self._ensure_sides_covered(ct, pos):
                     return False

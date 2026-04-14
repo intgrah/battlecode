@@ -1,7 +1,8 @@
-from cambc import Controller, Environment, Direction
+from building import BuildingHarvester, BuildingRoad
+from cambc import Controller, Direction, Environment
+
 from .helpers import DIR4, try_move_adj_to
 from .state import State
-from building import BuildingHarvester, BuildingRoad
 
 
 def fix_enemy_conveyor(state: State, ct: Controller) -> bool:
@@ -41,7 +42,8 @@ def pave_near_harvesters(state: State, ct: Controller) -> bool:
     # route_to_core here.
 
     candidates = [
-        pos for pos in ct.get_nearby_tiles(8) 
+        pos
+        for pos in ct.get_nearby_tiles(8)
         if pos in state.adjacent_to_harvester and state.get_env(pos) != Environment.WALL
     ]
     maybe_unpaved = sorted(candidates, key=ct.get_position().distance_squared)
@@ -59,7 +61,7 @@ def pave_near_harvesters(state: State, ct: Controller) -> bool:
                 if building.team == my_team:
                     dir = d
                     break
-        
+
         is_road = isinstance(state.get_building(pos), BuildingRoad)
         moved = False
         if ct.get_position().distance_squared(pos) > 2 and (bid is None or is_road):
@@ -69,12 +71,12 @@ def pave_near_harvesters(state: State, ct: Controller) -> bool:
 
         if is_road and ct.can_destroy(pos):
             ct.destroy(pos)
-        
+
         if ct.can_build_conveyor(pos, dir):
             ct.build_conveyor(pos, dir)
             return True
 
         if moved:
             return False
-        
+
     return False

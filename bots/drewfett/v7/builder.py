@@ -1288,10 +1288,11 @@ def _destroy_friendly(
     if ct.get_team(bid) != ct.get_team():
         return
     etype = ct.get_entity_type(bid)
-    if etype == EntityType.ROAD or etype == EntityType.MARKER:
-        if ct.can_destroy(pos):
-            ct.destroy(pos)
-    elif allow_barrier and etype == EntityType.BARRIER:
+    if (
+        etype == EntityType.ROAD
+        or etype == EntityType.MARKER
+        or (allow_barrier and etype == EntityType.BARRIER)
+    ):
         if ct.can_destroy(pos):
             ct.destroy(pos)
 

@@ -397,9 +397,15 @@ def run_attack(state: State, ct: Controller) -> None:
         my_pos = ct.get_position()
         dist_to_me = my_pos.distance_squared
 
-        targets = [h for h in vulnerable_harvesters if not _enemy_healer_near(ct, h) and not _friendly_bot_adjacent(ct, h)]
+        targets = [
+            h
+            for h in vulnerable_harvesters
+            if not _enemy_healer_near(ct, h) and not _friendly_bot_adjacent(ct, h)
+        ]
         if not targets:
-            targets = [h for h in vulnerable_harvesters if not _enemy_healer_near(ct, h)]
+            targets = [
+                h for h in vulnerable_harvesters if not _enemy_healer_near(ct, h)
+            ]
         if not targets:
             targets = vulnerable_harvesters
 
@@ -492,7 +498,11 @@ def run_attack(state: State, ct: Controller) -> None:
             # up on approach over every possible enemy bot nearby is
             # worse: enemy bots are common around enemy harvesters
             # (building them), and we'd reject almost every target.
-            destinations = [dest for h in targets if (dest := _pick_attack_destination(state, ct, h, avoid_healers=False))]
+            destinations = [
+                dest
+                for h in targets
+                if (dest := _pick_attack_destination(state, ct, h, avoid_healers=False))
+            ]
             if not destinations:
                 # Original fallback: allow any walkable non-friendly-
                 # transport cardinal. This covers cases where
@@ -500,20 +510,20 @@ def run_attack(state: State, ct: Controller) -> None:
                 destinations = [
                     pos
                     for h in targets
-                    for pos in without_allied_transport(state, ct, open_tiles(state, ct, [h.add(d) for d in DIR4]))
+                    for pos in without_allied_transport(
+                        state, ct, open_tiles(state, ct, [h.add(d) for d in DIR4])
+                    )
                 ]
                 if not destinations:
                     scout_toward_enemy(state, ct)
                     return
 
-            
             nearest_dest = min(dist_to_me(d) for d in destinations)
             nearest_target = min(dist_to_me(h) for h in targets)
 
             if nearest_dest <= 2 or nearest_target < 9:
                 make_multi_move(state, ct, destinations)
             else:
-                
                 my_pos_adj = [my_pos.add(d) for d in DIR8]
                 adjacent_launchers = [
                     p
@@ -522,12 +532,17 @@ def run_attack(state: State, ct: Controller) -> None:
                 ]
 
                 nearest_destination = min(destinations, key=dist_to_me)
-                best_new_launcher = closest(nearest_destination, buildable(state, my_pos_adj))
+                best_new_launcher = closest(
+                    nearest_destination, buildable(state, my_pos_adj)
+                )
 
                 if (
                     adjacent_launchers
                     and state.is_walkable(nearest_destination)
-                    and min(nearest_destination.distance_squared(p) for p in adjacent_launchers)
+                    and min(
+                        nearest_destination.distance_squared(p)
+                        for p in adjacent_launchers
+                    )
                     <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
                 ):
                     pass
@@ -540,15 +555,9 @@ def run_attack(state: State, ct: Controller) -> None:
                     and try_place(ct, EntityType.LAUNCHER, best_new_launcher)
                 ):
                     state.offense_launcher = best_new_launcher
-                elif (
-                    state.offense_launcher
-                    and dist_to_me(state.offense_launcher) < 25
-                ):
+                elif state.offense_launcher and dist_to_me(state.offense_launcher) < 25:
                     make_move(state, ct, state.offense_launcher)
-                elif (
-                    state.offense_target
-                    and dist_to_me(state.offense_target) < 20
-                ):
+                elif state.offense_target and dist_to_me(state.offense_target) < 20:
                     make_move(state, ct, state.offense_target)
                 else:
                     make_multi_move(state, ct, targets)
@@ -556,7 +565,7 @@ def run_attack(state: State, ct: Controller) -> None:
         # refresh position after move
         my_pos = ct.get_position()
         dist_to_me = my_pos.distance_squared
-        
+
         if any(dist_to_me(h) == 1 for h in targets) and state.is_enemy_building(my_pos):
             try_attack(ct)
 

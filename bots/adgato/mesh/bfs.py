@@ -15,7 +15,6 @@ from array import array
 from typing import TYPE_CHECKING
 
 from cambc import Position
-
 from grid import PassableGrid
 from lib.visualiser.src.visualiser import VectorField, emit_dict
 

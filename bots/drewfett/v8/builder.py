@@ -13,7 +13,6 @@ import random
 from bbot_tracker import BbotTracker
 from builder_attack import Attack, _run_attack
 from builder_defense import _run_defense
-from flow import FlowModel
 from builder_econ import _run_econ
 from builder_helpers import (
     _find_core,
@@ -24,6 +23,7 @@ from builder_helpers import (
 from cambc import Controller, Direction, Environment, Position
 from core import OFFSET_TO_INDEX, role_for_spawn
 from explore import ExploreGrid
+from flow import FlowModel
 from nav import NavBfs
 from reachable import Reachable
 from state import State

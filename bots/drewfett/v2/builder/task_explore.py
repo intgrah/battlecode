@@ -17,6 +17,7 @@ from .helpers import move_toward_with_road
 
 if TYPE_CHECKING:
     from action import Action
+
     from .state import State
 
 

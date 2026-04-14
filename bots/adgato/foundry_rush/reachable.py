@@ -12,12 +12,11 @@ Internal grid is padded by 1 tile on each side (sentinel border).
 
 from __future__ import annotations
 
-from cambc import Environment, Position
 from astar import ChainAstar
-from symmetry import Symmetry, mirror_idx
-from tile_codec import tile_env, tile_building_type, tile_is_allied
-
+from cambc import Environment, Position
 from lib.visualiser.src.visualiser import Grid, Palette, emit
+from symmetry import Symmetry, mirror_idx
+from tile_codec import tile_building_type, tile_env, tile_is_allied
 
 # 8-neighbour offsets (computed from padded width in __init__).
 

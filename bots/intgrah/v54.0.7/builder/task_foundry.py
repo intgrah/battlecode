@@ -150,10 +150,14 @@ def task_place_splitter(state: State, ct: Controller) -> bool:
         n_conv = sum(
             1
             for p in _core_adj_tiles(state)
-            if isinstance(state.get_building(p), (BuildingConveyor, BuildingArmouredConveyor))
+            if isinstance(
+                state.get_building(p), (BuildingConveyor, BuildingArmouredConveyor)
+            )
             and state.get_building(p).team == ct.get_team()
         )
-        print(f"    splitter: has_ax={has_ax} has_splitter={_has_splitter_near_core(state, ct)} adj={n_adj} conv={n_conv} pair={pair is not None}")
+        print(
+            f"    splitter: has_ax={has_ax} has_splitter={_has_splitter_near_core(state, ct)} adj={n_adj} conv={n_conv} pair={pair is not None}"
+        )
     if pair is None:
         return False
     conv_pos, _fnd_pos = pair

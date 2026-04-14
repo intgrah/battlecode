@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING
 
 from builder_econ import _task_explore_enemy, _task_harvest
 from builder_helpers import (
-    _UNBUILDABLE_ENV,
     _GUNNER_OFFSETS,
     _SENTINEL_OFFSETS,
+    _UNBUILDABLE_ENV,
     _can_place_gunner,
     _clear_tile,
     _has_friendly_gunner_covering,

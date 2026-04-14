@@ -12,10 +12,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cambc import Controller, Direction, EntityType, Position
-from marker import TaskKind
-from util import COST_IMPASSABLE, DIR4_DELTA, DIR8, INF
-
 from action import (
     Action,
     Fire,
@@ -32,6 +28,9 @@ from action import (
     PlaceSplitter,
     SelfDestruct,
 )
+from cambc import Controller, Direction, EntityType, Position
+from marker import TaskKind
+from util import COST_IMPASSABLE, DIR4_DELTA, DIR8, INF
 
 if TYPE_CHECKING:
     from .state import State

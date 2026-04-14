@@ -113,6 +113,7 @@ OFFENSE_TASKS: list[TaskFn] = [
     _attack,
 ]
 
+
 def _splitter(s: State, ct: Controller) -> bool:
     return task_place_splitter(s, ct)
 

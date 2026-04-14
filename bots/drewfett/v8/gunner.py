@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from cambc import Controller, Direction, EntityType, Environment, Position
 from unit import Unit
-from util import DIR4, DIR8
+from util import DIR8
 
 _IDLE_LIMIT = 25
 
@@ -140,8 +140,7 @@ class Gunner(Unit):
                     bbid = ct.get_tile_building_id(behind)
                     if bbid is not None and ct.get_team(bbid) != my_team:
                         bp = _target_priority(ct.get_entity_type(bbid))
-                        if bp > p:
-                            p = bp
+                        p = max(p, bp)
             if p > best_priority:
                 best_priority = p
                 best_target = t
@@ -182,9 +181,8 @@ class Gunner(Unit):
                     if ct.get_entity_type(uid) == EntityType.BUILDER_BOT:
                         if max(abs(pos.x - upos.x), abs(pos.y - upos.y)) <= 3:
                             ally_nearby = True
-                else:
-                    if pos.distance_squared(upos) <= 20:
-                        enemy_nearby = True
+                elif pos.distance_squared(upos) <= 20:
+                    enemy_nearby = True
             if ally_nearby and not enemy_nearby:
                 ct.self_destruct()
 

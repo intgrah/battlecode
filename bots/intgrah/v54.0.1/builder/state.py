@@ -303,5 +303,3 @@ class State:
         )
         self.line_load_counts[i] = result
         return result
-
-

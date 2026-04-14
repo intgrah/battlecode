@@ -1,6 +1,6 @@
 """Core spawning logic. Ported from v2."""
 
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Direction, Position
 from unit import Unit
 
 _DIRECTIONS = tuple(d for d in Direction if d != Direction.CENTRE)

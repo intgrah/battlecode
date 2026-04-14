@@ -49,7 +49,9 @@ def task_harvest_ax(state: State, ct: Controller) -> bool:
     ax_target = _pick_ax_ore_target(state, ct)
     if ax_target is None:
         return False
-    if ct.get_position().distance_squared(ax_target) <= 2 and can_afford(ct, EntityType.HARVESTER):
+    if ct.get_position().distance_squared(ax_target) <= 2 and can_afford(
+        ct, EntityType.HARVESTER
+    ):
         try_place(ct, EntityType.HARVESTER, ax_target)
         return True
     make_move(state, ct, ax_target)
