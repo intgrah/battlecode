@@ -418,7 +418,7 @@ def run_attack(state: State, ct: Controller) -> None:
         my_pos = ct.get_position()
         sorted_harvesters = sorted(
             vulnerable_harvesters,
-            key=lambda p: my_pos.distance_squared(p),
+            key=my_pos.distance_squared,
         )
         target = None
         for h in sorted_harvesters:

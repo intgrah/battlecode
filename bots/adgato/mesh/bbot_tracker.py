@@ -32,7 +32,7 @@ class BbotTracker:
         my_team = ct.get_team()
         mid = ct.get_id()
         friendly = self.friendly
-        old = self.positions.copy()
+        self.positions.copy()
 
         # Update visible enemy builder bots
         seen_ids: set[int] = set()

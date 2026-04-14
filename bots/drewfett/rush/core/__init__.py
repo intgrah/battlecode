@@ -36,10 +36,7 @@ class Core(Unit):
                 return
 
         # First 4: no reserve. After that: heavy reserve — only spawn with excess.
-        if alive < 4:
-            reserve = 0
-        else:
-            reserve = builder_cost * 6
+        reserve = 0 if alive < 4 else builder_cost * 6
 
         if ti < builder_cost + reserve:
             return

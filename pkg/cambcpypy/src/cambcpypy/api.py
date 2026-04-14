@@ -12,7 +12,7 @@ console = Console()
 
 
 class ApiError(Exception):
-    def __init__(self, message: str, status: int = 0):
+    def __init__(self, message: str, status: int = 0) -> None:
         self.message = message
         self.status = status
         super().__init__(message)

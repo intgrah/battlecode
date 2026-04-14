@@ -161,7 +161,7 @@ class ChainAstar:
 
         if env == Environment.WALL:
             cls = IMPASSABLE
-        elif env == Environment.ORE_TITANIUM or env == Environment.ORE_AXIONITE:
+        elif env in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             cls = ORE
         else:
             cls = FRIENDLY_ROAD
@@ -213,9 +213,8 @@ class ChainAstar:
         within_budget: Callable[[], bool] = lambda: True,
     ) -> list[BuildInstruction] | None:
         # Spend remaining startup-round budget building the nb tables.
-        if not self._nb_done:
-            if not self._init_nb_chunk(within_budget):
-                return None
+        if not self._nb_done and not self._init_nb_chunk(within_budget):
+            return None
         return self._compute(within_budget)
 
     def draw_path(

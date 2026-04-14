@@ -12,11 +12,15 @@ Internal grid is padded by 1 tile on each side (sentinel border).
 
 from __future__ import annotations
 
-from astar import ChainAstar
+from typing import TYPE_CHECKING
+
 from cambc import Environment, Position
 from lib.visualiser.src.visualiser import Grid, Palette, emit
 from symmetry import Symmetry, mirror_idx
 from tile_codec import tile_building_type, tile_env, tile_is_allied
+
+if TYPE_CHECKING:
+    from astar import ChainAstar
 
 # 8-neighbour offsets (computed from padded width in __init__).
 
@@ -211,8 +215,8 @@ class Reachable:
         if not self._frontier:
             return None
         pw = self._pw
-        cx = self.w // 2
-        cy = self.h // 2
+        self.w // 2
+        self.h // 2
         kx = core_pos.x
         ky = core_pos.y
         px = cur_pos.x
@@ -220,7 +224,6 @@ class Reachable:
         best_pi = -1
         best_key = 1 << 30
 
-        c_w = 1 if sym == Symmetry.UNKNOWN else 0
         for pi in self._frontier:
             x = pi % pw - 1
             y = pi // pw - 1

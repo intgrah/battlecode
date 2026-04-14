@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from cambc import Controller
+from typing import TYPE_CHECKING
+
 from unit import Unit
+
+if TYPE_CHECKING:
+    from cambc import Controller
 
 
 class Gunner(Unit):

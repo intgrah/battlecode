@@ -14,9 +14,9 @@ from building import (
 )
 from cambc import Controller, EntityType, Environment, Position
 from util import INF, Symmetry
-from .flow import Flow
 
 from .algorithms.nav_bfs import NavBfs, PassableGrid
+from .flow import Flow
 
 if TYPE_CHECKING:
     from .role import Role
@@ -219,7 +219,7 @@ class State:
         if self.in_bounds(pos):
             return self.cost_grid[self._pidx(pos)]
         return INF
-    
+
     def get_flow(self, pos: Position) -> Flow:
         if not self.in_bounds(pos):
             return Flow(0, None)
