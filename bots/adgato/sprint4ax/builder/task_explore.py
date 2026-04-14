@@ -4,9 +4,9 @@ import math
 from typing import TYPE_CHECKING
 
 from cambc import Position
-from util import INF, DIR8, try_move
+from util import DIR8, INF, try_move
 
-from .helpers import find_path, try_move_with_build
+from .helpers import find_next, try_move_with_road
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -20,9 +20,8 @@ def _move_via_path(
     state: State, ct: Controller, target: Position, *, check_money: bool = True
 ) -> None:
     start = ct.get_position()
-    path = find_path(state, ct, start, target)
-    if path and len(path) > 1:
-        next_pos = path[1]
+    next_pos = find_next(state, ct, start, [target])
+    if next_pos:
         if check_money and ct.get_global_resources()[0] < 75:
             dirs = DIR8
             state.rng.shuffle(dirs)
@@ -31,7 +30,7 @@ def _move_via_path(
                 if try_move(ct, my_pos.add(d)):
                     break
         else:
-            try_move_with_build(state, ct, next_pos)
+            try_move_with_road(ct, next_pos)
 
 
 def explore(state: State, ct: Controller) -> None:
@@ -46,13 +45,7 @@ def explore(state: State, ct: Controller) -> None:
         or m.get_cost(t) == INF
     ):
         t = Position(-10, -10)
-        while (
-            t.x < 0
-            or t.y < 0
-            or t.x >= m.w
-            or t.y >= m.h
-            or m.get_cost(t) == INF
-        ):
+        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or m.get_cost(t) == INF:
             theta = state.rng.random() * 2 * math.pi
             t = Position(
                 ct.get_position().x + round(math.cos(theta) * state.scout_radius),
@@ -83,13 +76,7 @@ def initial_explore(state: State, ct: Controller, vertical: int = 0) -> None:
         or m.get_cost(t) == INF
     ):
         t = Position(-10, -10)
-        while (
-            t.x < 0
-            or t.y < 0
-            or t.x >= m.w
-            or t.y >= m.h
-            or m.get_cost(t) == INF
-        ):
+        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or m.get_cost(t) == INF:
             up_down = state.rng.randint(0, 1)
             theta = state.rng.random() * math.pi / 2
             if vertical == 0:
