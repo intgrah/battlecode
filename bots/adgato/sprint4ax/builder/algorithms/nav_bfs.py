@@ -19,12 +19,13 @@ ported intact.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType, Environment, Position
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from builder.state import State
 
 INF = 1_000_000
@@ -60,6 +61,8 @@ def _bfs_compute(
     """
     # Stop at the agent.
     qi = 0
+    q_append = q.append
+    cpu_time = ct.get_cpu_time_elapsed
     for node in q:
         if node == cur_idx:
             del q[:qi]
@@ -68,18 +71,19 @@ def _bfs_compute(
         for ni in pnb_push[node]:
             if d < dist[ni]:
                 dist[ni] = d
-                q.append(ni)
+                q_append(ni)
         for ni in pnb_set[node]:
             if d < dist[ni]:
                 dist[ni] = d
                 if ni == cur_idx:
-                    q.append(ni)
+                    q_append(ni)
         qi += 1
-        if ct.get_cpu_time_elapsed() > _BUDGET:
+        if cpu_time() > _BUDGET:
             del q[:qi]
             return False
     q.clear()
     return True
+
 
 class PassableGrid:
     """Padded-by-1 passability grid with incremental neighbour tables.
@@ -128,13 +132,13 @@ class PassableGrid:
         # `rebuild_pnb`'s tuple-unpack works the same way.
         self.offsets: tuple[int, ...] = (
             -pw + 1,  # NE
-            pw + 1,   # SE
-            pw - 1,   # SW
+            pw + 1,  # SE
+            pw - 1,  # SW
             -pw - 1,  # NW
-            -pw,      # N
-            1,        # E
-            pw,       # S
-            -1,       # W
+            -pw,  # N
+            1,  # E
+            pw,  # S
+            -1,  # W
         )
 
     @property
@@ -168,10 +172,7 @@ class PassableGrid:
             passable = True
         elif building_type == EntityType.CORE:
             passable = is_allied_building
-        elif (
-            building_type == EntityType.MARKER
-            or building_type in _WALKABLE_BUILDINGS
-        ):
+        elif building_type == EntityType.MARKER or building_type in _WALKABLE_BUILDINGS:
             passable = True
         else:
             passable = False
@@ -306,12 +307,6 @@ class NavBfs:
         self._cur_dist = -1
         self._cur_idx = -1
 
-        # Public-ish state to match `AStarSearch` / `MoveHeapAstar`
-        # for drop-in use as `move_search`.
-        self._running_target: Position | None = None
-        self._prev_target: Position | None = None
-        self._no_path = False
-        self._prev_no_path = False
 
     def mark_dirty(self) -> None:
         """Force a BFS restart on the next call."""
@@ -323,7 +318,7 @@ class NavBfs:
         if self._dist[pi] < self._cur_dist:
             self._dirty = True
 
-    def change_goal(self, goals: list[Position]) -> None:
+    def set_goal(self, goals: list[Position]) -> None:
         """Replace the goal list. Only marks dirty if the set changed."""
         pw = self.grid.pw
         new_gis = [(g.y + 1) * pw + (g.x + 1) for g in goals]
@@ -331,12 +326,6 @@ class NavBfs:
             return
         self._gis = new_gis
         self._dirty = True
-
-    def set_goal(self, goal: Position) -> None:
-        """Change to a single goal. Marks dirty only if it changed."""
-        gi = (goal.y + 1) * self.grid.pw + (goal.x + 1)
-        if len(self._gis) != 1 or self._gis[0] != gi:
-            self.change_goal([goal])
 
     def _restart(self) -> None:
         """Reset BFS state for a fresh backward search from goals."""
@@ -362,21 +351,9 @@ class NavBfs:
                         q.append(ni)
         self._resumable = True
 
-    def _compute(self, within_budget: Callable[[], bool]) -> bool:
-        """Run/resume backwards BFS. Returns True if the agent tile
-        has been reached (one level past it) or the queue is exhausted;
-        False if we bailed on CPU budget and want to resume next call."""
-        grid = self.grid
-        return _bfs_compute(
-            grid.pnb_push,
-            grid.pnb_set,
-            self._dist,
-            self._q,
-            self._cur_idx,
-            within_budget,
-        )
-
-    def _best_step(self, ct: Controller, start: Position, blocked: bool) -> Position | None:
+    def _best_step(
+        self, ct: Controller, start: Position
+    ) -> Position | None:
         """Scan the agent's 8 neighbours in the padded grid and pick
         the one with the lowest BFS dist. Breaks ties by step order
         in `grid.offsets` (deterministic)."""
@@ -389,8 +366,14 @@ class NavBfs:
         # Direction deltas aligned with grid.offsets order:
         # NE, SE, SW, NW, N, E, S, W.
         deltas = (
-            (1, -1), (1, 1), (-1, 1), (-1, -1),
-            (0, -1), (1, 0), (0, 1), (-1, 0),
+            (1, -1),
+            (1, 1),
+            (-1, 1),
+            (-1, -1),
+            (0, -1),
+            (1, 0),
+            (0, 1),
+            (-1, 0),
         )
         best_d = INF
         best_dx = 0
@@ -402,9 +385,9 @@ class NavBfs:
             d = dist[ni]
             pos = Position(start.x + dx, start.y + dy)
             bbid = ct.get_tile_builder_bot_id(pos)
-            if blocked and bbid is not None and bbid != my_bbid:
+            if bbid is not None and bbid != my_bbid:
                 continue
-            if d < best_d or d == best_d and ct.is_tile_passable(pos):
+            if d < best_d or (d == best_d and ct.is_tile_passable(pos)):
                 best_d = d
                 best_dx = dx
                 best_dy = dy
@@ -414,14 +397,10 @@ class NavBfs:
 
     def search(
         self,
-        _state: State,
         ct: Controller,
         start: Position,
-        target: Position,
-        blocked: bool = False
-    ) -> list[Position] | None:
-        """Same contract as `AStarSearch.search`: returns a 2-element
-        `[start, next_step]` path or None."""
+        goals: list[Position],
+    ) -> Position | None:
         grid = self.grid
         pw = grid.pw
 
@@ -430,63 +409,46 @@ class NavBfs:
         # ready BFS can't run.
         if not grid.ready:
             grid.init_pnb_chunk(ct)
-            return None
+            if ct.get_cpu_time_elapsed() > _BUDGET:
+                return None
 
         # Apply any passability changes accumulated since last turn.
         if grid.has_dirty_pnb:
             grid.rebuild_pnb()
 
         if ct.get_move_cooldown() > 0:
-            return
+            return None
 
-        # Update the goal if it changed.
-        self.set_goal(target)
+        self.set_goal(goals)
 
         self._cur_idx = (start.y + 1) * pw + (start.x + 1)
 
         if self._dirty:
             self._restart()
             self._dirty = False
-        elif (
-            not self._resumable
-            and self._dist[self._cur_idx] >= INF
-            and self._q
-        ):
+        elif not self._resumable and self._dist[self._cur_idx] >= INF and self._q:
             self._resumable = True
 
         if self._resumable:
-            finished = self._compute(ct)
-            if finished:
-                self._resumable = bool(self._q)
+            _bfs_compute(
+                grid.pnb_push,
+                grid.pnb_set,
+                self._dist,
+                self._q,
+                self._cur_idx,
+                ct
+            )
+            self._resumable = bool(self._q)
 
         cd = self._dist[self._cur_idx]
         self._cur_dist = cd if cd < INF else -1
-        self._running_target = target
-        self._prev_target = target
         if self._cur_dist < 0:
-            self._no_path = True
-            self._prev_no_path = True
             return None
 
-        next_step = self._best_step(ct, start, blocked)
+        next_step = self._best_step(ct, start)
         if next_step is None:
-            self._no_path = True
-            self._prev_no_path = True
             return None
-        self._no_path = False
-        self._prev_no_path = False
-        return [start, next_step]
-
-    def search_blocked(
-        self,
-        state: State,
-        ct: Controller,
-        start: Position,
-        goal: Position,
-    ) -> list[Position] | None:
-        """Prefer to move away rather than be stuck against a builder bot (only happens in tight areas)"""
-        # TODO do we actually need to distinguish between blocked navigation and not?
-        return self.search(state, ct, start, goal, blocked=True)
+        return next_step
 
     def nearest_goal(self, ct: Controller) -> Position | None:
         """Walk the BFS distance field from the agent toward a goal.
@@ -527,6 +489,3 @@ class NavBfs:
             return None
         return Position(pi % pw - 1, pi // pw - 1)
 
-    @property
-    def no_path(self) -> bool:
-        return self._prev_no_path
