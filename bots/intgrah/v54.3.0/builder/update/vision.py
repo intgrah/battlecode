@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 def update_vision(self: Builder, ct: Controller) -> None:
     w = self.w
     pad = self.pad
-    pw = self.pw
+    pw = self.pad_w
     my_team = ct.get_team()
     for pos in self.nearby_positions:
         i = pos.y * w + pos.x

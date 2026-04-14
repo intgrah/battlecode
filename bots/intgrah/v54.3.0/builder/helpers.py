@@ -164,11 +164,6 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
     return path
 
 
-def is_enemy_building(self: Builder, ct: Controller, pos: Position) -> bool:
-    b = self.get_building(pos)
-    return b is not None and b.team != ct.get_team()
-
-
 def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
     b = self.get_building(pos)
     if b is not None and not isinstance(b, BuildingRoad):

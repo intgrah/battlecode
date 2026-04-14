@@ -53,7 +53,7 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
 
 def update_map_econ(self: Builder, ct: Controller) -> None:
     pad = self.pad
-    pw = self.pw
+    pw = self.pad_w
     self.adjacent_to_unconnected_harvester = {
         p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
@@ -106,8 +106,7 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
 
     my_position = ct.get_position()
-    if self.nearest_junction_site and not can_place_junction(
-        self,
+    if self.nearest_junction_site and not self.can_place_junction(
         ct,
         self.nearest_junction_site,
     ):
@@ -121,7 +120,7 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 self.nearest_junction_site.distance_squared(my_position)
                 < pos.distance_squared(my_position)
             )
-        ) and can_place_junction(self, ct, pos):
+        ) and self.can_place_junction(ct, pos):
             self.nearest_junction_site = pos
 
 
