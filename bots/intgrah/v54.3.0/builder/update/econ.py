@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from building import (
     BuildingArmouredConveyor,
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-_FLOW_PENALTY = (0, 0, 0, 0, 1, 3, 10, 50, 500)
+_FLOW_PENALTY: Final = (0, 0, 0, 0, 1, 3, 10, 50, 500)
 
 
 def can_place_junction(self: Builder, pos: Position) -> bool:
