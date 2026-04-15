@@ -565,19 +565,15 @@ def run_attack(self: Builder, ct: Controller) -> None:
 
 def scout_toward_enemy(self: Builder, ct: Controller) -> None:
     en_core = get_enemy_core_pos(self)
-    if (
-        self.my_pos.distance_squared(en_core)
-        <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ
-    ):
+
+    if en_core in self.nearby_tiles:
         self.en_core = True
 
     if not self.en_core:
         make_move(self, ct, en_core)
-    elif self.my_pos.distance_squared(
-        en_core,
-    ) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ or self.ti >= (
+    elif en_core in self.nearby_tiles or self.ti >= (
         GameConstants.HARVESTER_BASE_COST[0] + 50
-    ) * (1 + ct.get_scale_percent() / 100):
+    ) * (1 + self.scale):
         explore(self, ct)
     else:
         dir8 = DIR8.copy()

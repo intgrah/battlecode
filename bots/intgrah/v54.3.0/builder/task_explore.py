@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from cambc import Position
 from util import DIR8, INF
 
-from builder.algorithms.astar import pathfind_blocked
+from builder.algorithms.astar import move_search
 from builder.helpers import try_move_dir, try_move_with_road
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ def _move_via_path(
     *,
     check_money: bool = True,
 ) -> None:
-    path = pathfind_blocked(self, ct, self.my_pos, target)
+    path = move_search.search_blocked(self, ct, self.my_pos, target)
     if path and len(path) > 1:
         next_pos = path[1]
         if check_money and self.ti < 75:

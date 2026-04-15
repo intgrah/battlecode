@@ -13,7 +13,7 @@ from building import (
 from cambc import Controller, Direction, EntityType, Environment, Position
 from util import BASE_COST, DIR4, DIR8, INF, Symmetry, closest
 
-from builder.algorithms.astar import pathfind_blocked
+from builder.algorithms.astar import move_search
 from builder.algorithms.bugnav import bugnav
 
 if TYPE_CHECKING:
@@ -24,7 +24,7 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     if self.my_pos == target:
         return True
 
-    path = pathfind_blocked(self, ct, self.my_pos, target)
+    path = move_search.search_blocked(self, ct, self.my_pos, target)
     if path is not None and len(path) > 1:
         next_step = path[1]
         try_move_with_road(self, ct, next_step)
