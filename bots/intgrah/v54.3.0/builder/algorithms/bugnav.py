@@ -62,8 +62,6 @@ def bugnav_step(
 
     cost_grid = self.cost_grid
     w, h = self.w, self.h
-    pad = self.pad
-    pw = self.pad_w
 
     if self.my_pos == target:
         return None
@@ -86,7 +84,7 @@ def bugnav_step(
         if (
             0 <= next_pos.x < w
             and 0 <= next_pos.y < h
-            and cost_grid[(next_pos.y + pad) * pw + (next_pos.x + pad)] != INF
+            and cost_grid[next_pos.y * w + next_pos.x] is not INF
             and next_pos not in blocked
         ):
             return next_pos
@@ -118,7 +116,7 @@ def bugnav_step(
             if not (0 <= n.x < w and 0 <= n.y < h):
                 continue
 
-            if cost_grid[(n.y + pad) * pw + (n.x + pad)] != INF and n not in blocked:
+            if cost_grid[n.y * w + n.x] is not INF and n not in blocked:
                 return n
 
     return None

@@ -21,29 +21,6 @@ P_COST = Palette(
     stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
     special={-1: TRANSPARENT},
 )
-P_BOOL = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)],
-    special={0: TRANSPARENT},
-)
-P_GREEN = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
-    special={0: TRANSPARENT},
-)
-P_RED = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)],
-    special={0: TRANSPARENT},
-)
-
-
-def _unpad(self: Builder, grid: list[int]) -> list[int]:
-    """Extract the real w*h interior from a padded pw*ph cost grid."""
-    w, h, pad, pw = self.w, self.h, self.pad, self.pad_w
-    out: list[int] = [0] * (w * h)
-    for y in range(h):
-        row_start = (y + pad) * pw + pad
-        for x in range(w):
-            out[y * w + x] = grid[row_start + x]
-    return out
 
 
 def dump(self: Builder, _ct: Controller) -> None:
@@ -53,11 +30,11 @@ def dump(self: Builder, _ct: Controller) -> None:
             palette=P_FOG,
         ),
         cost=Grid(
-            [c if c < 1e6 else -1 for c in _unpad(self, self.cost_grid)],
+            [c if c < 1e6 else -1 for c in self.cost_grid],
             palette=P_COST,
         ),
         conv_cost=Grid(
-            [c if c < 1e6 else -1 for c in _unpad(self, self.conveyor_cost_grid)],
+            [c if c < 1e6 else -1 for c in self.conveyor_cost_grid],
             palette=P_COST,
         ),
         enemy_launcher=Tiles(

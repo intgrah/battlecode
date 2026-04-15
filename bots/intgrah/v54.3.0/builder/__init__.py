@@ -170,28 +170,23 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
 class Builder(Unit):
     def update_pnb(self, i: int) -> None:
         w, h = self.w, self.h
-        pw = self.pad_w
-        pad = self.pad
         cost_grid = self.cost_grid
         pnb = self.pnb
         cx, cy = i % w, i // w
-        pi = (cy + pad) * pw + (cx + pad)
-        passable = cost_grid[pi] is not INF
+        passable = cost_grid[i] is not INF
         pnb[i] = []
         if passable:
             for dx, dy in DIR8_DELTA:
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
-                    npi = (ny + pad) * pw + (nx + pad)
-                    if cost_grid[npi] is not INF:
+                    if cost_grid[ni] is not INF:
                         pnb[i].append(ni)
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
-                npi = (ny + pad) * pw + (nx + pad)
-                if cost_grid[npi] is INF:
+                if cost_grid[ni] is INF:
                     continue
                 nb_list = pnb[ni]
                 if passable:
@@ -218,17 +213,6 @@ class Builder(Unit):
         w, h = self.w, self.h
         n: Final[int] = w * h
 
-        # Padded cost-grid dimensions. A 3-tile border on every side
-        # gives A* unconditional neighbor lookups for the bridge
-        # r²≤9 set — any out-of-bounds neighbor lands on the padding
-        # which is permanently INF, so the inner loop drops bounds
-        # checks entirely. Only `cost_grid` and `conveyor_cost_grid`
-        # use the padded layout; env/buildings/hp/... stay real-sized.
-        self.pad: Final[int] = 3
-        self.pad_w: Final[int] = w + 2 * self.pad
-        self.pad_h: Final[int] = h + 2 * self.pad
-        pad_n: Final[int] = self.pad_w * self.pad_h
-
         self.env: list[Environment | None] = [None] * n
         """Wall, Empty, Ti ore, Ax ore per tile."""
         self.building_ids: list[int | None] = [None] * n
@@ -240,12 +224,10 @@ class Builder(Unit):
         self.max_hp: list[int] = [0] * n
         """Max hitpoints of building on tile."""
 
-        # Padded cost grids: border = INF, interior initialised to
-        # the default cost for an unseen tile. Real tile (x, y) lives
-        # at padded index (y + pad) * pw + (x + pad).
-        self.cost_grid: list[int] = [INF] * pad_n
-        self.conveyor_cost_grid: list[int] = [INF] * pad_n
-        self._init_pad_interior()
+        self.cost_grid: list[int] = [1] * n
+        """Movement cost per tile. INF = impassable, 1 = road/walkable, ROAD_COST = empty."""
+        self.conveyor_cost_grid: list[int] = [5] * n
+        """Conveyor routing cost per tile. Higher = less preferred."""
 
         offsets = [dy * w + dx for dx, dy in DIR8_DELTA]
         pnb: list[list[int]] = [[] for _ in range(n)]
@@ -371,30 +353,6 @@ class Builder(Unit):
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
 
-    def _init_pad_interior(self) -> None:
-        """Seed interior cells of the padded cost grids. The border
-        was already filled with INF by the constructor.
-        """
-        pad = self.pad
-        pw = self.pad_w
-        w = self.w
-        h = self.h
-        # cost_grid interior default: 1 (seen-empty equivalent, will
-        # be overwritten when tiles come into vision).
-        # conveyor_cost_grid interior default: 5 (unseen penalty so
-        # A* doesn't plan long fog detours through unmapped terrain).
-        cg = self.cost_grid
-        ccg = self.conveyor_cost_grid
-        for y in range(h):
-            row_start = (y + pad) * pw + pad
-            for x in range(w):
-                cg[row_start + x] = 1
-                ccg[row_start + x] = 5
-
-    def _pidx(self, pos: Position) -> int:
-        """Padded flat index for cost_grid / conveyor_cost_grid."""
-        return (pos.y + self.pad) * self.pad_w + (pos.x + self.pad)
-
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
 
@@ -402,10 +360,10 @@ class Builder(Unit):
         return self.buildings[self.idx(pos)]
 
     def get_cost(self, pos: Position) -> int:
-        return self.cost_grid[self._pidx(pos)]
+        return self.cost_grid[self.idx(pos)]
 
     def is_passable(self, pos: Position) -> bool:
-        return self.cost_grid[self._pidx(pos)] < INF
+        return self.cost_grid[self.idx(pos)] is not INF
 
     def is_walkable(self, pos: Position) -> bool:
         if not self.is_passable(pos):
