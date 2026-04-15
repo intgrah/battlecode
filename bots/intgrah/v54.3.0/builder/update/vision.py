@@ -175,11 +175,12 @@ def update_vision(self: Builder, ct: Controller) -> None:
         pi = self._pidx(pos)
         env = ct.get_tile_env(pos)
         bid = ct.get_tile_building_id(pos)
+        env_changed = self.env[i] != env
         bld_changed = self.building_ids[i] != bid
         self.env[i] = env
         self.building_ids[i] = bid
 
-        if bld_changed:
+        if bld_changed or env_changed:
             _remove_topology(self, pos, i)
             if bid is not None:
                 bld = make_building(ct, bid, ct.get_entity_type(bid))

@@ -38,6 +38,8 @@ def can_place_junction(self: Builder, pos: Position) -> bool:
     buildable_count = 0
     for d in DIR4:
         new_pos = pos.add(d)
+        if not self.in_bounds(new_pos):
+            continue
         if self.get_env(new_pos) != Environment.EMPTY:
             continue
         match self.get_building(new_pos):
@@ -67,7 +69,10 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
             case BuildingHarvester():
                 adjacent_conveyor = False
                 for d in DIR4:
-                    match self.get_building(pos.add(d)):
+                    n = pos.add(d)
+                    if not self.in_bounds(n):
+                        continue
+                    match self.get_building(n):
                         case (
                             BuildingConveyor(team=self.my_team)
                             | BuildingBridge(team=self.my_team)
