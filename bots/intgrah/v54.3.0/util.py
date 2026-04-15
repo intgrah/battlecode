@@ -106,6 +106,4 @@ def can_afford(ct: Controller, etype: EntityType) -> bool:
 
 
 def closest(target: Position, positions: list[Position]) -> Position | None:
-    if len(positions) == 0:
-        return None
-    return min(positions, key=target.distance_squared)
+    return min(positions, key=target.distance_squared, default=None)

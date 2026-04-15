@@ -193,7 +193,7 @@ class MoveHeapAstar:
         pad = state.pad
         saved: list[tuple[int, int]] = []
         for pos in state.nearby_tiles:
-            if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
+            if pos in state.all_bots and pos != start:
                 idx = (pos.y + pad) * pw + (pos.x + pad)
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF

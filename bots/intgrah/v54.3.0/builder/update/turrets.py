@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import BuildingGunner, BuildingSentinel
-from cambc import Controller, Environment
+from cambc import Environment
 from util import DIR4, DIR8, INF
 
 if TYPE_CHECKING:
     from builder import Builder
 
 
-def update_ore_denial(self: Builder, ct: Controller) -> None:
+def update_ore_denial(self: Builder) -> None:
     w = self.w
     self.deny_ore_neighbours = set()
     for pos in self.nearby_tiles:
@@ -26,11 +26,9 @@ def update_ore_denial(self: Builder, ct: Controller) -> None:
             if nb is not None and nb.team != self.my_team:
                 has_enemy = True
                 break
-            if ct.is_in_vision(n):
-                uid = ct.get_tile_builder_bot_id(n)
-                if uid is not None and ct.get_team(uid) != self.my_team:
-                    has_enemy = True
-                    break
+            if n in self.enemy_bots:
+                has_enemy = True
+                break
         if has_enemy:
             for d in DIR4:
                 n = pos.add(d)

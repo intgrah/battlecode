@@ -102,7 +102,7 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
 
 
-def update_dangling(self: Builder, ct: Controller) -> None:
+def update_dangling(self: Builder) -> None:
     if is_dangling(self, self.my_pos):
         self.dangling_output = self.my_pos
     else:
@@ -120,14 +120,14 @@ def update_dangling(self: Builder, ct: Controller) -> None:
     if self.pending_bridge:
         self.dangling_output = self.pending_bridge
     elif self.dangling_output is None or not is_dangling(self, self.dangling_output):
-        self.dangling_output = find_dangling(self, ct)
+        self.dangling_output = find_dangling(self)
 
 
-def update_ore_target(self: Builder, ct: Controller) -> None:
-    candidate_ore = pick_ore_target(self, ct)
+def update_ore_target(self: Builder) -> None:
+    candidate_ore = pick_ore_target(self)
     if (
         not self.ore_target
-        or not ore_available(self, ct, self.ore_target)
+        or not ore_available(self, self.ore_target)
         or (
             candidate_ore
             and candidate_ore.distance_squared(self.my_pos) <= 2

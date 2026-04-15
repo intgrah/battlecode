@@ -163,18 +163,14 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
     return path
 
 
-def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
+def ore_available(self: Builder, pos: Position) -> bool:
     b = self.get_building(pos)
     if b is not None and not isinstance(b, BuildingRoad):
         return False
-    if ct.is_in_vision(pos):
-        worker_id = ct.get_tile_builder_bot_id(pos)
-        if worker_id is not None and worker_id != self.my_id:
-            return False
-    return True
+    return not (pos in self.all_bots and self.all_bots[pos] != self.my_id)
 
 
-def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
+def pick_ore_target(self: Builder) -> Position | None:
     best_target = None
     min_dist = INF
     for pos in self.nearby_tiles:
@@ -190,7 +186,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
             d = self.bfs_dist[pos.y * self.w + pos.x]
             if d >= INF:
                 continue
-            if ore_available(self, ct, pos) and d < min_dist:
+            if ore_available(self, pos) and d < min_dist:
                 min_dist = d
                 best_target = pos
     return best_target
@@ -211,31 +207,23 @@ def is_dangling(self: Builder, pos: Position) -> bool:
     return pos in self.adjacent_to_unconnected_harvester
 
 
-def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_valid_loose_end_target(self: Builder, pos: Position) -> bool:
     if not is_dangling(self, pos):
         return False
-    if ct.is_in_vision(pos):
-        bid = ct.get_tile_builder_bot_id(pos)
-        friendly = ct.get_team(bid) == self.my_team
-        if bid is not None and bid != self.my_id and friendly:
-            return False
-    leading = self.get_conveyors_to_here(pos)
-    for lpos in leading:
-        if not ct.is_in_vision(lpos):
-            continue
-        lbid = ct.get_tile_builder_bot_id(lpos)
-        friendly = ct.get_team(lbid) == self.my_team
-        if lbid is not None and lbid != self.my_id and friendly:
+    if pos in self.friendly_bots:
+        return False
+    for lpos in self.get_conveyors_to_here(pos):
+        if lpos in self.friendly_bots:
             return False
     return True
 
 
-def find_dangling(self: Builder, ct: Controller) -> Position | None:
+def find_dangling(self: Builder) -> Position | None:
     w = self.w
     candidates = [
         pos
         for pos in self.nearby_tiles
-        if is_valid_loose_end_target(self, ct, pos)
+        if is_valid_loose_end_target(self, pos)
         and self.bfs_dist[pos.y * w + pos.x] < INF
     ]
     if not candidates:
