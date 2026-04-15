@@ -11,7 +11,6 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position, Team
 from util import DIR4, get_direction_object
 
-from builder.algorithms.econ_astar import conv_search
 from builder.helpers import can_afford, make_move, ore_available, try_move_with_road
 
 if TYPE_CHECKING:
@@ -103,7 +102,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
 
         preferred_dirs = []
         if self.my_core:
-            path = conv_search.search(self, ct, self.my_pos, self.my_core)
+            path = self.conv_search.search(ct, self.my_pos, self.my_core)
             if path and len(path) > 1:
                 next_pos = path[1]
                 d = get_direction_object(self.my_pos, next_pos)
@@ -139,7 +138,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                     return True
             else:
                 target_n = unpaved_neighbors[0]
-                path = conv_search.search_blocked(self, ct, self.my_pos, target_n)
+                path = self.conv_search.search_blocked(ct, self.my_pos, target_n)
                 if path and len(path) > 1:
                     try_move_with_road(self, ct, path[1])
                     return True

@@ -12,7 +12,6 @@ from util import (
     reachable_path_end,
 )
 
-from builder.algorithms.econ_astar import conv_search
 from builder.helpers import (
     can_afford,
     make_move,
@@ -216,7 +215,7 @@ def route_to(
         else:
             return
 
-    path = conv_search.search(self, ct, start, target)
+    path = self.conv_search.search(ct, start, target)
     if path:
         path_start_index = 0
         for i, pos in enumerate(path):
@@ -226,7 +225,7 @@ def route_to(
         path = path[path_start_index:]
 
     if chebyshev(current_pos, start) <= 1:
-        if not path or (conv_search.unreachable(target) and not path) or len(path) < 2:
+        if not path or len(path) < 2:
             return
         lay_segment(self, ct, start, path)
     make_move(self, ct, start)

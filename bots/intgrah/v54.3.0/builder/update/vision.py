@@ -215,6 +215,11 @@ def update_vision(self: Builder, ct: Controller) -> None:
                 self.healable_buildings.append(pos)
 
             match bld:
-                case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
+                case (
+                    BuildingConveyor()
+                    | BuildingArmouredConveyor()
+                    | BuildingBridge()
+                    | BuildingSplitter()
+                ):
                     # Since maxlen=8, this pops from another end if full.
                     self.flow_history[i].append(ct.get_stored_resource(bid))
