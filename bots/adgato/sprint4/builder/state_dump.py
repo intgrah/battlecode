@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from visualiser import Grid, Palette, Scalar, Tiles, emit
-from .flow import Flow, FLOW_TI, FLOW_AX, FLOW_RAX
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -34,16 +33,7 @@ P_RED = Palette(
     stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)],
     special={0: TRANSPARENT},
 )
-P_FLOW = Palette(
-    stops=[],
-    special={
-        0: TRANSPARENT,
-        1: (0, 60, 0, 60),
-        2: (0, 100, 0, 100),
-        3: (0, 160, 0, 160),
-        4: (0, 220, 0, 220),
-    },
-)
+
 
 def _unpad(grid: list[int], state: State) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""
@@ -57,15 +47,6 @@ def _unpad(grid: list[int], state: State) -> list[int]:
 
 
 def dump(state: State, _ct: Controller) -> None:
-
-    flows = [f.get_flow() for f in state.flow]
-
-    crnd = _ct.get_current_round()
-    patrol = [0] * len(state.env)
-    for pos, rnd, scale in state.patrol_queue:
-        i = pos.y * state.w + pos.x
-        patrol[i] = scale * (crnd - rnd)
-
     emit(
         unseen=Grid(
             [0.0 if e is not None else 1.0 for e in state.env],
@@ -75,25 +56,9 @@ def dump(state: State, _ct: Controller) -> None:
             [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
             palette=P_COST,
         ),
-        ti_flow=Grid(
-            [f[FLOW_TI] for f in flows],
-            palette=P_FLOW,
-        ),
-        ax_flow=Grid(
-            [f[FLOW_AX] for f in flows],
-            palette=P_FLOW,
-        ),
-        rax_flow=Grid(
-            [f[FLOW_RAX] for f in flows],
-            palette=P_FLOW,
-        ),
         conv_cost=Grid(
             [c if c < 1e6 else -1 for c in _unpad(state.conveyor_cost_grid, state)],
             palette=P_COST,
-        ),
-        patrol=Grid(
-            patrol,
-            palette=P_RED,
         ),
         enemy_launcher=Tiles(
             [(p.x, p.y) for p in state.adjacent_to_enemy_launcher],
@@ -104,4 +69,7 @@ def dump(state: State, _ct: Controller) -> None:
         harvester_adjacent=Tiles(
             [(p.x, p.y) for p in state.adjacent_to_harvester],
         ),
+        symmetry=Scalar(str(state.symmetry)),
+        symmetry_candidates=Scalar(str(state.symmetry_candidates)),
+        role=Scalar(str(state.role)),
     )
