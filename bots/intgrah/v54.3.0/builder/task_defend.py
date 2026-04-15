@@ -111,7 +111,10 @@ def sentinel_facing(
     found_harvester = False
     for harvester_direction in DIR4:
         if harvester_direction != d:
-            match self.get_building(position.add(harvester_direction)):
+            hn = position.add(harvester_direction)
+            if not self.in_bounds(hn):
+                continue
+            match self.get_building(hn):
                 case BuildingHarvester():
                     found_harvester = True
     if not found_harvester:

@@ -432,7 +432,10 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 n_gunner = 0
                 n_sentinel = 0
                 for d in DIR4:
-                    nb = self.get_building(target.add(d))
+                    n = target.add(d)
+                    if not self.in_bounds(n):
+                        continue
+                    nb = self.get_building(n)
                     if nb is None or nb.team != self.my_team:
                         continue
                     if isinstance(nb, BuildingGunner):
