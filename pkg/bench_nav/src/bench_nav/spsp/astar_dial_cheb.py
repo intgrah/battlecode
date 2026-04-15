@@ -27,12 +27,11 @@ def astar_dial_cheb(
             popleft = bki.popleft
             while bki:
                 node = popleft()
-                h_node = max(abs(node % w - goal_x), abs(node // w - goal_y))
-                if g[node] + h_node != f:
+                g_node = g[node]
+                if g_node + max(abs(node % w - goal_x), abs(node // w - goal_y)) != f:
                     continue
                 if node == goal:
                     return extract_parent(parent, start, goal)
-                g_node = g[node]
                 for nb in pnb[node]:
                     nd = g_node + cost[nb]
                     if nd < g[nb]:
