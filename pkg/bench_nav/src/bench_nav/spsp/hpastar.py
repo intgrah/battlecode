@@ -108,7 +108,7 @@ class GatewayGraph:
         return x0, y0, x1, y1
 
     def _is_passable(self, x: int, y: int) -> bool:
-        return self._cost[y * self._w + x] < INF
+        return self._cost[y * self._w + x] is not INF
 
     def _cluster_neighbors(self, ci: int) -> list[int]:
         cw, ch = self._cw, self._ch
@@ -283,7 +283,7 @@ class GatewayGraph:
             for gj in gws[i + 1 :]:
                 tj = self._gw_tile[gj]
                 d = dist.get(tj, INF)
-                if d < INF:
+                if d is not INF:
                     self._gw_adj[gi].append((gj, d))
                     self._gw_adj[gj].append((gi, d))
 
@@ -307,7 +307,7 @@ class GatewayGraph:
             for gj in gws[i + 1 :]:
                 tj = self._gw_tile[gj]
                 d = dist.get(tj, INF)
-                if d < INF:
+                if d is not INF:
                     self._gw_adj[gi].append((gj, d))
                     self._gw_adj[gj].append((gi, d))
 
@@ -390,7 +390,7 @@ class GatewayGraph:
                     continue
                 nd = d + c
                 if nd < dist[ni]:
-                    if dist[ni] == INF:
+                    if dist[ni] is INF:
                         touched.append(ni)
                     dist[ni] = nd
                     parent[ni] = node
@@ -738,7 +738,7 @@ class GatewayGraph:
         best = INF
         for dgi, dc in dst_dist.items():
             d = gw_dist.get(dgi, INF)
-            if d < INF:
+            if d is not INF:
                 total = d + dc
                 best = min(best, total)
         return best
