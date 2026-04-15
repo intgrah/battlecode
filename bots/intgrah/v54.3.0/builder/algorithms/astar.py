@@ -41,13 +41,14 @@ class MoveHeapAstar:
         self.pad = state.pad
         pn = state.pad_w * state.pad_h
         self.dist = [INF] * pn
+        self._visited_reset = bytes((pn + 7) // 8)
 
     def _reset(self, state: Builder) -> None:
         pn = state.pad_w * state.pad_h
         if len(self.dist) != pn:
             self._init_grid(state)
         self._no_path = False
-        self.visited = bytearray((pn + 7) // 8)
+        self.visited = bytearray(self._visited_reset)
         self.q = []
 
     def _extract_path(
@@ -191,7 +192,7 @@ class MoveHeapAstar:
         pw = state.pad_w
         pad = state.pad
         saved: list[tuple[int, int]] = []
-        for pos in ct.get_nearby_tiles():
+        for pos in state.nearby_tiles:
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
                 idx = (pos.y + pad) * pw + (pos.x + pad)
                 saved.append((idx, cost[idx]))

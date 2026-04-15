@@ -14,7 +14,7 @@ from building import (
     BuildingSplitter,
     make_building,
 )
-from cambc import Controller, EntityType, Environment, GameConstants, ResourceType
+from cambc import Controller, EntityType, Environment, GameConstants
 from util import DIR8, INF, ROAD_COST
 
 if TYPE_CHECKING:
@@ -110,7 +110,9 @@ def _update_cost(
     self.conveyor_cost_grid[pi] = conveyor_cost
 
 
-def _update_turret_rays(self: Builder, ct: Controller, pos: Position, bld: object) -> None:
+def _update_turret_rays(
+    self: Builder, ct: Controller, pos: Position, bld: object
+) -> None:
     match bld:
         case BuildingLauncher(team=t) if t != self.my_team:
             for d in DIR8:
@@ -164,7 +166,7 @@ def update_vision(self: Builder, ct: Controller) -> None:
     w = self.w
     pad = self.pad
     pw = self.pad_w
-    for pos in self.nearby_positions:
+    for pos in self.nearby_tiles:
         i = pos.y * w + pos.x
         pi = (pos.y + pad) * pw + (pos.x + pad)
 
@@ -222,18 +224,4 @@ def update_vision(self: Builder, ct: Controller) -> None:
 
             match bld:
                 case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
-                    res = ct.get_stored_resource(building_id)
-                    slot = ct.get_current_round() % 8
-                    shift = slot * 2
-                    match res:
-                        case None:
-                            code = 0
-                        case ResourceType.TITANIUM:
-                            code = 1
-                        case ResourceType.RAW_AXIONITE:
-                            code = 2
-                        case ResourceType.REFINED_AXIONITE:
-                            code = 3
-                    self.flow_history[i] = (self.flow_history[i] & ~(0b11 << shift)) | (
-                        code << shift
-                    )
+                    self.flow_history[i].append(ct.get_stored_resource(building_id))

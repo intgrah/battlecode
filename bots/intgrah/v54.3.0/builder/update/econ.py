@@ -24,9 +24,9 @@ _FLOW_PENALTY = (0, 0, 0, 0, 1, 3, 10, 50, 500)
 
 def can_place_junction(self: Builder, pos: Position) -> bool:
     match self.get_building(pos):
-        case None:
-            pass
-        case BuildingConveyor(team=self.my_team) | BuildingRoad(team=self.my_team):
+        case (
+            None | BuildingConveyor(team=self.my_team) | BuildingRoad(team=self.my_team)
+        ):
             pass
         case _:
             return False
@@ -60,7 +60,7 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
     self.adjacent_to_harvester = {
         p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
     }
-    for pos in self.nearby_positions:
+    for pos in self.nearby_tiles:
         pi = (pos.y + pad) * pad_w + (pos.x + pad)
         bld = self.get_building(pos)
         match bld:
@@ -98,23 +98,9 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 | BuildingBridge(team=self.my_team)
             ):
                 i = pos.y * self.w + pos.x
-                fh = self.flow_history[i]
-                occupied = sum((fh >> s) & 0b11 != 0 for s in range(0, 16, 2))
+                occupied = sum(r is not None for r in self.flow_history[i])
                 self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
 
-    if self.nearest_junction_site and not self.can_place_junction(
-        self.nearest_junction_site,
-    ):
-        self.nearest_junction_site = None
-    for pos in self.nearby_positions:
-        if (
-            self.nearest_junction_site is None
-            or (
-                self.nearest_junction_site.distance_squared(self.my_pos)
-                < pos.distance_squared(self.my_pos)
-            )
-        ) and self.can_place_junction(pos):
-            self.nearest_junction_site = pos
 
 
 def update_dangling(self: Builder, ct: Controller) -> None:
