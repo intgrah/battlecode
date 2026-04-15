@@ -79,9 +79,9 @@ class Unit(ABC):
                 self.all_bots[pos] = uid
                 if ct.get_team(uid) == self.my_team:
                     if uid != self.my_id:
-                        self.enemy_bots.add(pos)
+                        self.friendly_bots.add(pos)
                 else:
-                    self.friendly_bots.add(pos)
+                    self.enemy_bots.add(pos)
 
     def idx(self, pos: Position) -> int:
         """Position to flat index."""

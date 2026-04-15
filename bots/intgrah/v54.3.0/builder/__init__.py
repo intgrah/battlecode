@@ -14,7 +14,6 @@ from cambc import (
     Controller,
     EntityType,
     Environment,
-    GameConstants,
     Position,
     ResourceType,
 )
@@ -498,30 +497,18 @@ class Builder(Unit):
 
     def end_of_turn_heal(self, ct: Controller) -> None:
         my_pos = ct.get_position()
-        nearby_units = [
-            unit
-            for unit in ct.get_nearby_units()
-            if ct.get_position(unit).distance_squared(my_pos)
-            <= GameConstants.ACTION_RADIUS_SQ
-            or ct.get_entity_type(unit) == EntityType.CORE
-        ]
         if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
             ct.heal(my_pos)
-        for unit in nearby_units:
+        for unit in ct.get_nearby_units():
+            if ct.get_team(unit) != self.my_team:
+                continue
+            if ct.get_hp(unit) >= ct.get_max_hp(unit):
+                continue
             if ct.get_entity_type(unit) == EntityType.CORE:
-                core_center = ct.get_position(unit)
                 for d in DIR8:
-                    heal_pos = core_center.add(d)
-                    if (
-                        ct.can_heal(heal_pos)
-                        and ct.get_team(unit) == self.my_team
-                        and ct.get_hp(unit) < ct.get_max_hp(unit)
-                    ):
+                    heal_pos = ct.get_position(unit).add(d)
+                    if ct.can_heal(heal_pos):
                         ct.heal(heal_pos)
-
-            if (
-                ct.can_heal(ct.get_position(unit))
-                and ct.get_team(unit) == self.my_team
-                and ct.get_hp(unit) < ct.get_max_hp(unit)
-            ):
+                        break
+            elif ct.can_heal(ct.get_position(unit)):
                 ct.heal(ct.get_position(unit))
