@@ -74,7 +74,10 @@ def _add_topology(self: Builder, pos: Position, bld: object) -> None:
 
 
 def _update_cost(
-    self: Builder, pi: int, terrain: Environment | None, bld: object
+    self: Builder,
+    pi: int,
+    terrain: Environment | None,
+    bld: object,
 ) -> None:
     if terrain == Environment.WALL:
         cost = INF
@@ -111,7 +114,10 @@ def _update_cost(
 
 
 def _update_turret_rays(
-    self: Builder, ct: Controller, pos: Position, bld: object
+    self: Builder,
+    ct: Controller,
+    pos: Position,
+    bld: object,
 ) -> None:
     match bld:
         case BuildingLauncher(team=t) if t != self.my_team:

@@ -37,15 +37,9 @@ if TYPE_CHECKING:
 
 def open_tiles(
     self: Builder,
-    ct: Controller,
     positions: list[Position],
 ) -> list[Position]:
-    return [
-        p
-        for p in positions
-        if self.is_passable(p)
-        and (not ct.is_in_vision(p) or ct.get_tile_builder_bot_id(p) is None)
-    ]
+    return [p for p in positions if self.is_passable(p) and p not in self.all_bots]
 
 
 def is_allied_transport(self: Builder, position: Position) -> bool:
@@ -74,18 +68,14 @@ def buildable(self: Builder, positions: list[Position]) -> list[Position]:
     ]
 
 
-def nearest_enemy_bot(ct: Controller) -> Position | None:
-    builders = ct.get_nearby_units()
-    builder_positions = [
-        ct.get_position(uid) for uid in builders if ct.get_team(uid) != ct.get_team()
-    ]
-    if len(builder_positions) == 0:
+def nearest_enemy_bot(self: Builder) -> Position | None:
+    if not self.enemy_bots:
         return None
-    return closest(ct.get_position(), builder_positions)
+    return closest(self.my_pos, self.enemy_bots)
 
 
 def should_attack(self: Builder, ct: Controller, pos: Position) -> bool:
-    enemy_builder = nearest_enemy_bot(ct)
+    enemy_builder = nearest_enemy_bot(self)
     i = self.idx(pos)
     return (
         (enemy_builder is None)
@@ -96,51 +86,12 @@ def should_attack(self: Builder, ct: Controller, pos: Position) -> bool:
     )
 
 
-def _enemy_healer_near(self: Builder, ct: Controller, pos: Position) -> bool:
-    """True if any enemy builder bot sits within r²≤2 of `pos` — they
-    can heal it for 4 HP/turn which outpaces our 2 dmg/turn fire.
-    Lone attackers in this range are wasting Ti.
-
-    The bounds guards are load-bearing: the real cambc engine raises
-    `Position out of bounds` on `ct.get_tile_builder_bot_id(n)` when
-    `n` is off-map, even if `ct.is_in_vision(n)` didn't reject it
-    first. cambcpypy happens to return False for OOB from
-    is_in_vision, which is why the hetzner sweeps passed but the
-    official-server test crashed on maps where an enemy harvester
-    sits at the edge.
-    """
-    for d in DIR8:
-        n = pos.add(d)
-        if not self.in_bounds(n):
-            continue
-        if ct.is_in_vision(n):
-            uid = ct.get_tile_builder_bot_id(n)
-            if uid is not None and ct.get_team(uid) != self.my_team:
-                return True
-    if self.in_bounds(pos) and ct.is_in_vision(pos):
-        uid = ct.get_tile_builder_bot_id(pos)
-        if uid is not None and ct.get_team(uid) != self.my_team:
-            return True
-    return False
+def _enemy_healer_near(self: Builder, pos: Position) -> bool:
+    return any(p.distance_squared(pos) <= 2 for p in self.enemy_bots)
 
 
-def _friendly_bot_adjacent(self: Builder, ct: Controller, pos: Position) -> bool:
-    """True if any friendly builder bot (other than us) sits on a
-    cardinal neighbour of `pos`. Used to skip harvesters already
-    being attacked by another bot — spreads us across targets
-    instead of dogpiling. Vision-only: if we can't see the tile
-    we assume nobody is there.
-    """
-    for d in DIR4:
-        n = pos.add(d)
-        if not self.in_bounds(n):
-            continue
-        if not ct.is_in_vision(n):
-            continue
-        uid = ct.get_tile_builder_bot_id(n)
-        if uid is not None and uid != self.my_id and ct.get_team(uid) == self.my_team:
-            return True
-    return False
+def _friendly_bot_adjacent(self: Builder, pos: Position) -> bool:
+    return any(p.distance_squared(pos) <= 1 for p in self.friendly_bots)
 
 
 def _min_friendly_chebyshev(ct: Controller, pos: Position) -> int:
@@ -201,11 +152,9 @@ def _pick_conveyor_target(
             continue
         if pos in self.friendly_turret_ray_tiles:
             continue
-        if ct.is_in_vision(pos):
-            uid = ct.get_tile_builder_bot_id(pos)
-            if uid is not None and uid != self.my_id:
-                continue
-        if _enemy_healer_near(self, ct, pos):
+        if pos in self.all_bots and self.all_bots[pos] != self.my_id:
+            continue
+        if _enemy_healer_near(self, pos):
             continue
         near_core = pos.distance_squared(enemy_core) <= 25
         has_flow = False
@@ -230,7 +179,6 @@ def _pick_conveyor_target(
 
 def _pick_attack_destination(
     self: Builder,
-    ct: Controller,
     target: Position,
     *,
     avoid_healers: bool = True,
@@ -255,10 +203,8 @@ def _pick_attack_destination(
             continue
         if is_allied_transport(self, pos):
             continue
-        if ct.is_in_vision(pos):
-            uid = ct.get_tile_builder_bot_id(pos)
-            if uid is not None and uid != self.my_id:
-                continue
+        if pos in self.all_bots and self.all_bots[pos] != self.my_id:
+            continue
         if pos in self.attack_tile_blacklist:
             continue
         # Standing here would block our own gunner/sentinel shot —
@@ -281,7 +227,7 @@ def _pick_attack_destination(
             cost = 20  # enemy transport — can destroy by firing
         else:
             cost = 5  # enemy road, 5 HP
-        if avoid_healers and _enemy_healer_near(self, ct, pos):
+        if avoid_healers and _enemy_healer_near(self, pos):
             continue
         # Soft-deprioritise tiles that sit in an enemy gunner/sentinel
         # firing ray. We don't filter them out — sometimes the only
@@ -358,12 +304,12 @@ def run_attack(self: Builder, ct: Controller) -> None:
     def has_open_side(position: Position) -> bool:
         for direction in DIR4:
             new_position = position.add(direction)
-            occupant = 1
             if not self.in_bounds(new_position):
                 continue
-            if ct.is_in_vision(new_position):
-                occupant = ct.get_tile_builder_bot_id(new_position)
-            occupied = occupant is not None and occupant != self.my_id
+            occupied = (
+                new_position in self.all_bots
+                and self.all_bots[new_position] != self.my_id
+            )
             if (
                 self.is_passable(position.add(direction))
                 and not occupied
@@ -388,8 +334,8 @@ def run_attack(self: Builder, ct: Controller) -> None:
             not self.is_enemy_building(self.offense_target)
             or (not self.is_passable(self.offense_target))
             or (
-                ct.get_tile_builder_bot_id(self.offense_target) is not None
-                and ct.get_tile_builder_bot_id(self.offense_target) != self.my_id
+                self.offense_target in self.all_bots
+                and self.all_bots[self.offense_target] != self.my_id
             )
         )
     ):
@@ -413,16 +359,15 @@ def run_attack(self: Builder, ct: Controller) -> None:
         )
         target = None
         for h in sorted_harvesters:
-            if not _enemy_healer_near(self, ct, h) and not _friendly_bot_adjacent(
+            if not _enemy_healer_near(self, h) and not _friendly_bot_adjacent(
                 self,
-                ct,
                 h,
             ):
                 target = h
                 break
         if target is None:
             for h in sorted_harvesters:
-                if not _enemy_healer_near(self, ct, h):
+                if not _enemy_healer_near(self, h):
                     target = h
                     break
         if target is None:
@@ -450,7 +395,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     # (or a different harvester entirely once this
                     # tile is off the table).
                     self.attack_tile_blacklist[self.my_pos] = 5
-                    alt = _pick_attack_destination(self, ct, target)
+                    alt = _pick_attack_destination(self, target)
                     if alt is not None and alt != self.my_pos:
                         self.last_fire = None
                         make_move(self, ct, alt)
@@ -463,7 +408,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     try_attack(ct, self.my_pos)
                 else:
                     self.last_fire = None
-                    alt = _pick_attack_destination(self, ct, target)
+                    alt = _pick_attack_destination(self, target)
                     if alt is not None and alt != self.my_pos:
                         make_move(self, ct, alt)
                         return
@@ -514,7 +459,6 @@ def run_attack(self: Builder, ct: Controller) -> None:
             # (building them), and we'd reject almost every target.
             destination = _pick_attack_destination(
                 self,
-                ct,
                 target,
                 avoid_healers=False,
             )
@@ -526,7 +470,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     self.my_pos,
                     without_allied_transport(
                         self,
-                        open_tiles(self, ct, [target.add(d) for d in DIR4]),
+                        open_tiles(self, [target.add(d) for d in DIR4]),
                     ),
                 )
                 if destination is None:

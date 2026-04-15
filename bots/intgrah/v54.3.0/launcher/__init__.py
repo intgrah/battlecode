@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import override
 
 from cambc import Controller, EntityType, Environment, Position
@@ -64,7 +63,7 @@ class Launcher(Unit):
             ct.launch(best_bot, best_dest)
 
     def is_empty_walkable(self, ct: Controller, pos: Position) -> bool:
-        return self.is_walkable(ct, pos) and ct.get_tile_builder_bot_id(pos) is None
+        return self.is_walkable(ct, pos) and pos not in self.all_bots
 
     def is_walkable(self, ct: Controller, pos: Position) -> bool:
         if not self.in_bounds(pos) or not ct.is_in_vision(pos):

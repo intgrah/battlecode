@@ -57,7 +57,6 @@ def _is_precious_friendly(b: Building | None, team: Team) -> bool:
 
 def gunner_facing(
     self: Builder,
-    ct: Controller,
     position: Position,
 ) -> Direction | None:
     if position not in self.adjacent_to_harvester:
@@ -69,10 +68,9 @@ def gunner_facing(
         return None
     if _is_turret(b):
         return None
-    if not self.in_bounds(position) or not ct.is_in_vision(position):
+    if not self.in_bounds(position):
         return None
-    builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != self.my_id:
+    if position in self.all_bots and self.all_bots[position] != self.my_id:
         return None
     for d in DIR8:
         match self.get_building(position.add(d)):
@@ -100,11 +98,9 @@ def sentinel_facing(
         or _is_turret_or_transport(b)
         or _is_precious_friendly(b, self.my_team)
         or not self.in_bounds(position)
-        or not ct.is_in_vision(position)
     ):
         return None
-    builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != self.my_id:
+    if position in self.all_bots and self.all_bots[position] != self.my_id:
         return None
 
     d = position.direction_to(self.nearest_enemy_turret)
@@ -139,10 +135,10 @@ def place_sentinel_nearby(self: Builder, ct: Controller) -> bool:
 def place_gunner_nearby(self: Builder, ct: Controller) -> bool:
     for d in DIR8:
         test_position = self.my_pos.add(d)
-        result = gunner_facing(self, ct, test_position)
+        result = gunner_facing(self, test_position)
         if result is not None:
             return try_place(ct, EntityType.GUNNER, test_position, result)
-    result = gunner_facing(self, ct, self.my_pos)
+    result = gunner_facing(self, self.my_pos)
     if result and move_random(self, ct):
         try_place(ct, EntityType.GUNNER, self.my_pos, result)
         return True

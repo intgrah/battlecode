@@ -75,7 +75,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             pass
 
     if self.my_pos == target_pos:
-        if not ore_available(self, ct, target_pos):
+        if not ore_available(self, target_pos):
             self.ore_target = None
             return False
 
