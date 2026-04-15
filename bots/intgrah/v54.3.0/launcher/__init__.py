@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import override
 
 from cambc import Controller, EntityType, Environment, Position
@@ -80,7 +81,7 @@ class Launcher(Unit):
         only neighbours are friendly or empty, no target here.
         """
         targets: list[Position] = []
-        for pos in ct.get_nearby_tiles():
+        for pos in self.nearby_tiles:
             bid = ct.get_tile_building_id(pos)
             if bid is None or ct.get_entity_type(bid) != EntityType.HARVESTER:
                 continue
@@ -99,7 +100,7 @@ class Launcher(Unit):
     def find_enemy_throw_tile(self, ct: Controller) -> tuple[Position | None, int]:
         best: Position | None = None
         best_dist = 0
-        for pos in ct.get_nearby_tiles():
+        for pos in self.nearby_tiles:
             bid = ct.get_tile_building_id(pos)
             if not self.is_empty_walkable(ct, pos):
                 continue

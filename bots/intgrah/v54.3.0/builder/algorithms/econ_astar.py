@@ -59,13 +59,14 @@ class AStarSearch:
         self._flat_neighbors = [
             (dy * self._pw + dx, extra) for dx, dy, extra in _CONV_NEIGHBORS
         ]
+        self._visited_reset = bytes((pn + 7) // 8)
 
     def _reset(self, state: Builder) -> None:
         pn = state.pad_w * state.pad_h
         if len(self._dist) != pn:
             self._init_grid(state)
         self._no_path = False
-        self._visited = bytearray((pn + 7) // 8)
+        self._visited = bytearray(self._visited_reset)
         self._q = []
 
     def _extract_path(
@@ -218,7 +219,7 @@ class AStarSearch:
         pw = state.pad_w
         pad = state.pad
         saved: list[tuple[int, int]] = []
-        for pos in ct.get_nearby_tiles():
+        for pos in state.nearby_tiles:
             if ct.get_tile_builder_bot_id(pos) is not None and pos != start:
                 idx = (pos.y + pad) * pw + (pos.x + pad)
                 saved.append((idx, cost[idx]))

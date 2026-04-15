@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 
 
 def prune_stale(self: Builder, ct: Controller) -> None:
-    self.nearby_positions = ct.get_nearby_tiles()
     self.nearby_buildings = []
 
     self.healable_buildings = [

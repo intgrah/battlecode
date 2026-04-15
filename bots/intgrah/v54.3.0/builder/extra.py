@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 def fix_enemy_conveyor(self: Builder, ct: Controller) -> bool:
-    for pos in ct.get_nearby_tiles():
+    for pos in self.nearby_tiles:
         if self.leads_to_enemy_building(pos) and ct.can_destroy(pos):
             ct.destroy(pos)
             if ct.can_build_road(pos):
@@ -23,7 +23,7 @@ def deny_enemy_ore(self: Builder, ct: Controller) -> bool:
     would be a harvester-feed candidate for an enemy. Only acts when
     a denial tile is already within action range — no repositioning.
     """
-    for pos in ct.get_nearby_tiles():
+    for pos in self.nearby_tiles:
         if pos not in self.deny_ore_neighbours:
             continue
         if self.get_env(pos) == Environment.WALL:
@@ -43,7 +43,7 @@ def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
     route_to_core here. Roads are 1 Ti (vs 3 Ti conveyor) and
     keep the harvester-halo cheap.
     """
-    for pos in ct.get_nearby_tiles():
+    for pos in self.nearby_tiles:
         if (
             pos in self.adjacent_to_harvester
             and not self.get_building(pos)

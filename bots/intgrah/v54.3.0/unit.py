@@ -13,6 +13,8 @@ __all__ = ["Unit"]
 class Unit(ABC):
     my_pos: Position
     """This unit's position, updated at the start of the turn."""
+    nearby_tiles: list[Position]
+    """Tiles within vision, updated at the start of the turn."""
 
     def __init__(self, ct: Controller) -> None:
         self.w: Final[int] = ct.get_map_width()
@@ -28,6 +30,7 @@ class Unit(ABC):
 
     def run(self, ct: Controller) -> None:
         self.my_pos = ct.get_position()
+        self.nearby_tiles = ct.get_nearby_tiles()
 
     def idx(self, pos: Position) -> int:
         """Position to flat index."""

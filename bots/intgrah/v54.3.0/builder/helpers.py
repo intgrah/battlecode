@@ -177,7 +177,7 @@ def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
 def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
     best_target = None
     min_dist = INF
-    for pos in ct.get_nearby_tiles():
+    for pos in self.nearby_tiles:
         terrain = self.get_env(pos)
         if terrain == Environment.ORE_TITANIUM:
             match self.get_building(pos):
@@ -234,7 +234,7 @@ def find_dangling(self: Builder, ct: Controller) -> Position | None:
     w = self.w
     candidates = [
         pos
-        for pos in ct.get_nearby_tiles()
+        for pos in self.nearby_tiles
         if is_valid_loose_end_target(self, ct, pos)
         and self.bfs_dist[pos.y * w + pos.x] < INF
     ]

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 def update_ore_denial(self: Builder, ct: Controller) -> None:
     w = self.w
     self.deny_ore_neighbours = set()
-    for pos in self.nearby_positions:
+    for pos in self.nearby_tiles:
         env = self.env[pos.y * w + pos.x]
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
@@ -50,7 +50,7 @@ def update_enemy_turrets(self: Builder) -> None:
                 self.nearest_enemy_turret = None
 
     min_dist = INF
-    for pos in self.nearby_positions:
+    for pos in self.nearby_tiles:
         match self.buildings[pos.y * w + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if t != self.my_team:
                 dist = self.my_pos.distance_squared(pos)

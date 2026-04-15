@@ -14,8 +14,7 @@ __all__ = ["extract_path", "update_bfs"]
 def update_bfs(self: Builder, sx: int, sy: int) -> None:
     pnb = self.pnb
     dist = self.bfs_dist
-    for i in range(self.w * self.h):
-        dist[i] = INF
+    dist[:] = self.bfs_reset
     si = sy * self.w + sx
     dist[si] = 0
     q = [si]

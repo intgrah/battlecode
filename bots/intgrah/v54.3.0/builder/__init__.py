@@ -10,7 +10,14 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, Environment, GameConstants, Position
+from cambc import (
+    Controller,
+    EntityType,
+    Environment,
+    GameConstants,
+    Position,
+    ResourceType,
+)
 from config import DEBUG_DUMP
 from unit import Unit
 from util import DIR8, DIR8_DELTA, INF, Symmetry, can_afford, try_move
@@ -261,12 +268,13 @@ class Builder(Unit):
         """Passable neighbours."""
 
         self.bfs_dist: Final[list[int]] = [INF] * n
+        self.bfs_reset: Final[tuple[int, ...]] = (INF,) * n
         """BFS hops from the position at the start of the turn."""
 
-        self.flow_history: list[int] = [0b0000000000000000] * n
-        """History of flow on this tile, encoded as a 8 entries * 2 bit = 16 bit queue.
-        None = 0, Ti = 1, Raw Ax = 2, Refined Ax = 3.
-        """
+        self.flow_history: list[deque[ResourceType | None]] = [
+            deque([None] * 8, maxlen=8) for _ in range(n)
+        ]
+        """Last 8 rounds of resource flow on this tile."""
 
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
@@ -282,7 +290,7 @@ class Builder(Unit):
         """
 
         # Ephemeral (recomputed each turn)
-        self.nearby_positions: list[Position] = []
+
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
         self.adjacent_to_unconnected_harvester: set[Position] = set()
@@ -311,7 +319,7 @@ class Builder(Unit):
         """
 
         self.nearest_enemy_turret: Position | None = None
-        self.nearest_junction_site: Position | None = None
+
 
         # Role
         self.role: Role | None = None
