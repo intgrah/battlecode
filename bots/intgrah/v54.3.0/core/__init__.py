@@ -72,8 +72,7 @@ class Core(Unit):
         live_units = ct.get_unit_count()
         if live_units >= Core.MAX_TEAM_UNITS:
             return False
-        rnd = ct.get_current_round()
-        ti, _ = ct.get_global_resources()
+        ti = self.ti
         # Scale income requirement against live units, not cumulative
         # spawns — otherwise a decimated team requires production for
         # ghosts that died 500 rounds ago and never refills.
@@ -81,7 +80,7 @@ class Core(Unit):
         has_surplus = ti > Core.SURPLUS_BASELINE + Core.SURPLUS_SCALE_FACTOR * (
             ct.get_scale_percent() / 100
         )
-        return (rnd > 20 and has_income) or (rnd > 40 and has_surplus)
+        return (self.round > 20 and has_income) or (self.round > 40 and has_surplus)
 
     def _try_spawn(self, ct: Controller) -> None:
         d: Direction = self.rng.choice(DIR8)

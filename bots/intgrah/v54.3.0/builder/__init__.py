@@ -20,12 +20,12 @@ from cambc import (
 )
 from config import DEBUG_DUMP
 from unit import Unit
-from util import DIR8, DIR8_DELTA, INF, Symmetry, can_afford, try_move
+from util import DIR8, DIR8_DELTA, INF, Symmetry
 
 from builder.algorithms.bfs import extract_path, update_bfs
 from builder.dump import dump
 from builder.extra import deny_enemy_ore, fix_enemy_conveyor, pave_near_harvesters
-from builder.helpers import try_move_with_road
+from builder.helpers import can_afford, try_move_dir, try_move_with_road
 from builder.role import Role
 from builder.task_attack import run_attack
 from builder.task_build_conveyors import route_to_core
@@ -79,7 +79,7 @@ def _heal(self: Builder, ct: Controller) -> bool:
 def _patrol_cheap(self: Builder, ct: Controller) -> bool:
     return (
         self.role == Role.DEFENSE
-        and not can_afford(ct, EntityType.HARVESTER)
+        and not can_afford(self, EntityType.HARVESTER)
         and run_patrol(self, ct)
     )
 
@@ -100,7 +100,7 @@ def _opportunistic_attack(self: Builder, ct: Controller) -> bool:
     if (
         self.opportunistic
         and self.rng.random() < 0.2
-        and ct.get_current_round() > 100
+        and self.round > 100
         and ct.can_fire(self.my_pos)
         and ct.get_team(ct.get_tile_building_id(self.my_pos)) != self.my_team
     ):
@@ -110,7 +110,7 @@ def _opportunistic_attack(self: Builder, ct: Controller) -> bool:
 
 
 def _explore(self: Builder, ct: Controller) -> bool:
-    if ct.get_global_resources()[0] <= 100:
+    if self.ti <= 100:
         return False
     explore(self, ct)
     return True
@@ -119,7 +119,7 @@ def _explore(self: Builder, ct: Controller) -> bool:
 def _wander(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
-    return any(try_move(ct, self.my_pos.add(d)) for d in dir8) or any(
+    return any(try_move_dir(ct, d) for d in dir8) or any(
         try_move_with_road(self, ct, self.my_pos.add(d)) for d in dir8
     )
 

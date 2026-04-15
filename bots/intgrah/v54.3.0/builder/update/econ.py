@@ -11,7 +11,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Environment, Position
-from util import DIR4, DIR8
+from util import DIR4
 
 from builder.helpers import find_dangling, is_dangling, ore_available, pick_ore_target
 
@@ -112,8 +112,7 @@ def update_dangling(self: Builder) -> None:
                 if is_dangling(self, target):
                     self.dangling_output = target
             case _:
-                for d in DIR8:
-                    n = self.my_pos.add(d)
+                for n in self.neighbours_8:
                     if is_dangling(self, n):
                         self.dangling_output = n
                         break

@@ -4,10 +4,10 @@ import math
 from typing import TYPE_CHECKING
 
 from cambc import Position
-from util import DIR8, INF, try_move
+from util import DIR8, INF
 
 from builder.algorithms.astar import pathfind_blocked
-from builder.helpers import try_move_with_road
+from builder.helpers import try_move_dir, try_move_with_road
 
 if TYPE_CHECKING:
     from cambc import Controller
@@ -27,11 +27,11 @@ def _move_via_path(
     path = pathfind_blocked(self, ct, self.my_pos, target)
     if path and len(path) > 1:
         next_pos = path[1]
-        if check_money and ct.get_global_resources()[0] < 75:
+        if check_money and self.ti < 75:
             dirs = DIR8
             self.rng.shuffle(dirs)
             for d in dirs:
-                if try_move(ct, self.my_pos.add(d)):
+                if try_move_dir(ct, d):
                     break
         else:
             try_move_with_road(self, ct, next_pos)
