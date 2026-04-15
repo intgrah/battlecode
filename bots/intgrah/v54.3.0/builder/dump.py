@@ -37,7 +37,7 @@ P_RED = Palette(
 
 def _unpad(self: Builder, grid: list[int]) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""
-    w, h, pad, pw = self.w, self.h, self.pad, self.pw
+    w, h, pad, pw = self.w, self.h, self.pad, self.pad_w
     out: list[int] = [0] * (w * h)
     for y in range(h):
         row_start = (y + pad) * pw + pad

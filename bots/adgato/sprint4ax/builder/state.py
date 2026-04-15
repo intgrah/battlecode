@@ -17,6 +17,7 @@ from util import INF, Symmetry
 from .flow import Flow, FlowValue
 
 from .algorithms.nav_bfs import NavBfs, PassableGrid
+from .flow import Flow
 
 if TYPE_CHECKING:
     from .role import Role

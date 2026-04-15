@@ -189,7 +189,7 @@ def rush(
     if flow_tile is not None:
         fx, fy = flow_tile
         flow_dist = (fx - en_core.x) ** 2 + (fy - en_core.y) ** 2
-        ts = t()
+        t()
         siege = _find_siege_tile_fast(state, fx, fy, en_core.x, en_core.y)
         if siege is not None and siege != (fx, fy):
             result = _extend_from_flow(state, ct, fx, fy, en_core)
@@ -224,7 +224,7 @@ def rush(
                     # Build first conveyor from harvester toward siege ourselves
                     tap = _find_free_adjacent(state, hx, hy)
                     if tap is not None:
-                        ts25 = t()
+                        t()
                         siege = _find_siege_tile_fast(
                             state, tap[0], tap[1], en_core.x, en_core.y
                         )

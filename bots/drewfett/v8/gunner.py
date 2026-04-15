@@ -151,11 +151,10 @@ class Gunner(Unit):
             best_dir is not None
             and best_priority >= _MIN_ROTATE_PRIORITY
             and best_dir != direction
-        ):
-            if ct.can_rotate(best_dir):
-                ct.rotate(best_dir)
-                self._idle_rounds = 0
-                return
+        ) and ct.can_rotate(best_dir):
+            ct.rotate(best_dir)
+            self._idle_rounds = 0
+            return
 
         # Fire at whatever we're facing if it's worth shooting
         if (

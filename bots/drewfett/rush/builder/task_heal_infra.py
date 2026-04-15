@@ -71,5 +71,4 @@ def heal_infra(
     ):
         return Direction.CENTRE, Heal(best_pos)
 
-    result = move_toward_with_road(state, ct, best_pos)
-    return result
+    return move_toward_with_road(state, ct, best_pos)

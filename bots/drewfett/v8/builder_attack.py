@@ -349,7 +349,7 @@ def _pick_source(flow: FlowModel, s: State, pos: Position) -> int | None:
                 continue
             abld = s.building[ai]
             if abld is not None:
-                if isinstance(abld, BuildingMarker) or isinstance(abld, BuildingRoad):
+                if isinstance(abld, (BuildingMarker, BuildingRoad)):
                     pass
                 elif abld.team == s.my_team and isinstance(abld, _TRANSPORT_OR_TURRETS):
                     continue

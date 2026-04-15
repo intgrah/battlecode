@@ -225,10 +225,7 @@ class Builder(Unit):
         self._barrier_adjacent_ore(ct)
 
     def _consider_laucher(self, pos: Position, launcher_pos: set[Position]) -> bool:
-        for d in _ALL_DIRS:
-            if pos.add(d) in launcher_pos:
-                return False
-        return True
+        return all(pos.add(d) not in launcher_pos for d in _ALL_DIRS)
 
     def _find_damaged(self, ct: Controller) -> Position | None:
         """Return the position of a visible friendly building with less

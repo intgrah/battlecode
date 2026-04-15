@@ -697,7 +697,7 @@ def _task_explore_enemy(builder: Builder, ct: Controller) -> tuple[str, bool]:
 
     if et is None:
         best_score = 1_000_000
-        cx, cy = s.core_pos.x, s.core_pos.y
+        _cx, _cy = s.core_pos.x, s.core_pos.y
         reach = s.reachable
         for y in range(0, h, 3):
             for x in range(0, w, 3):

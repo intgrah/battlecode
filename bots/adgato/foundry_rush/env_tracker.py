@@ -27,7 +27,7 @@ class EnvTracker:
         self._environment = environment
         self._entity_types = entity_types
         self._allied_only = allied_only
-        self.positions: dict[int, bool] = dict()
+        self.positions: dict[int, bool] = {}
         self._changed: bool = False
         self._last_round: int = -(10**9)
 

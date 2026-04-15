@@ -20,14 +20,7 @@ from cambc import (
     GameConstants,
     Position,
 )
-from util import (
-    DIR4,
-    DIR8,
-    can_afford,
-    chebyshev,
-    closest,
-    try_move,
-)
+from util import DIR4, DIR8, can_afford, chebyshev, closest, try_move
 
 from builder.helpers import (
     get_enemy_core_pos,
@@ -43,44 +36,41 @@ if TYPE_CHECKING:
 
 
 def open_tiles(
-    state: Builder,
+    self: Builder,
     ct: Controller,
     positions: list[Position],
 ) -> list[Position]:
     return [
         p
         for p in positions
-        if state.is_passable(p)
+        if self.is_passable(p)
         and (not ct.is_in_vision(p) or ct.get_tile_builder_bot_id(p) is None)
     ]
 
 
-def is_allied_transport(state: Builder, ct: Controller, position: Position) -> bool:
-    match state.get_building(position):
+def is_allied_transport(self: Builder, position: Position) -> bool:
+    match self.get_building(position):
         case (
-            BuildingConveyor(team=t)
-            | BuildingArmouredConveyor(team=t)
-            | BuildingSplitter(team=t)
-            | BuildingBridge(team=t)
-        ) if t == ct.get_team():
+            BuildingConveyor(team=self.my_team)
+            | BuildingArmouredConveyor(team=self.my_team)
+            | BuildingSplitter(team=self.my_team)
+            | BuildingBridge(team=self.my_team)
+        ):
             return True
         case _:
             return False
 
 
 def without_allied_transport(
-    state: Builder,
-    ct: Controller,
+    self: Builder,
     positions: list[Position],
 ) -> list[Position]:
-    return [pos for pos in positions if not is_allied_transport(state, ct, pos)]
+    return [pos for pos in positions if not is_allied_transport(self, pos)]
 
 
-def buildable(state: Builder, positions: list[Position]) -> list[Position]:
+def buildable(self: Builder, positions: list[Position]) -> list[Position]:
     return [
-        p
-        for p in positions
-        if state.is_buildable(p) and not state.is_friendly_turret(p)
+        p for p in positions if self.is_buildable(p) and not self.is_friendly_turret(p)
     ]
 
 
@@ -99,7 +89,7 @@ def should_attack(self: Builder, ct: Controller, pos: Position) -> bool:
     i = self.idx(pos)
     return (
         (enemy_builder is None)
-        or chebyshev(ct.get_position(), enemy_builder) > 2
+        or chebyshev(self.my_pos, enemy_builder) > 2
         or self.hp[i] <= self.max_hp[i] - 4
         or self.hp[i] <= 4
         or can_afford(ct, EntityType.HARVESTER)
@@ -141,7 +131,6 @@ def _friendly_bot_adjacent(self: Builder, ct: Controller, pos: Position) -> bool
     instead of dogpiling. Vision-only: if we can't see the tile
     we assume nobody is there.
     """
-    my_id = ct.get_id()
     for d in DIR4:
         n = pos.add(d)
         if not self.in_bounds(n):
@@ -149,7 +138,7 @@ def _friendly_bot_adjacent(self: Builder, ct: Controller, pos: Position) -> bool
         if not ct.is_in_vision(n):
             continue
         uid = ct.get_tile_builder_bot_id(n)
-        if uid is not None and uid != my_id and ct.get_team(uid) == self.my_team:
+        if uid is not None and uid != self.my_id and ct.get_team(uid) == self.my_team:
             return True
     return False
 
@@ -194,7 +183,7 @@ def _pick_conveyor_target(
     best_score: tuple[int, int, int] | None = None
     for pos in self.nearby_buildings:
         b = self.get_building(pos)
-        if b is None or getattr(b, "team", None) == self.my_team:
+        if b is None or b.team == self.my_team:
             continue
         if not isinstance(
             b,
@@ -214,7 +203,7 @@ def _pick_conveyor_target(
             continue
         if ct.is_in_vision(pos):
             uid = ct.get_tile_builder_bot_id(pos)
-            if uid is not None and uid != ct.get_id():
+            if uid is not None and uid != self.my_id:
                 continue
         if _enemy_healer_near(self, ct, pos):
             continue
@@ -257,7 +246,6 @@ def _pick_attack_destination(
     a different target harvester. When False, we fall back to any
     walkable candidate (useful when nothing else is viable).
     """
-    my_pos = ct.get_position()
     candidates: list[tuple[int, int, int, Position]] = []
     for d in DIR4:
         pos = target.add(d)
@@ -265,11 +253,11 @@ def _pick_attack_destination(
             continue
         if not self.is_passable(pos):
             continue
-        if is_allied_transport(self, ct, pos):
+        if is_allied_transport(self, pos):
             continue
         if ct.is_in_vision(pos):
             uid = ct.get_tile_builder_bot_id(pos)
-            if uid is not None and uid != ct.get_id():
+            if uid is not None and uid != self.my_id:
                 continue
         if pos in self.attack_tile_blacklist:
             continue
@@ -283,13 +271,13 @@ def _pick_attack_destination(
             # Empty terrain — a bot can walk here (building a road
             # on the way) and then place sentinels from it.
             cost = 0
-        elif getattr(b, "team", None) == self.my_team:
+        elif b.team == self.my_team:
             # Friendly road / allied core — fine to stand on. Friendly
             # conveyors/splitters/bridges were already filtered above
             # via `is_allied_transport`, so anything reaching here is
             # safe to land on without breaking our own chain.
             cost = 0
-        elif isinstance(b, (BuildingConveyor, BuildingSplitter, BuildingBridge)):
+        elif isinstance(b, BuildingConveyor | BuildingSplitter | BuildingBridge):
             cost = 20  # enemy transport — can destroy by firing
         else:
             cost = 5  # enemy road, 5 HP
@@ -300,7 +288,7 @@ def _pick_attack_destination(
         # way to hit the harvester is to cross a ray — but we'd rather
         # stand somewhere safer if equivalent on cost and distance.
         in_ray = 1 if pos in self.enemy_turret_ray_tiles else 0
-        dist = my_pos.distance_squared(pos)
+        dist = self.my_pos.distance_squared(pos)
         candidates.append((in_ray, cost, dist, pos))
     if not candidates:
         return None
@@ -322,21 +310,20 @@ def _gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
     this direction — so the "don't face into the harvester" constraint
     is enforced implicitly by the isinstance check.
     """
-    r_sq = GameConstants.GUNNER_VISION_RADIUS_SQ
     for d in DIR8:
         current = pos
         for _ in range(4):
             current = current.add(d)
             if not self.in_bounds(current):
                 break
-            if pos.distance_squared(current) > r_sq:
+            if pos.distance_squared(current) > GameConstants.GUNNER_VISION_RADIUS_SQ:
                 break
             if self.get_env(current) == Environment.WALL:
                 break
             b = self.get_building(current)
             if b is None:
                 continue
-            if getattr(b, "team", None) == self.my_team:
+            if b.team == self.my_team:
                 break
             if isinstance(
                 b,
@@ -353,7 +340,6 @@ def _gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
 
 
 def run_attack(self: Builder, ct: Controller) -> None:
-    team = ct.get_team()
     if self.attack_tile_blacklist:
         self.attack_tile_blacklist = {
             p: n - 1 for p, n in self.attack_tile_blacklist.items() if n > 1
@@ -361,7 +347,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
     enemy_buildings = [
         p
         for p in self.nearby_buildings
-        if (b := self.get_building(p)) is not None and b.team != team
+        if (b := self.get_building(p)) is not None and b.team != self.my_team
     ]
     enemy_harvesters = [
         p
@@ -377,11 +363,11 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 continue
             if ct.is_in_vision(new_position):
                 occupant = ct.get_tile_builder_bot_id(new_position)
-            occupied = occupant is not None and occupant != ct.get_id()
+            occupied = occupant is not None and occupant != self.my_id
             if (
                 self.is_passable(position.add(direction))
                 and not occupied
-                and not is_allied_transport(self, ct, position.add(direction))
+                and not is_allied_transport(self, position.add(direction))
             ):
                 return True
         return False
@@ -392,8 +378,8 @@ def run_attack(self: Builder, ct: Controller) -> None:
     # If we've moved off the tile we last fired at, drop the stale
     # expected-HP tracking — otherwise a future visit to the same
     # tile could misread its pre-heal HP as "healed by enemy".
-    if self.last_fire_pos is not None and ct.get_position() != self.last_fire_pos:
-        self.last_fire_pos = None
+    if self.last_fire is not None and self.my_pos != self.last_fire:
+        self.last_fire = None
 
     if (self.offense_turns > 25) or (
         self.offense_target
@@ -403,7 +389,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
             or (not self.is_passable(self.offense_target))
             or (
                 ct.get_tile_builder_bot_id(self.offense_target) is not None
-                and ct.get_tile_builder_bot_id(self.offense_target) != ct.get_id()
+                and ct.get_tile_builder_bot_id(self.offense_target) != self.my_id
             )
         )
     ):
@@ -421,10 +407,9 @@ def run_attack(self: Builder, ct: Controller) -> None:
         #   2. closest with no enemy healer in range (dogpiles if we
         #      have to, but avoids healers).
         #   3. closest of all (last resort).
-        my_pos = ct.get_position()
         sorted_harvesters = sorted(
             vulnerable_harvesters,
-            key=my_pos.distance_squared,
+            key=self.my_pos.distance_squared,
         )
         target = None
         for h in sorted_harvesters:
@@ -441,65 +426,52 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     target = h
                     break
         if target is None:
-            target = closest(my_pos, vulnerable_harvesters)
-        on_friendly_conveyor = is_allied_transport(self, ct, ct.get_position())
-        if ct.get_position().distance_squared(target) == 1 and not on_friendly_conveyor:
-            if self.is_enemy_building(ct.get_position()):
-                my_pos = ct.get_position()
+            target = closest(self.my_pos, vulnerable_harvesters)
+        on_friendly_conveyor = is_allied_transport(self, self.my_pos)
+        if self.my_pos.distance_squared(target) == 1 and not on_friendly_conveyor:
+            if self.is_enemy_building(self.my_pos):
                 # Check for actual healing: if we stood here last turn
                 # and fired, we know what HP we LEFT the tile at. If
                 # the current HP is strictly higher, an enemy builder
                 # must have healed. Only give up the tile when we have
                 # that concrete evidence.
                 being_healed = False
-                if self.last_fire_pos == my_pos:
-                    bid_here = ct.get_tile_building_id(my_pos)
-                    if bid_here is not None:
-                        current_hp = ct.get_hp(bid_here)
-                        if current_hp > self.last_fire_expected_hp:
-                            being_healed = True
+                match self.last_fire:
+                    case (self.my_pos, expected_hp):
+                        bid_here = ct.get_tile_building_id(self.my_pos)
+                        if bid_here is not None:
+                            current_hp = ct.get_hp(bid_here)
+                            if current_hp > expected_hp:
+                                being_healed = True
                 if being_healed:
                     # Don't come back to this tile for 5 turns — the
                     # enemy healer in range will just out-heal us
                     # again. Let the picker try a different neighbour
                     # (or a different harvester entirely once this
                     # tile is off the table).
-                    self.attack_tile_blacklist[my_pos] = 5
+                    self.attack_tile_blacklist[self.my_pos] = 5
                     alt = _pick_attack_destination(self, ct, target)
-                    if alt is not None and alt != my_pos:
-                        self.last_fire_pos = None
+                    if alt is not None and alt != self.my_pos:
+                        self.last_fire = None
                         make_move(self, ct, alt)
                         return
-                if should_attack(self, ct, my_pos):
-                    # Record the expected HP for next turn's healing
-                    # check BEFORE firing, because `ct.get_hp(bid)` is
-                    # still the pre-fire value right now.
-                    bid_here = ct.get_tile_building_id(my_pos)
+                if should_attack(self, ct, self.my_pos):
+                    bid_here = ct.get_tile_building_id(self.my_pos)
                     if bid_here is not None:
                         pre_hp = ct.get_hp(bid_here)
-                        self.last_fire_pos = my_pos
-                        # Builder fire is 2 dmg; clamp to 0.
-                        self.last_fire_expected_hp = max(0, pre_hp - 2)
-                    try_attack(ct)
+                        self.last_fire = (self.my_pos, max(0, pre_hp - 2))
+                    try_attack(ct, self.my_pos)
                 else:
-                    # Not firing this turn — clear tracking so we
-                    # don't false-positive heal detection on a stale
-                    # expected HP. Also try to rotate to a different
-                    # neighbour of the target: the reason we're not
-                    # firing is likely that an enemy bot is within 2
-                    # of our tile (would out-heal our 2 dmg), so we
-                    # want a different angle rather than sitting idle
-                    # on the tile forever.
-                    self.last_fire_pos = None
+                    self.last_fire = None
                     alt = _pick_attack_destination(self, ct, target)
-                    if alt is not None and alt != my_pos:
+                    if alt is not None and alt != self.my_pos:
                         make_move(self, ct, alt)
                         return
-                self.offense_target = my_pos
+                self.offense_target = self.my_pos
                 self.offense_turns = 0
 
             else:
-                build_position = ct.get_position()
+                build_position = self.my_pos
                 move_random(self, ct)
                 direction = build_position.direction_to(enemy_core)
                 if direction == build_position.direction_to(target):
@@ -514,7 +486,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 n_sentinel = 0
                 for d in DIR4:
                     nb = self.get_building(target.add(d))
-                    if nb is None or nb.team != ct.get_team():
+                    if nb is None or nb.team != self.my_team:
                         continue
                     if isinstance(nb, BuildingGunner):
                         n_gunner += 1
@@ -551,10 +523,9 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 # transport cardinal. This covers cases where
                 # _pick_attack_destination is too strict.
                 destination = closest(
-                    ct.get_position(),
+                    self.my_pos,
                     without_allied_transport(
                         self,
-                        ct,
                         open_tiles(self, ct, [target.add(d) for d in DIR4]),
                     ),
                 )
@@ -563,17 +534,17 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     return
             launcher_location = closest(
                 destination,
-                buildable(self, [ct.get_position().add(d) for d in DIR8]),
+                buildable(self, [self.my_pos.add(d) for d in DIR8]),
             )
             adjacent_launchers = [
                 p
-                for p in [ct.get_position().add(d) for d in DIR8]
+                for p in [self.my_pos.add(d) for d in DIR8]
                 if isinstance(self.get_building(p), BuildingLauncher)
             ]
             best_adjacent_launcher = closest(destination, adjacent_launchers)
             if (
-                ct.get_position().distance_squared(destination) <= 2
-                or ct.get_position().distance_squared(target) < 9
+                self.my_pos.distance_squared(destination) <= 2
+                or self.my_pos.distance_squared(target) < 9
             ):
                 make_move(self, ct, destination)
             elif (
@@ -594,12 +565,12 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 self.offense_launcher = launcher_location
             elif (
                 self.offense_launcher
-                and self.offense_launcher.distance_squared(ct.get_position()) < 25
+                and self.offense_launcher.distance_squared(self.my_pos) < 25
             ):
                 make_move(self, ct, self.offense_launcher)
             elif (
                 self.offense_target
-                and self.offense_target.distance_squared(ct.get_position()) < 20
+                and self.offense_target.distance_squared(self.my_pos) < 20
             ):
                 make_move(self, ct, self.offense_target)
             else:
@@ -610,7 +581,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
             and self.is_enemy_building(ct.get_position())
             and should_attack(self, ct, ct.get_position())
         ):
-            try_attack(ct)
+            try_attack(ct, ct.get_position())
     elif (
         self.offense_target
         and self.offense_launcher
@@ -618,8 +589,8 @@ def run_attack(self: Builder, ct: Controller) -> None:
             rl := self.get_building(self.offense_launcher),
             BuildingLauncher,
         )
-        and rl.team == ct.get_team()
-        and ct.get_position().distance_squared(self.offense_target) > 8
+        and rl.team == self.my_team
+        and self.my_pos.distance_squared(self.offense_target) > 8
     ):
         make_move(self, ct, self.offense_launcher)
     elif self.offense_target:
@@ -634,35 +605,37 @@ def run_attack(self: Builder, ct: Controller) -> None:
             self,
             ct,
             enemy_core,
-            ct.get_position(),
+            self.my_pos,
         )
         if conveyor_target is not None:
-            if ct.get_position() == conveyor_target:
+            if self.my_pos == conveyor_target:
                 if should_attack(self, ct, conveyor_target):
-                    try_attack(ct)
+                    try_attack(ct, self.my_pos)
             else:
                 make_move(self, ct, conveyor_target)
         else:
             scout_toward_enemy(self, ct)
 
 
-def scout_toward_enemy(state: Builder, ct: Controller) -> None:
-    en_core = get_enemy_core_pos(state)
-    if ct.get_position().distance_squared(en_core) <= 20:
-        state.enemy_core_seen = True
-
-    if not state.enemy_core_seen:
-        make_move(state, ct, en_core)
-    elif ct.get_position().distance_squared(en_core) <= 20 or ct.get_global_resources()[
-        0
-    ] >= (GameConstants.HARVESTER_BASE_COST[0] + 50) * (
-        1 + ct.get_scale_percent() / 100
+def scout_toward_enemy(self: Builder, ct: Controller) -> None:
+    en_core = get_enemy_core_pos(self)
+    if (
+        self.my_pos.distance_squared(en_core)
+        <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ
     ):
-        explore(state, ct)
+        self.en_core = True
+
+    if not self.en_core:
+        make_move(self, ct, en_core)
+    elif self.my_pos.distance_squared(
+        en_core,
+    ) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ or ct.get_global_resources()[0] >= (
+        GameConstants.HARVESTER_BASE_COST[0] + 50
+    ) * (1 + ct.get_scale_percent() / 100):
+        explore(self, ct)
     else:
-        dir8 = DIR8[:]
-        state.rng.shuffle(dir8)
-        my_pos = ct.get_position()
+        dir8 = DIR8.copy()
+        self.rng.shuffle(dir8)
         for d in dir8:
-            if try_move(ct, my_pos.add(d)):
+            if try_move(ct, self.my_pos.add(d)):
                 break

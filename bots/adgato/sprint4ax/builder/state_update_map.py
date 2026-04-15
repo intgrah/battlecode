@@ -9,15 +9,15 @@ from building import (
     BuildingBridge,
     BuildingConveyor,
     BuildingCore,
+    BuildingFoundry,
     BuildingGunner,
     BuildingHarvester,
     BuildingLauncher,
     BuildingRoad,
     BuildingSentinel,
     BuildingSplitter,
-    BuildingFoundry
 )
-from cambc import Controller, EntityType, Environment, GameConstants, Position
+from cambc import Controller, EntityType, Environment, Position
 from util import DIR4, DIR8, INF, Symmetry
 
 if TYPE_CHECKING:
@@ -100,9 +100,7 @@ def update_map(state: State, ct: Controller) -> None:
 
     in_vision = ct.is_in_vision
 
-    state.healable_buildings = [
-        p for p in state.healable_buildings if not in_vision(p)
-    ]
+    state.healable_buildings = [p for p in state.healable_buildings if not in_vision(p)]
     state.adjacent_to_enemy_launcher = {
         p for p in state.adjacent_to_enemy_launcher if not in_vision(p)
     }
@@ -155,11 +153,11 @@ def update_map(state: State, ct: Controller) -> None:
 
             match bld:
                 case (
-                    BuildingConveyor() | 
-                    BuildingArmouredConveyor() | 
-                    BuildingBridge() | 
-                    BuildingSplitter() |
-                    BuildingFoundry()
+                    BuildingConveyor()
+                    | BuildingArmouredConveyor()
+                    | BuildingBridge()
+                    | BuildingSplitter()
+                    | BuildingFoundry()
                 ):
                     rid = ct.get_stored_resource_id(building_id)
                     rtype = ct.get_stored_resource(building_id)
@@ -181,10 +179,7 @@ def update_map(state: State, ct: Controller) -> None:
                         d.rotate_left().rotate_left(),
                     ]:
                         target_pos = pos.add(sd)
-                        if (
-                            0 <= target_pos.x < state.w
-                            and 0 <= target_pos.y < state.h
-                        ):
+                        if 0 <= target_pos.x < state.w and 0 <= target_pos.y < state.h:
                             ti = target_pos.y * w + target_pos.x
                             state.splitters_to_here[ti].append(pos)
 
@@ -445,7 +440,7 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
             # a break-even.
             state.cost_grid[pi] += 15
 
-        #match bld:
+        # match bld:
         #    case (
         #        BuildingConveyor(team=t)
         #        | BuildingArmouredConveyor(team=t)

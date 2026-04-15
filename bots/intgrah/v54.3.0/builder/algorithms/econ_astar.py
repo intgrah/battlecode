@@ -52,7 +52,7 @@ class AStarSearch:
 
     def _init_grid(self, state: Builder) -> None:
         self._w, self._h = state.w, state.h
-        self._pw, self._ph = state.pw, state.ph
+        self._pw, self._ph = state.pad_w, state.pad_h
         self._pad = state.pad
         pn = self._pw * self._ph
         self._dist = [INF] * pn
@@ -61,7 +61,7 @@ class AStarSearch:
         ]
 
     def _reset(self, state: Builder) -> None:
-        pn = state.pw * state.ph
+        pn = state.pad_w * state.pad_h
         if len(self._dist) != pn:
             self._init_grid(state)
         self._no_path = False
@@ -215,7 +215,7 @@ class AStarSearch:
         goal: Position,
     ) -> list[Position] | None:
         cost = state.conveyor_cost_grid
-        pw = state.pw
+        pw = state.pad_w
         pad = state.pad
         saved: list[tuple[int, int]] = []
         for pos in ct.get_nearby_tiles():

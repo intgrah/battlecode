@@ -12,9 +12,13 @@ Internal grid is padded by 1 tile on each side (sentinel border).
 
 from __future__ import annotations
 
-from astar import ChainAstar
+from typing import TYPE_CHECKING
+
 from cambc import Environment, Position
 from tile_codec import tile_building_type, tile_env, tile_is_allied
+
+if TYPE_CHECKING:
+    from astar import ChainAstar
 
 # 8-neighbour offsets (computed from padded width in __init__).
 

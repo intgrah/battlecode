@@ -38,7 +38,6 @@ def _count_visible_attackers(self: Builder, ct: Controller, target: Position) ->
 def _deconflict_rank(
     self: Builder,
     ct: Controller,
-    my_id: int,
     my_pos: Position,
     target: Position,
 ) -> int:
@@ -51,7 +50,7 @@ def _deconflict_rank(
     my_d = chebyshev(my_pos, target)
     rank = 0
     for uid in ct.get_nearby_units():
-        if uid == my_id:
+        if uid == self.my_id:
             continue
         if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
             continue
@@ -59,7 +58,7 @@ def _deconflict_rank(
             continue
         fp = ct.get_position(uid)
         fd = chebyshev(fp, target)
-        if fd < my_d or (fd == my_d and uid < my_id):
+        if fd < my_d or (fd == my_d and uid < self.my_id):
             rank += 1
     return rank
 
@@ -95,8 +94,6 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     """
     best: Position | None = None
     best_score: tuple[int, int, int] = (0, 0, 0)
-    my_pos = ct.get_position()
-    my_id = ct.get_id()
     for pos in self.healable_buildings:
         i = self.idx(pos)
         hp = self.hp[i]
@@ -107,13 +104,13 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
 
         attackers = _count_visible_attackers(self, ct, pos)
         needed = _healers_needed(attackers)
-        rank = _deconflict_rank(self, ct, my_id, my_pos, pos)
+        rank = _deconflict_rank(self, ct, self.my_pos, pos)
         if rank >= needed:
             if not ct.is_in_vision(pos):
                 self.hp[i] = max_hp
             continue
 
-        dist = chebyshev(my_pos, pos)
+        dist = chebyshev(self.my_pos, pos)
         turns_to_reach = max(0, dist - 1)
         dmg_per_turn = max(2, attackers * 2)
         turns_to_die = max(1, hp // dmg_per_turn)
@@ -145,7 +142,7 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
     return best
 
 
-def best_adjacent_healable_building(self: Builder, ct: Controller) -> Position | None:
+def best_adjacent_healable_building(self: Builder) -> Position | None:
     best: Position | None = None
     best_score: tuple[int, int] = (0, 0)
     for pos in self.healable_buildings:
@@ -153,7 +150,7 @@ def best_adjacent_healable_building(self: Builder, ct: Controller) -> Position |
         hp = self.hp[i]
         max_hp = self.max_hp[i]
         damage = max_hp - hp
-        if ct.get_position().distance_squared(pos) > 2:
+        if self.my_pos.distance_squared(pos) > 2:
             continue
         score = (0, damage) if damage < 4 else (1, damage)
         if score > best_score:
@@ -166,13 +163,13 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     if self.repair_pos and ct.is_in_vision(self.repair_pos):
         b = self.get_building(self.repair_pos)
         ti = self.idx(self.repair_pos)
-        if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == ct.get_team():
+        if b and self.hp[ti] < self.max_hp[ti] - 2 and b.team == self.my_team:
             pass
         else:
             self.repair_pos = None
     repair_pos = best_healable_building(self, ct)
     if (
-        repair_pos and repair_pos.distance_squared(ct.get_position()) <= 2
+        repair_pos and repair_pos.distance_squared(self.my_pos) <= 2
     ) or not self.repair_pos:
         self.repair_pos = repair_pos
 
@@ -183,9 +180,9 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     heal_position = self.repair_pos
     if ct.is_in_vision(heal_position):
         builder = ct.get_tile_builder_bot_id(heal_position)
-        being_attacked = builder is not None and ct.get_team(builder) != ct.get_team()
+        being_attacked = builder is not None and ct.get_team(builder) != self.my_team
 
-    building_to_heal = best_adjacent_healable_building(self, ct)
+    building_to_heal = best_adjacent_healable_building(self)
     save_money = being_attacked and self.repaired_prev
     if building_to_heal:
         self.repaired_prev = try_heal(
@@ -197,7 +194,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     else:
         self.repaired_prev = False
     make_move(self, ct, self.repair_pos)
-    building_to_heal = best_adjacent_healable_building(self, ct)
+    building_to_heal = best_adjacent_healable_building(self)
     if building_to_heal:
         self.repaired_prev = (
             try_heal(self, ct, building_to_heal, conserve_ti=save_money)
@@ -206,12 +203,12 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     return True
 
 
-def has_wounded_enemy(self: Builder, ct: Controller, position: Position) -> bool:
+def has_wounded_enemy(self: Builder, position: Position) -> bool:
     b = self.get_building(position)
     if not b:
         return False
     i = self.idx(position)
-    return b.team != ct.get_team() and self.hp[i] < self.max_hp[i]
+    return b.team != self.my_team and self.hp[i] < self.max_hp[i]
 
 
 def heal_adjacent_builders(self: Builder, ct: Controller) -> bool:
@@ -219,9 +216,9 @@ def heal_adjacent_builders(self: Builder, ct: Controller) -> bool:
     for eid in adjacent_builders:
         if (ct.get_hp(eid) <= ct.get_max_hp(eid) - 4) and ct.get_team(
             eid,
-        ) == ct.get_team():
+        ) == self.my_team:
             position = ct.get_position(eid)
-            if has_wounded_enemy(self, ct, position):
+            if has_wounded_enemy(self, position):
                 continue
             if try_heal(self, ct, position, conserve_ti=False):
                 return True
@@ -232,14 +229,13 @@ def heal_self(self: Builder, ct: Controller) -> bool:
     if ct.get_hp() > ct.get_max_hp() - 4:
         return False
 
-    my_pos = ct.get_position()
-    if not has_wounded_enemy(self, ct, my_pos):
-        try_heal(self, ct, my_pos, conserve_ti=False)
+    if not has_wounded_enemy(self, self.my_pos):
+        try_heal(self, ct, self.my_pos, conserve_ti=False)
         move_random(self, ct)
         return True
 
     for d in DIR8:
-        if ct.can_move(d) and not has_wounded_enemy(self, ct, my_pos.add(d)):
+        if ct.can_move(d) and not has_wounded_enemy(self, self.my_pos.add(d)):
             ct.move(d)
             try_heal(self, ct, ct.get_position(), conserve_ti=False)
             return True
@@ -248,9 +244,9 @@ def heal_self(self: Builder, ct: Controller) -> bool:
 
 
 def heal_builders(self: Builder, ct: Controller) -> bool:
-    b = self.get_building(ct.get_position())
-    if b and b.team != ct.get_team():
-        i = self.idx(ct.get_position())
+    b = self.get_building(self.my_pos)
+    if b and b.team != self.my_team:
+        i = self.idx(self.my_pos)
         if self.hp[i] <= 2:
             return False
         if self.hp[i] <= 6 and ct.get_hp() > 18:

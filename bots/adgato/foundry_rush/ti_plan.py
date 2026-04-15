@@ -5,11 +5,15 @@ plan — no foundry, no second ore, no two-stage split.
 
 from __future__ import annotations
 
-from astar import BuildInstruction, ChainAstar
+from typing import TYPE_CHECKING
+
 from cambc import Controller, EntityType, Environment, Position
-from env_tracker import EnvTracker
 from tile_codec import ENV_WALL, UNSEEN, tile_building_type, tile_env, tile_is_allied
 from utils import try_move_away
+
+if TYPE_CHECKING:
+    from astar import BuildInstruction, ChainAstar
+    from env_tracker import EnvTracker
 
 _CARDINAL = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
