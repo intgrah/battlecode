@@ -59,7 +59,7 @@ def biastar_dial_cheb_ft(
             if g_f[node] + h_node != cf:
                 continue
             # First-touch: expanded by forward, reached by backward?
-            if g_b[node] < INF:
+            if g_b[node] is not INF:
                 meet = node
                 break
             gn = g_f[node]
@@ -85,7 +85,7 @@ def biastar_dial_cheb_ft(
             if g_b[node] + h_node != cb:
                 continue
             # First-touch: expanded by backward, reached by forward?
-            if g_f[node] < INF:
+            if g_f[node] is not INF:
                 meet = node
                 break
             gn = g_b[node]

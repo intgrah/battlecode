@@ -68,7 +68,7 @@ def biastar_dial_cheb(
                 continue
             gn = g_f[node]
             # Check meeting at expansion
-            if g_b[node] < INF:
+            if g_b[node] is not INF:
                 cand = gn + g_b[node]
                 if cand < best:
                     best = cand
@@ -83,7 +83,7 @@ def biastar_dial_cheb(
                     h_ni = max(abs(nix - gx), abs(niy - gy)) * CR
                     bk_f[(nd + h_ni) % mod].append(nb)
                     # Check meeting at relaxation
-                    if g_b[nb] < INF:
+                    if g_b[nb] is not INF:
                         cand = nd + g_b[nb]
                         if cand < best:
                             best = cand
@@ -103,7 +103,7 @@ def biastar_dial_cheb(
                 continue
             gn = g_b[node]
             # Check meeting at expansion
-            if g_f[node] < INF:
+            if g_f[node] is not INF:
                 cand = g_f[node] + gn
                 if cand < best:
                     best = cand
@@ -118,7 +118,7 @@ def biastar_dial_cheb(
                     h_ni = max(abs(nix - sx), abs(niy - sy)) * CR
                     bk_b[(nd + h_ni) % mod].append(nb)
                     # Check meeting at relaxation
-                    if g_f[nb] < INF:
+                    if g_f[nb] is not INF:
                         cand = g_f[nb] + nd
                         if cand < best:
                             best = cand

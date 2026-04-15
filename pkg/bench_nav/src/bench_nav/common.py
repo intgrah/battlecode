@@ -78,8 +78,7 @@ def bfs_dist(n: int, pnb: list[list[int]], start: int) -> list[int]:
     for node in q:
         d1 = dist[node] + 1
         for nb in pnb[node]:
-            if dist[nb] != INF:
-                continue
-            dist[nb] = d1
-            append(nb)
+            if dist[nb] is INF:
+                dist[nb] = d1
+                append(nb)
     return dist

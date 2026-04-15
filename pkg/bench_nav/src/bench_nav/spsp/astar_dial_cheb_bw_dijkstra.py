@@ -63,7 +63,7 @@ def astar_dial_cheb_bw_dijkstra(
             if g_f[node] + h_node != cf:
                 continue
             gn = g_f[node]
-            if g_b[node] < INF:
+            if g_b[node] is not INF:
                 cand = gn + g_b[node]
                 if cand < best:
                     best = cand
@@ -76,7 +76,7 @@ def astar_dial_cheb_bw_dijkstra(
                     nix, niy = nb % w, nb // w
                     h_ni = max(abs(nix - gx), abs(niy - gy)) * CR
                     bk_f[(nd + h_ni) % 5].append(nb)
-                    if g_b[nb] < INF:
+                    if g_b[nb] is not INF:
                         cand = nd + g_b[nb]
                         if cand < best:
                             best = cand
@@ -92,7 +92,7 @@ def astar_dial_cheb_bw_dijkstra(
             if g_b[node] != cb:
                 continue
             gn = g_b[node]
-            if g_f[node] < INF:
+            if g_f[node] is not INF:
                 cand = g_f[node] + gn
                 if cand < best:
                     best = cand
@@ -104,7 +104,7 @@ def astar_dial_cheb_bw_dijkstra(
                     g_b[nb] = nd
                     parent_b[nb] = node
                     bk_b[nd % 4].append(nb)
-                    if g_f[nb] < INF:
+                    if g_f[nb] is not INF:
                         cand = g_f[nb] + nd
                         if cand < best:
                             best = cand
