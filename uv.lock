@@ -39,6 +39,7 @@ members = [
     "bot-rug",
     "bot-saboteur",
     "bot-se",
+    "bot-sprint4",
     "bot-sprint4ax",
     "bot-starter",
     "bot-test-core-spawn",
@@ -83,6 +84,7 @@ members = [
     "bot-v54-2-2",
     "bot-v54-2-3",
     "bot-v54-2-4",
+    "bot-v54-3-0",
     "proto",
     "visualiser",
 ]
@@ -482,6 +484,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-sprint4"
+version = "0.0.0"
+source = { virtual = "bots/adgato/sprint4" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.6.4" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
 
 [[package]]
 name = "bot-sprint4ax"
@@ -1096,6 +1113,21 @@ requires-dist = [
 name = "bot-v54-2-4"
 version = "0.0.0"
 source = { virtual = "bots/intgrah/v54.2.4" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc", specifier = ">=1.7.0" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-3-0"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.3.0" }
 dependencies = [
     { name = "cambc" },
     { name = "visualiser" },

@@ -94,6 +94,7 @@ def can_place_junction(state: State, ct: Controller, pos: Position) -> bool:
 def update_map(state: State, ct: Controller) -> None:
     w = state.w
     nearby_positions = ct.get_nearby_tiles()
+    rnd = ct.get_current_round()
     state.nearby_positions = nearby_positions
     state.nearby_buildings = []
 
@@ -112,6 +113,10 @@ def update_map(state: State, ct: Controller) -> None:
         p for p in state.friendly_turret_ray_tiles if not in_vision(p)
     }
 
+    state.patrol_queue = [
+        p for p in state.patrol_queue if not in_vision(p[0])
+    ]
+
     for pos in nearby_positions:
         i = pos.y * w + pos.x
         state.conveyors_to_here[i] = [
@@ -124,7 +129,6 @@ def update_map(state: State, ct: Controller) -> None:
     pad = state.pad
     pw = state.pw
     my_team = ct.get_team()
-    pass_grid = state.pass_grid
     for pos in nearby_positions:
         i = pos.y * w + pos.x
         pi = (pos.y + pad) * pw + (pos.x + pad)
@@ -147,13 +151,7 @@ def update_map(state: State, ct: Controller) -> None:
             state.buildings[i] = bld
             state.hp[i] = ct.get_hp(building_id)
             state.max_hp[i] = ct.get_max_hp(building_id)
-            
-            pass_grid.update_tile(
-                i,
-                state.env[i],
-                etype,
-                is_allied_building=ct.get_team(building_id) == my_team,
-            )
+
 
             match bld:
                 case (
@@ -274,14 +272,6 @@ def update_map(state: State, ct: Controller) -> None:
                             break
         else:
             state.buildings[i] = None
-            # Marker or empty tile: let pass_grid decide based
-            # on terrain alone (walls impassable, rest walkable).
-            pass_grid.update_tile(
-                i,
-                state.env[i],
-                None,
-                is_allied_building=False,
-            )
 
         terrain = state.env[i]
         bld = state.buildings[i]
@@ -331,23 +321,30 @@ def update_map(state: State, ct: Controller) -> None:
         state.cost_grid[pi] = cost
         state.conveyor_cost_grid[pi] = conveyor_cost
 
-    # new_tiles: list[tuple[Position, Environment]] = []
-    # for pos in nearby_positions:
-    #     if 0 <= pos.x < state.w and 0 <= pos.y < state.h:
-    #         e = state.env[pos.y * w + pos.x]
-    #         if e is not None:
-    #             new_tiles.append((pos, e))
-    # _apply_symmetry(state, new_tiles)
-    # _drain_reflect_queue(state)
+    # update pass grid
+    for pos in nearby_positions:
+        i = pos.y * w + pos.x
+        bid = ct.get_tile_building_id(pos)
+        state.pass_grid.update_tile(
+            i,
+            state.env[i],
+            EntityType.LAUNCHER if pos in state.adjacent_to_enemy_launcher else None if bid is None else ct.get_entity_type(bid),
+            is_allied_building=(bid is not None and ct.get_team(building_id) == my_team),
+        )
 
     my_pos = ct.get_position()
+
     for pos in nearby_positions:
-        if (
-            state.env[pos.y * w + pos.x]
-            in [Environment.ORE_TITANIUM, Environment.ORE_AXIONITE]
-            and state.buildings[pos.y * w + pos.x] is None
-        ):
-            pass
+        core_bonus = max(0, 100 - state.my_core.distance_squared(pos)) / 100 * 0.25
+        b = state.get_building(pos)
+        if isinstance(b, (BuildingHarvester, BuildingFoundry)) and b.team == my_team:
+            state.patrol_queue.append((pos, rnd, 1 + core_bonus))
+        elif state.has_flow(pos):
+            flow = state.get_flow(pos)
+            ti_bonus = flow.ti / 4 * 0.25
+            ax_bonus = flow.ax / 4 * 0.15
+            rax_bonus = flow.rax / 4 * 0.35
+            state.patrol_queue.append((pos, rnd, 0.5 + ti_bonus + ax_bonus + rax_bonus + core_bonus))
 
     # Ore-denial set: rebuilt each turn (cheap, bounded by vision).
     # For each ore tile in vision with any enemy bot/building in its
@@ -473,7 +470,6 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
             )
         ) and can_place_junction(state, ct, pos):
             state.nearest_junction_site = pos
-
 
 _REFLECT_BUDGET = 25
 
