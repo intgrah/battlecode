@@ -457,7 +457,7 @@ class NavBfs:
         dist = self._dist
         offsets = self.grid.offsets
 
-        pos = ct.get_position()
+        pos = self.my_pos
         pi = (pos.y + 1) * pw + (pos.x + 1)
         d = dist[pi]
         if d >= INF:

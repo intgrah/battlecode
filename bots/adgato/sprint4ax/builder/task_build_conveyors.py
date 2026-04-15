@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from building import BuildingConveyor, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Environment, Position
 from util import (
@@ -16,23 +20,25 @@ from .helpers import (
     try_move_with_road,
     try_place,
 )
-from .state import State
-from .state_update_map import can_place_junction
+from .update.map import can_place_junction
+
+if TYPE_CHECKING:
+    from builder import Builder
 
 
 def clear_with_turret(
-    state: State, ct: Controller, build_pos: Position, target_pos: Position
+    self: Builder, ct: Controller, build_pos: Position, target_pos: Position
 ) -> bool:
-    if build_pos == ct.get_position():
+    if build_pos == self.my_pos:
         for d in DIR8:
             if ct.can_move(d):
                 ct.move(d)
                 break
 
-    if build_pos == ct.get_position():
+    if build_pos == self.my_pos:
         for d in DIR8:
-            move_pos = ct.get_position().add(d)
-            if try_move_with_road(ct, move_pos):
+            move_pos = self.my_pos.add(d)
+            if try_move_with_road(self, ct, move_pos):
                 break
 
     direction = build_pos.direction_to(target_pos)
@@ -43,7 +49,7 @@ def lay_segment(
     ct: Controller,
     start_pos: Position,
     path: list[Position] | None,
-    state: State,
+    self: Builder,
 ) -> bool:
     if not path:
         return False
@@ -52,13 +58,13 @@ def lay_segment(
     entity_type = ct.get_entity_type(building_id) if building_id else None
 
     if (
-        state.my_core
-        and start_pos.distance_squared(state.my_core) <= 5
-        and path[-1] == state.my_core
+        self.my_core
+        and start_pos.distance_squared(self.my_core) <= 5
+        and path[-1] == self.my_core
     ):
         for d in DIR4:
             check_pos = start_pos.add(d)
-            if check_pos.distance_squared(state.my_core) <= 2:
+            if check_pos.distance_squared(self.my_core) <= 2:
                 direction = d
                 break
     else:
@@ -69,7 +75,7 @@ def lay_segment(
             return True
     elif entity_type == EntityType.BRIDGE:
         bridge_output = ct.get_bridge_target(building_id)
-        if not ct.is_in_vision(bridge_output) or state.is_buildable(bridge_output):
+        if not ct.is_in_vision(bridge_output) or self.is_buildable(bridge_output):
             return True
 
     next_pos = path[1]
@@ -92,58 +98,58 @@ def lay_segment(
         direction in DIR4
         and (
             (not destination_building)
-            or destination_team == ct.get_team()
+            or destination_team == self.my_team
             or destination_is_marker
         )
-        and state.get_env(path[1]) != Environment.WALL
+        and self.get_env(path[1]) != Environment.WALL
     ):
         return try_place(ct, EntityType.CONVEYOR, start_pos, direction)
     pending_bridge = reachable_path_end(path, start_pos, 3)
-    if is_enemy_building(state, ct, pending_bridge):
-        if clear_with_turret(state, ct, start_pos, pending_bridge):
-            state.branch_start = start_pos
+    if is_enemy_building(self, ct, pending_bridge):
+        if clear_with_turret(self, ct, start_pos, pending_bridge):
+            self.branch_start = start_pos
         return False
     if start_pos != pending_bridge and try_place(
         ct, EntityType.BRIDGE, start_pos, pending_bridge
     ):
-        if chebyshev(pending_bridge, state.my_core) > 1:
-            state.pending_bridge = pending_bridge
+        if chebyshev(pending_bridge, self.my_core) > 1:
+            self.pending_bridge = pending_bridge
         return True
     return False
 
 
 def best_junction_site(
-    state: State, ct: Controller, path: list[Position]
+    self: Builder, ct: Controller, path: list[Position]
 ) -> Position | None:
     for pos in path[::-1]:
-        if can_place_junction(state, ct, pos):
+        if can_place_junction(self, ct, pos):
             return pos
     return None
 
 
-def place_junction(state: State, ct: Controller, pos: Position) -> bool | None:
-    current_building = state.get_building(pos)
+def place_junction(self: Builder, ct: Controller, pos: Position) -> bool | None:
+    current_building = self.get_building(pos)
     if isinstance(current_building, BuildingSplitter):
         return True
 
     for d in DIR4:
         new_pos = pos.add(d)
-        existing_building = state.get_building(new_pos)
+        existing_building = self.get_building(new_pos)
         if (
-            (state.get_env(new_pos) == Environment.EMPTY)
+            (self.get_env(new_pos) == Environment.EMPTY)
             and existing_building is None
             and ct.can_build_road(new_pos)
         ):
             ct.build_road(new_pos)
             return False
 
-    conveyors = state.get_conveyors_to_here(pos)
+    conveyors = self.get_conveyors_to_here(pos)
     adjacent_conveyors = [c for c in conveyors if c.distance_squared(pos) <= 1]
     if len(adjacent_conveyors) > 1 or len(conveyors) < 1:
         return False
     if len(adjacent_conveyors) >= 1:
         splitter_direction = adjacent_conveyors[0].direction_to(pos)
-    elif isinstance(bld_at_pos := state.get_building(pos), BuildingConveyor):
+    elif isinstance(bld_at_pos := self.get_building(pos), BuildingConveyor):
         splitter_direction = bld_at_pos.direction
     else:
         splitter_direction = Direction.NORTH
@@ -152,57 +158,57 @@ def place_junction(state: State, ct: Controller, pos: Position) -> bool | None:
 
 
 def route_to(
-    state: State,
+    self: Builder,
     ct: Controller,
     start: Position,
     target: Position,
 ) -> None:
-    state.pending_bridge = None
-    state.branch_start = None
+    self.pending_bridge = None
+    self.branch_start = None
 
     if start == target:
         return None
 
-    if chebyshev(start, target) <= 1 and target == state.my_core:
+    if chebyshev(start, target) <= 1 and target == self.my_core:
         return None
 
-    current_pos = ct.get_position()
+    current_pos = self.my_pos
 
-    start_building = state.get_building(start)
+    start_building = self.get_building(start)
     all_blocked = True
     if isinstance(start_building, BuildingSplitter):
         for d in DIR4:
             if d == start_building.direction.opposite():
                 continue
             new_pos = start.add(d)
-            if state.is_buildable(new_pos):
+            if self.is_buildable(new_pos):
                 start = new_pos
                 all_blocked = False
                 break
     else:
         all_blocked = False
 
-    existing_path = trace_upstream(state, start)
+    existing_path = trace_upstream(self, start)
     if len(existing_path) < 1:
         return None
 
-    if state.is_friendly_turret(start) or all_blocked:
-        split_location = best_junction_site(state, ct, existing_path)
+    if self.is_friendly_turret(start) or all_blocked:
+        split_location = best_junction_site(self, ct, existing_path)
         if split_location:
-            make_move(state, ct, split_location)
-            if place_junction(state, ct, split_location):
-                state.branch_start = split_location
+            make_move(self, ct, split_location)
+            if place_junction(self, ct, split_location):
+                self.branch_start = split_location
             else:
-                state.branch_start = start
+                self.branch_start = start
         return None
 
-    if not state.is_passable(start):
+    if not self.is_passable(start):
         if len(existing_path) > 1:
             start = existing_path[-2]
         else:
             return None
 
-    path = conv_pathfind(state, ct, start, target)
+    path = conv_pathfind(self, ct, start, target)
     if path:
         path_start_index = 0
         for i, pos in enumerate(path):
@@ -214,10 +220,10 @@ def route_to(
     if chebyshev(current_pos, start) <= 1:
         if not path or (conv_unreachable(target) and not path) or len(path) < 2:
             return True
-        lay_segment(ct, start, path, state)
-    make_move(state, ct, start)
+        lay_segment(ct, start, path, self)
+    make_move(self, ct, start)
     return None
 
 
-def route_to_core(state: State, ct: Controller, start: Position) -> None:
-    return route_to(state, ct, start, state.my_core)
+def route_to_core(self: Builder, ct: Controller, start: Position) -> None:
+    return route_to(self, ct, start, self.my_core)

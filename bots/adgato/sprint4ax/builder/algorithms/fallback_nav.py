@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 import math
 from enum import IntEnum
+from typing import TYPE_CHECKING
 
-from builder.state import State
 from cambc import Controller, Position
 from util import INF
+
+if TYPE_CHECKING:
+    from builder import Builder
 
 __all__ = ["fallback_nav"]
 
@@ -45,10 +50,10 @@ def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
 
 
 def fallback_step(
-    state: State, ct: Controller, target: Position, blocked: set[Position] | None = None
+    self: Builder, ct: Controller, target: Position, blocked: set[Position] | None = None
 ) -> Position | None:
-    unit_id = ct.get_id()
-    curr = ct.get_position()
+    unit_id = self.my_id
+    curr = self.my_pos
 
     if unit_id not in _bug_states or _bug_states[unit_id].goal != target:
         _bug_states[unit_id] = WallFollow(curr, target)
@@ -57,10 +62,10 @@ def fallback_step(
     if blocked is None:
         blocked = set()
 
-    cost_grid = state.cost_grid
-    w, h = state.w, state.h
-    pad = state.pad
-    pw = state.pw
+    cost_grid = self.cost_grid
+    w, h = self.w, self.h
+    pad = self.pad
+    pw = self.pw
 
     if curr == target:
         return None
@@ -97,7 +102,7 @@ def fallback_step(
             and _chebyshev(curr, target) < _chebyshev(bug.hit_point, target)
         ):
             bug.mode = BugMode.MODE_GOAL_SEEK
-            return fallback_step(state, ct, target, blocked)
+            return fallback_step(self, ct, target, blocked)
 
         dirs = [(0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1)]
 
@@ -121,12 +126,12 @@ def fallback_step(
     return None
 
 
-def fallback_nav(state: State, ct: Controller, target: Position) -> Position | None:
+def fallback_nav(self: Builder, ct: Controller, target: Position) -> Position | None:
     blocked: set[Position] = set()
-    current_pos = ct.get_position()
+    current_pos = self.my_pos
     nearby_positions = ct.get_nearby_tiles(2)
     for pos in nearby_positions:
         if pos != current_pos and ct.get_tile_builder_bot_id(pos) is not None:
             blocked.add(pos)
 
-    return fallback_step(state, ct, target, blocked)
+    return fallback_step(self, ct, target, blocked)
