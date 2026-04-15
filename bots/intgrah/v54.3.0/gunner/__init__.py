@@ -138,8 +138,8 @@ class Gunner(Unit):
         best_score = -1
         best_dist_sq = 999
         best_dir: Direction | None = None
-        for direction in DIR8:
-            blocker = self.walk_ray(ct, direction)
+        for d in DIR8:
+            blocker = self.walk_ray(ct, d)
             if blocker is None:
                 continue
             bpos, bid, uid = blocker
@@ -162,7 +162,7 @@ class Gunner(Unit):
             if (score, -dist_sq) > (best_score, -best_dist_sq):
                 best_score = score
                 best_dist_sq = dist_sq
-                best_dir = direction
+                best_dir = d
         if best_dir is not None and ct.can_rotate(best_dir):
             ct.rotate(best_dir)
             return True

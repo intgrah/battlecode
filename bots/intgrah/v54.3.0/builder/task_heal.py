@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType, Position
-from util import DIR8, chebyshev
+from util import chebyshev
 
 from builder.helpers import make_move, move_random, try_heal
 
@@ -218,8 +218,8 @@ def heal_self(self: Builder, ct: Controller) -> bool:
         move_random(self, ct)
         return True
 
-    for d in DIR8:
-        if ct.can_move(d) and not has_wounded_enemy(self, self.my_pos.add(d)):
+    for d, n in self.dir_neighbours_8:
+        if ct.can_move(d) and not has_wounded_enemy(self, n):
             ct.move(d)
             try_heal(self, ct, ct.get_position(), conserve_ti=False)
             return True

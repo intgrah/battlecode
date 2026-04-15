@@ -120,26 +120,24 @@ def sentinel_facing(
 
 
 def place_sentinel_nearby(self: Builder, ct: Controller) -> bool:
-    for d in DIR8:
-        test_position = self.my_pos.add(d)
+    for test_position in self.neighbours_8:
         result = sentinel_facing(self, ct, test_position)
         if result is not None:
-            return try_place(ct, EntityType.SENTINEL, test_position, result)
+            return try_place(self, ct, EntityType.SENTINEL, test_position, result)
     result = sentinel_facing(self, ct, self.my_pos)
     if result and move_random(self, ct):
-        try_place(ct, EntityType.SENTINEL, self.my_pos, result)
+        try_place(self, ct, EntityType.SENTINEL, self.my_pos, result)
         return True
     return False
 
 
 def place_gunner_nearby(self: Builder, ct: Controller) -> bool:
-    for d in DIR8:
-        test_position = self.my_pos.add(d)
+    for test_position in self.neighbours_8:
         result = gunner_facing(self, test_position)
         if result is not None:
-            return try_place(ct, EntityType.GUNNER, test_position, result)
+            return try_place(self, ct, EntityType.GUNNER, test_position, result)
     result = gunner_facing(self, self.my_pos)
     if result and move_random(self, ct):
-        try_place(ct, EntityType.GUNNER, self.my_pos, result)
+        try_place(self, ct, EntityType.GUNNER, self.my_pos, result)
         return True
     return place_sentinel_nearby(self, ct)

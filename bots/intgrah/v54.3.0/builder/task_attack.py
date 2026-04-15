@@ -20,13 +20,15 @@ from cambc import (
     GameConstants,
     Position,
 )
-from util import DIR4, DIR8, can_afford, chebyshev, closest, try_move
+from util import DIR4, DIR8, chebyshev, closest
 
 from builder.helpers import (
+    can_afford,
     get_enemy_core_pos,
     make_move,
     move_random,
     try_attack,
+    try_move_dir,
     try_place,
 )
 from builder.task_explore import explore
@@ -74,7 +76,7 @@ def nearest_enemy_bot(self: Builder) -> Position | None:
     return closest(self.my_pos, self.enemy_bots)
 
 
-def should_attack(self: Builder, ct: Controller, pos: Position) -> bool:
+def should_attack(self: Builder, pos: Position) -> bool:
     enemy_builder = nearest_enemy_bot(self)
     i = self.idx(pos)
     return (
@@ -82,7 +84,7 @@ def should_attack(self: Builder, ct: Controller, pos: Position) -> bool:
         or chebyshev(self.my_pos, enemy_builder) > 2
         or self.hp[i] <= self.max_hp[i] - 4
         or self.hp[i] <= 4
-        or can_afford(ct, EntityType.HARVESTER)
+        or can_afford(self, EntityType.HARVESTER)
     )
 
 
@@ -400,7 +402,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                         self.last_fire = None
                         make_move(self, ct, alt)
                         return
-                if should_attack(self, ct, self.my_pos):
+                if should_attack(self, self.my_pos):
                     bid_here = ct.get_tile_building_id(self.my_pos)
                     if bid_here is not None:
                         pre_hp = ct.get_hp(bid_here)
@@ -441,10 +443,10 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 if n_gunner < 2:
                     gdir = _gunner_chain_facing(self, build_position)
                     if gdir is not None:
-                        try_place(ct, EntityType.GUNNER, build_position, gdir)
+                        try_place(self, ct, EntityType.GUNNER, build_position, gdir)
 
                 if n_sentinel == 0 and self.get_env(target) == Environment.ORE_TITANIUM:
-                    try_place(ct, EntityType.SENTINEL, build_position, direction)
+                    try_place(self, ct, EntityType.SENTINEL, build_position, direction)
 
                 if ct.can_build_road(build_position):
                     ct.build_road(build_position)
@@ -478,11 +480,11 @@ def run_attack(self: Builder, ct: Controller) -> None:
                     return
             launcher_location = closest(
                 destination,
-                buildable(self, [self.my_pos.add(d) for d in DIR8]),
+                buildable(self, list(self.neighbours_8)),
             )
             adjacent_launchers = [
                 p
-                for p in [self.my_pos.add(d) for d in DIR8]
+                for p in self.neighbours_8
                 if isinstance(self.get_building(p), BuildingLauncher)
             ]
             best_adjacent_launcher = closest(destination, adjacent_launchers)
@@ -504,7 +506,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                 and self.is_walkable(destination)
                 and launcher_location.distance_squared(destination)
                 <= GameConstants.LAUNCHER_VISION_RADIUS_SQ
-                and try_place(ct, EntityType.LAUNCHER, launcher_location)
+                and try_place(self, ct, EntityType.LAUNCHER, launcher_location)
             ):
                 self.offense_launcher = launcher_location
             elif (
@@ -523,7 +525,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
         if (
             ct.get_position().distance_squared(target) == 1
             and self.is_enemy_building(ct.get_position())
-            and should_attack(self, ct, ct.get_position())
+            and should_attack(self, ct.get_position())
         ):
             try_attack(ct, ct.get_position())
     elif (
@@ -553,7 +555,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
         )
         if conveyor_target is not None:
             if self.my_pos == conveyor_target:
-                if should_attack(self, ct, conveyor_target):
+                if should_attack(self, conveyor_target):
                     try_attack(ct, self.my_pos)
             else:
                 make_move(self, ct, conveyor_target)
@@ -573,7 +575,7 @@ def scout_toward_enemy(self: Builder, ct: Controller) -> None:
         make_move(self, ct, en_core)
     elif self.my_pos.distance_squared(
         en_core,
-    ) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ or ct.get_global_resources()[0] >= (
+    ) <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ or self.ti >= (
         GameConstants.HARVESTER_BASE_COST[0] + 50
     ) * (1 + ct.get_scale_percent() / 100):
         explore(self, ct)
@@ -581,5 +583,5 @@ def scout_toward_enemy(self: Builder, ct: Controller) -> None:
         dir8 = DIR8.copy()
         self.rng.shuffle(dir8)
         for d in dir8:
-            if try_move(ct, self.my_pos.add(d)):
+            if try_move_dir(ct, d):
                 break
