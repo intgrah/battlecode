@@ -5,18 +5,18 @@ from bench_nav.common import CE, INF, Path_
 assert CE + 2 == 5
 
 
-def astar_dial_bfs(
+def astar_dial_precomp(
     n: int,
     cost: list[int],
     pnb: list[list[int]],
-    bfs_h: list[int],
+    h: list[int],
     start: int,
     goal: int,
 ) -> Path_:
-    """A* (Dial's) from goal to start, using precomputed BFS heuristic."""
+    """A* (Dial's) from goal to start, using precomputed heuristic."""
     g = [INF] * n
     g[goal] = 0
-    h_goal = bfs_h[goal]
+    h_goal = h[goal]
     if h_goal >= INF:
         return None
     bk = [deque[int]() for _ in range(5)]
@@ -32,7 +32,7 @@ def astar_dial_bfs(
             while bki:
                 node = popleft()
                 g_node = g[node]
-                if g_node + bfs_h[node] != f:
+                if g_node + h[node] != f:
                     continue
                 if node == start:
                     found = True
@@ -41,7 +41,7 @@ def astar_dial_bfs(
                     nd = g_node + cost[nb]
                     if nd < g[nb]:
                         g[nb] = nd
-                        bk[(nd + bfs_h[nb]) % 5].append(nb)
+                        bk[(nd + h[nb]) % 5].append(nb)
             if found:
                 break
         else:

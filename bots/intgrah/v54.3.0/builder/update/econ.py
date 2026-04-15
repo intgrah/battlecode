@@ -102,7 +102,6 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
 
 
-
 def update_dangling(self: Builder, ct: Controller) -> None:
     if is_dangling(self, self.my_pos):
         self.dangling_output = self.my_pos

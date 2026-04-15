@@ -135,15 +135,30 @@ def _build_spsp_algos(
         hpa_graph = spsp.precompute_hpa(w, h, cost)
         add("hpastar", lambda start, goal: spsp.hpastar(w, hpa_graph, start, goal))
 
-    if "astar-dial-bfs" in selected:
+    if "astar-dial-precomp-cheb" in selected:
+        cheb_cache: dict[int, list[int]] = {}
+
+        def _precomp_cheb(start: int, goal: int) -> Path_:
+            if start not in cheb_cache:
+                sx, sy = start % w, start // w
+                cheb_cache[start] = [
+                    max(abs(i % w - sx), abs(i // w - sy)) for i in range(n)
+                ]
+            return spsp.astar_dial_precomp(n, cost, pnb, cheb_cache[start], start, goal)
+
+        add("astar-dial-precomp-cheb", _precomp_cheb)
+
+    if "astar-dial-precomp-bfs" in selected:
         bfs_h_cache: dict[int, list[int]] = {}
 
-        def _astar_dial_bfs(start: int, goal: int) -> Path_:
+        def _precomp_bfs(start: int, goal: int) -> Path_:
             if start not in bfs_h_cache:
                 bfs_h_cache[start] = bfs_dist(n, pnb, start)
-            return spsp.astar_dial_bfs(n, cost, pnb, bfs_h_cache[start], start, goal)
+            return spsp.astar_dial_precomp(
+                n, cost, pnb, bfs_h_cache[start], start, goal
+            )
 
-        add("astar-dial-bfs", _astar_dial_bfs)
+        add("astar-dial-precomp-bfs", _precomp_bfs)
 
     add(
         "biastar-dial-cheb",
@@ -223,7 +238,8 @@ ALL_SPSP_NAMES: list[str] = [
     "dijkstra-dial",
     "dijkstra-dial-dual",
     "hpastar",
-    "astar-dial-bfs",
+    "astar-dial-precomp-cheb",
+    "astar-dial-precomp-bfs",
     "biastar-dial-cheb",
     "biastar-dial-cheb-ft",
     "astar-cheb+bw-dijkstra",

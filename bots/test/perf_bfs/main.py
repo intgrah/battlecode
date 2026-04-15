@@ -19,7 +19,16 @@ class Player:
                 h = ct.get_map_height()
                 n = w * h
                 INF = 1_000_000
-                DIR8_DELTA = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
+                DIR8_DELTA = (
+                    (1, 0),
+                    (-1, 0),
+                    (0, 1),
+                    (0, -1),
+                    (1, 1),
+                    (1, -1),
+                    (-1, 1),
+                    (-1, -1),
+                )
 
                 offsets = [dy * w + dx for dx, dy in DIR8_DELTA]
                 pnb = [[] for _ in range(n)]

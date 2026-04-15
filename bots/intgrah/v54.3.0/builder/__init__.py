@@ -320,7 +320,6 @@ class Builder(Unit):
 
         self.nearest_enemy_turret: Position | None = None
 
-
         # Role
         self.role: Role | None = None
         self.role_age: int = 0
