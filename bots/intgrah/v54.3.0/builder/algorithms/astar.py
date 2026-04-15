@@ -208,12 +208,3 @@ class MoveHeapAstar:
 
 
 move_search = MoveHeapAstar()
-
-
-def pathfind_blocked(
-    state: Builder,
-    ct: Controller,
-    start: Position,
-    goal: Position,
-) -> list[Position] | None:
-    return move_search.search_blocked(state, ct, start, goal)

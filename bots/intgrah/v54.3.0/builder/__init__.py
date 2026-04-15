@@ -393,89 +393,70 @@ class Builder(Unit):
         return (pos.y + self.pad) * self.pad_w + (pos.x + self.pad)
 
     def get_env(self, pos: Position) -> Environment | None:
-        if self.in_bounds(pos):
-            return self.env[self.idx(pos)]
-        return None
+        return self.env[self.idx(pos)]
 
     def get_building(self, pos: Position) -> Building | None:
-        if self.in_bounds(pos):
-            return self.buildings[self.idx(pos)]
-        return None
+        return self.buildings[self.idx(pos)]
 
     def get_cost(self, pos: Position) -> int:
-        if self.in_bounds(pos):
-            return self.cost_grid[self._pidx(pos)]
-        return INF
+        return self.cost_grid[self._pidx(pos)]
 
-    def is_passable(self, pos: Position) -> bool | None:
-        return self.get_cost(pos) < INF
+    def is_passable(self, pos: Position) -> bool:
+        return self.cost_grid[self._pidx(pos)] < INF
 
-    def is_walkable(self, pos: Position) -> bool | None:
+    def is_walkable(self, pos: Position) -> bool:
         if not self.is_passable(pos):
             return False
-        match self.get_building(pos):
-            case (
-                BuildingConveyor()
-                | BuildingRoad()
-                | BuildingSplitter()
-                | BuildingArmouredConveyor()
-                | BuildingBridge()
-            ):
-                return True
-            case _:
-                return False
+        return isinstance(
+            self.buildings[self.idx(pos)],
+            BuildingConveyor
+            | BuildingRoad
+            | BuildingSplitter
+            | BuildingArmouredConveyor
+            | BuildingBridge,
+        )
 
     def get_conveyors_to_here(self, pos: Position) -> list[Position]:
-        if self.in_bounds(pos):
-            return self.conveyors_to_here[self.idx(pos)]
-        return []
+        return self.conveyors_to_here[self.idx(pos)]
 
     def is_buildable(self, pos: Position) -> bool:
-        if self.in_bounds(pos):
-            i = self.idx(pos)
-            b = self.buildings[i]
-            return self.env[i] != Environment.WALL and (
-                b is None or b.team == self.my_team
-            )
-        return False
+        i = self.idx(pos)
+        b = self.buildings[i]
+        return self.env[i] != Environment.WALL and (
+            b is None or b.team == self.my_team
+        )
 
     def is_friendly_turret(self, pos: Position) -> bool:
-        if not self.in_bounds(pos):
+        b = self.buildings[self.idx(pos)]
+        if b is None or isinstance(
+            b,
+            BuildingConveyor
+            | BuildingRoad
+            | BuildingSplitter
+            | BuildingArmouredConveyor
+            | BuildingBridge,
+        ):
             return False
-        match self.buildings[self.idx(pos)]:
-            case (
-                None
-                | BuildingConveyor()
-                | BuildingRoad()
-                | BuildingSplitter()
-                | BuildingArmouredConveyor()
-                | BuildingBridge()
-            ):
-                return False
-            case b:
-                return b.team == self.my_team
+        return b.team == self.my_team
 
     def is_enemy_building(self, pos: Position) -> bool:
-        if self.in_bounds(pos):
-            b = self.buildings[self.idx(pos)]
-            return b is not None and b.team != self.my_team
-        return False
+        b = self.buildings[self.idx(pos)]
+        return b is not None and b.team != self.my_team
 
     def leads_to_enemy_building(self, pos: Position) -> bool:
-        if self.in_bounds(pos):
-            b = self.buildings[self.idx(pos)]
-            if b is None or b.team != self.my_team:
+        b = self.buildings[self.idx(pos)]
+        if b is None or b.team != self.my_team:
+            return False
+        match b:
+            case BuildingConveyor(direction=d):
+                output_location = pos.add(d)
+            case BuildingBridge(target=t):
+                output_location = t
+            case _:
                 return False
-
-            match b:
-                case BuildingConveyor(direction=d):
-                    output_location = pos.add(d)
-                case BuildingBridge(target=t):
-                    output_location = t
-                case _:
-                    return False
-            return self.is_enemy_building(output_location)
-        return False
+        if not self.in_bounds(output_location):
+            return False
+        return self.is_enemy_building(output_location)
 
     update = update
     prune_stale = prune_stale

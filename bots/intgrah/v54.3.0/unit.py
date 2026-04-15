@@ -16,6 +16,7 @@ __all__ = ["Unit"]
 
 class Unit(ABC):
     def __init__(self, ct: Controller) -> None:
+        """Initialise immutable per-unit state (map dimensions, id, team, rng)."""
         self.w: Final[int] = ct.get_map_width()
         """Map width."""
         self.h: Final[int] = ct.get_map_height()
@@ -55,6 +56,7 @@ class Unit(ABC):
     """All 8 (direction, position) pairs from my_pos, in-bounds only."""
 
     def run(self, ct: Controller) -> None:
+        """Cache per-turn state: position, neighbours, visible bots, resources."""
         self.my_pos = ct.get_position()
         self.dir_neighbours_4 = tuple(
             (d, p) for d in DIR4 if self.in_bounds(p := self.my_pos.add(d))
@@ -75,9 +77,10 @@ class Unit(ABC):
             uid = ct.get_tile_builder_bot_id(pos)
             if uid is not None:
                 self.all_bots[pos] = uid
-                if ct.get_team(uid) != self.my_team:
-                    self.enemy_bots.add(pos)
-                elif uid != self.my_id:
+                if ct.get_team(uid) == self.my_team:
+                    if uid != self.my_id:
+                        self.enemy_bots.add(pos)
+                else:
                     self.friendly_bots.add(pos)
 
     def idx(self, pos: Position) -> int:
