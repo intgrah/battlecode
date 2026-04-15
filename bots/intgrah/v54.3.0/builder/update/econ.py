@@ -54,16 +54,15 @@ def can_place_junction(self: Builder, pos: Position) -> bool:
 
 
 def update_map_econ(self: Builder, ct: Controller) -> None:
-    pad = self.pad
-    pad_w = self.pad_w
     self.adjacent_to_unconnected_harvester = {
         p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
     self.adjacent_to_harvester = {
         p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
     }
+    w = self.w
     for pos in self.nearby_tiles:
-        pi = (pos.y + pad) * pad_w + (pos.x + pad)
+        i = pos.y * w + pos.x
         bld = self.get_building(pos)
         match bld:
             case BuildingHarvester():
@@ -91,9 +90,9 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                     if self.in_bounds(n):
                         self.adjacent_to_harvester.add(n)
         if pos in self.adjacent_to_enemy_launcher:
-            self.cost_grid[pi] += 20
+            self.cost_grid[i] += 20
         if pos in self.enemy_turret_ray_tiles:
-            self.cost_grid[pi] += 15
+            self.cost_grid[i] += 15
 
         match bld:
             case (
@@ -102,9 +101,8 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                 | BuildingSplitter(team=self.my_team)
                 | BuildingBridge(team=self.my_team)
             ):
-                i = pos.y * self.w + pos.x
                 occupied = sum(r is not None for r in self.flow_history[i])
-                self.conveyor_cost_grid[pi] += _FLOW_PENALTY[occupied]
+                self.conveyor_cost_grid[i] += _FLOW_PENALTY[occupied]
 
 
 def update_dangling(self: Builder) -> None:

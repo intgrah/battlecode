@@ -76,7 +76,7 @@ def _add_topology(self: Builder, pos: Position, bld: object) -> None:
 
 def _update_cost(
     self: Builder,
-    pi: int,
+    i: int,
     terrain: Environment | None,
     bld: Building | None,
 ) -> None:
@@ -110,8 +110,8 @@ def _update_cost(
     else:
         cost = 1
         conveyor_cost = 1
-    self.cost_grid[pi] = cost
-    self.conveyor_cost_grid[pi] = conveyor_cost
+    self.cost_grid[i] = cost
+    self.conveyor_cost_grid[i] = conveyor_cost
 
 
 def _update_turret_rays(
@@ -172,7 +172,6 @@ def _update_turret_rays(
 def update_vision(self: Builder, ct: Controller) -> None:
     for pos in self.nearby_tiles:
         i = self.idx(pos)
-        pi = self._pidx(pos)
         env = ct.get_tile_env(pos)
         bid = ct.get_tile_building_id(pos)
         env_changed = self.env[i] != env
@@ -193,7 +192,7 @@ def update_vision(self: Builder, ct: Controller) -> None:
                 self.hp[i] = 0
                 self.max_hp[i] = 0
 
-            _update_cost(self, pi, env, self.buildings[i])
+            _update_cost(self, i, env, self.buildings[i])
             self.update_pnb(i)
             bld = self.buildings[i]
             if bld is not None:

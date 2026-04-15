@@ -33,14 +33,21 @@ class AStarSearch:
 
     def __init__(self, builder: Builder) -> None:
         self.builder = builder
-        self._pw = builder.pad_w
-        self._pad = builder.pad
-        pn = builder.pad_w * builder.pad_h
-        self._flat_neighbors: Final[list[tuple[int, int]]] = [
-            (dy * self._pw + dx, extra) for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
+        w, h = builder.w, builder.h
+        n = w * h
+        self._w = w
+        self._h = h
+        self._neighbors: Final[list[list[tuple[int, int]]]] = [
+            [
+                (ny * w + nx, extra)
+                for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
+                if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+            ]
+            for cy in range(h)
+            for cx in range(w)
         ]
-        self._dist: list[int] = [INF] * pn
-        self._dist_reset: Final[tuple[int, ...]] = (INF,) * pn
+        self._dist: list[int] = [INF] * n
+        self._dist_reset: Final[tuple[int, ...]] = (INF,) * n
         self._finished = True
         self._target: Position | None = None
 
@@ -50,6 +57,10 @@ class AStarSearch:
         start: Position,
         target: Position,
     ) -> list[Position] | None:
+        w = self._w
+        si = start.y * w + start.x
+        gi = target.y * w + target.x
+
         if (
             self._finished
             or self._target is None
@@ -58,27 +69,23 @@ class AStarSearch:
             self._dist[:] = self._dist_reset
         else:
             target = self._target
+            gi = target.y * w + target.x
 
         self._target = target
 
         b = self.builder
         cost = b.conveyor_cost_grid
-        pw = self._pw
-        pad = self._pad
         dist = self._dist
-        flat_neighbors = self._flat_neighbors
-        sx_p = start.x + pad
-        sy_p = start.y + pad
-        gx_p = target.x + pad
-        gy_p = target.y + pad
+        neighbors = self._neighbors
+        sx = start.x
+        sy = start.y
 
-        gi = gy_p * pw + gx_p
-        si = sy_p * pw + sx_p
         if dist[gi] is INF:
             dist[gi] = 0
 
         nb_count = 24
-        f0 = abs(gx_p - sx_p) + abs(gy_p - sy_p)
+        gx, gy = target.x, target.y
+        f0 = abs(gx - sx) + abs(gy - sy)
         bk: list[list[int]] = [[] for _ in range(nb_count)]
         bk[f0 % nb_count].append(gi)
         cur_f = f0
@@ -93,8 +100,8 @@ class AStarSearch:
                 continue
             emp = 0
             for node_i in bucket:
-                ny_, nx_ = divmod(node_i, pw)
-                node_h = abs(nx_ - sx_p) + abs(ny_ - sy_p)
+                ny_, nx_ = divmod(node_i, w)
+                node_h = abs(nx_ - sx) + abs(ny_ - sy)
                 if dist[node_i] + node_h != cur_f:
                     continue
                 if node_i == si:
@@ -104,8 +111,7 @@ class AStarSearch:
                     self._finished = False
                     return None
                 gn = dist[node_i]
-                for off, extra in flat_neighbors:
-                    ni = node_i + off
+                for ni, extra in neighbors[node_i]:
                     mc = cost[ni]
                     if mc >= INF:
                         continue
@@ -113,8 +119,8 @@ class AStarSearch:
                     if nd >= dist[ni]:
                         continue
                     dist[ni] = nd
-                    ny2, nx2 = divmod(ni, pw)
-                    h_val = abs(nx2 - sx_p) + abs(ny2 - sy_p)
+                    ny2, nx2 = divmod(ni, w)
+                    h_val = abs(nx2 - sx) + abs(ny2 - sy)
                     bk[(nd + h_val) % nb_count].append(ni)
             if found:
                 break
@@ -125,28 +131,25 @@ class AStarSearch:
         if not found:
             return None
 
-        path: list[Position] = []
-        current = start
-        while current != target:
-            if current in path:
-                break
-            path.append(current)
+        path: list[int] = [si]
+        node = si
+        while node != gi:
             best_dist = INF
-            best = current
-            ci = (current.y + pad) * pw + (current.x + pad)
-            for off, extra in flat_neighbors:
-                idx = ci + off
-                d = dist[idx]
-                if d is INF or cost[idx] >= INF:
+            best = node
+            for ni, extra in neighbors[node]:
+                d = dist[ni]
+                if d is INF or cost[ni] >= INF:
                     continue
                 d += extra
                 if d < best_dist:
                     best_dist = d
-                    y_p, x_p = divmod(idx, pw)
-                    best = Position(x_p - pad, y_p - pad)
-            current = best
-        path.append(target)
-        return path
+                    best = ni
+            if best == node:
+                return None
+            path.append(best)
+            node = best
+
+        return [Position(i % w, i // w) for i in path]
 
     def search_blocked(
         self,
@@ -156,10 +159,11 @@ class AStarSearch:
     ) -> list[Position] | None:
         b = self.builder
         cost = b.conveyor_cost_grid
+        w = b.w
         saved: list[tuple[int, int]] = []
         for pos in b.nearby_tiles:
             if pos in b.all_bots and pos != start:
-                idx = b._pidx(pos)
+                idx = pos.y * w + pos.x
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF
         result = self.search(ct, start, goal)

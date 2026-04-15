@@ -4,7 +4,7 @@ import heapq
 from typing import TYPE_CHECKING, Final
 
 from cambc import Controller, Position
-from util import DIR8_DELTA, INF
+from util import INF
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -16,17 +16,10 @@ class MoveHeapAstar:
 
     def __init__(self, builder: Builder) -> None:
         self.builder = builder
-        w, h = builder.w, builder.h
-        self.w = w
-        self.h = h
-        self.pad_w = builder.pad_w
-        self.pad = builder.pad
-        pn = builder.pad_w * builder.pad_h
-        self.dir8_delta: Final = DIR8_DELTA.copy()
-        builder.rng.shuffle(self.dir8_delta)
-        self.dist: list[int] = [INF] * pn
-        self.dist_reset: Final[tuple[int, ...]] = (INF,) * pn
-        self.q: list[tuple[float, int, Position]] = []
+        n = builder.w * builder.h
+        self.dist: list[int] = [INF] * n
+        self.dist_reset: Final[tuple[int, ...]] = (INF,) * n
+        self.q: list[tuple[int, int]] = []
         self.finished = True
         self.target: Position | None = None
 
@@ -36,6 +29,12 @@ class MoveHeapAstar:
         start: Position,
         target: Position,
     ) -> list[Position] | None:
+        b = self.builder
+        w = b.w
+
+        si = start.y * w + start.x
+        gi = target.y * w + target.x
+
         if (
             self.finished
             or self.target is None
@@ -43,86 +42,61 @@ class MoveHeapAstar:
         ):
             self.dist[:] = self.dist_reset
             self.q.clear()
+            gi = target.y * w + target.x
         else:
             target = self.target
+            gi = target.y * w + target.x
 
         self.target = target
 
-        b = self.builder
-        cost = b.cost_grid
+        cost_grid = b.cost_grid
         bfs_dist = b.bfs_dist
-        w = self.w
-        h = self.h
-        pad = self.pad
-        pad_w = self.pad_w
+        pnb = b.pnb
         dist = self.dist
-        dir8_delta = self.dir8_delta
         q = self.q
 
-        gi = (target.y + pad) * pad_w + (target.x + pad)
         if dist[gi] is INF:
             dist[gi] = 0
-            heapq.heappush(q, (0, 0, target))
+            heapq.heappush(q, (0, gi))
 
-        sx, sy = start.x, start.y
-        counter = len(q)
         while q:
-            _, _, current = heapq.heappop(q)
-            if current == start:
+            _, node = heapq.heappop(q)
+            if node == si:
                 self.finished = True
                 break
             if ct.get_cpu_time_elapsed() > MoveHeapAstar.CPU_BUDGET:
                 self.finished = False
                 return None
 
-            ci = (current.y + pad) * pad_w + (current.x + pad)
-            cur_dist = dist[ci]
-            for dx, dy in dir8_delta:
-                nx = current.x + dx
-                ny = current.y + dy
-                if nx < 0 or nx >= w or ny < 0 or ny >= h:
+            cur_dist = dist[node]
+            for ni in pnb[node]:
+                if dist[ni] is not INF:
                     continue
-                idx = ci + dy * pad_w + dx
-                if dist[idx] is not INF:
-                    continue
-                move_cost = cost[idx]
-                if move_cost is INF:
-                    continue
-                new_dist = cur_dist + move_cost
-                dist[idx] = new_dist
-                bd = bfs_dist[ny * w + nx]
-                if bd < INF:
-                    f = new_dist + bd
-                else:
-                    f = new_dist + max(abs(ny - sy), abs(nx - sx))
-                heapq.heappush(q, (f, counter, Position(nx, ny)))
-                counter += 1
+                new_dist = cur_dist + cost_grid[ni]
+                dist[ni] = new_dist
+                bd = bfs_dist[ni]
+                f = new_dist + bd if bd < INF else new_dist + bfs_dist[si]
+                heapq.heappush(q, (f, ni))
         else:
             self.finished = True
             return None
 
-        path: list[Position] = []
-        current = start
-        while current != target:
-            if current in path:
-                break
-            path.append(current)
+        path: list[int] = [si]
+        node = si
+        while node != gi:
             best_dist = INF
-            best = current
-            ci = (current.y + pad) * pad_w + (current.x + pad)
-            for dx, dy in dir8_delta:
-                nx = current.x + dx
-                ny = current.y + dy
-                if not (0 <= nx < w and 0 <= ny < h):
-                    continue
-                idx = ci + dy * pad_w + dx
-                d = dist[idx]
-                if d is not INF and cost[idx] is not INF and d < best_dist:
+            best = node
+            for ni in pnb[node]:
+                d = dist[ni]
+                if d is not INF and d < best_dist:
                     best_dist = d
-                    best = Position(nx, ny)
-            current = best
-        path.append(target)
-        return path
+                    best = ni
+            if best == node:
+                return None
+            path.append(best)
+            node = best
+
+        return [Position(i % w, i // w) for i in path]
 
     def search_blocked(
         self,
@@ -132,10 +106,11 @@ class MoveHeapAstar:
     ) -> list[Position] | None:
         b = self.builder
         cost = b.cost_grid
+        w = b.w
         saved: list[tuple[int, int]] = []
         for pos in b.nearby_tiles:
             if pos in b.all_bots and pos != start:
-                idx = b._pidx(pos)
+                idx = pos.y * w + pos.x
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF
         result = self.search(ct, start, goal)
