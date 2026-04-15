@@ -14,22 +14,22 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from util import DIR4, DIR8, INF, Symmetry, can_afford, closest, try_move
 
 from builder.algorithms.astar import pathfind_blocked
-from builder.algorithms.fallback_nav import fallback_nav
+from builder.algorithms.bugnav import bugnav
 
 if TYPE_CHECKING:
     from builder import Builder
 
 
 def make_move(self: Builder, ct: Controller, target: Position) -> bool:
-    if ct.get_position() == target:
+    if self.my_pos == target:
         return True
 
-    path = pathfind_blocked(self, ct, ct.get_position(), target)
-    if path and len(path) > 1:
+    path = pathfind_blocked(self, ct, self.my_pos, target)
+    if path is not None and len(path) > 1:
         next_step = path[1]
         try_move_with_road(self, ct, next_step)
         return True
-    next_move = fallback_nav(self, ct, target)
+    next_move = bugnav(self, ct, target)
     if next_move:
         try_move_with_road(self, ct, next_move)
         return True
@@ -42,10 +42,9 @@ def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> b
     return try_move(ct, target_pos)
 
 
-def try_attack(ct: Controller) -> bool:
-    my_pos = ct.get_position()
-    if ct.can_fire(my_pos):
-        ct.fire(my_pos)
+def try_attack(ct: Controller, pos: Position) -> bool:
+    if ct.can_fire(pos):
+        ct.fire(pos)
         return True
     return False
 
@@ -93,7 +92,7 @@ def trace_downstream(
                             self,
                             new_pos,
                             target_head,
-                            path=path[:],
+                            path=path.copy(),
                         )
                         if new_path and target_head in new_path:
                             return new_path
@@ -143,7 +142,7 @@ def get_enemy_core_pos(self: Builder) -> Position:
 
 
 def move_random(self: Builder, ct: Controller) -> bool:
-    dir8 = DIR8[:]
+    dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
     for direction in dir8:
         if ct.can_move(direction):
@@ -164,18 +163,13 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
     return path
 
 
-def is_enemy_building(self: Builder, ct: Controller, pos: Position) -> bool:
-    b = self.get_building(pos)
-    return b is not None and b.team != ct.get_team()
-
-
 def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
     b = self.get_building(pos)
     if b is not None and not isinstance(b, BuildingRoad):
         return False
     if ct.is_in_vision(pos):
         worker_id = ct.get_tile_builder_bot_id(pos)
-        if worker_id is not None and worker_id != ct.get_id():
+        if worker_id is not None and worker_id != self.my_id:
             return False
     return True
 
@@ -202,7 +196,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
     return best_target
 
 
-def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_dangling(self: Builder, pos: Position) -> bool:
     if not self.in_bounds(pos):
         return False
     i = pos.y * self.w + pos.x
@@ -210,7 +204,7 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
     if b is None:
         if self.env[i] == Environment.WALL:
             return False
-    elif not isinstance(b, BuildingRoad) or b.team != ct.get_team():
+    elif not isinstance(b, BuildingRoad) or b.team != self.my_team:
         return False
     if self.conveyors_to_here[i]:
         return True
@@ -218,21 +212,20 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
 
 
 def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:
-    if not is_dangling(self, ct, pos):
+    if not is_dangling(self, pos):
         return False
-    my_id = ct.get_id()
     if ct.is_in_vision(pos):
         bid = ct.get_tile_builder_bot_id(pos)
-        friendly = ct.get_team(bid) == ct.get_team()
-        if bid is not None and bid != my_id and friendly:
+        friendly = ct.get_team(bid) == self.my_team
+        if bid is not None and bid != self.my_id and friendly:
             return False
     leading = self.get_conveyors_to_here(pos)
     for lpos in leading:
         if not ct.is_in_vision(lpos):
             continue
         lbid = ct.get_tile_builder_bot_id(lpos)
-        friendly = ct.get_team(lbid) == ct.get_team()
-        if lbid is not None and lbid != my_id and friendly:
+        friendly = ct.get_team(lbid) == self.my_team
+        if lbid is not None and lbid != self.my_id and friendly:
             return False
     return True
 
@@ -247,4 +240,4 @@ def find_dangling(self: Builder, ct: Controller) -> Position | None:
     ]
     if not candidates:
         return None
-    return closest(ct.get_position(), candidates)
+    return closest(self.my_pos, candidates)

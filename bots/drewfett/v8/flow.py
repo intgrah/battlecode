@@ -100,7 +100,7 @@ class FlowModel:
                     bwd.setdefault(oi, []).append(ti)
 
         # Core tiles accept from all cardinal neighbors
-        for ci in s.core_tiles:
+        for _ci in s.core_tiles:
             # Don't add forward edges from core (core doesn't output)
             # But add backward edges: anything adjacent that outputs toward core
             pass  # handled by fwd/bwd of transport tiles pointing at core
@@ -424,7 +424,6 @@ class FlowModel:
         Returns list sorted by distance to nearest enemy building.
         """
         s = self._s
-        w = self._w
         result: list[tuple[int, int]] = []
         for ti, outputs in self._fwd.items():
             bld = s.building[ti]

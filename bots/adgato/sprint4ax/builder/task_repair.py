@@ -6,10 +6,10 @@ from .state import State
 
 
 def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
-    
+
     if not state.in_bounds(pos):
         return False
-    
+
     i = pos.y * state.w + pos.x
     b = state.buildings[i]
     if b is None:
@@ -20,10 +20,7 @@ def is_dangling(state: State, ct: Controller, pos: Position) -> bool:
             return False
 
         match b:
-            case (
-                BuildingConveyor(direction=d)
-                | BuildingArmouredConveyor(direction=d)
-            ):
+            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 adj = pos.add(d)
                 if state.in_bounds(adj):
                     j = adj.y * state.w + adj.x

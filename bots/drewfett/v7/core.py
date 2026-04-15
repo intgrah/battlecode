@@ -55,7 +55,7 @@ class Core(Unit):
         if alive >= _BUILDER_CAP:
             return
 
-        my_team = ct.get_team()
+        ct.get_team()
 
         # Emergency: core damaged — spawn with small reserve
         if ct.get_hp() < ct.get_max_hp():

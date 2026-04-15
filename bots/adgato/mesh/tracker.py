@@ -23,7 +23,8 @@ class Tracker:
         allied_only: bool = False,
     ) -> None:
         if entity_type is None and environment is None:
-            raise ValueError("must specify entity_type or environment")
+            msg = "must specify entity_type or environment"
+            raise ValueError(msg)
         self.w = w
         self.h = h
         self._entity_type = entity_type
@@ -49,9 +50,7 @@ class Tracker:
         if self._entity_type is not None:
             if building_type != self._entity_type:
                 return False
-            if self._allied_only and not is_allied:
-                return False
-            return True
+            return not (self._allied_only and not is_allied)
         return False
 
     def update_tile(

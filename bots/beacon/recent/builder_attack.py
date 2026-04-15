@@ -73,7 +73,7 @@ class Attack:
             if still_valid and best_gap[1] != cg:
                 # Override with committed gap (find its source from best_gap list)
                 cox, coy = cg % w, cg // w
-                for src_ti_c, out_ti_c, ox_c, oy_c in [best_gap]:
+                for _src_ti_c, _out_ti_c, _ox_c, _oy_c in [best_gap]:
                     pass  # default
                 # Scan gaps for the committed one
                 for bid_c in ct.get_nearby_buildings():
@@ -222,7 +222,6 @@ class Attack:
         )
 
         n_transport = 0
-        n_with_res = 0
         n_skip_econ = 0
         # Check nearby buildings for transport with resources (ours OR enemy)
         for bid in ct.get_nearby_buildings():
@@ -308,7 +307,7 @@ class Attack:
                     for ddx, ddy in DIR4_DELTA:
                         out_tiles.append((bpos.x + ddx, bpos.y + ddy))
 
-            bx, by = bpos.x, bpos.y
+            _bx, _by = bpos.x, bpos.y
             for ox, oy in out_tiles:
                 if not s.in_bounds(ox, oy):
                     continue

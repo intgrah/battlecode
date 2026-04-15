@@ -38,7 +38,7 @@ def _find_protected_buildings(ct: Controller, my_team: int) -> set[int]:
         if etype in (EntityType.GUNNER, EntityType.SENTINEL, EntityType.BREACH):
             protected.add(bid)
             # BFS backward: which tiles feed into this turret?
-            tp = ct.get_position(bid)
+            ct.get_position(bid)
             queue.append(bid)
 
     # BFS: for each protected building, find what feeds into it
@@ -46,7 +46,7 @@ def _find_protected_buildings(ct: Controller, my_team: int) -> set[int]:
     while queue:
         bid = queue.popleft()
         bp = ct.get_position(bid)
-        btype = ct.get_entity_type(bid)
+        ct.get_entity_type(bid)
 
         if (bp.x, bp.y) in visited_tiles:
             continue

@@ -78,9 +78,7 @@ def _firing_path_clear(ct: Controller) -> bool:
                 return True
         uid = ct.get_tile_builder_bot_id(cur)
         if uid is not None:
-            if ct.get_team(uid) == my_team:
-                return False
-            return True
+            return ct.get_team(uid) != my_team
     return True
 
 

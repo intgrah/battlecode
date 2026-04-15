@@ -9,9 +9,7 @@ if TYPE_CHECKING:
 
 
 def prune_stale(self: Builder, ct: Controller) -> None:
-    w = self.w
-    nearby_positions = ct.get_nearby_tiles()
-    self.nearby_positions = nearby_positions
+    self.nearby_positions = ct.get_nearby_tiles()
     self.nearby_buildings = []
 
     self.healable_buildings = [
@@ -26,12 +24,3 @@ def prune_stale(self: Builder, ct: Controller) -> None:
     self.friendly_turret_ray_tiles = {
         p for p in self.friendly_turret_ray_tiles if not ct.is_in_vision(p)
     }
-
-    for pos in nearby_positions:
-        i = pos.y * w + pos.x
-        self.conveyors_to_here[i] = [
-            p for p in self.conveyors_to_here[i] if not ct.is_in_vision(p)
-        ]
-        self.splitters_to_here[i] = [
-            p for p in self.splitters_to_here[i] if not ct.is_in_vision(p)
-        ]

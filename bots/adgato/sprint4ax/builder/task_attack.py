@@ -581,9 +581,8 @@ def run_attack(state: State, ct: Controller) -> None:
         make_move(state, ct, state.offense_launcher)
     elif state.offense_target:
         make_move(state, ct, state.offense_target)
-        if ct.get_position() == state.offense_target:
-            if try_attack(ct):
-                state.offense_turns = 0
+        if ct.get_position() == state.offense_target and try_attack(ct):
+            state.offense_turns = 0
     else:
         # No vulnerable harvester and no cached offense target —
         # spread out to an enemy conveyor target instead. Prefer
