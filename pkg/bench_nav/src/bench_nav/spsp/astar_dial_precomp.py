@@ -1,6 +1,6 @@
 from collections import deque
 
-from bench_nav.common import CE, INF, Path_
+from bench_nav.common import CE, INF, Path_, extract_parent
 
 assert CE + 2 == 5
 
@@ -13,9 +13,11 @@ def astar_dial_precomp(
     start: int,
     goal: int,
 ) -> Path_:
-    """A* (Dial's) from goal to start, using precomputed heuristic."""
+    """A* (Dial's) backward from goal to start, using precomputed heuristic (distance from start)."""
     g = [INF] * n
     g[goal] = 0
+    parent = [-1] * n
+    parent[goal] = goal
     h_goal = h[goal]
     if h_goal >= INF:
         return None
@@ -23,7 +25,6 @@ def astar_dial_precomp(
     bk[h_goal % 5].append(goal)
     f = h_goal
     emp = 0
-    found = False
     while emp < 5:
         bki = bk[f % 5]
         if bki:
@@ -35,29 +36,17 @@ def astar_dial_precomp(
                 if g_node + h[node] != f:
                     continue
                 if node == start:
-                    found = True
-                    break
+                    path = extract_parent(parent, goal, start)
+                    if path is not None:
+                        path.reverse()
+                    return path
                 for nb in pnb[node]:
                     nd = g_node + cost[nb]
                     if nd < g[nb]:
                         g[nb] = nd
+                        parent[nb] = node
                         bk[(nd + h[nb]) % 5].append(nb)
-            if found:
-                break
         else:
             emp += 1
         f += 1
-    if not found:
-        return None
-    path = [start]
-    cur = start
-    while cur != goal:
-        d = g[cur]
-        for nb in pnb[cur]:
-            if g[nb] + cost[cur] == d:
-                path.append(nb)
-                cur = nb
-                break
-        else:
-            return None
-    return path
+    return None
