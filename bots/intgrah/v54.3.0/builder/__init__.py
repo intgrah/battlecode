@@ -21,7 +21,9 @@ from config import DEBUG_DUMP
 from unit import Unit
 from util import DIR8, DIR8_DELTA, INF, Symmetry
 
+from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
+from builder.algorithms.econ_astar import AStarSearch
 from builder.dump import dump
 from builder.extra import deny_enemy_ore, fix_enemy_conveyor, pave_near_harvesters
 from builder.helpers import can_afford, try_move_dir, try_move_with_road
@@ -174,7 +176,7 @@ class Builder(Unit):
         pnb = self.pnb
         cx, cy = i % w, i // w
         pi = (cy + pad) * pw + (cx + pad)
-        passable = cost_grid[pi] < INF
+        passable = cost_grid[pi] is not INF
         pnb[i] = []
         if passable:
             for dx, dy in DIR8_DELTA:
@@ -182,14 +184,14 @@ class Builder(Unit):
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
                     npi = (ny + pad) * pw + (nx + pad)
-                    if cost_grid[npi] < INF:
+                    if cost_grid[npi] is not INF:
                         pnb[i].append(ni)
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
                 npi = (ny + pad) * pw + (nx + pad)
-                if cost_grid[npi] >= INF:
+                if cost_grid[npi] is INF:
                     continue
                 nb_list = pnb[ni]
                 if passable:
@@ -268,6 +270,8 @@ class Builder(Unit):
 
         self.bfs_dist: Final[list[int]] = [INF] * n
         self.bfs_reset: Final[tuple[int, ...]] = (INF,) * n
+        self.move_search: Final = MoveHeapAstar(self)
+        self.conv_search: Final = AStarSearch(self)
         """BFS hops from the position at the start of the turn."""
 
         self.flow_history: list[deque[ResourceType | None]] = [
@@ -421,9 +425,7 @@ class Builder(Unit):
     def is_buildable(self, pos: Position) -> bool:
         i = self.idx(pos)
         b = self.buildings[i]
-        return self.env[i] != Environment.WALL and (
-            b is None or b.team == self.my_team
-        )
+        return self.env[i] != Environment.WALL and (b is None or b.team == self.my_team)
 
     def is_friendly_turret(self, pos: Position) -> bool:
         b = self.buildings[self.idx(pos)]
