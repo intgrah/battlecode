@@ -9,7 +9,7 @@ from .flow import FLOW_AX, FLOW_RAX, FLOW_TI
 if TYPE_CHECKING:
     from cambc import Controller
 
-    from .state import State
+    from builder import Builder
 
 __all__ = ["dump"]
 
@@ -47,9 +47,9 @@ P_FLOW = Palette(
 )
 
 
-def _unpad(grid: list[int], state: State) -> list[int]:
+def _unpad(grid: list[int], self: Builder) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""
-    w, h, pad, pw = state.w, state.h, state.pad, state.pw
+    w, h, pad, pw = self.w, self.h, self.pad, self.pw
     out: list[int] = [0] * (w * h)
     for y in range(h):
         row_start = (y + pad) * pw + pad
@@ -58,23 +58,23 @@ def _unpad(grid: list[int], state: State) -> list[int]:
     return out
 
 
-def dump(state: State, _ct: Controller) -> None:
+def dump(self: Builder, _ct: Controller) -> None:
 
-    flows = [f.get_flow() for f in state.flow]
+    flows = [f.get_flow() for f in self.flow]
 
-    crnd = _ct.get_current_round()
-    patrol = [0] * len(state.env)
-    for pos, rnd, scale in state.patrol_queue:
-        i = pos.y * state.w + pos.x
+    crnd = self.rnd
+    patrol = [0] * len(self.env)
+    for pos, rnd, scale in self.patrol_queue:
+        i = pos.y * self.w + pos.x
         patrol[i] = scale * (crnd - rnd)
 
     emit(
         unseen=Grid(
-            [0.0 if e is not None else 1.0 for e in state.env],
+            [0.0 if e is not None else 1.0 for e in self.env],
             palette=P_FOG,
         ),
         cost=Grid(
-            [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
+            [c if c < 1e6 else -1 for c in _unpad(self.cost_grid, self)],
             palette=P_COST,
         ),
         ti_flow=Grid(
@@ -90,7 +90,7 @@ def dump(state: State, _ct: Controller) -> None:
             palette=P_FLOW,
         ),
         conv_cost=Grid(
-            [c if c < 1e6 else -1 for c in _unpad(state.conveyor_cost_grid, state)],
+            [c if c < 1e6 else -1 for c in _unpad(self.conveyor_cost_grid, self)],
             palette=P_COST,
         ),
         patrol=Grid(
@@ -98,12 +98,12 @@ def dump(state: State, _ct: Controller) -> None:
             palette=P_RED,
         ),
         enemy_launcher=Tiles(
-            [(p.x, p.y) for p in state.adjacent_to_enemy_launcher],
+            [(p.x, p.y) for p in self.adjacent_to_enemy_launcher],
         ),
         unconnected_harvester=Tiles(
-            [(p.x, p.y) for p in state.adjacent_to_unconnected_harvester],
+            [(p.x, p.y) for p in self.adjacent_to_unconnected_harvester],
         ),
         harvester_adjacent=Tiles(
-            [(p.x, p.y) for p in state.adjacent_to_harvester],
+            [(p.x, p.y) for p in self.adjacent_to_harvester],
         ),
     )

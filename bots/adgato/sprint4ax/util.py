@@ -1,8 +1,11 @@
+from __future__ import annotations
 from enum import StrEnum
-from typing import Final
+from typing import Final, TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, GameConstants, Position
 
+if TYPE_CHECKING:
+    from builder import Builder
 
 class Symmetry(StrEnum):
     ROT = "rot"
@@ -37,10 +40,11 @@ def get_direction_object(from_pos: Position, to_pos: Position) -> Direction | No
     return DELTA_TO_DIR.get((to_pos.x - from_pos.x, to_pos.y - from_pos.y))
 
 
-def try_move(ct: Controller, target_pos: Position) -> bool:
-    d = get_direction_object(ct.get_position(), target_pos)
+def try_move(self: Builder, ct: Controller, target_pos: Position) -> bool:
+    d = get_direction_object(self.my_pos, target_pos)
     if d is not None and ct.can_move(d):
         ct.move(d)
+        self.my_pos = self.my_pos.add(d)
         return True
     return False
 

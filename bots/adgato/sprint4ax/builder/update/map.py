@@ -21,7 +21,7 @@ from cambc import Controller, EntityType, Environment, Position
 from util import DIR4, DIR8, INF, Symmetry
 
 if TYPE_CHECKING:
-    from .state import State
+    from builder import Builder
 
 ROAD_COST = 3
 
@@ -62,82 +62,82 @@ def load_penalty(load: int) -> int:
             return 500
 
 
-def can_place_junction(state: State, ct: Controller, pos: Position) -> bool:
-    match state.get_building(pos):
+def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
+    match self.get_building(pos):
         case None:
             pass
-        case BuildingConveyor(team=t) | BuildingRoad(team=t) if t == ct.get_team():
+        case BuildingConveyor(team=t) | BuildingRoad(team=t) if t == self.my_team:
             pass
         case _:
             return False
 
-    conveyors = state.get_conveyors_to_here(pos)
+    conveyors = self.get_conveyors_to_here(pos)
     adjacent_conveyors = [c for c in conveyors if c.distance_squared(pos) <= 2]
     if len(adjacent_conveyors) > 1 or len(conveyors) < 1:
         return False
     buildable_count = 0
     for d in DIR4:
         new_pos = pos.add(d)
-        if state.get_env(new_pos) != Environment.EMPTY:
+        if self.get_env(new_pos) != Environment.EMPTY:
             continue
-        match state.get_building(new_pos):
+        match self.get_building(new_pos):
             case None:
                 buildable_count += 1
             case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
                 pass
-            case b if b.team == ct.get_team():
+            case b if b.team == self.my_team:
                 buildable_count += 1
 
     return buildable_count >= 1
 
 
-def update_map(state: State, ct: Controller) -> None:
-    w = state.w
+def update_map(self: Builder, ct: Controller) -> None:
+    w = self.w
     nearby_positions = ct.get_nearby_tiles()
     rnd = ct.get_current_round()
-    state.nearby_positions = nearby_positions
-    state.nearby_buildings = []
+    self.nearby_positions = nearby_positions
+    self.nearby_buildings = []
 
     in_vision = ct.is_in_vision
 
-    state.healable_buildings = [p for p in state.healable_buildings if not in_vision(p)]
-    state.adjacent_to_enemy_launcher = {
-        p for p in state.adjacent_to_enemy_launcher if not in_vision(p)
+    self.healable_buildings = [p for p in self.healable_buildings if not in_vision(p)]
+    self.adjacent_to_enemy_launcher = {
+        p for p in self.adjacent_to_enemy_launcher if not in_vision(p)
     }
-    state.enemy_turret_ray_tiles = {
-        p for p in state.enemy_turret_ray_tiles if not in_vision(p)
+    self.enemy_turret_ray_tiles = {
+        p for p in self.enemy_turret_ray_tiles if not in_vision(p)
     }
-    state.friendly_turret_ray_tiles = {
-        p for p in state.friendly_turret_ray_tiles if not in_vision(p)
+    self.friendly_turret_ray_tiles = {
+        p for p in self.friendly_turret_ray_tiles if not in_vision(p)
     }
 
-    state.patrol_queue = [
-        p for p in state.patrol_queue if not in_vision(p[0])
+    self.patrol_queue = [
+        p for p in self.patrol_queue if not in_vision(p[0])
     ]
 
     for pos in nearby_positions:
         i = pos.y * w + pos.x
-        state.conveyors_to_here[i] = [
-            p for p in state.conveyors_to_here[i] if not in_vision(p)
+        self.conveyors_to_here[i] = [
+            p for p in self.conveyors_to_here[i] if not in_vision(p)
         ]
-        state.splitters_to_here[i] = [
-            p for p in state.splitters_to_here[i] if not in_vision(p)
+        self.splitters_to_here[i] = [
+            p for p in self.splitters_to_here[i] if not in_vision(p)
         ]
 
-    pad = state.pad
-    pw = state.pw
-    my_team = ct.get_team()
+    pad = self.pad
+    pw = self.pw
+    my_team = self.my_team
     for pos in nearby_positions:
         i = pos.y * w + pos.x
         pi = (pos.y + pad) * pw + (pos.x + pad)
 
         tile_env = ct.get_tile_env(pos)
-        state.env[i] = tile_env
+        self.env[i] = tile_env
 
         if tile_env == Environment.ORE_TITANIUM:
-            state.ti_ore.add(pos)
+            self.ti_ore.add(pos)
         elif tile_env == Environment.ORE_AXIONITE:
-            state.ax_ore.add(pos)
+            self.ax_ore.add(pos)
 
         building_id = ct.get_tile_building_id(pos)
         if (
@@ -146,9 +146,9 @@ def update_map(state: State, ct: Controller) -> None:
         ):
             etype = ct.get_entity_type(building_id)
             bld = _make_building(ct, building_id, etype)
-            state.buildings[i] = bld
-            state.hp[i] = ct.get_hp(building_id)
-            state.max_hp[i] = ct.get_max_hp(building_id)
+            self.buildings[i] = bld
+            self.hp[i] = ct.get_hp(building_id)
+            self.max_hp[i] = ct.get_max_hp(building_id)
 
 
             match bld:
@@ -161,17 +161,17 @@ def update_map(state: State, ct: Controller) -> None:
                 ):
                     rid = ct.get_stored_resource_id(building_id)
                     rtype = ct.get_stored_resource(building_id)
-                    state.flow[i].update(rtype, rid)
+                    self.flow[i].update(rtype, rid)
             match bld:
                 case BuildingConveyor(direction=d):
                     target_pos = pos.add(d)
-                    if 0 <= target_pos.x < state.w and 0 <= target_pos.y < state.h:
+                    if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
                         ti = target_pos.y * w + target_pos.x
-                        state.conveyors_to_here[ti].append(pos)
+                        self.conveyors_to_here[ti].append(pos)
                 case BuildingBridge(target=t):
-                    if 0 <= t.x < state.w and 0 <= t.y < state.h:
+                    if 0 <= t.x < self.w and 0 <= t.y < self.h:
                         ti = t.y * w + t.x
-                        state.conveyors_to_here[ti].append(pos)
+                        self.conveyors_to_here[ti].append(pos)
                 case BuildingSplitter(direction=d):
                     for sd in [
                         d,
@@ -179,24 +179,24 @@ def update_map(state: State, ct: Controller) -> None:
                         d.rotate_left().rotate_left(),
                     ]:
                         target_pos = pos.add(sd)
-                        if 0 <= target_pos.x < state.w and 0 <= target_pos.y < state.h:
+                        if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
                             ti = target_pos.y * w + target_pos.x
-                            state.splitters_to_here[ti].append(pos)
+                            self.splitters_to_here[ti].append(pos)
 
-            state.nearby_buildings.append(pos)
+            self.nearby_buildings.append(pos)
             if (
-                state.hp[i] < state.max_hp[i]
+                self.hp[i] < self.max_hp[i]
                 and bld is not None
-                and bld.team == ct.get_team()
+                and bld.team == self.my_team
             ):
-                state.healable_buildings.append(pos)
+                self.healable_buildings.append(pos)
             match bld:
-                case BuildingLauncher(team=t) if t != ct.get_team():
+                case BuildingLauncher(team=t) if t != self.my_team:
                     for d in DIR8:
                         n = pos.add(d)
-                        if 0 <= n.x < state.w and 0 <= n.y < state.h:
-                            state.adjacent_to_enemy_launcher.add(n)
-                case BuildingGunner(team=t, direction=d) if t != ct.get_team():
+                        if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                            self.adjacent_to_enemy_launcher.add(n)
+                case BuildingGunner(team=t, direction=d) if t != self.my_team:
                     # Gunner forward ray: up to r²≤13 (3 cardinal
                     # or ~2.5 diagonal steps). Each tile along the
                     # ray is a soft-penalty zone for movement.
@@ -205,9 +205,9 @@ def update_map(state: State, ct: Controller) -> None:
                         ray = ray.add(d)
                         if pos.distance_squared(ray) > 13:
                             break
-                        if 0 <= ray.x < state.w and 0 <= ray.y < state.h:
-                            state.enemy_turret_ray_tiles.add(ray)
-                case BuildingSentinel(team=t, direction=d) if t != ct.get_team():
+                        if 0 <= ray.x < self.w and 0 <= ray.y < self.h:
+                            self.enemy_turret_ray_tiles.add(ray)
+                case BuildingSentinel(team=t, direction=d) if t != self.my_team:
                     # Sentinel: forward line plus 1 king-move
                     # halo, up to r²≤32. Add the core line and
                     # its 8-neighbour halo for each step.
@@ -216,13 +216,13 @@ def update_map(state: State, ct: Controller) -> None:
                         ray = ray.add(d)
                         if pos.distance_squared(ray) > 32:
                             break
-                        if 0 <= ray.x < state.w and 0 <= ray.y < state.h:
-                            state.enemy_turret_ray_tiles.add(ray)
+                        if 0 <= ray.x < self.w and 0 <= ray.y < self.h:
+                            self.enemy_turret_ray_tiles.add(ray)
                         for hd in DIR8:
                             h = ray.add(hd)
-                            if 0 <= h.x < state.w and 0 <= h.y < state.h:
-                                state.enemy_turret_ray_tiles.add(h)
-                case BuildingGunner(team=t, direction=d) if t == ct.get_team():
+                            if 0 <= h.x < self.w and 0 <= h.y < self.h:
+                                self.enemy_turret_ray_tiles.add(h)
+                case BuildingGunner(team=t, direction=d) if t == self.my_team:
                     # Friendly gunner ray — walk forward, add tiles
                     # up to r²≤13, stop at the first wall or any
                     # building (friendly or enemy). Past that tile
@@ -237,14 +237,14 @@ def update_map(state: State, ct: Controller) -> None:
                         ray = ray.add(d)
                         if pos.distance_squared(ray) > 13:
                             break
-                        if not (0 <= ray.x < state.w and 0 <= ray.y < state.h):
+                        if not (0 <= ray.x < self.w and 0 <= ray.y < self.h):
                             break
-                        if state.get_env(ray) == Environment.WALL:
+                        if self.get_env(ray) == Environment.WALL:
                             break
-                        state.friendly_turret_ray_tiles.add(ray)
-                        if state.get_building(ray) is not None:
+                        self.friendly_turret_ray_tiles.add(ray)
+                        if self.get_building(ray) is not None:
                             break
-                case BuildingSentinel(team=t, direction=d) if t == ct.get_team():
+                case BuildingSentinel(team=t, direction=d) if t == self.my_team:
                     # Friendly sentinel ray — core line + 1-king
                     # halo, up to r²≤32, again stopping at the
                     # first building in the core line. Same
@@ -254,22 +254,22 @@ def update_map(state: State, ct: Controller) -> None:
                         ray = ray.add(d)
                         if pos.distance_squared(ray) > 32:
                             break
-                        if not (0 <= ray.x < state.w and 0 <= ray.y < state.h):
+                        if not (0 <= ray.x < self.w and 0 <= ray.y < self.h):
                             break
-                        if state.get_env(ray) == Environment.WALL:
+                        if self.get_env(ray) == Environment.WALL:
                             break
-                        state.friendly_turret_ray_tiles.add(ray)
+                        self.friendly_turret_ray_tiles.add(ray)
                         for hd in DIR8:
                             h = ray.add(hd)
-                            if 0 <= h.x < state.w and 0 <= h.y < state.h:
-                                state.friendly_turret_ray_tiles.add(h)
-                        if state.get_building(ray) is not None:
+                            if 0 <= h.x < self.w and 0 <= h.y < self.h:
+                                self.friendly_turret_ray_tiles.add(h)
+                        if self.get_building(ray) is not None:
                             break
         else:
-            state.buildings[i] = None
+            self.buildings[i] = None
 
-        terrain = state.env[i]
-        bld = state.buildings[i]
+        terrain = self.env[i]
+        bld = self.buildings[i]
         if terrain == Environment.WALL:
             cost = INF
             conveyor_cost = INF
@@ -292,7 +292,7 @@ def update_map(state: State, ct: Controller) -> None:
                     else:
                         has_flow = ct.get_stored_resource(building_id) is not None
                         conveyor_cost = 1 if has_flow else 10
-                case BuildingCore(team=t) if t == ct.get_team():
+                case BuildingCore(team=t) if t == self.my_team:
                     cost = 1
                     conveyor_cost = 1
                 case _:
@@ -313,52 +313,52 @@ def update_map(state: State, ct: Controller) -> None:
         else:
             cost = 1
             conveyor_cost = 1
-        state.cost_grid[pi] = cost
-        state.conveyor_cost_grid[pi] = conveyor_cost
+        self.cost_grid[pi] = cost
+        self.conveyor_cost_grid[pi] = conveyor_cost
 
     # update pass grid
     for pos in nearby_positions:
         i = pos.y * w + pos.x
         bid = ct.get_tile_building_id(pos)
-        state.pass_grid.update_tile(
+        self.pass_grid.update_tile(
             i,
-            state.env[i],
-            EntityType.LAUNCHER if pos in state.adjacent_to_enemy_launcher else None if bid is None else ct.get_entity_type(bid),
+            self.env[i],
+            EntityType.LAUNCHER if pos in self.adjacent_to_enemy_launcher else None if bid is None else ct.get_entity_type(bid),
             is_allied_building=(bid is not None and ct.get_team(building_id) == my_team),
         )
 
-    my_pos = ct.get_position()
+    my_pos = self.my_pos
 
     for pos in nearby_positions:
-        core_bonus = max(0, 100 - state.my_core.distance_squared(pos)) / 100 * 0.25
-        b = state.get_building(pos)
+        core_bonus = max(0, 100 - self.my_core.distance_squared(pos)) / 100 * 0.25
+        b = self.get_building(pos)
         if isinstance(b, (BuildingHarvester, BuildingFoundry)) and b.team == my_team:
-            state.patrol_queue.append((pos, rnd, 1 + core_bonus))
-        elif state.has_flow(pos):
-            flow = state.get_flow(pos)
+            self.patrol_queue.append((pos, rnd, 1 + core_bonus))
+        elif self.has_flow(pos):
+            flow = self.get_flow(pos)
             ti_bonus = flow.ti / 4 * 0.25
             ax_bonus = flow.ax / 4 * 0.15
             rax_bonus = flow.rax / 4 * 0.35
-            state.patrol_queue.append((pos, rnd, 0.5 + ti_bonus + ax_bonus + rax_bonus + core_bonus))
+            self.patrol_queue.append((pos, rnd, 0.5 + ti_bonus + ax_bonus + rax_bonus + core_bonus))
 
     # Ore-denial set: rebuilt each turn (cheap, bounded by vision).
     # For each ore tile in vision with any enemy bot/building in its
     # cardinal-8 halo, mark the ore's 4 cardinal neighbours as
     # denial-road candidates.
-    state.deny_ore_neighbours = set()
-    my_team = ct.get_team()
+    self.deny_ore_neighbours = set()
+    my_team = self.my_team
     for pos in nearby_positions:
-        if not (0 <= pos.x < state.w and 0 <= pos.y < state.h):
+        if not (0 <= pos.x < self.w and 0 <= pos.y < self.h):
             continue
-        env = state.env[pos.y * w + pos.x]
+        env = self.env[pos.y * w + pos.x]
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
         has_enemy = False
         for d in DIR8:
             n = pos.add(d)
-            if not (0 <= n.x < state.w and 0 <= n.y < state.h):
+            if not (0 <= n.x < self.w and 0 <= n.y < self.h):
                 continue
-            nb = state.buildings[n.y * w + n.x]
+            nb = self.buildings[n.y * w + n.x]
             if nb is not None and nb.team != my_team:
                 has_enemy = True
                 break
@@ -370,75 +370,75 @@ def update_map(state: State, ct: Controller) -> None:
         if has_enemy:
             for d in DIR4:
                 n = pos.add(d)
-                if 0 <= n.x < state.w and 0 <= n.y < state.h:
-                    state.deny_ore_neighbours.add(n)
+                if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                    self.deny_ore_neighbours.add(n)
 
-    if state.nearest_enemy_turret:
-        match state.buildings[pos.y * w + pos.x]:
+    if self.nearest_enemy_turret:
+        match self.buildings[pos.y * w + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != ct.get_team()
+                t != self.my_team
             ):
                 pass
             case _:
-                state.nearest_enemy_turret = None
+                self.nearest_enemy_turret = None
     min_dist = INF
     for pos in nearby_positions:
-        match state.buildings[pos.y * w + pos.x]:
+        match self.buildings[pos.y * w + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != ct.get_team()
+                t != self.my_team
             ):
                 dist = (pos.x - my_pos.x) ** 2 + (pos.y - my_pos.y) ** 2
                 if dist < min_dist:
                     min_dist = dist
-                    state.nearest_enemy_turret = pos
+                    self.nearest_enemy_turret = pos
 
 
-def update_splittable_locations(state: State, ct: Controller) -> None:
-    pad = state.pad
-    pw = state.pw
-    state.adjacent_to_unconnected_harvester = {
-        p for p in state.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
+def update_splittable_locations(self: Builder, ct: Controller) -> None:
+    pad = self.pad
+    pw = self.pw
+    self.adjacent_to_unconnected_harvester = {
+        p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
-    state.adjacent_to_harvester = {
-        p for p in state.adjacent_to_harvester if not ct.is_in_vision(p)
+    self.adjacent_to_harvester = {
+        p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
     }
-    for pos in state.nearby_positions:
+    for pos in self.nearby_positions:
         pi = (pos.y + pad) * pw + (pos.x + pad)
-        bld = state.get_building(pos)
+        bld = self.get_building(pos)
         match bld:
             case BuildingHarvester():
                 adjacent_conveyor = False
                 for dir in DIR4:
-                    match state.get_building(pos.add(dir)):
+                    match self.get_building(pos.add(dir)):
                         case (
                             BuildingConveyor(team=t, direction=d)
                             | BuildingSplitter(team=t, direction=d)
                             | BuildingArmouredConveyor(team=t, direction=d)
-                        ) if t == ct.get_team() and d != dir.opposite():
+                        ) if t == self.my_team and d != dir.opposite():
                             adjacent_conveyor = True
                             break
-                        case BuildingBridge(team=t) if t == ct.get_team():
+                        case BuildingBridge(team=t) if t == self.my_team:
                             adjacent_conveyor = True
                             break
                 if not adjacent_conveyor:
                     for dir in DIR4:
                         n = pos.add(dir)
-                        if 0 <= n.x < state.w and 0 <= n.y < state.h:
-                            state.adjacent_to_unconnected_harvester.add(n)
+                        if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                            self.adjacent_to_unconnected_harvester.add(n)
                 for dir in DIR4:
                     n = pos.add(dir)
-                    if 0 <= n.x < state.w and 0 <= n.y < state.h:
-                        state.adjacent_to_harvester.add(n)
-        if pos in state.adjacent_to_enemy_launcher:
-            state.cost_grid[pi] += 20
-        if pos in state.enemy_turret_ray_tiles:
+                    if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                        self.adjacent_to_harvester.add(n)
+        if pos in self.adjacent_to_enemy_launcher:
+            self.cost_grid[pi] += 20
+        if pos in self.enemy_turret_ray_tiles:
             # Soft penalty: bots route around enemy gunner/sentinel
             # firing lines when the detour is cheap. Not hard
             # impassable because sometimes we have to walk through
             # one (e.g. healing a tile on the other side, or closing
             # in on the turret itself). +15 makes ~5 tiles of detour
             # a break-even.
-            state.cost_grid[pi] += 15
+            self.cost_grid[pi] += 15
 
         # match bld:
         #    case (
@@ -446,115 +446,115 @@ def update_splittable_locations(state: State, ct: Controller) -> None:
         #        | BuildingArmouredConveyor(team=t)
         #        | BuildingSplitter(team=t)
         #        | BuildingBridge(team=t)
-        #    ) if t == ct.get_team():
-        #        state.conveyor_cost_grid[pi] += load_penalty(
-        #            state.update_line_load_counts(pos)
+        #    ) if t == self.my_team:
+        #        self.conveyor_cost_grid[pi] += load_penalty(
+        #            self.update_line_load_counts(pos)
         #        )
 
-    my_position = ct.get_position()
-    if state.nearest_junction_site and not can_place_junction(
-        state, ct, state.nearest_junction_site
+    my_position = self.my_pos
+    if self.nearest_junction_site and not can_place_junction(
+        self, ct, self.nearest_junction_site
     ):
-        state.nearest_junction_site = None
-    for pos in state.nearby_positions:
+        self.nearest_junction_site = None
+    for pos in self.nearby_positions:
         if (
-            state.nearest_junction_site is None
+            self.nearest_junction_site is None
             or (
-                state.nearest_junction_site.distance_squared(my_position)
+                self.nearest_junction_site.distance_squared(my_position)
                 < pos.distance_squared(my_position)
             )
-        ) and can_place_junction(state, ct, pos):
-            state.nearest_junction_site = pos
+        ) and can_place_junction(self, ct, pos):
+            self.nearest_junction_site = pos
 
 _REFLECT_BUDGET = 25
 
 
-def _mirror(state: State, pos: Position) -> Position:
-    match state.symmetry:
+def _mirror(self: Builder, pos: Position) -> Position:
+    match self.symmetry:
         case Symmetry.ROT:
-            return Position(state.w - 1 - pos.x, state.h - 1 - pos.y)
+            return Position(self.w - 1 - pos.x, self.h - 1 - pos.y)
         case Symmetry.HOR:
-            return Position(pos.x, state.h - 1 - pos.y)
+            return Position(pos.x, self.h - 1 - pos.y)
         case Symmetry.VER:
-            return Position(state.w - 1 - pos.x, pos.y)
+            return Position(self.w - 1 - pos.x, pos.y)
         case None:
             return pos
 
 
-def _set_enemy_core(state: State) -> None:
-    core = _mirror(state, state.my_core)
-    pad = state.pad
-    pw = state.pw
+def _set_enemy_core(self: Builder) -> None:
+    core = _mirror(self, self.my_core)
+    pad = self.pad
+    pw = self.pw
     for dx in range(-1, 2):
         for dy in range(-1, 2):
             cx, cy = core.x + dx, core.y + dy
-            if 0 <= cx < state.w and 0 <= cy < state.h:
-                state.cost_grid[(cy + pad) * pw + (cx + pad)] = INF
+            if 0 <= cx < self.w and 0 <= cy < self.h:
+                self.cost_grid[(cy + pad) * pw + (cx + pad)] = INF
 
 
 def _apply_symmetry(
-    state: State,
+    self: Builder,
     new_tiles: list[tuple[Position, Environment]],
 ) -> None:
-    had_symmetry = state.symmetry is not None
+    had_symmetry = self.symmetry is not None
     if not had_symmetry:
-        _eliminate_symmetries(state, new_tiles)
-    if state.symmetry is None:
+        _eliminate_symmetries(self, new_tiles)
+    if self.symmetry is None:
         return
-    w = state.w
+    w = self.w
     if had_symmetry:
         source = new_tiles
     else:
-        _set_enemy_core(state)
+        _set_enemy_core(self)
         source = [
             (Position(i % w, i // w), e)
-            for i, e in enumerate(state.env)
+            for i, e in enumerate(self.env)
             if e is not None
         ]
-    pending = state.reflect_queue
+    pending = self.reflect_queue
     for t, env in source:
-        m = _mirror(state, t)
+        m = _mirror(self, t)
         mi = m.y * w + m.x
-        if state.env[mi] is not None:
+        if self.env[mi] is not None:
             continue
-        state.env[mi] = env
+        self.env[mi] = env
         pending.append(mi)
 
 
-def _drain_reflect_queue(state: State) -> None:
-    pending = state.reflect_queue
+def _drain_reflect_queue(self: Builder) -> None:
+    pending = self.reflect_queue
     if not pending:
         return
-    w = state.w
-    pad = state.pad
-    pw = state.pw
+    w = self.w
+    pad = self.pad
+    pw = self.pw
     limit = min(len(pending), _REFLECT_BUDGET)
     for _ in range(limit):
         i = pending.popleft()
-        terrain = state.env[i]
+        terrain = self.env[i]
         pi = ((i // w) + pad) * pw + ((i % w) + pad)
         if terrain == Environment.WALL:
-            state.cost_grid[pi] = INF
-            state.conveyor_cost_grid[pi] = INF
+            self.cost_grid[pi] = INF
+            self.conveyor_cost_grid[pi] = INF
         elif terrain in (
             Environment.EMPTY,
             Environment.ORE_TITANIUM,
             Environment.ORE_AXIONITE,
         ):
-            state.cost_grid[pi] = ROAD_COST
-            state.conveyor_cost_grid[pi] = 1 if terrain == Environment.EMPTY else 10
+            self.cost_grid[pi] = ROAD_COST
+            self.conveyor_cost_grid[pi] = 1 if terrain == Environment.EMPTY else 10
 
 
 def _eliminate_symmetries(
-    state: State, new_tiles: list[tuple[Position, Environment]]
+    self: Builder, new_tiles: list[tuple[Position, Environment]]
 ) -> None:
-    if not state.symmetry_candidates:
+    if not self.symmetry_candidates:
         return
 
-    w, h = state.w, state.h
+    w, h = self.w, self.h
     invalid: set[Symmetry] = set()
 
-    for sym in state.symmetry_candidates:
+    for sym in self.symmetry_candidates:
         for pos, env in new_tiles:
             match sym:
                 case Symmetry.HOR:
@@ -564,13 +564,13 @@ def _eliminate_symmetries(
                 case Symmetry.ROT:
                     sx, sy = w - 1 - pos.x, h - 1 - pos.y
 
-            mirror_env = state.env[sy * w + sx]
+            mirror_env = self.env[sy * w + sx]
             if mirror_env is not None and mirror_env != env:
                 invalid.add(sym)
                 break
 
-            b1 = state.buildings[pos.y * w + pos.x]
-            b2 = state.buildings[sy * w + sx]
+            b1 = self.buildings[pos.y * w + pos.x]
+            b2 = self.buildings[sy * w + sx]
             match b1:
                 case BuildingCore():
                     is_core1 = True
@@ -585,7 +585,7 @@ def _eliminate_symmetries(
                 invalid.add(sym)
                 break
 
-    state.symmetry_candidates -= invalid
+    self.symmetry_candidates -= invalid
 
-    if state.symmetry is None and len(state.symmetry_candidates) == 1:
-        state.symmetry = next(iter(state.symmetry_candidates))
+    if self.symmetry is None and len(self.symmetry_candidates) == 1:
+        self.symmetry = next(iter(self.symmetry_candidates))
