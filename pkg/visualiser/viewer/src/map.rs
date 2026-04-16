@@ -34,6 +34,56 @@ fn premul(c: u8) -> u8 {
 }
 
 #[allow(clippy::too_many_lines)]
+fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
+    let ts = app.atlas.tile_size;
+    let zoom = app.zoom;
+    let mut shapes = Vec::with_capacity((app.game.width * app.game.height) as usize);
+    let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
+
+    for gy in 0..app.game.height {
+        for gx in 0..app.game.width {
+            let env = app
+                .game
+                .env
+                .get(gy as usize)
+                .and_then(|row| row.get(gx as usize))
+                .copied()
+                .unwrap_or(proto::Environment::EnvEmpty);
+
+            let r = tile_rect(gx, gy, ts, origin, zoom);
+            match env {
+                proto::Environment::EnvWall => {
+                    if let Some(tex_id) = app.atlas.get("natural_wall") {
+                        let mut mesh = Mesh::with_texture(tex_id);
+                        mesh.add_rect_with_uv(r, uv, Color32::from_rgb(0x30, 0x0c, 0x08));
+                        shapes.push(Shape::mesh(mesh));
+                    } else {
+                        shapes.push(Shape::rect_filled(r, 0.0, Color32::from_rgb(0x30, 0x0c, 0x08)));
+                    }
+                }
+                proto::Environment::EnvOreTitanium => {
+                    if let Some(tex_id) = app.atlas.get("titanium_ore") {
+                        let mut mesh = Mesh::with_texture(tex_id);
+                        mesh.add_rect_with_uv(r, uv, Color32::WHITE);
+                        shapes.push(Shape::mesh(mesh));
+                    }
+                }
+                proto::Environment::EnvOreAxionite => {
+                    if let Some(tex_id) = app.atlas.get("axionite_ore") {
+                        let mut mesh = Mesh::with_texture(tex_id);
+                        mesh.add_rect_with_uv(r, uv, Color32::WHITE);
+                        shapes.push(Shape::mesh(mesh));
+                    }
+                }
+                proto::Environment::EnvEmpty => {
+                    shapes.push(Shape::rect_filled(r, 0.0, TILE_COLOR));
+                }
+            }
+        }
+    }
+    shapes
+}
+
 pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
     egui::CentralPanel::default().show_inside(ui, |ui| {
         let (response, painter) =
@@ -76,42 +126,13 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             );
         }
 
-        for gy in 0..app.game.height {
-            for gx in 0..app.game.width {
-                let env = app
-                    .game
-                    .env
-                    .get(gy as usize)
-                    .and_then(|row| row.get(gx as usize))
-                    .copied()
-                    .unwrap_or(proto::Environment::EnvEmpty);
-
-                let r = tile_rect(gx, gy, ts, origin, zoom);
-                match env {
-                    proto::Environment::EnvWall => {
-                        if let Some(tex_id) = app.atlas.get("natural_wall") {
-                            painter.image(
-                                tex_id,
-                                r,
-                                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                                Color32::from_rgb(0x30, 0x0c, 0x08),
-                            );
-                        } else {
-                            painter.rect_filled(r, 0.0, Color32::from_rgb(0x30, 0x0c, 0x08));
-                        }
-                    }
-                    proto::Environment::EnvOreTitanium => {
-                        draw_sprite(&painter, app, "titanium_ore", r);
-                    }
-                    proto::Environment::EnvOreAxionite => {
-                        draw_sprite(&painter, app, "axionite_ore", r);
-                    }
-                    proto::Environment::EnvEmpty => {
-                        painter.rect_filled(r, 0.0, TILE_COLOR);
-                    }
-                }
-            }
+        let origin_vec = egui::Vec2::new(origin.x, origin.y);
+        if origin_vec != app.cached_map_origin || zoom != app.cached_map_zoom {
+            app.cached_map_shapes = build_static_map_shapes(app, origin);
+            app.cached_map_origin = origin_vec;
+            app.cached_map_zoom = zoom;
         }
+        painter.extend(app.cached_map_shapes.clone());
 
         let turn_state = &app.game.turns[app.turn];
         let next_state = app
@@ -558,10 +579,9 @@ fn draw_vis_overlay(
     zoom: f32,
 ) {
     let id = app.selected_entity.unwrap_or(-1);
-    let Some(jsons) = turn_state.vis_data.get(&id) else {
+    let Some(fields) = turn_state.vis_data.get(&id) else {
         return;
     };
-    let fields = crate::vis::parse_vis(jsons);
     let Some(field) = fields.get(field_name) else {
         return;
     };
@@ -571,9 +591,9 @@ fn draw_vis_overlay(
 
     match field {
         crate::vis::VisField::Grid { data, palette } => {
-            let (mut min_v, mut max_v) = (f32::MAX, f32::MIN);
+            let (mut min_v, mut max_v) = (f64::MAX, f64::MIN);
             for i in 0..data.len() {
-                if let Some(v) = data.get_f32(i)
+                if let Some(v) = data.get_f64(i)
                     && !crate::vis::is_special(palette, v)
                 {
                     if v < min_v {
@@ -594,7 +614,7 @@ fn draw_vis_overlay(
             for gy in 0..h {
                 for gx in 0..w {
                     let i = gy * w + gx;
-                    let Some(v) = data.get_f32(i) else {
+                    let Some(v) = data.get_f64(i) else {
                         continue;
                     };
                     let Some(c) = crate::vis::sample_palette(palette, v, min_v, max_v) else {
@@ -611,12 +631,10 @@ fn draw_vis_overlay(
                     );
 
                     if zoom > 0.8 {
-                        let label = if (v - v.round()).abs() < 1e-6 {
-                            format!("{}", v as i32)
-                        } else if v.abs() < 100.0 {
-                            format!("{v:.2}")
-                        } else {
-                            format!("{v:.0}")
+                        let label = match data.get_i64(i) {
+                            Some(iv) if (v - v.round()).abs() < 1e-6 => format!("{iv}"),
+                            _ if v.abs() < 100.0 => format!("{v:.2}"),
+                            _ => format!("{v:.0}"),
                         };
                         painter.text(
                             egui::pos2(r.left() + 1.0, r.top() + 1.0),

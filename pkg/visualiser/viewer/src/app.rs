@@ -49,6 +49,9 @@ pub struct App {
     pub pan: egui::Vec2,
     pub zoom: f32,
     pub interp_t: f32,
+    pub cached_map_shapes: Vec<egui::Shape>,
+    pub cached_map_origin: egui::Vec2,
+    pub cached_map_zoom: f32,
     replay_path: PathBuf,
     last_modified: SystemTime,
     last_step: Instant,
@@ -93,6 +96,9 @@ impl App {
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
             interp_t: 0.0,
+            cached_map_shapes: Vec::new(),
+            cached_map_origin: egui::Vec2::new(f32::NAN, f32::NAN),
+            cached_map_zoom: f32::NAN,
             replay_path,
             last_modified,
             last_step: Instant::now(),
@@ -157,6 +163,8 @@ impl App {
             self.selected_entity = None;
             self.follow_entity = false;
             self.last_modified = modified;
+            self.cached_map_shapes.clear();
+            self.cached_map_zoom = f32::NAN;
         }
     }
 
