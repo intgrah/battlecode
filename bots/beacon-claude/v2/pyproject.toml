@@ -1,8 +1,8 @@
 [project]
-name = "bot-adgato-trollbot"
+name = "bot-beacon-claude-v2"
 version = "0.0.0"
 requires-python = ">=3.12,<3.14"
-dependencies = ["cambc>=1.7.0"]
+dependencies = ["cambc"]
 
 [tool.ty.environment]
 root = ["."]
