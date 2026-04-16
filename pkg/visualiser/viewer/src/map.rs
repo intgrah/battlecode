@@ -168,8 +168,8 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                         .map(|next_e| {
                             let t = interp_t;
                             (
-                                (next_e.pos.0 - e.pos.0) as f32 * t + e.pos.0 as f32,
-                                (next_e.pos.1 - e.pos.1) as f32 * t + e.pos.1 as f32,
+                                ((next_e.pos.0 - e.pos.0) as f32).mul_add(t, e.pos.0 as f32),
+                                ((next_e.pos.1 - e.pos.1) as f32).mul_add(t, e.pos.1 as f32),
                             )
                         })
                 } else {

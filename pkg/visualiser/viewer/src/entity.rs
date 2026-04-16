@@ -216,7 +216,7 @@ pub fn sprite_name(e: &Entity) -> String {
     }
 }
 
-/// All buildable entity kinds (for cost display). Returns (label, base_ti, base_ax).
+/// All buildable entity kinds (for cost display). Returns (label, `base_ti`, `base_ax`).
 pub const BUILDABLE_COSTS: &[(&str, i32, i32)] = &[
     ("Builder", 30, 0),
     ("Road", 1, 0),

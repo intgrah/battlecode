@@ -37,7 +37,7 @@ impl<'de> Deserialize<'de> for PaletteDef {
             .into_iter()
             .filter_map(|(k, [r, g, b, a])| k.parse::<i64>().ok().map(|k| (k, Color { r, g, b, a })))
             .collect();
-        Ok(PaletteDef { stops, special })
+        Ok(Self { stops, special })
     }
 }
 
@@ -75,22 +75,21 @@ impl<'de> Deserialize<'de> for GridData {
         let values: Vec<Option<serde_json::Number>> = Vec::deserialize(deserializer)?;
         let mut has_float = false;
         for v in &values {
-            if let Some(n) = v {
-                if n.as_i64().is_none() {
+            if let Some(n) = v
+                && n.as_i64().is_none() {
                     has_float = true;
                     break;
                 }
-            }
         }
         if has_float {
-            Ok(GridData::Floats(
+            Ok(Self::Floats(
                 values
                     .into_iter()
                     .map(|v| v.and_then(|n| n.as_f64()))
                     .collect(),
             ))
         } else {
-            Ok(GridData::Ints(
+            Ok(Self::Ints(
                 values
                     .into_iter()
                     .map(|v| v.and_then(|n| n.as_i64()))
@@ -169,11 +168,10 @@ pub struct Color {
 }
 
 pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> Option<Color> {
-    if let Some(i) = i64::try_from(value as i128).ok().filter(|_| (value - value.round()).abs() < 1e-9) {
-        if let Some(c) = palette.special.get(&i) {
+    if let Some(i) = i64::try_from(value as i128).ok().filter(|_| (value - value.round()).abs() < 1e-9)
+        && let Some(c) = palette.special.get(&i) {
             return Some(*c);
         }
-    }
 
     if palette.stops.is_empty() {
         return None;
