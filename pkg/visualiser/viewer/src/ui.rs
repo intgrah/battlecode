@@ -11,14 +11,14 @@ use crate::vis::{VisField, VisState};
 
 struct TeamStats {
     counts: HashMap<u8, u32>,
-    total_scale: f32,
-    scale_by_kind: HashMap<u8, f32>,
+    total_scale_millis: u32,
+    scale_millis_by_kind: HashMap<u8, u32>,
 }
 
 fn compute_team_stats(state: &TurnState, team: proto::Team) -> TeamStats {
     let mut counts: HashMap<u8, u32> = HashMap::new();
-    let mut total_scale = 0.0_f32;
-    let mut scale_by_kind: HashMap<u8, f32> = HashMap::new();
+    let mut total_scale_millis = 0_u32;
+    let mut scale_millis_by_kind: HashMap<u8, u32> = HashMap::new();
 
     for e in state.entities.values() {
         if e.team != team {
@@ -26,15 +26,15 @@ fn compute_team_stats(state: &TurnState, team: proto::Team) -> TeamStats {
         }
         let key = entity::sort_key(&e.kind);
         *counts.entry(key).or_default() += 1;
-        let sc = entity::scale_percent(&e.kind);
-        total_scale += sc;
-        *scale_by_kind.entry(key).or_default() += sc;
+        let sc = entity::scale_millis(&e.kind);
+        total_scale_millis += sc;
+        *scale_millis_by_kind.entry(key).or_default() += sc;
     }
 
     TeamStats {
         counts,
-        total_scale,
-        scale_by_kind,
+        total_scale_millis,
+        scale_millis_by_kind,
     }
 }
 
@@ -404,10 +404,20 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 ui.heading("Scaling");
                 ui.separator();
 
+                let fmt_scale = |millis: u32| -> String {
+                    let whole = 100 + millis / 10;
+                    let frac = millis % 10;
+                    if frac == 0 {
+                        format!("{whole}%")
+                    } else {
+                        format!("{whole}.{frac}%")
+                    }
+                };
+
                 ui.monospace(format!(
-                    "A: {:.0}%  B: {:.0}%",
-                    100.0 + stats_a.total_scale,
-                    100.0 + stats_b.total_scale,
+                    "A: {}  B: {}",
+                    fmt_scale(stats_a.total_scale_millis),
+                    fmt_scale(stats_b.total_scale_millis),
                 ));
 
                 ui.add_space(4.0);
@@ -418,14 +428,14 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                     ui.end_row();
 
                     for &key in &all_keys {
-                        let sa = stats_a.scale_by_kind.get(&key).copied().unwrap_or(0.0);
-                        let sb = stats_b.scale_by_kind.get(&key).copied().unwrap_or(0.0);
-                        if sa == 0.0 && sb == 0.0 {
+                        let sa = stats_a.scale_millis_by_kind.get(&key).copied().unwrap_or(0);
+                        let sb = stats_b.scale_millis_by_kind.get(&key).copied().unwrap_or(0);
+                        if sa == 0 && sb == 0 {
                             continue;
                         }
                         ui.label(kind_for_key(key));
-                        ui.monospace(format!("{sa:.0}%"));
-                        ui.monospace(format!("{sb:.0}%"));
+                        ui.monospace(fmt_scale(sa));
+                        ui.monospace(fmt_scale(sb));
                         ui.end_row();
                     }
                 });
@@ -434,8 +444,8 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 ui.heading("Current Costs");
                 ui.separator();
 
-                let scale_a = (100.0 + stats_a.total_scale) / 100.0;
-                let scale_b = (100.0 + stats_b.total_scale) / 100.0;
+                let scale_a_millis = stats_a.total_scale_millis;
+                let scale_b_millis = stats_b.total_scale_millis;
 
                 egui::Grid::new("costs").num_columns(3).show(ui, |ui| {
                     ui.label("");
@@ -443,13 +453,15 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                     ui.strong("B");
                     ui.end_row();
 
-                    for &(label, ti, ax) in entity::BUILDABLE_COSTS {
-                        let ti_a = (scale_a * ti as f32).floor() as i32;
-                        let ax_a = (scale_a * ax as f32).floor() as i32;
-                        let ti_b = (scale_b * ti as f32).floor() as i32;
-                        let ax_b = (scale_b * ax as f32).floor() as i32;
+                    let scaled = |base: (i32, i32), millis: u32| -> (i32, i32) {
+                        let s = 1000 + millis as i32;
+                        (base.0 * s / 1000, base.1 * s / 1000)
+                    };
+                    for &(label, cost) in entity::BUILDABLE_COSTS {
+                        let (ti_a, ax_a) = scaled(cost, scale_a_millis);
+                        let (ti_b, ax_b) = scaled(cost, scale_b_millis);
                         ui.label(label);
-                        if ax == 0 {
+                        if cost.1 == 0 {
                             ui.monospace(format!("{ti_a}"));
                             ui.monospace(format!("{ti_b}"));
                         } else {

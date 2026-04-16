@@ -1,3 +1,4 @@
+use crate::constants as c;
 use crate::proto;
 use crate::state::{Entity, EntityKind};
 
@@ -21,21 +22,22 @@ pub const fn label(kind: &EntityKind) -> &'static str {
     }
 }
 
-pub const fn scale_percent(kind: &EntityKind) -> f32 {
+/// Scale contribution in millis (1 milli = 0.1%).
+pub const fn scale_millis(kind: &EntityKind) -> u32 {
     match kind {
-        EntityKind::Road => 0.5,
+        EntityKind::Road => 5,
         EntityKind::Conveyor { .. }
         | EntityKind::ArmouredConveyor { .. }
         | EntityKind::Splitter { .. }
-        | EntityKind::Barrier => 1.0,
-        EntityKind::Harvester { .. } => 5.0,
+        | EntityKind::Barrier => 10,
+        EntityKind::Harvester { .. } => 50,
         EntityKind::Bridge { .. }
         | EntityKind::Gunner { .. }
         | EntityKind::Breach { .. }
-        | EntityKind::Launcher { .. } => 10.0,
-        EntityKind::BuilderBot { .. } | EntityKind::Sentinel { .. } => 20.0,
-        EntityKind::Foundry { .. } => 100.0,
-        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } | EntityKind::Marker { .. } => 0.0,
+        | EntityKind::Launcher { .. } => 100,
+        EntityKind::BuilderBot { .. } | EntityKind::Sentinel { .. } => 200,
+        EntityKind::Foundry { .. } => 500,
+        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } | EntityKind::Marker { .. } => 0,
     }
 }
 
@@ -216,21 +218,20 @@ pub fn sprite_name(e: &Entity) -> String {
     }
 }
 
-/// All buildable entity kinds (for cost display). Returns (label, `base_ti`, `base_ax`).
-pub const BUILDABLE_COSTS: &[(&str, i32, i32)] = &[
-    ("Builder", 30, 0),
-    ("Road", 1, 0),
-    ("Conveyor", 3, 0),
-    ("Splitter", 6, 0),
-    ("Bridge", 20, 0),
-    ("Arm. Conv", 5, 5),
-    ("Barrier", 3, 0),
-    ("Harvester", 20, 0),
-    ("Foundry", 40, 0),
-    ("Gunner", 10, 0),
-    ("Sentinel", 30, 0),
-    ("Breach", 15, 10),
-    ("Launcher", 20, 0),
+pub const BUILDABLE_COSTS: &[(&str, (i32, i32))] = &[
+    ("Builder", c::BUILDER_BOT_BASE_COST),
+    ("Road", c::ROAD_BASE_COST),
+    ("Conveyor", c::CONVEYOR_BASE_COST),
+    ("Splitter", c::SPLITTER_BASE_COST),
+    ("Bridge", c::BRIDGE_BASE_COST),
+    ("Arm. Conv", c::ARMOURED_CONVEYOR_BASE_COST),
+    ("Barrier", c::BARRIER_BASE_COST),
+    ("Harvester", c::HARVESTER_BASE_COST),
+    ("Foundry", c::FOUNDRY_BASE_COST),
+    ("Gunner", c::GUNNER_BASE_COST),
+    ("Sentinel", c::SENTINEL_BASE_COST),
+    ("Breach", c::BREACH_BASE_COST),
+    ("Launcher", c::LAUNCHER_BASE_COST),
 ];
 
 pub const fn accepts_input_from(kind: &EntityKind, from_dir: proto::Direction) -> bool {

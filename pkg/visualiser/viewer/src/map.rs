@@ -2,6 +2,7 @@ use eframe::egui;
 use egui::{Color32, Mesh, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 
 use crate::app::App;
+use crate::constants;
 use crate::entity;
 use crate::proto;
 use crate::state::{Entity, EntityKind, Indicator};
@@ -241,6 +242,26 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 let to = tile_center(target.0, target.1, ts, origin, zoom);
                 let width = ts * zoom * 0.6;
                 draw_beam(&painter, app, beam_name, from, to, width);
+            }
+        }
+
+        if app.playing && interp_t > 0.0 {
+            for &(from, to, res) in &turn_state.resource_moves {
+                let sprite = match res {
+                    proto::ResourceType::ResourceTitanium => "titanium",
+                    proto::ResourceType::ResourceRawAxionite => "axionite_raw",
+                    proto::ResourceType::ResourceRefinedAxionite => "axionite_processed",
+                    proto::ResourceType::ResourceNone => continue,
+                };
+                let x = ((to.0 - from.0) as f32).mul_add(interp_t, from.0 as f32 + 0.5);
+                let y = ((to.1 - from.1) as f32).mul_add(interp_t, from.1 as f32 + 0.5);
+                let center = Pos2::new(
+                    x.mul_add(ts * zoom, origin.x),
+                    y.mul_add(ts * zoom, origin.y),
+                );
+                let half = ts * zoom * 0.25;
+                let r = Rect::from_center_size(center, Vec2::splat(half * 2.0));
+                draw_sprite(&painter, app, sprite, r);
             }
         }
 
@@ -532,50 +553,50 @@ fn draw_range_overlay(
 
     match &e.kind {
         EntityKind::BuilderBot { .. } => {
-            let mut vision = radius_tiles(cx, cy, 20);
+            let mut vision = radius_tiles(cx, cy, constants::BUILDER_BOT_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut action = radius_tiles(cx, cy, 2);
+            let mut action = radius_tiles(cx, cy, constants::ACTION_RADIUS_SQ);
             clamp(&mut action);
             draw_tile_outline(painter, &action, ts, origin, zoom, red);
         }
         EntityKind::Core { .. } => {
-            let mut vision = radius_tiles(cx, cy, 36);
+            let mut vision = radius_tiles(cx, cy, constants::CORE_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut action = radius_tiles(cx, cy, 8);
+            let mut action = radius_tiles(cx, cy, constants::CORE_ACTION_RADIUS_SQ);
             clamp(&mut action);
             draw_tile_outline(painter, &action, ts, origin, zoom, red);
         }
         EntityKind::Gunner { dir, .. } => {
-            let mut vision = radius_tiles(cx, cy, 13);
+            let mut vision = radius_tiles(cx, cy, constants::GUNNER_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut attack = gunner_attack_tiles(cx, cy, *dir, 13);
+            let mut attack = gunner_attack_tiles(cx, cy, *dir, constants::GUNNER_VISION_RADIUS_SQ);
             clamp(&mut attack);
             draw_tile_outline(painter, &attack, ts, origin, zoom, red);
         }
         EntityKind::Sentinel { dir, .. } => {
-            let mut vision = radius_tiles(cx, cy, 32);
+            let mut vision = radius_tiles(cx, cy, constants::SENTINEL_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut attack = sentinel_attack_tiles(cx, cy, *dir, 32);
+            let mut attack = sentinel_attack_tiles(cx, cy, *dir, constants::SENTINEL_VISION_RADIUS_SQ);
             clamp(&mut attack);
             draw_tile_outline(painter, &attack, ts, origin, zoom, red);
         }
         EntityKind::Breach { dir, .. } => {
-            let mut vision = radius_tiles(cx, cy, 13);
+            let mut vision = radius_tiles(cx, cy, constants::BREACH_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut attack = breach_attack_tiles(cx, cy, *dir, 5);
+            let mut attack = breach_attack_tiles(cx, cy, *dir, constants::BREACH_ATTACK_RADIUS_SQ);
             clamp(&mut attack);
             draw_tile_outline(painter, &attack, ts, origin, zoom, red);
         }
         EntityKind::Launcher { .. } => {
-            let mut vision = radius_tiles(cx, cy, 26);
+            let mut vision = radius_tiles(cx, cy, constants::LAUNCHER_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut attack = radius_tiles(cx, cy, 26);
+            let mut attack = radius_tiles(cx, cy, constants::LAUNCHER_VISION_RADIUS_SQ);
             clamp(&mut attack);
             draw_tile_outline(painter, &attack, ts, origin, zoom, red);
         }
