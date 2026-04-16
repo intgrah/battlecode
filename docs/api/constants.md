@@ -8,7 +8,7 @@
 
 Access constants via `GameConstants`:
 
-```python  theme={"dark"}
+```python theme={"dark"}
 from cambc import GameConstants
 
 max_turns = GameConstants.MAX_TURNS  # 2000
@@ -105,6 +105,3 @@ max_turns = GameConstants.MAX_TURNS  # 2000
 | `BREACH_FIRE_COOLDOWN`             | 1       | Turns between breach shots                      |
 | `BREACH_AMMO_COST`                 | 5       | Refined axionite per shot                       |
 | `LAUNCHER_FIRE_COOLDOWN`           | 1       | Turns between launcher throws                   |
-
-
-Built with [Mintlify](https://mintlify.com).

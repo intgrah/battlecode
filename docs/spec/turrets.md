@@ -68,11 +68,11 @@ blocker is legal. Using refined axionite as ammo deals **25 damage** instead of 
 
 <Tabs>
   <Tab title="Cardinal">
-        <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/gunner-cardinal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=77b1386259e4c53e81aca66c783e18d9" alt="Gunner range — cardinal direction" width="1175" height="1182" data-path="images/ranges/gunner-cardinal.png" />
+    <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/gunner-cardinal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=77b1386259e4c53e81aca66c783e18d9" alt="Gunner range — cardinal direction" width="1175" height="1182" data-path="images/ranges/gunner-cardinal.png" />
   </Tab>
 
   <Tab title="Diagonal">
-        <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/gunner-diagonal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=9566451973643d6ba88ec8745d8137b1" alt="Gunner range — diagonal direction" width="1175" height="1182" data-path="images/ranges/gunner-diagonal.png" />
+    <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/gunner-diagonal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=9566451973643d6ba88ec8745d8137b1" alt="Gunner range — diagonal direction" width="1175" height="1182" data-path="images/ranges/gunner-diagonal.png" />
   </Tab>
 </Tabs>
 
@@ -97,11 +97,11 @@ Using refined axionite instead of titanium as ammo adds **+5 to the action and m
 
 <Tabs>
   <Tab title="Cardinal">
-        <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/sentinel-cardinal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=20f20ba8f92bf979e16c04f59693a25b" alt="Sentinel range — cardinal direction" width="1428" height="1325" data-path="images/ranges/sentinel-cardinal.png" />
+    <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/sentinel-cardinal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=20f20ba8f92bf979e16c04f59693a25b" alt="Sentinel range — cardinal direction" width="1428" height="1325" data-path="images/ranges/sentinel-cardinal.png" />
   </Tab>
 
   <Tab title="Diagonal">
-        <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/sentinel-diagonal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=a729fde3208ca6ef064c5474960dcc26" alt="Sentinel range — diagonal direction" width="1428" height="1325" data-path="images/ranges/sentinel-diagonal.png" />
+    <img src="https://mintcdn.com/cambridgebattlecode/sOfFkEKzv7YbWA_S/images/ranges/sentinel-diagonal.png?fit=max&auto=format&n=sOfFkEKzv7YbWA_S&q=85&s=a729fde3208ca6ef064c5474960dcc26" alt="Sentinel range — diagonal direction" width="1428" height="1325" data-path="images/ranges/sentinel-diagonal.png" />
   </Tab>
 </Tabs>
 
@@ -129,11 +129,11 @@ Very high damage with **splash**. Attacks in a **180° cone** in the facing dire
 
 <Tabs>
   <Tab title="Cardinal">
-        <img src="https://mintcdn.com/cambridgebattlecode/bEKoWKyuhVPrb0vz/images/ranges/breach-cardinal.png?fit=max&auto=format&n=bEKoWKyuhVPrb0vz&q=85&s=9f486aea38317b37d0828ad8a1aaf760" alt="Breach range — cardinal direction" width="1012" height="879" data-path="images/ranges/breach-cardinal.png" />
+    <img src="https://mintcdn.com/cambridgebattlecode/bEKoWKyuhVPrb0vz/images/ranges/breach-cardinal.png?fit=max&auto=format&n=bEKoWKyuhVPrb0vz&q=85&s=9f486aea38317b37d0828ad8a1aaf760" alt="Breach range — cardinal direction" width="1012" height="879" data-path="images/ranges/breach-cardinal.png" />
   </Tab>
 
   <Tab title="Diagonal">
-        <img src="https://mintcdn.com/cambridgebattlecode/bEKoWKyuhVPrb0vz/images/ranges/breach-diagonal.png?fit=max&auto=format&n=bEKoWKyuhVPrb0vz&q=85&s=270af3b88dc6fe612f5814a6dbe1ce5d" alt="Breach range — diagonal direction" width="890" height="878" data-path="images/ranges/breach-diagonal.png" />
+    <img src="https://mintcdn.com/cambridgebattlecode/bEKoWKyuhVPrb0vz/images/ranges/breach-diagonal.png?fit=max&auto=format&n=bEKoWKyuhVPrb0vz&q=85&s=270af3b88dc6fe612f5814a6dbe1ce5d" alt="Breach range — diagonal direction" width="890" height="878" data-path="images/ranges/breach-diagonal.png" />
   </Tab>
 </Tabs>
 
@@ -166,7 +166,7 @@ Picks up and **throws adjacent builder bots** to a target tile within range. The
 
 <img src="https://mintcdn.com/cambridgebattlecode/sNfop_mvBaJIfJyf/images/ranges/launcher.png?fit=max&auto=format&n=sNfop_mvBaJIfJyf&q=85&s=6ad5adfed217c4f27cf37e1a9feb323f" alt="Launcher range — blue is vision, red is throw range" width="1287" height="1283" data-path="images/ranges/launcher.png" />
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Build a launcher (no direction needed)
 c.build_launcher(pos)
 
@@ -188,6 +188,3 @@ a real turret, or `c.can_fire_from(position, direction, turret_type, target)` to
 test a hypothetical shot against the current map's range and obstruction rules.
 
 See the [Controller reference](/api/controller) for full method signatures.
-
-
-Built with [Mintlify](https://mintlify.com).

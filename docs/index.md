@@ -16,7 +16,7 @@ For competition details, dates, prizes, and eligibility, visit the [main website
 
 ## Quick start
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 pip install cambc
 cambc starter
 cambc run starter starter --watch
@@ -39,6 +39,3 @@ cambc run starter starter --watch
     Every method available to your bot via the Controller object.
   </Card>
 </CardGroup>
-
-
-Built with [Mintlify](https://mintlify.com).

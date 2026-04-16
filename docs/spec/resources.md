@@ -94,6 +94,3 @@ When an entity is destroyed, its scaling contribution is removed — costs go ba
 <Tip>
   Every entity you build makes the next one more expensive. Be efficient with what you build!
 </Tip>
-
-
-Built with [Mintlify](https://mintlify.com).

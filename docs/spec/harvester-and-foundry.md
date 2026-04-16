@@ -21,7 +21,7 @@ Prioritises outputting in directions used least recently.
 | Scaling         | 5%       |
 | Output interval | 4 rounds |
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Build a harvester on an ore tile
 if c.can_build_harvester(ore_pos):
     c.build_harvester(ore_pos)
@@ -56,6 +56,3 @@ Takes one stack each of **titanium and raw axionite**, then outputs one stack of
 1. Feed titanium (via conveyor) → foundry stores it
 2. Feed raw axionite (via conveyor) → foundry combines them
 3. Foundry outputs one stack of refined axionite to an adjacent accepting building
-
-
-Built with [Mintlify](https://mintlify.com).

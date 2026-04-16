@@ -10,13 +10,13 @@
 
 If you haven't already, run `cambc starter` to scaffold your project. When prompted, choose to create the starter bot — it gives you a working bot to build on.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc starter
 ```
 
 The starter bot demonstrates core mechanics: the core spawns builder bots, builders explore by laying roads, and when they find ore they build harvesters on it. Run it against itself to see it in action:
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc run starter starter --watch
 ```
 
@@ -127,6 +127,3 @@ class Player:
     All game types: Team, EntityType, Direction, Position, and more.
   </Card>
 </CardGroup>
-
-
-Built with [Mintlify](https://mintlify.com).
