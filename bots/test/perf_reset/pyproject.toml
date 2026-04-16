@@ -1,5 +1,5 @@
 [project]
-name = "bot-perf_reset"
+name = "bot-perf-reset"
 version = "0.0.0"
 requires-python = ">=3.12,<3.14"
 dependencies = ["cambc>=1.7.0"]
