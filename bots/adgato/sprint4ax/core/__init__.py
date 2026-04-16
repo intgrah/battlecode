@@ -20,8 +20,8 @@ _INCOME_SAMPLES = 16
 # of them got killed and we were sitting on a huge Ti surplus.
 _MAX_TEAM_UNITS = 40
 _INCOME_HEADROOM = 5
-_SURPLUS_BASELINE = 50
-_SURPLUS_SCALE_FACTOR = 60
+_SURPLUS_BASELINE = 60
+_SURPLUS_SCALE_FACTOR = 80
 
 
 class Core(Unit):
@@ -77,7 +77,7 @@ class Core(Unit):
         # Scale income requirement against live units, not cumulative
         # spawns — otherwise a decimated team requires production for
         # ghosts that died 500 rounds ago and never refills.
-        has_income = income_rate * 4 > live_units - _INCOME_HEADROOM
+        has_income = income_rate * 8 > live_units - _INCOME_HEADROOM
         has_surplus = ti > _SURPLUS_BASELINE + _SURPLUS_SCALE_FACTOR * (
             ct.get_scale_percent() / 100
         )

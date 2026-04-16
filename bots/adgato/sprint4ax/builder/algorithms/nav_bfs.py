@@ -19,9 +19,10 @@ ported intact.
 
 from __future__ import annotations
 
+from typing import Final
 from cambc import Controller, EntityType, Environment, Position
 
-INF = 1_000_000
+_BUDGET: Final[int] = 1729
 
 _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     {
@@ -33,46 +34,39 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
     },
 )
 
-_BUDGET = 1729
-
-
 def _bfs_compute(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
-    dist: list[int],
+    dist: bytearray,
     q: list[int],
     cur_idx: int,
     ct: Controller,
 ) -> bool:
-    """Resumable backwards BFS. Returns True when finished.
-
-    Finished means the agent tile has been reached (one level past it)
-    or the queue is exhausted. False means we bailed on CPU budget;
-    call again with the same q to resume.
-
-    On exit, stale (already-processed) entries are trimmed from q so
-    the next call picks up where we left off.
-    """
     # Stop at the agent.
     qi = 0
     q_append = q.append
     cpu_time = ct.get_cpu_time_elapsed
+    budget = _BUDGET
+    push_len = 0
+    set_len = 0
     for node in q:
         if node == cur_idx:
             del q[:qi]
             return True
         d = dist[node] + 1
+        push_len += len(pnb_push[node])
+        set_len += len(pnb_set[node])
         for ni in pnb_push[node]:
-            if d < dist[ni]:
+            if dist[ni] is 0xFF:
                 dist[ni] = d
                 q_append(ni)
         for ni in pnb_set[node]:
-            if d < dist[ni]:
+            if dist[ni] is 0xFF:
                 dist[ni] = d
                 if ni == cur_idx:
                     q_append(ni)
         qi += 1
-        if cpu_time() > _BUDGET:
+        if not (qi & 15) and cpu_time() > budget:
             del q[:qi]
             return False
     q.clear()
@@ -226,7 +220,7 @@ class PassableGrid:
                 pi += 3  # skip right border + left border of next row
             else:
                 pi += 1
-            if progress & 255 == 0 and ct.get_cpu_time_elapsed() > _BUDGET:
+            if not (progress & 255) and ct.get_cpu_time_elapsed() > _BUDGET:
                 self._pnb_init_progress = progress
                 return False
 
@@ -302,7 +296,8 @@ class NavBfs:
         self._dirty = True
 
         # Distance array. Unvisited tiles hold INF; reset on each restart.
-        self._dist: list[int] = [INF] * n
+        self._dist_reset: bytearray = bytearray([0xFF] * n)
+        self._dist: list[int] = bytearray(self._dist_reset)
 
         self._q: list[int] = []
         self._resumable = False
@@ -331,8 +326,8 @@ class NavBfs:
     def _restart(self) -> None:
         """Reset BFS state for a fresh backward search from goals."""
         grid = self.grid
+        self._dist = bytearray(self._dist_reset)
         dist = self._dist
-        dist[:] = [INF] * grid.n
         passable = grid.passable
         offsets = grid.offsets
         q = self._q
@@ -359,9 +354,8 @@ class NavBfs:
         grid = self.grid
         dist = self._dist
         passable = grid.passable
-        pw = grid.pw
         my_bbid = ct.get_id()
-        ci = (start.y + 1) * pw + (start.x + 1)
+        ci = self._cur_idx
         # Direction deltas aligned with grid.offsets order:
         # NE, SE, SW, NW, N, E, S, W.
         deltas = (
@@ -374,7 +368,7 @@ class NavBfs:
             (0, 1),
             (-1, 0),
         )
-        best_d = INF
+        best_d = 0xFF
         best_dx = 0
         best_dy = 0
         for off, (dx, dy) in zip(grid.offsets, deltas, strict=False):
@@ -390,7 +384,7 @@ class NavBfs:
                 best_d = d
                 best_dx = dx
                 best_dy = dy
-        if best_d >= INF:
+        if best_d >= 0xFF:
             return None
         return Position(start.x + best_dx, start.y + best_dy)
 
@@ -401,7 +395,6 @@ class NavBfs:
         goals: list[Position],
     ) -> Position | None:
         grid = self.grid
-        pw = grid.pw
 
         # Finish the initial pnb build if it isn't done yet. On the
         # first few turns the bot spends budget here; until pnb is
@@ -417,15 +410,17 @@ class NavBfs:
 
         if ct.get_move_cooldown() > 0:
             return None
-
+        
+        self._cur_idx = (start.y + 1) * self.grid.pw + (start.x + 1)
         self.set_goal(goals)
 
-        self._cur_idx = (start.y + 1) * pw + (start.x + 1)
-
+        if self._cur_idx in self._gis:
+            return start
+        
         if self._dirty:
             self._restart()
             self._dirty = False
-        elif not self._resumable and self._dist[self._cur_idx] >= INF and self._q:
+        elif not self._resumable and self._dist[self._cur_idx] >= 0xFF and self._q:
             self._resumable = True
 
         if self._resumable:
@@ -435,9 +430,12 @@ class NavBfs:
             self._resumable = bool(self._q)
 
         cd = self._dist[self._cur_idx]
-        self._cur_dist = cd if cd < INF else -1
-        if self._cur_dist < 0:
+        self._cur_dist = cd
+        if cd is 0xFF:
             return None
+        if not cd:
+            # we overflowed path length, cursed fix
+            self._dirty = True
 
         next_step = self._best_step(ct, start)
         if next_step is None:
@@ -457,16 +455,16 @@ class NavBfs:
         dist = self._dist
         offsets = self.grid.offsets
 
-        pos = self.my_pos
+        pos = ct.get_position()
         pi = (pos.y + 1) * pw + (pos.x + 1)
         d = dist[pi]
-        if d >= INF:
+        if d >= 0xFF:
             return None
         while d > 1:
             for off in offsets:
                 ni = pi + off
                 dn = dist[ni]
-                if dn < d and passable[ni] == 1:
+                if dn < d and passable[ni] is 1:
                     pi = ni
                     d = dn
                     break
@@ -475,10 +473,10 @@ class NavBfs:
         # d <= 1: either already on the goal (d==0) or one step away.
         # Check neighbors for the actual goal tile (dist==0), which may
         # be impassable (e.g. a barrier).
-        if d == 1:
+        if d is 1:
             for off in offsets:
                 ni = pi + off
-                if dist[ni] == 0:
+                if not dist[ni]:
                     return Position(ni % pw - 1, ni // pw - 1)
             return None
         return Position(pi % pw - 1, pi // pw - 1)

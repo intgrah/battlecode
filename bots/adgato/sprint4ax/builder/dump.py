@@ -50,7 +50,7 @@ P_FLOW = Palette(
 def _unpad(grid: list[int], self: Builder) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""
     w, h, pad, pw = self.w, self.h, self.pad, self.pw
-    out: list[int] = [0] * (w * h)
+    out: list[int] = [42] * (w * h)
     for y in range(h):
         row_start = (y + pad) * pw + pad
         for x in range(w):
@@ -62,20 +62,31 @@ def dump(self: Builder, _ct: Controller) -> None:
 
     flows = [f.get_flow() for f in self.flow]
 
+    if self.dump_path:
+        prev = self.dump_path[0]
+        for p in self.dump_path[1:]:
+            if p.distance_squared(prev) == 1:
+                _ct.draw_indicator_line(prev, p, 240, 180, 0)
+            else:
+                _ct.draw_indicator_line(prev, p, 255, 120, 0)
+            prev = p
+
+    self.dump_path = None
+
     crnd = self.rnd
     patrol = [0] * len(self.env)
     for pos, rnd, scale in self.patrol_queue:
         i = pos.y * self.w + pos.x
         patrol[i] = scale * (crnd - rnd)
+    
+    if self.dangling_output:
+        print(self.dangling_flow)
+        _ct.draw_indicator_dot(self.dangling_output, 255, 0, 0)
 
     emit(
         unseen=Grid(
             [0.0 if e is not None else 1.0 for e in self.env],
             palette=P_FOG,
-        ),
-        cost=Grid(
-            [c if c < 1e6 else -1 for c in _unpad(self.cost_grid, self)],
-            palette=P_COST,
         ),
         ti_flow=Grid(
             [f[FLOW_TI] for f in flows],

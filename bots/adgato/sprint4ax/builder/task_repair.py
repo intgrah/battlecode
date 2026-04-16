@@ -53,7 +53,8 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
             case _:
                 return False
 
-    return self.conveyors_to_here[i] or pos in self.adjacent_to_unconnected_harvester
+    
+    return any(self.conveyors_to_here[self._idx(j)] or j in self.adjacent_to_harvester for j in self.conveyors_to_here[i]) or pos in self.adjacent_to_unconnected_harvester
 
 
 def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:

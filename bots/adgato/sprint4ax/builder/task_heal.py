@@ -238,7 +238,7 @@ def run_heal(self: Builder, ct: Controller) -> bool:
         move_dir = Direction.CENTRE
         heal_spot = self.my_pos
 
-    if heal_score == 0:
+    if not heal_score:
         if not self.repair_pos:
             return False
         make_move(self, ct, self.repair_pos)

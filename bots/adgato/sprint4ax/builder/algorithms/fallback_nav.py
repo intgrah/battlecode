@@ -62,7 +62,6 @@ def fallback_step(
     if blocked is None:
         blocked = set()
 
-    cost_grid = self.cost_grid
     w, h = self.w, self.h
     pad = self.pad
     pw = self.pw
@@ -88,7 +87,7 @@ def fallback_step(
         if (
             0 <= next_pos.x < w
             and 0 <= next_pos.y < h
-            and cost_grid[(next_pos.y + pad) * pw + (next_pos.x + pad)] != INF
+            and self.is_passable(next_pos)
             and next_pos not in blocked
         ):
             return next_pos
@@ -120,11 +119,10 @@ def fallback_step(
                 continue
 
             pos = Position(nx, ny)
-            if cost_grid[(ny + pad) * pw + (nx + pad)] != INF and pos not in blocked:
+            if self.is_passable(pos) and pos not in blocked:
                 return pos
 
     return None
-
 
 def fallback_nav(self: Builder, ct: Controller, target: Position) -> Position | None:
     blocked: set[Position] = set()
