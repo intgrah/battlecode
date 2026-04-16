@@ -143,7 +143,9 @@ impl std::fmt::Display for BuildingKind {
             Self::Road => write!(f, "road"),
             Self::Barrier => write!(f, "barrier"),
             Self::Conveyor { dir } => write!(f, "conveyor {}", entity::dir_suffix(*dir)),
-            Self::ArmouredConveyor { dir } => write!(f, "armoured conveyor {}", entity::dir_suffix(*dir)),
+            Self::ArmouredConveyor { dir } => {
+                write!(f, "armoured conveyor {}", entity::dir_suffix(*dir))
+            }
             Self::Splitter { dir } => write!(f, "splitter {}", entity::dir_suffix(*dir)),
             Self::Bridge { target } => write!(f, "bridge ({},{})", target.0, target.1),
             Self::Harvester => write!(f, "harvester"),
@@ -161,10 +163,20 @@ impl std::fmt::Display for Action {
         match self {
             Self::Move { dir } => write!(f, "Move {}", entity::dir_name(dir.0, dir.1)),
             Self::Spawn { dir } => write!(f, "Spawn builder {}", entity::dir_name(dir.0, dir.1)),
-            Self::Build { what, dir } => write!(f, "Build {what} {}", entity::dir_name(dir.0, dir.1)),
-            Self::PlaceMarker { dir, value } => write!(f, "Place marker {} {value:#010x}", entity::dir_name(dir.0, dir.1)),
-            Self::DestroyBuilding { dir } => write!(f, "Destroy building {}", entity::dir_name(dir.0, dir.1)),
-            Self::DestroyMarker { dir } => write!(f, "Destroy marker {}", entity::dir_name(dir.0, dir.1)),
+            Self::Build { what, dir } => {
+                write!(f, "Build {what} {}", entity::dir_name(dir.0, dir.1))
+            }
+            Self::PlaceMarker { dir, value } => write!(
+                f,
+                "Place marker {} {value:#010x}",
+                entity::dir_name(dir.0, dir.1)
+            ),
+            Self::DestroyBuilding { dir } => {
+                write!(f, "Destroy building {}", entity::dir_name(dir.0, dir.1))
+            }
+            Self::DestroyMarker { dir } => {
+                write!(f, "Destroy marker {}", entity::dir_name(dir.0, dir.1))
+            }
             Self::Attack { target } => write!(f, "Attack ({},{})", target.0, target.1),
         }
     }
@@ -285,7 +297,9 @@ const fn to_building_kind(kind: &EntityKind) -> Option<BuildingKind> {
         EntityKind::Road => Some(BuildingKind::Road),
         EntityKind::Barrier => Some(BuildingKind::Barrier),
         EntityKind::Conveyor { dir, .. } => Some(BuildingKind::Conveyor { dir: *dir }),
-        EntityKind::ArmouredConveyor { dir, .. } => Some(BuildingKind::ArmouredConveyor { dir: *dir }),
+        EntityKind::ArmouredConveyor { dir, .. } => {
+            Some(BuildingKind::ArmouredConveyor { dir: *dir })
+        }
         EntityKind::Splitter { dir, .. } => Some(BuildingKind::Splitter { dir: *dir }),
         EntityKind::Bridge { target, .. } => Some(BuildingKind::Bridge { target: *target }),
         EntityKind::Harvester { .. } => Some(BuildingKind::Harvester),
@@ -315,7 +329,9 @@ fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &m
                             state.actions.push((actor, Action::Spawn { dir }));
                         }
                         EntityKind::Marker { value } => {
-                            state.actions.push((actor, Action::PlaceMarker { dir, value: *value }));
+                            state
+                                .actions
+                                .push((actor, Action::PlaceMarker { dir, value: *value }));
                         }
                         _ => {
                             if let Some(what) = to_building_kind(&entity.kind) {
@@ -440,7 +456,12 @@ fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &m
         Kind::FireTurret(f) => {
             if let (Some(from), Some(to)) = (&f.from, &f.to) {
                 state.fire_events.push(((from.x, from.y), (to.x, to.y)));
-                state.actions.push((*current_actor, Action::Attack { target: (to.x, to.y) }));
+                state.actions.push((
+                    *current_actor,
+                    Action::Attack {
+                        target: (to.x, to.y),
+                    },
+                ));
             }
         }
         Kind::DistributeResources(dr) => {

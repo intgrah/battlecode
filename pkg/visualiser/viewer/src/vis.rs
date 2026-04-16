@@ -35,7 +35,9 @@ impl<'de> Deserialize<'de> for PaletteDef {
         let special = raw
             .special
             .into_iter()
-            .filter_map(|(k, [r, g, b, a])| k.parse::<i64>().ok().map(|k| (k, Color { r, g, b, a })))
+            .filter_map(|(k, [r, g, b, a])| {
+                k.parse::<i64>().ok().map(|k| (k, Color { r, g, b, a }))
+            })
             .collect();
         Ok(Self { stops, special })
     }
@@ -76,10 +78,11 @@ impl<'de> Deserialize<'de> for GridData {
         let mut has_float = false;
         for v in &values {
             if let Some(n) = v
-                && n.as_i64().is_none() {
-                    has_float = true;
-                    break;
-                }
+                && n.as_i64().is_none()
+            {
+                has_float = true;
+                break;
+            }
         }
         if has_float {
             Ok(Self::Floats(
@@ -122,15 +125,11 @@ impl<'de> Deserialize<'de> for ScalarValue {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let v = serde_json::Value::deserialize(deserializer)?;
         match v {
-            serde_json::Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    Ok(Self::Int(i))
-                } else if let Some(f) = n.as_f64() {
-                    Ok(Self::Float(f))
-                } else {
-                    Err(serde::de::Error::custom("invalid number"))
-                }
-            }
+            serde_json::Value::Number(n) => n
+                .as_i64()
+                .map(Self::Int)
+                .or_else(|| n.as_f64().map(Self::Float))
+                .ok_or_else(|| serde::de::Error::custom("invalid number")),
             serde_json::Value::String(s) => Ok(Self::Str(s)),
             serde_json::Value::Bool(b) => Ok(Self::Bool(b)),
             _ => Err(serde::de::Error::custom("expected number, string, or bool")),
@@ -168,10 +167,13 @@ pub struct Color {
 }
 
 pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> Option<Color> {
-    if let Some(i) = i64::try_from(value as i128).ok().filter(|_| (value - value.round()).abs() < 1e-9)
-        && let Some(c) = palette.special.get(&i) {
-            return Some(*c);
-        }
+    if let Some(i) = i64::try_from(value as i128)
+        .ok()
+        .filter(|_| (value - value.round()).abs() < 1e-9)
+        && let Some(c) = palette.special.get(&i)
+    {
+        return Some(*c);
+    }
 
     if palette.stops.is_empty() {
         return None;
@@ -222,9 +224,8 @@ pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> O
 }
 
 pub fn is_special(palette: &PaletteDef, value: f64) -> bool {
-    if let Some(i) = i64::try_from(value as i128).ok().filter(|_| (value - value.round()).abs() < 1e-9) {
-        palette.special.contains_key(&i)
-    } else {
-        false
-    }
+    i64::try_from(value as i128)
+        .ok()
+        .filter(|_| (value - value.round()).abs() < 1e-9)
+        .is_some_and(|i| palette.special.contains_key(&i))
 }

@@ -18,9 +18,11 @@ const ROTATABLE_SPRITES: &[&str] = &[
     "armoured_conveyor_silver",
 ];
 
+type RotateFn = fn(&RgbaImage) -> RgbaImage;
+
 /// Cardinal rotations: (suffix, rotation function).
 /// The source image faces west; rotations produce s, e, n variants.
-const ROTATIONS: &[(&str, fn(&RgbaImage) -> RgbaImage)] = &[
+const ROTATIONS: &[(&str, RotateFn)] = &[
     ("_s", imageops::rotate270),
     ("_e", imageops::rotate180),
     ("_n", imageops::rotate90),
@@ -152,9 +154,19 @@ impl SpriteAtlas {
             let base = if STRIP_SPRITES.contains(&name.as_str()) {
                 let frame_w = rgba.height();
                 let frame = imageops::crop_imm(&rgba, 0, 0, frame_w, frame_w).to_image();
-                imageops::resize(&frame, SPRITE_SIZE, SPRITE_SIZE, imageops::FilterType::Lanczos3)
+                imageops::resize(
+                    &frame,
+                    SPRITE_SIZE,
+                    SPRITE_SIZE,
+                    imageops::FilterType::Lanczos3,
+                )
             } else {
-                imageops::resize(&rgba, SPRITE_SIZE, SPRITE_SIZE, imageops::FilterType::Lanczos3)
+                imageops::resize(
+                    &rgba,
+                    SPRITE_SIZE,
+                    SPRITE_SIZE,
+                    imageops::FilterType::Lanczos3,
+                )
             };
 
             if ROTATABLE_SPRITES.contains(&name.as_str()) {

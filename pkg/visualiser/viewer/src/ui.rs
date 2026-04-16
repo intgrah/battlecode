@@ -564,11 +564,7 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
 
 fn collect_vis_fields(state: &TurnState, selected: Option<i32>) -> VisState {
     let id = selected.unwrap_or(-1);
-    state
-        .vis_data
-        .get(&id)
-        .cloned()
-        .unwrap_or_default()
+    state.vis_data.get(&id).cloned().unwrap_or_default()
 }
 
 fn icon_button(ui: &mut egui::Ui, icon: &str, size: f32) -> egui::Response {
