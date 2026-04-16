@@ -150,6 +150,28 @@ impl App {
         }
     }
 
+    pub fn load_replay(&mut self, path: PathBuf) {
+        let Ok(data) = fs::read(&path) else {
+            eprintln!("Cannot read {}", path.display());
+            return;
+        };
+        let Ok(replay) = proto::Replay::decode(&*data) else {
+            eprintln!("Invalid replay: {}", path.display());
+            return;
+        };
+        self.game = GameState::from_replay(&replay);
+        self.turn = 0;
+        self.playing = false;
+        self.selected_entity = None;
+        self.follow_entity = false;
+        self.replay_path = path;
+        self.last_modified = fs::metadata(&self.replay_path)
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+        self.cached_map_shapes.clear();
+        self.cached_map_zoom = f32::NAN;
+    }
+
     fn check_hot_reload(&mut self) {
         if let Ok(meta) = fs::metadata(&self.replay_path)
             && let Ok(modified) = meta.modified()

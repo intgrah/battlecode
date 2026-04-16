@@ -2,17 +2,19 @@
 
 Usage in builder code:
 
-    from visualiser import Grid, Scalar, Tiles, Palette, VectorField, emit
+    from visualiser import (
+        BoolGrid, I16Grid, Scalar, Tiles, Palette, PaletteStop,
+        Colour, VectorField, emit, TRANSPARENT,
+    )
+
+    P_DIST = Palette(
+        stops=[PaletteStop(0, Colour(50, 200, 50, 140)), PaletteStop(100, Colour(200, 50, 50, 140))],
+        special={INF: TRANSPARENT},
+    )
 
     emit(
-        dist=Grid(
-            state.dist,
-            palette=Palette(
-                stops=[(0.0, 0, 200, 0, 120), (1.0, 200, 0, 0, 180)],
-                special={-1: (0, 0, 0, 0), INF: (80, 80, 80, 100)},
-            ),
-        ),
-        bfs=VectorField(angles),
+        dist=I16Grid(state.dist, palette=P_DIST),
+        fog=BoolGrid([e is None for e in self.env], palette=P_FOG),
         scale=Scalar(142.5),
         goals=Tiles([(3, 5), (7, 2)]),
     )
@@ -20,16 +22,13 @@ Usage in builder code:
 The replay viewer parses lines prefixed with ##VIS## from bot stdout.
 Each call to emit() replaces the previous vis state for that bot on that turn.
 
-Palette stops: list of (t, r, g, b, a) where t in [0, 1].
-    Values are auto-scaled to [min, max] of non-special data, then interpolated.
+Palette stops use actual data values (not normalised). Interpolation is
+clamped outside the stop range.
 
-Special values: dict mapping value -> (r, g, b, a).
-    Use (0, 0, 0, 0) for transparent. Matched values bypass the palette.
-    Special values are excluded from min/max auto-scaling.
+Special values: dict mapping value -> Colour.
+    Use TRANSPARENT for invisible. Matched values bypass the gradient.
 
-VectorField: per-tile arrows.
-    angles: radians per tile, None = no arrow.
-    magnitudes: optional, scales arrow length. None = uniform length.
+Supported grid types: BoolGrid, U8Grid, I16Grid, U16Grid, F32Grid.
 """
 
 from __future__ import annotations
@@ -45,15 +44,97 @@ VIS_PREFIX = "##VIS## "
 
 
 @dataclass(frozen=True, slots=True)
-class Palette:
-    stops: Sequence[tuple[float, int, int, int, int]]
-    special: dict[float | int, tuple[int, int, int, int]] = field(default_factory=dict)
+class Colour:
+    r: int
+    g: int
+    b: int
+    a: int
+
+
+TRANSPARENT = Colour(0, 0, 0, 0)
 
 
 @dataclass(frozen=True, slots=True)
-class Grid:
-    data: Sequence[float | int | bool | None]
-    palette: Palette
+class PaletteStop[T: (int, float, bool)]:
+    t: T
+    colour: Colour
+
+
+@dataclass(frozen=True, slots=True)
+class Palette[T: (int, float, bool)]:
+    stops: Sequence[PaletteStop[T]]
+    special: dict[T, Colour] = field(default_factory=dict)
+
+
+# Pre-built palettes
+GREEN_RED = Palette(
+    stops=[
+        PaletteStop(0, Colour(50, 200, 50, 140)),
+        PaletteStop(100, Colour(200, 50, 50, 140)),
+    ],
+)
+BLUE_RED = Palette(
+    stops=[
+        PaletteStop(0, Colour(50, 50, 200, 140)),
+        PaletteStop(100, Colour(200, 50, 50, 140)),
+    ],
+)
+FOG = Palette(
+    stops=[
+        PaletteStop(t=False, colour=TRANSPARENT),
+        PaletteStop(t=True, colour=Colour(0, 0, 0, 180)),
+    ],
+)
+
+
+def with_special[T: (int, float, bool)](
+    palette: Palette[T], special: dict[T, Colour]
+) -> Palette[T]:
+    """Return a copy of the palette with additional special values."""
+    merged = {**palette.special, **special}
+    return Palette(stops=palette.stops, special=merged)
+
+
+def _serialize_palette(p: Palette) -> dict:
+    return {
+        "stops": [
+            [s.t, s.colour.r, s.colour.g, s.colour.b, s.colour.a] for s in p.stops
+        ],
+        "special": {str(k): [c.r, c.g, c.b, c.a] for k, c in p.special.items()},
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class BoolGrid:
+    data: Sequence[bool]
+    palette: Palette[bool]
+
+
+@dataclass(frozen=True, slots=True)
+class U8Grid:
+    data: Sequence[int]
+    palette: Palette[int]
+
+
+@dataclass(frozen=True, slots=True)
+class I16Grid:
+    data: Sequence[int]
+    palette: Palette[int]
+
+
+@dataclass(frozen=True, slots=True)
+class U16Grid:
+    data: Sequence[int]
+    palette: Palette[int]
+
+
+@dataclass(frozen=True, slots=True)
+class F32Grid:
+    data: Sequence[float]
+    palette: Palette[float]
+
+
+GridType = BoolGrid | U8Grid | I16Grid | U16Grid | F32Grid
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,16 +153,25 @@ class VectorField:
     magnitudes: Sequence[float] | None = None
 
 
-def _serialize_field(v: Grid | Scalar | Tiles | VectorField) -> dict:
+type VisField = GridType | Scalar | Tiles | VectorField
+
+_GRID_DTYPE: dict[type[VisField], str] = {
+    BoolGrid: "bool",
+    U8Grid: "u8",
+    I16Grid: "i16",
+    U16Grid: "u16",
+    F32Grid: "f32",
+}
+
+
+def _serialize_field(v: VisField) -> dict:
     match v:
-        case Grid(data=d, palette=p):
+        case BoolGrid() | U8Grid() | I16Grid() | U16Grid() | F32Grid():
             return {
                 "type": "grid",
-                "data": list(d),
-                "palette": {
-                    "stops": [list(s) for s in p.stops],
-                    "special": {str(k): list(c) for k, c in p.special.items()},
-                },
+                "dtype": _GRID_DTYPE[type(v)],
+                "data": list(v.data),
+                "palette": _serialize_palette(v.palette),
             }
         case Scalar(data=d):
             return {"type": "scalar", "data": d}
@@ -94,11 +184,6 @@ def _serialize_field(v: Grid | Scalar | Tiles | VectorField) -> dict:
             return obj
 
 
-def emit(**fields: Grid | Scalar | Tiles | VectorField) -> None:
-    obj = {name: _serialize_field(v) for name, v in fields.items()}
-    print(f"{VIS_PREFIX}{json.dumps(obj, separators=(',', ':'))}")
-
-
-def emit_dict(fields: dict[str, Grid | Scalar | Tiles | VectorField]) -> None:
+def emit(**fields: VisField) -> None:
     obj = {name: _serialize_field(v) for name, v in fields.items()}
     print(f"{VIS_PREFIX}{json.dumps(obj, separators=(',', ':'))}")

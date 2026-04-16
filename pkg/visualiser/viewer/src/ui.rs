@@ -323,32 +323,35 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 ui.heading("Resources");
                 ui.separator();
 
-                egui::Grid::new("resources").num_columns(3).show(ui, |ui| {
-                    ui.label("");
-                    ui.strong("Team A");
-                    ui.strong("Team B");
-                    ui.end_row();
+                egui::Grid::new("resources")
+                    .num_columns(3)
+                    .min_col_width(60.0)
+                    .show(ui, |ui| {
+                        ui.label("");
+                        ui.strong("Team A");
+                        ui.strong("Team B");
+                        ui.end_row();
 
-                    ui.label("Ti");
-                    ui.monospace(format!("{}", a.titanium));
-                    ui.monospace(format!("{}", b.titanium));
-                    ui.end_row();
+                        ui.label("Ti");
+                        ui.monospace(format!("{:>6}", a.titanium));
+                        ui.monospace(format!("{:>6}", b.titanium));
+                        ui.end_row();
 
-                    ui.label("Ax");
-                    ui.monospace(format!("{}", a.axionite));
-                    ui.monospace(format!("{}", b.axionite));
-                    ui.end_row();
+                        ui.label("Ax");
+                        ui.monospace(format!("{:>6}", a.axionite));
+                        ui.monospace(format!("{:>6}", b.axionite));
+                        ui.end_row();
 
-                    ui.label("Ti mined");
-                    ui.monospace(format!("{}", a.ti_collected));
-                    ui.monospace(format!("{}", b.ti_collected));
-                    ui.end_row();
+                        ui.label("Ti mined");
+                        ui.monospace(format!("{:>6}", a.ti_collected));
+                        ui.monospace(format!("{:>6}", b.ti_collected));
+                        ui.end_row();
 
-                    ui.label("Ax mined");
-                    ui.monospace(format!("{}", a.ax_collected));
-                    ui.monospace(format!("{}", b.ax_collected));
-                    ui.end_row();
-                });
+                        ui.label("Ax mined");
+                        ui.monospace(format!("{:>6}", a.ax_collected));
+                        ui.monospace(format!("{:>6}", b.ax_collected));
+                        ui.end_row();
+                    });
 
                 ui.add_space(8.0);
                 ui.label("Team A resources");
@@ -384,6 +387,7 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
 
                 egui::Grid::new("entity_counts")
                     .num_columns(3)
+                    .min_col_width(30.0)
                     .show(ui, |ui| {
                         ui.label("");
                         ui.strong("A");
@@ -394,8 +398,8 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                             let ca = stats_a.counts.get(&key).copied().unwrap_or(0);
                             let cb = stats_b.counts.get(&key).copied().unwrap_or(0);
                             ui.label(kind_for_key(key));
-                            ui.monospace(format!("{ca}"));
-                            ui.monospace(format!("{cb}"));
+                            ui.monospace(format!("{ca:>3}"));
+                            ui.monospace(format!("{cb:>3}"));
                             ui.end_row();
                         }
                     });
@@ -407,11 +411,7 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 let fmt_scale = |millis: u32| -> String {
                     let whole = 100 + millis / 10;
                     let frac = millis % 10;
-                    if frac == 0 {
-                        format!("{whole}%")
-                    } else {
-                        format!("{whole}.{frac}%")
-                    }
+                    format!("{whole:>4}.{frac}%")
                 };
 
                 ui.monospace(format!(
@@ -421,24 +421,27 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 ));
 
                 ui.add_space(4.0);
-                egui::Grid::new("scaling").num_columns(3).show(ui, |ui| {
-                    ui.label("");
-                    ui.strong("A");
-                    ui.strong("B");
-                    ui.end_row();
-
-                    for &key in &all_keys {
-                        let sa = stats_a.scale_millis_by_kind.get(&key).copied().unwrap_or(0);
-                        let sb = stats_b.scale_millis_by_kind.get(&key).copied().unwrap_or(0);
-                        if sa == 0 && sb == 0 {
-                            continue;
-                        }
-                        ui.label(kind_for_key(key));
-                        ui.monospace(fmt_scale(sa));
-                        ui.monospace(fmt_scale(sb));
+                egui::Grid::new("scaling")
+                    .num_columns(3)
+                    .min_col_width(50.0)
+                    .show(ui, |ui| {
+                        ui.label("");
+                        ui.strong("A");
+                        ui.strong("B");
                         ui.end_row();
-                    }
-                });
+
+                        for &key in &all_keys {
+                            let sa = stats_a.scale_millis_by_kind.get(&key).copied().unwrap_or(0);
+                            let sb = stats_b.scale_millis_by_kind.get(&key).copied().unwrap_or(0);
+                            if sa == 0 && sb == 0 {
+                                continue;
+                            }
+                            ui.label(kind_for_key(key));
+                            ui.monospace(fmt_scale(sa));
+                            ui.monospace(fmt_scale(sb));
+                            ui.end_row();
+                        }
+                    });
 
                 ui.add_space(8.0);
                 ui.heading("Current Costs");
@@ -447,30 +450,33 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 let scale_a_millis = stats_a.total_scale_millis;
                 let scale_b_millis = stats_b.total_scale_millis;
 
-                egui::Grid::new("costs").num_columns(3).show(ui, |ui| {
-                    ui.label("");
-                    ui.strong("A");
-                    ui.strong("B");
-                    ui.end_row();
-
-                    let scaled = |base: (i32, i32), millis: u32| -> (i32, i32) {
-                        let s = 1000 + millis as i32;
-                        (base.0 * s / 1000, base.1 * s / 1000)
-                    };
-                    for &(label, cost) in entity::BUILDABLE_COSTS {
-                        let (ti_a, ax_a) = scaled(cost, scale_a_millis);
-                        let (ti_b, ax_b) = scaled(cost, scale_b_millis);
-                        ui.label(label);
-                        if cost.1 == 0 {
-                            ui.monospace(format!("{ti_a}"));
-                            ui.monospace(format!("{ti_b}"));
-                        } else {
-                            ui.monospace(format!("{ti_a}+{ax_a}"));
-                            ui.monospace(format!("{ti_b}+{ax_b}"));
-                        }
+                egui::Grid::new("costs")
+                    .num_columns(3)
+                    .min_col_width(55.0)
+                    .show(ui, |ui| {
+                        ui.label("");
+                        ui.strong("A");
+                        ui.strong("B");
                         ui.end_row();
-                    }
-                });
+
+                        let scaled = |base: (i32, i32), millis: u32| -> (i32, i32) {
+                            let s = 1000 + millis as i32;
+                            (base.0 * s / 1000, base.1 * s / 1000)
+                        };
+                        let fmt_cost = |(ti, ax): (i32, i32)| -> String {
+                            if ax == 0 {
+                                format!("{ti:>4}")
+                            } else {
+                                format!("{ti:>3}+{ax}")
+                            }
+                        };
+                        for &(label, cost) in entity::BUILDABLE_COSTS {
+                            ui.label(label);
+                            ui.monospace(fmt_cost(scaled(cost, scale_a_millis)));
+                            ui.monospace(fmt_cost(scaled(cost, scale_b_millis)));
+                            ui.end_row();
+                        }
+                    });
             });
         });
 }
@@ -676,6 +682,17 @@ pub fn render_scrubber(ui: &mut egui::Ui, app: &mut App) {
 
                 ui.add_space(12.0);
                 ui.label(egui::RichText::new(format!("{}/{}", app.turn, total)).size(14.0));
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("Open").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("Replay", &["replay26"])
+                            .pick_file()
+                        {
+                            app.load_replay(path);
+                        }
+                    }
+                });
             });
         });
 }

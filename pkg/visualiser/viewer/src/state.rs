@@ -289,6 +289,7 @@ impl GameState {
             turns.push(current.clone());
         }
 
+
         let winner = replay.winner.and_then(|w| proto::Team::try_from(w).ok());
 
         Self {
@@ -303,6 +304,7 @@ impl GameState {
     pub const fn turn_count(&self) -> usize {
         self.turns.len().saturating_sub(1)
     }
+
 }
 
 const fn to_building_kind(kind: &EntityKind) -> Option<BuildingKind> {

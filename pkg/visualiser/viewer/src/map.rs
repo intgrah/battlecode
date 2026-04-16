@@ -145,6 +145,12 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         let turn_state = &app.game.turns[app.turn];
         let next_state = app.game.turns.get(app.turn + 1);
         let interp_t = app.interp_t;
+        let animating_dests: std::collections::HashSet<(i32, i32)> =
+            if app.playing && interp_t > 0.0 {
+                turn_state.resource_moves.iter().map(|m| m.to).collect()
+            } else {
+                std::collections::HashSet::new()
+            };
         let mut entities: Vec<&Entity> = turn_state.entities.values().collect();
         entities.sort_by_key(|e| entity::z_order(&e.kind));
 
@@ -195,7 +201,8 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             if !matches!(
                 e.kind,
                 EntityKind::Core { .. } | EntityKind::CoreEdge { .. }
-            ) && let Some(res_name) = entity::resource_sprite(&e.kind)
+            ) && !animating_dests.contains(&e.pos)
+                && let Some(res_name) = entity::resource_sprite(&e.kind)
             {
                 let center = if let Some((ix, iy)) = interp_pos {
                     Pos2::new(
@@ -628,24 +635,6 @@ fn draw_vis_overlay(
 
     match field {
         crate::vis::VisField::Grid { data, palette } => {
-            let (mut min_v, mut max_v) = (f64::MAX, f64::MIN);
-            for i in 0..data.len() {
-                if let Some(v) = data.get_f64(i)
-                    && !crate::vis::is_special(palette, v)
-                {
-                    if v < min_v {
-                        min_v = v;
-                    }
-                    if v > max_v {
-                        max_v = v;
-                    }
-                }
-            }
-            if min_v > max_v {
-                min_v = 0.0;
-                max_v = 1.0;
-            }
-
             let font = egui::FontId::monospace(8.0 * zoom.min(2.0));
 
             for gy in 0..h {
@@ -654,7 +643,7 @@ fn draw_vis_overlay(
                     let Some(v) = data.get_f64(i) else {
                         continue;
                     };
-                    let Some(c) = crate::vis::sample_palette(palette, v, min_v, max_v) else {
+                    let Some(c) = crate::vis::sample_palette(palette, v) else {
                         continue;
                     };
                     if c.a == 0 {
