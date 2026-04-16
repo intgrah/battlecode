@@ -750,15 +750,14 @@ fn draw_flow_overlay(painter: &egui::Painter, app: &App, ts: f32, origin: Pos2, 
 
         let r = tile_rect(gx, gy, ts, origin, zoom);
 
+        let intensity = (total.min(1.0) * 0.5 * 255.0) as u8;
         if tf.stagnant {
-            let intensity = (total.min(1.0) * 0.5 * 255.0) as u8;
             painter.rect_filled(
                 r,
                 0.0,
                 Color32::from_rgba_premultiplied(intensity, 0, 0, 0x30),
             );
         } else {
-            let intensity = (total.min(1.0) * 0.5 * 255.0) as u8;
             painter.rect_filled(
                 r,
                 0.0,
