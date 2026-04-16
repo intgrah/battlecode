@@ -59,7 +59,11 @@ fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
                         mesh.add_rect_with_uv(r, uv, Color32::from_rgb(0x30, 0x0c, 0x08));
                         shapes.push(Shape::mesh(mesh));
                     } else {
-                        shapes.push(Shape::rect_filled(r, 0.0, Color32::from_rgb(0x30, 0x0c, 0x08)));
+                        shapes.push(Shape::rect_filled(
+                            r,
+                            0.0,
+                            Color32::from_rgb(0x30, 0x0c, 0x08),
+                        ));
                     }
                 }
                 proto::Environment::EnvOreTitanium => {
@@ -85,6 +89,7 @@ fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
     shapes
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
     egui::CentralPanel::default().show_inside(ui, |ui| {
         let (response, painter) =
@@ -128,6 +133,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         }
 
         let origin_vec = egui::Vec2::new(origin.x, origin.y);
+        #[allow(clippy::float_cmp)]
         if origin_vec != app.cached_map_origin || zoom != app.cached_map_zoom {
             app.cached_map_shapes = build_static_map_shapes(app, origin);
             app.cached_map_origin = origin_vec;
@@ -136,10 +142,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         painter.extend(app.cached_map_shapes.clone());
 
         let turn_state = &app.game.turns[app.turn];
-        let next_state = app
-            .game
-            .turns
-            .get(app.turn + 1);
+        let next_state = app.game.turns.get(app.turn + 1);
         let interp_t = app.interp_t;
         let mut entities: Vec<&Entity> = turn_state.entities.values().collect();
         entities.sort_by_key(|e| entity::z_order(&e.kind));
@@ -161,20 +164,20 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             }
 
             // Interpolate builder bot positions between turns.
-            let interp_pos: Option<(f32, f32)> =
-                if matches!(e.kind, EntityKind::BuilderBot { .. }) {
-                    next_state
-                        .and_then(|ns| ns.entities.get(&e.id))
-                        .map(|next_e| {
-                            let t = interp_t;
-                            (
-                                ((next_e.pos.0 - e.pos.0) as f32).mul_add(t, e.pos.0 as f32),
-                                ((next_e.pos.1 - e.pos.1) as f32).mul_add(t, e.pos.1 as f32),
-                            )
-                        })
-                } else {
-                    None
-                };
+            let interp_pos: Option<(f32, f32)> = if matches!(e.kind, EntityKind::BuilderBot { .. })
+            {
+                next_state
+                    .and_then(|ns| ns.entities.get(&e.id))
+                    .map(|next_e| {
+                        let t = interp_t;
+                        (
+                            ((next_e.pos.0 - e.pos.0) as f32).mul_add(t, e.pos.0 as f32),
+                            ((next_e.pos.1 - e.pos.1) as f32).mul_add(t, e.pos.1 as f32),
+                        )
+                    })
+            } else {
+                None
+            };
 
             let sprite_name = entity::sprite_name(e);
             let r = if matches!(e.kind, EntityKind::Core { .. }) {
@@ -287,7 +290,10 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             let b = tile_center(to.0, to.1, ts, origin, zoom);
             painter.line_segment(
                 [a, b],
-                Stroke::new(2.0 * zoom, Color32::from_rgba_premultiplied(0xee, 0xee, 0xee, 0xc0)),
+                Stroke::new(
+                    2.0 * zoom,
+                    Color32::from_rgba_premultiplied(0xee, 0xee, 0xee, 0xc0),
+                ),
             );
         }
 
@@ -296,7 +302,10 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             painter.rect_stroke(
                 r,
                 0.0,
-                Stroke::new(2.0 * zoom, Color32::from_rgba_premultiplied(0xcc, 0x33, 0x33, 0xc0)),
+                Stroke::new(
+                    2.0 * zoom,
+                    Color32::from_rgba_premultiplied(0xcc, 0x33, 0x33, 0xc0),
+                ),
                 StrokeKind::Inside,
             );
         }
@@ -660,10 +669,7 @@ fn draw_vis_overlay(
                 painter.rect_filled(r, 0.0, color);
             }
         }
-        crate::vis::VisField::VectorField {
-            angles,
-            magnitudes,
-        } => {
+        crate::vis::VisField::VectorField { angles, magnitudes } => {
             let arrow_color = Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xc0);
             let max_mag = magnitudes
                 .as_ref()
@@ -680,9 +686,7 @@ fn draw_vis_overlay(
                     let Some(angle) = angles[i] else {
                         continue;
                     };
-                    let mag_frac = magnitudes
-                        .as_ref()
-                        .map_or(0.35, |m| m[i] / max_mag * 0.4);
+                    let mag_frac = magnitudes.as_ref().map_or(0.35, |m| m[i] / max_mag * 0.4);
                     let center = tile_center(gx as i32, gy as i32, ts, origin, zoom);
                     let half_len = ts * zoom * mag_frac;
                     let dx = angle.cos() * half_len;
@@ -702,14 +706,8 @@ fn draw_vis_overlay(
                     let ly = (-ux).mul_add(half, by);
                     let rx = (-uy).mul_add(half, bx);
                     let ry = ux.mul_add(half, by);
-                    painter.line_segment(
-                        [tip, Pos2::new(lx, ly)],
-                        stroke,
-                    );
-                    painter.line_segment(
-                        [tip, Pos2::new(rx, ry)],
-                        stroke,
-                    );
+                    painter.line_segment([tip, Pos2::new(lx, ly)], stroke);
+                    painter.line_segment([tip, Pos2::new(rx, ry)], stroke);
                 }
             }
         }
@@ -833,4 +831,3 @@ fn draw_sprite(painter: &egui::Painter, app: &App, name: &str, rect: Rect) {
         );
     }
 }
-
