@@ -42,10 +42,10 @@ def explore(self: Builder, ct: Controller) -> None:
         self.scout_age > 20
         or t is None
         or (self.my_pos.x - t.x) ** 2 + (self.my_pos.y - t.y) ** 2 < 3
-        or m.get_cost(t) == INF
+        or not m.is_passable(t)
     ):
         t = Position(-10, -10)
-        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or m.get_cost(t) == INF:
+        while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or not m.is_passable(t):
             theta = self.rng.random() * 2 * math.pi
             t = Position(
                 self.my_pos.x + round(math.cos(theta) * self.scout_radius),

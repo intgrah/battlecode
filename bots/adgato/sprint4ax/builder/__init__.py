@@ -4,6 +4,8 @@ from collections import deque
 from collections.abc import Callable
 from random import Random
 
+PosInt = int
+
 from building import (
     Building,
     BuildingArmouredConveyor,
@@ -34,6 +36,8 @@ from .update.econ import update_economy, update_role
 from .update.map import can_place_junction, update_map, update_splittable_locations
 
 __all__ = ["Builder"]
+
+_MAX_MAP: int = 50  # max map dimension per game rules (maps are 20×20 to 50×50)
 
 WALKABLE_ENTITIES = [
     EntityType.CONVEYOR,
@@ -172,18 +176,19 @@ class Builder(Unit):
         msg = "Core not visible at spawn"
         raise RuntimeError(msg)
 
-    def __init__(self, ct: Controller) -> None:
-        self.w = ct.get_map_width()
-        self.h = ct.get_map_height()
-        self.my_team = ct.get_team()
-        self.my_core: Position = Builder.find_core(ct)
-        self.my_pos: Position = ct.get_position()
-        self.my_id: int = ct.get_id()
-        self.rnd: int = ct.get_current_round()
-        self.rng = Random(self.my_id)
+    def __init__(self) -> None:
+        # Pre-allocate using worst-case map size so Player.__init__ can
+        # call this without a Controller. Builder.init() fills in actual
+        # dimensions and player-specific state on first run().
+        w = _MAX_MAP
+        h = _MAX_MAP
+        self.my_team: int = 0
+        self.my_core: Position | None = None
+        self.my_pos: Position | None = None
+        self.my_id: int = 0
+        self.rnd: int = 0
+        self.rng: Random = Random(0)
         self.dump_path: list[Position] = None
-        w, h = self.w, self.h
-        n = w * h
 
         # Padded cost-grid dimensions. A 3-tile border on every side
         # gives A* unconditional neighbor lookups for the bridge
@@ -196,25 +201,57 @@ class Builder(Unit):
         self.ph: int = h + 2 * self.pad
         pn = self.pw * self.ph
 
-        # Per-tile arrays (indexed by y * w + x)
-        self.env: list[Environment | None] = [None] * n
-        self.buildings: list[Building | None] = [None] * n
-        self.hp: list[int] = [0] * n
-        self.max_hp: list[int] = [0] * n
+        # Distances assume positions encoded as y * dist_stride + x.
+        # Stride = 2w (not w) so that p-q uniquely determines (dy, dx):
+        # max |dx| is w-1, so |dx2-dx1| < 2w = stride, avoiding the
+        # collisions that would otherwise let a y-borrow alias a
+        # smaller x-delta onto the same p-q value.
+        # dist_stride stays fixed at 2*_MAX_MAP even after init() sets
+        # self.w to the real width — all arrays are sized for worst-case.
+        self.dist_stride: int = 2 * w
+        max_delta: int = (h - 1) * self.dist_stride + (w - 1)
+        self.dist_offset: int = max_delta
+        dist_size: int = 2 * max_delta + 1
+        # Eagerly precompute all distances for every (dy, dx) reachable
+        # on a _MAX_MAP × _MAX_MAP grid. Smaller maps are a strict subset
+        # of this range so no lazy fallback is needed.
+        self.dist_sq: list[int] = [0] * dist_size
+        self.manhat: bytearray = bytearray(dist_size)
+        self.chebyshev: bytearray = bytearray(dist_size)
+        s = self.dist_stride
+        for dy in range(-(h - 1), h):
+            for dx in range(-(w - 1), w):
+                i = dy * s + dx + max_delta
+                adx = dx if dx >= 0 else -dx
+                ady = dy if dy >= 0 else -dy
+                self.dist_sq[i] = dx * dx + dy * dy
+                self.manhat[i] = adx + ady
+                self.chebyshev[i] = adx if adx > ady else ady
+        self.bound_range: int = self.dist_stride * h
+        self.posint_valid: bytearray = bytearray(self.bound_range)
+
+        # Per-tile arrays (indexed by PosInt = y * dist_stride + x).
+        # Sized to bound_range so PosInt lookups never need bounds
+        # adjustment; half the slots are "holes" (x in [w, 2w)) and
+        # stay at their initial value forever.
+        self.env: list[Environment | None] = [None] * self.bound_range
+        self.buildings: list[Building | None] = [None] * self.bound_range
+        self.hp: list[int] = [0] * self.bound_range
+        self.max_hp: list[int] = [0] * self.bound_range
         # Padded cost grids: border = INF, interior initialised to
         # the default cost for an unseen tile. Real tile (x, y) lives
         # at padded index (y + pad) * pw + (x + pad).
         self.conveyor_cost_grid: list[int] = [INF] * pn
-        self._init_pad_interior()
         # Per-bot adgato-style passability grid + BFS navigator for
         # movement. Shared across all `move_search` calls for this
         # bot (which is why NavBfs lives on State, not at module
         # level like v54's old AStarSearch singletons).
+        # Re-created in init() with actual map dimensions.
         self.pass_grid: PassableGrid = PassableGrid(w, h)
         self.nav: NavBfs = NavBfs(self.pass_grid)
 
-        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
-        self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
+        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(self.bound_range)]
+        self.splitters_to_here: list[list[Position]] = [[] for _ in range(self.bound_range)]
 
         # Symmetry
         self.symmetry_candidates: set[Symmetry] = {
@@ -254,7 +291,7 @@ class Builder(Unit):
         self.role: Role | None = None
         self.role_age: int = 0
         self.permanent_role: bool = False
-        self.opportunistic: bool = self.rng.random() < 0.5
+        self.opportunistic: bool = False  # set in init()
 
         # Economy
         self.ore_target: Position | None = None
@@ -266,7 +303,7 @@ class Builder(Unit):
         self.spawned: int = 0
         self.ti_ore: set[Position] = set()
         self.ax_ore: set[Position] = set()
-        self.flow: list[Flow] = [Flow(0, None) for _ in range(n)]
+        self.flow: list[Flow] = [Flow(0, None) for _ in range(self.bound_range)]
 
         # Repair
         self.repair_pos: Position | None = None
@@ -307,25 +344,52 @@ class Builder(Unit):
         self.scout_initial_age: int = 0
         self.scout_initial_radius: float = 10.0
 
-    def _init_pad_interior(self) -> None:
-        """Seed interior cells of the padded cost grids. The border
-        was already filled with INF by the constructor."""
+    def init(self, ct: Controller) -> None:
+        """Called on first run(). Sets actual map dimensions and player state."""
+        self.w = ct.get_map_width()
+        self.h = ct.get_map_height()
+        self.my_team = ct.get_team()
+        self.my_core = Builder.find_core(ct)
+        self.my_pos = ct.get_position()
+        self.my_id = ct.get_id()
+        self.rnd = ct.get_current_round()
+        self.rng = Random(self.my_id)
+        self.opportunistic = self.rng.random() < 0.5
+        # Recompute padded dimensions for actual map size.
+        # dist_stride stays at 2*_MAX_MAP — arrays are already sized for it.
+        self.pw = self.w + 2 * self.pad
+        self.ph = self.h + 2 * self.pad
+
         pad = self.pad
         pw = self.pw
         w = self.w
         h = self.h
+
+        self.pass_grid.init(w, h)
         # cost_grid interior default: 1 (seen-empty equivalent, will
         # be overwritten when tiles come into vision).
         # conveyor_cost_grid interior default: 5 (unseen penalty so
         # A* doesn't plan long fog detours through unmapped terrain).
         ccg = self.conveyor_cost_grid
+        valid = self.posint_valid
         for y in range(h):
             row_start = (y + pad) * pw + pad
+            base = y * self.dist_stride
             for x in range(w):
                 ccg[row_start + x] = 5
+                valid[base + x] = 1
 
-    def _idx(self, pos: Position) -> int:
-        return pos.y * self.w + pos.x
+    def sq_dist(self, p: PosInt, q: PosInt) -> int:
+        return self.dist_sq[p - q + self.dist_offset]
+    
+    def mt_dist(self, p: PosInt, q: PosInt) -> int:
+        return self.manhat[p - q + self.dist_offset]
+    
+    def cv_dist(self, p: PosInt, q: PosInt) -> int:
+        return self.chebyshev[p - q + self.dist_offset]
+
+    def _idx(self, pos: Position) -> PosInt:
+        return pos.y * self.dist_stride + pos.x
 
     def _pidx(self, pos: Position) -> int:
         """Padded flat index for cost_grid / conveyor_cost_grid."""
@@ -333,6 +397,9 @@ class Builder(Unit):
 
     def in_bounds(self, pos: Position) -> bool:
         return 0 <= pos.x < self.w and 0 <= pos.y < self.h
+
+    def in_bounds_posint(self, p: PosInt) -> bool:
+        return 0 <= p < self.bound_range and bool(self.posint_valid[p])
 
     def get_env(self, pos: Position) -> Environment | None:
         if self.in_bounds(pos):
@@ -359,13 +426,10 @@ class Builder(Unit):
             return False
         return self.flow[self._idx(pos)].has_flow()
 
-    def is_passable(self, pos: Position) -> bool | None:
-        cost = self.get_cost(pos)
-        if cost == INF:
-            return False
-        if cost < INF:
-            return True
-        return None
+    def is_passable(self, pos: Position) -> bool:
+        if self.in_bounds(pos):
+            return self.pass_grid.get_passable(pos)
+        return False
 
     def is_walkable(self, pos: Position) -> bool | None:
         if not self.is_passable(pos):
