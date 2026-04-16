@@ -32,10 +32,7 @@ pub fn compute_empirical_flow(game: &GameState, turn: usize) -> FlowState {
             break;
         }
         let turn_state = &game.turns[t];
-        // Collect all tiles that have resources this turn
-        let mut seen_this_turn: HashSet<(i32, i32)> = HashSet::new();
         for (&pos, &(res, id)) in &turn_state.tile_resources {
-            seen_this_turn.insert(pos);
             let hist = histories.entry(pos).or_default();
             // Pad with None for any turns we missed
             while hist.len() < t - start {
