@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::proto;
+use crate::vis;
 
 #[derive(Clone, Debug)]
 pub struct Entity {
@@ -103,7 +104,7 @@ pub struct TurnState {
     pub outputs: Vec<(i32, String)>,
     pub cpu_time_us: HashMap<i32, u32>,
     pub fire_events: Vec<((i32, i32), (i32, i32))>,
-    pub vis_data: HashMap<i32, Vec<String>>,
+    pub vis_data: HashMap<i32, vis::VisState>,
 }
 
 #[derive(Clone, Debug)]
@@ -281,7 +282,9 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                 let mut regular = Vec::new();
                 for line in o.stdout.lines() {
                     if let Some(json) = line.strip_prefix(VIS_PREFIX) {
-                        state.vis_data.entry(o.id).or_default().push(json.to_owned());
+                        if let Ok(fields) = serde_json::from_str::<vis::VisState>(json) {
+                            state.vis_data.entry(o.id).or_default().extend(fields);
+                        }
                     } else {
                         regular.push(line);
                     }

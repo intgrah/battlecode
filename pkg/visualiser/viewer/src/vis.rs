@@ -1,19 +1,50 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use serde::Deserialize;
-use serde::de::{self, SeqAccess, Visitor};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug)]
+pub struct PaletteStop {
+    pub t: f32,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
+#[derive(Clone, Debug)]
 pub struct PaletteDef {
-    pub stops: Vec<[f32; 5]>,
-    #[serde(default)]
-    pub special: HashMap<String, [u8; 4]>,
+    pub stops: Vec<PaletteStop>,
+    pub special: HashMap<i64, Color>,
+}
+
+impl<'de> Deserialize<'de> for PaletteDef {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Raw {
+            stops: Vec<[f32; 5]>,
+            #[serde(default)]
+            special: HashMap<String, [u8; 4]>,
+        }
+        let raw = Raw::deserialize(deserializer)?;
+        let stops = raw
+            .stops
+            .into_iter()
+            .map(|[t, r, g, b, a]| PaletteStop { t, r, g, b, a })
+            .collect();
+        let special = raw
+            .special
+            .into_iter()
+            .filter_map(|(k, [r, g, b, a])| k.parse::<i64>().ok().map(|k| (k, Color { r, g, b, a })))
+            .collect();
+        Ok(PaletteDef { stops, special })
+    }
 }
 
 #[derive(Clone, Debug)]
 pub enum GridData {
-    Ints(Vec<Option<i32>>),
-    Floats(Vec<Option<f32>>),
+    Ints(Vec<Option<i64>>),
+    Floats(Vec<Option<f64>>),
 }
 
 impl GridData {
@@ -24,65 +55,87 @@ impl GridData {
         }
     }
 
-    pub fn get_f32(&self, i: usize) -> Option<f32> {
+    pub fn get_f64(&self, i: usize) -> Option<f64> {
         match self {
-            Self::Ints(v) => v.get(i).copied().flatten().map(|x| x as f32),
+            Self::Ints(v) => v.get(i).copied().flatten().map(|x| x as f64),
             Self::Floats(v) => v.get(i).copied().flatten(),
+        }
+    }
+
+    pub fn get_i64(&self, i: usize) -> Option<i64> {
+        match self {
+            Self::Ints(v) => v.get(i).copied().flatten(),
+            Self::Floats(v) => v.get(i).copied().flatten().map(|x| x as i64),
         }
     }
 }
 
 impl<'de> Deserialize<'de> for GridData {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        struct GridDataVisitor;
-
-        impl<'de> Visitor<'de> for GridDataVisitor {
-            type Value = GridData;
-
-            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("array of numbers, bools, or nulls")
-            }
-
-            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<GridData, A::Error> {
-                let mut ints: Vec<Option<i32>> = Vec::with_capacity(seq.size_hint().unwrap_or(0));
-
-                while let Some(val) = seq.next_element::<serde_json::Value>()? {
-                    match &val {
-                        serde_json::Value::Null => ints.push(None),
-                        serde_json::Value::Bool(b) => ints.push(Some(i32::from(*b))),
-                        serde_json::Value::Number(n) => {
-                            if let Some(i) = n.as_i64() {
-                                ints.push(Some(i as i32));
-                            } else {
-                                let mut floats: Vec<Option<f32>> = ints
-                                    .iter()
-                                    .map(|v| v.map(|x| x as f32))
-                                    .collect();
-                                floats.push(n.as_f64().map(|x| x as f32));
-                                while let Some(val) = seq.next_element::<serde_json::Value>()? {
-                                    match &val {
-                                        serde_json::Value::Null => floats.push(None),
-                                        serde_json::Value::Bool(b) => {
-                                            floats.push(Some(if *b { 1.0 } else { 0.0 }));
-                                        }
-                                        serde_json::Value::Number(n) => {
-                                            floats.push(n.as_f64().map(|x| x as f32));
-                                        }
-                                        _ => return Err(de::Error::custom("unexpected value")),
-                                    }
-                                }
-                                return Ok(GridData::Floats(floats));
-                            }
-                        }
-                        _ => return Err(de::Error::custom("unexpected value")),
-                    }
+        let values: Vec<Option<serde_json::Number>> = Vec::deserialize(deserializer)?;
+        let mut has_float = false;
+        for v in &values {
+            if let Some(n) = v {
+                if n.as_i64().is_none() {
+                    has_float = true;
+                    break;
                 }
-
-                Ok(GridData::Ints(ints))
             }
         }
+        if has_float {
+            Ok(GridData::Floats(
+                values
+                    .into_iter()
+                    .map(|v| v.and_then(|n| n.as_f64()))
+                    .collect(),
+            ))
+        } else {
+            Ok(GridData::Ints(
+                values
+                    .into_iter()
+                    .map(|v| v.and_then(|n| n.as_i64()))
+                    .collect(),
+            ))
+        }
+    }
+}
 
-        deserializer.deserialize_seq(GridDataVisitor)
+#[derive(Clone, Debug)]
+pub enum ScalarValue {
+    Int(i64),
+    Float(f64),
+    Str(String),
+    Bool(bool),
+}
+
+impl fmt::Display for ScalarValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Int(v) => write!(f, "{v}"),
+            Self::Float(v) => write!(f, "{v}"),
+            Self::Str(v) => write!(f, "{v}"),
+            Self::Bool(v) => write!(f, "{v}"),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ScalarValue {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let v = serde_json::Value::deserialize(deserializer)?;
+        match v {
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Ok(Self::Int(i))
+                } else if let Some(f) = n.as_f64() {
+                    Ok(Self::Float(f))
+                } else {
+                    Err(serde::de::Error::custom("invalid number"))
+                }
+            }
+            serde_json::Value::String(s) => Ok(Self::Str(s)),
+            serde_json::Value::Bool(b) => Ok(Self::Bool(b)),
+            _ => Err(serde::de::Error::custom("expected number, string, or bool")),
+        }
     }
 }
 
@@ -94,7 +147,7 @@ pub enum VisField {
         palette: PaletteDef,
     },
     Scalar {
-        data: serde_json::Value,
+        data: ScalarValue,
     },
     Tiles {
         data: Vec<[i32; 2]>,
@@ -107,16 +160,7 @@ pub enum VisField {
 
 pub type VisState = HashMap<String, VisField>;
 
-pub fn parse_vis(jsons: &[String]) -> VisState {
-    let mut merged = VisState::new();
-    for json in jsons {
-        if let Ok(fields) = serde_json::from_str::<VisState>(json) {
-            merged.extend(fields);
-        }
-    }
-    merged
-}
-
+#[derive(Clone, Copy, Debug)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -124,66 +168,65 @@ pub struct Color {
     pub a: u8,
 }
 
-pub fn is_special(palette: &PaletteDef, value: f32) -> bool {
-    let key = if (value - value.round()).abs() < 1e-6 {
-        format!("{}", value as i32)
-    } else {
-        format!("{value}")
-    };
-    palette.special.contains_key(&key)
-}
-
-#[allow(clippy::many_single_char_names)]
-pub fn sample_palette(palette: &PaletteDef, value: f32, min: f32, max: f32) -> Option<Color> {
-    let key = if (value - value.round()).abs() < 1e-6 {
-        format!("{}", value as i32)
-    } else {
-        format!("{value}")
-    };
-    if let Some(&[r, g, b, a]) = palette.special.get(&key) {
-        return Some(Color { r, g, b, a });
+pub fn sample_palette(palette: &PaletteDef, value: f64, min: f64, max: f64) -> Option<Color> {
+    if let Some(i) = i64::try_from(value as i128).ok().filter(|_| (value - value.round()).abs() < 1e-9) {
+        if let Some(c) = palette.special.get(&i) {
+            return Some(*c);
+        }
     }
 
     if palette.stops.is_empty() {
         return None;
     }
     if palette.stops.len() == 1 {
-        let [_, r, g, b, a] = palette.stops[0];
+        let s = &palette.stops[0];
         return Some(Color {
-            r: r as u8,
-            g: g as u8,
-            b: b as u8,
-            a: a as u8,
+            r: s.r as u8,
+            g: s.g as u8,
+            b: s.b as u8,
+            a: s.a as u8,
         });
     }
 
     let range = max - min;
-    let t = if range.abs() < 1e-9 { 0.5 } else { ((value - min) / range).clamp(0.0, 1.0) };
+    let t = if range.abs() < 1e-9 {
+        0.5
+    } else {
+        ((value - min) / range).clamp(0.0, 1.0) as f32
+    };
 
     let last = palette.stops.len() - 1;
     for i in 0..last {
-        let [t0, r0, g0, b0, a0] = palette.stops[i];
-        let [t1, r1, g1, b1, a1] = palette.stops[i + 1];
-        if t >= t0 && (t <= t1 || i == last - 1) {
-            let seg = if (t1 - t0).abs() < 1e-9 {
+        let s0 = &palette.stops[i];
+        let s1 = &palette.stops[i + 1];
+        if t >= s0.t && (t <= s1.t || i == last - 1) {
+            let seg = if (s1.t - s0.t).abs() < 1e-9 {
                 0.0
             } else {
-                (t - t0) / (t1 - t0)
+                (t - s0.t) / (s1.t - s0.t)
             };
             return Some(Color {
-                r: r0.mul_add(1.0 - seg, r1 * seg) as u8,
-                g: g0.mul_add(1.0 - seg, g1 * seg) as u8,
-                b: b0.mul_add(1.0 - seg, b1 * seg) as u8,
-                a: a0.mul_add(1.0 - seg, a1 * seg) as u8,
+                r: s0.r.mul_add(1.0 - seg, s1.r * seg) as u8,
+                g: s0.g.mul_add(1.0 - seg, s1.g * seg) as u8,
+                b: s0.b.mul_add(1.0 - seg, s1.b * seg) as u8,
+                a: s0.a.mul_add(1.0 - seg, s1.a * seg) as u8,
             });
         }
     }
 
-    let [_, r, g, b, a] = palette.stops[last];
+    let s = &palette.stops[last];
     Some(Color {
-        r: r as u8,
-        g: g as u8,
-        b: b as u8,
-        a: a as u8,
+        r: s.r as u8,
+        g: s.g as u8,
+        b: s.b as u8,
+        a: s.a as u8,
     })
+}
+
+pub fn is_special(palette: &PaletteDef, value: f64) -> bool {
+    if let Some(i) = i64::try_from(value as i128).ok().filter(|_| (value - value.round()).abs() < 1e-9) {
+        palette.special.contains_key(&i)
+    } else {
+        false
+    }
 }

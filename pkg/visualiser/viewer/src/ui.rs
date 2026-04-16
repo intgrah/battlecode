@@ -6,7 +6,7 @@ use egui::Rect;
 use crate::app::App;
 use crate::proto;
 use crate::state::{Entity, EntityKind, GameState, TurnState};
-use crate::vis::{self, VisField, VisState};
+use crate::vis::{VisField, VisState};
 
 const fn entity_scale_percent(kind: &EntityKind) -> f32 {
     match kind {
@@ -711,7 +711,8 @@ fn collect_vis_fields(state: &TurnState, selected: Option<i32>) -> VisState {
     state
         .vis_data
         .get(&id)
-        .map_or_else(VisState::new, |jsons| vis::parse_vis(jsons))
+        .cloned()
+        .unwrap_or_default()
 }
 
 fn icon_button(ui: &mut egui::Ui, icon: &str, size: f32) -> egui::Response {
