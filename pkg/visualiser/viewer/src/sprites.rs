@@ -6,7 +6,25 @@ use image::{RgbaImage, imageops};
 
 const TILE_SIZE: u32 = 32;
 const SPRITE_SIZE: u32 = 512;
-const BEAM_SPRITES: &[&str] = &["bridge_gold", "bridge_silver"];
+
+/// Sprites whose source image is a horizontal strip (first square frame is used).
+const STRIP_SPRITES: &[&str] = &["bridge_gold", "bridge_silver"];
+
+/// Sprites that need cardinal rotation variants (_n, _s, _e, _w).
+const ROTATABLE_SPRITES: &[&str] = &[
+    "conveyor_gold",
+    "conveyor_silver",
+    "armoured_conveyor_gold",
+    "armoured_conveyor_silver",
+];
+
+/// Cardinal rotations: (suffix, rotation function).
+/// The source image faces west; rotations produce s, e, n variants.
+const ROTATIONS: &[(&str, fn(&RgbaImage) -> RgbaImage)] = &[
+    ("_s", imageops::rotate270),
+    ("_e", imageops::rotate180),
+    ("_n", imageops::rotate90),
+];
 
 pub struct SpriteAtlas {
     textures: HashMap<String, egui::TextureId>,
@@ -29,13 +47,11 @@ fn mip_levels(size: u32) -> u32 {
 fn upload_mipmapped(cc: &eframe::CreationContext<'_>, img: &RgbaImage) -> Option<egui::TextureId> {
     let mut img = img.clone();
     premultiply_alpha(&mut img);
-    let img = &img;
     let rs = cc.wgpu_render_state.as_ref()?;
     let device = &rs.device;
     let queue = &rs.queue;
 
-    let w = img.width();
-    let h = img.height();
+    let (w, h) = (img.width(), img.height());
     let levels = mip_levels(w.min(h));
 
     let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -53,68 +69,54 @@ fn upload_mipmapped(cc: &eframe::CreationContext<'_>, img: &RgbaImage) -> Option
         view_formats: &[],
     });
 
-    queue.write_texture(
-        wgpu::TexelCopyTextureInfo {
-            texture: &texture,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
-        img.as_raw(),
-        wgpu::TexelCopyBufferLayout {
-            offset: 0,
-            bytes_per_row: Some(4 * w),
-            rows_per_image: Some(h),
-        },
-        wgpu::Extent3d {
-            width: w,
-            height: h,
-            depth_or_array_layers: 1,
-        },
-    );
-
-    let mut current = img.clone();
-    for level in 1..levels {
-        let nw = (current.width() / 2).max(1);
-        let nh = (current.height() / 2).max(1);
-        current = imageops::resize(&current, nw, nh, imageops::FilterType::Lanczos3);
+    let write = |tex: &wgpu::Texture, level: u32, data: &[u8], tw: u32, th: u32| {
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &texture,
+                texture: tex,
                 mip_level: level,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            current.as_raw(),
+            data,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * nw),
-                rows_per_image: Some(nh),
+                bytes_per_row: Some(4 * tw),
+                rows_per_image: Some(th),
             },
             wgpu::Extent3d {
-                width: nw,
-                height: nh,
+                width: tw,
+                height: th,
                 depth_or_array_layers: 1,
             },
         );
+    };
+
+    write(&texture, 0, img.as_raw(), w, h);
+
+    let mut current = img;
+    for level in 1..levels {
+        let nw = (current.width() / 2).max(1);
+        let nh = (current.height() / 2).max(1);
+        current = imageops::resize(&current, nw, nh, imageops::FilterType::Lanczos3);
+        write(&texture, level, current.as_raw(), nw, nh);
     }
 
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let id = rs
-        .renderer
-        .write()
-        .register_native_texture_with_sampler_options(
-            device,
-            &view,
-            wgpu::SamplerDescriptor {
-                label: Some("sprite_sampler"),
-                mag_filter: wgpu::FilterMode::Linear,
-                min_filter: wgpu::FilterMode::Linear,
-                mipmap_filter: wgpu::MipmapFilterMode::Linear,
-                ..Default::default()
-            },
-        );
-    Some(id)
+    Some(
+        rs.renderer
+            .write()
+            .register_native_texture_with_sampler_options(
+                device,
+                &view,
+                wgpu::SamplerDescriptor {
+                    label: Some("sprite_sampler"),
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    mipmap_filter: wgpu::MipmapFilterMode::Linear,
+                    ..Default::default()
+                },
+            ),
+    )
 }
 
 impl SpriteAtlas {
@@ -147,61 +149,29 @@ impl SpriteAtlas {
 
             let rgba = img.to_rgba8();
 
-            if BEAM_SPRITES.contains(&name.as_str()) {
+            let base = if STRIP_SPRITES.contains(&name.as_str()) {
                 let frame_w = rgba.height();
                 let frame = imageops::crop_imm(&rgba, 0, 0, frame_w, frame_w).to_image();
-                let resized = imageops::resize(
-                    &frame,
-                    SPRITE_SIZE,
-                    SPRITE_SIZE,
-                    imageops::FilterType::Lanczos3,
-                );
-                if let Some(id) = upload_mipmapped(cc, &resized) {
-                    textures.insert(name, id);
-                }
+                imageops::resize(&frame, SPRITE_SIZE, SPRITE_SIZE, imageops::FilterType::Lanczos3)
             } else {
-                let resized = imageops::resize(
-                    &rgba,
-                    SPRITE_SIZE,
-                    SPRITE_SIZE,
-                    imageops::FilterType::Lanczos3,
-                );
+                imageops::resize(&rgba, SPRITE_SIZE, SPRITE_SIZE, imageops::FilterType::Lanczos3)
+            };
 
-                if name == "conveyor_gold"
-                    || name == "conveyor_silver"
-                    || name == "armoured_conveyor_gold"
-                    || name == "armoured_conveyor_silver"
-                {
-                    #[allow(clippy::option_if_let_else)]
-                    for (suffix, rot_fn) in [
-                        ("_w", None as Option<fn(&RgbaImage) -> RgbaImage>),
-                        (
-                            "_s",
-                            Some(imageops::rotate270 as fn(&RgbaImage) -> RgbaImage),
-                        ),
-                        (
-                            "_e",
-                            Some(imageops::rotate180 as fn(&RgbaImage) -> RgbaImage),
-                        ),
-                        (
-                            "_n",
-                            Some(imageops::rotate90 as fn(&RgbaImage) -> RgbaImage),
-                        ),
-                    ] {
-                        let rotated = match rot_fn {
-                            Some(f) => f(&resized),
-                            None => resized.clone(),
-                        };
-                        let rname = format!("{name}{suffix}");
-                        if let Some(id) = upload_mipmapped(cc, &rotated) {
-                            textures.insert(rname, id);
-                        }
+            if ROTATABLE_SPRITES.contains(&name.as_str()) {
+                // Source faces west — register as _w, then generate rotated variants
+                if let Some(id) = upload_mipmapped(cc, &base) {
+                    textures.insert(format!("{name}_w"), id);
+                }
+                for &(suffix, rotate) in ROTATIONS {
+                    let rotated = rotate(&base);
+                    if let Some(id) = upload_mipmapped(cc, &rotated) {
+                        textures.insert(format!("{name}{suffix}"), id);
                     }
                 }
+            }
 
-                if let Some(id) = upload_mipmapped(cc, &resized) {
-                    textures.insert(name, id);
-                }
+            if let Some(id) = upload_mipmapped(cc, &base) {
+                textures.insert(name, id);
             }
         }
 

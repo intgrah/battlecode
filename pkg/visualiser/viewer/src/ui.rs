@@ -4,84 +4,10 @@ use eframe::egui;
 use egui::Rect;
 
 use crate::app::App;
+use crate::entity;
 use crate::proto;
 use crate::state::{Entity, EntityKind, GameState, TurnState};
 use crate::vis::{VisField, VisState};
-
-const fn entity_scale_percent(kind: &EntityKind) -> f32 {
-    match kind {
-        EntityKind::Road => 0.5,
-        EntityKind::Conveyor { .. }
-        | EntityKind::ArmouredConveyor { .. }
-        | EntityKind::Splitter { .. }
-        | EntityKind::Barrier => 1.0,
-        EntityKind::Harvester { .. } => 5.0,
-        EntityKind::Bridge { .. }
-        | EntityKind::Gunner { .. }
-        | EntityKind::Breach { .. }
-        | EntityKind::Launcher { .. } => 10.0,
-        EntityKind::BuilderBot { .. } | EntityKind::Sentinel { .. } => 20.0,
-        EntityKind::Foundry { .. } => 100.0,
-        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } | EntityKind::Marker { .. } => 0.0,
-    }
-}
-
-const fn entity_kind_label(kind: &EntityKind) -> &'static str {
-    match kind {
-        EntityKind::BuilderBot { .. } => "Builder",
-        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } => "Core",
-        EntityKind::Conveyor { .. } => "Conveyor",
-        EntityKind::ArmouredConveyor { .. } => "Arm. Conv",
-        EntityKind::Splitter { .. } => "Splitter",
-        EntityKind::Bridge { .. } => "Bridge",
-        EntityKind::Harvester { .. } => "Harvester",
-        EntityKind::Foundry { .. } => "Foundry",
-        EntityKind::Road => "Road",
-        EntityKind::Barrier => "Barrier",
-        EntityKind::Marker { .. } => "Marker",
-        EntityKind::Gunner { .. } => "Gunner",
-        EntityKind::Sentinel { .. } => "Sentinel",
-        EntityKind::Breach { .. } => "Breach",
-        EntityKind::Launcher { .. } => "Launcher",
-    }
-}
-
-const fn kind_key(kind: &EntityKind) -> u8 {
-    match kind {
-        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } => 0,
-        EntityKind::BuilderBot { .. } => 1,
-        EntityKind::Road => 2,
-        EntityKind::Conveyor { .. } => 3,
-        EntityKind::ArmouredConveyor { .. } => 4,
-        EntityKind::Splitter { .. } => 5,
-        EntityKind::Bridge { .. } => 6,
-        EntityKind::Harvester { .. } => 7,
-        EntityKind::Foundry { .. } => 8,
-        EntityKind::Barrier => 9,
-        EntityKind::Marker { .. } => 10,
-        EntityKind::Gunner { .. } => 11,
-        EntityKind::Sentinel { .. } => 12,
-        EntityKind::Breach { .. } => 13,
-        EntityKind::Launcher { .. } => 14,
-    }
-}
-
-const fn entity_base_cost(kind: &EntityKind) -> Option<(i32, i32)> {
-    match kind {
-        EntityKind::BuilderBot { .. } | EntityKind::Sentinel { .. } => Some((30, 0)),
-        EntityKind::Conveyor { .. } | EntityKind::Barrier => Some((3, 0)),
-        EntityKind::Splitter { .. } => Some((6, 0)),
-        EntityKind::Bridge { .. } | EntityKind::Harvester { .. } | EntityKind::Launcher { .. } => {
-            Some((20, 0))
-        }
-        EntityKind::ArmouredConveyor { .. } => Some((5, 5)),
-        EntityKind::Road => Some((1, 0)),
-        EntityKind::Foundry { .. } => Some((40, 0)),
-        EntityKind::Gunner { .. } => Some((10, 0)),
-        EntityKind::Breach { .. } => Some((15, 10)),
-        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } | EntityKind::Marker { .. } => None,
-    }
-}
 
 struct TeamStats {
     counts: HashMap<u8, u32>,
@@ -98,9 +24,9 @@ fn compute_team_stats(state: &TurnState, team: proto::Team) -> TeamStats {
         if e.team != team {
             continue;
         }
-        let key = kind_key(&e.kind);
+        let key = entity::sort_key(&e.kind);
         *counts.entry(key).or_default() += 1;
-        let sc = entity_scale_percent(&e.kind);
+        let sc = entity::scale_percent(&e.kind);
         total_scale += sc;
         *scale_by_kind.entry(key).or_default() += sc;
     }
@@ -447,14 +373,13 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 all_keys.sort_unstable();
                 all_keys.dedup();
 
-                let dummy = EntityKind::Road;
                 let kind_for_key = |key: u8| -> &'static str {
                     for e in state.entities.values() {
-                        if kind_key(&e.kind) == key {
-                            return entity_kind_label(&e.kind);
+                        if entity::sort_key(&e.kind) == key {
+                            return entity::label(&e.kind);
                         }
                     }
-                    entity_kind_label(&dummy)
+                    entity::label(&EntityKind::Road)
                 };
 
                 egui::Grid::new("entity_counts")
@@ -512,112 +437,26 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 let scale_a = (100.0 + stats_a.total_scale) / 100.0;
                 let scale_b = (100.0 + stats_b.total_scale) / 100.0;
 
-                let cost_kinds: &[(EntityKind, &str)] = &[
-                    (
-                        EntityKind::BuilderBot {
-                            action_cd: 0,
-                            move_cd: 0,
-                        },
-                        "Builder",
-                    ),
-                    (EntityKind::Road, "Road"),
-                    (
-                        EntityKind::Conveyor {
-                            dir: proto::Direction::DirNorth,
-                            stored: proto::ResourceType::ResourceNone,
-                        },
-                        "Conveyor",
-                    ),
-                    (
-                        EntityKind::Splitter {
-                            dir: proto::Direction::DirNorth,
-                            stored: proto::ResourceType::ResourceNone,
-                        },
-                        "Splitter",
-                    ),
-                    (
-                        EntityKind::Bridge {
-                            target: (0, 0),
-                            stored: proto::ResourceType::ResourceNone,
-                        },
-                        "Bridge",
-                    ),
-                    (
-                        EntityKind::ArmouredConveyor {
-                            dir: proto::Direction::DirNorth,
-                            stored: proto::ResourceType::ResourceNone,
-                        },
-                        "Arm. Conv",
-                    ),
-                    (EntityKind::Barrier, "Barrier"),
-                    (
-                        EntityKind::Harvester {
-                            cooldown: 0,
-                            resource_type: proto::ResourceType::ResourceNone,
-                        },
-                        "Harvester",
-                    ),
-                    (
-                        EntityKind::Foundry {
-                            stored: proto::ResourceType::ResourceNone,
-                        },
-                        "Foundry",
-                    ),
-                    (
-                        EntityKind::Gunner {
-                            dir: proto::Direction::DirNorth,
-                            ammo_type: proto::ResourceType::ResourceNone,
-                            ammo: 0,
-                        },
-                        "Gunner",
-                    ),
-                    (
-                        EntityKind::Sentinel {
-                            dir: proto::Direction::DirNorth,
-                            ammo_type: proto::ResourceType::ResourceNone,
-                            ammo: 0,
-                        },
-                        "Sentinel",
-                    ),
-                    (
-                        EntityKind::Breach {
-                            dir: proto::Direction::DirNorth,
-                            ammo_type: proto::ResourceType::ResourceNone,
-                            ammo: 0,
-                        },
-                        "Breach",
-                    ),
-                    (
-                        EntityKind::Launcher {
-                            ammo_type: proto::ResourceType::ResourceNone,
-                            ammo: 0,
-                        },
-                        "Launcher",
-                    ),
-                ];
-
                 egui::Grid::new("costs").num_columns(3).show(ui, |ui| {
                     ui.label("");
                     ui.strong("A");
                     ui.strong("B");
                     ui.end_row();
 
-                    for (kind, label) in cost_kinds {
-                        if let Some((ti, ax)) = entity_base_cost(kind) {
-                            let ti_a = (scale_a * ti as f32).floor() as i32;
-                            let ax_a = (scale_a * ax as f32).floor() as i32;
-                            let ti_b = (scale_b * ti as f32).floor() as i32;
-                            let ax_b = (scale_b * ax as f32).floor() as i32;
-                            ui.label(*label);
-                            if ax == 0 {
-                                ui.monospace(format!("{ti_a}"));
-                                ui.monospace(format!("{ti_b}"));
-                            } else {
-                                ui.monospace(format!("{ti_a}+{ax_a}"));
-                                ui.monospace(format!("{ti_b}+{ax_b}"));
-                            }
-                            ui.end_row();
+                    for &(label, ti, ax) in entity::BUILDABLE_COSTS {
+                        let ti_a = (scale_a * ti as f32).floor() as i32;
+                        let ax_a = (scale_a * ax as f32).floor() as i32;
+                        let ti_b = (scale_b * ti as f32).floor() as i32;
+                        let ax_b = (scale_b * ax as f32).floor() as i32;
+                        ui.label(label);
+                        if ax == 0 {
+                            ui.monospace(format!("{ti_a}"));
+                            ui.monospace(format!("{ti_b}"));
+                        } else {
+                            ui.monospace(format!("{ti_a}+{ax_a}"));
+                            ui.monospace(format!("{ti_b}+{ax_b}"));
                         }
+                        ui.end_row();
                     }
                 });
             });
@@ -689,11 +528,28 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                     draw_turn_time_graph(ui, &app.game, app.turn, e.id);
                 }
 
+                let entity_ids: Vec<i32> = at_cursor.iter().map(|e| e.id).collect();
+
+                let actions: Vec<_> = state
+                    .actions
+                    .iter()
+                    .filter(|(id, _)| entity_ids.contains(id))
+                    .map(|(_, a)| a)
+                    .collect::<Vec<_>>();
+                if !actions.is_empty() {
+                    ui.add_space(8.0);
+                    ui.heading("Actions");
+                    ui.separator();
+                    for a in actions {
+                        ui.monospace(format!("{a}"));
+                    }
+                }
+
                 ui.add_space(8.0);
                 ui.heading("Log");
                 ui.separator();
 
-                let log_ids: Vec<i32> = at_cursor.iter().map(|e| e.id).collect();
+                let log_ids = &entity_ids;
                 let log_text: String = state
                     .outputs
                     .iter()
@@ -822,7 +678,7 @@ fn format_entity_info(e: &Entity, cpu_time_us: &HashMap<i32, u32>) -> String {
         proto::Team::A => "A",
         proto::Team::B => "B",
     };
-    let kind_name = entity_kind_label(&e.kind);
+    let kind_name = entity::label(&e.kind);
     let mut s = format!(
         "({},{}) {}\nTeam {}\nHP: {}/{}\nID: {}",
         e.pos.0, e.pos.1, kind_name, team, e.hp, e.max_hp, e.id
