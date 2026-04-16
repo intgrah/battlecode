@@ -1,8 +1,8 @@
 [project]
-name = "bot-v50"
+name = "bot-drewfett-rush"
 version = "0.0.0"
 requires-python = ">=3.12"
-dependencies = ["cambc>=1.7.0"]
+dependencies = ["cambc"]
 
 [tool.ty.environment]
 root = ["."]
