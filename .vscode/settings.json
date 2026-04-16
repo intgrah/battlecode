@@ -11,5 +11,8 @@
     "**/*.egg-info": true,
     ".ruff_cache": true,
     ".venv": true
-  }
+  },
+  "rust-analyzer.linkedProjects": [
+    "pkg/visualiser/viewer/Cargo.toml"
+  ]
 }
