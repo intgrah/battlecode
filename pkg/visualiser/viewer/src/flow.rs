@@ -142,7 +142,7 @@ pub fn compute_flow(
     }
 
     for i in 0..n {
-        if kind_grid[i].is_some_and(|k| entity::is_flow_receiver(k)) && in_degree[i] == 0 && !queue.contains(&i) {
+        if kind_grid[i].is_some_and(entity::is_flow_receiver) && in_degree[i] == 0 && !queue.contains(&i) {
             queue.push_back(i);
         }
     }

@@ -280,7 +280,7 @@ impl GameState {
     }
 }
 
-fn to_building_kind(kind: &EntityKind) -> Option<BuildingKind> {
+const fn to_building_kind(kind: &EntityKind) -> Option<BuildingKind> {
     match kind {
         EntityKind::Road => Some(BuildingKind::Road),
         EntityKind::Barrier => Some(BuildingKind::Barrier),
