@@ -19,9 +19,16 @@ impl<'de> Deserialize<'de> for PaletteDef {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct Raw {
-            stops: Vec<Vec<f64>>,
+            stops: Vec<Vec<serde_json::Value>>,
             #[serde(default)]
             special: HashMap<String, [u8; 4]>,
+        }
+        fn val_to_f64(v: &serde_json::Value) -> f64 {
+            match v {
+                serde_json::Value::Number(n) => n.as_f64().unwrap_or(0.0),
+                serde_json::Value::Bool(b) => if *b { 1.0 } else { 0.0 },
+                _ => 0.0,
+            }
         }
         let raw = Raw::deserialize(deserializer)?;
         let stops = raw
@@ -30,8 +37,13 @@ impl<'de> Deserialize<'de> for PaletteDef {
             .filter_map(|v| {
                 if v.len() >= 5 {
                     Some(PaletteStop {
-                        t: v[0],
-                        colour: Colour { r: v[1] as u8, g: v[2] as u8, b: v[3] as u8, a: v[4] as u8 },
+                        t: val_to_f64(&v[0]),
+                        colour: Colour {
+                            r: val_to_f64(&v[1]) as u8,
+                            g: val_to_f64(&v[2]) as u8,
+                            b: val_to_f64(&v[3]) as u8,
+                            a: val_to_f64(&v[4]) as u8,
+                        },
                     })
                 } else {
                     None
