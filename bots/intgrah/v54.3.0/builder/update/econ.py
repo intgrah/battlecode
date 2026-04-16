@@ -11,7 +11,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Environment, Position
-from util import DIR4
+from util import DIR4, INF
 
 from builder.helpers import find_dangling, is_dangling, ore_available, pick_ore_target
 
@@ -89,10 +89,11 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
                     n = pos.add(d)
                     if self.in_bounds(n):
                         self.adjacent_to_harvester.add(n)
-        if pos in self.adjacent_to_enemy_launcher:
-            self.cost_grid[i] += 20
-        if pos in self.enemy_turret_ray_tiles:
-            self.cost_grid[i] += 15
+        if self.cost_grid[i] is not INF:
+            if pos in self.adjacent_to_enemy_launcher:
+                self.cost_grid[i] += 20
+            if pos in self.enemy_turret_ray_tiles:
+                self.cost_grid[i] += 15
 
         match bld:
             case (
