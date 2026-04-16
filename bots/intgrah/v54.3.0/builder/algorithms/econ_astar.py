@@ -133,8 +133,9 @@ class AStarSearch:
 
         path: list[int] = [si]
         node = si
+        cur_d = dist[si]
         while node != gi:
-            best_dist = INF
+            best_dist = cur_d
             best = node
             for ni, extra in neighbors[node]:
                 d = dist[ni]
@@ -148,6 +149,7 @@ class AStarSearch:
                 return None
             path.append(best)
             node = best
+            cur_d = best_dist
 
         return [Position(i % w, i // w) for i in path]
 

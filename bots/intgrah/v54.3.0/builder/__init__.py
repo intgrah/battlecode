@@ -257,7 +257,7 @@ class Builder(Unit):
         """BFS hops from the position at the start of the turn."""
 
         self.flow_history: list[deque[ResourceType | None]] = [
-            deque([None] * 8, maxlen=8) for _ in range(n)
+            deque(maxlen=8) for _ in range(n)
         ]
         """Last 8 rounds of resource flow on this tile."""
 
