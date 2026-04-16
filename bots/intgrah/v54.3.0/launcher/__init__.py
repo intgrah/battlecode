@@ -63,7 +63,7 @@ class Launcher(Unit):
             ct.launch(best_bot, best_dest)
 
     def is_empty_walkable(self, ct: Controller, pos: Position) -> bool:
-        return self.is_walkable(ct, pos) and ct.get_tile_builder_bot_id(pos) is None
+        return self.is_walkable(ct, pos) and pos not in self.all_bots
 
     def is_walkable(self, ct: Controller, pos: Position) -> bool:
         if not self.in_bounds(pos) or not ct.is_in_vision(pos):
@@ -80,7 +80,7 @@ class Launcher(Unit):
         only neighbours are friendly or empty, no target here.
         """
         targets: list[Position] = []
-        for pos in ct.get_nearby_tiles():
+        for pos in self.nearby_tiles:
             bid = ct.get_tile_building_id(pos)
             if bid is None or ct.get_entity_type(bid) != EntityType.HARVESTER:
                 continue
@@ -99,7 +99,7 @@ class Launcher(Unit):
     def find_enemy_throw_tile(self, ct: Controller) -> tuple[Position | None, int]:
         best: Position | None = None
         best_dist = 0
-        for pos in ct.get_nearby_tiles():
+        for pos in self.nearby_tiles:
             bid = ct.get_tile_building_id(pos)
             if not self.is_empty_walkable(ct, pos):
                 continue

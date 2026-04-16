@@ -20,6 +20,8 @@ members = [
     "bot-adgato-teleportation",
     "bot-adgato-trollbot",
     "bot-adgato-trollbot-expand",
+    "bot-astar-test",
+    "bot-attackable-tiles-test",
     "bot-beacon-recent",
     "bot-beacon-trollbot",
     "bot-beacon-v1",
@@ -34,8 +36,13 @@ members = [
     "bot-nahhh-nahhh",
     "bot-nahhh-noop",
     "bot-nahhh-ore-capper",
-    "bot-pd",
-    "bot-rug",
+    "bot-perf-alias",
+    "bot-perf-bfs",
+    "bot-perf-copy",
+    "bot-perf-init",
+    "bot-perf-position",
+    "bot-perf-reset",
+    "bot-saboteur",
     "bot-se",
     "bot-sprint4",
     "bot-sprint4ax",
@@ -273,6 +280,28 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
+name = "bot-astar-test"
+version = "0.0.0"
+source = { virtual = "bots/test/astar_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-attackable-tiles-test"
+version = "0.0.0"
+source = { virtual = "bots/test/attackable_tiles_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
 name = "bot-beacon-recent"
 version = "0.0.0"
 source = { virtual = "bots/beacon/recent" }
@@ -427,9 +456,9 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-pd"
+name = "bot-perf-alias"
 version = "0.0.0"
-source = { virtual = "bots/misc/pd" }
+source = { virtual = "bots/test/perf_alias" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -438,9 +467,64 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-rug"
+name = "bot-perf-bfs"
 version = "0.0.0"
-source = { virtual = "bots/misc/rug" }
+source = { virtual = "bots/test/perf_bfs" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-perf-copy"
+version = "0.0.0"
+source = { virtual = "bots/test/perf_copy" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-perf-init"
+version = "0.0.0"
+source = { virtual = "bots/test/perf_init" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-perf-position"
+version = "0.0.0"
+source = { virtual = "bots/test/perf_position" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-perf-reset"
+version = "0.0.0"
+source = { virtual = "bots/test/perf_reset" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-saboteur"
+version = "0.0.0"
+source = { virtual = "bots/test/saboteur" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -460,39 +544,42 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-sprint4"
+name = "bot-perf-position"
 version = "0.0.0"
-source = { virtual = "bots/adgato/sprint4" }
+source = { virtual = "bots/test/perf_position" }
 dependencies = [
     { name = "cambc" },
-    { name = "visualiser" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "cambc", specifier = ">=1.6.4" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-sprint4ax"
-version = "0.0.0"
-source = { virtual = "bots/adgato/sprint4ax" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc", specifier = ">=1.7.0" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-starter"
+name = "bot-perf-reset"
 version = "0.0.0"
 source = { virtual = "bots/misc/starter" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-test-core-spawn"
+version = "0.0.0"
+source = { virtual = "bots/test/core_spawn_test" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
+
+[[package]]
+name = "bot-test-rotate"
+version = "0.0.0"
+source = { virtual = "bots/test/rotate_test" }
 dependencies = [
     { name = "cambc" },
 ]

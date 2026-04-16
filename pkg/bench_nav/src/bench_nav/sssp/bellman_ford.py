@@ -10,13 +10,12 @@ def bellman_ford(
         changed = False
         for node in range(n):
             d = dist[node]
-            if d == INF:
-                continue
-            for nb in pnb[node]:
-                nd = d + cost[nb]
-                if nd < dist[nb]:
-                    dist[nb] = nd
-                    changed = True
+            if d is not INF:
+                for nb in pnb[node]:
+                    nd = d + cost[nb]
+                    if nd < dist[nb]:
+                        dist[nb] = nd
+                        changed = True
         if not changed:
             break
     return dist

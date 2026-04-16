@@ -1,7 +1,7 @@
 from bench_nav.spsp.astar_dial_apsp import astar_dial_apsp
-from bench_nav.spsp.astar_dial_bfs import astar_dial_bfs
 from bench_nav.spsp.astar_dial_cheb import astar_dial_cheb
 from bench_nav.spsp.astar_dial_cheb_bw_dijkstra import astar_dial_cheb_bw_dijkstra
+from bench_nav.spsp.astar_dial_precomp import astar_dial_precomp
 from bench_nav.spsp.astar_heap_apsp import astar_heap_apsp
 from bench_nav.spsp.astar_heap_cheb import astar_heap_cheb
 from bench_nav.spsp.bfs import bfs
@@ -25,9 +25,9 @@ __all__ = [
     "ApspTable",
     "GatewayGraph",
     "astar_dial_apsp",
-    "astar_dial_bfs",
     "astar_dial_cheb",
     "astar_dial_cheb_bw_dijkstra",
+    "astar_dial_precomp",
     "astar_heap_apsp",
     "astar_heap_cheb",
     "bfs",

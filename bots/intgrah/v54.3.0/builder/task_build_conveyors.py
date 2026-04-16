@@ -7,14 +7,13 @@ from cambc import Controller, Direction, EntityType, Environment, Position
 from util import (
     DIR4,
     DIR8,
-    can_afford,
     chebyshev,
     get_direction_object,
     reachable_path_end,
 )
 
-from builder.algorithms.econ_astar import conv_search
 from builder.helpers import (
+    can_afford,
     make_move,
     trace_upstream,
     try_move_with_road,
@@ -44,7 +43,7 @@ def clear_with_turret(
                 break
 
     direction = build_pos.direction_to(target_pos)
-    return try_place(ct, EntityType.SENTINEL, build_pos, direction)
+    return try_place(self, ct, EntityType.SENTINEL, build_pos, direction)
 
 
 def lay_segment(
@@ -83,6 +82,7 @@ def lay_segment(
     next_pos = path[1]
     if not ct.is_in_vision(next_pos):
         return try_place(
+            self,
             ct,
             EntityType.BRIDGE,
             start_pos,
@@ -107,13 +107,13 @@ def lay_segment(
         )
         and self.get_env(path[1]) == Environment.EMPTY
     ):
-        return try_place(ct, EntityType.CONVEYOR, start_pos, direction)
+        return try_place(self, ct, EntityType.CONVEYOR, start_pos, direction)
     pending_bridge = reachable_path_end(path, start_pos, 3)
     if self.is_enemy_building(pending_bridge):
         if clear_with_turret(self, ct, start_pos, pending_bridge):
             self.branch_start = start_pos
         return False
-    if try_place(ct, EntityType.BRIDGE, start_pos, pending_bridge):
+    if try_place(self, ct, EntityType.BRIDGE, start_pos, pending_bridge):
         if chebyshev(pending_bridge, self.my_core) > 1:
             self.pending_bridge = pending_bridge
         return True
@@ -154,7 +154,7 @@ def place_junction(self: Builder, ct: Controller, pos: Position) -> bool | None:
     else:
         splitter_direction = Direction.NORTH
 
-    if not can_afford(ct, EntityType.SPLITTER):
+    if not can_afford(self, EntityType.SPLITTER):
         return False
     if ct.can_destroy(pos):
         ct.destroy(pos)
@@ -215,7 +215,7 @@ def route_to(
         else:
             return
 
-    path = conv_search.search(self, ct, start, target)
+    path = self.conv_search.search(ct, start, target)
     if path:
         path_start_index = 0
         for i, pos in enumerate(path):
@@ -225,7 +225,7 @@ def route_to(
         path = path[path_start_index:]
 
     if chebyshev(current_pos, start) <= 1:
-        if not path or (conv_search.unreachable(target) and not path) or len(path) < 2:
+        if not path or len(path) < 2:
             return
         lay_segment(self, ct, start, path)
     make_move(self, ct, start)

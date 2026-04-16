@@ -33,7 +33,7 @@ def bibfs(n: int, pnb: list[list[int]], start: int, goal: int) -> Path_:
                 dist_f[nb] = d
                 parent_f[nb] = node
                 qf.append(nb)
-                if dist_b[nb] < INF and d + dist_b[nb] < best:
+                if dist_b[nb] is not INF and d + dist_b[nb] < best:
                     best = d + dist_b[nb]
                     meet = nb
         elif qb:
@@ -45,7 +45,7 @@ def bibfs(n: int, pnb: list[list[int]], start: int, goal: int) -> Path_:
                 dist_b[nb] = d
                 parent_b[nb] = node
                 qb.append(nb)
-                if dist_f[nb] < INF and dist_f[nb] + d < best:
+                if dist_f[nb] is not INF and dist_f[nb] + d < best:
                     best = dist_f[nb] + d
                     meet = nb
     if meet < 0:

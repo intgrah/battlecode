@@ -1,29 +1,30 @@
 from collections import deque
 
-from bench_nav.common import CE, INF, Path_
+from bench_nav.common import CE, INF, Path_, extract_parent
 
 assert CE + 2 == 5
 
 
-def astar_dial_bfs(
+def astar_dial_precomp(
     n: int,
     cost: list[int],
     pnb: list[list[int]],
-    bfs_h: list[int],
+    h: list[int],
     start: int,
     goal: int,
 ) -> Path_:
-    """A* (Dial's) from goal to start, using precomputed BFS heuristic."""
+    """A* (Dial's) backward from goal to start, using precomputed heuristic (distance from start)."""
     g = [INF] * n
     g[goal] = 0
-    h_goal = bfs_h[goal]
+    parent = [-1] * n
+    parent[goal] = goal
+    h_goal = h[goal]
     if h_goal >= INF:
         return None
     bk = [deque[int]() for _ in range(5)]
     bk[h_goal % 5].append(goal)
     f = h_goal
     emp = 0
-    found = False
     while emp < 5:
         bki = bk[f % 5]
         if bki:
@@ -32,32 +33,20 @@ def astar_dial_bfs(
             while bki:
                 node = popleft()
                 g_node = g[node]
-                if g_node + bfs_h[node] != f:
+                if g_node + h[node] != f:
                     continue
                 if node == start:
-                    found = True
-                    break
+                    path = extract_parent(parent, goal, start)
+                    if path is not None:
+                        path.reverse()
+                    return path
                 for nb in pnb[node]:
                     nd = g_node + cost[nb]
                     if nd < g[nb]:
                         g[nb] = nd
-                        bk[(nd + bfs_h[nb]) % 5].append(nb)
-            if found:
-                break
+                        parent[nb] = node
+                        bk[(nd + h[nb]) % 5].append(nb)
         else:
             emp += 1
         f += 1
-    if not found:
-        return None
-    path = [start]
-    cur = start
-    while cur != goal:
-        d = g[cur]
-        for nb in pnb[cur]:
-            if g[nb] + cost[cur] == d:
-                path.append(nb)
-                cur = nb
-                break
-        else:
-            return None
-    return path
+    return None

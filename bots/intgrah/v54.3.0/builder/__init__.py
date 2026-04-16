@@ -10,15 +10,23 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, Environment, GameConstants, Position
+from cambc import (
+    Controller,
+    EntityType,
+    Environment,
+    Position,
+    ResourceType,
+)
 from config import DEBUG_DUMP
 from unit import Unit
-from util import DIR8, DIR8_DELTA, INF, Symmetry, can_afford, try_move
+from util import DIR8, DIR8_DELTA, INF, Symmetry
 
+from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
+from builder.algorithms.econ_astar import AStarSearch
 from builder.dump import dump
 from builder.extra import deny_enemy_ore, fix_enemy_conveyor, pave_near_harvesters
-from builder.helpers import try_move_with_road
+from builder.helpers import can_afford, try_move_dir, try_move_with_road
 from builder.role import Role
 from builder.task_attack import run_attack
 from builder.task_build_conveyors import route_to_core
@@ -72,7 +80,7 @@ def _heal(self: Builder, ct: Controller) -> bool:
 def _patrol_cheap(self: Builder, ct: Controller) -> bool:
     return (
         self.role == Role.DEFENSE
-        and not can_afford(ct, EntityType.HARVESTER)
+        and not can_afford(self, EntityType.HARVESTER)
         and run_patrol(self, ct)
     )
 
@@ -93,7 +101,7 @@ def _opportunistic_attack(self: Builder, ct: Controller) -> bool:
     if (
         self.opportunistic
         and self.rng.random() < 0.2
-        and ct.get_current_round() > 100
+        and self.round > 100
         and ct.can_fire(self.my_pos)
         and ct.get_team(ct.get_tile_building_id(self.my_pos)) != self.my_team
     ):
@@ -103,7 +111,7 @@ def _opportunistic_attack(self: Builder, ct: Controller) -> bool:
 
 
 def _explore(self: Builder, ct: Controller) -> bool:
-    if ct.get_global_resources()[0] <= 100:
+    if self.ti <= 100:
         return False
     explore(self, ct)
     return True
@@ -112,7 +120,7 @@ def _explore(self: Builder, ct: Controller) -> bool:
 def _wander(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
-    return any(try_move(ct, self.my_pos.add(d)) for d in dir8) or any(
+    return any(try_move_dir(ct, d) for d in dir8) or any(
         try_move_with_road(self, ct, self.my_pos.add(d)) for d in dir8
     )
 
@@ -162,28 +170,23 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
 class Builder(Unit):
     def update_pnb(self, i: int) -> None:
         w, h = self.w, self.h
-        pw = self.pad_w
-        pad = self.pad
         cost_grid = self.cost_grid
         pnb = self.pnb
         cx, cy = i % w, i // w
-        pi = (cy + pad) * pw + (cx + pad)
-        passable = cost_grid[pi] < INF
+        passable = cost_grid[i] is not INF
         pnb[i] = []
         if passable:
             for dx, dy in DIR8_DELTA:
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
                     ni = ny * w + nx
-                    npi = (ny + pad) * pw + (nx + pad)
-                    if cost_grid[npi] < INF:
+                    if cost_grid[ni] is not INF:
                         pnb[i].append(ni)
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
                 ni = ny * w + nx
-                npi = (ny + pad) * pw + (nx + pad)
-                if cost_grid[npi] >= INF:
+                if cost_grid[ni] is INF:
                     continue
                 nb_list = pnb[ni]
                 if passable:
@@ -210,17 +213,6 @@ class Builder(Unit):
         w, h = self.w, self.h
         n: Final[int] = w * h
 
-        # Padded cost-grid dimensions. A 3-tile border on every side
-        # gives A* unconditional neighbor lookups for the bridge
-        # r²≤9 set — any out-of-bounds neighbor lands on the padding
-        # which is permanently INF, so the inner loop drops bounds
-        # checks entirely. Only `cost_grid` and `conveyor_cost_grid`
-        # use the padded layout; env/buildings/hp/... stay real-sized.
-        self.pad: Final[int] = 3
-        self.pad_w: Final[int] = w + 2 * self.pad
-        self.pad_h: Final[int] = h + 2 * self.pad
-        pad_n: Final[int] = self.pad_w * self.pad_h
-
         self.env: list[Environment | None] = [None] * n
         """Wall, Empty, Ti ore, Ax ore per tile."""
         self.building_ids: list[int | None] = [None] * n
@@ -232,12 +224,10 @@ class Builder(Unit):
         self.max_hp: list[int] = [0] * n
         """Max hitpoints of building on tile."""
 
-        # Padded cost grids: border = INF, interior initialised to
-        # the default cost for an unseen tile. Real tile (x, y) lives
-        # at padded index (y + pad) * pw + (x + pad).
-        self.cost_grid: list[int] = [INF] * pad_n
-        self.conveyor_cost_grid: list[int] = [INF] * pad_n
-        self._init_pad_interior()
+        self.cost_grid: list[int] = [1] * n
+        """Movement cost per tile. INF = impassable, 1 = road/walkable, ROAD_COST = empty."""
+        self.conveyor_cost_grid: list[int] = [5] * n
+        """Conveyor routing cost per tile. Higher = less preferred."""
 
         offsets = [dy * w + dx for dx, dy in DIR8_DELTA]
         pnb: list[list[int]] = [[] for _ in range(n)]
@@ -261,12 +251,15 @@ class Builder(Unit):
         """Passable neighbours."""
 
         self.bfs_dist: Final[list[int]] = [INF] * n
+        self.bfs_reset: Final[tuple[int, ...]] = (INF,) * n
+        self.move_search: Final = MoveHeapAstar(self)
+        self.conv_search: Final = AStarSearch(self)
         """BFS hops from the position at the start of the turn."""
 
-        self.flow_history: list[int] = [0b0000000000000000] * n
-        """History of flow on this tile, encoded as a 8 entries * 2 bit = 16 bit queue.
-        None = 0, Ti = 1, Raw Ax = 2, Refined Ax = 3.
-        """
+        self.flow_history: list[deque[ResourceType | None]] = [
+            deque([None] * 8, maxlen=8) for _ in range(n)
+        ]
+        """Last 8 rounds of resource flow on this tile."""
 
         self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
         self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
@@ -282,7 +275,7 @@ class Builder(Unit):
         """
 
         # Ephemeral (recomputed each turn)
-        self.nearby_positions: list[Position] = []
+
         self.nearby_buildings: list[Position] = []
         self.healable_buildings: list[Position] = []
         self.adjacent_to_unconnected_harvester: set[Position] = set()
@@ -311,7 +304,6 @@ class Builder(Unit):
         """
 
         self.nearest_enemy_turret: Position | None = None
-        self.nearest_junction_site: Position | None = None
 
         # Role
         self.role: Role | None = None
@@ -361,114 +353,69 @@ class Builder(Unit):
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
 
-    def _init_pad_interior(self) -> None:
-        """Seed interior cells of the padded cost grids. The border
-        was already filled with INF by the constructor.
-        """
-        pad = self.pad
-        pw = self.pad_w
-        w = self.w
-        h = self.h
-        # cost_grid interior default: 1 (seen-empty equivalent, will
-        # be overwritten when tiles come into vision).
-        # conveyor_cost_grid interior default: 5 (unseen penalty so
-        # A* doesn't plan long fog detours through unmapped terrain).
-        cg = self.cost_grid
-        ccg = self.conveyor_cost_grid
-        for y in range(h):
-            row_start = (y + pad) * pw + pad
-            for x in range(w):
-                cg[row_start + x] = 1
-                ccg[row_start + x] = 5
-
-    def _pidx(self, pos: Position) -> int:
-        """Padded flat index for cost_grid / conveyor_cost_grid."""
-        return (pos.y + self.pad) * self.pad_w + (pos.x + self.pad)
-
     def get_env(self, pos: Position) -> Environment | None:
-        if self.in_bounds(pos):
-            return self.env[self.idx(pos)]
-        return None
+        return self.env[self.idx(pos)]
 
     def get_building(self, pos: Position) -> Building | None:
-        if self.in_bounds(pos):
-            return self.buildings[self.idx(pos)]
-        return None
+        return self.buildings[self.idx(pos)]
 
     def get_cost(self, pos: Position) -> int:
-        if self.in_bounds(pos):
-            return self.cost_grid[self._pidx(pos)]
-        return INF
+        return self.cost_grid[self.idx(pos)]
 
-    def is_passable(self, pos: Position) -> bool | None:
-        return self.get_cost(pos) < INF
+    def is_passable(self, pos: Position) -> bool:
+        return self.cost_grid[self.idx(pos)] is not INF
 
-    def is_walkable(self, pos: Position) -> bool | None:
+    def is_walkable(self, pos: Position) -> bool:
         if not self.is_passable(pos):
             return False
-        match self.get_building(pos):
-            case (
-                BuildingConveyor()
-                | BuildingRoad()
-                | BuildingSplitter()
-                | BuildingArmouredConveyor()
-                | BuildingBridge()
-            ):
-                return True
-            case _:
-                return False
+        return isinstance(
+            self.buildings[self.idx(pos)],
+            BuildingConveyor
+            | BuildingRoad
+            | BuildingSplitter
+            | BuildingArmouredConveyor
+            | BuildingBridge,
+        )
 
     def get_conveyors_to_here(self, pos: Position) -> list[Position]:
-        if self.in_bounds(pos):
-            return self.conveyors_to_here[self.idx(pos)]
-        return []
+        return self.conveyors_to_here[self.idx(pos)]
 
     def is_buildable(self, pos: Position) -> bool:
-        if self.in_bounds(pos):
-            i = self.idx(pos)
-            b = self.buildings[i]
-            return self.env[i] != Environment.WALL and (
-                b is None or b.team == self.my_team
-            )
-        return False
+        i = self.idx(pos)
+        b = self.buildings[i]
+        return self.env[i] != Environment.WALL and (b is None or b.team == self.my_team)
 
     def is_friendly_turret(self, pos: Position) -> bool:
-        if not self.in_bounds(pos):
+        b = self.buildings[self.idx(pos)]
+        if b is None or isinstance(
+            b,
+            BuildingConveyor
+            | BuildingRoad
+            | BuildingSplitter
+            | BuildingArmouredConveyor
+            | BuildingBridge,
+        ):
             return False
-        match self.buildings[self.idx(pos)]:
-            case (
-                None
-                | BuildingConveyor()
-                | BuildingRoad()
-                | BuildingSplitter()
-                | BuildingArmouredConveyor()
-                | BuildingBridge()
-            ):
-                return False
-            case b:
-                return b.team == self.my_team
+        return b.team == self.my_team
 
     def is_enemy_building(self, pos: Position) -> bool:
-        if self.in_bounds(pos):
-            b = self.buildings[self.idx(pos)]
-            return b is not None and b.team != self.my_team
-        return False
+        b = self.buildings[self.idx(pos)]
+        return b is not None and b.team != self.my_team
 
     def leads_to_enemy_building(self, pos: Position) -> bool:
-        if self.in_bounds(pos):
-            b = self.buildings[self.idx(pos)]
-            if b is None or b.team != self.my_team:
+        b = self.buildings[self.idx(pos)]
+        if b is None or b.team != self.my_team:
+            return False
+        match b:
+            case BuildingConveyor(direction=d):
+                output_location = pos.add(d)
+            case BuildingBridge(target=t):
+                output_location = t
+            case _:
                 return False
-
-            match b:
-                case BuildingConveyor(direction=d):
-                    output_location = pos.add(d)
-                case BuildingBridge(target=t):
-                    output_location = t
-                case _:
-                    return False
-            return self.is_enemy_building(output_location)
-        return False
+        if not self.in_bounds(output_location):
+            return False
+        return self.is_enemy_building(output_location)
 
     update = update
     prune_stale = prune_stale
@@ -510,30 +457,18 @@ class Builder(Unit):
 
     def end_of_turn_heal(self, ct: Controller) -> None:
         my_pos = ct.get_position()
-        nearby_units = [
-            unit
-            for unit in ct.get_nearby_units()
-            if ct.get_position(unit).distance_squared(my_pos)
-            <= GameConstants.ACTION_RADIUS_SQ
-            or ct.get_entity_type(unit) == EntityType.CORE
-        ]
         if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
             ct.heal(my_pos)
-        for unit in nearby_units:
+        for unit in ct.get_nearby_units():
+            if ct.get_team(unit) != self.my_team:
+                continue
+            if ct.get_hp(unit) >= ct.get_max_hp(unit):
+                continue
             if ct.get_entity_type(unit) == EntityType.CORE:
-                core_center = ct.get_position(unit)
                 for d in DIR8:
-                    heal_pos = core_center.add(d)
-                    if (
-                        ct.can_heal(heal_pos)
-                        and ct.get_team(unit) == self.my_team
-                        and ct.get_hp(unit) < ct.get_max_hp(unit)
-                    ):
+                    heal_pos = ct.get_position(unit).add(d)
+                    if ct.can_heal(heal_pos):
                         ct.heal(heal_pos)
-
-            if (
-                ct.can_heal(ct.get_position(unit))
-                and ct.get_team(unit) == self.my_team
-                and ct.get_hp(unit) < ct.get_max_hp(unit)
-            ):
+                        break
+            elif ct.can_heal(ct.get_position(unit)):
                 ct.heal(ct.get_position(unit))

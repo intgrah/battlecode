@@ -9,10 +9,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, Team
-from util import DIR4, can_afford, get_direction_object
+from util import DIR4, get_direction_object
 
-from builder.algorithms.econ_astar import conv_search
-from builder.helpers import make_move, ore_available, try_move_with_road
+from builder.helpers import can_afford, make_move, ore_available, try_move_with_road
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -48,8 +47,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
     contest_pos = _find_contest_target(self, target_pos, self.my_team)
     if contest_pos is not None:
         if self.my_pos == contest_pos:
-            ti, _ = ct.get_global_resources()
-            if ti >= 2 and ct.can_fire(self.my_pos):
+            if self.ti >= 2 and ct.can_fire(self.my_pos):
                 ct.fire(self.my_pos)
             return True
         if self.my_pos.distance_squared(contest_pos) <= 2:
@@ -75,7 +73,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             pass
 
     if self.my_pos == target_pos:
-        if not ore_available(self, ct, target_pos):
+        if not ore_available(self, target_pos):
             self.ore_target = None
             return False
 
@@ -86,14 +84,13 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                 ct.build_road(n)
                 return True
 
-        if not can_afford(ct, EntityType.HARVESTER):
+        if not can_afford(self, EntityType.HARVESTER):
             return True
 
         b = self.get_building(self.my_pos)
         if isinstance(b, BuildingRoad) and ct.can_destroy(self.my_pos):
             escape_tile = None
-            for d in DIR4:
-                check_pos = self.my_pos.add(d)
+            for d, check_pos in self.dir_neighbours_4:
                 if ct.can_move(d):
                     escape_tile = check_pos
                     break
@@ -105,7 +102,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
 
         preferred_dirs = []
         if self.my_core:
-            path = conv_search.search(self, ct, self.my_pos, self.my_core)
+            path = self.conv_search.search(ct, self.my_pos, self.my_core)
             if path and len(path) > 1:
                 next_pos = path[1]
                 d = get_direction_object(self.my_pos, next_pos)
@@ -141,13 +138,13 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                     return True
             else:
                 target_n = unpaved_neighbors[0]
-                path = conv_search.search_blocked(self, ct, self.my_pos, target_n)
+                path = self.conv_search.search_blocked(ct, self.my_pos, target_n)
                 if path and len(path) > 1:
                     try_move_with_road(self, ct, path[1])
                     return True
             return True
 
-        if not can_afford(ct, EntityType.HARVESTER):
+        if not can_afford(self, EntityType.HARVESTER):
             if try_move_with_road(self, ct, target_pos):
                 return True
             return True

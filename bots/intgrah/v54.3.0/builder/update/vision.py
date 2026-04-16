@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import (
+    Building,
     BuildingArmouredConveyor,
     BuildingBridge,
     BuildingConveyor,
@@ -14,7 +15,7 @@ from building import (
     BuildingSplitter,
     make_building,
 )
-from cambc import Controller, EntityType, Environment, GameConstants, ResourceType
+from cambc import Controller, EntityType, Environment, GameConstants
 from util import DIR8, INF, ROAD_COST
 
 if TYPE_CHECKING:
@@ -74,7 +75,10 @@ def _add_topology(self: Builder, pos: Position, bld: object) -> None:
 
 
 def _update_cost(
-    self: Builder, pi: int, terrain: Environment | None, bld: object
+    self: Builder,
+    i: int,
+    terrain: Environment | None,
+    bld: Building | None,
 ) -> None:
     if terrain == Environment.WALL:
         cost = INF
@@ -106,11 +110,16 @@ def _update_cost(
     else:
         cost = 1
         conveyor_cost = 1
-    self.cost_grid[pi] = cost
-    self.conveyor_cost_grid[pi] = conveyor_cost
+    self.cost_grid[i] = cost
+    self.conveyor_cost_grid[i] = conveyor_cost
 
 
-def _update_turret_rays(self: Builder, ct: Controller, pos: Position, bld: object) -> None:
+def _update_turret_rays(
+    self: Builder,
+    ct: Controller,
+    pos: Position,
+    bld: Building,
+) -> None:
     match bld:
         case BuildingLauncher(team=t) if t != self.my_team:
             for d in DIR8:
@@ -161,56 +170,40 @@ def _update_turret_rays(self: Builder, ct: Controller, pos: Position, bld: objec
 
 
 def update_vision(self: Builder, ct: Controller) -> None:
-    w = self.w
-    pad = self.pad
-    pw = self.pad_w
-    for pos in self.nearby_positions:
-        i = pos.y * w + pos.x
-        pi = (pos.y + pad) * pw + (pos.x + pad)
-
+    for pos in self.nearby_tiles:
+        i = self.idx(pos)
         env = ct.get_tile_env(pos)
-        building_id = ct.get_tile_building_id(pos)
-        if (
-            building_id is not None
-            and ct.get_entity_type(building_id) == EntityType.MARKER
-        ):
-            building_id = None
-
+        bid = ct.get_tile_building_id(pos)
         env_changed = self.env[i] != env
-        old_bid = self.building_ids[i]
-        bld_changed = old_bid != building_id
-
-        if env_changed:
-            self.env[i] = env
+        bld_changed = self.building_ids[i] != bid
+        self.env[i] = env
+        self.building_ids[i] = bid
 
         if bld_changed or env_changed:
-            self.building_ids[i] = building_id
-            if bld_changed:
-                _remove_topology(self, pos, i)
-            if building_id is not None:
-                etype = ct.get_entity_type(building_id)
-                bld = make_building(ct, building_id, etype)
+            _remove_topology(self, pos, i)
+            if bid is not None:
+                bld = make_building(ct, bid, ct.get_entity_type(bid))
                 self.buildings[i] = bld
-                self.hp[i] = ct.get_hp(building_id)
-                self.max_hp[i] = ct.get_max_hp(building_id)
+                self.hp[i] = ct.get_hp(bid)
+                self.max_hp[i] = ct.get_max_hp(bid)
                 _add_topology(self, pos, bld)
             else:
                 self.buildings[i] = None
                 self.hp[i] = 0
                 self.max_hp[i] = 0
 
-            _update_cost(self, pi, env, self.buildings[i])
+            _update_cost(self, i, env, self.buildings[i])
             self.update_pnb(i)
             bld = self.buildings[i]
             if bld is not None:
                 _update_turret_rays(self, ct, pos, bld)
         else:
             bld = self.buildings[i]
-            if building_id is not None:
-                self.hp[i] = ct.get_hp(building_id)
-                self.max_hp[i] = ct.get_max_hp(building_id)
+            if bid is not None:
+                self.hp[i] = ct.get_hp(bid)
+                self.max_hp[i] = ct.get_max_hp(bid)
 
-        if building_id is not None:
+        if bid is not None:
             bld = self.buildings[i]
             self.nearby_buildings.append(pos)
             if (
@@ -221,19 +214,11 @@ def update_vision(self: Builder, ct: Controller) -> None:
                 self.healable_buildings.append(pos)
 
             match bld:
-                case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
-                    res = ct.get_stored_resource(building_id)
-                    slot = ct.get_current_round() % 8
-                    shift = slot * 2
-                    match res:
-                        case None:
-                            code = 0
-                        case ResourceType.TITANIUM:
-                            code = 1
-                        case ResourceType.RAW_AXIONITE:
-                            code = 2
-                        case ResourceType.REFINED_AXIONITE:
-                            code = 3
-                    self.flow_history[i] = (self.flow_history[i] & ~(0b11 << shift)) | (
-                        code << shift
-                    )
+                case (
+                    BuildingConveyor()
+                    | BuildingArmouredConveyor()
+                    | BuildingBridge()
+                    | BuildingSplitter()
+                ):
+                    # Since maxlen=8, this pops from another end if full.
+                    self.flow_history[i].append(ct.get_stored_resource(bid))

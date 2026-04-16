@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType, Position
-from util import DIR8, chebyshev
+from util import chebyshev
 
 from builder.helpers import make_move, move_random, try_heal
 
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-def _count_visible_attackers(self: Builder, ct: Controller, target: Position) -> int:
+def _count_visible_attackers(self: Builder, target: Position) -> int:
     """Count enemy builder bots currently in attack range of `target`
     (builder bots fire at their own tile, so anyone within 1 king-step
     of target is potentially dealing 2 dmg/turn to it).
@@ -19,20 +19,7 @@ def _count_visible_attackers(self: Builder, ct: Controller, target: Position) ->
     Bounds guards are load-bearing — same OOB crash mode as
     `_enemy_healer_near` in task_attack.
     """
-    n = 0
-    for d in DIR8:
-        p = target.add(d)
-        if not self.in_bounds(p):
-            continue
-        if ct.is_in_vision(p):
-            uid = ct.get_tile_builder_bot_id(p)
-            if uid is not None and ct.get_team(uid) != self.my_team:
-                n += 1
-    if self.in_bounds(target) and ct.is_in_vision(target):
-        uid = ct.get_tile_builder_bot_id(target)
-        if uid is not None and ct.get_team(uid) != self.my_team:
-            n += 1
-    return n
+    return sum(1 for p in self.enemy_bots if p.distance_squared(target) <= 2)
 
 
 def _deconflict_rank(
@@ -102,7 +89,7 @@ def best_healable_building(self: Builder, ct: Controller) -> Position | None:
         if damage <= 0:
             continue
 
-        attackers = _count_visible_attackers(self, ct, pos)
+        attackers = _count_visible_attackers(self, pos)
         needed = _healers_needed(attackers)
         rank = _deconflict_rank(self, ct, self.my_pos, pos)
         if rank >= needed:
@@ -176,11 +163,8 @@ def run_heal(self: Builder, ct: Controller) -> bool:
     if not self.repair_pos:
         return False
 
-    being_attacked = False
     heal_position = self.repair_pos
-    if ct.is_in_vision(heal_position):
-        builder = ct.get_tile_builder_bot_id(heal_position)
-        being_attacked = builder is not None and ct.get_team(builder) != self.my_team
+    being_attacked = heal_position in self.enemy_bots
 
     building_to_heal = best_adjacent_healable_building(self)
     save_money = being_attacked and self.repaired_prev
@@ -234,8 +218,8 @@ def heal_self(self: Builder, ct: Controller) -> bool:
         move_random(self, ct)
         return True
 
-    for d in DIR8:
-        if ct.can_move(d) and not has_wounded_enemy(self, self.my_pos.add(d)):
+    for d, n in self.dir_neighbours_8:
+        if ct.can_move(d) and not has_wounded_enemy(self, n):
             ct.move(d)
             try_heal(self, ct, ct.get_position(), conserve_ti=False)
             return True
