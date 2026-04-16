@@ -137,6 +137,40 @@ impl<'de> Deserialize<'de> for ScalarValue {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Arrow {
+    pub angle: f32,
+    pub magnitude: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct ArrowData {
+    pub arrows: Vec<Option<Arrow>>,
+}
+
+impl<'de> Deserialize<'de> for ArrowData {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Raw {
+            angles: Vec<Option<f32>>,
+            magnitudes: Option<Vec<f32>>,
+        }
+        let raw = Raw::deserialize(deserializer)?;
+        let arrows = raw
+            .angles
+            .iter()
+            .enumerate()
+            .map(|(i, angle)| {
+                angle.map(|a| Arrow {
+                    angle: a,
+                    magnitude: raw.magnitudes.as_ref().and_then(|m| m.get(i).copied()).unwrap_or(1.0),
+                })
+            })
+            .collect();
+        Ok(Self { arrows })
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum VisField {
@@ -148,12 +182,9 @@ pub enum VisField {
         data: ScalarValue,
     },
     Tiles {
-        data: Vec<[i32; 2]>,
+        data: Vec<(i32, i32)>,
     },
-    VectorField {
-        angles: Vec<Option<f32>>,
-        magnitudes: Option<Vec<f32>>,
-    },
+    VectorField(ArrowData),
 }
 
 pub type VisState = HashMap<String, VisField>;

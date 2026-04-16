@@ -504,7 +504,7 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                             Some(
                                 VisField::Grid { .. }
                                 | VisField::Tiles { .. }
-                                | VisField::VectorField { .. },
+                                | VisField::VectorField(..),
                             ) => {
                                 let mut enabled = app.vis_overlays.contains(*name);
                                 if ui.checkbox(&mut enabled, name.as_str()).changed() {
