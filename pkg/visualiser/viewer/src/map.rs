@@ -686,33 +686,32 @@ fn draw_vis_overlay(
         }
         crate::vis::VisField::Tiles { data } => {
             let color = Color32::from_rgba_premultiplied(0x80, 0x80, 0x30, 0x40);
-            for &[gx, gy] in data {
+            for &(gx, gy) in data {
                 let r = tile_rect(gx, gy, ts, origin, zoom);
                 painter.rect_filled(r, 0.0, color);
             }
         }
-        crate::vis::VisField::VectorField { angles, magnitudes } => {
+        crate::vis::VisField::VectorField(arrow_data) => {
+            let arrows = &arrow_data.arrows;
             let arrow_color = Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xc0);
-            let max_mag = magnitudes
-                .as_ref()
-                .and_then(|m| m.iter().copied().reduce(f32::max))
+            let max_mag = arrows
+                .iter()
+                .filter_map(|a| a.map(|a| a.magnitude))
+                .reduce(f32::max)
                 .unwrap_or(1.0)
                 .max(1e-9);
 
             for gy in 0..h {
                 for gx in 0..w {
                     let i = gy * w + gx;
-                    if i >= angles.len() {
-                        continue;
-                    }
-                    let Some(angle) = angles[i] else {
+                    let Some(arrow) = arrows.get(i).copied().flatten() else {
                         continue;
                     };
-                    let mag_frac = magnitudes.as_ref().map_or(0.35, |m| m[i] / max_mag * 0.4);
+                    let mag_frac = arrow.magnitude / max_mag * 0.4;
                     let center = tile_center(gx as i32, gy as i32, ts, origin, zoom);
                     let half_len = ts * zoom * mag_frac;
-                    let dx = angle.cos() * half_len;
-                    let dy = angle.sin() * half_len;
+                    let dx = arrow.angle.cos() * half_len;
+                    let dy = arrow.angle.sin() * half_len;
                     let tip = Pos2::new(center.x + dx, center.y + dy);
                     let tail = Pos2::new(center.x - dx, center.y - dy);
                     let stroke = Stroke::new((1.5 * zoom).max(1.0), arrow_color);
@@ -720,8 +719,8 @@ fn draw_vis_overlay(
 
                     let head_len = 3.0 * zoom;
                     let half = head_len * 0.5;
-                    let ux = angle.cos();
-                    let uy = angle.sin();
+                    let ux = arrow.angle.cos();
+                    let uy = arrow.angle.sin();
                     let bx = (-ux).mul_add(head_len, tip.x);
                     let by = (-uy).mul_add(head_len, tip.y);
                     let lx = uy.mul_add(half, bx);
