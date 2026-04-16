@@ -484,7 +484,7 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
         .show_inside(ui, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.checkbox(&mut app.show_indicators, "Show indicators (i)");
-                ui.checkbox(&mut app.show_flow, "Show flow");
+                ui.checkbox(&mut app.show_flow, "Show empirical flow (f)");
                 ui.checkbox(&mut app.show_ranges, "Show ranges");
 
                 let vis_fields = collect_vis_fields(state, app.selected_entity);

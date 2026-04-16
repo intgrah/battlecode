@@ -168,30 +168,6 @@ pub const fn dir_delta(dir: proto::Direction) -> (i32, i32) {
     }
 }
 
-pub const fn opposite_dir(dir: proto::Direction) -> proto::Direction {
-    match dir {
-        proto::Direction::DirNorth => proto::Direction::DirSouth,
-        proto::Direction::DirSouth => proto::Direction::DirNorth,
-        proto::Direction::DirEast => proto::Direction::DirWest,
-        proto::Direction::DirWest => proto::Direction::DirEast,
-        proto::Direction::DirNortheast => proto::Direction::DirSouthwest,
-        proto::Direction::DirSoutheast => proto::Direction::DirNorthwest,
-        proto::Direction::DirSouthwest => proto::Direction::DirNortheast,
-        proto::Direction::DirNorthwest => proto::Direction::DirSoutheast,
-        proto::Direction::DirCentre => proto::Direction::DirCentre,
-    }
-}
-
-pub const fn delta_to_dir(dx: i32, dy: i32) -> Option<proto::Direction> {
-    match (dx, dy) {
-        (0, -1) => Some(proto::Direction::DirNorth),
-        (0, 1) => Some(proto::Direction::DirSouth),
-        (1, 0) => Some(proto::Direction::DirEast),
-        (-1, 0) => Some(proto::Direction::DirWest),
-        _ => None,
-    }
-}
-
 pub fn sprite_name(e: &Entity) -> String {
     let team = match e.team {
         proto::Team::A => "gold",
@@ -233,29 +209,3 @@ pub const BUILDABLE_COSTS: &[(&str, (i32, i32))] = &[
     ("Breach", c::BREACH_BASE_COST),
     ("Launcher", c::LAUNCHER_BASE_COST),
 ];
-
-pub const fn accepts_input_from(kind: &EntityKind, from_dir: proto::Direction) -> bool {
-    match kind {
-        EntityKind::Splitter { dir, .. } => from_dir as i32 == *dir as i32,
-        EntityKind::Conveyor { dir, .. } | EntityKind::ArmouredConveyor { dir, .. } => {
-            from_dir as i32 != opposite_dir(*dir) as i32
-        }
-        _ => true,
-    }
-}
-
-pub const fn is_flow_receiver(kind: &EntityKind) -> bool {
-    matches!(
-        kind,
-        EntityKind::Conveyor { .. }
-            | EntityKind::ArmouredConveyor { .. }
-            | EntityKind::Splitter { .. }
-            | EntityKind::Bridge { .. }
-            | EntityKind::Foundry { .. }
-            | EntityKind::Core { .. }
-            | EntityKind::Gunner { .. }
-            | EntityKind::Sentinel { .. }
-            | EntityKind::Breach { .. }
-            | EntityKind::Launcher { .. }
-    )
-}

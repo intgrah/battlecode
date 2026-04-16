@@ -246,15 +246,15 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         }
 
         if app.playing && interp_t > 0.0 {
-            for &(from, to, res) in &turn_state.resource_moves {
-                let sprite = match res {
+            for m in &turn_state.resource_moves {
+                let sprite = match m.resource {
                     proto::ResourceType::ResourceTitanium => "titanium",
                     proto::ResourceType::ResourceRawAxionite => "axionite_raw",
                     proto::ResourceType::ResourceRefinedAxionite => "axionite_processed",
                     proto::ResourceType::ResourceNone => continue,
                 };
-                let x = ((to.0 - from.0) as f32).mul_add(interp_t, from.0 as f32 + 0.5);
-                let y = ((to.1 - from.1) as f32).mul_add(interp_t, from.1 as f32 + 0.5);
+                let x = ((m.to.0 - m.from.0) as f32).mul_add(interp_t, m.from.0 as f32 + 0.5);
+                let y = ((m.to.1 - m.from.1) as f32).mul_add(interp_t, m.from.1 as f32 + 0.5);
                 let center = Pos2::new(
                     x.mul_add(ts * zoom, origin.x),
                     y.mul_add(ts * zoom, origin.y),
@@ -266,7 +266,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         }
 
         if app.show_flow {
-            draw_flow_overlay(&painter, app, turn_state, ts, origin, zoom);
+            draw_flow_overlay(&painter, app, ts, origin, zoom);
         }
 
         for field_name in &app.vis_overlays {
@@ -580,7 +580,8 @@ fn draw_range_overlay(
             let mut vision = radius_tiles(cx, cy, constants::SENTINEL_VISION_RADIUS_SQ);
             clamp(&mut vision);
             draw_tile_outline(painter, &vision, ts, origin, zoom, blue);
-            let mut attack = sentinel_attack_tiles(cx, cy, *dir, constants::SENTINEL_VISION_RADIUS_SQ);
+            let mut attack =
+                sentinel_attack_tiles(cx, cy, *dir, constants::SENTINEL_VISION_RADIUS_SQ);
             clamp(&mut attack);
             draw_tile_outline(painter, &attack, ts, origin, zoom, red);
         }
@@ -684,7 +685,7 @@ fn draw_vis_overlay(
             }
         }
         crate::vis::VisField::Tiles { data } => {
-            let color = Color32::from_rgba_premultiplied(0xff, 0xff, 0x00, 0x60);
+            let color = Color32::from_rgba_premultiplied(0x80, 0x80, 0x30, 0x40);
             for &[gx, gy] in data {
                 let r = tile_rect(gx, gy, ts, origin, zoom);
                 painter.rect_filled(r, 0.0, color);
@@ -737,71 +738,73 @@ fn draw_vis_overlay(
 }
 
 #[allow(clippy::many_single_char_names)]
-fn draw_flow_overlay(
-    painter: &egui::Painter,
-    app: &App,
-    turn_state: &crate::state::TurnState,
-    ts: f32,
-    origin: Pos2,
-    zoom: f32,
-) {
-    let w = app.game.width as usize;
-    let h = app.game.height as usize;
-    let flow = crate::flow::compute_flow(turn_state, &app.game.env, w, h);
-
+fn draw_flow_overlay(painter: &egui::Painter, app: &App, ts: f32, origin: Pos2, zoom: f32) {
+    let flow = crate::flow::compute_empirical_flow(&app.game, app.turn);
     let font = egui::FontId::monospace(9.0 * zoom.min(2.0));
 
-    for gy in 0..h {
-        for gx in 0..w {
-            let i = gy * w + gx;
-            let ti = flow.ti[i];
-            let ax = flow.ax[i];
-            let rax = flow.rax[i];
-            let excess = flow.excess[i];
-            let total = ti + ax + rax;
+    for (&(gx, gy), tf) in &flow.tiles {
+        let total = tf.ti + tf.raw_ax + tf.refined_ax;
+        if total < 0.005 {
+            continue;
+        }
 
-            let r = tile_rect(gx as i32, gy as i32, ts, origin, zoom);
+        let r = tile_rect(gx, gy, ts, origin, zoom);
 
-            if excess > 0.01 {
-                let red_frac = (excess / total.max(0.01)).min(1.0);
-                let g = ((1.0 - red_frac) * 0.6 * 255.0) as u8;
-                let r_ch = (red_frac * 0.8 * 255.0) as u8;
-                painter.rect_filled(r, 0.0, Color32::from_rgba_premultiplied(r_ch, g, 0, 0x50));
-            } else if total > 0.01 {
-                let green = (total.min(1.0) * 0.5 * 255.0) as u8;
-                painter.rect_filled(r, 0.0, Color32::from_rgba_premultiplied(0, green, 0, 0x30));
-            } else {
-                continue;
+        if tf.stagnant {
+            let intensity = (total.min(1.0) * 0.5 * 255.0) as u8;
+            painter.rect_filled(
+                r,
+                0.0,
+                Color32::from_rgba_premultiplied(intensity, 0, 0, 0x30),
+            );
+        } else {
+            let intensity = (total.min(1.0) * 0.5 * 255.0) as u8;
+            painter.rect_filled(
+                r,
+                0.0,
+                Color32::from_rgba_premultiplied(0, intensity, 0, 0x30),
+            );
+        }
+
+        if zoom > 0.5 {
+            use std::fmt::Write;
+            let mut label = String::new();
+            let ti_color = Color32::from_rgb(0xc0, 0xc0, 0xc0);
+            let ax_color = Color32::from_rgb(0x60, 0xd0, 0x60);
+            let rax_color = Color32::from_rgb(0x80, 0x80, 0xff);
+
+            if tf.ti > 0.005 {
+                let _ = write!(label, "T{:.2}", tf.ti);
+            }
+            if tf.raw_ax > 0.005 {
+                if !label.is_empty() {
+                    label.push('\n');
+                }
+                let _ = write!(label, "A{:.2}", tf.raw_ax);
+            }
+            if tf.refined_ax > 0.005 {
+                if !label.is_empty() {
+                    label.push('\n');
+                }
+                let _ = write!(label, "R{:.2}", tf.refined_ax);
             }
 
-            if zoom > 0.5 {
-                use std::fmt::Write;
-                let mut label = String::new();
-                if ti > 0.005 {
-                    let _ = write!(label, "T{ti:.2}");
-                }
-                if ax > 0.005 {
-                    if !label.is_empty() {
-                        label.push('\n');
-                    }
-                    let _ = write!(label, "A{ax:.2}");
-                }
-                if rax > 0.005 {
-                    if !label.is_empty() {
-                        label.push('\n');
-                    }
-                    let _ = write!(label, "R{rax:.2}");
-                }
-
-                if !label.is_empty() {
-                    painter.text(
-                        egui::pos2(r.left() + 1.0, r.top() + 1.0),
-                        egui::Align2::LEFT_TOP,
-                        label,
-                        font.clone(),
-                        Color32::WHITE,
-                    );
-                }
+            if !label.is_empty() {
+                // Use dominant resource colour for the label
+                let color = if tf.refined_ax >= tf.ti && tf.refined_ax >= tf.raw_ax {
+                    rax_color
+                } else if tf.raw_ax >= tf.ti {
+                    ax_color
+                } else {
+                    ti_color
+                };
+                painter.text(
+                    egui::pos2(r.left() + 1.0, r.top() + 1.0),
+                    egui::Align2::LEFT_TOP,
+                    label,
+                    font.clone(),
+                    color,
+                );
             }
         }
     }

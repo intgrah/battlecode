@@ -218,8 +218,8 @@ impl App {
             if i.key_pressed(Key::I) {
                 self.show_indicators = !self.show_indicators;
             }
-            if i.key_pressed(Key::N) {
-                // TODO: toggle network overlay
+            if i.key_pressed(Key::F) {
+                self.show_flow = !self.show_flow;
             }
 
             if i.key_pressed(Key::Equals) || i.key_pressed(Key::Plus) {

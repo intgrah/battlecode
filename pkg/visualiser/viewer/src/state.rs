@@ -98,6 +98,13 @@ impl Default for PlayerState {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct ResourceMoveRecord {
+    pub from: (i32, i32),
+    pub to: (i32, i32),
+    pub resource: proto::ResourceType,
+}
+
 #[derive(Clone, Debug)]
 pub struct TurnState {
     pub entities: HashMap<i32, Entity>,
@@ -106,7 +113,8 @@ pub struct TurnState {
     pub outputs: Vec<(i32, String)>,
     pub cpu_time_us: HashMap<i32, u32>,
     pub fire_events: Vec<((i32, i32), (i32, i32))>,
-    pub resource_moves: Vec<((i32, i32), (i32, i32), proto::ResourceType)>,
+    pub resource_moves: Vec<ResourceMoveRecord>,
+    pub tile_resources: HashMap<(i32, i32), (proto::ResourceType, i32)>,
     pub deaths: Vec<(i32, i32)>,
     pub actions: Vec<(i32, Action)>,
     pub vis_data: HashMap<i32, vis::VisState>,
@@ -238,6 +246,7 @@ impl GameState {
             cpu_time_us: HashMap::new(),
             fire_events: Vec::new(),
             resource_moves: Vec::new(),
+            tile_resources: HashMap::new(),
             deaths: Vec::new(),
             actions: Vec::new(),
             vis_data: HashMap::new(),
@@ -487,8 +496,19 @@ fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &m
                     .and_then(|e| entity::stored_resource(&e.kind))
                     .unwrap_or(proto::ResourceType::ResourceNone);
 
+                let stack_id = m.resource_id.unwrap_or(0);
+
                 if resource != proto::ResourceType::ResourceNone {
-                    state.resource_moves.push((from_pos, to_pos, resource));
+                    state.resource_moves.push(ResourceMoveRecord {
+                        from: from_pos,
+                        to: to_pos,
+                        resource,
+                    });
+                }
+
+                state.tile_resources.remove(&from_pos);
+                if resource != proto::ResourceType::ResourceNone {
+                    state.tile_resources.insert(to_pos, (resource, stack_id));
                 }
 
                 if let Some(src) = state
