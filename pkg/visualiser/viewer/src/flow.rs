@@ -1,73 +1,10 @@
 use std::collections::VecDeque;
 
+use crate::entity;
 use crate::proto;
 use crate::state::{EntityKind, TurnState};
 
 const DIR4: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
-
-const fn dir_delta(dir: proto::Direction) -> (i32, i32) {
-    match dir {
-        proto::Direction::DirNorth => (0, -1),
-        proto::Direction::DirSouth => (0, 1),
-        proto::Direction::DirEast => (1, 0),
-        proto::Direction::DirWest => (-1, 0),
-        proto::Direction::DirNortheast => (1, -1),
-        proto::Direction::DirSoutheast => (1, 1),
-        proto::Direction::DirSouthwest => (-1, 1),
-        proto::Direction::DirNorthwest => (-1, -1),
-        proto::Direction::DirCentre => (0, 0),
-    }
-}
-
-const fn opposite(dir: proto::Direction) -> proto::Direction {
-    match dir {
-        proto::Direction::DirNorth => proto::Direction::DirSouth,
-        proto::Direction::DirSouth => proto::Direction::DirNorth,
-        proto::Direction::DirEast => proto::Direction::DirWest,
-        proto::Direction::DirWest => proto::Direction::DirEast,
-        proto::Direction::DirNortheast => proto::Direction::DirSouthwest,
-        proto::Direction::DirSoutheast => proto::Direction::DirNorthwest,
-        proto::Direction::DirSouthwest => proto::Direction::DirNortheast,
-        proto::Direction::DirNorthwest => proto::Direction::DirSoutheast,
-        proto::Direction::DirCentre => proto::Direction::DirCentre,
-    }
-}
-
-const fn delta_to_dir(dx: i32, dy: i32) -> Option<proto::Direction> {
-    match (dx, dy) {
-        (0, -1) => Some(proto::Direction::DirNorth),
-        (0, 1) => Some(proto::Direction::DirSouth),
-        (1, 0) => Some(proto::Direction::DirEast),
-        (-1, 0) => Some(proto::Direction::DirWest),
-        _ => None,
-    }
-}
-
-fn accepts_input_from(kind: &EntityKind, from_dir: proto::Direction) -> bool {
-    match kind {
-        EntityKind::Splitter { dir, .. } => from_dir == *dir,
-        EntityKind::Conveyor { dir, .. } | EntityKind::ArmouredConveyor { dir, .. } => {
-            from_dir != opposite(*dir)
-        }
-        _ => true,
-    }
-}
-
-const fn is_recv(kind: &EntityKind) -> bool {
-    matches!(
-        kind,
-        EntityKind::Conveyor { .. }
-            | EntityKind::ArmouredConveyor { .. }
-            | EntityKind::Splitter { .. }
-            | EntityKind::Bridge { .. }
-            | EntityKind::Foundry { .. }
-            | EntityKind::Core { .. }
-            | EntityKind::Gunner { .. }
-            | EntityKind::Sentinel { .. }
-            | EntityKind::Breach { .. }
-            | EntityKind::Launcher { .. }
-    )
-}
 
 pub struct FlowState {
     pub w: usize,
@@ -103,7 +40,7 @@ pub fn compute_flow(
     let mut kind_grid: Vec<Option<&EntityKind>> = vec![None; n];
     for e in state.entities.values() {
         let i = e.pos.1 as usize * w + e.pos.0 as usize;
-        if i < n && (kind_grid[i].is_none() || is_recv(&e.kind)) {
+        if i < n && (kind_grid[i].is_none() || entity::is_flow_receiver(&e.kind)) {
             kind_grid[i] = Some(&e.kind);
         }
     }
@@ -120,10 +57,10 @@ pub fn compute_flow(
         let Some(kind) = kind_grid[i] else {
             return false;
         };
-        if !is_recv(kind) {
+        if !entity::is_flow_receiver(kind) {
             return false;
         }
-        delta_to_dir(from_dx, from_dy).is_none_or(|d| accepts_input_from(kind, d))
+        entity::delta_to_dir(from_dx, from_dy).is_none_or(|d| entity::accepts_input_from(kind, d))
     };
 
     let mut in_degree = vec![0_i32; n];
@@ -134,7 +71,7 @@ pub fn compute_flow(
         let si = idx(px, py);
         match &e.kind {
             EntityKind::Conveyor { dir, .. } | EntityKind::ArmouredConveyor { dir, .. } => {
-                let (dx, dy) = dir_delta(*dir);
+                let (dx, dy) = entity::dir_delta(*dir);
                 let (nx, ny) = (px + dx, py + dy);
                 if can_receive(nx, ny, dx, dy) {
                     let ti = idx(nx, ny);
@@ -143,7 +80,7 @@ pub fn compute_flow(
                 }
             }
             EntityKind::Splitter { dir, .. } => {
-                let (dx, dy) = dir_delta(*dir);
+                let (dx, dy) = entity::dir_delta(*dir);
                 for (odx, ody) in [(dx, dy), (-dy, dx), (dy, -dx)] {
                     let (nx, ny) = (px + odx, py + ody);
                     if can_receive(nx, ny, odx, ody) {
@@ -205,7 +142,7 @@ pub fn compute_flow(
     }
 
     for i in 0..n {
-        if kind_grid[i].is_some_and(is_recv) && in_degree[i] == 0 && !queue.contains(&i) {
+        if kind_grid[i].is_some_and(|k| entity::is_flow_receiver(k)) && in_degree[i] == 0 && !queue.contains(&i) {
             queue.push_back(i);
         }
     }

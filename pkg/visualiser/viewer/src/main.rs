@@ -10,6 +10,7 @@ mod proto {
 }
 
 mod app;
+mod entity;
 mod flow;
 mod map;
 mod sprites;

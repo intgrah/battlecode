@@ -2,6 +2,7 @@ use eframe::egui;
 use egui::{Color32, Mesh, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 
 use crate::app::App;
+use crate::entity;
 use crate::proto;
 use crate::state::{Entity, EntityKind, Indicator};
 
@@ -141,7 +142,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             .get(app.turn + 1);
         let interp_t = app.interp_t;
         let mut entities: Vec<&Entity> = turn_state.entities.values().collect();
-        entities.sort_by_key(|e| entity_z_order(&e.kind));
+        entities.sort_by_key(|e| entity::z_order(&e.kind));
 
         for e in &entities {
             if matches!(e.kind, EntityKind::Core { .. }) {
@@ -175,7 +176,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                     None
                 };
 
-            let sprite_name = entity_sprite_name(e);
+            let sprite_name = entity::sprite_name(e);
             let r = if matches!(e.kind, EntityKind::Core { .. }) {
                 let px = ((e.pos.0 - 1).max(0) as f32 * ts).mul_add(zoom, origin.x);
                 let py = ((e.pos.1 - 1).max(0) as f32 * ts).mul_add(zoom, origin.y);
@@ -190,7 +191,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             if !matches!(
                 e.kind,
                 EntityKind::Core { .. } | EntityKind::CoreEdge { .. }
-            ) && let Some(res_name) = entity_resource_sprite(e)
+            ) && let Some(res_name) = entity::resource_sprite(&e.kind)
             {
                 let center = if let Some((ix, iy)) = interp_pos {
                     Pos2::new(
@@ -279,6 +280,25 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                     painter.circle_filled(c, ts * zoom * 0.25, color);
                 }
             }
+        }
+
+        for &(from, to) in &turn_state.fire_events {
+            let a = tile_center(from.0, from.1, ts, origin, zoom);
+            let b = tile_center(to.0, to.1, ts, origin, zoom);
+            painter.line_segment(
+                [a, b],
+                Stroke::new(2.0 * zoom, Color32::from_rgba_premultiplied(0xee, 0xee, 0xee, 0xc0)),
+            );
+        }
+
+        for &pos in &turn_state.deaths {
+            let r = tile_rect(pos.0, pos.1, ts, origin, zoom);
+            painter.rect_stroke(
+                r,
+                0.0,
+                Stroke::new(2.0 * zoom, Color32::from_rgba_premultiplied(0xcc, 0x33, 0x33, 0xc0)),
+                StrokeKind::Inside,
+            );
         }
 
         if let Some(sel_id) = app.selected_entity
@@ -371,22 +391,8 @@ fn radius_tiles(cx: i32, cy: i32, r_sq: i32) -> Vec<(i32, i32)> {
     tiles
 }
 
-const fn dir_delta_map(dir: proto::Direction) -> (i32, i32) {
-    match dir {
-        proto::Direction::DirNorth => (0, -1),
-        proto::Direction::DirSouth => (0, 1),
-        proto::Direction::DirEast => (1, 0),
-        proto::Direction::DirWest => (-1, 0),
-        proto::Direction::DirNortheast => (1, -1),
-        proto::Direction::DirSoutheast => (1, 1),
-        proto::Direction::DirSouthwest => (-1, 1),
-        proto::Direction::DirNorthwest => (-1, -1),
-        proto::Direction::DirCentre => (0, 0),
-    }
-}
-
 fn gunner_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Vec<(i32, i32)> {
-    let (dx, dy) = dir_delta_map(dir);
+    let (dx, dy) = entity::dir_delta(dir);
     if dx == 0 && dy == 0 {
         return Vec::new();
     }
@@ -406,7 +412,7 @@ fn gunner_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Ve
 }
 
 fn sentinel_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Vec<(i32, i32)> {
-    let (dx, dy) = dir_delta_map(dir);
+    let (dx, dy) = entity::dir_delta(dir);
     if dx == 0 && dy == 0 {
         return Vec::new();
     }
@@ -437,7 +443,7 @@ fn sentinel_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> 
 }
 
 fn breach_attack_tiles(cx: i32, cy: i32, dir: proto::Direction, r_sq: i32) -> Vec<(i32, i32)> {
-    let (dx, dy) = dir_delta_map(dir);
+    let (dx, dy) = entity::dir_delta(dir);
     if dx == 0 && dy == 0 {
         return Vec::new();
     }
@@ -828,94 +834,3 @@ fn draw_sprite(painter: &egui::Painter, app: &App, name: &str, rect: Rect) {
     }
 }
 
-fn entity_sprite_name(e: &Entity) -> String {
-    let team = match e.team {
-        proto::Team::A => "gold",
-        proto::Team::B => "silver",
-    };
-    match &e.kind {
-        EntityKind::BuilderBot { .. } => format!("builderbot_front_{team}"),
-        EntityKind::Core { .. } | EntityKind::CoreEdge { .. } => format!("base_{team}"),
-        EntityKind::Conveyor { dir, .. } => {
-            let d = dir_suffix(*dir);
-            format!("conveyor_{team}_{d}")
-        }
-        EntityKind::ArmouredConveyor { dir, .. } => {
-            let d = dir_suffix(*dir);
-            format!("armoured_conveyor_{team}_{d}")
-        }
-        EntityKind::Splitter { dir, .. } => {
-            let d = dir_suffix(*dir);
-            format!("splitter_{d}_{team}")
-        }
-        EntityKind::Bridge { .. } => format!("bridge_stand_{team}"),
-        EntityKind::Harvester { .. } => format!("harvester_{team}"),
-        EntityKind::Foundry { .. } => format!("foundry_{team}"),
-        EntityKind::Road => format!("road_{team}"),
-        EntityKind::Barrier => format!("barrier_{team}"),
-        EntityKind::Marker { .. } => format!("marker_{team}"),
-        EntityKind::Gunner { dir, .. } => {
-            let d = dir_suffix(*dir);
-            format!("gunner_{d}_{team}")
-        }
-        EntityKind::Sentinel { dir, .. } => {
-            let d = dir_suffix(*dir);
-            format!("sentinel_{d}_{team}")
-        }
-        EntityKind::Breach { dir, .. } => {
-            let d = dir_suffix(*dir);
-            format!("breach_{d}_{team}")
-        }
-        EntityKind::Launcher { .. } => format!("launcher_{team}"),
-    }
-}
-
-const fn dir_suffix(dir: proto::Direction) -> &'static str {
-    match dir {
-        proto::Direction::DirNorth | proto::Direction::DirCentre => "n",
-        proto::Direction::DirNortheast => "ne",
-        proto::Direction::DirEast => "e",
-        proto::Direction::DirSoutheast => "se",
-        proto::Direction::DirSouth => "s",
-        proto::Direction::DirSouthwest => "sw",
-        proto::Direction::DirWest => "w",
-        proto::Direction::DirNorthwest => "nw",
-    }
-}
-
-const fn entity_resource_sprite(e: &Entity) -> Option<&'static str> {
-    let res = match &e.kind {
-        EntityKind::Conveyor { stored, .. }
-        | EntityKind::ArmouredConveyor { stored, .. }
-        | EntityKind::Splitter { stored, .. }
-        | EntityKind::Bridge { stored, .. }
-        | EntityKind::Foundry { stored } => *stored,
-        _ => return None,
-    };
-    match res {
-        proto::ResourceType::ResourceTitanium => Some("titanium"),
-        proto::ResourceType::ResourceRawAxionite => Some("axionite_raw"),
-        proto::ResourceType::ResourceRefinedAxionite => Some("axionite_processed"),
-        proto::ResourceType::ResourceNone => None,
-    }
-}
-
-const fn entity_z_order(kind: &EntityKind) -> i32 {
-    match kind {
-        EntityKind::Road => 0,
-        EntityKind::Marker { .. } => 1,
-        EntityKind::Barrier => 2,
-        EntityKind::CoreEdge { .. } => 3,
-        EntityKind::Conveyor { .. }
-        | EntityKind::ArmouredConveyor { .. }
-        | EntityKind::Splitter { .. }
-        | EntityKind::Bridge { .. } => 4,
-        EntityKind::Harvester { .. } | EntityKind::Foundry { .. } => 5,
-        EntityKind::Gunner { .. }
-        | EntityKind::Sentinel { .. }
-        | EntityKind::Breach { .. }
-        | EntityKind::Launcher { .. } => 6,
-        EntityKind::Core { .. } => 7,
-        EntityKind::BuilderBot { .. } => 8,
-    }
-}

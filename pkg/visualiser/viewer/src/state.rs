@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::entity;
 use crate::proto;
 use crate::vis;
 
@@ -104,7 +105,69 @@ pub struct TurnState {
     pub outputs: Vec<(i32, String)>,
     pub cpu_time_us: HashMap<i32, u32>,
     pub fire_events: Vec<((i32, i32), (i32, i32))>,
+    pub deaths: Vec<(i32, i32)>,
+    pub actions: Vec<(i32, Action)>,
     pub vis_data: HashMap<i32, vis::VisState>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum BuildingKind {
+    Road,
+    Barrier,
+    Conveyor { dir: proto::Direction },
+    ArmouredConveyor { dir: proto::Direction },
+    Splitter { dir: proto::Direction },
+    Bridge { target: (i32, i32) },
+    Harvester,
+    Foundry,
+    Gunner { dir: proto::Direction },
+    Sentinel { dir: proto::Direction },
+    Breach { dir: proto::Direction },
+    Launcher,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Action {
+    Move { dir: (i32, i32) },
+    Spawn { dir: (i32, i32) },
+    Build { what: BuildingKind, dir: (i32, i32) },
+    PlaceMarker { dir: (i32, i32), value: u32 },
+    DestroyBuilding { dir: (i32, i32) },
+    DestroyMarker { dir: (i32, i32) },
+    Attack { target: (i32, i32) },
+}
+
+impl std::fmt::Display for BuildingKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Road => write!(f, "road"),
+            Self::Barrier => write!(f, "barrier"),
+            Self::Conveyor { dir } => write!(f, "conveyor {}", entity::dir_suffix(*dir)),
+            Self::ArmouredConveyor { dir } => write!(f, "armoured conveyor {}", entity::dir_suffix(*dir)),
+            Self::Splitter { dir } => write!(f, "splitter {}", entity::dir_suffix(*dir)),
+            Self::Bridge { target } => write!(f, "bridge ({},{})", target.0, target.1),
+            Self::Harvester => write!(f, "harvester"),
+            Self::Foundry => write!(f, "foundry"),
+            Self::Gunner { dir } => write!(f, "gunner {}", entity::dir_suffix(*dir)),
+            Self::Sentinel { dir } => write!(f, "sentinel {}", entity::dir_suffix(*dir)),
+            Self::Breach { dir } => write!(f, "breach {}", entity::dir_suffix(*dir)),
+            Self::Launcher => write!(f, "launcher"),
+        }
+    }
+}
+
+impl std::fmt::Display for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Move { dir } => write!(f, "Move {}", entity::dir_name(dir.0, dir.1)),
+            Self::Spawn { dir } => write!(f, "Spawn builder {}", entity::dir_name(dir.0, dir.1)),
+            Self::Build { what, dir } => write!(f, "Build {what} {}", entity::dir_name(dir.0, dir.1)),
+            Self::PlaceMarker { dir, value } => write!(f, "Place marker {} {value:#010x}", entity::dir_name(dir.0, dir.1)),
+            Self::DestroyBuilding { dir } => write!(f, "Destroy building {}", entity::dir_name(dir.0, dir.1)),
+            Self::DestroyMarker { dir } => write!(f, "Destroy marker {}", entity::dir_name(dir.0, dir.1)),
+            Self::Attack { target } => write!(f, "Attack ({},{})", target.0, target.1),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -160,6 +223,8 @@ impl GameState {
             outputs: Vec::new(),
             cpu_time_us: HashMap::new(),
             fire_events: Vec::new(),
+            deaths: Vec::new(),
+            actions: Vec::new(),
             vis_data: HashMap::new(),
         };
 
@@ -188,10 +253,13 @@ impl GameState {
             current.outputs.clear();
             current.cpu_time_us.clear();
             current.fire_events.clear();
+            current.deaths.clear();
+            current.actions.clear();
             current.vis_data.clear();
 
+            let mut current_actor: i32 = -1;
             for update in &turn.updates {
-                apply_update(&mut current, update);
+                apply_update(&mut current, update, &mut current_actor);
             }
             turns.push(current.clone());
         }
@@ -212,8 +280,26 @@ impl GameState {
     }
 }
 
+fn to_building_kind(kind: &EntityKind) -> Option<BuildingKind> {
+    match kind {
+        EntityKind::Road => Some(BuildingKind::Road),
+        EntityKind::Barrier => Some(BuildingKind::Barrier),
+        EntityKind::Conveyor { dir, .. } => Some(BuildingKind::Conveyor { dir: *dir }),
+        EntityKind::ArmouredConveyor { dir, .. } => Some(BuildingKind::ArmouredConveyor { dir: *dir }),
+        EntityKind::Splitter { dir, .. } => Some(BuildingKind::Splitter { dir: *dir }),
+        EntityKind::Bridge { target, .. } => Some(BuildingKind::Bridge { target: *target }),
+        EntityKind::Harvester { .. } => Some(BuildingKind::Harvester),
+        EntityKind::Foundry { .. } => Some(BuildingKind::Foundry),
+        EntityKind::Gunner { dir, .. } => Some(BuildingKind::Gunner { dir: *dir }),
+        EntityKind::Sentinel { dir, .. } => Some(BuildingKind::Sentinel { dir: *dir }),
+        EntityKind::Breach { dir, .. } => Some(BuildingKind::Breach { dir: *dir }),
+        EntityKind::Launcher { .. } => Some(BuildingKind::Launcher),
+        _ => None,
+    }
+}
+
 #[allow(clippy::too_many_lines)]
-fn apply_update(state: &mut TurnState, update: &proto::Update) {
+fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &mut i32) {
     use proto::update::Kind;
     let Some(kind) = &update.kind else { return };
     match kind {
@@ -221,6 +307,23 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
             if let Some(e) = &pe.entity
                 && let Some(entity) = parse_entity(e)
             {
+                let actor = *current_actor;
+                if let Some(actor_e) = state.entities.get(&actor) {
+                    let dir = (entity.pos.0 - actor_e.pos.0, entity.pos.1 - actor_e.pos.1);
+                    match &entity.kind {
+                        EntityKind::BuilderBot { .. } => {
+                            state.actions.push((actor, Action::Spawn { dir }));
+                        }
+                        EntityKind::Marker { value } => {
+                            state.actions.push((actor, Action::PlaceMarker { dir, value: *value }));
+                        }
+                        _ => {
+                            if let Some(what) = to_building_kind(&entity.kind) {
+                                state.actions.push((actor, Action::Build { what, dir }));
+                            }
+                        }
+                    }
+                }
                 state.entities.insert(entity.id, entity);
             }
         }
@@ -228,11 +331,25 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
             if let Some(to) = &m.to
                 && let Some(e) = state.entities.get_mut(&m.id)
             {
+                let dx = to.x - e.pos.0;
+                let dy = to.y - e.pos.1;
+                state.actions.push((m.id, Action::Move { dir: (dx, dy) }));
                 e.pos = (to.x, to.y);
             }
         }
         Kind::RemoveEntity(r) => {
-            state.entities.remove(&r.id);
+            if let Some(e) = state.entities.remove(&r.id) {
+                state.deaths.push(e.pos);
+                let actor = *current_actor;
+                if let Some(actor_e) = state.entities.get(&actor) {
+                    let dir = (e.pos.0 - actor_e.pos.0, e.pos.1 - actor_e.pos.1);
+                    if matches!(e.kind, EntityKind::Marker { .. }) {
+                        state.actions.push((actor, Action::DestroyMarker { dir }));
+                    } else {
+                        state.actions.push((actor, Action::DestroyBuilding { dir }));
+                    }
+                }
+            }
         }
         Kind::UpdateHp(h) => {
             if let Some(e) = state.entities.get_mut(&h.id) {
@@ -260,6 +377,7 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
             }
         }
         Kind::SetActionCooldown(c) => {
+            *current_actor = c.id;
             if let Some(e) = state.entities.get_mut(&c.id) {
                 match &mut e.kind {
                     EntityKind::BuilderBot { action_cd, .. } | EntityKind::Core { action_cd } => {
@@ -322,6 +440,7 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
         Kind::FireTurret(f) => {
             if let (Some(from), Some(to)) = (&f.from, &f.to) {
                 state.fire_events.push(((from.x, from.y), (to.x, to.y)));
+                state.actions.push((*current_actor, Action::Attack { target: (to.x, to.y) }));
             }
         }
         Kind::DistributeResources(dr) => {
@@ -339,60 +458,31 @@ fn apply_update(state: &mut TurnState, update: &proto::Update) {
                 let resource = state
                     .entities
                     .values()
-                    .find(|e| e.pos == from_pos && is_resource_holder(&e.kind))
-                    .and_then(|e| get_stored_resource(&e.kind))
+                    .find(|e| e.pos == from_pos && entity::is_resource_holder(&e.kind))
+                    .and_then(|e| entity::stored_resource(&e.kind))
                     .unwrap_or(proto::ResourceType::ResourceNone);
 
                 if let Some(src) = state
                     .entities
                     .values_mut()
-                    .find(|e| e.pos == from_pos && is_resource_holder(&e.kind))
+                    .find(|e| e.pos == from_pos && entity::is_resource_holder(&e.kind))
                 {
                     set_stored_resource(&mut src.kind, proto::ResourceType::ResourceNone);
                 }
                 if let Some(dst) = state
                     .entities
                     .values_mut()
-                    .find(|e| e.pos == to_pos && is_resource_holder(&e.kind))
+                    .find(|e| e.pos == to_pos && entity::is_resource_holder(&e.kind))
                 {
                     deliver_stored_resource(&mut dst.kind, resource);
                 }
             }
         }
-        Kind::BuilderAttack(_) => {
-            // Builder attacking a building they're standing on — HP
-            // delta events already update the visual state, no extra
-            // work needed here.
+        Kind::BuilderAttack(a) => {
+            if let Some(e) = state.entities.get(&a.id) {
+                state.actions.push((a.id, Action::Attack { target: e.pos }));
+            }
         }
-    }
-}
-
-const fn is_resource_holder(kind: &EntityKind) -> bool {
-    matches!(
-        kind,
-        EntityKind::Conveyor { .. }
-            | EntityKind::ArmouredConveyor { .. }
-            | EntityKind::Splitter { .. }
-            | EntityKind::Bridge { .. }
-            | EntityKind::Foundry { .. }
-            | EntityKind::Harvester { .. }
-            | EntityKind::Core { .. }
-            | EntityKind::Gunner { .. }
-            | EntityKind::Sentinel { .. }
-            | EntityKind::Breach { .. }
-            | EntityKind::Launcher { .. }
-    )
-}
-
-const fn get_stored_resource(kind: &EntityKind) -> Option<proto::ResourceType> {
-    match kind {
-        EntityKind::Conveyor { stored, .. }
-        | EntityKind::ArmouredConveyor { stored, .. }
-        | EntityKind::Splitter { stored, .. }
-        | EntityKind::Bridge { stored, .. }
-        | EntityKind::Foundry { stored } => Some(*stored),
-        EntityKind::Harvester { resource_type, .. } => Some(*resource_type),
-        _ => None,
     }
 }
 
