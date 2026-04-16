@@ -48,6 +48,6 @@ class Player:
                 t6 = time.perf_counter_ns()
 
                 ct.resign(
-                    f"IN t={((t1-t0)*10)//k} l={((t2-t1)*10)//k} f={((t3-t2)*10)//k} "
-                    f"IT t={((t4-t3)*10)//k} l={((t5-t4)*10)//k} f={((t6-t5)*10)//k}"
+                    f"IN t={((t1 - t0) * 10) // k} l={((t2 - t1) * 10) // k} f={((t3 - t2) * 10) // k} "
+                    f"IT t={((t4 - t3) * 10) // k} l={((t5 - t4) * 10) // k} f={((t6 - t5) * 10) // k}"
                 )
