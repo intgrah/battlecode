@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from util import INF
 from visualiser import (
+    TRANSPARENT,
     BoolGrid,
     Colour,
     I16Grid,
@@ -11,7 +12,6 @@ from visualiser import (
     PaletteStop,
     Scalar,
     Tiles,
-    TRANSPARENT,
     emit,
 )
 
@@ -26,11 +26,17 @@ P_FOG = Palette(
     stops=[PaletteStop(False, TRANSPARENT), PaletteStop(True, Colour(0, 0, 0, 180))],
 )
 P_COST = Palette(
-    stops=[PaletteStop(0, Colour(50, 200, 50, 140)), PaletteStop(100, Colour(200, 50, 50, 140))],
+    stops=[
+        PaletteStop(0, Colour(50, 200, 50, 140)),
+        PaletteStop(100, Colour(200, 50, 50, 140)),
+    ],
     special={-1: TRANSPARENT},
 )
 P_DIST = Palette(
-    stops=[PaletteStop(0, Colour(50, 200, 50, 140)), PaletteStop(100, Colour(200, 50, 50, 140))],
+    stops=[
+        PaletteStop(0, Colour(50, 200, 50, 140)),
+        PaletteStop(50, Colour(200, 50, 50, 140)),
+    ],
     special={INF: TRANSPARENT},
 )
 
