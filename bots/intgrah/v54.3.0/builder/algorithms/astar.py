@@ -87,8 +87,9 @@ class MoveHeapAstar:
 
         path: list[int] = [si]
         node = si
+        cur_d = dist[si]
         while node != gi:
-            best_dist = INF
+            best_dist = cur_d
             best = node
             for ni in pnb[node]:
                 d = dist[ni]
@@ -99,6 +100,7 @@ class MoveHeapAstar:
                 return None
             path.append(best)
             node = best
+            cur_d = best_dist
 
         return [Position(i % w, i // w) for i in path]
 

@@ -26,20 +26,21 @@ def explore(self: Builder, ct: Controller) -> None:
         or self.get_cost(self.scout_target) == INF
     ):
         t = Position(-1, -1)
-        while (
-            t.x < 0
-            or t.y < 0
-            or t.x >= self.w
-            or t.y >= self.h
-            or self.get_cost(t) == INF
-        ):
+        for _ in range(200):
+            if (
+                0 <= t.x < self.w
+                and 0 <= t.y < self.h
+                and self.get_cost(t) is not INF
+            ):
+                break
             theta = self.rng.random() * 2 * math.pi
             t = Position(
                 self.my_pos.x + round(math.cos(theta) * self.scout_radius),
                 self.my_pos.y + round(math.sin(theta) * self.scout_radius),
             )
-            if self.scout_radius >= self.w / 2 or self.scout_radius >= self.h / 2:
-                self.scout_radius -= 1.0
+            self.scout_radius = max(1.0, self.scout_radius - 0.1)
+        else:
+            return
 
         self.scout_age = 0
         self.scout_target = t
