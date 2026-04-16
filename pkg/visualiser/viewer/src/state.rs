@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::constants;
 use crate::entity;
 use crate::proto;
 use crate::vis;
@@ -89,8 +90,8 @@ pub struct PlayerState {
 impl Default for PlayerState {
     fn default() -> Self {
         Self {
-            titanium: 500,
-            axionite: 0,
+            titanium: constants::STARTING_TITANIUM,
+            axionite: constants::STARTING_AXIONITE,
             ti_collected: 0,
             ax_collected: 0,
         }
@@ -105,6 +106,7 @@ pub struct TurnState {
     pub outputs: Vec<(i32, String)>,
     pub cpu_time_us: HashMap<i32, u32>,
     pub fire_events: Vec<((i32, i32), (i32, i32))>,
+    pub resource_moves: Vec<((i32, i32), (i32, i32), proto::ResourceType)>,
     pub deaths: Vec<(i32, i32)>,
     pub actions: Vec<(i32, Action)>,
     pub vis_data: HashMap<i32, vis::VisState>,
@@ -235,6 +237,7 @@ impl GameState {
             outputs: Vec::new(),
             cpu_time_us: HashMap::new(),
             fire_events: Vec::new(),
+            resource_moves: Vec::new(),
             deaths: Vec::new(),
             actions: Vec::new(),
             vis_data: HashMap::new(),
@@ -249,8 +252,8 @@ impl GameState {
                         id: core_pos.id,
                         team,
                         pos: (pos.x, pos.y),
-                        hp: 500,
-                        max_hp: 500,
+                        hp: constants::CORE_MAX_HP,
+                        max_hp: constants::CORE_MAX_HP,
                         kind: EntityKind::Core { action_cd: 0 },
                     },
                 );
@@ -265,6 +268,7 @@ impl GameState {
             current.outputs.clear();
             current.cpu_time_us.clear();
             current.fire_events.clear();
+            current.resource_moves.clear();
             current.deaths.clear();
             current.actions.clear();
             current.vis_data.clear();
@@ -482,6 +486,10 @@ fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &m
                     .find(|e| e.pos == from_pos && entity::is_resource_holder(&e.kind))
                     .and_then(|e| entity::stored_resource(&e.kind))
                     .unwrap_or(proto::ResourceType::ResourceNone);
+
+                if resource != proto::ResourceType::ResourceNone {
+                    state.resource_moves.push((from_pos, to_pos, resource));
+                }
 
                 if let Some(src) = state
                     .entities
