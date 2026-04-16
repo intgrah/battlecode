@@ -415,7 +415,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
         if not targets:
             targets = vulnerable_harvesters
 
-        adj_harvesters = [h for h in targets if dist_to_me(h) == 1]
+        adj_harvesters = [h for h in targets if dist_to_me(h) is 1]
 
         on_friendly_conveyor = is_allied_transport(self, ct, my_pos)
         if adj_harvesters and not on_friendly_conveyor:
@@ -486,7 +486,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
                         try_place(ct, EntityType.GUNNER, build_position, gdir)
 
                 if (
-                    n_sentinel == 0
+                    not n_sentinel
                     and self.get_env(target) == Environment.ORE_TITANIUM
                 ):
                     try_place(ct, EntityType.SENTINEL, build_position, direction)
@@ -572,7 +572,7 @@ def run_attack(self: Builder, ct: Controller) -> None:
         my_pos = self.my_pos
         dist_to_me = my_pos.distance_squared
 
-        if any(dist_to_me(h) == 1 for h in targets) and self.is_enemy_building(my_pos):
+        if any(dist_to_me(h) is 1 for h in targets) and self.is_enemy_building(my_pos):
             try_attack(ct)
 
     elif (

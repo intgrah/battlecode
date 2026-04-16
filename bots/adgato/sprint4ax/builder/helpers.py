@@ -39,8 +39,6 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
 
 def make_multi_move(self: Builder, ct: Controller, targets: list[Position]) -> bool:
     start = self.my_pos
-    if not targets or (len(targets) < 10 and start in targets):
-        return True
 
     next_step = find_next(self, ct, start, targets)
     if not next_step:

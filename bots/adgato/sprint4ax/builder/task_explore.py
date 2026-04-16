@@ -77,9 +77,9 @@ def initial_explore(self: Builder, ct: Controller, vertical: int = 0) -> None:
         while t.x < 0 or t.y < 0 or t.x >= m.w or t.y >= m.h or m.get_cost(t) == INF:
             up_down = self.rng.randint(0, 1)
             theta = self.rng.random() * math.pi / 2
-            if vertical == 0:
+            if not vertical:
                 theta = theta + up_down * math.pi + math.pi / 4
-            elif vertical == 1:
+            elif vertical is 1:
                 theta = theta + up_down * math.pi - math.pi / 4
             else:
                 theta = self.rng.random() * math.pi * 2

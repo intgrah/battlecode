@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import BuildingHarvester, BuildingRoad
-from cambc import Controller, Direction, Environment
+from cambc import Controller, Direction, Environment, Position
 
 from .helpers import DIR4, try_move_adj_to
 
@@ -40,19 +40,7 @@ def deny_enemy_ore(self: Builder, ct: Controller) -> bool:
             return True
     return False
 
-
-def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
-    # Always prefer conveyors adjacent to harvesters. Chain connection
-    # is handled by the separate _connect_close / _connect_far tasks
-    # via self.dangling_output, so we don't need to call
-    # route_to_core here.
-
-    candidates = [
-        pos
-        for pos in ct.get_nearby_tiles(8)
-        if pos in self.adjacent_to_harvester and self.get_env(pos) != Environment.WALL
-    ]
-    maybe_unpaved = sorted(candidates, key=self.my_pos.distance_squared)
+def pave(self: Builder, ct: Controller, maybe_unpaved: list[Position]) -> bool:
 
     my_team = self.my_team
     for pos in maybe_unpaved:
@@ -65,6 +53,12 @@ def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
             building = self.get_building(pos.add(d))
             if isinstance(building, BuildingHarvester):
                 if building.team == my_team:
+                    dir = d
+                    break
+        else:
+            ore_env = (Environment.ORE_AXIONITE, Environment.ORE_TITANIUM)
+            for d in DIR4:
+                if self.get_building(pos.add(d)) is None and self.get_env(pos.add(d)) in ore_env:
                     dir = d
                     break
 
@@ -84,5 +78,19 @@ def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
 
         if moved:
             return False
-
     return False
+
+def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
+    # Always prefer conveyors adjacent to harvesters. Chain connection
+    # is handled by the separate _connect_close / _connect_far tasks
+    # via self.dangling_output, so we don't need to call
+    # route_to_core here.
+
+    candidates = [
+        pos
+        for pos in ct.get_nearby_tiles(8)
+        if pos in self.adjacent_to_harvester and self.get_env(pos) != Environment.WALL
+    ]
+    maybe_unpaved = sorted(candidates, key=self.my_pos.distance_squared)
+
+    return pave(self, ct, maybe_unpaved)

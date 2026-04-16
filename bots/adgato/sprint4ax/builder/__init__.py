@@ -181,6 +181,7 @@ class Builder(Unit):
         self.my_id: int = ct.get_id()
         self.rnd: int = ct.get_current_round()
         self.rng = Random(self.my_id)
+        self.dump_path: list[Position] = None
         w, h = self.w, self.h
         n = w * h
 
@@ -203,7 +204,6 @@ class Builder(Unit):
         # Padded cost grids: border = INF, interior initialised to
         # the default cost for an unseen tile. Real tile (x, y) lives
         # at padded index (y + pad) * pw + (x + pad).
-        self.cost_grid: list[int] = [INF] * pn
         self.conveyor_cost_grid: list[int] = [INF] * pn
         self._init_pad_interior()
         # Per-bot adgato-style passability grid + BFS navigator for
@@ -260,6 +260,7 @@ class Builder(Unit):
         self.ore_target: Position | None = None
         self.pending_bridge: Position | None = None
         self.dangling_output: Position | None = None
+        self.dangling_flow: FlowValue = FlowValue()
         self.branch_start: Position | None = None
         self.income_window: list[int] = [0] * 16
         self.spawned: int = 0
@@ -317,12 +318,10 @@ class Builder(Unit):
         # be overwritten when tiles come into vision).
         # conveyor_cost_grid interior default: 5 (unseen penalty so
         # A* doesn't plan long fog detours through unmapped terrain).
-        cg = self.cost_grid
         ccg = self.conveyor_cost_grid
         for y in range(h):
             row_start = (y + pad) * pw + pad
             for x in range(w):
-                cg[row_start + x] = 1
                 ccg[row_start + x] = 5
 
     def _idx(self, pos: Position) -> int:
@@ -347,7 +346,7 @@ class Builder(Unit):
 
     def get_cost(self, pos: Position) -> int:
         if self.in_bounds(pos):
-            return self.cost_grid[self._pidx(pos)]
+            return self.pass_grid.get_passable(pos)
         return INF
 
     def get_flow(self, pos: Position) -> FlowValue:

@@ -54,10 +54,10 @@ def chebyshev(pos1: Position, pos2: Position) -> int:
 
 
 def reachable_path_end(
-    path: list[Position], current_pos: Position, max_range: int
+    self: Builder, path: list[Position], current_pos: Position, max_range: int
 ) -> Position:
     for pos in reversed(path):
-        if current_pos.distance_squared(pos) <= max_range**2:
+        if current_pos.distance_squared(pos) <= max_range**2 and self.is_passable(pos): # TODO: is_reachable
             return pos
     return current_pos
 
@@ -107,6 +107,6 @@ def can_afford(ct: Controller, etype: EntityType) -> bool:
 
 
 def closest(target: Position, positions: list[Position]) -> Position | None:
-    if len(positions) == 0:
+    if not positions:
         return None
     return min(positions, key=target.distance_squared)

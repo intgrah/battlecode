@@ -80,7 +80,7 @@ def lay_segment(
 
     next_pos = path[1]
     if not ct.is_in_vision(next_pos):
-        target = reachable_path_end(path, start_pos, 3)
+        target = reachable_path_end(self, path, start_pos, 3)
         if start_pos != target:
             return try_place(ct, EntityType.BRIDGE, start_pos, target)
         return False
@@ -104,7 +104,7 @@ def lay_segment(
         and self.get_env(path[1]) != Environment.WALL
     ):
         return try_place(ct, EntityType.CONVEYOR, start_pos, direction)
-    pending_bridge = reachable_path_end(path, start_pos, 3)
+    pending_bridge = reachable_path_end(self, path, start_pos, 3)
     if is_enemy_building(self, ct, pending_bridge):
         if clear_with_turret(self, ct, start_pos, pending_bridge):
             self.branch_start = start_pos
@@ -209,6 +209,7 @@ def route_to(
             return None
 
     path = conv_pathfind(self, ct, start, target)
+    self.dump_path = path
     if path:
         path_start_index = 0
         for i, pos in enumerate(path):

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from building import BuildingArmouredConveyor, BuildingConveyor
-from cambc import Controller
+from building import BuildingArmouredConveyor, BuildingConveyor, BuildingHarvester, BuildingFoundry
+from cambc import Controller, Environment
 from config import DEBUG_TIMING
-from util import DIR8
+from util import DIR8, DIR4
 
+from ..flow import FlowValue
 from ..role import Role
 from ..task_harvest import ore_available, pick_ore_target
 from ..task_repair import find_dangling, is_dangling
@@ -17,25 +18,22 @@ if TYPE_CHECKING:
 _OPENING_ROLES = [
     (Role.ECON, True, 0),
     (Role.ECON, False, 1),
-    (Role.DEFENSE, True, None),
-    (Role.OFFENSE, False, None),
-    (Role.OFFENSE, False, None),
+    (Role.ECON, False, 2),
 ]
 
 _INITIAL_WEIGHTS = {
-    True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
-    False: {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3},
+    True: {Role.DEFENSE: 3, Role.OFFENSE: 0, Role.ECON: 3},
+    False: {Role.DEFENSE: 3, Role.OFFENSE: 0, Role.ECON: 3},
 }
 
 _TRANSITION: dict[Role, dict[Role, int]] = {
-    Role.ECON: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
-    Role.DEFENSE: {Role.OFFENSE: 10, Role.DEFENSE: 80, Role.ECON: 10},
-    Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
+    Role.ECON: {Role.OFFENSE: 0, Role.DEFENSE: 50, Role.ECON: 50},
+    Role.DEFENSE: {Role.OFFENSE: 0, Role.DEFENSE: 80, Role.ECON: 20},
+    Role.OFFENSE: {Role.OFFENSE: 0, Role.DEFENSE: 50, Role.ECON: 50},
 }
 
 _REASSIGN_PERIOD = 150
-_REASSIGN_AFTER = 400
-
+_REASSIGN_AFTER = 200
 
 def _pick_initial_role(self: Builder, ct: Controller) -> Role:
     if self.rnd > 10:
@@ -97,7 +95,31 @@ def _update_dangling(self: Builder, ct: Controller) -> None:
         self, ct, self.dangling_output
     ):
         self.dangling_output = find_dangling(self, ct)
+    
+    # update dangling flow
+    if self.dangling_output:
+        ti = 0
+        ax = 0
+        rax = 0
+        for pos in self.conveyors_to_here[self._idx(self.dangling_output)]:
+            flow = self.get_flow(pos)
+            ti += flow.ti
+            ax += flow.ax
+            rax += flow.rax
 
+        pos = self.dangling_output
+        for d in DIR4:
+            adj = pos.add(d)
+            match self.get_building(adj):
+                case BuildingFoundry():
+                    flow = self.get_flow(adj)
+                    rax += flow.rax
+                case BuildingHarvester():
+                    ti_ore = self.get_env(adj) == Environment.ORE_TITANIUM
+                    ti += 1 if ti_ore else 0
+                    ax += 0 if ti_ore else 1
+
+        self.dangling_flow = FlowValue(ti, ax, rax)
 
 def _update_ore_target(self: Builder, ct: Controller) -> None:
     my_pos = self.my_pos

@@ -268,53 +268,37 @@ def update_map(self: Builder, ct: Controller) -> None:
         else:
             self.buildings[i] = None
 
+        # update conveyor cost grid
         terrain = self.env[i]
         bld = self.buildings[i]
         if terrain == Environment.WALL:
-            cost = INF
             conveyor_cost = INF
         elif bld is not None:
             match bld:
                 case BuildingRoad():
-                    cost = 1
                     conveyor_cost = 1
-                case BuildingConveyor(team=t) | BuildingArmouredConveyor(team=t):
-                    cost = 1
+                case (
+                    BuildingConveyor(team=t) 
+                    | BuildingArmouredConveyor(team=t) 
+                    | BuildingSplitter(team=t) 
+                    | BuildingBridge(team=t)
+                ):
                     if t == my_team:
                         conveyor_cost = 1
                     else:
-                        has_flow = ct.get_stored_resource(building_id) is not None
-                        conveyor_cost = 1 if has_flow else 10
-                case BuildingSplitter(team=t) | BuildingBridge(team=t):
-                    cost = 1
-                    if t == my_team:
-                        conveyor_cost = 1
-                    else:
-                        has_flow = ct.get_stored_resource(building_id) is not None
-                        conveyor_cost = 1 if has_flow else 10
+                        conveyor_cost = 1 if self.has_flow(pos) else 10
                 case BuildingCore(team=t) if t == self.my_team:
-                    cost = 1
                     conveyor_cost = 1
                 case _:
-                    cost = INF
                     conveyor_cost = INF
-        elif terrain in (
-            Environment.EMPTY,
-            Environment.ORE_TITANIUM,
-            Environment.ORE_AXIONITE,
-        ):
-            cost = ROAD_COST
-            # Ore tiles cost 10 (vs 1 for empty): strongly prefer
-            # non-ore routes but still permit chains to cross ore
-            # when needed. Was 50 which over-penalized and blew
-            # up Dial's bucket budget (max edge = 50 + bridge 7 +
-            # h_diff 3 = 60). With 10 we cap max edge at ~20.
-            conveyor_cost = 1 if terrain == Environment.EMPTY else 10
-        else:
-            cost = 1
+        elif terrain == Environment.EMPTY:
             conveyor_cost = 1
-        self.cost_grid[pi] = cost
+        else:
+            conveyor_cost = 10
+
+        pi = (pos.y + pad) * pw + (pos.x + pad)
         self.conveyor_cost_grid[pi] = conveyor_cost
+        assert self.conveyor_cost_grid[pi] > 0
 
     # update pass grid
     for pos in nearby_positions:
@@ -429,16 +413,6 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
                     n = pos.add(dir)
                     if 0 <= n.x < self.w and 0 <= n.y < self.h:
                         self.adjacent_to_harvester.add(n)
-        if pos in self.adjacent_to_enemy_launcher:
-            self.cost_grid[pi] += 20
-        if pos in self.enemy_turret_ray_tiles:
-            # Soft penalty: bots route around enemy gunner/sentinel
-            # firing lines when the detour is cheap. Not hard
-            # impassable because sometimes we have to walk through
-            # one (e.g. healing a tile on the other side, or closing
-            # in on the turret itself). +15 makes ~5 tiles of detour
-            # a break-even.
-            self.cost_grid[pi] += 15
 
         # match bld:
         #    case (
@@ -482,14 +456,7 @@ def _mirror(self: Builder, pos: Position) -> Position:
 
 
 def _set_enemy_core(self: Builder) -> None:
-    core = _mirror(self, self.my_core)
-    pad = self.pad
-    pw = self.pw
-    for dx in range(-1, 2):
-        for dy in range(-1, 2):
-            cx, cy = core.x + dx, core.y + dy
-            if 0 <= cx < self.w and 0 <= cy < self.h:
-                self.cost_grid[(cy + pad) * pw + (cx + pad)] = INF
+    pass
 
 
 def _apply_symmetry(
@@ -534,14 +501,12 @@ def _drain_reflect_queue(self: Builder) -> None:
         terrain = self.env[i]
         pi = ((i // w) + pad) * pw + ((i % w) + pad)
         if terrain == Environment.WALL:
-            self.cost_grid[pi] = INF
             self.conveyor_cost_grid[pi] = INF
         elif terrain in (
             Environment.EMPTY,
             Environment.ORE_TITANIUM,
             Environment.ORE_AXIONITE,
         ):
-            self.cost_grid[pi] = ROAD_COST
             self.conveyor_cost_grid[pi] = 1 if terrain == Environment.EMPTY else 10
 
 
@@ -587,5 +552,5 @@ def _eliminate_symmetries(
 
     self.symmetry_candidates -= invalid
 
-    if self.symmetry is None and len(self.symmetry_candidates) == 1:
+    if self.symmetry is None and len(self.symmetry_candidates) is 1:
         self.symmetry = next(iter(self.symmetry_candidates))

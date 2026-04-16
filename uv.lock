@@ -20,7 +20,6 @@ members = [
     "bot-adgato-teleportation",
     "bot-adgato-trollbot",
     "bot-adgato-trollbot-expand",
-    "bot-astar-test",
     "bot-beacon-recent",
     "bot-beacon-trollbot",
     "bot-beacon-v1",
@@ -37,13 +36,10 @@ members = [
     "bot-nahhh-ore-capper",
     "bot-pd",
     "bot-rug",
-    "bot-saboteur",
     "bot-se",
     "bot-sprint4",
     "bot-sprint4ax",
     "bot-starter",
-    "bot-test-core-spawn",
-    "bot-test-rotate",
     "bot-v44",
     "bot-v45",
     "bot-v46",
@@ -277,17 +273,6 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-astar-test"
-version = "0.0.0"
-source = { virtual = "bots/test/astar_test" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
-
-[[package]]
 name = "bot-beacon-recent"
 version = "0.0.0"
 source = { virtual = "bots/beacon/recent" }
@@ -464,17 +449,6 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-saboteur"
-version = "0.0.0"
-source = { virtual = "bots/test/saboteur" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
-
-[[package]]
 name = "bot-se"
 version = "0.0.0"
 source = { virtual = "bots/misc/se" }
@@ -519,28 +493,6 @@ requires-dist = [
 name = "bot-starter"
 version = "0.0.0"
 source = { virtual = "bots/misc/starter" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
-
-[[package]]
-name = "bot-test-core-spawn"
-version = "0.0.0"
-source = { virtual = "bots/test/core_spawn_test" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
-
-[[package]]
-name = "bot-test-rotate"
-version = "0.0.0"
-source = { virtual = "bots/test/rotate_test" }
 dependencies = [
     { name = "cambc" },
 ]

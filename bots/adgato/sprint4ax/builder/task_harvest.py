@@ -12,6 +12,7 @@ from building import (
 from cambc import Controller, EntityType, Environment, Position
 from util import DIR4, INF, can_afford, get_direction_object
 
+from .extra import pave
 from .algorithms.pathfind import conv_pathfind
 from .helpers import make_move, try_move_with_road
 
@@ -64,10 +65,10 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
     best_target = None
     min_dist = INF
 
-    for pos in ct.get_nearby_tiles():
+    for pos in self.nearby_positions:
         terrain = self.get_env(pos)
 
-        if terrain == Environment.ORE_TITANIUM:
+        if terrain == Environment.ORE_TITANIUM or terrain == Environment.ORE_AXIONITE:
             match self.get_building(pos):
                 case BuildingHarvester():
                     continue
@@ -87,6 +88,14 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
 
 def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
     my_pos = self.my_pos
+
+    maybe_unpaved = [
+        pos
+        for d in DIR4
+        if self.in_bounds(pos := target_pos.add(d)) and ct.is_in_vision(pos) and self.get_env(pos) != Environment.WALL
+    ]
+    if pave(self, ct, maybe_unpaved):
+        return True
 
     # Contest step: if an enemy road/conveyor/splitter/bridge is
     # sitting adjacent to this ore, clear it before building the

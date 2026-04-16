@@ -384,12 +384,5 @@ def conv_pathfind(
 ) -> list[Position] | None:
     return conv_search.search(state, ct, start, target)
 
-
-def conv_pathfind_blocked(
-    state: Builder, ct: Controller, start: Position, goal: Position
-) -> list[Position] | None:
-    return conv_search.search_blocked(state, ct, start, goal)
-
-
 def conv_unreachable(target: Position) -> bool:
     return conv_search.no_path and conv_search._prev_target == target
