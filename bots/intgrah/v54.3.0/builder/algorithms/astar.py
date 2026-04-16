@@ -31,6 +31,9 @@ class MoveHeapAstar:
     ) -> list[Position] | None:
         b = self.builder
         w = b.w
+        cost_grid = b.cost_grid
+        bfs_dist = b.bfs_dist
+        pnb = b.pnb
 
         si = start.y * w + start.x
         gi = target.y * w + target.x
@@ -48,12 +51,12 @@ class MoveHeapAstar:
             gi = target.y * w + target.x
 
         self.target = target
-
-        cost_grid = b.cost_grid
-        bfs_dist = b.bfs_dist
-        pnb = b.pnb
         dist = self.dist
         q = self.q
+
+        if bfs_dist[gi] is INF:
+            self.finished = True
+            return None
 
         if dist[gi] is INF:
             dist[gi] = 0
@@ -72,11 +75,12 @@ class MoveHeapAstar:
             for ni in pnb[node]:
                 if dist[ni] is not INF:
                     continue
-                new_dist = cur_dist + cost_grid[ni]
+                mc = cost_grid[ni]
+                if mc >= INF:
+                    continue
+                new_dist = cur_dist + mc
                 dist[ni] = new_dist
-                bd = bfs_dist[ni]
-                f = new_dist + bd if bd < INF else new_dist + bfs_dist[si]
-                heapq.heappush(q, (f, ni))
+                heapq.heappush(q, (new_dist + bfs_dist[ni], ni))
         else:
             self.finished = True
             return None
