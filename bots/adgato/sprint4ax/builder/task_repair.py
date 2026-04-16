@@ -15,7 +15,7 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
     if not self.in_bounds(pos):
         return False
 
-    i = pos.y * self.w + pos.x
+    i = self._idx(pos)
     b = self.buildings[i]
     if b is None:
         if self.env[i] == Environment.WALL:
@@ -28,7 +28,7 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 adj = pos.add(d)
                 if self.in_bounds(adj):
-                    j = adj.y * self.w + adj.x
+                    j = self._idx(adj)
                     c = self.buildings[j]
                     if c is None:
                         if self.env[j] != Environment.WALL:
