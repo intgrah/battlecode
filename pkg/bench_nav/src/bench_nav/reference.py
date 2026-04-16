@@ -201,6 +201,6 @@ def expanded_parent_to_dist(
     dist: list[int] = [INF] * n
     dist[start] = 0
     for i in range(n):
-        if full_dist[i] < INF:
+        if full_dist[i] is not INF:
             dist[i] = full_dist[i]
     return dist

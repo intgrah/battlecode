@@ -34,8 +34,8 @@ _REASSIGN_AFTER = 400
 
 
 def _pick_initial_role(self: Builder, ct: Controller) -> Role:
-    if ct.get_current_round() > 10:
-        early = ct.get_current_round() < 200
+    if self.round > 10:
+        early = self.round < 200
         w = _INITIAL_WEIGHTS[early]
         roles, weights = zip(*w.items(), strict=False)
         return self.rng.choices(roles, weights=weights)[0]
@@ -53,7 +53,7 @@ def update_role(self: Builder, ct: Controller) -> None:
 
     if (
         self.role_age > _REASSIGN_PERIOD
-        and ct.get_current_round() > _REASSIGN_AFTER
+        and self.round > _REASSIGN_AFTER
         and not self.permanent_role
     ):
         self.role_age = 0

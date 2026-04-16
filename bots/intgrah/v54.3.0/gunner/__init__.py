@@ -36,18 +36,16 @@ class Gunner(Unit):
         target = ct.get_gunner_target()
         if target is not None and ct.can_fire(target):
             bid = ct.get_tile_building_id(target)
-            uid = ct.get_tile_builder_bot_id(target)
             is_enemy_building = bid is not None and ct.get_team(bid) != self.my_team
-            is_enemy_bot = uid is not None and ct.get_team(uid) != self.my_team
+            is_enemy_bot = target in self.enemy_bots
             is_friendly = (bid is not None and ct.get_team(bid) == self.my_team) or (
-                uid is not None and ct.get_team(uid) == self.my_team
+                target in self.friendly_bots
             )
             # Never shoot enemy harvesters with gunners: 30 HP = 15
             # shots to kill, not cost-effective, and the harvester
             # might be upstream of a chain we're parasitizing — if
             # we've tapped their belt for our own feed, killing the
-            # source takes us with it. Let builder bots deal with
-            # harvesters.
+            # source takes us with it.
             is_enemy_harvester = (
                 is_enemy_building and ct.get_entity_type(bid) == EntityType.HARVESTER
             )
@@ -95,7 +93,7 @@ class Gunner(Unit):
             bid = ct.get_tile_building_id(cur)
             if bid is not None and ct.get_entity_type(bid) != EntityType.MARKER:
                 return (cur, bid, None)
-            uid = ct.get_tile_builder_bot_id(cur)
+            uid = self.all_bots.get(cur)
             if uid is not None:
                 return (cur, None, uid)
         return None
@@ -123,9 +121,10 @@ class Gunner(Unit):
                         return False
                 else:
                     return True
-            uid = ct.get_tile_builder_bot_id(cur)
-            if uid is not None:
-                return ct.get_team(uid) != self.my_team
+            if cur in self.enemy_bots:
+                return True
+            if cur in self.friendly_bots or cur == self.my_pos:
+                return False
         return True
 
     def try_rotate_to_enemy(self, ct: Controller) -> bool:
@@ -139,8 +138,8 @@ class Gunner(Unit):
         best_score = -1
         best_dist_sq = 999
         best_dir: Direction | None = None
-        for direction in DIR8:
-            blocker = self.walk_ray(ct, direction)
+        for d in DIR8:
+            blocker = self.walk_ray(ct, d)
             if blocker is None:
                 continue
             bpos, bid, uid = blocker
@@ -163,7 +162,7 @@ class Gunner(Unit):
             if (score, -dist_sq) > (best_score, -best_dist_sq):
                 best_score = score
                 best_dist_sq = dist_sq
-                best_dir = direction
+                best_dir = d
         if best_dir is not None and ct.can_rotate(best_dir):
             ct.rotate(best_dir)
             return True

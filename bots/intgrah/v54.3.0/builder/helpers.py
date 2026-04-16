@@ -11,9 +11,8 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
-from util import DIR4, DIR8, INF, Symmetry, can_afford, closest, try_move
+from util import BASE_COST, DIR4, DIR8, INF, Symmetry, closest
 
-from builder.algorithms.astar import pathfind_blocked
 from builder.algorithms.bugnav import bugnav
 
 if TYPE_CHECKING:
@@ -24,7 +23,7 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     if self.my_pos == target:
         return True
 
-    path = pathfind_blocked(self, ct, self.my_pos, target)
+    path = self.move_search.search_blocked(ct, self.my_pos, target)
     if path is not None and len(path) > 1:
         next_step = path[1]
         try_move_with_road(self, ct, next_step)
@@ -36,10 +35,25 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     return False
 
 
+def try_move_dir(ct: Controller, d: Direction) -> bool:
+    if ct.can_move(d):
+        ct.move(d)
+        return True
+    return False
+
+
+def try_move_to(self: Builder, ct: Controller, target_pos: Position) -> bool:
+    d = self.my_pos.direction_to(target_pos)
+    if ct.can_move(d):
+        ct.move(d)
+        return True
+    return False
+
+
 def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> bool:
     if self.get_cost(target_pos) > 1 and ct.can_build_road(target_pos):
         ct.build_road(target_pos)
-    return try_move(ct, target_pos)
+    return try_move_to(self, ct, target_pos)
 
 
 def try_attack(ct: Controller, pos: Position) -> bool:
@@ -49,7 +63,34 @@ def try_attack(ct: Controller, pos: Position) -> bool:
     return False
 
 
+_IS_UNIT = frozenset(
+    {EntityType.HARVESTER, EntityType.SENTINEL, EntityType.GUNNER, EntityType.LAUNCHER},
+)
+_EARLY_GAME_ROUND = 35
+_HARVESTER_RESERVE_EARLY = 10
+_HARVESTER_RESERVE_LATE = 20
+_LAUNCHER_RESERVE = 15
+
+
+def can_afford(self: Builder, etype: EntityType) -> bool:
+    ti_cost, _ax_cost = BASE_COST[etype]
+    if etype in _IS_UNIT:
+        if etype == EntityType.HARVESTER:
+            reserve = (
+                _HARVESTER_RESERVE_EARLY
+                if self.round < _EARLY_GAME_ROUND
+                else _HARVESTER_RESERVE_LATE
+            )
+        elif etype == EntityType.LAUNCHER:
+            reserve = _LAUNCHER_RESERVE
+        else:
+            reserve = 0
+        return self.ti >= (ti_cost + reserve) * (1 + self.scale)
+    return self.ti >= ti_cost * self.scale
+
+
 def try_place(
+    self: Builder,
     ct: Controller,
     etype: EntityType,
     pos: Position,
@@ -57,7 +98,7 @@ def try_place(
     *,
     destroy: bool = True,
 ) -> bool:
-    if not can_afford(ct, etype):
+    if not can_afford(self, etype):
         return False
     if destroy and ct.can_destroy(pos):
         ct.destroy(pos)
@@ -163,21 +204,17 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
     return path
 
 
-def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
+def ore_available(self: Builder, pos: Position) -> bool:
     b = self.get_building(pos)
     if b is not None and not isinstance(b, BuildingRoad):
         return False
-    if ct.is_in_vision(pos):
-        worker_id = ct.get_tile_builder_bot_id(pos)
-        if worker_id is not None and worker_id != self.my_id:
-            return False
-    return True
+    return not (pos in self.all_bots and self.all_bots[pos] != self.my_id)
 
 
-def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
+def pick_ore_target(self: Builder) -> Position | None:
     best_target = None
     min_dist = INF
-    for pos in ct.get_nearby_tiles():
+    for pos in self.nearby_tiles:
         terrain = self.get_env(pos)
         if terrain == Environment.ORE_TITANIUM:
             match self.get_building(pos):
@@ -190,7 +227,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
             d = self.bfs_dist[pos.y * self.w + pos.x]
             if d >= INF:
                 continue
-            if ore_available(self, ct, pos) and d < min_dist:
+            if ore_available(self, pos) and d < min_dist:
                 min_dist = d
                 best_target = pos
     return best_target
@@ -211,31 +248,23 @@ def is_dangling(self: Builder, pos: Position) -> bool:
     return pos in self.adjacent_to_unconnected_harvester
 
 
-def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_valid_loose_end_target(self: Builder, pos: Position) -> bool:
     if not is_dangling(self, pos):
         return False
-    if ct.is_in_vision(pos):
-        bid = ct.get_tile_builder_bot_id(pos)
-        friendly = ct.get_team(bid) == self.my_team
-        if bid is not None and bid != self.my_id and friendly:
-            return False
-    leading = self.get_conveyors_to_here(pos)
-    for lpos in leading:
-        if not ct.is_in_vision(lpos):
-            continue
-        lbid = ct.get_tile_builder_bot_id(lpos)
-        friendly = ct.get_team(lbid) == self.my_team
-        if lbid is not None and lbid != self.my_id and friendly:
+    if pos in self.friendly_bots:
+        return False
+    for lpos in self.get_conveyors_to_here(pos):
+        if lpos in self.friendly_bots:
             return False
     return True
 
 
-def find_dangling(self: Builder, ct: Controller) -> Position | None:
+def find_dangling(self: Builder) -> Position | None:
     w = self.w
     candidates = [
         pos
-        for pos in ct.get_nearby_tiles()
-        if is_valid_loose_end_target(self, ct, pos)
+        for pos in self.nearby_tiles
+        if is_valid_loose_end_target(self, pos)
         and self.bfs_dist[pos.y * w + pos.x] < INF
     ]
     if not candidates:

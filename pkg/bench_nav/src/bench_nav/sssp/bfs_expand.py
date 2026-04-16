@@ -17,31 +17,27 @@ def bfs_expand(n: int, cost: list[int], pnb: list[list[int]], start: int) -> lis
             for nb in pnb[node]:
                 c = cost[nb]
                 if c == 1:
-                    if dist[nb] != INF:
-                        continue
-                    dist[nb] = d1
-                    append(nb)
+                    if dist[nb] is INF:
+                        dist[nb] = d1
+                        append(nb)
                 else:
                     vi = nb + n2
-                    if dist[vi] != INF:
-                        continue
-                    dist[vi] = d1
-                    append(vi)
+                    if dist[vi] is INF:
+                        dist[vi] = d1
+                        append(vi)
         elif node >= n2:
             nb = node - n
-            if dist[nb] != INF:
-                continue
-            dist[nb] = d1
-            append(nb)
+            if dist[nb] is INF:
+                dist[nb] = d1
+                append(nb)
         else:
             nb = node - n
-            if dist[nb] != INF:
-                continue
-            dist[nb] = d1
-            append(nb)
-    result: list[int] = [INF] * n
+            if dist[nb] is INF:
+                dist[nb] = d1
+                append(nb)
+    result = [INF] * n
     result[start] = 0
     for i in range(n):
-        if dist[i] < INF:
+        if dist[i] is not INF:
             result[i] = dist[i]
     return result

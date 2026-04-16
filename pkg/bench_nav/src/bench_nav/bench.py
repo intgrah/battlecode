@@ -30,6 +30,10 @@ from bench_nav.reference import (
     reference_dist,
     validate_path,
 )
+from bench_nav.spsp.astar_dial_landmark import (
+    astar_dial_landmark,
+    astar_dial_landmark_cheb,
+)
 
 if TYPE_CHECKING:
     import argparse
@@ -73,6 +77,7 @@ def _build_spsp_algos(
     pnb3: list[list[int]],
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
+    sources: set[int],
     selected: set[str],
 ) -> list[tuple[str, SpspFn]]:
     algos: list[tuple[str, SpspFn]] = []
@@ -135,15 +140,70 @@ def _build_spsp_algos(
         hpa_graph = spsp.precompute_hpa(w, h, cost)
         add("hpastar", lambda start, goal: spsp.hpastar(w, hpa_graph, start, goal))
 
-    if "astar-dial-bfs" in selected:
+    if "astar-dial-precomp-cheb" in selected:
+        cheb_cache: dict[int, list[int]] = {}
+        for si in sources:
+            sx, sy = si % w, si // w
+            cheb_cache[si] = [max(abs(i % w - sx), abs(i // w - sy)) for i in range(n)]
+        add(
+            "astar-dial-precomp-cheb",
+            lambda start, goal: spsp.astar_dial_precomp(
+                n, cost, pnb, cheb_cache[start], start, goal
+            ),
+        )
+
+    if "astar-dial-precomp-bfs" in selected:
         bfs_h_cache: dict[int, list[int]] = {}
+        for si in sources:
+            bfs_h_cache[si] = bfs_dist(n, pnb, si)
+        add(
+            "astar-dial-precomp-bfs",
+            lambda start, goal: spsp.astar_dial_precomp(
+                n, cost, pnb, bfs_h_cache[start], start, goal
+            ),
+        )
 
-        def _astar_dial_bfs(start: int, goal: int) -> Path_:
-            if start not in bfs_h_cache:
-                bfs_h_cache[start] = bfs_dist(n, pnb, start)
-            return spsp.astar_dial_bfs(n, cost, pnb, bfs_h_cache[start], start, goal)
+    landmark_ks = [
+        k
+        for k in (2, 4, 8)
+        if f"landmark-{k}" in selected or f"landmark-{k}-cheb" in selected
+    ]
+    if landmark_ks:
+        passable = [i for i in range(n) if cost[i] < INF]
+        max_k = max(landmark_ks)
+        landmarks: list[int] = []
+        landmark_dists: list[list[int]] = []
+        # Farthest-point selection
+        if passable:
+            landmarks.append(passable[0])
+            landmark_dists.append(bfs_dist(n, pnb, passable[0]))
+            for _ in range(max_k - 1):
+                best = -1
+                best_min_d = -1
+                for tile in passable:
+                    min_d = min(landmark_dists[j][tile] for j in range(len(landmarks)))
+                    if min_d > best_min_d:
+                        best_min_d = min_d
+                        best = tile
+                landmarks.append(best)
+                landmark_dists.append(bfs_dist(n, pnb, best))
 
-        add("astar-dial-bfs", _astar_dial_bfs)
+        for k in landmark_ks:
+            ld = landmark_dists[:k]
+            if f"landmark-{k}" in selected:
+                add(
+                    f"landmark-{k}",
+                    lambda start, goal, _ld=ld: astar_dial_landmark(
+                        n, cost, pnb, _ld, start, goal
+                    ),
+                )
+            if f"landmark-{k}-cheb" in selected:
+                add(
+                    f"landmark-{k}-cheb",
+                    lambda start, goal, _ld=ld: astar_dial_landmark_cheb(
+                        w, n, cost, pnb, _ld, start, goal
+                    ),
+                )
 
     add(
         "biastar-dial-cheb",
@@ -223,7 +283,14 @@ ALL_SPSP_NAMES: list[str] = [
     "dijkstra-dial",
     "dijkstra-dial-dual",
     "hpastar",
-    "astar-dial-bfs",
+    "astar-dial-precomp-cheb",
+    "astar-dial-precomp-bfs",
+    "landmark-2",
+    "landmark-4",
+    "landmark-8",
+    "landmark-2-cheb",
+    "landmark-4-cheb",
+    "landmark-8-cheb",
     "biastar-dial-cheb",
     "biastar-dial-cheb-ft",
     "astar-cheb+bw-dijkstra",
@@ -311,8 +378,19 @@ def bench_spsp(args: argparse.Namespace) -> None:
                         n, cost, pnb, start, goal, gt_cache[start]
                     )
 
+            unique_sources = {start for start, _ in pairs}
             algos = _build_spsp_algos(
-                w, h, n, cost, pnb, pnb1, pnb3, pnb_push, pnb_set, selected
+                w,
+                h,
+                n,
+                cost,
+                pnb,
+                pnb1,
+                pnb3,
+                pnb_push,
+                pnb_set,
+                unique_sources,
+                selected,
             )
 
             for algo_name, algo_fn in algos:

@@ -44,9 +44,9 @@ class Sentinel(Unit):
 
         for tile in ct.get_attackable_tiles():
             bid = ct.get_tile_building_id(tile)
-            uid = ct.get_tile_builder_bot_id(tile)
+            uid = self.all_bots.get(tile)
 
-            if uid is not None and ct.get_team(uid) != self.my_team:
+            if tile in self.enemy_bots:
                 score = _PRIORITY[EntityType.BUILDER_BOT]
                 if ct.get_hp(uid) <= GameConstants.SENTINEL_DAMAGE:
                     score += 1
@@ -55,7 +55,7 @@ class Sentinel(Unit):
                     best_target = tile
                 continue
 
-            if uid is not None and ct.get_team(uid) == self.my_team:
+            if tile in self.friendly_bots:
                 continue
 
             if bid is None:

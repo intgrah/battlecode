@@ -57,7 +57,6 @@ def _is_precious_friendly(b: Building | None, team: Team) -> bool:
 
 def gunner_facing(
     self: Builder,
-    ct: Controller,
     position: Position,
 ) -> Direction | None:
     if position not in self.adjacent_to_harvester:
@@ -69,17 +68,20 @@ def gunner_facing(
         return None
     if _is_turret(b):
         return None
-    if not self.in_bounds(position) or not ct.is_in_vision(position):
-        return None
-    builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != self.my_id:
+    if position in self.all_bots and self.all_bots[position] != self.my_id:
         return None
     for d in DIR8:
-        match self.get_building(position.add(d)):
+        n = position.add(d)
+        if not self.in_bounds(n):
+            continue
+        match self.get_building(n):
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if t != self.my_team:
                 for harvester_direction in DIR4:
                     if harvester_direction != d:
-                        match self.get_building(position.add(harvester_direction)):
+                        hn = position.add(harvester_direction)
+                        if not self.in_bounds(hn):
+                            continue
+                        match self.get_building(hn):
                             case BuildingHarvester():
                                 return d
     return None
@@ -100,18 +102,19 @@ def sentinel_facing(
         or _is_turret_or_transport(b)
         or _is_precious_friendly(b, self.my_team)
         or not self.in_bounds(position)
-        or not ct.is_in_vision(position)
     ):
         return None
-    builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != self.my_id:
+    if position in self.all_bots and self.all_bots[position] != self.my_id:
         return None
 
     d = position.direction_to(self.nearest_enemy_turret)
     found_harvester = False
     for harvester_direction in DIR4:
         if harvester_direction != d:
-            match self.get_building(position.add(harvester_direction)):
+            hn = position.add(harvester_direction)
+            if not self.in_bounds(hn):
+                continue
+            match self.get_building(hn):
                 case BuildingHarvester():
                     found_harvester = True
     if not found_harvester:
@@ -124,26 +127,24 @@ def sentinel_facing(
 
 
 def place_sentinel_nearby(self: Builder, ct: Controller) -> bool:
-    for d in DIR8:
-        test_position = self.my_pos.add(d)
+    for test_position in self.neighbours_8:
         result = sentinel_facing(self, ct, test_position)
         if result is not None:
-            return try_place(ct, EntityType.SENTINEL, test_position, result)
+            return try_place(self, ct, EntityType.SENTINEL, test_position, result)
     result = sentinel_facing(self, ct, self.my_pos)
     if result and move_random(self, ct):
-        try_place(ct, EntityType.SENTINEL, self.my_pos, result)
+        try_place(self, ct, EntityType.SENTINEL, self.my_pos, result)
         return True
     return False
 
 
 def place_gunner_nearby(self: Builder, ct: Controller) -> bool:
-    for d in DIR8:
-        test_position = self.my_pos.add(d)
-        result = gunner_facing(self, ct, test_position)
+    for test_position in self.neighbours_8:
+        result = gunner_facing(self, test_position)
         if result is not None:
-            return try_place(ct, EntityType.GUNNER, test_position, result)
-    result = gunner_facing(self, ct, self.my_pos)
+            return try_place(self, ct, EntityType.GUNNER, test_position, result)
+    result = gunner_facing(self, self.my_pos)
     if result and move_random(self, ct):
-        try_place(ct, EntityType.GUNNER, self.my_pos, result)
+        try_place(self, ct, EntityType.GUNNER, self.my_pos, result)
         return True
     return place_sentinel_nearby(self, ct)
