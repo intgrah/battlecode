@@ -444,6 +444,3 @@ Every entity you build increases the cost multiplier. Scale starts at 1.0x (100%
 $$
 \text{cost} = \lfloor \text{scale} \times \text{base cost} \rfloor
 $$
-
-
-Built with [Mintlify](https://mintlify.com).

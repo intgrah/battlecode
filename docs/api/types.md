@@ -8,7 +8,7 @@
 
 All types are imported from the `cambc` module:
 
-```python  theme={"dark"}
+```python theme={"dark"}
 from cambc import *
 ```
 
@@ -16,7 +16,7 @@ This gives you: `Team`, `EntityType`, `ResourceType`, `Environment`, `Direction`
 
 ## Team
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class Team(Enum):
     A = "a"
     B = "b"
@@ -24,7 +24,7 @@ class Team(Enum):
 
 ## EntityType
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class EntityType(Enum):
     BUILDER_BOT = "builder_bot"
     CORE = "core"
@@ -45,7 +45,7 @@ class EntityType(Enum):
 
 ## ResourceType
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class ResourceType(Enum):
     TITANIUM = "titanium"
     RAW_AXIONITE = "raw_axionite"
@@ -54,7 +54,7 @@ class ResourceType(Enum):
 
 ## Environment
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class Environment(Enum):
     EMPTY = "empty"
     WALL = "wall"
@@ -64,7 +64,7 @@ class Environment(Enum):
 
 ## Direction
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class Direction(Enum):
     NORTH = "north"
     NORTHEAST = "northeast"
@@ -99,7 +99,7 @@ class Direction(Enum):
 
 A named tuple with `x` and `y` integer fields.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class Position(NamedTuple):
     x: int
     y: int
@@ -121,7 +121,7 @@ class Position(NamedTuple):
 
 ### Usage
 
-```python  theme={"dark"}
+```python theme={"dark"}
 pos = Position(5, 10)
 new_pos = pos.add(Direction.NORTH)      # Position(5, 9)
 dist = pos.distance_squared(new_pos)    # 1
@@ -130,12 +130,9 @@ dir = pos.direction_to(Position(8, 7))  # Direction.NORTHEAST
 
 ## GameError
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class GameError(Exception):
     pass
 ```
 
 Raised when a player issues an invalid action (e.g., building on an occupied tile, moving with cooldown > 0).
-
-
-Built with [Mintlify](https://mintlify.com).

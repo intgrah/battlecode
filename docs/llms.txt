@@ -26,6 +26,3 @@
 
 - [Platform](https://game.battlecode.cam)
 - [Discord](https://discord.gg/xHCygPeAq8)
-
-
-Built with [Mintlify](https://mintlify.com).

@@ -27,7 +27,7 @@ The core can **spawn one builder bot per round** on any of the 9 tiles it occupi
   Each team can have at most **50 living units total**, including the core. That means you can have at most **49 additional living units**. Use `c.get_unit_count()` together with `GameConstants.MAX_TEAM_UNITS` if you want the exact numbers. `c.can_spawn()` and any unit-producing `c.can_build_*()` method already account for the cap.
 </Info>
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Spawn a builder on an empty core tile
 pos = c.get_position()  # centre of the 3x3 core
 for dx in range(-1, 2):
@@ -57,6 +57,3 @@ $$
 
 Converted axionite is removed from the Ax collected stat and added to the Ti
 collected stat.
-
-
-Built with [Mintlify](https://mintlify.com).

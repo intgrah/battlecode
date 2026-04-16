@@ -51,7 +51,7 @@ Each team has a single Elo rating that moves up or down after each match.
 
 You can challenge any team to an unrated match that doesn't affect ratings:
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match unrated <opponent_team_id>
 cambc match unrated <opponent_team_id> --map arena --map galaxy   # specific maps
 ```
@@ -62,7 +62,7 @@ Unrated matches use the same infrastructure and time limits as ladder matches bu
 
 Test runs let you upload two local bots and run them against each other on the same hardware as ladder matches:
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match test my_bot opponent
 ```
 
@@ -71,6 +71,3 @@ This is the best way to verify your bot works within the 2ms CPU time limit befo
 <Warning>
   Rate limits: max 10 test/unrated matches per 10 minutes.
 </Warning>
-
-
-Built with [Mintlify](https://mintlify.com).

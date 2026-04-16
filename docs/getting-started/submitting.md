@@ -10,7 +10,7 @@
 
 Before submitting, authenticate the CLI with your platform account:
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc login
 ```
 
@@ -18,7 +18,7 @@ This opens a browser window to complete the OAuth flow. Your session persists un
 
 ## Via CLI
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc submit ./my_bot/
 ```
 
@@ -60,6 +60,3 @@ The [ladder](https://game.battlecode.cam/ladder) ranks all teams by Elo rating. 
 <Tip>
   Use `cambc match test` to test your bot with full time limits on the same hardware as the ladder before submitting. Use `cambc match unrated` to challenge specific teams without affecting your rating.
 </Tip>
-
-
-Built with [Mintlify](https://mintlify.com).
