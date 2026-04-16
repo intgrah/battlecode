@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
@@ -8,57 +12,58 @@ from cambc import Controller, Direction, EntityType, Position
 from util import DIR4, DIR8, Symmetry, can_afford, try_move
 
 from .algorithms.fallback_nav import fallback_nav
-from .state import State
+
+if TYPE_CHECKING:
+    from builder import Builder
 
 
 def find_next(
-    state: State, ct: Controller, start: Position, targets: list[Position]
+    self: Builder, ct: Controller, start: Position, targets: list[Position]
 ) -> Position | None:
-    return state.nav.search(ct, start, targets)
+    return self.nav.search(ct, start, targets)
 
 
-def make_move(state: State, ct: Controller, target: Position) -> bool:
-    start = ct.get_position()
+def make_move(self: Builder, ct: Controller, target: Position) -> bool:
+    start = self.my_pos
     if start == target:
         return True
 
-    next_step = find_next(state, ct, start, [target])
+    next_step = find_next(self, ct, start, [target])
     if not next_step:
-        next_step = fallback_nav(state, ct, target)
+        next_step = fallback_nav(self, ct, target)
     if next_step:
-        try_move_with_road(ct, next_step)
+        try_move_with_road(self, ct, next_step)
         return True
     return False
 
 
-def make_multi_move(state: State, ct: Controller, targets: list[Position]) -> bool:
-    start = ct.get_position()
-    if not targets or (len(targets) < 10 and start in targets):
-        return True
+def make_multi_move(self: Builder, ct: Controller, targets: list[Position]) -> bool:
+    start = self.my_pos
 
-    next_step = find_next(state, ct, start, targets)
+    next_step = find_next(self, ct, start, targets)
     if not next_step:
-        next_step = fallback_nav(state, ct, targets[0])
+        next_step = fallback_nav(self, ct, targets[0])
     if next_step:
-        try_move_with_road(ct, next_step)
+        try_move_with_road(self, ct, next_step)
         return True
     return False
 
 
-def try_move_with_road(ct: Controller, target_pos: Position) -> bool:
+def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> bool:
     if ct.can_build_road(target_pos):
         ct.build_road(target_pos)
-    return try_move(ct, target_pos)
+    return try_move(self, ct, target_pos)
 
 
-def try_move_adj_to(ct: Controller, target_pos: Position) -> bool:
+def try_move_adj_to(self: Builder, ct: Controller, target_pos: Position) -> bool:
     """no road built"""
-    my_pos = ct.get_position()
+    my_pos = self.my_pos
     dist_to_target = target_pos.distance_squared
     for d in DIR8:
         adj = my_pos.add(d)
         if dist_to_target(adj) <= 2 and ct.can_move(d):
             ct.move(d)
+            self.my_pos = self.my_pos.add(d)
             return True
 
     return False
@@ -100,7 +105,7 @@ def try_place(
 
 
 def trace_downstream(
-    state: State,
+    self: Builder,
     start_pos: Position,
     target_head: Position | None,
     path: list[Position] | None = None,
@@ -110,7 +115,7 @@ def trace_downstream(
     current_pos = start_pos
     while True:
         path.append(current_pos)
-        bld = state.get_building(current_pos)
+        bld = self.get_building(current_pos)
         match bld:
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
                 current_pos = current_pos.add(d)
@@ -121,11 +126,11 @@ def trace_downstream(
                     new_pos = current_pos.add(sd)
                     if target_head:
                         new_path = trace_downstream(
-                            state, new_pos, target_head, path=path[:]
+                            self, new_pos, target_head, path=path[:]
                         )
                         if new_path and target_head in new_path:
                             return new_path
-                    elif state.get_building(new_pos) is None:
+                    elif self.get_building(new_pos) is None:
                         path.append(new_pos)
                         return path
                 current_pos = current_pos.add(d)
@@ -139,7 +144,7 @@ def trace_downstream(
 
 
 def try_heal(
-    state: State,
+    self: Builder,
     ct: Controller,
     position: Position,
     *,
@@ -154,10 +159,10 @@ def try_heal(
     return False
 
 
-def get_enemy_core_pos(state: State) -> Position:
-    w, h = state.w, state.h
-    cp = state.my_core
-    candidates = state.symmetry_candidates
+def get_enemy_core_pos(self: Builder) -> Position:
+    w, h = self.w, self.h
+    cp = self.my_core
+    candidates = self.symmetry_candidates
 
     if Symmetry.ROT in candidates:
         return Position(w - 1 - cp.x, h - 1 - cp.y)
@@ -169,28 +174,29 @@ def get_enemy_core_pos(state: State) -> Position:
     return Position(w - 1 - cp.x, h - 1 - cp.y)
 
 
-def move_random(state: State, ct: Controller) -> bool:
+def move_random(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8[:]
-    state.rng.shuffle(dir8)
-    for direction in dir8:
-        if ct.can_move(direction):
-            ct.move(direction)
+    self.rng.shuffle(dir8)
+    for d in dir8:
+        if ct.can_move(d):
+            ct.move(d)
+            self.my_pos = self.my_pos.add(d)
             return True
     return False
 
 
-def trace_upstream(state: State, position: Position) -> list[Position]:
+def trace_upstream(self: Builder, position: Position) -> list[Position]:
     path: list[Position] = []
     conveyors = [position]
     while len(conveyors) > 0:
         position = conveyors[0]
-        conveyors = state.get_conveyors_to_here(position)
+        conveyors = self.get_conveyors_to_here(position)
         if position in path:
             break
         path.append(position)
     return path
 
 
-def is_enemy_building(state: State, ct: Controller, pos: Position) -> bool:
-    b = state.get_building(pos)
-    return b is not None and b.team != ct.get_team()
+def is_enemy_building(self: Builder, ct: Controller, pos: Position) -> bool:
+    b = self.get_building(pos)
+    return b is not None and b.team != self.my_team

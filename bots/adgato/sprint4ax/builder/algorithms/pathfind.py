@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from array import array
     from collections.abc import Callable
 
-    from builder.state import State
+    from builder import Builder
 
 from util import INF as _INF
 
@@ -57,7 +57,7 @@ class AStarSearch:
         self._running_target: Position | None = None
         self._prev_target: Position | None = None
 
-    def _init_grid(self, state: State) -> None:
+    def _init_grid(self, state: Builder) -> None:
         self._w, self._h = state.w, state.h
         self._pw, self._ph = state.pw, state.ph
         self._pad = state.pad
@@ -68,7 +68,7 @@ class AStarSearch:
             (dy * self._pw + dx, extra) for dx, dy, extra in self._neighbors
         ]
 
-    def _reset(self, state: State) -> None:
+    def _reset(self, state: Builder) -> None:
         pn = state.pw * state.ph
         if len(self._dist) != pn:
             self._init_grid(state)
@@ -76,11 +76,11 @@ class AStarSearch:
         self._visited = bytearray((pn + 7) // 8)
         self._q = []
 
-    def _cost_grid(self, state: State) -> array[float]:
+    def _cost_grid(self, state: Builder) -> array[float]:
         return getattr(state, self._cost_attr)
 
     def _extract_path(
-        self, state: State, start: Position, target: Position
+        self, state: Builder, start: Position, target: Position
     ) -> list[Position]:
         cost = self._cost_grid(state)
         pw = self._pw
@@ -113,7 +113,7 @@ class AStarSearch:
         return path
 
     def _run(
-        self, state: State, ct: Controller, start: Position, goal: Position
+        self, state: Builder, ct: Controller, start: Position, goal: Position
     ) -> bool:
         cost = self._cost_grid(state)
         pw = self._pw
@@ -206,7 +206,7 @@ class AStarSearch:
         return True
 
     def search(
-        self, state: State, ct: Controller, start: Position, target: Position
+        self, state: Builder, ct: Controller, start: Position, target: Position
     ) -> list[Position] | None:
         if (
             self._finished
@@ -235,7 +235,7 @@ class AStarSearch:
         return None
 
     def search_blocked(
-        self, state: State, ct: Controller, start: Position, goal: Position
+        self, state: Builder, ct: Controller, start: Position, goal: Position
     ) -> list[Position] | None:
         cost = self._cost_grid(state)
         pw = state.pw
@@ -307,7 +307,7 @@ random.shuffle(_CONV_NEIGHBORS)
 
 
 def _turret_blocked_tiles(
-    state: State, ct: Controller, near: Position
+    state: Builder, ct: Controller, near: Position
 ) -> set[Position]:
     """Return the set of tiles within king-move of `near` that are
     inside an enemy turret's current attack pattern — movement
@@ -332,7 +332,7 @@ def _turret_blocked_tiles(
     # is already tracked and cleared per turn in state_update_map.
     if state.nearest_enemy_turret is None:
         return set()
-    my_team = ct.get_team()
+    my_team = state.my_team
     blocked: set[Position] = set()
     for bp in state.nearby_buildings:
         bld = state.get_building(bp)
@@ -380,16 +380,9 @@ conv_search = AStarSearch(
 
 
 def conv_pathfind(
-    state: State, ct: Controller, start: Position, target: Position
+    state: Builder, ct: Controller, start: Position, target: Position
 ) -> list[Position] | None:
     return conv_search.search(state, ct, start, target)
-
-
-def conv_pathfind_blocked(
-    state: State, ct: Controller, start: Position, goal: Position
-) -> list[Position] | None:
-    return conv_search.search_blocked(state, ct, start, goal)
-
 
 def conv_unreachable(target: Position) -> bool:
     return conv_search.no_path and conv_search._prev_target == target

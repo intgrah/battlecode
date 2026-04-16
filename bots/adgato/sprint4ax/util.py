@@ -1,8 +1,11 @@
+from __future__ import annotations
 from enum import StrEnum
-from typing import Final
+from typing import Final, TYPE_CHECKING
 
 from cambc import Controller, Direction, EntityType, GameConstants, Position
 
+if TYPE_CHECKING:
+    from builder import Builder
 
 class Symmetry(StrEnum):
     ROT = "rot"
@@ -37,10 +40,11 @@ def get_direction_object(from_pos: Position, to_pos: Position) -> Direction | No
     return DELTA_TO_DIR.get((to_pos.x - from_pos.x, to_pos.y - from_pos.y))
 
 
-def try_move(ct: Controller, target_pos: Position) -> bool:
-    d = get_direction_object(ct.get_position(), target_pos)
+def try_move(self: Builder, ct: Controller, target_pos: Position) -> bool:
+    d = get_direction_object(self.my_pos, target_pos)
     if d is not None and ct.can_move(d):
         ct.move(d)
+        self.my_pos = self.my_pos.add(d)
         return True
     return False
 
@@ -50,10 +54,10 @@ def chebyshev(pos1: Position, pos2: Position) -> int:
 
 
 def reachable_path_end(
-    path: list[Position], current_pos: Position, max_range: int
+    self: Builder, path: list[Position], current_pos: Position, max_range: int
 ) -> Position:
     for pos in reversed(path):
-        if current_pos.distance_squared(pos) <= max_range**2:
+        if current_pos.distance_squared(pos) <= max_range**2 and self.is_passable(pos): # TODO: is_reachable
             return pos
     return current_pos
 
@@ -103,6 +107,6 @@ def can_afford(ct: Controller, etype: EntityType) -> bool:
 
 
 def closest(target: Position, positions: list[Position]) -> Position | None:
-    if len(positions) == 0:
+    if not positions:
         return None
     return min(positions, key=target.distance_squared)

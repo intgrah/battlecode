@@ -13,7 +13,7 @@
 
 ## Install
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 pip install cambc
 ```
 
@@ -25,13 +25,13 @@ This gives you both the CLI tool and the compiled Rust game engine as a native P
 
 ## Verify
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc --version
 ```
 
 ## Set up your project
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc starter
 ```
 
@@ -56,6 +56,3 @@ This scaffolds a project with a `cambc.toml` config, `bots/` and `maps/` directo
     Full reference for all CLI commands.
   </Card>
 </CardGroup>
-
-
-Built with [Mintlify](https://mintlify.com).

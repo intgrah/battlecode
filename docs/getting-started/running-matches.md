@@ -8,7 +8,7 @@
 
 ## Run a local match
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc run <bot_a> <bot_b> [map]
 ```
 
@@ -16,7 +16,7 @@ This runs the full game engine locally with **no time limits** — ideal for rap
 
 Bot paths can be a directory containing `main.py`, a `.py` file, or a bot name from your `bots_dir` (set in `cambc.toml`). The optional map argument is a `.map26` file — if omitted, the first map in your `maps_dir` is used.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc run starter starter                        # bot vs itself
 cambc run my_bot opponent --seed 42              # deterministic seed
 cambc run my_bot opponent maps/custom.map26      # custom map
@@ -25,7 +25,7 @@ cambc run my_bot opponent --replay out.replay26  # custom replay path
 
 ## View a replay
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc watch replay.replay26
 ```
 
@@ -33,13 +33,13 @@ Opens the visualiser in your browser. Supports play/pause, round scrubbing, spee
 
 ### Run + watch in one command
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc run --watch starter starter
 ```
 
 ### View a platform match
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc watch --match <match_id>
 cambc watch --match <match_id> --game 3
 ```
@@ -50,7 +50,7 @@ Remote commands require authentication — run `cambc login` first if you haven'
 
 Test your bots on the **same hardware** that runs ladder matches, with full time limit enforcement:
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match test <bot_a> <bot_b> [maps...]
 ```
 
@@ -58,7 +58,7 @@ This uploads both bots and runs a match on AWS Graviton3 instances with the 2ms 
 
 Bot paths for `match test` must be a directory containing `main.py` or a `.zip` file (unlike `cambc run`, arbitrary `.py` files are not accepted).
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match test my_bot opponent
 cambc match test my_bot opponent maps/custom.map26
 ```
@@ -69,7 +69,7 @@ cambc match test my_bot opponent maps/custom.map26
 
 You can also challenge another team to an unrated match using both teams' latest submissions:
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match unrated <opponent_team_id>
 cambc match unrated <opponent_team_id> --map arena --map galaxy   # specific maps
 ```
@@ -91,6 +91,3 @@ cambc match unrated <opponent_team_id> --map arena --map galaxy   # specific map
     Full reference for all CLI commands.
   </Card>
 </CardGroup>
-
-
-Built with [Mintlify](https://mintlify.com).

@@ -140,7 +140,7 @@ In particular, the core and turrets are considered **both a unit and a building*
 
 All entities (buildings and units) in the game have a **unique integer ID**. All [Controller](/api/controller) methods that deal with entities accept and return these IDs. Properties of an entity can be queried with getter functions — for example, `c.get_hp(id)`.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Get all nearby entities and check their type
 for entity_id in c.get_nearby_entities():
     if c.get_entity_type(entity_id) == EntityType.HARVESTER:
@@ -157,7 +157,7 @@ Each stored resource stack also has a **unique integer ID**. Use these IDs when 
 
 You can query the stack currently stored in a conveyor, splitter, armoured conveyor, bridge, or foundry with `c.get_stored_resource_id(id)`. If the building is empty, it returns `None`.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 resource_type = c.get_stored_resource(conveyor_id)
 resource_id = c.get_stored_resource_id(conveyor_id)
 ```
@@ -183,6 +183,3 @@ Only Python standard library modules are available. External packages (e.g. `num
 * **stdout** via `print("msg")` is captured by the engine and saved to the replay. You can view each unit's output in the visualiser.
 * **stderr** prints to the console in real time — use this for debugging during local runs.
 * `c.draw_indicator_line(pos_a, pos_b, r, g, b)` and `c.draw_indicator_dot(pos, r, g, b)` draw debug overlays on the map, saved to the replay.
-
-
-Built with [Mintlify](https://mintlify.com).

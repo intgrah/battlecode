@@ -55,7 +55,7 @@ tiles behind them.
   All units (core, builder bots, and turrets) can place markers — not just builder bots.
 </Tip>
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Write a value to a marker
 if c.can_place_marker(pos):
     c.place_marker(pos, 42)
@@ -74,6 +74,3 @@ Since each unit's `Player` instance is isolated, markers are essential for coord
 * **Scouting reports**: Write enemy positions to markers near your core
 * **Build orders**: Use marker values as state machine flags
 * **Territory claims**: Mark tiles to avoid duplicate work
-
-
-Built with [Mintlify](https://mintlify.com).

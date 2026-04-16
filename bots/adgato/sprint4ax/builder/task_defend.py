@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from building import (
     Building,
     BuildingArmouredConveyor,
@@ -14,7 +18,9 @@ from cambc import Controller, Direction, EntityType, GameConstants, Position
 from util import DIR4, DIR8
 
 from .helpers import move_random, try_place
-from .state import State
+
+if TYPE_CHECKING:
+    from builder import Builder
 
 
 def _is_turret(b: Building | None) -> bool:
@@ -51,96 +57,96 @@ def _is_precious_friendly(b: Building | None, team: int) -> bool:
     return isinstance(b, BuildingHarvester | BuildingFoundry | BuildingLauncher)
 
 
-def gunner_facing(state: State, ct: Controller, position: Position) -> Direction | None:
-    if position not in state.adjacent_to_harvester:
+def gunner_facing(self: Builder, ct: Controller, position: Position) -> Direction | None:
+    if position not in self.adjacent_to_harvester:
         return None
-    if not state.is_buildable(position):
+    if not self.is_buildable(position):
         return None
     # try_place destroys whatever's on the tile before building.
     # Fine for roads/conveyors/markers, but never stomp our own
     # harvester / foundry / launcher — too expensive to replace.
-    b = state.get_building(position)
-    if _is_precious_friendly(b, ct.get_team()):
+    b = self.get_building(position)
+    if _is_precious_friendly(b, self.my_team):
         return None
     if _is_turret(b):
         return None
-    if not state.in_bounds(position) or not ct.is_in_vision(position):
+    if not self.in_bounds(position) or not ct.is_in_vision(position):
         return None
     builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != ct.get_id():
+    if builder is not None and builder != self.my_id:
         return None
     for d in DIR8:
-        match state.get_building(position.add(d)):
+        match self.get_building(position.add(d)):
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != ct.get_team()
+                t != self.my_team
             ):
                 for harvester_direction in DIR4:
                     if harvester_direction != d:
-                        match state.get_building(position.add(harvester_direction)):
+                        match self.get_building(position.add(harvester_direction)):
                             case BuildingHarvester():
                                 return d
     return None
 
 
 def sentinel_facing(
-    state: State, ct: Controller, position: Position
+    self: Builder, ct: Controller, position: Position
 ) -> Direction | None:
-    b = state.get_building(position)
+    b = self.get_building(position)
     if (
-        not state.nearest_enemy_turret
-        or position.distance_squared(state.nearest_enemy_turret)
+        not self.nearest_enemy_turret
+        or position.distance_squared(self.nearest_enemy_turret)
         > GameConstants.SENTINEL_VISION_RADIUS_SQ
-        or position not in state.adjacent_to_harvester
-        or not state.is_buildable(position)
+        or position not in self.adjacent_to_harvester
+        or not self.is_buildable(position)
         or _is_turret_or_transport(b)
-        or _is_precious_friendly(b, ct.get_team())
-        or not state.in_bounds(position)
+        or _is_precious_friendly(b, self.my_team)
+        or not self.in_bounds(position)
         or not ct.is_in_vision(position)
     ):
         return None
     builder = ct.get_tile_builder_bot_id(position)
-    if builder is not None and builder != ct.get_id():
+    if builder is not None and builder != self.my_id:
         return None
 
-    d = position.direction_to(state.nearest_enemy_turret)
+    d = position.direction_to(self.nearest_enemy_turret)
     found_harvester = False
     for harvester_direction in DIR4:
         if harvester_direction != d:
-            match state.get_building(position.add(harvester_direction)):
+            match self.get_building(position.add(harvester_direction)):
                 case BuildingHarvester():
                     found_harvester = True
     if not found_harvester:
         return None
 
     shootable_tiles = ct.get_attackable_tiles_from(position, d, EntityType.SENTINEL)
-    if state.nearest_enemy_turret in shootable_tiles:
+    if self.nearest_enemy_turret in shootable_tiles:
         return d
     return None
 
 
-def place_sentinel_nearby(state: State, ct: Controller) -> bool:
-    my_pos = ct.get_position()
+def place_sentinel_nearby(self: Builder, ct: Controller) -> bool:
+    my_pos = self.my_pos
     for d in DIR8:
         test_position = my_pos.add(d)
-        result = sentinel_facing(state, ct, test_position)
+        result = sentinel_facing(self, ct, test_position)
         if result is not None:
             return try_place(ct, EntityType.SENTINEL, test_position, result)
-    result = sentinel_facing(state, ct, my_pos)
-    if result and move_random(state, ct):
+    result = sentinel_facing(self, ct, my_pos)
+    if result and move_random(self, ct):
         try_place(ct, EntityType.SENTINEL, my_pos, result)
         return True
     return False
 
 
-def place_gunner_nearby(state: State, ct: Controller) -> bool:
-    my_pos = ct.get_position()
+def place_gunner_nearby(self: Builder, ct: Controller) -> bool:
+    my_pos = self.my_pos
     for d in DIR8:
         test_position = my_pos.add(d)
-        result = gunner_facing(state, ct, test_position)
+        result = gunner_facing(self, ct, test_position)
         if result is not None:
             return try_place(ct, EntityType.GUNNER, test_position, result)
-    result = gunner_facing(state, ct, my_pos)
-    if result and move_random(state, ct):
+    result = gunner_facing(self, ct, my_pos)
+    if result and move_random(self, ct):
         try_place(ct, EntityType.GUNNER, my_pos, result)
         return True
-    return place_sentinel_nearby(state, ct)
+    return place_sentinel_nearby(self, ct)

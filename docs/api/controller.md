@@ -8,7 +8,7 @@
 
 The `Controller` object is passed to your `Player.run()` method each round. It provides all queries and actions for interacting with the game.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 class Player:
     def run(self, c: Controller):
         # c is the Controller for this unit
@@ -203,7 +203,7 @@ class Player:
 
 Every buildable entity has a cost getter that returns the current scaled `(titanium, axionite)` cost:
 
-```python  theme={"dark"}
+```python theme={"dark"}
 c.get_conveyor_cost()           # -> (int, int)
 c.get_splitter_cost()
 c.get_bridge_cost()
@@ -242,7 +242,7 @@ roads) may be built on that tile.
 
 These take `(position: Position, direction: Direction)` — the direction the building faces:
 
-```python  theme={"dark"}
+```python theme={"dark"}
 c.build_conveyor(pos, direction)          c.can_build_conveyor(pos, direction)
 c.build_splitter(pos, direction)          c.can_build_splitter(pos, direction)
 c.build_armoured_conveyor(pos, direction) c.can_build_armoured_conveyor(pos, direction)
@@ -255,7 +255,7 @@ c.build_breach(pos, direction)            c.can_build_breach(pos, direction)
 
 Takes `(position: Position, target: Position)` — the bridge's output target tile (within distance² 9):
 
-```python  theme={"dark"}
+```python theme={"dark"}
 c.build_bridge(pos, target)               c.can_build_bridge(pos, target)
 ```
 
@@ -263,7 +263,7 @@ c.build_bridge(pos, target)               c.can_build_bridge(pos, target)
 
 Take only `(position: Position)`:
 
-```python  theme={"dark"}
+```python theme={"dark"}
 c.build_harvester(pos)                    c.can_build_harvester(pos)
 c.build_road(pos)                         c.can_build_road(pos)
 c.build_barrier(pos)                      c.can_build_barrier(pos)
@@ -423,6 +423,3 @@ A single pair of methods that dispatches to the correct type-specific builder. U
 <ResponseField name="draw_indicator_dot(pos: Position, r: int, g: int, b: int)" type="None">
   Draw a debug dot at a position with RGB colour. Saved to the replay.
 </ResponseField>
-
-
-Built with [Mintlify](https://mintlify.com).
