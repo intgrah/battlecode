@@ -16,7 +16,7 @@ pub struct FlowState {
     pub tiles: HashMap<(i32, i32), TileFlow>,
 }
 
-/// Per-tile flow history entry: None = empty, Some = (resource_type, stack_id).
+/// Per-tile flow history entry: None = empty, Some = (`resource_type`, `stack_id`).
 type Slot = Option<(proto::ResourceType, i32)>;
 
 pub fn compute_empirical_flow(game: &GameState, turn: usize) -> FlowState {
@@ -60,22 +60,20 @@ pub fn compute_empirical_flow(game: &GameState, turn: usize) -> FlowState {
         let mut refined_ax_ids: HashSet<i32> = HashSet::new();
         let mut seen_ids: HashMap<i32, usize> = HashMap::new(); // stack_id -> count of turns present
 
-        for slot in hist {
-            if let Some((res, id)) = slot {
-                match res {
-                    proto::ResourceType::ResourceTitanium => {
-                        ti_ids.insert(*id);
-                    }
-                    proto::ResourceType::ResourceRawAxionite => {
-                        raw_ax_ids.insert(*id);
-                    }
-                    proto::ResourceType::ResourceRefinedAxionite => {
-                        refined_ax_ids.insert(*id);
-                    }
-                    proto::ResourceType::ResourceNone => {}
+        for (res, id) in hist.iter().flatten() {
+            match res {
+                proto::ResourceType::ResourceTitanium => {
+                    ti_ids.insert(*id);
                 }
-                *seen_ids.entry(*id).or_default() += 1;
+                proto::ResourceType::ResourceRawAxionite => {
+                    raw_ax_ids.insert(*id);
+                }
+                proto::ResourceType::ResourceRefinedAxionite => {
+                    refined_ax_ids.insert(*id);
+                }
+                proto::ResourceType::ResourceNone => {}
             }
+            *seen_ids.entry(*id).or_default() += 1;
         }
 
         let total_unique = ti_ids.len() + raw_ax_ids.len() + refined_ax_ids.len();
