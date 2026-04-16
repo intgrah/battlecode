@@ -22,7 +22,7 @@ Accepts resources from any of its three non-output directions. Sends its content
 | Base cost | 3 Ti  |
 | Scaling   | 1%    |
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Build a conveyor pointing south
 c.build_conveyor(pos, Direction.SOUTH)
 
@@ -55,7 +55,7 @@ Outputs its contents to a **specific tile within Euclidean distance 3** (distanc
 | Base cost | 20 Ti |
 | Scaling   | 10%   |
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Build a bridge that outputs to a target position
 c.build_bridge(bridge_pos, target_pos)
 ```
@@ -83,6 +83,3 @@ Key rules:
 * Harvesters and splitters prioritise outputting in directions **used least recently**
 * Foundries require one stack each of titanium and raw axionite before outputting one stack of refined axionite
 * Turrets only accept resources when completely empty
-
-
-Built with [Mintlify](https://mintlify.com).

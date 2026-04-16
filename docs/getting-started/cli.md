@@ -14,7 +14,7 @@ The `cambc` CLI is your main tool for local development, testing, and interactin
 
 Scaffold a new Cambridge Battlecode project. Run this first after installing.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc starter
 ```
 
@@ -36,7 +36,7 @@ The starter bot demonstrates core gameplay: the core spawns builder bots, builde
 
 The config file created by `cambc starter`. All fields have defaults and all CLI options override config values.
 
-```toml  theme={"dark"}
+```toml theme={"dark"}
 bots_dir = "bots"           # Where to find bots
 maps_dir = "maps"           # Where to find maps
 replay = "replay.replay26"  # Default replay output path
@@ -51,7 +51,7 @@ Bot paths in `cambc run` are resolved by first checking the raw path, then check
 
 Run a local match between two bots. No time limits are enforced locally.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc run <bot_a> <bot_b> [map]
 ```
 
@@ -73,7 +73,7 @@ cambc run <bot_a> <bot_b> [map]
 | `--tle N`       | Turn time limit in milliseconds (0 to disable, server uses 2)      |
 | `--map-random`  | Pick a random map from the maps directory instead of the first one |
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc run starter starter                           # bot vs itself
 cambc run my_bot opponent --seed 42                 # fixed seed
 cambc run my_bot opponent maps/custom.map26         # custom map
@@ -87,20 +87,20 @@ After the match completes, `cambc run` prints a summary showing the winner, win 
 
 View a replay in the browser-based visualiser.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc watch [replay_file]
 cambc watch --match <match_id> [--game <n>]
 ```
 
 **Local replay:** Serves the visualiser on `localhost` and opens your browser. Press `Ctrl+C` to stop the server.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc watch replay.replay26
 ```
 
 **Platform match:** Opens the platform visualiser in your browser for a specific match.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc watch --match abc123          # opens match on platform
 cambc watch --match abc123 --game 3 # specific game within the match
 ```
@@ -109,7 +109,7 @@ cambc watch --match abc123 --game 3 # specific game within the match
 
 Open the map editor to create custom `.map26` files.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc map-editor              # local map editor
 cambc map-editor --platform   # open map editor on the platform
 ```
@@ -122,7 +122,7 @@ These commands interact with the online platform at [game.battlecode.cam](https:
 
 Authenticate with the platform. Opens a browser window for OAuth login and stores your session locally.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc login
 ```
 
@@ -132,7 +132,7 @@ The session persists across CLI invocations until it expires or you run `cambc l
 
 Clear stored credentials.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc logout
 ```
 
@@ -140,13 +140,13 @@ cambc logout
 
 Upload a bot to compete on the ladder.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc submit <path>
 ```
 
 The path can be a directory containing `main.py`, a single `.py` file, or a `.zip`. Directories are auto-zipped before upload. See [submission requirements](/getting-started/submitting#bot-requirements) for constraints.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc submit ./my_bot/       # directory (auto-zipped)
 cambc submit my_bot.py       # single file
 cambc submit my_bot.zip      # pre-zipped
@@ -156,7 +156,7 @@ cambc submit my_bot.zip      # pre-zipped
 
 Show your current team, rating, rank, and member list.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc status
 ```
 
@@ -170,7 +170,7 @@ The `cambc match` group provides all match-related commands. When called with ju
 
 View details of a specific match including per-game results.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match info <match_id>
 cambc match <match_id>          # shorthand — defaults to info
 ```
@@ -181,7 +181,7 @@ Shows match status, teams, score, rating delta, timestamps, and a table of indiv
 
 View recent match history.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match list [options]
 ```
 
@@ -197,7 +197,7 @@ cambc match list [options]
 
 Challenge another team to an unrated match.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match unrated <opponent_team_id>
 cambc match unrated <opponent_team_id> --match <source_match_id>
 cambc match unrated <opponent_team_id> --map arena --map galaxy
@@ -218,13 +218,13 @@ Unrated matches run on the same AWS infrastructure as ladder matches with full t
 
 Upload two local bots and run a remote match with full time limit enforcement on AWS Graviton3 hardware.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match test <bot_a> <bot_b> [maps...]
 ```
 
 Both bots are packaged and uploaded to the server. Unlike `cambc run`, this enforces the 2ms CPU time limit per round — use this to check your bot's performance before submitting. You can optionally specify `.map26` files — one per game.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match test my_bot opponent                           # test two bots remotely
 cambc match test my_bot opponent maps/arena.map26          # with a specific map
 ```
@@ -233,7 +233,7 @@ cambc match test my_bot opponent maps/arena.map26          # with a specific map
 
 Download replay files for a completed match.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match replay <match_id>              # download all 5 game replays
 cambc match replay <match_id> --game 3     # download a specific game
 cambc match replay <match_id> -o out.replay26  # custom output path
@@ -243,7 +243,7 @@ cambc match replay <match_id> -o out.replay26  # custom output path
 
 Open a match replay in the browser.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match watch <match_id>
 cambc match watch <match_id> --game 3
 ```
@@ -252,7 +252,7 @@ cambc match watch <match_id> --game 3
 
 View your team's remote test run history.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc match tests [--limit N]
 ```
 
@@ -260,10 +260,7 @@ cambc match tests [--limit N]
 
 Search for teams or view team details.
 
-```bash  theme={"dark"}
+```bash theme={"dark"}
 cambc team search <query>     # search by name
 cambc team info <team_id>     # view team details
 ```
-
-
-Built with [Mintlify](https://mintlify.com).

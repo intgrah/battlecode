@@ -14,6 +14,7 @@ _OPENING_ROLES = [
     (Role.DEFENSE, True, None),
     (Role.OFFENSE, False, None),
     (Role.OFFENSE, False, None),
+    (Role.OFFENSE, False, None),
 ]
 
 _INITIAL_WEIGHTS = {

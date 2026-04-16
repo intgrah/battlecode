@@ -36,7 +36,7 @@ Builder bots can move to an adjacent tile (including diagonals) if their move co
   These are called **walkable** tiles. The direction of the building does not matter, and neither does the presence of resources on the tile.
 </Warning>
 
-```python  theme={"dark"}
+```python theme={"dark"}
 # Move towards a target
 direction = c.get_position().direction_to(target)
 if c.can_move(direction):
@@ -61,7 +61,7 @@ already have a building.
 
 Spend **1 Ti** to heal **4 HP** to all friendly entities on a tile within action radius. If a friendly builder bot and a friendly building share the chosen tile, both are healed. The action fails if nothing on that tile would gain HP.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 if c.can_heal(target_pos):
     c.heal(target_pos)
 ```
@@ -70,7 +70,7 @@ if c.can_heal(target_pos):
 
 Spend **2 Ti** to deal **2 damage** to the building on the tile the builder bot is standing on. This reuses the standard `can_fire()` / `fire()` combat API. **Armoured conveyors are immune** to builder bot attacks.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 my_pos = c.get_position()
 if c.can_fire(my_pos):
     c.fire(my_pos)
@@ -80,7 +80,7 @@ if c.can_fire(my_pos):
 
 Destroy any allied building within action radius. This can be done **any number of times per round** and does **not** cost action cooldown.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 if c.can_destroy(building_pos):
     c.destroy(building_pos)
 ```
@@ -89,13 +89,10 @@ if c.can_destroy(building_pos):
 
 A builder bot can self-destruct at any time. It does **not** deal damage.
 
-```python  theme={"dark"}
+```python theme={"dark"}
 c.self_destruct()
 ```
 
 ## Markers
 
 Builder bots (like all units) can place one [marker](/spec/other-buildings#marker) per round within action radius, separate from the action cooldown.
-
-
-Built with [Mintlify](https://mintlify.com).

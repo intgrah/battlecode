@@ -44,10 +44,9 @@ members = [
     "bot-perf-reset",
     "bot-saboteur",
     "bot-se",
+    "bot-sprint4",
     "bot-sprint4ax",
     "bot-starter",
-    "bot-test-core-spawn",
-    "bot-test-rotate",
     "bot-v44",
     "bot-v45",
     "bot-v46",
@@ -545,22 +544,18 @@ dependencies = [
 requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-sprint4ax"
+name = "bot-perf-position"
 version = "0.0.0"
-source = { virtual = "bots/adgato/sprint4ax" }
+source = { virtual = "bots/test/perf_position" }
 dependencies = [
     { name = "cambc" },
-    { name = "visualiser" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "cambc", specifier = ">=1.7.0" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
+requires-dist = [{ name = "cambc", specifier = ">=1.7.0" }]
 
 [[package]]
-name = "bot-starter"
+name = "bot-perf-reset"
 version = "0.0.0"
 source = { virtual = "bots/misc/starter" }
 dependencies = [
