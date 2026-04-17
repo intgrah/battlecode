@@ -1,15 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(.venv/bin/cambc run:*)",
       "WebFetch(domain:docs.battlecode.cam)",
-      "Bash(.venv/bin/pip install:*)",
-      "Bash(.venv/bin/cambc --help)",
-      "Bash(uv add:*)",
+      "Bash(uv:*)",
       "Bash(ruff check:*)",
-      "Bash(cambc run:*)",
-      "Bash(uv tool:*)",
-      "Bash(uv pip:*)",
+      "Bash(ruff format:*)",
+      "Bash(cambc:*)",
       "Bash(gh pr:*)"
     ]
   }
