@@ -6,6 +6,10 @@ from bench_nav.sssp.bfs_level import bfs_level
 from bench_nav.sssp.bfs_skip import bfs_skip
 from bench_nav.sssp.bfs_jps import bfs_jps
 from bench_nav.sssp.bfs_jps_list import bfs_jps_list
+from bench_nav.sssp.bfs_jps_list_dbl import bfs_jps_list_dbl
+from bench_nav.sssp.bfs_jps_list_defer import bfs_jps_list_defer
+from bench_nav.sssp.bfs_jps_list_merge import bfs_jps_list_merge
+from bench_nav.sssp.bfs_jps_list_merge_off import bfs_jps_list_merge_off
 from bench_nav.sssp.bfs_jps_list_off import bfs_jps_list_off
 from bench_nav.sssp.bfs_skip_level import bfs_skip_level
 from bench_nav.sssp.dijkstra_dial import dijkstra_dial
@@ -27,6 +31,10 @@ __all__ = [
     "bfs_expand",
     "bfs_jps",
     "bfs_jps_list",
+    "bfs_jps_list_dbl",
+    "bfs_jps_list_defer",
+    "bfs_jps_list_merge",
+    "bfs_jps_list_merge_off",
     "bfs_jps_list_off",
     "bfs_level",
     "bfs_skip",
