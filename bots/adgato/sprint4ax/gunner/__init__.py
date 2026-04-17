@@ -4,7 +4,7 @@ from typing import override
 
 from cambc import Controller, Direction, EntityType, Position
 from unit import Unit
-from util import DIR8
+from util import DIR8, DELTA_TO_DIR
 
 __all__ = ["Gunner"]
 
@@ -150,7 +150,7 @@ class Gunner(Unit):
         best_dist_sq = 999
         best_dir: Direction | None = None
         for direction in DIR8:
-            blocker = _walk_ray(ct, my_pos, direction)
+            blocker = _walk_ray(ct, my_pos, DELTA_TO_DIR[direction])
             if blocker is None:
                 continue
             bpos, bid, uid = blocker
@@ -173,7 +173,7 @@ class Gunner(Unit):
             if (score, -dist_sq) > (best_score, -best_dist_sq):
                 best_score = score
                 best_dist_sq = dist_sq
-                best_dir = direction
+                best_dir = DELTA_TO_DIR[direction]
         if best_dir is not None and ct.can_rotate(best_dir):
             ct.rotate(best_dir)
             return True

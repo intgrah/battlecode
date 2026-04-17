@@ -3,19 +3,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import *
-from cambc import Controller, Environment, Position
+from cambc import Controller, Environment
 from util import closest
 
 if TYPE_CHECKING:
-    from builder import Builder
+    from builder import Builder, PosInt
 
 
-def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_dangling(self: Builder, ct: Controller, pos: PosInt) -> bool:
 
-    if not self.in_bounds(pos):
+    i = pos
+    if not self.in_bounds(i):
         return False
 
-    i = self._idx(pos)
     b = self.buildings[i]
     if b is None:
         if self.env[i] == Environment.WALL:
@@ -26,9 +26,9 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
 
         match b:
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                adj = pos.add(d)
+                adj = pos + d
                 if self.in_bounds(adj):
-                    j = self._idx(adj)
+                    j = adj
                     c = self.buildings[j]
                     if c is None:
                         if self.env[j] != Environment.WALL:
@@ -44,7 +44,7 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
                             case (
                                 BuildingConveyor(direction=d2)
                                 | BuildingArmouredConveyor(direction=d2)
-                            ) if d == d2.opposite():
+                            ) if d == -d2:
                                 pass
                             case _:
                                 return False
@@ -54,39 +54,39 @@ def is_dangling(self: Builder, ct: Controller, pos: Position) -> bool:
                 return False
 
     
-    return any(self.conveyors_to_here[self._idx(j)] or j in self.adjacent_to_harvester for j in self.conveyors_to_here[i]) or pos in self.adjacent_to_unconnected_harvester
+    return any(self.conveyors_to_here[j] or j in self.adjacent_to_harvester for j in self.conveyors_to_here[i]) or pos in self.adjacent_to_unconnected_harvester
 
 
-def is_valid_loose_end_target(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_valid_loose_end_target(self: Builder, ct: Controller, pos: PosInt) -> bool:
     if not is_dangling(self, ct, pos):
         return False
 
     my_id = self.my_id
-    if ct.is_in_vision(pos):
-        bid = ct.get_tile_builder_bot_id(pos)
+    if ct.is_in_vision(self.pos(pos)):
+        bid = ct.get_tile_builder_bot_id(self.pos(pos))
         friendly = ct.get_team(bid) == self.my_team
         if bid is not None and bid != my_id and friendly:
             return False
 
     leading = self.get_conveyors_to_here(pos)
     for lpos in leading:
-        if not ct.is_in_vision(lpos):
+        if not ct.is_in_vision(self.pos(lpos)):
             continue
-        lbid = ct.get_tile_builder_bot_id(lpos)
+        lbid = ct.get_tile_builder_bot_id(self.pos(lpos))
         friendly = ct.get_team(lbid) == self.my_team
         if lbid is not None and lbid != my_id and friendly:
             return False
     return True
 
 
-def find_dangling(self: Builder, ct: Controller) -> Position | None:
-    vision_radius = ct.get_vision_radius_sq()
-    nearby = ct.get_nearby_tiles(vision_radius)
+def find_dangling(self: Builder, ct: Controller) -> PosInt:
 
-    candidates = [pos for pos in nearby if is_valid_loose_end_target(self, ct, pos)]
+    nearby = ct.get_nearby_tiles()
+
+    candidates = [self._idx(pos) for pos in nearby if is_valid_loose_end_target(self, ct, self._idx(pos))]
 
     if not candidates:
-        return None
+        return -1
 
     my_pos = self.my_pos
-    return closest(my_pos, candidates)
+    return closest(self, my_pos, candidates)
