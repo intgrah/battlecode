@@ -1,6 +1,12 @@
 from bench_nav.sssp.bellman_ford import bellman_ford
 from bench_nav.sssp.bfs import bfs
 from bench_nav.sssp.bfs_expand import bfs_expand
+from bench_nav.sssp.bfs_buckets import bfs_buckets
+from bench_nav.sssp.bfs_level import bfs_level
+from bench_nav.sssp.bfs_skip import bfs_skip
+from bench_nav.sssp.bfs_jps import bfs_jps
+from bench_nav.sssp.bfs_jps_skip import bfs_jps_skip
+from bench_nav.sssp.bfs_skip_level import bfs_skip_level
 from bench_nav.sssp.dijkstra_dial import dijkstra_dial
 from bench_nav.sssp.dijkstra_dial_dual import dijkstra_dial_dual
 from bench_nav.sssp.dijkstra_dial_np_dual2 import dijkstra_dial_np_dual2
@@ -14,7 +20,13 @@ from bench_nav.sssp.spfa_slf import spfa_slf
 __all__ = [
     "bellman_ford",
     "bfs",
+    "bfs_buckets",
     "bfs_expand",
+    "bfs_jps",
+    "bfs_jps_skip",
+    "bfs_level",
+    "bfs_skip",
+    "bfs_skip_level",
     "dijkstra_dial",
     "dijkstra_dial_dual",
     "dijkstra_dial_np_dual2",

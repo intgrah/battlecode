@@ -1,9 +1,14 @@
+from typing import Final
+
 from bench_nav.common import INF
 
 _BUCKETS = 900
 
 
-_bk: list[list[int]] = [[0] * 256 for _ in range(_BUCKETS)]
+_bk: Final[list[list[int]]] = [[0] * 256 for _ in range(_BUCKETS)]
+_ln: Final[list[int]] = [0] * _BUCKETS
+_ln_reset: Final[list[int]] = [0] * _BUCKETS
+_ln_reset[0] = 1
 
 
 def dijkstra_flat_prealloc(
@@ -12,9 +17,9 @@ def dijkstra_flat_prealloc(
     dist = [INF] * n
     dist[start] = 0
     bk = _bk
-    ln = [0] * _BUCKETS
+    ln = _ln
     bk[0][0] = start
-    ln[0] = 1
+    ln[:] = _ln_reset
     cur_d = 0
     max_d = 0
     while cur_d <= max_d:
