@@ -618,10 +618,23 @@ def bench_sssp(args: argparse.Namespace) -> None:
             ]
 
             algos = _build_sssp_algos(
-                n, cost, pnb, pnbc, pnb1, pnb3, pnb_push, pnb_set,
-                pnb_push_dij, pnb_set_dij,
-                pnb_push_dij_c, pnb_set_dij_c,
-                pnb_dir, pnb_by_offset, dir_of_offset, w, selected
+                n,
+                cost,
+                pnb,
+                pnbc,
+                pnb1,
+                pnb3,
+                pnb_push,
+                pnb_set,
+                pnb_push_dij,
+                pnb_set_dij,
+                pnb_push_dij_c,
+                pnb_set_dij_c,
+                pnb_dir,
+                pnb_by_offset,
+                dir_of_offset,
+                w,
+                selected,
             )
 
             for algo_name, algo_fn in algos:
@@ -632,9 +645,25 @@ def bench_sssp(args: argparse.Namespace) -> None:
                     times.setdefault(algo_name, {}).setdefault(scenario, []).append(us)
 
                     ref = ref_dists[idx]
-                    hop_algos = ("bfs", "bfs-level", "bfs-buckets", "bfs-skip", "bfs-skip-level", "bfs-jps", "bfs-jps-list", "bfs-jps-list-dbl", "bfs-jps-list-merge", "bfs-jps-list-merge-off", "bfs-jps-list-defer", "bfs-jps-list-off")
+                    hop_algos = (
+                        "bfs",
+                        "bfs-level",
+                        "bfs-buckets",
+                        "bfs-skip",
+                        "bfs-skip-level",
+                        "bfs-jps",
+                        "bfs-jps-list",
+                        "bfs-jps-list-dbl",
+                        "bfs-jps-list-merge",
+                        "bfs-jps-list-merge-off",
+                        "bfs-jps-list-defer",
+                        "bfs-jps-list-off",
+                    )
                     exact_algos = ("bfs-expand",)
-                    if algo_name in (*hop_algos, *exact_algos) and scenario != "no_roads":
+                    if (
+                        algo_name in (*hop_algos, *exact_algos)
+                        and scenario != "no_roads"
+                    ):
                         got = result
                         if algo_name in hop_algos:
                             got = [d * CE if d < INF else INF for d in result]

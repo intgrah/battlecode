@@ -15,9 +15,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, Team
-from config import DEBUG_DUMP, DEBUG_TASK, DEBUG_TIMING, DEBUG_ASSERT
+from config import DEBUG_ASSERT, DEBUG_DUMP, DEBUG_TASK, DEBUG_TIMING
 from unit import Unit
-from util import DIR8, INF, DELTA_TO_DIR, Symmetry, can_afford, try_move
+from util import DELTA_TO_DIR, DIR8, INF, Symmetry, can_afford, try_move
 
 from .algorithms.nav_bfs import NavBfs, PassableGrid
 from .dump import dump
@@ -222,7 +222,7 @@ class Builder(Unit):
                 ady = dy if dy >= 0 else -dy
                 self.dist_sq[i] = dx * dx + dy * dy
                 self.manhat[i] = adx + ady
-                self.chebyshev[i] = adx if adx > ady else ady
+                self.chebyshev[i] = max(ady, adx)
         self.bound_range: int = self.dist_stride * 50
         self.posint_valid: bytearray = bytearray(self.bound_range)
 
@@ -246,8 +246,12 @@ class Builder(Unit):
         self.pass_grid: PassableGrid = PassableGrid(50, 50)
         self.nav: NavBfs = NavBfs(self.pass_grid)
 
-        self.conveyors_to_here: list[list[PosInt]] = [[] for _ in range(self.bound_range)]
-        self.splitters_to_here: list[list[PosInt]] = [[] for _ in range(self.bound_range)]
+        self.conveyors_to_here: list[list[PosInt]] = [
+            [] for _ in range(self.bound_range)
+        ]
+        self.splitters_to_here: list[list[PosInt]] = [
+            [] for _ in range(self.bound_range)
+        ]
 
         # Symmetry
         self.symmetry_candidates: set[Symmetry] = {
@@ -377,16 +381,16 @@ class Builder(Unit):
 
     def my_sq_dist(self, p: PosInt) -> int:
         return self.dist_sq[p - self.my_pos + self.dist_offset]
-    
+
     def sq_dist(self, p: PosInt, q: PosInt) -> int:
         return self.dist_sq[p - q + self.dist_offset]
-    
+
     def mt_dist(self, p: PosInt, q: PosInt) -> int:
         return self.manhat[p - q + self.dist_offset]
-    
+
     def cv_dist(self, p: PosInt, q: PosInt) -> int:
         return self.chebyshev[p - q + self.dist_offset]
-    
+
     def pos(self, i: PosInt) -> Position:
         return Position(i % self.dist_stride, i // self.dist_stride)
 
@@ -561,6 +565,7 @@ class Builder(Unit):
             assert ct.get_team() == self.my_team
             assert ct.get_id() == self.my_id
             assert ct.get_current_round() == self.rnd
+
 
 def _end_of_turn_heal(ct: Controller) -> None:
     my_pos = ct.get_position()

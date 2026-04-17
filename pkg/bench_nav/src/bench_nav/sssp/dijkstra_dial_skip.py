@@ -34,8 +34,7 @@ def dijkstra_dial_skip(
                         bk[nd & 0b11].append(nb)
                 for nb in pnb_set[node]:
                     nd = cur_d + cost[nb]
-                    if nd < dist[nb]:
-                        dist[nb] = nd
+                    dist[nb] = min(dist[nb], nd)
         else:
             emp += 1
         cur_d += 1

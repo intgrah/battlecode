@@ -5,7 +5,6 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Position
-from util import INF
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -50,7 +49,10 @@ def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
 
 
 def fallback_step(
-    self: Builder, ct: Controller, target: Position, blocked: set[Position] | None = None
+    self: Builder,
+    ct: Controller,
+    target: Position,
+    blocked: set[Position] | None = None,
 ) -> Position | None:
     unit_id = self.my_id
     curr = self.pos(self.my_pos)
@@ -63,8 +65,6 @@ def fallback_step(
         blocked = set()
 
     w, h = self.w, self.h
-    pad = self.pad
-    pw = self.pw
 
     if curr == target:
         return None
@@ -123,6 +123,7 @@ def fallback_step(
                 return pos
 
     return None
+
 
 def fallback_nav(self: Builder, ct: Controller, target: Position) -> Position | None:
     blocked: set[Position] = set()

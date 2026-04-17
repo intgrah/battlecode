@@ -42,13 +42,14 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
 
 _BUDGET = 1729
 
+
 def _bfs_compute(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
     dist: list[int],
     q: list[int],
     cur_idx: int,
-    ct: Controller
+    ct: Controller,
 ) -> bool:
     """Resumable backwards BFS. Returns True when finished.
 

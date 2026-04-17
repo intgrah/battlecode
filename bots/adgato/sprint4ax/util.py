@@ -1,11 +1,13 @@
 from __future__ import annotations
-from enum import StrEnum
-from typing import Final, TYPE_CHECKING
 
-from cambc import Controller, Direction, EntityType, GameConstants, Position
+from enum import StrEnum
+from typing import TYPE_CHECKING, Final
+
+from cambc import Controller, Direction, EntityType, GameConstants
 
 if TYPE_CHECKING:
     from builder import Builder, PosInt
+
 
 class Symmetry(StrEnum):
     ROT = "rot"
@@ -17,36 +19,33 @@ INF: Final[int] = 1_000_000
 
 # Assuming dist_stride = 100
 DIR4 = (
-    -100, # North
+    -100,  # North
     100,  # South
-    1,    # East
-    -1    # West
+    1,  # East
+    -1,  # West
 )
 
 DIR8 = (
-    -100,      # North
+    -100,  # North
     -100 + 1,  # Northeast
-    1,         # East
-    100 + 1,   # Southeast
-    100,       # South
-    100 - 1,   # Southwest
-    -1,        # West
-    -100 - 1   # Northwest
+    1,  # East
+    100 + 1,  # Southeast
+    100,  # South
+    100 - 1,  # Southwest
+    -1,  # West
+    -100 - 1,  # Northwest
 )
-DIR8_DELTA = (
-    (0, -1), (1, -1), (1, 0), (1, 1), 
-    (0, 1), (-1, 1), (-1, 0), (-1, -1)
-)
+DIR8_DELTA = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))
 
 DELTA_TO_DIR: dict[int, Direction] = {
-    0:    Direction.CENTRE,
+    0: Direction.CENTRE,
     -100: Direction.NORTH,
-    -99:  Direction.NORTHEAST,
-    1:    Direction.EAST,
-    101:  Direction.SOUTHEAST,
-    100:  Direction.SOUTH,
-    99:   Direction.SOUTHWEST,
-    -1:   Direction.WEST,
+    -99: Direction.NORTHEAST,
+    1: Direction.EAST,
+    101: Direction.SOUTHEAST,
+    100: Direction.SOUTH,
+    99: Direction.SOUTHWEST,
+    -1: Direction.WEST,
     -101: Direction.NORTHWEST,
 }
 
@@ -57,25 +56,26 @@ def get_direction_object(from_pos: int, to_pos: int) -> Direction:
     # 1. Decode the positions using the stride
     y1, x1 = divmod(from_pos, 100)
     y2, x2 = divmod(to_pos, 100)
-    
+
     # 2. Find the raw difference
     dx = x2 - x1
     dy = y2 - y1
-    
+
     # 3. Normalize dx and dy to [-1, 0, 1]
     # This turns any distance into a single-step "unit delta"
     norm_dx = (dx > 0) - (dx < 0)
     norm_dy = (dy > 0) - (dy < 0)
-    
+
     # 4. If there's no movement at all, return None
     if norm_dx == 0 and norm_dy == 0:
         return Direction.CENTRE
-        
+
     # 5. Re-encode the normalized delta to match your dictionary keys
     # (y * stride + x)
     unit_delta = (norm_dy * 100) + norm_dx
-    
+
     return DELTA_TO_DIR[unit_delta]
+
 
 def try_move(self: Builder, ct: Controller, target_pos: PosInt) -> bool:
     delta = target_pos - self.my_pos
@@ -91,7 +91,9 @@ def reachable_path_end(
     self: Builder, path: list[PosInt], current_pos: PosInt, max_range: int
 ) -> PosInt:
     for pos in reversed(path):
-        if self.sq_dist(current_pos, pos) <= max_range**2 and self.is_passable(pos): # TODO: is_reachable
+        if self.sq_dist(current_pos, pos) <= max_range**2 and self.is_passable(
+            pos
+        ):  # TODO: is_reachable
             return pos
     return current_pos
 

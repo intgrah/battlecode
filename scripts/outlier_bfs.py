@@ -1,5 +1,6 @@
 import random
 import time
+
 from bench_nav.common import INF, MAPS_DIR, SCENARIOS, SEED
 from bench_nav.map_data import (
     build_cost,

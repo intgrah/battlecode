@@ -18,7 +18,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from util import DIR4, DIR8, INF, Symmetry, DELTA_TO_DIR, DIR_TO_DELTA
+from util import DELTA_TO_DIR, DIR4, DIR8, DIR_TO_DELTA, INF, Symmetry
 
 if TYPE_CHECKING:
     from builder import Builder, PosInt
@@ -26,7 +26,9 @@ if TYPE_CHECKING:
 ROAD_COST = 3
 
 
-def _make_building(self: Builder, ct: Controller, bid: int, etype: EntityType) -> Building | None:
+def _make_building(
+    self: Builder, ct: Controller, bid: int, etype: EntityType
+) -> Building | None:
     team = ct.get_team(bid)
     match etype:
         case EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR | EntityType.SPLITTER:
@@ -92,14 +94,13 @@ def can_place_junction(self: Builder, ct: Controller, i: PosInt) -> bool:
 
 
 def update_map(self: Builder, ct: Controller) -> None:
-    w = self.w
-    stride = self.dist_stride
     nearby_positions = [self._idx(p) for p in ct.get_nearby_tiles()]
     rnd = ct.get_current_round()
     self.nearby_positions = nearby_positions
     self.nearby_buildings = []
 
-    in_vision = lambda x: ct.is_in_vision(self.pos(x))
+    def in_vision(x):
+        return ct.is_in_vision(self.pos(x))
 
     self.healable_buildings = [p for p in self.healable_buildings if not in_vision(p)]
     self.adjacent_to_enemy_launcher = {
@@ -112,9 +113,7 @@ def update_map(self: Builder, ct: Controller) -> None:
         p for p in self.friendly_turret_ray_tiles if not in_vision(p)
     }
 
-    self.patrol_queue = [
-        p for p in self.patrol_queue if not in_vision(p[0])
-    ]
+    self.patrol_queue = [p for p in self.patrol_queue if not in_vision(p[0])]
 
     for i in nearby_positions:
         self.conveyors_to_here[i] = [
@@ -149,7 +148,6 @@ def update_map(self: Builder, ct: Controller) -> None:
             self.buildings[i] = bld
             self.hp[i] = ct.get_hp(building_id)
             self.max_hp[i] = ct.get_max_hp(building_id)
-
 
             match bld:
                 case (
@@ -275,15 +273,12 @@ def update_map(self: Builder, ct: Controller) -> None:
                 case BuildingRoad():
                     conveyor_cost = 1
                 case (
-                    BuildingConveyor(team=t) 
-                    | BuildingArmouredConveyor(team=t) 
-                    | BuildingSplitter(team=t) 
+                    BuildingConveyor(team=t)
+                    | BuildingArmouredConveyor(team=t)
+                    | BuildingSplitter(team=t)
                     | BuildingBridge(team=t)
                 ):
-                    if t == my_team:
-                        conveyor_cost = 1
-                    else:
-                        conveyor_cost = 1 if self.has_flow(i) else 10
+                    conveyor_cost = 1 if t == my_team else 1 if self.has_flow(i) else 10
                 case BuildingCore(team=t) if t == self.my_team:
                     conveyor_cost = 1
                 case _:
@@ -303,7 +298,11 @@ def update_map(self: Builder, ct: Controller) -> None:
         self.pass_grid.update_tile(
             self.pos(pos),
             self.env[pos],
-            EntityType.LAUNCHER if pos in self.adjacent_to_enemy_launcher else None if bid is None else ct.get_entity_type(bid),
+            EntityType.LAUNCHER
+            if pos in self.adjacent_to_enemy_launcher
+            else None
+            if bid is None
+            else ct.get_entity_type(bid),
             is_allied_building=(bid is not None and ct.get_team(bid) == my_team),
         )
 
@@ -319,7 +318,9 @@ def update_map(self: Builder, ct: Controller) -> None:
             ti_bonus = flow.ti / 4 * 0.25
             ax_bonus = flow.ax / 4 * 0.15
             rax_bonus = flow.rax / 4 * 0.35
-            self.patrol_queue.append((pos, rnd, 0.5 + ti_bonus + ax_bonus + rax_bonus + core_bonus))
+            self.patrol_queue.append(
+                (pos, rnd, 0.5 + ti_bonus + ax_bonus + rax_bonus + core_bonus)
+            )
 
     # Ore-denial set: rebuilt each turn (cheap, bounded by vision).
     # For each ore tile in vision with any enemy bot/building in its
@@ -377,14 +378,16 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
     pad = self.pad
     pw = self.pw
     self.adjacent_to_unconnected_harvester = {
-        p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(self.pos(p))
+        p
+        for p in self.adjacent_to_unconnected_harvester
+        if not ct.is_in_vision(self.pos(p))
     }
     self.adjacent_to_harvester = {
         p for p in self.adjacent_to_harvester if not ct.is_in_vision(self.pos(p))
     }
     for i in self.nearby_positions:
         pos = self.pos(i)
-        pi = (pos.y + pad) * pw + (pos.x + pad)
+        (pos.y + pad) * pw + (pos.x + pad)
         bld = self.get_building(self._idx(pos))
         match bld:
             case BuildingHarvester():
@@ -429,12 +432,10 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
     for pos in self.nearby_positions:
         if (
             self.nearest_junction_site is None
-            or (
-                self.my_sq_dist(self.nearest_junction_site)
-                < self.my_sq_dist(pos)
-            )
+            or (self.my_sq_dist(self.nearest_junction_site) < self.my_sq_dist(pos))
         ) and can_place_junction(self, ct, pos):
             self.nearest_junction_site = pos
+
 
 _REFLECT_BUDGET = 25
 
@@ -551,5 +552,5 @@ def _eliminate_symmetries(
 
     self.symmetry_candidates -= invalid
 
-    if self.symmetry is None and len(self.symmetry_candidates) is 1:
+    if self.symmetry is None and len(self.symmetry_candidates) == 1:
         self.symmetry = next(iter(self.symmetry_candidates))

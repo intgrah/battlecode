@@ -33,8 +33,7 @@ def dijkstra_dial_skip_pnbc(
                         bk[nd & 0b11].append(nb)
                 for nb, c in pnb_set_c[node]:
                     nd = cur_d + c
-                    if nd < dist[nb]:
-                        dist[nb] = nd
+                    dist[nb] = min(dist[nb], nd)
         else:
             emp += 1
         cur_d += 1
