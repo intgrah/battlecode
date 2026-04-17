@@ -69,6 +69,62 @@ def build_pnb_navbfs(
     return push, aset
 
 
+def build_pnbc_navdijkstra(
+    w: int, h: int, cost: list[int]
+) -> tuple[list[list[tuple[int, int]]], list[list[tuple[int, int]]]]:
+    """Weighted push/set with costs: (nb, cost[nb]) tuples."""
+    push, aset = build_pnb_navdijkstra(w, h, cost)
+    push_c = [[(nb, cost[nb]) for nb in push[i]] for i in range(len(push))]
+    set_c = [[(nb, cost[nb]) for nb in aset[i]] for i in range(len(aset))]
+    return push_c, set_c
+
+
+def build_pnb_navdijkstra(
+    w: int, h: int, cost: list[int]
+) -> tuple[list[list[int]], list[list[int]]]:
+    """Weighted variant: skip cardinal N only when cost[N] >= max(cost[D1], cost[D2])."""
+    n = w * h
+    push: list[list[int]] = [[] for _ in range(n)]
+    aset: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        if cost[i] >= INF:
+            continue
+        cx, cy = i % w, i // w
+        ne = (cy - 1) * w + (cx + 1) if cy > 0 and cx < w - 1 else -1
+        se = (cy + 1) * w + (cx + 1) if cy < h - 1 and cx < w - 1 else -1
+        sw = (cy + 1) * w + (cx - 1) if cy < h - 1 and cx > 0 else -1
+        nw = (cy - 1) * w + (cx - 1) if cy > 0 and cx > 0 else -1
+        has_ne = ne != -1 and cost[ne] < INF
+        has_se = se != -1 and cost[se] < INF
+        has_sw = sw != -1 and cost[sw] < INF
+        has_nw = nw != -1 and cost[nw] < INF
+        if has_ne:
+            push[i].append(ne)
+        if has_se:
+            push[i].append(se)
+        if has_sw:
+            push[i].append(sw)
+        if has_nw:
+            push[i].append(nw)
+        if cy > 0 and cost[(cy - 1) * w + cx] < INF:  # N
+            ni = (cy - 1) * w + cx
+            skip = has_ne and has_nw and cost[ni] >= max(cost[ne], cost[nw])
+            (aset if skip else push)[i].append(ni)
+        if cx < w - 1 and cost[cy * w + (cx + 1)] < INF:  # E
+            ni = cy * w + (cx + 1)
+            skip = has_ne and has_se and cost[ni] >= max(cost[ne], cost[se])
+            (aset if skip else push)[i].append(ni)
+        if cy < h - 1 and cost[(cy + 1) * w + cx] < INF:  # S
+            ni = (cy + 1) * w + cx
+            skip = has_se and has_sw and cost[ni] >= max(cost[se], cost[sw])
+            (aset if skip else push)[i].append(ni)
+        if cx > 0 and cost[cy * w + (cx - 1)] < INF:  # W
+            ni = cy * w + (cx - 1)
+            skip = has_sw and has_nw and cost[ni] >= max(cost[sw], cost[nw])
+            (aset if skip else push)[i].append(ni)
+    return push, aset
+
+
 def build_pnb_dual(
     nb: list[list[int]], cost: list[int]
 ) -> tuple[list[list[int]], list[list[int]]]:

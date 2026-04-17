@@ -19,14 +19,16 @@ from bench_nav.map_data import (
     build_pnb,
     build_pnb_dual,
     build_pnb_navbfs,
+    build_pnb_navdijkstra,
     build_pnbc,
+    build_pnbc_navdijkstra,
     load_map,
     place_roads,
 )
 from bench_nav.map_data_jps import (
     build_dir_of_offset,
+    build_pnb_by_offset,
     build_pnb_dir,
-    build_pnb_push_set_dir,
 )
 from bench_nav.reference import (
     dijkstra_full,
@@ -237,9 +239,12 @@ def _build_sssp_algos(
     pnb3: list[list[int]],
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
+    pnb_push_dij: list[list[int]],
+    pnb_set_dij: list[list[int]],
+    pnb_push_dij_c: list[list[tuple[int, int]]],
+    pnb_set_dij_c: list[list[tuple[int, int]]],
     pnb_dir: list[list[list[int]]],
-    pnb_push_dir: list[list[list[int]]],
-    pnb_set_dir: list[list[list[int]]],
+    pnb_by_offset: list[list[list[int]]],
     dir_of_offset: list[int],
     w: int,
     selected: set[str],
@@ -256,6 +261,18 @@ def _build_sssp_algos(
     add("bfs-buckets", lambda start: sssp.bfs_buckets(n, pnb, start))
     add("dijkstra-heap", lambda start: sssp.dijkstra_heap(n, cost, pnb, start))
     add("dijkstra-dial", lambda start: sssp.dijkstra_dial(n, cost, pnb, start))
+    add(
+        "dijkstra-dial-skip",
+        lambda start: sssp.dijkstra_dial_skip(
+            n, cost, pnb_push_dij, pnb_set_dij, start
+        ),
+    )
+    add(
+        "dijkstra-dial-skip-pnbc",
+        lambda start: sssp.dijkstra_dial_skip_pnbc(
+            n, pnb_push_dij_c, pnb_set_dij_c, start
+        ),
+    )
     add("dijkstra-dial-pnbc", lambda start: sssp.dijkstra_dial_pnbc(n, pnbc, start))
     add(
         "dijkstra-flat",
@@ -283,10 +300,12 @@ def _build_sssp_algos(
         lambda start: sssp.bfs_jps(n, w, pnb_dir, dir_of_offset, start),
     )
     add(
-        "bfs-jps-skip",
-        lambda start: sssp.bfs_jps_skip(
-            n, w, pnb_push_dir, pnb_set_dir, dir_of_offset, start
-        ),
+        "bfs-jps-list",
+        lambda start: sssp.bfs_jps_list(n, w, pnb_dir, dir_of_offset, start),
+    )
+    add(
+        "bfs-jps-list-off",
+        lambda start: sssp.bfs_jps_list_off(n, pnb_by_offset, start),
     )
     add("spfa-slf", lambda start: sssp.spfa_slf(n, cost, pnb, start))
     add("bellman-ford", lambda start: sssp.bellman_ford(n, cost, pnb, start))
@@ -332,6 +351,8 @@ ALL_SSSP_NAMES: list[str] = [
     "bfs-buckets",
     "dijkstra-heap",
     "dijkstra-dial",
+    "dijkstra-dial-skip",
+    "dijkstra-dial-skip-pnbc",
     "dijkstra-dial-pnbc",
     "dijkstra-flat",
     "dijkstra-flat-prealloc",
@@ -340,7 +361,8 @@ ALL_SSSP_NAMES: list[str] = [
     "bfs-skip",
     "bfs-skip-level",
     "bfs-jps",
-    "bfs-jps-skip",
+    "bfs-jps-list",
+    "bfs-jps-list-off",
     "spfa-slf",
     "bellman-ford",
 ]
@@ -558,8 +580,10 @@ def bench_sssp(args: argparse.Namespace) -> None:
             pnbc = build_pnbc(nb, cost)
             pnb1, pnb3 = build_pnb_dual(nb, cost)
             pnb_push, pnb_set = build_pnb_navbfs(w, h, cost)
+            pnb_push_dij, pnb_set_dij = build_pnb_navdijkstra(w, h, cost)
+            pnb_push_dij_c, pnb_set_dij_c = build_pnbc_navdijkstra(w, h, cost)
             pnb_dir = build_pnb_dir(w, h, cost)
-            pnb_push_dir, pnb_set_dir = build_pnb_push_set_dir(w, h, cost)
+            pnb_by_offset = build_pnb_by_offset(w, h, cost)
             dir_of_offset = build_dir_of_offset(w)
             passable = [i for i in range(n) if cost[i] < INF]
 
@@ -575,7 +599,9 @@ def bench_sssp(args: argparse.Namespace) -> None:
 
             algos = _build_sssp_algos(
                 n, cost, pnb, pnbc, pnb1, pnb3, pnb_push, pnb_set,
-                pnb_dir, pnb_push_dir, pnb_set_dir, dir_of_offset, w, selected
+                pnb_push_dij, pnb_set_dij,
+                pnb_push_dij_c, pnb_set_dij_c,
+                pnb_dir, pnb_by_offset, dir_of_offset, w, selected
             )
 
             for algo_name, algo_fn in algos:
@@ -586,7 +612,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
                     times.setdefault(algo_name, {}).setdefault(scenario, []).append(us)
 
                     ref = ref_dists[idx]
-                    hop_algos = ("bfs", "bfs-level", "bfs-buckets", "bfs-skip", "bfs-skip-level", "bfs-jps", "bfs-jps-skip")
+                    hop_algos = ("bfs", "bfs-level", "bfs-buckets", "bfs-skip", "bfs-skip-level", "bfs-jps", "bfs-jps-list", "bfs-jps-list-off")
                     exact_algos = ("bfs-expand",)
                     if algo_name in (*hop_algos, *exact_algos) and scenario != "no_roads":
                         got = result
