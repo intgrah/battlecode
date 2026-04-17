@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from visualiser import Grid, Palette, Scalar, Tiles, emit
+from visualiser import Grid, Palette, VectorField, Scalar, Tiles, emit
 
 from .flow import FLOW_AX, FLOW_RAX, FLOW_TI
 
@@ -45,6 +45,14 @@ P_FLOW = Palette(
         4: (0, 220, 0, 220),
     },
 )
+P_PASS = Palette(
+    stops=[],
+    special={
+        0: (100, 0, 0, 100),
+        1: (0, 100, 0, 100),
+        2: (100, 100, 0, 100)
+    },
+)
 
 
 def _unpad(grid: list[int], self: Builder) -> list[int]:
@@ -57,10 +65,21 @@ def _unpad(grid: list[int], self: Builder) -> list[int]:
             out[y * w + x] = grid[row_start + x]
     return out
 
+def _unpad1(grid: list[int], self: Builder) -> list[int]:
+    """Extract the real w*h interior from a padded pw*ph cost grid."""
+    w, h, pw = self.w, self.h, self.pw
+    pad = 1
+    out: list[int] = [42] * (w * h)
+    for y in range(h):
+        row_start = (y + 1) * 52 + 1
+        for x in range(w):
+            out[y * w + x] = grid[row_start + x]
+    return out
+
 
 def dump(self: Builder, _ct: Controller) -> None:
 
-    flows = [f.get_flow() for f in self.flow]
+    w, h, stride = self.w, self.h, self.dist_stride
 
     if self.dump_path:
         prev = self.dump_path[0]
@@ -74,35 +93,41 @@ def dump(self: Builder, _ct: Controller) -> None:
     self.dump_path = None
 
     crnd = self.rnd
-    patrol = [0] * len(self.env)
+    patrol = [0] * (w * h)
     for pos, rnd, scale in self.patrol_queue:
-        i = pos.y * self.w + pos.x
-        patrol[i] = scale * (crnd - rnd)
-    
+        patrol[pos.y * w + pos.x] = scale * (crnd - rnd)
+
     if self.dangling_output:
         print(self.dangling_flow)
         _ct.draw_indicator_dot(self.dangling_output, 255, 0, 0)
 
+    env = self.env
+    flow = self.flow
+
     emit(
         unseen=Grid(
-            [0.0 if e is not None else 1.0 for e in self.env],
+            [0.0 if env[y * stride + x] is not None else 1.0 for y in range(h) for x in range(w)],
             palette=P_FOG,
         ),
         ti_flow=Grid(
-            [f[FLOW_TI] for f in flows],
+            [flow[y * stride + x].get_flow()[FLOW_TI] for y in range(h) for x in range(w)],
             palette=P_FLOW,
         ),
         ax_flow=Grid(
-            [f[FLOW_AX] for f in flows],
+            [flow[y * stride + x].get_flow()[FLOW_AX] for y in range(h) for x in range(w)],
             palette=P_FLOW,
         ),
         rax_flow=Grid(
-            [f[FLOW_RAX] for f in flows],
+            [flow[y * stride + x].get_flow()[FLOW_RAX] for y in range(h) for x in range(w)],
             palette=P_FLOW,
         ),
         conv_cost=Grid(
             [c if c < 1e6 else -1 for c in _unpad(self.conveyor_cost_grid, self)],
             palette=P_COST,
+        ),
+        passable=Grid(
+            _unpad1(self.pass_grid.passable, self),
+            palette=P_PASS,
         ),
         patrol=Grid(
             patrol,
