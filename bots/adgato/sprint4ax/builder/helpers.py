@@ -8,62 +8,68 @@ from building import (
     BuildingConveyor,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Position
-from util import DIR4, DIR8, Symmetry, can_afford, try_move
+from cambc import Controller, EntityType, Position, Direction
+from util import DIR4, DIR8, DELTA_TO_DIR, Symmetry, can_afford, try_move
 
 from .algorithms.fallback_nav import fallback_nav
 
 if TYPE_CHECKING:
-    from builder import Builder
+    from builder import Builder, PosInt
 
 
 def find_next(
-    self: Builder, ct: Controller, start: Position, targets: list[Position]
-) -> Position | None:
-    return self.nav.search(ct, start, targets)
+    self: Builder, ct: Controller, start: PosInt, targets: list[PosInt]
+) -> PosInt:
+    pos = self.nav.search(ct, self.pos(start), [self.pos(p) for p in targets])
+    if pos:
+        return self._idx(pos)
+    return -1
 
 
-def make_move(self: Builder, ct: Controller, target: Position) -> bool:
+def make_move(self: Builder, ct: Controller, target: PosInt) -> bool:
     start = self.my_pos
     if start == target:
         return True
 
     next_step = find_next(self, ct, start, [target])
-    if not next_step:
-        next_step = fallback_nav(self, ct, target)
+    if next_step < 0:
+        fallback_pos = fallback_nav(self, ct, self.pos(target))
+        if fallback_pos:
+            next_step = self._idx(fallback_pos)
     if next_step:
         try_move_with_road(self, ct, next_step)
         return True
     return False
 
 
-def make_multi_move(self: Builder, ct: Controller, targets: list[Position]) -> bool:
+def make_multi_move(self: Builder, ct: Controller, targets: list[PosInt]) -> bool:
     start = self.my_pos
 
     next_step = find_next(self, ct, start, targets)
-    if not next_step:
-        next_step = fallback_nav(self, ct, targets[0])
+    if next_step < 0:
+        fallback_pos = fallback_nav(self, ct, self.pos(targets[0]))
+        if fallback_pos:
+            next_step = self._idx(fallback_pos)
     if next_step:
         try_move_with_road(self, ct, next_step)
         return True
     return False
 
 
-def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> bool:
-    if ct.can_build_road(target_pos):
-        ct.build_road(target_pos)
+def try_move_with_road(self: Builder, ct: Controller, target_pos: PosInt) -> bool:
+    if ct.can_build_road(self.pos(target_pos)):
+        ct.build_road(self.pos(target_pos))
     return try_move(self, ct, target_pos)
 
 
-def try_move_adj_to(self: Builder, ct: Controller, target_pos: Position) -> bool:
+def try_move_adj_to(self: Builder, ct: Controller, target_pos: PosInt) -> bool:
     """no road built"""
     my_pos = self.my_pos
-    dist_to_target = target_pos.distance_squared
     for d in DIR8:
-        adj = my_pos.add(d)
-        if dist_to_target(adj) <= 2 and ct.can_move(d):
-            ct.move(d)
-            self.my_pos = self.my_pos.add(d)
+        adj = my_pos + d
+        if self.sq_dist(target_pos, adj) <= 2 and ct.can_move(DELTA_TO_DIR[d]):
+            ct.move(DELTA_TO_DIR[d])
+            self.my_pos += d
             return True
 
     return False
@@ -106,24 +112,24 @@ def try_place(
 
 def trace_downstream(
     self: Builder,
-    start_pos: Position,
-    target_head: Position | None,
-    path: list[Position] | None = None,
-) -> list[Position]:
+    start_pos: PosInt,
+    target_head: PosInt | None,
+    path: list[PosInt] | None = None,
+) -> list[PosInt]:
     if path is None:
         path = []
     current_pos = start_pos
     while True:
         path.append(current_pos)
-        bld = self.get_building(current_pos)
+        bld = self.get_building(self._idx(current_pos))
         match bld:
             case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                current_pos = current_pos.add(d)
+                current_pos += d
             case BuildingSplitter(direction=d):
                 for sd in DIR4:
-                    if sd == d.opposite():
+                    if sd == -d:
                         continue
-                    new_pos = current_pos.add(sd)
+                    new_pos = current_pos + sd
                     if target_head:
                         new_path = trace_downstream(
                             self, new_pos, target_head, path=path[:]
@@ -133,7 +139,7 @@ def trace_downstream(
                     elif self.get_building(new_pos) is None:
                         path.append(new_pos)
                         return path
-                current_pos = current_pos.add(d)
+                current_pos += d
             case BuildingBridge(target=t):
                 current_pos = t
             case _:
@@ -146,47 +152,48 @@ def trace_downstream(
 def try_heal(
     self: Builder,
     ct: Controller,
-    position: Position,
+    i: PosInt,
     *,
     conserve_ti: bool = True,
     heal_score=0,
 ) -> bool:
     if conserve_ti and heal_score < 4:
         return False
+    position = self.pos(i)
     if ct.can_heal(position):
         ct.heal(position)
         return True
     return False
 
 
-def get_enemy_core_pos(self: Builder) -> Position:
+def get_enemy_core_pos(self: Builder) -> PosInt:
     w, h = self.w, self.h
-    cp = self.my_core
+    cp = self.pos(self.my_core)
     candidates = self.symmetry_candidates
 
     if Symmetry.ROT in candidates:
-        return Position(w - 1 - cp.x, h - 1 - cp.y)
+        return self._idx(Position(w - 1 - cp.x, h - 1 - cp.y))
     if Symmetry.VER in candidates:
-        return Position(w - 1 - cp.x, cp.y)
+        return self._idx(Position(w - 1 - cp.x, cp.y))
     if Symmetry.HOR in candidates:
-        return Position(cp.x, h - 1 - cp.y)
+        return self._idx(Position(cp.x, h - 1 - cp.y))
 
-    return Position(w - 1 - cp.x, h - 1 - cp.y)
+    return self._idx(Position(w - 1 - cp.x, h - 1 - cp.y))
 
 
 def move_random(self: Builder, ct: Controller) -> bool:
-    dir8 = DIR8[:]
+    dir8 = list(DIR8)
     self.rng.shuffle(dir8)
     for d in dir8:
-        if ct.can_move(d):
-            ct.move(d)
-            self.my_pos = self.my_pos.add(d)
+        if ct.can_move(DELTA_TO_DIR[d]):
+            ct.move(DELTA_TO_DIR[d])
+            self.my_pos += d
             return True
     return False
 
 
-def trace_upstream(self: Builder, position: Position) -> list[Position]:
-    path: list[Position] = []
+def trace_upstream(self: Builder, position: PosInt) -> list[PosInt]:
+    path: list[PosInt] = []
     conveyors = [position]
     while len(conveyors) > 0:
         position = conveyors[0]
@@ -197,6 +204,6 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
     return path
 
 
-def is_enemy_building(self: Builder, ct: Controller, pos: Position) -> bool:
+def is_enemy_building(self: Builder, ct: Controller, pos: PosInt) -> bool:
     b = self.get_building(pos)
     return b is not None and b.team != self.my_team

@@ -3,18 +3,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import BuildingHarvester, BuildingRoad
-from cambc import Controller, Direction, Environment, Position
+from cambc import Controller, Environment
 
-from .helpers import DIR4, try_move_adj_to
+from util import DIR4, DELTA_TO_DIR
+from .helpers import try_move_adj_to
 
 if TYPE_CHECKING:
-    from builder import Builder
+    from builder import Builder, PosInt
 
 
 def fix_enemy_conveyor(self: Builder, ct: Controller) -> bool:
     nearby_positions = ct.get_nearby_tiles(2)
     for pos in nearby_positions:
-        if self.leads_to_enemy_building(pos) and ct.can_destroy(pos):
+        if self.leads_to_enemy_building(self._idx(pos)) and ct.can_destroy(pos):
             ct.destroy(pos)
             if ct.can_build_road(pos):
                 ct.build_road(pos)
@@ -31,26 +32,26 @@ def deny_enemy_ore(self: Builder, ct: Controller) -> bool:
     for pos in nearby_positions:
         if pos not in self.deny_ore_neighbours:
             continue
-        if self.get_env(pos) == Environment.WALL:
+        if self.get_env(self._idx(pos)) == Environment.WALL:
             continue
-        if self.get_building(pos) is not None:
+        if self.get_building(self._idx(pos)) is not None:
             continue
         if ct.can_build_road(pos):
             ct.build_road(pos)
             return True
     return False
 
-def pave(self: Builder, ct: Controller, maybe_unpaved: list[Position]) -> bool:
+def pave(self: Builder, ct: Controller, maybe_unpaved: list[PosInt]) -> bool:
 
     my_team = self.my_team
     for pos in maybe_unpaved:
-        bid = ct.get_tile_building_id(pos)
-        if bid is not None and ct.get_team(ct.get_tile_building_id(pos)) != my_team:
+        bid = ct.get_tile_building_id(self.pos(pos))
+        if bid is not None and ct.get_team(ct.get_tile_building_id(self.pos(pos))) != my_team:
             continue
 
-        dir = Direction.CENTRE
+        dir = 0
         for d in DIR4:
-            building = self.get_building(pos.add(d))
+            building = self.get_building(pos + d)
             if isinstance(building, BuildingHarvester):
                 if building.team == my_team:
                     dir = d
@@ -58,22 +59,22 @@ def pave(self: Builder, ct: Controller, maybe_unpaved: list[Position]) -> bool:
         else:
             ore_env = (Environment.ORE_AXIONITE, Environment.ORE_TITANIUM)
             for d in DIR4:
-                if self.get_building(pos.add(d)) is None and self.get_env(pos.add(d)) in ore_env:
+                if self.get_building(pos + d) is None and self.get_env(pos + d) in ore_env:
                     dir = d
                     break
 
         is_road = isinstance(self.get_building(pos), BuildingRoad)
         moved = False
-        if self.my_pos.distance_squared(pos) > 2 and (bid is None or is_road):
+        if self.my_sq_dist(pos) > 2 and (bid is None or is_road):
             moved = try_move_adj_to(self, ct, pos)
             if not moved:
                 continue
 
-        if is_road and ct.can_destroy(pos):
-            ct.destroy(pos)
+        if is_road and ct.can_destroy(self.pos(pos)):
+            ct.destroy(self.pos(pos))
 
-        if ct.can_build_conveyor(pos, dir):
-            ct.build_conveyor(pos, dir)
+        if ct.can_build_conveyor(self.pos(pos), DELTA_TO_DIR[dir]):
+            ct.build_conveyor(self.pos(pos), DELTA_TO_DIR[dir])
             return True
 
         if moved:
@@ -87,10 +88,10 @@ def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
     # route_to_core here.
 
     candidates = [
-        pos
+        self._idx(pos)
         for pos in ct.get_nearby_tiles(8)
-        if pos in self.adjacent_to_harvester and self.get_env(pos) != Environment.WALL
+        if self._idx(pos) in self.adjacent_to_harvester and self.get_env(self._idx(pos)) != Environment.WALL
     ]
-    maybe_unpaved = sorted(candidates, key=self.my_pos.distance_squared)
+    maybe_unpaved = sorted(candidates, key=self.my_sq_dist)
 
     return pave(self, ct, maybe_unpaved)

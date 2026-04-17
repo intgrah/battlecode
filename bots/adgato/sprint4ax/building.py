@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from cambc import EntityType
 
 if TYPE_CHECKING:
-    from cambc import Direction, Position, Team
+    from cambc import Team
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,25 +22,25 @@ class BuildingHarvester:
 @dataclass(frozen=True, slots=True)
 class BuildingConveyor:
     team: Team
-    direction: Direction
+    direction: int
 
 
 @dataclass(frozen=True, slots=True)
 class BuildingArmouredConveyor:
     team: Team
-    direction: Direction
+    direction: int
 
 
 @dataclass(frozen=True, slots=True)
 class BuildingSplitter:
     team: Team
-    direction: Direction
+    direction: int
 
 
 @dataclass(frozen=True, slots=True)
 class BuildingBridge:
     team: Team
-    target: Position
+    target: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,19 +61,19 @@ class BuildingRoad:
 @dataclass(frozen=True, slots=True)
 class BuildingGunner:
     team: Team
-    direction: Direction
+    direction: int
 
 
 @dataclass(frozen=True, slots=True)
 class BuildingSentinel:
     team: Team
-    direction: Direction
+    direction: int
 
 
 @dataclass(frozen=True, slots=True)
 class BuildingBreach:
     team: Team
-    direction: Direction
+    direction: int
 
 
 @dataclass(frozen=True, slots=True)

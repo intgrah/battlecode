@@ -6,7 +6,7 @@ from typing import override
 
 from cambc import Controller, Direction, EntityType, ResourceType
 from unit import Unit
-from util import DIR4, DIR8
+from util import DIR4, DIR8, DELTA_TO_DIR
 
 __all__ = ["Core"]
 
@@ -47,9 +47,9 @@ class Core(Unit):
         pos = ct.get_position()
         count = 0
         for d in DIR8:
-            tile = pos.add(d)
+            tile = pos.add(DELTA_TO_DIR[d])
             for cd in DIR4:
-                src = tile.add(cd)
+                src = tile.add(DELTA_TO_DIR[cd])
                 if not (0 <= src.x < self.w and 0 <= src.y < self.h):
                     continue
                 if not ct.is_in_vision(src):
@@ -84,7 +84,7 @@ class Core(Unit):
         return (rnd > 20 and has_income) or (rnd > 40 and has_surplus)
 
     def _try_spawn(self, ct: Controller) -> None:
-        d: Direction = self.rng.choice(DIR8)
+        d: Direction = DELTA_TO_DIR[self.rng.choice(DIR8)]
         for _ in range(8):
             sp = ct.get_position().add(d)
             if ct.can_spawn(sp):

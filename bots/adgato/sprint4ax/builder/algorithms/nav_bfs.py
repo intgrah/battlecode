@@ -50,7 +50,7 @@ def _bfs_compute(
         next_frontier: list[int] = []
         for node in frontier:
             if node == cur_idx:
-                return next_frontier
+                return frontier
             for ni in pnb_push[node]:
                 if dist[ni] is 0xFF:
                     dist[ni] = d
@@ -58,14 +58,13 @@ def _bfs_compute(
             for ni in pnb_set[node]:
                 if dist[ni] is 0xFF:
                     dist[ni] = d
-                    if ni == cur_idx:
-                        next_frontier.append(ni)
+                if ni == cur_idx:
+                    next_frontier.append(ni)
         frontier = next_frontier
-        d += 1
-        if cpu_time() > budget:
-            return next_frontier
+        d = (d + 1) & 0xFF
+        if d > 5 and cpu_time() > budget:
+            return frontier
     return []
-
 
 class PassableGrid:
     """Padded-by-1 passability grid with incremental neighbour tables.
@@ -128,7 +127,7 @@ class PassableGrid:
         pw = self.pw
         self.rn = w * h
 
-        EMPTY = []
+        EMPTY: list[int] = []
         pnb_push = self.pnb_push
         pnb_set = self.pnb_set
 
@@ -273,7 +272,7 @@ class NavBfs:
 
         # Distance array. Unvisited tiles hold INF; reset on each restart.
         self._dist_reset: bytearray = bytearray(b"\xff" * n)
-        self._dist: list[int] = bytearray(self._dist_reset)
+        self._dist: bytearray = bytearray(self._dist_reset)
 
         self._q: list[int] = []
         self._resumable = False
