@@ -297,11 +297,27 @@ def _build_sssp_algos(
     )
     add(
         "bfs-jps",
-        lambda start: sssp.bfs_jps(n, w, pnb_dir, dir_of_offset, start),
+        lambda start: sssp.bfs_jps(n, pnb_dir, dir_of_offset, start),
     )
     add(
         "bfs-jps-list",
-        lambda start: sssp.bfs_jps_list(n, w, pnb_dir, dir_of_offset, start),
+        lambda start: sssp.bfs_jps_list(n, pnb_dir, dir_of_offset, start),
+    )
+    add(
+        "bfs-jps-list-dbl",
+        lambda start: sssp.bfs_jps_list_dbl(n, pnb_dir, dir_of_offset, start),
+    )
+    add(
+        "bfs-jps-list-merge",
+        lambda start: sssp.bfs_jps_list_merge(n, pnb_dir, dir_of_offset, start),
+    )
+    add(
+        "bfs-jps-list-merge-off",
+        lambda start: sssp.bfs_jps_list_merge_off(n, pnb_by_offset, start),
+    )
+    add(
+        "bfs-jps-list-defer",
+        lambda start: sssp.bfs_jps_list_defer(n, pnb_by_offset, start),
     )
     add(
         "bfs-jps-list-off",
@@ -362,6 +378,10 @@ ALL_SSSP_NAMES: list[str] = [
     "bfs-skip-level",
     "bfs-jps",
     "bfs-jps-list",
+    "bfs-jps-list-dbl",
+    "bfs-jps-list-merge",
+    "bfs-jps-list-merge-off",
+    "bfs-jps-list-defer",
     "bfs-jps-list-off",
     "spfa-slf",
     "bellman-ford",
@@ -612,7 +632,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
                     times.setdefault(algo_name, {}).setdefault(scenario, []).append(us)
 
                     ref = ref_dists[idx]
-                    hop_algos = ("bfs", "bfs-level", "bfs-buckets", "bfs-skip", "bfs-skip-level", "bfs-jps", "bfs-jps-list", "bfs-jps-list-off")
+                    hop_algos = ("bfs", "bfs-level", "bfs-buckets", "bfs-skip", "bfs-skip-level", "bfs-jps", "bfs-jps-list", "bfs-jps-list-dbl", "bfs-jps-list-merge", "bfs-jps-list-merge-off", "bfs-jps-list-defer", "bfs-jps-list-off")
                     exact_algos = ("bfs-expand",)
                     if algo_name in (*hop_algos, *exact_algos) and scenario != "no_roads":
                         got = result
@@ -648,9 +668,9 @@ def bench_sssp(args: argparse.Namespace) -> None:
     for scenario in SCENARIOS:
         print(f"\n  {scenario.upper()}")
         print(
-            f"  {'Algorithm':<28s} {'t_p50':>8s} {'t_p90':>8s} {'t_p99':>8s} {'t_p100':>8s} {'o_p50':>7s} {'o_p99':>7s} {'o_p100':>7s}"
+            f"  {'Algorithm':<28s} {'t_mean':>8s} {'t_p50':>8s} {'t_p90':>8s} {'t_p99':>8s} {'t_p100':>8s} {'o_p50':>7s} {'o_p99':>7s} {'o_p100':>7s}"
         )
-        print(f"  {'-' * 86}")
+        print(f"  {'-' * 95}")
         all_names = list(times.keys())
         seen: set[str] = set()
         for algo_name in all_names:
@@ -661,6 +681,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
             if not ts:
                 continue
             nt = len(ts)
+            t_mean = sum(ts) / nt
             t50 = ts[nt // 2]
             t90 = ts[int(nt * 0.9)]
             t99 = ts[int(nt * 0.99)]
@@ -675,7 +696,7 @@ def bench_sssp(args: argparse.Namespace) -> None:
             else:
                 opt_str = ""
             print(
-                f"  {algo_name:<28s} {t50:>7.0f}us {t90:>7.0f}us {t99:>7.0f}us {t100:>7.0f}us{opt_str}",
+                f"  {algo_name:<28s} {t_mean:>7.0f}us {t50:>7.0f}us {t90:>7.0f}us {t99:>7.0f}us {t100:>7.0f}us{opt_str}",
             )
 
 

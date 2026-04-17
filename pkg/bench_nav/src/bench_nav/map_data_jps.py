@@ -24,12 +24,17 @@ def build_pnb_by_offset(
 
 
 def build_dir_of_offset(w: int) -> list[int]:
-    """Flat table: dir_of_offset[nb - node + w + 1] = DIR8 index."""
-    kp = w + 1
-    table = [0] * (2 * w + 3)
-    offsets = (-w, -w + 1, 1, w + 1, w, w - 1, -1, -w - 1)
-    for d, off in enumerate(offsets):
-        table[off + kp] = d
+    """Negative-indexed: dir_of_offset[nb - node] = DIR8 index.
+
+    Table size w+3; Python's negative indexing accommodates the 4 negative offsets.
+    """
+    size = w + 3
+    table = [0] * size
+    offset_to_dir = {
+        -w - 1: 7, -w: 0, -w + 1: 1, -1: 6, 1: 2, w - 1: 5, w: 4, w + 1: 3,
+    }
+    for off, d in offset_to_dir.items():
+        table[off] = d
     return table
 
 
