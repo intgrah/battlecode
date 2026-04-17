@@ -5,9 +5,12 @@ from bench_nav.sssp.bfs_buckets import bfs_buckets
 from bench_nav.sssp.bfs_level import bfs_level
 from bench_nav.sssp.bfs_skip import bfs_skip
 from bench_nav.sssp.bfs_jps import bfs_jps
-from bench_nav.sssp.bfs_jps_skip import bfs_jps_skip
+from bench_nav.sssp.bfs_jps_list import bfs_jps_list
+from bench_nav.sssp.bfs_jps_list_off import bfs_jps_list_off
 from bench_nav.sssp.bfs_skip_level import bfs_skip_level
 from bench_nav.sssp.dijkstra_dial import dijkstra_dial
+from bench_nav.sssp.dijkstra_dial_skip import dijkstra_dial_skip
+from bench_nav.sssp.dijkstra_dial_skip_pnbc import dijkstra_dial_skip_pnbc
 from bench_nav.sssp.dijkstra_dial_dual import dijkstra_dial_dual
 from bench_nav.sssp.dijkstra_dial_np_dual2 import dijkstra_dial_np_dual2
 from bench_nav.sssp.dijkstra_dial_pnbc import dijkstra_dial_pnbc
@@ -23,7 +26,8 @@ __all__ = [
     "bfs_buckets",
     "bfs_expand",
     "bfs_jps",
-    "bfs_jps_skip",
+    "bfs_jps_list",
+    "bfs_jps_list_off",
     "bfs_level",
     "bfs_skip",
     "bfs_skip_level",
@@ -31,6 +35,8 @@ __all__ = [
     "dijkstra_dial_dual",
     "dijkstra_dial_np_dual2",
     "dijkstra_dial_pnbc",
+    "dijkstra_dial_skip",
+    "dijkstra_dial_skip_pnbc",
     "dijkstra_dial_unrolled",
     "dijkstra_flat",
     "dijkstra_flat_prealloc",
