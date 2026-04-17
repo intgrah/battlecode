@@ -17,13 +17,15 @@ if TYPE_CHECKING:
 
 class Player:
     def __init__(self) -> None:
+        self._pre_builder: Builder = Builder()
         self.unit: Unit | None = None
 
     def run(self, ct: Controller) -> None:
         if self.unit is None:
             match ct.get_entity_type():
                 case EntityType.BUILDER_BOT:
-                    self.unit = Builder(ct)
+                    self._pre_builder.init(ct)
+                    self.unit = self._pre_builder
                 case EntityType.CORE:
                     self.unit = Core(ct)
                 case EntityType.SENTINEL:

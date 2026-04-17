@@ -93,6 +93,7 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
 
 def update_map(self: Builder, ct: Controller) -> None:
     w = self.w
+    stride = self.dist_stride
     nearby_positions = ct.get_nearby_tiles()
     rnd = ct.get_current_round()
     self.nearby_positions = nearby_positions
@@ -116,7 +117,7 @@ def update_map(self: Builder, ct: Controller) -> None:
     ]
 
     for pos in nearby_positions:
-        i = pos.y * w + pos.x
+        i = pos.y * stride + pos.x
         self.conveyors_to_here[i] = [
             p for p in self.conveyors_to_here[i] if not in_vision(p)
         ]
@@ -128,7 +129,7 @@ def update_map(self: Builder, ct: Controller) -> None:
     pw = self.pw
     my_team = self.my_team
     for pos in nearby_positions:
-        i = pos.y * w + pos.x
+        i = pos.y * stride + pos.x
         pi = (pos.y + pad) * pw + (pos.x + pad)
 
         tile_env = ct.get_tile_env(pos)
@@ -166,11 +167,11 @@ def update_map(self: Builder, ct: Controller) -> None:
                 case BuildingConveyor(direction=d):
                     target_pos = pos.add(d)
                     if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
-                        ti = target_pos.y * w + target_pos.x
+                        ti = target_pos.y * stride + target_pos.x
                         self.conveyors_to_here[ti].append(pos)
                 case BuildingBridge(target=t):
                     if 0 <= t.x < self.w and 0 <= t.y < self.h:
-                        ti = t.y * w + t.x
+                        ti = t.y * stride + t.x
                         self.conveyors_to_here[ti].append(pos)
                 case BuildingSplitter(direction=d):
                     for sd in [
@@ -180,7 +181,7 @@ def update_map(self: Builder, ct: Controller) -> None:
                     ]:
                         target_pos = pos.add(sd)
                         if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
-                            ti = target_pos.y * w + target_pos.x
+                            ti = target_pos.y * stride + target_pos.x
                             self.splitters_to_here[ti].append(pos)
 
             self.nearby_buildings.append(pos)
@@ -300,12 +301,12 @@ def update_map(self: Builder, ct: Controller) -> None:
         self.conveyor_cost_grid[pi] = conveyor_cost
         assert self.conveyor_cost_grid[pi] > 0
 
-    # update pass grid
+    # update pass grid (pass_grid uses stride-w real indices internally)
     for pos in nearby_positions:
-        i = pos.y * w + pos.x
+        i = pos.y * stride + pos.x
         bid = ct.get_tile_building_id(pos)
         self.pass_grid.update_tile(
-            i,
+            pos,
             self.env[i],
             EntityType.LAUNCHER if pos in self.adjacent_to_enemy_launcher else None if bid is None else ct.get_entity_type(bid),
             is_allied_building=(bid is not None and ct.get_team(building_id) == my_team),
@@ -334,7 +335,7 @@ def update_map(self: Builder, ct: Controller) -> None:
     for pos in nearby_positions:
         if not (0 <= pos.x < self.w and 0 <= pos.y < self.h):
             continue
-        env = self.env[pos.y * w + pos.x]
+        env = self.env[pos.y * stride + pos.x]
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
         has_enemy = False
@@ -342,7 +343,7 @@ def update_map(self: Builder, ct: Controller) -> None:
             n = pos.add(d)
             if not (0 <= n.x < self.w and 0 <= n.y < self.h):
                 continue
-            nb = self.buildings[n.y * w + n.x]
+            nb = self.buildings[n.y * stride + n.x]
             if nb is not None and nb.team != my_team:
                 has_enemy = True
                 break
@@ -358,7 +359,7 @@ def update_map(self: Builder, ct: Controller) -> None:
                     self.deny_ore_neighbours.add(n)
 
     if self.nearest_enemy_turret:
-        match self.buildings[pos.y * w + pos.x]:
+        match self.buildings[pos.y * stride + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
                 t != self.my_team
             ):
@@ -367,7 +368,7 @@ def update_map(self: Builder, ct: Controller) -> None:
                 self.nearest_enemy_turret = None
     min_dist = INF
     for pos in nearby_positions:
-        match self.buildings[pos.y * w + pos.x]:
+        match self.buildings[pos.y * stride + pos.x]:
             case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
                 t != self.my_team
             ):
@@ -468,20 +469,22 @@ def _apply_symmetry(
         _eliminate_symmetries(self, new_tiles)
     if self.symmetry is None:
         return
-    w = self.w
+    stride = self.dist_stride
     if had_symmetry:
         source = new_tiles
     else:
         _set_enemy_core(self)
+        # `e is not None` skips holes (x in [w, 2w)) since they're
+        # never written, as well as unseen valid tiles.
         source = [
-            (Position(i % w, i // w), e)
+            (Position(i % stride, i // stride), e)
             for i, e in enumerate(self.env)
             if e is not None
         ]
     pending = self.reflect_queue
     for t, env in source:
         m = _mirror(self, t)
-        mi = m.y * w + m.x
+        mi = m.y * stride + m.x
         if self.env[mi] is not None:
             continue
         self.env[mi] = env
@@ -492,14 +495,14 @@ def _drain_reflect_queue(self: Builder) -> None:
     pending = self.reflect_queue
     if not pending:
         return
-    w = self.w
+    stride = self.dist_stride
     pad = self.pad
     pw = self.pw
     limit = min(len(pending), _REFLECT_BUDGET)
     for _ in range(limit):
         i = pending.popleft()
         terrain = self.env[i]
-        pi = ((i // w) + pad) * pw + ((i % w) + pad)
+        pi = ((i // stride) + pad) * pw + ((i % stride) + pad)
         if terrain == Environment.WALL:
             self.conveyor_cost_grid[pi] = INF
         elif terrain in (
@@ -517,6 +520,7 @@ def _eliminate_symmetries(
         return
 
     w, h = self.w, self.h
+    stride = self.dist_stride
     invalid: set[Symmetry] = set()
 
     for sym in self.symmetry_candidates:
@@ -529,13 +533,13 @@ def _eliminate_symmetries(
                 case Symmetry.ROT:
                     sx, sy = w - 1 - pos.x, h - 1 - pos.y
 
-            mirror_env = self.env[sy * w + sx]
+            mirror_env = self.env[sy * stride + sx]
             if mirror_env is not None and mirror_env != env:
                 invalid.add(sym)
                 break
 
-            b1 = self.buildings[pos.y * w + pos.x]
-            b2 = self.buildings[sy * w + sx]
+            b1 = self.buildings[pos.y * stride + pos.x]
+            b2 = self.buildings[sy * stride + sx]
             match b1:
                 case BuildingCore():
                     is_core1 = True
