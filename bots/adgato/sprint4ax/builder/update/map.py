@@ -18,25 +18,25 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position
-from util import DIR4, DIR8, INF, Symmetry
+from util import DIR4, DIR8, INF, Symmetry, DELTA_TO_DIR, DIR_TO_DELTA
 
 if TYPE_CHECKING:
-    from builder import Builder
+    from builder import Builder, PosInt
 
 ROAD_COST = 3
 
 
-def _make_building(ct: Controller, bid: int, etype: EntityType) -> Building | None:
+def _make_building(self: Builder, ct: Controller, bid: int, etype: EntityType) -> Building | None:
     team = ct.get_team(bid)
     match etype:
         case EntityType.CONVEYOR | EntityType.ARMOURED_CONVEYOR | EntityType.SPLITTER:
             cls = ETYPE_BUILDING[etype]
-            return cls(team, ct.get_direction(bid))
+            return cls(team, DIR_TO_DELTA[ct.get_direction(bid)])
         case EntityType.GUNNER | EntityType.SENTINEL | EntityType.BREACH:
             cls = ETYPE_BUILDING[etype]
-            return cls(team, ct.get_direction(bid))
+            return cls(team, DIR_TO_DELTA[ct.get_direction(bid)])
         case EntityType.BRIDGE:
-            return BuildingBridge(team, ct.get_bridge_target(bid))
+            return BuildingBridge(team, self._idx(ct.get_bridge_target(bid)))
         case _:
             cls = ETYPE_BUILDING.get(etype)
             if cls is None:
@@ -62,8 +62,8 @@ def load_penalty(load: int) -> int:
             return 500
 
 
-def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
-    match self.get_building(pos):
+def can_place_junction(self: Builder, ct: Controller, i: PosInt) -> bool:
+    match self.get_building(i):
         case None:
             pass
         case BuildingConveyor(team=t) | BuildingRoad(team=t) if t == self.my_team:
@@ -71,16 +71,16 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
         case _:
             return False
 
-    conveyors = self.get_conveyors_to_here(pos)
-    adjacent_conveyors = [c for c in conveyors if c.distance_squared(pos) <= 2]
+    conveyors = self.get_conveyors_to_here(i)
+    adjacent_conveyors = [c for c in conveyors if self.sq_dist(c, i) <= 2]
     if len(adjacent_conveyors) > 1 or len(conveyors) < 1:
         return False
     buildable_count = 0
     for d in DIR4:
-        new_pos = pos.add(d)
-        if self.get_env(new_pos) != Environment.EMPTY:
+        ni = i + d
+        if self.get_env(ni) != Environment.EMPTY:
             continue
-        match self.get_building(new_pos):
+        match self.get_building(ni):
             case None:
                 buildable_count += 1
             case BuildingConveyor() | BuildingBridge() | BuildingSplitter():
@@ -94,12 +94,12 @@ def can_place_junction(self: Builder, ct: Controller, pos: Position) -> bool:
 def update_map(self: Builder, ct: Controller) -> None:
     w = self.w
     stride = self.dist_stride
-    nearby_positions = ct.get_nearby_tiles()
+    nearby_positions = [self._idx(p) for p in ct.get_nearby_tiles()]
     rnd = ct.get_current_round()
     self.nearby_positions = nearby_positions
     self.nearby_buildings = []
 
-    in_vision = ct.is_in_vision
+    in_vision = lambda x: ct.is_in_vision(self.pos(x))
 
     self.healable_buildings = [p for p in self.healable_buildings if not in_vision(p)]
     self.adjacent_to_enemy_launcher = {
@@ -116,8 +116,7 @@ def update_map(self: Builder, ct: Controller) -> None:
         p for p in self.patrol_queue if not in_vision(p[0])
     ]
 
-    for pos in nearby_positions:
-        i = pos.y * stride + pos.x
+    for i in nearby_positions:
         self.conveyors_to_here[i] = [
             p for p in self.conveyors_to_here[i] if not in_vision(p)
         ]
@@ -128,17 +127,17 @@ def update_map(self: Builder, ct: Controller) -> None:
     pad = self.pad
     pw = self.pw
     my_team = self.my_team
-    for pos in nearby_positions:
-        i = pos.y * stride + pos.x
+    for i in nearby_positions:
+        pos = self.pos(i)
         pi = (pos.y + pad) * pw + (pos.x + pad)
 
         tile_env = ct.get_tile_env(pos)
         self.env[i] = tile_env
 
         if tile_env == Environment.ORE_TITANIUM:
-            self.ti_ore.add(pos)
+            self.ti_ore.add(i)
         elif tile_env == Environment.ORE_AXIONITE:
-            self.ax_ore.add(pos)
+            self.ax_ore.add(i)
 
         building_id = ct.get_tile_building_id(pos)
         if (
@@ -146,7 +145,7 @@ def update_map(self: Builder, ct: Controller) -> None:
             and ct.get_entity_type(building_id) != EntityType.MARKER
         ):
             etype = ct.get_entity_type(building_id)
-            bld = _make_building(ct, building_id, etype)
+            bld = _make_building(self, ct, building_id, etype)
             self.buildings[i] = bld
             self.hp[i] = ct.get_hp(building_id)
             self.max_hp[i] = ct.get_max_hp(building_id)
@@ -165,63 +164,60 @@ def update_map(self: Builder, ct: Controller) -> None:
                     self.flow[i].update(rtype, rid)
             match bld:
                 case BuildingConveyor(direction=d):
-                    target_pos = pos.add(d)
-                    if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
-                        ti = target_pos.y * stride + target_pos.x
-                        self.conveyors_to_here[ti].append(pos)
+                    target_pos = i + d
+                    if self.in_bounds(i):
+                        self.conveyors_to_here[target_pos].append(i)
                 case BuildingBridge(target=t):
-                    if 0 <= t.x < self.w and 0 <= t.y < self.h:
-                        ti = t.y * stride + t.x
-                        self.conveyors_to_here[ti].append(pos)
+                    if self.in_bounds(t):
+                        self.conveyors_to_here[t].append(i)
                 case BuildingSplitter(direction=d):
                     for sd in [
                         d,
-                        d.rotate_right().rotate_right(),
-                        d.rotate_left().rotate_left(),
+                        DIR_TO_DELTA[DELTA_TO_DIR[d].rotate_right().rotate_right()],
+                        DIR_TO_DELTA[DELTA_TO_DIR[d].rotate_left().rotate_left()],
                     ]:
-                        target_pos = pos.add(sd)
-                        if 0 <= target_pos.x < self.w and 0 <= target_pos.y < self.h:
-                            ti = target_pos.y * stride + target_pos.x
-                            self.splitters_to_here[ti].append(pos)
+                        target_pos = i + sd
+                        if self.in_bounds(target_pos):
+                            self.splitters_to_here[target_pos].append(i)
 
-            self.nearby_buildings.append(pos)
+            self.nearby_buildings.append(i)
             if (
                 self.hp[i] < self.max_hp[i]
                 and bld is not None
                 and bld.team == self.my_team
             ):
-                self.healable_buildings.append(pos)
+                self.healable_buildings.append(i)
             match bld:
                 case BuildingLauncher(team=t) if t != self.my_team:
                     for d in DIR8:
-                        n = pos.add(d)
-                        if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                        n = i + d
+                        if self.in_bounds(n):
                             self.adjacent_to_enemy_launcher.add(n)
                 case BuildingGunner(team=t, direction=d) if t != self.my_team:
                     # Gunner forward ray: up to r²≤13 (3 cardinal
                     # or ~2.5 diagonal steps). Each tile along the
                     # ray is a soft-penalty zone for movement.
-                    ray = pos
+                    ray = i
                     for _ in range(4):
-                        ray = ray.add(d)
-                        if pos.distance_squared(ray) > 13:
+                        ray = ray + d
+                        if self.sq_dist(i, ray) > 13:
                             break
-                        if 0 <= ray.x < self.w and 0 <= ray.y < self.h:
+                        if self.in_bounds(ray):
                             self.enemy_turret_ray_tiles.add(ray)
                 case BuildingSentinel(team=t, direction=d) if t != self.my_team:
                     # Sentinel: forward line plus 1 king-move
                     # halo, up to r²≤32. Add the core line and
                     # its 8-neighbour halo for each step.
-                    ray = pos
+                    ray = i
                     for _ in range(6):
-                        ray = ray.add(d)
-                        if pos.distance_squared(ray) > 32:
+                        ray = ray + d
+                        if self.sq_dist(i, ray) > 32:
                             break
-                        if 0 <= ray.x < self.w and 0 <= ray.y < self.h:
+                        if self.in_bounds(ray):
                             self.enemy_turret_ray_tiles.add(ray)
                         for hd in DIR8:
-                            h = ray.add(hd)
-                            if 0 <= h.x < self.w and 0 <= h.y < self.h:
+                            h = ray + hd
+                            if self.in_bounds(h):
                                 self.enemy_turret_ray_tiles.add(h)
                 case BuildingGunner(team=t, direction=d) if t == self.my_team:
                     # Friendly gunner ray — walk forward, add tiles
@@ -233,12 +229,12 @@ def update_map(self: Builder, ct: Controller) -> None:
                     # ray tiles can extend past our bot's vision
                     # when the gunner is near the edge, and the
                     # controller raises on out-of-vision queries.
-                    ray = pos
+                    ray = i
                     for _ in range(4):
-                        ray = ray.add(d)
-                        if pos.distance_squared(ray) > 13:
+                        ray = ray + d
+                        if self.sq_dist(i, ray) > 13:
                             break
-                        if not (0 <= ray.x < self.w and 0 <= ray.y < self.h):
+                        if not self.in_bounds(ray):
                             break
                         if self.get_env(ray) == Environment.WALL:
                             break
@@ -250,19 +246,19 @@ def update_map(self: Builder, ct: Controller) -> None:
                     # halo, up to r²≤32, again stopping at the
                     # first building in the core line. Same
                     # vision-safety reasoning as the gunner case.
-                    ray = pos
+                    ray = i
                     for _ in range(6):
-                        ray = ray.add(d)
-                        if pos.distance_squared(ray) > 32:
+                        ray = ray + d
+                        if self.sq_dist(i, ray) > 32:
                             break
-                        if not (0 <= ray.x < self.w and 0 <= ray.y < self.h):
+                        if not self.in_bounds(ray):
                             break
                         if self.get_env(ray) == Environment.WALL:
                             break
                         self.friendly_turret_ray_tiles.add(ray)
                         for hd in DIR8:
-                            h = ray.add(hd)
-                            if 0 <= h.x < self.w and 0 <= h.y < self.h:
+                            h = ray + hd
+                            if self.in_bounds(h):
                                 self.friendly_turret_ray_tiles.add(h)
                         if self.get_building(ray) is not None:
                             break
@@ -287,7 +283,7 @@ def update_map(self: Builder, ct: Controller) -> None:
                     if t == my_team:
                         conveyor_cost = 1
                     else:
-                        conveyor_cost = 1 if self.has_flow(pos) else 10
+                        conveyor_cost = 1 if self.has_flow(i) else 10
                 case BuildingCore(team=t) if t == self.my_team:
                     conveyor_cost = 1
                 case _:
@@ -303,19 +299,18 @@ def update_map(self: Builder, ct: Controller) -> None:
 
     # update pass grid (pass_grid uses stride-w real indices internally)
     for pos in nearby_positions:
-        i = pos.y * stride + pos.x
-        bid = ct.get_tile_building_id(pos)
+        bid = ct.get_tile_building_id(self.pos(pos))
         self.pass_grid.update_tile(
-            pos,
-            self.env[i],
+            self.pos(pos),
+            self.env[pos],
             EntityType.LAUNCHER if pos in self.adjacent_to_enemy_launcher else None if bid is None else ct.get_entity_type(bid),
-            is_allied_building=(bid is not None and ct.get_team(building_id) == my_team),
+            is_allied_building=(bid is not None and ct.get_team(bid) == my_team),
         )
 
     my_pos = self.my_pos
 
     for pos in nearby_positions:
-        core_bonus = max(0, 100 - self.my_core.distance_squared(pos)) / 100 * 0.25
+        core_bonus = max(0, 100 - self.sq_dist(self.my_core, pos)) / 100 * 0.25
         b = self.get_building(pos)
         if isinstance(b, (BuildingHarvester, BuildingFoundry)) and b.team == my_team:
             self.patrol_queue.append((pos, rnd, 1 + core_bonus))
@@ -333,73 +328,74 @@ def update_map(self: Builder, ct: Controller) -> None:
     self.deny_ore_neighbours = set()
     my_team = self.my_team
     for pos in nearby_positions:
-        if not (0 <= pos.x < self.w and 0 <= pos.y < self.h):
+        if not self.in_bounds(pos):
             continue
-        env = self.env[pos.y * stride + pos.x]
+        env = self.env[pos]
         if env not in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
             continue
         has_enemy = False
         for d in DIR8:
-            n = pos.add(d)
-            if not (0 <= n.x < self.w and 0 <= n.y < self.h):
+            n = pos + d
+            if not self.in_bounds(n):
                 continue
-            nb = self.buildings[n.y * stride + n.x]
+            nb = self.buildings[n]
             if nb is not None and nb.team != my_team:
                 has_enemy = True
                 break
-            if ct.is_in_vision(n):
-                uid = ct.get_tile_builder_bot_id(n)
+            if ct.is_in_vision(self.pos(n)):
+                uid = ct.get_tile_builder_bot_id(self.pos(n))
                 if uid is not None and ct.get_team(uid) != my_team:
                     has_enemy = True
                     break
         if has_enemy:
             for d in DIR4:
-                n = pos.add(d)
-                if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                n = pos + d
+                if self.in_bounds(n):
                     self.deny_ore_neighbours.add(n)
 
-    if self.nearest_enemy_turret:
-        match self.buildings[pos.y * stride + pos.x]:
-            case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != self.my_team
-            ):
-                pass
-            case _:
-                self.nearest_enemy_turret = None
-    min_dist = INF
-    for pos in nearby_positions:
-        match self.buildings[pos.y * stride + pos.x]:
-            case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
-                t != self.my_team
-            ):
-                dist = (pos.x - my_pos.x) ** 2 + (pos.y - my_pos.y) ** 2
-                if dist < min_dist:
-                    min_dist = dist
-                    self.nearest_enemy_turret = pos
+        if self.nearest_enemy_turret:
+            match self.buildings[pos]:
+                case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
+                    t != self.my_team
+                ):
+                    pass
+                case _:
+                    self.nearest_enemy_turret = None
+        min_dist = INF
+        for pos in nearby_positions:
+            match self.buildings[pos]:
+                case BuildingGunner(team=t) | BuildingSentinel(team=t) if (
+                    t != self.my_team
+                ):
+                    dist = self.sq_dist(pos, my_pos)
+                    if dist < min_dist:
+                        min_dist = dist
+                        self.nearest_enemy_turret = pos
 
 
 def update_splittable_locations(self: Builder, ct: Controller) -> None:
     pad = self.pad
     pw = self.pw
     self.adjacent_to_unconnected_harvester = {
-        p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
+        p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(self.pos(p))
     }
     self.adjacent_to_harvester = {
-        p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
+        p for p in self.adjacent_to_harvester if not ct.is_in_vision(self.pos(p))
     }
-    for pos in self.nearby_positions:
+    for i in self.nearby_positions:
+        pos = self.pos(i)
         pi = (pos.y + pad) * pw + (pos.x + pad)
-        bld = self.get_building(pos)
+        bld = self.get_building(self._idx(pos))
         match bld:
             case BuildingHarvester():
                 adjacent_conveyor = False
                 for dir in DIR4:
-                    match self.get_building(pos.add(dir)):
+                    match self.get_building(i + dir):
                         case (
                             BuildingConveyor(team=t, direction=d)
                             | BuildingSplitter(team=t, direction=d)
                             | BuildingArmouredConveyor(team=t, direction=d)
-                        ) if t == self.my_team and d != dir.opposite():
+                        ) if t == self.my_team and d != -dir:
                             adjacent_conveyor = True
                             break
                         case BuildingBridge(team=t) if t == self.my_team:
@@ -407,12 +403,12 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
                             break
                 if not adjacent_conveyor:
                     for dir in DIR4:
-                        n = pos.add(dir)
-                        if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                        n = i + dir
+                        if self.in_bounds(n):
                             self.adjacent_to_unconnected_harvester.add(n)
                 for dir in DIR4:
-                    n = pos.add(dir)
-                    if 0 <= n.x < self.w and 0 <= n.y < self.h:
+                    n = i + dir
+                    if self.in_bounds(n):
                         self.adjacent_to_harvester.add(n)
 
         # match bld:
@@ -426,7 +422,6 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
         #            self.update_line_load_counts(pos)
         #        )
 
-    my_position = self.my_pos
     if self.nearest_junction_site and not can_place_junction(
         self, ct, self.nearest_junction_site
     ):
@@ -435,8 +430,8 @@ def update_splittable_locations(self: Builder, ct: Controller) -> None:
         if (
             self.nearest_junction_site is None
             or (
-                self.nearest_junction_site.distance_squared(my_position)
-                < pos.distance_squared(my_position)
+                self.my_sq_dist(self.nearest_junction_site)
+                < self.my_sq_dist(pos)
             )
         ) and can_place_junction(self, ct, pos):
             self.nearest_junction_site = pos

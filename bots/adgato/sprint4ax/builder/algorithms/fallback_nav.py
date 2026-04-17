@@ -53,7 +53,7 @@ def fallback_step(
     self: Builder, ct: Controller, target: Position, blocked: set[Position] | None = None
 ) -> Position | None:
     unit_id = self.my_id
-    curr = self.my_pos
+    curr = self.pos(self.my_pos)
 
     if unit_id not in _bug_states or _bug_states[unit_id].goal != target:
         _bug_states[unit_id] = WallFollow(curr, target)
@@ -87,7 +87,7 @@ def fallback_step(
         if (
             0 <= next_pos.x < w
             and 0 <= next_pos.y < h
-            and self.is_passable(next_pos)
+            and self.is_passable(self._idx(next_pos))
             and next_pos not in blocked
         ):
             return next_pos
@@ -119,7 +119,7 @@ def fallback_step(
                 continue
 
             pos = Position(nx, ny)
-            if self.is_passable(pos) and pos not in blocked:
+            if self.is_passable(self._idx(pos)) and pos not in blocked:
                 return pos
 
     return None
