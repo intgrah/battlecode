@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util import INF
+from util import INF, W
 from visualiser import (
     TRANSPARENT,
     BoolGrid,
@@ -23,40 +23,60 @@ if TYPE_CHECKING:
 __all__ = ["dump"]
 
 P_FOG = Palette(
-    stops=[PaletteStop(False, TRANSPARENT), PaletteStop(True, Colour(0, 0, 0, 180))],
+    stops=[
+        PaletteStop(t=False, colour=TRANSPARENT),
+        PaletteStop(t=True, colour=Colour(0, 0, 0, 180)),
+    ],
 )
 P_COST = Palette(
     stops=[
-        PaletteStop(0, Colour(50, 200, 50, 140)),
-        PaletteStop(100, Colour(200, 50, 50, 140)),
+        PaletteStop(t=0, colour=Colour(50, 200, 50, 140)),
+        PaletteStop(t=100, colour=Colour(200, 50, 50, 140)),
     ],
     special={-1: TRANSPARENT},
 )
 P_DIST = Palette(
     stops=[
-        PaletteStop(0, Colour(50, 200, 50, 140)),
-        PaletteStop(50, Colour(200, 50, 50, 140)),
+        PaletteStop(t=0, colour=Colour(50, 240, 50, 140)),
+        PaletteStop(t=36, colour=Colour(240, 50, 50, 140)),
     ],
     special={INF: TRANSPARENT},
 )
 
 
 def dump(self: Builder, _ct: Controller) -> None:
+    w, h = self.w, self.h
+    env = self.env
+    cost_grid = self.cost_grid
+    conveyor_cost_grid = self.conveyor_cost_grid
+    bfs_dist = self.bfs_dist
     emit(
         unseen=BoolGrid(
-            [e is None for e in self.env],
+            [e is None for y in range(h) for e in env[y * W : y * W + w]],
             palette=P_FOG,
         ),
         cost=I16Grid(
-            [c if c < 1e6 else -1 for c in self.cost_grid],
+            [
+                c if c < 1e6 else -1
+                for y in range(h)
+                for c in cost_grid[y * W : y * W + w]
+            ],
             palette=P_COST,
         ),
         conv_cost=I16Grid(
-            [c if c < 1e6 else -1 for c in self.conveyor_cost_grid],
+            [
+                c if c < 1e6 else -1
+                for y in range(h)
+                for c in conveyor_cost_grid[y * W : y * W + w]
+            ],
             palette=P_COST,
         ),
         dist=I16Grid(
-            [c if c < 1e6 else -1 for c in self.bfs_dist],
+            [
+                c if c < 1e6 else -1
+                for y in range(h)
+                for c in bfs_dist[y * W : y * W + w]
+            ],
             palette=P_COST,
         ),
         enemy_launcher=Tiles(

@@ -1,27 +1,88 @@
-from collections.abc import Iterable
+from __future__ import annotations
+
+from contextlib import AbstractContextManager
 from enum import StrEnum
-from typing import Final
+from time import perf_counter_ns
+from typing import TYPE_CHECKING, ClassVar, Final, Self, override
 
 from cambc import Direction, EntityType, GameConstants, Position
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from types import TracebackType
+
+
+class Timer(AbstractContextManager):
+    """Context manager-based timing.
+    Nested contexts result in indentation.
+    """
+
+    _depth: ClassVar[int] = 0
+    """Global variable representing depth. Not thread safe."""
+
+    t0: int
+    """Start time."""
+    t1: int
+    """End time."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    @override
+    def __enter__(self) -> Self:
+        Timer._depth += 1
+        self.t0 = perf_counter_ns()
+        return self
+
+    @override
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
+        Timer._depth -= 1
+        indent = "  " * Timer._depth
+        self.t1 = perf_counter_ns()
+        dt = self.t1 - self.t0
+        print(f"{indent}{self.name}={dt // 1000}us")
+
 
 class Symmetry(StrEnum):
+    """All maps exhibit one of these symmetries."""
+
     ROT = "rot"
+    """Rotational symmetry. x and y are flipped."""
     HOR = "hor"
+    """Horizontal symmetry. x is unchanged, y is flipped."""
     VER = "ver"
+    """Vertical symmetry. x is flipped, y is unchanged."""
 
 
 INF: Final = 1_000_000
+"""Large number used to represent unreachable distances or hard preferences."""
+
 ROAD_COST: Final = 3
+"""The cost of having to place a road on an empty tile, used for A* navigation."""
+
+W: Final = 50
+"""Hardcoded map-size stride for flat indexing. All flat arrays are length N."""
+N: Final = W * W
+"""Length of all flat per-tile arrays (2500)."""
 
 DIR8: Final = [d for d in Direction if d != Direction.CENTRE]
+"""N, NE, E, SE, S, SW, W, NW."""
+
 DIR4: Final = [
     Direction.NORTH,
-    Direction.SOUTH,
     Direction.EAST,
+    Direction.SOUTH,
     Direction.WEST,
 ]
+"""N, E, S, W"""
+
 DIR8_DELTA: Final = [c.delta() for c in DIR8]
+"""Vectors of those directions in `DIR8`."""
 
 DELTA_TO_DIR: Final = {
     (1, 0): Direction.EAST,
@@ -33,13 +94,20 @@ DELTA_TO_DIR: Final = {
     (-1, 1): Direction.SOUTHWEST,
     (-1, -1): Direction.NORTHWEST,
 }
+"""Convert a magnitude 1 or sqrt 2 vector to its `Direction`."""
 
 
 def get_direction_object(from_pos: Position, to_pos: Position) -> Direction | None:
     return DELTA_TO_DIR.get((to_pos.x - from_pos.x, to_pos.y - from_pos.y))
 
 
+def manhattan(pos1: Position, pos2: Position) -> int:
+    """L-1 norm."""
+    return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
+
+
 def chebyshev(pos1: Position, pos2: Position) -> int:
+    """L-infinity norm."""
     return max(abs(pos1.x - pos2.x), abs(pos1.y - pos2.y))
 
 

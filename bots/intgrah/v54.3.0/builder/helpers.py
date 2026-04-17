@@ -11,7 +11,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
-from util import BASE_COST, DIR4, DIR8, INF, Symmetry, closest
+from util import BASE_COST, DIR4, DIR8, INF, Symmetry, W, closest
 
 from builder.algorithms.bugnav import bugnav
 
@@ -224,7 +224,7 @@ def pick_ore_target(self: Builder) -> Position | None:
                     pass
                 case _:
                     continue
-            d = self.bfs_dist[pos.y * self.w + pos.x]
+            d = self.bfs_dist[pos.y * W + pos.x]
             if d >= INF:
                 continue
             if ore_available(self, pos) and d < min_dist:
@@ -236,7 +236,7 @@ def pick_ore_target(self: Builder) -> Position | None:
 def is_dangling(self: Builder, pos: Position) -> bool:
     if not self.in_bounds(pos):
         return False
-    i = pos.y * self.w + pos.x
+    i = pos.y * W + pos.x
     b = self.buildings[i]
     if b is None:
         if self.env[i] == Environment.WALL:
@@ -260,12 +260,11 @@ def is_valid_loose_end_target(self: Builder, pos: Position) -> bool:
 
 
 def find_dangling(self: Builder) -> Position | None:
-    w = self.w
     candidates = [
         pos
         for pos in self.nearby_tiles
         if is_valid_loose_end_target(self, pos)
-        and self.bfs_dist[pos.y * w + pos.x] < INF
+        and self.bfs_dist[pos.y * W + pos.x] < INF
     ]
     if not candidates:
         return None

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import time
 import traceback
 from typing import TYPE_CHECKING
 
@@ -13,6 +12,7 @@ from core import Core
 from gunner import Gunner
 from launcher import Launcher
 from sentinel import Sentinel
+from util import Timer
 
 if TYPE_CHECKING:
     from unit import Unit
@@ -21,34 +21,45 @@ if TYPE_CHECKING:
 class Player:
     def __init__(self) -> None:
         self.unit: Unit | None = None
+        with Timer("init"):
+            with Timer("builder"):
+                self.builder = Builder()
+            with Timer("core"):
+                self.core = Core()
+            with Timer("sentinel"):
+                self.sentinel = Sentinel()
+            with Timer("gunner"):
+                self.gunner = Gunner()
+            with Timer("launcher"):
+                self.launcher = Launcher()
+            with Timer("breach"):
+                self.breach = Breach()
 
     def run(self, ct: Controller) -> None:
         if self.unit is None:
-            t0 = time.perf_counter_ns()
             match ct.get_entity_type():
                 case EntityType.BUILDER_BOT:
-                    self.unit = Builder(ct)
-                    t1 = time.perf_counter_ns()
-                    print(f"init={t1 - t0}ns ({(t1 - t0) // 1000}us)")
+                    self.unit = self.builder
                 case EntityType.CORE:
-                    self.unit = Core(ct)
+                    self.unit = self.core
                 case EntityType.SENTINEL:
-                    self.unit = Sentinel(ct)
+                    self.unit = self.sentinel
                 case EntityType.GUNNER:
-                    self.unit = Gunner(ct)
+                    self.unit = self.gunner
                 case EntityType.LAUNCHER:
-                    self.unit = Launcher(ct)
+                    self.unit = self.launcher
                 case EntityType.BREACH:
-                    self.unit = Breach(ct)
+                    self.unit = self.breach
                 case _:
-                    # No other entity types are controllable
                     raise ValueError
+            with Timer("post_init"):
+                self.unit.post_init(ct)
         try:
-            self.unit.run(ct)
-        except Exception as e:  # noqa: BLE001
+            with Timer("run"):
+                self.unit.run(ct)
+        except Exception:  # noqa: BLE001
             exc = traceback.format_exc()
             print(exc, file=sys.stdout)
             print(exc, file=sys.stderr)
             if DEBUG_RESIGN:
-                # Do not print the full exception as this leaks code publicly
-                ct.resign(str(e))
+                ct.resign(str(exc))

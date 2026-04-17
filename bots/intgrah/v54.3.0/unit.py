@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC
 from random import Random
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
-from util import DIR4, DIR8
+from util import DIR4, DIR8, W
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -14,19 +13,28 @@ if TYPE_CHECKING:
 __all__ = ["Unit"]
 
 
-class Unit(ABC):
-    def __init__(self, ct: Controller) -> None:
-        """Initialise immutable per-unit state (map dimensions, id, team, rng)."""
-        self.w: Final[int] = ct.get_map_width()
-        """Map width."""
-        self.h: Final[int] = ct.get_map_height()
-        """Map height."""
-        self.my_id: Final[int] = ct.get_id()
-        """This unit's entity id."""
-        self.my_team: Final[Team] = ct.get_team()
-        """Allied team."""
-        self.rng: Final[Random] = Random(self.my_id)
-        """Random source, seeded with this unit's entity id."""
+class Unit:
+    def __init__(self) -> None:
+        """ct-independent allocation. Runs in Player.__init__ (5s window)."""
+
+    w: int
+    """Actual map width."""
+    h: int
+    """Actual map height."""
+    my_id: int
+    """This unit's entity id."""
+    my_team: Team
+    """Allied team."""
+    rng: Random
+    """Random source, seeded with this unit's entity id."""
+
+    def post_init(self, ct: Controller) -> None:
+        """ct-dependent init. Runs once on first turn for this unit."""
+        self.w = ct.get_map_width()
+        self.h = ct.get_map_height()
+        self.my_id = ct.get_id()
+        self.my_team = ct.get_team()
+        self.rng = Random(self.my_id)
 
     my_pos: Position
     """This unit's position, updated at the start of the turn."""
@@ -84,9 +92,9 @@ class Unit(ABC):
                     self.enemy_bots.add(pos)
 
     def idx(self, pos: Position) -> int:
-        """Position to flat index."""
-        return pos.y * self.w + pos.x
+        """Position to flat index. Stride is W=50 regardless of actual map size."""
+        return pos.y * W + pos.x
 
     def in_bounds(self, pos: Position) -> bool:
-        """Is in bounds of map."""
+        """Is in bounds of the actual map."""
         return 0 <= pos.x < self.w and 0 <= pos.y < self.h

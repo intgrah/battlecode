@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 from cambc import Controller, Position
-from util import INF
+from util import INF, N, W
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -33,23 +33,39 @@ class AStarSearch:
 
     def __init__(self, builder: Builder) -> None:
         self.builder = builder
-        w, h = builder.w, builder.h
-        n = w * h
-        self._w = w
-        self._h = h
-        self._neighbors: Final[list[list[tuple[int, int]]]] = [
+        self._neighbors: list[list[tuple[int, int]]] = [
             [
-                (ny * w + nx, extra)
+                (ny * W + nx, extra)
                 for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
-                if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+                if 0 <= (nx := cx + dx) < W and 0 <= (ny := cy + dy) < W
             ]
-            for cy in range(h)
-            for cx in range(w)
+            for cy in range(W)
+            for cx in range(W)
         ]
-        self._dist: list[int] = [INF] * n
-        self._dist_reset: Final[tuple[int, ...]] = (INF,) * n
+        self._dist: list[int] = [INF] * N
+        self._dist_reset: Final[tuple[int, ...]] = (INF,) * N
         self._finished = True
         self._target: Position | None = None
+
+    def post_init(self) -> None:
+        """Fix _neighbors at the actual-map boundary.
+
+        Called from Builder.post_init after self.w/self.h are set. For
+        in-map tiles within 3 of the boundary, their pre-built neighbour
+        lists may reference out-of-map tiles (bridge deltas reach r²≤9).
+        Recompute those lists using actual w/h.
+        """
+        w, h = self.builder.w, self.builder.h
+        for cy in range(h):
+            for cx in range(w):
+                if 3 <= cx < w - 3 and 3 <= cy < h - 3:
+                    continue
+                i = cy * W + cx
+                self._neighbors[i] = [
+                    (ny * W + nx, extra)
+                    for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
+                    if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+                ]
 
     def search(
         self,
@@ -57,9 +73,8 @@ class AStarSearch:
         start: Position,
         target: Position,
     ) -> list[Position] | None:
-        w = self._w
-        si = start.y * w + start.x
-        gi = target.y * w + target.x
+        si = start.y * W + start.x
+        gi = target.y * W + target.x
 
         if (
             self._finished
@@ -69,7 +84,7 @@ class AStarSearch:
             self._dist[:] = self._dist_reset
         else:
             target = self._target
-            gi = target.y * w + target.x
+            gi = target.y * W + target.x
 
         self._target = target
 
@@ -100,7 +115,7 @@ class AStarSearch:
                 continue
             emp = 0
             for node_i in bucket:
-                ny_, nx_ = divmod(node_i, w)
+                ny_, nx_ = divmod(node_i, W)
                 node_h = abs(nx_ - sx) + abs(ny_ - sy)
                 if dist[node_i] + node_h != cur_f:
                     continue
@@ -119,7 +134,7 @@ class AStarSearch:
                     if nd >= dist[ni]:
                         continue
                     dist[ni] = nd
-                    ny2, nx2 = divmod(ni, w)
+                    ny2, nx2 = divmod(ni, W)
                     h_val = abs(nx2 - sx) + abs(ny2 - sy)
                     bk[(nd + h_val) % nb_count].append(ni)
             if found:
@@ -151,7 +166,7 @@ class AStarSearch:
             node = best
             cur_d = best_dist
 
-        return [Position(i % w, i // w) for i in path]
+        return [Position(i % W, i // W) for i in path]
 
     def search_blocked(
         self,
@@ -161,11 +176,10 @@ class AStarSearch:
     ) -> list[Position] | None:
         b = self.builder
         cost = b.conveyor_cost_grid
-        w = b.w
         saved: list[tuple[int, int]] = []
         for pos in b.nearby_tiles:
             if pos in b.all_bots and pos != start:
-                idx = pos.y * w + pos.x
+                idx = pos.y * W + pos.x
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF
         result = self.search(ct, start, goal)
