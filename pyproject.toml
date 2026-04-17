@@ -51,7 +51,6 @@ dev = [
     "matplotlib>=3.10.8",
     "networkx>=3.6.1",
     "pillow>=12.1.1",
-    "pre-commit>=4.5.1",
     "protobuf>=7.34.1",
     "pydeps>=3.0.2",
     "ruff",
