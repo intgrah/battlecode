@@ -9,18 +9,18 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, EntityType, Environment, Position
-from util import DIR4, INF, can_afford, get_direction_object
+from cambc import Controller, EntityType, Environment
+from util import DIR4, DELTA_TO_DIR, DIR_TO_DELTA, INF, can_afford, get_direction_object
 
 from .extra import pave
 from .algorithms.pathfind import conv_pathfind
 from .helpers import make_move, try_move_with_road
 
 if TYPE_CHECKING:
-    from builder import Builder
+    from builder import Builder, PosInt
 
 
-def _find_contest_target(self: Builder, pos: Position, my_team) -> Position | None:
+def _find_contest_target(self: Builder, pos: PosInt, my_team) -> PosInt | None:
     """Return the first enemy contestable building (road, conveyor,
     splitter, bridge) adjacent to `pos` that we can destroy by
     standing on it and firing. Roads are included: even though they
@@ -33,7 +33,7 @@ def _find_contest_target(self: Builder, pos: Position, my_team) -> Position | No
     fractional Ti leakage.
     """
     for d in DIR4:
-        n = pos.add(d)
+        n = pos + d
         if not self.in_bounds(n):
             continue
         b = self.get_building(n)
@@ -46,23 +46,23 @@ def _find_contest_target(self: Builder, pos: Position, my_team) -> Position | No
     return None
 
 
-def ore_available(self: Builder, ct: Controller, pos: Position) -> bool:
+def ore_available(self: Builder, ct: Controller, pos: PosInt) -> bool:
     b = self.get_building(pos)
     if b is not None and not isinstance(b, BuildingRoad):
         return False
 
-    if ct.is_in_vision(pos):
-        worker_id = ct.get_tile_builder_bot_id(pos)
+    if ct.is_in_vision(self.pos(pos)):
+        worker_id = ct.get_tile_builder_bot_id(self.pos(pos))
         if worker_id is not None and worker_id != self.my_id:
             return False
 
     return True
 
 
-def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
+def pick_ore_target(self: Builder, ct: Controller) -> PosInt:
     current_pos = self.my_pos
 
-    best_target = None
+    best_target = -1
     min_dist = INF
 
     for pos in self.nearby_positions:
@@ -78,7 +78,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
                     continue
 
             if ore_available(self, ct, pos):
-                dist = current_pos.distance_squared(pos)
+                dist = self.sq_dist(current_pos, pos)
                 if dist < min_dist:
                     min_dist = dist
                     best_target = pos
@@ -86,13 +86,13 @@ def pick_ore_target(self: Builder, ct: Controller) -> Position | None:
     return best_target
 
 
-def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
+def build_at_ore(self: Builder, ct: Controller, target_pos: PosInt) -> bool:
     my_pos = self.my_pos
 
     maybe_unpaved = [
         pos
         for d in DIR4
-        if self.in_bounds(pos := target_pos.add(d)) and ct.is_in_vision(pos) and self.get_env(pos) != Environment.WALL
+        if self.in_bounds(pos := target_pos + d) and ct.is_in_vision(self.pos(pos)) and self.get_env(pos) != Environment.WALL
     ]
     if pave(self, ct, maybe_unpaved):
         return True
@@ -107,45 +107,45 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
     if contest_pos is not None:
         if my_pos == contest_pos:
             ti, _ = ct.get_global_resources()
-            if ti >= 2 and ct.can_fire(my_pos):
-                ct.fire(my_pos)
+            if ti >= 2 and ct.can_fire(self.pos(my_pos)):
+                ct.fire(self.pos(my_pos))
             return True
-        if my_pos.distance_squared(contest_pos) <= 2:
-            d = my_pos.direction_to(contest_pos)
+        if self.my_sq_dist(contest_pos) <= 2:
+            d = get_direction_object(my_pos, contest_pos)
             if ct.can_move(d):
                 ct.move(d)
-                self.my_pos = self.my_pos.add(d)
+                self.my_pos += DIR_TO_DELTA[d]
             return True
         make_move(self, ct, contest_pos)
         return True
 
     if my_pos == target_pos:
         if not ore_available(self, ct, target_pos):
-            self.ore_target = None
+            self.ore_target = -1
             return False
 
         if not can_afford(ct, EntityType.HARVESTER):
             return True
 
         b = self.get_building(my_pos)
-        if isinstance(b, BuildingRoad) and ct.can_destroy(my_pos):
+        if isinstance(b, BuildingRoad) and ct.can_destroy(self.pos(my_pos)):
             escape_tile = None
             for d in DIR4:
-                check_pos = my_pos.add(d)
-                if ct.can_move(d):
+                check_pos = my_pos + d
+                if ct.can_move(DELTA_TO_DIR[d]):
                     escape_tile = check_pos
                     break
 
             if escape_tile:
-                ct.destroy(my_pos)
+                ct.destroy(self.pos(my_pos))
             else:
                 return True
 
         preferred_dirs = []
         if self.my_core:
-            path = conv_pathfind(self, ct, my_pos, self.my_core)
+            path = conv_pathfind(self, ct, self.pos(my_pos), self.pos(self.my_core))
             if path and len(path) > 1:
-                next_pos = path[1]
+                next_pos = self._idx(path[1])
                 d = get_direction_object(my_pos, next_pos)
                 if d:
                     preferred_dirs.append(d)
@@ -155,18 +155,18 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
         all_dirs = ortho_preferred + ortho_others
 
         for d in all_dirs:
-            move_pos = my_pos.add(d)
-            if self.is_passable(move_pos) and ct.can_move(d):
-                ct.move(d)
-                self.my_pos = self.my_pos.add(d)
-                if ct.can_build_harvester(target_pos):
-                    ct.build_harvester(target_pos)
-                    self.ore_target = None
+            move_pos = my_pos + d
+            if self.is_passable(move_pos) and ct.can_move(DELTA_TO_DIR[d]):
+                ct.move(DELTA_TO_DIR[d])
+                self.my_pos = self.my_pos + d
+                if ct.can_build_harvester(self.pos(target_pos)):
+                    ct.build_harvester(self.pos(target_pos))
+                    self.ore_target = -1
                 return True
 
         return True
 
-    if my_pos.distance_squared(target_pos) <= 2:
+    if self.my_sq_dist(target_pos) <= 2:
         if not can_afford(ct, EntityType.HARVESTER):
             if try_move_with_road(self, ct, target_pos):
                 return True
@@ -178,19 +178,19 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             if try_move_with_road(self, ct, target_pos):
                 return True
         elif (
-            ct.can_build_harvester(target_pos)
-            and my_pos.distance_squared(target_pos) <= 1
+            ct.can_build_harvester(self.pos(target_pos))
+            and self.my_sq_dist(target_pos) <= 1
         ):
-            ct.build_harvester(target_pos)
-            self.ore_target = None
+            ct.build_harvester(self.pos(target_pos))
+            self.ore_target = -1
             return True
         else:
-            if my_pos.distance_squared(target_pos) > 1:
+            if self.my_sq_dist(target_pos) > 1:
                 for d in DIR4:
-                    ortho_pos = target_pos.add(d)
+                    ortho_pos = target_pos + d
                     if (
                         self.is_passable(ortho_pos)
-                        and my_pos.distance_squared(ortho_pos) <= 2
+                        and self.my_sq_dist(ortho_pos) <= 2
                     ) and try_move_with_road(self, ct, ortho_pos):
                         return True
 
@@ -199,9 +199,9 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
 
                 return True
 
-            if ct.can_build_harvester(target_pos):
-                ct.build_harvester(target_pos)
-                self.ore_target = None
+            if ct.can_build_harvester(self.pos(target_pos)):
+                ct.build_harvester(self.pos(target_pos))
+                self.ore_target = -1
                 return True
 
     return make_move(self, ct, target_pos)

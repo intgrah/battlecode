@@ -18,7 +18,7 @@ _TARGET_DRIFT_SQ = 25
 _CPU_BUDGET = 1729
 _TIEBREAK_EPS = 1e-5
 
-_DIR8_DELTA = DIR8_DELTA.copy()
+_DIR8_DELTA = list(DIR8_DELTA)
 random.shuffle(_DIR8_DELTA)
 
 
@@ -76,7 +76,7 @@ class AStarSearch:
         self._visited = bytearray((pn + 7) // 8)
         self._q = []
 
-    def _cost_grid(self, state: Builder) -> array[float]:
+    def _cost_grid(self, state: Builder) -> array[int]:
         return getattr(state, self._cost_attr)
 
     def _extract_path(
@@ -207,7 +207,7 @@ class AStarSearch:
 
     def search(
         self, state: Builder, ct: Controller, start: Position, target: Position
-    ) -> list[Position] | None:
+    ) -> list[Position]:
         if (
             self._finished
             or self._running_target is None
@@ -226,13 +226,13 @@ class AStarSearch:
             self._prev_no_path = self._no_path
 
         if self._prev_target is None:
-            return None
+            return []
         diff = target.distance_squared(self._prev_target)
         if diff <= _TARGET_DRIFT_SQ and diff < start.distance_squared(target):
             if self._no_path:
-                return None
+                return []
             return self._extract_path(state, start, target)
-        return None
+        return []
 
     def search_blocked(
         self, state: Builder, ct: Controller, start: Position, goal: Position
@@ -334,8 +334,9 @@ def _turret_blocked_tiles(
         return set()
     my_team = state.my_team
     blocked: set[Position] = set()
-    for bp in state.nearby_buildings:
-        bld = state.get_building(bp)
+    for i in state.nearby_buildings:
+        bp = state.pos(i)
+        bld = state.get_building(i)
         if bld is None or getattr(bld, "team", None) == my_team:
             continue
         etype = type(bld).__name__
@@ -381,7 +382,7 @@ conv_search = AStarSearch(
 
 def conv_pathfind(
     state: Builder, ct: Controller, start: Position, target: Position
-) -> list[Position] | None:
+) -> list[Position]:
     return conv_search.search(state, ct, start, target)
 
 def conv_unreachable(target: Position) -> bool:
