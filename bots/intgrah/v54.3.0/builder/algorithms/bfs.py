@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import Position
-from util import INF
+from util import INF, W
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -15,7 +15,7 @@ def update_bfs(self: Builder, sx: int, sy: int) -> None:
     pnb = self.pnb
     dist = self.bfs_dist
     dist[:] = self.bfs_reset
-    si = sy * self.w + sx
+    si = sy * W + sx
     dist[si] = 0
     q = [si]
     append = q.append
@@ -34,11 +34,10 @@ def extract_path(
     gx: int,
     gy: int,
 ) -> list[Position] | None:
-    w = self.w
     dist = self.bfs_dist
     pnb = self.pnb
-    si = sy * w + sx
-    gi = gy * w + gx
+    si = sy * W + sx
+    gi = gy * W + gx
 
     if dist[gi] == INF:
         return None
@@ -55,7 +54,7 @@ def extract_path(
                 best_i = ni
         if best_i == -1:
             return None
-        path.append(Position(best_i % w, best_i // w))
+        path.append(Position(best_i % W, best_i // W))
         ci = best_i
     path.reverse()
     return path

@@ -4,7 +4,7 @@ import heapq
 from typing import TYPE_CHECKING, Final
 
 from cambc import Controller, Position
-from util import INF
+from util import INF, N, W
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -16,9 +16,8 @@ class MoveHeapAstar:
 
     def __init__(self, builder: Builder) -> None:
         self.builder = builder
-        n = builder.w * builder.h
-        self.dist: list[int] = [INF] * n
-        self.dist_reset: Final[tuple[int, ...]] = (INF,) * n
+        self.dist: list[int] = [INF] * N
+        self.dist_reset: Final[tuple[int, ...]] = (INF,) * N
         self.q: list[tuple[int, int]] = []
         self.finished = True
         self.target: Position | None = None
@@ -30,13 +29,12 @@ class MoveHeapAstar:
         target: Position,
     ) -> list[Position] | None:
         b = self.builder
-        w = b.w
         cost_grid = b.cost_grid
         bfs_dist = b.bfs_dist
         pnb = b.pnb
 
-        si = start.y * w + start.x
-        gi = target.y * w + target.x
+        si = start.y * W + start.x
+        gi = target.y * W + target.x
 
         if (
             self.finished
@@ -45,10 +43,10 @@ class MoveHeapAstar:
         ):
             self.dist[:] = self.dist_reset
             self.q.clear()
-            gi = target.y * w + target.x
+            gi = target.y * W + target.x
         else:
             target = self.target
-            gi = target.y * w + target.x
+            gi = target.y * W + target.x
 
         self.target = target
         dist = self.dist
@@ -102,7 +100,7 @@ class MoveHeapAstar:
             node = best
             cur_d = best_dist
 
-        return [Position(i % w, i // w) for i in path]
+        return [Position(i % W, i // W) for i in path]
 
     def search_blocked(
         self,
@@ -112,11 +110,10 @@ class MoveHeapAstar:
     ) -> list[Position] | None:
         b = self.builder
         cost = b.cost_grid
-        w = b.w
         saved: list[tuple[int, int]] = []
         for pos in b.nearby_tiles:
             if pos in b.all_bots and pos != start:
-                idx = pos.y * w + pos.x
+                idx = pos.y * W + pos.x
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF
         result = self.search(ct, start, goal)

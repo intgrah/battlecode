@@ -26,8 +26,8 @@ class Gunner(Unit):
     """
 
     @override
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
+    def __init__(self) -> None:
+        super().__init__()
         self.idle_turns: int = 0
 
     @override

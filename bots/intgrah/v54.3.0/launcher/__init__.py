@@ -22,10 +22,6 @@ _PASSABLE_BUILDINGS = frozenset(
 
 class Launcher(Unit):
     @override
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
-
-    @override
     def run(self, ct: Controller) -> None:
         super().run(ct)
         enemy_throw_tile, enemy_throw_dist = self.find_enemy_throw_tile(ct)

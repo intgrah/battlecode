@@ -27,8 +27,8 @@ class Core(Unit):
     SURPLUS_SCALE_FACTOR: Final[int] = 60
 
     @override
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
+    def __init__(self) -> None:
+        super().__init__()
         self.spawned: int = 0
         self.deliveries: deque[int] = deque(
             [0] * Core.INCOME_SAMPLES,

@@ -19,7 +19,7 @@ from cambc import (
 )
 from config import DEBUG_DUMP
 from unit import Unit
-from util import DIR8, DIR8_DELTA, INF, Symmetry
+from util import DIR8, DIR8_DELTA, INF, N, Symmetry, W
 
 from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
@@ -172,20 +172,20 @@ class Builder(Unit):
         w, h = self.w, self.h
         cost_grid = self.cost_grid
         pnb = self.pnb
-        cx, cy = i % w, i // w
+        cx, cy = i % W, i // W
         passable = cost_grid[i] is not INF
         pnb[i] = []
         if passable:
             for dx, dy in DIR8_DELTA:
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    ni = ny * w + nx
+                    ni = ny * W + nx
                     if cost_grid[ni] is not INF:
                         pnb[i].append(ni)
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * w + nx
+                ni = ny * W + nx
                 if cost_grid[ni] is INF:
                     continue
                 nb_list = pnb[ni]
@@ -206,63 +206,61 @@ class Builder(Unit):
         raise RuntimeError(msg)
 
     @override
-    def __init__(self, ct: Controller) -> None:
-        super().__init__(ct)
-        self.my_core: Final[Position] = self.find_core(ct)
-        """Allied core. Always known, since builders always spawn inside the core."""
-        w, h = self.w, self.h
-        n: Final[int] = w * h
+    def __init__(self) -> None:
+        """ct-independent heavy allocation. Runs in Player.__init__ (5s window)."""
+        super().__init__()
 
-        self.env: list[Environment | None] = [None] * n
+        self.env: list[Environment | None] = [None] * N
         """Wall, Empty, Ti ore, Ax ore per tile."""
-        self.building_ids: list[int | None] = [None] * n
+        self.building_ids: list[int | None] = [None] * N
         """Cached building entity ID per tile, for change detection."""
-        self.buildings: list[Building | None] = [None] * n
+        self.buildings: list[Building | None] = [None] * N
         """Building on a tile."""
-        self.hp: list[int] = [0] * n
+        self.hp: list[int] = [0] * N
         """Hitpoints of building on tile."""
-        self.max_hp: list[int] = [0] * n
+        self.max_hp: list[int] = [0] * N
         """Max hitpoints of building on tile."""
 
-        self.cost_grid: list[int] = [1] * n
+        self.cost_grid: list[int] = [1] * N
         """Movement cost per tile. INF = impassable, 1 = road/walkable, ROAD_COST = empty."""
-        self.conveyor_cost_grid: list[int] = [5] * n
+        self.conveyor_cost_grid: list[int] = [5] * N
         """Conveyor routing cost per tile. Higher = less preferred."""
 
-        offsets = [dy * w + dx for dx, dy in DIR8_DELTA]
-        pnb: list[list[int]] = [[] for _ in range(n)]
-        for cy in range(1, h - 1):
-            row = cy * w
-            for cx in range(1, w - 1):
+        offsets = [dy * W + dx for dx, dy in DIR8_DELTA]
+        pnb: list[list[int]] = [[] for _ in range(N)]
+        for cy in range(1, W - 1):
+            row = cy * W
+            for cx in range(1, W - 1):
                 i = row + cx
                 pnb[i] = [i + o for o in offsets]
-        for cy in range(h):
-            row = cy * w
-            for cx in range(w):
-                if 1 <= cx < w - 1 and 1 <= cy < h - 1:
+        for cy in range(W):
+            row = cy * W
+            for cx in range(W):
+                if 1 <= cx < W - 1 and 1 <= cy < W - 1:
                     continue
                 i = row + cx
                 pnb[i] = [
-                    ny * w + nx
+                    ny * W + nx
                     for dx, dy in DIR8_DELTA
-                    if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+                    if 0 <= (nx := cx + dx) < W and 0 <= (ny := cy + dy) < W
                 ]
         self.pnb = pnb
-        """Passable neighbours."""
+        """Passable neighbours. Pre-built for full 50x50; fixed at actual-map
+        boundary in post_init."""
 
-        self.bfs_dist: Final[list[int]] = [INF] * n
-        self.bfs_reset: Final[tuple[int, ...]] = (INF,) * n
+        self.bfs_dist: Final[list[int]] = [INF] * N
+        self.bfs_reset: Final[tuple[int, ...]] = (INF,) * N
         self.move_search: Final = MoveHeapAstar(self)
         self.conv_search: Final = AStarSearch(self)
         """BFS hops from the position at the start of the turn."""
 
         self.flow_history: list[deque[ResourceType | None]] = [
-            deque(maxlen=8) for _ in range(n)
+            deque(maxlen=8) for _ in range(N)
         ]
         """Last 8 rounds of resource flow on this tile."""
 
-        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(n)]
-        self.splitters_to_here: list[list[Position]] = [[] for _ in range(n)]
+        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(N)]
+        self.splitters_to_here: list[list[Position]] = [[] for _ in range(N)]
 
         self.symmetry_candidates: set[Symmetry] = set(Symmetry)
         """The current set of symmetry hypotheses."""
@@ -309,7 +307,6 @@ class Builder(Unit):
         self.role: Role | None = None
         self.role_age: int = 0
         self.permanent_role: bool = False
-        self.opportunistic: bool = self.rng.random() < 0.5
 
         # Economy
         self.ore_target: Position | None = None
@@ -352,6 +349,30 @@ class Builder(Unit):
         self.scout_target: Position | None = None
         self.scout_age: int = 0
         self.scout_radius: float = 10.0
+
+    @override
+    def post_init(self, ct: Controller) -> None:
+        super().post_init(ct)
+        self.my_core: Position = self.find_core(ct)
+        """Allied core. Always known, since builders always spawn inside the core."""
+        self.opportunistic: bool = self.rng.random() < 0.5
+
+        # pnb was pre-built for full 50x50. Fix the actual-map boundary
+        # so that in-map tiles don't reference out-of-map neighbours.
+        w, h = self.w, self.h
+        for cy in range(h):
+            row = cy * W
+            for cx in range(w):
+                if cx < w - 1 and cy < h - 1 and cx > 0 and cy > 0:
+                    continue
+                i = row + cx
+                self.pnb[i] = [
+                    ny * W + nx
+                    for dx, dy in DIR8_DELTA
+                    if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+                ]
+
+        self.conv_search.post_init()
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
