@@ -27,11 +27,7 @@ def explore(self: Builder, ct: Controller) -> None:
     ):
         t = Position(-1, -1)
         for _ in range(200):
-            if (
-                0 <= t.x < self.w
-                and 0 <= t.y < self.h
-                and self.get_cost(t) is not INF
-            ):
+            if 0 <= t.x < self.w and 0 <= t.y < self.h and self.get_cost(t) is not INF:
                 break
             theta = self.rng.random() * 2 * math.pi
             t = Position(

@@ -1,9 +1,7 @@
 from bench_nav.common import INF
 
 
-def build_bitmap_ctx(
-    w: int, h: int, cost: list[int]
-) -> tuple[int, int, int, int, int]:
+def build_bitmap_ctx(w: int, h: int, cost: list[int]) -> tuple[int, int, int, int, int]:
     """Return (passable_mask, not_east_edge, not_west_edge, not_north_edge, not_south_edge).
 
     Masks prevent shift wrap-around. Tile i has bit 1 << i.

@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from building import BuildingHarvester, BuildingRoad
 from cambc import Controller, Environment
+from util import DELTA_TO_DIR, DIR4
 
-from util import DIR4, DELTA_TO_DIR
 from .helpers import try_move_adj_to
 
 if TYPE_CHECKING:
@@ -41,12 +41,16 @@ def deny_enemy_ore(self: Builder, ct: Controller) -> bool:
             return True
     return False
 
+
 def pave(self: Builder, ct: Controller, maybe_unpaved: list[PosInt]) -> bool:
 
     my_team = self.my_team
     for pos in maybe_unpaved:
         bid = ct.get_tile_building_id(self.pos(pos))
-        if bid is not None and ct.get_team(ct.get_tile_building_id(self.pos(pos))) != my_team:
+        if (
+            bid is not None
+            and ct.get_team(ct.get_tile_building_id(self.pos(pos))) != my_team
+        ):
             continue
 
         dir = 0
@@ -59,7 +63,10 @@ def pave(self: Builder, ct: Controller, maybe_unpaved: list[PosInt]) -> bool:
         else:
             ore_env = (Environment.ORE_AXIONITE, Environment.ORE_TITANIUM)
             for d in DIR4:
-                if self.get_building(pos + d) is None and self.get_env(pos + d) in ore_env:
+                if (
+                    self.get_building(pos + d) is None
+                    and self.get_env(pos + d) in ore_env
+                ):
                     dir = d
                     break
 
@@ -81,6 +88,7 @@ def pave(self: Builder, ct: Controller, maybe_unpaved: list[PosInt]) -> bool:
             return False
     return False
 
+
 def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
     # Always prefer conveyors adjacent to harvesters. Chain connection
     # is handled by the separate _connect_close / _connect_far tasks
@@ -90,7 +98,8 @@ def pave_near_harvesters(self: Builder, ct: Controller) -> bool:
     candidates = [
         self._idx(pos)
         for pos in ct.get_nearby_tiles(8)
-        if self._idx(pos) in self.adjacent_to_harvester and self.get_env(self._idx(pos)) != Environment.WALL
+        if self._idx(pos) in self.adjacent_to_harvester
+        and self.get_env(self._idx(pos)) != Environment.WALL
     ]
     maybe_unpaved = sorted(candidates, key=self.my_sq_dist)
 

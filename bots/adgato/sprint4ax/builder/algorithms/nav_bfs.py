@@ -20,6 +20,7 @@ ported intact.
 from __future__ import annotations
 
 from typing import Final
+
 from cambc import Controller, EntityType, Environment, Position
 
 _BUDGET: Final[int] = 1729
@@ -33,6 +34,7 @@ _WALKABLE_BUILDINGS: frozenset[EntityType] = frozenset(
         EntityType.BRIDGE,
     },
 )
+
 
 def _bfs_compute(
     pnb_push: list[list[int]],
@@ -52,11 +54,11 @@ def _bfs_compute(
             if node == cur_idx:
                 return frontier
             for ni in pnb_push[node]:
-                if dist[ni] is 0xFF:
+                if dist[ni] == 0xFF:
                     dist[ni] = d
                     next_frontier.append(ni)
             for ni in pnb_set[node]:
-                if dist[ni] is 0xFF:
+                if dist[ni] == 0xFF:
                     dist[ni] = d
                 if ni == cur_idx:
                     next_frontier.append(ni)
@@ -65,6 +67,7 @@ def _bfs_compute(
         if d > 5 and cpu_time() > budget:
             return frontier
     return []
+
 
 class PassableGrid:
     """Padded-by-1 passability grid with incremental neighbour tables.
@@ -86,7 +89,7 @@ class PassableGrid:
     def __init__(self, w: int, h: int) -> None:
         self.navs: list[NavBfs] = []
         pw = w + 2
-        
+
         self.pw = pw
         n = pw * (h + 2)
         self.n = n
@@ -110,7 +113,7 @@ class PassableGrid:
             -1,  # W
         )
         ne_off, se_off, sw_off, nw_off, n_off, e_off, s_off, w_off = self.offsets
-        
+
         pnb_push = self.pnb_push
         pnb_set = self.pnb_set
         for y in range(h):
@@ -120,9 +123,8 @@ class PassableGrid:
                 pnb_push[pi] = [pi + ne_off, pi + se_off, pi + sw_off, pi + nw_off]
                 pnb_set[pi] = [pi + n_off, pi + e_off, pi + s_off, pi + w_off]
 
-
     def init(self, w: int, h: int) -> None:
-        
+
         rpw = w + 2
         pw = self.pw
         self.rn = w * h
@@ -377,13 +379,13 @@ class NavBfs:
 
         if ct.get_move_cooldown() > 0:
             return None
-        
+
         self._cur_idx = (start.y + 1) * self.grid.pw + (start.x + 1)
         self.set_goal(goals)
 
         if self._cur_idx in self._gis:
             return start
-        
+
         if self._dirty:
             self._restart()
             self._dirty = False
@@ -398,7 +400,7 @@ class NavBfs:
 
         cd = self._dist[self._cur_idx]
         self._cur_dist = cd
-        if cd is 0xFF:
+        if cd == 0xFF:
             return None
         if not cd:
             # we overflowed path length, cursed fix
@@ -431,7 +433,7 @@ class NavBfs:
             for off in offsets:
                 ni = pi + off
                 dn = dist[ni]
-                if dn < d and passable[ni] is 1:
+                if dn < d and passable[ni] == 1:
                     pi = ni
                     d = dn
                     break
@@ -440,7 +442,7 @@ class NavBfs:
         # d <= 1: either already on the goal (d==0) or one step away.
         # Check neighbors for the actual goal tile (dist==0), which may
         # be impassable (e.g. a barrier).
-        if d is 1:
+        if d == 1:
             for off in offsets:
                 ni = pi + off
                 if not dist[ni]:

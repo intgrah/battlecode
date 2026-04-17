@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from building import BuildingArmouredConveyor, BuildingConveyor, BuildingHarvester, BuildingFoundry
+from building import (
+    BuildingArmouredConveyor,
+    BuildingConveyor,
+    BuildingFoundry,
+    BuildingHarvester,
+)
 from cambc import Controller, Environment
 from config import DEBUG_TIMING
-from util import DIR8, DIR4
+from util import DIR4, DIR8
 
-from ..flow import FlowValue
-from ..role import Role
-from ..task_harvest import ore_available, pick_ore_target
-from ..task_repair import find_dangling, is_dangling
+from builder.flow import FlowValue
+from builder.role import Role
+from builder.task_harvest import ore_available, pick_ore_target
+from builder.task_repair import find_dangling, is_dangling
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -34,6 +39,7 @@ _TRANSITION: dict[Role, dict[Role, int]] = {
 
 _REASSIGN_PERIOD = 150
 _REASSIGN_AFTER = 200
+
 
 def _pick_initial_role(self: Builder, ct: Controller) -> Role:
     if self.rnd > 10:
@@ -95,7 +101,7 @@ def _update_dangling(self: Builder, ct: Controller) -> None:
         self, ct, self.dangling_output
     ):
         self.dangling_output = find_dangling(self, ct)
-    
+
     # update dangling flow
     if self.dangling_output >= 0:
         ti = 0
@@ -120,6 +126,7 @@ def _update_dangling(self: Builder, ct: Controller) -> None:
                     ax += 0 if ti_ore else 1
 
         self.dangling_flow = FlowValue(ti, ax, rax)
+
 
 def _update_ore_target(self: Builder, ct: Controller) -> None:
     candidate_ore = pick_ore_target(self, ct)

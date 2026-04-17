@@ -1,9 +1,7 @@
 from bench_nav.common import DIR8, INF
 
 
-def build_pnb_by_offset(
-    w: int, h: int, cost: list[int]
-) -> list[list[list[int]]]:
+def build_pnb_by_offset(w: int, h: int, cost: list[int]) -> list[list[list[int]]]:
     """pnb_by_offset[nb][offset] = push list when arriving at nb from given offset.
 
     Uses Python negative indexing; list size w+3 accommodates all 8 offsets uniquely.
@@ -14,7 +12,14 @@ def build_pnb_by_offset(
     n = w * h
     out: list[list[list[int]]] = [[[] for _ in range(size)] for _ in range(n)]
     offset_to_dir = {
-        -w - 1: 7, -w: 0, -w + 1: 1, -1: 6, 1: 2, w - 1: 5, w: 4, w + 1: 3,
+        -w - 1: 7,
+        -w: 0,
+        -w + 1: 1,
+        -1: 6,
+        1: 2,
+        w - 1: 5,
+        w: 4,
+        w + 1: 3,
     }
     for nb in range(n):
         for off, d in offset_to_dir.items():
@@ -31,7 +36,14 @@ def build_dir_of_offset(w: int) -> list[int]:
     size = w + 3
     table = [0] * size
     offset_to_dir = {
-        -w - 1: 7, -w: 0, -w + 1: 1, -1: 6, 1: 2, w - 1: 5, w: 4, w + 1: 3,
+        -w - 1: 7,
+        -w: 0,
+        -w + 1: 1,
+        -1: 6,
+        1: 2,
+        w - 1: 5,
+        w: 4,
+        w + 1: 3,
     }
     for off, d in offset_to_dir.items():
         table[off] = d
@@ -89,5 +101,3 @@ def build_pnb_dir(w: int, h: int, cost: list[int]) -> list[list[list[int]]]:
                     pushes.append(nbrs[(ed + 2) % 8])
 
     return pnb_dir
-
-
