@@ -2,38 +2,80 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from visualiser import Grid, Palette, Scalar, Tiles, emit
+
+from visualiser import (
+    Colour,
+    F32Grid,
+    I16Grid,
+    Palette,
+    PaletteStop,
+    Tiles,
+    emit,
+)
 
 if TYPE_CHECKING:
     from cambc import Controller
 
-    from .state import State
+    from state import State
+    from builder import Builder
 
 __all__ = ["dump"]
 
-TRANSPARENT = (0, 0, 0, 0)
+TRANSPARENT = Colour(0, 0, 0, 0)
 
 P_FOG = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 0, 0, 180)],
+    stops=[
+        PaletteStop(0.0, Colour(0, 0, 0, 0)),
+        PaletteStop(1.0, Colour(0, 0, 0, 180)),
+    ],
     special={0: TRANSPARENT},
 )
 P_COST = Palette(
-    stops=[(0.0, 50, 200, 50, 140), (1.0, 200, 50, 50, 140)],
+    stops=[
+        PaletteStop(0.0, Colour(50, 200, 50, 140)),
+        PaletteStop(1.0, Colour(200, 50, 50, 140)),
+    ],
     special={-1: TRANSPARENT},
 )
 P_BOOL = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 140)],
+    stops=[
+        PaletteStop(0.0, Colour(0, 0, 0, 0)),
+        PaletteStop(1.0, Colour(200, 0, 0, 140)),
+    ],
     special={0: TRANSPARENT},
 )
 P_GREEN = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 0, 200, 0, 160)],
+    stops=[
+        PaletteStop(0.0, Colour(0, 0, 0, 0)),
+        PaletteStop(1.0, Colour(0, 200, 0, 160)),
+    ],
     special={0: TRANSPARENT},
 )
 P_RED = Palette(
-    stops=[(0.0, 0, 0, 0, 0), (1.0, 200, 0, 0, 160)],
+    stops=[
+        PaletteStop(0.0, Colour(0, 0, 0, 0)),
+        PaletteStop(1.0, Colour(200, 0, 0, 160)),
+    ],
     special={0: TRANSPARENT},
 )
-
+P_FLOW = Palette(
+    stops=[],
+    special={
+        0: TRANSPARENT,
+        1: Colour(0, 60, 0, 60),
+        2: Colour(0, 100, 0, 100),
+        3: Colour(0, 160, 0, 160),
+        4: Colour(0, 220, 0, 220),
+    },
+)
+P_PASS = Palette(
+    stops=[],
+    special={
+        0: Colour(100, 0, 0, 100),
+        1: Colour(0, 100, 0, 100),
+        2: Colour(100, 100, 0, 100),
+    },
+)
 
 def _unpad(grid: list[int], state: State) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""
@@ -48,15 +90,15 @@ def _unpad(grid: list[int], state: State) -> list[int]:
 
 def dump(state: State, _ct: Controller) -> None:
     emit(
-        unseen=Grid(
+        unseen=F32Grid(
             [0.0 if e is not None else 1.0 for e in state.env],
             palette=P_FOG,
         ),
-        cost=Grid(
+        cost=F32Grid(
             [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
             palette=P_COST,
         ),
-        conv_cost=Grid(
+        conv_cost=F32Grid(
             [c if c < 1e6 else -1 for c in _unpad(state.conveyor_cost_grid, state)],
             palette=P_COST,
         ),
@@ -68,8 +110,5 @@ def dump(state: State, _ct: Controller) -> None:
         ),
         harvester_adjacent=Tiles(
             [(p.x, p.y) for p in state.adjacent_to_harvester],
-        ),
-        symmetry=Scalar(str(state.symmetry)),
-        symmetry_candidates=Scalar(str(state.symmetry_candidates)),
-        role=Scalar(str(state.role)),
+        )
     )
