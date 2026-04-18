@@ -82,6 +82,9 @@ class Core(Unit):
             KnownMap.CRATERS,
             KnownMap.CHESS,
             KnownMap.DNA,
+            KnownMap.RUSH_BAIT,
+            KnownMap.PONG,
+            KnownMap.BEAR_OF_DOOM,
         ):
             return self.spawned < 3
         if self.spawned < Core.INITIAL_SPAWNS:
