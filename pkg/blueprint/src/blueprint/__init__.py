@@ -95,6 +95,7 @@ class BlueprintEntry:
 
     pos: tuple[int, int]
     kind: Entity
+    phase: int
     direction: Direction | None = None
     bridge_target: tuple[int, int] | None = None
 
