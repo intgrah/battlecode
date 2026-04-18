@@ -5,9 +5,11 @@ use crate::blueprint::{BlueprintEntry, Direction, Entity};
 
 pub fn blueprints_dir() -> PathBuf {
     let manifest = env!("CARGO_MANIFEST_DIR");
-    Path::new(manifest).join("..").join("blueprints").canonicalize().unwrap_or_else(|_| {
-        Path::new(manifest).join("..").join("blueprints")
-    })
+    Path::new(manifest)
+        .join("..")
+        .join("blueprints")
+        .canonicalize()
+        .unwrap_or_else(|_| Path::new(manifest).join("..").join("blueprints"))
 }
 
 pub fn load_bp(map_name: &str) -> Option<Vec<BlueprintEntry>> {
@@ -81,13 +83,15 @@ pub fn write_bp(map_name: &str, entries: &[BlueprintEntry]) -> Result<PathBuf, S
     for e in &ordered {
         s.push_str(&format!("{} {} {}", e.pos.0, e.pos.1, e.kind.name()));
         if e.kind.is_directional()
-            && let Some(d) = e.direction {
-                s.push_str(&format!(" dir={}", d.name()));
-            }
+            && let Some(d) = e.direction
+        {
+            s.push_str(&format!(" dir={}", d.name()));
+        }
         if e.kind == Entity::Bridge
-            && let Some((bx, by)) = e.bridge_target {
-                s.push_str(&format!(" bridge={bx},{by}"));
-            }
+            && let Some((bx, by)) = e.bridge_target
+        {
+            s.push_str(&format!(" bridge={bx},{by}"));
+        }
         if e.phase != 0 {
             s.push_str(&format!(" phase={}", e.phase));
         }
@@ -139,13 +143,15 @@ pub fn regenerate_index() -> Result<PathBuf, String> {
                 format!("Entity.{}", e.kind.name()),
             ];
             if e.kind.is_directional()
-                && let Some(d) = e.direction {
-                    parts.push(format!("direction=Direction.{}", d.name()));
-                }
+                && let Some(d) = e.direction
+            {
+                parts.push(format!("direction=Direction.{}", d.name()));
+            }
             if e.kind == Entity::Bridge
-                && let Some((bx, by)) = e.bridge_target {
-                    parts.push(format!("bridge_target=({bx}, {by})"));
-                }
+                && let Some((bx, by)) = e.bridge_target
+            {
+                parts.push(format!("bridge_target=({bx}, {by})"));
+            }
             parts.push(format!("phase={}", e.phase));
             s.push_str(&format!("        BlueprintEntry({}),\n", parts.join(", ")));
         }

@@ -12,6 +12,7 @@ mod proto {
 mod app;
 mod blueprint;
 mod bp_io;
+mod constants;
 mod cost;
 mod map;
 mod map_view;

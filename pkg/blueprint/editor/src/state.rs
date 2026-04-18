@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::blueprint::{BlueprintEntry, Direction, Entity, ALL_DIRECTIONS, CARDINALS};
+use crate::blueprint::{ALL_DIRECTIONS, BlueprintEntry, CARDINALS, Direction, Entity};
 
 #[derive(Debug, Clone)]
 pub enum Op {
@@ -15,12 +15,15 @@ pub enum Op {
         before: BlueprintEntry,
         after: BlueprintEntry,
     },
+    Batch(Vec<Op>),
 }
 
 pub struct EditorState {
     pub entries: HashMap<(i32, i32), BlueprintEntry>,
     undo_stack: Vec<Op>,
     redo_stack: Vec<Op>,
+    batch_depth: u32,
+    open_batch: Vec<Op>,
     pub dirty: bool,
 }
 
@@ -30,6 +33,8 @@ impl EditorState {
             entries: HashMap::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
+            batch_depth: 0,
+            open_batch: Vec::new(),
             dirty: false,
         }
     }
@@ -38,27 +43,57 @@ impl EditorState {
         self.entries.clear();
         self.undo_stack.clear();
         self.redo_stack.clear();
+        self.batch_depth = 0;
+        self.open_batch.clear();
         for e in entries {
             self.entries.insert(e.pos, e);
         }
         self.dirty = false;
     }
 
+    pub fn begin_batch(&mut self) {
+        self.batch_depth += 1;
+    }
+
+    pub fn end_batch(&mut self) {
+        if self.batch_depth == 0 {
+            return;
+        }
+        self.batch_depth -= 1;
+        if self.batch_depth == 0 && !self.open_batch.is_empty() {
+            let ops = std::mem::take(&mut self.open_batch);
+            self.undo_stack.push(Op::Batch(ops));
+            self.redo_stack.clear();
+        }
+    }
+
+    fn push_op(&mut self, op: Op) {
+        if self.batch_depth > 0 {
+            self.open_batch.push(op);
+        } else {
+            self.undo_stack.push(op);
+            self.redo_stack.clear();
+        }
+        self.dirty = true;
+    }
+
     pub fn place(&mut self, entry: BlueprintEntry) {
         let before = self.entries.get(&entry.pos).copied();
+        if before == Some(entry) {
+            return;
+        }
         self.entries.insert(entry.pos, entry);
-        self.undo_stack.push(Op::Place { before, after: entry });
-        self.redo_stack.clear();
-        self.dirty = true;
+        self.push_op(Op::Place {
+            before,
+            after: entry,
+        });
     }
 
     pub fn erase(&mut self, pos: (i32, i32)) {
         let Some(before) = self.entries.remove(&pos) else {
             return;
         };
-        self.undo_stack.push(Op::Erase { before });
-        self.redo_stack.clear();
-        self.dirty = true;
+        self.push_op(Op::Erase { before });
     }
 
     pub fn rotate(&mut self, pos: (i32, i32), step: i32) {
@@ -74,24 +109,81 @@ impl EditorState {
             &ALL_DIRECTIONS
         };
         let cur = entry.direction.unwrap_or(dirs[0]);
-        let i = dirs
-            .iter()
-            .position(|d| *d == cur)
-            .unwrap_or(0) as i32;
+        let i = dirs.iter().position(|d| *d == cur).unwrap_or(0) as i32;
         let n = dirs.len() as i32;
         let new = dirs[((i + step).rem_euclid(n)) as usize];
         let mut updated = entry;
         updated.direction = Some(new);
         self.entries.insert(pos, updated);
-        self.undo_stack.push(Op::Rotate {
+        self.push_op(Op::Rotate {
             before: entry,
             after: updated,
         });
-        self.redo_stack.clear();
-        self.dirty = true;
+    }
+
+    pub fn retag_phase(&mut self, pos: (i32, i32), phase: i32) {
+        let Some(entry) = self.entries.get(&pos).copied() else {
+            return;
+        };
+        if entry.phase == phase {
+            return;
+        }
+        let mut updated = entry;
+        updated.phase = phase;
+        self.entries.insert(pos, updated);
+        self.push_op(Op::Place {
+            before: Some(entry),
+            after: updated,
+        });
+    }
+
+    pub fn insert_phase_after(&mut self, n: i32) {
+        let affected: Vec<(i32, i32)> = self
+            .entries
+            .iter()
+            .filter(|(_, e)| e.phase > n)
+            .map(|(p, _)| *p)
+            .collect();
+        if affected.is_empty() {
+            return;
+        }
+        self.begin_batch();
+        for pos in affected {
+            let e = self.entries[&pos];
+            let mut upd = e;
+            upd.phase = e.phase + 1;
+            self.entries.insert(pos, upd);
+            self.push_op(Op::Place {
+                before: Some(e),
+                after: upd,
+            });
+        }
+        self.end_batch();
+    }
+
+    pub fn delete_phase(&mut self, n: i32) {
+        let affected: Vec<(i32, i32)> = self
+            .entries
+            .iter()
+            .filter(|(_, e)| e.phase == n)
+            .map(|(p, _)| *p)
+            .collect();
+        if affected.is_empty() {
+            return;
+        }
+        self.begin_batch();
+        for pos in affected {
+            let e = self.entries.remove(&pos).unwrap();
+            self.push_op(Op::Erase { before: e });
+        }
+        self.end_batch();
     }
 
     pub fn undo(&mut self) {
+        if self.batch_depth > 0 && !self.open_batch.is_empty() {
+            let ops = std::mem::take(&mut self.open_batch);
+            self.undo_stack.push(Op::Batch(ops));
+        }
         let Some(op) = self.undo_stack.pop() else {
             return;
         };
@@ -121,6 +213,11 @@ impl EditorState {
             Op::Erase { before } | Op::Rotate { before, .. } => {
                 self.entries.insert(before.pos, *before);
             }
+            Op::Batch(ops) => {
+                for op in ops.iter().rev() {
+                    self.apply_inverse(op);
+                }
+            }
         }
     }
 
@@ -132,6 +229,11 @@ impl EditorState {
             Op::Erase { before } => {
                 self.entries.remove(&before.pos);
             }
+            Op::Batch(ops) => {
+                for op in ops {
+                    self.apply_forward(op);
+                }
+            }
         }
     }
 }
@@ -142,7 +244,6 @@ pub struct Editor {
     pub core_b: (i32, i32),
     pub sym: crate::symmetry::Symmetry,
     pub state: EditorState,
-    pub tool: Entity,
     pub bridge_source: Option<(i32, i32)>,
     pub status: String,
     pub last_direction: HashMap<Entity, Direction>,
@@ -169,7 +270,6 @@ impl Editor {
             core_b: map.core_b,
             sym,
             state: EditorState::new(),
-            tool: Entity::Conveyor,
             bridge_source: None,
             status: String::new(),
             last_direction,
@@ -213,7 +313,10 @@ impl Editor {
             }
         }
         if entity == Entity::Harvester
-            && !matches!(tile, crate::map::Tile::OreTitanium | crate::map::Tile::OreAxionite)
+            && !matches!(
+                tile,
+                crate::map::Tile::OreTitanium | crate::map::Tile::OreAxionite
+            )
         {
             self.status = "harvester needs ore".into();
             return;
@@ -282,9 +385,10 @@ impl Editor {
     pub fn rotate_at(&mut self, pos: (i32, i32), step: i32) {
         self.state.rotate(pos, step);
         if let Some(e) = self.state.entries.get(&pos)
-            && let Some(d) = e.direction {
-                self.last_direction.insert(e.kind, d);
-            }
+            && let Some(d) = e.direction
+        {
+            self.last_direction.insert(e.kind, d);
+        }
     }
 
     pub fn save(&mut self) {

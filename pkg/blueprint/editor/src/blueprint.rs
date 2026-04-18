@@ -65,7 +65,10 @@ impl Entity {
     }
 
     pub const fn is_cardinal_only(self) -> bool {
-        matches!(self, Self::Conveyor | Self::Splitter | Self::ArmouredConveyor)
+        matches!(
+            self,
+            Self::Conveyor | Self::Splitter | Self::ArmouredConveyor
+        )
     }
 }
 
@@ -184,4 +187,3 @@ pub struct BlueprintEntry {
     pub bridge_target: Option<(i32, i32)>,
     pub phase: i32,
 }
-
