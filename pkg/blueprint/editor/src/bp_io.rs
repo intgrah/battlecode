@@ -146,6 +146,7 @@ pub fn regenerate_index() -> Result<PathBuf, String> {
                 && let Some((bx, by)) = e.bridge_target {
                     parts.push(format!("bridge_target=({bx}, {by})"));
                 }
+            parts.push(format!("phase={}", e.phase));
             s.push_str(&format!("        BlueprintEntry({}),\n", parts.join(", ")));
         }
         s.push_str("    ),\n");

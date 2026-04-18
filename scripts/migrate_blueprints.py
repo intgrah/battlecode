@@ -78,6 +78,7 @@ def render_generated(all_entries: dict[str, tuple[BlueprintEntry, ...]]) -> str:
             if e.kind == Entity.BRIDGE and e.bridge_target is not None:
                 bx, by = e.bridge_target
                 parts.append(f"bridge_target=({bx}, {by})")
+            parts.append("phase=0")
             body.append(f"        BlueprintEntry({', '.join(parts)}),")
         body.append("    ),")
     return "\n".join([*header, *body, "}", ""])
