@@ -111,6 +111,7 @@ members = [
     "bot-v54-3-0",
     "bot-v54-4-0",
     "bot-v54-5-0",
+    "bot-v54-6-0",
     "hitl",
     "proto",
     "visualiser",
@@ -1473,6 +1474,21 @@ requires-dist = [
 name = "bot-v54-5-0"
 version = "0.0.0"
 source = { virtual = "bots/intgrah/v54.5.0" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
+name = "bot-v54-6-0"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/v54.6.0" }
 dependencies = [
     { name = "cambc" },
     { name = "visualiser" },
