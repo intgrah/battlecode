@@ -57,10 +57,7 @@ pub fn load(path: &Path) -> Result<MapData, String> {
     }
     let (mut core_a, mut core_b) = (None, None);
     for c in &m.cores {
-        let pos = c
-            .position
-            .as_ref()
-            .map_or((0, 0), |p| (p.x, p.y));
+        let pos = c.position.as_ref().map_or((0, 0), |p| (p.x, p.y));
         if c.team == (proto::Team::A as i32) {
             core_a = Some(pos);
         } else {

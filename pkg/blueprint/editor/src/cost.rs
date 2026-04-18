@@ -26,12 +26,10 @@ const fn scale_pct(k: Entity) -> f32 {
         | Entity::Barrier
         | Entity::Gunner
         | Entity::Launcher
-        | Entity::Breach => {
-            match k {
-                Entity::Gunner | Entity::Launcher | Entity::Breach => 10.0,
-                _ => 1.0,
-            }
-        }
+        | Entity::Breach => match k {
+            Entity::Gunner | Entity::Launcher | Entity::Breach => 10.0,
+            _ => 1.0,
+        },
         Entity::Harvester => 5.0,
         Entity::Bridge => 10.0,
         Entity::Sentinel => 20.0,
@@ -70,7 +68,14 @@ pub fn final_scale(entries: &[BlueprintEntry], n_builders: i32) -> f32 {
 
 pub fn cost_range(entries: &[BlueprintEntry], n_builders: i32) -> ((i32, i32), (i32, i32)) {
     let mut asc: Vec<&BlueprintEntry> = entries.iter().collect();
-    asc.sort_by(|a, b| scale_pct(a.kind).partial_cmp(&scale_pct(b.kind)).unwrap_or(std::cmp::Ordering::Equal));
+    asc.sort_by(|a, b| {
+        scale_pct(a.kind)
+            .partial_cmp(&scale_pct(b.kind))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let desc: Vec<&BlueprintEntry> = asc.iter().rev().copied().collect();
-    (cumulative_cost(&asc, n_builders), cumulative_cost(&desc, n_builders))
+    (
+        cumulative_cost(&asc, n_builders),
+        cumulative_cost(&desc, n_builders),
+    )
 }

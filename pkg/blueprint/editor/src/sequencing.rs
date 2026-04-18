@@ -67,7 +67,11 @@ pub fn unrouted(
         .filter_map(|(p, e)| if is_sink(e.kind) { Some(*p) } else { None })
         .collect();
     let core_t = core_tiles(core);
-    let sinks: HashSet<(i32, i32)> = sinks_pos.iter().copied().chain(core_t.iter().copied()).collect();
+    let sinks: HashSet<(i32, i32)> = sinks_pos
+        .iter()
+        .copied()
+        .chain(core_t.iter().copied())
+        .collect();
 
     let chain_positions: Vec<(i32, i32)> = entries
         .iter()

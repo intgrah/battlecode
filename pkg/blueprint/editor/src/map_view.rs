@@ -1,21 +1,28 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use eframe::egui;
 use egui::{Color32, Mesh, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 
-use crate::app::App;
+use crate::app::{App, Mode};
 use crate::blueprint::{BlueprintEntry, Direction, Entity};
+use crate::constants as C;
 use crate::map::Tile;
 use crate::symmetry::mirror_entry;
 
 const BG_COLOR: Color32 = Color32::from_rgb(0x1d, 0x15, 0x0f);
 const TILE_COLOR: Color32 = Color32::from_rgb(0x2a, 0x20, 0x18);
 const CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x00, 0x80);
+const ERASE_CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0xc0, 0x40, 0x40, 0xa0);
+const FOCUS_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x80, 0x00, 0x80);
 const GRID_COLOR: Color32 = Color32::from_rgba_premultiplied(0x20, 0x20, 0x28, 0x80);
 const UNROUTED_COLOR: Color32 = Color32::from_rgb(0xdc, 0x3c, 0x3c);
 const CORE_A_COLOR: Color32 = Color32::from_rgb(0x78, 0xc8, 0x78);
 const CORE_B_COLOR: Color32 = Color32::from_rgb(0xd2, 0x78, 0x78);
 const BRIDGE_LINE: Color32 = Color32::from_rgba_premultiplied(0xd2, 0xaa, 0x5a, 0xdc);
+const VISION_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x00, 0xff, 0xc0);
+const ATTACK_COLOR: Color32 = Color32::from_rgba_premultiplied(0xff, 0x00, 0x00, 0xc0);
+
+const PHASE_BG_ALPHA: u8 = 64;
 
 fn tile_rect(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Rect {
     let px = (x as f32).mul_add(ts * zoom, origin.x);
@@ -78,13 +85,21 @@ const fn cardinal_suffix_delta(d: (i32, i32)) -> Option<&'static str> {
 fn conveyor_feeds_into(neighbour: &BlueprintEntry, target: (i32, i32)) -> bool {
     match neighbour.kind {
         Entity::Conveyor | Entity::ArmouredConveyor => {
-            let Some(d) = neighbour.direction else { return false };
-            let Some((dx, dy)) = cardinal_from_dir(d) else { return false };
+            let Some(d) = neighbour.direction else {
+                return false;
+            };
+            let Some((dx, dy)) = cardinal_from_dir(d) else {
+                return false;
+            };
             (neighbour.pos.0 + dx, neighbour.pos.1 + dy) == target
         }
         Entity::Splitter => {
-            let Some(d) = neighbour.direction else { return false };
-            let Some((dx, dy)) = cardinal_from_dir(d) else { return false };
+            let Some(d) = neighbour.direction else {
+                return false;
+            };
+            let Some((dx, dy)) = cardinal_from_dir(d) else {
+                return false;
+            };
             let back = (-dx, -dy);
             let delta = (target.0 - neighbour.pos.0, target.1 - neighbour.pos.1);
             CARDINAL_DELTAS.contains(&delta) && delta != back
@@ -145,17 +160,32 @@ fn sprite_name(e: &BlueprintEntry, team_a: bool) -> String {
         Entity::Road => format!("road_{team}"),
         Entity::Barrier => format!("barrier_{team}"),
         Entity::Bridge => format!("bridge_stand_{team}"),
-        Entity::Splitter => format!("splitter_{}_{team}", cardinal_suffix(d.unwrap_or(Direction::North))),
+        Entity::Splitter => format!(
+            "splitter_{}_{team}",
+            cardinal_suffix(d.unwrap_or(Direction::North))
+        ),
         Entity::Conveyor => {
-            format!("conveyor_{team}_{}", cardinal_suffix(d.unwrap_or(Direction::East)))
+            format!(
+                "conveyor_{team}_{}",
+                cardinal_suffix(d.unwrap_or(Direction::East))
+            )
         }
         Entity::ArmouredConveyor => format!(
             "armoured_conveyor_{team}_{}",
             cardinal_suffix(d.unwrap_or(Direction::East))
         ),
-        Entity::Gunner => format!("gunner_{}_{team}", dir_suffix(d.unwrap_or(Direction::North))),
-        Entity::Sentinel => format!("sentinel_{}_{team}", dir_suffix(d.unwrap_or(Direction::North))),
-        Entity::Breach => format!("breach_{}_{team}", dir_suffix(d.unwrap_or(Direction::North))),
+        Entity::Gunner => format!(
+            "gunner_{}_{team}",
+            dir_suffix(d.unwrap_or(Direction::North))
+        ),
+        Entity::Sentinel => format!(
+            "sentinel_{}_{team}",
+            dir_suffix(d.unwrap_or(Direction::North))
+        ),
+        Entity::Breach => format!(
+            "breach_{}_{team}",
+            dir_suffix(d.unwrap_or(Direction::North))
+        ),
     }
 }
 
@@ -186,7 +216,11 @@ fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
                         mesh.add_rect_with_uv(r, uv, Color32::from_rgb(0x30, 0x0c, 0x08));
                         shapes.push(Shape::mesh(mesh));
                     } else {
-                        shapes.push(Shape::rect_filled(r, 0.0, Color32::from_rgb(0x30, 0x0c, 0x08)));
+                        shapes.push(Shape::rect_filled(
+                            r,
+                            0.0,
+                            Color32::from_rgb(0x30, 0x0c, 0x08),
+                        ));
                     }
                 }
                 Tile::OreTitanium => {
@@ -216,29 +250,6 @@ fn draw_bridge_line(painter: &egui::Painter, from: Pos2, to: Pos2, zoom: f32, co
     painter.line_segment([from, to], Stroke::new(3.0 * zoom.clamp(0.5, 2.0), color));
 }
 
-fn phase_alpha(app: &App, phase: i32, base: u8) -> Option<u8> {
-    use crate::app::ViewMode;
-    match app.view_mode {
-        ViewMode::All => Some(base),
-        ViewMode::UpTo => {
-            if phase <= app.view_phase {
-                Some(base)
-            } else {
-                None
-            }
-        }
-        ViewMode::Only => {
-            if phase == app.view_phase {
-                Some(base)
-            } else if phase < app.view_phase {
-                Some(((base as u16 * 76) / 255) as u8)
-            } else {
-                None
-            }
-        }
-    }
-}
-
 fn draw_entry(
     painter: &egui::Painter,
     app: &App,
@@ -260,6 +271,206 @@ fn draw_entry(
     draw_sprite(painter, app, &name, rect, tint);
 }
 
+fn radius_tiles(cx: i32, cy: i32, r_sq: i32) -> Vec<(i32, i32)> {
+    let r = (r_sq as f32).sqrt().ceil() as i32;
+    let mut tiles = Vec::new();
+    for dy in -r..=r {
+        for dx in -r..=r {
+            if dx * dx + dy * dy <= r_sq {
+                tiles.push((cx + dx, cy + dy));
+            }
+        }
+    }
+    tiles
+}
+
+fn ray_attack_tiles(cx: i32, cy: i32, dir: Direction, r_sq: i32) -> Vec<(i32, i32)> {
+    let Some((dx, dy)) = cardinal_from_dir(dir) else {
+        return Vec::new();
+    };
+    let mut tiles = Vec::new();
+    let mut x = cx + dx;
+    let mut y = cy + dy;
+    loop {
+        let d_sq = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if d_sq > r_sq {
+            break;
+        }
+        tiles.push((x, y));
+        x += dx;
+        y += dy;
+    }
+    tiles
+}
+
+fn sentinel_attack_tiles(cx: i32, cy: i32, dir: Direction, r_sq: i32) -> Vec<(i32, i32)> {
+    let Some((dx, dy)) = cardinal_from_dir(dir) else {
+        return Vec::new();
+    };
+    let mut tiles: Vec<(i32, i32)> = Vec::new();
+    let mut x = cx + dx;
+    let mut y = cy + dy;
+    loop {
+        let d_sq = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+        if d_sq > r_sq {
+            break;
+        }
+        for cdy in -1..=1_i32 {
+            for cdx in -1..=1_i32 {
+                let tx = x + cdx;
+                let ty = y + cdy;
+                if (tx, ty) != (cx, cy) {
+                    let d = (tx - cx) * (tx - cx) + (ty - cy) * (ty - cy);
+                    if d <= r_sq && !tiles.contains(&(tx, ty)) {
+                        tiles.push((tx, ty));
+                    }
+                }
+            }
+        }
+        x += dx;
+        y += dy;
+    }
+    tiles
+}
+
+fn breach_attack_tiles(cx: i32, cy: i32, dir: Direction, r_sq: i32) -> Vec<(i32, i32)> {
+    let Some((dx, dy)) = cardinal_from_dir(dir) else {
+        return Vec::new();
+    };
+    let mut tiles = Vec::new();
+    let r = (r_sq as f32).sqrt().ceil() as i32;
+    for oy in -r..=r {
+        for ox in -r..=r {
+            if ox == 0 && oy == 0 {
+                continue;
+            }
+            let d_sq = ox * ox + oy * oy;
+            if d_sq > r_sq {
+                continue;
+            }
+            let dot = ox * dx + oy * dy;
+            if dot > 0 || (dot == 0 && (ox * dy - oy * dx).abs() == 0) {
+                tiles.push((cx + ox, cy + oy));
+            }
+        }
+    }
+    tiles
+}
+
+fn draw_tile_outline(
+    painter: &egui::Painter,
+    tiles: &[(i32, i32)],
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+    color: Color32,
+) {
+    let set: HashSet<(i32, i32)> = tiles.iter().copied().collect();
+    let stroke = Stroke::new((1.5 * zoom).max(1.0), color);
+    let sz = ts * zoom;
+
+    for &(gx, gy) in tiles {
+        let px = (gx as f32).mul_add(sz, origin.x);
+        let py = (gy as f32).mul_add(sz, origin.y);
+
+        if !set.contains(&(gx, gy - 1)) {
+            painter.line_segment([Pos2::new(px, py), Pos2::new(px + sz, py)], stroke);
+        }
+        if !set.contains(&(gx, gy + 1)) {
+            painter.line_segment(
+                [Pos2::new(px, py + sz), Pos2::new(px + sz, py + sz)],
+                stroke,
+            );
+        }
+        if !set.contains(&(gx - 1, gy)) {
+            painter.line_segment([Pos2::new(px, py), Pos2::new(px, py + sz)], stroke);
+        }
+        if !set.contains(&(gx + 1, gy)) {
+            painter.line_segment(
+                [Pos2::new(px + sz, py), Pos2::new(px + sz, py + sz)],
+                stroke,
+            );
+        }
+    }
+}
+
+fn draw_range_overlay(
+    painter: &egui::Painter,
+    e: &BlueprintEntry,
+    w: i32,
+    h: i32,
+    ts: f32,
+    origin: Pos2,
+    zoom: f32,
+) {
+    let (cx, cy) = e.pos;
+    let clamp = |tiles: &mut Vec<(i32, i32)>| {
+        tiles.retain(|&(x, y)| x >= 0 && x < w && y >= 0 && y < h);
+    };
+    let Some(dir) = e.direction else { return };
+    let (vision, attack): (Vec<(i32, i32)>, Vec<(i32, i32)>) = match e.kind {
+        Entity::Gunner => (
+            radius_tiles(cx, cy, C::GUNNER_VISION_RADIUS_SQ),
+            ray_attack_tiles(cx, cy, dir, C::GUNNER_VISION_RADIUS_SQ),
+        ),
+        Entity::Sentinel => (
+            radius_tiles(cx, cy, C::SENTINEL_VISION_RADIUS_SQ),
+            sentinel_attack_tiles(cx, cy, dir, C::SENTINEL_VISION_RADIUS_SQ),
+        ),
+        Entity::Breach => (
+            radius_tiles(cx, cy, C::BREACH_VISION_RADIUS_SQ),
+            breach_attack_tiles(cx, cy, dir, C::BREACH_ATTACK_RADIUS_SQ),
+        ),
+        Entity::Launcher => (
+            radius_tiles(cx, cy, C::LAUNCHER_VISION_RADIUS_SQ),
+            radius_tiles(cx, cy, C::LAUNCHER_VISION_RADIUS_SQ),
+        ),
+        _ => return,
+    };
+    let mut vision = vision;
+    let mut attack = attack;
+    clamp(&mut vision);
+    clamp(&mut attack);
+    draw_tile_outline(painter, &vision, ts, origin, zoom, VISION_COLOR);
+    draw_tile_outline(painter, &attack, ts, origin, zoom, ATTACK_COLOR);
+}
+
+// Per-phase visibility & alpha. View mode shows everything at full opacity.
+// PhaseView shows `current_phase` at full opacity and everything else greyed.
+fn phase_alpha(app: &App, phase: i32, base: u8) -> u8 {
+    match app.mode {
+        Mode::PhaseView => {
+            if phase == app.editor.current_phase {
+                base
+            } else {
+                ((base as u16 * PHASE_BG_ALPHA as u16) / 255) as u8
+            }
+        }
+        _ => base,
+    }
+}
+
+fn line_tiles(a: (i32, i32), b: (i32, i32)) -> Vec<(i32, i32)> {
+    // Manhattan step from a to b (exclusive of a, inclusive of b). Used for
+    // drag-erase and phase-view drag so we don't skip tiles at high mouse speed.
+    let mut tiles = Vec::new();
+    let mut cur = a;
+    let mut steps = 0;
+    while cur != b && steps < 200 {
+        let (dx, dy) = (b.0 - cur.0, b.1 - cur.1);
+        let (sdx, sdy) = if dx.abs() >= dy.abs() {
+            (dx.signum(), 0)
+        } else {
+            (0, dy.signum())
+        };
+        cur = (cur.0 + sdx, cur.1 + sdy);
+        tiles.push(cur);
+        steps += 1;
+    }
+    tiles
+}
+
+#[allow(clippy::too_many_lines)]
 pub fn render(ui: &mut egui::Ui, app: &mut App) {
     let (response, painter) =
         ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
@@ -283,14 +494,20 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
     for gy in 0..=app.map.h {
         let y = (gy as f32).mul_add(sz, origin.y);
         painter.line_segment(
-            [Pos2::new(origin.x, y), Pos2::new((app.map.w as f32).mul_add(sz, origin.x), y)],
+            [
+                Pos2::new(origin.x, y),
+                Pos2::new((app.map.w as f32).mul_add(sz, origin.x), y),
+            ],
             Stroke::new(1.0, GRID_COLOR),
         );
     }
     for gx in 0..=app.map.w {
         let x = (gx as f32).mul_add(sz, origin.x);
         painter.line_segment(
-            [Pos2::new(x, origin.y), Pos2::new(x, (app.map.h as f32).mul_add(sz, origin.y))],
+            [
+                Pos2::new(x, origin.y),
+                Pos2::new(x, (app.map.h as f32).mul_add(sz, origin.y)),
+            ],
             Stroke::new(1.0, GRID_COLOR),
         );
     }
@@ -324,9 +541,7 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
     ordered.sort_by_key(|e| (e.phase, e.pos.1, e.pos.0));
     for e in &ordered {
         let p = &e.pos;
-        let Some(a) = phase_alpha(app, e.phase, 255) else {
-            continue;
-        };
+        let a = phase_alpha(app, e.phase, 255);
         let r = tile_rect(e.pos.0, e.pos.1, ts, origin, zoom);
         draw_entry(&painter, app, e, r, a, true, Some(&entries));
         if e.kind == Entity::Bridge
@@ -352,9 +567,7 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
         if me.pos == e.pos {
             continue;
         }
-        let Some(ma) = phase_alpha(app, me.phase, 140) else {
-            continue;
-        };
+        let ma = phase_alpha(app, me.phase, 140);
         let mr = tile_rect(me.pos.0, me.pos.1, ts, origin, zoom);
         draw_entry(&painter, app, &me, mr, ma, false, Some(&mirrored));
         if me.kind == Entity::Bridge
@@ -372,35 +585,73 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
         }
     }
 
-    if let Some(hover) = app.hover_tile
-        && !entries.contains_key(&hover) && app.editor.bridge_source.is_none() {
-            let tool = app.editor.tool;
-            let direction = if tool.is_directional() {
-                Some(
-                    app.editor
-                        .last_direction
-                        .get(&tool)
-                        .copied()
-                        .unwrap_or(Direction::East),
-                )
-            } else {
-                None
-            };
-            let ghost = BlueprintEntry {
-                pos: hover,
-                kind: tool,
-                direction,
-                bridge_target: None,
-                phase: app.editor.current_phase,
-            };
-            let r = tile_rect(hover.0, hover.1, ts, origin, zoom);
-            if tool != Entity::Bridge {
-                let mut with_ghost = entries.clone();
-                with_ghost.insert(hover, ghost);
-                draw_entry(&painter, app, &ghost, r, 100, true, Some(&with_ghost));
+    // Hover: ghost preview (Place) or full-opacity retag preview (PhaseView)
+    // or red cursor (Erase) or plain outline (View).
+    if let Some(hover) = app.hover_tile {
+        match app.mode {
+            Mode::Place(tool) => {
+                if !entries.contains_key(&hover) && app.editor.bridge_source.is_none() {
+                    let direction = if tool.is_directional() {
+                        Some(
+                            app.editor
+                                .last_direction
+                                .get(&tool)
+                                .copied()
+                                .unwrap_or(Direction::East),
+                        )
+                    } else {
+                        None
+                    };
+                    let ghost = BlueprintEntry {
+                        pos: hover,
+                        kind: tool,
+                        direction,
+                        bridge_target: None,
+                        phase: app.editor.current_phase,
+                    };
+                    let r = tile_rect(hover.0, hover.1, ts, origin, zoom);
+                    if tool != Entity::Bridge {
+                        let mut with_ghost = entries.clone();
+                        with_ghost.insert(hover, ghost);
+                        draw_entry(&painter, app, &ghost, r, 100, true, Some(&with_ghost));
+                    }
+                    painter.rect_stroke(
+                        r,
+                        0.0,
+                        Stroke::new(2.0, CURSOR_COLOR),
+                        StrokeKind::Outside,
+                    );
+                }
             }
-            painter.rect_stroke(r, 0.0, Stroke::new(2.0, CURSOR_COLOR), StrokeKind::Outside);
+            Mode::Erase => {
+                let r = tile_rect(hover.0, hover.1, ts, origin, zoom);
+                painter.rect_stroke(
+                    r,
+                    0.0,
+                    Stroke::new(2.0, ERASE_CURSOR_COLOR),
+                    StrokeKind::Outside,
+                );
+            }
+            Mode::PhaseView => {
+                if let Some(e) = entries.get(&hover)
+                    && e.phase != app.editor.current_phase
+                {
+                    let r = tile_rect(hover.0, hover.1, ts, origin, zoom);
+                    draw_entry(&painter, app, e, r, 255, true, Some(&entries));
+                    painter.rect_stroke(
+                        r,
+                        0.0,
+                        Stroke::new(2.0, CURSOR_COLOR),
+                        StrokeKind::Outside,
+                    );
+                }
+            }
+            Mode::View => {
+                let r = tile_rect(hover.0, hover.1, ts, origin, zoom);
+                painter.rect_stroke(r, 0.0, Stroke::new(1.0, CURSOR_COLOR), StrokeKind::Outside);
+            }
         }
+    }
 
     if let Some(src) = app.editor.bridge_source {
         let r = tile_rect(src.0, src.1, ts, origin, zoom);
@@ -412,6 +663,17 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
         );
     }
 
+    // Focus highlight + range overlay in View.
+    if matches!(app.mode, Mode::View)
+        && let Some(fpos) = app.focused
+        && let Some(e) = entries.get(&fpos)
+    {
+        let r = tile_rect(fpos.0, fpos.1, ts, origin, zoom);
+        painter.rect_stroke(r, 0.0, Stroke::new(2.0, FOCUS_COLOR), StrokeKind::Outside);
+        draw_range_overlay(&painter, e, app.map.w, app.map.h, ts, origin, zoom);
+    }
+
+    // Hover-tile tracking.
     if response.hovered() {
         if let Some(pos) = ui.input(|i| i.pointer.hover_pos()) {
             let gx = ((pos.x - origin.x) / (ts * zoom)).floor() as i32;
@@ -426,65 +688,123 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
         app.hover_tile = None;
     }
 
+    // Mouse dispatch per mode.
     let shift = ui.input(|i| i.modifiers.shift);
     let space = ui.input(|i| i.key_down(egui::Key::Space));
-    let tool = app.editor.tool;
-    let is_chain_tool = matches!(tool, Entity::Conveyor | Entity::ArmouredConveyor);
+    let pan_forced = shift || space;
+    let lmb_drag = response.dragged_by(egui::PointerButton::Primary);
+    let lmb_click = response.clicked_by(egui::PointerButton::Primary);
+    let rmb_click = response.clicked_by(egui::PointerButton::Secondary);
+    let mmb_click = response.clicked_by(egui::PointerButton::Middle);
+    let drag_stopped = response.drag_stopped_by(egui::PointerButton::Primary);
 
-    if response.dragged_by(egui::PointerButton::Primary) && (shift || space) {
+    // View: LMB-drag always pans; click selects/focuses.
+    // Other modes: pan only when shift/space held, otherwise tool-specific.
+    let pan_this_frame = matches!(app.mode, Mode::View) || pan_forced;
+
+    if lmb_drag && pan_this_frame {
         app.pan += response.drag_delta();
         ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-    } else if is_chain_tool && response.dragged_by(egui::PointerButton::Primary) {
-        if let Some(h) = app.hover_tile {
-            match app.drag_last_tile {
-                None => app.drag_last_tile = Some(h),
-                Some(prev) if prev != h => {
-                    let mut cur = prev;
-                    let mut steps = 0;
-                    while cur != h && steps < 200 {
-                        let (dx, dy) = (h.0 - cur.0, h.1 - cur.1);
-                        let (sdx, sdy) = if dx.abs() >= dy.abs() {
-                            (dx.signum(), 0)
-                        } else {
-                            (0, dy.signum())
-                        };
-                        if let Some(dir) = Direction::from_delta(sdx, sdy) {
-                            app.editor
-                                .place_conveyor_dir(&app.map, cur, tool, dir);
-                        }
-                        cur = (cur.0 + sdx, cur.1 + sdy);
-                        steps += 1;
-                    }
-                    app.drag_last_tile = Some(h);
+    } else {
+        match app.mode {
+            Mode::View => {
+                if lmb_click {
+                    app.focused = app.hover_tile.filter(|h| entries.contains_key(h));
                 }
-                _ => {}
+            }
+            Mode::Place(tool) => {
+                let is_chain_tool = matches!(tool, Entity::Conveyor | Entity::ArmouredConveyor);
+                if is_chain_tool && lmb_drag {
+                    if let Some(h) = app.hover_tile {
+                        match app.drag_last_tile {
+                            None => {
+                                app.editor.state.begin_batch();
+                                app.drag_last_tile = Some(h);
+                            }
+                            Some(prev) if prev != h => {
+                                let mut cur = prev;
+                                let mut steps = 0;
+                                while cur != h && steps < 200 {
+                                    let (dx, dy) = (h.0 - cur.0, h.1 - cur.1);
+                                    let (sdx, sdy) = if dx.abs() >= dy.abs() {
+                                        (dx.signum(), 0)
+                                    } else {
+                                        (0, dy.signum())
+                                    };
+                                    if let Some(dir) = Direction::from_delta(sdx, sdy) {
+                                        app.editor.place_conveyor_dir(&app.map, cur, tool, dir);
+                                    }
+                                    cur = (cur.0 + sdx, cur.1 + sdy);
+                                    steps += 1;
+                                }
+                                app.drag_last_tile = Some(h);
+                            }
+                            _ => {}
+                        }
+                    }
+                } else if lmb_click {
+                    if let Some(h) = app.hover_tile {
+                        app.editor.place(&app.map, h, tool);
+                    }
+                } else if rmb_click {
+                    if let Some(h) = app.hover_tile {
+                        app.editor.rotate_at(h, 1);
+                    }
+                } else if mmb_click && let Some(h) = app.hover_tile {
+                    app.editor.erase(h);
+                }
+            }
+            Mode::Erase => {
+                if lmb_drag {
+                    if let Some(h) = app.hover_tile {
+                        match app.drag_last_tile {
+                            None => {
+                                app.editor.state.begin_batch();
+                                app.editor.erase(h);
+                                app.drag_last_tile = Some(h);
+                            }
+                            Some(prev) if prev != h => {
+                                for tile in line_tiles(prev, h) {
+                                    app.editor.erase(tile);
+                                }
+                                app.drag_last_tile = Some(h);
+                            }
+                            _ => {}
+                        }
+                    }
+                } else if lmb_click && let Some(h) = app.hover_tile {
+                    app.editor.erase(h);
+                }
+            }
+            Mode::PhaseView => {
+                let target = app.editor.current_phase;
+                if lmb_drag {
+                    if let Some(h) = app.hover_tile {
+                        match app.drag_last_tile {
+                            None => {
+                                app.editor.state.begin_batch();
+                                app.editor.state.retag_phase(h, target);
+                                app.drag_last_tile = Some(h);
+                            }
+                            Some(prev) if prev != h => {
+                                for tile in line_tiles(prev, h) {
+                                    app.editor.state.retag_phase(tile, target);
+                                }
+                                app.drag_last_tile = Some(h);
+                            }
+                            _ => {}
+                        }
+                    }
+                } else if lmb_click && let Some(h) = app.hover_tile {
+                    app.editor.state.retag_phase(h, target);
+                }
             }
         }
-    } else if response.clicked_by(egui::PointerButton::Primary) {
-        if let Some(h) = app.hover_tile {
-            app.editor.place(&app.map, h, tool);
-        }
-    } else if response.clicked_by(egui::PointerButton::Secondary) {
-        if let Some(h) = app.hover_tile {
-            app.editor.rotate_at(h, 1);
-        }
-    } else if response.clicked_by(egui::PointerButton::Middle)
-        && let Some(h) = app.hover_tile
-    {
-        app.editor.erase(h);
     }
 
-    if response.drag_stopped_by(egui::PointerButton::Primary) {
-        if let Some(last) = app.drag_last_tile {
-            let dir = app
-                .editor
-                .last_direction
-                .get(&tool)
-                .copied()
-                .unwrap_or(Direction::East);
-            if is_chain_tool {
-                app.editor.place_conveyor_dir(&app.map, last, tool, dir);
-            }
+    if drag_stopped {
+        if app.drag_last_tile.is_some() {
+            app.editor.state.end_batch();
         }
         app.drag_last_tile = None;
     }
@@ -504,10 +824,8 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
             let old_zoom = app.zoom;
             app.zoom = (app.zoom * factor).clamp(0.2, 6.0);
             let dz = app.zoom / old_zoom;
-            app.pan.x =
-                (pointer.x - app.pan.x - rect.left()).mul_add(-dz, pointer.x) - rect.left();
-            app.pan.y =
-                (pointer.y - app.pan.y - rect.top()).mul_add(-dz, pointer.y) - rect.top();
+            app.pan.x = (pointer.x - app.pan.x - rect.left()).mul_add(-dz, pointer.x) - rect.left();
+            app.pan.y = (pointer.y - app.pan.y - rect.top()).mul_add(-dz, pointer.y) - rect.top();
         }
     }
 }

@@ -1,8 +1,17 @@
 use eframe::egui;
 
+use crate::blueprint::Entity;
 use crate::map::MapData;
 use crate::sprites::SpriteAtlas;
 use crate::state::Editor;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    View,
+    Place(Entity),
+    Erase,
+    PhaseView,
+}
 
 pub struct App {
     pub map: MapData,
@@ -16,16 +25,9 @@ pub struct App {
     pub cached_map_zoom: f32,
     pub drag_last_tile: Option<(i32, i32)>,
     pub show_conveyor_junctions: bool,
-    pub view_mode: ViewMode,
-    pub view_phase: i32,
+    pub mode: Mode,
+    pub focused: Option<(i32, i32)>,
     should_quit: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ViewMode {
-    All,
-    UpTo,
-    Only,
 }
 
 impl App {
@@ -64,8 +66,8 @@ impl App {
             cached_map_zoom: 0.0,
             drag_last_tile: None,
             show_conveyor_junctions: false,
-            view_mode: ViewMode::All,
-            view_phase: 0,
+            mode: Mode::View,
+            focused: None,
             should_quit: false,
         }
     }
