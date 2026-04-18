@@ -121,25 +121,31 @@ fn upload_mipmapped(cc: &eframe::CreationContext<'_>, img: &RgbaImage) -> Option
     )
 }
 
+fn collect_images(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_images(&path, out);
+        } else if path
+            .extension()
+            .is_some_and(|e| e == "png" || e == "jpg" || e == "jpeg")
+        {
+            out.push(path);
+        }
+    }
+}
+
 impl SpriteAtlas {
     pub fn load(cc: &eframe::CreationContext<'_>, assets_dir: &Path) -> Self {
         let mut textures = HashMap::new();
 
-        let Ok(entries) = std::fs::read_dir(assets_dir) else {
-            return Self {
-                textures,
-                tile_size: TILE_SIZE as f32,
-            };
-        };
+        let mut image_paths: Vec<std::path::PathBuf> = Vec::new();
+        collect_images(assets_dir, &mut image_paths);
 
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path
-                .extension()
-                .is_some_and(|e| e == "png" || e == "jpg" || e == "jpeg")
-            {
-                continue;
-            }
+        for path in image_paths {
             let Ok(img) = image::open(&path) else {
                 continue;
             };

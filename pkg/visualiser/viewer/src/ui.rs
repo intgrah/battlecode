@@ -492,6 +492,10 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                 ui.checkbox(&mut app.show_indicators, "Show indicators (i)");
                 ui.checkbox(&mut app.show_flow, "Show empirical flow (f)");
                 ui.checkbox(&mut app.show_ranges, "Show ranges");
+                ui.checkbox(
+                    &mut app.show_conveyor_junctions,
+                    "Experimental conveyor junctions",
+                );
 
                 let vis_fields = collect_vis_fields(state, app.selected_entity);
                 if !vis_fields.is_empty() {
