@@ -37,6 +37,10 @@ class Core(Unit):
 
     @override
     def run(self, ct: Controller) -> None:
+
+        if ct.get_current_round() > 200:
+            ct.resign()
+            
         self.deliveries.appendleft(self._count_incoming(ct))
         income_rate = sum(self.deliveries) / len(self.deliveries)
 
