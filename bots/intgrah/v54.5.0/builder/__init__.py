@@ -183,15 +183,14 @@ def _prepopulate_blueprint_state(self: Builder) -> None:
 
 POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     Role.OFFENSE: [
-        _blueprint,
         _heal,
         deny_enemy_ore,
         _attack,
     ],
     Role.ECON: [
-        _blueprint,
         place_gunner_nearby,
         fix_enemy_conveyor,
+        _blueprint,
         pave_near_harvesters,
         _connect_close,
         _heal,
@@ -203,9 +202,9 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
         _wander,
     ],
     Role.DEFENSE: [
-        _blueprint,
         place_gunner_nearby,
         fix_enemy_conveyor,
+        _blueprint,
         pave_near_harvesters,
         _connect_close,
         _heal,
