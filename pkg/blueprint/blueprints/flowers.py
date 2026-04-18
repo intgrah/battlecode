@@ -1,23 +1,2 @@
 from blueprint import BlueprintEntry, Direction, Entity
-
-BLUEPRINT: tuple[BlueprintEntry, ...] = (
-    BlueprintEntry((33, 38), Entity.HARVESTER),
-    BlueprintEntry((35, 38), Entity.HARVESTER),
-    BlueprintEntry((34, 38), Entity.FOUNDRY),
-    BlueprintEntry((33, 37), Entity.HARVESTER),
-    BlueprintEntry((33, 36), Entity.HARVESTER),
-    BlueprintEntry((34, 37), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((34, 36), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((34, 35), Entity.CONVEYOR, direction=Direction.EAST),
-    BlueprintEntry((35, 35), Entity.CONVEYOR, direction=Direction.EAST),
-    BlueprintEntry((36, 35), Entity.CONVEYOR, direction=Direction.EAST),
-    BlueprintEntry((37, 35), Entity.CONVEYOR, direction=Direction.EAST),
-    BlueprintEntry((32, 38), Entity.BARRIER),
-    BlueprintEntry((32, 37), Entity.BARRIER),
-    BlueprintEntry((32, 36), Entity.BARRIER),
-    BlueprintEntry((32, 35), Entity.BARRIER),
-    BlueprintEntry((32, 34), Entity.BARRIER),
-    BlueprintEntry((32, 33), Entity.BARRIER),
-    BlueprintEntry((32, 32), Entity.BARRIER),
-    BlueprintEntry((31, 39), Entity.BARRIER),
-)
+BLUEPRINT: tuple[BlueprintEntry, ...] = (BlueprintEntry((33, 38), Entity.HARVESTER, phase=0), BlueprintEntry((35, 38), Entity.HARVESTER, phase=0), BlueprintEntry((34, 38), Entity.FOUNDRY, phase=0), BlueprintEntry((33, 37), Entity.HARVESTER, phase=0), BlueprintEntry((33, 36), Entity.HARVESTER, phase=0), BlueprintEntry((34, 37), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((34, 36), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((34, 35), Entity.CONVEYOR, direction=Direction.EAST, phase=0), BlueprintEntry((35, 35), Entity.CONVEYOR, direction=Direction.EAST, phase=0), BlueprintEntry((36, 35), Entity.CONVEYOR, direction=Direction.EAST, phase=0), BlueprintEntry((37, 35), Entity.CONVEYOR, direction=Direction.EAST, phase=0), BlueprintEntry((32, 38), Entity.BARRIER, phase=0), BlueprintEntry((32, 37), Entity.BARRIER, phase=0), BlueprintEntry((32, 36), Entity.BARRIER, phase=0), BlueprintEntry((32, 35), Entity.BARRIER, phase=0), BlueprintEntry((32, 34), Entity.BARRIER, phase=0), BlueprintEntry((32, 33), Entity.BARRIER, phase=0), BlueprintEntry((32, 32), Entity.BARRIER, phase=0), BlueprintEntry((31, 39), Entity.BARRIER, phase=0))

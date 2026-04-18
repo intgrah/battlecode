@@ -1,24 +1,2 @@
 from blueprint import BlueprintEntry, Direction, Entity
-
-BLUEPRINT: tuple[BlueprintEntry, ...] = (
-    BlueprintEntry((4, 3), Entity.CONVEYOR, direction=Direction.WEST),
-    BlueprintEntry((4, 4), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((4, 5), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((4, 6), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((5, 6), Entity.CONVEYOR, direction=Direction.WEST),
-    BlueprintEntry((6, 7), Entity.ROAD),
-    BlueprintEntry((7, 8), Entity.BRIDGE, bridge_target=(5, 6)),
-    BlueprintEntry((9, 9), Entity.HARVESTER),
-    BlueprintEntry((8, 9), Entity.FOUNDRY),
-    BlueprintEntry((8, 13), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((8, 12), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((8, 11), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((8, 10), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((8, 14), Entity.HARVESTER),
-    BlueprintEntry((9, 10), Entity.BARRIER),
-    BlueprintEntry((9, 11), Entity.BARRIER),
-    BlueprintEntry((10, 9), Entity.BARRIER),
-    BlueprintEntry((8, 8), Entity.CONVEYOR, direction=Direction.WEST),
-    BlueprintEntry((7, 9), Entity.CONVEYOR, direction=Direction.NORTH),
-    BlueprintEntry((9, 8), Entity.CONVEYOR, direction=Direction.WEST),
-)
+BLUEPRINT: tuple[BlueprintEntry, ...] = (BlueprintEntry((4, 3), Entity.CONVEYOR, direction=Direction.WEST, phase=0), BlueprintEntry((4, 4), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((4, 5), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((4, 6), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((5, 6), Entity.CONVEYOR, direction=Direction.WEST, phase=0), BlueprintEntry((6, 7), Entity.ROAD, phase=0), BlueprintEntry((7, 8), Entity.BRIDGE, bridge_target=(5, 6), phase=0), BlueprintEntry((9, 9), Entity.HARVESTER, phase=0), BlueprintEntry((8, 9), Entity.FOUNDRY, phase=0), BlueprintEntry((8, 13), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((8, 12), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((8, 11), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((8, 10), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((8, 14), Entity.HARVESTER, phase=0), BlueprintEntry((9, 10), Entity.BARRIER, phase=0), BlueprintEntry((9, 11), Entity.BARRIER, phase=0), BlueprintEntry((10, 9), Entity.BARRIER, phase=0), BlueprintEntry((8, 8), Entity.CONVEYOR, direction=Direction.WEST, phase=0), BlueprintEntry((7, 9), Entity.CONVEYOR, direction=Direction.NORTH, phase=0), BlueprintEntry((9, 8), Entity.CONVEYOR, direction=Direction.WEST, phase=0))
