@@ -50,6 +50,18 @@ _CRATERS_OPENING_ROLES = [
     (Role.ECON, False),
 ]
 
+_CHESS_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.ECON, False),
+]
+
+_DNA_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.ECON, False),
+]
+
 _INITIAL_WEIGHTS = {
     True: {Role.DEFENSE: 6, Role.ECON: 3},
     False: {Role.DEFENSE: 3, Role.ECON: 3},
@@ -80,6 +92,10 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         opening = _WINDOW_SHOPPING_OPENING_ROLES
     elif self.known_map == KnownMap.CRATERS:
         opening = _CRATERS_OPENING_ROLES
+    elif self.known_map == KnownMap.CHESS:
+        opening = _CHESS_OPENING_ROLES
+    elif self.known_map == KnownMap.DNA:
+        opening = _DNA_OPENING_ROLES
     else:
         opening = _OPENING_ROLES
     if 0 <= idx < len(opening):
