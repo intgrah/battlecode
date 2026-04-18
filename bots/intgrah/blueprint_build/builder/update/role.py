@@ -62,6 +62,24 @@ _DNA_OPENING_ROLES = [
     (Role.ECON, False),
 ]
 
+_RUSH_BAIT_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.ECON, False),
+]
+
+_PONG_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.ECON, False),
+]
+
+_BEAR_OF_DOOM_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.ECON, False),
+]
+
 _INITIAL_WEIGHTS = {
     True: {Role.DEFENSE: 6, Role.ECON: 3},
     False: {Role.DEFENSE: 3, Role.ECON: 3},
@@ -96,6 +114,12 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         opening = _CHESS_OPENING_ROLES
     elif self.known_map == KnownMap.DNA:
         opening = _DNA_OPENING_ROLES
+    elif self.known_map == KnownMap.RUSH_BAIT:
+        opening = _RUSH_BAIT_OPENING_ROLES
+    elif self.known_map == KnownMap.PONG:
+        opening = _PONG_OPENING_ROLES
+    elif self.known_map == KnownMap.BEAR_OF_DOOM:
+        opening = _BEAR_OF_DOOM_OPENING_ROLES
     else:
         opening = _OPENING_ROLES
     if 0 <= idx < len(opening):
