@@ -661,6 +661,24 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
             Stroke::new(3.0, Color32::from_rgb(255, 255, 80)),
             StrokeKind::Outside,
         );
+        if let Some(h) = app.hover_tile
+            && h != src
+        {
+            let from = tile_center(src.0, src.1, ts, origin, zoom);
+            let to = tile_center(h.0, h.1, ts, origin, zoom);
+            let dx = h.0 - src.0;
+            let dy = h.1 - src.1;
+            let d2 = dx * dx + dy * dy;
+            let ok = d2 <= C::BRIDGE_TARGET_RADIUS_SQ;
+            let line_color = if ok {
+                Color32::from_rgb(0x80, 0xff, 0x80)
+            } else {
+                Color32::from_rgb(0xff, 0x60, 0x60)
+            };
+            draw_bridge_line(&painter, from, to, zoom, line_color);
+            let tr = tile_rect(h.0, h.1, ts, origin, zoom);
+            painter.rect_stroke(tr, 0.0, Stroke::new(2.0, line_color), StrokeKind::Outside);
+        }
     }
 
     // Focus highlight + range overlay in View.
@@ -714,28 +732,45 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
             }
             Mode::Place(tool) => {
                 let is_chain_tool = matches!(tool, Entity::Conveyor | Entity::ArmouredConveyor);
-                if is_chain_tool && lmb_drag {
+                let is_bridge = tool == Entity::Bridge;
+                if lmb_drag {
                     if let Some(h) = app.hover_tile {
                         match app.drag_last_tile {
                             None => {
-                                app.editor.state.begin_batch();
+                                // First drag frame: press tile.
+                                if is_bridge {
+                                    // Record bridge source; commit happens on drag_stopped.
+                                    app.editor.bridge_source = Some(h);
+                                } else {
+                                    app.editor.state.begin_batch();
+                                    app.editor.place(&app.map, h, tool);
+                                }
                                 app.drag_last_tile = Some(h);
                             }
                             Some(prev) if prev != h => {
-                                let mut cur = prev;
-                                let mut steps = 0;
-                                while cur != h && steps < 200 {
-                                    let (dx, dy) = (h.0 - cur.0, h.1 - cur.1);
-                                    let (sdx, sdy) = if dx.abs() >= dy.abs() {
-                                        (dx.signum(), 0)
-                                    } else {
-                                        (0, dy.signum())
-                                    };
-                                    if let Some(dir) = Direction::from_delta(sdx, sdy) {
-                                        app.editor.place_conveyor_dir(&app.map, cur, tool, dir);
+                                if is_bridge {
+                                    // Bridge drag just tracks the target preview; no commit yet.
+                                } else if is_chain_tool {
+                                    let mut cur = prev;
+                                    let mut steps = 0;
+                                    while cur != h && steps < 200 {
+                                        let (dx, dy) = (h.0 - cur.0, h.1 - cur.1);
+                                        let (sdx, sdy) = if dx.abs() >= dy.abs() {
+                                            (dx.signum(), 0)
+                                        } else {
+                                            (0, dy.signum())
+                                        };
+                                        if let Some(dir) = Direction::from_delta(sdx, sdy) {
+                                            app.editor
+                                                .place_conveyor_dir(&app.map, cur, tool, dir);
+                                        }
+                                        cur = (cur.0 + sdx, cur.1 + sdy);
+                                        steps += 1;
                                     }
-                                    cur = (cur.0 + sdx, cur.1 + sdy);
-                                    steps += 1;
+                                } else {
+                                    for tile in line_tiles(prev, h) {
+                                        app.editor.place(&app.map, tile, tool);
+                                    }
                                 }
                                 app.drag_last_tile = Some(h);
                             }
@@ -803,7 +838,16 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
     }
 
     if drag_stopped {
-        if app.drag_last_tile.is_some() {
+        if let Mode::Place(Entity::Bridge) = app.mode
+            && app.editor.bridge_source.is_some()
+        {
+            if let Some(h) = app.hover_tile {
+                // editor.place handles distance validation + clears bridge_source.
+                app.editor.place(&app.map, h, Entity::Bridge);
+            } else {
+                app.editor.bridge_source = None;
+            }
+        } else if app.drag_last_tile.is_some() {
             app.editor.state.end_batch();
         }
         app.drag_last_tile = None;
