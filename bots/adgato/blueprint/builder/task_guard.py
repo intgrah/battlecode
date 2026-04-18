@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from building import BuildingBarrier
-from cambc import Controller, EntityType, Position
+from cambc import Controller, EntityType, Position, Team
 
 from builder.helpers import try_move_to, try_place
 from builder.role import Role
@@ -13,13 +13,25 @@ if TYPE_CHECKING:
 
 
 def _posts(self: Builder) -> tuple[Position, Position]:
-    if self.my_team.value == 0:
-        if self.role == Role.SOCKET_GUARD_1:
-            return Position(11, 16), Position(12, 16)
-        return Position(11, 17), Position(12, 17)
     if self.role == Role.SOCKET_GUARD_1:
+        if self.my_team.value == 0:
+            return Position(11, 16), Position(12, 16)
         return Position(11, 3), Position(12, 3)
-    return Position(11, 2), Position(12, 2)
+    if self.role == Role.SOCKET_GUARD_2:
+        if self.my_team.value == 0:
+            return Position(11, 17), Position(12, 17)
+        return Position(11, 2), Position(12, 2)
+    if self.role == Role.TILES_GUARD_1:
+        if self.my_team.value == 0:
+            return Position(18, 4), Position(18, 3)
+        return Position(18, 25), Position(18, 26)
+    if self.role == Role.TILES_GUARD_2:
+        if self.my_team.value == 0:
+            return Position(8, 10), Position(8, 11)
+        return Position(8, 19), Position(8, 18)
+    if self.my_team.value == 0:
+        return Position(12, 10), Position(12, 11)
+    return Position(12, 19), Position(12, 18)
 
 
 def run_guard(self: Builder, ct: Controller) -> bool:
