@@ -14,6 +14,7 @@ dependencies = [
     "pillow>=12.1.1",
     "scipy>=1.17.1",
     "bench-nav",
+    "hitl",
     "proto",
     "visualiser",
 ]
@@ -44,6 +45,7 @@ render-map = "scripts.render_map:main"
 bench-nav = "bench_nav.__main__:main"
 replay-times = "scripts.replay_times:main"
 replay-livelock = "scripts.replay_livelock:main"
+conveyor-assets = "visualiser.scripts.conveyor_assets:main"
 
 [dependency-groups]
 dev = [
@@ -61,6 +63,7 @@ dev = [
 
 [tool.uv.sources]
 bench-nav = { workspace = true }
+hitl = { workspace = true }
 proto = { workspace = true }
 visualiser = { workspace = true }
 
@@ -122,4 +125,6 @@ members = [
     "pkg/visualiser",
     "pkg/proto",
     "pkg/bench_nav",
+    "pkg/hitl",
+    "pkg/blueprint",
 ]
