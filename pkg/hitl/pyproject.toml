@@ -1,0 +1,21 @@
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "hitl"
+version = "0.1.0"
+description = "Human-in-the-loop annotation platform for Battlecode replays."
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "python-multipart>=0.0.12",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pillow>=11.0",
+    "typer>=0.12",
+    "jinja2>=3.1",
+]
+
+[project.scripts]
+hitl = "hitl.cli:app"

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#111">
+  <title>HITL — annotate</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <span class="progress">{{ annotated }} / {{ total }}</span>
+    <span class="session">{{ session_id[:6] }}</span>
+  </header>
+
+  {% if not event %}
+    <main class="empty">
+      <h1>No events yet.</h1>
+      <p>Run event extraction on some replays first.</p>
+    </main>
+  {% else %}
+    <main id="app" data-event-id="{{ event.event_id }}">
+      <section class="canvas">
+        <img src="/png/{{ event.event_id }}" alt="event state">
+        <div class="meta">
+          <span class="trigger">{{ event.trigger }}</span>
+          <span class="turn">t{{ event.turn }}</span>
+          <span class="unit">{{ event.unit_type }}#{{ event.unit_id }}</span>
+          <span class="team">{{ event.team }}</span>
+        </div>
+      </section>
+
+      <section class="pad">
+        <h3>Direction</h3>
+        <div class="dpad">
+          {% for d in ["nw","n","ne","w","centre","e","sw","s","se"] %}
+          <button class="dir" data-dir="{{ d }}">{{ d|upper if d != "centre" else "·" }}</button>
+          {% endfor %}
+          <button class="dir" data-dir="none">none</button>
+        </div>
+
+        <h3>Action</h3>
+        <div class="row wrap">
+          {% for a in actions %}
+          <button class="act" data-act="{{ a }}">{{ a }}</button>
+          {% endfor %}
+        </div>
+
+        <div class="build-row hidden">
+          <h3>Build</h3>
+          <div class="row wrap">
+            {% for b in build_types %}
+            <button class="build" data-build="{{ b }}">{{ b }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <h3>Reasons (optional)</h3>
+        <div class="row wrap">
+          {% for r in reasons %}
+          <button class="reason" data-reason="{{ r }}">{{ r }}</button>
+          {% endfor %}
+        </div>
+
+        <details class="free">
+          <summary>Free text (optional)</summary>
+          <textarea id="free-text" rows="3" placeholder="anything extra..."></textarea>
+        </details>
+
+        <div class="actions">
+          <button id="skip" class="ghost">Skip</button>
+          <button id="submit" class="primary" disabled>Commit</button>
+        </div>
+      </section>
+
+      <section id="reveal" class="reveal hidden">
+        <h3>The bot did:</h3>
+        <p id="bot-action" class="bot-action"></p>
+        <div class="row">
+          <button id="right-yes" class="primary">Bot was right</button>
+          <button id="right-no" class="ghost">Bot was wrong</button>
+        </div>
+      </section>
+    </main>
+  {% endif %}
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
