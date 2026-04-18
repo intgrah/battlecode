@@ -12,7 +12,7 @@ use crate::sprites::SpriteAtlas;
 use crate::state::{Entity, EntityKind, GameState};
 use crate::ui;
 
-const FONT: &[u8] = include_bytes!("../assets/font.ttf");
+const FONT: &[u8] = include_bytes!("../assets/cambc/font.ttf");
 
 fn configure_fonts(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
@@ -45,6 +45,7 @@ pub struct App {
     pub show_indicators: bool,
     pub show_flow: bool,
     pub show_ranges: bool,
+    pub show_conveyor_junctions: bool,
     pub vis_overlays: std::collections::HashSet<String>,
     pub pan: egui::Vec2,
     pub zoom: f32,
@@ -92,6 +93,7 @@ impl App {
             show_indicators: false,
             show_flow: false,
             show_ranges: true,
+            show_conveyor_junctions: false,
             vis_overlays: std::collections::HashSet::new(),
             pan: egui::Vec2::ZERO,
             zoom: 1.0,

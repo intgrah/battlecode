@@ -154,6 +154,19 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         let mut entities: Vec<&Entity> = turn_state.entities.values().collect();
         entities.sort_by_key(|e| entity::z_order(&e.kind));
 
+        let by_pos: std::collections::HashMap<(i32, i32), Vec<&Entity>> = if app
+            .show_conveyor_junctions
+        {
+            let mut m: std::collections::HashMap<(i32, i32), Vec<&Entity>> =
+                std::collections::HashMap::new();
+            for e in turn_state.entities.values() {
+                m.entry(e.pos).or_default().push(e);
+            }
+            m
+        } else {
+            std::collections::HashMap::new()
+        };
+
         for e in &entities {
             if matches!(e.kind, EntityKind::Core { .. }) {
                 let road_name = match e.team {
@@ -186,7 +199,13 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 None
             };
 
-            let sprite_name = entity::sprite_name(e);
+            let sprite_name = if app.show_conveyor_junctions
+                && let Some(n) = conveyor_junction_sprite_name(e, &by_pos)
+            {
+                n
+            } else {
+                entity::sprite_name(e)
+            };
             let r = if matches!(e.kind, EntityKind::Core { .. }) {
                 let px = ((e.pos.0 - 1).max(0) as f32 * ts).mul_add(zoom, origin.x);
                 let py = ((e.pos.1 - 1).max(0) as f32 * ts).mul_add(zoom, origin.y);
@@ -841,4 +860,101 @@ fn draw_sprite(painter: &egui::Painter, app: &App, name: &str, rect: Rect) {
             Color32::WHITE,
         );
     }
+}
+
+const CARDINALS: [(i32, i32); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+
+const fn dir_unit(d: proto::Direction) -> Option<(i32, i32)> {
+    match d {
+        proto::Direction::DirNorth => Some((0, -1)),
+        proto::Direction::DirEast => Some((1, 0)),
+        proto::Direction::DirSouth => Some((0, 1)),
+        proto::Direction::DirWest => Some((-1, 0)),
+        _ => None,
+    }
+}
+
+fn conveyor_feeds_into(neighbor: &Entity, target: (i32, i32)) -> bool {
+    match &neighbor.kind {
+        EntityKind::Conveyor { dir, .. } | EntityKind::ArmouredConveyor { dir, .. } => {
+            let Some((dx, dy)) = dir_unit(*dir) else {
+                return false;
+            };
+            (neighbor.pos.0 + dx, neighbor.pos.1 + dy) == target
+        }
+        EntityKind::Splitter { dir, .. } => {
+            let Some((dx, dy)) = dir_unit(*dir) else {
+                return false;
+            };
+            let back = (-dx, -dy);
+            let delta = (target.0 - neighbor.pos.0, target.1 - neighbor.pos.1);
+            CARDINALS.contains(&delta) && delta != back
+        }
+        EntityKind::Bridge { target: bt, .. } => *bt == target,
+        EntityKind::Harvester { .. } | EntityKind::Foundry { .. } => true,
+        _ => false,
+    }
+}
+
+const fn dir_suffix_cardinal(d: (i32, i32)) -> Option<&'static str> {
+    match d {
+        (0, -1) => Some("n"),
+        (1, 0) => Some("e"),
+        (0, 1) => Some("s"),
+        (-1, 0) => Some("w"),
+        _ => None,
+    }
+}
+
+fn conveyor_junction_sprite_name(
+    entity: &Entity,
+    by_pos: &std::collections::HashMap<(i32, i32), Vec<&Entity>>,
+) -> Option<String> {
+    let (team_s, base, out_dir) = match &entity.kind {
+        EntityKind::Conveyor { dir, .. } => {
+            let team = match entity.team {
+                proto::Team::A => "gold",
+                proto::Team::B => "silver",
+            };
+            (team, "conveyor", *dir)
+        }
+        EntityKind::ArmouredConveyor { dir, .. } => {
+            let team = match entity.team {
+                proto::Team::A => "gold",
+                proto::Team::B => "silver",
+            };
+            (team, "armoured_conveyor", *dir)
+        }
+        _ => return None,
+    };
+    let out = dir_unit(out_dir)?;
+    let out_s = dir_suffix_cardinal(out)?;
+
+    let pos = entity.pos;
+    let mut inputs: Vec<(i32, i32)> = Vec::new();
+    for (dx, dy) in CARDINALS {
+        if (dx, dy) == out {
+            continue;
+        }
+        let n = (pos.0 + dx, pos.1 + dy);
+        let feeds = by_pos.get(&n).is_some_and(|list| {
+            list.iter()
+                .any(|e| e.team == entity.team && conveyor_feeds_into(e, pos))
+        });
+        if feeds {
+            inputs.push((dx, dy));
+        }
+    }
+    // Sort in canonical N,E,S,W order (already the iteration order of CARDINALS)
+    inputs.sort_by_key(|d| CARDINALS.iter().position(|c| c == d).unwrap_or(4));
+    let in_s: String = if inputs.is_empty() {
+        "x".to_string()
+    } else {
+        inputs
+            .iter()
+            .filter_map(|d| dir_suffix_cardinal(*d))
+            .collect::<Vec<&str>>()
+            .join("")
+    };
+    Some(format!("{base}_{team_s}_{out_s}_{in_s}"))
 }
