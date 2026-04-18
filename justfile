@@ -12,6 +12,12 @@ v replay="replay.replay26": vv
 vv:
     cargo build --release --manifest-path pkg/visualiser/viewer/Cargo.toml
 
+be map=default_map: bee
+    pkg/blueprint/editor/target/release/blueprint-editor {{ map }}
+
+bee:
+    cargo build --release --manifest-path pkg/blueprint/editor/Cargo.toml
+
 w replay="replay.replay26":
     cambc watch {{ replay }}
 
