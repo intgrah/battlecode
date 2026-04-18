@@ -17,4 +17,5 @@ BLUEPRINT: tuple[BlueprintEntry, ...] = (
     BlueprintEntry((3, 12), Entity.BARRIER),
     BlueprintEntry((3, 10), Entity.ROAD),
     BlueprintEntry((3, 11), Entity.ROAD),
+    BlueprintEntry((4, 9), Entity.SENTINEL, direction=Direction.NORTHEAST),
 )
