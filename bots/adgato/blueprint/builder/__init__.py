@@ -208,7 +208,6 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
         _heal,
         #pave_near_harvesters,
         _upgrade_conveyor,
-        _blueprint,
         deny_enemy_ore,
         _attack,
     ],
@@ -236,6 +235,9 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     ],
     Role.SOCKET_GUARD_1: [run_guard],
     Role.SOCKET_GUARD_2: [run_guard],
+    Role.TILES_GUARD_1: [run_guard],
+    Role.TILES_GUARD_2: [run_guard],
+    Role.TILES_GUARD_3: [run_guard],
 }
 
 

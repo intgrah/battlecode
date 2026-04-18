@@ -29,6 +29,15 @@ _SOCKET_OPENING_ROLES = [
     (Role.OFFENSE, False),
 ]
 
+_TILES_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.TILES_GUARD_1, True),
+    (Role.TILES_GUARD_2, True),
+    (Role.TILES_GUARD_3, True),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+]
+
 _INITIAL_WEIGHTS = {
     True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
     False: {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3},
@@ -51,7 +60,12 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         roles, weights = zip(*w.items(), strict=False)
         return self.rng.choices(roles, weights=weights)[0]
     idx = ct.get_unit_count() - 3
-    opening = _SOCKET_OPENING_ROLES if self.known_map == KnownMap.SOCKET else _OPENING_ROLES
+    if self.known_map == KnownMap.SOCKET:
+        opening = _SOCKET_OPENING_ROLES
+    elif self.known_map == KnownMap.TILES:
+        opening = _TILES_OPENING_ROLES
+    else:
+        opening = _OPENING_ROLES
     if 0 <= idx < len(opening):
         role, perm = opening[idx]
         self.permanent_role = perm
