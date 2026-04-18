@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hardcode.known import KnownMap
+
 from builder.role import Role
 
 if TYPE_CHECKING:
@@ -14,6 +16,15 @@ _OPENING_ROLES = [
     (Role.ECON, False),
     (Role.DEFENSE, True),
     (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+]
+
+_SOCKET_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.SOCKET_GUARD_1, True),
+    (Role.SOCKET_GUARD_2, True),
     (Role.OFFENSE, False),
     (Role.OFFENSE, False),
 ]
@@ -40,8 +51,9 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         roles, weights = zip(*w.items(), strict=False)
         return self.rng.choices(roles, weights=weights)[0]
     idx = ct.get_unit_count() - 3
-    if 0 <= idx < len(_OPENING_ROLES):
-        role, perm = _OPENING_ROLES[idx]
+    opening = _SOCKET_OPENING_ROLES if self.known_map == KnownMap.SOCKET else _OPENING_ROLES
+    if 0 <= idx < len(opening):
+        role, perm = opening[idx]
         self.permanent_role = perm
         return role
     return Role.ECON
