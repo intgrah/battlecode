@@ -56,16 +56,22 @@ class AStarSearch:
         Recompute those lists using actual w/h.
         """
         w, h = self.builder.w, self.builder.h
-        for cy in range(h):
-            for cx in range(w):
-                if 3 <= cx < w - 3 and 3 <= cy < h - 3:
-                    continue
-                i = cy * W + cx
-                self._neighbors[i] = [
-                    (ny * W + nx, extra)
-                    for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
-                    if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
-                ]
+
+        def fix_strip(ys: range, xs: range) -> None:
+            for cy in ys:
+                for cx in xs:
+                    i = cy * W + cx
+                    self._neighbors[i] = [
+                        (ny * W + nx, extra)
+                        for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
+                        if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+                    ]
+
+        all_rows = range(h)
+        fix_strip(all_rows, range(3))
+        fix_strip(all_rows, range(w - 3, w))
+        fix_strip(range(3), range(3, w - 3))
+        fix_strip(range(h - 3, h), range(3, w - 3))
 
     def search(
         self,
