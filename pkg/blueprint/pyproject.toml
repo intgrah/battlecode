@@ -1,0 +1,14 @@
+[project]
+name = "blueprint"
+version = "0.1.0"
+requires-python = ">=3.12,<3.14"
+dependencies = []
+
+[project.optional-dependencies]
+editor = ["pygame>=2.6", "proto"]
+
+[project.scripts]
+blueprint-editor = "blueprint.editor._app:main"
+
+[tool.ty.environment]
+root = ["."]

@@ -1,0 +1,27 @@
+from blueprint import BlueprintEntry, Direction, Entity
+
+BLUEPRINT: tuple[BlueprintEntry, ...] = (
+    BlueprintEntry((13, 24), Entity.FOUNDRY),
+    BlueprintEntry((10, 27), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((11, 28), Entity.SPLITTER, direction=Direction.WEST),
+    BlueprintEntry((12, 22), Entity.HARVESTER),
+    BlueprintEntry((13, 23), Entity.HARVESTER),
+    BlueprintEntry((14, 24), Entity.CONVEYOR, direction=Direction.WEST),
+    BlueprintEntry((13, 22), Entity.HARVESTER),
+    BlueprintEntry((10, 26), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((12, 28), Entity.CONVEYOR, direction=Direction.WEST),
+    BlueprintEntry((15, 24), Entity.CONVEYOR, direction=Direction.WEST),
+    BlueprintEntry((10, 25), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((13, 28), Entity.CONVEYOR, direction=Direction.WEST),
+    BlueprintEntry((16, 24), Entity.CONVEYOR, direction=Direction.WEST),
+    BlueprintEntry((13, 27), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((12, 23), Entity.BRIDGE, bridge_target=(10, 25)),
+    BlueprintEntry((17, 24), Entity.CONVEYOR, direction=Direction.WEST),
+    BlueprintEntry((13, 26), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((14, 22), Entity.BRIDGE, bridge_target=(12, 23)),
+    BlueprintEntry((17, 23), Entity.HARVESTER),
+    BlueprintEntry((13, 25), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((11, 22), Entity.SENTINEL, direction=Direction.NORTHWEST),
+    BlueprintEntry((12, 21), Entity.SENTINEL, direction=Direction.NORTHWEST),
+    BlueprintEntry((13, 21), Entity.SENTINEL, direction=Direction.NORTHWEST),
+)
