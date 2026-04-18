@@ -238,6 +238,7 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     Role.TILES_GUARD_1: [run_guard],
     Role.TILES_GUARD_2: [run_guard],
     Role.TILES_GUARD_3: [run_guard],
+    Role.WINDOW_SHOPPING_GUARD: [run_guard],
 }
 
 

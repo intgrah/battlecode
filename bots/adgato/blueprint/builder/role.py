@@ -10,6 +10,7 @@ class Role(IntEnum):
     TILES_GUARD_1 = 5
     TILES_GUARD_2 = 6
     TILES_GUARD_3 = 7
+    WINDOW_SHOPPING_GUARD = 8
 
     def __str__(self) -> str:
         return self.name.lower()

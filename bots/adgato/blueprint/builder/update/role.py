@@ -38,6 +38,15 @@ _TILES_OPENING_ROLES = [
     (Role.OFFENSE, False),
 ]
 
+_WINDOW_SHOPPING_OPENING_ROLES = [
+    (Role.ECON, True),
+    (Role.ECON, False),
+    (Role.WINDOW_SHOPPING_GUARD, True),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+    (Role.OFFENSE, False),
+]
+
 _INITIAL_WEIGHTS = {
     True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
     False: {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3},
@@ -64,6 +73,8 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         opening = _SOCKET_OPENING_ROLES
     elif self.known_map == KnownMap.TILES:
         opening = _TILES_OPENING_ROLES
+    elif self.known_map == KnownMap.WINDOW_SHOPPING:
+        opening = _WINDOW_SHOPPING_OPENING_ROLES
     else:
         opening = _OPENING_ROLES
     if 0 <= idx < len(opening):

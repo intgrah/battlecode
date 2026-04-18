@@ -140,8 +140,10 @@ def _pick_target(
         if ct.get_team(uid) == self.my_team and uid != self.my_id
     )
 
-    best: tuple[int, int, int, int, BlueprintEntry, str] | None = None
+    best: tuple[int, int, int, BlueprintEntry, str] | None = None
     for entry in self.blueprint:
+        if self.round < 100 * entry.phase:
+            continue
         pos = Position(*entry.pos)
         i = self.idx(pos)
         in_vision = ct.is_in_vision(pos)
@@ -150,20 +152,20 @@ def _pick_target(
         if in_vision and matches:
             if self.hp[i] < self.max_hp[i] - 3:
                 d = chebyshev(self.my_pos, pos)
-                key = (1, entry.phase, d, 1, entry, "heal")
-                if best is None or key[:4] < best[:4]:
+                key = (1, d, 1, entry, "heal")
+                if best is None or key[:3] < best[:3]:
                     best = key
             continue
         d = chebyshev(self.my_pos, pos)
         if d > 1 and any(chebyshev(bp, pos) <= 1 for bp in friendly_builder_positions):
             continue
         tier = 0 if (in_vision and entry.kind == Entity.BARRIER) else 1
-        key = (tier, entry.phase, d, 0, entry, "build")
-        if best is None or key[:4] < best[:4]:
+        key = (tier, d, 0, entry, "build")
+        if best is None or key[:3] < best[:3]:
             best = key
     if best is None:
         return None
-    return (best[4], best[5])
+    return (best[3], best[4])
 
 
 def _place_entry(self: Builder, ct: Controller, entry: BlueprintEntry) -> bool:
