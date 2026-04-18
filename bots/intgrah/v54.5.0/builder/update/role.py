@@ -10,12 +10,12 @@ if TYPE_CHECKING:
     from builder import Builder
 
 _OPENING_ROLES = [
-    (Role.ECON, True),
-    (Role.ECON, False),
-    (Role.DEFENSE, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
+    Role.ECON_1,
+    Role.ECON_2,
+    Role.DEFENSE_1,
+    Role.OFFENSE,
+    Role.OFFENSE,
+    Role.OFFENSE,
 ]
 
 _INITIAL_WEIGHTS = {
@@ -25,9 +25,12 @@ _INITIAL_WEIGHTS = {
 
 _TRANSITION: dict[Role, dict[Role, int]] = {
     Role.ECON: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
+    Role.ECON_2: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
     Role.DEFENSE: {Role.OFFENSE: 10, Role.DEFENSE: 80, Role.ECON: 10},
     Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
 }
+
+_PERMANENT: frozenset[Role] = frozenset({Role.ECON_1, Role.DEFENSE_1})
 
 _REASSIGN_PERIOD = 150
 _REASSIGN_AFTER = 400
@@ -41,9 +44,7 @@ def _pick_initial_role(self: Builder, ct: Controller) -> Role:
         return self.rng.choices(roles, weights=weights)[0]
     idx = ct.get_unit_count() - 3
     if 0 <= idx < len(_OPENING_ROLES):
-        role, perm = _OPENING_ROLES[idx]
-        self.permanent_role = perm
-        return role
+        return _OPENING_ROLES[idx]
     return Role.ECON
 
 
@@ -54,7 +55,7 @@ def update_role(self: Builder, ct: Controller) -> None:
     if (
         self.role_age > _REASSIGN_PERIOD
         and self.round > _REASSIGN_AFTER
-        and not self.permanent_role
+        and self.role not in _PERMANENT
     ):
         self.role_age = 0
         row = _TRANSITION[self.role]

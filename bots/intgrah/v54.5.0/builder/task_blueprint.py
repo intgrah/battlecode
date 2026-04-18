@@ -198,14 +198,23 @@ def run_blueprint(self: Builder, ct: Controller) -> bool:
             _try_heal(self, ct, pos)
             return True
         make_move(self, ct, pos)
+        self.my_pos = ct.get_position()
+        if chebyshev(self.my_pos, pos) <= 1:
+            _try_heal(self, ct, pos)
         return True
 
     # build action
     if self.my_pos == pos:
         move_random(self, ct)
+        self.my_pos = ct.get_position()
+        if self.my_pos != pos and chebyshev(self.my_pos, pos) <= 1:
+            _place_entry(self, ct, entry)
         return True
     if chebyshev(self.my_pos, pos) <= 1:
         _place_entry(self, ct, entry)
         return True
     make_move(self, ct, pos)
+    self.my_pos = ct.get_position()
+    if self.my_pos != pos and chebyshev(self.my_pos, pos) <= 1:
+        _place_entry(self, ct, entry)
     return True
