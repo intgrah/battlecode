@@ -69,7 +69,7 @@ def load_mirrored_blueprint(
     """Load the blueprint and mirror it to our team's side."""
     if known is None:
         return (), frozenset()
-    raw = BLUEPRINTS.get(known.value, ())
+    raw = BLUEPRINTS.get(known, ())
     if my_team == Team.A:
         entries = raw
     else:
