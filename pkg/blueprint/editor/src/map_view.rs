@@ -785,8 +785,6 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
                     if let Some(h) = app.hover_tile {
                         app.editor.rotate_at(h, 1);
                     }
-                } else if mmb_click && let Some(h) = app.hover_tile {
-                    app.editor.erase(h);
                 }
             }
             Mode::Erase => {
@@ -835,6 +833,11 @@ pub fn render(ui: &mut egui::Ui, app: &mut App) {
                 }
             }
         }
+    }
+
+    // Middle-click erase works in any mode.
+    if mmb_click && let Some(h) = app.hover_tile {
+        app.editor.erase(h);
     }
 
     if drag_stopped {
