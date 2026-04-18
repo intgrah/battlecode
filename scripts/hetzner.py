@@ -268,7 +268,9 @@ _SYNC_DIRS = [
     ("pkg/proto/", "proto/"),
 ]
 
-_SYNC_FILES: list[tuple[str, str]] = []
+_SYNC_FILES: list[tuple[str, str]] = [
+    ("scripts/remote_pyproject.toml", "pyproject.toml"),
+]
 
 
 def _cmd_sync(args: argparse.Namespace) -> None:

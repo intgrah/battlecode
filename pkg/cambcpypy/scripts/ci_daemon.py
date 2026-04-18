@@ -276,7 +276,7 @@ async def _main() -> None:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((HOST, PORT))
     sock.setblocking(False)
-    server = await asyncio.start_server(_handle_client, sock=sock)
+    server = await asyncio.start_server(_handle_client, sock=sock, limit=64 * 1024 * 1024)
     async with server:
         await server.serve_forever()
 
