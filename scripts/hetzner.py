@@ -271,10 +271,32 @@ _SYNC_DIRS = [
 _SYNC_FILES: list[tuple[str, str]] = []
 
 
+_WORKSPACE_PYPROJECT = """\
+[project]
+name = "battlecode-server"
+version = "0.0.0"
+requires-python = ">=3.11"
+
+[tool.uv]
+python-preference = "only-managed"
+
+[tool.uv.workspace]
+members = ["cambcpypy", "proto"]
+"""
+
+
 def _cmd_sync(args: argparse.Namespace) -> None:
     ip = _require_ip(args)
     rsync = _rsync_cmd()
     print(f"Syncing to {ip}...")
+    import base64 as _b64
+    enc = _b64.b64encode(_WORKSPACE_PYPROJECT.encode()).decode()
+    _ssh_run(
+        ip,
+        f"mkdir -p {REMOTE_DIR} && "
+        f"echo {enc} | base64 -d > {REMOTE_DIR}/pyproject.toml && "
+        f"echo pypy3.11 > {REMOTE_DIR}/.python-version",
+    )
     for local, remote in _SYNC_DIRS:
         rc = subprocess.call(
             [
@@ -308,6 +330,27 @@ def _cmd_sync(args: argparse.Namespace) -> None:
     print("Daemon restarted.")
 
 
+def _iter_py_files(root: Path) -> list[tuple[Path, Path]]:
+    """Walk root, following symlinked directories. Return (abs, rel) pairs
+    for every .py file."""
+    out: list[tuple[Path, Path]] = []
+    stack: list[tuple[Path, Path]] = [(root, Path())]
+    seen: set[Path] = set()
+    while stack:
+        cur, rel = stack.pop()
+        real = cur.resolve()
+        if real in seen:
+            continue
+        seen.add(real)
+        for child in cur.iterdir():
+            child_rel = rel / child.name
+            if child.is_dir():
+                stack.append((child, child_rel))
+            elif child.is_file() and child.suffix == ".py":
+                out.append((child, child_rel))
+    return sorted(out, key=lambda x: x[1])
+
+
 def _make_tarball(bot_path: str) -> bytes:
 
     bot_dir = _PROJECT_ROOT / "bots" / bot_path
@@ -315,9 +358,9 @@ def _make_tarball(bot_path: str) -> bytes:
         print(f"Bot not found: {bot_dir}", file=sys.stderr)
         sys.exit(1)
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        for f in sorted(bot_dir.rglob("*.py")):
-            tar.add(f, arcname=str(f.relative_to(bot_dir)))
+    with tarfile.open(fileobj=buf, mode="w:gz", dereference=True) as tar:
+        for abs_path, rel in _iter_py_files(bot_dir):
+            tar.add(abs_path.resolve(), arcname=str(rel))
     return buf.getvalue()
 
 

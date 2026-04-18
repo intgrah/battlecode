@@ -1,3 +1,5 @@
+# ruff: noqa: UP046, UP047
+# 3.11 compatible, so no PEP 695
 """Declarative state visualisation for the replay viewer.
 
 Usage in builder code:
@@ -35,10 +37,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+
+T = TypeVar("T", int, float, bool)
 
 VIS_PREFIX = "##VIS## "
 
@@ -55,13 +59,13 @@ TRANSPARENT = Colour(0, 0, 0, 0)
 
 
 @dataclass(frozen=True, slots=True)
-class PaletteStop[T: (int, float, bool)]:
+class PaletteStop(Generic[T]):
     t: T
     colour: Colour
 
 
 @dataclass(frozen=True, slots=True)
-class Palette[T: (int, float, bool)]:
+class Palette(Generic[T]):
     stops: Sequence[PaletteStop[T]]
     special: dict[T, Colour] = field(default_factory=dict)
 
@@ -87,9 +91,7 @@ FOG = Palette(
 )
 
 
-def with_special[T: (int, float, bool)](
-    palette: Palette[T], special: dict[T, Colour]
-) -> Palette[T]:
+def with_special(palette: Palette[T], special: dict[T, Colour]) -> Palette[T]:
     """Return a copy of the palette with additional special values."""
     merged = {**palette.special, **special}
     return Palette(stops=palette.stops, special=merged)

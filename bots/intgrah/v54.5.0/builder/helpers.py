@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from building import (
     BuildingArmouredConveyor,
@@ -10,7 +10,14 @@ from building import (
     BuildingRoad,
     BuildingSplitter,
 )
-from cambc import Controller, Direction, EntityType, Environment, Position
+from cambc import (
+    Controller,
+    Direction,
+    EntityType,
+    Environment,
+    GameConstants,
+    Position,
+)
 from util import BASE_COST, DIR4, DIR8, INF, Symmetry, W, closest
 
 from builder.algorithms.bugnav import bugnav
@@ -51,7 +58,11 @@ def try_move_to(self: Builder, ct: Controller, target_pos: Position) -> bool:
 
 
 def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> bool:
-    if self.get_cost(target_pos) > 1 and ct.can_build_road(target_pos):
+    if (
+        self.get_cost(target_pos) > 1
+        and target_pos not in self.blueprint_positions
+        and ct.can_build_road(target_pos)
+    ):
         ct.build_road(target_pos)
     return try_move_to(self, ct, target_pos)
 
@@ -63,29 +74,23 @@ def try_attack(ct: Controller, pos: Position) -> bool:
     return False
 
 
-_IS_UNIT = frozenset(
-    {EntityType.HARVESTER, EntityType.SENTINEL, EntityType.GUNNER, EntityType.LAUNCHER},
+_TURRET_RESERVE: Final[int] = (
+    GameConstants.HARVESTER_BASE_COST[0] + GameConstants.FOUNDRY_BASE_COST[0]
 )
-_EARLY_GAME_ROUND = 35
-_HARVESTER_RESERVE_EARLY = 10
-_HARVESTER_RESERVE_LATE = 20
-_LAUNCHER_RESERVE = 15
+"""Ti reserve for turrets (gunner/sentinel/breach/launcher). Set to
+harvester_base (20) + foundry_base (40) so placing a turret won't
+starve the blueprint of harvester/foundry funds."""
 
 
 def can_afford(self: Builder, etype: EntityType) -> bool:
     ti_cost, _ax_cost = BASE_COST[etype]
-    if etype in _IS_UNIT:
-        if etype == EntityType.HARVESTER:
-            reserve = (
-                _HARVESTER_RESERVE_EARLY
-                if self.round < _EARLY_GAME_ROUND
-                else _HARVESTER_RESERVE_LATE
-            )
-        elif etype == EntityType.LAUNCHER:
-            reserve = _LAUNCHER_RESERVE
-        else:
-            reserve = 0
-        return self.ti >= (ti_cost + reserve) * (1 + self.scale)
+    if etype in (
+        EntityType.GUNNER,
+        EntityType.SENTINEL,
+        EntityType.BREACH,
+        EntityType.LAUNCHER,
+    ):
+        return self.ti >= (ti_cost + _TURRET_RESERVE) * self.scale
     return self.ti >= ti_cost * self.scale
 
 

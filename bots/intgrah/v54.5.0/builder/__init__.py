@@ -81,9 +81,12 @@ def _heal(self: Builder, ct: Controller) -> bool:
     return run_heal(self, ct) or heal_builders(self, ct)
 
 
+_DEFENSIVE_ROLES = frozenset({Role.DEFENSE, Role.DEFENSE_1})
+
+
 def _patrol_cheap(self: Builder, ct: Controller) -> bool:
     return (
-        self.role == Role.DEFENSE
+        self.role in _DEFENSIVE_ROLES
         and not can_afford(self, EntityType.HARVESTER)
         and run_patrol(self, ct)
     )
@@ -95,7 +98,7 @@ def _harvest(self: Builder, ct: Controller) -> bool:
 
 def _patrol_late(self: Builder, ct: Controller) -> bool:
     return (
-        self.role == Role.DEFENSE
+        self.role in _DEFENSIVE_ROLES
         and len(self.adjacent_to_harvester) > 0
         and run_patrol(self, ct)
     )
@@ -181,42 +184,47 @@ def _prepopulate_blueprint_state(self: Builder) -> None:
                     self.conveyors_to_here[ty * W + tx].append(pos)
 
 
+_ECON_TASKS: list[Callable[[Builder, Controller], bool]] = [
+    place_gunner_nearby,
+    fix_enemy_conveyor,
+    pave_near_harvesters,
+    _connect_close,
+    _heal,
+    deny_enemy_ore,
+    _connect_far,
+    _harvest,
+    _opportunistic_attack,
+    _explore,
+    _wander,
+]
+
+_DEFENSE_TASKS: list[Callable[[Builder, Controller], bool]] = [
+    place_gunner_nearby,
+    fix_enemy_conveyor,
+    pave_near_harvesters,
+    _connect_close,
+    _heal,
+    deny_enemy_ore,
+    _connect_far,
+    _patrol_cheap,
+    _harvest,
+    _patrol_late,
+    _opportunistic_attack,
+    _explore,
+    _wander,
+]
+
 POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     Role.OFFENSE: [
         _heal,
         deny_enemy_ore,
         _attack,
     ],
-    Role.ECON: [
-        place_gunner_nearby,
-        fix_enemy_conveyor,
-        _blueprint,
-        pave_near_harvesters,
-        _connect_close,
-        _heal,
-        deny_enemy_ore,
-        _connect_far,
-        _harvest,
-        _opportunistic_attack,
-        _explore,
-        _wander,
-    ],
-    Role.DEFENSE: [
-        place_gunner_nearby,
-        fix_enemy_conveyor,
-        _blueprint,
-        pave_near_harvesters,
-        _connect_close,
-        _heal,
-        deny_enemy_ore,
-        _connect_far,
-        _patrol_cheap,
-        _harvest,
-        _patrol_late,
-        _opportunistic_attack,
-        _explore,
-        _wander,
-    ],
+    Role.ECON: _ECON_TASKS,
+    Role.DEFENSE: _DEFENSE_TASKS,
+    Role.ECON_1: [_blueprint, *_ECON_TASKS],
+    Role.ECON_2: [_blueprint, *_ECON_TASKS],
+    Role.DEFENSE_1: [_blueprint, *_DEFENSE_TASKS],
 }
 
 
@@ -359,7 +367,6 @@ class Builder(Unit):
         # Role
         self.role: Role | None = None
         self.role_age: int = 0
-        self.permanent_role: bool = False
 
         # Economy
         self.ore_target: Position | None = None
