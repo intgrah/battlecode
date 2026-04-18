@@ -229,7 +229,6 @@ def run_blueprint(self: Builder, ct: Controller) -> bool:
         make_move(self, ct, pos)
         return True
     
-    ct.draw_indicator_line(self.my_pos, pos, 255, 0, 0)
 
     bld = self.get_building(pos)
     if bld is not None and bld.team != self.my_team:

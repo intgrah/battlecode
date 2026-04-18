@@ -429,17 +429,28 @@ class Builder(Unit):
         # pnb was pre-built for full 50x50. Fix the actual-map boundary
         # so that in-map tiles don't reference out-of-map neighbours.
         w, h = self.w, self.h
-        for cy in range(h):
-            row = cy * W
-            for cx in range(w):
-                if cx < w - 1 and cy < h - 1 and cx > 0 and cy > 0:
-                    continue
-                i = row + cx
-                self.pnb[i] = [
-                    ny * W + nx
-                    for dx, dy in DIR8_DELTA
-                    if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
-                ]
+
+        # Define the coordinates for the boundary tiles only
+        boundary_coords = []
+
+        for cx in range(w):
+            boundary_coords.append((cx, 0))          # Top edge
+            if h > 1:
+                boundary_coords.append((cx, h - 1))  # Bottom edge
+
+        for cy in range(1, h - 1):
+            boundary_coords.append((0, cy))          # Left edge
+            if w > 1:
+                boundary_coords.append((w - 1, cy))  # Right edge
+
+        # Only iterate over the identified boundary tiles
+        for cx, cy in boundary_coords:
+            i = cy * W + cx
+            self.pnb[i] = [
+                ny * W + nx
+                for dx, dy in DIR8_DELTA
+                if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
+            ]
 
         t1 = ct.get_cpu_time_elapsed()
 
