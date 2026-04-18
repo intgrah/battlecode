@@ -15,9 +15,9 @@ _OPENING_ROLES = [
     (Role.ECON, True),
     (Role.ECON, False),
     (Role.DEFENSE, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
+    (Role.OFFENSE, True),
+    (Role.OFFENSE, True),
+    (Role.ECON, False),
 ]
 
 _SOCKET_OPENING_ROLES = [
@@ -25,8 +25,8 @@ _SOCKET_OPENING_ROLES = [
     (Role.ECON, False),
     (Role.SOCKET_GUARD_1, True),
     (Role.SOCKET_GUARD_2, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
+    (Role.OFFENSE, True),
+    (Role.OFFENSE, True),
 ]
 
 _TILES_OPENING_ROLES = [
@@ -34,28 +34,28 @@ _TILES_OPENING_ROLES = [
     (Role.TILES_GUARD_1, True),
     (Role.TILES_GUARD_2, True),
     (Role.TILES_GUARD_3, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
+    (Role.OFFENSE, True),
+    (Role.OFFENSE, True),
 ]
 
 _WINDOW_SHOPPING_OPENING_ROLES = [
     (Role.ECON, True),
     (Role.ECON, False),
     (Role.WINDOW_SHOPPING_GUARD, True),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
-    (Role.OFFENSE, False),
+    (Role.OFFENSE, True),
+    (Role.OFFENSE, True),
+    (Role.ECON, False),
 ]
 
 _INITIAL_WEIGHTS = {
-    True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
-    False: {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3},
+    True: {Role.DEFENSE: 6, Role.ECON: 3},
+    False: {Role.DEFENSE: 3, Role.ECON: 3},
 }
 
 _TRANSITION: dict[Role, dict[Role, int]] = {
-    Role.ECON: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
-    Role.DEFENSE: {Role.OFFENSE: 10, Role.DEFENSE: 80, Role.ECON: 10},
-    Role.OFFENSE: {Role.OFFENSE: 60, Role.DEFENSE: 0, Role.ECON: 40},
+    Role.ECON: {Role.DEFENSE: 5, Role.ECON: 95},
+    Role.DEFENSE: {Role.DEFENSE: 80, Role.ECON: 20},
+    Role.OFFENSE: {Role.OFFENSE: 100},
 }
 
 _REASSIGN_PERIOD = 150
