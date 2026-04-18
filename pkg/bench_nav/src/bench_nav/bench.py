@@ -85,6 +85,7 @@ def _build_spsp_algos(
     pnb_push: list[list[int]],
     pnb_set: list[list[int]],
     sources: set[int],
+    goals: set[int],
     selected: set[str],
 ) -> list[tuple[str, SpspFn]]:
     algos: list[tuple[str, SpspFn]] = []
@@ -167,6 +168,17 @@ def _build_spsp_algos(
             "astar-dial-precomp-bfs",
             lambda start, goal: spsp.astar_dial_precomp(
                 n, cost, pnb, bfs_h_cache[start], start, goal
+            ),
+        )
+
+    if "astar-heap-precomp-bfs" in selected:
+        bfs_goal_cache: dict[int, list[int]] = {}
+        for gi in goals:
+            bfs_goal_cache[gi] = bfs_dist(n, pnb, gi)
+        add(
+            "astar-heap-precomp-bfs",
+            lambda start, goal: spsp.astar_heap_bfs(
+                n, cost, pnb, bfs_goal_cache[goal], start, goal
             ),
         )
 
@@ -349,6 +361,7 @@ ALL_SPSP_NAMES: list[str] = [
     "hpastar",
     "astar-dial-precomp-cheb",
     "astar-dial-precomp-bfs",
+    "astar-heap-precomp-bfs",
     "landmark-2",
     "landmark-4",
     "landmark-8",
@@ -456,6 +469,7 @@ def bench_spsp(args: argparse.Namespace) -> None:
                     )
 
             unique_sources = {start for start, _ in pairs}
+            unique_goals = {goal for _, goal in pairs}
             algos = _build_spsp_algos(
                 w,
                 h,
@@ -467,6 +481,7 @@ def bench_spsp(args: argparse.Namespace) -> None:
                 pnb_push,
                 pnb_set,
                 unique_sources,
+                unique_goals,
                 selected,
             )
 

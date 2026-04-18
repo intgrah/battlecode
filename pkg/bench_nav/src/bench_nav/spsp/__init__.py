@@ -3,6 +3,7 @@ from bench_nav.spsp.astar_dial_cheb import astar_dial_cheb
 from bench_nav.spsp.astar_dial_cheb_bw_dijkstra import astar_dial_cheb_bw_dijkstra
 from bench_nav.spsp.astar_dial_precomp import astar_dial_precomp
 from bench_nav.spsp.astar_heap_apsp import astar_heap_apsp
+from bench_nav.spsp.astar_heap_bfs import astar_heap_bfs
 from bench_nav.spsp.astar_heap_cheb import astar_heap_cheb
 from bench_nav.spsp.bfs import bfs
 from bench_nav.spsp.bfs_01 import bfs_01
@@ -29,6 +30,7 @@ __all__ = [
     "astar_dial_cheb_bw_dijkstra",
     "astar_dial_precomp",
     "astar_heap_apsp",
+    "astar_heap_bfs",
     "astar_heap_cheb",
     "bfs",
     "bfs_01",
