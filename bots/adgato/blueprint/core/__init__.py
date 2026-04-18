@@ -77,7 +77,12 @@ class Core(Unit):
         return count
 
     def _should_spawn(self, ct: Controller, income_rate: float) -> bool:
-        if self.known_map in (KnownMap.WINDOW_SHOPPING, KnownMap.CRATERS):
+        if self.known_map in (
+            KnownMap.WINDOW_SHOPPING,
+            KnownMap.CRATERS,
+            KnownMap.CHESS,
+            KnownMap.DNA,
+        ):
             return self.spawned < 3
         if self.spawned < Core.INITIAL_SPAWNS:
             return True
