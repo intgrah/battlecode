@@ -19,7 +19,12 @@ BLUEPRINT: tuple[BlueprintEntry, ...] = (
     BlueprintEntry((14, 21), Entity.CONVEYOR, direction=Direction.WEST),
     BlueprintEntry((13, 21), Entity.CONVEYOR, direction=Direction.WEST),
     BlueprintEntry((12, 20), Entity.CONVEYOR, direction=Direction.SOUTH),
-    BlueprintEntry((12, 19), Entity.CONVEYOR, direction=Direction.SOUTH),
+    BlueprintEntry((12, 19), Entity.FOUNDRY),
     BlueprintEntry((11, 19), Entity.HARVESTER),
     BlueprintEntry((15, 21), Entity.HARVESTER),
+    BlueprintEntry((13, 16), Entity.HARVESTER),
+    BlueprintEntry((13, 17), Entity.BRIDGE, bridge_target=(12, 19)),
+    BlueprintEntry((12, 18), Entity.ROAD),
+    BlueprintEntry((11, 20), Entity.SENTINEL, direction=Direction.SOUTH),
+    BlueprintEntry((13, 19), Entity.ROAD),
 )

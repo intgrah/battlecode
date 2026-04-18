@@ -18,6 +18,6 @@ BLUEPRINT: tuple[BlueprintEntry, ...] = (
     BlueprintEntry((5, 15), Entity.HARVESTER),
     BlueprintEntry((7, 4), Entity.HARVESTER),
     BlueprintEntry((8, 14), Entity.GUNNER, direction=Direction.EAST),
-    BlueprintEntry((6, 14), Entity.SENTINEL, direction=Direction.SOUTH),
+    BlueprintEntry((6, 14), Entity.SENTINEL, direction=Direction.NORTH),
     BlueprintEntry((7, 15), Entity.SENTINEL, direction=Direction.SOUTH),
 )
