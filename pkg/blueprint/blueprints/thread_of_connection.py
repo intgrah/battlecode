@@ -10,7 +10,7 @@ BLUEPRINT: tuple[BlueprintEntry, ...] = (
     BlueprintEntry((4, 10), Entity.HARVESTER),
     BlueprintEntry((3, 9), Entity.HARVESTER),
     BlueprintEntry((2, 8), Entity.HARVESTER),
-    BlueprintEntry((8, 13), Entity.SENTINEL, direction=Direction.NORTHEAST),
+    BlueprintEntry((8, 13), Entity.SENTINEL, direction=Direction.EAST),
     BlueprintEntry((7, 12), Entity.SENTINEL, direction=Direction.NORTHEAST),
     BlueprintEntry((6, 11), Entity.SENTINEL, direction=Direction.NORTHEAST),
     BlueprintEntry((5, 10), Entity.SENTINEL, direction=Direction.NORTHEAST),
@@ -45,4 +45,6 @@ BLUEPRINT: tuple[BlueprintEntry, ...] = (
     BlueprintEntry((0, 4), Entity.ROAD),
     BlueprintEntry((1, 3), Entity.ROAD),
     BlueprintEntry((2, 3), Entity.ROAD),
+    BlueprintEntry((7, 15), Entity.ROAD),
+    BlueprintEntry((8, 14), Entity.ROAD),
 )
