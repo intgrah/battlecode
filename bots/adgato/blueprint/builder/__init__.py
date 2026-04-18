@@ -31,6 +31,7 @@ from builder.helpers import can_afford, try_move_dir, try_move_with_road
 from builder.role import Role
 from builder.task_attack import run_attack
 from builder.task_blueprint import blueprint_progress, run_blueprint
+from builder.task_guard import run_guard
 from builder.task_build_conveyors import route_to_core
 from builder.task_defend import place_gunner_nearby
 from builder.task_explore import explore
@@ -233,6 +234,8 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
         _patrol_late,
         _opportunistic_attack,
     ],
+    Role.SOCKET_GUARD_1: [run_guard],
+    Role.SOCKET_GUARD_2: [run_guard],
 }
 
 
@@ -316,6 +319,11 @@ class Builder(Unit):
         self.pnb = pnb
         """Passable neighbours. Pre-built for full 50x50; fixed at actual-map
         boundary in post_init."""
+
+        self._pnb_wall_backlog: list[int] = []
+        """Indices of wall tiles (hardcoded map) that still need their pnb
+        lists stripped. Populated in post_init, drained across subsequent
+        turns to avoid a first-turn TLE."""
 
         self.bfs_dist: Final[list[int]] = [INF] * N
         self.bfs_reset: Final[tuple[int, ...]] = (INF,) * N
@@ -479,11 +487,12 @@ class Builder(Unit):
                         conveyor_cost_grid[row + x] = (
                             1 if e == Environment.EMPTY else 10
                         )
-            for y in range(h):
-                row = y * W
-                for x in range(w):
-                    if env[row + x] == Environment.WALL:
-                        self.update_pnb(row + x)
+            self._pnb_wall_backlog = [
+                y * W + x
+                for y in range(h)
+                for x in range(w)
+                if env[y * W + x] == Environment.WALL
+            ]
 
         t3 = ct.get_cpu_time_elapsed()
 
@@ -577,10 +586,21 @@ class Builder(Unit):
     if DEBUG_DUMP:
         dump = dump
 
+    _PNB_BACKLOG_PER_TURN = 100
+
+    def _drain_pnb_backlog(self) -> None:
+        if not self._pnb_wall_backlog:
+            return
+        chunk = self._pnb_wall_backlog[-self._PNB_BACKLOG_PER_TURN:]
+        del self._pnb_wall_backlog[-self._PNB_BACKLOG_PER_TURN:]
+        for i in chunk:
+            self.update_pnb(i)
+
     @override
     def run(self, ct: Controller) -> None:
         super().run(ct)
         t0 = ct.get_cpu_time_elapsed()
+        self._drain_pnb_backlog()
         self.update(ct)
 
         if DEBUG_DUMP:

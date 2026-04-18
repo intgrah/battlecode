@@ -142,6 +142,7 @@ def mirror_entry(entry: BlueprintEntry, w: int, h: int, sym: str) -> BlueprintEn
     return BlueprintEntry(
         pos=mirror_pos(entry.pos, w, h, sym),
         kind=entry.kind,
+        phase=entry.phase,
         direction=direction,
         bridge_target=bt,
     )
