@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util import INF, W
+from util.constants import INF, MAX_WIDTH
 from visualiser import (
     TRANSPARENT,
     BoolGrid,
@@ -52,14 +52,18 @@ def dump(self: Builder, _ct: Controller) -> None:
     bfs_dist = self.bfs_dist
     emit(
         unseen=BoolGrid(
-            [e is None for y in range(h) for e in env[y * W : y * W + w]],
+            [
+                e is None
+                for y in range(h)
+                for e in env[y * MAX_WIDTH : y * MAX_WIDTH + w]
+            ],
             palette=P_FOG,
         ),
         cost=I16Grid(
             [
                 c if c < 1e6 else -1
                 for y in range(h)
-                for c in cost_grid[y * W : y * W + w]
+                for c in cost_grid[y * MAX_WIDTH : y * MAX_WIDTH + w]
             ],
             palette=P_COST,
         ),
@@ -67,7 +71,7 @@ def dump(self: Builder, _ct: Controller) -> None:
             [
                 c if c < 1e6 else -1
                 for y in range(h)
-                for c in conveyor_cost_grid[y * W : y * W + w]
+                for c in conveyor_cost_grid[y * MAX_WIDTH : y * MAX_WIDTH + w]
             ],
             palette=P_COST,
         ),
@@ -75,7 +79,7 @@ def dump(self: Builder, _ct: Controller) -> None:
             [
                 c if c < 1e6 else -1
                 for y in range(h)
-                for c in bfs_dist[y * W : y * W + w]
+                for c in bfs_dist[y * MAX_WIDTH : y * MAX_WIDTH + w]
             ],
             palette=P_COST,
         ),

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import Controller, EntityType, Position
-from util import chebyshev
+from util.metrics import chebyshev
 
 from builder.helpers import make_move, move_random, try_heal
 

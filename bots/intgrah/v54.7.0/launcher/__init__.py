@@ -4,7 +4,7 @@ from typing import override
 
 from cambc import Controller, EntityType, Environment, Position
 from unit import Unit
-from util import DIR4
+from util.directions import DIR4
 
 __all__ = ["Launcher"]
 

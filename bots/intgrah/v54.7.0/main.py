@@ -12,7 +12,7 @@ from core import Core
 from gunner import Gunner
 from launcher import Launcher
 from sentinel import Sentinel
-from util import Timer
+from util.timer import Timer
 
 if TYPE_CHECKING:
     from unit import Unit

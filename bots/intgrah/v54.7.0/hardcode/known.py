@@ -1,9 +1,9 @@
 from enum import StrEnum
 
-__all__ = ["KnownMap"]
-
 
 class KnownMap(StrEnum):
+    """All ladder maps."""
+
     ARENA = "arena"
     BAR_CHART = "bar_chart"
     BATTLEBOT = "battlebot"

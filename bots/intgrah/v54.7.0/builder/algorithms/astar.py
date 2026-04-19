@@ -4,7 +4,7 @@ import heapq
 from typing import TYPE_CHECKING, Final
 
 from cambc import Controller, Position
-from util import INF, N, W
+from util.constants import INF, MAX_N, MAX_WIDTH
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -16,8 +16,8 @@ class MoveHeapAstar:
 
     def __init__(self, builder: Builder) -> None:
         self.builder = builder
-        self.dist: list[int] = [INF] * N
-        self.dist_reset: Final[tuple[int, ...]] = (INF,) * N
+        self.dist: list[int] = [INF] * MAX_N
+        self.dist_reset: Final[tuple[int, ...]] = (INF,) * MAX_N
         self.q: list[tuple[int, int]] = []
         self.finished = True
         self.target: Position | None = None
@@ -33,8 +33,8 @@ class MoveHeapAstar:
         bfs_dist = b.bfs_dist
         pnb = b.pnb
 
-        si = start.y * W + start.x
-        gi = target.y * W + target.x
+        si = start.y * MAX_WIDTH + start.x
+        gi = target.y * MAX_WIDTH + target.x
 
         if (
             self.finished
@@ -43,10 +43,10 @@ class MoveHeapAstar:
         ):
             self.dist[:] = self.dist_reset
             self.q.clear()
-            gi = target.y * W + target.x
+            gi = target.y * MAX_WIDTH + target.x
         else:
             target = self.target
-            gi = target.y * W + target.x
+            gi = target.y * MAX_WIDTH + target.x
 
         self.target = target
         dist = self.dist
@@ -100,7 +100,7 @@ class MoveHeapAstar:
             node = best
             cur_d = best_dist
 
-        return [Position(i % W, i // W) for i in path]
+        return [Position(i % MAX_WIDTH, i // MAX_WIDTH) for i in path]
 
     def search_blocked(
         self,
@@ -113,7 +113,7 @@ class MoveHeapAstar:
         saved: list[tuple[int, int]] = []
         for pos in b.nearby_tiles:
             if pos in b.all_bots and pos != start:
-                idx = pos.y * W + pos.x
+                idx = pos.y * MAX_WIDTH + pos.x
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF
         result = self.search(ct, start, goal)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final
 
 from cambc import Controller, Position
-from util import INF, N, W
+from util.constants import INF, MAX_N, MAX_WIDTH
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -35,15 +35,15 @@ class AStarSearch:
         self.builder = builder
         self._neighbors: list[list[tuple[int, int]]] = [
             [
-                (ny * W + nx, extra)
+                (ny * MAX_WIDTH + nx, extra)
                 for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
-                if 0 <= (nx := cx + dx) < W and 0 <= (ny := cy + dy) < W
+                if 0 <= (nx := cx + dx) < MAX_WIDTH and 0 <= (ny := cy + dy) < MAX_WIDTH
             ]
-            for cy in range(W)
-            for cx in range(W)
+            for cy in range(MAX_WIDTH)
+            for cx in range(MAX_WIDTH)
         ]
-        self._dist: list[int] = [INF] * N
-        self._dist_reset: Final[tuple[int, ...]] = (INF,) * N
+        self._dist: list[int] = [INF] * MAX_N
+        self._dist_reset: Final[tuple[int, ...]] = (INF,) * MAX_N
         self._finished = True
         self._target: Position | None = None
 
@@ -60,9 +60,9 @@ class AStarSearch:
         def fix_strip(ys: range, xs: range) -> None:
             for cy in ys:
                 for cx in xs:
-                    i = cy * W + cx
+                    i = cy * MAX_WIDTH + cx
                     self._neighbors[i] = [
-                        (ny * W + nx, extra)
+                        (ny * MAX_WIDTH + nx, extra)
                         for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
                         if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
                     ]
@@ -79,8 +79,8 @@ class AStarSearch:
         start: Position,
         target: Position,
     ) -> list[Position] | None:
-        si = start.y * W + start.x
-        gi = target.y * W + target.x
+        si = start.y * MAX_WIDTH + start.x
+        gi = target.y * MAX_WIDTH + target.x
 
         if (
             self._finished
@@ -90,7 +90,7 @@ class AStarSearch:
             self._dist[:] = self._dist_reset
         else:
             target = self._target
-            gi = target.y * W + target.x
+            gi = target.y * MAX_WIDTH + target.x
 
         self._target = target
 
@@ -121,7 +121,7 @@ class AStarSearch:
                 continue
             emp = 0
             for node_i in bucket:
-                ny_, nx_ = divmod(node_i, W)
+                ny_, nx_ = divmod(node_i, MAX_WIDTH)
                 node_h = abs(nx_ - sx) + abs(ny_ - sy)
                 if dist[node_i] + node_h != cur_f:
                     continue
@@ -140,7 +140,7 @@ class AStarSearch:
                     if nd >= dist[ni]:
                         continue
                     dist[ni] = nd
-                    ny2, nx2 = divmod(ni, W)
+                    ny2, nx2 = divmod(ni, MAX_WIDTH)
                     h_val = abs(nx2 - sx) + abs(ny2 - sy)
                     bk[(nd + h_val) % nb_count].append(ni)
             if found:
@@ -172,7 +172,7 @@ class AStarSearch:
             node = best
             cur_d = best_dist
 
-        return [Position(i % W, i // W) for i in path]
+        return [Position(i % MAX_WIDTH, i // MAX_WIDTH) for i in path]
 
     def search_blocked(
         self,
@@ -185,7 +185,7 @@ class AStarSearch:
         saved: list[tuple[int, int]] = []
         for pos in b.nearby_tiles:
             if pos in b.all_bots and pos != start:
-                idx = pos.y * W + pos.x
+                idx = pos.y * MAX_WIDTH + pos.x
                 saved.append((idx, cost[idx]))
                 cost[idx] = INF
         result = self.search(ct, start, goal)

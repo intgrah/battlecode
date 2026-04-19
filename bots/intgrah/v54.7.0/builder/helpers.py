@@ -11,7 +11,10 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position
-from util import BASE_COST, DIR4, DIR8, INF, Symmetry, W, closest
+from util.constants import BASE_COST, INF, MAX_WIDTH
+from util.directions import DIR4, DIR8
+from util.metrics import closest
+from util.symmetry import Symmetry
 
 from builder.algorithms.bugnav import bugnav
 
@@ -168,18 +171,10 @@ def try_heal(
 
 
 def get_enemy_core_pos(self: Builder) -> Position:
-    w, h = self.w, self.h
-    cp = self.my_core
-    candidates = self.symmetry_candidates
-
-    if Symmetry.ROT in candidates:
-        return Position(w - 1 - cp.x, h - 1 - cp.y)
-    if Symmetry.VER in candidates:
-        return Position(w - 1 - cp.x, cp.y)
-    if Symmetry.HOR in candidates:
-        return Position(cp.x, h - 1 - cp.y)
-
-    return Position(w - 1 - cp.x, h - 1 - cp.y)
+    for sym in (Symmetry.ROT, Symmetry.VER, Symmetry.HOR):
+        if sym in self.symmetry_candidates:
+            return sym.action(self.my_core, self.w, self.h)
+    return Symmetry.ROT.action(self.my_core, self.w, self.h)
 
 
 def move_random(self: Builder, ct: Controller) -> bool:
@@ -224,7 +219,7 @@ def pick_ore_target(self: Builder) -> Position | None:
                     pass
                 case _:
                     continue
-            d = self.bfs_dist[pos.y * W + pos.x]
+            d = self.bfs_dist[pos.y * MAX_WIDTH + pos.x]
             if d >= INF:
                 continue
             if ore_available(self, pos) and d < min_dist:
@@ -236,7 +231,7 @@ def pick_ore_target(self: Builder) -> Position | None:
 def is_dangling(self: Builder, pos: Position) -> bool:
     if not self.in_bounds(pos):
         return False
-    i = pos.y * W + pos.x
+    i = pos.y * MAX_WIDTH + pos.x
     b = self.buildings[i]
     if b is None:
         if self.env[i] == Environment.WALL:
@@ -264,7 +259,7 @@ def find_dangling(self: Builder) -> Position | None:
         pos
         for pos in self.nearby_tiles
         if is_valid_loose_end_target(self, pos)
-        and self.bfs_dist[pos.y * W + pos.x] < INF
+        and self.bfs_dist[pos.y * MAX_WIDTH + pos.x] < INF
     ]
     if not candidates:
         return None

@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Final, override
 
-from blueprint import Entity as BlueprintEntity
 from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
@@ -18,10 +17,13 @@ from cambc import (
     Position,
     ResourceType,
 )
-from config import DEBUG_DUMP
+from config import DEBUG_DUMP, HARDCODE
+from hardcode.identify import core_for, find_core, identify_map
 from hardcode.map import SYMMETRY, TILES, decode
 from unit import Unit
-from util import DIR8, DIR8_DELTA, INF, N, Symmetry, Timer, W
+from util.constants import INF, MAX_N, MAX_WIDTH
+from util.directions import DIR8, DIR8_DELTA
+from util.symmetry import Symmetry
 
 from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
@@ -31,7 +33,6 @@ from builder.extra import deny_enemy_ore, fix_enemy_conveyor, pave_near_harveste
 from builder.helpers import can_afford, try_move_dir, try_move_with_road
 from builder.role import Role
 from builder.task_attack import run_attack
-from builder.task_blueprint import blueprint_progress, run_blueprint
 from builder.task_build_conveyors import route_to_core
 from builder.task_defend import place_gunner_nearby
 from builder.task_explore import explore
@@ -54,7 +55,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from building import Building
-    from hardcode.known import KnownMap
 
 
 def _connect_close(self: Builder, ct: Controller) -> bool:
@@ -134,80 +134,39 @@ def _attack(s: Builder, ct: Controller) -> bool:
     return True
 
 
-def _blueprint(s: Builder, ct: Controller) -> bool:
-    return run_blueprint(s, ct)
-
-
-def _prepopulate_blueprint_state(self: Builder) -> None:
-    """Seed `adjacent_to_harvester`, `conveyors_to_here`, and
-    `splitters_to_here` from the blueprint so existing tasks treat the
-    intended network as if it were already being built.
-    """
-    w, h = self.w, self.h
-    for entry in self.blueprint:
-        ex, ey = entry.pos
-        pos = Position(ex, ey)
-        match entry.kind:
-            case BlueprintEntity.HARVESTER:
-                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    nx, ny = ex + dx, ey + dy
-                    if 0 <= nx < w and 0 <= ny < h:
-                        npos = Position(nx, ny)
-                        self.adjacent_to_harvester.add(npos)
-                        self.adjacent_to_unconnected_harvester.add(npos)
-            case BlueprintEntity.CONVEYOR | BlueprintEntity.ARMOURED_CONVEYOR:
-                if entry.direction is None:
-                    continue
-                dx, dy = DIR8_DELTA[entry.direction.value - 1]
-                nx, ny = ex + dx, ey + dy
-                if 0 <= nx < w and 0 <= ny < h:
-                    self.conveyors_to_here[ny * W + nx].append(pos)
-            case BlueprintEntity.SPLITTER:
-                if entry.direction is None:
-                    continue
-                bx, by = DIR8_DELTA[entry.direction.value - 1]
-                opp = (-bx, -by)
-                for d in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    if d == opp:
-                        continue
-                    nx, ny = ex + d[0], ey + d[1]
-                    if 0 <= nx < w and 0 <= ny < h:
-                        self.splitters_to_here[ny * W + nx].append(pos)
-            case BlueprintEntity.BRIDGE:
-                if entry.bridge_target is None:
-                    continue
-                tx, ty = entry.bridge_target
-                if 0 <= tx < w and 0 <= ty < h:
-                    self.conveyors_to_here[ty * W + tx].append(pos)
-
-
 POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     Role.OFFENSE: [
         _heal,
-        pave_near_harvesters,
-        _blueprint,
         deny_enemy_ore,
         _attack,
     ],
     Role.ECON: [
         place_gunner_nearby,
         fix_enemy_conveyor,
-        _heal,
         pave_near_harvesters,
-        _blueprint,
+        _connect_close,
+        _heal,
         deny_enemy_ore,
+        _connect_far,
+        _harvest,
         _opportunistic_attack,
+        _explore,
+        _wander,
     ],
     Role.DEFENSE: [
         place_gunner_nearby,
         fix_enemy_conveyor,
-        _heal,
         pave_near_harvesters,
-        _blueprint,
+        _connect_close,
+        _heal,
         deny_enemy_ore,
+        _connect_far,
         _patrol_cheap,
+        _harvest,
         _patrol_late,
         _opportunistic_attack,
+        _explore,
+        _wander,
     ],
 }
 
@@ -217,20 +176,20 @@ class Builder(Unit):
         w, h = self.w, self.h
         cost_grid = self.cost_grid
         pnb = self.pnb
-        cx, cy = i % W, i // W
+        cx, cy = i % MAX_WIDTH, i // MAX_WIDTH
         passable = cost_grid[i] is not INF
         pnb[i] = []
         if passable:
             for dx, dy in DIR8_DELTA:
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    ni = ny * W + nx
+                    ni = ny * MAX_WIDTH + nx
                     if cost_grid[ni] is not INF:
                         pnb[i].append(ni)
         for dx, dy in DIR8_DELTA:
             nx, ny = cx + dx, cy + dy
             if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * W + nx
+                ni = ny * MAX_WIDTH + nx
                 if cost_grid[ni] is INF:
                     continue
                 nb_list = pnb[ni]
@@ -255,57 +214,58 @@ class Builder(Unit):
         """ct-independent heavy allocation. Runs in Player.__init__ (5s window)."""
         super().__init__()
 
-        self.env: list[Environment | None] = [None] * N
+        self.env: list[Environment | None] = [None] * MAX_N
         """Wall, Empty, Ti ore, Ax ore per tile."""
-        self.building_ids: list[int | None] = [None] * N
+        self.building_ids: list[int | None] = [None] * MAX_N
         """Cached building entity ID per tile, for change detection."""
-        self.buildings: list[Building | None] = [None] * N
+        self.buildings: list[Building | None] = [None] * MAX_N
         """Building on a tile."""
-        self.hp: list[int] = [0] * N
+        self.hp: list[int] = [0] * MAX_N
         """Hitpoints of building on tile."""
-        self.max_hp: list[int] = [0] * N
+        self.max_hp: list[int] = [0] * MAX_N
         """Max hitpoints of building on tile."""
 
-        self.cost_grid: list[int] = [1] * N
+        self.cost_grid: list[int] = [1] * MAX_N
         """Movement cost per tile. INF = impassable, 1 = road/walkable, ROAD_COST = empty."""
-        self.conveyor_cost_grid: list[int] = [5] * N
+        self.conveyor_cost_grid: list[int] = [5] * MAX_N
         """Conveyor routing cost per tile. Higher = less preferred."""
 
-        offsets = [dy * W + dx for dx, dy in DIR8_DELTA]
-        pnb: list[list[int]] = [[] for _ in range(N)]
-        for cy in range(1, W - 1):
-            row = cy * W
-            for cx in range(1, W - 1):
+        offsets = [dy * MAX_WIDTH + dx for dx, dy in DIR8_DELTA]
+        pnb: list[list[int]] = [[] for _ in range(MAX_N)]
+        for cy in range(1, MAX_WIDTH - 1):
+            row = cy * MAX_WIDTH
+            for cx in range(1, MAX_WIDTH - 1):
                 i = row + cx
                 pnb[i] = [i + o for o in offsets]
-        for cy in range(W):
-            row = cy * W
-            for cx in range(W):
-                if 1 <= cx < W - 1 and 1 <= cy < W - 1:
+        for cy in range(MAX_WIDTH):
+            row = cy * MAX_WIDTH
+            for cx in range(MAX_WIDTH):
+                if 1 <= cx < MAX_WIDTH - 1 and 1 <= cy < MAX_WIDTH - 1:
                     continue
                 i = row + cx
                 pnb[i] = [
-                    ny * W + nx
+                    ny * MAX_WIDTH + nx
                     for dx, dy in DIR8_DELTA
-                    if 0 <= (nx := cx + dx) < W and 0 <= (ny := cy + dy) < W
+                    if 0 <= (nx := cx + dx) < MAX_WIDTH
+                    and 0 <= (ny := cy + dy) < MAX_WIDTH
                 ]
         self.pnb = pnb
         """Passable neighbours. Pre-built for full 50x50; fixed at actual-map
         boundary in post_init."""
 
-        self.bfs_dist: Final[list[int]] = [INF] * N
-        self.bfs_reset: Final[tuple[int, ...]] = (INF,) * N
+        self.bfs_dist: Final[list[int]] = [INF] * MAX_N
+        self.bfs_reset: Final[tuple[int, ...]] = (INF,) * MAX_N
         self.move_search: Final = MoveHeapAstar(self)
         self.conv_search: Final = AStarSearch(self)
         """BFS hops from the position at the start of the turn."""
 
         self.flow_history: list[deque[ResourceType | None]] = [
-            deque(maxlen=8) for _ in range(N)
+            deque(maxlen=8) for _ in range(MAX_N)
         ]
         """Last 8 rounds of resource flow on this tile."""
 
-        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(N)]
-        self.splitters_to_here: list[list[Position]] = [[] for _ in range(N)]
+        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(MAX_N)]
+        self.splitters_to_here: list[list[Position]] = [[] for _ in range(MAX_N)]
 
         self.symmetry_candidates: set[Symmetry] = set(Symmetry)
         """The current set of symmetry hypotheses."""
@@ -400,28 +360,43 @@ class Builder(Unit):
         super().post_init(ct)
         self.opportunistic: bool = self.rng.random() < 0.5
 
-        t0 = ct.get_cpu_time_elapsed()
+        core = find_core(ct, self.my_team)
+        if HARDCODE and core is not None:
+            self.known_map = identify_map(self.w, self.h, core)
+        else:
+            self.known_map = None
+        self.my_core = (
+            core
+            if core is not None
+            else (
+                core_for(self.known_map, self.my_team)
+                if self.known_map is not None
+                else Position(0, 0)
+            )
+        )
+
+        ct.get_cpu_time_elapsed()
 
         # pnb was pre-built for full 50x50. Fix the actual-map boundary
         # so that in-map tiles don't reference out-of-map neighbours.
         w, h = self.w, self.h
         for cy in range(h):
-            row = cy * W
+            row = cy * MAX_WIDTH
             for cx in range(w):
                 if cx < w - 1 and cy < h - 1 and cx > 0 and cy > 0:
                     continue
                 i = row + cx
                 self.pnb[i] = [
-                    ny * W + nx
+                    ny * MAX_WIDTH + nx
                     for dx, dy in DIR8_DELTA
                     if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
                 ]
 
-        t1 = ct.get_cpu_time_elapsed()
+        ct.get_cpu_time_elapsed()
 
         # self.conv_search.post_init()
 
-        t2 = ct.get_cpu_time_elapsed()
+        ct.get_cpu_time_elapsed()
 
         if self.known_map is not None:
             self.symmetry = SYMMETRY[self.known_map]
@@ -431,7 +406,7 @@ class Builder(Unit):
             cost_grid = self.cost_grid
             conveyor_cost_grid = self.conveyor_cost_grid
             for y in range(h):
-                row = y * W
+                row = y * MAX_WIDTH
                 src = y * w
                 for x in range(w):
                     e = tiles[src + x]
@@ -445,13 +420,10 @@ class Builder(Unit):
                             1 if e == Environment.EMPTY else 10
                         )
             for y in range(h):
-                row = y * W
+                row = y * MAX_WIDTH
                 for x in range(w):
                     if env[row + x] == Environment.WALL:
                         self.update_pnb(row + x)
-
-        with Timer("blueprint"):
-            _prepopulate_blueprint_state(self)
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
@@ -466,9 +438,7 @@ class Builder(Unit):
         return self.cost_grid[self.idx(pos)] is not INF
 
     def is_walkable(self, pos: Position) -> bool:
-        if not self.is_passable(pos):
-            return False
-        return isinstance(
+        return self.is_passable(pos) and isinstance(
             self.buildings[self.idx(pos)],
             BuildingConveyor
             | BuildingRoad
@@ -552,8 +522,7 @@ class Builder(Unit):
             self.end_of_turn_heal(ct)
 
         t2 = ct.get_cpu_time_elapsed()
-        done, total = blueprint_progress(self, ct)
-        print(f"task={t2 - t1}us [{chosen}] bp={done}/{total}")
+        print(f"task={t2 - t1}us [{chosen}]")
         print(f"total={t2 - t0}us")
 
     def end_of_turn_heal(self, ct: Controller) -> None:

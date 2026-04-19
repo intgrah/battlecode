@@ -16,7 +16,8 @@ from building import (
     make_building,
 )
 from cambc import Controller, EntityType, Environment, GameConstants
-from util import DIR8, INF, ROAD_COST
+from util.constants import INF, ROAD_COST
+from util.directions import DIR8
 
 if TYPE_CHECKING:
     from cambc import Position

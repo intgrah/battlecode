@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 from cambc import Environment, Position
-from util import Symmetry
+from util.symmetry import Symmetry
 
 from hardcode.known import KnownMap
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util import Timer
+from util.timer import Timer
 
 from builder.role import Role
 

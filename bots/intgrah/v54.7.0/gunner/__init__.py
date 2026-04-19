@@ -4,7 +4,7 @@ from typing import Final, override
 
 from cambc import Controller, Direction, EntityType, GameConstants, Position
 from unit import Unit
-from util import DIR8
+from util.directions import DIR8
 
 __all__ = ["Gunner"]
 
@@ -169,8 +169,6 @@ class Gunner(Unit):
         return False
 
     def try_self_destruct(self, ct: Controller) -> None:
-        if self.my_pos in self.blueprint_positions:
-            return
         has_ally = False
         for uid in ct.get_nearby_units():
             if ct.get_team(uid) == self.my_team:
