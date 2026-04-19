@@ -9,7 +9,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, Team
-from util import DIR4, get_direction_object
+from util.directions import DIR4, get_direction_object
 
 from builder.helpers import can_afford, make_move, ore_available, try_move_with_road
 

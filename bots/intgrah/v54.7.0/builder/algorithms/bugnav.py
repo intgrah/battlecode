@@ -5,7 +5,9 @@ from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from cambc import Controller, Direction, Position
-from util import DIR8, INF, W, chebyshev
+from util.constants import INF, MAX_WIDTH
+from util.directions import DIR8
+from util.metrics import chebyshev
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -84,7 +86,7 @@ def bugnav_step(
         if (
             0 <= next_pos.x < w
             and 0 <= next_pos.y < h
-            and cost_grid[next_pos.y * W + next_pos.x] is not INF
+            and cost_grid[next_pos.y * MAX_WIDTH + next_pos.x] is not INF
             and next_pos not in blocked
         ):
             return next_pos
@@ -116,7 +118,7 @@ def bugnav_step(
             if not (0 <= n.x < w and 0 <= n.y < h):
                 continue
 
-            if cost_grid[n.y * W + n.x] is not INF and n not in blocked:
+            if cost_grid[n.y * MAX_WIDTH + n.x] is not INF and n not in blocked:
                 return n
 
     return None

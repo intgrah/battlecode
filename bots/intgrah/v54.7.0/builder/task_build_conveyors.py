@@ -4,13 +4,8 @@ from typing import TYPE_CHECKING
 
 from building import BuildingConveyor, BuildingSplitter
 from cambc import Controller, Direction, EntityType, Environment, Position
-from util import (
-    DIR4,
-    DIR8,
-    chebyshev,
-    get_direction_object,
-    reachable_path_end,
-)
+from util.directions import DIR4, DIR8, get_direction_object
+from util.metrics import chebyshev, reachable_path_end
 
 from builder.helpers import (
     can_afford,

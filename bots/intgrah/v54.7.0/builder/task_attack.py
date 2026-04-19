@@ -20,7 +20,8 @@ from cambc import (
     GameConstants,
     Position,
 )
-from util import DIR4, DIR8, chebyshev, closest
+from util.directions import DIR4, DIR8
+from util.metrics import chebyshev, closest
 
 from builder.helpers import (
     can_afford,

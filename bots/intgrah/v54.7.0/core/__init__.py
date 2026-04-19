@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from collections import deque
+from math import ceil
 from typing import Final, override
 
 from cambc import Controller, Direction, EntityType, ResourceType
+from config import HARDCODE
+from hardcode.identify import identify_map
 from unit import Unit
-from util import DIR4, DIR8
+from util.directions import DIR4, DIR8
 
 __all__ = ["Core"]
 
@@ -25,6 +28,10 @@ class Core(Unit):
     INCOME_HEADROOM: Final[int] = 5
     SURPLUS_BASELINE: Final[int] = 50
     SURPLUS_SCALE_FACTOR: Final[int] = 60
+    CONVERSION_TI_THRESHOLD: Final[int] = 200
+    """Convert Ax to Ti only when Ti is less than this."""
+    CONVERSION_AX_THRESHOLD: Final[int] = 60
+    """Convert Ax to Ti only when Ax is more than this."""
 
     @override
     def __init__(self) -> None:
@@ -34,6 +41,11 @@ class Core(Unit):
             [0] * Core.INCOME_SAMPLES,
             maxlen=Core.INCOME_SAMPLES,
         )
+
+    @override
+    def post_init(self, ct: Controller) -> None:
+        super().post_init(ct)
+        self.known_map = identify_map(self.w, self.h, self.my_pos) if HARDCODE else None
 
     @override
     def run(self, ct: Controller) -> None:
@@ -47,12 +59,10 @@ class Core(Unit):
             self._try_spawn(ct)
 
     def _maybe_convert(self, ct: Controller) -> None:
-        threshold = 200
-        if self.ti >= threshold or self.ax <= 60:
-            return
-        need = threshold - self.ti
-        amount = min(self.ax - 60, -(-need // 4))
-        if amount > 0:
+        need = Core.CONVERSION_TI_THRESHOLD - self.ti
+        surplus_ax = self.ax - Core.CONVERSION_AX_THRESHOLD
+        if need > 0 and surplus_ax > 0:
+            amount = min(surplus_ax, ceil(need / 4))
             ct.convert(amount)
 
     def _count_incoming(self, ct: Controller) -> int:
@@ -63,12 +73,11 @@ class Core(Unit):
                 src = tile.add(cd)
                 if not self.in_bounds(src):
                     continue
-                if not ct.is_in_vision(src):
-                    continue
                 bid = ct.get_tile_building_id(src)
                 if (
                     bid is not None
-                    and ct.get_entity_type(bid) == EntityType.CONVEYOR
+                    and ct.get_entity_type(bid)
+                    in (EntityType.CONVEYOR, EntityType.ARMOURED_CONVEYOR)
                     and ct.get_direction(bid).opposite() == cd
                     and ct.get_stored_resource(bid) == ResourceType.TITANIUM
                 ):

@@ -15,7 +15,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, GameConstants, Position, Team
-from util import DIR4, DIR8
+from util.directions import DIR4, DIR8
 
 from builder.helpers import move_random, try_place
 

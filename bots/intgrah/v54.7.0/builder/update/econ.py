@@ -11,7 +11,8 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Environment, Position
-from util import DIR4, INF, W
+from util.constants import INF, MAX_WIDTH
+from util.directions import DIR4
 
 from builder.helpers import find_dangling, is_dangling, ore_available, pick_ore_target
 
@@ -61,7 +62,7 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
         p for p in self.adjacent_to_harvester if not ct.is_in_vision(p)
     }
     for pos in self.nearby_tiles:
-        i = pos.y * W + pos.x
+        i = pos.y * MAX_WIDTH + pos.x
         bld = self.get_building(pos)
         match bld:
             case BuildingHarvester():

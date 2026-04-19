@@ -4,7 +4,8 @@ import math
 from typing import TYPE_CHECKING
 
 from cambc import Position
-from util import DIR8, INF
+from util.constants import INF
+from util.directions import DIR8
 
 from builder.helpers import make_move, try_move_dir
 
