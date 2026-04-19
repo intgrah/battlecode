@@ -1,0 +1,8 @@
+[project]
+name = "bot-nothing-1300"
+version = "0.0.0"
+requires-python = ">=3.12,<3.14"
+dependencies = ["cambc"]
+
+[tool.ty.environment]
+root = ["."]
