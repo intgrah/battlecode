@@ -268,7 +268,9 @@ _SYNC_DIRS = [
     ("pkg/proto/", "proto/"),
 ]
 
-_SYNC_FILES: list[tuple[str, str]] = []
+_SYNC_FILES: list[tuple[str, str]] = [
+    ("scripts/remote_pyproject.toml", "pyproject.toml"),
+]
 
 
 _WORKSPACE_PYPROJECT = """\
