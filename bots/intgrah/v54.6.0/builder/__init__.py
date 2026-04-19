@@ -400,6 +400,8 @@ class Builder(Unit):
         super().post_init(ct)
         self.opportunistic: bool = self.rng.random() < 0.5
 
+        t0 = ct.get_cpu_time_elapsed()
+
         # pnb was pre-built for full 50x50. Fix the actual-map boundary
         # so that in-map tiles don't reference out-of-map neighbours.
         w, h = self.w, self.h
@@ -415,7 +417,11 @@ class Builder(Unit):
                     if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
                 ]
 
-        self.conv_search.post_init()
+        t1 = ct.get_cpu_time_elapsed()
+
+        #self.conv_search.post_init()
+
+        t2 = ct.get_cpu_time_elapsed()
 
         if self.known_map is not None:
             self.symmetry = SYMMETRY[self.known_map]
@@ -444,7 +450,18 @@ class Builder(Unit):
                     if env[row + x] == Environment.WALL:
                         self.update_pnb(row + x)
 
+        t3 = ct.get_cpu_time_elapsed()
+
         _prepopulate_blueprint_state(self)
+
+        t4 = ct.get_cpu_time_elapsed()
+
+        print(f"t0 {t0}")
+        print(f"t1 {t1}")
+        print(f"t2 {t2}")
+        print(f"t3 {t3}")
+        print(f"t4 {t4}")
+
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]

@@ -11,7 +11,8 @@ from .extra import deny_enemy_ore, fix_enemy_conveyor, pave_near_harvesters
 from .helpers import try_move_with_road
 from .role import Role
 from .state import State
-from .state_dump import dump
+if DEBUG_DUMP:
+    from .state_dump import dump
 from .state_update import update_economy, update_role
 from .state_update_map import update_map, update_splittable_locations
 from .task_attack import run_attack

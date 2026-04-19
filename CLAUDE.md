@@ -2,7 +2,9 @@ This project is for the Cambridge Battlecode competition (hosted by University o
 
 Docs: https://docs.battlecode.cam — local copy in `docs/` (run `just docs` to update).
 Read the relevant files in `docs/` before writing or modifying bot code.
-CLI: `cambc`. Python 3.12 (stdlib only, no pip packages). 2ms CPU time per unit per round (+5% rolling buffer: overage deducted, savings refunded up to cap; if both exhausted, execution is interrupted and `run()` is called fresh next round). 1 GB memory limit per bot.
+CLI: `cambc`. Python 3.12 (stdlib only, no pip packages). 2ms CPU time per unit per round (+5% rolling buffer: overage deducted, savings refunded up to cap; if both exhausted, execution is interrupted and `run()` is called fresh next round). 1 GB memory limit per bot (shared across all units — NOT per-unit).
+
+**Sandbox: each unit is its own isolated Python subinterpreter.** There is no shared memory between units. Every module-level constant, every import, every class definition is duplicated into each unit's interpreter. A precomputed table defined at module scope is NOT shared — it is re-constructed and stored once per living unit. So: a 10 MB lookup table × 50 units = 500 MB of real memory consumed against the 1 GB global budget. Any design that sounds like "share this across builders" is impossible. Treat each unit as a completely independent process; the only cross-unit communication is via markers on tiles.
 
 Reference materials from previous MIT Battlecode years are in `ref/`.
 
