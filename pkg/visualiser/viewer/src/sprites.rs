@@ -7,8 +7,15 @@ use image::{RgbaImage, imageops};
 const TILE_SIZE: u32 = 32;
 const SPRITE_SIZE: u32 = 512;
 
-/// Sprites whose source image is a horizontal strip (first square frame is used).
-const STRIP_SPRITES: &[&str] = &["bridge_gold", "bridge_silver"];
+/// Sprites that are non-square and should be uploaded at their native aspect
+/// (no square-resize). Used for beam sprites whose meaningful pattern spans
+/// the full PNG width and is stretched along the bridge length at draw time.
+const BEAM_SPRITES: &[&str] = &[
+    "bridge_gold",
+    "bridge_silver",
+    "bridge_beam_gold",
+    "bridge_beam_silver",
+];
 
 /// Sprites that need cardinal rotation variants (_n, _s, _e, _w).
 const ROTATABLE_SPRITES: &[&str] = &[
@@ -157,15 +164,10 @@ impl SpriteAtlas {
 
             let rgba = img.to_rgba8();
 
-            let base = if STRIP_SPRITES.contains(&name.as_str()) {
-                let frame_w = rgba.height();
-                let frame = imageops::crop_imm(&rgba, 0, 0, frame_w, frame_w).to_image();
-                imageops::resize(
-                    &frame,
-                    SPRITE_SIZE,
-                    SPRITE_SIZE,
-                    imageops::FilterType::Lanczos3,
-                )
+            let base = if BEAM_SPRITES.contains(&name.as_str()) {
+                // Preserve aspect: upload at native dimensions so the strip
+                // pattern fills the bridge mesh when stretched.
+                rgba
             } else {
                 imageops::resize(
                     &rgba,

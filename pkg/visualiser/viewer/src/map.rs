@@ -154,18 +154,17 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         let mut entities: Vec<&Entity> = turn_state.entities.values().collect();
         entities.sort_by_key(|e| entity::z_order(&e.kind));
 
-        let by_pos: std::collections::HashMap<(i32, i32), Vec<&Entity>> = if app
-            .show_conveyor_junctions
-        {
-            let mut m: std::collections::HashMap<(i32, i32), Vec<&Entity>> =
-                std::collections::HashMap::new();
-            for e in turn_state.entities.values() {
-                m.entry(e.pos).or_default().push(e);
-            }
-            m
-        } else {
-            std::collections::HashMap::new()
-        };
+        let by_pos: std::collections::HashMap<(i32, i32), Vec<&Entity>> =
+            if app.show_conveyor_junctions {
+                let mut m: std::collections::HashMap<(i32, i32), Vec<&Entity>> =
+                    std::collections::HashMap::new();
+                for e in turn_state.entities.values() {
+                    m.entry(e.pos).or_default().push(e);
+                }
+                m
+            } else {
+                std::collections::HashMap::new()
+            };
 
         for e in &entities {
             if matches!(e.kind, EntityKind::Core { .. }) {
@@ -201,6 +200,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
 
             let sprite_name = if app.show_conveyor_junctions
                 && let Some(n) = conveyor_junction_sprite_name(e, &by_pos)
+                    .or_else(|| bridge_base_sprite_name(e, &by_pos))
             {
                 n
             } else {
@@ -215,9 +215,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             } else {
                 tile_rect(e.pos.0, e.pos.1, ts, origin, zoom)
             };
-            if app.highlight_builders
-                && matches!(e.kind, EntityKind::BuilderBot { .. })
-            {
+            if app.highlight_builders && matches!(e.kind, EntityKind::BuilderBot { .. }) {
                 let fill = match e.team {
                     proto::Team::A => Color32::from_rgba_premultiplied(0x00, 0xc8, 0xc8, 0x80),
                     proto::Team::B => Color32::from_rgba_premultiplied(0xc8, 0x00, 0xc8, 0x80),
@@ -276,9 +274,11 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
 
         for e in turn_state.entities.values() {
             if let EntityKind::Bridge { target, .. } = &e.kind {
-                let beam_name = match e.team {
-                    proto::Team::A => "bridge_gold",
-                    proto::Team::B => "bridge_silver",
+                let beam_name = match (app.show_conveyor_junctions, e.team) {
+                    (true, proto::Team::A) => "bridge_beam_gold",
+                    (true, proto::Team::B) => "bridge_beam_silver",
+                    (false, proto::Team::A) => "bridge_gold",
+                    (false, proto::Team::B) => "bridge_silver",
                 };
                 let from = tile_center(e.pos.0, e.pos.1, ts, origin, zoom);
                 let to = tile_center(target.0, target.1, ts, origin, zoom);
@@ -920,6 +920,42 @@ const fn dir_suffix_cardinal(d: (i32, i32)) -> Option<&'static str> {
         (-1, 0) => Some("w"),
         _ => None,
     }
+}
+
+fn bridge_base_sprite_name(
+    entity: &Entity,
+    by_pos: &std::collections::HashMap<(i32, i32), Vec<&Entity>>,
+) -> Option<String> {
+    if !matches!(entity.kind, EntityKind::Bridge { .. }) {
+        return None;
+    }
+    let team_s = match entity.team {
+        proto::Team::A => "gold",
+        proto::Team::B => "silver",
+    };
+    let pos = entity.pos;
+    let mut openings: Vec<(i32, i32)> = Vec::new();
+    for (dx, dy) in CARDINALS {
+        let n = (pos.0 + dx, pos.1 + dy);
+        let feeds = by_pos.get(&n).is_some_and(|list| {
+            list.iter()
+                .any(|e| e.team == entity.team && conveyor_feeds_into(e, pos))
+        });
+        if feeds {
+            openings.push((dx, dy));
+        }
+    }
+    openings.sort_by_key(|d| CARDINALS.iter().position(|c| c == d).unwrap_or(4));
+    let suffix: String = if openings.is_empty() {
+        "x".to_string()
+    } else {
+        openings
+            .iter()
+            .filter_map(|d| dir_suffix_cardinal(*d))
+            .collect::<Vec<&str>>()
+            .join("")
+    };
+    Some(format!("bridge_base_{team_s}_{suffix}"))
 }
 
 fn conveyor_junction_sprite_name(

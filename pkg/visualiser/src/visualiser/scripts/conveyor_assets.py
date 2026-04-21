@@ -271,6 +271,160 @@ def input_suffix(inputs: frozenset[Dir]) -> str:
     return "".join(DIR_NAMES[d] for d in CARDINALS if d in inputs)
 
 
+def bridge_body_colour(team: str) -> Colour:
+    return (112, 64, 18) if team == "gold" else (63, 75, 85)
+
+
+def render_bridge_base_tile(openings: frozenset[Dir], team: str) -> Image.Image:
+    conveyor_bg, rail, _ = palette(team, armoured=False)
+    body = bridge_body_colour(team)
+    img = Image.new("RGBA", (TILE, TILE), TILE_BG)
+    d = ImageDraw.Draw(img)
+
+    size = float(TILE)
+    half = size / 2
+    cx = cy = half
+    pipe_outer_half = size * PIPE_OUTER_FRAC / 2
+    wall_thickness = size * WALL_FRAC
+    pipe_inner_half = pipe_outer_half - wall_thickness
+
+    # Conveyor-pipe protrusions on each opening side: inner body colour fills
+    # the padding strip, with two rails flanking it so they line up 1:1 with
+    # a conveyor rendered on the adjacent tile.
+    for dx, dy in openings:
+        if dy == 0:
+            body_lo = cx + pipe_outer_half if dx > 0 else 0.0
+            body_hi = size if dx > 0 else cx - pipe_outer_half
+            d.rectangle(
+                (body_lo, cy - pipe_inner_half, body_hi, cy + pipe_inner_half),
+                fill=conveyor_bg,
+            )
+            top_y0, top_y1 = cy - pipe_outer_half, cy - pipe_outer_half + wall_thickness
+            bot_y0, bot_y1 = cy + pipe_outer_half - wall_thickness, cy + pipe_outer_half
+            seg_lo, seg_hi = (cx + pipe_outer_half, size) if dx > 0 else (0.0, cx - pipe_outer_half)
+            d.rectangle((seg_lo, top_y0, seg_hi, top_y1), fill=rail)
+            d.rectangle((seg_lo, bot_y0, seg_hi, bot_y1), fill=rail)
+        else:
+            body_lo = cy + pipe_outer_half if dy > 0 else 0.0
+            body_hi = size if dy > 0 else cy - pipe_outer_half
+            d.rectangle(
+                (cx - pipe_inner_half, body_lo, cx + pipe_inner_half, body_hi),
+                fill=conveyor_bg,
+            )
+            lft_x0, lft_x1 = cx - pipe_outer_half, cx - pipe_outer_half + wall_thickness
+            rgt_x0, rgt_x1 = cx + pipe_outer_half - wall_thickness, cx + pipe_outer_half
+            seg_lo, seg_hi = (cy + pipe_outer_half, size) if dy > 0 else (0.0, cy - pipe_outer_half)
+            d.rectangle((lft_x0, seg_lo, lft_x1, seg_hi), fill=rail)
+            d.rectangle((rgt_x0, seg_lo, rgt_x1, seg_hi), fill=rail)
+
+    # Body square.
+    d.rectangle(
+        (cx - pipe_outer_half, cy - pipe_outer_half, cx + pipe_outer_half, cy + pipe_outer_half),
+        fill=body,
+    )
+
+    # Border rail on every side that is NOT open.
+    for dir_ in CARDINALS:
+        if dir_ in openings:
+            continue
+        dx, dy = dir_
+        if dy < 0:
+            d.rectangle(
+                (cx - pipe_outer_half, cy - pipe_outer_half,
+                 cx + pipe_outer_half, cy - pipe_outer_half + wall_thickness),
+                fill=rail,
+            )
+        elif dy > 0:
+            d.rectangle(
+                (cx - pipe_outer_half, cy + pipe_outer_half - wall_thickness,
+                 cx + pipe_outer_half, cy + pipe_outer_half),
+                fill=rail,
+            )
+        elif dx < 0:
+            d.rectangle(
+                (cx - pipe_outer_half, cy - pipe_outer_half,
+                 cx - pipe_outer_half + wall_thickness, cy + pipe_outer_half),
+                fill=rail,
+            )
+        else:
+            d.rectangle(
+                (cx + pipe_outer_half - wall_thickness, cy - pipe_outer_half,
+                 cx + pipe_outer_half, cy + pipe_outer_half),
+                fill=rail,
+            )
+
+    return img
+
+
+def bridge_base_suffix(openings: frozenset[Dir]) -> str:
+    if not openings:
+        return "x"
+    return "".join(DIR_NAMES[d] for d in CARDINALS if d in openings)
+
+
+def enumerate_openings() -> list[frozenset[Dir]]:
+    result: list[frozenset[Dir]] = []
+    for k in range(len(CARDINALS) + 1):
+        result.extend(frozenset(c) for c in combinations(CARDINALS, k))
+    return result
+
+
+def render_bridge_beam(team: str) -> Image.Image:
+    """A 3:1 strip beam. Central x-strip is rails (opaque) + body (~50% alpha)
+    with three chevrons (opaque) along the length. Outside the central strip
+    is fully transparent so the beam reads as a clean ribbon when drawn."""
+    width = TILE * 3
+    height = TILE
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    conveyor_bg, rail, cap = palette(team, armoured=False)
+    body_rgb = bridge_body_colour(team)
+    body = (*body_rgb, 128)
+    rail_opaque = (*rail, 255)
+    cap_opaque = (*cap, 255)
+    _ = conveyor_bg
+
+    half_h = height / 2
+    pipe_outer_half = height * PIPE_OUTER_FRAC / 2
+    wall_thickness = height * WALL_FRAC
+    pipe_inner_half = pipe_outer_half - wall_thickness
+
+    # Inner body strip (semi-transparent).
+    d.rectangle(
+        (0, half_h - pipe_inner_half, width, half_h + pipe_inner_half),
+        fill=body,
+    )
+
+    # Rails along the long edges (opaque).
+    d.rectangle(
+        (0, half_h - pipe_outer_half, width, half_h - pipe_inner_half),
+        fill=rail_opaque,
+    )
+    d.rectangle(
+        (0, half_h + pipe_inner_half, width, half_h + pipe_outer_half),
+        fill=rail_opaque,
+    )
+
+    # Three arrows evenly spaced along the length. Same geometry as the
+    # conveyor arrow (ARROW_BACK_FRAC/ARROW_TIP_FRAC/ARROW_HALF_FRAC), with
+    # each arrow centred between back and tip at one-third increments.
+    arrow_back_d = height * ARROW_BACK_FRAC
+    arrow_tip_d = height * ARROW_TIP_FRAC
+    arrow_half = height * ARROW_HALF_FRAC
+    arrow_centre_offset = (arrow_tip_d - arrow_back_d) / 2 + arrow_back_d
+    for i in range(3):
+        centre_x = (i + 0.5) * (width / 3)
+        cy = half_h
+        tip = (centre_x - arrow_centre_offset + arrow_tip_d, cy)
+        bc = (centre_x - arrow_centre_offset + arrow_back_d, cy)
+        bl = (bc[0], bc[1] + arrow_half)
+        br_ = (bc[0], bc[1] - arrow_half)
+        d.polygon([tip, bl, br_], fill=cap_opaque)
+
+    return img
+
+
 def enumerate_input_sets(out_dir: Dir) -> list[frozenset[Dir]]:
     others = [d for d in CARDINALS if d != out_dir]
     result: list[frozenset[Dir]] = []
@@ -297,6 +451,15 @@ def main() -> None:
                     img = render_tile(out_dir, inputs, team, armoured=armoured)
                     img.save(assets_dir / fname)
                     count += 1
+        for openings in enumerate_openings():
+            suffix = bridge_base_suffix(openings)
+            fname = f"bridge_base_{team}_{suffix}.png"
+            img = render_bridge_base_tile(openings, team)
+            img.save(assets_dir / fname)
+            count += 1
+        beam = render_bridge_beam(team)
+        beam.save(assets_dir / f"bridge_beam_{team}.png")
+        count += 1
     print(f"wrote {count} assets to {assets_dir}")
 
 
