@@ -16,4 +16,4 @@ cambcpypy = "cambcpypy.cli:main"
 python-preference = "only-managed"
 
 [tool.uv.sources]
-proto = { workspace = true }
+proto = { path = "../proto" }
