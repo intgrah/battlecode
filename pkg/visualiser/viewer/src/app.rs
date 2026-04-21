@@ -94,7 +94,7 @@ impl App {
             show_indicators: false,
             show_flow: false,
             show_ranges: true,
-            show_conveyor_junctions: false,
+            show_conveyor_junctions: true,
             highlight_builders: false,
             vis_overlays: std::collections::HashSet::new(),
             pan: egui::Vec2::ZERO,

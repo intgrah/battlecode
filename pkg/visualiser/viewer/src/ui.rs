@@ -689,13 +689,12 @@ pub fn render_scrubber(ui: &mut egui::Ui, app: &mut App) {
                 ui.label(egui::RichText::new(format!("{}/{}", app.turn, total)).size(14.0));
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Open").clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
+                    if ui.button("Open").clicked()
+                        && let Some(path) = rfd::FileDialog::new()
                             .add_filter("Replay", &["replay26"])
                             .pick_file()
-                        {
-                            app.load_replay(path);
-                        }
+                    {
+                        app.load_replay(path);
                     }
                 });
             });

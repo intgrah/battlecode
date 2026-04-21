@@ -26,7 +26,13 @@ impl<'de> Deserialize<'de> for PaletteDef {
         fn val_to_f64(v: &serde_json::Value) -> f64 {
             match v {
                 serde_json::Value::Number(n) => n.as_f64().unwrap_or(0.0),
-                serde_json::Value::Bool(b) => if *b { 1.0 } else { 0.0 },
+                serde_json::Value::Bool(b) => {
+                    if *b {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
                 _ => 0.0,
             }
         }
@@ -153,7 +159,11 @@ impl<'de> Deserialize<'de> for ArrowData {
             .map(|(i, angle)| {
                 angle.map(|a| Arrow {
                     angle: a,
-                    magnitude: raw.magnitudes.as_ref().and_then(|m| m.get(i).copied()).unwrap_or(1.0),
+                    magnitude: raw
+                        .magnitudes
+                        .as_ref()
+                        .and_then(|m| m.get(i).copied())
+                        .unwrap_or(1.0),
                 })
             })
             .collect();
@@ -163,56 +173,73 @@ impl<'de> Deserialize<'de> for ArrowData {
 
 #[derive(Clone, Debug)]
 pub enum VisField {
-    Grid {
-        data: GridData,
-        palette: PaletteDef,
-    },
-    Scalar {
-        data: ScalarValue,
-    },
-    Tiles {
-        data: Vec<(i32, i32)>,
-    },
+    Grid { data: GridData, palette: PaletteDef },
+    Scalar { data: ScalarValue },
+    Tiles { data: Vec<(i32, i32)> },
     VectorField(ArrowData),
 }
 
 impl<'de> Deserialize<'de> for VisField {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = serde_json::Value::deserialize(deserializer)?;
-        let obj = raw.as_object().ok_or_else(|| serde::de::Error::custom("expected object"))?;
+        let obj = raw
+            .as_object()
+            .ok_or_else(|| serde::de::Error::custom("expected object"))?;
         let typ = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
         match typ {
             "grid" => {
                 let dtype = obj.get("dtype").and_then(|v| v.as_str()).unwrap_or("i16");
                 let palette: PaletteDef = serde_json::from_value(
-                    obj.get("palette").cloned().unwrap_or(serde_json::Value::Null)
-                ).map_err(serde::de::Error::custom)?;
-                let arr = obj.get("data").and_then(|v| v.as_array())
+                    obj.get("palette")
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null),
+                )
+                .map_err(serde::de::Error::custom)?;
+                let arr = obj
+                    .get("data")
+                    .and_then(|v| v.as_array())
                     .ok_or_else(|| serde::de::Error::custom("missing data"))?;
                 let data = match dtype {
-                    "bool" => GridData::Bool(arr.iter().map(|v| u8::from(v.as_bool().unwrap_or(false))).collect()),
-                    "u8" => GridData::U8(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect()),
-                    "i16" => GridData::I16(arr.iter().map(|v| v.as_i64().unwrap_or(0) as i16).collect()),
-                    "u16" => GridData::U16(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u16).collect()),
-                    "f32" => GridData::F32(arr.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect()),
+                    "bool" => GridData::Bool(
+                        arr.iter()
+                            .map(|v| u8::from(v.as_bool().unwrap_or(false)))
+                            .collect(),
+                    ),
+                    "u8" => {
+                        GridData::U8(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect())
+                    }
+                    "i16" => {
+                        GridData::I16(arr.iter().map(|v| v.as_i64().unwrap_or(0) as i16).collect())
+                    }
+                    "u16" => {
+                        GridData::U16(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u16).collect())
+                    }
+                    "f32" => GridData::F32(
+                        arr.iter()
+                            .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+                            .collect(),
+                    ),
                     _ => return Err(serde::de::Error::custom(format!("unknown dtype: {dtype}"))),
                 };
                 Ok(Self::Grid { data, palette })
             }
             "scalar" => {
                 let data: ScalarValue = serde_json::from_value(
-                    obj.get("data").cloned().unwrap_or(serde_json::Value::Null)
-                ).map_err(serde::de::Error::custom)?;
+                    obj.get("data").cloned().unwrap_or(serde_json::Value::Null),
+                )
+                .map_err(serde::de::Error::custom)?;
                 Ok(Self::Scalar { data })
             }
             "tiles" => {
                 let data: Vec<(i32, i32)> = serde_json::from_value(
-                    obj.get("data").cloned().unwrap_or(serde_json::Value::Null)
-                ).map_err(serde::de::Error::custom)?;
+                    obj.get("data").cloned().unwrap_or(serde_json::Value::Null),
+                )
+                .map_err(serde::de::Error::custom)?;
                 Ok(Self::Tiles { data })
             }
             "vectorfield" => {
-                let arrow_data: ArrowData = serde_json::from_value(raw).map_err(serde::de::Error::custom)?;
+                let arrow_data: ArrowData =
+                    serde_json::from_value(raw).map_err(serde::de::Error::custom)?;
                 Ok(Self::VectorField(arrow_data))
             }
             _ => Err(serde::de::Error::custom(format!("unknown vis type: {typ}"))),
@@ -270,14 +297,13 @@ pub fn sample_palette(palette: &PaletteDef, value: f64) -> Option<Colour> {
             let c0 = &s0.colour;
             let c1 = &s1.colour;
             return Some(Colour {
-                r: (f32::from(c0.r) + (f32::from(c1.r) - f32::from(c0.r)) * seg) as u8,
-                g: (f32::from(c0.g) + (f32::from(c1.g) - f32::from(c0.g)) * seg) as u8,
-                b: (f32::from(c0.b) + (f32::from(c1.b) - f32::from(c0.b)) * seg) as u8,
-                a: (f32::from(c0.a) + (f32::from(c1.a) - f32::from(c0.a)) * seg) as u8,
+                r: (f32::from(c1.r) - f32::from(c0.r)).mul_add(seg, f32::from(c0.r)) as u8,
+                g: (f32::from(c1.g) - f32::from(c0.g)).mul_add(seg, f32::from(c0.g)) as u8,
+                b: (f32::from(c1.b) - f32::from(c0.b)).mul_add(seg, f32::from(c0.b)) as u8,
+                a: (f32::from(c1.a) - f32::from(c0.a)).mul_add(seg, f32::from(c0.a)) as u8,
             });
         }
     }
 
     Some(palette.stops[last].colour)
 }
-
