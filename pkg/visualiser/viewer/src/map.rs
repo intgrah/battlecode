@@ -215,6 +215,22 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             } else {
                 tile_rect(e.pos.0, e.pos.1, ts, origin, zoom)
             };
+            if app.highlight_builders
+                && matches!(e.kind, EntityKind::BuilderBot { .. })
+            {
+                let fill = match e.team {
+                    proto::Team::A => Color32::from_rgba_premultiplied(0x00, 0xc8, 0xc8, 0x80),
+                    proto::Team::B => Color32::from_rgba_premultiplied(0xc8, 0x00, 0xc8, 0x80),
+                };
+                let ring = match e.team {
+                    proto::Team::A => Color32::from_rgb(0x00, 0xff, 0xff),
+                    proto::Team::B => Color32::from_rgb(0xff, 0x00, 0xff),
+                };
+                let centre = r.center();
+                let radius = r.width() * 0.55;
+                painter.circle_filled(centre, radius, fill);
+                painter.circle_stroke(centre, radius, Stroke::new((2.0 * zoom).max(1.5), ring));
+            }
             draw_sprite(&painter, app, &sprite_name, r);
 
             if !matches!(

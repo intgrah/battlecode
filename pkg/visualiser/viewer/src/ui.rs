@@ -496,6 +496,7 @@ pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
                     &mut app.show_conveyor_junctions,
                     "Experimental conveyor junctions",
                 );
+                ui.checkbox(&mut app.highlight_builders, "Highlight builders");
 
                 let vis_fields = collect_vis_fields(state, app.selected_entity);
                 if !vis_fields.is_empty() {
