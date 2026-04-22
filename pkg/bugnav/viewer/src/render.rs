@@ -8,6 +8,7 @@ const VISITED_COLOR: Color32 = Color32::from_rgba_premultiplied(0x30, 0x30, 0x30
 const FRONTIER_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x00, 0xa0);
 const PATH_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0xc0, 0xff, 0xff);
 const OPTIMAL_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x80, 0xa0);
+const VISION_COLOR: Color32 = Color32::from_rgba_premultiplied(0x18, 0x18, 0x30, 0x40);
 const CURRENT_COLOR: Color32 = Color32::from_rgb(0x00, 0xe0, 0xff);
 const START_COLOR: Color32 = Color32::from_rgb(0x30, 0xe0, 0x30);
 const GOAL_COLOR: Color32 = Color32::from_rgb(0xe0, 0x30, 0x30);
@@ -25,7 +26,18 @@ pub fn draw_snapshot(
     optimal: Option<&[(i32, i32)]>,
     start: Option<(i32, i32)>,
     goal: Option<(i32, i32)>,
+    show_vision: bool,
 ) {
+    // Vision disc at the current agent position (for sensor-based algorithms).
+    if show_vision
+        && let Some(s) = snap
+    {
+        for c in crate::algorithms::bug_common::sensed_cells(s.current) {
+            let r = tile_rect(c.0, c.1, ctx.ts, ctx.origin, ctx.zoom);
+            painter.rect_filled(r, 0.0, VISION_COLOR);
+        }
+    }
+
     // Draw optimal path underneath so the algorithm's path overlays it.
     if let Some(opt) = optimal
         && opt.len() >= 2

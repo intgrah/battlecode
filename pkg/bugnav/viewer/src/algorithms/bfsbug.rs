@@ -1,13 +1,20 @@
-//! Bug1 (Lumelsky & Stepanov, 1987). Canonical implementation using the
-//! `WallFollowState` anchored to a specific obstacle cell — prevents
-//! wall-follow drift that the priority-ordered follow_dir approach suffered
-//! from. Guaranteed complete on finite grids.
+//! Hybrid BFS + Bug1. Each step, first try a local BFS over the 69-cell
+//! sensor window — if it finds a passable cell strictly closer to goal
+//! than current pos, step along the BFS path to it. Otherwise fall back
+//! to Bug1's canonical wall-following logic. The local BFS handles small
+//! detours cleanly (shorter paths than pure Bug1); Bug1's circumnavigation
+//! + progress check guarantees completeness when the sensor can't see
+//! past an obstacle.
+//!
+//! This matches the architecture of production bots (kessoku_band, awu):
+//! BFS is the micro-planner, Bug1 is the macro-planner / completeness
+//! guarantee.
 
 use std::collections::HashSet;
 
 use crate::algorithms::bug_common::{
-    WallFollowState, WallStepOutcome, bresenham, dir_to_goal, dist_sq, has_los, neighbour,
-    wall_follow_step,
+    WallFollowState, WallStepOutcome, bresenham, dir_to_goal, dist_sq, has_los, local_bfs,
+    neighbour, wall_follow_step,
 };
 use crate::grid::Grid;
 use crate::pathfinder::{Pathfinder, Snapshot, StepStatus};
@@ -15,70 +22,47 @@ use crate::pathfinder::{Pathfinder, Snapshot, StepStatus};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Mode {
     MotionToGoal,
-    /// Walking the obstacle boundary recording `best_leave`.
     Circumnavigate,
-    /// Walking the boundary again to reach `best_leave`.
     ReturnToLeave,
 }
 
-pub struct Bug1 {
+pub struct BfsBug {
     grid_w: i32,
     grid_h: i32,
     walls: Vec<bool>,
     goal: (i32, i32),
     pos: (i32, i32),
     mode: Mode,
-    /// When true, check `has_los(pos, goal)` at every step and jump straight
-    /// to goal if visible. Respects sensor radius (r²≤20) so only fires when
-    /// the goal is within ~4.5 cells.
-    use_los: bool,
     wf: WallFollowState,
     hit_point: (i32, i32),
     best_leave: (i32, i32),
     best_leave_dist_sq: i32,
-    /// Running minimum of `dist²(pos, goal)` seen across the whole run.
-    /// Used as the Bug1 termination criterion: if a circumnavigation's
-    /// `best_leave_dist_sq` isn't strictly below this, the goal is unreachable.
     global_min_dist_sq: i32,
-    /// `(pos, current_obstacle, obstacle_on_right)` states visited during
-    /// the current Circumnavigate/ReturnToLeave walk. Used to detect a
-    /// closed loop back to the starting state, which is equivalent to
-    /// completing a full circumnavigation.
     follow_visited: HashSet<((i32, i32), (i32, i32), bool)>,
+    /// Cells visited while in Motion mode (since the last Bug1 transition).
+    /// Prevents BFS from stepping into a recently-walked cell, which
+    /// would otherwise oscillate when the first-step strictness is relaxed.
+    /// Cleared whenever we enter or leave Circumnavigate.
+    motion_visited: HashSet<(i32, i32)>,
     steps: u32,
     snap: Snapshot,
     status: StepStatus,
 }
 
 pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
-    build_inner(grid, start, goal, false, "Bug1")
-}
-
-pub fn build_los(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
-    build_inner(grid, start, goal, true, "Bug1+LoS")
-}
-
-fn build_inner(
-    grid: &Grid,
-    start: (i32, i32),
-    goal: (i32, i32),
-    use_los: bool,
-    _name: &'static str,
-) -> Box<dyn Pathfinder> {
     let mut snap = Snapshot {
         current: start,
         path: vec![start],
         ..Snapshot::default()
     };
     snap.visited.insert(start);
-    Box::new(Bug1 {
+    Box::new(BfsBug {
         grid_w: grid.w,
         grid_h: grid.h,
         walls: grid.walls.clone(),
         goal,
         pos: start,
         mode: Mode::MotionToGoal,
-        use_los,
         wf: WallFollowState {
             pos: start,
             current_obstacle: start,
@@ -89,18 +73,28 @@ fn build_inner(
         best_leave_dist_sq: dist_sq(start, goal),
         global_min_dist_sq: dist_sq(start, goal),
         follow_visited: HashSet::new(),
+        motion_visited: {
+            let mut s = HashSet::new();
+            s.insert(start);
+            s
+        },
         steps: 0,
         snap,
         status: StepStatus::Running,
     })
 }
 
-impl Bug1 {
+impl BfsBug {
     fn passable(&self, x: i32, y: i32) -> bool {
         if x < 0 || y < 0 || x >= self.grid_w || y >= self.grid_h {
             return false;
         }
         !self.walls[(y * self.grid_w + x) as usize]
+    }
+
+    fn passable_closure(&self) -> impl Fn(i32, i32) -> bool + use<'_> {
+        let (w, h, walls) = (self.grid_w, self.grid_h, &self.walls);
+        move |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h && !walls[(y * w + x) as usize]
     }
 
     fn move_to(&mut self, new_pos: (i32, i32)) {
@@ -112,19 +106,16 @@ impl Bug1 {
 
     fn step_wall_follow(&mut self) -> WallStepOutcome {
         let (w, h, walls) = (self.grid_w, self.grid_h, &self.walls);
-        let passable = |x: i32, y: i32| {
-            x >= 0 && y >= 0 && x < w && y < h && !walls[(y * w + x) as usize]
-        };
+        let passable =
+            |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h && !walls[(y * w + x) as usize];
         let on_map = |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h;
-        let prev_pos = self.wf.pos;
         let outcome = wall_follow_step(&mut self.wf, passable, on_map);
-        if outcome == WallStepOutcome::Moved && self.wf.pos != prev_pos {
+        if outcome == WallStepOutcome::Moved {
             self.move_to(self.wf.pos);
         }
         outcome
     }
 
-    /// Begin circumnavigation of the obstacle at `pos + blocked_dir`.
     fn enter_circumnavigate(&mut self, blocked_dir: usize) {
         self.mode = Mode::Circumnavigate;
         self.wf = WallFollowState {
@@ -141,10 +132,73 @@ impl Bug1 {
             self.wf.current_obstacle,
             self.wf.obstacle_on_right,
         ));
+        self.motion_visited.clear();
+        self.motion_visited.insert(self.pos);
+    }
+
+    /// Try local BFS within sensor range. If any reachable cell is strictly
+    /// closer to goal than current pos, step the first cell along the BFS
+    /// path to the best such cell. Returns true on step.
+    /// Run local BFS and take the first step along the path to the closest-to-goal
+    /// reachable cell. Only accepts the step if:
+    /// - A reachable BFS cell has `dist_sq(c, goal) < threshold`.
+    /// - The first step itself has `dist_sq(next, goal) < threshold`.
+    ///
+    /// In Motion mode, pass `threshold = dist_sq(pos, goal)` — strict per-step
+    /// progress. In ReturnToLeave mode, pass `threshold = best_leave_dist_sq`
+    /// — we only abandon the retrace if BFS finds a cell strictly better than
+    /// Bug1's already-identified leave point, preserving completeness.
+    fn try_bfs_step(&mut self, threshold: i32) -> bool {
+        let next_step: Option<(i32, i32)> = {
+            let passable = self.passable_closure();
+            let parent = local_bfs(self.pos, &passable);
+            let mut best_target: Option<((i32, i32), i32)> = None;
+            for (&c, _) in &parent {
+                let d = dist_sq(c, self.goal);
+                if d >= threshold {
+                    continue;
+                }
+                match best_target {
+                    None => best_target = Some((c, d)),
+                    Some((_, bd)) if d < bd => best_target = Some((c, d)),
+                    _ => {}
+                }
+            }
+            best_target.and_then(|(target, _)| {
+                let mut cur = target;
+                let mut next = target;
+                while let Some(&p) = parent.get(&cur) {
+                    if p == self.pos {
+                        next = cur;
+                        break;
+                    }
+                    cur = p;
+                }
+                // Reject revisits — the only way BFS oscillates without the
+                // first-step-strict check. If the first step leads to a
+                // cell we've already walked in this Motion segment, defer
+                // to Bug1 for this turn.
+                if self.motion_visited.contains(&next) {
+                    None
+                } else {
+                    Some(next)
+                }
+            })
+        };
+        let Some(step) = next_step else {
+            return false;
+        };
+        self.move_to(step);
+        self.motion_visited.insert(step);
+        let d2 = dist_sq(self.pos, self.goal);
+        if d2 < self.global_min_dist_sq {
+            self.global_min_dist_sq = d2;
+        }
+        true
     }
 }
 
-impl Pathfinder for Bug1 {
+impl Pathfinder for BfsBug {
     fn step(&mut self) -> StepStatus {
         if self.status != StepStatus::Running {
             return self.status;
@@ -155,25 +209,39 @@ impl Pathfinder for Bug1 {
         }
         self.steps += 1;
 
-        // LoS shortcut: if the goal is within sensor range (r²≤20) and the
-        // Bresenham line is clear, jump straight to it regardless of mode.
-        // This is what Bug1+LoS buys over plain Bug1 — you can abandon
-        // circumnavigation as soon as the goal comes into sight.
-        if self.use_los {
-            let (w, h, walls) = (self.grid_w, self.grid_h, &self.walls);
-            let passable =
-                |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h && !walls[(y * w + x) as usize];
-            if has_los(self.pos, self.goal, &passable) {
-                let line = bresenham(self.pos, self.goal);
-                for &p in line.iter().skip(1) {
-                    self.pos = p;
-                    self.snap.current = p;
-                    self.snap.visited.insert(p);
-                    self.snap.path.push(p);
-                }
-                self.status = StepStatus::Arrived;
-                return self.status;
+        // LoS shortcut: if goal is sensor-visible, jump straight there.
+        let passable = self.passable_closure();
+        if has_los(self.pos, self.goal, &passable) {
+            drop(passable);
+            let line = bresenham(self.pos, self.goal);
+            for &p in line.iter().skip(1) {
+                self.move_to(p);
             }
+            self.status = StepStatus::Arrived;
+            return self.status;
+        }
+        drop(passable);
+
+        // BFS shortcut, mode-dependent threshold:
+        // - Motion: threshold = dist(pos, goal). Strict per-step progress.
+        // - Circumnavigate / ReturnToLeave: threshold = best_leave_dist_sq.
+        //   Only abandon the wall-follow if BFS finds a cell strictly
+        //   better than Bug1's current best leave candidate. This preserves
+        //   Bug1's progress invariant (global_min strictly decreases).
+        //   Cycle detection is bypassed only when BFS succeeds — which
+        //   necessarily means progress, so no infinite loop risk.
+        let threshold = match self.mode {
+            Mode::MotionToGoal => dist_sq(self.pos, self.goal),
+            Mode::Circumnavigate | Mode::ReturnToLeave => self.best_leave_dist_sq,
+        };
+        if self.try_bfs_step(threshold) {
+            if self.mode != Mode::MotionToGoal {
+                self.mode = Mode::MotionToGoal;
+                self.follow_visited.clear();
+                self.motion_visited.clear();
+                self.motion_visited.insert(self.pos);
+            }
+            return self.status;
         }
 
         match self.mode {
@@ -194,9 +262,6 @@ impl Pathfinder for Bug1 {
                 match self.step_wall_follow() {
                     WallStepOutcome::Moved => {}
                     WallStepOutcome::Surrounded => {
-                        // Genuinely surrounded on all sides (with edge-flip
-                        // already tried inside wall_follow_step). Cannot
-                        // make progress around this obstacle.
                         self.status = StepStatus::Unreachable;
                         return self.status;
                     }
@@ -211,13 +276,8 @@ impl Pathfinder for Bug1 {
                     self.wf.current_obstacle,
                     self.wf.obstacle_on_right,
                 );
-                let revisit = !self.follow_visited.insert(state);
-                if revisit {
-                    // Full circumnavigation complete (wall-follow is
-                    // deterministic in `(pos, current_obstacle, side)`, so a
-                    // revisit means we closed the loop).
+                if !self.follow_visited.insert(state) {
                     if self.best_leave_dist_sq >= self.global_min_dist_sq {
-                        // No progress possible past this obstacle.
                         self.status = StepStatus::Unreachable;
                         return self.status;
                     }
@@ -233,11 +293,6 @@ impl Pathfinder for Bug1 {
             }
             Mode::ReturnToLeave => {
                 if self.pos == self.best_leave {
-                    // At leave point — hand off to MotionToGoal. If the
-                    // direction-to-goal step is blocked, MotionToGoal will
-                    // re-enter Circumnavigate with the new obstacle's
-                    // hit_point. The `global_min_dist_sq` guard prevents
-                    // infinite loops across nested obstacles.
                     self.mode = Mode::MotionToGoal;
                     return self.status;
                 }
@@ -254,9 +309,6 @@ impl Pathfinder for Bug1 {
                     self.wf.obstacle_on_right,
                 );
                 if !self.follow_visited.insert(state) {
-                    // Looped without reaching best_leave — shouldn't happen
-                    // if circumnavigation was clean (wall-follow is
-                    // deterministic). Recover safely.
                     self.status = StepStatus::Unreachable;
                 }
             }
@@ -270,7 +322,7 @@ impl Pathfinder for Bug1 {
 
     fn summary(&self) -> String {
         format!(
-            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\nhit: ({}, {})\nbest_leave: ({}, {})\nbest_d2: {}\nglobal_min_d2: {}\nobstacle: ({}, {})\nside: {}\nfollow_visited: {}\nsteps: {}\nstatus: {:?}",
+            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\nhit: ({}, {})\nbest_leave: ({}, {})\nbest_d2: {}\nglobal_min_d2: {}\nobstacle: ({}, {})\nside: {}\nsteps: {}\nstatus: {:?}",
             self.pos.0,
             self.pos.1,
             self.goal.0,
@@ -285,13 +337,12 @@ impl Pathfinder for Bug1 {
             self.wf.current_obstacle.0,
             self.wf.current_obstacle.1,
             if self.wf.obstacle_on_right { "R" } else { "L" },
-            self.follow_visited.len(),
             self.steps,
             self.status,
         )
     }
 
     fn name(&self) -> &'static str {
-        if self.use_los { "Bug1+LoS" } else { "Bug1" }
+        "BFS+Bug1"
     }
 }

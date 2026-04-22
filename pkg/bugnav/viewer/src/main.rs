@@ -1,15 +1,7 @@
-mod algorithms;
-mod app;
-mod grid;
-mod pathfinder;
-mod render;
-mod ui;
-
 use std::{env, path::Path, path::PathBuf, process};
 
+use bugnav_viewer::{app, grid::Grid};
 use eframe::egui;
-
-use crate::grid::Grid;
 
 fn find_maps_dir() -> Option<PathBuf> {
     let candidates = [
@@ -26,9 +18,7 @@ fn collect_maps(dir: &Path) -> Vec<PathBuf> {
         .into_iter()
         .flat_map(|it| it.flatten())
         .map(|e| e.path())
-        .filter(|p| {
-            p.is_file() && p.extension().and_then(|s| s.to_str()) == Some("map26")
-        })
+        .filter(|p| p.is_file() && p.extension().and_then(|s| s.to_str()) == Some("map26"))
         .collect();
     out.sort();
     out
@@ -68,7 +58,6 @@ fn main() -> eframe::Result {
             let idx = map_paths.iter().position(|p| p == explicit).unwrap_or(0);
             (explicit.to_path_buf(), idx)
         } else {
-            // treat as map stem, e.g. "arena" or "arena.map26"
             let stem = arg.trim_end_matches(".map26");
             match map_paths
                 .iter()

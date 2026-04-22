@@ -65,6 +65,7 @@ pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
         ui.label("Steps/frame");
         ui.add(egui::Slider::new(&mut app.steps_per_frame, 1..=500).logarithmic(true));
     });
+    ui.checkbox(&mut app.show_vision, "show sensor r²≤20");
 
     ui.add_space(8.0);
     ui.separator();
@@ -75,8 +76,8 @@ pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
         ui.label(format!("Status: {:?}", app.last_status));
         ui.monospace(f.summary());
     } else {
-        ui.label("click a passable tile to set START");
-        ui.label("click another tile to set GOAL");
+        ui.label("left-click: set START");
+        ui.label("right-click: set GOAL");
     }
 
     ui.add_space(8.0);
@@ -127,7 +128,7 @@ pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
 #[allow(clippy::too_many_lines)]
 pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
     egui::CentralPanel::default().show_inside(ui, |ui| {
-        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
+        let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click());
         let rect = response.rect;
 
         let ts = app.atlas.tile_size;
@@ -135,11 +136,6 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         let origin = Pos2::new(rect.left() + app.pan.x, rect.top() + app.pan.y);
         painter.rect_filled(rect, 0.0, BG_COLOR);
 
-        // Pan
-        if response.dragged_by(egui::PointerButton::Primary) && !ui.input(|i| i.pointer.any_click())
-        {
-            app.pan += response.drag_delta();
-        }
         // Zoom
         let scroll = ui.input(|i| i.smooth_scroll_delta.y);
         if scroll != 0.0 && response.hovered() {
@@ -176,24 +172,26 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         }
         painter.extend(app.cached_map_shapes.clone());
 
-        // Click: set start, then goal
-        if response.clicked() {
-            if let Some(mouse) = response.interact_pointer_pos() {
-                let gx = ((mouse.x - origin.x) / (ts * zoom)).floor() as i32;
-                let gy = ((mouse.y - origin.y) / (ts * zoom)).floor() as i32;
-                if app.grid.passable(gx, gy) {
-                    if app.start.is_none() {
-                        app.start = Some((gx, gy));
-                    } else if app.goal.is_none() {
-                        app.goal = Some((gx, gy));
-                        app.reset_finder();
-                    } else {
-                        app.start = Some((gx, gy));
-                        app.goal = None;
-                        app.finder = None;
-                        app.optimal_path = None;
-                        app.last_status = StepStatus::Running;
-                    }
+        // Left click: set start. Right click: set goal.
+        let left = response.clicked_by(egui::PointerButton::Primary);
+        let right = response.clicked_by(egui::PointerButton::Secondary);
+        if (left || right)
+            && let Some(mouse) = response.interact_pointer_pos()
+        {
+            let gx = ((mouse.x - origin.x) / (ts * zoom)).floor() as i32;
+            let gy = ((mouse.y - origin.y) / (ts * zoom)).floor() as i32;
+            if app.grid.passable(gx, gy) {
+                if left {
+                    app.start = Some((gx, gy));
+                } else {
+                    app.goal = Some((gx, gy));
+                }
+                if app.start.is_some() && app.goal.is_some() {
+                    app.reset_finder();
+                } else {
+                    app.finder = None;
+                    app.optimal_path = None;
+                    app.last_status = StepStatus::Running;
                 }
             }
         }
@@ -207,6 +205,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             app.optimal_path.as_deref(),
             app.start,
             app.goal,
+            app.show_vision,
         );
     });
 }

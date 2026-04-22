@@ -1,5 +1,11 @@
 pub mod bfs;
+pub mod bfsbug;
 pub mod bug0;
 pub mod bug1;
 pub mod bug2;
 pub mod bug_common;
+pub mod distbug;
+pub mod mem_bfs;
+pub mod tangentbug;
+pub mod visbug21;
+pub mod visbug22;

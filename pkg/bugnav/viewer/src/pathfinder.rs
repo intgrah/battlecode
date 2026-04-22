@@ -90,8 +90,36 @@ pub fn registry() -> &'static [AlgoSpec] {
             build: crate::algorithms::bug1::build,
         },
         AlgoSpec {
+            name: "Bug1+LoS",
+            build: crate::algorithms::bug1::build_los,
+        },
+        AlgoSpec {
             name: "Bug2",
             build: crate::algorithms::bug2::build,
+        },
+        AlgoSpec {
+            name: "DistBug",
+            build: crate::algorithms::distbug::build,
+        },
+        AlgoSpec {
+            name: "VisBug-21",
+            build: crate::algorithms::visbug21::build,
+        },
+        AlgoSpec {
+            name: "VisBug-22",
+            build: crate::algorithms::visbug22::build,
+        },
+        AlgoSpec {
+            name: "TangentBug",
+            build: crate::algorithms::tangentbug::build,
+        },
+        AlgoSpec {
+            name: "BFS+Bug1",
+            build: crate::algorithms::bfsbug::build,
+        },
+        AlgoSpec {
+            name: "Memory+BFS",
+            build: crate::algorithms::mem_bfs::build,
         },
     ]
 }

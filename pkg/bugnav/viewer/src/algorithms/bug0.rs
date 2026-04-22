@@ -1,5 +1,5 @@
 use crate::algorithms::bug_common::{
-    DIR_NAMES, dir_to_goal, dist_sq, follow_step, neighbour, rot_cw_90,
+    WallFollowState, WallStepOutcome, dir_to_goal, dist_sq, neighbour, wall_follow_step,
 };
 use crate::grid::Grid;
 use crate::pathfinder::{Pathfinder, Snapshot, StepStatus};
@@ -17,7 +17,7 @@ pub struct Bug0 {
     goal: (i32, i32),
     pos: (i32, i32),
     mode: Mode,
-    follow_dir: usize,
+    wf: WallFollowState,
     hit_dist_sq: i32,
     steps: u32,
     snap: Snapshot,
@@ -38,7 +38,11 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
         goal,
         pos: start,
         mode: Mode::MotionToGoal,
-        follow_dir: 0,
+        wf: WallFollowState {
+            pos: start,
+            current_obstacle: start,
+            obstacle_on_right: true,
+        },
         hit_dist_sq: dist_sq(start, goal),
         steps: 0,
         snap,
@@ -60,6 +64,28 @@ impl Bug0 {
         self.snap.visited.insert(new_pos);
         self.snap.path.push(new_pos);
     }
+
+    fn step_wall_follow(&mut self) -> WallStepOutcome {
+        let (w, h, walls) = (self.grid_w, self.grid_h, &self.walls);
+        let passable =
+            |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h && !walls[(y * w + x) as usize];
+        let on_map = |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h;
+        let outcome = wall_follow_step(&mut self.wf, passable, on_map);
+        if outcome == WallStepOutcome::Moved {
+            self.move_to(self.wf.pos);
+        }
+        outcome
+    }
+
+    fn enter_follow(&mut self, blocked_dir: usize) {
+        self.mode = Mode::Follow;
+        self.wf = WallFollowState {
+            pos: self.pos,
+            current_obstacle: neighbour(self.pos, blocked_dir),
+            obstacle_on_right: true,
+        };
+        self.hit_dist_sq = dist_sq(self.pos, self.goal);
+    }
 }
 
 impl Pathfinder for Bug0 {
@@ -80,9 +106,7 @@ impl Pathfinder for Bug0 {
                 if self.passable(np.0, np.1) {
                     self.move_to(np);
                 } else {
-                    self.mode = Mode::Follow;
-                    self.follow_dir = rot_cw_90(d);
-                    self.hit_dist_sq = dist_sq(self.pos, self.goal);
+                    self.enter_follow(d);
                 }
             }
             Mode::Follow => {
@@ -92,21 +116,11 @@ impl Pathfinder for Bug0 {
                     self.mode = Mode::MotionToGoal;
                     self.move_to(np);
                 } else {
-                    let walls_w = self.grid_w;
-                    let walls_h = self.grid_h;
-                    let walls_ref = &self.walls;
-                    let passable = |x: i32, y: i32| {
-                        if x < 0 || y < 0 || x >= walls_w || y >= walls_h {
-                            false
-                        } else {
-                            !walls_ref[(y * walls_w + x) as usize]
+                    match self.step_wall_follow() {
+                        WallStepOutcome::Moved => {}
+                        WallStepOutcome::Surrounded => {
+                            self.status = StepStatus::Unreachable;
                         }
-                    };
-                    if let Some((np, nd)) = follow_step(self.pos, self.follow_dir, passable) {
-                        self.follow_dir = nd;
-                        self.move_to(np);
-                    } else {
-                        self.status = StepStatus::Unreachable;
                     }
                 }
             }
@@ -120,13 +134,15 @@ impl Pathfinder for Bug0 {
 
     fn summary(&self) -> String {
         format!(
-            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\nfollow_dir: {}\nhit_dist2: {}\nsteps: {}\nstatus: {:?}",
+            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\nobstacle: ({}, {})\nside: {}\nhit_dist2: {}\nsteps: {}\nstatus: {:?}",
             self.pos.0,
             self.pos.1,
             self.goal.0,
             self.goal.1,
             self.mode,
-            DIR_NAMES[self.follow_dir],
+            self.wf.current_obstacle.0,
+            self.wf.current_obstacle.1,
+            if self.wf.obstacle_on_right { "R" } else { "L" },
             self.hit_dist_sq,
             self.steps,
             self.status,

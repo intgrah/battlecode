@@ -1,10 +1,17 @@
+//! DistBug (Kamon & Rivlin, 1997). Bug2 with a range sensor — leave the wall
+//! when `d_leave - F ≤ d_min - STEP`, where `F` is the free distance along
+//! the ray to goal, as seen by the sensor.
+
 use std::collections::HashSet;
 
 use crate::algorithms::bug_common::{
-    WallFollowState, WallStepOutcome, dir_to_goal, dist_sq, neighbour, wall_follow_step,
+    DIRS, VISION_R_SQ, WallFollowState, WallStepOutcome, dir_to_goal, dist_sq, neighbour,
+    wall_follow_step,
 };
 use crate::grid::Grid;
 use crate::pathfinder::{Pathfinder, Snapshot, StepStatus};
+
+const STEP: f64 = 1.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Mode {
@@ -12,22 +19,25 @@ enum Mode {
     Follow,
 }
 
-pub struct Bug2 {
+pub struct DistBug {
     grid_w: i32,
     grid_h: i32,
     walls: Vec<bool>,
-    start: (i32, i32),
     goal: (i32, i32),
     pos: (i32, i32),
     mode: Mode,
     wf: WallFollowState,
     hit_point: (i32, i32),
-    hit_dist_sq: i32,
-    /// Seen wall-follow states to detect closed loops.
+    d_min: f64,
+    follow_steps: u32,
     follow_visited: HashSet<((i32, i32), (i32, i32), bool)>,
     steps: u32,
     snap: Snapshot,
     status: StepStatus,
+}
+
+fn dist(a: (i32, i32), b: (i32, i32)) -> f64 {
+    (dist_sq(a, b) as f64).sqrt()
 }
 
 pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
@@ -37,11 +47,10 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
         ..Snapshot::default()
     };
     snap.visited.insert(start);
-    Box::new(Bug2 {
+    Box::new(DistBug {
         grid_w: grid.w,
         grid_h: grid.h,
         walls: grid.walls.clone(),
-        start,
         goal,
         pos: start,
         mode: Mode::MotionToGoal,
@@ -51,7 +60,8 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
             obstacle_on_right: true,
         },
         hit_point: start,
-        hit_dist_sq: dist_sq(start, goal),
+        d_min: dist(start, goal),
+        follow_steps: 0,
         follow_visited: HashSet::new(),
         steps: 0,
         snap,
@@ -59,24 +69,7 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
     })
 }
 
-/// Fat m-line test via cross-product tolerance: `pos` is within 0.5 cells of
-/// the continuous line from `start` to `goal`, on the forward side, and
-/// strictly closer than `start`.
-fn on_baseline(pos: (i32, i32), start: (i32, i32), goal: (i32, i32)) -> bool {
-    let dx_t = goal.0 - start.0;
-    let dy_t = goal.1 - start.1;
-    let dx_c = pos.0 - start.0;
-    let dy_c = pos.1 - start.1;
-    let cross = (dy_c * dx_t - dx_c * dy_t).abs();
-    let tol = dx_t.abs().max(dy_t.abs()) / 2;
-    if cross > tol {
-        return false;
-    }
-    let dot = dx_c * dx_t + dy_c * dy_t;
-    dot > 0 && dist_sq(pos, goal) < dist_sq(start, goal)
-}
-
-impl Bug2 {
+impl DistBug {
     fn passable(&self, x: i32, y: i32) -> bool {
         if x < 0 || y < 0 || x >= self.grid_w || y >= self.grid_h {
             return false;
@@ -111,7 +104,7 @@ impl Bug2 {
             obstacle_on_right: true,
         };
         self.hit_point = self.pos;
-        self.hit_dist_sq = dist_sq(self.pos, self.goal);
+        self.follow_steps = 0;
         self.follow_visited.clear();
         self.follow_visited.insert((
             self.wf.pos,
@@ -119,9 +112,31 @@ impl Bug2 {
             self.wf.obstacle_on_right,
         ));
     }
+
+    /// Free distance along the king-direction ray toward the goal, measured
+    /// in cells traversed (Euclidean distance to last passable cell). Must
+    /// match the direction motion-to-goal will actually use — otherwise the
+    /// leave condition can fire while motion is still blocked, causing an
+    /// infinite Follow↔MotionToGoal oscillation.
+    fn free_distance_to_goal(&self) -> f64 {
+        let d = dir_to_goal(self.pos, self.goal);
+        let (dx, dy) = DIRS[d];
+        let mut p = self.pos;
+        loop {
+            let next = (p.0 + dx, p.1 + dy);
+            if dist_sq(self.pos, next) > VISION_R_SQ {
+                break;
+            }
+            if !self.passable(next.0, next.1) {
+                break;
+            }
+            p = next;
+        }
+        dist(self.pos, p)
+    }
 }
 
-impl Pathfinder for Bug2 {
+impl Pathfinder for DistBug {
     fn step(&mut self) -> StepStatus {
         if self.status != StepStatus::Running {
             return self.status;
@@ -138,17 +153,19 @@ impl Pathfinder for Bug2 {
                 let np = neighbour(self.pos, d);
                 if self.passable(np.0, np.1) {
                     self.move_to(np);
+                    let new_d = dist(self.pos, self.goal);
+                    if new_d < self.d_min {
+                        self.d_min = new_d;
+                    }
                 } else {
                     self.enter_follow(d);
                 }
             }
             Mode::Follow => {
-                // King-adjacency shortcut.
-                if dist_sq(self.pos, self.goal) <= 2
-                    && self.passable(self.goal.0, self.goal.1)
-                {
+                let d_leave = dist(self.pos, self.goal);
+                let f = self.free_distance_to_goal();
+                if d_leave - f <= self.d_min - STEP {
                     self.mode = Mode::MotionToGoal;
-                    self.move_to(self.goal);
                     return self.status;
                 }
                 match self.step_wall_follow() {
@@ -158,11 +175,10 @@ impl Pathfinder for Bug2 {
                         return self.status;
                     }
                 }
-                if on_baseline(self.pos, self.start, self.goal)
-                    && dist_sq(self.pos, self.goal) < self.hit_dist_sq
-                {
-                    self.mode = Mode::MotionToGoal;
-                    return self.status;
+                self.follow_steps += 1;
+                let new_d = dist(self.pos, self.goal);
+                if new_d < self.d_min {
+                    self.d_min = new_d;
                 }
                 let state = (
                     self.wf.pos,
@@ -170,8 +186,7 @@ impl Pathfinder for Bug2 {
                     self.wf.obstacle_on_right,
                 );
                 if !self.follow_visited.insert(state) {
-                    // Full loop without a closer m-line crossing — Bug2's
-                    // textbook termination.
+                    // Full circumnavigation with no qualifying leave condition.
                     self.status = StepStatus::Unreachable;
                 }
             }
@@ -184,28 +199,35 @@ impl Pathfinder for Bug2 {
     }
 
     fn summary(&self) -> String {
+        let f = if self.mode == Mode::Follow {
+            self.free_distance_to_goal()
+        } else {
+            0.0
+        };
         format!(
-            "pos: ({}, {})\nstart: ({}, {})\ngoal: ({}, {})\nmode: {:?}\nhit: ({}, {})\nhit_d2: {}\nobstacle: ({}, {})\nside: {}\non_baseline: {}\nsteps: {}\nstatus: {:?}",
+            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\nhit: ({}, {})\nd_leave: {:.2}\nd_min: {:.2}\nF: {:.2}\nleave if: d_leave-F ≤ d_min-1 ({:.2} ≤ {:.2})\nobstacle: ({}, {})\nside: {}\nsensor r²≤{}\nsteps: {}\nstatus: {:?}",
             self.pos.0,
             self.pos.1,
-            self.start.0,
-            self.start.1,
             self.goal.0,
             self.goal.1,
             self.mode,
             self.hit_point.0,
             self.hit_point.1,
-            self.hit_dist_sq,
+            dist(self.pos, self.goal),
+            self.d_min,
+            f,
+            dist(self.pos, self.goal) - f,
+            self.d_min - STEP,
             self.wf.current_obstacle.0,
             self.wf.current_obstacle.1,
             if self.wf.obstacle_on_right { "R" } else { "L" },
-            on_baseline(self.pos, self.start, self.goal),
+            VISION_R_SQ,
             self.steps,
             self.status,
         )
     }
 
     fn name(&self) -> &'static str {
-        "Bug2"
+        "DistBug"
     }
 }

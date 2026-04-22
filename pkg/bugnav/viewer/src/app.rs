@@ -22,6 +22,7 @@ pub struct App {
 
     pub playing: bool,
     pub steps_per_frame: u32,
+    pub show_vision: bool,
 
     pub pan: egui::Vec2,
     pub zoom: f32,
@@ -71,6 +72,7 @@ impl App {
             optimal_path: None,
             playing: false,
             steps_per_frame: 1,
+            show_vision: true,
             pan: egui::Vec2::new(10.0, 10.0),
             zoom: 1.0,
             cached_map_shapes: Vec::new(),
