@@ -18,14 +18,13 @@ from building import (
 )
 from cambc import Controller, EntityType, Environment, Position, ResourceType
 from util.constants import BASE_COST, INF, MAX_WIDTH
-from util.directions import DIR4
 from util.debug import debug as log
+from util.directions import DIR4
+from util.metrics import chebyshev
 
 from builder.helpers import (
     ax_feeds_target,
-    find_dangling,
     harvester_would_contaminate,
-    is_dangling,
     ore_available,
     pick_ax_ore_target,
     pick_ore_target,
@@ -44,7 +43,7 @@ def can_place_junction(self: Builder, pos: Position) -> bool:
         case _:
             return False
 
-    conv = self.get_conveyors_to_here(pos)
+    conv = self.get_in_edges(pos)
     conv_adj = [c for c in conv if c.distance_squared(pos) <= 2]
     if len(conv_adj) >= 2 or len(conv) == 0:
         return False
@@ -67,6 +66,7 @@ def can_place_junction(self: Builder, pos: Position) -> bool:
 
 
 def update_map_econ(self: Builder, ct: Controller) -> None:
+    prev_unconn = self.adjacent_to_unconnected_harvester
     self.adjacent_to_unconnected_harvester = {
         p for p in self.adjacent_to_unconnected_harvester if not ct.is_in_vision(p)
     }
@@ -136,32 +136,57 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
             if pos in self.enemy_turret_ray_tiles:
                 self.cost_grid[i] += 15
 
+    # Reconcile dangling_set with harvester-adjacency changes: any tile
+    # that entered or left adjacent_to_unconnected_harvester this turn
+    # may have changed its dangling status.
+    changed = prev_unconn ^ self.adjacent_to_unconnected_harvester
+    for p in changed:
+        self._check_dangling(p)
+
+
+def update_unreachable_dangling(self: Builder) -> None:
+    """Migrate tiles between `dangling_set` and `unreachable_dangling`
+    according to this turn's BFS. Keeps the two sets disjoint."""
+    for t in list(self.dangling_set):
+        if self.bfs_dist[t.y * MAX_WIDTH + t.x] is INF:
+            self.dangling_set.discard(t)
+            self.unreachable_dangling.add(t)
+    for t in list(self.unreachable_dangling):
+        if self.bfs_dist[t.y * MAX_WIDTH + t.x] is not INF:
+            self.unreachable_dangling.discard(t)
+            self.dangling_set.add(t)
+
 
 def update_dangling(self: Builder) -> None:
-    if self.pending_bridge:
-        self.dangling_output = self.pending_bridge
+    # Preserve commitment if still in the set, regardless of whether a
+    # closer friendly builder has since come into vision.
+    if self.dangling_output in self.dangling_set:
         return
-
-    if self.dangling_output is not None and is_dangling(self, self.dangling_output):
-        return
-
-    if is_dangling(self, self.my_pos):
-        self.dangling_output = self.my_pos
-        return
-
-    match self.get_building(self.my_pos):
-        case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-            target = self.my_pos.add(d)
-            if is_dangling(self, target):
-                self.dangling_output = target
-                return
-        case _:
-            for n in self.neighbours_8:
-                if is_dangling(self, n):
-                    self.dangling_output = n
-                    return
-
-    self.dangling_output = find_dangling(self)
+    # Otherwise pick the nearest dangling tile (Chebyshev, since builders
+    # move 8-way) for which no visible friendly builder is strictly closer;
+    # ties broken by lower builder id so exactly one builder claims each
+    # dangling end.
+    friendly = [
+        (pos, uid)
+        for pos, uid in self.all_bots.items()
+        if uid != self.my_id and pos in self.friendly_bots
+    ]
+    best: Position | None = None
+    best_d = 1 << 30
+    for pos in self.dangling_set:
+        my_d = chebyshev(self.my_pos, pos)
+        beaten = False
+        for fb_pos, fb_id in friendly:
+            fb_d = chebyshev(fb_pos, pos)
+            if fb_d < my_d or (fb_d == my_d and fb_id < self.my_id):
+                beaten = True
+                break
+        if beaten:
+            continue
+        if my_d < best_d:
+            best_d = my_d
+            best = pos
+    self.dangling_output = best
 
 
 def update_ore_target(self: Builder) -> None:
@@ -199,7 +224,7 @@ def _foundry_local_ok(self: Builder, pos: Position) -> bool:
         return False
     if pos in self.ax_harvester_adjacent:
         return False
-    if pos not in self.reaches_core:
+    if pos in self.upstream_of_dangling:
         return False
     if pos in self.reaches_foundry:
         return False
@@ -220,25 +245,17 @@ def _foundry_local_ok(self: Builder, pos: Position) -> bool:
     return saw_ti
 
 
-def _ax_chain_reaches_foundry(self: Builder, pos: Position) -> bool:
-    """`pos` is a friendly transport tile that reaches a foundry (per the
-    per-turn backward DFS from foundries) AND is downstream of an Ax
-    harvester AND is NOT downstream of a Ti harvester. All three checks are
-    O(1) set lookups against precomputed reachability sets."""
-    i = pos.y * MAX_WIDTH + pos.x
-    bld = self.buildings[i]
+def _pure_ax_merge_ok(self: Builder, pos: Position) -> bool:
+    """`pos` is a pure-Ax transport tile worth merging a new Ax chain into:
+    downstream of an Ax harvester, not downstream of a Ti harvester, and
+    not upstream of a dangling end. We don't require `reaches_foundry`
+    because the terminating foundry may be out of current vision — if the
+    chain is pure Ax and not dangling, it's structurally destined for a
+    foundry."""
     return (
-        isinstance(
-            bld,
-            BuildingConveyor
-            | BuildingArmouredConveyor
-            | BuildingSplitter
-            | BuildingBridge,
-        )
-        and bld.team == self.my_team
-        and pos in self.reaches_foundry
-        and pos in self.ax_upstream
+        pos in self.ax_upstream
         and pos not in self.ti_upstream
+        and pos not in self.upstream_of_dangling
     )
 
 
@@ -253,20 +270,51 @@ def _manhattan(a: Position, b: Position) -> int:
     return abs(a.x - b.x) + abs(a.y - b.y)
 
 
-def update_economy_reachability(self: Builder) -> None:
-    """Per-turn DFS from the core and from each known friendly foundry over
-    the reverse economy graph (conveyors_to_here + splitters_to_here). Marks
-    `self.reaches_core` and `self.reaches_foundry`. O(tiles in the transport
-    network) total work, so per-candidate checks collapse to O(1) set
-    membership instead of per-candidate BFS.
+def _detect_congested_junctions(self: Builder) -> list[Position]:
+    """Find junctions (multi-feeder tiles) where the feeders' total
+    observed inflow exceeds the junction's maxlen window — i.e. stacks
+    arrive faster than a single-tile pass-through can forward. These are
+    the root-cause congestion points; everything upstream back-pressures
+    from here."""
+    result: list[Position] = []
+    for t in self.nearby_buildings:
+        i = t.y * MAX_WIDTH + t.x
+        feeders = self.in_edges[i]
+        if len(feeders) < 2:
+            continue
+        hist = self.flow_history[i]
+        if len(hist) < hist.maxlen:
+            continue
+        if sum(1 for r, _ in hist if r is not None) < hist.maxlen:
+            continue
+        total = 0
+        complete = True
+        for f in feeders:
+            fh = self.flow_history[f.y * MAX_WIDTH + f.x]
+            if len(fh) < fh.maxlen:
+                complete = False
+                break
+            total += sum(1 for r, _ in fh if r is not None)
+        if complete and total > hist.maxlen:
+            result.append(t)
+    return result
 
-    Also computes `ti_upstream` / `ax_upstream` via forward flood from
-    harvester-adjacent transport tiles, so `chain_ore_kinds`-style lookups
-    become O(1) set membership as well."""
+
+def update_economy_reachability(self: Builder) -> None:
+    """Per-turn flood over the structural transport graph. Marks
+    `reaches_core`, `reaches_foundry`, `upstream_of_dangling`,
+    `upstream_of_congestion` (backward over `in_edges`) and
+    `ti_upstream`, `ax_upstream` (forward over `out_edges`). All O(edges)
+    set-membership lookups afterwards."""
     self.reaches_core = set()
     self.reaches_foundry = set()
     self.ti_upstream = set()
     self.ax_upstream = set()
+    self.upstream_of_dangling = set()
+    self.upstream_of_congestion = set()
+
+    in_edges = self.in_edges
+    out_edges = self.out_edges
 
     def flood_back(roots: list[Position], target: set[Position]) -> None:
         stack: list[Position] = []
@@ -276,79 +324,37 @@ def update_economy_reachability(self: Builder) -> None:
                 stack.append(r)
         while stack:
             p = stack.pop()
-            i = p.y * MAX_WIDTH + p.x
-            for u in self.conveyors_to_here[i]:
-                if u in target:
-                    continue
-                target.add(u)
-                stack.append(u)
-            for u in self.splitters_to_here[i]:
+            for u in in_edges[p.y * MAX_WIDTH + p.x]:
                 if u in target:
                     continue
                 target.add(u)
                 stack.append(u)
 
     if self.my_core is not None:
-        core_roots = [self.my_core, *self.core_edges]
-        flood_back(core_roots, self.reaches_core)
+        flood_back([self.my_core, *self.core_edges], self.reaches_core)
 
     if self.my_foundries:
         flood_back(list(self.my_foundries), self.reaches_foundry)
+
+    dangling_roots = [p for p in self.dangling_set if in_edges[p.y * MAX_WIDTH + p.x]]
+    flood_back(dangling_roots, self.upstream_of_dangling)
+
+    self.congested_junctions = set(_detect_congested_junctions(self))
+    flood_back(list(self.congested_junctions), self.upstream_of_congestion)
 
     def flood_forward(seeds: set[Position], target: set[Position]) -> None:
         stack: list[Position] = []
         for s in seeds:
             if s in target:
                 continue
-            bld = self.buildings[s.y * MAX_WIDTH + s.x]
-            if not isinstance(
-                bld,
-                (
-                    BuildingConveyor
-                    | BuildingArmouredConveyor
-                    | BuildingSplitter
-                    | BuildingBridge
-                ),
-            ):
-                continue
-            if bld.team != self.my_team:
+            if not out_edges[s.y * MAX_WIDTH + s.x]:
                 continue
             target.add(s)
             stack.append(s)
         while stack:
             p = stack.pop()
-            bld = self.buildings[p.y * MAX_WIDTH + p.x]
-            outs: list[Position] = []
-            match bld:
-                case (
-                    BuildingConveyor(direction=d)
-                    | BuildingArmouredConveyor(
-                        direction=d,
-                    )
-                ):
-                    outs.append(p.add(d))
-                case BuildingSplitter(direction=d):
-                    back = d.opposite()
-                    outs.extend(p.add(sd) for sd in DIR4 if sd != back)
-                case BuildingBridge(target=t):
-                    outs.append(t)
-            for out in outs:
-                if not self.in_bounds(out):
-                    continue
+            for out in out_edges[p.y * MAX_WIDTH + p.x]:
                 if out in target:
-                    continue
-                b2 = self.buildings[out.y * MAX_WIDTH + out.x]
-                if not isinstance(
-                    b2,
-                    (
-                        BuildingConveyor
-                        | BuildingArmouredConveyor
-                        | BuildingSplitter
-                        | BuildingBridge
-                    ),
-                ):
-                    continue
-                if b2.team != self.my_team:
                     continue
                 target.add(out)
                 stack.append(out)
@@ -389,7 +395,7 @@ def _is_junction(self: Builder, pos: Position) -> bool:
         return False
     if bld.team != self.my_team:
         return False
-    feeders = self.conveyors_to_here[i] + self.splitters_to_here[i]
+    feeders = self.in_edges[i]
     if len(feeders) < 2:
         return False
 
@@ -453,10 +459,8 @@ def update_foundry_target(self: Builder) -> None:
             foundry_d = d
             foundry_best = pos
 
-    for pos in self.reaches_foundry & self.ax_upstream:
-        if pos in self.ti_upstream:
-            continue
-        if not _ax_chain_reaches_foundry(self, pos):
+    for pos in self.ax_upstream:
+        if not _pure_ax_merge_ok(self, pos):
             continue
         d = _manhattan(origin, pos)
         if d < ax_chain_d:
@@ -503,62 +507,33 @@ def update_foundry_target(self: Builder) -> None:
             self.foundry_target = None
     if self.foundry_target is None and self.ax_sink is not None:
         chosen = self.ax_sink
-        if (
-            _foundry_local_ok(self, chosen)
-            and ax_feeds_target(self, chosen)
-        ):
+        if _foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen):
             self.foundry_target = chosen
 
 
 def _ti_sink_ok(self: Builder, pos: Position) -> bool:
-    """Empirical Ti-sink candidate: friendly Ti conveyor that is both
-    flowing (Ti observed, no Ax contamination) AND not congested. Congestion
-    signals, in order of earliness:
-      - Any stack id appears at least twice in the flow_history window →
-        a stack sat on the tile across ticks without moving (fires 2
-        ticks in).
-      - Legacy fallback: every slot in the 8-entry window is non-None AND
-        all-Ti, which only fires after the window fills."""
+    """Empirical Ti-sink candidate: friendly Ti conveyor that carries Ti,
+    not Ax-contaminated, not upstream of a dangling end or a congested
+    junction (routing more flow into either is wasteful)."""
     i = pos.y * MAX_WIDTH + pos.x
     bld = self.buildings[i]
     if not isinstance(bld, BuildingConveyor | BuildingArmouredConveyor):
         return False
     if bld.team != self.my_team:
         return False
-    # Don't pick a tile that feeds into our dangling output — routing toward
-    # it would double back through our own in-progress chain. This is the
-    # specific "just-placed conveyor becomes ti_sink" bug fix.
-    if (
-        self.dangling_output is not None
-        and pos
-        in self.conveyors_to_here[
-            self.dangling_output.y * MAX_WIDTH + self.dangling_output.x
-        ]
-    ):
+    if pos in self.upstream_of_dangling:
+        return False
+    if pos in self.upstream_of_congestion:
         return False
     if pos in self.ax_harvester_adjacent:
         return False
-    hist = self.flow_history[i]
     saw_ti = False
-    has_ax = False
-    seen_ids: set[int] = set()
-    repeated_id = False
-    for r, rid in hist:
+    for r, _rid in self.flow_history[i]:
         if r in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE):
-            has_ax = True
-        elif r == ResourceType.TITANIUM:
+            return False
+        if r == ResourceType.TITANIUM:
             saw_ti = True
-        if rid is not None:
-            if rid in seen_ids:
-                repeated_id = True
-            else:
-                seen_ids.add(rid)
-    if has_ax or repeated_id or not saw_ti:
-        return False
-    # Legacy: if the window is full AND every slot is Ti (no empty), treat
-    # as saturated island. Duplicate-id check above is stricter, so this is
-    # just belt-and-braces.
-    return not (len(hist) == hist.maxlen and all(r is not None for r, _ in hist))
+    return saw_ti
 
 
 _NEAR_CORE_SAVING_THRESHOLD = 5

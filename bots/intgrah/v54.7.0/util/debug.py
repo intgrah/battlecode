@@ -59,7 +59,8 @@ class Scope(AbstractContextManager):
         ) -> bool | None:
             Scope._depth -= 1
             if self.time:
-                dt = (perf_counter_ns() - self._t0) // 1000
+                self._t1 = perf_counter_ns()
+                dt = (self._t1 - self._t0) // 1000
                 print(f"{'  ' * Scope._depth}{self.label}={dt}us")
             return None
     else:

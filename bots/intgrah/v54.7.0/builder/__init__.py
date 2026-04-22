@@ -5,9 +5,15 @@ from typing import TYPE_CHECKING, Final, override
 
 from building import (
     BuildingArmouredConveyor,
+    BuildingBreach,
     BuildingBridge,
     BuildingConveyor,
+    BuildingCore,
+    BuildingFoundry,
+    BuildingGunner,
+    BuildingLauncher,
     BuildingRoad,
+    BuildingSentinel,
     BuildingSplitter,
 )
 from cambc import (
@@ -22,8 +28,9 @@ from hardcode.identify import core_for, find_core, identify_map
 from hardcode.map import SYMMETRY, TILES, decode
 from unit import Unit
 from util.constants import INF, MAX_N, MAX_WIDTH
+from util.debug import Scope, dot
+from util.debug import debug as log
 from util.directions import DIR8, DIR8_DELTA
-from util.debug import Scope, debug as log, dot
 from util.symmetry import Symmetry
 
 from builder.algorithms.astar import MoveHeapAstar
@@ -44,6 +51,7 @@ from builder.update.econ import (
     update_map_econ,
     update_ore_target,
     update_ti_sink,
+    update_unreachable_dangling,
 )
 from builder.update.prune import prune_stale
 from builder.update.role import update_role
@@ -101,15 +109,95 @@ class Builder(Unit):
                 self._refresh_ti_leakage(ni)
 
     def _check_multi_input(self, t: Position) -> None:
-        """Call after `conveyors_to_here[idx(t)]` or `splitters_to_here[idx(t)]`
-        is mutated. Adds/removes t from `is_multi_input` based on the current
-        total feeder count."""
+        """Call after `in_edges[idx(t)]` is mutated. Adds/removes t from
+        `is_multi_input` based on the current feeder count."""
         idx = t.y * MAX_WIDTH + t.x
-        count = len(self.conveyors_to_here[idx]) + len(self.splitters_to_here[idx])
-        if count >= 2:
+        if len(self.in_edges[idx]) >= 2:
             self.is_multi_input.add(t)
         else:
             self.is_multi_input.discard(t)
+
+    def _is_flow_consumer(self, pos: Position) -> bool:
+        """Tile hosts a friendly building that accepts flow (transport or
+        sink). Used for splitter-satisfaction counting."""
+        b = self.buildings[pos.y * MAX_WIDTH + pos.x]
+        if b is None or b.team != self.my_team:
+            return False
+        return isinstance(
+            b,
+            BuildingConveyor
+            | BuildingArmouredConveyor
+            | BuildingBridge
+            | BuildingSplitter
+            | BuildingFoundry
+            | BuildingCore
+            | BuildingGunner
+            | BuildingSentinel
+            | BuildingBreach
+            | BuildingLauncher,
+        )
+
+    def _splitter_satisfied(self, splitter_pos: Position) -> bool:
+        """A splitter is 'satisfied' iff >= 2 of its output tiles host a
+        friendly flow consumer. Unsatisfied splitters contribute their
+        empty outputs as dangling ends; satisfied ones don't."""
+        count = 0
+        for out in self.out_edges[splitter_pos.y * MAX_WIDTH + splitter_pos.x]:
+            if self._is_flow_consumer(out):
+                count += 1
+                if count >= 2:
+                    return True
+        return False
+
+    def _check_dangling(self, t: Position) -> None:
+        """Re-evaluate whether `t` is a dangling chain end and sync
+        membership across `dangling_set` and `unreachable_dangling`. These
+        two sets are disjoint: `dangling_set` holds the reachable ones,
+        `unreachable_dangling` the ones whose `bfs_dist is INF`. This hook
+        only knows topology, not reachability — newly-dangling tiles enter
+        `dangling_set` and the per-turn migration sorts them later. A tile
+        already in `unreachable_dangling` stays there (don't flip-flop
+        until reachability is rechecked).
+
+        A tile `t` is dangling iff it's empty/friendly-road AND at least
+        one of:
+        - It is adjacent to an unconnected harvester.
+        - Some feeder in `in_edges[t]` is unsatisfied: conveyors / armoured
+          conveyors / bridges are always unsatisfied when their single
+          output is empty (i.e., when `t` is that output); splitters are
+          unsatisfied only when `_splitter_satisfied` returns False.
+
+        Call after any input could have changed: in_edges[t],
+        buildings[t], env[t], a feeder splitter's output connectivity, or
+        t's membership in adjacent_to_unconnected_harvester."""
+        i = t.y * MAX_WIDTH + t.x
+        bld = self.buildings[i]
+        if bld is None:
+            if self.env[i] == Environment.WALL:
+                self.dangling_set.discard(t)
+                self.unreachable_dangling.discard(t)
+                return
+        elif not isinstance(bld, BuildingRoad) or bld.team != self.my_team:
+            self.dangling_set.discard(t)
+            self.unreachable_dangling.discard(t)
+            return
+
+        is_dangling = t in self.adjacent_to_unconnected_harvester
+        if not is_dangling:
+            for feeder in self.in_edges[i]:
+                fb = self.buildings[feeder.y * MAX_WIDTH + feeder.x]
+                if isinstance(fb, BuildingSplitter):
+                    if self._splitter_satisfied(feeder):
+                        continue
+                is_dangling = True
+                break
+
+        if is_dangling:
+            if t not in self.unreachable_dangling:
+                self.dangling_set.add(t)
+        else:
+            self.dangling_set.discard(t)
+            self.unreachable_dangling.discard(t)
 
     def update_pnb(self, i: int) -> None:
         w, h = self.w, self.h
@@ -238,8 +326,15 @@ class Builder(Unit):
         across consecutive ticks, that stack sat on the tile instead of
         moving, which is a backlog signal before the history even fills."""
 
-        self.conveyors_to_here: list[list[Position]] = [[] for _ in range(MAX_N)]
-        self.splitters_to_here: list[list[Position]] = [[] for _ in range(MAX_N)]
+        self.in_edges: list[list[Position]] = [[] for _ in range(MAX_N)]
+        """Structural feeders: positions whose output (conveyor/armoured/
+        bridge/splitter) lands on this tile. Flow presence/direction is
+        read empirically from `flow_history`; this graph only tracks
+        connectivity."""
+        self.out_edges: list[list[Position]] = [[] for _ in range(MAX_N)]
+        """Structural consumers: positions this tile's building outputs to.
+        Mirrors `in_edges` so forward walks don't have to match on the
+        building type."""
 
         self.symmetry_candidates: set[Symmetry] = set(Symmetry)
         """The current set of symmetry hypotheses."""
@@ -264,8 +359,8 @@ class Builder(Unit):
         """Cardinal-neighbours of Ax harvesters. Ti chains avoid these."""
         self.reaches_core: set[Position] = set()
         """Tiles whose flow eventually reaches the core. Computed per turn by
-        a DFS backwards from the core over conveyors_to_here/splitters_to_here.
-        O(1) membership test replaces the per-candidate downstream BFS."""
+        a DFS backwards from the core over `in_edges`. O(1) membership test
+        replaces the per-candidate downstream BFS."""
         self.reaches_foundry: set[Position] = set()
         """Tiles whose flow eventually reaches any friendly foundry. Same
         mechanism as reaches_core but seeded from each observed foundry."""
@@ -277,15 +372,28 @@ class Builder(Unit):
         """Transport tiles fed (transitively) by some friendly Ax harvester.
         Forward flood from `ax_harvester_adjacent` per turn. Replaces
         per-tile `chain_ore_kinds` BFS for Ax presence."""
+        self.upstream_of_dangling: set[Position] = set()
+        """Transport tiles whose flow eventually lands on any known dangling
+        tile. Universal filter for sink picking — routing to any tile in
+        here forms an island terminating at an unbuilt chain tip."""
+        self.congested_junctions: set[Position] = set()
+        """Junctions where total feeder inflow exceeds the junction's
+        single-tile pass-through — the root cause of congestion. Computed
+        per turn by scanning nearby multi-feeder tiles; everything upstream
+        back-pressures from here."""
+        self.upstream_of_congestion: set[Position] = set()
+        """Transport tiles whose flow leads into a congested junction. Union
+        of upstream trees of `congested_junctions`. Used to reject Ti-sink
+        candidates and to identify conveyors worth upgrading into splitters."""
         self.my_foundries: set[Position] = set()
         """Friendly foundry positions. Maintained incrementally in vision
         update (`_add_topology`/`_remove_topology`) so `update_economy_reachability`
         and `update_foundry_target` don't need full-map scans."""
         self.is_multi_input: set[Position] = set()
-        """Tiles with >= 2 feeders (count of `conveyors_to_here[i]` +
-        `splitters_to_here[i]`). Maintained incrementally in
-        `_add_topology`/`_remove_topology`. Superset of potential foundry
-        junctions — filtered by Ti+Ax feeder kinds into `self.junctions`."""
+        """Tiles with >= 2 feeders (`len(in_edges[i]) >= 2`). Maintained
+        incrementally in `_add_topology`/`_remove_topology`. Superset of
+        potential foundry junctions — filtered by Ti+Ax feeder kinds into
+        `self.junctions`."""
         self.junctions: set[Position] = set()
         """Friendly conveyor/armoured tiles that qualify as foundry sites:
         multi-input AND have at least one Ti-only feeder AND at least one
@@ -349,8 +457,22 @@ class Builder(Unit):
         friendly conveyor (so new Ti harvesters merge into the existing chain),
         falling back to the core when no Ti conveyor is closer. Falls back to
         None → `my_core` so the very first harvester still routes correctly."""
-        self.pending_bridge: Position | None = None
+        self.dangling_set: set[Position] = set()
+        """Reachable loose-end tiles this builder knows about. Maintained
+        incrementally via topology hooks (`_add_topology`, `_remove_topology`,
+        `_check_dangling`) and via harvester-adjacency changes. Persistent
+        across vision loss: entries stay until topology contradicts them.
+        Disjoint from `unreachable_dangling`."""
+        self.unreachable_dangling: set[Position] = set()
+        """Dangling tiles the BFS has proven unreachable (bfs_dist is INF).
+        Typically created when a bridge's landing sits inside an enclosed
+        pocket. The `DESTROY_DEAD_BRIDGE` task walks upstream from these
+        to the offending bridge and destroys it. Disjoint from
+        `dangling_set`; migration happens in `update_unreachable_dangling`
+        after each turn's BFS."""
         self.dangling_output: Position | None = None
+        """The dangling tile this builder is currently committed to. Picked
+        from `dangling_set`; stays put until it leaves the set."""
 
         # Repair
         self.repair_pos: Position | None = None
@@ -501,8 +623,11 @@ class Builder(Unit):
             | BuildingBridge,
         )
 
-    def get_conveyors_to_here(self, pos: Position) -> list[Position]:
-        return self.conveyors_to_here[self.idx(pos)]
+    def get_in_edges(self, pos: Position) -> list[Position]:
+        return self.in_edges[self.idx(pos)]
+
+    def get_out_edges(self, pos: Position) -> list[Position]:
+        return self.out_edges[self.idx(pos)]
 
     def is_buildable(self, pos: Position) -> bool:
         i = self.idx(pos)
@@ -550,6 +675,7 @@ class Builder(Unit):
     update_enemy_turrets = update_enemy_turrets
     update_role = update_role
     update_map_econ = update_map_econ
+    update_unreachable_dangling = update_unreachable_dangling
     update_dangling = update_dangling
     update_ore_target = update_ore_target
     update_ax_ore_target = update_ax_ore_target

@@ -19,7 +19,7 @@ from building import (
     make_building,
 )
 from cambc import Controller, EntityType, Environment, GameConstants
-from util.constants import INF, ROAD_COST
+from util.constants import INF, MAX_WIDTH, ROAD_COST
 from util.directions import DIR8
 
 if TYPE_CHECKING:
@@ -28,37 +28,37 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
+def _edge_targets(pos: Position, bld: object) -> list[Position]:
+    """Structural output tiles of `bld` placed at `pos`. One entry for a
+    conveyor / armoured conveyor / bridge; three for a splitter; empty for
+    non-routing buildings (which participate via separate sets)."""
+    match bld:
+        case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
+            return [pos.add(d)]
+        case BuildingBridge(target=t):
+            return [t]
+        case BuildingSplitter(direction=d):
+            return [
+                pos.add(d),
+                pos.add(d.rotate_right().rotate_right()),
+                pos.add(d.rotate_left().rotate_left()),
+            ]
+    return []
+
+
 def _remove_topology(self: Builder, pos: Position, i: int) -> None:
     old_bld = self.buildings[i]
+    if old_bld is not None and old_bld.team == self.my_team:
+        for t in _edge_targets(pos, old_bld):
+            if not self.in_bounds(t):
+                continue
+            ti = self.idx(t)
+            if pos in self.in_edges[ti]:
+                self.in_edges[ti].remove(pos)
+                self._check_multi_input(t)
+                self._check_dangling(t)
+        self.out_edges[i] = []
     match old_bld:
-        case BuildingConveyor(direction=d):
-            t = pos.add(d)
-            if self.in_bounds(t):
-                ti = self.idx(t)
-                lst = self.conveyors_to_here[ti]
-                if pos in lst:
-                    lst.remove(pos)
-                    self._check_multi_input(t)
-        case BuildingBridge(target=t):
-            if self.in_bounds(t):
-                ti = self.idx(t)
-                lst = self.conveyors_to_here[ti]
-                if pos in lst:
-                    lst.remove(pos)
-                    self._check_multi_input(t)
-        case BuildingSplitter(direction=d):
-            for sd in [
-                d,
-                d.rotate_right().rotate_right(),
-                d.rotate_left().rotate_left(),
-            ]:
-                t = pos.add(sd)
-                if self.in_bounds(t):
-                    ti = self.idx(t)
-                    lst = self.splitters_to_here[ti]
-                    if pos in lst:
-                        lst.remove(pos)
-                        self._check_multi_input(t)
         case BuildingFoundry(team=t) if t == self.my_team:
             self.my_foundries.discard(pos)
             self._bump_foundry(pos, -1)
@@ -71,26 +71,19 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
 
 
 def _add_topology(self: Builder, pos: Position, bld: object) -> None:
-    match bld:
-        case BuildingConveyor(direction=d):
-            t = pos.add(d)
-            if self.in_bounds(t):
-                self.conveyors_to_here[self.idx(t)].append(pos)
-                self._check_multi_input(t)
-        case BuildingBridge(target=t):
-            if self.in_bounds(t):
-                self.conveyors_to_here[self.idx(t)].append(pos)
-                self._check_multi_input(t)
-        case BuildingSplitter(direction=d):
-            for sd in [
-                d,
-                d.rotate_right().rotate_right(),
-                d.rotate_left().rotate_left(),
-            ]:
-                t = pos.add(sd)
+    if bld is not None and getattr(bld, "team", None) == self.my_team:
+        targets = _edge_targets(pos, bld)
+        if targets:
+            outs: list[Position] = []
+            for t in targets:
                 if self.in_bounds(t):
-                    self.splitters_to_here[self.idx(t)].append(pos)
+                    self.in_edges[self.idx(t)].append(pos)
+                    outs.append(t)
                     self._check_multi_input(t)
+                    self._check_dangling(t)
+            self.out_edges[pos.y * MAX_WIDTH + pos.x] = outs
+            return
+    match bld:
         case BuildingFoundry(team=t) if t == self.my_team:
             self.my_foundries.add(pos)
             self._bump_foundry(pos, +1)
@@ -232,6 +225,16 @@ def update_vision(self: Builder, ct: Controller) -> None:
 
             _update_cost(self, i, env, self.buildings[i])
             self.update_pnb(i)
+            self._check_dangling(pos)
+            # When pos transitions between consumer / non-consumer, the
+            # satisfaction count of any splitter feeding pos changes, so
+            # its OTHER outputs may flip dangling state.
+            for feeder in self.in_edges[i]:
+                fb = self.buildings[feeder.y * MAX_WIDTH + feeder.x]
+                if isinstance(fb, BuildingSplitter):
+                    for sib in self.out_edges[feeder.y * MAX_WIDTH + feeder.x]:
+                        if sib != pos:
+                            self._check_dangling(sib)
             bld = self.buildings[i]
             if bld is not None:
                 _update_turret_rays(self, ct, pos, bld)

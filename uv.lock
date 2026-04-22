@@ -47,6 +47,7 @@ members = [
     "bot-drewfett-v6",
     "bot-drewfett-v7",
     "bot-drewfett-v8",
+    "bot-heap-freelist",
     "bot-nahhh-baseline-v25",
     "bot-nahhh-harvester-punisher",
     "bot-nahhh-nahhh",
@@ -82,32 +83,15 @@ members = [
     "bot-sprint4",
     "bot-sprint4ax",
     "bot-starter",
-    "bot-test-bypass-frozen-poc",
-    "bot-test-bytecode-exfil",
     "bot-test-bytecode-victim",
-    "bot-test-cambc-loader",
     "bot-test-controller",
     "bot-test-core-spawn",
     "bot-test-entity",
     "bot-test-getid-victim",
     "bot-test-resign-swap",
     "bot-test-rotate",
+    "bot-test-test-is-the-best",
     "bot-test-vandal",
-    "bot-v44",
-    "bot-v45",
-    "bot-v46",
-    "bot-v47",
-    "bot-v48",
-    "bot-v49",
-    "bot-v50",
-    "bot-v51",
-    "bot-v52",
-    "bot-v53",
-    "bot-v53-1-0",
-    "bot-v53-2-0",
-    "bot-v53-3-0",
-    "bot-v53-4-0",
-    "bot-v53-4-1",
     "bot-v53-5-0",
     "bot-v53-5-1",
     "bot-v53-5-2",
@@ -138,7 +122,6 @@ members = [
     "bot-v54-5-0",
     "bot-v54-6-0",
     "bot-v54-7-0",
-    "bot-v54-7-1",
     "hitl",
     "proto",
     "visualiser",
@@ -644,6 +627,17 @@ version = "0.0.0"
 source = { virtual = "bots/drewfett/v8" }
 
 [[package]]
+name = "bot-heap-freelist"
+version = "0.0.0"
+source = { virtual = "bots/test/heap_freelist" }
+dependencies = [
+    { name = "cambc" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "cambc" }]
+
+[[package]]
 name = "bot-nahhh-baseline-v25"
 version = "0.0.0"
 source = { virtual = "bots/nahhh/baseline_v25" }
@@ -1037,42 +1031,9 @@ dependencies = [
 requires-dist = [{ name = "cambc" }]
 
 [[package]]
-name = "bot-test-bypass-frozen-poc"
-version = "0.0.0"
-source = { virtual = "bots/test/bypass_frozen_poc" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-test-bytecode-exfil"
-version = "0.0.0"
-source = { virtual = "bots/test/bytecode_exfil" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
 name = "bot-test-bytecode-victim"
 version = "0.0.0"
 source = { virtual = "bots/test/bytecode_victim" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-test-cambc-loader"
-version = "0.0.0"
-source = { virtual = "bots/test/cambc_loader_test" }
 dependencies = [
     { name = "cambc" },
 ]
@@ -1147,6 +1108,21 @@ dependencies = [
 requires-dist = [{ name = "cambc" }]
 
 [[package]]
+name = "bot-test-test-is-the-best"
+version = "0.0.0"
+source = { virtual = "bots/test/test_is_the_best" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
+
+[[package]]
 name = "bot-test-vandal"
 version = "0.0.0"
 source = { virtual = "bots/test/vandal_test" }
@@ -1156,207 +1132,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v44"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v44" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v45"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v45" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v46"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v46" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v47"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v47" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v48"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v48" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v49"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v49" }
-dependencies = [
-    { name = "cambc" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "cambc" }]
-
-[[package]]
-name = "bot-v50"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v50" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v51"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v51" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v52"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v52" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v53"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v53" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v53-1-0"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v53.1.0" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v53-2-0"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v53.2.0" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v53-3-0"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v53.3.0" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v53-4-0"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v53.4.0" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v53-4-1"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v53.4.1" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
 
 [[package]]
 name = "bot-v53-5-0"
@@ -1797,21 +1572,6 @@ requires-dist = [
 name = "bot-v54-7-0"
 version = "0.0.0"
 source = { virtual = "bots/intgrah/v54.7.0" }
-dependencies = [
-    { name = "cambc" },
-    { name = "visualiser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cambc" },
-    { name = "visualiser", editable = "pkg/visualiser" },
-]
-
-[[package]]
-name = "bot-v54-7-1"
-version = "0.0.0"
-source = { virtual = "bots/intgrah/v54.7.0 copy" }
 dependencies = [
     { name = "cambc" },
     { name = "visualiser" },

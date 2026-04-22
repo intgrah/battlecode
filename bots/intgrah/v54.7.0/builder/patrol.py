@@ -16,7 +16,7 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
     while len(conveyors) > 0:
         self.rng.shuffle(conveyors)
         position = conveyors[0]
-        conveyors = self.get_conveyors_to_here(position)
+        conveyors = self.get_in_edges(position)
         if position in path:
             break
         path.append(position)
@@ -27,11 +27,7 @@ PATROL_RANGE = 4
 
 
 def core_feeders(self: Builder) -> list[Position]:
-    return [
-        pos
-        for d in Direction
-        for pos in self.get_conveyors_to_here(self.my_core.add(d))
-    ]
+    return [pos for d in Direction for pos in self.get_in_edges(self.my_core.add(d))]
 
 
 def run_patrol(self: Builder, ct: Controller) -> bool:
@@ -39,7 +35,7 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
         if self.my_pos.distance_squared(self.patrol_head) > PATROL_RANGE:
             make_move(self, ct, self.patrol_head)
             return True
-        conveyors = self.get_conveyors_to_here(self.patrol_head)
+        conveyors = self.get_in_edges(self.patrol_head)
         if len(conveyors) == 0:
             self.patrol_head = None
             self.patrol_trail = []
@@ -51,7 +47,7 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
         ):
             self.rng.shuffle(conveyors)
             self.patrol_head = conveyors[0]
-            conveyors = self.get_conveyors_to_here(self.patrol_head)
+            conveyors = self.get_in_edges(self.patrol_head)
             if self.patrol_head in self.patrol_trail:
                 self.patrol_head = None
                 self.patrol_trail = []

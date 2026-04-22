@@ -18,6 +18,7 @@ from builder.role import Role
 from builder.tasks.attack import attack
 from builder.tasks.build_foundry import build_foundry
 from builder.tasks.deny_enemy_ore import deny_enemy_ore
+from builder.tasks.destroy_dead_bridge import destroy_dead_bridge
 from builder.tasks.explore import explore
 from builder.tasks.extend_chain_approach import extend_chain_approach
 from builder.tasks.extend_chain_in_range import extend_chain_in_range
@@ -30,6 +31,7 @@ from builder.tasks.patrol_cheap import patrol_cheap
 from builder.tasks.patrol_late import patrol_late
 from builder.tasks.pave_near_harvester import pave_near_harvester
 from builder.tasks.place_gunner import place_gunner
+from builder.tasks.resolve_congestion import resolve_congestion
 from builder.tasks.wander import wander
 
 if TYPE_CHECKING:
@@ -42,6 +44,7 @@ class Task(StrEnum):
     ATTACK = "attack"
     BUILD_FOUNDRY = "build_foundry"
     DENY_ENEMY_ORE = "deny_enemy_ore"
+    DESTROY_DEAD_BRIDGE = "destroy_dead_bridge"
     EXPLORE = "explore"
     EXTEND_CHAIN_APPROACH = "extend_chain_approach"
     EXTEND_CHAIN_IN_RANGE = "extend_chain_in_range"
@@ -54,6 +57,7 @@ class Task(StrEnum):
     PATROL_LATE = "patrol_late"
     PAVE_NEAR_HARVESTER = "pave_near_harvester"
     PLACE_GUNNER = "place_gunner"
+    RESOLVE_CONGESTION = "resolve_congestion"
     WANDER = "wander"
 
     def run(self, builder: Builder, ct: Controller) -> None:
@@ -64,6 +68,8 @@ class Task(StrEnum):
                 build_foundry(builder, ct)
             case Task.DENY_ENEMY_ORE:
                 deny_enemy_ore(builder, ct)
+            case Task.DESTROY_DEAD_BRIDGE:
+                destroy_dead_bridge(builder, ct)
             case Task.EXPLORE:
                 explore(builder, ct)
             case Task.EXTEND_CHAIN_APPROACH:
@@ -88,6 +94,8 @@ class Task(StrEnum):
                 pave_near_harvester(builder, ct)
             case Task.PLACE_GUNNER:
                 place_gunner(builder, ct)
+            case Task.RESOLVE_CONGESTION:
+                resolve_congestion(builder, ct)
             case Task.WANDER:
                 wander(builder, ct)
 
@@ -103,6 +111,8 @@ POLICIES: dict[Role, list[Task]] = {
         Task.PLACE_GUNNER,
         Task.FIX_ENEMY_CONVEYOR,
         Task.PAVE_NEAR_HARVESTER,
+        Task.RESOLVE_CONGESTION,
+        Task.DESTROY_DEAD_BRIDGE,
         Task.EXTEND_CHAIN_IN_RANGE,
         Task.HEAL,
         Task.DENY_ENEMY_ORE,
@@ -118,6 +128,8 @@ POLICIES: dict[Role, list[Task]] = {
         Task.PLACE_GUNNER,
         Task.FIX_ENEMY_CONVEYOR,
         Task.PAVE_NEAR_HARVESTER,
+        Task.RESOLVE_CONGESTION,
+        Task.DESTROY_DEAD_BRIDGE,
         Task.EXTEND_CHAIN_IN_RANGE,
         Task.HEAL,
         Task.DENY_ENEMY_ORE,

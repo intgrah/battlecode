@@ -13,9 +13,8 @@ from building import (
 )
 from cambc import Controller, Direction, EntityType, Environment, Position, ResourceType
 from util.constants import BASE_COST, INF, MAX_WIDTH
-from util.directions import DIR4, DIR8
 from util.debug import debug as log
-from util.metrics import closest
+from util.directions import DIR4, DIR8
 from util.symmetry import Symmetry
 
 from builder.algorithms.bugnav import bugnav
@@ -267,10 +266,10 @@ def move_random(self: Builder, ct: Controller) -> bool:
 
 def trace_upstream(self: Builder, position: Position) -> list[Position]:
     path: list[Position] = []
-    conveyors = [position]
-    while len(conveyors) > 0:
-        position = conveyors[0]
-        conveyors = self.get_conveyors_to_here(position)
+    feeders = [position]
+    while feeders:
+        position = feeders[0]
+        feeders = self.get_in_edges(position)
         if position in path:
             break
         path.append(position)
@@ -373,72 +372,18 @@ def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
     return best_target
 
 
-def is_dangling(self: Builder, pos: Position) -> bool:
-    if not self.in_bounds(pos):
-        return False
-    i = pos.y * MAX_WIDTH + pos.x
-    b = self.buildings[i]
-    if b is None:
-        if self.env[i] == Environment.WALL:
-            return False
-    elif not isinstance(b, BuildingRoad) or b.team != self.my_team:
-        return False
-    if self.conveyors_to_here[i]:
-        return True
-    return pos in self.adjacent_to_unconnected_harvester
-
-
-def is_valid_loose_end_target(self: Builder, pos: Position) -> bool:
-    if not is_dangling(self, pos):
-        return False
-    if pos in self.friendly_bots:
-        return False
-    for lpos in self.get_conveyors_to_here(pos):
-        if lpos in self.friendly_bots:
-            return False
-    return True
-
-
-def find_dangling(self: Builder) -> Position | None:
-    """Pick a dangling chain tile for this builder to work on. Skip tiles a
-    visible friendly builder is closer to — so only the nearest builder
-    claims a given dangling end, and a harvester with 4 unconnected cardinal
-    neighbours doesn't get 4 redundant conveyors laid by 4 different
-    builders racing."""
-    candidates: list[Position] = []
-    for pos in self.nearby_tiles:
-        if not is_valid_loose_end_target(self, pos):
-            continue
-        if self.bfs_dist[pos.y * MAX_WIDTH + pos.x] is INF:
-            continue
-        my_d = self.my_pos.distance_squared(pos)
-        if any(fb.distance_squared(pos) < my_d for fb in self.friendly_bots):
-            continue
-        candidates.append(pos)
-    if not candidates:
-        return None
-    return closest(self.my_pos, candidates)
-
-
 _UPSTREAM_MAX_NODES = 80
 _DOWNSTREAM_MAX_NODES = 80
 
 
 def upstream_tree(self: Builder, start: Position) -> set[Position]:
-    """BFS of every friendly conveyor/splitter/bridge tile that feeds into
-    `start`. Follows both `conveyors_to_here` (cardinal conveyors/bridges) and
-    `splitters_to_here` (splitters whose output reaches this tile)."""
+    """BFS backwards via `in_edges` — all friendly transport tiles whose
+    output structurally reaches `start`."""
     visited: set[Position] = {start}
     queue: list[Position] = [start]
     while queue and len(visited) < _UPSTREAM_MAX_NODES:
         pos = queue.pop()
-        i = pos.y * MAX_WIDTH + pos.x
-        for u in self.conveyors_to_here[i]:
-            if u in visited:
-                continue
-            visited.add(u)
-            queue.append(u)
-        for u in self.splitters_to_here[i]:
+        for u in self.in_edges[pos.y * MAX_WIDTH + pos.x]:
             if u in visited:
                 continue
             visited.add(u)
@@ -447,42 +392,16 @@ def upstream_tree(self: Builder, start: Position) -> set[Position]:
 
 
 def downstream_tree(self: Builder, start: Position) -> set[Position]:
-    """Follow output direction(s) forwards. Splitters expand to all non-back
-    outputs. Bridges jump to their target."""
+    """BFS forwards via `out_edges`."""
     visited: set[Position] = {start}
     queue: list[Position] = [start]
     while queue and len(visited) < _DOWNSTREAM_MAX_NODES:
         pos = queue.pop()
-        bld = self.get_building(pos)
-        outs: list[Position] = []
-        match bld:
-            case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-                outs.append(pos.add(d))
-            case BuildingSplitter(direction=d):
-                back = d.opposite()
-                outs.extend(pos.add(sd) for sd in DIR4 if sd != back)
-            case BuildingBridge(target=t):
-                outs.append(t)
-            case _:
-                continue
-        for out in outs:
-            if not self.in_bounds(out):
-                continue
+        for out in self.out_edges[pos.y * MAX_WIDTH + pos.x]:
             if out in visited:
                 continue
             visited.add(out)
-            b = self.get_building(out)
-            if (
-                isinstance(
-                    b,
-                    BuildingConveyor
-                    | BuildingArmouredConveyor
-                    | BuildingSplitter
-                    | BuildingBridge,
-                )
-                and b.team == self.my_team
-            ):
-                queue.append(out)
+            queue.append(out)
     return visited
 
 
@@ -502,8 +421,7 @@ def chain_has_foundry(self: Builder, start: Position) -> bool:
 def ax_feeds_target(self: Builder, target: Position) -> bool:
     """Any friendly tile whose output lands on `target` is downstream of an
     Ax harvester. O(1) per feeder via precomputed `ax_upstream`."""
-    i = target.y * MAX_WIDTH + target.x
-    for feeder in self.conveyors_to_here[i] + self.splitters_to_here[i]:
+    for feeder in self.in_edges[target.y * MAX_WIDTH + target.x]:
         if feeder in self.ax_upstream:
             return True
     return False
