@@ -78,7 +78,16 @@ impl Pathfinder for Bfs {
             return self.status;
         }
 
-        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+        for (dx, dy) in [
+            (1, 0),
+            (-1, 0),
+            (0, 1),
+            (0, -1),
+            (1, 1),
+            (1, -1),
+            (-1, 1),
+            (-1, -1),
+        ] {
             let nx = pos.0 + dx;
             let ny = pos.1 + dy;
             let np = (nx, ny);
