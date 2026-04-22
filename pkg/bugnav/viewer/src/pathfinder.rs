@@ -40,5 +40,13 @@ pub fn registry() -> &'static [AlgoSpec] {
             name: "Bug0",
             build: crate::algorithms::bug0::build,
         },
+        AlgoSpec {
+            name: "Bug1",
+            build: crate::algorithms::bug1::build,
+        },
+        AlgoSpec {
+            name: "Bug2",
+            build: crate::algorithms::bug2::build,
+        },
     ]
 }
