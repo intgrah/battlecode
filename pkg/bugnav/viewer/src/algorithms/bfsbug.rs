@@ -6,7 +6,6 @@
 //! + progress check guarantees completeness when the sensor can't see
 //! past an obstacle.
 //!
-//! This matches the architecture of production bots (kessoku_band, awu):
 //! BFS is the micro-planner, Bug1 is the macro-planner / completeness
 //! guarantee.
 
@@ -174,14 +173,17 @@ impl BfsBug {
                     }
                     cur = p;
                 }
-                // Reject revisits — the only way BFS oscillates without the
-                // first-step-strict check. If the first step leads to a
-                // cell we've already walked in this Motion segment, defer
-                // to Bug1 for this turn.
-                if self.motion_visited.contains(&next) {
-                    None
-                } else {
+                // If BFS reaches the goal itself within the sensor, take
+                // the first step unconditionally — we're committing to a
+                // fully-seen path to goal. Otherwise require the first
+                // step to be strictly closer than threshold to avoid
+                // oscillation into blind pockets.
+                if target == self.goal {
                     Some(next)
+                } else if dist_sq(next, self.goal) < threshold {
+                    Some(next)
+                } else {
+                    None
                 }
             })
         };
@@ -232,7 +234,15 @@ impl Pathfinder for BfsBug {
         //   necessarily means progress, so no infinite loop risk.
         let threshold = match self.mode {
             Mode::MotionToGoal => dist_sq(self.pos, self.goal),
-            Mode::Circumnavigate | Mode::ReturnToLeave => self.best_leave_dist_sq,
+            // During Circumnavigate/ReturnToLeave, only break out on
+            // GLOBAL progress (not just within-circumnavigation progress).
+            // Using best_leave_dist_sq allowed break-outs at cells that
+            // weren't strictly below global_min, letting the algorithm
+            // re-enter Circumnavigate repeatedly at similar cells without
+            // real progress.
+            Mode::Circumnavigate | Mode::ReturnToLeave => {
+                self.global_min_dist_sq.min(self.best_leave_dist_sq)
+            }
         };
         if self.try_bfs_step(threshold) {
             if self.mode != Mode::MotionToGoal {

@@ -5,6 +5,8 @@ pub mod bug1;
 pub mod bug2;
 pub mod bug_common;
 pub mod distbug;
+pub mod lookahead_bug;
+pub mod mem_astar;
 pub mod mem_bfs;
 pub mod tangentbug;
 pub mod visbug21;
