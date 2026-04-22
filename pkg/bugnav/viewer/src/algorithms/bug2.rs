@@ -117,20 +117,21 @@ impl Pathfinder for Bug2 {
                     return self.status;
                 }
                 self.follow_steps += 1;
-                // Leave if we're on the m-line, strictly closer to goal than at hit,
-                // and the direct direction to goal is passable (otherwise we'd
-                // immediately re-enter Follow).
+                // Textbook leave rule: on m-line, strictly closer than hit_dist.
+                // If the next motion-to-goal step is blocked, we'll re-enter
+                // Follow with the new (closer) hit — nested hits terminate
+                // because hit_dist is monotonically decreasing.
                 if self.m_line.contains(&self.pos)
                     && dist_sq(self.pos, self.goal) < self.hit_dist_sq
                 {
-                    let d = dir_to_goal(self.pos, self.goal);
-                    let np = neighbour(self.pos, d);
-                    if self.passable(np.0, np.1) {
-                        self.mode = Mode::MotionToGoal;
-                    }
-                }
-                // Full loop without crossing the m-line closer → unreachable.
-                if self.pos == self.hit_point && self.follow_steps > 0 {
+                    self.mode = Mode::MotionToGoal;
+                } else if self.pos == self.hit_point && self.follow_steps > 0 {
+                    // Full loop around the current sub-obstacle without finding a
+                    // closer m-line crossing → unreachable under Bug2's rule.
+                    // (This can be a false negative — Bug2 is classically
+                    // incomplete on obstacles where the m-line is tangent or
+                    // re-enters non-monotonically. Use Bug1 if completeness is
+                    // required.)
                     self.status = StepStatus::Unreachable;
                 }
             }

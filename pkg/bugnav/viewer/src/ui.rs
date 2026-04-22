@@ -82,6 +82,33 @@ pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
     ui.add_space(8.0);
     ui.separator();
     ui.add_space(4.0);
+    ui.label("Path comparison");
+    let opt_len = app.optimal_path.as_ref().map(|p| p.len().saturating_sub(1));
+    let found_len = match (&app.finder, app.last_status) {
+        (Some(f), StepStatus::Arrived) => Some(f.snapshot().path.len().saturating_sub(1)),
+        _ => None,
+    };
+    let opt_s = opt_len.map_or_else(|| "-".to_string(), |n| n.to_string());
+    let found_s = match (found_len, app.last_status) {
+        (Some(n), _) => n.to_string(),
+        (None, StepStatus::Unreachable) => "unreachable".to_string(),
+        _ => "-".to_string(),
+    };
+    let ratio_s = match (found_len, opt_len) {
+        (Some(f), Some(o)) if o > 0 => format!("{:.3}x", f as f64 / o as f64),
+        (Some(_), Some(_)) => "-".to_string(),
+        _ => "-".to_string(),
+    };
+    ui.monospace(format!(
+        "optimal: {opt_s}\nfound:   {found_s}\nratio:   {ratio_s}",
+    ));
+    if opt_len.is_none() && app.start.is_some() && app.goal.is_some() {
+        ui.colored_label(egui::Color32::from_rgb(0xe0, 0x80, 0x40), "goal is unreachable (BFS)");
+    }
+
+    ui.add_space(8.0);
+    ui.separator();
+    ui.add_space(4.0);
     ui.label("Start/Goal");
     ui.monospace(format!(
         "start: {}\ngoal:  {}",
@@ -92,6 +119,7 @@ pub fn render_sidebar(ui: &mut egui::Ui, app: &mut App) {
         app.start = None;
         app.goal = None;
         app.finder = None;
+        app.optimal_path = None;
         app.last_status = StepStatus::Running;
     }
 }
@@ -163,6 +191,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                         app.start = Some((gx, gy));
                         app.goal = None;
                         app.finder = None;
+                        app.optimal_path = None;
                         app.last_status = StepStatus::Running;
                     }
                 }
@@ -175,6 +204,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             &painter,
             &ctx,
             app.finder.as_ref().map(|f| f.snapshot()),
+            app.optimal_path.as_deref(),
             app.start,
             app.goal,
         );
