@@ -34,6 +34,7 @@ def update(self: Builder, ct: Controller) -> None:
             with Scope("junctions", time=True):
                 self.update_junctions()
             with Scope("dangling", time=True):
+                self.update_unreachable_dangling()
                 self.update_dangling()
             with Scope("ore", time=True):
                 self.update_ore_target()

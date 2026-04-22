@@ -74,12 +74,7 @@ def resource_at(self: Builder, pos: Position) -> ResourceType | None:
                 seen_ax = True
         if seen_ti and seen_ax:
             return None
-        for u in self.conveyors_to_here[pi]:
-            if u in visited:
-                continue
-            visited.add(u)
-            stack.append(u)
-        for u in self.splitters_to_here[pi]:
+        for u in self.in_edges[pi]:
             if u in visited:
                 continue
             visited.add(u)
@@ -240,8 +235,6 @@ def _lay_segment(
         _clear_with_turret(self, ct, start_pos, pending_bridge)
         return False
     if try_place(self, ct, EntityType.BRIDGE, start_pos, pending_bridge):
-        if chebyshev(pending_bridge, self.my_core) > 1:
-            self.pending_bridge = pending_bridge
         _retarget_foundry_to_junction(self, pending_bridge)
         return True
     return False
@@ -256,8 +249,6 @@ def _route_to(
 ) -> bool:
     """Return True iff a useful action was taken this turn (a conveyor was
     placed, a bridge was placed, or the builder moved)."""
-    self.pending_bridge = None
-
     if start == target:
         return False
     if chebyshev(start, target) <= 1 and target == self.my_core:

@@ -17,25 +17,18 @@ from util.debug import Scope
 if TYPE_CHECKING:
     from unit import Unit
 
-TIME_INIT: Final[bool] = False
-
 
 class Player:
+    TIME_INIT: Final[bool] = False
+
     def __init__(self) -> None:
         self.unit: Unit | None = None
-        with Scope("init", time=TIME_INIT):
-            with Scope("builder", time=TIME_INIT):
-                self.builder = Builder()
-            with Scope("core", time=TIME_INIT):
-                self.core = Core()
-            with Scope("sentinel", time=TIME_INIT):
-                self.sentinel = Sentinel()
-            with Scope("gunner", time=TIME_INIT):
-                self.gunner = Gunner()
-            with Scope("launcher", time=TIME_INIT):
-                self.launcher = Launcher()
-            with Scope("breach", time=TIME_INIT):
-                self.breach = Breach()
+        self.builder = Builder()
+        self.core = Core()
+        self.sentinel = Sentinel()
+        self.gunner = Gunner()
+        self.launcher = Launcher()
+        self.breach = Breach()
 
     def run(self, ct: Controller) -> None:
         if self.unit is None:

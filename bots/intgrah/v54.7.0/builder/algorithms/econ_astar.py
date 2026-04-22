@@ -17,13 +17,21 @@ class AStarSearch:
     current turn). 1729us leaves ~270us for post-A* work before the 2ms
     server enforcement. Update() p50 is ~800us so A* typically runs for
     ~900us here; on rare slow-update turns A* may be compressed."""
-    DIAG_WEIGHT: Final = 4
+    DIAG_WEIGHT: Final = 9
+    """Diagonal (r²=2) is never a cardinal conveyor and never a legal bridge
+    (bridges need r² in [3, 9]), so any diagonal step materialises as a
+    bridge skipping to the next reachable tile along the path. Costed the
+    same as a bridge so A* doesn't prefer a diagonal over a bridge unless
+    the two cardinal alternatives are genuinely blocked."""
     BRIDGE_DELTAS: Final = tuple(
-        (dx, dy, 7)
+        (dx, dy, 9)
         for dx in range(-3, 4)
         for dy in range(-3, 4)
         if 3 <= dx * dx + dy * dy <= 9
     )
+    """Bridge extra. Each step is `1 + extra`, so a bridge jump costs 10.
+    Dominant cost is scaling (10% per bridge vs 1% per conveyor), not the
+    base Ti cost, so a bridge should cost ~10x a cardinal conveyor."""
     CONV_NEIGHBORS: Final = (
         (1, 0, 0),
         (-1, 0, 0),
@@ -133,9 +141,7 @@ class AStarSearch:
         # inserted into bucket (K + delta) % nb_count where delta >= nb_count,
         # the mod-wraparound can make (K + delta) % nb_count < cur_f, and the
         # bucket gets cleared before the node is processed. Max transition
-        # cost in this codebase = base conveyor cost (10 on ore) + flow
-        # penalty (up to 500) + contamination penalty (100) + bridge extra
-        # (7) = ~620, so 1024 is comfortably above any single jump.
+        # cost here is a bridge jump (1 + 9 = 10), so 1024 is plenty.
         nb_count = 1024
         gx, gy = target.x, target.y
         f0 = abs(gx - sx) + abs(gy - sy)
