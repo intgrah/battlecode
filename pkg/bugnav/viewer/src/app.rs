@@ -4,7 +4,7 @@ use cambc_common::{SpriteAtlas, SpriteConfig};
 use eframe::egui;
 
 use crate::grid::Grid;
-use crate::pathfinder::{Pathfinder, StepStatus, registry};
+use crate::pathfinder::{Pathfinder, StepStatus, registry, shortest_path};
 
 pub struct App {
     pub grid: Grid,
@@ -18,6 +18,7 @@ pub struct App {
     pub goal: Option<(i32, i32)>,
     pub finder: Option<Box<dyn Pathfinder>>,
     pub last_status: StepStatus,
+    pub optimal_path: Option<Vec<(i32, i32)>>,
 
     pub playing: bool,
     pub steps_per_frame: u32,
@@ -67,6 +68,7 @@ impl App {
             goal: None,
             finder: None,
             last_status: StepStatus::Running,
+            optimal_path: None,
             playing: false,
             steps_per_frame: 1,
             pan: egui::Vec2::new(10.0, 10.0),
@@ -87,6 +89,7 @@ impl App {
                 self.start = None;
                 self.goal = None;
                 self.finder = None;
+                self.optimal_path = None;
                 self.last_status = StepStatus::Running;
                 self.cached_map_zoom = 0.0; // invalidate cache
             }
@@ -99,8 +102,10 @@ impl App {
             let build = registry()[self.algo_idx].build;
             self.finder = Some(build(&self.grid, s, g));
             self.last_status = StepStatus::Running;
+            self.optimal_path = shortest_path(&self.grid, s, g);
         } else {
             self.finder = None;
+            self.optimal_path = None;
         }
     }
 
