@@ -1,93 +1,33 @@
+use cambc_common::constants;
+use cambc_common::map::BG_COLOR;
+use cambc_common::tile::{premul, tile_center, tile_rect, tile_rect_f32};
 use eframe::egui;
 use egui::{Color32, Mesh, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 
 use crate::app::App;
-use crate::constants;
 use crate::entity;
 use crate::proto;
 use crate::state::{Entity, EntityKind, Indicator};
 
-const BG_COLOR: Color32 = Color32::from_rgb(0x1d, 0x15, 0x0f);
-const TILE_COLOR: Color32 = Color32::from_rgb(0x2a, 0x20, 0x18);
 const CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x00, 0x80);
 const SELECTED_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x80, 0x00, 0x80);
 
-fn tile_rect(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Rect {
-    let px = (x as f32).mul_add(ts * zoom, origin.x);
-    let py = (y as f32).mul_add(ts * zoom, origin.y);
-    Rect::from_min_size(Pos2::new(px, py), Vec2::splat(ts * zoom))
-}
-
-fn tile_rect_f32(x: f32, y: f32, ts: f32, origin: Pos2, zoom: f32) -> Rect {
-    let px = x.mul_add(ts * zoom, origin.x);
-    let py = y.mul_add(ts * zoom, origin.y);
-    Rect::from_min_size(Pos2::new(px, py), Vec2::splat(ts * zoom))
-}
-
-fn tile_center(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Pos2 {
-    Pos2::new(
-        (x as f32 + 0.5).mul_add(ts * zoom, origin.x),
-        (y as f32 + 0.5).mul_add(ts * zoom, origin.y),
-    )
-}
-
-fn premul(c: u8) -> u8 {
-    (u16::from(c) * 0xc0 / 0xff) as u8
-}
-
-#[allow(clippy::too_many_lines)]
 fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
-    let ts = app.atlas.tile_size;
-    let zoom = app.zoom;
-    let mut shapes = Vec::with_capacity((app.game.width * app.game.height) as usize);
-    let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
-
-    for gy in 0..app.game.height {
-        for gx in 0..app.game.width {
-            let env = app
-                .game
+    cambc_common::map::build_static_map_shapes(
+        &app.atlas,
+        app.game.width,
+        app.game.height,
+        app.zoom,
+        origin,
+        |gx, gy| {
+            app.game
                 .env
                 .get(gy as usize)
                 .and_then(|row| row.get(gx as usize))
                 .copied()
-                .unwrap_or(proto::Environment::EnvEmpty);
-
-            let r = tile_rect(gx, gy, ts, origin, zoom);
-            match env {
-                proto::Environment::EnvWall => {
-                    if let Some(tex_id) = app.atlas.get("natural_wall") {
-                        let mut mesh = Mesh::with_texture(tex_id);
-                        mesh.add_rect_with_uv(r, uv, Color32::from_rgb(0x30, 0x0c, 0x08));
-                        shapes.push(Shape::mesh(mesh));
-                    } else {
-                        shapes.push(Shape::rect_filled(
-                            r,
-                            0.0,
-                            Color32::from_rgb(0x30, 0x0c, 0x08),
-                        ));
-                    }
-                }
-                proto::Environment::EnvOreTitanium => {
-                    if let Some(tex_id) = app.atlas.get("titanium_ore") {
-                        let mut mesh = Mesh::with_texture(tex_id);
-                        mesh.add_rect_with_uv(r, uv, Color32::WHITE);
-                        shapes.push(Shape::mesh(mesh));
-                    }
-                }
-                proto::Environment::EnvOreAxionite => {
-                    if let Some(tex_id) = app.atlas.get("axionite_ore") {
-                        let mut mesh = Mesh::with_texture(tex_id);
-                        mesh.add_rect_with_uv(r, uv, Color32::WHITE);
-                        shapes.push(Shape::mesh(mesh));
-                    }
-                }
-                proto::Environment::EnvEmpty => {
-                    shapes.push(Shape::rect_filled(r, 0.0, TILE_COLOR));
-                }
-            }
-        }
-    }
-    shapes
+                .unwrap_or(proto::Environment::EnvEmpty)
+        },
+    )
 }
 
 #[allow(clippy::too_many_lines)]

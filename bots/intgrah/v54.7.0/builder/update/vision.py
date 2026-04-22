@@ -8,8 +8,11 @@ from building import (
     BuildingBridge,
     BuildingConveyor,
     BuildingCore,
+    BuildingFoundry,
     BuildingGunner,
+    BuildingHarvester,
     BuildingLauncher,
+    BuildingMarker,
     BuildingRoad,
     BuildingSentinel,
     BuildingSplitter,
@@ -35,12 +38,14 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
                 lst = self.conveyors_to_here[ti]
                 if pos in lst:
                     lst.remove(pos)
+                    self._check_multi_input(t)
         case BuildingBridge(target=t):
             if self.in_bounds(t):
                 ti = self.idx(t)
                 lst = self.conveyors_to_here[ti]
                 if pos in lst:
                     lst.remove(pos)
+                    self._check_multi_input(t)
         case BuildingSplitter(direction=d):
             for sd in [
                 d,
@@ -53,6 +58,16 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
                     lst = self.splitters_to_here[ti]
                     if pos in lst:
                         lst.remove(pos)
+                        self._check_multi_input(t)
+        case BuildingFoundry(team=t) if t == self.my_team:
+            self.my_foundries.discard(pos)
+            self._bump_foundry(pos, -1)
+        case BuildingHarvester():
+            env = self.env[i]
+            if env == Environment.ORE_AXIONITE:
+                self._bump_ax_harv(pos, -1)
+            elif env == Environment.ORE_TITANIUM:
+                self._bump_ti_harv(pos, -1)
 
 
 def _add_topology(self: Builder, pos: Position, bld: object) -> None:
@@ -61,9 +76,11 @@ def _add_topology(self: Builder, pos: Position, bld: object) -> None:
             t = pos.add(d)
             if self.in_bounds(t):
                 self.conveyors_to_here[self.idx(t)].append(pos)
+                self._check_multi_input(t)
         case BuildingBridge(target=t):
             if self.in_bounds(t):
                 self.conveyors_to_here[self.idx(t)].append(pos)
+                self._check_multi_input(t)
         case BuildingSplitter(direction=d):
             for sd in [
                 d,
@@ -73,6 +90,16 @@ def _add_topology(self: Builder, pos: Position, bld: object) -> None:
                 t = pos.add(sd)
                 if self.in_bounds(t):
                     self.splitters_to_here[self.idx(t)].append(pos)
+                    self._check_multi_input(t)
+        case BuildingFoundry(team=t) if t == self.my_team:
+            self.my_foundries.add(pos)
+            self._bump_foundry(pos, +1)
+        case BuildingHarvester():
+            env = self.env[self.idx(pos)]
+            if env == Environment.ORE_AXIONITE:
+                self._bump_ax_harv(pos, +1)
+            elif env == Environment.ORE_TITANIUM:
+                self._bump_ti_harv(pos, +1)
 
 
 def _update_cost(
@@ -81,38 +108,48 @@ def _update_cost(
     terrain: Environment | None,
     bld: Building | None,
 ) -> None:
+    # Movement cost_grid: walkable tiles (roads, conveyors, splitters,
+    # armoured conveyors, bridges, our core) are cheap; walls, ore tiles,
+    # enemy buildings, and harvesters are impassable for movement.
+    # buildable: True iff we can place a conveyor/bridge/etc. right now —
+    # empty terrain with no building, OR friendly road, OR any marker
+    # (1 HP, any team can overbuild).
     if terrain == Environment.WALL:
         cost = INF
-        conveyor_cost = INF
+        buildable = False
     elif bld is not None:
         match bld:
+            case BuildingRoad(team=self.my_team):
+                cost = 1
+                buildable = True
+            case BuildingMarker():
+                cost = ROAD_COST
+                buildable = True
             case (
                 BuildingConveyor()
-                | BuildingRoad()
                 | BuildingSplitter()
                 | BuildingArmouredConveyor()
                 | BuildingBridge()
             ):
                 cost = 1
-                conveyor_cost = 1
-            case BuildingCore(team=t) if t == self.my_team:
+                buildable = False
+            case BuildingCore(team=self.my_team):
                 cost = 1
-                conveyor_cost = 1
+                buildable = False
             case _:
                 cost = INF
-                conveyor_cost = INF
-    elif terrain in (
-        Environment.EMPTY,
-        Environment.ORE_TITANIUM,
-        Environment.ORE_AXIONITE,
-    ):
+                buildable = False
+    elif terrain == Environment.EMPTY:
         cost = ROAD_COST
-        conveyor_cost = 1 if terrain == Environment.EMPTY else 10
-    else:
-        cost = 1
-        conveyor_cost = 1
+        buildable = True
+    else:  # ore tile with no building
+        cost = ROAD_COST
+        buildable = False
     self.cost_grid[i] = cost
-    self.conveyor_cost_grid[i] = conveyor_cost
+    if self.buildable[i] != buildable:
+        self.buildable[i] = buildable
+        self.ti_routable[i] = buildable and not self.ti_leakage[i]
+        self.ax_routable[i] = buildable and not self.ax_leakage[i]
 
 
 def _update_turret_rays(
@@ -222,4 +259,6 @@ def update_vision(self: Builder, ct: Controller) -> None:
                     | BuildingSplitter()
                 ):
                     # Since maxlen=8, this pops from another end if full.
-                    self.flow_history[i].append(ct.get_stored_resource(bid))
+                    self.flow_history[i].append(
+                        (ct.get_stored_resource(bid), ct.get_stored_resource_id(bid)),
+                    )

@@ -7,28 +7,21 @@ use image::{RgbaImage, imageops};
 const TILE_SIZE: u32 = 32;
 const SPRITE_SIZE: u32 = 512;
 
-/// Sprites that are non-square and should be uploaded at their native aspect
-/// (no square-resize). Used for beam sprites whose meaningful pattern spans
-/// the full PNG width and is stretched along the bridge length at draw time.
-const BEAM_SPRITES: &[&str] = &[
-    "bridge_gold",
-    "bridge_silver",
-    "bridge_beam_gold",
-    "bridge_beam_silver",
-];
-
-/// Sprites that need cardinal rotation variants (_n, _s, _e, _w).
-const ROTATABLE_SPRITES: &[&str] = &[
-    "conveyor_gold",
-    "conveyor_silver",
-    "armoured_conveyor_gold",
-    "armoured_conveyor_silver",
-];
+/// Per-atlas configuration for sprites needing non-default handling.
+#[derive(Default, Clone, Copy)]
+pub struct SpriteConfig<'a> {
+    /// Sprites whose source image is a horizontal strip — the first square
+    /// frame is cropped and resized to [`SPRITE_SIZE`].
+    pub strip_sprites: &'a [&'a str],
+    /// Sprites that should be uploaded at their native aspect (no resize).
+    pub aspect_sprites: &'a [&'a str],
+    /// Sprites that need cardinal rotation variants (`_n`, `_s`, `_e`, `_w`).
+    /// Source faces west.
+    pub rotatable_sprites: &'a [&'a str],
+}
 
 type RotateFn = fn(&RgbaImage) -> RgbaImage;
 
-/// Cardinal rotations: (suffix, rotation function).
-/// The source image faces west; rotations produce s, e, n variants.
 const ROTATIONS: &[(&str, RotateFn)] = &[
     ("_s", imageops::rotate270),
     ("_e", imageops::rotate180),
@@ -146,7 +139,11 @@ fn collect_images(dir: &Path, out: &mut Vec<std::path::PathBuf>) {
 }
 
 impl SpriteAtlas {
-    pub fn load(cc: &eframe::CreationContext<'_>, assets_dir: &Path) -> Self {
+    pub fn load(
+        cc: &eframe::CreationContext<'_>,
+        assets_dir: &Path,
+        config: SpriteConfig<'_>,
+    ) -> Self {
         let mut textures = HashMap::new();
 
         let mut image_paths: Vec<std::path::PathBuf> = Vec::new();
@@ -164,9 +161,16 @@ impl SpriteAtlas {
 
             let rgba = img.to_rgba8();
 
-            let base = if BEAM_SPRITES.contains(&name.as_str()) {
-                // Preserve aspect: upload at native dimensions so the strip
-                // pattern fills the bridge mesh when stretched.
+            let base = if config.strip_sprites.contains(&name.as_str()) {
+                let frame_w = rgba.height();
+                let frame = imageops::crop_imm(&rgba, 0, 0, frame_w, frame_w).to_image();
+                imageops::resize(
+                    &frame,
+                    SPRITE_SIZE,
+                    SPRITE_SIZE,
+                    imageops::FilterType::Lanczos3,
+                )
+            } else if config.aspect_sprites.contains(&name.as_str()) {
                 rgba
             } else {
                 imageops::resize(
@@ -177,8 +181,7 @@ impl SpriteAtlas {
                 )
             };
 
-            if ROTATABLE_SPRITES.contains(&name.as_str()) {
-                // Source faces west — register as _w, then generate rotated variants
+            if config.rotatable_sprites.contains(&name.as_str()) {
                 if let Some(id) = upload_mipmapped(cc, &base) {
                     textures.insert(format!("{name}_w"), id);
                 }
@@ -201,6 +204,7 @@ impl SpriteAtlas {
         }
     }
 
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<egui::TextureId> {
         self.textures.get(name).copied()
     }

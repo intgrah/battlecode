@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import traceback
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from breach import Breach
 from builder import Builder
@@ -12,27 +12,29 @@ from core import Core
 from gunner import Gunner
 from launcher import Launcher
 from sentinel import Sentinel
-from util.timer import Timer
+from util.debug import Scope
 
 if TYPE_CHECKING:
     from unit import Unit
+
+TIME_INIT: Final[bool] = False
 
 
 class Player:
     def __init__(self) -> None:
         self.unit: Unit | None = None
-        with Timer("init"):
-            with Timer("builder"):
+        with Scope("init", time=TIME_INIT):
+            with Scope("builder", time=TIME_INIT):
                 self.builder = Builder()
-            with Timer("core"):
+            with Scope("core", time=TIME_INIT):
                 self.core = Core()
-            with Timer("sentinel"):
+            with Scope("sentinel", time=TIME_INIT):
                 self.sentinel = Sentinel()
-            with Timer("gunner"):
+            with Scope("gunner", time=TIME_INIT):
                 self.gunner = Gunner()
-            with Timer("launcher"):
+            with Scope("launcher", time=TIME_INIT):
                 self.launcher = Launcher()
-            with Timer("breach"):
+            with Scope("breach", time=TIME_INIT):
                 self.breach = Breach()
 
     def run(self, ct: Controller) -> None:
@@ -52,10 +54,10 @@ class Player:
                     self.unit = self.breach
                 case _:
                     raise ValueError
-            with Timer("post_init"):
+            with Scope("post_init", time=True):
                 self.unit.post_init(ct)
         try:
-            with Timer("run"):
+            with Scope("run", time=True):
                 self.unit.run(ct)
         except Exception:  # noqa: BLE001
             exc = traceback.format_exc()

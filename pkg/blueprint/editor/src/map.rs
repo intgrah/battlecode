@@ -21,6 +21,15 @@ impl Tile {
             proto::Environment::EnvEmpty => Self::Empty,
         }
     }
+
+    pub const fn to_env(self) -> proto::Environment {
+        match self {
+            Self::Wall => proto::Environment::EnvWall,
+            Self::OreTitanium => proto::Environment::EnvOreTitanium,
+            Self::OreAxionite => proto::Environment::EnvOreAxionite,
+            Self::Empty => proto::Environment::EnvEmpty,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

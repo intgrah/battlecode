@@ -1,16 +1,16 @@
 use std::collections::{HashMap, HashSet};
 
+use cambc_common::constants as C;
+use cambc_common::map::BG_COLOR;
+use cambc_common::tile::{tile_center, tile_rect};
 use eframe::egui;
-use egui::{Color32, Mesh, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
+use egui::{Color32, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 
 use crate::app::{App, Mode};
 use crate::blueprint::{BlueprintEntry, Direction, Entity};
-use crate::constants as C;
 use crate::map::Tile;
 use crate::symmetry::mirror_entry;
 
-const BG_COLOR: Color32 = Color32::from_rgb(0x1d, 0x15, 0x0f);
-const TILE_COLOR: Color32 = Color32::from_rgb(0x2a, 0x20, 0x18);
 const CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x00, 0x80);
 const ERASE_CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0xc0, 0x40, 0x40, 0xa0);
 const FOCUS_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x80, 0x00, 0x80);
@@ -23,19 +23,6 @@ const VISION_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x00, 0xff,
 const ATTACK_COLOR: Color32 = Color32::from_rgba_premultiplied(0xff, 0x00, 0x00, 0xc0);
 
 const PHASE_BG_ALPHA: u8 = 64;
-
-fn tile_rect(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Rect {
-    let px = (x as f32).mul_add(ts * zoom, origin.x);
-    let py = (y as f32).mul_add(ts * zoom, origin.y);
-    Rect::from_min_size(Pos2::new(px, py), Vec2::splat(ts * zoom))
-}
-
-fn tile_center(x: i32, y: i32, ts: f32, origin: Pos2, zoom: f32) -> Pos2 {
-    Pos2::new(
-        (x as f32 + 0.5).mul_add(ts * zoom, origin.x),
-        (y as f32 + 0.5).mul_add(ts * zoom, origin.y),
-    )
-}
 
 const fn dir_suffix(d: Direction) -> &'static str {
     match d {
@@ -201,49 +188,14 @@ fn draw_sprite(painter: &egui::Painter, app: &App, name: &str, rect: Rect, tint:
 }
 
 fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
-    let ts = app.atlas.tile_size;
-    let zoom = app.zoom;
-    let mut shapes = Vec::with_capacity((app.map.w * app.map.h) as usize);
-    let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
-
-    for gy in 0..app.map.h {
-        for gx in 0..app.map.w {
-            let r = tile_rect(gx, gy, ts, origin, zoom);
-            match app.map.tile(gx, gy) {
-                Tile::Wall => {
-                    if let Some(tex_id) = app.atlas.get("natural_wall") {
-                        let mut mesh = Mesh::with_texture(tex_id);
-                        mesh.add_rect_with_uv(r, uv, Color32::from_rgb(0x30, 0x0c, 0x08));
-                        shapes.push(Shape::mesh(mesh));
-                    } else {
-                        shapes.push(Shape::rect_filled(
-                            r,
-                            0.0,
-                            Color32::from_rgb(0x30, 0x0c, 0x08),
-                        ));
-                    }
-                }
-                Tile::OreTitanium => {
-                    shapes.push(Shape::rect_filled(r, 0.0, TILE_COLOR));
-                    if let Some(tex_id) = app.atlas.get("titanium_ore") {
-                        let mut mesh = Mesh::with_texture(tex_id);
-                        mesh.add_rect_with_uv(r, uv, Color32::WHITE);
-                        shapes.push(Shape::mesh(mesh));
-                    }
-                }
-                Tile::OreAxionite => {
-                    shapes.push(Shape::rect_filled(r, 0.0, TILE_COLOR));
-                    if let Some(tex_id) = app.atlas.get("axionite_ore") {
-                        let mut mesh = Mesh::with_texture(tex_id);
-                        mesh.add_rect_with_uv(r, uv, Color32::WHITE);
-                        shapes.push(Shape::mesh(mesh));
-                    }
-                }
-                Tile::Empty => shapes.push(Shape::rect_filled(r, 0.0, TILE_COLOR)),
-            }
-        }
-    }
-    shapes
+    cambc_common::map::build_static_map_shapes(
+        &app.atlas,
+        app.map.w,
+        app.map.h,
+        app.zoom,
+        origin,
+        |gx, gy| Tile::to_env(app.map.tile(gx, gy)),
+    )
 }
 
 fn draw_bridge_line(painter: &egui::Painter, from: Pos2, to: Pos2, zoom: f32, color: Color32) {

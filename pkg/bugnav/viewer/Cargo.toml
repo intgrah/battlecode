@@ -1,0 +1,13 @@
+[package]
+name = "bugnav-viewer"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+cambc-common.workspace = true
+cambc-proto.workspace = true
+eframe.workspace = true
+prost.workspace = true
+
+[lints]
+workspace = true

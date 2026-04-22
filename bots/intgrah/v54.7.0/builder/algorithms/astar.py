@@ -11,7 +11,13 @@ if TYPE_CHECKING:
 
 
 class MoveHeapAstar:
-    CPU_BUDGET: Final = 1729
+    CPU_BUDGET: Final = 17290
+    """CPU budget in microseconds, measured as absolute turn-elapsed (from
+    ct.get_cpu_time_elapsed() returning the elapsed microseconds since the
+    start of this turn). 1729us leaves ~270us after for post-search work
+    (make_move, can_build checks) before the 2ms server limit. Relies on
+    update() being fast: current update p50 is ~800us so A* typically has
+    ~900us here; on rare slow-update turns A* may get <300us."""
     TARGET_DRIFT_SQ: Final = 25
 
     def __init__(self, builder: Builder) -> None:

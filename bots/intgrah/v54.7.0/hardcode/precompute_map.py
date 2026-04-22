@@ -2,24 +2,25 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from proto import cambc_pb2
+from util.symmetry import Symmetry
 
 from hardcode.known import KnownMap
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-_MAPS_DIR = Path(__file__).resolve().parents[4] / "maps"
-_BYTES_PER_LINE = 60
+_MAPS_DIR: Final = Path(__file__).resolve().parents[4] / "maps"
+_BYTES_PER_LINE: Final = 60
 
 
 def _determine_symmetry(
     w: int,
     h: int,
     tiles: list[int],
-) -> str:
+) -> Symmetry:
     def _check(transform: Callable[[int, int], tuple[int, int]]) -> bool:
         for y in range(h):
             for x in range(w):
@@ -29,11 +30,11 @@ def _determine_symmetry(
         return True
 
     if _check(lambda x, y: (x, h - 1 - y)):
-        return "HOR"
+        return Symmetry.HOR
     if _check(lambda x, y: (w - 1 - x, y)):
-        return "VER"
+        return Symmetry.VER
     if _check(lambda x, y: (w - 1 - x, h - 1 - y)):
-        return "ROT"
+        return Symmetry.ROT
     msg = "no symmetry detected"
     raise ValueError(msg)
 
@@ -58,7 +59,9 @@ def _bytes_literal(data: bytes) -> str:
     return "\n".join(lines)
 
 
-def _parse_map(name: str) -> tuple[int, int, int, int, int, int, list[int]]:
+def _parse_map(
+    name: str,
+) -> tuple[int, int, tuple[int, int], tuple[int, int], list[int]]:
     path = _MAPS_DIR / f"{name}.map26"
     m = cambc_pb2.Map()
     m.ParseFromString(path.read_bytes())
@@ -74,18 +77,20 @@ def _parse_map(name: str) -> tuple[int, int, int, int, int, int, list[int]]:
             core_b = (c.position.x, c.position.y)
     assert core_a is not None
     assert core_b is not None
-    return w, h, core_a[0], core_a[1], core_b[0], core_b[1], tiles
+    return w, h, core_a, core_b, tiles
 
 
 def main() -> None:
     out = Path(__file__).with_name("map.py")
 
-    entries: list[tuple[KnownMap, int, int, int, int, int, int, str, bytes]] = []
+    entries: list[
+        tuple[KnownMap, int, int, tuple[int, int], tuple[int, int], Symmetry, bytes]
+    ] = []
     for km in KnownMap:
-        w, h, ax, ay, bx, by, tiles = _parse_map(km.value)
+        w, h, a, b, tiles = _parse_map(km.value)
         sym = _determine_symmetry(w, h, tiles)
         packed = _pack_tiles(tiles)
-        entries.append((km, w, h, ax, ay, bx, by, sym, packed))
+        entries.append((km, w, h, a, b, sym, packed))
 
     with out.open("w") as f:
         f.write("from collections.abc import Callable\n\n")
@@ -94,22 +99,22 @@ def main() -> None:
         f.write("from hardcode.known import KnownMap\n\n")
 
         f.write("DIMENSIONS: dict[KnownMap, tuple[int, int]] = {\n")
-        for km, w, h, _, _, _, _, _, _ in entries:
+        for km, w, h, _, _, _, _ in entries:
             f.write(f"    KnownMap.{km.name}: ({w}, {h}),\n")
         f.write("}\n\n")
 
         f.write("CORE_A: dict[KnownMap, Position] = {\n")
-        for km, _, _, ax, ay, _, _, _, _ in entries:
+        for km, _, _, (ax, ay), _, _, _ in entries:
             f.write(f"    KnownMap.{km.name}: Position({ax}, {ay}),\n")
         f.write("}\n\n")
 
         f.write("CORE_B: dict[KnownMap, Position] = {\n")
-        for km, _, _, _, _, bx, by, _, _ in entries:
+        for km, _, _, _, (bx, by), _, _ in entries:
             f.write(f"    KnownMap.{km.name}: Position({bx}, {by}),\n")
         f.write("}\n\n")
 
         f.write("SYMMETRY: dict[KnownMap, Symmetry] = {\n")
-        for km, _, _, _, _, _, _, sym, _ in entries:
+        for km, _, _, _, _, sym, _ in entries:
             f.write(f"    KnownMap.{km.name}: Symmetry.{sym},\n")
         f.write("}\n\n")
 
@@ -139,14 +144,14 @@ def main() -> None:
         )
         f.write("        CANDIDATES[_key] = _km\n\n\n")
 
-        for km, _, _, _, _, _, _, _, packed in entries:
+        for km, _, _, _, _, _, packed in entries:
             f.write(f"def _{km.value}() -> bytes:\n")
             f.write("    return (\n")
             f.write(_bytes_literal(packed) + "\n")
             f.write("    )\n\n\n")
 
         f.write("TILES: dict[KnownMap, Callable[[], bytes]] = {\n")
-        for km, _, _, _, _, _, _, _, _ in entries:
+        for km, _, _, _, _, _, _ in entries:
             f.write(f"    KnownMap.{km.name}: _{km.value},\n")
         f.write("}\n")
 

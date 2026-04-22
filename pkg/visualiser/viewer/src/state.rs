@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::constants;
+use cambc_common::constants;
 use crate::entity;
 use crate::proto;
 use crate::vis;

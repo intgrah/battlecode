@@ -16,7 +16,7 @@ __all__ = ["Core"]
 class Core(Unit):
     INITIAL_SPAWNS: Final[int] = 6
     INCOME_SAMPLES: Final[int] = 16
-    MAX_TEAM_UNITS: Final[int] = 40
+    MAX_TEAM_UNITS: Final[int] = 32
     """
     Cap on total team unit count (builders + turrets + core). Team max
     is 50 — 40 leaves real headroom for turret builds while preventing

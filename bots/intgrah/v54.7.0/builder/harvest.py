@@ -10,6 +10,7 @@ from building import (
 )
 from cambc import Controller, EntityType, Environment, Position, Team
 from util.directions import DIR4, get_direction_object
+from util.debug import debug as log
 
 from builder.helpers import can_afford, make_move, ore_available, try_move_with_road
 
@@ -38,6 +39,10 @@ def _find_contest_target(
 
 
 def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
+    log(
+        f"build_at_ore: starting work to build a harvester on ore tile "
+        f"{target_pos} (builder is currently at {self.my_pos})",
+    )
     # Contest step: if an enemy road/conveyor/splitter/bridge is
     # sitting adjacent to this ore, clear it before building the
     # harvester. `pathfind_blocked` can't step onto an impassable
@@ -46,13 +51,27 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
     # in the right direction.
     contest_pos = _find_contest_target(self, target_pos, self.my_team)
     if contest_pos is not None:
+        log(
+            f"build_at_ore: CONTEST phase — enemy road/conveyor/splitter/bridge "
+            f"at {contest_pos} is adjacent to ore {target_pos}; must clear it "
+            "before placing harvester (otherwise the harvester's cardinal "
+            "neighbour would dump mined ore into an enemy conveyor)",
+        )
         if self.my_pos == contest_pos:
             if self.ti >= 2 and ct.can_fire(self.my_pos):
+                log(
+                    f"build_at_ore: standing on contest tile {self.my_pos}, "
+                    "firing to damage the enemy building underneath",
+                )
                 ct.fire(self.my_pos)
             return True
         if self.my_pos.distance_squared(contest_pos) <= 2:
             d = self.my_pos.direction_to(contest_pos)
             if ct.can_move(d):
+                log(
+                    f"build_at_ore: walking onto contest tile {contest_pos} "
+                    f"(direction {d}) to stand on the enemy building and destroy it",
+                )
                 ct.move(d)
             return True
         make_move(self, ct, contest_pos)
@@ -73,7 +92,17 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             pass
 
     if self.my_pos == target_pos:
+        log(
+            f"build_at_ore: builder is standing on the ore tile {target_pos}; "
+            "the harvester will be placed here but the builder must step off "
+            "first (can_build_harvester requires empty tile)",
+        )
         if not ore_available(self, target_pos):
+            log(
+                f"build_at_ore: ore tile {target_pos} is no longer available "
+                "(another unit is on it or a building was placed); clearing "
+                "ore_target so a new one can be picked next turn",
+            )
             self.ore_target = None
             return False
 
@@ -81,10 +110,19 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             if n == self.my_pos:
                 continue
             if ct.can_build_road(n):
+                log(
+                    f"build_at_ore: paving ROAD at neighbour {n} of ore "
+                    f"{target_pos} to make future builder movement faster "
+                    "(this is the pave-neighbours phase before placing harvester)",
+                )
                 ct.build_road(n)
                 return True
 
         if not can_afford(self, EntityType.HARVESTER):
+            log(
+                f"build_at_ore: cannot afford HARVESTER yet (ti={self.ti}), "
+                f"builder is waiting on ore tile {target_pos} for income",
+            )
             return True
 
         b = self.get_building(self.my_pos)
@@ -96,8 +134,17 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                     break
 
             if escape_tile:
+                log(
+                    f"build_at_ore: destroying own ROAD at {self.my_pos} to "
+                    "clear the ore tile (will step off to "
+                    f"{escape_tile} in the next action this turn)",
+                )
                 ct.destroy(self.my_pos)
             else:
+                log(
+                    f"build_at_ore: cannot escape from ore tile {self.my_pos} "
+                    "(no moveable direction); waiting another turn",
+                )
                 return True
 
         preferred_dirs = []
@@ -116,8 +163,17 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
         for d in all_dirs:
             move_pos = self.my_pos.add(d)
             if self.is_passable(move_pos) and ct.can_move(d):
+                log(
+                    f"build_at_ore: stepping off ore {target_pos} in direction "
+                    f"{d} (to {move_pos}) and then placing HARVESTER on the "
+                    "vacated ore tile in the same turn",
+                )
                 ct.move(d)
                 if ct.can_build_harvester(target_pos):
+                    log(
+                        f"build_at_ore: placed HARVESTER at {target_pos} "
+                        "(ore_target cleared; will mine 1 stack every 4 turns)",
+                    )
                     ct.build_harvester(target_pos)
                     self.ore_target = None
                 return True
@@ -128,23 +184,40 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
         if unpaved_neighbors:
             for n in unpaved_neighbors:
                 if self.my_pos.distance_squared(n) <= 2 and ct.can_build_road(n):
+                    log(
+                        f"build_at_ore: paving ROAD at {n}, an unpaved cardinal "
+                        f"neighbour of ore {target_pos} (pave-before-build step)",
+                    )
                     ct.build_road(n)
                     return True
 
             target_has_road = isinstance(self.get_building(target_pos), BuildingRoad)
 
             if target_has_road:
+                log(
+                    f"build_at_ore: ore tile {target_pos} already has a road; "
+                    "walking onto it so we can place harvester from standing-on "
+                    "position next turn",
+                )
                 if try_move_with_road(self, ct, target_pos):
                     return True
             else:
                 target_n = unpaved_neighbors[0]
                 path = self.conv_search.search_blocked(ct, self.my_pos, target_n)
                 if path and len(path) > 1:
+                    log(
+                        f"build_at_ore: walking toward pave-target neighbour "
+                        f"{target_n} of ore, stepping to {path[1]} this turn",
+                    )
                     try_move_with_road(self, ct, path[1])
                     return True
             return True
 
         if not can_afford(self, EntityType.HARVESTER):
+            log(
+                f"build_at_ore: close to ore {target_pos} but cannot afford "
+                f"HARVESTER (ti={self.ti}); walking onto ore to wait",
+            )
             if try_move_with_road(self, ct, target_pos):
                 return True
             return True
@@ -152,12 +225,20 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
         has_road = isinstance(self.get_building(target_pos), BuildingRoad)
 
         if has_road:
+            log(
+                f"build_at_ore: walking onto ore {target_pos} (road exists, so "
+                "we can step onto it for cheap)",
+            )
             if try_move_with_road(self, ct, target_pos):
                 return True
         elif (
             ct.can_build_harvester(target_pos)
             and self.my_pos.distance_squared(target_pos) <= 1
         ):
+            log(
+                f"build_at_ore: placing HARVESTER at {target_pos} from cardinal "
+                f"neighbour {self.my_pos} (no need to step onto ore)",
+            )
             ct.build_harvester(target_pos)
             self.ore_target = None
             return True
@@ -169,6 +250,11 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                         self.is_passable(ortho_pos)
                         and self.my_pos.distance_squared(ortho_pos) <= 2
                     ) and try_move_with_road(self, ct, ortho_pos):
+                        log(
+                            f"build_at_ore: repositioning to cardinal neighbour "
+                            f"{ortho_pos} of ore {target_pos} (we were diagonal, "
+                            "need cardinal to place harvester from adjacent)",
+                        )
                         return True
 
                 if try_move_with_road(self, ct, target_pos):
@@ -177,8 +263,16 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                 return True
 
             if ct.can_build_harvester(target_pos):
+                log(
+                    f"build_at_ore: placing HARVESTER at {target_pos} from "
+                    f"cardinal neighbour {self.my_pos}",
+                )
                 ct.build_harvester(target_pos)
                 self.ore_target = None
                 return True
 
+    log(
+        f"build_at_ore: builder at {self.my_pos} is far from ore {target_pos} "
+        f"(dist_sq={self.my_pos.distance_squared(target_pos)}); walking toward it",
+    )
     return make_move(self, ct, target_pos)
