@@ -48,7 +48,7 @@ def dump(self: Builder, _ct: Controller) -> None:
     w, h = self.w, self.h
     env = self.env
     cost_grid = self.cost_grid
-    conveyor_cost_grid = self.conveyor_cost_grid
+    ti_routable = self.ti_routable
     bfs_dist = self.bfs_dist
     emit(
         unseen=BoolGrid(
@@ -69,9 +69,9 @@ def dump(self: Builder, _ct: Controller) -> None:
         ),
         conv_cost=I16Grid(
             [
-                c if c < 1e6 else -1
+                0 if r else -1
                 for y in range(h)
-                for c in conveyor_cost_grid[y * MAX_WIDTH : y * MAX_WIDTH + w]
+                for r in ti_routable[y * MAX_WIDTH : y * MAX_WIDTH + w]
             ],
             palette=P_COST,
         ),

@@ -23,6 +23,7 @@ from cambc import (
 from util.directions import DIR4, DIR8
 from util.metrics import chebyshev, closest
 
+from builder.explore import explore
 from builder.helpers import (
     can_afford,
     get_enemy_core_pos,
@@ -32,7 +33,6 @@ from builder.helpers import (
     try_move_dir,
     try_place,
 )
-from builder.task_explore import explore
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -288,7 +288,7 @@ def _gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
     return None
 
 
-def run_attack(self: Builder, ct: Controller) -> None:
+def attack(self: Builder, ct: Controller) -> None:
     if self.attack_tile_blacklist:
         self.attack_tile_blacklist = {
             p: n - 1 for p, n in self.attack_tile_blacklist.items() if n > 1

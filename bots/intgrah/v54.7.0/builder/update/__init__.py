@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from util.timer import Timer
+from util.debug import Scope
 
 from builder.role import Role
 
@@ -13,23 +13,32 @@ if TYPE_CHECKING:
 
 
 def update(self: Builder, ct: Controller) -> None:
-    with Timer("update"):
-        with Timer("prune"):
+    with Scope("update", time=True):
+        with Scope("prune", time=True):
             self.prune_stale(ct)
-        with Timer("vision"):
+        with Scope("vision", time=True):
             self.update_vision(ct)
-        with Timer("bfs"):
+        with Scope("bfs", time=True):
             self.update_bfs(self.my_pos.x, self.my_pos.y)
-        with Timer("ore_deny"):
+        with Scope("ore_deny", time=True):
             self.update_ore_denial()
-        with Timer("turrets"):
+        with Scope("turrets", time=True):
             self.update_enemy_turrets()
-        with Timer("role"):
+        with Scope("role", time=True):
             self.update_role(ct)
         if self.role != Role.OFFENSE:
-            with Timer("econ"):
+            with Scope("econ", time=True):
                 self.update_map_econ(ct)
-            with Timer("dangling"):
+            with Scope("econ_reach", time=True):
+                self.update_economy_reachability()
+            with Scope("junctions", time=True):
+                self.update_junctions()
+            with Scope("dangling", time=True):
                 self.update_dangling()
-            with Timer("ore"):
+            with Scope("ore", time=True):
                 self.update_ore_target()
+                self.update_ax_ore_target()
+            with Scope("foundry_target", time=True):
+                self.update_foundry_target()
+            with Scope("ti_sink", time=True):
+                self.update_ti_sink()

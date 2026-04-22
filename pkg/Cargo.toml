@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "proto-rs",
+    "common",
+    "blueprint/editor",
+    "visualiser/viewer",
+    "bugnav/viewer",
+]
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+cambc-proto = { path = "proto-rs" }
+cambc-common = { path = "common" }
+eframe = "0.34.1"
+image = "0.25.10"
+prost = "0.14.3"
+prost-build = "0.14.3"
+rfd = "0.15"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }

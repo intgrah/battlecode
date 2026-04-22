@@ -15,16 +15,20 @@ def update_bfs(self: Builder, sx: int, sy: int) -> None:
     pnb = self.pnb
     dist = self.bfs_dist
     dist[:] = self.bfs_reset
+    inf = INF
     si = sy * MAX_WIDTH + sx
     dist[si] = 0
-    q = [si]
-    append = q.append
-    for node in q:
-        d1 = dist[node] + 1
-        for ni in pnb[node]:
-            if dist[ni] == INF:
-                dist[ni] = d1
-                append(ni)
+    cur = [si]
+    d = 1
+    while cur:
+        nxt: list[int] = []
+        for node in cur:
+            for ni in pnb[node]:
+                if dist[ni] is inf:
+                    dist[ni] = d
+                    nxt.append(ni)
+        cur = nxt
+        d += 1
 
 
 def extract_path(

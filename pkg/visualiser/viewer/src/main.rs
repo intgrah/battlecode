@@ -1,20 +1,9 @@
-#[allow(
-    clippy::derive_partial_eq_without_eq,
-    clippy::doc_markdown,
-    clippy::enum_variant_names,
-    clippy::missing_const_for_fn,
-    clippy::trivially_copy_pass_by_ref
-)]
-mod proto {
-    include!(concat!(env!("OUT_DIR"), "/battlecode.rs"));
-}
+pub use cambc_proto as proto;
 
 mod app;
-mod constants;
 mod entity;
 mod flow;
 mod map;
-mod sprites;
 mod state;
 mod ui;
 mod vis;
@@ -46,8 +35,10 @@ fn main() -> eframe::Result {
     let exe_path = env::current_exe().unwrap_or_default();
     let exe_dir = exe_path.parent().unwrap_or_else(|| Path::new("."));
     let candidates = [
+        exe_dir.join("../../../visualiser/viewer/assets"),
         exe_dir.join("../../assets"),
         exe_dir.join("../assets"),
+        Path::new("pkg/visualiser/viewer/assets").to_path_buf(),
         Path::new("assets").to_path_buf(),
     ];
     let assets_dir = candidates

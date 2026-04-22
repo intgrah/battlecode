@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 from enum import IntEnum
 from typing import TYPE_CHECKING
 
@@ -104,11 +103,16 @@ def bugnav_step(
 
         goal_dx = target.x - self.my_pos.x
         goal_dy = target.y - self.my_pos.y
-        ideal_angle = math.atan2(goal_dy, goal_dx)
 
         def key(d: Direction) -> float:
+            # Use the negated dot product with the goal vector so that a
+            # direction pointing most toward the goal ranks smallest. Dot
+            # product handles angular wraparound correctly — the previous
+            # `abs(atan2(dy, dx) - ideal_angle)` scoring could rank NW as
+            # "far" from W (7pi/4 due to -3pi/4 vs pi) even though it's
+            # adjacent in angle, causing bugnav to choose S/SW instead.
             dx, dy = d.delta()
-            return abs(math.atan2(dy, dx) - ideal_angle)
+            return -(dx * goal_dx + dy * goal_dy)
 
         dirs = DIR8.copy()
         dirs.sort(key=key)

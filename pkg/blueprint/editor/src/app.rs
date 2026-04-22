@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::blueprint::Entity;
 use crate::map::MapData;
-use crate::sprites::SpriteAtlas;
+use cambc_common::{SpriteAtlas, SpriteConfig};
 use crate::state::Editor;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,7 +44,20 @@ impl App {
             opts.feathering_size_in_pixels = 1.5;
         });
 
-        let atlas = SpriteAtlas::load(cc, assets_dir);
+        let atlas = SpriteAtlas::load(
+            cc,
+            assets_dir,
+            SpriteConfig {
+                strip_sprites: &["bridge_gold", "bridge_silver"],
+                aspect_sprites: &[],
+                rotatable_sprites: &[
+                    "conveyor_gold",
+                    "conveyor_silver",
+                    "armoured_conveyor_gold",
+                    "armoured_conveyor_silver",
+                ],
+            },
+        );
         let sym = crate::symmetry::detect(&map).unwrap_or(crate::symmetry::Symmetry::Rot);
         let mut editor = Editor::new(&map, sym);
 

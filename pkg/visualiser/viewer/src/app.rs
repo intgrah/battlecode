@@ -8,7 +8,7 @@ use prost::Message;
 
 use crate::map;
 use crate::proto;
-use crate::sprites::SpriteAtlas;
+use cambc_common::{SpriteAtlas, SpriteConfig};
 use crate::state::{Entity, EntityKind, GameState};
 use crate::ui;
 
@@ -77,7 +77,25 @@ impl App {
             opts.feathering = true;
             opts.feathering_size_in_pixels = 1.5;
         });
-        let atlas = SpriteAtlas::load(cc, assets_dir);
+        let atlas = SpriteAtlas::load(
+            cc,
+            assets_dir,
+            SpriteConfig {
+                strip_sprites: &[],
+                aspect_sprites: &[
+                    "bridge_gold",
+                    "bridge_silver",
+                    "bridge_beam_gold",
+                    "bridge_beam_silver",
+                ],
+                rotatable_sprites: &[
+                    "conveyor_gold",
+                    "conveyor_silver",
+                    "armoured_conveyor_gold",
+                    "armoured_conveyor_silver",
+                ],
+            },
+        );
         let game = GameState::from_replay(replay);
         let last_modified = fs::metadata(&replay_path)
             .and_then(|m| m.modified())

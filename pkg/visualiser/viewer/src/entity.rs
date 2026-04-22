@@ -1,4 +1,4 @@
-use crate::constants as c;
+use cambc_common::constants as c;
 use crate::proto;
 use crate::state::{Entity, EntityKind};
 

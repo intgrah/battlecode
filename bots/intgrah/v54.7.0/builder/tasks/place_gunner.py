@@ -18,9 +18,15 @@ from cambc import Controller, Direction, EntityType, GameConstants, Position, Te
 from util.directions import DIR4, DIR8
 
 from builder.helpers import move_random, try_place
+from builder.tasks.rejected import TaskRejectedError
 
 if TYPE_CHECKING:
     from builder import Builder
+
+
+class TaskRejectedNoTurretPlacementError(TaskRejectedError):
+    def __init__(self) -> None:
+        super().__init__("no valid gunner or sentinel placement nearby")
 
 
 def _is_turret(b: Building | None) -> bool:
@@ -138,13 +144,17 @@ def place_sentinel_nearby(self: Builder, ct: Controller) -> bool:
     return False
 
 
-def place_gunner_nearby(self: Builder, ct: Controller) -> bool:
+def place_gunner(self: Builder, ct: Controller) -> None:
     for test_position in self.neighbours_8:
         result = gunner_facing(self, test_position)
         if result is not None:
-            return try_place(self, ct, EntityType.GUNNER, test_position, result)
+            if try_place(self, ct, EntityType.GUNNER, test_position, result):
+                return
+            raise TaskRejectedNoTurretPlacementError
     result = gunner_facing(self, self.my_pos)
     if result and move_random(self, ct):
         try_place(self, ct, EntityType.GUNNER, self.my_pos, result)
-        return True
-    return place_sentinel_nearby(self, ct)
+        return
+    if place_sentinel_nearby(self, ct):
+        return
+    raise TaskRejectedNoTurretPlacementError
