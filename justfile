@@ -7,16 +7,22 @@ r a b map=default_map:
     VIRTUAL_ENV= uv run --project pkg/cambcpypy cambcpypy run {{ a }} {{ b }} {{ map }}
 
 v replay="replay.replay26": vv
-    pkg/visualiser/viewer/target/release/visualiser-viewer {{ replay }}
+    pkg/target/release/visualiser-viewer {{ replay }}
 
 vv:
-    cargo build --release --manifest-path pkg/visualiser/viewer/Cargo.toml
+    cargo build --release --manifest-path pkg/Cargo.toml -p visualiser-viewer
 
 be map=default_map: bee
-    pkg/blueprint/editor/target/release/blueprint-editor {{ map }}
+    pkg/target/release/blueprint-editor {{ map }}
 
 bee:
-    cargo build --release --manifest-path pkg/blueprint/editor/Cargo.toml
+    cargo build --release --manifest-path pkg/Cargo.toml -p blueprint-editor
+
+bv map=default_map: bvv
+    pkg/target/release/bugnav-viewer {{ map }}
+
+bvv:
+    cargo build --release --manifest-path pkg/Cargo.toml -p bugnav-viewer
 
 w replay="replay.replay26":
     cambc watch {{ replay }}
