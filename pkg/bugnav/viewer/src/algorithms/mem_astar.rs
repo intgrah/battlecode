@@ -1,19 +1,9 @@
-//! Memory+BFS with flat-array adjacency list (pnb-style) — matches the
-//! per-turn cost profile of v54.7.0's production BFS.
-//!
-//! Data structures:
-//! - `pnb: Vec<Vec<u16>>` — passable-neighbour list per cell, indexed by
-//!   `y*w + x`. An edge `i→j` exists iff both `i` and `j` are in-bounds
-//!   AND believed passable (undiscovered OR discovered-and-not-wall).
-//! - `bfs_dist: Vec<u16>` — flat distance array, reused across turns.
-//!   Reset each turn via `copy_from_slice` from `bfs_reset`.
-//! - `cur_frontier` / `nxt_frontier: Vec<u16>` — two-frontier BFS
-//!   (cleared+reused each turn, no allocations).
-//!
-//! Per-turn BFS: ≤ 500 cell expansions × ~6 pnb entries = ~3000 flat-array
-//! reads. PyPy-equivalent ~30 μs.
+//! Memory+A* — identical structure to Memory+BFS but expands cells in order
+//! of f = g + h (Chebyshev heuristic). Goal-directed, so fewer expansions
+//! reach the same depth; same BFS budget buys a longer effective horizon.
 
-use std::collections::HashSet;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashSet};
 
 use crate::algorithms::bug_common::{
     VISION_R_SQ, WallFollowState, WallStepOutcome, bresenham, dir_to_goal, dist_sq, has_los,
@@ -22,7 +12,7 @@ use crate::algorithms::bug_common::{
 use crate::grid::Grid;
 use crate::pathfinder::{Pathfinder, Snapshot, StepStatus};
 
-const BFS_BUDGET: u32 = 500;
+const EXPAND_BUDGET: u32 = 500;
 const DIST_INF: u16 = u16::MAX;
 
 const DIRS8: [(i32, i32); 8] = [
@@ -43,21 +33,17 @@ enum Mode {
     ReturnToLeave,
 }
 
-pub struct MemBfs {
+pub struct MemAstar {
     grid_w: i32,
     grid_h: i32,
     walls: Vec<bool>,
     goal: (i32, i32),
     pos: (i32, i32),
     discovered: Vec<bool>,
-    /// Passable-neighbour adjacency list. `pnb[i]` = list of neighbour
-    /// indices believed passable. Updated O(8) per wall-discovery event.
     pnb: Vec<Vec<u16>>,
-    bfs_dist: Vec<u16>,
-    bfs_reset: Vec<u16>,
-    cur_frontier: Vec<u16>,
-    nxt_frontier: Vec<u16>,
-    // Bug1 fallback state.
+    g: Vec<u16>,
+    g_reset: Vec<u16>,
+    heap: BinaryHeap<Reverse<(u32, u16)>>,
     mode: Mode,
     wf: WallFollowState,
     hit_point: (i32, i32),
@@ -75,8 +61,6 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
     let h = grid.h;
     let n = (w * h) as usize;
 
-    // Initial pnb: everything undiscovered = optimistic passable, so each cell
-    // has all 8 in-bounds neighbours.
     let mut pnb: Vec<Vec<u16>> = vec![Vec::with_capacity(8); n];
     for y in 0..h {
         for x in 0..w {
@@ -92,8 +76,8 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
         }
     }
 
-    let bfs_reset = vec![DIST_INF; n];
-    let bfs_dist = bfs_reset.clone();
+    let g_reset = vec![DIST_INF; n];
+    let g = g_reset.clone();
 
     let mut snap = Snapshot {
         current: start,
@@ -102,7 +86,7 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
     };
     snap.visited.insert(start);
 
-    Box::new(MemBfs {
+    Box::new(MemAstar {
         grid_w: w,
         grid_h: h,
         walls: grid.walls.clone(),
@@ -110,10 +94,9 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
         pos: start,
         discovered: vec![false; n],
         pnb,
-        bfs_dist,
-        bfs_reset,
-        cur_frontier: Vec::with_capacity(128),
-        nxt_frontier: Vec::with_capacity(128),
+        g,
+        g_reset,
+        heap: BinaryHeap::with_capacity(4096),
         mode: Mode::MotionToGoal,
         wf: WallFollowState {
             pos: start,
@@ -131,7 +114,7 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
     })
 }
 
-impl MemBfs {
+impl MemAstar {
     #[inline]
     fn idx(&self, x: i32, y: i32) -> Option<usize> {
         if x < 0 || y < 0 || x >= self.grid_w || y >= self.grid_h {
@@ -147,9 +130,14 @@ impl MemBfs {
         ((i as i32) % w, (i as i32) / w)
     }
 
-    /// Reveal cells within sensor range. For each newly-discovered wall,
-    /// update pnb: clear pnb[wall], and remove the wall from every
-    /// neighbour's pnb list. O(8) per newly-discovered wall.
+    #[inline]
+    fn h(&self, idx: usize) -> u32 {
+        let (nx, ny) = self.cell_of(idx);
+        let dx = (nx - self.goal.0).unsigned_abs();
+        let dy = (ny - self.goal.1).unsigned_abs();
+        dx.max(dy)
+    }
+
     fn sense(&mut self) {
         for c in sensed_cells(self.pos) {
             let Some(i) = self.idx(c.0, c.1) else {
@@ -187,22 +175,20 @@ impl MemBfs {
         self.snap.path.push(new_pos);
     }
 
-    /// Bounded BFS over `pnb` starting at `self.pos`. Stops after
-    /// `BFS_BUDGET` cell expansions. Returns the first-step cell along
-    /// the shortest path to the BFS-reachable cell with smallest
-    /// `dist_sq(c, goal)` below `threshold`.
-    fn try_bfs_step(&mut self, threshold: i32) -> bool {
+    /// Bounded A* over `pnb` starting at `self.pos`. Returns the first-step
+    /// cell along the path to the cell that minimises `dist_sq(c, goal)`
+    /// subject to `< threshold`. Unconditionally commits if goal reached.
+    fn try_astar_step(&mut self, threshold: i32) -> bool {
         let pos_idx = self
             .idx(self.pos.0, self.pos.1)
             .expect("pos must be in-bounds");
 
-        // Reset dist array (flat memcpy).
-        self.bfs_dist.copy_from_slice(&self.bfs_reset);
-        self.bfs_dist[pos_idx] = 0;
+        self.g.copy_from_slice(&self.g_reset);
+        self.g[pos_idx] = 0;
 
-        self.cur_frontier.clear();
-        self.nxt_frontier.clear();
-        self.cur_frontier.push(pos_idx as u16);
+        self.heap.clear();
+        self.heap
+            .push(Reverse((self.h(pos_idx), pos_idx as u16)));
 
         let mut expansions: u32 = 0;
         let mut best_idx: Option<usize> = None;
@@ -210,57 +196,61 @@ impl MemBfs {
         let mut reached_goal = false;
         let goal_idx = self.idx(self.goal.0, self.goal.1);
 
-        'outer: while !self.cur_frontier.is_empty() {
-            for idx in 0..self.cur_frontier.len() {
-                let node = self.cur_frontier[idx] as usize;
-                expansions += 1;
-                if expansions > BFS_BUDGET {
-                    break 'outer;
-                }
+        while let Some(Reverse((f, node_u16))) = self.heap.pop() {
+            let node = node_u16 as usize;
+            let node_g = self.g[node];
+            if node_g == DIST_INF {
+                continue;
+            }
+            // Stale entry (node was relaxed after this was pushed).
+            if f as u16 > node_g.saturating_add(self.h(node) as u16) {
+                continue;
+            }
 
-                if Some(node) == goal_idx {
-                    reached_goal = true;
-                    best_idx = Some(node);
-                    break 'outer;
-                }
-                let (nx, ny) = self.cell_of(node);
-                let dx = nx - self.goal.0;
-                let dy = ny - self.goal.1;
-                let d = dx * dx + dy * dy;
-                if d < best_d {
-                    best_d = d;
-                    best_idx = Some(node);
-                }
+            expansions += 1;
+            if expansions > EXPAND_BUDGET {
+                break;
+            }
 
-                // Expand neighbours via pnb (pre-filtered passables).
-                let next_d = self.bfs_dist[node] + 1;
-                let pnb_len = self.pnb[node].len();
-                for k in 0..pnb_len {
-                    let ni_u16 = self.pnb[node][k];
-                    let ni = ni_u16 as usize;
-                    if self.bfs_dist[ni] == DIST_INF {
-                        self.bfs_dist[ni] = next_d;
-                        self.nxt_frontier.push(ni_u16);
-                    }
+            if Some(node) == goal_idx {
+                reached_goal = true;
+                best_idx = Some(node);
+                break;
+            }
+            let (nx, ny) = self.cell_of(node);
+            let dx = nx - self.goal.0;
+            let dy = ny - self.goal.1;
+            let d = dx * dx + dy * dy;
+            if d < best_d {
+                best_d = d;
+                best_idx = Some(node);
+            }
+
+            let g_new = node_g + 1;
+            let pnb_len = self.pnb[node].len();
+            for k in 0..pnb_len {
+                let ni_u16 = self.pnb[node][k];
+                let ni = ni_u16 as usize;
+                if g_new < self.g[ni] {
+                    self.g[ni] = g_new;
+                    let f_ni = g_new as u32 + self.h(ni);
+                    self.heap.push(Reverse((f_ni, ni_u16)));
                 }
             }
-            std::mem::swap(&mut self.cur_frontier, &mut self.nxt_frontier);
-            self.nxt_frontier.clear();
         }
 
         let Some(target) = best_idx else {
             return false;
         };
 
-        // Gradient-descent from target back to a cell adjacent to pos.
-        // That cell (bfs_dist == 1) is our first step.
+        // Gradient-descent on g back to a cell adjacent to pos.
         let mut cur = target;
-        while self.bfs_dist[cur] > 1 {
-            let cur_d = self.bfs_dist[cur];
+        while self.g[cur] > 1 {
+            let cur_g = self.g[cur];
             let mut next_cell: Option<usize> = None;
             for &ni_u16 in &self.pnb[cur] {
                 let ni = ni_u16 as usize;
-                if self.bfs_dist[ni] == cur_d - 1 {
+                if self.g[ni] == cur_g - 1 {
                     next_cell = Some(ni);
                     break;
                 }
@@ -270,18 +260,14 @@ impl MemBfs {
             };
             cur = n;
         }
-        if self.bfs_dist[cur] == DIST_INF {
+        if self.g[cur] == DIST_INF {
             return false;
         }
-        // If bfs_dist[target] == 0, target == pos, no step to take.
         if cur == pos_idx {
             return false;
         }
         let first_step = self.cell_of(cur);
 
-        // Goal-reachable shortcut: unconditionally commit to BFS path if
-        // goal was reached. Otherwise require first step to be strictly
-        // closer than threshold (prevents oscillation into blind pockets).
         if !reached_goal {
             let fs_d = dist_sq(first_step, self.goal);
             if fs_d >= threshold {
@@ -328,7 +314,7 @@ impl MemBfs {
     }
 }
 
-impl Pathfinder for MemBfs {
+impl Pathfinder for MemAstar {
     fn step(&mut self) -> StepStatus {
         if self.status != StepStatus::Running {
             return self.status;
@@ -359,7 +345,7 @@ impl Pathfinder for MemBfs {
                 self.global_min_dist_sq.min(self.best_leave_dist_sq)
             }
         };
-        if self.try_bfs_step(threshold) {
+        if self.try_astar_step(threshold) {
             if self.mode != Mode::MotionToGoal {
                 self.mode = Mode::MotionToGoal;
                 self.follow_visited.clear();
@@ -447,7 +433,7 @@ impl Pathfinder for MemBfs {
         let discovered_count = self.discovered.iter().filter(|&&d| d).count();
         let total = self.discovered.len();
         format!(
-            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\ndiscovered: {}/{} ({:.1}%)\nBFS budget: {}\nsensor r²≤{}\nsteps: {}\nstatus: {:?}",
+            "pos: ({}, {})\ngoal: ({}, {})\nmode: {:?}\ndiscovered: {}/{} ({:.1}%)\nA* budget: {}\nsensor r²≤{}\nsteps: {}\nstatus: {:?}",
             self.pos.0,
             self.pos.1,
             self.goal.0,
@@ -456,7 +442,7 @@ impl Pathfinder for MemBfs {
             discovered_count,
             total,
             100.0 * discovered_count as f64 / total as f64,
-            BFS_BUDGET,
+            EXPAND_BUDGET,
             VISION_R_SQ,
             self.steps,
             self.status,
@@ -464,6 +450,6 @@ impl Pathfinder for MemBfs {
     }
 
     fn name(&self) -> &'static str {
-        "Memory+BFS"
+        "Memory+A*"
     }
 }

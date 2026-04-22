@@ -121,5 +121,17 @@ pub fn registry() -> &'static [AlgoSpec] {
             name: "Memory+BFS",
             build: crate::algorithms::mem_bfs::build,
         },
+        AlgoSpec {
+            name: "Memory+A*",
+            build: crate::algorithms::mem_astar::build,
+        },
+        AlgoSpec {
+            name: "LookaheadBug",
+            build: crate::algorithms::lookahead_bug::build,
+        },
+        AlgoSpec {
+            name: "LookaheadBug+FullMap",
+            build: crate::algorithms::lookahead_bug::build_full_map,
+        },
     ]
 }
