@@ -27,6 +27,11 @@ bvv:
 w replay="replay.replay26":
     cambc watch {{ replay }}
 
+gen:
+    uv run --with jinja2 python pkg/bench_nav/codegen/gen.py
+    ruff check --fix pkg/bench_nav/src/bench_nav/spsp/astar_jps.py pkg/bench_nav/src/bench_nav/spsp/astar_jps_dial.py
+    ruff format pkg/bench_nav/src/bench_nav/spsp/astar_jps.py pkg/bench_nav/src/bench_nav/spsp/astar_jps_dial.py
+
 proto:
     protoc \
       --python_out=pkg/proto/src/proto \

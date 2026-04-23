@@ -1,0 +1,239 @@
+{# Shared macros for astar_jps codegen. Assumes cost is PADDED: size stride*H where
+   stride = w+1, H = h+1, and border cells (x == w, y == h) are INF. This lets us
+   skip all bounds checks: negative indexing wraps to border (still INF), and
+   positive overflow hits the last row (also INF). #}
+
+{# Inline ternary max — ~4x faster than max() builtin for 2 args. #}
+{% macro max2(a, b) -%}
+({{ a }} if {{ a }} > {{ b }} else {{ b }})  # noqa: FURB136
+{%- endmacro %}
+
+{# Push-if-improved epilogue. Convention: dist > 0 means jump point was found
+   at padded (x, y) with the given step count; dist == -1 means scan failed. #}
+{% macro push_epilogue(dx_expr, dy_expr, parent_expr, push_line) -%}
+if dist > 0:
+    jp = y * stride + x
+    nd = g_node + dist
+    if nd < g[jp]:
+        g[jp] = nd
+        parent[jp] = {{ parent_expr }}
+        entry_dx[jp] = {{ dx_expr }}
+        entry_dy[jp] = {{ dy_expr }}
+        hxh = abs(x - gx)
+        hyh = abs(y - gy)
+        hj = {{ max2('hxh', 'hyh') }}
+        {{ push_line }}
+{%- endmacro %}
+
+{# Vertical cardinal jump: dx = 0, dy = dy_expr. x is loop-invariant.
+   Incremental jrow: precompute jrow_delta = dy*stride, add per iter.
+   Goal-column split: if x != gx, goal can never be reached on this ray,
+   so emit a separate loop without the goal check. #}
+{% macro jump_v(dy_expr, parent_expr, push_line) -%}
+dy = {{ dy_expr }}
+x = nx
+y = ny
+dist = 0
+xm = x - 1
+xp = x + 1
+jrow_delta = dy * stride
+jrow = ny * stride
+yp_dy_row = (ny + dy) * stride
+if x == gx:
+    while True:
+        y += dy
+        dist += 1
+        jrow += jrow_delta
+        yp_dy_row += jrow_delta
+        if cost[jrow + x] is INF:
+            dist = -1
+            break
+        if y == gy:
+            break
+        if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+            break
+        if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+            break
+else:
+    while True:
+        y += dy
+        dist += 1
+        jrow += jrow_delta
+        yp_dy_row += jrow_delta
+        if cost[jrow + x] is INF:
+            dist = -1
+            break
+        if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+            break
+        if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+            break
+{{ push_epilogue('0', 'dy', parent_expr, push_line) }}
+{%- endmacro %}
+
+{# Horizontal cardinal jump: dx = dx_expr, dy = 0. y is loop-invariant.
+   Goal-row split: if y != gy, goal can never be reached, so emit loop
+   without goal check. #}
+{% macro jump_h(dx_expr, parent_expr, push_line) -%}
+dx = {{ dx_expr }}
+x = nx
+y = ny
+dist = 0
+jrow = y * stride
+ym_row = (y - 1) * stride
+yp_row = (y + 1) * stride
+if y == gy:
+    while True:
+        x += dx
+        dist += 1
+        if cost[jrow + x] is INF:
+            dist = -1
+            break
+        if x == gx:
+            break
+        xp_dx = x + dx
+        if cost[ym_row + x] is INF and cost[ym_row + xp_dx] is not INF:
+            break
+        if cost[yp_row + x] is INF and cost[yp_row + xp_dx] is not INF:
+            break
+else:
+    while True:
+        x += dx
+        dist += 1
+        if cost[jrow + x] is INF:
+            dist = -1
+            break
+        xp_dx = x + dx
+        if cost[ym_row + x] is INF and cost[ym_row + xp_dx] is not INF:
+            break
+        if cost[yp_row + x] is INF and cost[yp_row + xp_dx] is not INF:
+            break
+{{ push_epilogue('dx', '0', parent_expr, push_line) }}
+{%- endmacro %}
+
+{# Diagonal jump: dx = dx_expr, dy = dy_expr, both nonzero. #}
+{% macro jump_d(dx_expr, dy_expr, parent_expr, push_line) -%}
+dx = {{ dx_expr }}
+dy = {{ dy_expr }}
+x = nx
+y = ny
+dist = 0
+while True:
+    x += dx
+    y += dy
+    dist += 1
+    jrow = y * stride
+    if cost[jrow + x] is INF:
+        dist = -1
+        break
+    if x == gx and y == gy:
+        break
+    xm = x - dx
+    yp_row = (y + dy) * stride
+    if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+        break
+    xp = x + dx
+    ym_row = (y - dy) * stride
+    if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+        break
+    # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
+    cx = x
+    sub_ym_row = (y - 1) * stride
+    sub_yp_row = (y + 1) * stride
+    subfound = False
+    while True:
+        cx += dx
+        if cost[jrow + cx] is INF:
+            break
+        if cx == gx and y == gy:
+            subfound = True
+            break
+        cxp = cx + dx
+        if cost[sub_ym_row + cx] is INF and cost[sub_ym_row + cxp] is not INF:
+            subfound = True
+            break
+        if cost[sub_yp_row + cx] is INF and cost[sub_yp_row + cxp] is not INF:
+            subfound = True
+            break
+    if subfound:
+        break
+    # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
+    cy = y
+    sub_cxm = x - 1
+    sub_cxp = x + 1
+    subfound = False
+    while True:
+        cy += dy
+        crow = cy * stride
+        if cost[crow + x] is INF:
+            break
+        if x == gx and cy == gy:
+            subfound = True
+            break
+        cyp2_row = (cy + dy) * stride
+        if cost[crow + sub_cxm] is INF and cost[cyp2_row + sub_cxm] is not INF:
+            subfound = True
+            break
+        if cost[crow + sub_cxp] is INF and cost[cyp2_row + sub_cxp] is not INF:
+            subfound = True
+            break
+    if subfound:
+        break
+{{ push_epilogue('dx', 'dy', parent_expr, push_line) }}
+{%- endmacro %}
+
+{# Unroll start-node expansion: 8 jumps, specialized per direction. #}
+{% macro expand_start(parent_expr, push_line) -%}
+{{ jump_v('-1', parent_expr, push_line) }}
+{{ jump_d('1', '-1', parent_expr, push_line) }}
+{{ jump_h('1', parent_expr, push_line) }}
+{{ jump_d('1', '1', parent_expr, push_line) }}
+{{ jump_v('1', parent_expr, push_line) }}
+{{ jump_d('-1', '1', parent_expr, push_line) }}
+{{ jump_h('-1', parent_expr, push_line) }}
+{{ jump_d('-1', '-1', parent_expr, push_line) }}
+{%- endmacro %}
+
+{# Unroll diagonal-arrival successors. With padded cost, no in-bounds checks
+   needed — border cells are INF and get filtered by the cost check naturally. #}
+{% macro expand_diagonal_arrival(parent_expr, push_line) -%}
+sy_row = (ny + dy0) * stride
+sx = nx + dx0
+if cost[sy_row + nx] is not INF:
+    {{ jump_v('dy0', parent_expr, push_line) | indent(4) }}
+if cost[row + sx] is not INF:
+    {{ jump_h('dx0', parent_expr, push_line) | indent(4) }}
+if cost[sy_row + sx] is not INF:
+    {{ jump_d('dx0', 'dy0', parent_expr, push_line) | indent(4) }}
+sxm = nx - dx0
+if cost[row + sxm] is INF and cost[sy_row + sxm] is not INF:
+    {{ jump_d('-dx0', 'dy0', parent_expr, push_line) | indent(4) }}
+sym_row = (ny - dy0) * stride
+if cost[sym_row + nx] is INF and cost[sym_row + sx] is not INF:
+    {{ jump_d('dx0', '-dy0', parent_expr, push_line) | indent(4) }}
+{%- endmacro %}
+
+{# Unroll horizontal-cardinal-arrival successors. #}
+{% macro expand_horizontal_arrival(parent_expr, push_line) -%}
+sx = nx + dx0
+if cost[row + sx] is not INF:
+    {{ jump_h('dx0', parent_expr, push_line) | indent(4) }}
+sym_row = (ny - 1) * stride
+if cost[sym_row + nx] is INF and cost[sym_row + sx] is not INF:
+    {{ jump_d('dx0', '-1', parent_expr, push_line) | indent(4) }}
+syp_row = (ny + 1) * stride
+if cost[syp_row + nx] is INF and cost[syp_row + sx] is not INF:
+    {{ jump_d('dx0', '1', parent_expr, push_line) | indent(4) }}
+{%- endmacro %}
+
+{# Unroll vertical-cardinal-arrival successors. #}
+{% macro expand_vertical_arrival(parent_expr, push_line) -%}
+sy_row = (ny + dy0) * stride
+if cost[sy_row + nx] is not INF:
+    {{ jump_v('dy0', parent_expr, push_line) | indent(4) }}
+sxm = nx - 1
+if cost[row + sxm] is INF and cost[sy_row + sxm] is not INF:
+    {{ jump_d('-1', 'dy0', parent_expr, push_line) | indent(4) }}
+sxp = nx + 1
+if cost[row + sxp] is INF and cost[sy_row + sxp] is not INF:
+    {{ jump_d('1', 'dy0', parent_expr, push_line) | indent(4) }}
+{%- endmacro %}

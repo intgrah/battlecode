@@ -102,6 +102,32 @@ def _build_spsp_algos(
         "astar-dial-cheb",
         lambda start, goal: spsp.astar_dial_cheb(w, n, cost, pnb, start, goal),
     )
+    # Padded cost for JPS: size (w+1)*(h+1) with border = INF. Lets scan
+    # bodies drop all bounds checks (off-edge wraps to border via negative
+    # indexing or positive overflow).
+    if "astar-jps" in selected or "astar-jps-dial" in selected:
+        stride_pad = w + 1
+        n_pad = stride_pad * (h + 1)
+        cost_pad = [INF] * n_pad
+        for y in range(h):
+            for x in range(w):
+                cost_pad[y * stride_pad + x] = cost[y * w + x]
+
+        def _pad(i: int) -> int:
+            return (i // w) * stride_pad + (i % w)
+
+        add(
+            "astar-jps",
+            lambda start, goal: spsp.astar_jps(
+                stride_pad, n_pad, cost_pad, _pad(start), _pad(goal), w
+            ),
+        )
+        add(
+            "astar-jps-dial",
+            lambda start, goal: spsp.astar_jps_dial(
+                stride_pad, n_pad, cost_pad, _pad(start), _pad(goal), w
+            ),
+        )
 
     if "astar-heap-apsp" in selected or "astar-dial-apsp" in selected:
         apsp = spsp.precompute_apsp(n, cost, pnb)
@@ -344,6 +370,8 @@ def _build_sssp_algos(
 ALL_SPSP_NAMES: list[str] = [
     "astar-heap-cheb",
     "astar-dial-cheb",
+    "astar-jps",
+    "astar-jps-dial",
     "astar-heap-apsp",
     "astar-dial-apsp",
     "bfs",
