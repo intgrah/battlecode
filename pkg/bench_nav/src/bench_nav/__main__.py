@@ -1,66 +1,58 @@
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 
-from bench_nav.bench import bench_plot, bench_spsp, bench_sssp, bench_table
-from bench_nav.common import N_PAIRS
+from bench_nav.bench import (
+    DEFAULT_N_QUERIES,
+    bench_spsp,
+    bench_sssp,
+    bench_table_spsp,
+    bench_table_sssp,
+)
+from bench_nav.types import Command
 
 
-def _add_common_args(sub: argparse.ArgumentParser) -> None:
-    sub.add_argument(
-        "--algos",
-        nargs="*",
-        help="Algorithm names to include (exact match, default: all)",
-    )
-    sub.add_argument(
-        "--list",
-        action="store_true",
-        help="List available algorithms and exit",
-    )
-    sub.add_argument(
-        "-n",
-        "--samples",
-        type=int,
-        default=N_PAIRS,
-        help=f"Number of random samples per map (default: {N_PAIRS})",
-    )
+def _common(sub: argparse.ArgumentParser) -> None:
+    sub.add_argument("--algos", nargs="*")
+    sub.add_argument("--list", action="store_true")
+    sub.add_argument("-n", "--samples", type=int, default=DEFAULT_N_QUERIES)
 
 
-def _csv_path_arg(sub: argparse.ArgumentParser) -> None:
-    sub.add_argument(
-        "csv",
-        nargs="?",
-        type=Path,
-        default=Path("bench_nav.csv"),
-        help="Path to bench_nav.csv (default: ./bench_nav.csv)",
-    )
+def _csv_arg(sub: argparse.ArgumentParser, default: str) -> None:
+    sub.add_argument("csv", nargs="?", type=Path, default=Path(default))
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Navigation benchmark")
-    subs = parser.add_subparsers(dest="command", required=True)
+    p = argparse.ArgumentParser(description="Navigation benchmark")
+    subs = p.add_subparsers(dest="command", required=True)
 
-    sp_spsp = subs.add_parser("spsp", help="Run SPSP (point-to-point) benchmark")
-    _add_common_args(sp_spsp)
+    sp_spsp = subs.add_parser(Command.SPSP.name.lower())
+    _common(sp_spsp)
+    sp_spsp.add_argument("--waypoints", type=int, default=1)
+    sp_spsp.add_argument(
+        "--vision", type=int, default=0, help="vision r^2, 0 = full map"
+    )
 
-    sp_sssp = subs.add_parser("sssp", help="Run SSSP (single-source) benchmark")
-    _add_common_args(sp_sssp)
+    sp_sssp = subs.add_parser(Command.SSSP.name.lower())
+    _common(sp_sssp)
 
-    sp_table = subs.add_parser("table", help="Print SPSP results as a terminal table")
-    _csv_path_arg(sp_table)
+    sp_table_spsp = subs.add_parser("table-spsp")
+    _csv_arg(sp_table_spsp, "bench_nav_spsp.csv")
 
-    sp_plot = subs.add_parser("plot", help="Plot SPSP results to PNG")
-    _csv_path_arg(sp_plot)
+    sp_table_sssp = subs.add_parser("table-sssp")
+    _csv_arg(sp_table_sssp, "bench_nav_sssp.csv")
 
-    args = parser.parse_args()
+    args = p.parse_args()
     match args.command:
         case "spsp":
             bench_spsp(args)
         case "sssp":
             bench_sssp(args)
-        case "table":
-            bench_table(args)
-        case "plot":
-            bench_plot(args)
+        case "table-spsp":
+            bench_table_spsp(args)
+        case "table-sssp":
+            bench_table_sssp(args)
 
 
 if __name__ == "__main__":

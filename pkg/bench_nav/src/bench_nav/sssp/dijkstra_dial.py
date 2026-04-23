@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 from collections import deque
+from typing import Final
 
 from bench_nav.common import CE, INF
+from bench_nav.precompute import COST, PNB
+from bench_nav.types import AlgoName, CostUnit, PrecompCtx, SsspAlgo
 
 assert CE + 1 == 4
 
 
-def dijkstra_dial(
-    n: int, cost: list[int], pnb: list[list[int]], start: int
-) -> list[int]:
+def _solve(ctx: PrecompCtx, start: int) -> list[int]:
+    n = ctx.n
+    cost = ctx[COST]
+    pnb = ctx[PNB]
     dist = [INF] * n
     dist[start] = 0
     bk = [deque[int]() for _ in range(4)]
@@ -32,3 +38,11 @@ def dijkstra_dial(
             emp += 1
         cur_d += 1
     return dist
+
+
+ALGO: Final[SsspAlgo] = SsspAlgo(
+    name=AlgoName("dijkstra-dial"),
+    requires=frozenset({COST, PNB}),
+    unit=CostUnit.COST,
+    solve=_solve,
+)
