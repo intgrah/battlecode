@@ -38,9 +38,10 @@ def astar_jps(
     """JPS with heap, using padded cost grid (stride stride = w+1)."""
     heappush = heapq.heappush
     heappop = heapq.heappop
+    inf = INF  # local alias: hot-loop `is inf` is LOAD_FAST vs LOAD_GLOBAL
     gx, gy = goal % stride, goal // stride
 
-    g = [INF] * n
+    g = [inf] * n
     g[start] = 0
     parent = [-1] * n
     parent[start] = start

@@ -40,9 +40,10 @@ def astar_jps_dial(
 ) -> Path_:
     """JPS with Dial buckets. Assumes uniform edge cost (no roads).
     Uses padded cost grid (stride stride = w+1)."""
+    inf = INF  # local alias: hot-loop `is inf` is LOAD_FAST vs LOAD_GLOBAL
     gx, gy = goal % stride, goal // stride
 
-    g = [INF] * n
+    g = [inf] * n
     g[start] = 0
     parent = [-1] * n
     parent[start] = start

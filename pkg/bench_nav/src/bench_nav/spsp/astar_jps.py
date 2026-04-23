@@ -36,9 +36,10 @@ def astar_jps(
     """JPS with heap, using padded cost grid (stride stride = w+1)."""
     heappush = heapq.heappush
     heappop = heapq.heappop
+    inf = INF  # local alias: hot-loop `is inf` is LOAD_FAST vs LOAD_GLOBAL
     gx, gy = goal % stride, goal // stride
 
-    g = [INF] * n
+    g = [inf] * n
     g[start] = 0
     parent = [-1] * n
     parent[start] = start
@@ -64,24 +65,24 @@ def astar_jps(
         while True:
             idx += stride_dy
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
             if (
                 idx == goal
-                or (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF)
-                or (cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF)
+                or (cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf)
+                or (cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf)
             ):
                 break
     else:
         while True:
             idx += stride_dy
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
-            if (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF) or (
-                cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF
+            if (cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf) or (
+                cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf
             ):
                 break
     if dist > 0:
@@ -106,32 +107,32 @@ def astar_jps(
     sub_yp_xm_off = stride_dy - 1
     sub_yp_xp_off = stride_dy + 1
     idx = node
+    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
     while True:
         idx += step
         dist += 1
-        if cost[idx] is INF:
+        if cost[idx] is inf:
             dist = -1
             break
         if (
             idx == goal
-            or (cost[idx - 1] is INF and cost[idx + fwd_yx_off] is not INF)
-            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+            or (cost[idx - 1] is inf and cost[idx + fwd_yx_off] is not inf)
+            or (cost[idx - stride_dy] is inf and cost[idx + back_xy_off] is not inf)
         ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += 1
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
                 or (
-                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                    cost[cidx - stride] is inf and cost[cidx + sub_up_dx_off] is not inf
                 )
                 or (
-                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                    cost[cidx + stride] is inf and cost[cidx + sub_dn_dx_off] is not inf
                 )
             ):
                 subfound = True
@@ -140,15 +141,14 @@ def astar_jps(
             break
         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += stride_dy
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
-                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
-                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+                or (cost[cidx - 1] is inf and cost[cidx + sub_yp_xm_off] is not inf)
+                or (cost[cidx + 1] is inf and cost[cidx + sub_yp_xp_off] is not inf)
             ):
                 subfound = True
                 break
@@ -171,24 +171,24 @@ def astar_jps(
         while True:
             idx += 1
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
             if (
                 idx == goal
-                or (cost[idx - stride] is INF and cost[idx + up_dx_off] is not INF)
-                or (cost[idx + stride] is INF and cost[idx + dn_dx_off] is not INF)
+                or (cost[idx - stride] is inf and cost[idx + up_dx_off] is not inf)
+                or (cost[idx + stride] is inf and cost[idx + dn_dx_off] is not inf)
             ):
                 break
     else:
         while True:
             idx += 1
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
-            if (cost[idx - stride] is INF and cost[idx + up_dx_off] is not INF) or (
-                cost[idx + stride] is INF and cost[idx + dn_dx_off] is not INF
+            if (cost[idx - stride] is inf and cost[idx + up_dx_off] is not inf) or (
+                cost[idx + stride] is inf and cost[idx + dn_dx_off] is not inf
             ):
                 break
     if dist > 0:
@@ -213,32 +213,32 @@ def astar_jps(
     sub_yp_xm_off = stride_dy - 1
     sub_yp_xp_off = stride_dy + 1
     idx = node
+    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
     while True:
         idx += step
         dist += 1
-        if cost[idx] is INF:
+        if cost[idx] is inf:
             dist = -1
             break
         if (
             idx == goal
-            or (cost[idx - 1] is INF and cost[idx + fwd_yx_off] is not INF)
-            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+            or (cost[idx - 1] is inf and cost[idx + fwd_yx_off] is not inf)
+            or (cost[idx - stride_dy] is inf and cost[idx + back_xy_off] is not inf)
         ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += 1
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
                 or (
-                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                    cost[cidx - stride] is inf and cost[cidx + sub_up_dx_off] is not inf
                 )
                 or (
-                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                    cost[cidx + stride] is inf and cost[cidx + sub_dn_dx_off] is not inf
                 )
             ):
                 subfound = True
@@ -247,15 +247,14 @@ def astar_jps(
             break
         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += stride_dy
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
-                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
-                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+                or (cost[cidx - 1] is inf and cost[cidx + sub_yp_xm_off] is not inf)
+                or (cost[cidx + 1] is inf and cost[cidx + sub_yp_xp_off] is not inf)
             ):
                 subfound = True
                 break
@@ -279,24 +278,24 @@ def astar_jps(
         while True:
             idx += stride_dy
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
             if (
                 idx == goal
-                or (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF)
-                or (cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF)
+                or (cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf)
+                or (cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf)
             ):
                 break
     else:
         while True:
             idx += stride_dy
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
-            if (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF) or (
-                cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF
+            if (cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf) or (
+                cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf
             ):
                 break
     if dist > 0:
@@ -321,32 +320,32 @@ def astar_jps(
     sub_yp_xm_off = stride_dy - 1
     sub_yp_xp_off = stride_dy + 1
     idx = node
+    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
     while True:
         idx += step
         dist += 1
-        if cost[idx] is INF:
+        if cost[idx] is inf:
             dist = -1
             break
         if (
             idx == goal
-            or (cost[idx - -1] is INF and cost[idx + fwd_yx_off] is not INF)
-            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+            or (cost[idx - -1] is inf and cost[idx + fwd_yx_off] is not inf)
+            or (cost[idx - stride_dy] is inf and cost[idx + back_xy_off] is not inf)
         ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += -1
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
                 or (
-                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                    cost[cidx - stride] is inf and cost[cidx + sub_up_dx_off] is not inf
                 )
                 or (
-                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                    cost[cidx + stride] is inf and cost[cidx + sub_dn_dx_off] is not inf
                 )
             ):
                 subfound = True
@@ -355,15 +354,14 @@ def astar_jps(
             break
         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += stride_dy
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
-                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
-                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+                or (cost[cidx - 1] is inf and cost[cidx + sub_yp_xm_off] is not inf)
+                or (cost[cidx + 1] is inf and cost[cidx + sub_yp_xp_off] is not inf)
             ):
                 subfound = True
                 break
@@ -386,24 +384,24 @@ def astar_jps(
         while True:
             idx += -1
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
             if (
                 idx == goal
-                or (cost[idx - stride] is INF and cost[idx + up_dx_off] is not INF)
-                or (cost[idx + stride] is INF and cost[idx + dn_dx_off] is not INF)
+                or (cost[idx - stride] is inf and cost[idx + up_dx_off] is not inf)
+                or (cost[idx + stride] is inf and cost[idx + dn_dx_off] is not inf)
             ):
                 break
     else:
         while True:
             idx += -1
             dist += 1
-            if cost[idx] is INF:
+            if cost[idx] is inf:
                 dist = -1
                 break
-            if (cost[idx - stride] is INF and cost[idx + up_dx_off] is not INF) or (
-                cost[idx + stride] is INF and cost[idx + dn_dx_off] is not INF
+            if (cost[idx - stride] is inf and cost[idx + up_dx_off] is not inf) or (
+                cost[idx + stride] is inf and cost[idx + dn_dx_off] is not inf
             ):
                 break
     if dist > 0:
@@ -428,32 +426,32 @@ def astar_jps(
     sub_yp_xm_off = stride_dy - 1
     sub_yp_xp_off = stride_dy + 1
     idx = node
+    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
     while True:
         idx += step
         dist += 1
-        if cost[idx] is INF:
+        if cost[idx] is inf:
             dist = -1
             break
         if (
             idx == goal
-            or (cost[idx - -1] is INF and cost[idx + fwd_yx_off] is not INF)
-            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+            or (cost[idx - -1] is inf and cost[idx + fwd_yx_off] is not inf)
+            or (cost[idx - stride_dy] is inf and cost[idx + back_xy_off] is not inf)
         ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += -1
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
                 or (
-                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                    cost[cidx - stride] is inf and cost[cidx + sub_up_dx_off] is not inf
                 )
                 or (
-                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                    cost[cidx + stride] is inf and cost[cidx + sub_dn_dx_off] is not inf
                 )
             ):
                 subfound = True
@@ -462,15 +460,14 @@ def astar_jps(
             break
         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
         cidx = idx
-        subfound = False
         while True:
             cidx += stride_dy
-            if cost[cidx] is INF:
+            if cost[cidx] is inf:
                 break
             if (
                 cidx == goal
-                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
-                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+                or (cost[cidx - 1] is inf and cost[cidx + sub_yp_xm_off] is not inf)
+                or (cost[cidx + 1] is inf and cost[cidx + sub_yp_xp_off] is not inf)
             ):
                 subfound = True
                 break
@@ -501,7 +498,7 @@ def astar_jps(
         if dx0:
             if dy0:
                 stride_dy0 = dy0 * stride
-                if cost[node + stride_dy0] is not INF:
+                if cost[node + stride_dy0] is not inf:
                     nx = node % stride
                     dist = 0
                     stride_dy = stride_dy0
@@ -512,18 +509,18 @@ def astar_jps(
                         while True:
                             idx += stride_dy
                             dist += 1
-                            if cost[idx] is INF:
+                            if cost[idx] is inf:
                                 dist = -1
                                 break
                             if (
                                 idx == goal
                                 or (
-                                    cost[idx - 1] is INF
-                                    and cost[idx + yp_xm_off] is not INF
+                                    cost[idx - 1] is inf
+                                    and cost[idx + yp_xm_off] is not inf
                                 )
                                 or (
-                                    cost[idx + 1] is INF
-                                    and cost[idx + yp_xp_off] is not INF
+                                    cost[idx + 1] is inf
+                                    and cost[idx + yp_xp_off] is not inf
                                 )
                             ):
                                 break
@@ -531,15 +528,15 @@ def astar_jps(
                         while True:
                             idx += stride_dy
                             dist += 1
-                            if cost[idx] is INF:
+                            if cost[idx] is inf:
                                 dist = -1
                                 break
                             if (
-                                cost[idx - 1] is INF
-                                and cost[idx + yp_xm_off] is not INF
+                                cost[idx - 1] is inf
+                                and cost[idx + yp_xm_off] is not inf
                             ) or (
-                                cost[idx + 1] is INF
-                                and cost[idx + yp_xp_off] is not INF
+                                cost[idx + 1] is inf
+                                and cost[idx + yp_xp_off] is not inf
                             ):
                                 break
                     if dist > 0:
@@ -553,7 +550,7 @@ def astar_jps(
                             hxh = abs(nx - gx)
                             hyh = abs((idx // stride) - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-                if cost[node + dx0] is not INF:
+                if cost[node + dx0] is not inf:
                     ny = node // stride
                     dist = 0
                     up_dx_off = dx0 - stride
@@ -563,18 +560,18 @@ def astar_jps(
                         while True:
                             idx += dx0
                             dist += 1
-                            if cost[idx] is INF:
+                            if cost[idx] is inf:
                                 dist = -1
                                 break
                             if (
                                 idx == goal
                                 or (
-                                    cost[idx - stride] is INF
-                                    and cost[idx + up_dx_off] is not INF
+                                    cost[idx - stride] is inf
+                                    and cost[idx + up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[idx + stride] is INF
-                                    and cost[idx + dn_dx_off] is not INF
+                                    cost[idx + stride] is inf
+                                    and cost[idx + dn_dx_off] is not inf
                                 )
                             ):
                                 break
@@ -582,15 +579,15 @@ def astar_jps(
                         while True:
                             idx += dx0
                             dist += 1
-                            if cost[idx] is INF:
+                            if cost[idx] is inf:
                                 dist = -1
                                 break
                             if (
-                                cost[idx - stride] is INF
-                                and cost[idx + up_dx_off] is not INF
+                                cost[idx - stride] is inf
+                                and cost[idx + up_dx_off] is not inf
                             ) or (
-                                cost[idx + stride] is INF
-                                and cost[idx + dn_dx_off] is not INF
+                                cost[idx + stride] is inf
+                                and cost[idx + dn_dx_off] is not inf
                             ):
                                 break
                     if dist > 0:
@@ -604,7 +601,7 @@ def astar_jps(
                             hxh = abs((idx % stride) - gx)
                             hyh = abs(ny - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-                if cost[node + stride_dy0 + dx0] is not INF:
+                if cost[node + stride_dy0 + dx0] is not inf:
                     dist = 0
                     stride_dy = stride_dy0
                     step = stride_dy + dx0
@@ -618,40 +615,40 @@ def astar_jps(
                     sub_yp_xm_off = stride_dy - 1
                     sub_yp_xp_off = stride_dy + 1
                     idx = node
+                    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                     while True:
                         idx += step
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
                             idx == goal
                             or (
-                                cost[idx - dx0] is INF
-                                and cost[idx + fwd_yx_off] is not INF
+                                cost[idx - dx0] is inf
+                                and cost[idx + fwd_yx_off] is not inf
                             )
                             or (
-                                cost[idx - stride_dy] is INF
-                                and cost[idx + back_xy_off] is not INF
+                                cost[idx - stride_dy] is inf
+                                and cost[idx + back_xy_off] is not inf
                             )
                         ):
                             break
                         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += dx0
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
+                                    cost[cidx - stride] is inf
+                                    and cost[cidx + sub_up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cost[cidx + stride] is inf
+                                    and cost[cidx + sub_dn_dx_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -660,20 +657,19 @@ def astar_jps(
                             break
                         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += stride_dy
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
+                                    cost[cidx - 1] is inf
+                                    and cost[cidx + sub_yp_xm_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cost[cidx + 1] is inf
+                                    and cost[cidx + sub_yp_xp_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -689,7 +685,7 @@ def astar_jps(
                             hxh = abs((idx % stride) - gx)
                             hyh = abs((idx // stride) - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-                if cost[node - dx0] is INF and cost[node + stride_dy0 - dx0] is not INF:
+                if cost[node - dx0] is inf and cost[node + stride_dy0 - dx0] is not inf:
                     ndx0 = -dx0
                     dist = 0
                     stride_dy = stride_dy0
@@ -704,40 +700,40 @@ def astar_jps(
                     sub_yp_xm_off = stride_dy - 1
                     sub_yp_xp_off = stride_dy + 1
                     idx = node
+                    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                     while True:
                         idx += step
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
                             idx == goal
                             or (
-                                cost[idx - ndx0] is INF
-                                and cost[idx + fwd_yx_off] is not INF
+                                cost[idx - ndx0] is inf
+                                and cost[idx + fwd_yx_off] is not inf
                             )
                             or (
-                                cost[idx - stride_dy] is INF
-                                and cost[idx + back_xy_off] is not INF
+                                cost[idx - stride_dy] is inf
+                                and cost[idx + back_xy_off] is not inf
                             )
                         ):
                             break
                         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += ndx0
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
+                                    cost[cidx - stride] is inf
+                                    and cost[cidx + sub_up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cost[cidx + stride] is inf
+                                    and cost[cidx + sub_dn_dx_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -746,20 +742,19 @@ def astar_jps(
                             break
                         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += stride_dy
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
+                                    cost[cidx - 1] is inf
+                                    and cost[cidx + sub_yp_xm_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cost[cidx + 1] is inf
+                                    and cost[cidx + sub_yp_xp_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -776,8 +771,8 @@ def astar_jps(
                             hyh = abs((idx // stride) - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
                 if (
-                    cost[node - stride_dy0] is INF
-                    and cost[node + dx0 - stride_dy0] is not INF
+                    cost[node - stride_dy0] is inf
+                    and cost[node + dx0 - stride_dy0] is not inf
                 ):
                     dist = 0
                     stride_dy = -stride_dy0
@@ -792,40 +787,40 @@ def astar_jps(
                     sub_yp_xm_off = stride_dy - 1
                     sub_yp_xp_off = stride_dy + 1
                     idx = node
+                    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                     while True:
                         idx += step
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
                             idx == goal
                             or (
-                                cost[idx - dx0] is INF
-                                and cost[idx + fwd_yx_off] is not INF
+                                cost[idx - dx0] is inf
+                                and cost[idx + fwd_yx_off] is not inf
                             )
                             or (
-                                cost[idx - stride_dy] is INF
-                                and cost[idx + back_xy_off] is not INF
+                                cost[idx - stride_dy] is inf
+                                and cost[idx + back_xy_off] is not inf
                             )
                         ):
                             break
                         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += dx0
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
+                                    cost[cidx - stride] is inf
+                                    and cost[cidx + sub_up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cost[cidx + stride] is inf
+                                    and cost[cidx + sub_dn_dx_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -834,20 +829,19 @@ def astar_jps(
                             break
                         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += stride_dy
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
+                                    cost[cidx - 1] is inf
+                                    and cost[cidx + sub_yp_xm_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cost[cidx + 1] is inf
+                                    and cost[cidx + sub_yp_xp_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -864,7 +858,7 @@ def astar_jps(
                             hyh = abs((idx // stride) - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
             else:
-                if cost[node + dx0] is not INF:
+                if cost[node + dx0] is not inf:
                     ny = node // stride
                     dist = 0
                     up_dx_off = dx0 - stride
@@ -874,18 +868,18 @@ def astar_jps(
                         while True:
                             idx += dx0
                             dist += 1
-                            if cost[idx] is INF:
+                            if cost[idx] is inf:
                                 dist = -1
                                 break
                             if (
                                 idx == goal
                                 or (
-                                    cost[idx - stride] is INF
-                                    and cost[idx + up_dx_off] is not INF
+                                    cost[idx - stride] is inf
+                                    and cost[idx + up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[idx + stride] is INF
-                                    and cost[idx + dn_dx_off] is not INF
+                                    cost[idx + stride] is inf
+                                    and cost[idx + dn_dx_off] is not inf
                                 )
                             ):
                                 break
@@ -893,15 +887,15 @@ def astar_jps(
                         while True:
                             idx += dx0
                             dist += 1
-                            if cost[idx] is INF:
+                            if cost[idx] is inf:
                                 dist = -1
                                 break
                             if (
-                                cost[idx - stride] is INF
-                                and cost[idx + up_dx_off] is not INF
+                                cost[idx - stride] is inf
+                                and cost[idx + up_dx_off] is not inf
                             ) or (
-                                cost[idx + stride] is INF
-                                and cost[idx + dn_dx_off] is not INF
+                                cost[idx + stride] is inf
+                                and cost[idx + dn_dx_off] is not inf
                             ):
                                 break
                     if dist > 0:
@@ -915,7 +909,7 @@ def astar_jps(
                             hxh = abs((idx % stride) - gx)
                             hyh = abs(ny - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-                if cost[node - stride] is INF and cost[node - stride + dx0] is not INF:
+                if cost[node - stride] is inf and cost[node - stride + dx0] is not inf:
                     dist = 0
                     stride_dy = -1 * stride
                     step = stride_dy + dx0
@@ -929,40 +923,40 @@ def astar_jps(
                     sub_yp_xm_off = stride_dy - 1
                     sub_yp_xp_off = stride_dy + 1
                     idx = node
+                    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                     while True:
                         idx += step
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
                             idx == goal
                             or (
-                                cost[idx - dx0] is INF
-                                and cost[idx + fwd_yx_off] is not INF
+                                cost[idx - dx0] is inf
+                                and cost[idx + fwd_yx_off] is not inf
                             )
                             or (
-                                cost[idx - stride_dy] is INF
-                                and cost[idx + back_xy_off] is not INF
+                                cost[idx - stride_dy] is inf
+                                and cost[idx + back_xy_off] is not inf
                             )
                         ):
                             break
                         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += dx0
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
+                                    cost[cidx - stride] is inf
+                                    and cost[cidx + sub_up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cost[cidx + stride] is inf
+                                    and cost[cidx + sub_dn_dx_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -971,20 +965,19 @@ def astar_jps(
                             break
                         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += stride_dy
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
+                                    cost[cidx - 1] is inf
+                                    and cost[cidx + sub_yp_xm_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cost[cidx + 1] is inf
+                                    and cost[cidx + sub_yp_xp_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -1000,7 +993,7 @@ def astar_jps(
                             hxh = abs((idx % stride) - gx)
                             hyh = abs((idx // stride) - gy)
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-                if cost[node + stride] is INF and cost[node + stride + dx0] is not INF:
+                if cost[node + stride] is inf and cost[node + stride + dx0] is not inf:
                     dist = 0
                     stride_dy = 1 * stride
                     step = stride_dy + dx0
@@ -1014,40 +1007,40 @@ def astar_jps(
                     sub_yp_xm_off = stride_dy - 1
                     sub_yp_xp_off = stride_dy + 1
                     idx = node
+                    subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                     while True:
                         idx += step
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
                             idx == goal
                             or (
-                                cost[idx - dx0] is INF
-                                and cost[idx + fwd_yx_off] is not INF
+                                cost[idx - dx0] is inf
+                                and cost[idx + fwd_yx_off] is not inf
                             )
                             or (
-                                cost[idx - stride_dy] is INF
-                                and cost[idx + back_xy_off] is not INF
+                                cost[idx - stride_dy] is inf
+                                and cost[idx + back_xy_off] is not inf
                             )
                         ):
                             break
                         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += dx0
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
+                                    cost[cidx - stride] is inf
+                                    and cost[cidx + sub_up_dx_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cost[cidx + stride] is inf
+                                    and cost[cidx + sub_dn_dx_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -1056,20 +1049,19 @@ def astar_jps(
                             break
                         # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                         cidx = idx
-                        subfound = False
                         while True:
                             cidx += stride_dy
-                            if cost[cidx] is INF:
+                            if cost[cidx] is inf:
                                 break
                             if (
                                 cidx == goal
                                 or (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
+                                    cost[cidx - 1] is inf
+                                    and cost[cidx + sub_yp_xm_off] is not inf
                                 )
                                 or (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cost[cidx + 1] is inf
+                                    and cost[cidx + sub_yp_xp_off] is not inf
                                 )
                             ):
                                 subfound = True
@@ -1087,7 +1079,7 @@ def astar_jps(
                             heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
         else:
             stride_dy0 = dy0 * stride
-            if cost[node + stride_dy0] is not INF:
+            if cost[node + stride_dy0] is not inf:
                 nx = node % stride
                 dist = 0
                 stride_dy = stride_dy0
@@ -1098,18 +1090,18 @@ def astar_jps(
                     while True:
                         idx += stride_dy
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
                             idx == goal
                             or (
-                                cost[idx - 1] is INF
-                                and cost[idx + yp_xm_off] is not INF
+                                cost[idx - 1] is inf
+                                and cost[idx + yp_xm_off] is not inf
                             )
                             or (
-                                cost[idx + 1] is INF
-                                and cost[idx + yp_xp_off] is not INF
+                                cost[idx + 1] is inf
+                                and cost[idx + yp_xp_off] is not inf
                             )
                         ):
                             break
@@ -1117,13 +1109,13 @@ def astar_jps(
                     while True:
                         idx += stride_dy
                         dist += 1
-                        if cost[idx] is INF:
+                        if cost[idx] is inf:
                             dist = -1
                             break
                         if (
-                            cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF
+                            cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf
                         ) or (
-                            cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF
+                            cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf
                         ):
                             break
                 if dist > 0:
@@ -1135,7 +1127,7 @@ def astar_jps(
                         hxh = abs(nx - gx)
                         hyh = abs((idx // stride) - gy)
                         heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-            if cost[node - 1] is INF and cost[node + stride_dy0 - 1] is not INF:
+            if cost[node - 1] is inf and cost[node + stride_dy0 - 1] is not inf:
                 dist = 0
                 stride_dy = stride_dy0
                 step = stride_dy + -1
@@ -1149,37 +1141,37 @@ def astar_jps(
                 sub_yp_xm_off = stride_dy - 1
                 sub_yp_xp_off = stride_dy + 1
                 idx = node
+                subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                 while True:
                     idx += step
                     dist += 1
-                    if cost[idx] is INF:
+                    if cost[idx] is inf:
                         dist = -1
                         break
                     if (
                         idx == goal
-                        or (cost[idx - -1] is INF and cost[idx + fwd_yx_off] is not INF)
+                        or (cost[idx - -1] is inf and cost[idx + fwd_yx_off] is not inf)
                         or (
-                            cost[idx - stride_dy] is INF
-                            and cost[idx + back_xy_off] is not INF
+                            cost[idx - stride_dy] is inf
+                            and cost[idx + back_xy_off] is not inf
                         )
                     ):
                         break
                     # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                     cidx = idx
-                    subfound = False
                     while True:
                         cidx += -1
-                        if cost[cidx] is INF:
+                        if cost[cidx] is inf:
                             break
                         if (
                             cidx == goal
                             or (
-                                cost[cidx - stride] is INF
-                                and cost[cidx + sub_up_dx_off] is not INF
+                                cost[cidx - stride] is inf
+                                and cost[cidx + sub_up_dx_off] is not inf
                             )
                             or (
-                                cost[cidx + stride] is INF
-                                and cost[cidx + sub_dn_dx_off] is not INF
+                                cost[cidx + stride] is inf
+                                and cost[cidx + sub_dn_dx_off] is not inf
                             )
                         ):
                             subfound = True
@@ -1188,20 +1180,19 @@ def astar_jps(
                         break
                     # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                     cidx = idx
-                    subfound = False
                     while True:
                         cidx += stride_dy
-                        if cost[cidx] is INF:
+                        if cost[cidx] is inf:
                             break
                         if (
                             cidx == goal
                             or (
-                                cost[cidx - 1] is INF
-                                and cost[cidx + sub_yp_xm_off] is not INF
+                                cost[cidx - 1] is inf
+                                and cost[cidx + sub_yp_xm_off] is not inf
                             )
                             or (
-                                cost[cidx + 1] is INF
-                                and cost[cidx + sub_yp_xp_off] is not INF
+                                cost[cidx + 1] is inf
+                                and cost[cidx + sub_yp_xp_off] is not inf
                             )
                         ):
                             subfound = True
@@ -1217,7 +1208,7 @@ def astar_jps(
                         hxh = abs((idx % stride) - gx)
                         hyh = abs((idx // stride) - gy)
                         heappush(heap, (nd + (hxh if hxh > hyh else hyh)) * n + idx)
-            if cost[node + 1] is INF and cost[node + stride_dy0 + 1] is not INF:
+            if cost[node + 1] is inf and cost[node + stride_dy0 + 1] is not inf:
                 dist = 0
                 stride_dy = stride_dy0
                 step = stride_dy + 1
@@ -1231,37 +1222,37 @@ def astar_jps(
                 sub_yp_xm_off = stride_dy - 1
                 sub_yp_xp_off = stride_dy + 1
                 idx = node
+                subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
                 while True:
                     idx += step
                     dist += 1
-                    if cost[idx] is INF:
+                    if cost[idx] is inf:
                         dist = -1
                         break
                     if (
                         idx == goal
-                        or (cost[idx - 1] is INF and cost[idx + fwd_yx_off] is not INF)
+                        or (cost[idx - 1] is inf and cost[idx + fwd_yx_off] is not inf)
                         or (
-                            cost[idx - stride_dy] is INF
-                            and cost[idx + back_xy_off] is not INF
+                            cost[idx - stride_dy] is inf
+                            and cost[idx + back_xy_off] is not inf
                         )
                     ):
                         break
                     # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
                     cidx = idx
-                    subfound = False
                     while True:
                         cidx += 1
-                        if cost[cidx] is INF:
+                        if cost[cidx] is inf:
                             break
                         if (
                             cidx == goal
                             or (
-                                cost[cidx - stride] is INF
-                                and cost[cidx + sub_up_dx_off] is not INF
+                                cost[cidx - stride] is inf
+                                and cost[cidx + sub_up_dx_off] is not inf
                             )
                             or (
-                                cost[cidx + stride] is INF
-                                and cost[cidx + sub_dn_dx_off] is not INF
+                                cost[cidx + stride] is inf
+                                and cost[cidx + sub_dn_dx_off] is not inf
                             )
                         ):
                             subfound = True
@@ -1270,20 +1261,19 @@ def astar_jps(
                         break
                     # Sub-scan cardinal (0, dy) from idx: x is fixed here.
                     cidx = idx
-                    subfound = False
                     while True:
                         cidx += stride_dy
-                        if cost[cidx] is INF:
+                        if cost[cidx] is inf:
                             break
                         if (
                             cidx == goal
                             or (
-                                cost[cidx - 1] is INF
-                                and cost[cidx + sub_yp_xm_off] is not INF
+                                cost[cidx - 1] is inf
+                                and cost[cidx + sub_yp_xm_off] is not inf
                             )
                             or (
-                                cost[cidx + 1] is INF
-                                and cost[cidx + sub_yp_xp_off] is not INF
+                                cost[cidx + 1] is inf
+                                and cost[cidx + sub_yp_xp_off] is not inf
                             )
                         ):
                             subfound = True
