@@ -12,15 +12,14 @@
 
 {# Vertical cardinal jump: dx = 0, dy = dy_expr. Caller provides `node`
    (starting flat index) and `nx` (column, for goal-split and hxh).
-   Uses precomputed offsets for forced-neighbor diagonals. #}
-{% macro jump_v(dy_expr, parent_expr, push_line) -%}
+   Optional `sdy_expr`: expression for stride_dy (avoids recomputing `dy * stride`). #}
+{% macro jump_v(dy_expr, parent_expr, push_line, sdy_expr=None) -%}
 dy = {{ dy_expr }}
 dist = 0
-stride_dy = dy * stride
+stride_dy = {{ sdy_expr if sdy_expr else 'dy * stride' }}
 yp_xm_off = stride_dy - 1
 yp_xp_off = stride_dy + 1
 idx = node
-hxh = abs(nx - gx)
 if nx == gx:
     while True:
         idx += stride_dy
@@ -28,11 +27,11 @@ if nx == gx:
         if cost[idx] is INF:
             dist = -1
             break
-        if idx == goal:
-            break
-        if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
-            break
-        if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
+        if (
+            idx == goal
+            or (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF)
+            or (cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF)
+        ):
             break
 else:
     while True:
@@ -41,17 +40,17 @@ else:
         if cost[idx] is INF:
             dist = -1
             break
-        if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
-            break
-        if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
+        if (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF) or (
+            cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF
+        ):
             break
 if dist > 0:
     nd = g_node + dist
     if nd < g[idx]:
         g[idx] = nd
         parent[idx] = {{ parent_expr }}
-        entry_dx[idx] = 0
-        entry_dy[idx] = dy
+        entry_dir[idx] = dy + 4  # encodes (0, dy): (dx+1)*3 + (dy+1)
+        hxh = abs(nx - gx)
         hyh = abs((idx // stride) - gy)
         hj = {{ max2('hxh', 'hyh') }}
         {{ push_line }}
@@ -64,11 +63,10 @@ if dist > 0:
 dx = {{ dx_expr }}
 dist = 0
 up_off = -stride
-up_dx_off = -stride + dx
+up_dx_off = dx - stride
 dn_off = stride
 dn_dx_off = stride + dx
 idx = node
-hyh = abs(ny - gy)
 if ny == gy:
     while True:
         idx += dx
@@ -76,11 +74,11 @@ if ny == gy:
         if cost[idx] is INF:
             dist = -1
             break
-        if idx == goal:
-            break
-        if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
-            break
-        if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
+        if (
+            idx == goal
+            or (cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF)
+            or (cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF)
+        ):
             break
 else:
     while True:
@@ -89,35 +87,35 @@ else:
         if cost[idx] is INF:
             dist = -1
             break
-        if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
-            break
-        if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
+        if (cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF) or (
+            cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF
+        ):
             break
 if dist > 0:
     nd = g_node + dist
     if nd < g[idx]:
         g[idx] = nd
         parent[idx] = {{ parent_expr }}
-        entry_dx[idx] = dx
-        entry_dy[idx] = 0
+        entry_dir[idx] = 3 * dx + 4  # encodes (dx, 0): (dx+1)*3 + 1
         hxh = abs((idx % stride) - gx)
+        hyh = abs(ny - gy)
         hj = {{ max2('hxh', 'hyh') }}
         {{ push_line }}
 {%- endmacro %}
 
-{# Diagonal jump: dx = dx_expr, dy = dy_expr, both nonzero. Precompute all
-   corner offsets for main-loop and both sub-scans. #}
-{% macro jump_d(dx_expr, dy_expr, parent_expr, push_line) -%}
+{# Diagonal jump: dx = dx_expr, dy = dy_expr, both nonzero.
+   Optional `sdy_expr`: expression for stride_dy (avoids recomputing `dy * stride`). #}
+{% macro jump_d(dx_expr, dy_expr, parent_expr, push_line, sdy_expr=None) -%}
 dx = {{ dx_expr }}
 dy = {{ dy_expr }}
 dist = 0
-stride_dy = dy * stride
+stride_dy = {{ sdy_expr if sdy_expr else 'dy * stride' }}
 step = stride_dy + dx
 # Forced-neighbor offsets (main diagonal loop):
 fwd_yx_off = stride_dy - dx    # (x-dx, y+dy) from idx
 back_xy_off = dx - stride_dy   # (x+dx, y-dy) from idx
 # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-sub_up_dx_off = -stride + dx
+sub_up_dx_off = dx - stride
 sub_dn_dx_off = stride + dx
 # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
 sub_yp_xm_off = stride_dy - 1
@@ -129,11 +127,11 @@ while True:
     if cost[idx] is INF:
         dist = -1
         break
-    if idx == goal:
-        break
-    if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
-        break
-    if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
+    if (
+        idx == goal
+        or (cost[idx - dx] is INF and cost[idx + fwd_yx_off] is not INF)
+        or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+    ):
         break
     # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
     cidx = idx
@@ -142,13 +140,11 @@ while True:
         cidx += dx
         if cost[cidx] is INF:
             break
-        if cidx == goal:
-            subfound = True
-            break
-        if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
-            subfound = True
-            break
-        if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
+        if (
+            cidx == goal
+            or (cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF)
+            or (cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF)
+        ):
             subfound = True
             break
     if subfound:
@@ -160,13 +156,11 @@ while True:
         cidx += stride_dy
         if cost[cidx] is INF:
             break
-        if cidx == goal:
-            subfound = True
-            break
-        if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
-            subfound = True
-            break
-        if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
+        if (
+            cidx == goal
+            or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
+            or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+        ):
             subfound = True
             break
     if subfound:
@@ -176,8 +170,7 @@ if dist > 0:
     if nd < g[idx]:
         g[idx] = nd
         parent[idx] = {{ parent_expr }}
-        entry_dx[idx] = dx
-        entry_dy[idx] = dy
+        entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
         hxh = abs((idx % stride) - gx)
         hyh = abs((idx // stride) - gy)
         hj = {{ max2('hxh', 'hyh') }}
@@ -199,16 +192,17 @@ if dist > 0:
 {# Unroll diagonal-arrival successors. All cost checks use node + offset. #}
 {% macro expand_diagonal_arrival(parent_expr, push_line) -%}
 stride_dy0 = dy0 * stride
+neg_stride_dy0 = -stride_dy0
 if cost[node + stride_dy0] is not INF:
-    {{ jump_v('dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_v('dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node + dx0] is not INF:
     {{ jump_h('dx0', parent_expr, push_line) | indent(4) }}
 if cost[node + stride_dy0 + dx0] is not INF:
-    {{ jump_d('dx0', 'dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_d('dx0', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node - dx0] is INF and cost[node + stride_dy0 - dx0] is not INF:
-    {{ jump_d('-dx0', 'dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_d('-dx0', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node - stride_dy0] is INF and cost[node + dx0 - stride_dy0] is not INF:
-    {{ jump_d('dx0', '-dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_d('dx0', '-dy0', parent_expr, push_line, 'neg_stride_dy0') | indent(4) }}
 {%- endmacro %}
 
 {# Unroll horizontal-cardinal-arrival successors (dy0 == 0). #}
@@ -225,9 +219,9 @@ if cost[node + stride] is INF and cost[node + stride + dx0] is not INF:
 {% macro expand_vertical_arrival(parent_expr, push_line) -%}
 stride_dy0 = dy0 * stride
 if cost[node + stride_dy0] is not INF:
-    {{ jump_v('dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_v('dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node - 1] is INF and cost[node + stride_dy0 - 1] is not INF:
-    {{ jump_d('-1', 'dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_d('-1', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node + 1] is INF and cost[node + stride_dy0 + 1] is not INF:
-    {{ jump_d('1', 'dy0', parent_expr, push_line) | indent(4) }}
+    {{ jump_d('1', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
 {%- endmacro %}
