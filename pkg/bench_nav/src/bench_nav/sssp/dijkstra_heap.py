@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import heapq
+from typing import Final
 
 from bench_nav.common import INF
+from bench_nav.precompute import COST, PNB
+from bench_nav.types import AlgoName, CostUnit, PrecompCtx, SsspAlgo
 
 
-def dijkstra_heap(
-    n: int, cost: list[int], pnb: list[list[int]], start: int
-) -> list[int]:
+def _solve(ctx: PrecompCtx, start: int) -> list[int]:
+    n = ctx.n
+    cost = ctx[COST]
+    pnb = ctx[PNB]
     dist = [INF] * n
     dist[start] = 0
     q = [(0, start)]
@@ -19,3 +25,11 @@ def dijkstra_heap(
                 dist[nb] = nd
                 heapq.heappush(q, (nd, nb))
     return dist
+
+
+ALGO: Final[SsspAlgo] = SsspAlgo(
+    name=AlgoName("dijkstra-heap"),
+    requires=frozenset({COST, PNB}),
+    unit=CostUnit.COST,
+    solve=_solve,
+)
