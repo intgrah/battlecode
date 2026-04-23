@@ -80,7 +80,6 @@ impl DistBug {
     fn move_to(&mut self, new_pos: (i32, i32)) {
         self.pos = new_pos;
         self.snap.current = new_pos;
-        self.snap.visited.insert(new_pos);
         self.snap.path.push(new_pos);
     }
 

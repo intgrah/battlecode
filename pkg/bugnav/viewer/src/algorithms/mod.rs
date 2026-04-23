@@ -8,6 +8,7 @@ pub mod distbug;
 pub mod lookahead_bug;
 pub mod mem_astar;
 pub mod mem_bfs;
+pub mod pruned_bug;
 pub mod tangentbug;
 pub mod visbug21;
 pub mod visbug22;

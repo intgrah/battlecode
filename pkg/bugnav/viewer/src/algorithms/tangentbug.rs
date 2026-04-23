@@ -81,7 +81,6 @@ impl TangentBug {
     fn move_to(&mut self, new_pos: (i32, i32)) {
         self.pos = new_pos;
         self.snap.current = new_pos;
-        self.snap.visited.insert(new_pos);
         self.snap.path.push(new_pos);
     }
 
@@ -233,7 +232,6 @@ impl Pathfinder for TangentBug {
                     for &p in line.iter().skip(1) {
                         self.pos = p;
                         self.snap.current = p;
-                        self.snap.visited.insert(p);
                         self.snap.path.push(p);
                     }
                     return self.status;
