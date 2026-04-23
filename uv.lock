@@ -224,11 +224,19 @@ dependencies = [
     { name = "proto" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "jinja2" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "proto", editable = "pkg/proto" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "jinja2", specifier = ">=3.1.6" }]
 
 [[package]]
 name = "blueprint"
