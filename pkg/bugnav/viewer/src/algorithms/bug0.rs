@@ -18,6 +18,7 @@ pub struct Bug0 {
     pos: (i32, i32),
     mode: Mode,
     wf: WallFollowState,
+    default_handed: bool,
     hit_dist_sq: i32,
     steps: u32,
     snap: Snapshot,
@@ -25,6 +26,19 @@ pub struct Bug0 {
 }
 
 pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
+    build_inner(grid, start, goal, true)
+}
+
+pub fn build_ccw(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
+    build_inner(grid, start, goal, false)
+}
+
+fn build_inner(
+    grid: &Grid,
+    start: (i32, i32),
+    goal: (i32, i32),
+    obstacle_on_right: bool,
+) -> Box<dyn Pathfinder> {
     let mut snap = Snapshot {
         current: start,
         path: vec![start],
@@ -41,8 +55,9 @@ pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfi
         wf: WallFollowState {
             pos: start,
             current_obstacle: start,
-            obstacle_on_right: true,
+            obstacle_on_right,
         },
+        default_handed: obstacle_on_right,
         hit_dist_sq: dist_sq(start, goal),
         steps: 0,
         snap,
@@ -82,7 +97,7 @@ impl Bug0 {
         self.wf = WallFollowState {
             pos: self.pos,
             current_obstacle: neighbour(self.pos, blocked_dir),
-            obstacle_on_right: true,
+            obstacle_on_right: self.default_handed,
         };
         self.hit_dist_sq = dist_sq(self.pos, self.goal);
     }

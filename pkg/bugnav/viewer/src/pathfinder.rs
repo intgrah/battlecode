@@ -126,6 +126,38 @@ pub fn registry() -> &'static [AlgoSpec] {
             build: crate::algorithms::mem_astar::build,
         },
         AlgoSpec {
+            name: "PrunedBug1",
+            build: crate::algorithms::pruned_bug::build,
+        },
+        AlgoSpec {
+            name: "PrunedBug2",
+            build: crate::algorithms::pruned_bug::build_bug2,
+        },
+        AlgoSpec {
+            name: "PrunedDistBug",
+            build: crate::algorithms::pruned_bug::build_distbug,
+        },
+        AlgoSpec {
+            name: "PrunedTangent",
+            build: crate::algorithms::pruned_bug::build_tangentbug,
+        },
+        AlgoSpec {
+            name: "PrunedBest B1+B2",
+            build: crate::algorithms::pruned_bug::build_best_of_b1_b2,
+        },
+        AlgoSpec {
+            name: "PrunedBest B1+DB",
+            build: crate::algorithms::pruned_bug::build_best_of_b1_db,
+        },
+        AlgoSpec {
+            name: "PrunedBestOf3",
+            build: crate::algorithms::pruned_bug::build_best_of_3,
+        },
+        AlgoSpec {
+            name: "PrunedBestOf4",
+            build: crate::algorithms::pruned_bug::build_best_of,
+        },
+        AlgoSpec {
             name: "LookaheadBug",
             build: crate::algorithms::lookahead_bug::build,
         },

@@ -78,10 +78,30 @@ fn run_one(
     start: (i32, i32),
     goal: (i32, i32),
     max_iters: u32,
+    turn_times_ns: &mut Vec<u64>,
 ) -> Outcome {
+    // Model one Battlecode turn as: build pathfinder (if the bot doesn't have
+    // one yet) + one step(). For the first turn both run; subsequent turns
+    // re-use the pathfinder and only pay for step(). We fold the build cost
+    // into the first turn so `turn_times_ns` is a flat sequence of per-turn
+    // wall times that the 2 ms budget must cover.
+    let t0 = Instant::now();
     let mut finder = (algo.build)(grid, start, goal);
+    let build_ns = t0.elapsed().as_nanos() as u64;
+    let mut first = true;
+
     for _ in 0..max_iters {
-        match finder.step() {
+        let t = Instant::now();
+        let status = finder.step();
+        let step_ns = t.elapsed().as_nanos() as u64;
+        let turn_ns = if first {
+            first = false;
+            build_ns + step_ns
+        } else {
+            step_ns
+        };
+        turn_times_ns.push(turn_ns);
+        match status {
             StepStatus::Running => {}
             StepStatus::Arrived => {
                 return Outcome::Reached {
@@ -106,6 +126,9 @@ struct AlgoStats {
     ratios: Vec<f64>,
     /// For reached trials, keep (ratio, trial) so we can print worst cases.
     trials: Vec<(f64, Trial)>,
+    /// Per-turn wall time. One entry per step() call; the first entry of a
+    /// trial absorbs the build() cost (= "turn 0" for that trial).
+    times_ns: Vec<u64>,
 }
 
 impl AlgoStats {
@@ -157,19 +180,17 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
 fn print_summary(algos: &[&str], by_algo: &std::collections::BTreeMap<&'static str, AlgoStats>) {
     println!();
     println!(
-        "{:<12} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8} {:>7} {:>7} {:>7} {:>7}",
+        "{:<22} {:>6} {:>8} {:>7} {:>7} {:>7} {:>7} {:>9} {:>9} {:>9}",
         "algo",
         "n",
         "reach",
-        "false_un",
-        "tle",
-        "corr_un",
-        "un_tle",
         "conv%",
         "p50",
-        "p90",
         "p99",
-        "p100"
+        "p100",
+        "t_med/μs",
+        "t_p99/μs",
+        "t_max/μs",
     );
     println!("{}", "-".repeat(100));
     for name in algos {
@@ -182,35 +203,46 @@ fn print_summary(algos: &[&str], by_algo: &std::collections::BTreeMap<&'static s
         let mut sorted = s.ratios.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let p50 = percentile(&sorted, 0.5);
-        let p90 = percentile(&sorted, 0.9);
         let p99 = percentile(&sorted, 0.99);
         let p100 = sorted.last().copied().unwrap_or(f64::NAN);
+
+        let mut times = s.times_ns.clone();
+        times.sort_unstable();
+        let t_med = if times.is_empty() {
+            0.0
+        } else {
+            times[times.len() / 2] as f64 / 1000.0
+        };
+        let t_p99 = if times.is_empty() {
+            0.0
+        } else {
+            times[((times.len() - 1) as f64 * 0.99).round() as usize] as f64 / 1000.0
+        };
+        let t_max = times.last().copied().unwrap_or(0) as f64 / 1000.0;
+
         println!(
-            "{:<12} {:>6} {:>8} {:>8} {:>8} {:>8} {:>8} {:>7.1} {:>7.2} {:>7.2} {:>7.2} {:>7.2}",
+            "{:<22} {:>6} {:>8} {:>7.1} {:>7.2} {:>7.2} {:>7.2} {:>9.1} {:>9.1} {:>9.1}",
             name,
             s.total,
             s.reached,
-            s.false_unreach,
-            s.tle_when_reach,
-            s.correct_unreach,
-            s.tle_when_unreach,
             convergence,
             p50,
-            p90,
             p99,
             p100,
+            t_med,
+            t_p99,
+            t_max,
         );
     }
     println!();
     println!("columns:");
     println!("  n          total trials");
     println!("  reach      algorithm reached goal");
-    println!("  false_un   algorithm said unreachable but BFS reached goal (bug/incompleteness)");
-    println!("  tle        algorithm timed out at cap but BFS reached");
-    println!("  corr_un    algorithm said unreachable and BFS agreed");
-    println!("  un_tle     algorithm timed out and BFS said unreachable");
     println!("  conv%      reached / (reachable-per-BFS) as percent");
     println!("  p50..p100  path-length ratio (algo / BFS) quantiles over reached trials");
+    println!("  t_med/μs   per-turn wall time; first turn of each trial includes build()");
+    println!("  t_p99/μs   same, 99th percentile");
+    println!("  t_max/μs   same, max — this is the number that must fit in 2 ms");
 }
 
 struct Args {
@@ -309,9 +341,7 @@ fn main() {
         SEED
     );
 
-    // Exclude BFS: used only as the reachability ground truth, not benchmarked.
-    let algos: Vec<&bugnav_viewer::pathfinder::AlgoSpec> =
-        registry().iter().filter(|a| a.name != "BFS").collect();
+    let algos: Vec<&bugnav_viewer::pathfinder::AlgoSpec> = registry().iter().collect();
     let algo_names: Vec<&'static str> = algos.iter().map(|a| a.name).collect();
     let mut by_algo: std::collections::BTreeMap<&'static str, AlgoStats> = algo_names
         .iter()
@@ -350,7 +380,8 @@ fn main() {
             let bfs_len = shortest_path(&grid, start, goal).map(|p| p.len().saturating_sub(1));
 
             for algo in &algos {
-                let outcome = run_one(&grid, algo, start, goal, max_iters);
+                let stats = by_algo.get_mut(algo.name).unwrap();
+                let outcome = run_one(&grid, algo, start, goal, max_iters, &mut stats.times_ns);
                 let trial = Trial {
                     map: grid.name.clone(),
                     start,
@@ -358,7 +389,7 @@ fn main() {
                     bfs_len,
                     outcome,
                 };
-                by_algo.get_mut(algo.name).unwrap().record(&trial);
+                stats.record(&trial);
             }
         }
 

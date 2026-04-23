@@ -33,6 +33,7 @@ pub struct Bug1 {
     /// the goal is within ~4.5 cells.
     use_los: bool,
     wf: WallFollowState,
+    default_handed: bool,
     hit_point: (i32, i32),
     best_leave: (i32, i32),
     best_leave_dist_sq: i32,
@@ -51,11 +52,19 @@ pub struct Bug1 {
 }
 
 pub fn build(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
-    build_inner(grid, start, goal, false, "Bug1")
+    build_inner(grid, start, goal, false, true)
+}
+
+pub fn build_ccw(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
+    build_inner(grid, start, goal, false, false)
 }
 
 pub fn build_los(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
-    build_inner(grid, start, goal, true, "Bug1+LoS")
+    build_inner(grid, start, goal, true, true)
+}
+
+pub fn build_los_ccw(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
+    build_inner(grid, start, goal, true, false)
 }
 
 fn build_inner(
@@ -63,7 +72,7 @@ fn build_inner(
     start: (i32, i32),
     goal: (i32, i32),
     use_los: bool,
-    _name: &'static str,
+    obstacle_on_right: bool,
 ) -> Box<dyn Pathfinder> {
     let mut snap = Snapshot {
         current: start,
@@ -82,8 +91,9 @@ fn build_inner(
         wf: WallFollowState {
             pos: start,
             current_obstacle: start,
-            obstacle_on_right: true,
+            obstacle_on_right,
         },
+        default_handed: obstacle_on_right,
         hit_point: start,
         best_leave: start,
         best_leave_dist_sq: dist_sq(start, goal),
@@ -130,7 +140,7 @@ impl Bug1 {
         self.wf = WallFollowState {
             pos: self.pos,
             current_obstacle: neighbour(self.pos, blocked_dir),
-            obstacle_on_right: true,
+            obstacle_on_right: self.default_handed,
         };
         self.hit_point = self.pos;
         self.best_leave = self.pos;
