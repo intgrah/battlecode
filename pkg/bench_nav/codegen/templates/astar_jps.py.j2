@@ -16,21 +16,17 @@ def _reconstruct(
     while cur != start:
         chain.append(cur)
         cur = parent[cur]
-    chain.append(start)
     chain.reverse()
-    x0, y0 = chain[0] % stride, chain[0] // stride
-    path: list[int] = [y0 * w + x0]
-    for k in range(1, len(chain)):
-        a, b = chain[k - 1], chain[k]
-        ax, ay = a % stride, a // stride
+    ax, ay = start % stride, start // stride
+    path: list[int] = [ay * w + ax]
+    for b in chain:
         bx, by = b % stride, b // stride
         dx = (bx > ax) - (bx < ax)
         dy = (by > ay) - (by < ay)
-        cx, cy = ax, ay
-        while cx != bx or cy != by:
-            cx += dx
-            cy += dy
-            path.append(cy * w + cx)
+        while ax != bx or ay != by:
+            ax += dx
+            ay += dy
+            path.append(ay * w + ax)
     return path
 
 
@@ -46,8 +42,7 @@ def astar_jps(
     g[start] = 0
     parent = [-1] * n
     parent[start] = start
-    entry_dx = [0] * n
-    entry_dy = [0] * n
+    entry_dir = bytearray(n)  # encoding: (dx+1)*3 + (dy+1) ∈ [0, 8]. 0 = unvisited/start
     closed = bytearray(n)
     heap: list[int] = []
 
@@ -68,8 +63,9 @@ def astar_jps(
         if node == goal:
             return _reconstruct(parent, start, goal, stride, w)
         g_node = g[node]
-        dx0 = entry_dx[node]
-        dy0 = entry_dy[node]
+        enc = entry_dir[node]
+        dx0 = enc // 3 - 1
+        dy0 = enc % 3 - 1
 
         if dx0:
             if dy0:

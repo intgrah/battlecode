@@ -18,21 +18,17 @@ def _reconstruct(
     while cur != start:
         chain.append(cur)
         cur = parent[cur]
-    chain.append(start)
     chain.reverse()
-    x0, y0 = chain[0] % stride, chain[0] // stride
-    path: list[int] = [y0 * w + x0]
-    for k in range(1, len(chain)):
-        a, b = chain[k - 1], chain[k]
-        ax, ay = a % stride, a // stride
+    ax, ay = start % stride, start // stride
+    path: list[int] = [ay * w + ax]
+    for b in chain:
         bx, by = b % stride, b // stride
         dx = (bx > ax) - (bx < ax)
         dy = (by > ay) - (by < ay)
-        cx, cy = ax, ay
-        while cx != bx or cy != by:
-            cx += dx
-            cy += dy
-            path.append(cy * w + cx)
+        while ax != bx or ay != by:
+            ax += dx
+            ay += dy
+            path.append(ay * w + ax)
     return path
 
 
@@ -47,8 +43,7 @@ def astar_jps_dial(
     g[start] = 0
     parent = [-1] * n
     parent[start] = start
-    entry_dx = [0] * n
-    entry_dy = [0] * n
+    entry_dir = bytearray(n)
     closed = bytearray(n)
 
     mod = _M
@@ -69,7 +64,6 @@ def astar_jps_dial(
     yp_xm_off = stride_dy - 1
     yp_xp_off = stride_dy + 1
     idx = node
-    hxh = abs(nx - gx)
     if nx == gx:
         while True:
             idx += stride_dy
@@ -77,11 +71,11 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if idx == goal:
-                break
-            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
-                break
-            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
+            if (
+                idx == goal
+                or (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF)
+                or (cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF)
+            ):
                 break
     else:
         while True:
@@ -90,17 +84,17 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
-                break
-            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
+            if (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF) or (
+                cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF
+            ):
                 break
     if dist > 0:
         nd = g_node + dist
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = 0
-            entry_dy[idx] = dy
+            entry_dir[idx] = dy + 4  # encodes (0, dy): (dx+1)*3 + (dy+1)
+            hxh = abs(nx - gx)
             hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
             bk[(nd + hj) % mod].append(idx)
@@ -113,7 +107,7 @@ def astar_jps_dial(
     fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
     back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
     # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-    sub_up_dx_off = -stride + dx
+    sub_up_dx_off = dx - stride
     sub_dn_dx_off = stride + dx
     # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
     sub_yp_xm_off = stride_dy - 1
@@ -125,11 +119,11 @@ def astar_jps_dial(
         if cost[idx] is INF:
             dist = -1
             break
-        if idx == goal:
-            break
-        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
-            break
-        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
+        if (
+            idx == goal
+            or (cost[idx - dx] is INF and cost[idx + fwd_yx_off] is not INF)
+            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+        ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
@@ -138,13 +132,15 @@ def astar_jps_dial(
             cidx += dx
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
+            if (
+                cidx == goal
+                or (
+                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                )
+                or (
+                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                )
+            ):
                 subfound = True
                 break
         if subfound:
@@ -156,13 +152,11 @@ def astar_jps_dial(
             cidx += stride_dy
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
+            if (
+                cidx == goal
+                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
+                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+            ):
                 subfound = True
                 break
         if subfound:
@@ -172,8 +166,7 @@ def astar_jps_dial(
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = dx
-            entry_dy[idx] = dy
+            entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
             hxh = abs((idx % stride) - gx)
             hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -181,11 +174,10 @@ def astar_jps_dial(
     dx = 1
     dist = 0
     up_off = -stride
-    up_dx_off = -stride + dx
+    up_dx_off = dx - stride
     dn_off = stride
     dn_dx_off = stride + dx
     idx = node
-    hyh = abs(ny - gy)
     if ny == gy:
         while True:
             idx += dx
@@ -193,11 +185,11 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if idx == goal:
-                break
-            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
-                break
-            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
+            if (
+                idx == goal
+                or (cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF)
+                or (cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF)
+            ):
                 break
     else:
         while True:
@@ -206,18 +198,18 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
-                break
-            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
+            if (cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF) or (
+                cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF
+            ):
                 break
     if dist > 0:
         nd = g_node + dist
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = dx
-            entry_dy[idx] = 0
+            entry_dir[idx] = 3 * dx + 4  # encodes (dx, 0): (dx+1)*3 + 1
             hxh = abs((idx % stride) - gx)
+            hyh = abs(ny - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
             bk[(nd + hj) % mod].append(idx)
     dx = 1
@@ -229,7 +221,7 @@ def astar_jps_dial(
     fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
     back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
     # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-    sub_up_dx_off = -stride + dx
+    sub_up_dx_off = dx - stride
     sub_dn_dx_off = stride + dx
     # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
     sub_yp_xm_off = stride_dy - 1
@@ -241,11 +233,11 @@ def astar_jps_dial(
         if cost[idx] is INF:
             dist = -1
             break
-        if idx == goal:
-            break
-        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
-            break
-        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
+        if (
+            idx == goal
+            or (cost[idx - dx] is INF and cost[idx + fwd_yx_off] is not INF)
+            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+        ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
@@ -254,13 +246,15 @@ def astar_jps_dial(
             cidx += dx
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
+            if (
+                cidx == goal
+                or (
+                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                )
+                or (
+                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                )
+            ):
                 subfound = True
                 break
         if subfound:
@@ -272,13 +266,11 @@ def astar_jps_dial(
             cidx += stride_dy
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
+            if (
+                cidx == goal
+                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
+                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+            ):
                 subfound = True
                 break
         if subfound:
@@ -288,8 +280,7 @@ def astar_jps_dial(
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = dx
-            entry_dy[idx] = dy
+            entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
             hxh = abs((idx % stride) - gx)
             hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -300,7 +291,6 @@ def astar_jps_dial(
     yp_xm_off = stride_dy - 1
     yp_xp_off = stride_dy + 1
     idx = node
-    hxh = abs(nx - gx)
     if nx == gx:
         while True:
             idx += stride_dy
@@ -308,11 +298,11 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if idx == goal:
-                break
-            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
-                break
-            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
+            if (
+                idx == goal
+                or (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF)
+                or (cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF)
+            ):
                 break
     else:
         while True:
@@ -321,17 +311,17 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
-                break
-            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
+            if (cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF) or (
+                cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF
+            ):
                 break
     if dist > 0:
         nd = g_node + dist
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = 0
-            entry_dy[idx] = dy
+            entry_dir[idx] = dy + 4  # encodes (0, dy): (dx+1)*3 + (dy+1)
+            hxh = abs(nx - gx)
             hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
             bk[(nd + hj) % mod].append(idx)
@@ -344,7 +334,7 @@ def astar_jps_dial(
     fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
     back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
     # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-    sub_up_dx_off = -stride + dx
+    sub_up_dx_off = dx - stride
     sub_dn_dx_off = stride + dx
     # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
     sub_yp_xm_off = stride_dy - 1
@@ -356,11 +346,11 @@ def astar_jps_dial(
         if cost[idx] is INF:
             dist = -1
             break
-        if idx == goal:
-            break
-        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
-            break
-        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
+        if (
+            idx == goal
+            or (cost[idx - dx] is INF and cost[idx + fwd_yx_off] is not INF)
+            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+        ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
@@ -369,13 +359,15 @@ def astar_jps_dial(
             cidx += dx
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
+            if (
+                cidx == goal
+                or (
+                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                )
+                or (
+                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                )
+            ):
                 subfound = True
                 break
         if subfound:
@@ -387,13 +379,11 @@ def astar_jps_dial(
             cidx += stride_dy
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
+            if (
+                cidx == goal
+                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
+                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+            ):
                 subfound = True
                 break
         if subfound:
@@ -403,8 +393,7 @@ def astar_jps_dial(
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = dx
-            entry_dy[idx] = dy
+            entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
             hxh = abs((idx % stride) - gx)
             hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -412,11 +401,10 @@ def astar_jps_dial(
     dx = -1
     dist = 0
     up_off = -stride
-    up_dx_off = -stride + dx
+    up_dx_off = dx - stride
     dn_off = stride
     dn_dx_off = stride + dx
     idx = node
-    hyh = abs(ny - gy)
     if ny == gy:
         while True:
             idx += dx
@@ -424,11 +412,11 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if idx == goal:
-                break
-            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
-                break
-            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
+            if (
+                idx == goal
+                or (cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF)
+                or (cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF)
+            ):
                 break
     else:
         while True:
@@ -437,18 +425,18 @@ def astar_jps_dial(
             if cost[idx] is INF:
                 dist = -1
                 break
-            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
-                break
-            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
+            if (cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF) or (
+                cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF
+            ):
                 break
     if dist > 0:
         nd = g_node + dist
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = dx
-            entry_dy[idx] = 0
+            entry_dir[idx] = 3 * dx + 4  # encodes (dx, 0): (dx+1)*3 + 1
             hxh = abs((idx % stride) - gx)
+            hyh = abs(ny - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
             bk[(nd + hj) % mod].append(idx)
     dx = -1
@@ -460,7 +448,7 @@ def astar_jps_dial(
     fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
     back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
     # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-    sub_up_dx_off = -stride + dx
+    sub_up_dx_off = dx - stride
     sub_dn_dx_off = stride + dx
     # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
     sub_yp_xm_off = stride_dy - 1
@@ -472,11 +460,11 @@ def astar_jps_dial(
         if cost[idx] is INF:
             dist = -1
             break
-        if idx == goal:
-            break
-        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
-            break
-        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
+        if (
+            idx == goal
+            or (cost[idx - dx] is INF and cost[idx + fwd_yx_off] is not INF)
+            or (cost[idx - stride_dy] is INF and cost[idx + back_xy_off] is not INF)
+        ):
             break
         # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
         cidx = idx
@@ -485,13 +473,15 @@ def astar_jps_dial(
             cidx += dx
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
+            if (
+                cidx == goal
+                or (
+                    cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF
+                )
+                or (
+                    cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF
+                )
+            ):
                 subfound = True
                 break
         if subfound:
@@ -503,13 +493,11 @@ def astar_jps_dial(
             cidx += stride_dy
             if cost[cidx] is INF:
                 break
-            if cidx == goal:
-                subfound = True
-                break
-            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
-                subfound = True
-                break
-            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
+            if (
+                cidx == goal
+                or (cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF)
+                or (cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF)
+            ):
                 subfound = True
                 break
         if subfound:
@@ -519,8 +507,7 @@ def astar_jps_dial(
         if nd < g[idx]:
             g[idx] = nd
             parent[idx] = start
-            entry_dx[idx] = dx
-            entry_dy[idx] = dy
+            entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
             hxh = abs((idx % stride) - gx)
             hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -541,22 +528,23 @@ def astar_jps_dial(
                 if node == goal:
                     return _reconstruct(parent, start, goal, stride, w)
                 g_node = g[node]
-                dx0 = entry_dx[node]
-                dy0 = entry_dy[node]
+                enc = entry_dir[node]
+                dx0 = enc // 3 - 1
+                dy0 = enc % 3 - 1
 
                 if dx0:
                     if dy0:
                         nx = node % stride
                         ny = node // stride
                         stride_dy0 = dy0 * stride
+                        neg_stride_dy0 = -stride_dy0
                         if cost[node + stride_dy0] is not INF:
                             dy = dy0
                             dist = 0
-                            stride_dy = dy * stride
+                            stride_dy = stride_dy0
                             yp_xm_off = stride_dy - 1
                             yp_xp_off = stride_dy + 1
                             idx = node
-                            hxh = abs(nx - gx)
                             if nx == gx:
                                 while True:
                                     idx += stride_dy
@@ -564,16 +552,16 @@ def astar_jps_dial(
                                     if cost[idx] is INF:
                                         dist = -1
                                         break
-                                    if idx == goal:
-                                        break
                                     if (
-                                        cost[idx - 1] is INF
-                                        and cost[idx + yp_xm_off] is not INF
-                                    ):
-                                        break
-                                    if (
-                                        cost[idx + 1] is INF
-                                        and cost[idx + yp_xp_off] is not INF
+                                        idx == goal
+                                        or (
+                                            cost[idx - 1] is INF
+                                            and cost[idx + yp_xm_off] is not INF
+                                        )
+                                        or (
+                                            cost[idx + 1] is INF
+                                            and cost[idx + yp_xp_off] is not INF
+                                        )
                                     ):
                                         break
                             else:
@@ -586,9 +574,7 @@ def astar_jps_dial(
                                     if (
                                         cost[idx - 1] is INF
                                         and cost[idx + yp_xm_off] is not INF
-                                    ):
-                                        break
-                                    if (
+                                    ) or (
                                         cost[idx + 1] is INF
                                         and cost[idx + yp_xp_off] is not INF
                                     ):
@@ -598,8 +584,10 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = 0
-                                    entry_dy[idx] = dy
+                                    entry_dir[idx] = (
+                                        dy + 4
+                                    )  # encodes (0, dy): (dx+1)*3 + (dy+1)
+                                    hxh = abs(nx - gx)
                                     hyh = abs((idx // stride) - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
                                     bk[(nd + hj) % mod].append(idx)
@@ -607,11 +595,10 @@ def astar_jps_dial(
                             dx = dx0
                             dist = 0
                             up_off = -stride
-                            up_dx_off = -stride + dx
+                            up_dx_off = dx - stride
                             dn_off = stride
                             dn_dx_off = stride + dx
                             idx = node
-                            hyh = abs(ny - gy)
                             if ny == gy:
                                 while True:
                                     idx += dx
@@ -619,16 +606,16 @@ def astar_jps_dial(
                                     if cost[idx] is INF:
                                         dist = -1
                                         break
-                                    if idx == goal:
-                                        break
                                     if (
-                                        cost[idx + up_off] is INF
-                                        and cost[idx + up_dx_off] is not INF
-                                    ):
-                                        break
-                                    if (
-                                        cost[idx + dn_off] is INF
-                                        and cost[idx + dn_dx_off] is not INF
+                                        idx == goal
+                                        or (
+                                            cost[idx + up_off] is INF
+                                            and cost[idx + up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[idx + dn_off] is INF
+                                            and cost[idx + dn_dx_off] is not INF
+                                        )
                                     ):
                                         break
                             else:
@@ -641,9 +628,7 @@ def astar_jps_dial(
                                     if (
                                         cost[idx + up_off] is INF
                                         and cost[idx + up_dx_off] is not INF
-                                    ):
-                                        break
-                                    if (
+                                    ) or (
                                         cost[idx + dn_off] is INF
                                         and cost[idx + dn_dx_off] is not INF
                                     ):
@@ -653,22 +638,24 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = 0
+                                    entry_dir[idx] = (
+                                        3 * dx + 4
+                                    )  # encodes (dx, 0): (dx+1)*3 + 1
                                     hxh = abs((idx % stride) - gx)
+                                    hyh = abs(ny - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
                                     bk[(nd + hj) % mod].append(idx)
                         if cost[node + stride_dy0 + dx0] is not INF:
                             dx = dx0
                             dy = dy0
                             dist = 0
-                            stride_dy = dy * stride
+                            stride_dy = stride_dy0
                             step = stride_dy + dx
                             # Forced-neighbor offsets (main diagonal loop):
                             fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                             back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                             # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                            sub_up_dx_off = -stride + dx
+                            sub_up_dx_off = dx - stride
                             sub_dn_dx_off = stride + dx
                             # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                             sub_yp_xm_off = stride_dy - 1
@@ -680,16 +667,16 @@ def astar_jps_dial(
                                 if cost[idx] is INF:
                                     dist = -1
                                     break
-                                if idx == goal:
-                                    break
                                 if (
-                                    cost[idx + fwd_yx_off] is not INF
-                                    and cost[idx - dx] is INF
-                                ):
-                                    break
-                                if (
-                                    cost[idx + back_xy_off] is not INF
-                                    and cost[idx - stride_dy] is INF
+                                    idx == goal
+                                    or (
+                                        cost[idx - dx] is INF
+                                        and cost[idx + fwd_yx_off] is not INF
+                                    )
+                                    or (
+                                        cost[idx - stride_dy] is INF
+                                        and cost[idx + back_xy_off] is not INF
+                                    )
                                 ):
                                     break
                                 # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -699,18 +686,16 @@ def astar_jps_dial(
                                     cidx += dx
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - stride] is INF
-                                        and cost[cidx + sub_up_dx_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + stride] is INF
-                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - stride] is INF
+                                            and cost[cidx + sub_up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + stride] is INF
+                                            and cost[cidx + sub_dn_dx_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -723,18 +708,16 @@ def astar_jps_dial(
                                     cidx += stride_dy
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - 1] is INF
-                                        and cost[cidx + sub_yp_xm_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + 1] is INF
-                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - 1] is INF
+                                            and cost[cidx + sub_yp_xm_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + 1] is INF
+                                            and cost[cidx + sub_yp_xp_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -745,8 +728,9 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = dy
+                                    entry_dir[idx] = (
+                                        3 * dx + dy + 4
+                                    )  # (dx+1)*3 + (dy+1)
                                     hxh = abs((idx % stride) - gx)
                                     hyh = abs((idx // stride) - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -758,13 +742,13 @@ def astar_jps_dial(
                             dx = -dx0
                             dy = dy0
                             dist = 0
-                            stride_dy = dy * stride
+                            stride_dy = stride_dy0
                             step = stride_dy + dx
                             # Forced-neighbor offsets (main diagonal loop):
                             fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                             back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                             # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                            sub_up_dx_off = -stride + dx
+                            sub_up_dx_off = dx - stride
                             sub_dn_dx_off = stride + dx
                             # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                             sub_yp_xm_off = stride_dy - 1
@@ -776,16 +760,16 @@ def astar_jps_dial(
                                 if cost[idx] is INF:
                                     dist = -1
                                     break
-                                if idx == goal:
-                                    break
                                 if (
-                                    cost[idx + fwd_yx_off] is not INF
-                                    and cost[idx - dx] is INF
-                                ):
-                                    break
-                                if (
-                                    cost[idx + back_xy_off] is not INF
-                                    and cost[idx - stride_dy] is INF
+                                    idx == goal
+                                    or (
+                                        cost[idx - dx] is INF
+                                        and cost[idx + fwd_yx_off] is not INF
+                                    )
+                                    or (
+                                        cost[idx - stride_dy] is INF
+                                        and cost[idx + back_xy_off] is not INF
+                                    )
                                 ):
                                     break
                                 # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -795,18 +779,16 @@ def astar_jps_dial(
                                     cidx += dx
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - stride] is INF
-                                        and cost[cidx + sub_up_dx_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + stride] is INF
-                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - stride] is INF
+                                            and cost[cidx + sub_up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + stride] is INF
+                                            and cost[cidx + sub_dn_dx_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -819,18 +801,16 @@ def astar_jps_dial(
                                     cidx += stride_dy
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - 1] is INF
-                                        and cost[cidx + sub_yp_xm_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + 1] is INF
-                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - 1] is INF
+                                            and cost[cidx + sub_yp_xm_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + 1] is INF
+                                            and cost[cidx + sub_yp_xp_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -841,8 +821,9 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = dy
+                                    entry_dir[idx] = (
+                                        3 * dx + dy + 4
+                                    )  # (dx+1)*3 + (dy+1)
                                     hxh = abs((idx % stride) - gx)
                                     hyh = abs((idx // stride) - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -854,13 +835,13 @@ def astar_jps_dial(
                             dx = dx0
                             dy = -dy0
                             dist = 0
-                            stride_dy = dy * stride
+                            stride_dy = neg_stride_dy0
                             step = stride_dy + dx
                             # Forced-neighbor offsets (main diagonal loop):
                             fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                             back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                             # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                            sub_up_dx_off = -stride + dx
+                            sub_up_dx_off = dx - stride
                             sub_dn_dx_off = stride + dx
                             # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                             sub_yp_xm_off = stride_dy - 1
@@ -872,16 +853,16 @@ def astar_jps_dial(
                                 if cost[idx] is INF:
                                     dist = -1
                                     break
-                                if idx == goal:
-                                    break
                                 if (
-                                    cost[idx + fwd_yx_off] is not INF
-                                    and cost[idx - dx] is INF
-                                ):
-                                    break
-                                if (
-                                    cost[idx + back_xy_off] is not INF
-                                    and cost[idx - stride_dy] is INF
+                                    idx == goal
+                                    or (
+                                        cost[idx - dx] is INF
+                                        and cost[idx + fwd_yx_off] is not INF
+                                    )
+                                    or (
+                                        cost[idx - stride_dy] is INF
+                                        and cost[idx + back_xy_off] is not INF
+                                    )
                                 ):
                                     break
                                 # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -891,18 +872,16 @@ def astar_jps_dial(
                                     cidx += dx
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - stride] is INF
-                                        and cost[cidx + sub_up_dx_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + stride] is INF
-                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - stride] is INF
+                                            and cost[cidx + sub_up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + stride] is INF
+                                            and cost[cidx + sub_dn_dx_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -915,18 +894,16 @@ def astar_jps_dial(
                                     cidx += stride_dy
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - 1] is INF
-                                        and cost[cidx + sub_yp_xm_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + 1] is INF
-                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - 1] is INF
+                                            and cost[cidx + sub_yp_xm_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + 1] is INF
+                                            and cost[cidx + sub_yp_xp_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -937,8 +914,9 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = dy
+                                    entry_dir[idx] = (
+                                        3 * dx + dy + 4
+                                    )  # (dx+1)*3 + (dy+1)
                                     hxh = abs((idx % stride) - gx)
                                     hyh = abs((idx // stride) - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -949,11 +927,10 @@ def astar_jps_dial(
                             dx = dx0
                             dist = 0
                             up_off = -stride
-                            up_dx_off = -stride + dx
+                            up_dx_off = dx - stride
                             dn_off = stride
                             dn_dx_off = stride + dx
                             idx = node
-                            hyh = abs(ny - gy)
                             if ny == gy:
                                 while True:
                                     idx += dx
@@ -961,16 +938,16 @@ def astar_jps_dial(
                                     if cost[idx] is INF:
                                         dist = -1
                                         break
-                                    if idx == goal:
-                                        break
                                     if (
-                                        cost[idx + up_off] is INF
-                                        and cost[idx + up_dx_off] is not INF
-                                    ):
-                                        break
-                                    if (
-                                        cost[idx + dn_off] is INF
-                                        and cost[idx + dn_dx_off] is not INF
+                                        idx == goal
+                                        or (
+                                            cost[idx + up_off] is INF
+                                            and cost[idx + up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[idx + dn_off] is INF
+                                            and cost[idx + dn_dx_off] is not INF
+                                        )
                                     ):
                                         break
                             else:
@@ -983,9 +960,7 @@ def astar_jps_dial(
                                     if (
                                         cost[idx + up_off] is INF
                                         and cost[idx + up_dx_off] is not INF
-                                    ):
-                                        break
-                                    if (
+                                    ) or (
                                         cost[idx + dn_off] is INF
                                         and cost[idx + dn_dx_off] is not INF
                                     ):
@@ -995,9 +970,11 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = 0
+                                    entry_dir[idx] = (
+                                        3 * dx + 4
+                                    )  # encodes (dx, 0): (dx+1)*3 + 1
                                     hxh = abs((idx % stride) - gx)
+                                    hyh = abs(ny - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
                                     bk[(nd + hj) % mod].append(idx)
                         if (
@@ -1013,7 +990,7 @@ def astar_jps_dial(
                             fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                             back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                             # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                            sub_up_dx_off = -stride + dx
+                            sub_up_dx_off = dx - stride
                             sub_dn_dx_off = stride + dx
                             # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                             sub_yp_xm_off = stride_dy - 1
@@ -1025,16 +1002,16 @@ def astar_jps_dial(
                                 if cost[idx] is INF:
                                     dist = -1
                                     break
-                                if idx == goal:
-                                    break
                                 if (
-                                    cost[idx + fwd_yx_off] is not INF
-                                    and cost[idx - dx] is INF
-                                ):
-                                    break
-                                if (
-                                    cost[idx + back_xy_off] is not INF
-                                    and cost[idx - stride_dy] is INF
+                                    idx == goal
+                                    or (
+                                        cost[idx - dx] is INF
+                                        and cost[idx + fwd_yx_off] is not INF
+                                    )
+                                    or (
+                                        cost[idx - stride_dy] is INF
+                                        and cost[idx + back_xy_off] is not INF
+                                    )
                                 ):
                                     break
                                 # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -1044,18 +1021,16 @@ def astar_jps_dial(
                                     cidx += dx
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - stride] is INF
-                                        and cost[cidx + sub_up_dx_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + stride] is INF
-                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - stride] is INF
+                                            and cost[cidx + sub_up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + stride] is INF
+                                            and cost[cidx + sub_dn_dx_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -1068,18 +1043,16 @@ def astar_jps_dial(
                                     cidx += stride_dy
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - 1] is INF
-                                        and cost[cidx + sub_yp_xm_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + 1] is INF
-                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - 1] is INF
+                                            and cost[cidx + sub_yp_xm_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + 1] is INF
+                                            and cost[cidx + sub_yp_xp_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -1090,8 +1063,9 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = dy
+                                    entry_dir[idx] = (
+                                        3 * dx + dy + 4
+                                    )  # (dx+1)*3 + (dy+1)
                                     hxh = abs((idx % stride) - gx)
                                     hyh = abs((idx // stride) - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -1109,7 +1083,7 @@ def astar_jps_dial(
                             fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                             back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                             # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                            sub_up_dx_off = -stride + dx
+                            sub_up_dx_off = dx - stride
                             sub_dn_dx_off = stride + dx
                             # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                             sub_yp_xm_off = stride_dy - 1
@@ -1121,16 +1095,16 @@ def astar_jps_dial(
                                 if cost[idx] is INF:
                                     dist = -1
                                     break
-                                if idx == goal:
-                                    break
                                 if (
-                                    cost[idx + fwd_yx_off] is not INF
-                                    and cost[idx - dx] is INF
-                                ):
-                                    break
-                                if (
-                                    cost[idx + back_xy_off] is not INF
-                                    and cost[idx - stride_dy] is INF
+                                    idx == goal
+                                    or (
+                                        cost[idx - dx] is INF
+                                        and cost[idx + fwd_yx_off] is not INF
+                                    )
+                                    or (
+                                        cost[idx - stride_dy] is INF
+                                        and cost[idx + back_xy_off] is not INF
+                                    )
                                 ):
                                     break
                                 # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -1140,18 +1114,16 @@ def astar_jps_dial(
                                     cidx += dx
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - stride] is INF
-                                        and cost[cidx + sub_up_dx_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + stride] is INF
-                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - stride] is INF
+                                            and cost[cidx + sub_up_dx_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + stride] is INF
+                                            and cost[cidx + sub_dn_dx_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -1164,18 +1136,16 @@ def astar_jps_dial(
                                     cidx += stride_dy
                                     if cost[cidx] is INF:
                                         break
-                                    if cidx == goal:
-                                        subfound = True
-                                        break
                                     if (
-                                        cost[cidx - 1] is INF
-                                        and cost[cidx + sub_yp_xm_off] is not INF
-                                    ):
-                                        subfound = True
-                                        break
-                                    if (
-                                        cost[cidx + 1] is INF
-                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                        cidx == goal
+                                        or (
+                                            cost[cidx - 1] is INF
+                                            and cost[cidx + sub_yp_xm_off] is not INF
+                                        )
+                                        or (
+                                            cost[cidx + 1] is INF
+                                            and cost[cidx + sub_yp_xp_off] is not INF
+                                        )
                                     ):
                                         subfound = True
                                         break
@@ -1186,8 +1156,9 @@ def astar_jps_dial(
                                 if nd < g[idx]:
                                     g[idx] = nd
                                     parent[idx] = node
-                                    entry_dx[idx] = dx
-                                    entry_dy[idx] = dy
+                                    entry_dir[idx] = (
+                                        3 * dx + dy + 4
+                                    )  # (dx+1)*3 + (dy+1)
                                     hxh = abs((idx % stride) - gx)
                                     hyh = abs((idx // stride) - gy)
                                     hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -1198,11 +1169,10 @@ def astar_jps_dial(
                     if cost[node + stride_dy0] is not INF:
                         dy = dy0
                         dist = 0
-                        stride_dy = dy * stride
+                        stride_dy = stride_dy0
                         yp_xm_off = stride_dy - 1
                         yp_xp_off = stride_dy + 1
                         idx = node
-                        hxh = abs(nx - gx)
                         if nx == gx:
                             while True:
                                 idx += stride_dy
@@ -1210,16 +1180,16 @@ def astar_jps_dial(
                                 if cost[idx] is INF:
                                     dist = -1
                                     break
-                                if idx == goal:
-                                    break
                                 if (
-                                    cost[idx - 1] is INF
-                                    and cost[idx + yp_xm_off] is not INF
-                                ):
-                                    break
-                                if (
-                                    cost[idx + 1] is INF
-                                    and cost[idx + yp_xp_off] is not INF
+                                    idx == goal
+                                    or (
+                                        cost[idx - 1] is INF
+                                        and cost[idx + yp_xm_off] is not INF
+                                    )
+                                    or (
+                                        cost[idx + 1] is INF
+                                        and cost[idx + yp_xp_off] is not INF
+                                    )
                                 ):
                                     break
                         else:
@@ -1232,9 +1202,7 @@ def astar_jps_dial(
                                 if (
                                     cost[idx - 1] is INF
                                     and cost[idx + yp_xm_off] is not INF
-                                ):
-                                    break
-                                if (
+                                ) or (
                                     cost[idx + 1] is INF
                                     and cost[idx + yp_xp_off] is not INF
                                 ):
@@ -1244,8 +1212,10 @@ def astar_jps_dial(
                             if nd < g[idx]:
                                 g[idx] = nd
                                 parent[idx] = node
-                                entry_dx[idx] = 0
-                                entry_dy[idx] = dy
+                                entry_dir[idx] = (
+                                    dy + 4
+                                )  # encodes (0, dy): (dx+1)*3 + (dy+1)
+                                hxh = abs(nx - gx)
                                 hyh = abs((idx // stride) - gy)
                                 hj = hxh if hxh > hyh else hyh  # noqa: FURB136
                                 bk[(nd + hj) % mod].append(idx)
@@ -1253,13 +1223,13 @@ def astar_jps_dial(
                         dx = -1
                         dy = dy0
                         dist = 0
-                        stride_dy = dy * stride
+                        stride_dy = stride_dy0
                         step = stride_dy + dx
                         # Forced-neighbor offsets (main diagonal loop):
                         fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                         back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                         # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                        sub_up_dx_off = -stride + dx
+                        sub_up_dx_off = dx - stride
                         sub_dn_dx_off = stride + dx
                         # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                         sub_yp_xm_off = stride_dy - 1
@@ -1271,16 +1241,16 @@ def astar_jps_dial(
                             if cost[idx] is INF:
                                 dist = -1
                                 break
-                            if idx == goal:
-                                break
                             if (
-                                cost[idx + fwd_yx_off] is not INF
-                                and cost[idx - dx] is INF
-                            ):
-                                break
-                            if (
-                                cost[idx + back_xy_off] is not INF
-                                and cost[idx - stride_dy] is INF
+                                idx == goal
+                                or (
+                                    cost[idx - dx] is INF
+                                    and cost[idx + fwd_yx_off] is not INF
+                                )
+                                or (
+                                    cost[idx - stride_dy] is INF
+                                    and cost[idx + back_xy_off] is not INF
+                                )
                             ):
                                 break
                             # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -1290,18 +1260,16 @@ def astar_jps_dial(
                                 cidx += dx
                                 if cost[cidx] is INF:
                                     break
-                                if cidx == goal:
-                                    subfound = True
-                                    break
                                 if (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
-                                ):
-                                    subfound = True
-                                    break
-                                if (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cidx == goal
+                                    or (
+                                        cost[cidx - stride] is INF
+                                        and cost[cidx + sub_up_dx_off] is not INF
+                                    )
+                                    or (
+                                        cost[cidx + stride] is INF
+                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                    )
                                 ):
                                     subfound = True
                                     break
@@ -1314,18 +1282,16 @@ def astar_jps_dial(
                                 cidx += stride_dy
                                 if cost[cidx] is INF:
                                     break
-                                if cidx == goal:
-                                    subfound = True
-                                    break
                                 if (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
-                                ):
-                                    subfound = True
-                                    break
-                                if (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cidx == goal
+                                    or (
+                                        cost[cidx - 1] is INF
+                                        and cost[cidx + sub_yp_xm_off] is not INF
+                                    )
+                                    or (
+                                        cost[cidx + 1] is INF
+                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                    )
                                 ):
                                     subfound = True
                                     break
@@ -1336,8 +1302,7 @@ def astar_jps_dial(
                             if nd < g[idx]:
                                 g[idx] = nd
                                 parent[idx] = node
-                                entry_dx[idx] = dx
-                                entry_dy[idx] = dy
+                                entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
                                 hxh = abs((idx % stride) - gx)
                                 hyh = abs((idx // stride) - gy)
                                 hj = hxh if hxh > hyh else hyh  # noqa: FURB136
@@ -1346,13 +1311,13 @@ def astar_jps_dial(
                         dx = 1
                         dy = dy0
                         dist = 0
-                        stride_dy = dy * stride
+                        stride_dy = stride_dy0
                         step = stride_dy + dx
                         # Forced-neighbor offsets (main diagonal loop):
                         fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
                         back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
                         # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-                        sub_up_dx_off = -stride + dx
+                        sub_up_dx_off = dx - stride
                         sub_dn_dx_off = stride + dx
                         # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
                         sub_yp_xm_off = stride_dy - 1
@@ -1364,16 +1329,16 @@ def astar_jps_dial(
                             if cost[idx] is INF:
                                 dist = -1
                                 break
-                            if idx == goal:
-                                break
                             if (
-                                cost[idx + fwd_yx_off] is not INF
-                                and cost[idx - dx] is INF
-                            ):
-                                break
-                            if (
-                                cost[idx + back_xy_off] is not INF
-                                and cost[idx - stride_dy] is INF
+                                idx == goal
+                                or (
+                                    cost[idx - dx] is INF
+                                    and cost[idx + fwd_yx_off] is not INF
+                                )
+                                or (
+                                    cost[idx - stride_dy] is INF
+                                    and cost[idx + back_xy_off] is not INF
+                                )
                             ):
                                 break
                             # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
@@ -1383,18 +1348,16 @@ def astar_jps_dial(
                                 cidx += dx
                                 if cost[cidx] is INF:
                                     break
-                                if cidx == goal:
-                                    subfound = True
-                                    break
                                 if (
-                                    cost[cidx - stride] is INF
-                                    and cost[cidx + sub_up_dx_off] is not INF
-                                ):
-                                    subfound = True
-                                    break
-                                if (
-                                    cost[cidx + stride] is INF
-                                    and cost[cidx + sub_dn_dx_off] is not INF
+                                    cidx == goal
+                                    or (
+                                        cost[cidx - stride] is INF
+                                        and cost[cidx + sub_up_dx_off] is not INF
+                                    )
+                                    or (
+                                        cost[cidx + stride] is INF
+                                        and cost[cidx + sub_dn_dx_off] is not INF
+                                    )
                                 ):
                                     subfound = True
                                     break
@@ -1407,18 +1370,16 @@ def astar_jps_dial(
                                 cidx += stride_dy
                                 if cost[cidx] is INF:
                                     break
-                                if cidx == goal:
-                                    subfound = True
-                                    break
                                 if (
-                                    cost[cidx - 1] is INF
-                                    and cost[cidx + sub_yp_xm_off] is not INF
-                                ):
-                                    subfound = True
-                                    break
-                                if (
-                                    cost[cidx + 1] is INF
-                                    and cost[cidx + sub_yp_xp_off] is not INF
+                                    cidx == goal
+                                    or (
+                                        cost[cidx - 1] is INF
+                                        and cost[cidx + sub_yp_xm_off] is not INF
+                                    )
+                                    or (
+                                        cost[cidx + 1] is INF
+                                        and cost[cidx + sub_yp_xp_off] is not INF
+                                    )
                                 ):
                                     subfound = True
                                     break
@@ -1429,8 +1390,7 @@ def astar_jps_dial(
                             if nd < g[idx]:
                                 g[idx] = nd
                                 parent[idx] = node
-                                entry_dx[idx] = dx
-                                entry_dy[idx] = dy
+                                entry_dir[idx] = 3 * dx + dy + 4  # (dx+1)*3 + (dy+1)
                                 hxh = abs((idx % stride) - gx)
                                 hyh = abs((idx // stride) - gy)
                                 hj = hxh if hxh > hyh else hyh  # noqa: FURB136
