@@ -1,12 +1,22 @@
+from __future__ import annotations
+
 from collections import deque
+from typing import Final
 
 from bench_nav.common import CE, CR, INF, Path_, extract_parent
+from bench_nav.precompute import COST, PNB
+from bench_nav.types import (
+    AlgoName,
+    PrecompCtx,
+    SensorReading,
+    SequentialSpspAlgo,
+)
 
 assert CE + 2 == 5
 assert CR == 1
 
 
-def astar_dial_cheb(
+def _astar_dial_cheb(
     w: int, n: int, cost: list[int], pnb: list[list[int]], start: int, goal: int
 ) -> Path_:
     start_x, start_y = start % w, start // w
@@ -43,3 +53,23 @@ def astar_dial_cheb(
             emp += 1
         f += 1
     return None
+
+
+def _init(
+    ctx: PrecompCtx, _r: SensorReading, start: int, goal: int
+) -> tuple[PrecompCtx, Path_]:
+    return ctx, _astar_dial_cheb(ctx.w, ctx.n, ctx[COST], ctx[PNB], start, goal)
+
+
+def _step(
+    ctx: PrecompCtx, _r: SensorReading, pos: int, goal: int
+) -> tuple[PrecompCtx, Path_]:
+    return ctx, _astar_dial_cheb(ctx.w, ctx.n, ctx[COST], ctx[PNB], pos, goal)
+
+
+ALGO: Final[SequentialSpspAlgo[PrecompCtx]] = SequentialSpspAlgo(
+    name=AlgoName("astar-dial-cheb"),
+    requires=frozenset({COST, PNB}),
+    init=_init,
+    step=_step,
+)

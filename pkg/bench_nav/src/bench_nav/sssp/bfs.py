@@ -1,7 +1,15 @@
+from __future__ import annotations
+
+from typing import Final
+
 from bench_nav.common import INF
+from bench_nav.precompute import PNB
+from bench_nav.types import AlgoName, CostUnit, PrecompCtx, SsspAlgo
 
 
-def bfs(n: int, pnb: list[list[int]], start: int) -> list[int]:
+def _solve(ctx: PrecompCtx, start: int) -> list[int]:
+    n = ctx.n
+    pnb = ctx[PNB]
     dist = [INF] * n
     dist[start] = 0
     q = [start]
@@ -13,3 +21,11 @@ def bfs(n: int, pnb: list[list[int]], start: int) -> list[int]:
                 dist[nb] = d1
                 append(nb)
     return dist
+
+
+ALGO: Final[SsspAlgo] = SsspAlgo(
+    name=AlgoName("bfs"),
+    requires=frozenset({PNB}),
+    unit=CostUnit.HOPS,
+    solve=_solve,
+)

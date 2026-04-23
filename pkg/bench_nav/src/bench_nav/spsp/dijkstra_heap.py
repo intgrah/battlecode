@@ -1,9 +1,19 @@
+from __future__ import annotations
+
 import heapq
+from typing import Final
 
 from bench_nav.common import INF, Path_, extract_parent
+from bench_nav.precompute import COST, PNB
+from bench_nav.types import (
+    AlgoName,
+    PrecompCtx,
+    SensorReading,
+    SequentialSpspAlgo,
+)
 
 
-def dijkstra_heap(
+def _dijkstra_heap(
     n: int,
     cost: list[int],
     pnb: list[list[int]],
@@ -30,3 +40,23 @@ def dijkstra_heap(
                 parent[nb] = node
                 heapq.heappush(q, (nd, nb))
     return None
+
+
+def _init(
+    ctx: PrecompCtx, _r: SensorReading, start: int, goal: int
+) -> tuple[PrecompCtx, Path_]:
+    return ctx, _dijkstra_heap(ctx.n, ctx[COST], ctx[PNB], start, goal)
+
+
+def _step(
+    ctx: PrecompCtx, _r: SensorReading, pos: int, goal: int
+) -> tuple[PrecompCtx, Path_]:
+    return ctx, _dijkstra_heap(ctx.n, ctx[COST], ctx[PNB], pos, goal)
+
+
+ALGO: Final[SequentialSpspAlgo[PrecompCtx]] = SequentialSpspAlgo(
+    name=AlgoName("dijkstra-heap"),
+    requires=frozenset({COST, PNB}),
+    init=_init,
+    step=_step,
+)
