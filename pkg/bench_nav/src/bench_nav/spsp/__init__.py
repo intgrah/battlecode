@@ -5,6 +5,8 @@ from bench_nav.spsp.astar_dial_precomp import astar_dial_precomp
 from bench_nav.spsp.astar_heap_apsp import astar_heap_apsp
 from bench_nav.spsp.astar_heap_bfs import astar_heap_bfs
 from bench_nav.spsp.astar_heap_cheb import astar_heap_cheb
+from bench_nav.spsp.astar_jps import astar_jps
+from bench_nav.spsp.astar_jps_dial import astar_jps_dial
 from bench_nav.spsp.bfs import bfs
 from bench_nav.spsp.bfs_01 import bfs_01
 from bench_nav.spsp.bfs_dist import bfs_dist
@@ -32,6 +34,8 @@ __all__ = [
     "astar_heap_apsp",
     "astar_heap_bfs",
     "astar_heap_cheb",
+    "astar_jps",
+    "astar_jps_dial",
     "bfs",
     "bfs_01",
     "bfs_dist",
