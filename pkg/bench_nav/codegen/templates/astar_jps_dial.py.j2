@@ -50,7 +50,7 @@ def astar_jps_dial(
     parent[start] = start
     entry_dx = [0] * n
     entry_dy = [0] * n
-    closed = [False] * n
+    closed = bytearray(n)
 
     mod = _M
     bk = _BK
@@ -61,9 +61,10 @@ def astar_jps_dial(
     closed[start] = True
     if start == goal:
         return [(start // stride) * w + (start % stride)]
+    node = start  # jump macros reference `node` as starting flat index
     nx, ny = start % stride, start // stride
     g_node = 0  # g[start]
-    {{ m.expand_start('start', 'bk[(nd + hj) % mod].append(jp)') | indent(4) }}
+    {{ m.expand_start('start', 'bk[(nd + hj) % mod].append(idx)') | indent(4) }}
 
     h_start = max(abs(nx - gx), abs(ny - gy))
     f = h_start
@@ -72,27 +73,28 @@ def astar_jps_dial(
         bki = bk[f % mod]
         if bki:
             emp = 0
-            popleft = bki.popleft
             while bki:
-                node = popleft()
+                node = bki.popleft()
                 if closed[node]:
                     continue
                 closed[node] = True
                 if node == goal:
                     return _reconstruct(parent, start, goal, stride, w)
                 g_node = g[node]
-                nx, ny = node % stride, node // stride
                 dx0 = entry_dx[node]
                 dy0 = entry_dy[node]
-                row = node - nx  # equivalent to ny * stride, one sub vs one mul
 
                 if dx0:
                     if dy0:
-                        {{ m.expand_diagonal_arrival('node', 'bk[(nd + hj) % mod].append(jp)') | indent(24) }}
+                        nx = node % stride
+                        ny = node // stride
+                        {{ m.expand_diagonal_arrival('node', 'bk[(nd + hj) % mod].append(idx)') | indent(24) }}
                     else:
-                        {{ m.expand_horizontal_arrival('node', 'bk[(nd + hj) % mod].append(jp)') | indent(24) }}
+                        ny = node // stride
+                        {{ m.expand_horizontal_arrival('node', 'bk[(nd + hj) % mod].append(idx)') | indent(24) }}
                 else:
-                    {{ m.expand_vertical_arrival('node', 'bk[(nd + hj) % mod].append(jp)') | indent(20) }}
+                    nx = node % stride
+                    {{ m.expand_vertical_arrival('node', 'bk[(nd + hj) % mod].append(idx)') | indent(20) }}
         else:
             emp += 1
         f += 1

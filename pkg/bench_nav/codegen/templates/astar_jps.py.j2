@@ -38,6 +38,8 @@ def astar_jps(
     stride: int, n: int, cost: list[int], start: int, goal: int, w: int
 ) -> Path_:
     """JPS with heap, using padded cost grid (stride stride = w+1)."""
+    heappush = heapq.heappush
+    heappop = heapq.heappop
     gx, gy = goal % stride, goal // stride
 
     g = [INF] * n
@@ -46,35 +48,41 @@ def astar_jps(
     parent[start] = start
     entry_dx = [0] * n
     entry_dy = [0] * n
-    closed = [False] * n
+    closed = bytearray(n)
     heap: list[int] = []
 
     # === Expand start in all 8 directions. ===
     closed[start] = True
     if start == goal:
         return [(start // stride) * w + (start % stride)]
+    node = start  # jump macros reference `node` as starting flat index
     nx, ny = start % stride, start // stride
     g_node = 0  # g[start]
-    {{ m.expand_start('start', 'heapq.heappush(heap, (nd + hj) * n + jp)') | indent(4) }}
+    {{ m.expand_start('start', 'heappush(heap, (nd + hj) * n + idx)') | indent(4) }}
 
     while heap:
-        node = heapq.heappop(heap) % n
+        node = heappop(heap) % n
         if closed[node]:
             continue
         closed[node] = True
         if node == goal:
             return _reconstruct(parent, start, goal, stride, w)
         g_node = g[node]
-        nx, ny = node % stride, node // stride
         dx0 = entry_dx[node]
         dy0 = entry_dy[node]
-        row = node - nx  # equivalent to ny * stride, one sub vs one mul
 
         if dx0:
             if dy0:
-                {{ m.expand_diagonal_arrival('node', 'heapq.heappush(heap, (nd + hj) * n + jp)') | indent(16) }}
+                # Diagonal arrival: expansion calls jump_v (needs nx) and jump_h (needs ny).
+                nx = node % stride
+                ny = node // stride
+                {{ m.expand_diagonal_arrival('node', 'heappush(heap, (nd + hj) * n + idx)') | indent(16) }}
             else:
-                {{ m.expand_horizontal_arrival('node', 'heapq.heappush(heap, (nd + hj) * n + jp)') | indent(16) }}
+                # Horizontal arrival: only jump_h needs ny.
+                ny = node // stride
+                {{ m.expand_horizontal_arrival('node', 'heappush(heap, (nd + hj) * n + idx)') | indent(16) }}
         else:
-            {{ m.expand_vertical_arrival('node', 'heapq.heappush(heap, (nd + hj) * n + jp)') | indent(12) }}
+            # Vertical arrival: only jump_v needs nx.
+            nx = node % stride
+            {{ m.expand_vertical_arrival('node', 'heappush(heap, (nd + hj) * n + idx)') | indent(12) }}
     return None

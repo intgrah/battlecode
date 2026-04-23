@@ -37,6 +37,8 @@ def astar_jps(
     stride: int, n: int, cost: list[int], start: int, goal: int, w: int
 ) -> Path_:
     """JPS with heap, using padded cost grid (stride stride = w+1)."""
+    heappush = heapq.heappush
+    heappop = heapq.heappop
     gx, gy = goal % stride, goal // stride
 
     g = [INF] * n
@@ -45,1406 +47,1340 @@ def astar_jps(
     parent[start] = start
     entry_dx = [0] * n
     entry_dy = [0] * n
-    closed = [False] * n
+    closed = bytearray(n)
     heap: list[int] = []
 
     # === Expand start in all 8 directions. ===
     closed[start] = True
     if start == goal:
         return [(start // stride) * w + (start % stride)]
+    node = start  # jump macros reference `node` as starting flat index
     nx, ny = start % stride, start // stride
     g_node = 0  # g[start]
     dy = -1
-    x = nx
-    y = ny
     dist = 0
-    xm = x - 1
-    xp = x + 1
-    jrow_delta = dy * stride
-    jrow = ny * stride
-    yp_dy_row = (ny + dy) * stride
-    if x == gx:
+    stride_dy = dy * stride
+    yp_xm_off = stride_dy - 1
+    yp_xp_off = stride_dy + 1
+    idx = node
+    hxh = abs(nx - gx)
+    if nx == gx:
         while True:
-            y += dy
+            idx += stride_dy
             dist += 1
-            jrow += jrow_delta
-            yp_dy_row += jrow_delta
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            if y == gy:
+            if idx == goal:
                 break
-            if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
                 break
-            if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
                 break
     else:
         while True:
-            y += dy
+            idx += stride_dy
             dist += 1
-            jrow += jrow_delta
-            yp_dy_row += jrow_delta
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
                 break
-            if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
                 break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = 0
-            entry_dy[jp] = dy
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = 0
+            entry_dy[idx] = dy
+            hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dx = 1
     dy = -1
-    x = nx
-    y = ny
     dist = 0
+    stride_dy = dy * stride
+    step = stride_dy + dx
+    # Forced-neighbor offsets (main diagonal loop):
+    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+    sub_up_dx_off = -stride + dx
+    sub_dn_dx_off = stride + dx
+    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+    sub_yp_xm_off = stride_dy - 1
+    sub_yp_xp_off = stride_dy + 1
+    idx = node
     while True:
-        x += dx
-        y += dy
+        idx += step
         dist += 1
-        jrow = y * stride
-        if cost[jrow + x] is INF:
+        if cost[idx] is INF:
             dist = -1
             break
-        if x == gx and y == gy:
+        if idx == goal:
             break
-        xm = x - dx
-        yp_row = (y + dy) * stride
-        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
             break
-        xp = x + dx
-        ym_row = (y - dy) * stride
-        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
             break
-        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-        cx = x
-        sub_ym_row = (y - 1) * stride
-        sub_yp_row = (y + 1) * stride
+        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cx += dx
-            if cost[jrow + cx] is INF:
+            cidx += dx
+            if cost[cidx] is INF:
                 break
-            if cx == gx and y == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cxp = cx + dx
-            if cost[sub_ym_row + cx] is INF and cost[sub_ym_row + cxp] is not INF:
+            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
                 subfound = True
                 break
-            if cost[sub_yp_row + cx] is INF and cost[sub_yp_row + cxp] is not INF:
+            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
-        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-        cy = y
-        sub_cxm = x - 1
-        sub_cxp = x + 1
+        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cy += dy
-            crow = cy * stride
-            if cost[crow + x] is INF:
+            cidx += stride_dy
+            if cost[cidx] is INF:
                 break
-            if x == gx and cy == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cyp2_row = (cy + dy) * stride
-            if cost[crow + sub_cxm] is INF and cost[cyp2_row + sub_cxm] is not INF:
+            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
                 subfound = True
                 break
-            if cost[crow + sub_cxp] is INF and cost[cyp2_row + sub_cxp] is not INF:
+            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = dx
-            entry_dy[jp] = dy
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = dx
+            entry_dy[idx] = dy
+            hxh = abs((idx % stride) - gx)
+            hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dx = 1
-    x = nx
-    y = ny
     dist = 0
-    jrow = y * stride
-    ym_row = (y - 1) * stride
-    yp_row = (y + 1) * stride
-    if y == gy:
+    up_off = -stride
+    up_dx_off = -stride + dx
+    dn_off = stride
+    dn_dx_off = stride + dx
+    idx = node
+    hyh = abs(ny - gy)
+    if ny == gy:
         while True:
-            x += dx
+            idx += dx
             dist += 1
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            if x == gx:
+            if idx == goal:
                 break
-            xp_dx = x + dx
-            if cost[ym_row + x] is INF and cost[ym_row + xp_dx] is not INF:
+            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
                 break
-            if cost[yp_row + x] is INF and cost[yp_row + xp_dx] is not INF:
+            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
                 break
     else:
         while True:
-            x += dx
+            idx += dx
             dist += 1
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            xp_dx = x + dx
-            if cost[ym_row + x] is INF and cost[ym_row + xp_dx] is not INF:
+            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
                 break
-            if cost[yp_row + x] is INF and cost[yp_row + xp_dx] is not INF:
+            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
                 break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = dx
-            entry_dy[jp] = 0
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = dx
+            entry_dy[idx] = 0
+            hxh = abs((idx % stride) - gx)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dx = 1
     dy = 1
-    x = nx
-    y = ny
     dist = 0
+    stride_dy = dy * stride
+    step = stride_dy + dx
+    # Forced-neighbor offsets (main diagonal loop):
+    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+    sub_up_dx_off = -stride + dx
+    sub_dn_dx_off = stride + dx
+    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+    sub_yp_xm_off = stride_dy - 1
+    sub_yp_xp_off = stride_dy + 1
+    idx = node
     while True:
-        x += dx
-        y += dy
+        idx += step
         dist += 1
-        jrow = y * stride
-        if cost[jrow + x] is INF:
+        if cost[idx] is INF:
             dist = -1
             break
-        if x == gx and y == gy:
+        if idx == goal:
             break
-        xm = x - dx
-        yp_row = (y + dy) * stride
-        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
             break
-        xp = x + dx
-        ym_row = (y - dy) * stride
-        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
             break
-        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-        cx = x
-        sub_ym_row = (y - 1) * stride
-        sub_yp_row = (y + 1) * stride
+        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cx += dx
-            if cost[jrow + cx] is INF:
+            cidx += dx
+            if cost[cidx] is INF:
                 break
-            if cx == gx and y == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cxp = cx + dx
-            if cost[sub_ym_row + cx] is INF and cost[sub_ym_row + cxp] is not INF:
+            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
                 subfound = True
                 break
-            if cost[sub_yp_row + cx] is INF and cost[sub_yp_row + cxp] is not INF:
+            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
-        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-        cy = y
-        sub_cxm = x - 1
-        sub_cxp = x + 1
+        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cy += dy
-            crow = cy * stride
-            if cost[crow + x] is INF:
+            cidx += stride_dy
+            if cost[cidx] is INF:
                 break
-            if x == gx and cy == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cyp2_row = (cy + dy) * stride
-            if cost[crow + sub_cxm] is INF and cost[cyp2_row + sub_cxm] is not INF:
+            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
                 subfound = True
                 break
-            if cost[crow + sub_cxp] is INF and cost[cyp2_row + sub_cxp] is not INF:
+            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = dx
-            entry_dy[jp] = dy
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = dx
+            entry_dy[idx] = dy
+            hxh = abs((idx % stride) - gx)
+            hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dy = 1
-    x = nx
-    y = ny
     dist = 0
-    xm = x - 1
-    xp = x + 1
-    jrow_delta = dy * stride
-    jrow = ny * stride
-    yp_dy_row = (ny + dy) * stride
-    if x == gx:
+    stride_dy = dy * stride
+    yp_xm_off = stride_dy - 1
+    yp_xp_off = stride_dy + 1
+    idx = node
+    hxh = abs(nx - gx)
+    if nx == gx:
         while True:
-            y += dy
+            idx += stride_dy
             dist += 1
-            jrow += jrow_delta
-            yp_dy_row += jrow_delta
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            if y == gy:
+            if idx == goal:
                 break
-            if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
                 break
-            if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
                 break
     else:
         while True:
-            y += dy
+            idx += stride_dy
             dist += 1
-            jrow += jrow_delta
-            yp_dy_row += jrow_delta
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+            if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
                 break
-            if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+            if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
                 break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = 0
-            entry_dy[jp] = dy
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = 0
+            entry_dy[idx] = dy
+            hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dx = -1
     dy = 1
-    x = nx
-    y = ny
     dist = 0
+    stride_dy = dy * stride
+    step = stride_dy + dx
+    # Forced-neighbor offsets (main diagonal loop):
+    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+    sub_up_dx_off = -stride + dx
+    sub_dn_dx_off = stride + dx
+    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+    sub_yp_xm_off = stride_dy - 1
+    sub_yp_xp_off = stride_dy + 1
+    idx = node
     while True:
-        x += dx
-        y += dy
+        idx += step
         dist += 1
-        jrow = y * stride
-        if cost[jrow + x] is INF:
+        if cost[idx] is INF:
             dist = -1
             break
-        if x == gx and y == gy:
+        if idx == goal:
             break
-        xm = x - dx
-        yp_row = (y + dy) * stride
-        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
             break
-        xp = x + dx
-        ym_row = (y - dy) * stride
-        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
             break
-        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-        cx = x
-        sub_ym_row = (y - 1) * stride
-        sub_yp_row = (y + 1) * stride
+        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cx += dx
-            if cost[jrow + cx] is INF:
+            cidx += dx
+            if cost[cidx] is INF:
                 break
-            if cx == gx and y == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cxp = cx + dx
-            if cost[sub_ym_row + cx] is INF and cost[sub_ym_row + cxp] is not INF:
+            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
                 subfound = True
                 break
-            if cost[sub_yp_row + cx] is INF and cost[sub_yp_row + cxp] is not INF:
+            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
-        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-        cy = y
-        sub_cxm = x - 1
-        sub_cxp = x + 1
+        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cy += dy
-            crow = cy * stride
-            if cost[crow + x] is INF:
+            cidx += stride_dy
+            if cost[cidx] is INF:
                 break
-            if x == gx and cy == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cyp2_row = (cy + dy) * stride
-            if cost[crow + sub_cxm] is INF and cost[cyp2_row + sub_cxm] is not INF:
+            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
                 subfound = True
                 break
-            if cost[crow + sub_cxp] is INF and cost[cyp2_row + sub_cxp] is not INF:
+            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = dx
-            entry_dy[jp] = dy
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = dx
+            entry_dy[idx] = dy
+            hxh = abs((idx % stride) - gx)
+            hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dx = -1
-    x = nx
-    y = ny
     dist = 0
-    jrow = y * stride
-    ym_row = (y - 1) * stride
-    yp_row = (y + 1) * stride
-    if y == gy:
+    up_off = -stride
+    up_dx_off = -stride + dx
+    dn_off = stride
+    dn_dx_off = stride + dx
+    idx = node
+    hyh = abs(ny - gy)
+    if ny == gy:
         while True:
-            x += dx
+            idx += dx
             dist += 1
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            if x == gx:
+            if idx == goal:
                 break
-            xp_dx = x + dx
-            if cost[ym_row + x] is INF and cost[ym_row + xp_dx] is not INF:
+            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
                 break
-            if cost[yp_row + x] is INF and cost[yp_row + xp_dx] is not INF:
+            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
                 break
     else:
         while True:
-            x += dx
+            idx += dx
             dist += 1
-            if cost[jrow + x] is INF:
+            if cost[idx] is INF:
                 dist = -1
                 break
-            xp_dx = x + dx
-            if cost[ym_row + x] is INF and cost[ym_row + xp_dx] is not INF:
+            if cost[idx + up_off] is INF and cost[idx + up_dx_off] is not INF:
                 break
-            if cost[yp_row + x] is INF and cost[yp_row + xp_dx] is not INF:
+            if cost[idx + dn_off] is INF and cost[idx + dn_dx_off] is not INF:
                 break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = dx
-            entry_dy[jp] = 0
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = dx
+            entry_dy[idx] = 0
+            hxh = abs((idx % stride) - gx)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
     dx = -1
     dy = -1
-    x = nx
-    y = ny
     dist = 0
+    stride_dy = dy * stride
+    step = stride_dy + dx
+    # Forced-neighbor offsets (main diagonal loop):
+    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+    sub_up_dx_off = -stride + dx
+    sub_dn_dx_off = stride + dx
+    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+    sub_yp_xm_off = stride_dy - 1
+    sub_yp_xp_off = stride_dy + 1
+    idx = node
     while True:
-        x += dx
-        y += dy
+        idx += step
         dist += 1
-        jrow = y * stride
-        if cost[jrow + x] is INF:
+        if cost[idx] is INF:
             dist = -1
             break
-        if x == gx and y == gy:
+        if idx == goal:
             break
-        xm = x - dx
-        yp_row = (y + dy) * stride
-        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
             break
-        xp = x + dx
-        ym_row = (y - dy) * stride
-        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+        if cost[idx + back_xy_off] is not INF and cost[idx - stride_dy] is INF:
             break
-        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-        cx = x
-        sub_ym_row = (y - 1) * stride
-        sub_yp_row = (y + 1) * stride
+        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cx += dx
-            if cost[jrow + cx] is INF:
+            cidx += dx
+            if cost[cidx] is INF:
                 break
-            if cx == gx and y == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cxp = cx + dx
-            if cost[sub_ym_row + cx] is INF and cost[sub_ym_row + cxp] is not INF:
+            if cost[cidx - stride] is INF and cost[cidx + sub_up_dx_off] is not INF:
                 subfound = True
                 break
-            if cost[sub_yp_row + cx] is INF and cost[sub_yp_row + cxp] is not INF:
+            if cost[cidx + stride] is INF and cost[cidx + sub_dn_dx_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
-        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-        cy = y
-        sub_cxm = x - 1
-        sub_cxp = x + 1
+        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+        cidx = idx
         subfound = False
         while True:
-            cy += dy
-            crow = cy * stride
-            if cost[crow + x] is INF:
+            cidx += stride_dy
+            if cost[cidx] is INF:
                 break
-            if x == gx and cy == gy:
+            if cidx == goal:
                 subfound = True
                 break
-            cyp2_row = (cy + dy) * stride
-            if cost[crow + sub_cxm] is INF and cost[cyp2_row + sub_cxm] is not INF:
+            if cost[cidx - 1] is INF and cost[cidx + sub_yp_xm_off] is not INF:
                 subfound = True
                 break
-            if cost[crow + sub_cxp] is INF and cost[cyp2_row + sub_cxp] is not INF:
+            if cost[cidx + 1] is INF and cost[cidx + sub_yp_xp_off] is not INF:
                 subfound = True
                 break
         if subfound:
             break
     if dist > 0:
-        jp = y * stride + x
         nd = g_node + dist
-        if nd < g[jp]:
-            g[jp] = nd
-            parent[jp] = start
-            entry_dx[jp] = dx
-            entry_dy[jp] = dy
-            hxh = abs(x - gx)
-            hyh = abs(y - gy)
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = start
+            entry_dx[idx] = dx
+            entry_dy[idx] = dy
+            hxh = abs((idx % stride) - gx)
+            hyh = abs((idx // stride) - gy)
             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-            heapq.heappush(heap, (nd + hj) * n + jp)
+            heappush(heap, (nd + hj) * n + idx)
 
     while heap:
-        node = heapq.heappop(heap) % n
+        node = heappop(heap) % n
         if closed[node]:
             continue
         closed[node] = True
         if node == goal:
             return _reconstruct(parent, start, goal, stride, w)
         g_node = g[node]
-        nx, ny = node % stride, node // stride
         dx0 = entry_dx[node]
         dy0 = entry_dy[node]
-        row = node - nx  # equivalent to ny * stride, one sub vs one mul
 
         if dx0:
             if dy0:
-                sy_row = (ny + dy0) * stride
-                sx = nx + dx0
-                if cost[sy_row + nx] is not INF:
+                # Diagonal arrival: expansion calls jump_v (needs nx) and jump_h (needs ny).
+                nx = node % stride
+                ny = node // stride
+                stride_dy0 = dy0 * stride
+                if cost[node + stride_dy0] is not INF:
                     dy = dy0
-                    x = nx
-                    y = ny
                     dist = 0
-                    xm = x - 1
-                    xp = x + 1
-                    jrow_delta = dy * stride
-                    jrow = ny * stride
-                    yp_dy_row = (ny + dy) * stride
-                    if x == gx:
+                    stride_dy = dy * stride
+                    yp_xm_off = stride_dy - 1
+                    yp_xp_off = stride_dy + 1
+                    idx = node
+                    hxh = abs(nx - gx)
+                    if nx == gx:
                         while True:
-                            y += dy
+                            idx += stride_dy
                             dist += 1
-                            jrow += jrow_delta
-                            yp_dy_row += jrow_delta
-                            if cost[jrow + x] is INF:
+                            if cost[idx] is INF:
                                 dist = -1
                                 break
-                            if y == gy:
+                            if idx == goal:
                                 break
                             if (
-                                cost[jrow + xm] is INF
-                                and cost[yp_dy_row + xm] is not INF
+                                cost[idx - 1] is INF
+                                and cost[idx + yp_xm_off] is not INF
                             ):
                                 break
                             if (
-                                cost[jrow + xp] is INF
-                                and cost[yp_dy_row + xp] is not INF
+                                cost[idx + 1] is INF
+                                and cost[idx + yp_xp_off] is not INF
                             ):
                                 break
                     else:
                         while True:
-                            y += dy
+                            idx += stride_dy
                             dist += 1
-                            jrow += jrow_delta
-                            yp_dy_row += jrow_delta
-                            if cost[jrow + x] is INF:
+                            if cost[idx] is INF:
                                 dist = -1
                                 break
                             if (
-                                cost[jrow + xm] is INF
-                                and cost[yp_dy_row + xm] is not INF
+                                cost[idx - 1] is INF
+                                and cost[idx + yp_xm_off] is not INF
                             ):
                                 break
                             if (
-                                cost[jrow + xp] is INF
-                                and cost[yp_dy_row + xp] is not INF
+                                cost[idx + 1] is INF
+                                and cost[idx + yp_xp_off] is not INF
                             ):
                                 break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = 0
-                            entry_dy[jp] = dy
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = 0
+                            entry_dy[idx] = dy
+                            hyh = abs((idx // stride) - gy)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
-                if cost[row + sx] is not INF:
+                            heappush(heap, (nd + hj) * n + idx)
+                if cost[node + dx0] is not INF:
                     dx = dx0
-                    x = nx
-                    y = ny
                     dist = 0
-                    jrow = y * stride
-                    ym_row = (y - 1) * stride
-                    yp_row = (y + 1) * stride
-                    if y == gy:
+                    up_off = -stride
+                    up_dx_off = -stride + dx
+                    dn_off = stride
+                    dn_dx_off = stride + dx
+                    idx = node
+                    hyh = abs(ny - gy)
+                    if ny == gy:
                         while True:
-                            x += dx
+                            idx += dx
                             dist += 1
-                            if cost[jrow + x] is INF:
+                            if cost[idx] is INF:
                                 dist = -1
                                 break
-                            if x == gx:
+                            if idx == goal:
                                 break
-                            xp_dx = x + dx
                             if (
-                                cost[ym_row + x] is INF
-                                and cost[ym_row + xp_dx] is not INF
+                                cost[idx + up_off] is INF
+                                and cost[idx + up_dx_off] is not INF
                             ):
                                 break
                             if (
-                                cost[yp_row + x] is INF
-                                and cost[yp_row + xp_dx] is not INF
+                                cost[idx + dn_off] is INF
+                                and cost[idx + dn_dx_off] is not INF
                             ):
                                 break
                     else:
                         while True:
-                            x += dx
+                            idx += dx
                             dist += 1
-                            if cost[jrow + x] is INF:
+                            if cost[idx] is INF:
                                 dist = -1
                                 break
-                            xp_dx = x + dx
                             if (
-                                cost[ym_row + x] is INF
-                                and cost[ym_row + xp_dx] is not INF
+                                cost[idx + up_off] is INF
+                                and cost[idx + up_dx_off] is not INF
                             ):
                                 break
                             if (
-                                cost[yp_row + x] is INF
-                                and cost[yp_row + xp_dx] is not INF
+                                cost[idx + dn_off] is INF
+                                and cost[idx + dn_dx_off] is not INF
                             ):
                                 break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = 0
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = 0
+                            hxh = abs((idx % stride) - gx)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
-                if cost[sy_row + sx] is not INF:
+                            heappush(heap, (nd + hj) * n + idx)
+                if cost[node + stride_dy0 + dx0] is not INF:
                     dx = dx0
                     dy = dy0
-                    x = nx
-                    y = ny
                     dist = 0
+                    stride_dy = dy * stride
+                    step = stride_dy + dx
+                    # Forced-neighbor offsets (main diagonal loop):
+                    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                    sub_up_dx_off = -stride + dx
+                    sub_dn_dx_off = stride + dx
+                    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                    sub_yp_xm_off = stride_dy - 1
+                    sub_yp_xp_off = stride_dy + 1
+                    idx = node
                     while True:
-                        x += dx
-                        y += dy
+                        idx += step
                         dist += 1
-                        jrow = y * stride
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if x == gx and y == gy:
+                        if idx == goal:
                             break
-                        xm = x - dx
-                        yp_row = (y + dy) * stride
-                        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                             break
-                        xp = x + dx
-                        ym_row = (y - dy) * stride
-                        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                        if (
+                            cost[idx + back_xy_off] is not INF
+                            and cost[idx - stride_dy] is INF
+                        ):
                             break
-                        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                        cx = x
-                        sub_ym_row = (y - 1) * stride
-                        sub_yp_row = (y + 1) * stride
+                        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cx += dx
-                            if cost[jrow + cx] is INF:
+                            cidx += dx
+                            if cost[cidx] is INF:
                                 break
-                            if cx == gx and y == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cxp = cx + dx
                             if (
-                                cost[sub_ym_row + cx] is INF
-                                and cost[sub_ym_row + cxp] is not INF
+                                cost[cidx - stride] is INF
+                                and cost[cidx + sub_up_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[sub_yp_row + cx] is INF
-                                and cost[sub_yp_row + cxp] is not INF
+                                cost[cidx + stride] is INF
+                                and cost[cidx + sub_dn_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
-                        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                        cy = y
-                        sub_cxm = x - 1
-                        sub_cxp = x + 1
+                        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cy += dy
-                            crow = cy * stride
-                            if cost[crow + x] is INF:
+                            cidx += stride_dy
+                            if cost[cidx] is INF:
                                 break
-                            if x == gx and cy == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cyp2_row = (cy + dy) * stride
                             if (
-                                cost[crow + sub_cxm] is INF
-                                and cost[cyp2_row + sub_cxm] is not INF
+                                cost[cidx - 1] is INF
+                                and cost[cidx + sub_yp_xm_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[crow + sub_cxp] is INF
-                                and cost[cyp2_row + sub_cxp] is not INF
+                                cost[cidx + 1] is INF
+                                and cost[cidx + sub_yp_xp_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = dy
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = dy
+                            hxh = abs((idx % stride) - gx)
+                            hyh = abs((idx // stride) - gy)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
-                sxm = nx - dx0
-                if cost[row + sxm] is INF and cost[sy_row + sxm] is not INF:
+                            heappush(heap, (nd + hj) * n + idx)
+                if cost[node - dx0] is INF and cost[node + stride_dy0 - dx0] is not INF:
                     dx = -dx0
                     dy = dy0
-                    x = nx
-                    y = ny
                     dist = 0
+                    stride_dy = dy * stride
+                    step = stride_dy + dx
+                    # Forced-neighbor offsets (main diagonal loop):
+                    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                    sub_up_dx_off = -stride + dx
+                    sub_dn_dx_off = stride + dx
+                    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                    sub_yp_xm_off = stride_dy - 1
+                    sub_yp_xp_off = stride_dy + 1
+                    idx = node
                     while True:
-                        x += dx
-                        y += dy
+                        idx += step
                         dist += 1
-                        jrow = y * stride
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if x == gx and y == gy:
+                        if idx == goal:
                             break
-                        xm = x - dx
-                        yp_row = (y + dy) * stride
-                        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                             break
-                        xp = x + dx
-                        ym_row = (y - dy) * stride
-                        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                        if (
+                            cost[idx + back_xy_off] is not INF
+                            and cost[idx - stride_dy] is INF
+                        ):
                             break
-                        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                        cx = x
-                        sub_ym_row = (y - 1) * stride
-                        sub_yp_row = (y + 1) * stride
+                        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cx += dx
-                            if cost[jrow + cx] is INF:
+                            cidx += dx
+                            if cost[cidx] is INF:
                                 break
-                            if cx == gx and y == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cxp = cx + dx
                             if (
-                                cost[sub_ym_row + cx] is INF
-                                and cost[sub_ym_row + cxp] is not INF
+                                cost[cidx - stride] is INF
+                                and cost[cidx + sub_up_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[sub_yp_row + cx] is INF
-                                and cost[sub_yp_row + cxp] is not INF
+                                cost[cidx + stride] is INF
+                                and cost[cidx + sub_dn_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
-                        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                        cy = y
-                        sub_cxm = x - 1
-                        sub_cxp = x + 1
+                        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cy += dy
-                            crow = cy * stride
-                            if cost[crow + x] is INF:
+                            cidx += stride_dy
+                            if cost[cidx] is INF:
                                 break
-                            if x == gx and cy == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cyp2_row = (cy + dy) * stride
                             if (
-                                cost[crow + sub_cxm] is INF
-                                and cost[cyp2_row + sub_cxm] is not INF
+                                cost[cidx - 1] is INF
+                                and cost[cidx + sub_yp_xm_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[crow + sub_cxp] is INF
-                                and cost[cyp2_row + sub_cxp] is not INF
+                                cost[cidx + 1] is INF
+                                and cost[cidx + sub_yp_xp_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = dy
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = dy
+                            hxh = abs((idx % stride) - gx)
+                            hyh = abs((idx // stride) - gy)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
-                sym_row = (ny - dy0) * stride
-                if cost[sym_row + nx] is INF and cost[sym_row + sx] is not INF:
+                            heappush(heap, (nd + hj) * n + idx)
+                if (
+                    cost[node - stride_dy0] is INF
+                    and cost[node + dx0 - stride_dy0] is not INF
+                ):
                     dx = dx0
                     dy = -dy0
-                    x = nx
-                    y = ny
                     dist = 0
+                    stride_dy = dy * stride
+                    step = stride_dy + dx
+                    # Forced-neighbor offsets (main diagonal loop):
+                    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                    sub_up_dx_off = -stride + dx
+                    sub_dn_dx_off = stride + dx
+                    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                    sub_yp_xm_off = stride_dy - 1
+                    sub_yp_xp_off = stride_dy + 1
+                    idx = node
                     while True:
-                        x += dx
-                        y += dy
+                        idx += step
                         dist += 1
-                        jrow = y * stride
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if x == gx and y == gy:
+                        if idx == goal:
                             break
-                        xm = x - dx
-                        yp_row = (y + dy) * stride
-                        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                             break
-                        xp = x + dx
-                        ym_row = (y - dy) * stride
-                        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                        if (
+                            cost[idx + back_xy_off] is not INF
+                            and cost[idx - stride_dy] is INF
+                        ):
                             break
-                        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                        cx = x
-                        sub_ym_row = (y - 1) * stride
-                        sub_yp_row = (y + 1) * stride
+                        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cx += dx
-                            if cost[jrow + cx] is INF:
+                            cidx += dx
+                            if cost[cidx] is INF:
                                 break
-                            if cx == gx and y == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cxp = cx + dx
                             if (
-                                cost[sub_ym_row + cx] is INF
-                                and cost[sub_ym_row + cxp] is not INF
+                                cost[cidx - stride] is INF
+                                and cost[cidx + sub_up_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[sub_yp_row + cx] is INF
-                                and cost[sub_yp_row + cxp] is not INF
+                                cost[cidx + stride] is INF
+                                and cost[cidx + sub_dn_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
-                        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                        cy = y
-                        sub_cxm = x - 1
-                        sub_cxp = x + 1
+                        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cy += dy
-                            crow = cy * stride
-                            if cost[crow + x] is INF:
+                            cidx += stride_dy
+                            if cost[cidx] is INF:
                                 break
-                            if x == gx and cy == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cyp2_row = (cy + dy) * stride
                             if (
-                                cost[crow + sub_cxm] is INF
-                                and cost[cyp2_row + sub_cxm] is not INF
+                                cost[cidx - 1] is INF
+                                and cost[cidx + sub_yp_xm_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[crow + sub_cxp] is INF
-                                and cost[cyp2_row + sub_cxp] is not INF
+                                cost[cidx + 1] is INF
+                                and cost[cidx + sub_yp_xp_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = dy
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = dy
+                            hxh = abs((idx % stride) - gx)
+                            hyh = abs((idx // stride) - gy)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
+                            heappush(heap, (nd + hj) * n + idx)
             else:
-                sx = nx + dx0
-                if cost[row + sx] is not INF:
+                # Horizontal arrival: only jump_h needs ny.
+                ny = node // stride
+                if cost[node + dx0] is not INF:
                     dx = dx0
-                    x = nx
-                    y = ny
                     dist = 0
-                    jrow = y * stride
-                    ym_row = (y - 1) * stride
-                    yp_row = (y + 1) * stride
-                    if y == gy:
+                    up_off = -stride
+                    up_dx_off = -stride + dx
+                    dn_off = stride
+                    dn_dx_off = stride + dx
+                    idx = node
+                    hyh = abs(ny - gy)
+                    if ny == gy:
                         while True:
-                            x += dx
+                            idx += dx
                             dist += 1
-                            if cost[jrow + x] is INF:
+                            if cost[idx] is INF:
                                 dist = -1
                                 break
-                            if x == gx:
+                            if idx == goal:
                                 break
-                            xp_dx = x + dx
                             if (
-                                cost[ym_row + x] is INF
-                                and cost[ym_row + xp_dx] is not INF
+                                cost[idx + up_off] is INF
+                                and cost[idx + up_dx_off] is not INF
                             ):
                                 break
                             if (
-                                cost[yp_row + x] is INF
-                                and cost[yp_row + xp_dx] is not INF
+                                cost[idx + dn_off] is INF
+                                and cost[idx + dn_dx_off] is not INF
                             ):
                                 break
                     else:
                         while True:
-                            x += dx
+                            idx += dx
                             dist += 1
-                            if cost[jrow + x] is INF:
+                            if cost[idx] is INF:
                                 dist = -1
                                 break
-                            xp_dx = x + dx
                             if (
-                                cost[ym_row + x] is INF
-                                and cost[ym_row + xp_dx] is not INF
+                                cost[idx + up_off] is INF
+                                and cost[idx + up_dx_off] is not INF
                             ):
                                 break
                             if (
-                                cost[yp_row + x] is INF
-                                and cost[yp_row + xp_dx] is not INF
+                                cost[idx + dn_off] is INF
+                                and cost[idx + dn_dx_off] is not INF
                             ):
                                 break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = 0
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = 0
+                            hxh = abs((idx % stride) - gx)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
-                sym_row = (ny - 1) * stride
-                if cost[sym_row + nx] is INF and cost[sym_row + sx] is not INF:
+                            heappush(heap, (nd + hj) * n + idx)
+                if cost[node - stride] is INF and cost[node - stride + dx0] is not INF:
                     dx = dx0
                     dy = -1
-                    x = nx
-                    y = ny
                     dist = 0
+                    stride_dy = dy * stride
+                    step = stride_dy + dx
+                    # Forced-neighbor offsets (main diagonal loop):
+                    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                    sub_up_dx_off = -stride + dx
+                    sub_dn_dx_off = stride + dx
+                    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                    sub_yp_xm_off = stride_dy - 1
+                    sub_yp_xp_off = stride_dy + 1
+                    idx = node
                     while True:
-                        x += dx
-                        y += dy
+                        idx += step
                         dist += 1
-                        jrow = y * stride
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if x == gx and y == gy:
+                        if idx == goal:
                             break
-                        xm = x - dx
-                        yp_row = (y + dy) * stride
-                        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                             break
-                        xp = x + dx
-                        ym_row = (y - dy) * stride
-                        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                        if (
+                            cost[idx + back_xy_off] is not INF
+                            and cost[idx - stride_dy] is INF
+                        ):
                             break
-                        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                        cx = x
-                        sub_ym_row = (y - 1) * stride
-                        sub_yp_row = (y + 1) * stride
+                        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cx += dx
-                            if cost[jrow + cx] is INF:
+                            cidx += dx
+                            if cost[cidx] is INF:
                                 break
-                            if cx == gx and y == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cxp = cx + dx
                             if (
-                                cost[sub_ym_row + cx] is INF
-                                and cost[sub_ym_row + cxp] is not INF
+                                cost[cidx - stride] is INF
+                                and cost[cidx + sub_up_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[sub_yp_row + cx] is INF
-                                and cost[sub_yp_row + cxp] is not INF
+                                cost[cidx + stride] is INF
+                                and cost[cidx + sub_dn_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
-                        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                        cy = y
-                        sub_cxm = x - 1
-                        sub_cxp = x + 1
+                        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cy += dy
-                            crow = cy * stride
-                            if cost[crow + x] is INF:
+                            cidx += stride_dy
+                            if cost[cidx] is INF:
                                 break
-                            if x == gx and cy == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cyp2_row = (cy + dy) * stride
                             if (
-                                cost[crow + sub_cxm] is INF
-                                and cost[cyp2_row + sub_cxm] is not INF
+                                cost[cidx - 1] is INF
+                                and cost[cidx + sub_yp_xm_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[crow + sub_cxp] is INF
-                                and cost[cyp2_row + sub_cxp] is not INF
+                                cost[cidx + 1] is INF
+                                and cost[cidx + sub_yp_xp_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = dy
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = dy
+                            hxh = abs((idx % stride) - gx)
+                            hyh = abs((idx // stride) - gy)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
-                syp_row = (ny + 1) * stride
-                if cost[syp_row + nx] is INF and cost[syp_row + sx] is not INF:
+                            heappush(heap, (nd + hj) * n + idx)
+                if cost[node + stride] is INF and cost[node + stride + dx0] is not INF:
                     dx = dx0
                     dy = 1
-                    x = nx
-                    y = ny
                     dist = 0
+                    stride_dy = dy * stride
+                    step = stride_dy + dx
+                    # Forced-neighbor offsets (main diagonal loop):
+                    fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                    back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                    # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                    sub_up_dx_off = -stride + dx
+                    sub_dn_dx_off = stride + dx
+                    # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                    sub_yp_xm_off = stride_dy - 1
+                    sub_yp_xp_off = stride_dy + 1
+                    idx = node
                     while True:
-                        x += dx
-                        y += dy
+                        idx += step
                         dist += 1
-                        jrow = y * stride
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if x == gx and y == gy:
+                        if idx == goal:
                             break
-                        xm = x - dx
-                        yp_row = (y + dy) * stride
-                        if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                        if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                             break
-                        xp = x + dx
-                        ym_row = (y - dy) * stride
-                        if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                        if (
+                            cost[idx + back_xy_off] is not INF
+                            and cost[idx - stride_dy] is INF
+                        ):
                             break
-                        # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                        cx = x
-                        sub_ym_row = (y - 1) * stride
-                        sub_yp_row = (y + 1) * stride
+                        # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cx += dx
-                            if cost[jrow + cx] is INF:
+                            cidx += dx
+                            if cost[cidx] is INF:
                                 break
-                            if cx == gx and y == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cxp = cx + dx
                             if (
-                                cost[sub_ym_row + cx] is INF
-                                and cost[sub_ym_row + cxp] is not INF
+                                cost[cidx - stride] is INF
+                                and cost[cidx + sub_up_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[sub_yp_row + cx] is INF
-                                and cost[sub_yp_row + cxp] is not INF
+                                cost[cidx + stride] is INF
+                                and cost[cidx + sub_dn_dx_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
-                        # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                        cy = y
-                        sub_cxm = x - 1
-                        sub_cxp = x + 1
+                        # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                        cidx = idx
                         subfound = False
                         while True:
-                            cy += dy
-                            crow = cy * stride
-                            if cost[crow + x] is INF:
+                            cidx += stride_dy
+                            if cost[cidx] is INF:
                                 break
-                            if x == gx and cy == gy:
+                            if cidx == goal:
                                 subfound = True
                                 break
-                            cyp2_row = (cy + dy) * stride
                             if (
-                                cost[crow + sub_cxm] is INF
-                                and cost[cyp2_row + sub_cxm] is not INF
+                                cost[cidx - 1] is INF
+                                and cost[cidx + sub_yp_xm_off] is not INF
                             ):
                                 subfound = True
                                 break
                             if (
-                                cost[crow + sub_cxp] is INF
-                                and cost[cyp2_row + sub_cxp] is not INF
+                                cost[cidx + 1] is INF
+                                and cost[cidx + sub_yp_xp_off] is not INF
                             ):
                                 subfound = True
                                 break
                         if subfound:
                             break
                     if dist > 0:
-                        jp = y * stride + x
                         nd = g_node + dist
-                        if nd < g[jp]:
-                            g[jp] = nd
-                            parent[jp] = node
-                            entry_dx[jp] = dx
-                            entry_dy[jp] = dy
-                            hxh = abs(x - gx)
-                            hyh = abs(y - gy)
+                        if nd < g[idx]:
+                            g[idx] = nd
+                            parent[idx] = node
+                            entry_dx[idx] = dx
+                            entry_dy[idx] = dy
+                            hxh = abs((idx % stride) - gx)
+                            hyh = abs((idx // stride) - gy)
                             hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                            heapq.heappush(heap, (nd + hj) * n + jp)
+                            heappush(heap, (nd + hj) * n + idx)
         else:
-            sy_row = (ny + dy0) * stride
-            if cost[sy_row + nx] is not INF:
+            # Vertical arrival: only jump_v needs nx.
+            nx = node % stride
+            stride_dy0 = dy0 * stride
+            if cost[node + stride_dy0] is not INF:
                 dy = dy0
-                x = nx
-                y = ny
                 dist = 0
-                xm = x - 1
-                xp = x + 1
-                jrow_delta = dy * stride
-                jrow = ny * stride
-                yp_dy_row = (ny + dy) * stride
-                if x == gx:
+                stride_dy = dy * stride
+                yp_xm_off = stride_dy - 1
+                yp_xp_off = stride_dy + 1
+                idx = node
+                hxh = abs(nx - gx)
+                if nx == gx:
                     while True:
-                        y += dy
+                        idx += stride_dy
                         dist += 1
-                        jrow += jrow_delta
-                        yp_dy_row += jrow_delta
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if y == gy:
+                        if idx == goal:
                             break
-                        if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+                        if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
                             break
-                        if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+                        if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
                             break
                 else:
                     while True:
-                        y += dy
+                        idx += stride_dy
                         dist += 1
-                        jrow += jrow_delta
-                        yp_dy_row += jrow_delta
-                        if cost[jrow + x] is INF:
+                        if cost[idx] is INF:
                             dist = -1
                             break
-                        if cost[jrow + xm] is INF and cost[yp_dy_row + xm] is not INF:
+                        if cost[idx - 1] is INF and cost[idx + yp_xm_off] is not INF:
                             break
-                        if cost[jrow + xp] is INF and cost[yp_dy_row + xp] is not INF:
+                        if cost[idx + 1] is INF and cost[idx + yp_xp_off] is not INF:
                             break
                 if dist > 0:
-                    jp = y * stride + x
                     nd = g_node + dist
-                    if nd < g[jp]:
-                        g[jp] = nd
-                        parent[jp] = node
-                        entry_dx[jp] = 0
-                        entry_dy[jp] = dy
-                        hxh = abs(x - gx)
-                        hyh = abs(y - gy)
+                    if nd < g[idx]:
+                        g[idx] = nd
+                        parent[idx] = node
+                        entry_dx[idx] = 0
+                        entry_dy[idx] = dy
+                        hyh = abs((idx // stride) - gy)
                         hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                        heapq.heappush(heap, (nd + hj) * n + jp)
-            sxm = nx - 1
-            if cost[row + sxm] is INF and cost[sy_row + sxm] is not INF:
+                        heappush(heap, (nd + hj) * n + idx)
+            if cost[node - 1] is INF and cost[node + stride_dy0 - 1] is not INF:
                 dx = -1
                 dy = dy0
-                x = nx
-                y = ny
                 dist = 0
+                stride_dy = dy * stride
+                step = stride_dy + dx
+                # Forced-neighbor offsets (main diagonal loop):
+                fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                sub_up_dx_off = -stride + dx
+                sub_dn_dx_off = stride + dx
+                # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                sub_yp_xm_off = stride_dy - 1
+                sub_yp_xp_off = stride_dy + 1
+                idx = node
                 while True:
-                    x += dx
-                    y += dy
+                    idx += step
                     dist += 1
-                    jrow = y * stride
-                    if cost[jrow + x] is INF:
+                    if cost[idx] is INF:
                         dist = -1
                         break
-                    if x == gx and y == gy:
+                    if idx == goal:
                         break
-                    xm = x - dx
-                    yp_row = (y + dy) * stride
-                    if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                    if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                         break
-                    xp = x + dx
-                    ym_row = (y - dy) * stride
-                    if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                    if (
+                        cost[idx + back_xy_off] is not INF
+                        and cost[idx - stride_dy] is INF
+                    ):
                         break
-                    # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                    cx = x
-                    sub_ym_row = (y - 1) * stride
-                    sub_yp_row = (y + 1) * stride
+                    # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                    cidx = idx
                     subfound = False
                     while True:
-                        cx += dx
-                        if cost[jrow + cx] is INF:
+                        cidx += dx
+                        if cost[cidx] is INF:
                             break
-                        if cx == gx and y == gy:
+                        if cidx == goal:
                             subfound = True
                             break
-                        cxp = cx + dx
                         if (
-                            cost[sub_ym_row + cx] is INF
-                            and cost[sub_ym_row + cxp] is not INF
+                            cost[cidx - stride] is INF
+                            and cost[cidx + sub_up_dx_off] is not INF
                         ):
                             subfound = True
                             break
                         if (
-                            cost[sub_yp_row + cx] is INF
-                            and cost[sub_yp_row + cxp] is not INF
+                            cost[cidx + stride] is INF
+                            and cost[cidx + sub_dn_dx_off] is not INF
                         ):
                             subfound = True
                             break
                     if subfound:
                         break
-                    # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                    cy = y
-                    sub_cxm = x - 1
-                    sub_cxp = x + 1
+                    # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                    cidx = idx
                     subfound = False
                     while True:
-                        cy += dy
-                        crow = cy * stride
-                        if cost[crow + x] is INF:
+                        cidx += stride_dy
+                        if cost[cidx] is INF:
                             break
-                        if x == gx and cy == gy:
+                        if cidx == goal:
                             subfound = True
                             break
-                        cyp2_row = (cy + dy) * stride
                         if (
-                            cost[crow + sub_cxm] is INF
-                            and cost[cyp2_row + sub_cxm] is not INF
+                            cost[cidx - 1] is INF
+                            and cost[cidx + sub_yp_xm_off] is not INF
                         ):
                             subfound = True
                             break
                         if (
-                            cost[crow + sub_cxp] is INF
-                            and cost[cyp2_row + sub_cxp] is not INF
+                            cost[cidx + 1] is INF
+                            and cost[cidx + sub_yp_xp_off] is not INF
                         ):
                             subfound = True
                             break
                     if subfound:
                         break
                 if dist > 0:
-                    jp = y * stride + x
                     nd = g_node + dist
-                    if nd < g[jp]:
-                        g[jp] = nd
-                        parent[jp] = node
-                        entry_dx[jp] = dx
-                        entry_dy[jp] = dy
-                        hxh = abs(x - gx)
-                        hyh = abs(y - gy)
+                    if nd < g[idx]:
+                        g[idx] = nd
+                        parent[idx] = node
+                        entry_dx[idx] = dx
+                        entry_dy[idx] = dy
+                        hxh = abs((idx % stride) - gx)
+                        hyh = abs((idx // stride) - gy)
                         hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                        heapq.heappush(heap, (nd + hj) * n + jp)
-            sxp = nx + 1
-            if cost[row + sxp] is INF and cost[sy_row + sxp] is not INF:
+                        heappush(heap, (nd + hj) * n + idx)
+            if cost[node + 1] is INF and cost[node + stride_dy0 + 1] is not INF:
                 dx = 1
                 dy = dy0
-                x = nx
-                y = ny
                 dist = 0
+                stride_dy = dy * stride
+                step = stride_dy + dx
+                # Forced-neighbor offsets (main diagonal loop):
+                fwd_yx_off = stride_dy - dx  # (x-dx, y+dy) from idx
+                back_xy_off = dx - stride_dy  # (x+dx, y-dy) from idx
+                # Sub-scan (dx, 0) offsets: perpendicular rows y±1.
+                sub_up_dx_off = -stride + dx
+                sub_dn_dx_off = stride + dx
+                # Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
+                sub_yp_xm_off = stride_dy - 1
+                sub_yp_xp_off = stride_dy + 1
+                idx = node
                 while True:
-                    x += dx
-                    y += dy
+                    idx += step
                     dist += 1
-                    jrow = y * stride
-                    if cost[jrow + x] is INF:
+                    if cost[idx] is INF:
                         dist = -1
                         break
-                    if x == gx and y == gy:
+                    if idx == goal:
                         break
-                    xm = x - dx
-                    yp_row = (y + dy) * stride
-                    if cost[yp_row + xm] is not INF and cost[jrow + xm] is INF:
+                    if cost[idx + fwd_yx_off] is not INF and cost[idx - dx] is INF:
                         break
-                    xp = x + dx
-                    ym_row = (y - dy) * stride
-                    if cost[ym_row + xp] is not INF and cost[ym_row + x] is INF:
+                    if (
+                        cost[idx + back_xy_off] is not INF
+                        and cost[idx - stride_dy] is INF
+                    ):
                         break
-                    # Sub-scan cardinal (dx, 0) from (x, y): y is fixed here.
-                    cx = x
-                    sub_ym_row = (y - 1) * stride
-                    sub_yp_row = (y + 1) * stride
+                    # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
+                    cidx = idx
                     subfound = False
                     while True:
-                        cx += dx
-                        if cost[jrow + cx] is INF:
+                        cidx += dx
+                        if cost[cidx] is INF:
                             break
-                        if cx == gx and y == gy:
+                        if cidx == goal:
                             subfound = True
                             break
-                        cxp = cx + dx
                         if (
-                            cost[sub_ym_row + cx] is INF
-                            and cost[sub_ym_row + cxp] is not INF
+                            cost[cidx - stride] is INF
+                            and cost[cidx + sub_up_dx_off] is not INF
                         ):
                             subfound = True
                             break
                         if (
-                            cost[sub_yp_row + cx] is INF
-                            and cost[sub_yp_row + cxp] is not INF
+                            cost[cidx + stride] is INF
+                            and cost[cidx + sub_dn_dx_off] is not INF
                         ):
                             subfound = True
                             break
                     if subfound:
                         break
-                    # Sub-scan cardinal (0, dy) from (x, y): x is fixed here.
-                    cy = y
-                    sub_cxm = x - 1
-                    sub_cxp = x + 1
+                    # Sub-scan cardinal (0, dy) from idx: x is fixed here.
+                    cidx = idx
                     subfound = False
                     while True:
-                        cy += dy
-                        crow = cy * stride
-                        if cost[crow + x] is INF:
+                        cidx += stride_dy
+                        if cost[cidx] is INF:
                             break
-                        if x == gx and cy == gy:
+                        if cidx == goal:
                             subfound = True
                             break
-                        cyp2_row = (cy + dy) * stride
                         if (
-                            cost[crow + sub_cxm] is INF
-                            and cost[cyp2_row + sub_cxm] is not INF
+                            cost[cidx - 1] is INF
+                            and cost[cidx + sub_yp_xm_off] is not INF
                         ):
                             subfound = True
                             break
                         if (
-                            cost[crow + sub_cxp] is INF
-                            and cost[cyp2_row + sub_cxp] is not INF
+                            cost[cidx + 1] is INF
+                            and cost[cidx + sub_yp_xp_off] is not INF
                         ):
                             subfound = True
                             break
                     if subfound:
                         break
                 if dist > 0:
-                    jp = y * stride + x
                     nd = g_node + dist
-                    if nd < g[jp]:
-                        g[jp] = nd
-                        parent[jp] = node
-                        entry_dx[jp] = dx
-                        entry_dy[jp] = dy
-                        hxh = abs(x - gx)
-                        hyh = abs(y - gy)
+                    if nd < g[idx]:
+                        g[idx] = nd
+                        parent[idx] = node
+                        entry_dx[idx] = dx
+                        entry_dy[idx] = dy
+                        hxh = abs((idx % stride) - gx)
+                        hyh = abs((idx // stride) - gy)
                         hj = hxh if hxh > hyh else hyh  # noqa: FURB136
-                        heapq.heappush(heap, (nd + hj) * n + jp)
+                        heappush(heap, (nd + hj) * n + idx)
     return None
