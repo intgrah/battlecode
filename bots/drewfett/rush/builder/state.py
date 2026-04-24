@@ -154,7 +154,7 @@ class State:
         s.nav_dist = [INF] * n
         s.nav_parent = [-1] * n
         s.nav_heuristic = [-1] * n
-        s.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]
+        s.nav_buckets = [deque() for _ in range(DIAL_MOD)]
         s._nav_gen = bytearray(n)
         s._nav_g = 1
         # All the lightweight fields
