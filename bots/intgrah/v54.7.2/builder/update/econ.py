@@ -17,16 +17,18 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, ResourceType
-from util.constants import BASE_COST, INF, MAX_WIDTH
+from util.constants import BASE_COST, FLOW_HISTORY_LEN, INF, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4
 from util.metrics import chebyshev
 
 from builder.helpers import (
     ax_feeds_target,
+    get_enemy_core_pos,
     harvester_would_contaminate,
     ore_available,
     pick_ax_ore_target,
+    pick_offensive_ti_ore_target,
     pick_ore_target,
 )
 
@@ -176,6 +178,12 @@ def update_dangling(self: Builder) -> None:
         for pos, uid in self.all_bots.items()
         if uid != self.my_id and pos in self.friendly_bots
     ]
+    # Per-tile bisector: a dangling tile closer (Euclidean) to the enemy
+    # core than to ours is an offensive end, so score by distance-to-enemy
+    # (push forward). Otherwise score by distance to our core-edge ring
+    # (pull back toward our sinks). Needs symmetry to know enemy core; if
+    # unknown, default to the classic my-core score for all tiles.
+    en_core = get_enemy_core_pos(self) if self.symmetry is not None else None
     best: Position | None = None
     best_score = (1 << 30, 1 << 30)
     for pos in self.dangling_set:
@@ -188,10 +196,15 @@ def update_dangling(self: Builder) -> None:
                 break
         if beaten:
             continue
-        chain_d = min(
-            (chebyshev(pos, e) for e in self.core_edges),
-            default=chebyshev(pos, self.my_core) if self.my_core is not None else 0,
-        )
+        if en_core is not None and pos.distance_squared(en_core) < pos.distance_squared(
+            self.my_core,
+        ):
+            chain_d = chebyshev(pos, en_core)
+        else:
+            chain_d = min(
+                (chebyshev(pos, e) for e in self.core_edges),
+                default=chebyshev(pos, self.my_core) if self.my_core is not None else 0,
+            )
         score = (chain_d, my_d)
         if score < best_score:
             best_score = score
@@ -213,6 +226,28 @@ def update_ore_target(self: Builder) -> None:
         )
     ):
         self.ore_target = candidate_ore
+
+
+def update_offensive_ore_target(self: Builder) -> None:
+    """Enemy-side Ti ore claim. Same re-evaluation semantics as
+    `update_ore_target`: keep the current pick if still valid and not
+    trivially beaten by a much-closer alternative."""
+    candidate = pick_offensive_ti_ore_target(self)
+    if (
+        not self.offensive_ore_target
+        or not ore_available(self, self.offensive_ore_target)
+        or self.bfs_dist[
+            self.offensive_ore_target.y * MAX_WIDTH + self.offensive_ore_target.x
+        ]
+        is INF
+        or harvester_would_contaminate(self, self.offensive_ore_target)
+        or (
+            candidate
+            and candidate.distance_squared(self.my_pos) <= 2
+            and self.offensive_ore_target.distance_squared(self.my_pos) > 2
+        )
+    ):
+        self.offensive_ore_target = candidate
 
 
 _AX_HARVESTER_ROUND_GATE = 500
@@ -292,20 +327,22 @@ def _foundry_local_ok(self: Builder, pos: Position) -> bool:
 
 def _tile_volume(self: Builder, pos: Position) -> int:
     """Occupancy count: non-None entries in the tile's flow_history.
-    Equals `maxlen` iff the tile was observed occupied on every one of
-    the last `maxlen` ticks — the empirical "running at 1.00" signal."""
-    return sum(1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None)
+    Equals `FLOW_HISTORY_LEN` iff the tile was observed occupied on every
+    one of the last `FLOW_HISTORY_LEN` ticks — the empirical
+    "running at 1.00" signal."""
+    return sum(
+        1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None
+    )
 
 
 def _pure_ax_merge_ok(self: Builder, pos: Position) -> bool:
     """`pos` is a pure-Ax transport tile worth merging a new Ax chain into:
     downstream of an Ax harvester, not downstream of a Ti harvester, not
     upstream of a dangling end, and not currently saturated (empirical
-    volume < maxlen). The saturation check prevents a fresh merge from
-    tipping an already-busy tile into over-capacity, which in turn keeps
-    the destroy-and-rebuild cycle from ever forming."""
-    hist = self.flow_history[pos.y * MAX_WIDTH + pos.x]
-    if _tile_volume(self, pos) >= hist.maxlen:
+    volume < FLOW_HISTORY_LEN). The saturation check prevents a fresh merge
+    from tipping an already-busy tile into over-capacity, which in turn
+    keeps the destroy-and-rebuild cycle from ever forming."""
+    if _tile_volume(self, pos) >= FLOW_HISTORY_LEN:
         return False
     return (
         pos in self.ax_upstream
@@ -327,10 +364,10 @@ def _manhattan(a: Position, b: Position) -> int:
 
 def _detect_congested_junctions(self: Builder) -> list[Position]:
     """Find junctions (multi-feeder tiles) where the feeders' total
-    observed inflow exceeds the junction's maxlen window — i.e. stacks
-    arrive faster than a single-tile pass-through can forward. These are
-    the root-cause congestion points; everything upstream back-pressures
-    from here.
+    observed inflow exceeds the junction's FLOW_HISTORY_LEN window — i.e.
+    stacks arrive faster than a single-tile pass-through can forward.
+    These are the root-cause congestion points; everything upstream
+    back-pressures from here.
 
     Excludes foundries: they are designed to consume 1.00 Ti + 1.00 Ax
     simultaneously (producing 1.00 RAx), so a foundry's feeder sum of
@@ -348,19 +385,19 @@ def _detect_congested_junctions(self: Builder) -> list[Position]:
         if len(feeders) < 2:
             continue
         hist = self.flow_history[i]
-        if len(hist) < hist.maxlen:
+        if len(hist) < FLOW_HISTORY_LEN:
             continue
-        if sum(1 for r, _ in hist if r is not None) < hist.maxlen:
+        if sum(1 for r, _ in hist if r is not None) < FLOW_HISTORY_LEN:
             continue
         total = 0
         complete = True
         for f in feeders:
             fh = self.flow_history[f.y * MAX_WIDTH + f.x]
-            if len(fh) < fh.maxlen:
+            if len(fh) < FLOW_HISTORY_LEN:
                 complete = False
                 break
             total += sum(1 for r, _ in fh if r is not None)
-        if complete and total > hist.maxlen:
+        if complete and total > FLOW_HISTORY_LEN:
             result.append(t)
     return result
 
@@ -379,9 +416,9 @@ def _detect_saturated_tiles(self: Builder) -> list[Position]:
         ):
             continue
         hist = self.flow_history[i]
-        if len(hist) < hist.maxlen:
+        if len(hist) < FLOW_HISTORY_LEN:
             continue
-        if sum(1 for r, _ in hist if r is not None) >= hist.maxlen:
+        if sum(1 for r, _ in hist if r is not None) >= FLOW_HISTORY_LEN:
             result.append(t)
     return result
 
@@ -600,11 +637,12 @@ def update_foundry_target(self: Builder) -> None:
 def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     """Empirical Ti-sink candidate: friendly Ti conveyor that carries Ti,
     not Ax-contaminated, not upstream of a dangling end or a congested
-    junction, and not currently saturated (volume < maxlen). The
+    junction, and not currently saturated (volume < FLOW_HISTORY_LEN). The
     saturation check prevents a fresh merge from tipping an already-busy
     tile into over-capacity — and is the inherent rule that stops the
     destroy-and-rebuild cycle: after destruction the sink's flow_history
-    still shows volume=maxlen for ~maxlen turns, so it's not re-picked."""
+    still shows volume=FLOW_HISTORY_LEN for ~FLOW_HISTORY_LEN turns, so it's
+    not re-picked."""
     i = pos.y * MAX_WIDTH + pos.x
     bld = self.buildings[i]
     if not isinstance(bld, BuildingConveyor | BuildingArmouredConveyor):
@@ -618,7 +656,7 @@ def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     if pos in self.ax_harvester_adjacent:
         return False
     hist = self.flow_history[i]
-    if _tile_volume(self, pos) >= hist.maxlen:
+    if _tile_volume(self, pos) >= FLOW_HISTORY_LEN:
         return False
     saw_ti = False
     for r, _rid in hist:
