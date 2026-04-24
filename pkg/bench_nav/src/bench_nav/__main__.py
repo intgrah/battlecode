@@ -6,7 +6,7 @@ from pathlib import Path
 from bench_nav.bench import (
     DEFAULT_N_QUERIES,
     bench_mpsp,
-    bench_online,
+    bench_stepped,
     bench_spsp,
     bench_sssp,
     bench_table_spsp,
@@ -37,8 +37,8 @@ def main() -> None:
     _common(sp_mpsp)
     sp_mpsp.add_argument("--waypoints", type=int, default=1)
 
-    sp_online = subs.add_parser(Command.ONLINE.name.lower())
-    _common(sp_online)
+    sp_stepped = subs.add_parser(Command.STEPPED.name.lower())
+    _common(sp_stepped)
 
     sp_sssp = subs.add_parser(Command.SSSP.name.lower())
     _common(sp_sssp)
@@ -58,8 +58,8 @@ def main() -> None:
             bench_spsp(args)
         case "mpsp":
             bench_mpsp(args)
-        case "online":
-            bench_online(args)
+        case "stepped":
+            bench_stepped(args)
         case "sssp":
             bench_sssp(args)
         case "table-spsp":

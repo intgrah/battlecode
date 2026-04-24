@@ -17,6 +17,7 @@ from bench_nav.types import (
     Sssp,
     SsspQuery,
     SsspResult,
+    Stepped,
     Walk,
 )
 from bench_nav.validate import (
@@ -112,6 +113,96 @@ def run_journey(
             plan_idx += 1
             steps += 1
 
+        if not reached_all:
+            break
+
+    final_goal = q.goals[-1]
+    reached = reached_all and pos == final_goal
+    optimal_cost = _tour_cost(gt, q.goals, dist_from_start)
+    ref_reachable = optimal_cost < INF
+    opt_ratio: float | None = None
+    if reached:
+        if optimal_cost > 0 and optimal_cost < INF:
+            opt_ratio = cost_walked / optimal_cost
+        elif optimal_cost == 0:
+            opt_ratio = 1.0
+
+    walk = Walk(
+        final_pos=pos,
+        cost_walked=cost_walked,
+        steps_taken=steps,
+        tiles_revealed=ctx.n,
+        reached_all=reached_all,
+        step_times_us=tuple(step_times),
+    )
+    return SpspResult(
+        reached=reached,
+        ref_reachable=ref_reachable,
+        opt_ratio=opt_ratio,
+        first_move_correct=first_move_correct,
+        total_time_us=sum(step_times),
+        walk=walk,
+    )
+
+
+_NB8: Final = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
+
+
+def _is_valid_step(gt: GroundTruth, pos: int, nxt: int) -> bool:
+    if nxt == pos:
+        return True
+    w = gt.w
+    px, py = pos % w, pos // w
+    nx, ny = nxt % w, nxt // w
+    if (nx - px, ny - py) not in _NB8:
+        return False
+    return gt.cost[nxt] < INF
+
+
+def run_stepped(
+    stepper: Stepped,
+    ctx: PrecompCtx,
+    gt: GroundTruth,
+    q: SequentialQuery,
+    cfg: RunCfg,
+    dist_from_start: list[int],
+    first_moves_first_goal: set[int],
+) -> SpspResult:
+    step_times: list[float] = []
+    pos = q.start
+    cost_walked = 0
+    steps = 0
+    budget = cfg.step_budget_mult * ctx.n
+    reached_all = True
+    first_move_correct: bool | None = None
+    first_step_seen = False
+    stall = 0
+
+    for goal_idx, goal in enumerate(q.goals):
+        _ = goal_idx
+        while pos != goal:
+            if steps >= budget:
+                reached_all = False
+                break
+            t0 = time.perf_counter_ns()
+            nxt = stepper.step(pos, goal)
+            step_times.append((time.perf_counter_ns() - t0) / 1000.0)
+            if nxt is None or not _is_valid_step(gt, pos, nxt):
+                reached_all = False
+                break
+            if not first_step_seen and first_moves_first_goal and nxt != pos:
+                first_move_correct = nxt in first_moves_first_goal
+                first_step_seen = True
+            if nxt == pos:
+                stall += 1
+                if stall > 4:
+                    reached_all = False
+                    break
+            else:
+                stall = 0
+                cost_walked += gt.cost[nxt]
+                pos = nxt
+            steps += 1
         if not reached_all:
             break
 
