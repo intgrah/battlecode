@@ -6,14 +6,14 @@ from enum import Enum, StrEnum, auto
 from typing import TYPE_CHECKING, ClassVar, NewType, cast, override
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
 
     from bench_nav.common import Path_
 
 
 AlgoName = NewType("AlgoName", str)
 
-_CATEGORY_MARKERS = frozenset({"sssp", "spsp", "mpsp", "online"})
+_CATEGORY_MARKERS = frozenset({"sssp", "spsp", "mpsp", "stepped"})
 
 
 def _derive_algo_name(module: str) -> AlgoName | None:
@@ -44,13 +44,12 @@ class CostUnit(Enum):
 class Availability(Enum):
     STATIC = auto()
     FULL_MAP = auto()
-    ONLINE = auto()
 
 
 class Command(Enum):
     SPSP = auto()
     MPSP = auto()
-    ONLINE = auto()
+    STEPPED = auto()
     SSSP = auto()
     TABLE = auto()
 
@@ -78,12 +77,6 @@ class PrecompCtx:
 
     def has(self, p: Precomp[object]) -> bool:
         return p in self._values
-
-
-@dataclass(frozen=True)
-class SensorReading:
-    newly_visible: tuple[int, ...]
-    cost: Mapping[int, int]
 
 
 class _AutoName(ABC):
@@ -140,19 +133,22 @@ class Sssp(_AutoName):
     def solve(self, start: int) -> list[int]: ...
 
 
-class Online(_AutoName):
-    """An online pathfinder. Built once at journey start with (w, h); at every
-    turn step(reading, pos, goal) is called with a sensor delta and returns the
-    next tile to move to. Maintains self state across turns (belief map,
-    incrementally-patched precomputation, wall-following memory). Does NOT
-    have access to the full cost grid at build time — discovers the map from
-    sensor readings as it moves."""
+class Stepped(_AutoName):
+    """A stepped pathfinder — same offline-map contract as Spsp (single start,
+    single goal, full map via ctx), but the interface is step-by-step rather
+    than plan-once. Each step(pos, goal) returns the next tile to move to
+    (possibly `pos` itself if the algo needs a bookkeeping turn). State is
+    maintained across calls within a query. bench times each step individually,
+    making peak-per-turn the measured metric — the deployment-relevant number
+    for bots running under a per-turn budget."""
+
+    REQUIRES: ClassVar[frozenset[Precomp[object]]]
 
     @abstractmethod
-    def __init__(self, w: int, h: int) -> None: ...
+    def __init__(self, ctx: PrecompCtx) -> None: ...
 
     @abstractmethod
-    def step(self, reading: SensorReading, pos: int, goal: int) -> int | None: ...
+    def step(self, pos: int, goal: int) -> int | None: ...
 
 
 @dataclass(frozen=True)

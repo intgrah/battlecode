@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
-from bench_nav import mpsp, online, spsp, sssp
+from bench_nav import mpsp, spsp, sssp, stepped
 from bench_nav.common import INF, MAPS_DIR, SEED
 from bench_nav.precomputation import build_cost, load_map, place_roads
 from bench_nav.precomputation import build_nb as build_nb_fn
@@ -27,6 +27,7 @@ from bench_nav.runner import (
     first_moves_for,
     run_journey,
     run_sssp,
+    run_stepped,
 )
 from bench_nav.types import (
     AlgoName,
@@ -35,6 +36,7 @@ from bench_nav.types import (
     Scenario,
     Spsp,
     Sssp,
+    Stepped,
 )
 from bench_nav.validate import dijkstra_from
 
@@ -77,7 +79,7 @@ def _apply_scenario(m: MapInput, sc: Scenario) -> MapInput:
     return MapInput(name=m.name, w=m.w, h=m.h, n=m.n, tiles=m.tiles, cost=cost)
 
 
-def _filter_algos[A: type[Spsp | Mpsp | Sssp]](
+def _filter_algos[A: type[Spsp | Mpsp | Sssp | Stepped]](
     all_algos: tuple[A, ...], names: list[str] | None
 ) -> tuple[A, ...]:
     if not names:
@@ -92,7 +94,7 @@ def _filter_algos[A: type[Spsp | Mpsp | Sssp]](
 
 
 def _required_precomps(
-    algos: Iterable[type[Spsp | Mpsp | Sssp]],
+    algos: Iterable[type[Spsp | Mpsp | Sssp | Stepped]],
 ) -> frozenset[Precomp[object]]:
     required: set[Precomp[object]] = set()
     for a in algos:
@@ -184,16 +186,60 @@ def bench_mpsp(args: argparse.Namespace) -> None:
     _run_plan_bench(mpsp.ALGOS, Path("bench_nav_mpsp.csv"), args)
 
 
-def bench_online(args: argparse.Namespace) -> None:
+def bench_stepped(args: argparse.Namespace) -> None:
     if args.list:
-        for a in online.ALGOS:
+        for a in stepped.ALGOS:
             print(a.NAME)
         return
-    print(
-        "no online algorithms implemented yet "
-        "(Online ABC exists in types.py; online/ folder is empty)",
-        file=sys.stderr,
-    )
+
+    algos = _filter_algos(stepped.ALGOS, args.algos)
+    required = _required_precomps(algos)
+    n_queries: int = args.samples
+
+    rows: list[SpspRow] = []
+    for raw in _load_map_inputs():
+        for sc in Scenario:
+            m = _apply_scenario(raw, sc)
+            ctx, gt = build_context(m, required)
+            passable = _passable(gt.cost)
+            if not passable:
+                continue
+            queries = spsp_queries(passable, n_queries, SEED)
+            first_moves_cache: dict[tuple[int, int], set[int]] = {}
+            dist_cache: dict[int, list[int]] = {}
+            for a in algos:
+                prefix = f"{m.name:24s} {sc.value:11s} {a.NAME:30s}"
+                sys.stderr.write(f"\r{prefix}")
+                sys.stderr.flush()
+                stepper = a(ctx)
+                for q in queries:
+                    if q.start not in dist_cache:
+                        dist_cache[q.start] = dijkstra_from(gt, q.start)
+                    dist = dist_cache[q.start]
+                    key = (q.start, q.goals[0])
+                    if key not in first_moves_cache:
+                        first_moves_cache[key] = first_moves_for(
+                            gt, q.start, q.goals[0], dist
+                        )
+                    res = run_stepped(
+                        stepper, ctx, gt, q, DEFAULT_CFG, dist, first_moves_cache[key]
+                    )
+                    rows.append(
+                        row_from_spsp(
+                            a.NAME,
+                            sc,
+                            m.name,
+                            q.start,
+                            q.goals[-1],
+                            len(q.goals),
+                            res,
+                        )
+                    )
+            sys.stderr.write("\n")
+
+    out = Path("bench_nav_stepped.csv")
+    write_spsp_csv(rows, out)
+    print(f"wrote {out}", file=sys.stderr)
 
 
 def bench_sssp(args: argparse.Namespace) -> None:
