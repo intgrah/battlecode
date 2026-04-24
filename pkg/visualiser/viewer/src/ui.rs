@@ -408,16 +408,21 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                 ui.heading("Scaling");
                 ui.separator();
 
-                let fmt_scale = |millis: u32| -> String {
+                let fmt_scale_total = |millis: u32| -> String {
                     let whole = 100 + millis / 10;
+                    let frac = millis % 10;
+                    format!("{whole:>4}.{frac}%")
+                };
+                let fmt_scale_contrib = |millis: u32| -> String {
+                    let whole = millis / 10;
                     let frac = millis % 10;
                     format!("{whole:>4}.{frac}%")
                 };
 
                 ui.monospace(format!(
                     "A: {}  B: {}",
-                    fmt_scale(stats_a.total_scale_millis),
-                    fmt_scale(stats_b.total_scale_millis),
+                    fmt_scale_total(stats_a.total_scale_millis),
+                    fmt_scale_total(stats_b.total_scale_millis),
                 ));
 
                 ui.add_space(4.0);
@@ -437,8 +442,8 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
                                 continue;
                             }
                             ui.label(kind_for_key(key));
-                            ui.monospace(fmt_scale(sa));
-                            ui.monospace(fmt_scale(sb));
+                            ui.monospace(fmt_scale_contrib(sa));
+                            ui.monospace(fmt_scale_contrib(sb));
                             ui.end_row();
                         }
                     });
