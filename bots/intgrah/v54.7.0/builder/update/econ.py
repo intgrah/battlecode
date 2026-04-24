@@ -162,17 +162,22 @@ def update_dangling(self: Builder) -> None:
     # closer friendly builder has since come into vision.
     if self.dangling_output in self.dangling_set:
         return
-    # Otherwise pick the nearest dangling tile (Chebyshev, since builders
-    # move 8-way) for which no visible friendly builder is strictly closer;
-    # ties broken by lower builder id so exactly one builder claims each
-    # dangling end.
+    # Eligibility: only candidates for which no visible friendly builder
+    # is strictly closer (tiebreak by lower builder id) — ensures exactly
+    # one builder claims each dangling end.
+    # Ranking among eligible candidates: chain length from the dangling
+    # tile to the nearest core_edge (proxy for the sink the existing
+    # ti_sink / foundry_target algorithm will pick), tiebroken by the
+    # builder's own distance to the tile. This picks the harvester-
+    # cardinal on the core-side so the subsequent chain is as short as
+    # the geometry allows.
     friendly = [
         (pos, uid)
         for pos, uid in self.all_bots.items()
         if uid != self.my_id and pos in self.friendly_bots
     ]
     best: Position | None = None
-    best_d = 1 << 30
+    best_score = (1 << 30, 1 << 30)
     for pos in self.dangling_set:
         my_d = chebyshev(self.my_pos, pos)
         beaten = False
@@ -183,8 +188,13 @@ def update_dangling(self: Builder) -> None:
                 break
         if beaten:
             continue
-        if my_d < best_d:
-            best_d = my_d
+        chain_d = min(
+            (chebyshev(pos, e) for e in self.core_edges),
+            default=chebyshev(pos, self.my_core) if self.my_core is not None else 0,
+        )
+        score = (chain_d, my_d)
+        if score < best_score:
+            best_score = score
             best = pos
     self.dangling_output = best
 
@@ -245,13 +255,23 @@ def _foundry_local_ok(self: Builder, pos: Position) -> bool:
     return saw_ti
 
 
+def _tile_volume(self: Builder, pos: Position) -> int:
+    """Occupancy count: non-None entries in the tile's flow_history.
+    Equals `maxlen` iff the tile was observed occupied on every one of
+    the last `maxlen` ticks — the empirical "running at 1.00" signal."""
+    return sum(1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None)
+
+
 def _pure_ax_merge_ok(self: Builder, pos: Position) -> bool:
     """`pos` is a pure-Ax transport tile worth merging a new Ax chain into:
-    downstream of an Ax harvester, not downstream of a Ti harvester, and
-    not upstream of a dangling end. We don't require `reaches_foundry`
-    because the terminating foundry may be out of current vision — if the
-    chain is pure Ax and not dangling, it's structurally destined for a
-    foundry."""
+    downstream of an Ax harvester, not downstream of a Ti harvester, not
+    upstream of a dangling end, and not currently saturated (empirical
+    volume < maxlen). The saturation check prevents a fresh merge from
+    tipping an already-busy tile into over-capacity, which in turn keeps
+    the destroy-and-rebuild cycle from ever forming."""
+    hist = self.flow_history[pos.y * MAX_WIDTH + pos.x]
+    if _tile_volume(self, pos) >= hist.maxlen:
+        return False
     return (
         pos in self.ax_upstream
         and pos not in self.ti_upstream
@@ -275,10 +295,20 @@ def _detect_congested_junctions(self: Builder) -> list[Position]:
     observed inflow exceeds the junction's maxlen window — i.e. stacks
     arrive faster than a single-tile pass-through can forward. These are
     the root-cause congestion points; everything upstream back-pressures
-    from here."""
+    from here.
+
+    Excludes foundries: they are designed to consume 1.00 Ti + 1.00 Ax
+    simultaneously (producing 1.00 RAx), so a foundry's feeder sum of
+    2.00 is operating-as-intended, not congestion."""
     result: list[Position] = []
     for t in self.nearby_buildings:
         i = t.y * MAX_WIDTH + t.x
+        bld = self.buildings[i]
+        if not isinstance(
+            bld,
+            BuildingConveyor | BuildingArmouredConveyor | BuildingBridge,
+        ):
+            continue
         feeders = self.in_edges[i]
         if len(feeders) < 2:
             continue
@@ -296,6 +326,27 @@ def _detect_congested_junctions(self: Builder) -> list[Position]:
                 break
             total += sum(1 for r, _ in fh if r is not None)
         if complete and total > hist.maxlen:
+            result.append(t)
+    return result
+
+
+def _detect_saturated_tiles(self: Builder) -> list[Position]:
+    """Transport tiles running empirically at full throughput — their
+    flow_history is fully occupied. A saturated tile has no headroom
+    for another feeder, so everything upstream of it is a bad sink."""
+    result: list[Position] = []
+    for t in self.nearby_buildings:
+        i = t.y * MAX_WIDTH + t.x
+        bld = self.buildings[i]
+        if not isinstance(
+            bld,
+            BuildingConveyor | BuildingArmouredConveyor | BuildingBridge,
+        ):
+            continue
+        hist = self.flow_history[i]
+        if len(hist) < hist.maxlen:
+            continue
+        if sum(1 for r, _ in hist if r is not None) >= hist.maxlen:
             result.append(t)
     return result
 
@@ -514,7 +565,11 @@ def update_foundry_target(self: Builder) -> None:
 def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     """Empirical Ti-sink candidate: friendly Ti conveyor that carries Ti,
     not Ax-contaminated, not upstream of a dangling end or a congested
-    junction (routing more flow into either is wasteful)."""
+    junction, and not currently saturated (volume < maxlen). The
+    saturation check prevents a fresh merge from tipping an already-busy
+    tile into over-capacity — and is the inherent rule that stops the
+    destroy-and-rebuild cycle: after destruction the sink's flow_history
+    still shows volume=maxlen for ~maxlen turns, so it's not re-picked."""
     i = pos.y * MAX_WIDTH + pos.x
     bld = self.buildings[i]
     if not isinstance(bld, BuildingConveyor | BuildingArmouredConveyor):
@@ -527,8 +582,11 @@ def _ti_sink_ok(self: Builder, pos: Position) -> bool:
         return False
     if pos in self.ax_harvester_adjacent:
         return False
+    hist = self.flow_history[i]
+    if _tile_volume(self, pos) >= hist.maxlen:
+        return False
     saw_ti = False
-    for r, _rid in self.flow_history[i]:
+    for r, _rid in hist:
         if r in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE):
             return False
         if r == ResourceType.TITANIUM:
@@ -536,11 +594,13 @@ def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     return saw_ti
 
 
-_NEAR_CORE_SAVING_THRESHOLD = 5
-"""A Ti conveyor candidate is considered 'near core' (tier 3) if joining to
-it saves at most this many tiles of Manhattan distance vs. routing directly
-to the core. I.e. if `Manhattan(builder, core) - Manhattan(builder, candidate)
-<= 5`, joining is a small saving and the candidate gets deprioritised."""
+def _near_core_saving_threshold(self: Builder) -> int:
+    """Tier-1 (branch merge) requires this many Manhattan tiles saved vs.
+    routing to core. Grows with round — early game is cheap, so merging
+    is fine; late game has many harvesters, so we prefer independent
+    core-trunks to avoid forming overcapacity junctions. Integer steps,
+    round-to-nearest."""
+    return 5 + round(self.round / 80)
 
 
 def update_ti_sink(self: Builder) -> None:
@@ -548,8 +608,9 @@ def update_ti_sink(self: Builder) -> None:
     (pick nearest-to-anchor within the first non-empty tier):
 
     1. Ti conveyor candidate FAR from core — joining it saves more than
-       `_NEAR_CORE_SAVING_THRESHOLD` tiles of Manhattan distance vs. routing
-       direct to core.
+       `_near_core_saving_threshold(self)` tiles of Manhattan distance vs.
+       routing direct to core. The threshold grows with round so late-game
+       merges are effectively disabled.
     2. Core edge — direct delivery, new trunk, no congestion on existing trunk.
     3. Ti conveyor candidate NEAR core — joining saves <= threshold,
        piles flow onto a short trunk. Only picked when tiers 1/2 are empty."""
@@ -560,6 +621,7 @@ def update_ti_sink(self: Builder) -> None:
         if core is not None
         else 0
     )
+    saving_threshold = _near_core_saving_threshold(self)
 
     tier1_best: Position | None = None
     tier1_d = 1 << 30
@@ -571,7 +633,7 @@ def update_ti_sink(self: Builder) -> None:
         d_anchor_sq = anchor.distance_squared(pos)
         d_builder_to_cand = abs(self.my_pos.x - pos.x) + abs(self.my_pos.y - pos.y)
         saving = d_builder_to_core - d_builder_to_cand
-        if saving <= _NEAR_CORE_SAVING_THRESHOLD:
+        if saving <= saving_threshold:
             if d_anchor_sq < tier3_d:
                 tier3_d = d_anchor_sq
                 tier3_best = pos
