@@ -10,9 +10,9 @@
     "**/__pycache__": true,
     "**/*.egg-info": true,
     ".ruff_cache": true,
-    ".venv": true
+    ".venv": true,
+    "cambc.toml": true,
+    "i": true
   },
-  "rust-analyzer.linkedProjects": [
-    "pkg/visualiser/viewer/Cargo.toml"
-  ]
+  "rust-analyzer.linkedProjects": ["pkg/visualiser/viewer/Cargo.toml"]
 }
