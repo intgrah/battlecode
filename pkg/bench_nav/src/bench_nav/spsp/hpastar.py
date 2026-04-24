@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import heapq
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
-from bench_nav.common import INF
+from bench_nav.common import INF, Path_
+from bench_nav.precomputation import COST
+from bench_nav.types import (
+    PrecompCtx,
+    Spsp,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -797,3 +802,17 @@ def hpastar(w: int, hpa_graph: GatewayGraph, start: int, goal: int) -> list[int]
     start_x, start_y = start % w, start // w
     goal_x, goal_y = goal % w, goal // w
     return hpa_graph.find_path(start_x, start_y, goal_x, goal_y)
+
+
+class HpaStar(Spsp):
+    REQUIRES = frozenset({COST})
+
+    @override
+    def __init__(self, ctx: PrecompCtx) -> None:
+        self.w = ctx.w
+        self.graph = precompute_hpa(ctx.w, ctx.h, ctx[COST])
+
+    @override
+    def plan(self, start: int, goal: int) -> Path_:
+        w = self.w
+        return self.graph.find_path(start % w, start // w, goal % w, goal // w)

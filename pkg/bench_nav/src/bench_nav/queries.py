@@ -3,10 +3,9 @@ from __future__ import annotations
 import random
 from typing import Final
 
-from bench_nav.sensor import VISION_FULL
 from bench_nav.types import SequentialQuery, SsspQuery
 
-DEFAULT_SEED: Final[int] = 42
+DEFAULT_SEED: Final = 42
 
 
 def sssp_queries(passable: list[int], n: int, seed: int) -> tuple[SsspQuery, ...]:
@@ -20,7 +19,6 @@ def spsp_queries(passable: list[int], n: int, seed: int) -> tuple[SequentialQuer
         SequentialQuery(
             start=rng.choice(passable),
             goals=(rng.choice(passable),),
-            vision_r2=VISION_FULL,
         )
         for _ in range(n)
     )
@@ -30,7 +28,6 @@ def multi_waypoint_queries(
     passable: list[int],
     n_queries: int,
     n_waypoints: int,
-    vision_r2: int,
     seed: int,
 ) -> tuple[SequentialQuery, ...]:
     rng = random.Random(seed)
@@ -38,7 +35,6 @@ def multi_waypoint_queries(
         SequentialQuery(
             start=rng.choice(passable),
             goals=tuple(rng.choice(passable) for _ in range(n_waypoints)),
-            vision_r2=vision_r2,
         )
         for _ in range(n_queries)
     )

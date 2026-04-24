@@ -1,9 +1,14 @@
-{# Shared macros for astar_jps codegen. Assumes cost is PADDED: size stride*H
-   where stride = w+1, H = h+1, and border cells (x == w, y == h) are INF.
-   This lets us skip all bounds checks: negative indexing wraps to border
-   (still INF), and positive overflow hits the last row (also INF).
+{# Shared dispatch wrappers. Primitive jump_v/jump_h/jump_d live in flavor-specific
+   modules: _macros_ray.j2 (ray-walking for JPS/JPS-Dial) or _macros_plus.j2
+   (precomputed jump tables for JPS+). Callers import the flavor as `prim` and
+   pass it to each dispatcher. Both flavors use interchangeable signatures.
 
-   Jump macros start with `idx = node` and operate on flat indices. #}
+   Each dispatcher accepts optional `dx0=`/`dy0=` kwargs that default to the
+   runtime variable names `'dx0'`/`'dy0'` (used by ray JPS, which decodes them
+   from `entry_dir[node]` once per pop). Callers that unroll the arrival axis
+   (e.g. JPS+ monomorphises into 8 cases) can pass literals like `'1'` / `'-1'`
+   so jump primitives receive compile-time directions — letting plus's `_tab()`
+   resolve to direct table names rather than the 9-slot `jump_tabs[...]`. #}
 
 {# Inline ternary max — ~4x faster than max() builtin for 2 args.
    File-level `# ruff: noqa: FURB136` is set in the generated output. #}
@@ -11,215 +16,88 @@
 ({{ a }} if {{ a }} > {{ b }} else {{ b }})
 {%- endmacro %}
 
-{# Vertical cardinal jump: dx = 0, dy = dy_expr. Caller provides `node`
-   (starting flat index) and `nx` (column, for goal-split and hxh).
-   Optional `sdy_expr`: expression for stride_dy (avoids recomputing `dy * stride`). #}
-{% macro jump_v(dy_expr, parent_expr, push_line, sdy_expr=None) -%}
-dist = 0
-stride_dy = {{ sdy_expr if sdy_expr else dy_expr ~ ' * stride' }}
-yp_xm_off = stride_dy - 1
-yp_xp_off = stride_dy + 1
-idx = node
-if nx == gx:
-    while True:
-        idx += stride_dy
-        dist += 1
-        if cost[idx] is inf:
-            dist = -1
-            break
-        if (
-            idx == goal
-            or (cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf)
-            or (cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf)
-        ):
-            break
-else:
-    while True:
-        idx += stride_dy
-        dist += 1
-        if cost[idx] is inf:
-            dist = -1
-            break
-        if (cost[idx - 1] is inf and cost[idx + yp_xm_off] is not inf) or (
-            cost[idx + 1] is inf and cost[idx + yp_xp_off] is not inf
-        ):
-            break
-if dist > 0:
-    nd = g_node + dist
-    if nd < g[idx]:
-        g[idx] = nd
-        parent[idx] = {{ parent_expr }}
-        entry_dir[idx] = {{ dy_expr }} + 4  # encodes (0, dy): (dx+1)*3 + (dy+1)
-        hxh = abs(nx - gx)
-        hyh = abs((idx // stride) - gy)
-        {{ push_line }}
+{# Template-time negation for literal directions. When x is a runtime variable
+   name (e.g. 'dx0'), returns '-dx0' (a Python unary-minus expression). When x
+   is a literal like '1' or '-1', returns the opposite literal — keeping
+   downstream specialisation (direct table names, constant folding) alive. #}
+{% macro _neg(x) -%}
+{%- if x == '-1' -%}1
+{%- elif x == '1' -%}-1
+{%- elif x == '0' -%}0
+{%- else -%}-{{ x }}
+{%- endif -%}
 {%- endmacro %}
 
-{# Horizontal cardinal jump: dx = dx_expr, dy = 0. Caller provides `node`
-   and `ny` (for goal-split and hyh).
-   dx_expr is always a simple literal or variable name (no caller uses a compound expr). #}
-{% macro jump_h(dx_expr, parent_expr, push_line) -%}
-dist = 0
-up_dx_off = {{ dx_expr }} - stride
-dn_dx_off = stride + {{ dx_expr }}
-idx = node
-if ny == gy:
-    while True:
-        idx += {{ dx_expr }}
-        dist += 1
-        if cost[idx] is inf:
-            dist = -1
-            break
-        if (
-            idx == goal
-            or (cost[idx - stride] is inf and cost[idx + up_dx_off] is not inf)
-            or (cost[idx + stride] is inf and cost[idx + dn_dx_off] is not inf)
-        ):
-            break
-else:
-    while True:
-        idx += {{ dx_expr }}
-        dist += 1
-        if cost[idx] is inf:
-            dist = -1
-            break
-        if (cost[idx - stride] is inf and cost[idx + up_dx_off] is not inf) or (
-            cost[idx + stride] is inf and cost[idx + dn_dx_off] is not inf
-        ):
-            break
-if dist > 0:
-    nd = g_node + dist
-    if nd < g[idx]:
-        g[idx] = nd
-        parent[idx] = {{ parent_expr }}
-        entry_dir[idx] = 3 * {{ dx_expr }} + 4  # encodes (dx, 0): (dx+1)*3 + 1
-        hxh = abs((idx % stride) - gx)
-        hyh = abs(ny - gy)
-        {{ push_line }}
-{%- endmacro %}
-
-{# Diagonal jump: dx = dx_expr, dy = dy_expr, both nonzero.
-   Optional `sdy_expr`: expression for stride_dy (avoids recomputing `dy * stride`).
-   dx_expr must be a simple literal or variable name (dx is used in hot loop).
-   Callers using a compound expression must precompute it to a local and pass the name. #}
-{% macro jump_d(dx_expr, dy_expr, parent_expr, push_line, sdy_expr=None) -%}
-dist = 0
-stride_dy = {{ sdy_expr if sdy_expr else dy_expr ~ ' * stride' }}
-step = stride_dy + {{ dx_expr }}
-# Forced-neighbor offsets (main diagonal loop):
-fwd_yx_off = stride_dy - {{ dx_expr }}    # (x-dx, y+dy) from idx
-back_xy_off = {{ dx_expr }} - stride_dy   # (x+dx, y-dy) from idx
-# Sub-scan (dx, 0) offsets: perpendicular rows y±1.
-sub_up_dx_off = {{ dx_expr }} - stride
-sub_dn_dx_off = stride + {{ dx_expr }}
-# Sub-scan (0, dy) offsets: perpendicular cols x±1, one step along dy.
-sub_yp_xm_off = stride_dy - 1
-sub_yp_xp_off = stride_dy + 1
-idx = node
-subfound = False  # hoisted: re-entry to each sub-scan always sees False (if True we'd have broken out already)
-while True:
-    idx += step
-    dist += 1
-    if cost[idx] is inf:
-        dist = -1
-        break
-    if (
-        idx == goal
-        or (cost[idx - {{ dx_expr }}] is inf and cost[idx + fwd_yx_off] is not inf)
-        or (cost[idx - stride_dy] is inf and cost[idx + back_xy_off] is not inf)
-    ):
-        break
-    # Sub-scan cardinal (dx, 0) from idx: y is fixed here.
-    cidx = idx
-    while True:
-        cidx += {{ dx_expr }}
-        if cost[cidx] is inf:
-            break
-        if (
-            cidx == goal
-            or (cost[cidx - stride] is inf and cost[cidx + sub_up_dx_off] is not inf)
-            or (cost[cidx + stride] is inf and cost[cidx + sub_dn_dx_off] is not inf)
-        ):
-            subfound = True
-            break
-    if subfound:
-        break
-    # Sub-scan cardinal (0, dy) from idx: x is fixed here.
-    cidx = idx
-    while True:
-        cidx += stride_dy
-        if cost[cidx] is inf:
-            break
-        if (
-            cidx == goal
-            or (cost[cidx - 1] is inf and cost[cidx + sub_yp_xm_off] is not inf)
-            or (cost[cidx + 1] is inf and cost[cidx + sub_yp_xp_off] is not inf)
-        ):
-            subfound = True
-            break
-    if subfound:
-        break
-if dist > 0:
-    nd = g_node + dist
-    if nd < g[idx]:
-        g[idx] = nd
-        parent[idx] = {{ parent_expr }}
-        entry_dir[idx] = 3 * {{ dx_expr }} + {{ dy_expr }} + 4  # (dx+1)*3 + (dy+1)
-        hxh = abs((idx % stride) - gx)
-        hyh = abs((idx // stride) - gy)
-        {{ push_line }}
+{# Template-time multiply with literal folding:
+   mul('1', x) → x        mul(x, '1') → x
+   mul('-1', x) → -x       mul(x, '-1') → -x
+   mul('0', _) → 0         otherwise → 'a * b'. Saves runtime `1 * var` and
+   `-1 * var` ops in monomorphised bodies (Python does not peephole these,
+   since one operand is a variable). #}
+{% macro mul(a, b) -%}
+{%- if a == '1' -%}{{ b }}
+{%- elif a == '-1' -%}-{{ b }}
+{%- elif b == '1' -%}{{ a }}
+{%- elif b == '-1' -%}-{{ a }}
+{%- elif a == '0' or b == '0' -%}0
+{%- else -%}{{ a }} * {{ b }}
+{%- endif -%}
 {%- endmacro %}
 
 {# Unroll start-node expansion: 8 jumps, specialized per direction. #}
-{% macro expand_start(parent_expr, push_line) -%}
-{{ jump_v('-1', parent_expr, push_line) }}
-{{ jump_d('1', '-1', parent_expr, push_line) }}
-{{ jump_h('1', parent_expr, push_line) }}
-{{ jump_d('1', '1', parent_expr, push_line) }}
-{{ jump_v('1', parent_expr, push_line) }}
-{{ jump_d('-1', '1', parent_expr, push_line) }}
-{{ jump_h('-1', parent_expr, push_line) }}
-{{ jump_d('-1', '-1', parent_expr, push_line) }}
+{% macro expand_start(prim, parent_expr, push_line) -%}
+{{ prim.jump_v('-1', parent_expr, push_line) }}
+{{ prim.jump_d('1', '-1', parent_expr, push_line) }}
+{{ prim.jump_h('1', parent_expr, push_line) }}
+{{ prim.jump_d('1', '1', parent_expr, push_line) }}
+{{ prim.jump_v('1', parent_expr, push_line) }}
+{{ prim.jump_d('-1', '1', parent_expr, push_line) }}
+{{ prim.jump_h('-1', parent_expr, push_line) }}
+{{ prim.jump_d('-1', '-1', parent_expr, push_line) }}
 {%- endmacro %}
 
 {# Unroll diagonal-arrival successors. All cost checks use node + offset.
    nx/ny are computed lazily only when the guarded jump actually runs. #}
-{% macro expand_diagonal_arrival(parent_expr, push_line) -%}
-stride_dy0 = dy0 * stride
+{% macro expand_diagonal_arrival(prim, parent_expr, push_line, dx0='dx0', dy0='dy0') -%}
+stride_dy0 = {{ mul(dy0, 'stride') }}
 if cost[node + stride_dy0] is not inf:
     nx = node % stride
-    {{ jump_v('dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
-if cost[node + dx0] is not inf:
+    {{ prim.jump_v(dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
+if cost[node + {{ dx0 }}] is not inf:
     ny = node // stride
-    {{ jump_h('dx0', parent_expr, push_line) | indent(4) }}
-if cost[node + stride_dy0 + dx0] is not inf:
-    {{ jump_d('dx0', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
-if cost[node - dx0] is inf and cost[node + stride_dy0 - dx0] is not inf:
+    {{ prim.jump_h(dx0, parent_expr, push_line) | indent(4) }}
+if cost[node + stride_dy0 + {{ dx0 }}] is not inf:
+    {{ prim.jump_d(dx0, dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
+if cost[node - {{ dx0 }}] is inf and cost[node + stride_dy0 - {{ dx0 }}] is not inf:
+{% if dx0 == 'dx0' %}
     ndx0 = -dx0
-    {{ jump_d('ndx0', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
-if cost[node - stride_dy0] is inf and cost[node + dx0 - stride_dy0] is not inf:
-    {{ jump_d('dx0', '-dy0', parent_expr, push_line, '-stride_dy0') | indent(4) }}
+    {{ prim.jump_d('ndx0', dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
+{% else %}
+    {{ prim.jump_d(_neg(dx0), dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
+{% endif %}
+if cost[node - stride_dy0] is inf and cost[node + {{ dx0 }} - stride_dy0] is not inf:
+    {{ prim.jump_d(dx0, _neg(dy0), parent_expr, push_line, '-stride_dy0') | indent(4) }}
 {%- endmacro %}
 
 {# Unroll horizontal-cardinal-arrival successors (dy0 == 0). #}
-{% macro expand_horizontal_arrival(parent_expr, push_line) -%}
-if cost[node + dx0] is not inf:
+{% macro expand_horizontal_arrival(prim, parent_expr, push_line, dx0='dx0') -%}
+if cost[node + {{ dx0 }}] is not inf:
     ny = node // stride
-    {{ jump_h('dx0', parent_expr, push_line) | indent(4) }}
-if cost[node - stride] is inf and cost[node - stride + dx0] is not inf:
-    {{ jump_d('dx0', '-1', parent_expr, push_line) | indent(4) }}
-if cost[node + stride] is inf and cost[node + stride + dx0] is not inf:
-    {{ jump_d('dx0', '1', parent_expr, push_line) | indent(4) }}
+    {{ prim.jump_h(dx0, parent_expr, push_line) | indent(4) }}
+if cost[node - stride] is inf and cost[node - stride + {{ dx0 }}] is not inf:
+    {{ prim.jump_d(dx0, '-1', parent_expr, push_line) | indent(4) }}
+if cost[node + stride] is inf and cost[node + stride + {{ dx0 }}] is not inf:
+    {{ prim.jump_d(dx0, '1', parent_expr, push_line) | indent(4) }}
 {%- endmacro %}
 
 {# Unroll vertical-cardinal-arrival successors (dx0 == 0). #}
-{% macro expand_vertical_arrival(parent_expr, push_line) -%}
-stride_dy0 = dy0 * stride
+{% macro expand_vertical_arrival(prim, parent_expr, push_line, dy0='dy0') -%}
+stride_dy0 = {{ mul(dy0, 'stride') }}
 if cost[node + stride_dy0] is not inf:
     nx = node % stride
-    {{ jump_v('dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
+    {{ prim.jump_v(dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node - 1] is inf and cost[node + stride_dy0 - 1] is not inf:
-    {{ jump_d('-1', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
+    {{ prim.jump_d('-1', dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
 if cost[node + 1] is inf and cost[node + stride_dy0 + 1] is not inf:
-    {{ jump_d('1', 'dy0', parent_expr, push_line, 'stride_dy0') | indent(4) }}
+    {{ prim.jump_d('1', dy0, parent_expr, push_line, 'stride_dy0') | indent(4) }}
 {%- endmacro %}

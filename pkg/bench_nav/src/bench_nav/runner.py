@@ -5,16 +5,16 @@ from dataclasses import dataclass
 from typing import Final
 
 from bench_nav.common import INF
-from bench_nav.precompute import COST, PNB, build_ctx, resolve
-from bench_nav.sensor import Sensor
+from bench_nav.precomputation import COST, PNB, build_ctx, resolve
 from bench_nav.types import (
+    CostUnit,
+    Mpsp,
     Precomp,
     PrecompCtx,
-    SensorReading,
     SequentialQuery,
-    SequentialSpspAlgo,
+    Spsp,
     SpspResult,
-    SsspAlgo,
+    Sssp,
     SsspQuery,
     SsspResult,
     Walk,
@@ -44,7 +44,7 @@ class RunCfg:
     hop_scale: int = 3
 
 
-DEFAULT_CFG: Final[RunCfg] = RunCfg()
+DEFAULT_CFG: Final = RunCfg()
 
 
 def build_context(
@@ -56,8 +56,9 @@ def build_context(
     return ctx, gt
 
 
-def run_sequential[S](
-    algo: SequentialSpspAlgo[S],
+def run_journey(
+    finder: Spsp | Mpsp,
+    algo_name: str,
     ctx: PrecompCtx,
     gt: GroundTruth,
     q: SequentialQuery,
@@ -66,11 +67,8 @@ def run_sequential[S](
     dist_from_start: list[int],
     first_moves_first_goal: set[int],
 ) -> SpspResult:
-    sensor = Sensor(w=ctx.w, h=ctx.h, n=ctx.n, cost=gt.cost, vision_r2=q.vision_r2)
-    reading = sensor.reveal(q.start)
-
     t0 = time.perf_counter_ns()
-    state, plan = algo.init(ctx, reading, q.start, q.goals[0])
+    plan = finder.plan(q.start, q.goals[0])
     step_times: list[float] = [(time.perf_counter_ns() - t0) / 1000.0]
 
     pos = q.start
@@ -87,7 +85,7 @@ def run_sequential[S](
     for goal_idx, goal in enumerate(q.goals):
         if goal_idx > 0:
             t0 = time.perf_counter_ns()
-            state, plan = algo.step(state, _empty_reading(), pos, goal)
+            plan = finder.plan(pos, goal)
             step_times.append((time.perf_counter_ns() - t0) / 1000.0)
             plan_idx = 0
 
@@ -100,7 +98,7 @@ def run_sequential[S](
                 reached_all = False
                 break
 
-            if not validate_path(gt, plan, plan[0], str(algo.name), map_name):
+            if not validate_path(gt, plan, plan[0], algo_name, map_name):
                 reached_all = False
                 break
 
@@ -114,47 +112,36 @@ def run_sequential[S](
             plan_idx += 1
             steps += 1
 
-            reading = sensor.reveal(pos)
-            if reading.newly_visible:
-                t0 = time.perf_counter_ns()
-                state, plan = algo.step(state, reading, pos, goal)
-                step_times.append((time.perf_counter_ns() - t0) / 1000.0)
-                plan_idx = 0
-
         if not reached_all:
             break
 
     final_goal = q.goals[-1]
     reached = reached_all and pos == final_goal
+    optimal_cost = _tour_cost(gt, q.goals, dist_from_start)
+    ref_reachable = optimal_cost < INF
     opt_ratio: float | None = None
     if reached:
-        optimal_cost = _tour_cost(gt, q.goals, dist_from_start)
         if optimal_cost > 0 and optimal_cost < INF:
             opt_ratio = cost_walked / optimal_cost
         elif optimal_cost == 0:
             opt_ratio = 1.0
-    elif dist_from_start[final_goal] >= INF:
-        opt_ratio = None
 
     walk = Walk(
         final_pos=pos,
         cost_walked=cost_walked,
         steps_taken=steps,
-        tiles_revealed=sum(sensor.seen),
+        tiles_revealed=ctx.n,
         reached_all=reached_all,
         step_times_us=tuple(step_times),
     )
     return SpspResult(
         reached=reached,
+        ref_reachable=ref_reachable,
         opt_ratio=opt_ratio,
         first_move_correct=first_move_correct,
         total_time_us=sum(step_times),
         walk=walk,
     )
-
-
-def _empty_reading() -> SensorReading:
-    return SensorReading(newly_visible=(), cost={})
 
 
 def _tour_cost(gt: GroundTruth, goals: tuple[int, ...], first_dists: list[int]) -> int:
@@ -174,7 +161,8 @@ def _tour_cost(gt: GroundTruth, goals: tuple[int, ...], first_dists: list[int]) 
 
 
 def run_sssp(
-    algo: SsspAlgo,
+    solver: Sssp,
+    unit: CostUnit,
     ctx: PrecompCtx,
     gt: GroundTruth,
     q: SsspQuery,
@@ -182,9 +170,9 @@ def run_sssp(
 ) -> SsspResult:
     ref = dijkstra_from(gt, q.start)
     t0 = time.perf_counter_ns()
-    got = algo.solve(ctx, q.start)
+    got = solver.solve(q.start)
     us = (time.perf_counter_ns() - t0) / 1000.0
-    check = check_sssp(ref, got, algo.unit, cfg.hop_scale, ctx.n)
+    check = check_sssp(ref, got, unit, cfg.hop_scale, ctx.n)
     return SsspResult(worst_ratio=check.worst_ratio, exact=check.exact, time_us=us)
 
 

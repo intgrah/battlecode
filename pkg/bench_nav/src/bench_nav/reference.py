@@ -8,9 +8,9 @@ def dijkstra_full(
     n: int, cost: list[int], pnb: list[list[int]], start: int
 ) -> list[int]:
     """Reference implementation to compare ground truth"""
-    dist: list[int] = [INF] * n
+    dist = [INF] * n
     dist[start] = 0
-    heap: list[tuple[int, int]] = [(0, start)]
+    heap = [(0, start)]
     while heap:
         d, node = heapq.heappop(heap)
         if d > dist[node]:

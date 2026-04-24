@@ -18,7 +18,14 @@ DIR8: Final[tuple[tuple[int, int], ...]] = (
 N_PAIRS: Final[int] = 1000
 SEED: Final[int] = 42
 
-SCENARIOS: Final[tuple[str, ...]] = ("no_roads", "with_roads")
+# Builder is the only unit that pathfinds; its vision radius (r²) defines the
+# "online" scenarios where the map is revealed incrementally.
+BUILDER_VISION_R2: Final[int] = 20
+
+SCENARIOS: Final[tuple[str, ...]] = (
+    "no_roads",
+    "with_roads",
+)
 
 type Path_ = list[int] | None
 

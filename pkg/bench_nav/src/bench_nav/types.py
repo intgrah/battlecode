@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum, auto
-from typing import TYPE_CHECKING, NewType
+from typing import TYPE_CHECKING, ClassVar, NewType, cast, override
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -11,6 +12,23 @@ if TYPE_CHECKING:
 
 
 AlgoName = NewType("AlgoName", str)
+
+_CATEGORY_MARKERS = frozenset({"sssp", "spsp", "mpsp", "online"})
+
+
+def _derive_algo_name(module: str) -> AlgoName | None:
+    parts = module.split(".")
+    markers = [i for i, p in enumerate(parts) if p in _CATEGORY_MARKERS]
+    if not markers:
+        return None
+    tail = parts[markers[-1] + 1 :]
+    if len(tail) >= 2:
+        folder, leaf = tail[-2], tail[-1]
+        if leaf == folder:
+            tail = tail[:-1]
+        elif leaf.startswith(f"{folder}_"):
+            tail = [*tail[:-1], leaf[len(folder) + 1 :]]
+    return AlgoName("-".join(p.replace("_", "-") for p in tail))
 
 
 class Scenario(StrEnum):
@@ -31,6 +49,8 @@ class Availability(Enum):
 
 class Command(Enum):
     SPSP = auto()
+    MPSP = auto()
+    ONLINE = auto()
     SSSP = auto()
     TABLE = auto()
 
@@ -51,7 +71,7 @@ class PrecompCtx:
     _values: dict[Precomp[object], object] = field(default_factory=dict)
 
     def __getitem__[T](self, p: Precomp[T]) -> T:
-        return self._values[p]  # type: ignore[return-value]
+        return cast("T", self._values[p])
 
     def put[T](self, p: Precomp[T], v: T) -> None:
         self._values[p] = v
@@ -66,27 +86,79 @@ class SensorReading:
     cost: Mapping[int, int]
 
 
-@dataclass(frozen=True)
-class SsspAlgo:
-    name: AlgoName
-    requires: frozenset[Precomp[object]]
-    unit: CostUnit
-    solve: Callable[[PrecompCtx, int], list[int]]
+class _AutoName(ABC):
+    NAME: ClassVar[AlgoName]
+
+    @override
+    def __init_subclass__(cls, **kw: object) -> None:
+        super().__init_subclass__(**kw)
+        if "NAME" not in cls.__dict__:
+            derived = _derive_algo_name(cls.__module__)
+            if derived is not None:
+                cls.NAME = derived
 
 
-@dataclass(frozen=True)
-class SequentialSpspAlgo[S]:
-    name: AlgoName
-    requires: frozenset[Precomp[object]]
-    init: Callable[[PrecompCtx, SensorReading, int, int], tuple[S, Path_]]
-    step: Callable[[S, SensorReading, int, int], tuple[S, Path_]]
+class Spsp(_AutoName):
+    """Single-pair pathfinder. Offline, one-shot per query: plan(start, goal)
+    produces a full path and no useful cross-query state."""
+
+    REQUIRES: ClassVar[frozenset[Precomp[object]]]
+
+    @abstractmethod
+    def __init__(self, ctx: PrecompCtx) -> None: ...
+
+    @abstractmethod
+    def plan(self, start: int, goal: int) -> Path_: ...
+
+
+class Mpsp(_AutoName):
+    """Multi-pair pathfinder. Offline, but the algorithm incrementally builds
+    up precomputation across multiple (start, goal) queries — precomp made
+    during one plan() call benefits future plan() calls to different goals.
+    Same surface as Spsp; distinct type to mark the different contract."""
+
+    REQUIRES: ClassVar[frozenset[Precomp[object]]]
+
+    @abstractmethod
+    def __init__(self, ctx: PrecompCtx) -> None: ...
+
+    @abstractmethod
+    def plan(self, start: int, goal: int) -> Path_: ...
+
+
+class Sssp(_AutoName):
+    """A single-source solver. Built once per (map, scenario); each solve(start)
+    returns the full dist array from that source."""
+
+    REQUIRES: ClassVar[frozenset[Precomp[object]]]
+    UNIT: ClassVar[CostUnit]
+
+    @abstractmethod
+    def __init__(self, ctx: PrecompCtx) -> None: ...
+
+    @abstractmethod
+    def solve(self, start: int) -> list[int]: ...
+
+
+class Online(_AutoName):
+    """An online pathfinder. Built once at journey start with (w, h); at every
+    turn step(reading, pos, goal) is called with a sensor delta and returns the
+    next tile to move to. Maintains self state across turns (belief map,
+    incrementally-patched precomputation, wall-following memory). Does NOT
+    have access to the full cost grid at build time — discovers the map from
+    sensor readings as it moves."""
+
+    @abstractmethod
+    def __init__(self, w: int, h: int) -> None: ...
+
+    @abstractmethod
+    def step(self, reading: SensorReading, pos: int, goal: int) -> int | None: ...
 
 
 @dataclass(frozen=True)
 class SequentialQuery:
     start: int
     goals: tuple[int, ...]
-    vision_r2: int
 
 
 @dataclass(frozen=True)
@@ -107,6 +179,7 @@ class Walk:
 @dataclass(frozen=True)
 class SpspResult:
     reached: bool
+    ref_reachable: bool
     opt_ratio: float | None
     first_move_correct: bool | None
     total_time_us: float

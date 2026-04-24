@@ -3,12 +3,12 @@ from __future__ import annotations
 import csv as _csv
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
+from bench_nav import mpsp, online, spsp, sssp
 from bench_nav.common import INF, MAPS_DIR, SEED
-from bench_nav.manifest import SPSP_ALGOS, SSSP_ALGOS
-from bench_nav.map_data import build_cost, load_map, place_roads
-from bench_nav.map_data import build_nb as build_nb_fn
+from bench_nav.precomputation import build_cost, load_map, place_roads
+from bench_nav.precomputation import build_nb as build_nb_fn
 from bench_nav.queries import multi_waypoint_queries, spsp_queries, sssp_queries
 from bench_nav.report import (
     SpspRow,
@@ -25,16 +25,16 @@ from bench_nav.runner import (
     MapInput,
     build_context,
     first_moves_for,
-    run_sequential,
+    run_journey,
     run_sssp,
 )
-from bench_nav.sensor import VISION_FULL
 from bench_nav.types import (
     AlgoName,
+    Mpsp,
     Precomp,
     Scenario,
-    SequentialSpspAlgo,
-    SsspAlgo,
+    Spsp,
+    Sssp,
 )
 from bench_nav.validate import dijkstra_from
 
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     import argparse
     from collections.abc import Iterable
 
-DEFAULT_N_QUERIES = 1000
+DEFAULT_N_QUERIES: Final = 1000
 
 
 def _load_map_inputs() -> list[MapInput]:
@@ -77,14 +77,14 @@ def _apply_scenario(m: MapInput, sc: Scenario) -> MapInput:
     return MapInput(name=m.name, w=m.w, h=m.h, n=m.n, tiles=m.tiles, cost=cost)
 
 
-def _filter_algos[A](
+def _filter_algos[A: type[Spsp | Mpsp | Sssp]](
     all_algos: tuple[A, ...], names: list[str] | None
 ) -> tuple[A, ...]:
     if not names:
         return all_algos
     wanted = {AlgoName(n) for n in names}
-    filtered = tuple(a for a in all_algos if a.name in wanted)  # type: ignore[attr-defined]
-    missing = wanted - {a.name for a in filtered}  # type: ignore[attr-defined]
+    filtered = tuple(a for a in all_algos if a.NAME in wanted)
+    missing = wanted - {a.NAME for a in filtered}
     if missing:
         print(f"Unknown algos: {sorted(missing)}", file=sys.stderr)
         sys.exit(1)
@@ -92,11 +92,11 @@ def _filter_algos[A](
 
 
 def _required_precomps(
-    algos: Iterable[SequentialSpspAlgo[object] | SsspAlgo],
+    algos: Iterable[type[Spsp | Mpsp | Sssp]],
 ) -> frozenset[Precomp[object]]:
     required: set[Precomp[object]] = set()
     for a in algos:
-        required |= a.requires
+        required |= a.REQUIRES
     return frozenset(required)
 
 
@@ -104,17 +104,20 @@ def _passable(cost: list[int]) -> list[int]:
     return [i for i, c in enumerate(cost) if c < INF]
 
 
-def bench_spsp(args: argparse.Namespace) -> None:
+def _run_plan_bench(
+    all_algos: tuple[type[Spsp], ...] | tuple[type[Mpsp], ...],
+    out_path: Path,
+    args: argparse.Namespace,
+) -> None:
     if args.list:
-        for a in SPSP_ALGOS:
-            print(a.name)
+        for a in all_algos:
+            print(a.NAME)
         return
 
-    algos = _filter_algos(SPSP_ALGOS, args.algos)
+    algos = _filter_algos(all_algos, args.algos)
     required = _required_precomps(algos)
     n_queries: int = args.samples
     n_waypoints: int = args.waypoints
-    vision_r2: int = args.vision if args.vision > 0 else VISION_FULL
 
     rows: list[SpspRow] = []
     maps = _load_map_inputs()
@@ -125,18 +128,17 @@ def bench_spsp(args: argparse.Namespace) -> None:
             passable = _passable(gt.cost)
             if not passable:
                 continue
-            if n_waypoints <= 1 and vision_r2 >= VISION_FULL:
+            if n_waypoints <= 1:
                 queries = spsp_queries(passable, n_queries, SEED)
             else:
-                queries = multi_waypoint_queries(
-                    passable, n_queries, n_waypoints, vision_r2, SEED
-                )
+                queries = multi_waypoint_queries(passable, n_queries, n_waypoints, SEED)
             first_moves_cache: dict[tuple[int, int], set[int]] = {}
             dist_cache: dict[int, list[int]] = {}
             for a in algos:
-                prefix = f"{m.name:24s} {sc.value:11s} {a.name:30s}"
+                prefix = f"{m.name:24s} {sc.value:11s} {a.NAME:30s}"
                 sys.stderr.write(f"\r{prefix}")
                 sys.stderr.flush()
+                finder = a(ctx)
                 for q in queries:
                     if q.start not in dist_cache:
                         dist_cache[q.start] = dijkstra_from(gt, q.start)
@@ -146,8 +148,9 @@ def bench_spsp(args: argparse.Namespace) -> None:
                         first_moves_cache[key] = first_moves_for(
                             gt, q.start, q.goals[0], dist
                         )
-                    res = run_sequential(
-                        a,
+                    res = run_journey(
+                        finder,
+                        str(a.NAME),
                         ctx,
                         gt,
                         q,
@@ -158,30 +161,48 @@ def bench_spsp(args: argparse.Namespace) -> None:
                     )
                     rows.append(
                         row_from_spsp(
-                            a.name,
+                            a.NAME,
                             sc,
                             m.name,
                             q.start,
                             q.goals[-1],
                             len(q.goals),
-                            q.vision_r2,
                             res,
                         )
                     )
             sys.stderr.write("\n")
 
-    out = Path("bench_nav_spsp.csv")
-    write_spsp_csv(rows, out)
-    print(f"wrote {out}", file=sys.stderr)
+    write_spsp_csv(rows, out_path)
+    print(f"wrote {out_path}", file=sys.stderr)
+
+
+def bench_spsp(args: argparse.Namespace) -> None:
+    _run_plan_bench(spsp.ALGOS, Path("bench_nav_spsp.csv"), args)
+
+
+def bench_mpsp(args: argparse.Namespace) -> None:
+    _run_plan_bench(mpsp.ALGOS, Path("bench_nav_mpsp.csv"), args)
+
+
+def bench_online(args: argparse.Namespace) -> None:
+    if args.list:
+        for a in online.ALGOS:
+            print(a.NAME)
+        return
+    print(
+        "no online algorithms implemented yet "
+        "(Online ABC exists in types.py; online/ folder is empty)",
+        file=sys.stderr,
+    )
 
 
 def bench_sssp(args: argparse.Namespace) -> None:
     if args.list:
-        for a in SSSP_ALGOS:
-            print(a.name)
+        for a in sssp.ALGOS:
+            print(a.NAME)
         return
 
-    algos = _filter_algos(SSSP_ALGOS, args.algos)
+    algos = _filter_algos(sssp.ALGOS, args.algos)
     required = _required_precomps(algos)
     n_queries: int = args.samples
 
@@ -195,12 +216,13 @@ def bench_sssp(args: argparse.Namespace) -> None:
                 continue
             queries = sssp_queries(passable, n_queries, SEED)
             for a in algos:
-                prefix = f"{m.name:24s} {sc.value:11s} {a.name:30s}"
+                prefix = f"{m.name:24s} {sc.value:11s} {a.NAME:30s}"
                 sys.stderr.write(f"\r{prefix}")
                 sys.stderr.flush()
+                solver = a(ctx)
                 for q in queries:
-                    res = run_sssp(a, ctx, gt, q, DEFAULT_CFG)
-                    rows.append(row_from_sssp(a.name, sc, m.name, q.start, res))
+                    res = run_sssp(solver, a.UNIT, ctx, gt, q, DEFAULT_CFG)
+                    rows.append(row_from_sssp(a.NAME, sc, m.name, q.start, res))
             sys.stderr.write("\n")
 
     out = Path("bench_nav_sssp.csv")
@@ -238,9 +260,9 @@ def _parse_spsp_row(r: dict[str, str]) -> SpspRow:
         start=int(r["start"]),
         goal=int(r["goal"]),
         n_goals=int(r["n_goals"]),
-        vision_r2=int(r["vision_r2"]),
         total_time_us=float(r["total_time_us"]),
         reached=r["reached"] == "1",
+        ref_reachable=r["ref_reachable"] == "1",
         opt_ratio=opt_float("opt_ratio"),
         first_move_correct=opt_bool("first_move_correct"),
         cost_walked=int(r["cost_walked"]),
