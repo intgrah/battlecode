@@ -105,9 +105,9 @@ type Building = (
 )
 
 
-def make_building(ct: Controller, bid: int, etype: EntityType) -> Building:
+def make_building(ct: Controller, bid: int) -> Building:
     team = ct.get_team(bid)
-    match etype:
+    match ct.get_entity_type(bid):
         case EntityType.CONVEYOR:
             return BuildingConveyor(team, ct.get_direction(bid))
         case EntityType.ARMOURED_CONVEYOR:

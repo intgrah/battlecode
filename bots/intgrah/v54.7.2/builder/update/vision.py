@@ -71,8 +71,8 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
                 self._bump_ti_harv(pos, -1)
 
 
-def _add_topology(self: Builder, pos: Position, bld: object) -> None:
-    if bld is not None and getattr(bld, "team", None) == self.my_team:
+def _add_topology(self: Builder, pos: Position, bld: Building) -> None:
+    if bld is not None and bld.team == self.my_team:
         targets = _edge_targets(pos, bld)
         if targets:
             outs: list[Position] = []
@@ -222,7 +222,7 @@ def update_vision(self: Builder, ct: Controller) -> None:
         if bld_changed or env_changed:
             _remove_topology(self, pos, i)
             if bid is not None:
-                bld = make_building(ct, bid, ct.get_entity_type(bid))
+                bld = make_building(ct, bid)
                 self.buildings[i] = bld
                 self.hp[i] = ct.get_hp(bid)
                 self.max_hp[i] = ct.get_max_hp(bid)
@@ -275,7 +275,7 @@ def update_vision(self: Builder, ct: Controller) -> None:
                         (ct.get_stored_resource(bid), ct.get_stored_resource_id(bid)),
                     )
 
-    if self.symmetry is None and new_observations:
+    if self.symmetry is None:
         _narrow_symmetry(self, new_observations)
 
 
@@ -302,7 +302,6 @@ def _narrow_symmetry(
             if mirror_env is not None and mirror_is_core != is_core:
                 invalid.add(sym)
                 break
-    if invalid:
-        self.symmetry_candidates -= invalid
-        if len(self.symmetry_candidates) == 1:
-            self.symmetry = next(iter(self.symmetry_candidates))
+    self.symmetry_candidates -= invalid
+    if len(self.symmetry_candidates) == 1:
+        self.symmetry = next(iter(self.symmetry_candidates))

@@ -31,7 +31,7 @@ from unit import Unit
 from util.constants import FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH
 from util.debug import Scope
 from util.debug import debug as log
-from util.directions import DIR4, DIR8_DELTA
+from util.directions import DIR4, DIR8, DIR8_DELTA
 from util.symmetry import Symmetry
 
 from builder.algorithms.astar import MoveHeapAstar
@@ -43,6 +43,7 @@ from builder.hooks.indicators import indicators
 from builder.hooks.propagate_symmetry import end_of_turn_propagate_symmetry
 from builder.role import Role
 from builder.tasks import POLICIES
+from builder.tasks.offense_helpers import begin_turn_offense
 from builder.tasks.rejected import TaskRejectedError
 from builder.update import update
 from builder.update.econ import (
@@ -620,67 +621,65 @@ class Builder(Unit):
         # the center because all of its cardinal neighbours are core tiles
         # too. Used as Ti-sink candidates in update_ti_sink.
         cx, cy = self.my_core.x, self.my_core.y
-        self.core_edges: tuple[Position, ...] = tuple(
-            Position(cx + dx, cy + dy)
-            for dx, dy in DIR8_DELTA
-            if 0 <= cx + dx < self.w and 0 <= cy + dy < self.h
-        )
+        self.core_edges: tuple[Position, ...] = tuple(self.my_core.add(d) for d in DIR8)
 
-        # pnb and pnb_push/pnb_set were pre-built for full MAX_WIDTH ^ 2.
-        # Fix the actual-map boundary so that in-map tiles don't
-        # reference out-of-map neighbours.
-        w, h = self.w, self.h
-        for cy in range(h):
-            row = cy * MAX_WIDTH
-            for cx in range(w):
-                if cx < w - 1 and cy < h - 1 and cx > 0 and cy > 0:
-                    continue
-                i = row + cx
-                self.pnb[i] = [
+        with Scope("pnb", time=True):
+            # `__init__` built pnb assuming a full MAX_WIDTH x MAX_WIDTH grid.
+            # The real map is anchored at (0, 0)..(w-1, h-1); the x=0 and y=0
+            # edges already got correct boundary handling in `__init__`. Only
+            # the x=w-1 column and y=h-1 row were built as interior there, so
+            # they contain out-of-real-map neighbours. Fix just those w + h - 1
+            # tiles (the shared corner is patched once).
+            w, h = self.w, self.h
+
+            def _fix(cx: int, cy: int) -> None:
+                self.pnb[cy * MAX_WIDTH + cx] = [
                     ny * MAX_WIDTH + nx
                     for dx, dy in DIR8_DELTA
                     if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
                 ]
 
-        # Trim each econ A* instance's neighbour array to the real map
-        # (strips within 3 of the boundary — bridge deltas reach r²≤9).
-        self.conv_search.post_init()
-        self.ax_conv_search.post_init()
+            for cx in range(w):
+                _fix(cx, h - 1)
+            for cy in range(h - 1):
+                _fix(w - 1, cy)
 
         if self.known_map is not None:
-            self.symmetry = SYMMETRY[self.known_map]
-            self.symmetry_candidates = {self.symmetry}
-            tiles = decode(TILES[self.known_map](), w * h)
-            env = self.env
-            cost_grid = self.cost_grid
-            buildable = self.buildable
-            ti_routable = self.ti_routable
-            ax_routable = self.ax_routable
-            for y in range(h):
-                row = y * MAX_WIDTH
-                src = y * w
-                for x in range(w):
-                    i = row + x
-                    e = tiles[src + x]
-                    env[i] = e
-                    if e == Environment.WALL:
-                        cost_grid[i] = INF
-                        buildable[i] = False
-                        ti_routable[i] = False
-                        ax_routable[i] = False
-                    else:
-                        cost_grid[i] = 3  # ROAD_COST
-                        is_empty = e == Environment.EMPTY
-                        buildable[i] = is_empty
-                        # No harvesters or foundries seeded yet, so leakage is
-                        # all-False; routable collapses to buildable.
-                        ti_routable[i] = is_empty
-                        ax_routable[i] = is_empty
-            for y in range(h):
-                row = y * MAX_WIDTH
-                for x in range(w):
-                    if env[row + x] == Environment.WALL:
-                        self.update_pnb(row + x)
+            with Scope("hardcode", time=True):
+                self.symmetry = SYMMETRY[self.known_map]
+                self.symmetry_candidates = {self.symmetry}
+                tiles = decode(TILES[self.known_map](), w * h)
+                env = self.env
+                cost_grid = self.cost_grid
+                buildable = self.buildable
+                ti_routable = self.ti_routable
+                ax_routable = self.ax_routable
+                for y in range(h):
+                    row = y * MAX_WIDTH
+                    src = y * w
+                    for x in range(w):
+                        i = row + x
+                        e = tiles[src + x]
+                        env[i] = e
+                        if e == Environment.WALL:
+                            cost_grid[i] = INF
+                            buildable[i] = False
+                            ti_routable[i] = False
+                            ax_routable[i] = False
+                        else:
+                            cost_grid[i] = 3  # ROAD_COST
+                            is_empty = e == Environment.EMPTY
+                            buildable[i] = is_empty
+                            # No harvesters or foundries seeded yet, so leakage is
+                            # all-False; routable collapses to buildable.
+                            ti_routable[i] = is_empty
+                            ax_routable[i] = is_empty
+                with Scope("pnb", time=True):
+                    for y in range(h):
+                        row = y * MAX_WIDTH
+                        for x in range(w):
+                            if env[row + x] == Environment.WALL:
+                                self.update_pnb(row + x)
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
@@ -781,6 +780,7 @@ class Builder(Unit):
             f"currently at {self.my_pos}, team has ti={self.ti} ax={self.ax}, "
         )
         self.update(ct)
+        begin_turn_offense(self, ct)
         self._log_state()
 
         if DEBUG_DUMP:
