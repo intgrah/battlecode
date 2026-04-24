@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, ResourceType
-from util.constants import BASE_COST, INF, MAX_WIDTH
+from util.constants import BASE_COST, FLOW_HISTORY_LEN, INF, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4
 from util.metrics import chebyshev
@@ -292,20 +292,22 @@ def _foundry_local_ok(self: Builder, pos: Position) -> bool:
 
 def _tile_volume(self: Builder, pos: Position) -> int:
     """Occupancy count: non-None entries in the tile's flow_history.
-    Equals `maxlen` iff the tile was observed occupied on every one of
-    the last `maxlen` ticks — the empirical "running at 1.00" signal."""
-    return sum(1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None)
+    Equals `FLOW_HISTORY_LEN` iff the tile was observed occupied on every
+    one of the last `FLOW_HISTORY_LEN` ticks — the empirical
+    "running at 1.00" signal."""
+    return sum(
+        1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None
+    )
 
 
 def _pure_ax_merge_ok(self: Builder, pos: Position) -> bool:
     """`pos` is a pure-Ax transport tile worth merging a new Ax chain into:
     downstream of an Ax harvester, not downstream of a Ti harvester, not
     upstream of a dangling end, and not currently saturated (empirical
-    volume < maxlen). The saturation check prevents a fresh merge from
-    tipping an already-busy tile into over-capacity, which in turn keeps
-    the destroy-and-rebuild cycle from ever forming."""
-    hist = self.flow_history[pos.y * MAX_WIDTH + pos.x]
-    if _tile_volume(self, pos) >= hist.maxlen:
+    volume < FLOW_HISTORY_LEN). The saturation check prevents a fresh merge
+    from tipping an already-busy tile into over-capacity, which in turn
+    keeps the destroy-and-rebuild cycle from ever forming."""
+    if _tile_volume(self, pos) >= FLOW_HISTORY_LEN:
         return False
     return (
         pos in self.ax_upstream
@@ -327,10 +329,10 @@ def _manhattan(a: Position, b: Position) -> int:
 
 def _detect_congested_junctions(self: Builder) -> list[Position]:
     """Find junctions (multi-feeder tiles) where the feeders' total
-    observed inflow exceeds the junction's maxlen window — i.e. stacks
-    arrive faster than a single-tile pass-through can forward. These are
-    the root-cause congestion points; everything upstream back-pressures
-    from here.
+    observed inflow exceeds the junction's FLOW_HISTORY_LEN window — i.e.
+    stacks arrive faster than a single-tile pass-through can forward.
+    These are the root-cause congestion points; everything upstream
+    back-pressures from here.
 
     Excludes foundries: they are designed to consume 1.00 Ti + 1.00 Ax
     simultaneously (producing 1.00 RAx), so a foundry's feeder sum of
@@ -348,19 +350,19 @@ def _detect_congested_junctions(self: Builder) -> list[Position]:
         if len(feeders) < 2:
             continue
         hist = self.flow_history[i]
-        if len(hist) < hist.maxlen:
+        if len(hist) < FLOW_HISTORY_LEN:
             continue
-        if sum(1 for r, _ in hist if r is not None) < hist.maxlen:
+        if sum(1 for r, _ in hist if r is not None) < FLOW_HISTORY_LEN:
             continue
         total = 0
         complete = True
         for f in feeders:
             fh = self.flow_history[f.y * MAX_WIDTH + f.x]
-            if len(fh) < fh.maxlen:
+            if len(fh) < FLOW_HISTORY_LEN:
                 complete = False
                 break
             total += sum(1 for r, _ in fh if r is not None)
-        if complete and total > hist.maxlen:
+        if complete and total > FLOW_HISTORY_LEN:
             result.append(t)
     return result
 
@@ -379,9 +381,9 @@ def _detect_saturated_tiles(self: Builder) -> list[Position]:
         ):
             continue
         hist = self.flow_history[i]
-        if len(hist) < hist.maxlen:
+        if len(hist) < FLOW_HISTORY_LEN:
             continue
-        if sum(1 for r, _ in hist if r is not None) >= hist.maxlen:
+        if sum(1 for r, _ in hist if r is not None) >= FLOW_HISTORY_LEN:
             result.append(t)
     return result
 
@@ -600,11 +602,12 @@ def update_foundry_target(self: Builder) -> None:
 def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     """Empirical Ti-sink candidate: friendly Ti conveyor that carries Ti,
     not Ax-contaminated, not upstream of a dangling end or a congested
-    junction, and not currently saturated (volume < maxlen). The
+    junction, and not currently saturated (volume < FLOW_HISTORY_LEN). The
     saturation check prevents a fresh merge from tipping an already-busy
     tile into over-capacity — and is the inherent rule that stops the
     destroy-and-rebuild cycle: after destruction the sink's flow_history
-    still shows volume=maxlen for ~maxlen turns, so it's not re-picked."""
+    still shows volume=FLOW_HISTORY_LEN for ~FLOW_HISTORY_LEN turns, so it's
+    not re-picked."""
     i = pos.y * MAX_WIDTH + pos.x
     bld = self.buildings[i]
     if not isinstance(bld, BuildingConveyor | BuildingArmouredConveyor):
@@ -618,7 +621,7 @@ def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     if pos in self.ax_harvester_adjacent:
         return False
     hist = self.flow_history[i]
-    if _tile_volume(self, pos) >= hist.maxlen:
+    if _tile_volume(self, pos) >= FLOW_HISTORY_LEN:
         return False
     saw_ti = False
     for r, _rid in hist:

@@ -8,6 +8,7 @@ from building import (
     BuildingConveyor,
     BuildingFoundry,
     BuildingHarvester,
+    BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
 )
@@ -278,7 +279,7 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
 
 def ore_available(self: Builder, pos: Position) -> bool:
     b = self.get_building(pos)
-    if b is not None and not isinstance(b, BuildingRoad):
+    if b is not None and not isinstance(b, BuildingRoad | BuildingMarker):
         return False
     return not (pos in self.all_bots and self.all_bots[pos] != self.my_id)
 
@@ -289,6 +290,46 @@ def pick_ore_target(self: Builder) -> Position | None:
 
 def pick_ax_ore_target(self: Builder) -> Position | None:
     return _pick_ore(self, Environment.ORE_AXIONITE)
+
+
+def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
+    """Pick an enemy-side Ti ore tile (more than r²=20 closer to enemy
+    core than to ours) for an offensive harvester. Requires symmetry to
+    be resolved; returns None otherwise."""
+    if self.symmetry is None:
+        return None
+    enemy_core = get_enemy_core_pos(self)
+    best_target = None
+    min_dist = INF
+    for pos in self.nearby_tiles:
+        if self.get_env(pos) != Environment.ORE_TITANIUM:
+            continue
+        match self.get_building(pos):
+            case BuildingHarvester():
+                continue
+            case None | BuildingRoad() | BuildingMarker():
+                pass
+            case _:
+                continue
+        d = self.bfs_dist[pos.y * MAX_WIDTH + pos.x]
+        if d is INF:
+            continue
+        if not ore_available(self, pos):
+            continue
+        if (
+            pos.distance_squared(enemy_core)
+            >= pos.distance_squared(self.my_core) - _BISECTOR_MARGIN_R2
+        ):
+            continue
+        if harvester_would_contaminate(self, pos):
+            continue
+        my_d = self.my_pos.distance_squared(pos)
+        if any(fb.distance_squared(pos) < my_d for fb in self.friendly_bots):
+            continue
+        if d < min_dist:
+            min_dist = d
+            best_target = pos
+    return best_target
 
 
 def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
@@ -361,7 +402,11 @@ def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
     return True
 
 
+_BISECTOR_MARGIN_R2 = 20
+
+
 def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
+    enemy_core = get_enemy_core_pos(self)
     best_target = None
     min_dist = INF
     for pos in self.nearby_tiles:
@@ -370,7 +415,7 @@ def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
         match self.get_building(pos):
             case BuildingHarvester():
                 continue
-            case None | BuildingRoad():
+            case None | BuildingRoad() | BuildingMarker():
                 pass
             case _:
                 continue
@@ -378,6 +423,14 @@ def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
         if d is INF:
             continue
         if not ore_available(self, pos):
+            continue
+        # Bisector gate: skip ore that is more than r²=20 closer to enemy
+        # core than to ours. Routing such ore home is expensive, and if we
+        # could afford it we'd already have economic dominance.
+        if (
+            pos.distance_squared(self.my_core)
+            > pos.distance_squared(enemy_core) + _BISECTOR_MARGIN_R2
+        ):
             continue
         # Contamination gate: skip an ore if placing a harvester there would
         # leak Ti into an Ax chain (or Ax into a Ti chain) via an adjacent
