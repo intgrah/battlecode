@@ -48,6 +48,7 @@ members = [
     "bot-drewfett-v7",
     "bot-drewfett-v8",
     "bot-heap-freelist",
+    "bot-intgrah-blueprint",
     "bot-nahhh-baseline-v25",
     "bot-nahhh-harvester-punisher",
     "bot-nahhh-nahhh",
@@ -644,6 +645,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "cambc" }]
+
+[[package]]
+name = "bot-intgrah-blueprint"
+version = "0.0.0"
+source = { virtual = "bots/intgrah/blueprint" }
+dependencies = [
+    { name = "cambc" },
+    { name = "visualiser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cambc" },
+    { name = "visualiser", editable = "pkg/visualiser" },
+]
 
 [[package]]
 name = "bot-nahhh-baseline-v25"
