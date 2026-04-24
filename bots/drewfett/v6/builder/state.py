@@ -210,7 +210,9 @@ class State:
         self.nav_dist = [INF] * n  # astar
         self.nav_parent = [-1] * n  # astar, bfs
         self.nav_heuristic = [-1] * n  # astar
-        self.nav_buckets = [deque[int]() for _ in range(DIAL_MOD)]  # astar_bucket
+        self.nav_buckets: list[deque[int]] = [
+            deque() for _ in range(DIAL_MOD)
+        ]  # astar_bucket
 
         # -- Marker --
         self.last_claim: MarkerTaskClaim | None = None
