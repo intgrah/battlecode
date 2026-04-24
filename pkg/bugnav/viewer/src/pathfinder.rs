@@ -134,6 +134,10 @@ pub fn registry() -> &'static [AlgoSpec] {
             build: crate::algorithms::step_bug::build,
         },
         AlgoSpec {
+            name: "FastBug",
+            build: crate::algorithms::fast_bug::build,
+        },
+        AlgoSpec {
             name: "PrunedBug2",
             build: crate::algorithms::pruned_bug::build_bug2,
         },

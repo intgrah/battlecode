@@ -180,6 +180,137 @@ pub fn bug2_path(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Option<Vec
     }
 }
 
+/// Inline DistBug with fixed handedness, full-map knowledge. Leave condition:
+/// walking the king-step ray from current pos toward goal would put us
+/// strictly closer to goal than the running minimum distance seen.
+fn distbug_path_with(
+    grid: &Grid,
+    start: (i32, i32),
+    goal: (i32, i32),
+    obstacle_on_right: bool,
+) -> Option<Vec<(i32, i32)>> {
+    let w = grid.w;
+    let safety_cap = (2 * w * grid.h) as usize + 16;
+
+    let state_count = (w * grid.h) as usize * 16;
+    let mut seen: Vec<u32> = vec![0; state_count];
+    let mut version: u32 = 0;
+
+    let pass = |x: i32, y: i32| passable(grid, x, y);
+    let onmap = |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < grid.h;
+
+    let mut path: Vec<(i32, i32)> = Vec::with_capacity(128);
+    path.push(start);
+    let mut pos = start;
+    // DistBug uses Euclidean dist; we use squared-Euclidean for comparisons.
+    // Running minimum distance squared.
+    let mut d_min = dist_sq(start, goal);
+
+    loop {
+        if pos == goal {
+            return Some(path);
+        }
+        if path.len() > safety_cap {
+            return None;
+        }
+
+        // Motion-to-goal.
+        let d = dir_to_goal(pos, goal);
+        let np = neighbour(pos, d);
+        if pass(np.0, np.1) {
+            pos = np;
+            path.push(pos);
+            let d2 = dist_sq(pos, goal);
+            if d2 < d_min {
+                d_min = d2;
+            }
+            continue;
+        }
+
+        // Blocked — wall-follow with DistBug leave criterion.
+        let hit_pos = pos;
+        let blocked_dir = d;
+        let mut wf = WallFollowState {
+            pos: hit_pos,
+            current_obstacle: neighbour(hit_pos, blocked_dir),
+            obstacle_on_right,
+        };
+        version = version.wrapping_add(1);
+        if version == 0 {
+            for s in seen.iter_mut() {
+                *s = 0;
+            }
+            version = 1;
+        }
+        seen[state_idx(w, &wf)] = version;
+
+        loop {
+            // Leave criterion: measure free distance along king-step ray
+            // toward goal from current wf.pos, leave if walking it would
+            // make strict progress past d_min.
+            let (rdx, rdy) = DIRS[dir_to_goal(wf.pos, goal)];
+            let mut ray_end = wf.pos;
+            loop {
+                let nx = ray_end.0 + rdx;
+                let ny = ray_end.1 + rdy;
+                if !pass(nx, ny) {
+                    break;
+                }
+                ray_end = (nx, ny);
+                if ray_end == goal {
+                    break;
+                }
+            }
+            let d_after = dist_sq(ray_end, goal);
+            if ray_end != wf.pos && d_after < d_min {
+                // Commit the ray: append cells from wf.pos to ray_end.
+                let mut p = wf.pos;
+                while p != ray_end {
+                    p = (p.0 + rdx, p.1 + rdy);
+                    path.push(p);
+                }
+                pos = ray_end;
+                d_min = d_after;
+                break;
+            }
+
+            match wall_follow_step(&mut wf, pass, onmap) {
+                WallStepOutcome::Moved => {}
+                WallStepOutcome::Surrounded => return None,
+            }
+            path.push(wf.pos);
+            let d2 = dist_sq(wf.pos, goal);
+            if d2 < d_min {
+                d_min = d2;
+            }
+
+            let idx = state_idx(w, &wf);
+            if seen[idx] == version {
+                // Full perim walked without leaving.
+                return None;
+            }
+            seen[idx] = version;
+            if path.len() > safety_cap {
+                return None;
+            }
+        }
+    }
+}
+
+pub fn distbug_path(
+    grid: &Grid,
+    start: (i32, i32),
+    goal: (i32, i32),
+) -> Option<Vec<(i32, i32)>> {
+    let cw = distbug_path_with(grid, start, goal, true);
+    let ccw = distbug_path_with(grid, start, goal, false);
+    match (cw, ccw) {
+        (Some(a), Some(b)) => Some(if a.len() <= b.len() { a } else { b }),
+        (Some(a), None) | (None, Some(a)) => Some(a),
+        (None, None) => None,
+    }
+}
+
 /// Wall-follow one direction from `hit_pos`, returning the full perimeter
 /// until state cycle, with the closest-to-goal index pre-computed.
 fn walk_perim(
@@ -433,7 +564,7 @@ pub fn build_bug2(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn P
 }
 
 pub fn build_distbug(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Box<dyn Pathfinder> {
-    let path = run_to_path(crate::algorithms::distbug::build, grid, start, goal)
+    let path = distbug_path(grid, start, goal)
         .map(|p| prune_cycles(&p))
         .unwrap_or_else(|| vec![start]);
     finish(start, goal, path)
@@ -472,10 +603,7 @@ pub fn build_best_of_b1_b2(grid: &Grid, s: (i32, i32), g: (i32, i32)) -> Box<dyn
 
 /// PrunedBug1 + PrunedDistBug.
 pub fn build_best_of_b1_db(grid: &Grid, s: (i32, i32), g: (i32, i32)) -> Box<dyn Pathfinder> {
-    let b = best_of(vec![
-        bug1_path(grid, s, g),
-        run_to_path(crate::algorithms::distbug::build, grid, s, g),
-    ]);
+    let b = best_of(vec![bug1_path(grid, s, g), distbug_path(grid, s, g)]);
     finish(s, g, b.unwrap_or_else(|| vec![s]))
 }
 
@@ -484,7 +612,7 @@ pub fn build_best_of_3(grid: &Grid, s: (i32, i32), g: (i32, i32)) -> Box<dyn Pat
     let b = best_of(vec![
         bug1_path(grid, s, g),
         bug2_path(grid, s, g),
-        run_to_path(crate::algorithms::distbug::build, grid, s, g),
+        distbug_path(grid, s, g),
     ]);
     finish(s, g, b.unwrap_or_else(|| vec![s]))
 }
@@ -494,7 +622,7 @@ pub fn build_best_of(grid: &Grid, s: (i32, i32), g: (i32, i32)) -> Box<dyn Pathf
     let b = best_of(vec![
         bug1_path(grid, s, g),
         bug2_path(grid, s, g),
-        run_to_path(crate::algorithms::distbug::build, grid, s, g),
+        distbug_path(grid, s, g),
         run_to_path(crate::algorithms::tangentbug::build, grid, s, g),
     ]);
     finish(s, g, b.unwrap_or_else(|| vec![s]))
