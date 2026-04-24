@@ -18,9 +18,9 @@ class SpspRow:
     start: int
     goal: int
     n_goals: int
-    vision_r2: int
     total_time_us: float
     reached: bool
+    ref_reachable: bool
     opt_ratio: float | None
     first_move_correct: bool | None
     cost_walked: int
@@ -46,7 +46,6 @@ def row_from_spsp(
     start: int,
     goal: int,
     n_goals: int,
-    vision_r2: int,
     result: SpspResult,
 ) -> SpspRow:
     return SpspRow(
@@ -56,9 +55,9 @@ def row_from_spsp(
         start=start,
         goal=goal,
         n_goals=n_goals,
-        vision_r2=vision_r2,
         total_time_us=result.total_time_us,
         reached=result.reached,
+        ref_reachable=result.ref_reachable,
         opt_ratio=result.opt_ratio,
         first_move_correct=result.first_move_correct,
         cost_walked=result.walk.cost_walked,
@@ -149,7 +148,8 @@ def print_spsp_table(rows: list[SpspRow]) -> None:
             o50 = _quantile(opts, 0.5)
             o99 = _quantile(opts, 0.99)
             o100 = max(opts) if opts else 0.0
-            reach_pct = 100 * len(reached) / len(ad) if ad else 0.0
+            ref_ok = [r for r in ad if r.ref_reachable]
+            reach_pct = 100 * len(reached) / len(ref_ok) if ref_ok else 0.0
             fm_pct = 100 * sum(1 for fm in fms if fm) / len(fms) if fms else 0.0
             print(
                 f"  {algo:<35s}"

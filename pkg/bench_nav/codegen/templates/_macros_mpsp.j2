@@ -1,0 +1,266 @@
+{# Lazy-table variant of _macros_plus.j2 for MPSP JPS.
+
+   Tables start as [-1]*n (sentinel = "uncomputed"). Each table read is
+   preceded by a fill call that walks-and-backfills the ray from `node` until
+   hitting a cached cell, a JP, or a wall — amortised O(1) per cell over the
+   lifetime of the algo instance. Cross-query reuse is how this fulfils the
+   Mpsp contract: cells filled by plan() #1 make plan() #2 faster.
+
+   Helper functions `_fill_j<dir>` are defined at module level in the
+   generated file. Cardinal fills take (node, tab, stride, cost); diagonal
+   fills additionally need the two perpendicular cardinal tables (for the
+   diagonal-JP check) plus stride/cost. #}
+
+{# Resolve jump table name given compile-time literal direction.
+   MPSP only uses literal directions (monomorphised dispatch). #}
+{% macro _tab(dx_expr, dy_expr) -%}
+{%- if dx_expr == '0' and dy_expr == '-1' -%}jN
+{%- elif dx_expr == '0' and dy_expr == '1' -%}jS
+{%- elif dx_expr == '1' and dy_expr == '0' -%}jE
+{%- elif dx_expr == '-1' and dy_expr == '0' -%}jW
+{%- elif dx_expr == '1' and dy_expr == '-1' -%}jNE
+{%- elif dx_expr == '1' and dy_expr == '1' -%}jSE
+{%- elif dx_expr == '-1' and dy_expr == '1' -%}jSW
+{%- elif dx_expr == '-1' and dy_expr == '-1' -%}jNW
+{%- endif -%}
+{%- endmacro %}
+
+{# Horizontal cardinal table name for a diagonal direction. #}
+{% macro _hcard(dx_expr) -%}
+{%- if dx_expr == '1' -%}jE{%- elif dx_expr == '-1' -%}jW{%- endif -%}
+{%- endmacro %}
+
+{# Vertical cardinal table name for a diagonal direction. #}
+{% macro _vcard(dy_expr) -%}
+{%- if dy_expr == '-1' -%}jN{%- elif dy_expr == '1' -%}jS{%- endif -%}
+{%- endmacro %}
+
+{# Fill-then-read: ensures {{ _tab(dx, dy) }}[node] is computed before reading. #}
+{% macro _fetch_card(dy_expr) -%}
+_fill_{{ _tab('0', dy_expr) }}(node, {{ _tab('0', dy_expr) }}, stride, cost)
+k = {{ _tab('0', dy_expr) }}[node]
+{%- endmacro %}
+
+{% macro _fetch_horz(dx_expr) -%}
+_fill_{{ _tab(dx_expr, '0') }}(node, {{ _tab(dx_expr, '0') }}, stride, cost)
+k = {{ _tab(dx_expr, '0') }}[node]
+{%- endmacro %}
+
+{% macro _fetch_diag(dx_expr, dy_expr) -%}
+_fill_{{ _tab(dx_expr, dy_expr) }}(node, {{ _tab(dx_expr, dy_expr) }}, {{ _vcard(dy_expr) }}, {{ _hcard(dx_expr) }}, stride, cost)
+k = {{ _tab(dx_expr, dy_expr) }}[node]
+{%- endmacro %}
+
+{# Vertical cardinal: dx = 0, dy = dy_expr. Caller provides `nx` (column).
+   Optional `sdy_expr`: expression for stride_dy (avoids recomputing `dy * stride`). #}
+{% import '_macros.j2' as _m -%}
+{% macro jump_v(dy_expr, parent_expr, push_line, sdy_expr=None) -%}
+step_d = {{ sdy_expr if sdy_expr else _m.mul(dy_expr, 'stride') }}
+{{ _fetch_card(dy_expr) }}
+goal_k = 0
+# rx, ry, arx, ary hoisted by caller; nx == gx is equivalent to rx == 0.
+if nx == gx and ry * {{ dy_expr }} > 0:
+    goal_k = ary
+if goal_k > 0:
+    if k > 0 and goal_k <= k:
+        idx = goal
+        nd = g_node + goal_k
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = {{ parent_expr }}
+            entry_dir[idx] = {{ dy_expr }} + 4  # (0, dy): (dx+1)*3 + (dy+1)
+            hxh = 0
+            hyh = 0
+            {{ push_line }}
+    else:
+        idx = node
+        ok = True
+        for _ in range(goal_k):
+            idx += step_d
+            if cost[idx] is inf:
+                ok = False
+                break
+        if ok:
+            nd = g_node + goal_k
+            if nd < g[idx]:
+                g[idx] = nd
+                parent[idx] = {{ parent_expr }}
+                entry_dir[idx] = {{ dy_expr }} + 4
+                hxh = 0
+                hyh = 0
+                {{ push_line }}
+        elif k > 0:
+            idx = node + k * step_d
+            nd = g_node + k
+            if nd < g[idx]:
+                g[idx] = nd
+                parent[idx] = {{ parent_expr }}
+                entry_dir[idx] = {{ dy_expr }} + 4
+                hxh = arx  # x unchanged after vertical jump: |nx - gx| = arx
+                hyh = abs((idx // stride) - gy)
+                {{ push_line }}
+elif k > 0:
+    idx = node + k * step_d
+    nd = g_node + k
+    if nd < g[idx]:
+        g[idx] = nd
+        parent[idx] = {{ parent_expr }}
+        entry_dir[idx] = {{ dy_expr }} + 4
+        hxh = arx
+        hyh = abs((idx // stride) - gy)
+        {{ push_line }}
+{%- endmacro %}
+
+{# Horizontal cardinal: dx = dx_expr, dy = 0. Caller provides `ny` (row). #}
+{% macro jump_h(dx_expr, parent_expr, push_line) -%}
+step_d = {{ dx_expr }}
+{{ _fetch_horz(dx_expr) }}
+goal_k = 0
+# rx, ry, arx, ary hoisted by caller; ny == gy is equivalent to ry == 0.
+if ny == gy and rx * {{ dx_expr }} > 0:
+    goal_k = arx
+if goal_k > 0:
+    if k > 0 and goal_k <= k:
+        idx = goal
+        nd = g_node + goal_k
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = {{ parent_expr }}
+            entry_dir[idx] = 3 * {{ dx_expr }} + 4  # (dx, 0): (dx+1)*3 + 1
+            hxh = 0
+            hyh = 0
+            {{ push_line }}
+    else:
+        idx = node
+        ok = True
+        for _ in range(goal_k):
+            idx += step_d
+            if cost[idx] is inf:
+                ok = False
+                break
+        if ok:
+            nd = g_node + goal_k
+            if nd < g[idx]:
+                g[idx] = nd
+                parent[idx] = {{ parent_expr }}
+                entry_dir[idx] = 3 * {{ dx_expr }} + 4
+                hxh = 0
+                hyh = 0
+                {{ push_line }}
+        elif k > 0:
+            idx = node + k * step_d
+            nd = g_node + k
+            if nd < g[idx]:
+                g[idx] = nd
+                parent[idx] = {{ parent_expr }}
+                entry_dir[idx] = 3 * {{ dx_expr }} + 4
+                hxh = abs((idx % stride) - gx)
+                hyh = ary  # y unchanged after horizontal jump: |ny - gy| = ary
+                {{ push_line }}
+elif k > 0:
+    idx = node + k * step_d
+    nd = g_node + k
+    if nd < g[idx]:
+        g[idx] = nd
+        parent[idx] = {{ parent_expr }}
+        entry_dir[idx] = 3 * {{ dx_expr }} + 4
+        hxh = abs((idx % stride) - gx)
+        hyh = ary
+        {{ push_line }}
+{%- endmacro %}
+
+{# Diagonal: dx = dx_expr, dy = dy_expr, both nonzero.
+   Optional `sdy_expr`: expression for stride_dy (avoids recomputing `dy * stride`).
+   dx_expr must be a simple literal or variable name (used in hot loop).
+
+   Three segments: (1) L-cone pivot if goal is in same quadrant but off-diagonal
+   (independent of goal snap and standard jump; may push a pivot point),
+   (2) goal snap if on-diagonal (within-k or walk-verify; walk-failed falls
+   through to standard jump), (3) standard jump push. #}
+{% macro jump_d(dx_expr, dy_expr, parent_expr, push_line, sdy_expr=None) -%}
+stride_dy = {{ sdy_expr if sdy_expr else _m.mul(dy_expr, 'stride') }}
+step_d = stride_dy + {{ dx_expr }}
+{{ _fetch_diag(dx_expr, dy_expr) }}
+# rx, ry, arx, ary hoisted by caller.
+goal_k = 0
+if rx * {{ dx_expr }} > 0 and ry * {{ dy_expr }} > 0:
+    if arx != ary:
+        # L-cone pivot: walk diagonal to axis-alignment, then cardinal to goal.
+        k_diag = ary if ary < arx else arx
+        sub = arx - ary if arx > ary else ary - arx
+        if k <= 0 or k_diag <= k:
+            idx = node
+            ok = True
+            for _ in range(k_diag):
+                idx += step_d
+                if cost[idx] is inf:
+                    ok = False
+                    break
+            if ok:
+                sub_step = {{ dx_expr }} if arx > ary else stride_dy
+                sidx = idx
+                for _ in range(sub):
+                    sidx += sub_step
+                    if cost[sidx] is inf:
+                        ok = False
+                        break
+                if ok:
+                    nd = g_node + k_diag
+                    if nd < g[idx]:
+                        g[idx] = nd
+                        parent[idx] = {{ parent_expr }}
+                        entry_dir[idx] = 3 * {{ dx_expr }} + {{ dy_expr }} + 4
+                        hxh = abs((idx % stride) - gx)
+                        hyh = abs((idx // stride) - gy)
+                        {{ push_line }}
+    else:
+        goal_k = arx  # on-diagonal with goal
+if goal_k > 0:
+    if k > 0 and goal_k <= k:
+        idx = goal
+        nd = g_node + goal_k
+        if nd < g[idx]:
+            g[idx] = nd
+            parent[idx] = {{ parent_expr }}
+            entry_dir[idx] = 3 * {{ dx_expr }} + {{ dy_expr }} + 4  # (dx+1)*3 + (dy+1)
+            hxh = 0
+            hyh = 0
+            {{ push_line }}
+    else:
+        idx = node
+        ok = True
+        for _ in range(goal_k):
+            idx += step_d
+            if cost[idx] is inf:
+                ok = False
+                break
+        if ok:
+            nd = g_node + goal_k
+            if nd < g[idx]:
+                g[idx] = nd
+                parent[idx] = {{ parent_expr }}
+                entry_dir[idx] = 3 * {{ dx_expr }} + {{ dy_expr }} + 4
+                hxh = 0
+                hyh = 0
+                {{ push_line }}
+        elif k > 0:
+            idx = node + k * step_d
+            nd = g_node + k
+            if nd < g[idx]:
+                g[idx] = nd
+                parent[idx] = {{ parent_expr }}
+                entry_dir[idx] = 3 * {{ dx_expr }} + {{ dy_expr }} + 4
+                hxh = abs((idx % stride) - gx)
+                hyh = abs((idx // stride) - gy)
+                {{ push_line }}
+elif k > 0:
+    idx = node + k * step_d
+    nd = g_node + k
+    if nd < g[idx]:
+        g[idx] = nd
+        parent[idx] = {{ parent_expr }}
+        entry_dir[idx] = 3 * {{ dx_expr }} + {{ dy_expr }} + 4
+        hxh = abs((idx % stride) - gx)
+        hyh = abs((idx // stride) - gy)
+        {{ push_line }}
+{%- endmacro %}

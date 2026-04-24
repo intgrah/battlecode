@@ -5,6 +5,8 @@ from pathlib import Path
 
 from bench_nav.bench import (
     DEFAULT_N_QUERIES,
+    bench_mpsp,
+    bench_online,
     bench_spsp,
     bench_sssp,
     bench_table_spsp,
@@ -30,15 +32,22 @@ def main() -> None:
     sp_spsp = subs.add_parser(Command.SPSP.name.lower())
     _common(sp_spsp)
     sp_spsp.add_argument("--waypoints", type=int, default=1)
-    sp_spsp.add_argument(
-        "--vision", type=int, default=0, help="vision r^2, 0 = full map"
-    )
+
+    sp_mpsp = subs.add_parser(Command.MPSP.name.lower())
+    _common(sp_mpsp)
+    sp_mpsp.add_argument("--waypoints", type=int, default=1)
+
+    sp_online = subs.add_parser(Command.ONLINE.name.lower())
+    _common(sp_online)
 
     sp_sssp = subs.add_parser(Command.SSSP.name.lower())
     _common(sp_sssp)
 
     sp_table_spsp = subs.add_parser("table-spsp")
     _csv_arg(sp_table_spsp, "bench_nav_spsp.csv")
+
+    sp_table_mpsp = subs.add_parser("table-mpsp")
+    _csv_arg(sp_table_mpsp, "bench_nav_mpsp.csv")
 
     sp_table_sssp = subs.add_parser("table-sssp")
     _csv_arg(sp_table_sssp, "bench_nav_sssp.csv")
@@ -47,9 +56,15 @@ def main() -> None:
     match args.command:
         case "spsp":
             bench_spsp(args)
+        case "mpsp":
+            bench_mpsp(args)
+        case "online":
+            bench_online(args)
         case "sssp":
             bench_sssp(args)
         case "table-spsp":
+            bench_table_spsp(args)
+        case "table-mpsp":
             bench_table_spsp(args)
         case "table-sssp":
             bench_table_sssp(args)
