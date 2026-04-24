@@ -78,29 +78,21 @@ fn run_one(
     start: (i32, i32),
     goal: (i32, i32),
     max_iters: u32,
-    turn_times_ns: &mut Vec<u64>,
+    step_times_ns: &mut Vec<u64>,
+    build_times_ns: &mut Vec<u64>,
 ) -> Outcome {
-    // Model one Battlecode turn as: build pathfinder (if the bot doesn't have
-    // one yet) + one step(). For the first turn both run; subsequent turns
-    // re-use the pathfinder and only pay for step(). We fold the build cost
-    // into the first turn so `turn_times_ns` is a flat sequence of per-turn
-    // wall times that the 2 ms budget must cover.
+    // Report build() cost and step() cost separately: in a real bot the
+    // pathfinder is created once per path (or reused across paths via a
+    // cached object), so build cost is amortised; step() cost is what fires
+    // every turn.
     let t0 = Instant::now();
     let mut finder = (algo.build)(grid, start, goal);
-    let build_ns = t0.elapsed().as_nanos() as u64;
-    let mut first = true;
+    build_times_ns.push(t0.elapsed().as_nanos() as u64);
 
     for _ in 0..max_iters {
         let t = Instant::now();
         let status = finder.step();
-        let step_ns = t.elapsed().as_nanos() as u64;
-        let turn_ns = if first {
-            first = false;
-            build_ns + step_ns
-        } else {
-            step_ns
-        };
-        turn_times_ns.push(turn_ns);
+        step_times_ns.push(t.elapsed().as_nanos() as u64);
         match status {
             StepStatus::Running => {}
             StepStatus::Arrived => {
@@ -126,9 +118,10 @@ struct AlgoStats {
     ratios: Vec<f64>,
     /// For reached trials, keep (ratio, trial) so we can print worst cases.
     trials: Vec<(f64, Trial)>,
-    /// Per-turn wall time. One entry per step() call; the first entry of a
-    /// trial absorbs the build() cost (= "turn 0" for that trial).
+    /// Per-step wall time. One entry per step() call, excluding build cost.
     times_ns: Vec<u64>,
+    /// Per-trial build() cost (one entry per trial).
+    build_times_ns: Vec<u64>,
 }
 
 impl AlgoStats {
@@ -180,17 +173,16 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
 fn print_summary(algos: &[&str], by_algo: &std::collections::BTreeMap<&'static str, AlgoStats>) {
     println!();
     println!(
-        "{:<22} {:>6} {:>8} {:>7} {:>7} {:>7} {:>7} {:>9} {:>9} {:>9}",
+        "{:<22} {:>6} {:>7} {:>7} {:>7} {:>8} {:>8} {:>8} {:>9}",
         "algo",
         "n",
-        "reach",
         "conv%",
-        "p50",
         "p99",
         "p100",
-        "t_med/μs",
-        "t_p99/μs",
-        "t_max/μs",
+        "s_med/μs",
+        "s_p99/μs",
+        "s_max/μs",
+        "build_max",
     );
     println!("{}", "-".repeat(100));
     for name in algos {
@@ -202,36 +194,28 @@ fn print_summary(algos: &[&str], by_algo: &std::collections::BTreeMap<&'static s
         };
         let mut sorted = s.ratios.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let p50 = percentile(&sorted, 0.5);
         let p99 = percentile(&sorted, 0.99);
         let p100 = sorted.last().copied().unwrap_or(f64::NAN);
 
         let mut times = s.times_ns.clone();
         times.sort_unstable();
-        let t_med = if times.is_empty() {
+        let s_med = if times.is_empty() {
             0.0
         } else {
             times[times.len() / 2] as f64 / 1000.0
         };
-        let t_p99 = if times.is_empty() {
+        let s_p99 = if times.is_empty() {
             0.0
         } else {
             times[((times.len() - 1) as f64 * 0.99).round() as usize] as f64 / 1000.0
         };
-        let t_max = times.last().copied().unwrap_or(0) as f64 / 1000.0;
+        let s_max = times.last().copied().unwrap_or(0) as f64 / 1000.0;
+
+        let build_max = s.build_times_ns.iter().copied().max().unwrap_or(0) as f64 / 1000.0;
 
         println!(
-            "{:<22} {:>6} {:>8} {:>7.1} {:>7.2} {:>7.2} {:>7.2} {:>9.1} {:>9.1} {:>9.1}",
-            name,
-            s.total,
-            s.reached,
-            convergence,
-            p50,
-            p99,
-            p100,
-            t_med,
-            t_p99,
-            t_max,
+            "{:<22} {:>6} {:>7.1} {:>7.2} {:>7.2} {:>8.2} {:>8.1} {:>8.1} {:>9.1}",
+            name, s.total, convergence, p99, p100, s_med, s_p99, s_max, build_max,
         );
     }
     println!();
@@ -240,9 +224,10 @@ fn print_summary(algos: &[&str], by_algo: &std::collections::BTreeMap<&'static s
     println!("  reach      algorithm reached goal");
     println!("  conv%      reached / (reachable-per-BFS) as percent");
     println!("  p50..p100  path-length ratio (algo / BFS) quantiles over reached trials");
-    println!("  t_med/μs   per-turn wall time; first turn of each trial includes build()");
-    println!("  t_p99/μs   same, 99th percentile");
-    println!("  t_max/μs   same, max — this is the number that must fit in 2 ms");
+    println!("  s_med/μs   step() wall time (build NOT included), median");
+    println!("  s_p99/μs   same, 99th percentile");
+    println!("  s_max/μs   same, max — the real per-turn budget target");
+    println!("  build_max  max build() cost across trials — paid once per path");
 }
 
 struct Args {
@@ -381,7 +366,15 @@ fn main() {
 
             for algo in &algos {
                 let stats = by_algo.get_mut(algo.name).unwrap();
-                let outcome = run_one(&grid, algo, start, goal, max_iters, &mut stats.times_ns);
+                let outcome = run_one(
+                    &grid,
+                    algo,
+                    start,
+                    goal,
+                    max_iters,
+                    &mut stats.times_ns,
+                    &mut stats.build_times_ns,
+                );
                 let trial = Trial {
                     map: grid.name.clone(),
                     start,

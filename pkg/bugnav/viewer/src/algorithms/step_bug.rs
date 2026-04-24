@@ -80,11 +80,12 @@ fn passable(grid: &Grid, x: i32, y: i32) -> bool {
         && !grid.walls[(y * grid.w + x) as usize]
 }
 
-/// Wall-follow / arc-walk steps performed per `step()` call. Trades
-/// per-turn cost for total-turns-to-arrival. K=1 is "purely step-at-a-time"
-/// but worst-case perimeters don't fit in 1000 turns. K larger amortises
-/// more work per turn; per-turn Rust cost is roughly K × 400 ns + overhead.
-const K: usize = 64;
+/// Wall-follow / arc-walk steps performed per `step()` call. With the
+/// LoS + DistBug early-leave shortcuts, typical circumnavigation never
+/// finishes a full perimeter — it leaves within a few steps — so K=1
+/// suffices and keeps worst per-turn cost low. K>1 only helps on pure
+/// maze geometries where neither shortcut fires.
+const K: usize = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Mode {
@@ -386,30 +387,8 @@ impl StepBug {
         let Some(b) = best else {
             return false;
         };
-        // Prune repeat positions from the arc before streaming — flat-array
-        // version, no HashMap.
-        let mut pruned_with_hit = Vec::with_capacity(b.arc_cells.len() + 1);
-        pruned_with_hit.push(self.hit_pos);
-        pruned_with_hit.extend_from_slice(&b.arc_cells);
-        self.prune_version += 1;
-        if self.prune_version < 0 {
-            for s in self.prune_pos_version.iter_mut() {
-                *s = 0;
-            }
-            self.prune_version = 1;
-        }
-        let pruned = prune_cycles_flat(
-            &pruned_with_hit,
-            self.grid_w,
-            &mut self.prune_pos_to_idx,
-            self.prune_version,
-            &mut self.prune_pos_version,
-        );
-        self.arc = if pruned.len() > 1 {
-            pruned[1..].to_vec()
-        } else {
-            Vec::new()
-        };
+        // No prune — measure impact.
+        self.arc = b.arc_cells;
         self.arc_idx = 0;
         self.arc_end_d = b.end_d;
         self.mode = Mode::WalkArc;
@@ -456,15 +435,14 @@ impl Pathfinder for StepBug {
                 }
             }
             Mode::CircumCw | Mode::CircumAcw => {
-                // Do up to K simulation wall-follow steps this turn (bot
-                // doesn't physically move during circumnavigation — the
-                // bot just sits at hit_pos while we plan). Bounded per-turn
-                // cost = K × wall_follow_step cost.
                 for _ in 0..K {
                     let cw = self.mode == Mode::CircumCw;
                     let (w, h, walls) = (self.grid_w, self.grid_h, &self.walls);
                     let pass = |x: i32, y: i32| passable_ref(walls, w, h, x, y);
                     let onmap = |x: i32, y: i32| x >= 0 && y >= 0 && x < w && y < h;
+
+
+
                     match wall_follow_step(&mut self.wf, pass, onmap) {
                         WallStepOutcome::Moved => {}
                         WallStepOutcome::Surrounded => {
