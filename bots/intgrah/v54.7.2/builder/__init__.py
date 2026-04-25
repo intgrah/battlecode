@@ -230,6 +230,18 @@ class Builder(Unit):
                 f"unreachable_dangling={len(self.unreachable_dangling)} "
                 f"reflect_queue={len(self.reflect_queue)}",
             )
+            with Scope("dangling_set"):
+                for p in sorted(
+                    self.dangling_set,
+                    key=lambda q: (q.y, q.x),
+                ):
+                    log(str(p))
+            with Scope("unreachable_dangling"):
+                for p in sorted(
+                    self.unreachable_dangling,
+                    key=lambda q: (q.y, q.x),
+                ):
+                    log(str(p))
             log(
                 f"reaches_core={len(self.reaches_core)} "
                 f"reaches_foundry={len(self.reaches_foundry)} "
