@@ -18,6 +18,7 @@ from cambc import (
     ResourceType,
 )
 from config import DEBUG_DUMP
+from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
 from unit import Unit
 from util import DIR8, DIR8_DELTA, INF, N, Symmetry, W
 
@@ -46,7 +47,6 @@ from builder.update.prune import prune_stale
 from builder.update.role import update_role
 from builder.update.turrets import update_enemy_turrets, update_ore_denial
 from builder.update.vision import update_vision
-from hardcode.map import CANDIDATES, SYMMETRY, TILES, decode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -395,7 +395,6 @@ class Builder(Unit):
             env = self.env
             cost_grid = self.cost_grid
             conveyor_cost_grid = self.conveyor_cost_grid
-            pnb = self.pnb
             for y in range(h):
                 row = y * W
                 src = y * w

@@ -243,6 +243,7 @@ def try_heal(
         if not self.buildings[i] or self.hp[i] > self.max_hp[i] - 4:
             return False
     if ct.can_heal(position):
+        log(f"try_heal: healing tile {position}")
         ct.heal(position)
         return True
     return False
@@ -393,13 +394,11 @@ def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
                 heavy_hostile_count += 1
     if not hostile_found:
         return False
-    if (
+    return not (
         ore_env == Environment.ORE_AXIONITE
         and heavy_hostile_count == 0
         and pure_ti_conveyor_count == 1
-    ):
-        return False
-    return True
+    )
 
 
 _BISECTOR_MARGIN_R2 = 20

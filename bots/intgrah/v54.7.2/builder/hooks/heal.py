@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import EntityType
+from util.debug import debug as log
 from util.directions import DIR8
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ def end_of_turn_heal(self: Builder, ct: Controller) -> None:
        in action range."""
     my_pos = ct.get_position()  # Cannot use self.my_pos since that's the start of turn position, not the current one necessarily..
     if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
+        log(f"end_of_turn_heal: self at {my_pos}")
         ct.heal(my_pos)
     for unit in ct.get_nearby_units():
         if ct.get_team(unit) != self.my_team:
@@ -32,7 +34,10 @@ def end_of_turn_heal(self: Builder, ct: Controller) -> None:
             for d in DIR8:
                 heal_pos = ct.get_position(unit).add(d)
                 if ct.can_heal(heal_pos):
+                    log(f"end_of_turn_heal: core at {heal_pos}")
                     ct.heal(heal_pos)
                     break
         elif ct.can_heal(ct.get_position(unit)):
-            ct.heal(ct.get_position(unit))
+            unit_pos = ct.get_position(unit)
+            log(f"end_of_turn_heal: friendly unit at {unit_pos}")
+            ct.heal(unit_pos)

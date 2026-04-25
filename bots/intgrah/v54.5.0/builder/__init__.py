@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 from typing import TYPE_CHECKING, Final, override
 
+from blueprint import Entity as BlueprintEntity
 from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
@@ -18,6 +19,7 @@ from cambc import (
     ResourceType,
 )
 from config import DEBUG_DUMP
+from hardcode.map import SYMMETRY, TILES, decode
 from unit import Unit
 from util import DIR8, DIR8_DELTA, INF, N, Symmetry, W
 
@@ -47,8 +49,6 @@ from builder.update.prune import prune_stale
 from builder.update.role import update_role
 from builder.update.turrets import update_enemy_turrets, update_ore_denial
 from builder.update.vision import update_vision
-from blueprint import Entity as BlueprintEntity
-from hardcode.map import SYMMETRY, TILES, decode
 
 if TYPE_CHECKING:
     from collections.abc import Callable

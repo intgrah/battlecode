@@ -3,6 +3,7 @@ from __future__ import annotations
 from random import Random
 from typing import TYPE_CHECKING
 
+from cambc import Position
 from util import DIR4, DIR8, W
 
 from unit.blueprint import (
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from blueprint import BlueprintEntry
-    from cambc import Controller, Direction, Position, Team
+    from cambc import Controller, Direction, Team
     from hardcode.known import KnownMap
 
 __all__ = ["Unit"]
@@ -54,11 +55,20 @@ class Unit:
         self.rng = Random(self.my_id)
         core = find_core(ct, self.my_team)
         self.known_map = identify_map(ct, self.w, self.h, self.my_team, core)
-        self.my_core = core if core is not None else (
-            core_for(self.known_map, self.my_team) if self.known_map else Position(0, 0)
+        self.my_core = (
+            core
+            if core is not None
+            else (
+                core_for(self.known_map, self.my_team)
+                if self.known_map
+                else Position(0, 0)
+            )
         )
         self.blueprint, self.blueprint_positions = load_mirrored_blueprint(
-            self.known_map, self.w, self.h, self.my_team,
+            self.known_map,
+            self.w,
+            self.h,
+            self.my_team,
         )
 
     my_pos: Position
