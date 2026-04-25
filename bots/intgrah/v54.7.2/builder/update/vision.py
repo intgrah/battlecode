@@ -29,22 +29,23 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-def _edge_targets(pos: Position, bld: object) -> list[Position]:
+def _edge_targets(pos: Position, bld: Building) -> tuple[Position, ...]:
     """Structural output tiles of `bld` placed at `pos`. One entry for a
     conveyor / armoured conveyor / bridge; three for a splitter; empty for
     non-routing buildings (which participate via separate sets)."""
     match bld:
         case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-            return [pos.add(d)]
+            return (pos.add(d),)
         case BuildingBridge(target=t):
-            return [t]
+            return (t,)
         case BuildingSplitter(direction=d):
-            return [
+            return (
                 pos.add(d),
                 pos.add(d.rotate_right().rotate_right()),
                 pos.add(d.rotate_left().rotate_left()),
-            ]
-    return []
+            )
+        case _:
+            return ()
 
 
 def _remove_topology(self: Builder, pos: Position, i: int) -> None:
@@ -85,15 +86,15 @@ def _add_topology(self: Builder, pos: Position, bld: Building) -> None:
             self.out_edges[pos.y * MAX_WIDTH + pos.x] = outs
             return
     match bld:
-        case BuildingFoundry(team=t) if t == self.my_team:
+        case BuildingFoundry(team=self.my_team):
             self.my_foundries.add(pos)
             self._bump_foundry(pos, +1)
         case BuildingHarvester():
-            env = self.env[self.idx(pos)]
-            if env == Environment.ORE_AXIONITE:
-                self._bump_ax_harv(pos, +1)
-            elif env == Environment.ORE_TITANIUM:
-                self._bump_ti_harv(pos, +1)
+            match self.env[self.idx(pos)]:
+                case Environment.ORE_AXIONITE:
+                    self._bump_ax_harv(pos, +1)
+                case Environment.ORE_TITANIUM:
+                    self._bump_ti_harv(pos, +1)
 
 
 def _update_cost(
