@@ -215,7 +215,8 @@ class AStarSearch:
         goal: Position,
     ) -> list[Position] | None:
         """Run `search` but treat tiles occupied by other friendly bots as
-        non-routable. Mutates `ti_routable` / `ax_routable` temporarily."""
+        non-routable. Mutates `ti_routable` / `ax_routable` temporarily.
+        """
         b = self.builder
         saved: list[tuple[int, bool, bool]] = []
         for pos in b.nearby_tiles:

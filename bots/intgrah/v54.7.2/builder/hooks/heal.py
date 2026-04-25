@@ -20,7 +20,8 @@ def end_of_turn_heal(self: Builder, ct: Controller) -> None:
        if damaged — heal is applied to the unit's position.
     3. Core — 3x3 block, heal is tile-targeted but core shares HP across
        all 9 tiles, so we pick any DIR8 cardinal of the core centre that's
-       in action range."""
+       in action range.
+    """
     my_pos = ct.get_position()  # Cannot use self.my_pos since that's the start of turn position, not the current one necessarily..
     if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
         log(f"end_of_turn_heal: self at {my_pos}")

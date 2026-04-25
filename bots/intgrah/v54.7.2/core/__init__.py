@@ -46,7 +46,7 @@ class Core(Unit):
         # Linear interpolation on map area: 400 -> 18 units, 2500 -> 36.
         area = self.w * self.h
         self.max_team_units = round(
-            18 + (36 - 18) * (area - 20 * 20) / (50 * 50 - 20 * 20)
+            18 + (36 - 18) * (area - 20 * 20) / (50 * 50 - 20 * 20),
         )
 
     @override

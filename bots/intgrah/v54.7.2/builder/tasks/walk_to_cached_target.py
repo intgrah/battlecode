@@ -1,3 +1,9 @@
+"""Walk back toward a cached `offense_target` when no fresh harvester is
+visible. Used when a builder commits to a target, walks out of vision of
+it, then needs to keep walking back. Routes via `offense_launcher` if
+one is set and the target is far; else direct.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

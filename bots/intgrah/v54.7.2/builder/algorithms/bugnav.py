@@ -29,9 +29,6 @@ class WallFollow:
         self.direction = 1
 
 
-_bug_state: WallFollow | None = None
-
-
 def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
     dx_total = goal.x - start.x
     dy_total = goal.y - start.y
@@ -52,12 +49,10 @@ def bugnav_step(
     target: Position,
     blocked: set[Position] | None = None,
 ) -> Position | None:
-    global _bug_state
+    if self.bug_state is None or self.bug_state.goal != target:
+        self.bug_state = WallFollow(self.my_pos, target)
 
-    if _bug_state is None or _bug_state.goal != target:
-        _bug_state = WallFollow(self.my_pos, target)
-
-    bug = _bug_state
+    bug = self.bug_state
     if blocked is None:
         blocked = set()
 

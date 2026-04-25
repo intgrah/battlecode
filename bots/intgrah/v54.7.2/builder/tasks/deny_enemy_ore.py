@@ -1,3 +1,9 @@
+"""Reactively pave a road on a tile cardinal to a spotted enemy ore
+deposit, denying them a harvester-feeder slot. Tile candidates come from
+`deny_ore_neighbours` (populated by `update_ore_denial`). One road per
+turn; rejects if no candidate in vision is buildable right now.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

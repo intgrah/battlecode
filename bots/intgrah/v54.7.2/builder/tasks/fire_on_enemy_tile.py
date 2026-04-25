@@ -1,3 +1,11 @@
+"""Standing on an enemy building cardinal to a vulnerable enemy
+harvester: fire on it (2 Ti for 2 dmg). Tracks `last_fire = (pos,
+expected_hp)` so a future visit can detect enemy heals (current HP >
+expected) — when detected, blacklist the tile for 5 turns and retreat
+to an alternate attack spot. Cheap structural pressure; ranks first in
+OFFENSE policy.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

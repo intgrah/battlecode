@@ -1,3 +1,10 @@
+"""Tear down a friendly bridge whose downstream chain has become
+unreachable. BFS upstream from each `unreachable_dangling` tile through
+`in_edges` to find a friendly bridge; if found and within range, destroy
+it (freeing the Ti scaling) so the upstream chain can be re-routed by the
+extend-chain tasks. Otherwise approach the bridge.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -44,7 +51,8 @@ _UPSTREAM_SEARCH_CAP = 80
 
 def _find_upstream_bridge(self: Builder, start: Position) -> Position | None:
     """BFS backwards from `start` through `in_edges` until a friendly
-    bridge is found. Returns the bridge position or None."""
+    bridge is found. Returns the bridge position or None.
+    """
     visited: set[Position] = {start}
     queue: list[Position] = [start]
     while queue and len(visited) < _UPSTREAM_SEARCH_CAP:

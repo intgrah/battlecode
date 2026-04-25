@@ -15,7 +15,8 @@ if TYPE_CHECKING:
 def update_markers(self: Builder, ct: Controller) -> None:
     """Read visible friendly markers and integrate into state. Currently
     just handles MarkerSymmetry: seeing one collapses this builder's
-    symmetry hypotheses to the marker's value."""
+    symmetry hypotheses to the marker's value.
+    """
     if self.symmetry is not None:
         return
     for pos in self.nearby_tiles:

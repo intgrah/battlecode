@@ -1,3 +1,8 @@
+"""Walk to `ore_target` and place a Ti harvester. Delegates to
+`build_at_ore` for the ore-claim approach + harvester-build sequence
+(contest-clearing, neighbour paving, step-off-and-build).
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

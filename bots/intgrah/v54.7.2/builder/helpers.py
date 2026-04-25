@@ -27,7 +27,8 @@ if TYPE_CHECKING:
 def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     """Return True iff this call actually issued a move. 'Already at target'
     and 'path not found' both return False — neither advances the builder,
-    so the caller shouldn't treat the turn as productive."""
+    so the caller shouldn't treat the turn as productive.
+    """
     if self.my_pos == target:
         log(f"make_move: already on target tile {target}, no movement needed")
         return False
@@ -105,7 +106,8 @@ def _foundry_reserve(self: Builder) -> int:
     """Ti reserved for a pending foundry placement. Kicks in once we've
     placed at least one Ax harvester (we're committing to the Ax economy
     and a foundry is expected to follow). Prevents other builders from
-    spending the colony's last Ti on conveyors while a foundry is queued."""
+    spending the colony's last Ti on conveyors while a foundry is queued.
+    """
     if self.round < 500:
         return 0
     if not self.ax_harvester_adjacent:
@@ -116,7 +118,8 @@ def _foundry_reserve(self: Builder) -> int:
 
 def _unit_reserve(self: Builder, etype: EntityType) -> int:
     """Ti a unit placement should leave on top of its own cost, to avoid
-    spending the last Ti on a unit that then has no buffer to act."""
+    spending the last Ti on a unit that then has no buffer to act.
+    """
     if etype == EntityType.HARVESTER:
         return (
             _HARVESTER_RESERVE_EARLY
@@ -131,7 +134,8 @@ def _unit_reserve(self: Builder, etype: EntityType) -> int:
 def ti_needed(self: Builder, etype: EntityType) -> int:
     """Total Ti required to place `etype` on this tile, accounting for both
     the scaled build cost and all reserves. Single source of truth for
-    `can_afford` and for user-facing "insufficient titanium" messages."""
+    `can_afford` and for user-facing "insufficient titanium" messages.
+    """
     ti_cost, _ax_cost = BASE_COST[etype]
     if etype == EntityType.FOUNDRY:
         # Foundry placement itself doesn't need to preserve the reserve (it
@@ -296,7 +300,8 @@ def pick_ax_ore_target(self: Builder) -> Position | None:
 def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
     """Pick an enemy-side Ti ore tile (more than r²=20 closer to enemy
     core than to ours) for an offensive harvester. Requires symmetry to
-    be resolved; returns None otherwise."""
+    be resolved; returns None otherwise.
+    """
     if self.symmetry is None:
         return None
     enemy_core = get_enemy_core_pos(self)
@@ -352,7 +357,8 @@ def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
     neighbours (armoured / bridge / splitter), allow placement. That Ti
     conveyor is the designated foundry spot — the `build_foundry` task
     will replace it with a foundry once the zero-length Ax chain
-    connects."""
+    connects.
+    """
     ore_env = self.get_env(pos)
     if ore_env == Environment.ORE_TITANIUM:
         bad_upstream = self.ax_upstream
@@ -455,7 +461,8 @@ _DOWNSTREAM_MAX_NODES = 80
 
 def upstream_tree(self: Builder, start: Position) -> set[Position]:
     """BFS backwards via `in_edges` — all friendly transport tiles whose
-    output structurally reaches `start`."""
+    output structurally reaches `start`.
+    """
     visited: set[Position] = {start}
     queue: list[Position] = [start]
     while queue and len(visited) < _UPSTREAM_MAX_NODES:
@@ -499,7 +506,8 @@ def ax_feeds_target(self: Builder, target: Position) -> bool:
     """Ax is (or will be) delivered to `target`. True iff any cardinal
     feeder is structurally downstream of an Ax harvester OR an Ax harvester
     is directly cardinal (the zero-length-chain case — harvesters aren't in
-    `in_edges`, so the structural check alone misses them)."""
+    `in_edges`, so the structural check alone misses them).
+    """
     for feeder in self.in_edges[target.y * MAX_WIDTH + target.x]:
         if feeder in self.ax_upstream:
             return True
@@ -520,7 +528,8 @@ def ax_feeds_target(self: Builder, target: Position) -> bool:
 
 def tile_has_ax_flow(self: Builder, pos: Position) -> bool:
     """True if flow_history on `pos` shows raw or refined Ax in the last 8
-    observed ticks."""
+    observed ticks.
+    """
     for r, _rid in self.flow_history[pos.y * MAX_WIDTH + pos.x]:
         if r in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE):
             return True

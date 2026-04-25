@@ -1,3 +1,9 @@
+"""Pave a road on an unbuilt walkable tile cardinal to one of our
+harvesters. Roads cut movement cost from 3 to 1, speeding up future
+builders shuttling through the harvester neighbourhood. One road per
+turn; rejects if no harvester-adjacent tile in vision is buildable.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

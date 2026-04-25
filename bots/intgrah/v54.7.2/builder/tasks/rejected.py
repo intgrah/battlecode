@@ -1,3 +1,11 @@
+"""Base exception class for task rejection plus shared subclasses. Tasks
+raise these when preconditions don't hold; the policy runner catches
+TaskRejectedError, logs `__str__`, and proceeds to the next task. Most
+rejection reasons are task-local and live in the task's own file; only
+the genuinely cross-task ones (like `TaskRejectedCannotAffordError`)
+live here.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -9,7 +17,8 @@ if TYPE_CHECKING:
 class TaskRejectedError(Exception):
     """Base: a task cannot fire this turn. Subclasses carry structured data
     and implement `__str__` for logging. Each task defines its own subclasses
-    locally; only genuinely shared ones live in this module."""
+    locally; only genuinely shared ones live in this module.
+    """
 
 
 class TaskRejectedCannotAffordError(TaskRejectedError):

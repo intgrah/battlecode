@@ -13,7 +13,8 @@ if TYPE_CHECKING:
 def indicators(self: Builder, ct: Controller) -> None:
     """Paint per-builder economy state into the replay: ore targets,
     foundry target, chain endpoints. Only has effect when DEBUG_LOG is set
-    (the helpers in `util.log` are no-ops otherwise)."""
+    (the helpers in `util.log` are no-ops otherwise).
+    """
     if self.ore_target is not None:
         dot(ct, self.ore_target, 255, 220, 0)  # Ti ore target: yellow
     if self.ax_ore_target is not None:

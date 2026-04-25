@@ -1,3 +1,9 @@
+"""Walk toward `dangling_output` and lay a conveyor segment along the
+A* path to its sink (Ti -> ti_sink, Ax -> ax_sink). No range gate — the
+builder will travel as far as needed. Used when the dangling end is too
+far for the in-range variant.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

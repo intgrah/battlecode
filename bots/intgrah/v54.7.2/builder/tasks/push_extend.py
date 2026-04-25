@@ -1,3 +1,9 @@
+"""Extend `dangling_output` toward the enemy core (instead of `ti_sink`
+or `my_core`). Used after a forward harvester is planted, growing the
+offensive chain toward enemy lines. Requires symmetry to be resolved so
+`get_enemy_core_pos` returns a known position.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

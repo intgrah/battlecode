@@ -140,7 +140,7 @@ def main() -> None:
         f.write("    for _core in (CORE_A[_km], CORE_B[_km]):\n")
         f.write("        _key = (_w, _h, _core)\n")
         f.write(
-            "        assert _key not in CANDIDATES, (_key, _km, CANDIDATES[_key])\n"
+            "        assert _key not in CANDIDATES, (_key, _km, CANDIDATES[_key])\n",
         )
         f.write("        CANDIDATES[_key] = _km\n\n\n")
 

@@ -1,3 +1,9 @@
+"""Late-game defensive patrol: only fires when at least one friendly
+harvester is in vision (otherwise there's nothing to defend nearby).
+Lower priority than `patrol_cheap` in the DEFENSE policy — the cheap
+variant gates on "broke", this one gates on "have something to guard".
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
