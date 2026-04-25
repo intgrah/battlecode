@@ -1,3 +1,10 @@
+"""Relieve an overcapacity junction by destroying one of its immediate
+friendly feeders. The removed feeder's upstream chain becomes dangling
+at the old feeder tile; subsequent extend-chain tasks reroute it to a
+less-saturated sink. Candidate junctions come from `congested_junctions`
+(populated empirically by `update_economy_reachability`).
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -39,7 +46,8 @@ def resolve_congestion(self: Builder, ct: Controller) -> None:
     """Relieve an overcapacity junction by destroying one of its
     immediate feeders. The feeder's upstream chain becomes dangling at
     the old feeder tile; the normal extend-chain tasks then reroute it
-    to an uncongested sink."""
+    to an uncongested sink.
+    """
     if not self.congested_junctions:
         raise TaskRejectedNoCongestedJunctionError
 

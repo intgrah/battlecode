@@ -69,6 +69,8 @@ from builder.update.vision import update_vision
 if TYPE_CHECKING:
     from building import Building
 
+    from builder.algorithms.bugnav import WallFollow
+
 
 class Builder(Unit):
     def _refresh_ti_leakage(self, i: int) -> None:
@@ -86,7 +88,8 @@ class Builder(Unit):
     def _bump_ti_harv(self, pos: Position, delta: int) -> None:
         """Called when a friendly or enemy Ti harvester appears/disappears at
         `pos`. Adjusts `_ti_harv_at` for the 4 cardinal tiles and refreshes
-        `ax_leakage` / `ax_routable` on them."""
+        `ax_leakage` / `ax_routable` on them.
+        """
         for d in DIR4:
             n = pos.add(d)
             if self.in_bounds(n):
@@ -112,7 +115,8 @@ class Builder(Unit):
 
     def _check_multi_input(self, t: Position) -> None:
         """Call after `in_edges[idx(t)]` is mutated. Adds/removes t from
-        `is_multi_input` based on the current feeder count."""
+        `is_multi_input` based on the current feeder count.
+        """
         idx = t.y * MAX_WIDTH + t.x
         if len(self.in_edges[idx]) >= 2:
             self.is_multi_input.add(t)
@@ -121,7 +125,8 @@ class Builder(Unit):
 
     def _is_flow_consumer(self, pos: Position) -> bool:
         """Tile hosts a friendly building that accepts flow (transport or
-        sink). Used for splitter-satisfaction counting."""
+        sink). Used for splitter-satisfaction counting.
+        """
         b = self.buildings[pos.y * MAX_WIDTH + pos.x]
         if b is None or b.team != self.my_team:
             return False
@@ -142,7 +147,8 @@ class Builder(Unit):
     def _splitter_satisfied(self, splitter_pos: Position) -> bool:
         """A splitter is 'satisfied' iff >= 2 of its output tiles host a
         friendly flow consumer. Unsatisfied splitters contribute their
-        empty outputs as dangling ends; satisfied ones don't."""
+        empty outputs as dangling ends; satisfied ones don't.
+        """
         count = 0
         for out in self.out_edges[splitter_pos.y * MAX_WIDTH + splitter_pos.x]:
             if self._is_flow_consumer(out):
@@ -171,7 +177,8 @@ class Builder(Unit):
 
         Call after any input could have changed: in_edges[t],
         buildings[t], env[t], a feeder splitter's output connectivity, or
-        t's membership in adjacent_to_unconnected_harvester."""
+        t's membership in adjacent_to_unconnected_harvester.
+        """
         i = t.y * MAX_WIDTH + t.x
         # A tile can host a new chain end iff it's empty non-wall terrain,
         # a friendly road, or any marker (markers are cheaply overbuildable).
@@ -203,7 +210,8 @@ class Builder(Unit):
 
     def _log_state(self) -> None:
         """Human-readable dump of all post-update Builder state, grouped
-        by domain. Cheap: scalars + small counts, no per-tile arrays."""
+        by domain. Cheap: scalars + small counts, no per-tile arrays.
+        """
         log(f"state: id={self.my_id} pos={self.my_pos} round={self.round}")
         with Scope("identity"):
             log(f"role={self.role} age={self.role_age} perm={self.permanent_role}")
@@ -410,6 +418,11 @@ class Builder(Unit):
         """Separate A* search instance for Ax chain routing. Shares the
         builder's state but keeps its own `_dist`/`_target`/`_finished` so the
         Ti search can't clobber Ax search progress (and vice versa)."""
+
+        self.bug_state: WallFollow | None = None
+        """Wall-following state for `bugnav` fallback. Persists across turns
+        so a builder can resume tracing the obstacle it hit; reset whenever
+        the navigation goal changes."""
 
         self.flow_history: list[deque[tuple[ResourceType | None, int | None]]] = [
             deque(maxlen=FLOW_HISTORY_LEN) for _ in range(MAX_N)
@@ -789,7 +802,7 @@ class Builder(Unit):
         super().run(ct)
         log(
             f"====== Builder {self.my_id} starting turn {self.round}: "
-            f"currently at {self.my_pos}, team has ti={self.ti} ax={self.ax}, "
+            f"currently at {self.my_pos}, team has ti={self.ti} ax={self.ax}, ",
         )
         self.update(ct)
         begin_turn_offense(self, ct)

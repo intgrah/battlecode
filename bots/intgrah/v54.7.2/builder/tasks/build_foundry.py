@@ -1,3 +1,10 @@
+"""Replace a designated Ti conveyor (`foundry_target`) with a foundry
+once its Ax feed is established. Gated on round >= FOUNDRY_ROUND_GATE.
+Checks the target is still a friendly pure conveyor, that an Ax cardinal
+feeds it, and that we can afford the build; walks adjacent and destroys-
+then-builds the foundry.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final, override
@@ -79,7 +86,8 @@ def build_foundry(self: Builder, ct: Controller) -> None:
     feeds into it. If affordability is the only blocker, the builder walks
     to the target and waits rather than wandering off (foundries cost more
     than a harvester's worth of Ti and that buffer must not be spent on
-    other work while the chain sits idle)."""
+    other work while the chain sits idle).
+    """
     if self.round < FOUNDRY_ROUND_GATE:
         raise TaskRejectedFoundryTooEarlyError(self.round)
     target = self.foundry_target

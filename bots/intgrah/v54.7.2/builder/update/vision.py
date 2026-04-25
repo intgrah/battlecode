@@ -32,7 +32,8 @@ if TYPE_CHECKING:
 def _edge_targets(pos: Position, bld: Building) -> tuple[Position, ...]:
     """Structural output tiles of `bld` placed at `pos`. One entry for a
     conveyor / armoured conveyor / bridge; three for a splitter; empty for
-    non-routing buildings (which participate via separate sets)."""
+    non-routing buildings (which participate via separate sets).
+    """
     match bld:
         case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
             return (pos.add(d),)
@@ -287,7 +288,8 @@ def _narrow_symmetry(
     """For each newly-observed tile, check each remaining symmetry
     candidate: if the mirror tile under that symmetry disagrees on env
     (or on whether it hosts a Core), the candidate is inconsistent and
-    dropped. Once one candidate remains, promote to `self.symmetry`."""
+    dropped. Once one candidate remains, promote to `self.symmetry`.
+    """
     w, h = self.w, self.h
     invalid: set[Symmetry] = set()
     for sym in self.symmetry_candidates:

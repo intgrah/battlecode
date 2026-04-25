@@ -13,7 +13,8 @@ class Marker(ABC):
     `_registry`. No manual tag assignment, no risk of collisions — but tag
     values depend on class-definition order, so don't reorder/delete
     existing subclasses if markers must decode consistently across builds
-    (fine within a single run; markers don't persist across runs)."""
+    (fine within a single run; markers don't persist across runs).
+    """
 
     KEY: Final[int] = 0xDEADBEEF
     TAG_SHIFT: Final[int] = 28

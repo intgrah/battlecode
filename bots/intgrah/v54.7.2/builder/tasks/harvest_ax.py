@@ -1,3 +1,9 @@
+"""Walk to `ax_ore_target` and place an Ax harvester. Gated on `ax_sink`
+being set — without a sink, raw Ax is destroyed when delivered to the
+core or to turrets, so we won't bother. Delegates to `build_at_ore` for
+the ore-claim approach + harvester-build sequence.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

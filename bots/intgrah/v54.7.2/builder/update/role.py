@@ -37,7 +37,8 @@ _REASSIGN_AFTER: Final = 400
 def _pick_initial_role(self: Builder, ct: Controller) -> Role:
     """Opening spawn slots use the hardcoded sequence; once the opening is
     exhausted or late-game spawns arrive, fall back to a weighted random pick
-    biased by game stage (early defence-heavy, mid more aggressive)."""
+    biased by game stage (early defence-heavy, mid more aggressive).
+    """
     if self.round > 10:
         early = self.round < 200
         w = _INITIAL_WEIGHTS[early]

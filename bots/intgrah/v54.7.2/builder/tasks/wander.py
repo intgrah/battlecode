@@ -1,3 +1,9 @@
+"""Random walk fallback for ECON / DEFENSE roles. Tries each of the 8
+directions in shuffled order; if none are walkable directly, tries
+paving + walking via `try_move_with_road`. Rejects if the builder is
+fully boxed in.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -13,7 +19,7 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-class TaskRejectedNoMoveAvailable(TaskRejectedError):
+class TaskRejectedNoMoveAvailableError(TaskRejectedError):
     @override
     def __str__(self) -> str:
         return "no direction produced a legal move or road-placement"
@@ -26,4 +32,4 @@ def wander(self: Builder, ct: Controller) -> None:
         any(try_move_dir(ct, d) for d in dir8)
         or any(try_move_with_road(self, ct, self.my_pos.add(d)) for d in dir8)
     ):
-        raise TaskRejectedNoMoveAvailable
+        raise TaskRejectedNoMoveAvailableError

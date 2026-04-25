@@ -18,7 +18,8 @@ def end_of_turn_propagate_symmetry(self: Builder, ct: Controller) -> None:
     nearby tile with no existing building so other units that see it
     converge too. Markers are the lowest-priority building — we'd never
     destroy anything to place one, so we only place on tiles that are
-    already unbuilt."""
+    already unbuilt.
+    """
     if self.symmetry is None:
         return
     payload = MarkerSymmetry(symmetry=self.symmetry).encode()

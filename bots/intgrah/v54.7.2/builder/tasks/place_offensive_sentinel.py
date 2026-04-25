@@ -1,3 +1,10 @@
+"""Drop a sentinel on a dangling end whose attack ray reaches a valuable
+enemy structure. Candidates come from `dangling_set` (chain tips, never
+existing conveyors). `_banned_facings` excludes directions blocked by
+the chain's own input (turrets can't receive from the side they face) —
+unioning structural feeders and friendly-harvester cardinals.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -60,7 +67,8 @@ def _banned_facings(self: Builder, pos: Position) -> set[Direction]:
       the cardinal/diagonal vector from feeder to pos.
     - Friendly harvesters on cardinal neighbours: add the cardinal
       direction toward the harvester (harvesters dump into all 4
-      cardinals, not tracked in `in_edges`)."""
+      cardinals, not tracked in `in_edges`).
+    """
     banned: set[Direction] = set()
     for feeder in self.in_edges[pos.y * MAX_WIDTH + pos.x]:
         dx, dy = pos.x - feeder.x, pos.y - feeder.y
@@ -84,7 +92,8 @@ def _sentinel_facing(
 ) -> Direction | None:
     """Return the first DIR8 direction for which placing a sentinel at
     `pos` facing `d` would cover a valuable enemy building AND does not
-    collide with any feeder side; else None."""
+    collide with any feeder side; else None.
+    """
     banned = _banned_facings(self, pos)
     for d in DIR8:
         if d in banned:

@@ -1,3 +1,12 @@
+"""Place gunner / sentinel turrets adjacent to a vulnerable enemy
+harvester, capping at 2 gunners + 1 sentinel per harvester. Builder
+must be on empty terrain at d²==1 of the harvester. Sequence: random
+step-off (so the build tile is unblocked), pick chain-facing for the
+gunner via `gunner_chain_facing` (ray must end on enemy transport),
+sentinel facing toward enemy core, pave a road on the build tile, then
+scout toward enemy. Atomic — one task call does all four steps.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

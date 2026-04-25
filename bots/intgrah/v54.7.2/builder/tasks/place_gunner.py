@@ -1,3 +1,11 @@
+"""Defensive gunner / sentinel placement adjacent to a friendly harvester.
+Iterates DIR8 neighbours: gunner placement requires a forward-ray that
+hits an enemy harvester or transport (via `gunner_facing`); sentinel
+placement requires the nearest enemy turret to be within range
+(`sentinel_facing`). Falls back to placing on `my_pos` after a random
+step-off.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

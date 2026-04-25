@@ -30,7 +30,8 @@ __all__ = ["Scope", "debug", "dot", "line"]
 class Scope(AbstractContextManager):
     """Indented, labelled block. Always announces `label` on enter. If
     `time=True`, also emits `label=Xus` on exit. Body indents one level
-    deeper either way."""
+    deeper either way.
+    """
 
     _depth: ClassVar[int] = 0
     """Shared indent depth across all Scope instances. Single-threaded per

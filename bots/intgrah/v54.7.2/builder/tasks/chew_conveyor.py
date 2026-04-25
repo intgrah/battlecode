@@ -1,3 +1,10 @@
+"""Fallback offense: with no vulnerable harvester and no cached target,
+pick an enemy conveyor/splitter/bridge tile (via `pick_conveyor_target` —
+prefers near-enemy-core, then visible-flow tiles, with spacing from our
+other attackers) and either fire on it (if standing on it) or walk toward
+it.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

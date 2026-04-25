@@ -94,7 +94,8 @@ def best_harvester_neighbour(
 ) -> Position:
     """If `dangling` is a cardinal neighbour of an unconnected harvester,
     pick whichever side of the harvester is closest to `target` — otherwise
-    A* lays a much longer chain than necessary."""
+    A* lays a much longer chain than necessary.
+    """
     for d in DIR4:
         h = dangling.add(d)
         if not self.in_bounds(h):
@@ -123,7 +124,8 @@ def best_harvester_neighbour(
 def _retarget_foundry_to_junction(self: Builder, landing: Position) -> None:
     """If an Ax chain segment we just placed lands on a pre-existing friendly
     Ti conveyor with pure-Ti flow history, retarget `foundry_target` to that
-    tile — it's the natural junction."""
+    tile — it's the natural junction.
+    """
     if self.foundry_target == landing:
         return
     bld = self.get_building(landing)
@@ -152,7 +154,8 @@ def _clear_with_turret(
     target_pos: Position,
 ) -> bool:
     """Step off `build_pos` if needed, then place a sentinel facing
-    `target_pos`."""
+    `target_pos`.
+    """
     if build_pos == self.my_pos:
         for d in DIR8:
             if ct.can_move(d):
@@ -173,7 +176,8 @@ def _lay_segment(
     path: list[Position] | None,
 ) -> bool:
     """Place one conveyor / bridge at `start_pos` that advances along
-    `path`. Returns True iff an action was taken."""
+    `path`. Returns True iff an action was taken.
+    """
     if not path:
         return False
 
@@ -248,7 +252,8 @@ def _route_to(
     resource: ResourceType,
 ) -> bool:
     """Return True iff a useful action was taken this turn (a conveyor was
-    placed, a bridge was placed, or the builder moved)."""
+    placed, a bridge was placed, or the builder moved).
+    """
     if start == target:
         return False
     if chebyshev(start, target) <= 1 and target == self.my_core:
@@ -302,7 +307,8 @@ def route_chain(self: Builder, ct: Controller, start: Position) -> bool:
     """Route a chain from `start` toward the right sink. Ti -> ti_sink
     (nearest Ti conveyor reaching core, or core itself). Ax -> ax_sink. Ax
     chains are skipped when no ax_sink is set, to prevent raw Ax being
-    shipped to the core where it would be destroyed."""
+    shipped to the core where it would be destroyed.
+    """
     resource = resource_at(self, start)
     if resource is None:
         debug(f"cannot classify resource at {start}")
@@ -327,6 +333,7 @@ def route_chain_toward(
 ) -> bool:
     """Route a chain from `start` toward `target`, regardless of which
     sink the resource would normally feed. Used by PUSH builders to
-    extend dangling ends toward the enemy core."""
+    extend dangling ends toward the enemy core.
+    """
     start = best_harvester_neighbour(self, start, target)
     return _route_to(self, ct, start, target, ResourceType.TITANIUM)

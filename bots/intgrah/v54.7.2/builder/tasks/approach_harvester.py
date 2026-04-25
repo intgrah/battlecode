@@ -1,3 +1,11 @@
+"""Walk toward a vulnerable enemy harvester so a follow-up turn can fire
+on it. Picks a cardinal-of-target destination via `pick_attack_destination`
+(prefers no-healer, low-HP, close), optionally stages a launcher en route,
+and walks via the launcher / cached `offense_target` / direct-to-target
+cascade. Rejects when no vulnerable harvester exists or when we're already
+adjacent (FIRE / TURRET tasks own the adjacent case).
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override

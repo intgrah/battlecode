@@ -1,3 +1,10 @@
+"""Cheap, low-priority opportunistic fire used by ECON / DEFENSE roles.
+A small fraction of builders (`self.opportunistic` set at init) randomly
+fire (p=0.2) on the enemy building under their feet, but only after round
+100. Distinct from OFFENSE's structured attack cascade — this is just
+"if standing on an enemy thing, occasionally hit it.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -10,19 +17,19 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-class TaskRejectedNotOpportunistic(TaskRejectedError):
+class TaskRejectedNotOpportunisticError(TaskRejectedError):
     @override
     def __str__(self) -> str:
         return "builder is not in opportunistic mode"
 
 
-class TaskRejectedRngDeclined(TaskRejectedError):
+class TaskRejectedRngDeclinedError(TaskRejectedError):
     @override
     def __str__(self) -> str:
         return "random gate (p=0.2) declined"
 
 
-class TaskRejectedTooEarly(TaskRejectedError):
+class TaskRejectedTooEarlyError(TaskRejectedError):
     def __init__(self, round_: int) -> None:
         self.round = round_
 
@@ -31,13 +38,13 @@ class TaskRejectedTooEarly(TaskRejectedError):
         return f"round {self.round} <= 100"
 
 
-class TaskRejectedCannotFire(TaskRejectedError):
+class TaskRejectedCannotFireError(TaskRejectedError):
     @override
     def __str__(self) -> str:
         return "ct.can_fire(my_pos) is False"
 
 
-class TaskRejectedFriendlyTile(TaskRejectedError):
+class TaskRejectedFriendlyTileError(TaskRejectedError):
     @override
     def __str__(self) -> str:
         return "tile under builder holds a friendly building"
@@ -45,13 +52,13 @@ class TaskRejectedFriendlyTile(TaskRejectedError):
 
 def opportunistic_attack(self: Builder, ct: Controller) -> None:
     if not self.opportunistic:
-        raise TaskRejectedNotOpportunistic
+        raise TaskRejectedNotOpportunisticError
     if self.rng.random() >= 0.2:
-        raise TaskRejectedRngDeclined
+        raise TaskRejectedRngDeclinedError
     if self.round <= 100:
-        raise TaskRejectedTooEarly(self.round)
+        raise TaskRejectedTooEarlyError(self.round)
     if not ct.can_fire(self.my_pos):
-        raise TaskRejectedCannotFire
+        raise TaskRejectedCannotFireError
     if ct.get_team(ct.get_tile_building_id(self.my_pos)) == self.my_team:
-        raise TaskRejectedFriendlyTile
+        raise TaskRejectedFriendlyTileError
     ct.fire(self.my_pos)

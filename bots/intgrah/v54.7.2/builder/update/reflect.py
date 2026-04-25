@@ -18,7 +18,8 @@ def update_reflect(self: Builder) -> None:
     have their mirrored env populated and the passable-neighbour /
     cost-grid / routability flags refreshed. Reflected tiles are NOT
     re-enqueued: the mirror of a mirror is the original, which by
-    definition is already set."""
+    definition is already set.
+    """
     if self.symmetry is None:
         return
     pending = self.reflect_queue

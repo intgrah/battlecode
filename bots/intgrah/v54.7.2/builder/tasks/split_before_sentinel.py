@@ -1,3 +1,11 @@
+"""Upgrade the conveyor immediately upstream of a friendly sentinel into
+a splitter, forking the offensive chain into three outputs: one toward
+the sentinel (consumed there), two as fresh dangling ends. Splitter
+direction = `split_pos - feeder_pos` so the input side lands exactly on
+the existing feeder. Skip if the feeder offset isn't a DIR4 unit (e.g.
+bridge feeders) — splitter input must be cardinally adjacent.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
@@ -32,7 +40,8 @@ def _feeder_delta(self: Builder, pos: Position) -> Direction | None:
     """If `pos` has exactly one cardinal friendly feeder, return the
     DIR4 direction `d` such that `pos - d.delta() == feeder_pos`. This
     is the splitter's forward direction when placed at `pos`: input
-    side = `pos + d.opposite()` = feeder_pos."""
+    side = `pos + d.opposite()` = feeder_pos.
+    """
     feeders = self.in_edges[pos.y * MAX_WIDTH + pos.x]
     if len(feeders) != 1:
         return None

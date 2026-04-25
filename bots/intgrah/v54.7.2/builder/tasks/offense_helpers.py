@@ -1,3 +1,14 @@
+"""Shared helpers for the offense task family. Hosts target-selection
+predicates (`vulnerable_harvesters`, `pick_harvester_target`,
+`pick_attack_destination`, `pick_conveyor_target`), gating predicates
+(`should_attack`, `enemy_healer_near`, etc.), turret-facing math
+(`gunner_chain_facing`), the `scout_toward_enemy` movement helper, and
+`begin_turn_offense` — the once-per-turn state-decay prelude that runs
+before any offense task fires (decays `attack_tile_blacklist`, clears
+stale `last_fire`, decays `offense_target` / `offense_launcher` /
+`offense_turns` and increments `offense_turns` when the target survives).
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -96,7 +107,8 @@ def min_friendly_chebyshev(ct: Controller, pos: Position) -> int:
     builder bot. Used to score attack spacing: an enemy healer
     (heal radius r²≤2 ≈ 1 king-move) can cover at most one of us
     when we're ≥3 chebyshev apart, so we prefer targets that are
-    well away from our other attackers."""
+    well away from our other attackers.
+    """
     my_team = ct.get_team()
     my_id = ct.get_id()
     best = 999
@@ -124,7 +136,8 @@ def pick_conveyor_target(
       2. conveyor currently carrying a Ti stack (visible flow)
     Spacing: prefer tiles far from our other attackers (cap at
     chebyshev 3 — past that point spacing gains are moot since one
-    enemy healer already can't reach two of us)."""
+    enemy healer already can't reach two of us).
+    """
     best: Position | None = None
     best_score: tuple[int, int, int] | None = None
     for pos in self.nearby_buildings:
@@ -187,7 +200,8 @@ def pick_attack_destination(
     When `avoid_healers=True` (default), destinations inside an enemy
     healer's r²≤2 are filtered out entirely — the caller can then try
     a different target harvester. When False, we fall back to any
-    walkable candidate (useful when nothing else is viable)."""
+    walkable candidate (useful when nothing else is viable).
+    """
     candidates: list[tuple[int, int, int, Position]] = []
     for d in DIR4:
         pos = target.add(d)
@@ -241,7 +255,8 @@ def gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
     `pos` facing that way has an enemy conveyor/splitter/bridge as
     the first building in its forward ray. Used to position gunners
     next to enemy harvesters so they eat the harvester's output
-    chain tile-by-tile."""
+    chain tile-by-tile.
+    """
     for d in DIR8:
         current = pos
         for _ in range(4):
@@ -274,7 +289,8 @@ def gunner_chain_facing(self: Builder, pos: Position) -> Direction | None:
 def vulnerable_harvesters(self: Builder) -> list[Position]:
     """Enemy harvesters with at least one passable, unoccupied,
     non-allied-transport cardinal. An encircled harvester isn't a
-    useful target."""
+    useful target.
+    """
 
     def has_open_side(position: Position) -> bool:
         for direction in DIR4:
@@ -313,7 +329,8 @@ def pick_harvester_target(
     1. no enemy healer in range AND no friendly bot already attacking
        it — spreads us across lightly-contested targets.
     2. no enemy healer in range (dogpiles if forced, but avoids healers).
-    3. closest of all (last resort)."""
+    3. closest of all (last resort).
+    """
     sorted_harvesters = sorted(vulnerable, key=self.my_pos.distance_squared)
     for h in sorted_harvesters:
         if not enemy_healer_near(self, h) and not friendly_bot_adjacent(self, h):
@@ -353,7 +370,8 @@ def begin_turn_offense(self: Builder, ct: Controller) -> None:
     we've moved off the tile, and decays `offense_target` /
     `offense_launcher` / `offense_turns` when the cached target has
     expired or is visibly invalid. Also increments `offense_turns` on
-    turns where the target survives the decay."""
+    turns where the target survives the decay.
+    """
     if self.attack_tile_blacklist:
         self.attack_tile_blacklist = {
             p: n - 1 for p, n in self.attack_tile_blacklist.items() if n > 1
