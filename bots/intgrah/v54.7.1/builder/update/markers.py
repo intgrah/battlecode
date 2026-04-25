@@ -3,9 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from cambc import EntityType
-from util.debug import debug as log
-
 from marker import Marker, MarkerSymmetry
+from util.debug import debug as log
 
 if TYPE_CHECKING:
     from cambc import Controller

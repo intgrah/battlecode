@@ -134,7 +134,9 @@ def main() -> None:
         f.write("    _w, _h = DIMENSIONS[_km]\n")
         f.write("    for _core in (CORE_A[_km], CORE_B[_km]):\n")
         f.write("        _key = (_w, _h, _core)\n")
-        f.write("        assert _key not in CANDIDATES, (_key, _km, CANDIDATES[_key])\n")
+        f.write(
+            "        assert _key not in CANDIDATES, (_key, _km, CANDIDATES[_key])\n"
+        )
         f.write("        CANDIDATES[_key] = _km\n\n\n")
 
         for km, _, _, _, _, _, _, _, packed in entries:

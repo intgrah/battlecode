@@ -294,7 +294,9 @@ def _tile_volume(self: Builder, pos: Position) -> int:
     """Occupancy count: non-None entries in the tile's flow_history.
     Equals `maxlen` iff the tile was observed occupied on every one of
     the last `maxlen` ticks — the empirical "running at 1.00" signal."""
-    return sum(1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None)
+    return sum(
+        1 for r, _ in self.flow_history[pos.y * MAX_WIDTH + pos.x] if r is not None
+    )
 
 
 def _pure_ax_merge_ok(self: Builder, pos: Position) -> bool:

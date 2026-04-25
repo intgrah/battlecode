@@ -33,7 +33,7 @@ from building import (
 from cambc import Controller, Direction, EntityType, Position
 from util import chebyshev
 
-from builder.helpers import can_afford, make_move, move_random, try_place
+from builder.helpers import make_move, move_random
 
 if TYPE_CHECKING:
     from building import Building

@@ -400,7 +400,7 @@ class Builder(Unit):
         super().post_init(ct)
         self.opportunistic: bool = self.rng.random() < 0.5
 
-        t0 = ct.get_cpu_time_elapsed()
+        ct.get_cpu_time_elapsed()
 
         # pnb was pre-built for full 50x50. Fix the actual-map boundary
         # so that in-map tiles don't reference out-of-map neighbours.
@@ -417,11 +417,11 @@ class Builder(Unit):
                     if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
                 ]
 
-        t1 = ct.get_cpu_time_elapsed()
+        ct.get_cpu_time_elapsed()
 
         # self.conv_search.post_init()
 
-        t2 = ct.get_cpu_time_elapsed()
+        ct.get_cpu_time_elapsed()
 
         if self.known_map is not None:
             self.symmetry = SYMMETRY[self.known_map]
