@@ -143,7 +143,7 @@ def _retarget_foundry_to_junction(self: Builder, landing: Position) -> None:
             has_ax = True
     if not saw_ti or has_ax:
         return
-    debug(f"retarget foundry to junction at {landing}")
+    debug("retarget foundry to junction at {landing}", landing=landing)
     self.foundry_target = landing
 
 
@@ -277,7 +277,13 @@ def _route_to(
     )
     path = search.search(ct, start, target, resource)
     if path is None:
-        debug(f"A* {resource.name} {start}->{target}: {search.last_fail_reason}")
+        debug(
+            "A* {resource} {start}->{target}: {fail}",
+            resource=resource,
+            start=start,
+            target=target,
+            fail=search.last_fail_reason,
+        )
     else:
         is_ax = resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
         colour = (200, 0, 255) if is_ax else (80, 160, 255)
@@ -311,12 +317,12 @@ def route_chain(self: Builder, ct: Controller, start: Position) -> bool:
     """
     resource = resource_at(self, start)
     if resource is None:
-        debug(f"cannot classify resource at {start}")
+        debug("cannot classify resource at {start}", start=start)
         return False
     if resource == ResourceType.RAW_AXIONITE:
         target = self.ax_sink
         if target is None:
-            debug(f"chain at {start} is Ax but ax_sink is None")
+            debug("chain at {start} is Ax but ax_sink is None", start=start)
             return False
         start = best_harvester_neighbour(self, start, target)
         return _route_to(self, ct, start, target, resource)

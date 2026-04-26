@@ -62,22 +62,26 @@ pub const fn z_order(kind: &EntityKind) -> i32 {
 }
 
 pub const fn sort_key(kind: &EntityKind) -> u8 {
+    // Display order in the stats / cost panels:
+    // builder, road, barrier, conveyor, armoured conveyor, bridge,
+    // splitter, harvester, foundry, gunner, sentinel, breach, launcher.
+    // Core / CoreEdge come first (always present); marker last.
     match kind {
         EntityKind::Core { .. } | EntityKind::CoreEdge { .. } => 0,
         EntityKind::BuilderBot { .. } => 1,
         EntityKind::Road => 2,
-        EntityKind::Conveyor { .. } => 3,
-        EntityKind::ArmouredConveyor { .. } => 4,
-        EntityKind::Splitter { .. } => 5,
+        EntityKind::Barrier => 3,
+        EntityKind::Conveyor { .. } => 4,
+        EntityKind::ArmouredConveyor { .. } => 5,
         EntityKind::Bridge { .. } => 6,
-        EntityKind::Harvester { .. } => 7,
-        EntityKind::Foundry { .. } => 8,
-        EntityKind::Barrier => 9,
-        EntityKind::Marker { .. } => 10,
-        EntityKind::Gunner { .. } => 11,
-        EntityKind::Sentinel { .. } => 12,
-        EntityKind::Breach { .. } => 13,
-        EntityKind::Launcher { .. } => 14,
+        EntityKind::Splitter { .. } => 7,
+        EntityKind::Harvester { .. } => 8,
+        EntityKind::Foundry { .. } => 9,
+        EntityKind::Gunner { .. } => 10,
+        EntityKind::Sentinel { .. } => 11,
+        EntityKind::Breach { .. } => 12,
+        EntityKind::Launcher { .. } => 13,
+        EntityKind::Marker { .. } => 14,
     }
 }
 
@@ -197,11 +201,11 @@ pub fn sprite_name(e: &Entity) -> String {
 pub const BUILDABLE_COSTS: &[(&str, (i32, i32))] = &[
     ("Builder", c::BUILDER_BOT_BASE_COST),
     ("Road", c::ROAD_BASE_COST),
-    ("Conveyor", c::CONVEYOR_BASE_COST),
-    ("Splitter", c::SPLITTER_BASE_COST),
-    ("Bridge", c::BRIDGE_BASE_COST),
-    ("Arm. Conv", c::ARMOURED_CONVEYOR_BASE_COST),
     ("Barrier", c::BARRIER_BASE_COST),
+    ("Conveyor", c::CONVEYOR_BASE_COST),
+    ("Arm. Conv", c::ARMOURED_CONVEYOR_BASE_COST),
+    ("Bridge", c::BRIDGE_BASE_COST),
+    ("Splitter", c::SPLITTER_BASE_COST),
     ("Harvester", c::HARVESTER_BASE_COST),
     ("Foundry", c::FOUNDRY_BASE_COST),
     ("Gunner", c::GUNNER_BASE_COST),

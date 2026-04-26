@@ -118,6 +118,7 @@ pub struct TurnState {
     pub deaths: Vec<(i32, i32)>,
     pub actions: Vec<(i32, Action)>,
     pub vis_data: HashMap<i32, vis::VisState>,
+    pub log_trees: HashMap<i32, vis::LogTree>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -250,6 +251,7 @@ impl GameState {
             deaths: Vec::new(),
             actions: Vec::new(),
             vis_data: HashMap::new(),
+            log_trees: HashMap::new(),
         };
 
         for core_pos in &map.cores {
@@ -281,10 +283,12 @@ impl GameState {
             current.deaths.clear();
             current.actions.clear();
             current.vis_data.clear();
+            current.log_trees.clear();
 
             let mut current_actor: i32 = -1;
+            let prior_vis = turns.last().map(|t: &TurnState| &t.vis_data);
             for update in &turn.updates {
-                apply_update(&mut current, update, &mut current_actor);
+                apply_update(&mut current, update, &mut current_actor, prior_vis);
             }
             turns.push(current.clone());
         }
@@ -326,7 +330,12 @@ const fn to_building_kind(kind: &EntityKind) -> Option<BuildingKind> {
 }
 
 #[allow(clippy::too_many_lines)]
-fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &mut i32) {
+fn apply_update(
+    state: &mut TurnState,
+    update: &proto::Update,
+    current_actor: &mut i32,
+    prior_vis: Option<&HashMap<i32, vis::VisState>>,
+) {
     use proto::update::Kind;
     let Some(kind) = &update.kind else { return };
     match kind {
@@ -425,20 +434,28 @@ fn apply_update(state: &mut TurnState, update: &proto::Update, current_actor: &m
         }
         Kind::BotOutput(o) => {
             if !o.stdout.is_empty() {
-                const VIS_PREFIX: &str = "##VIS## ";
-                let mut regular = Vec::new();
+                // The bot prints exactly one JSON line per turn (or
+                // multiple, if the bot ran multiple times in a row;
+                // the last one wins for vis_data, all are kept as raw
+                // log trees concatenated). Anything that doesn't parse
+                // as JSON falls back to the raw outputs panel.
+                let mut tree_text = String::new();
                 for line in o.stdout.lines() {
-                    if let Some(json) = line.strip_prefix(VIS_PREFIX) {
-                        if let Ok(fields) = serde_json::from_str::<vis::VisState>(json) {
-                            state.vis_data.entry(o.id).or_default().extend(fields);
-                        }
-                    } else {
-                        regular.push(line);
+                    let line_trim = line.trim();
+                    if line_trim.is_empty() {
+                        continue;
                     }
-                }
-                let text = regular.join("\n");
-                if !text.is_empty() {
-                    state.outputs.push((o.id, text));
+                    if let Some(tree) = vis::LogTree::parse(line_trim) {
+                        let raw = tree.collect_vis_raw();
+                        let prior = prior_vis.and_then(|p| p.get(&o.id));
+                        let resolved = vis::resolve_same(raw, prior);
+                        state.vis_data.entry(o.id).or_default().extend(resolved);
+                        state.log_trees.insert(o.id, tree);
+                        tree_text.push_str(line_trim);
+                        tree_text.push('\n');
+                    } else {
+                        state.outputs.push((o.id, line.to_string()));
+                    }
                 }
             }
             state.cpu_time_us.insert(o.id, o.exec_time_us);
