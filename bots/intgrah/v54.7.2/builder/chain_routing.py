@@ -30,6 +30,7 @@ from util.metrics import chebyshev, reachable_path_end
 
 from builder.helpers import (
     make_move,
+    on_enemy_side,
     trace_upstream,
     try_move_with_road,
     try_place,
@@ -327,7 +328,14 @@ def route_chain(self: Builder, ct: Controller, start: Position) -> bool:
     (nearest Ti conveyor reaching core, or core itself). Ax -> ax_sink. Ax
     chains are skipped when no ax_sink is set, to prevent raw Ax being
     shipped to the core where it would be destroyed.
+
+    Bisector gate: when `start` is on the enemy side of the bisector
+    (same r²=20 margin used for harvester placement), defer to OFFENSE's
+    `push_extend`. ECON does not route enemy-side dangling ends home.
     """
+    if on_enemy_side(self, start):
+        debug("route_chain: {start} is enemy-side, deferring to OFFENSE", start=start)
+        return False
     resource = resource_at(self, start)
     if resource is None:
         debug("cannot classify resource at {start}", start=start)
