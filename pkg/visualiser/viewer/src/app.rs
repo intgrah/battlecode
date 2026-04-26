@@ -46,7 +46,8 @@ pub struct App {
     pub show_indicators: bool,
     pub show_flow: bool,
     pub show_ranges: bool,
-    pub show_conveyor_junctions: bool,
+    pub show_connected_textures: bool,
+    pub use_plain_roads: bool,
     pub highlight_builders: bool,
     /// Sticky overlays: names of vis fields to render on the map.
     /// Click a row to toggle. Multiple may be active simultaneously.
@@ -120,7 +121,8 @@ impl App {
             show_indicators: false,
             show_flow: false,
             show_ranges: true,
-            show_conveyor_junctions: true,
+            show_connected_textures: true,
+            use_plain_roads: true,
             highlight_builders: false,
             selected_vis_overlays: std::collections::HashSet::new(),
             hovered_vis_overlay: None,

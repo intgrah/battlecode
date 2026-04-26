@@ -518,9 +518,10 @@ pub fn render_top_panel(ui: &mut egui::Ui, app: &mut App) {
                 left[0].checkbox(&mut app.show_flow, "Empirical flow (f)");
                 left[0].checkbox(&mut app.show_ranges, "Ranges");
                 left[0].checkbox(
-                    &mut app.show_conveyor_junctions,
-                    "Conv junctions",
+                    &mut app.show_connected_textures,
+                    "Connected textures",
                 );
+                left[0].checkbox(&mut app.use_plain_roads, "Plain roads");
                 left[0].checkbox(&mut app.highlight_builders, "Highlight builders");
 
                 // Env column with the position header at the top.

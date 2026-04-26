@@ -97,7 +97,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
         entities.sort_by_key(|e| entity::z_order(&e.kind));
 
         let by_pos: std::collections::HashMap<(i32, i32), Vec<&Entity>> =
-            if app.show_conveyor_junctions {
+            if app.show_connected_textures {
                 let mut m: std::collections::HashMap<(i32, i32), Vec<&Entity>> =
                     std::collections::HashMap::new();
                 for e in turn_state.entities.values() {
@@ -110,9 +110,11 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
 
         for e in &entities {
             if matches!(e.kind, EntityKind::Core { .. }) {
-                let road_name = match e.team {
-                    proto::Team::A => "road_gold",
-                    proto::Team::B => "road_silver",
+                let road_name = match (e.team, app.use_plain_roads) {
+                    (proto::Team::A, false) => "road_gold",
+                    (proto::Team::B, false) => "road_silver",
+                    (proto::Team::A, true) => "road_gold_plain",
+                    (proto::Team::B, true) => "road_silver_plain",
                 };
                 for dy in -1..=1_i32 {
                     for dx in -1..=1_i32 {
@@ -140,11 +142,16 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 None
             };
 
-            let sprite_name = if app.show_conveyor_junctions
+            let sprite_name = if app.show_connected_textures
                 && let Some(n) = conveyor_junction_sprite_name(e, &by_pos)
                     .or_else(|| bridge_base_sprite_name(e, &by_pos))
             {
                 n
+            } else if app.use_plain_roads && matches!(e.kind, EntityKind::Road) {
+                match e.team {
+                    proto::Team::A => "road_gold_plain".to_string(),
+                    proto::Team::B => "road_silver_plain".to_string(),
+                }
             } else {
                 entity::sprite_name(e)
             };
@@ -216,7 +223,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
 
         for e in turn_state.entities.values() {
             if let EntityKind::Bridge { target, .. } = &e.kind {
-                let beam_name = match (app.show_conveyor_junctions, e.team) {
+                let beam_name = match (app.show_connected_textures, e.team) {
                     (true, proto::Team::A) => "bridge_beam_gold",
                     (true, proto::Team::B) => "bridge_beam_silver",
                     (false, proto::Team::A) => "bridge_gold",
