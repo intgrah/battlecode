@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
 
 use serde::Deserialize;
+use serde_json::Value;
 
 #[derive(Clone, Debug)]
 pub struct PaletteStop {
@@ -9,7 +11,7 @@ pub struct PaletteStop {
     pub colour: Colour,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PaletteDef {
     pub stops: Vec<PaletteStop>,
     pub special: HashMap<i64, Colour>,
@@ -19,14 +21,14 @@ impl<'de> Deserialize<'de> for PaletteDef {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         struct Raw {
-            stops: Vec<Vec<serde_json::Value>>,
+            stops: Vec<Vec<Value>>,
             #[serde(default)]
             special: HashMap<String, [u8; 4]>,
         }
-        fn val_to_f64(v: &serde_json::Value) -> f64 {
+        fn val_to_f64(v: &Value) -> f64 {
             match v {
-                serde_json::Value::Number(n) => n.as_f64().unwrap_or(0.0),
-                serde_json::Value::Bool(b) => {
+                Value::Number(n) => n.as_f64().unwrap_or(0.0),
+                Value::Bool(b) => {
                     if *b {
                         1.0
                     } else {
@@ -104,6 +106,10 @@ pub enum ScalarValue {
     Float(f64),
     Str(String),
     Bool(bool),
+    Null,
+    Pos(i32, i32),
+    List(Vec<ScalarValue>),
+    Repr(String),
 }
 
 impl fmt::Display for ScalarValue {
@@ -113,22 +119,160 @@ impl fmt::Display for ScalarValue {
             Self::Float(v) => write!(f, "{v}"),
             Self::Str(v) => write!(f, "{v}"),
             Self::Bool(v) => write!(f, "{v}"),
+            Self::Null => write!(f, "null"),
+            Self::Pos(x, y) => write!(f, "({x}, {y})"),
+            Self::List(items) => {
+                write!(f, "[")?;
+                for (i, it) in items.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{it}")?;
+                }
+                write!(f, "]")
+            }
+            Self::Repr(s) => write!(f, "{s}"),
         }
     }
 }
 
-impl<'de> Deserialize<'de> for ScalarValue {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let v = serde_json::Value::deserialize(deserializer)?;
-        match v {
-            serde_json::Value::Number(n) => n
-                .as_i64()
-                .map(Self::Int)
-                .or_else(|| n.as_f64().map(Self::Float))
-                .ok_or_else(|| serde::de::Error::custom("invalid number")),
-            serde_json::Value::String(s) => Ok(Self::Str(s)),
-            serde_json::Value::Bool(b) => Ok(Self::Bool(b)),
-            _ => Err(serde::de::Error::custom("expected number, string, or bool")),
+/// Parse a tagged value (`{"$type": ..., ...}`) into a `Tagged`.
+fn parse_tagged(value: &Value) -> Tagged {
+    let Some(obj) = value.as_object() else {
+        return Tagged::Scalar(ScalarValue::Str(value.to_string()));
+    };
+    let typ = obj.get("$type").and_then(|v| v.as_str()).unwrap_or("");
+    match typ {
+        "scalar" => {
+            let v = obj.get("v").cloned().unwrap_or(Value::Null);
+            Tagged::Scalar(parse_scalar_value(&v))
+        }
+        "pos" => {
+            let x = obj.get("x").and_then(Value::as_i64).unwrap_or(0) as i32;
+            let y = obj.get("y").and_then(Value::as_i64).unwrap_or(0) as i32;
+            Tagged::Scalar(ScalarValue::Pos(x, y))
+        }
+        "set_pos" | "tiles" => {
+            let arr = obj
+                .get("v")
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|p| {
+                            let pp = p.as_array()?;
+                            let x = pp.first()?.as_i64()? as i32;
+                            let y = pp.get(1)?.as_i64()? as i32;
+                            Some((x, y))
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            Tagged::Tiles(arr)
+        }
+        "uid" => {
+            let id = obj.get("v").and_then(Value::as_i64).unwrap_or(0);
+            Tagged::Scalar(ScalarValue::Int(id))
+        }
+        "boolgrid" | "u8grid" | "i16grid" | "u16grid" | "f32grid" => {
+            let arr = obj.get("v").and_then(Value::as_array);
+            let palette: PaletteDef = obj
+                .get("palette")
+                .cloned()
+                .map(serde_json::from_value)
+                .and_then(Result::ok)
+                .unwrap_or_default();
+            let data = match (typ, arr) {
+                ("boolgrid", Some(arr)) => GridData::Bool(
+                    arr.iter()
+                        .map(|v| u8::from(v.as_bool().unwrap_or(false)))
+                        .collect(),
+                ),
+                ("u8grid", Some(arr)) => {
+                    GridData::U8(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect())
+                }
+                ("i16grid", Some(arr)) => {
+                    GridData::I16(arr.iter().map(|v| v.as_i64().unwrap_or(0) as i16).collect())
+                }
+                ("u16grid", Some(arr)) => {
+                    GridData::U16(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u16).collect())
+                }
+                ("f32grid", Some(arr)) => GridData::F32(
+                    arr.iter()
+                        .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+                        .collect(),
+                ),
+                _ => GridData::Bool(Vec::new()),
+            };
+            Tagged::Grid { data, palette }
+        }
+        "vectorfield" => {
+            let angles: Vec<Option<f32>> = obj
+                .get("angles")
+                .cloned()
+                .map(serde_json::from_value)
+                .and_then(Result::ok)
+                .unwrap_or_default();
+            let magnitudes: Option<Vec<f32>> = obj
+                .get("magnitudes")
+                .cloned()
+                .map(serde_json::from_value)
+                .and_then(Result::ok);
+            let arrows = angles
+                .iter()
+                .enumerate()
+                .map(|(i, angle)| {
+                    angle.map(|a| Arrow {
+                        angle: a,
+                        magnitude: magnitudes
+                            .as_ref()
+                            .and_then(|m| m.get(i).copied())
+                            .unwrap_or(1.0),
+                    })
+                })
+                .collect();
+            Tagged::VectorField(ArrowData { arrows })
+        }
+        "repr" => {
+            let s = obj
+                .get("v")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            Tagged::Scalar(ScalarValue::Repr(s))
+        }
+        "same" => Tagged::Same,
+        _ => Tagged::Scalar(ScalarValue::Str(value.to_string())),
+    }
+}
+
+fn parse_scalar_value(v: &Value) -> ScalarValue {
+    match v {
+        Value::Null => ScalarValue::Null,
+        Value::Bool(b) => ScalarValue::Bool(*b),
+        Value::Number(n) => n
+            .as_i64()
+            .map(ScalarValue::Int)
+            .or_else(|| n.as_f64().map(ScalarValue::Float))
+            .unwrap_or(ScalarValue::Float(0.0)),
+        Value::String(s) => ScalarValue::Str(s.clone()),
+        Value::Array(arr) => ScalarValue::List(
+            arr.iter()
+                .map(|item| match parse_tagged(item) {
+                    Tagged::Scalar(s) => s,
+                    _ => ScalarValue::Str(item.to_string()),
+                })
+                .collect(),
+        ),
+        Value::Object(_) => {
+            // Either a tagged value embedded as a "scalar" (e.g. nested
+            // sets of typed values), or a plain JSON object. Try tagged
+            // parse first; on failure, render as a generic map.
+            let t = parse_tagged(v);
+            if let Tagged::Scalar(s) = t {
+                s
+            } else {
+                ScalarValue::Str(v.to_string())
+            }
         }
     }
 }
@@ -139,38 +283,25 @@ pub struct Arrow {
     pub magnitude: f32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ArrowData {
     pub arrows: Vec<Option<Arrow>>,
 }
 
-impl<'de> Deserialize<'de> for ArrowData {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        #[derive(Deserialize)]
-        struct Raw {
-            angles: Vec<Option<f32>>,
-            magnitudes: Option<Vec<f32>>,
-        }
-        let raw = Raw::deserialize(deserializer)?;
-        let arrows = raw
-            .angles
-            .iter()
-            .enumerate()
-            .map(|(i, angle)| {
-                angle.map(|a| Arrow {
-                    angle: a,
-                    magnitude: raw
-                        .magnitudes
-                        .as_ref()
-                        .and_then(|m| m.get(i).copied())
-                        .unwrap_or(1.0),
-                })
-            })
-            .collect();
-        Ok(Self { arrows })
-    }
+/// Output of `parse_tagged` — a value found in a `vis.value` slot or a
+/// `msg.args[k]` slot.
+#[derive(Clone, Debug)]
+pub enum Tagged {
+    Scalar(ScalarValue),
+    Tiles(Vec<(i32, i32)>),
+    Grid { data: GridData, palette: PaletteDef },
+    VectorField(ArrowData),
+    /// Reuse the value from the prior turn. Caller resolves.
+    Same,
 }
 
+/// A flattened vis field — what the existing UI / map renderer
+/// consumes. Built by walking the log tree and collecting `vis` nodes.
 #[derive(Clone, Debug)]
 pub enum VisField {
     Grid { data: GridData, palette: PaletteDef },
@@ -179,75 +310,170 @@ pub enum VisField {
     VectorField(ArrowData),
 }
 
-impl<'de> Deserialize<'de> for VisField {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let raw = serde_json::Value::deserialize(deserializer)?;
-        let obj = raw
-            .as_object()
-            .ok_or_else(|| serde::de::Error::custom("expected object"))?;
-        let typ = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
-        match typ {
-            "grid" => {
-                let dtype = obj.get("dtype").and_then(|v| v.as_str()).unwrap_or("i16");
-                let palette: PaletteDef = serde_json::from_value(
-                    obj.get("palette")
-                        .cloned()
-                        .unwrap_or(serde_json::Value::Null),
-                )
-                .map_err(serde::de::Error::custom)?;
-                let arr = obj
-                    .get("data")
-                    .and_then(|v| v.as_array())
-                    .ok_or_else(|| serde::de::Error::custom("missing data"))?;
-                let data = match dtype {
-                    "bool" => GridData::Bool(
-                        arr.iter()
-                            .map(|v| u8::from(v.as_bool().unwrap_or(false)))
-                            .collect(),
-                    ),
-                    "u8" => {
-                        GridData::U8(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u8).collect())
-                    }
-                    "i16" => {
-                        GridData::I16(arr.iter().map(|v| v.as_i64().unwrap_or(0) as i16).collect())
-                    }
-                    "u16" => {
-                        GridData::U16(arr.iter().map(|v| v.as_u64().unwrap_or(0) as u16).collect())
-                    }
-                    "f32" => GridData::F32(
-                        arr.iter()
-                            .map(|v| v.as_f64().unwrap_or(0.0) as f32)
-                            .collect(),
-                    ),
-                    _ => return Err(serde::de::Error::custom(format!("unknown dtype: {dtype}"))),
-                };
-                Ok(Self::Grid { data, palette })
-            }
-            "scalar" => {
-                let data: ScalarValue = serde_json::from_value(
-                    obj.get("data").cloned().unwrap_or(serde_json::Value::Null),
-                )
-                .map_err(serde::de::Error::custom)?;
-                Ok(Self::Scalar { data })
-            }
-            "tiles" => {
-                let data: Vec<(i32, i32)> = serde_json::from_value(
-                    obj.get("data").cloned().unwrap_or(serde_json::Value::Null),
-                )
-                .map_err(serde::de::Error::custom)?;
-                Ok(Self::Tiles { data })
-            }
-            "vectorfield" => {
-                let arrow_data: ArrowData =
-                    serde_json::from_value(raw).map_err(serde::de::Error::custom)?;
-                Ok(Self::VectorField(arrow_data))
-            }
-            _ => Err(serde::de::Error::custom(format!("unknown vis type: {typ}"))),
+impl VisField {
+    pub fn from_tagged(t: Tagged) -> Option<Self> {
+        match t {
+            Tagged::Scalar(s) => Some(Self::Scalar { data: s }),
+            Tagged::Tiles(d) => Some(Self::Tiles { data: d }),
+            Tagged::Grid { data, palette } => Some(Self::Grid { data, palette }),
+            Tagged::VectorField(a) => Some(Self::VectorField(a)),
+            Tagged::Same => None,
         }
     }
 }
 
-pub type VisState = HashMap<String, VisField>;
+pub type VisState = HashMap<String, Arc<VisField>>;
+
+/// One entry of `RawVisState` — same shape as `VisField` but keeps the
+/// `Same` marker so the state builder can resolve it against the prior
+/// turn's value.
+#[derive(Clone, Debug)]
+pub enum RawVisField {
+    Field(VisField),
+    Same,
+}
+
+pub type RawVisState = HashMap<String, RawVisField>;
+
+/// One node in the log tree.
+#[derive(Clone, Debug)]
+pub enum LogNode {
+    Scope {
+        name: String,
+        us: Option<i64>,
+        children: Vec<LogNode>,
+    },
+    Msg {
+        tmpl: String,
+        args: Vec<(String, Tagged)>,
+    },
+    Vis {
+        name: String,
+        value: Tagged,
+    },
+}
+
+/// Per-builder per-turn log tree. The root is always a scope (typically
+/// "turn"); contains all msg / vis / sub-scope nodes.
+#[derive(Clone, Debug)]
+pub struct LogTree {
+    pub root: LogNode,
+    pub prev_flush_us: Option<i64>,
+}
+
+impl LogTree {
+    pub fn parse(raw: &str) -> Option<Self> {
+        let value: Value = serde_json::from_str(raw).ok()?;
+        let prev_flush_us = value
+            .get("prev_flush_us")
+            .and_then(Value::as_i64);
+        let root = parse_log_node(&value)?;
+        Some(Self {
+            root,
+            prev_flush_us,
+        })
+    }
+
+    /// Walk the tree depth-first, collecting all `vis` nodes into a flat
+    /// map keyed by name. Inner names override outer (last write wins,
+    /// matching the depth-first order). Preserves `Same` markers; the
+    /// caller resolves them against the prior turn's `VisState`.
+    pub fn collect_vis_raw(&self) -> RawVisState {
+        let mut out = RawVisState::new();
+        collect_vis_into(&self.root, &mut out);
+        out
+    }
+}
+
+/// Resolve `Same` markers against the prior turn's resolved state.
+/// Names not present in `prior` whose marker is `Same` are dropped
+/// (no value to fall back to).
+pub fn resolve_same(raw: RawVisState, prior: Option<&VisState>) -> VisState {
+    let mut out = VisState::new();
+    for (name, field) in raw {
+        match field {
+            RawVisField::Field(v) => {
+                out.insert(name, Arc::new(v));
+            }
+            RawVisField::Same => {
+                if let Some(p) = prior.and_then(|p| p.get(&name)) {
+                    // Arc::clone — bumps refcount, no data copy.
+                    out.insert(name, Arc::clone(p));
+                }
+            }
+        }
+    }
+    out
+}
+
+fn collect_vis_into(node: &LogNode, out: &mut RawVisState) {
+    match node {
+        LogNode::Scope { children, .. } => {
+            for c in children {
+                collect_vis_into(c, out);
+            }
+        }
+        LogNode::Vis { name, value } => {
+            let entry = match value.clone() {
+                Tagged::Same => RawVisField::Same,
+                t => match VisField::from_tagged(t) {
+                    Some(f) => RawVisField::Field(f),
+                    None => return,
+                },
+            };
+            out.insert(name.clone(), entry);
+        }
+        LogNode::Msg { .. } => {}
+    }
+}
+
+fn parse_log_node(value: &Value) -> Option<LogNode> {
+    let obj = value.as_object()?;
+    let typ = obj.get("$type").and_then(Value::as_str)?;
+    match typ {
+        "scope" => {
+            let name = obj
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let us = obj.get("us").and_then(Value::as_i64);
+            let children = obj
+                .get("children")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(parse_log_node).collect())
+                .unwrap_or_default();
+            Some(LogNode::Scope { name, us, children })
+        }
+        "msg" => {
+            let tmpl = obj
+                .get("tmpl")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let args = obj
+                .get("args")
+                .and_then(Value::as_object)
+                .map(|m| {
+                    m.iter()
+                        .map(|(k, v)| (k.clone(), parse_tagged(v)))
+                        .collect()
+                })
+                .unwrap_or_default();
+            Some(LogNode::Msg { tmpl, args })
+        }
+        "vis" => {
+            let name = obj
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            let value = obj.get("value").map(parse_tagged).unwrap_or(Tagged::Same);
+            Some(LogNode::Vis { name, value })
+        }
+        _ => None,
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Colour {
@@ -275,11 +501,9 @@ pub fn sample_palette(palette: &PaletteDef, value: f64) -> Option<Colour> {
 
     let last = palette.stops.len() - 1;
 
-    // Clamp below first stop
     if value <= palette.stops[0].t {
         return Some(palette.stops[0].colour);
     }
-    // Clamp above last stop
     if value >= palette.stops[last].t {
         return Some(palette.stops[last].colour);
     }

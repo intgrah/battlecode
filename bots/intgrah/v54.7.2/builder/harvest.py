@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from building import (
     BuildingBridge,
     BuildingConveyor,
+    BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
 )
@@ -12,7 +13,15 @@ from cambc import Controller, EntityType, Environment, Position, Team
 from util.debug import debug as log
 from util.directions import DIR4, get_direction_object
 
-from builder.helpers import can_afford, make_move, ore_available, try_move_with_road
+from builder.helpers import (
+    can_afford,
+    harvester_feed_cardinal,
+    harvester_io_cardinals,
+    make_move,
+    ore_available,
+    try_move_with_road,
+    try_place,
+)
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -86,7 +95,9 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             continue
 
         b = self.get_building(n)
-        if b is None:
+        # Treat empties, friendly roads, and markers as available for
+        # barrier placement — all cheaply destroyable.
+        if b is None or isinstance(b, BuildingRoad | BuildingMarker):
             unpaved_neighbors.append(n)
         elif not isinstance(b, BuildingRoad):
             pass
@@ -106,17 +117,34 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             self.ore_target = None
             return False
 
+        # Barrier the cardinals that aren't reserved as flow I/O for
+        # this (or an adjacent) harvester. Walls off the harvester from
+        # parasitic gunner placements before it even exists. The I/O
+        # cardinals — including the future feed slot picked toward
+        # ti_sink / my_core — stay clear.
+        io_reserved = harvester_io_cardinals(self, target_pos)
         for n in unpaved_neighbors:
-            if n == self.my_pos:
+            if n == self.my_pos or n in io_reserved:
                 continue
-            if ct.can_build_road(n):
+            if try_place(self, ct, EntityType.BARRIER, n):
                 log(
-                    f"build_at_ore: paving ROAD at neighbour {n} of ore "
-                    f"{target_pos} to make future builder movement faster "
-                    "(this is the pave-neighbours phase before placing harvester)",
+                    f"build_at_ore: BARRIER at neighbour {n} of ore "
+                    f"{target_pos} (proactive harvester wall)",
                 )
-                ct.build_road(n)
                 return True
+
+        # All non-IO cardinals barriered (or unaffordable). Pave the
+        # chosen feed cardinal with a road so an enemy can't squat-
+        # build a free conveyor there and steal the harvester's output
+        # the moment it spawns.
+        feed = harvester_feed_cardinal(self, target_pos)
+        if feed is not None and ct.can_build_road(feed):
+            log(
+                f"build_at_ore: ROAD on feed cardinal {feed} of ore "
+                f"{target_pos} (deny enemy squat-feeder)",
+            )
+            ct.build_road(feed)
+            return True
 
         if not can_afford(self, EntityType.HARVESTER):
             log(
@@ -182,35 +210,16 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
 
     if self.my_pos.distance_squared(target_pos) <= 2:
         if unpaved_neighbors:
-            for n in unpaved_neighbors:
-                if self.my_pos.distance_squared(n) <= 2 and ct.can_build_road(n):
-                    log(
-                        f"build_at_ore: paving ROAD at {n}, an unpaved cardinal "
-                        f"neighbour of ore {target_pos} (pave-before-build step)",
-                    )
-                    ct.build_road(n)
-                    return True
-
-            target_has_road = isinstance(self.get_building(target_pos), BuildingRoad)
-
-            if target_has_road:
-                log(
-                    f"build_at_ore: ore tile {target_pos} already has a road; "
-                    "walking onto it so we can place harvester from standing-on "
-                    "position next turn",
-                )
-                if try_move_with_road(self, ct, target_pos):
-                    return True
-            else:
-                target_n = unpaved_neighbors[0]
-                path = self.conv_search.search_blocked(ct, self.my_pos, target_n)
-                if path and len(path) > 1:
-                    log(
-                        f"build_at_ore: walking toward pave-target neighbour "
-                        f"{target_n} of ore, stepping to {path[1]} this turn",
-                    )
-                    try_move_with_road(self, ct, path[1])
-                    return True
+            # Walk onto the ore first to signal claim. Barriers are
+            # placed from there next turn — standing on the ore puts
+            # every cardinal in action range, so we lay all barriers
+            # from one position rather than orbit the tile.
+            log(
+                f"build_at_ore: walking onto ore {target_pos} to claim it; "
+                "barriers will be placed from there next turn",
+            )
+            if try_move_with_road(self, ct, target_pos):
+                return True
             return True
 
         if not can_afford(self, EntityType.HARVESTER):

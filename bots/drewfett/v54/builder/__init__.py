@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 from cambc import Controller, EntityType
 from config import DEBUG_DUMP, DEBUG_TIMING
+from debug import Scope, flush
 from unit import Unit
 from util import DIR8, can_afford, try_move
 
@@ -156,47 +157,50 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
-        if DEBUG_TIMING:
-            t0 = ct.get_cpu_time_elapsed()
-            update_map(s, ct)
-            t1 = ct.get_cpu_time_elapsed()
-            print(f"  map={t1 - t0}us")
-            update_splittable_locations(s, ct)
-            t2 = ct.get_cpu_time_elapsed()
-            print(f"  splittable={t2 - t1}us")
-            update_role(s, ct)
-            t3 = ct.get_cpu_time_elapsed()
-            print(f"  role={t3 - t2}us")
-            print(f"update={t3 - t0}us")
-        else:
-            update_map(s, ct)
-            update_splittable_locations(s, ct)
-            update_role(s, ct)
+        with Scope("turn"):
+            with Scope("body", time=True):
+                if DEBUG_TIMING:
+                    t0 = ct.get_cpu_time_elapsed()
+                    update_map(s, ct)
+                    t1 = ct.get_cpu_time_elapsed()
+                    print(f"  map={t1 - t0}us")
+                    update_splittable_locations(s, ct)
+                    t2 = ct.get_cpu_time_elapsed()
+                    print(f"  splittable={t2 - t1}us")
+                    update_role(s, ct)
+                    t3 = ct.get_cpu_time_elapsed()
+                    print(f"  role={t3 - t2}us")
+                    print(f"update={t3 - t0}us")
+                else:
+                    update_map(s, ct)
+                    update_splittable_locations(s, ct)
+                    update_role(s, ct)
 
-        if DEBUG_DUMP:
-            dump(s, ct)
+                if DEBUG_DUMP:
+                    dump(s, ct)
 
-        if s.role != Role.OFFENSE:
-            if DEBUG_TIMING:
-                update_economy(s, ct)
-                t4 = ct.get_cpu_time_elapsed()
-                print(f"  econ={t4 - t3}us")
-            else:
-                update_economy(s, ct)
-        elif DEBUG_TIMING:
-            t4 = t3
+                if s.role != Role.OFFENSE:
+                    if DEBUG_TIMING:
+                        update_economy(s, ct)
+                        t4 = ct.get_cpu_time_elapsed()
+                        print(f"  econ={t4 - t3}us")
+                    else:
+                        update_economy(s, ct)
+                elif DEBUG_TIMING:
+                    t4 = t3
 
-        for task in POLICIES[s.role]:
-            if task(s, ct):
-                break
+                for task in POLICIES[s.role]:
+                    if task(s, ct):
+                        break
 
-        if s.role != Role.OFFENSE:
-            _end_of_turn_heal(ct)
+                if s.role != Role.OFFENSE:
+                    _end_of_turn_heal(ct)
 
-        if DEBUG_TIMING:
-            t5 = ct.get_cpu_time_elapsed()
-            print(f"task={t5 - t4}us")
-            print(f"total={t5 - t0}us")
+                if DEBUG_TIMING:
+                    t5 = ct.get_cpu_time_elapsed()
+                    print(f"task={t5 - t4}us")
+                    print(f"total={t5 - t0}us")
+            flush()
 
 
 def _end_of_turn_heal(ct: Controller) -> None:

@@ -29,7 +29,7 @@ from hardcode.identify import core_for, find_core, identify_map
 from hardcode.map import SYMMETRY, TILES, decode
 from unit import Unit
 from util.constants import FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH
-from util.debug import Scope
+from util.debug import Scope, flush
 from util.debug import debug as log
 from util.directions import DIR4, DIR8, DIR8_DELTA
 from util.symmetry import Symmetry
@@ -43,8 +43,8 @@ from builder.hooks.indicators import indicators
 from builder.hooks.propagate_symmetry import end_of_turn_propagate_symmetry
 from builder.role import Role
 from builder.tasks import POLICIES
-from builder.tasks.offense_helpers import begin_turn_offense
-from builder.tasks.rejected import TaskRejectedError
+from builder.tasks._policy import run_policy
+from builder.tasks.offense.helpers import begin_turn_offense
 from builder.update import update
 from builder.update.econ import (
     can_place_junction,
@@ -207,98 +207,6 @@ class Builder(Unit):
         else:
             self.dangling_set.discard(t)
             self.unreachable_dangling.discard(t)
-
-    def _log_state(self) -> None:
-        """Human-readable dump of all post-update Builder state, grouped
-        by domain. Cheap: scalars + small counts, no per-tile arrays.
-        """
-        log(f"state: id={self.my_id} pos={self.my_pos} round={self.round}")
-        with Scope("identity"):
-            log(f"role={self.role} age={self.role_age} perm={self.permanent_role}")
-            log(
-                f"symmetry={self.symmetry} "
-                f"candidates={sorted(s.name for s in self.symmetry_candidates)} "
-                f"en_core_seen={self.en_core_seen}",
-            )
-        with Scope("resources"):
-            log(f"ti={self.ti} ax={self.ax}")
-        with Scope("econ_targets"):
-            log(
-                f"ti_ore={self.ore_target} ax_ore={self.ax_ore_target} "
-                f"off_ore={self.offensive_ore_target} "
-                f"foundry={self.foundry_target}",
-            )
-            log(
-                f"ti_sink={self.ti_sink} ax_sink={self.ax_sink} "
-                f"dangling_output={self.dangling_output}",
-            )
-        with Scope("econ_sets"):
-            log(
-                f"dangling={len(self.dangling_set)} "
-                f"unreachable_dangling={len(self.unreachable_dangling)} "
-                f"reflect_queue={len(self.reflect_queue)}",
-            )
-            with Scope("dangling_set"):
-                for p in sorted(
-                    self.dangling_set,
-                    key=lambda q: (q.y, q.x),
-                ):
-                    log(str(p))
-            with Scope("unreachable_dangling"):
-                for p in sorted(
-                    self.unreachable_dangling,
-                    key=lambda q: (q.y, q.x),
-                ):
-                    log(str(p))
-            log(
-                f"reaches_core={len(self.reaches_core)} "
-                f"reaches_foundry={len(self.reaches_foundry)} "
-                f"foundries={len(self.my_foundries)}",
-            )
-            log(
-                f"ti_upstream={len(self.ti_upstream)} "
-                f"ax_upstream={len(self.ax_upstream)} "
-                f"upstream_of_dangling={len(self.upstream_of_dangling)} "
-                f"upstream_of_congestion={len(self.upstream_of_congestion)}",
-            )
-            log(
-                f"junctions={len(self.junctions)} "
-                f"multi_input={len(self.is_multi_input)} "
-                f"congested={len(self.congested_junctions)}",
-            )
-            log(
-                f"ti_harv_adj={len(self.ti_harvester_adjacent)} "
-                f"ax_harv_adj={len(self.ax_harvester_adjacent)} "
-                f"adj_to_unconn_harv={len(self.adjacent_to_unconnected_harvester)}",
-            )
-        with Scope("offense"):
-            log(
-                f"target={self.offense_target} turns={self.offense_turns} "
-                f"launcher={self.offense_launcher} "
-                f"last_fire={self.last_fire}",
-            )
-            log(
-                f"nearest_enemy_turret={self.nearest_enemy_turret} "
-                f"enemy_ray_tiles={len(self.enemy_turret_ray_tiles)} "
-                f"friendly_ray_tiles={len(self.friendly_turret_ray_tiles)} "
-                f"adj_enemy_launcher={len(self.adjacent_to_enemy_launcher)} "
-                f"attack_blacklist={len(self.attack_tile_blacklist)}",
-            )
-        with Scope("misc"):
-            log(
-                f"repair_pos={self.repair_pos} repaired_prev={self.repaired_prev} "
-                f"scout={self.scout_target} scout_age={self.scout_age} "
-                f"opportunistic={self.opportunistic}",
-            )
-            log(
-                f"patrol_head={self.patrol_head} "
-                f"patrol_trail={len(self.patrol_trail)} "
-                f"deny_ore_neighbours={len(self.deny_ore_neighbours)}",
-            )
-            log(
-                f"nearby_buildings={len(self.nearby_buildings)} "
-                f"healable={len(self.healable_buildings)}",
-            )
 
     def update_pnb(self, i: int) -> None:
         w, h = self.w, self.h
@@ -800,34 +708,29 @@ class Builder(Unit):
     @override
     def run(self, ct: Controller) -> None:
         super().run(ct)
-        log(
-            f"====== Builder {self.my_id} starting turn {self.round}: "
-            f"currently at {self.my_pos}, team has ti={self.ti} ax={self.ax}, ",
-        )
-        self.update(ct)
-        begin_turn_offense(self, ct)
-        self._log_state()
+        with Scope("turn"):
+            with Scope("body", time=True):
+                log(
+                    "Builder {id} pos={pos} round={round}",
+                    id=self.my_id,
+                    pos=self.my_pos,
+                    round=self.round,
+                )
+                self.update(ct)
+                begin_turn_offense(self, ct)
 
-        if DEBUG_DUMP:
-            self.dump(ct)
+                if DEBUG_DUMP:
+                    self.dump(ct)
 
-        assert self.role is not None
-        with Scope("tasks", time=True):
-            for task in POLICIES[self.role]:
-                with Scope(f"task={task}", time=True):
-                    try:
-                        task.run(self, ct)
-                    except Exception as exc:
-                        if not isinstance(exc, TaskRejectedError):
-                            raise
-                        log(f"rejected: {type(exc).__name__}: {exc}")
-                        continue
-                    break
-        with Scope("hooks"):
-            with Scope("indicators"):
-                self.indicators(ct)
-            if self.role != Role.OFFENSE:
-                with Scope("heal"):
-                    self.end_of_turn_heal(ct)
-            with Scope("symmetry"):
-                self.end_of_turn_propagate_symmetry(ct)
+                assert self.role is not None
+                with Scope("tasks", time=True):
+                    run_policy(self, ct, POLICIES[self.role])
+                with Scope("hooks", time=True):
+                    with Scope("indicators", time=True):
+                        self.indicators(ct)
+                    if self.role != Role.OFFENSE:
+                        with Scope("heal", time=True):
+                            self.end_of_turn_heal(ct)
+                    with Scope("symmetry", time=True):
+                        self.end_of_turn_propagate_symmetry(ct)
+            flush()

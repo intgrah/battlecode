@@ -6,6 +6,7 @@ from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
     BuildingConveyor,
+    BuildingCore,
     BuildingFoundry,
     BuildingHarvester,
     BuildingMarker,
@@ -30,34 +31,40 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     so the caller shouldn't treat the turn as productive.
     """
     if self.my_pos == target:
-        log(f"make_move: already on target tile {target}, no movement needed")
+        log("make_move: already on target {target}", target=target)
         return False
 
     path = self.move_search.search_blocked(ct, self.my_pos, target)
     if path is not None and len(path) > 1:
         next_step = path[1]
         log(
-            f"make_move: walking from {self.my_pos} toward {target} via A* move "
-            f"search; path has {len(path)} hops, stepping to {next_step} this turn",
+            "make_move: A* {start}->{target} ({hops} hops), step {next}",
+            start=self.my_pos,
+            target=target,
+            hops=len(path),
+            next=next_step,
         )
         return try_move_with_road(self, ct, next_step)
     next_move = bugnav(self, ct, target)
     if next_move:
         log(
-            f"make_move: A* found no path from {self.my_pos} to {target}; falling "
-            f"back to bugnav, stepping to {next_move} this turn",
+            "make_move: A* {start}->{target} no path; bugnav step {next}",
+            start=self.my_pos,
+            target=target,
+            next=next_move,
         )
         return try_move_with_road(self, ct, next_move)
     log(
-        f"make_move: FAILED to reach {target} from {self.my_pos}: A* returned no "
-        "path and bugnav also failed; builder stays put this turn",
+        "make_move: FAILED {start}->{target} (A* and bugnav both failed)",
+        start=self.my_pos,
+        target=target,
     )
     return False
 
 
 def try_move_dir(ct: Controller, d: Direction) -> bool:
     if ct.can_move(d):
-        log(f"try_move_dir: moving in direction {d}")
+        log("try_move_dir: moving {dir}", dir=d)
         ct.move(d)
         return True
     return False
@@ -67,8 +74,10 @@ def try_move_to(self: Builder, ct: Controller, target_pos: Position) -> bool:
     d = self.my_pos.direction_to(target_pos)
     if ct.can_move(d):
         log(
-            f"try_move_to: stepping from {self.my_pos} toward {target_pos} in "
-            f"direction {d}",
+            "try_move_to: {start}->{target} dir {dir}",
+            start=self.my_pos,
+            target=target_pos,
+            dir=d,
         )
         ct.move(d)
         return True
@@ -78,8 +87,9 @@ def try_move_to(self: Builder, ct: Controller, target_pos: Position) -> bool:
 def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> bool:
     if self.get_cost(target_pos) > 1 and ct.can_build_road(target_pos):
         log(
-            f"try_move_with_road: paving road at {target_pos} before stepping onto "
-            f"it (cost={self.get_cost(target_pos)} > 1, so road speeds up movement)",
+            "try_move_with_road: paving road at {target} (cost={cost} > 1)",
+            target=target_pos,
+            cost=self.get_cost(target_pos),
         )
         ct.build_road(target_pos)
     return try_move_to(self, ct, target_pos)
@@ -87,7 +97,7 @@ def try_move_with_road(self: Builder, ct: Controller, target_pos: Position) -> b
 
 def try_attack(ct: Controller, pos: Position) -> bool:
     if ct.can_fire(pos):
-        log(f"try_attack: firing on tile {pos}")
+        log("try_attack: firing on {pos}", pos=pos)
         ct.fire(pos)
         return True
     return False
@@ -163,32 +173,43 @@ def try_place(
     destroy: bool = True,
 ) -> bool:
     if not can_afford(self, etype):
-        ti_base, _ax = BASE_COST[etype]
-        need = ti_needed(self, etype)
         log(
-            f"try_place: cannot build {etype.name} at {pos}: insufficient "
-            f"titanium (have ti={self.ti}, need {need}; base cost {ti_base}, "
-            f"scale {self.scale:.2f}, foundry_reserve={_foundry_reserve(self)}, "
-            f"unit_reserve={_unit_reserve(self, etype)})",
+            "try_place: cannot afford {etype} at {pos} "
+            "(have {have}, need {need}; base {base}, scale {scale:.2f}, "
+            "foundry_reserve={fr}, unit_reserve={ur})",
+            etype=etype,
+            pos=pos,
+            have=self.ti,
+            need=ti_needed(self, etype),
+            base=BASE_COST[etype][0],
+            scale=self.scale,
+            fr=_foundry_reserve(self),
+            ur=_unit_reserve(self, etype),
         )
         return False
     if destroy and ct.can_destroy(pos):
         log(
-            f"try_place: destroying existing building at {pos} to make room for "
-            f"new {etype.name}",
+            "try_place: destroying existing building at {pos} for {etype}",
+            pos=pos,
+            etype=etype,
         )
         ct.destroy(pos)
     if ct.can_build(etype, pos, extra):
         log(
-            f"try_place: built {etype.name} at {pos} with extra={extra}; "
-            f"ti before this action was {self.ti}, scale {self.scale:.2f}",
+            "try_place: built {etype} at {pos} extra={extra} (ti={ti}, scale={scale:.2f})",
+            etype=etype,
+            pos=pos,
+            extra=extra,
+            ti=self.ti,
+            scale=self.scale,
         )
         ct.build(etype, pos, extra)
         return True
     log(
-        f"try_place: controller rejected build of {etype.name} at {pos} with "
-        f"extra={extra} (can_build returned False; likely action cooldown, "
-        "out of range, or invalid tile)",
+        "try_place: controller rejected {etype} at {pos} extra={extra} (can_build False)",
+        etype=etype,
+        pos=pos,
+        extra=extra,
     )
     return False
 
@@ -247,7 +268,7 @@ def try_heal(
         if not self.buildings[i] or self.hp[i] > self.max_hp[i] - 4:
             return False
     if ct.can_heal(position):
-        log(f"try_heal: healing tile {position}")
+        log("try_heal: healing {pos}", pos=position)
         ct.heal(position)
         return True
     return False
@@ -287,6 +308,81 @@ def ore_available(self: Builder, pos: Position) -> bool:
     if b is not None and not isinstance(b, BuildingRoad | BuildingMarker):
         return False
     return not (pos in self.all_bots and self.all_bots[pos] != self.my_id)
+
+
+def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None:
+    """The cardinal of `ore_pos` chosen as the future flow-feed slot —
+    the empty cardinal closest to `ti_sink` / `my_core`. Reserved per
+    harvester so the harvester always has at least one consumer side.
+
+    Returns None if every cardinal already hosts a flow consumer or the
+    builder, or if no sink is known. Excludes the builder's own tile
+    (transient: the builder will step off; that tile may become the
+    feed too, but it's already an I/O slot regardless of sink choice)."""
+    sink = self.ti_sink if self.ti_sink is not None else self.my_core
+    if sink is None:
+        return None
+    free: list[Position] = []
+    for d in DIR4:
+        c = ore_pos.add(d)
+        if not self.in_bounds(c):
+            continue
+        if c == self.my_pos:
+            continue
+        b = self.get_building(c)
+        if isinstance(
+            b,
+            BuildingConveyor
+            | BuildingArmouredConveyor
+            | BuildingSplitter
+            | BuildingBridge
+            | BuildingFoundry
+            | BuildingCore
+            | BuildingHarvester,
+        ):
+            continue
+        free.append(c)
+    if not free:
+        return None
+    return min(free, key=lambda c: c.distance_squared(sink))
+
+
+def harvester_io_cardinals(self: Builder, ore_pos: Position) -> set[Position]:
+    """Cardinals of `ore_pos` that must NOT be barriered: they are (or
+    will become) the harvester's flow input/output side.
+
+    Excluded:
+    - The cardinal already hosts a friendly transport (conveyor / armoured
+      conveyor / splitter / bridge), foundry, core, or another harvester
+      — already a flow path or blocked by a sibling harvester.
+    - The builder's own current tile (will become the chain feed when
+      the builder steps off the ore).
+    - The cardinal returned by `harvester_feed_cardinal` (chosen feed
+      direction toward the sink).
+    """
+    cardinals = [ore_pos.add(d) for d in DIR4 if self.in_bounds(ore_pos.add(d))]
+    reserved: set[Position] = set()
+    for c in cardinals:
+        if c == self.my_pos:
+            reserved.add(c)
+            continue
+        b = self.get_building(c)
+        if isinstance(
+            b,
+            BuildingConveyor
+            | BuildingArmouredConveyor
+            | BuildingSplitter
+            | BuildingBridge
+            | BuildingFoundry
+            | BuildingCore
+            | BuildingHarvester,
+        ):
+            reserved.add(c)
+
+    feed = harvester_feed_cardinal(self, ore_pos)
+    if feed is not None:
+        reserved.add(feed)
+    return reserved
 
 
 def pick_ore_target(self: Builder) -> Position | None:

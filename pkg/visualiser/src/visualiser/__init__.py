@@ -1,50 +1,27 @@
+"""Visualisation primitives.
+
+These are thin wrappers around list/scalar payloads that the debug
+tree's `vis()` helper routes into the per-turn JSON tree. There is no
+longer a separate stdout channel — every line of bot stdout IS the
+debug tree (one JSON object per turn).
+
+Use `vis(name, X)` from `util.debug` instead of the previous `emit()`
+sentinel-line API. The classes here exist for ergonomic construction
+of structured grid / scalar / tile payloads with palette metadata.
+"""
+
 # ruff: noqa: UP046, UP047
 # 3.11 compatible, so no PEP 695
-"""Declarative state visualisation for the replay viewer.
-
-Usage in builder code:
-
-    from visualiser import (
-        BoolGrid, I16Grid, Scalar, Tiles, Palette, PaletteStop,
-        Colour, VectorField, emit, TRANSPARENT,
-    )
-
-    P_DIST = Palette(
-        stops=[PaletteStop(0, Colour(50, 200, 50, 140)), PaletteStop(100, Colour(200, 50, 50, 140))],
-        special={INF: TRANSPARENT},
-    )
-
-    emit(
-        dist=I16Grid(state.dist, palette=P_DIST),
-        fog=BoolGrid([e is None for e in self.env], palette=P_FOG),
-        scale=Scalar(142.5),
-        goals=Tiles([(3, 5), (7, 2)]),
-    )
-
-The replay viewer parses lines prefixed with ##VIS## from bot stdout.
-Each call to emit() replaces the previous vis state for that bot on that turn.
-
-Palette stops use actual data values (not normalised). Interpolation is
-clamped outside the stop range.
-
-Special values: dict mapping value -> Colour.
-    Use TRANSPARENT for invisible. Matched values bypass the gradient.
-
-Supported grid types: BoolGrid, U8Grid, I16Grid, U16Grid, F32Grid.
-"""
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
 T = TypeVar("T", int, float, bool)
-
-VIS_PREFIX = "##VIS## "
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,7 +74,7 @@ def with_special(palette: Palette[T], special: dict[T, Colour]) -> Palette[T]:
     return Palette(stops=palette.stops, special=merged)
 
 
-def _serialize_palette(p: Palette) -> dict:
+def serialize_palette(p: Palette) -> dict[str, Any]:
     return {
         "stops": [
             [s.t, s.colour.r, s.colour.g, s.colour.b, s.colour.a] for s in p.stops
@@ -140,11 +117,6 @@ GridType = BoolGrid | U8Grid | I16Grid | U16Grid | F32Grid
 
 
 @dataclass(frozen=True, slots=True)
-class Scalar:
-    data: float | int | str
-
-
-@dataclass(frozen=True, slots=True)
 class Tiles:
     data: Iterable[tuple[int, int]]
 
@@ -155,9 +127,7 @@ class VectorField:
     magnitudes: Sequence[float] | None = None
 
 
-type VisField = GridType | Scalar | Tiles | VectorField
-
-_GRID_DTYPE: dict[type[VisField], str] = {
+_GRID_DTYPE: dict[type, str] = {
     BoolGrid: "bool",
     U8Grid: "u8",
     I16Grid: "i16",
@@ -166,26 +136,24 @@ _GRID_DTYPE: dict[type[VisField], str] = {
 }
 
 
-def _serialize_field(v: VisField) -> dict:
+def serialize(v: object) -> dict[str, Any]:
+    """Convert a vis-primitive value into a tagged dict for the debug
+    tree. Returns `{"$type": <type>, ...}`. The debug module's `vis()`
+    helper dispatches here when the value is one of these dataclasses
+    rather than a plain Python value."""
     match v:
         case BoolGrid() | U8Grid() | I16Grid() | U16Grid() | F32Grid():
             return {
-                "type": "grid",
-                "dtype": _GRID_DTYPE[type(v)],
-                "data": list(v.data),
-                "palette": _serialize_palette(v.palette),
+                "$type": f"{_GRID_DTYPE[type(v)]}grid",
+                "v": list(v.data),
+                "palette": serialize_palette(v.palette),
             }
-        case Scalar(data=d):
-            return {"type": "scalar", "data": d}
         case Tiles(data=d):
-            return {"type": "tiles", "data": [list(t) for t in d]}
+            return {"$type": "tiles", "v": [list(t) for t in d]}
         case VectorField(angles=a, magnitudes=m):
-            obj: dict = {"type": "vectorfield", "angles": list(a)}
+            obj: dict[str, Any] = {"$type": "vectorfield", "angles": list(a)}
             if m is not None:
                 obj["magnitudes"] = list(m)
             return obj
-
-
-def emit(**fields: VisField) -> None:
-    obj = {name: _serialize_field(v) for name, v in fields.items()}
-    print(f"{VIS_PREFIX}{json.dumps(obj, separators=(',', ':'))}")
+    msg = f"unsupported vis type {type(v).__name__}"
+    raise TypeError(msg)

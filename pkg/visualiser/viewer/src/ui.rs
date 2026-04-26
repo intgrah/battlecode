@@ -7,7 +7,7 @@ use crate::app::App;
 use crate::entity;
 use crate::proto;
 use crate::state::{Entity, EntityKind, GameState, TurnState};
-use crate::vis::{VisField, VisState};
+use crate::vis::{LogNode, ScalarValue, Tagged};
 
 struct TeamStats {
     counts: HashMap<u8, u32>,
@@ -486,113 +486,527 @@ pub fn render_left_sidebar(ui: &mut egui::Ui, app: &App) {
         });
 }
 
-pub fn render_right_sidebar(ui: &mut egui::Ui, app: &mut App) {
+/// Top-bar panel: rendering toggles, tile/entity inspector, actions
+/// taken by the entity at the cursor. Resizable downwards. Lives at
+/// the top so it doesn't compete for vertical room with the state-dump
+/// and log columns on the right.
+pub fn render_top_panel(ui: &mut egui::Ui, app: &mut App) {
     let state = &app.game.turns[app.turn];
 
-    egui::Panel::right("info")
-        .default_size(250.0)
+    egui::Panel::top("config_inspector")
+        .default_size(280.0)
+        .resizable(true)
         .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(8.0))
         .show_inside(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.checkbox(&mut app.show_indicators, "Show indicators (i)");
-                ui.checkbox(&mut app.show_flow, "Show empirical flow (f)");
-                ui.checkbox(&mut app.show_ranges, "Show ranges");
-                ui.checkbox(
+            // Layout: 6 horizontal columns laid out left-to-right.
+            //   col 0: Config (rendering toggles)
+            //   col 1: Tile env
+            //   cols 2,3: Entity 1 — text, CPU graph
+            //   cols 4,5: Entity 2 — text, CPU graph
+            // Two entity slots cover the max occupancy (one building +
+            // one builder/turret per tile). Empty slots stay blank in
+            // place — no reflow when the cursor moves.
+            let selected = app.cursor;
+            ui.columns(6, |cols| {
+                let (left, rest) = cols.split_at_mut(1);
+                let (envc, ents) = rest.split_at_mut(1);
+
+                // Config
+                left[0].label(egui::RichText::new("Config").strong());
+                left[0].separator();
+                left[0].checkbox(&mut app.show_indicators, "Indicators (i)");
+                left[0].checkbox(&mut app.show_flow, "Empirical flow (f)");
+                left[0].checkbox(&mut app.show_ranges, "Ranges");
+                left[0].checkbox(
                     &mut app.show_conveyor_junctions,
-                    "Experimental conveyor junctions",
+                    "Conv junctions",
                 );
-                ui.checkbox(&mut app.highlight_builders, "Highlight builders");
+                left[0].checkbox(&mut app.highlight_builders, "Highlight builders");
 
-                let vis_fields = collect_vis_fields(state, app.selected_entity);
-                if !vis_fields.is_empty() {
-                    ui.add_space(8.0);
-                    ui.heading("Bot State");
-                    ui.separator();
+                // Env column with the position header at the top.
+                envc[0].label(
+                    egui::RichText::new(format!("({},{})", selected.0, selected.1))
+                        .monospace()
+                        .size(18.0)
+                        .strong(),
+                );
+                envc[0].monospace(format_tile_info(&app.game, selected));
 
-                    let mut field_names: Vec<&String> = vis_fields.keys().collect();
-                    field_names.sort();
-
-                    for name in &field_names {
-                        match vis_fields.get(*name) {
-                            Some(VisField::Scalar { data }) => {
-                                ui.monospace(format!("{name}: {data}"));
-                            }
-                            Some(
-                                VisField::Grid { .. }
-                                | VisField::Tiles { .. }
-                                | VisField::VectorField(..),
-                            ) => {
-                                let mut enabled = app.vis_overlays.contains(*name);
-                                if ui.checkbox(&mut enabled, name.as_str()).changed() {
-                                    if enabled {
-                                        app.vis_overlays.insert((*name).clone());
-                                    } else {
-                                        app.vis_overlays.remove(*name);
-                                    }
-                                }
-                            }
-                            None => {}
-                        }
-                    }
-                }
-
-                ui.add_space(8.0);
-                ui.heading("Inspector");
-                ui.separator();
-
-                ui.monospace(format_tile_info(&app.game, app.cursor));
-
-                let mut at_cursor: Vec<&Entity> = state
+                // Entities at the selected tile, sorted by sort_key
+                // (so order is stable: building-ish first, builder
+                // last per the existing convention).
+                let mut at: Vec<&Entity> = state
                     .entities
                     .values()
-                    .filter(|e| e.pos == (app.cursor.0, app.cursor.1))
+                    .filter(|e| e.pos == selected)
                     .collect();
-                at_cursor.sort_by_key(|e| !matches!(e.kind, EntityKind::BuilderBot { .. }));
+                at.sort_by_key(|e| entity::sort_key(&e.kind));
 
-                for e in &at_cursor {
-                    ui.add_space(4.0);
-                    ui.separator();
-                    ui.monospace(format_entity_info(e, &state.cpu_time_us));
-                    draw_turn_time_graph(ui, &app.game, app.turn, e.id);
-                }
-
-                let entity_ids: Vec<i32> = at_cursor.iter().map(|e| e.id).collect();
-
-                let actions: Vec<_> = state
-                    .actions
-                    .iter()
-                    .filter(|(id, _)| entity_ids.contains(id))
-                    .map(|(_, a)| a)
-                    .collect::<Vec<_>>();
-                if !actions.is_empty() {
-                    ui.add_space(8.0);
-                    ui.heading("Actions");
-                    ui.separator();
-                    for a in actions {
-                        ui.monospace(format!("{a}"));
+                let [text0, graph0, text1, graph1] = ents else {
+                    unreachable!()
+                };
+                let slots: [(&mut egui::Ui, &mut egui::Ui); 2] =
+                    [(text0, graph0), (text1, graph1)];
+                for (i, (text_col, graph_col)) in slots.into_iter().enumerate() {
+                    if let Some(e) = at.get(i) {
+                        text_col.monospace(format_entity_info(e, &state.cpu_time_us));
+                        draw_turn_time_graph(graph_col, &app.game, app.turn, e.id);
                     }
                 }
-
-                ui.add_space(8.0);
-                ui.heading("Log");
-                ui.separator();
-
-                let log_ids = &entity_ids;
-                let log_text: String = state
-                    .outputs
-                    .iter()
-                    .filter(|(oid, _)| log_ids.contains(oid))
-                    .map(|(_, s)| s.as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                ui.monospace(log_text);
             });
         });
 }
 
-fn collect_vis_fields(state: &TurnState, selected: Option<i32>) -> VisState {
-    let id = selected.unwrap_or(-1);
-    state.vis_data.get(&id).cloned().unwrap_or_default()
+/// Right-hand column for the structured state dump (categorical tree
+/// of vis fields). Independent panel so resizing it doesn't shrink the
+/// log column. Hover-clears `hovered_vis_overlay` here since this is
+/// where the hover gets set.
+pub fn render_state_dump_panel(ui: &mut egui::Ui, app: &mut App) {
+    let state = &app.game.turns[app.turn];
+
+    // Hover overlay is transient: cleared every frame, set if any
+    // hover-eligible row is currently being hovered. Sticky selection
+    // survives across frames.
+    app.hovered_vis_overlay = None;
+
+    egui::Panel::right("state_dump")
+        .default_size(250.0)
+        .resizable(true)
+        .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(8.0))
+        .show_inside(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.heading("Bot State");
+                ui.separator();
+                if let Some(eid) = app.selected_entity
+                    && let Some(tree) = state.log_trees.get(&eid)
+                    && let Some(dump_node) = find_scope(&tree.root, "dump")
+                {
+                    let resolved = state.vis_data.get(&eid);
+                    render_dump_node(
+                        ui,
+                        dump_node,
+                        "dump",
+                        &mut app.hover_tile,
+                        &mut app.selected_vis_overlays,
+                        &mut app.hovered_vis_overlay,
+                        resolved,
+                    );
+                } else {
+                    ui.weak("Select a builder to see its state dump.");
+                }
+            });
+        });
+}
+
+/// Right-hand column for the structured log tree. Independent panel —
+/// expanding the log doesn't shrink the state dump.
+pub fn render_log_panel(ui: &mut egui::Ui, app: &mut App) {
+    let state = &app.game.turns[app.turn];
+
+    egui::Panel::right("log")
+        .default_size(450.0)
+        .resizable(true)
+        .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(8.0))
+        .show_inside(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.heading("Log");
+                ui.separator();
+
+                let at_cursor: Vec<&Entity> = state
+                    .entities
+                    .values()
+                    .filter(|e| e.pos == (app.cursor.0, app.cursor.1))
+                    .collect();
+                let entity_ids: Vec<i32> = at_cursor.iter().map(|e| e.id).collect();
+
+                for &eid in &entity_ids {
+                    if let Some(tree) = state.log_trees.get(&eid) {
+                        ui.label(egui::RichText::new(format!("entity {eid}")).strong());
+                        let path = format!("logtree-{eid}");
+                        render_log_node(
+                            ui,
+                            &tree.root,
+                            &path,
+                            &mut app.hover_tile,
+                        );
+                        if let Some(us) = tree.prev_flush_us {
+                            ui.monospace(format!("prev_flush_us = {us}"));
+                        }
+                        ui.separator();
+                    }
+                }
+
+                // Anything that didn't parse as a log tree shows up in
+                // the raw outputs panel.
+                let raw_text: String = state
+                    .outputs
+                    .iter()
+                    .filter(|(oid, _)| entity_ids.contains(oid))
+                    .map(|(_, s)| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !raw_text.is_empty() {
+                    ui.label("raw stdout:");
+                    ui.monospace(raw_text);
+                }
+            });
+        });
+}
+
+fn render_log_node(
+    ui: &mut egui::Ui,
+    node: &LogNode,
+    path: &str,
+    hover_tile: &mut Option<(i32, i32)>,
+) {
+    match node {
+        LogNode::Scope { name, us, children } => {
+            if name == "dump" {
+                return;
+            }
+            let mut job = egui::text::LayoutJob::default();
+            job.append(
+                name,
+                0.0,
+                egui::TextFormat {
+                    color: egui::Color32::from_rgb(160, 200, 240),
+                    ..Default::default()
+                },
+            );
+            if let Some(us) = us {
+                job.append(
+                    &format!(" ({us}μs)"),
+                    0.0,
+                    egui::TextFormat {
+                        color: egui::Color32::GRAY,
+                        ..Default::default()
+                    },
+                );
+            }
+            let resp = egui::CollapsingHeader::new(job)
+                .id_salt(path)
+                .default_open(true)
+                .show(ui, |ui| {
+                    for (i, c) in children.iter().enumerate() {
+                        let child_path = format!("{path}/{i}");
+                        render_log_node(ui, c, &child_path, hover_tile);
+                    }
+                });
+            if resp.header_response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+        }
+        LogNode::Msg { tmpl, args } => {
+            ui.horizontal_wrapped(|ui| {
+                let mut rest = tmpl.as_str();
+                while let Some(open) = rest.find('{') {
+                    if open > 0 {
+                        ui.monospace(&rest[..open]);
+                    }
+                    let tail = &rest[open + 1..];
+                    if let Some(close) = tail.find('}') {
+                        let key = &tail[..close];
+                        if let Some((_, v)) = args.iter().find(|(k, _)| k == key) {
+                            render_tagged_inline(ui, v, hover_tile);
+                        } else {
+                            ui.monospace(format!("{{{key}}}"));
+                        }
+                        rest = &tail[close + 1..];
+                    } else {
+                        ui.monospace(rest);
+                        rest = "";
+                        break;
+                    }
+                }
+                if !rest.is_empty() {
+                    ui.monospace(rest);
+                }
+            });
+        }
+        LogNode::Vis { .. } => {}
+    }
+}
+
+fn render_tagged_inline(
+    ui: &mut egui::Ui,
+    t: &Tagged,
+    hover_tile: &mut Option<(i32, i32)>,
+) {
+    match t {
+        Tagged::Scalar(s) => render_scalar_inline(ui, s, hover_tile),
+        Tagged::Tiles(d) => {
+            let label = if d.len() <= 4 {
+                let parts: Vec<String> =
+                    d.iter().map(|(x, y)| format!("({x},{y})")).collect();
+                format!("tiles[{}]", parts.join(", "))
+            } else {
+                format!("tiles[{} positions]", d.len())
+            };
+            ui.monospace(label);
+        }
+        Tagged::Grid { data, .. } => {
+            let n = match data {
+                crate::vis::GridData::Bool(v) => v.len(),
+                crate::vis::GridData::U8(v) => v.len(),
+                crate::vis::GridData::I16(v) => v.len(),
+                crate::vis::GridData::U16(v) => v.len(),
+                crate::vis::GridData::F32(v) => v.len(),
+            };
+            ui.monospace(format!("grid[{n}]"));
+        }
+        Tagged::VectorField(a) => {
+            ui.monospace(format!("vectorfield[{}]", a.arrows.len()));
+        }
+        Tagged::Same => {
+            ui.monospace("(same as prev turn)");
+        }
+    }
+}
+
+fn render_scalar_inline(
+    ui: &mut egui::Ui,
+    s: &ScalarValue,
+    hover_tile: &mut Option<(i32, i32)>,
+) {
+    match s {
+        ScalarValue::Pos(x, y) => {
+            let label =
+                egui::RichText::new(format!("({x},{y})")).color(egui::Color32::LIGHT_BLUE);
+            let resp = ui.label(label);
+            if resp.hovered() {
+                *hover_tile = Some((*x, *y));
+            }
+        }
+        ScalarValue::Null => {
+            ui.monospace("None");
+        }
+        ScalarValue::List(items) if items.is_empty() => {
+            ui.monospace("[]");
+        }
+        ScalarValue::List(items) => {
+            ui.monospace("[");
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    ui.monospace(",");
+                }
+                render_scalar_inline(ui, item, hover_tile);
+            }
+            ui.monospace("]");
+        }
+        other => {
+            ui.monospace(format!("{other}"));
+        }
+    }
+}
+
+/// One column of the Inspector. Renders env first, then any building
+/// at `pos`, then any builder. Three slots max — those are the only
+
+/// Return the first child scope of `node` named `name`, or None.
+fn find_scope<'a>(node: &'a LogNode, name: &str) -> Option<&'a LogNode> {
+    if let LogNode::Scope { name: n, children, .. } = node {
+        if n == name {
+            return Some(node);
+        }
+        for c in children {
+            if let Some(found) = find_scope(c, name) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
+/// Render a `dump` subtree as collapsible category headers with typed
+/// rows. Called only with `node` being a Scope. `resolved` is the per-
+/// builder `VisState` (Same markers already substituted by the parser);
+/// the renderer prefers values from there over the inline tree value.
+fn render_dump_node(
+    ui: &mut egui::Ui,
+    node: &LogNode,
+    path: &str,
+    hover_tile: &mut Option<(i32, i32)>,
+    selected: &mut std::collections::HashSet<String>,
+    hovered: &mut Option<String>,
+    resolved: Option<&crate::vis::VisState>,
+) {
+    let LogNode::Scope { children, .. } = node else {
+        return;
+    };
+    for (i, child) in children.iter().enumerate() {
+        let child_path = format!("{path}/{i}");
+        match child {
+            LogNode::Scope { name, children: subs, .. } => {
+                let header = egui::RichText::new(name)
+                    .strong()
+                    .color(egui::Color32::from_rgb(160, 200, 240));
+                let resp = egui::CollapsingHeader::new(header)
+                    .id_salt(&child_path)
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        for (j, sub) in subs.iter().enumerate() {
+                            let sub_path = format!("{child_path}/{j}");
+                            render_dump_entry(
+                                ui, sub, &sub_path, hover_tile, selected, hovered, resolved,
+                            );
+                        }
+                    });
+                if resp.header_response.hovered() {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+            }
+            _ => render_dump_entry(
+                ui,
+                child,
+                &child_path,
+                hover_tile,
+                selected,
+                hovered,
+                resolved,
+            ),
+        }
+    }
+}
+
+fn render_dump_entry(
+    ui: &mut egui::Ui,
+    node: &LogNode,
+    path: &str,
+    hover_tile: &mut Option<(i32, i32)>,
+    selected: &mut std::collections::HashSet<String>,
+    hovered: &mut Option<String>,
+    resolved: Option<&crate::vis::VisState>,
+) {
+    match node {
+        LogNode::Vis { name, value } => {
+            let live = resolved.and_then(|r| r.get(name));
+            render_vis_row(
+                ui,
+                name,
+                value,
+                live.map(|f| f.as_ref()),
+                hover_tile,
+                selected,
+                hovered,
+            );
+        }
+        LogNode::Scope { .. } => {
+            render_dump_node(ui, node, path, hover_tile, selected, hovered, resolved);
+        }
+        LogNode::Msg { .. } => {}
+    }
+}
+
+/// Render a single vis row. Map-renderable kinds (grid / tiles /
+/// vectorfield / scalar Pos) become hover/click rows driving the map
+/// overlay via `selected_vis_overlays`. Other scalars render as
+/// `name: <value>` text.
+fn render_vis_row(
+    ui: &mut egui::Ui,
+    name: &str,
+    inline: &Tagged,
+    live: Option<&crate::vis::VisField>,
+    hover_tile: &mut Option<(i32, i32)>,
+    selected: &mut std::collections::HashSet<String>,
+    hovered: &mut Option<String>,
+) {
+    use crate::vis::VisField;
+
+    // Resolve to a scalar value if this row is scalar-typed.
+    let scalar: Option<&ScalarValue> = match (inline, live) {
+        (Tagged::Scalar(s), _) => Some(s),
+        (Tagged::Same, Some(VisField::Scalar { data })) => Some(data),
+        _ => None,
+    };
+
+    // Pos scalars get the same selectable-row treatment as map-overlay
+    // fields (grid / tiles / vectorfield): hover previews on the map,
+    // click toggles a sticky overlay. Value follows the dump per turn.
+    if let Some(s @ ScalarValue::Pos(x, y)) = scalar {
+        let is_selected = selected.contains(name);
+        let mut text = egui::RichText::new(format!("{name} ({x},{y})")).monospace();
+        if is_selected {
+            text = text.color(egui::Color32::from_rgb(200, 240, 100)).strong();
+        }
+        let resp = ui.selectable_label(is_selected, text);
+        if resp.hovered() {
+            *hovered = Some(name.to_string());
+            *hover_tile = Some((*x, *y));
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        if resp.clicked() {
+            if is_selected {
+                selected.remove(name);
+            } else {
+                selected.insert(name.to_string());
+            }
+        }
+        let _ = s;
+        return;
+    }
+
+    if let Some(s) = scalar {
+        ui.horizontal(|ui| {
+            ui.monospace(
+                egui::RichText::new(format!("{name}:"))
+                    .color(egui::Color32::from_rgb(200, 200, 160)),
+            );
+            render_scalar_inline(ui, s, &mut *hover_tile);
+        });
+        return;
+    }
+
+    // Map-renderable inline OR `Same`: figure out the kind by inspecting
+    // `live` (always the resolved value) — if absent, skip the row.
+    let kind = match (inline, live) {
+        (Tagged::Tiles(_) | Tagged::Grid { .. } | Tagged::VectorField(_), _) => {
+            Some(inline_kind(inline))
+        }
+        (Tagged::Same, Some(field)) => Some(field_kind(field)),
+        _ => None,
+    };
+    if let Some(kind_label) = kind {
+        let _ = kind_label;
+        let is_selected = selected.contains(name);
+        let mut text = egui::RichText::new(name).monospace();
+        if is_selected {
+            text = text
+                .color(egui::Color32::from_rgb(200, 240, 100))
+                .strong();
+        }
+        let resp = ui.selectable_label(is_selected, text);
+        if resp.hovered() {
+            *hovered = Some(name.to_string());
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        if resp.clicked() {
+            if is_selected {
+                selected.remove(name);
+            } else {
+                selected.insert(name.to_string());
+            }
+        }
+    }
+}
+
+fn inline_kind(t: &Tagged) -> &'static str {
+    match t {
+        Tagged::Grid { .. } => "grid",
+        Tagged::Tiles(_) => "tiles",
+        Tagged::VectorField(_) => "vectorfield",
+        Tagged::Scalar(_) => "scalar",
+        Tagged::Same => "same",
+    }
+}
+
+fn field_kind(f: &crate::vis::VisField) -> &'static str {
+    use crate::vis::VisField;
+    match f {
+        VisField::Grid { .. } => "grid",
+        VisField::Tiles { .. } => "tiles",
+        VisField::VectorField(_) => "vectorfield",
+        VisField::Scalar { .. } => "scalar",
+    }
 }
 
 fn icon_button(ui: &mut egui::Ui, icon: &str, size: f32) -> egui::Response {
@@ -641,19 +1055,20 @@ pub fn render_scrubber(ui: &mut egui::Ui, app: &mut App) {
             }
 
             if bar_response.hovered() {
-                let scroll = ui.input(|i| {
+                let (scroll, shift) = ui.input(|i| {
                     let mut s = 0.0_f32;
                     for event in &i.raw.events {
                         if let egui::Event::MouseWheel { delta, .. } = event {
                             s += delta.y;
                         }
                     }
-                    s
+                    (s, i.modifiers.shift)
                 });
+                let step = if shift { 10 } else { 1 };
                 if scroll > 0.0 {
-                    app.step_forward(1);
+                    app.step_forward(step);
                 } else if scroll < 0.0 {
-                    app.step_backward(1);
+                    app.step_backward(step);
                 }
             }
 
@@ -714,8 +1129,8 @@ fn format_entity_info(e: &Entity, cpu_time_us: &HashMap<i32, u32>) -> String {
     };
     let kind_name = entity::label(&e.kind);
     let mut s = format!(
-        "({},{}) {}\nTeam {}\nHP: {}/{}\nID: {}",
-        e.pos.0, e.pos.1, kind_name, team, e.hp, e.max_hp, e.id
+        "{kind_name}\nTeam {team}\nHP: {}/{}\nID: {}",
+        e.hp, e.max_hp, e.id
     );
     match &e.kind {
         EntityKind::BuilderBot { action_cd, move_cd } => {
@@ -777,8 +1192,8 @@ fn format_tile_info(game: &GameState, pos: (i32, i32)) -> String {
     let env_name = match env {
         proto::Environment::EnvEmpty => "Empty",
         proto::Environment::EnvWall => "Wall",
-        proto::Environment::EnvOreTitanium => "Ore (Ti)",
-        proto::Environment::EnvOreAxionite => "Ore (Ax)",
+        proto::Environment::EnvOreTitanium => "Ti",
+        proto::Environment::EnvOreAxionite => "Ax",
     };
-    format!("({},{}) {}", pos.0, pos.1, env_name)
+    env_name.to_string()
 }

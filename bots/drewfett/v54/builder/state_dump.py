@@ -1,7 +1,12 @@
+"""Per-turn state dump for drewfett/v54. Adds vis nodes to the debug
+tree under categorical scopes (terrain, identity, sets). Mirrors the
+intgrah dump shape so the same viewer overlays work."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from debug import Scope, vis
 from visualiser import (
     TRANSPARENT,
     BoolGrid,
@@ -9,9 +14,6 @@ from visualiser import (
     I16Grid,
     Palette,
     PaletteStop,
-    Scalar,
-    Tiles,
-    emit,
 )
 
 if TYPE_CHECKING:
@@ -22,7 +24,10 @@ if TYPE_CHECKING:
 __all__ = ["dump"]
 
 P_FOG = Palette(
-    stops=[PaletteStop(False, TRANSPARENT), PaletteStop(True, Colour(0, 0, 0, 180))],
+    stops=[
+        PaletteStop(t=False, colour=TRANSPARENT),
+        PaletteStop(t=True, colour=Colour(0, 0, 0, 180)),
+    ],
 )
 P_COST = Palette(
     stops=[
@@ -45,29 +50,55 @@ def _unpad(grid: list[int], state: State) -> list[int]:
 
 
 def dump(state: State, _ct: Controller) -> None:
-    emit(
-        unseen=BoolGrid(
-            [e is None for e in state.env],
-            palette=P_FOG,
-        ),
-        cost=I16Grid(
-            [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
-            palette=P_COST,
-        ),
-        conv_cost=I16Grid(
-            [c if c < 1e6 else -1 for c in _unpad(state.conveyor_cost_grid, state)],
-            palette=P_COST,
-        ),
-        enemy_launcher=Tiles(
-            [(p.x, p.y) for p in state.adjacent_to_enemy_launcher],
-        ),
-        unconnected_harvester=Tiles(
-            [(p.x, p.y) for p in state.adjacent_to_unconnected_harvester],
-        ),
-        harvester_adjacent=Tiles(
-            [(p.x, p.y) for p in state.adjacent_to_harvester],
-        ),
-        symmetry=Scalar(str(state.symmetry)),
-        symmetry_candidates=Scalar(str(state.symmetry_candidates)),
-        role=Scalar(str(state.role)),
-    )
+    with Scope("dump"):
+        with Scope("terrain"):
+            vis(
+                "unseen",
+                BoolGrid([e is None for e in state.env], palette=P_FOG),
+            )
+            vis(
+                "cost",
+                I16Grid(
+                    [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
+                    palette=P_COST,
+                ),
+            )
+            vis(
+                "conv_cost",
+                I16Grid(
+                    [
+                        c if c < 1e6 else -1
+                        for c in _unpad(state.conveyor_cost_grid, state)
+                    ],
+                    palette=P_COST,
+                ),
+            )
+        with Scope("sets"):
+            vis(
+                "enemy_launcher",
+                {
+                    "$type": "tiles",
+                    "v": [[p.x, p.y] for p in state.adjacent_to_enemy_launcher],
+                },
+            )
+            vis(
+                "unconnected_harvester",
+                {
+                    "$type": "tiles",
+                    "v": [
+                        [p.x, p.y]
+                        for p in state.adjacent_to_unconnected_harvester
+                    ],
+                },
+            )
+            vis(
+                "harvester_adjacent",
+                {
+                    "$type": "tiles",
+                    "v": [[p.x, p.y] for p in state.adjacent_to_harvester],
+                },
+            )
+        with Scope("identity"):
+            vis("symmetry", str(state.symmetry))
+            vis("symmetry_candidates", str(state.symmetry_candidates))
+            vis("role", str(state.role))

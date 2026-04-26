@@ -40,6 +40,7 @@ pub struct App {
     pub playing: bool,
     pub speed: i32,
     pub cursor: (i32, i32),
+    pub hover_tile: Option<(i32, i32)>,
     pub selected_entity: Option<i32>,
     pub follow_entity: bool,
     pub show_indicators: bool,
@@ -47,7 +48,13 @@ pub struct App {
     pub show_ranges: bool,
     pub show_conveyor_junctions: bool,
     pub highlight_builders: bool,
-    pub vis_overlays: std::collections::HashSet<String>,
+    /// Sticky overlays: names of vis fields to render on the map.
+    /// Click a row to toggle. Multiple may be active simultaneously.
+    pub selected_vis_overlays: std::collections::HashSet<String>,
+    /// Transient overlay: set per-frame when the user hovers a row.
+    /// Renders in addition to `selected_vis_overlays` so hovering
+    /// previews without committing.
+    pub hovered_vis_overlay: Option<String>,
     pub pan: egui::Vec2,
     pub zoom: f32,
     pub interp_t: f32,
@@ -107,6 +114,7 @@ impl App {
             playing: false,
             speed: 0,
             cursor: (0, 0),
+            hover_tile: None,
             selected_entity: None,
             follow_entity: false,
             show_indicators: false,
@@ -114,7 +122,8 @@ impl App {
             show_ranges: true,
             show_conveyor_junctions: true,
             highlight_builders: false,
-            vis_overlays: std::collections::HashSet::new(),
+            selected_vis_overlays: std::collections::HashSet::new(),
+            hovered_vis_overlay: None,
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
             interp_t: 0.0,
@@ -321,8 +330,19 @@ impl eframe::App for App {
 
         self.handle_keys(&ctx);
 
+        // Transient hover highlight: cleared once per frame here so any
+        // panel rendered below can set it without being clobbered by a
+        // later panel's per-frame reset.
+        self.hover_tile = None;
+
         ui::render_left_sidebar(ui, self);
-        ui::render_right_sidebar(ui, self);
+        // Order matters for additive sizing: each `Panel::right` carves
+        // its space off the remaining area. Render `log` first so it
+        // sits at the far right; `state_dump` then carves off space to
+        // the left of the log. Both are independently resizable.
+        ui::render_log_panel(ui, self);
+        ui::render_state_dump_panel(ui, self);
+        ui::render_top_panel(ui, self);
         ui::render_scrubber(ui, self);
         map::render_map_panel(ui, self);
     }

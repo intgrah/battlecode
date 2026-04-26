@@ -11,6 +11,8 @@ use crate::state::{Entity, EntityKind, Indicator};
 
 const CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x00, 0x80);
 const SELECTED_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x80, 0x00, 0x80);
+const HOVER_COLOR: Color32 = Color32::from_rgba_premultiplied(0x60, 0x60, 0x60, 0x80);
+const PINNED_COLOR: Color32 = Color32::from_rgba_premultiplied(0xc0, 0xe0, 0x40, 0xc0);
 
 fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
     cambc_common::map::build_static_map_shapes(
@@ -251,7 +253,14 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             draw_flow_overlay(&painter, app, ts, origin, zoom);
         }
 
-        for field_name in &app.vis_overlays {
+        // Render every sticky-selected overlay, plus the transient
+        // hover overlay (if any and not already in the sticky set).
+        for field_name in &app.selected_vis_overlays {
+            draw_vis_overlay(&painter, app, turn_state, field_name, ts, origin, zoom);
+        }
+        if let Some(field_name) = &app.hovered_vis_overlay
+            && !app.selected_vis_overlays.contains(field_name)
+        {
             draw_vis_overlay(&painter, app, turn_state, field_name, ts, origin, zoom);
         }
 
@@ -362,8 +371,19 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
             let gx = ((pos.x - origin.x) / (ts * zoom)) as i32;
             let gy = ((pos.y - origin.y) / (ts * zoom)) as i32;
             if gx >= 0 && gx < app.game.width && gy >= 0 && gy < app.game.height {
+                app.hover_tile = Some((gx, gy));
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
+        }
+
+        if let Some((hx, hy)) = app.hover_tile {
+            let r = tile_rect(hx, hy, ts, origin, zoom);
+            painter.rect_stroke(
+                r,
+                0.0,
+                Stroke::new(2.0, HOVER_COLOR),
+                StrokeKind::Outside,
+            );
         }
 
         let raw_scroll = ui.input(|i| {
@@ -608,7 +628,7 @@ fn draw_vis_overlay(
     let w = app.game.width as usize;
     let h = app.game.height as usize;
 
-    match field {
+    match field.as_ref() {
         crate::vis::VisField::Grid { data, palette } => {
             let font = egui::FontId::monospace(8.0 * zoom.min(2.0));
 
@@ -696,7 +716,17 @@ fn draw_vis_overlay(
                 }
             }
         }
-        crate::vis::VisField::Scalar { .. } => {}
+        crate::vis::VisField::Scalar { data } => {
+            if let crate::vis::ScalarValue::Pos(x, y) = data {
+                let r = tile_rect(*x, *y, ts, origin, zoom);
+                painter.rect_stroke(
+                    r,
+                    0.0,
+                    Stroke::new(2.0, PINNED_COLOR),
+                    StrokeKind::Outside,
+                );
+            }
+        }
     }
 }
 
