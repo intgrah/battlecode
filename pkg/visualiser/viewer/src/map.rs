@@ -178,7 +178,12 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
                 painter.circle_filled(centre, radius, fill);
                 painter.circle_stroke(centre, radius, Stroke::new((2.0 * zoom).max(1.5), ring));
             }
-            draw_sprite(&painter, app, &sprite_name, r);
+            let draw_rect = if matches!(e.kind, EntityKind::Marker { .. }) {
+                Rect::from_center_size(r.center(), r.size() * 0.5)
+            } else {
+                r
+            };
+            draw_sprite(&painter, app, &sprite_name, draw_rect);
 
             if !matches!(
                 e.kind,
