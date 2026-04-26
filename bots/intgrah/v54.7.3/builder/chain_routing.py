@@ -7,6 +7,7 @@ foundry-retarget side effect when an Ax chain lands on a Ti conveyor.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from building import (
@@ -29,6 +30,7 @@ from util.metrics import chebyshev, reachable_path_end
 
 from builder.helpers import (
     make_move,
+    on_enemy_side,
     trace_upstream,
     try_move_with_road,
     try_place,
@@ -40,6 +42,18 @@ if TYPE_CHECKING:
 
 _UPSTREAM_MAX_NODES_RES = 80
 """Cap on upstream BFS size in `resource_at`."""
+
+
+@dataclass(frozen=True, slots=True)
+class RouteFail:
+    """Why a route_chain attempt did nothing this turn. `kind` is a stable
+    machine-readable tag; `tmpl` + `args` mirror the typed-debug shape so
+    a failing task can re-emit the reason as a structured msg.
+    """
+
+    kind: str
+    tmpl: str
+    args: dict[str, object]
 
 
 def resource_at(self: Builder, pos: Position) -> ResourceType | None:
@@ -94,7 +108,8 @@ def best_harvester_neighbour(
 ) -> Position:
     """If `dangling` is a cardinal neighbour of an unconnected harvester,
     pick whichever side of the harvester is closest to `target` — otherwise
-    A* lays a much longer chain than necessary."""
+    A* lays a much longer chain than necessary.
+    """
     for d in DIR4:
         h = dangling.add(d)
         if not self.in_bounds(h):
@@ -123,7 +138,8 @@ def best_harvester_neighbour(
 def _retarget_foundry_to_junction(self: Builder, landing: Position) -> None:
     """If an Ax chain segment we just placed lands on a pre-existing friendly
     Ti conveyor with pure-Ti flow history, retarget `foundry_target` to that
-    tile — it's the natural junction."""
+    tile — it's the natural junction.
+    """
     if self.foundry_target == landing:
         return
     bld = self.get_building(landing)
@@ -141,7 +157,7 @@ def _retarget_foundry_to_junction(self: Builder, landing: Position) -> None:
             has_ax = True
     if not saw_ti or has_ax:
         return
-    debug(f"retarget foundry to junction at {landing}")
+    debug("retarget foundry to junction at {landing}", landing=landing)
     self.foundry_target = landing
 
 
@@ -152,7 +168,8 @@ def _clear_with_turret(
     target_pos: Position,
 ) -> bool:
     """Step off `build_pos` if needed, then place a sentinel facing
-    `target_pos`."""
+    `target_pos`.
+    """
     if build_pos == self.my_pos:
         for d in DIR8:
             if ct.can_move(d):
@@ -173,7 +190,8 @@ def _lay_segment(
     path: list[Position] | None,
 ) -> bool:
     """Place one conveyor / bridge at `start_pos` that advances along
-    `path`. Returns True iff an action was taken."""
+    `path`. Returns True iff an action was taken.
+    """
     if not path:
         return False
 
@@ -248,7 +266,8 @@ def _route_to(
     resource: ResourceType,
 ) -> bool:
     """Return True iff a useful action was taken this turn (a conveyor was
-    placed, a bridge was placed, or the builder moved)."""
+    placed, a bridge was placed, or the builder moved).
+    """
     if start == target:
         return False
     if chebyshev(start, target) <= 1 and target == self.my_core:
@@ -272,7 +291,13 @@ def _route_to(
     )
     path = search.search(ct, start, target, resource)
     if path is None:
-        debug(f"A* {resource.name} {start}->{target}: {search.last_fail_reason}")
+        debug(
+            "A* {resource} {start}->{target}: {fail}",
+            resource=resource,
+            start=start,
+            target=target,
+            fail=search.last_fail_reason,
+        )
     else:
         is_ax = resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
         colour = (200, 0, 255) if is_ax else (80, 160, 255)
@@ -302,18 +327,40 @@ def route_chain(self: Builder, ct: Controller, start: Position) -> bool:
     """Route a chain from `start` toward the right sink. Ti -> ti_sink
     (nearest Ti conveyor reaching core, or core itself). Ax -> ax_sink. Ax
     chains are skipped when no ax_sink is set, to prevent raw Ax being
-    shipped to the core where it would be destroyed."""
+    shipped to the core where it would be destroyed.
+
+    Bisector gate: when `start` is on the enemy side of the bisector
+    (same r²=20 margin used for harvester placement), defer to OFFENSE's
+    `push_extend`. ECON does not route enemy-side dangling ends home.
+    """
+    if on_enemy_side(self, start):
+        debug("route_chain: {start} is enemy-side, deferring to OFFENSE", start=start)
+        return False
     resource = resource_at(self, start)
     if resource is None:
-        debug(f"cannot classify resource at {start}")
+        debug("cannot classify resource at {start}", start=start)
         return False
     if resource == ResourceType.RAW_AXIONITE:
         target = self.ax_sink
         if target is None:
-            debug(f"chain at {start} is Ax but ax_sink is None")
+            debug("chain at {start} is Ax but ax_sink is None", start=start)
             return False
         start = best_harvester_neighbour(self, start, target)
         return _route_to(self, ct, start, target, resource)
     target = self.ti_sink if self.ti_sink is not None else self.my_core
     start = best_harvester_neighbour(self, start, target)
     return _route_to(self, ct, start, target, resource)
+
+
+def route_chain_toward(
+    self: Builder,
+    ct: Controller,
+    start: Position,
+    target: Position,
+) -> bool:
+    """Route a chain from `start` toward `target`, regardless of which
+    sink the resource would normally feed. Used by PUSH builders to
+    extend dangling ends toward the enemy core.
+    """
+    start = best_harvester_neighbour(self, start, target)
+    return _route_to(self, ct, start, target, ResourceType.TITANIUM)

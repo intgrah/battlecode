@@ -27,9 +27,10 @@ class WallFollow:
         self.hit_point: Position | None = None
         self.last_pos: Position | None = None
         self.direction = 1
-
-
-_bug_state: WallFollow | None = None
+        # Position bugnav last returned. If the bot moved to a tile
+        # other than this between calls, it advanced via something else
+        # (A*, ct.move, etc.) — wall-follow state is stale.
+        self.expected_next: Position | None = None
 
 
 def _on_baseline(curr: Position, start: Position, goal: Position) -> bool:
@@ -52,12 +53,20 @@ def bugnav_step(
     target: Position,
     blocked: set[Position] | None = None,
 ) -> Position | None:
-    global _bug_state
+    # Reset state if (a) no prior bugnav, (b) the goal changed, or
+    # (c) the bot advanced via something other than bugnav since the
+    # last call (so `last_pos`/`hit_point`/`start` are stale).
+    if (
+        self.bug_state is None
+        or self.bug_state.goal != target
+        or (
+            self.bug_state.expected_next is not None
+            and self.my_pos != self.bug_state.expected_next
+        )
+    ):
+        self.bug_state = WallFollow(self.my_pos, target)
 
-    if _bug_state is None or _bug_state.goal != target:
-        _bug_state = WallFollow(self.my_pos, target)
-
-    bug = _bug_state
+    bug = self.bug_state
     if blocked is None:
         blocked = set()
 
@@ -65,6 +74,7 @@ def bugnav_step(
     w, h = self.w, self.h
 
     if self.my_pos == target:
+        bug.expected_next = None
         return None
 
     if bug.last_pos == self.my_pos and bug.mode == BugMode.MODE_GOAL_SEEK:
@@ -88,6 +98,7 @@ def bugnav_step(
             and cost_grid[next_pos.y * MAX_WIDTH + next_pos.x] is not INF
             and next_pos not in blocked
         ):
+            bug.expected_next = next_pos
             return next_pos
         bug.mode = BugMode.MODE_WALL_FOLLOW
         bug.hit_point = self.my_pos
@@ -123,8 +134,10 @@ def bugnav_step(
                 continue
 
             if cost_grid[n.y * MAX_WIDTH + n.x] is not INF and n not in blocked:
+                bug.expected_next = n
                 return n
 
+    bug.expected_next = None
     return None
 
 

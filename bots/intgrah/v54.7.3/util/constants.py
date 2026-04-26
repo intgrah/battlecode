@@ -2,7 +2,12 @@ from typing import Final
 
 from cambc import EntityType, GameConstants
 
-__all__ = ["BASE_COST", "INF", "MAX_N", "MAX_WIDTH", "ROAD_COST"]
+__all__ = ["BASE_COST", "FLOW_HISTORY_LEN", "INF", "MAX_N", "MAX_WIDTH", "ROAD_COST"]
+
+FLOW_HISTORY_LEN: Final = 8
+"""Length of per-tile `flow_history` deques. Each entry is one observation
+of the tile's stored resource (or None). Flow/volume metrics divide counts
+by this constant to normalise to [0, 1]."""
 
 INF: Final = 1_000_000
 """Large number used to represent unreachable distances or hard preferences."""

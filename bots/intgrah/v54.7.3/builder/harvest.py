@@ -7,13 +7,23 @@ from building import (
     BuildingConveyor,
     BuildingRoad,
     BuildingHarvester,
+    BuildingMarker,
+    BuildingRoad,
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, Team
 from util.debug import debug as log
 from util.directions import DIR4, get_direction_object
 
-from builder.helpers import can_afford, make_move, ore_available, try_move_with_road
+from builder.helpers import (
+    can_afford,
+    harvester_feed_cardinal,
+    harvester_io_cardinals,
+    make_move,
+    ore_available,
+    try_move_with_road,
+    try_place,
+)
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -87,8 +97,12 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             continue
 
         b = self.get_building(n)
-        if b is None or isinstance(b, BuildingRoad) and b.team == self.my_team:
+        # Treat empties, friendly roads, and markers as available for
+        # barrier placement — all cheaply destroyable.
+        if b is None or isinstance(b, BuildingRoad | BuildingMarker):
             unpaved_neighbors.append(n)
+        elif not isinstance(b, BuildingRoad):
+            pass
 
     if self.my_pos == target_pos:
         log(

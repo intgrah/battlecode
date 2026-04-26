@@ -24,26 +24,29 @@ from util.directions import DIR8, DIR4
 from cambc import Position
 
 if TYPE_CHECKING:
+    from util.symmetry import Symmetry
 
     from builder import Builder
 
 
-def _edge_targets(pos: Position, bld: object) -> list[Position]:
+def _edge_targets(pos: Position, bld: Building) -> tuple[Position, ...]:
     """Structural output tiles of `bld` placed at `pos`. One entry for a
     conveyor / armoured conveyor / bridge; three for a splitter; empty for
-    non-routing buildings (which participate via separate sets)."""
+    non-routing buildings (which participate via separate sets).
+    """
     match bld:
         case BuildingConveyor(direction=d) | BuildingArmouredConveyor(direction=d):
-            return [pos.add(d)]
+            return (pos.add(d),)
         case BuildingBridge(target=t):
-            return [t]
+            return (t,)
         case BuildingSplitter(direction=d):
-            return [
+            return (
                 pos.add(d),
                 pos.add(d.rotate_right().rotate_right()),
                 pos.add(d.rotate_left().rotate_left()),
-            ]
-    return []
+            )
+        case _:
+            return ()
 
 
 def _remove_topology(self: Builder, pos: Position, i: int) -> None:
@@ -70,8 +73,8 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
                 self._bump_ti_harv(pos, -1)
 
 
-def _add_topology(self: Builder, pos: Position, bld: object) -> None:
-    if bld is not None and getattr(bld, "team", None) == self.my_team:
+def _add_topology(self: Builder, pos: Position, bld: Building) -> None:
+    if bld is not None and bld.team == self.my_team:
         targets = _edge_targets(pos, bld)
         if targets:
             outs: list[Position] = []
@@ -84,15 +87,15 @@ def _add_topology(self: Builder, pos: Position, bld: object) -> None:
             self.out_edges[pos.y * MAX_WIDTH + pos.x] = outs
             return
     match bld:
-        case BuildingFoundry(team=t) if t == self.my_team:
+        case BuildingFoundry(team=self.my_team):
             self.my_foundries.add(pos)
             self._bump_foundry(pos, +1)
         case BuildingHarvester():
-            env = self.env[self.idx(pos)]
-            if env == Environment.ORE_AXIONITE:
-                self._bump_ax_harv(pos, +1)
-            elif env == Environment.ORE_TITANIUM:
-                self._bump_ti_harv(pos, +1)
+            match self.env[self.idx(pos)]:
+                case Environment.ORE_AXIONITE:
+                    self._bump_ax_harv(pos, +1)
+                case Environment.ORE_TITANIUM:
+                    self._bump_ti_harv(pos, +1)
 
 
 def _update_cost(
@@ -222,12 +225,20 @@ def _update_turret_rays(
 
 
 def update_vision(self: Builder, ct: Controller) -> None:
+    new_observations: list[tuple[Position, Environment, bool]] = []
     for pos in self.nearby_tiles:
         i = self.idx(pos)
         env = ct.get_tile_env(pos)
         bid = ct.get_tile_building_id(pos)
         env_changed = self.env[i] != env
         bld_changed = self.building_ids[i] != bid
+        if self.env[i] is None and env is not None:
+            # First observation of this tile's env. Enqueue for later
+            # symmetry reflection — queue drains only once self.symmetry
+            # is resolved, but the enqueue is unconditional.
+            self.reflect_queue.append(i)
+            is_core = bid is not None and ct.get_entity_type(bid) == EntityType.CORE
+            new_observations.append((pos, env, is_core))
         self.env[i] = env
         self.building_ids[i] = bid
 
@@ -282,7 +293,39 @@ def update_vision(self: Builder, ct: Controller) -> None:
                     | BuildingBridge()
                     | BuildingSplitter()
                 ):
-                    # Since maxlen=8, this pops from another end if full.
+                    # Bounded by FLOW_HISTORY_LEN; oldest entry is popped when full.
                     self.flow_history[i].append(
                         (ct.get_stored_resource(bid), ct.get_stored_resource_id(bid)),
                     )
+
+    if self.symmetry is None:
+        _narrow_symmetry(self, new_observations)
+
+
+def _narrow_symmetry(
+    self: Builder,
+    new_observations: list[tuple[Position, Environment, bool]],
+) -> None:
+    """For each newly-observed tile, check each remaining symmetry
+    candidate: if the mirror tile under that symmetry disagrees on env
+    (or on whether it hosts a Core), the candidate is inconsistent and
+    dropped. Once one candidate remains, promote to `self.symmetry`.
+    """
+    w, h = self.w, self.h
+    invalid: set[Symmetry] = set()
+    for sym in self.symmetry_candidates:
+        for pos, env, is_core in new_observations:
+            m = sym.action(pos, w, h)
+            mi = m.y * MAX_WIDTH + m.x
+            mirror_env = self.env[mi]
+            if mirror_env is not None and mirror_env != env:
+                invalid.add(sym)
+                break
+            mirror_bld = self.buildings[mi]
+            mirror_is_core = isinstance(mirror_bld, BuildingCore)
+            if mirror_env is not None and mirror_is_core != is_core:
+                invalid.add(sym)
+                break
+    self.symmetry_candidates -= invalid
+    if len(self.symmetry_candidates) == 1:
+        self.symmetry = next(iter(self.symmetry_candidates))

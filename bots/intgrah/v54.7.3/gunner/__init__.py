@@ -33,31 +33,13 @@ class Gunner(Unit):
     @override
     def run(self, ct: Controller) -> None:
         super().run(ct)
-        target = ct.get_gunner_target()
-        if target is not None and ct.can_fire(target):
-            bid = ct.get_tile_building_id(target)
-            is_enemy_building = bid is not None and ct.get_team(bid) != self.my_team
-            is_enemy_bot = target in self.enemy_bots
-            is_friendly = (bid is not None and ct.get_team(bid) == self.my_team) or (
-                target in self.friendly_bots
-            )
-            # Never shoot enemy harvesters with gunners: 30 HP = 15
-            # shots to kill, not cost-effective, and the harvester
-            # might be upstream of a chain we're parasitizing — if
-            # we've tapped their belt for our own feed, killing the
-            # source takes us with it.
-            is_enemy_harvester = (
-                is_enemy_building and ct.get_entity_type(bid) == EntityType.HARVESTER
-            )
-            if (
-                not is_friendly
-                and not is_enemy_harvester
-                and (is_enemy_building or is_enemy_bot)
-                and self.firing_path_clear(ct)
-            ):
-                ct.fire(target)
-                self.idle_turns = 0
-                return
+
+        facing = ct.get_direction()
+        score, target = self._score_ray(ct, facing)
+        if score > 0 and target is not None and ct.can_fire(target):
+            ct.fire(target)
+            self.idle_turns = 0
+            return
 
         if self.try_rotate_to_enemy(ct):
             self.idle_turns = 0
@@ -67,16 +49,24 @@ class Gunner(Unit):
         if self.idle_turns > Gunner.SELF_DESTRUCT_THRESHOLD:
             self.try_self_destruct(ct)
 
-    def walk_ray(
+    def _score_ray(
         self,
         ct: Controller,
         direction: Direction,
-    ) -> tuple[Position, int | None, int | None] | None:
-        """Walk the gunner's forward ray from `start` in `direction`. Stop
-        at the first occupant (non-marker building, or builder bot), or
-        when r²>13, or when a tile leaves our vision. Return
-        `(position, building_id, unit_id)` for the blocker, or None if the
-        ray was empty / out-of-vision with no blocker seen.
+    ) -> tuple[int, Position | None]:
+        """Walk the forward ray from `my_pos` in `direction` (3 steps,
+        capped by GUNNER_VISION_RADIUS_SQ). Return (score, blocker_pos):
+
+          3 — enemy turret in VALID_ROTATION_TARGETS (highest value)
+          2 — enemy builder bot
+          1 — enemy core (always-on chip damage; below builders so a
+              free builder wins the rotation tiebreak)
+          0 — empty ray, friendly absorber, enemy harvester, enemy
+              non-target transport (conveyor / road etc.), vision gap
+
+        Markers are transparent. A friendly bot or non-marker friendly
+        building scores 0 (would eat our shot). Enemy harvesters score
+        0 (15 shots to kill, may feed a chain we're parasitising).
         """
         cur = self.my_pos
         for _ in range(3):
@@ -85,78 +75,43 @@ class Gunner(Unit):
                 cur.distance_squared(self.my_pos)
                 > GameConstants.GUNNER_VISION_RADIUS_SQ
             ):
-                return None
+                return (0, None)
             if not self.in_bounds(cur):
-                return None
+                return (0, None)
             if not ct.is_in_vision(cur):
-                return None
-            bid = ct.get_tile_building_id(cur)
-            if bid is not None and ct.get_entity_type(bid) != EntityType.MARKER:
-                return (cur, bid, None)
-            uid = self.all_bots.get(cur)
-            if uid is not None:
-                return (cur, None, uid)
-        return None
-
-    def firing_path_clear(self, ct: Controller) -> bool:
-        """Trace along our facing ray. Return False if any friendly bot or
-        non-marker friendly building would absorb our shot first. The
-        engine fires at the FIRST blocker in the ray, friend or foe, so a
-        friendly sentinel sitting in the line of fire eats the projectile
-        before it reaches the enemy we were aiming at.
-        """
-        facing = ct.get_direction()
-        cur = self.my_pos
-        for _ in range(3):
-            cur = cur.add(facing)
-            if (
-                cur.distance_squared(self.my_pos)
-                > GameConstants.GUNNER_VISION_RADIUS_SQ
-            ):
-                return True
+                return (0, None)
             bid = ct.get_tile_building_id(cur)
             if bid is not None:
+                etype = ct.get_entity_type(bid)
+                if etype == EntityType.MARKER:
+                    continue
                 if ct.get_team(bid) == self.my_team:
-                    if ct.get_entity_type(bid) != EntityType.MARKER:
-                        return False
-                else:
-                    return True
-            if cur in self.enemy_bots:
-                return True
-            if cur in self.friendly_bots or cur == self.my_pos:
-                return False
-        return True
+                    return (0, cur)  # friendly building absorbs
+                if etype == EntityType.HARVESTER:
+                    return (0, cur)  # enemy harvester: skip
+                if etype == EntityType.CORE:
+                    return (1, cur)  # enemy core
+                if etype not in Gunner.VALID_ROTATION_TARGETS:
+                    return (0, cur)  # conveyor / road / etc.
+                return (3, cur)  # enemy turret
+            uid = self.all_bots.get(cur)
+            if uid is not None:
+                if ct.get_team(uid) == self.my_team:
+                    return (0, cur)  # friendly bot absorbs
+                return (2, cur)  # enemy bot
+        return (0, None)
 
     def try_rotate_to_enemy(self, ct: Controller) -> bool:
-        """Find a direction whose forward ray *actually hits* something
-        worth shooting. Enumerates all 8 directions and walks each ray
-        to its first blocker, then scores by target type. This fixes
-        the bug where the old logic would rotate toward an enemy turret
-        that sits behind a harvester / wall / friendly building — the
-        shot would hit the blocker instead of the intended target.
-        """
-        best_score = -1
+        """Find a direction whose forward ray hits something worth shooting.
+        Enumerates all 8 directions, scores each via the same logic the
+        fire decision uses, and picks the highest-scoring direction
+        (tiebreak by closest blocker)."""
+        best_score = 0
         best_dist_sq = 999
         best_dir: Direction | None = None
         for d in DIR8:
-            blocker = self.walk_ray(ct, d)
-            if blocker is None:
-                continue
-            bpos, bid, uid = blocker
-            if bid is not None:
-                if ct.get_team(bid) == self.my_team:
-                    continue
-                etype = ct.get_entity_type(bid)
-                if etype not in Gunner.VALID_ROTATION_TARGETS:
-                    # Enemy harvester / conveyor / road / core etc. —
-                    # not worth a gunner shot, and may be parasitized.
-                    continue
-                score = 2
-            elif uid is not None:
-                if ct.get_team(uid) == self.my_team:
-                    continue
-                score = 1  # enemy bot — valid but lower priority
-            else:
+            score, bpos = self._score_ray(ct, d)
+            if score == 0 or bpos is None:
                 continue
             dist_sq = self.my_pos.distance_squared(bpos)
             if (score, -dist_sq) > (best_score, -best_dist_sq):
