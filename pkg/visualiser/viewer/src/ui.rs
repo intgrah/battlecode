@@ -770,11 +770,12 @@ fn render_scalar_inline(
 ) {
     match s {
         ScalarValue::Pos(x, y) => {
-            let label =
+            let text =
                 egui::RichText::new(format!("({x},{y})")).color(egui::Color32::LIGHT_BLUE);
-            let resp = ui.label(label);
+            let resp = ui.selectable_label(false, text);
             if resp.hovered() {
                 *hover_tile = Some((*x, *y));
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         }
         ScalarValue::Null => {
