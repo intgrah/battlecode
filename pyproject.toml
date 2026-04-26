@@ -48,7 +48,7 @@ obfuscate = "scripts.obfuscate:main"
 blueprint-preview = "scripts.blueprint_preview:main"
 replay-times = "scripts.replay_times:main"
 replay-livelock = "scripts.replay_livelock:main"
-conveyor-assets = "visualiser.scripts.conveyor_assets:main"
+connected-textures = "visualiser.scripts.connected_textures:main"
 
 [dependency-groups]
 dev = [

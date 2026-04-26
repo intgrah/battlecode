@@ -7,6 +7,7 @@ foundry-retarget side effect when an Ax chain lands on a Ti conveyor.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from building import (
@@ -40,6 +41,18 @@ if TYPE_CHECKING:
 
 _UPSTREAM_MAX_NODES_RES = 80
 """Cap on upstream BFS size in `resource_at`."""
+
+
+@dataclass(frozen=True, slots=True)
+class RouteFail:
+    """Why a route_chain attempt did nothing this turn. `kind` is a stable
+    machine-readable tag; `tmpl` + `args` mirror the typed-debug shape so
+    a failing task can re-emit the reason as a structured msg.
+    """
+
+    kind: str
+    tmpl: str
+    args: dict[str, object]
 
 
 def resource_at(self: Builder, pos: Position) -> ResourceType | None:
