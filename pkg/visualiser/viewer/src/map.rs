@@ -11,7 +11,7 @@ use crate::state::{Entity, EntityKind, Indicator};
 
 const CURSOR_COLOR: Color32 = Color32::from_rgba_premultiplied(0x80, 0x80, 0x00, 0x80);
 const SELECTED_COLOR: Color32 = Color32::from_rgba_premultiplied(0x00, 0x80, 0x00, 0x80);
-const HOVER_COLOR: Color32 = Color32::from_rgba_premultiplied(0x60, 0x60, 0x60, 0x80);
+const HOVER_COLOR: Color32 = Color32::from_rgba_premultiplied(0xff, 0xff, 0xff, 0xff);
 const PINNED_COLOR: Color32 = Color32::from_rgba_premultiplied(0xc0, 0xe0, 0x40, 0xc0);
 
 fn build_static_map_shapes(app: &App, origin: Pos2) -> Vec<Shape> {
@@ -631,6 +631,7 @@ fn draw_vis_overlay(
     match field.as_ref() {
         crate::vis::VisField::Grid { data, palette } => {
             let font = egui::FontId::monospace(8.0 * zoom.min(2.0));
+            let is_bool = matches!(data, crate::vis::GridData::Bool(_));
 
             for gy in 0..h {
                 for gx in 0..w {
@@ -651,7 +652,9 @@ fn draw_vis_overlay(
                         Color32::from_rgba_premultiplied(c.r, c.g, c.b, c.a),
                     );
 
-                    if zoom > 0.8 {
+                    // Bool grids carry no quantitative info — the
+                    // colour already distinguishes true from false.
+                    if !is_bool && zoom > 0.8 {
                         let label = match data.get_i64(i) {
                             Some(iv) if (v - v.round()).abs() < 1e-6 => format!("{iv}"),
                             _ if v.abs() < 100.0 => format!("{v:.2}"),
