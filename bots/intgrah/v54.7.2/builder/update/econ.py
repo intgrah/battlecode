@@ -18,6 +18,7 @@ from building import (
 )
 from cambc import Controller, EntityType, Environment, Position, ResourceType
 from util.constants import BASE_COST, FLOW_HISTORY_LEN, INF, MAX_WIDTH
+from util.debug import Scope
 from util.debug import debug as log
 from util.directions import DIR4
 from util.metrics import chebyshev
@@ -589,27 +590,30 @@ def update_foundry_target(self: Builder) -> None:
     ti_cand_best: Position | None = None
     ti_cand_d = 1 << 30
 
-    for pos in self.my_foundries:
-        d = _manhattan(origin, pos)
-        if d < foundry_d:
-            foundry_d = d
-            foundry_best = pos
+    with Scope("foundries", time=True):
+        for pos in self.my_foundries:
+            d = _manhattan(origin, pos)
+            if d < foundry_d:
+                foundry_d = d
+                foundry_best = pos
 
-    for pos in self.ax_upstream:
-        if not _pure_ax_merge_ok(self, pos):
-            continue
-        d = _manhattan(origin, pos)
-        if d < ax_chain_d:
-            ax_chain_d = d
-            ax_chain_best = pos
+    with Scope("ax_upstream", time=True):
+        for pos in self.ax_upstream:
+            if not _pure_ax_merge_ok(self, pos):
+                continue
+            d = _manhattan(origin, pos)
+            if d < ax_chain_d:
+                ax_chain_d = d
+                ax_chain_best = pos
 
-    for pos in self.reaches_core - self.reaches_foundry:
-        if not _foundry_local_ok(self, pos):
-            continue
-        d = _manhattan(origin, pos)
-        if d < ti_cand_d:
-            ti_cand_d = d
-            ti_cand_best = pos
+    with Scope("ti_candidates", time=True):
+        for pos in self.reaches_core - self.reaches_foundry:
+            if not _foundry_local_ok(self, pos):
+                continue
+            d = _manhattan(origin, pos)
+            if d < ti_cand_d:
+                ti_cand_d = d
+                ti_cand_best = pos
 
     options: list[tuple[int, Position | None, str]] = []
     if ax_chain_best is not None:
