@@ -506,6 +506,21 @@ def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
 _BISECTOR_MARGIN_R2 = 20
 
 
+def on_enemy_side(self: Builder, pos: Position) -> bool:
+    """True if `pos` is more than r²=20 closer to enemy_core than to ours.
+    Mirrors the rule used by `_pick_ore` for harvester placement, so econ
+    routing of harvester outputs uses the same split: ours-side tiles are
+    routed home, enemy-side tiles are left for OFFENSE's `push_extend`.
+    Requires symmetry to be resolved; returns False otherwise."""
+    if self.symmetry is None:
+        return False
+    enemy_core = get_enemy_core_pos(self)
+    return (
+        pos.distance_squared(self.my_core)
+        > pos.distance_squared(enemy_core) + _BISECTOR_MARGIN_R2
+    )
+
+
 def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
     enemy_core = get_enemy_core_pos(self)
     best_target = None

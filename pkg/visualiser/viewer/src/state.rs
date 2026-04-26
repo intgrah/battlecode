@@ -275,22 +275,32 @@ impl GameState {
         turns.push(current.clone());
 
         for turn in &replay.turns {
-            current.indicators.clear();
-            current.outputs.clear();
-            current.cpu_time_us.clear();
-            current.fire_events.clear();
-            current.resource_moves.clear();
-            current.deaths.clear();
-            current.actions.clear();
-            current.vis_data.clear();
-            current.log_trees.clear();
-
+            // Per-turn fields are rebuilt from scratch each turn — no
+            // carry-over. The previous iteration `mem::take`'d them
+            // into the snapshot, so they're already empty here. The
+            // first iteration sees the initial empty values from above.
             let mut current_actor: i32 = -1;
             let prior_vis = turns.last().map(|t: &TurnState| &t.vis_data);
             for update in &turn.updates {
                 apply_update(&mut current, update, &mut current_actor, prior_vis);
             }
-            turns.push(current.clone());
+            // Snapshot: clone the carry-over fields (entities,
+            // players, tile_resources) but MOVE the per-turn fields
+            // out of `current` so we don't deep-copy them.
+            turns.push(TurnState {
+                entities: current.entities.clone(),
+                players: current.players.clone(),
+                tile_resources: current.tile_resources.clone(),
+                indicators: std::mem::take(&mut current.indicators),
+                outputs: std::mem::take(&mut current.outputs),
+                cpu_time_us: std::mem::take(&mut current.cpu_time_us),
+                fire_events: std::mem::take(&mut current.fire_events),
+                resource_moves: std::mem::take(&mut current.resource_moves),
+                deaths: std::mem::take(&mut current.deaths),
+                actions: std::mem::take(&mut current.actions),
+                vis_data: std::mem::take(&mut current.vis_data),
+                log_trees: std::mem::take(&mut current.log_trees),
+            });
         }
 
         let winner = replay.winner.and_then(|w| proto::Team::try_from(w).ok());
