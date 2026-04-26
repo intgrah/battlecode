@@ -53,6 +53,11 @@ class AStarSearch:
         finding the start — target is unreachable), 'extraction_stuck' (dist
         map complete but path reconstruction hit a dead end following the
         gradient). Empty string when the most recent call returned a path."""
+        # Neighbour stencil built for full MAX_WIDTH x MAX_WIDTH. Out-of-map
+        # neighbours for tiles near the actual-map boundary are filtered at
+        # search time via `bfs_dist[ni] is INF` — BFS only ever relaxes real
+        # tiles, so any out-of-map index has its sentinel intact. No
+        # post_init prune needed; this build lives in the 5s init budget.
         self._neighbors: list[list[tuple[int, int]]] = [
             [
                 (ny * MAX_WIDTH + nx, extra)
@@ -66,32 +71,6 @@ class AStarSearch:
         self._dist_reset: Final[tuple[int, ...]] = (INF,) * MAX_N
         self._finished = True
         self._target: Position | None = None
-
-    def post_init(self) -> None:
-        """Fix _neighbors at the actual-map boundary.
-
-        Called from Builder.post_init after self.w/self.h are set. For
-        in-map tiles within 3 of the boundary, their pre-built neighbour
-        lists may reference out-of-map tiles (bridge deltas reach r²≤9).
-        Recompute those lists using actual w/h.
-        """
-        w, h = self.builder.w, self.builder.h
-
-        def fix_strip(ys: range, xs: range) -> None:
-            for cy in ys:
-                for cx in xs:
-                    i = cy * MAX_WIDTH + cx
-                    self._neighbors[i] = [
-                        (ny * MAX_WIDTH + nx, extra)
-                        for dx, dy, extra in AStarSearch.CONV_NEIGHBORS
-                        if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
-                    ]
-
-        all_rows = range(h)
-        fix_strip(all_rows, range(3))
-        fix_strip(all_rows, range(w - 3, w))
-        fix_strip(range(3), range(3, w - 3))
-        fix_strip(range(h - 3, h), range(3, w - 3))
 
     def search(
         self,
@@ -236,7 +215,8 @@ class AStarSearch:
         goal: Position,
     ) -> list[Position] | None:
         """Run `search` but treat tiles occupied by other friendly bots as
-        non-routable. Mutates `ti_routable` / `ax_routable` temporarily."""
+        non-routable. Mutates `ti_routable` / `ax_routable` temporarily.
+        """
         b = self.builder
         saved: list[tuple[int, bool, bool]] = []
         for pos in b.nearby_tiles:

@@ -1,19 +1,28 @@
-from enum import StrEnum
+from enum import IntEnum
+from typing import override
 
 from cambc import Position
 
 __all__ = ["Symmetry"]
 
 
-class Symmetry(StrEnum):
+class Symmetry(IntEnum):
     """All maps exhibit one of these symmetries."""
 
-    ROT = "rot"
+    ROT = 0
     """180° rotation about the map centre. Point reflection."""
-    HOR = "hor"
+    HOR = 1
     """Reflection across the horizontal axis. x unchanged, y flipped."""
-    VER = "ver"
+    VER = 2
     """Reflection across the vertical axis. x flipped, y unchanged."""
+
+    @override
+    def __str__(self) -> str:
+        return self.name
+
+    @override
+    def __repr__(self) -> str:
+        return f"Symmetry.{self.name}"
 
     def action(self, pos: Position, w: int, h: int) -> Position:
         """The action of this symmetry to `pos` on a map with known dimensions."""

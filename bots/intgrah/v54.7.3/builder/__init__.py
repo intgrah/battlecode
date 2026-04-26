@@ -14,6 +14,7 @@ from building import (
     BuildingFoundry,
     BuildingGunner,
     BuildingLauncher,
+    BuildingMarker,
     BuildingRoad,
     BuildingSentinel,
     BuildingSplitter,
@@ -29,19 +30,23 @@ from config import DEBUG_DUMP, HARDCODE
 from hardcode.identify import core_for, find_core, identify_map
 from hardcode.map import SYMMETRY, TILES, decode
 from unit import Unit
-from util.constants import INF, MAX_N, MAX_WIDTH
-from util.debug import Scope, dot
+from util.constants import FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH
+from util.debug import Scope, flush
 from util.debug import debug as log
-from util.directions import DIR8, DIR8_DELTA
+from util.directions import DIR4, DIR8, DIR8_DELTA
 from util.symmetry import Symmetry
 
 from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
 from builder.algorithms.econ_astar import AStarSearch
 from builder.dump import dump
+from builder.hooks.heal import end_of_turn_heal
+from builder.hooks.indicators import indicators
+from builder.hooks.propagate_symmetry import end_of_turn_propagate_symmetry
 from builder.role import Role
-from builder.tasks import POLICIES, Task
-from builder.tasks.rejected import TaskRejectedError
+from builder.tasks import POLICIES
+from builder.tasks._policy import run_policy
+from builder.tasks.offense.helpers import begin_turn_offense
 from builder.update import update
 from builder.update.econ import (
     can_place_junction,
@@ -51,17 +56,22 @@ from builder.update.econ import (
     update_foundry_target,
     update_junctions,
     update_map_econ,
+    update_offensive_ore_target,
     update_ore_target,
     update_ti_sink,
     update_unreachable_dangling,
 )
+from builder.update.markers import update_markers
 from builder.update.prune import prune_stale
+from builder.update.reflect import update_reflect
 from builder.update.role import update_role
 from builder.update.turrets import update_enemy_turrets, update_ore_denial
 from builder.update.vision import update_vision
 
 if TYPE_CHECKING:
     from building import Building
+
+    from builder.algorithms.bugnav import WallFollow
 
 
 class Builder(Unit):
@@ -80,39 +90,35 @@ class Builder(Unit):
     def _bump_ti_harv(self, pos: Position, delta: int) -> None:
         """Called when a friendly or enemy Ti harvester appears/disappears at
         `pos`. Adjusts `_ti_harv_at` for the 4 cardinal tiles and refreshes
-        `ax_leakage` / `ax_routable` on them."""
-        cx, cy = pos.x, pos.y
-        w, h = self.w, self.h
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = cx + dx, cy + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * MAX_WIDTH + nx
+        `ax_leakage` / `ax_routable` on them.
+        """
+        for d in DIR4:
+            n = pos.add(d)
+            if self.in_bounds(n):
+                ni = n.y * MAX_WIDTH + n.x
                 self._ti_harv_at[ni] += delta
                 self._refresh_ax_leakage(ni)
 
     def _bump_ax_harv(self, pos: Position, delta: int) -> None:
-        cx, cy = pos.x, pos.y
-        w, h = self.w, self.h
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = cx + dx, cy + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * MAX_WIDTH + nx
+        for d in DIR4:
+            n = pos.add(d)
+            if self.in_bounds(n):
+                ni = n.y * MAX_WIDTH + n.x
                 self._ax_harv_at[ni] += delta
                 self._refresh_ti_leakage(ni)
 
     def _bump_foundry(self, pos: Position, delta: int) -> None:
-        cx, cy = pos.x, pos.y
-        w, h = self.w, self.h
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nx, ny = cx + dx, cy + dy
-            if 0 <= nx < w and 0 <= ny < h:
-                ni = ny * MAX_WIDTH + nx
+        for d in DIR4:
+            n = pos.add(d)
+            if self.in_bounds(n):
+                ni = n.y * MAX_WIDTH + n.x
                 self._foundry_at[ni] += delta
                 self._refresh_ti_leakage(ni)
 
     def _check_multi_input(self, t: Position) -> None:
         """Call after `in_edges[idx(t)]` is mutated. Adds/removes t from
-        `is_multi_input` based on the current feeder count."""
+        `is_multi_input` based on the current feeder count.
+        """
         idx = t.y * MAX_WIDTH + t.x
         if len(self.in_edges[idx]) >= 2:
             self.is_multi_input.add(t)
@@ -121,7 +127,8 @@ class Builder(Unit):
 
     def _is_flow_consumer(self, pos: Position) -> bool:
         """Tile hosts a friendly building that accepts flow (transport or
-        sink). Used for splitter-satisfaction counting."""
+        sink). Used for splitter-satisfaction counting.
+        """
         b = self.buildings[pos.y * MAX_WIDTH + pos.x]
         if b is None or b.team != self.my_team:
             return False
@@ -142,7 +149,8 @@ class Builder(Unit):
     def _splitter_satisfied(self, splitter_pos: Position) -> bool:
         """A splitter is 'satisfied' iff >= 2 of its output tiles host a
         friendly flow consumer. Unsatisfied splitters contribute their
-        empty outputs as dangling ends; satisfied ones don't."""
+        empty outputs as dangling ends; satisfied ones don't.
+        """
         count = 0
         for out in self.out_edges[splitter_pos.y * MAX_WIDTH + splitter_pos.x]:
             if self._is_flow_consumer(out):
@@ -355,8 +363,13 @@ class Builder(Unit):
         builder's state but keeps its own `_dist`/`_target`/`_finished` so the
         Ti search can't clobber Ax search progress (and vice versa)."""
 
+        self.bug_state: WallFollow | None = None
+        """Wall-following state for `bugnav` fallback. Persists across turns
+        so a builder can resume tracing the obstacle it hit; reset whenever
+        the navigation goal changes."""
+
         self.flow_history: list[deque[tuple[ResourceType | None, int | None]]] = [
-            deque(maxlen=8) for _ in range(MAX_N)
+            deque(maxlen=FLOW_HISTORY_LEN) for _ in range(MAX_N)
         ]
         """Last 8 rounds of (resource, stack_id) observed on this tile. The
         stack_id lets us detect congestion earlier: if the same id appears
@@ -475,6 +488,10 @@ class Builder(Unit):
         # Economy
         self.ore_target: Position | None = None
         self.ax_ore_target: Position | None = None
+        self.offensive_ore_target: Position | None = None
+        """Ti ore tile on the enemy side of the map (more than r²=20 closer
+        to their core than ours) that this builder claims for an offensive
+        harvester. Seed for forward dangling chains."""
         self.foundry_target: Position | None = None
         """Ti conveyor tile chosen to be REPLACED by a new foundry. Only set
         when no existing Ax chain or foundry is available as a sink. When set,
@@ -516,7 +533,7 @@ class Builder(Unit):
         self.repaired_prev: bool = True
 
         # Offense
-        self.en_core: bool = False
+        self.en_core_seen: bool = False
         self.offense_target: Position | None = None
         self.offense_turns: int = 0
         self.offense_launcher: Position | None = None
@@ -573,70 +590,65 @@ class Builder(Unit):
         # the center because all of its cardinal neighbours are core tiles
         # too. Used as Ti-sink candidates in update_ti_sink.
         cx, cy = self.my_core.x, self.my_core.y
-        self.core_edges: tuple[Position, ...] = tuple(
-            Position(cx + dx, cy + dy)
-            for dx, dy in DIR8_DELTA
-            if 0 <= cx + dx < self.w and 0 <= cy + dy < self.h
-        )
+        self.core_edges: tuple[Position, ...] = tuple(self.my_core.add(d) for d in DIR8)
 
-        ct.get_cpu_time_elapsed()
+        with Scope("pnb", time=True):
+            # `__init__` built pnb assuming a full MAX_WIDTH x MAX_WIDTH grid.
+            # The real map is anchored at (0, 0)..(w-1, h-1); the x=0 and y=0
+            # edges already got correct boundary handling in `__init__`. Only
+            # the x=w-1 column and y=h-1 row were built as interior there, so
+            # they contain out-of-real-map neighbours. Fix just those w + h - 1
+            # tiles (the shared corner is patched once).
+            w, h = self.w, self.h
 
-        # pnb and pnb_push/pnb_set were pre-built for full MAX_WIDTH ×
-        # MAX_WIDTH. Fix the actual-map boundary so that in-map tiles don't
-        # reference out-of-map neighbours.
-        w, h = self.w, self.h
-        for cy in range(h):
-            row = cy * MAX_WIDTH
-            for cx in range(w):
-                if cx < w - 1 and cy < h - 1 and cx > 0 and cy > 0:
-                    continue
-                i = row + cx
-                self.pnb[i] = [
+            def _fix(cx: int, cy: int) -> None:
+                self.pnb[cy * MAX_WIDTH + cx] = [
                     ny * MAX_WIDTH + nx
                     for dx, dy in DIR8_DELTA
                     if 0 <= (nx := cx + dx) < w and 0 <= (ny := cy + dy) < h
                 ]
 
-        ct.get_cpu_time_elapsed()
-
-        # self.conv_search.post_init()
-
-        ct.get_cpu_time_elapsed()
+            for cx in range(w):
+                _fix(cx, h - 1)
+            for cy in range(h - 1):
+                _fix(w - 1, cy)
 
         if self.known_map is not None:
-            self.symmetry = SYMMETRY[self.known_map]
-            self.symmetry_candidates = {self.symmetry}
-            tiles = decode(TILES[self.known_map](), w * h)
-            env = self.env
-            cost_grid = self.cost_grid
-            buildable = self.buildable
-            ti_routable = self.ti_routable
-            ax_routable = self.ax_routable
-            for y in range(h):
-                row = y * MAX_WIDTH
-                src = y * w
-                for x in range(w):
-                    i = row + x
-                    e = tiles[src + x]
-                    env[i] = e
-                    if e == Environment.WALL:
-                        cost_grid[i] = INF
-                        buildable[i] = False
-                        ti_routable[i] = False
-                        ax_routable[i] = False
-                    else:
-                        cost_grid[i] = 3  # ROAD_COST
-                        is_empty = e == Environment.EMPTY
-                        buildable[i] = is_empty
-                        # No harvesters or foundries seeded yet, so leakage is
-                        # all-False; routable collapses to buildable.
-                        ti_routable[i] = is_empty
-                        ax_routable[i] = is_empty
-            for y in range(h):
-                row = y * MAX_WIDTH
-                for x in range(w):
-                    if env[row + x] == Environment.WALL:
-                        self.update_pnb(row + x)
+            with Scope("hardcode", time=True):
+                self.symmetry = SYMMETRY[self.known_map]
+                self.symmetry_candidates = {self.symmetry}
+                tiles = decode(TILES[self.known_map](), w * h)
+                env = self.env
+                cost_grid = self.cost_grid
+                buildable = self.buildable
+                ti_routable = self.ti_routable
+                ax_routable = self.ax_routable
+                for y in range(h):
+                    row = y * MAX_WIDTH
+                    src = y * w
+                    for x in range(w):
+                        i = row + x
+                        e = tiles[src + x]
+                        env[i] = e
+                        if e == Environment.WALL:
+                            cost_grid[i] = INF
+                            buildable[i] = False
+                            ti_routable[i] = False
+                            ax_routable[i] = False
+                        else:
+                            cost_grid[i] = 3  # ROAD_COST
+                            is_empty = e == Environment.EMPTY
+                            buildable[i] = is_empty
+                            # No harvesters or foundries seeded yet, so leakage is
+                            # all-False; routable collapses to buildable.
+                            ti_routable[i] = is_empty
+                            ax_routable[i] = is_empty
+                with Scope("pnb", time=True):
+                    for y in range(h):
+                        row = y * MAX_WIDTH
+                        for x in range(w):
+                            if env[row + x] == Environment.WALL:
+                                self.update_pnb(row + x)
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
@@ -706,6 +718,8 @@ class Builder(Unit):
     update = update
     prune_stale = prune_stale
     update_vision = update_vision
+    update_markers = update_markers
+    update_reflect = update_reflect
     update_bfs = update_bfs
     extract_path = extract_path
     update_ore_denial = update_ore_denial
@@ -716,85 +730,43 @@ class Builder(Unit):
     update_dangling = update_dangling
     update_ore_target = update_ore_target
     update_ax_ore_target = update_ax_ore_target
+    update_offensive_ore_target = update_offensive_ore_target
     update_foundry_target = update_foundry_target
     update_ti_sink = update_ti_sink
     update_economy_reachability = update_economy_reachability
     update_junctions = update_junctions
     can_place_junction = can_place_junction
+    end_of_turn_heal = end_of_turn_heal
+    end_of_turn_propagate_symmetry = end_of_turn_propagate_symmetry
+    indicators = indicators
     dump = dump
-
-    def draw_debug(self, ct: Controller) -> None:
-        """Paint per-builder economy state into the replay: ore targets,
-        foundry target, chain endpoints. Only has effect when DEBUG_LOG is set
-        (the helpers in `util.log` are no-ops otherwise)."""
-        if self.ore_target is not None:
-            dot(ct, self.ore_target, 255, 220, 0)  # Ti ore target: yellow
-        if self.ax_ore_target is not None:
-            dot(ct, self.ax_ore_target, 200, 0, 200)  # Ax ore target: magenta
-        if self.foundry_target is not None:
-            dot(ct, self.foundry_target, 0, 200, 0)  # foundry target: green
-        if self.dangling_output is not None:
-            dot(ct, self.dangling_output, 0, 200, 200)  # dangling: cyan
 
     @override
     def run(self, ct: Controller) -> None:
         super().run(ct)
-        t0 = ct.get_cpu_time_elapsed()
-        log(
-            f"====== Builder {self.my_id} starting turn {self.round}: "
-            f"currently at {self.my_pos}, team has ti={self.ti} ax={self.ax}, "
-            f"team scale={self.scale:.2f} ======",
-        )
-        self.update(ct)
-        log(
-            f"After update, builder {self.my_id} has: "
-            f"Ti ore target = {self.ore_target}, "
-            f"Ax ore target = {self.ax_ore_target}, "
-            f"foundry target = {self.foundry_target}, "
-            f"dangling chain tip = {self.dangling_output}",
-        )
+        with Scope("turn"):
+            with Scope("body", time=True):
+                log(
+                    "Builder {id} pos={pos} round={round}",
+                    id=self.my_id,
+                    pos=self.my_pos,
+                    round=self.round,
+                )
+                self.update(ct)
+                begin_turn_offense(self, ct)
 
-        self.draw_debug(ct)
+                if DEBUG_DUMP:
+                    self.dump(ct)
 
-        if DEBUG_DUMP:
-            self.dump(ct)
-
-        t1 = ct.get_cpu_time_elapsed()
-        chosen: Task | None = None
-        assert self.role is not None
-        for task in POLICIES[self.role]:
-            with Scope(f"task={task}"):
-                try:
-                    task.run(self, ct)
-                except Exception as exc:
-                    if not isinstance(exc, TaskRejectedError):
-                        raise
-                    log(f"rejected: {type(exc).__name__}: {exc}")
-                    continue
-                chosen = task
-                break
-
-        if self.role != Role.OFFENSE:
-            self.end_of_turn_heal(ct)
-
-        t2 = ct.get_cpu_time_elapsed()
-        log(f"task={t2 - t1}us [{chosen}]")
-        log(f"total={t2 - t0}us")
-
-    def end_of_turn_heal(self, ct: Controller) -> None:
-        my_pos = ct.get_position()
-        if ct.can_heal(my_pos) and ct.get_hp() < ct.get_max_hp():
-            ct.heal(my_pos)
-        for unit in ct.get_nearby_units():
-            if ct.get_team(unit) != self.my_team:
-                continue
-            if ct.get_hp(unit) >= ct.get_max_hp(unit):
-                continue
-            if ct.get_entity_type(unit) == EntityType.CORE:
-                for d in DIR8:
-                    heal_pos = ct.get_position(unit).add(d)
-                    if ct.can_heal(heal_pos):
-                        ct.heal(heal_pos)
-                        break
-            elif ct.can_heal(ct.get_position(unit)):
-                ct.heal(ct.get_position(unit))
+                assert self.role is not None
+                with Scope("tasks", time=True):
+                    run_policy(self, ct, POLICIES[self.role])
+                with Scope("hooks", time=True):
+                    with Scope("indicators", time=True):
+                        self.indicators(ct)
+                    if self.role != Role.OFFENSE:
+                        with Scope("heal", time=True):
+                            self.end_of_turn_heal(ct)
+                    with Scope("symmetry", time=True):
+                        self.end_of_turn_propagate_symmetry(ct)
+            flush()
