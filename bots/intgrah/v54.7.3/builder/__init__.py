@@ -189,7 +189,7 @@ class Builder(Unit):
         adjacent_to_unconnected_harvester."""
         i = t.y * MAX_WIDTH + t.x
         bld = self.buildings[i]
-        if bld is None:
+        if bld is None or isinstance(bld, BuildingMarker):
             if self.env[i] == Environment.WALL:
                 self.dangling_set.discard(t)
                 self.unreachable_dangling.discard(t)
