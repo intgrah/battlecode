@@ -123,9 +123,13 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
             if pos == self.my_pos:
                 continue
 
-            if isinstance(self.get_building(pos), BuildingRoad) and ct.can_destroy(pos) and can_afford(self, EntityType.CONVEYOR):
+            if (
+                isinstance(self.get_building(pos), BuildingRoad)
+                and ct.can_destroy(pos)
+                and can_afford(self, EntityType.CONVEYOR)
+            ):
                 ct.destroy(pos)
-            
+
             if ct.can_build_conveyor(pos, pos.direction_to(target_pos)):
                 log(
                     f"build_at_ore: paving CONVEYOR at neighbour {pos} of ore "
@@ -203,9 +207,13 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                 if self.my_pos.distance_squared(pos) > 2:
                     continue
 
-                if isinstance(self.get_building(pos), BuildingRoad) and ct.can_destroy(pos) and can_afford(self, EntityType.CONVEYOR):
+                if (
+                    isinstance(self.get_building(pos), BuildingRoad)
+                    and ct.can_destroy(pos)
+                    and can_afford(self, EntityType.CONVEYOR)
+                ):
                     ct.destroy(pos)
-                
+
                 if ct.can_build_conveyor(pos, pos.direction_to(target_pos)):
                     log(
                         f"build_at_ore: paving CONVEYOR at neighbour {pos} of ore "

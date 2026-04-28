@@ -36,7 +36,8 @@ type Gate = Callable[[Builder, Controller], bool]
 class TaskGroup:
     """Internal policy node. `children` is searched in order; `gate`, if
     set, can short-circuit the entire subtree when its precondition
-    doesn't hold (cheaper than rejecting at every leaf separately)."""
+    doesn't hold (cheaper than rejecting at every leaf separately).
+    """
 
     name: str
     children: tuple[Policy, ...]

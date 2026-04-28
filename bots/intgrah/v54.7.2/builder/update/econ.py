@@ -23,9 +23,9 @@ from util.debug import debug as log
 from util.directions import DIR4
 from util.metrics import chebyshev
 
+from builder.algorithms.reachability import find
 from builder.helpers import (
     ax_feeds_target,
-    get_enemy_core_pos,
     harvester_would_contaminate,
     ore_available,
     pick_ax_ore_target,
@@ -149,14 +149,33 @@ def update_map_econ(self: Builder, ct: Controller) -> None:
 
 def update_unreachable_dangling(self: Builder) -> None:
     """Migrate tiles between `dangling_set` and `unreachable_dangling`
-    according to this turn's BFS. Keeps the two sets disjoint.
+    according to map-level reachability (incremental UF, not BFS).
+
+    A tile is reachable iff it's been admitted to the union-find AND
+    its component is the same as my_pos's component. The check uses
+    path-compressing `find`, which doubles as the algorithm's
+    convergence work — every consumer query compresses the chains it
+    touches.
+
+    Reach is monotonic, so a tile only ever moves from
+    `unreachable_dangling` into `dangling_set` (never the other way).
     """
+    parent = self.reach_parent
+    my_i = self.my_pos.y * MAX_WIDTH + self.my_pos.x
+    if parent[my_i] == -1:
+        # Builder's own tile not yet admitted (shouldn't happen — the
+        # builder is a building observation by virtue of being on the
+        # tile — but bail safely if so).
+        return
+    my_root = find(parent, my_i)
     for t in list(self.dangling_set):
-        if self.bfs_dist[t.y * MAX_WIDTH + t.x] is INF:
+        i = t.y * MAX_WIDTH + t.x
+        if parent[i] == -1 or find(parent, i) != my_root:
             self.dangling_set.discard(t)
             self.unreachable_dangling.add(t)
     for t in list(self.unreachable_dangling):
-        if self.bfs_dist[t.y * MAX_WIDTH + t.x] is not INF:
+        i = t.y * MAX_WIDTH + t.x
+        if parent[i] != -1 and find(parent, i) == my_root:
             self.unreachable_dangling.discard(t)
             self.dangling_set.add(t)
 
@@ -185,7 +204,7 @@ def update_dangling(self: Builder) -> None:
     # (push forward). Otherwise score by distance to our core-edge ring
     # (pull back toward our sinks). Needs symmetry to know enemy core; if
     # unknown, default to the classic my-core score for all tiles.
-    en_core = get_enemy_core_pos(self) if self.symmetry is not None else None
+    en_core = self.en_core_guess if self.symmetry is not None else None
     best: Position | None = None
     best_score = (1 << 30, 1 << 30)
     for pos in self.dangling_set:

@@ -19,6 +19,7 @@ class SpspRow:
     goal: int
     n_goals: int
     total_time_us: float
+    peak_step_us: float
     reached: bool
     ref_reachable: bool
     opt_ratio: float | None
@@ -48,6 +49,7 @@ def row_from_spsp(
     n_goals: int,
     result: SpspResult,
 ) -> SpspRow:
+    peak = max(result.walk.step_times_us) if result.walk.step_times_us else 0.0
     return SpspRow(
         algo=algo,
         scenario=scenario,
@@ -56,6 +58,7 @@ def row_from_spsp(
         goal=goal,
         n_goals=n_goals,
         total_time_us=result.total_time_us,
+        peak_step_us=peak,
         reached=result.reached,
         ref_reachable=result.ref_reachable,
         opt_ratio=result.opt_ratio,
@@ -130,7 +133,7 @@ def print_spsp_table(rows: list[SpspRow]) -> None:
         print(f"\n  {sc.value.upper()}")
         print(
             f"  {'algo':<35s}"
-            f" {'t_p50':>8s} {'t_p99':>8s} {'t_p100':>8s}"
+            f" {'spk_p50':>8s} {'spk_p99':>8s} {'spk_max':>8s}"
             f" {'o_p50':>7s} {'o_p99':>7s} {'o_p100':>7s}"
             f" {'reach%':>7s} {'1st_mv%':>7s}"
         )
@@ -138,13 +141,13 @@ def print_spsp_table(rows: list[SpspRow]) -> None:
         algos = list(dict.fromkeys(r.algo for r in sd))
         for algo in algos:
             ad = [r for r in sd if r.algo == algo]
-            times = [r.total_time_us for r in ad]
+            peaks = [r.peak_step_us for r in ad]
             opts = [r.opt_ratio for r in ad if r.opt_ratio is not None]
             reached = [r for r in ad if r.reached]
             fms = [r.first_move_correct for r in ad if r.first_move_correct is not None]
-            t50 = _quantile(times, 0.5)
-            t99 = _quantile(times, 0.99)
-            t100 = max(times) if times else 0.0
+            s50 = _quantile(peaks, 0.5)
+            s99 = _quantile(peaks, 0.99)
+            smax = max(peaks) if peaks else 0.0
             o50 = _quantile(opts, 0.5)
             o99 = _quantile(opts, 0.99)
             o100 = max(opts) if opts else 0.0
@@ -153,7 +156,7 @@ def print_spsp_table(rows: list[SpspRow]) -> None:
             fm_pct = 100 * sum(1 for fm in fms if fm) / len(fms) if fms else 0.0
             print(
                 f"  {algo:<35s}"
-                f" {t50:>7.0f}us {t99:>7.0f}us {t100:>7.0f}us"
+                f" {s50:>7.0f}us {s99:>7.0f}us {smax:>7.0f}us"
                 f" {o50:>7.3f} {o99:>7.3f} {o100:>7.3f}"
                 f" {reach_pct:>6.1f}% {fm_pct:>6.1f}%",
             )

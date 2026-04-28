@@ -109,7 +109,8 @@ def tagged(value: object) -> Node:
     """Convert a Python value into a viewer-tagged dict. Recognised
     types serialise to compact tagged forms; unknowns fall through to
     `{"$type": "repr", "v": str(value)}`. Used by `debug()` for `args`
-    and by `vis()` for value payloads."""
+    and by `vis()` for value payloads.
+    """
     # Late imports dodge eager loading of cambc/visualiser at module
     # init time and let the dispatch see the actual classes.
     from cambc import Position  # noqa: PLC0415
@@ -159,7 +160,8 @@ def tagged(value: object) -> Node:
 class Scope(AbstractContextManager):
     """Tree-internal node. On enter, push a `scope` node onto the stack
     and attach to its parent. On exit, record `us` if `time=True`, then
-    pop. Exceptions propagate cleanly — `__exit__` always pops."""
+    pop. Exceptions propagate cleanly — `__exit__` always pops.
+    """
 
     _root_t0: ClassVar[int] = 0
 
@@ -206,7 +208,8 @@ if DEBUG_LOG:
     def debug(tmpl: str, /, **args: object) -> None:
         """Append a msg node under the current scope. `tmpl` is a Python
         format-string fragment using `{name}` slots; `args` provide the
-        typed values referenced by those slots."""
+        typed values referenced by those slots.
+        """
         _emit_child(
             {
                 _TYPE: "msg",
@@ -225,7 +228,8 @@ if DEBUG_LOG:
     def vis(name: str, value: object) -> None:
         """Append a vis node under the current scope. `value` is either
         a tagged-value dict (already pre-serialised, e.g. by the dump
-        helpers for grids) or a Python value to be tagged here."""
+        helpers for grids) or a Python value to be tagged here.
+        """
         payload = value if isinstance(value, dict) and _TYPE in value else tagged(value)
         if _vis_cache.get(name) == payload:
             payload = {_TYPE: "same"}
@@ -242,7 +246,8 @@ if DEBUG_LOG:
         previous flush is attached as `prev_flush_us` so the next
         turn's tree shows how long printing took (you can't put the
         cost of the current flush in the current flush — circular).
-        First-turn value is 0."""
+        First-turn value is 0.
+        """
         global _last_flush_us  # noqa: PLW0603
         if not _stack:
             msg = "flush() called outside any Scope"
@@ -299,7 +304,8 @@ def vis_grid(
     """Build a tagged grid value. Use as `vis("name", vis_grid(...))`.
     `dtype` is one of "bool", "i16", "u16", "u8", "f32"; the viewer
     uses this to choose decoder / renderer. `palette` is a named
-    palette identifier the viewer holds."""
+    palette identifier the viewer holds.
+    """
     return {_TYPE: f"{dtype}grid", "v": list(data), "palette": palette}
 
 
@@ -309,5 +315,6 @@ def vis_tiles(positions: Iterable[Position]) -> Node:
 
 def vis_same() -> Node:
     """Marker: this field's value is unchanged from the previous turn.
-    Viewer reuses the cached value for this builder."""
+    Viewer reuses the cached value for this builder.
+    """
     return {_TYPE: "same"}

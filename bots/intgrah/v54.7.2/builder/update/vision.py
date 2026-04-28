@@ -74,6 +74,13 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
 
 
 def _add_topology(self: Builder, pos: Position, bld: Building) -> None:
+    # Reachability seed: a building proves the tile is reachable through
+    # *some* path. Admit it as a singleton component if not already in the
+    # union-find. Idempotent.
+    i = pos.y * MAX_WIDTH + pos.x
+    if self.reach_parent[i] == -1:
+        self.reach_parent[i] = i
+        self.reach_frontier.append(i)
     if bld is not None and bld.team == self.my_team:
         targets = _edge_targets(pos, bld)
         if targets:
@@ -285,26 +292,18 @@ def _narrow_symmetry(
     self: Builder,
     new_observations: list[tuple[Position, Environment, bool]],
 ) -> None:
-    """For each newly-observed tile, check each remaining symmetry
-    candidate: if the mirror tile under that symmetry disagrees on env
-    (or on whether it hosts a Core), the candidate is inconsistent and
-    dropped. Once one candidate remains, promote to `self.symmetry`.
-    """
-    w, h = self.w, self.h
     invalid: set[Symmetry] = set()
     for sym in self.symmetry_candidates:
         for pos, env, is_core in new_observations:
-            m = sym.action(pos, w, h)
+            m = sym.action(pos, self.w, self.h)
             mi = m.y * MAX_WIDTH + m.x
             mirror_env = self.env[mi]
-            if mirror_env is not None and mirror_env != env:
-                invalid.add(sym)
-                break
-            mirror_bld = self.buildings[mi]
-            mirror_is_core = isinstance(mirror_bld, BuildingCore)
-            if mirror_env is not None and mirror_is_core != is_core:
+            if mirror_env is None:
+                continue
+            if (
+                mirror_env != env
+                or isinstance(self.buildings[mi], BuildingCore) != is_core
+            ):
                 invalid.add(sym)
                 break
     self.symmetry_candidates -= invalid
-    if len(self.symmetry_candidates) == 1:
-        self.symmetry = next(iter(self.symmetry_candidates))

@@ -812,6 +812,7 @@ def astar_jps(
                                 + _h * n
                                 + idx,
                             )
+
                 if (
                     cost[node - stride_dy0] is inf
                     and cost[node + dx0 - stride_dy0] is not inf

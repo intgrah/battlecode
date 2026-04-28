@@ -33,7 +33,11 @@ def pave_near_harvester(self: Builder, ct: Controller) -> None:
                 continue
             match self.get_building(adj):
                 case BuildingHarvester(team=t) if t == self.my_team:
-                    if is_road and ct.can_destroy(pos) and ct.get_conveyor_cost() <= ct.get_global_resources():
+                    if (
+                        is_road
+                        and ct.can_destroy(pos)
+                        and ct.get_conveyor_cost() <= ct.get_global_resources()
+                    ):
                         ct.destroy(pos)
                     if ct.can_build_conveyor(pos, d):
                         ct.build_conveyor(pos, d)

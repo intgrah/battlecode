@@ -121,18 +121,14 @@ def _update_cost(
             case BuildingMarker():
                 cost = ROAD_COST
                 buildable = True
-            case (
-                BuildingConveyor(team=t)
-                | BuildingArmouredConveyor(team=t)
-            ):
+            case BuildingConveyor(team=t) | BuildingArmouredConveyor(team=t):
                 cost = 1
                 buildable = self.my_team == t and any(
-                    isinstance(adjbld := self.get_building(j), BuildingHarvester) and adjbld.team == self.my_team for j in self.out_edges[i]
+                    isinstance(adjbld := self.get_building(j), BuildingHarvester)
+                    and adjbld.team == self.my_team
+                    for j in self.out_edges[i]
                 )
-            case (
-                BuildingSplitter()
-                | BuildingBridge()
-            ):
+            case BuildingSplitter() | BuildingBridge():
                 cost = 1
                 buildable = False
             case BuildingCore(team=self.my_team):
@@ -146,7 +142,10 @@ def _update_cost(
                         continue
                     ji = j.y * MAX_WIDTH + j.x
                     adjbld = self.buildings[ji]
-                    if isinstance(adjbld, BuildingConveyor | BuildingArmouredConveyor) and adjbld.team == self.my_team:
+                    if (
+                        isinstance(adjbld, BuildingConveyor | BuildingArmouredConveyor)
+                        and adjbld.team == self.my_team
+                    ):
                         if not self.buildable[ji]:
                             self.buildable[ji] = True
                             self.ti_routable[ji] = not self.ti_leakage[i]

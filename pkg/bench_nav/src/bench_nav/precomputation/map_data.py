@@ -13,7 +13,7 @@ def load_map(path: str | Path) -> Map:
 
 
 def build_cost(tiles: list[int], n: int) -> list[int]:
-    return [INF if tiles[i] in (1, 2, 3) else CE for i in range(n)]
+    return [INF if tiles[i] == 1 else CE for i in range(n)]
 
 
 def build_nb(w: int, h: int) -> list[list[int]]:
@@ -30,6 +30,41 @@ def build_nb(w: int, h: int) -> list[list[int]]:
 
 def build_pnb(nb: list[list[int]], cost: list[int]) -> list[list[int]]:
     return [[ni for ni in nb[i] if cost[ni] < INF] for i in range(len(nb))]
+
+
+def build_pnb_fd(w: int, h: int, cost: list[int]) -> list[list[int]]:
+    """Cardinals plus forced-diagonal edges. A diagonal (dx,dy) from (x,y)
+    is included iff both (x+dx,y) and (x,y+dy) are walls."""
+    n = w * h
+    out: list[list[int]] = [[] for _ in range(n)]
+    for y in range(h):
+        for x in range(w):
+            i = y * w + x
+            if cost[i] >= INF:
+                continue
+            if x + 1 < w and cost[i + 1] < INF:
+                out[i].append(i + 1)
+            if x - 1 >= 0 and cost[i - 1] < INF:
+                out[i].append(i - 1)
+            if y + 1 < h and cost[i + w] < INF:
+                out[i].append(i + w)
+            if y - 1 >= 0 and cost[i - w] < INF:
+                out[i].append(i - w)
+            for dx, dy in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+                nx = x + dx
+                ny = y + dy
+                if not (0 <= nx < w and 0 <= ny < h):
+                    continue
+                nb = ny * w + nx
+                if cost[nb] >= INF:
+                    continue
+                ai = y * w + (x + dx)
+                bi = (y + dy) * w + x
+                a_wall = not (0 <= x + dx < w) or cost[ai] >= INF
+                b_wall = not (0 <= y + dy < h) or cost[bi] >= INF
+                if a_wall and b_wall:
+                    out[i].append(nb)
+    return out
 
 
 def build_pnbc(nb: list[list[int]], cost: list[int]) -> list[list[tuple[int, int]]]:

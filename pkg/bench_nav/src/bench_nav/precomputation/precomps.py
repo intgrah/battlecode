@@ -11,6 +11,7 @@ from bench_nav.precomputation.map_data import (
     build_pnb_by_offset,
     build_pnb_dir,
     build_pnb_dual,
+    build_pnb_fd,
     build_pnb_skip,
     build_pnb_navdijkstra,
     build_pnbc,
@@ -47,6 +48,13 @@ PNB: Final[Precomp[list[list[int]]]] = Precomp(
     deps=frozenset({NB, COST}),
     availability=Availability.FULL_MAP,
     compute=lambda ctx: build_pnb(ctx[NB], ctx[COST]),
+)
+
+PNB_FD: Final[Precomp[list[list[int]]]] = Precomp(
+    label="pnb_fd",
+    deps=frozenset({COST}),
+    availability=Availability.FULL_MAP,
+    compute=lambda ctx: build_pnb_fd(ctx.w, ctx.h, ctx[COST]),
 )
 
 PNBC: Final[Precomp[list[list[tuple[int, int]]]]] = Precomp(

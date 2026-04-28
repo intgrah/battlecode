@@ -1,7 +1,8 @@
 """Per-turn state dump. Adds vis nodes to the debug tree under nested
 `Scope` categories (terrain, routability, distances, econ, offense,
 identity, resources, misc). Scalars use the auto-tagged path; grids
-and tile-sets use the visualiser primitives."""
+and tile-sets use the visualiser primitives.
+"""
 
 from __future__ import annotations
 
@@ -59,7 +60,8 @@ P_BOOL = Palette(
 def _crop(arr: list[int], w: int, h: int) -> list[int]:
     """Crop a flat MAX_WIDTH x MAX_WIDTH array to actual map dimensions,
     replacing INF / >=1e6 sentinels with -1 so the palette's `special`
-    table can render them as transparent."""
+    table can render them as transparent.
+    """
     return [
         c if c < 1e6 else -1
         for y in range(h)
@@ -75,6 +77,70 @@ def _tiles(positions: Iterable[Position]) -> Tiles:
     return Tiles([(p.x, p.y) for p in positions])
 
 
+def _reach_roots(self: Builder, w: int, h: int) -> list[int]:
+    """Raw `parent[i]` for each in-bounds tile. No find, no walk, no
+    work — the dump must do zero union-find work. Tiles with the same
+    parent pointer share a colour; the natural shape (chains, partial
+    compression) is preserved as-is.
+    """
+    parent = self.reach_parent
+    return [parent[y * MAX_WIDTH + x] for y in range(h) for x in range(w)]
+
+
+def _hsv_to_rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
+    """H in [0,1], s/v in [0,1]; returns 0..255 ints."""
+    i = int(h * 6.0)
+    f = h * 6.0 - i
+    p = v * (1.0 - s)
+    q = v * (1.0 - s * f)
+    t = v * (1.0 - s * (1.0 - f))
+    i %= 6
+    if i == 0:
+        r, g, b = v, t, p
+    elif i == 1:
+        r, g, b = q, v, p
+    elif i == 2:
+        r, g, b = p, v, t
+    elif i == 3:
+        r, g, b = p, q, v
+    elif i == 4:
+        r, g, b = t, p, v
+    else:
+        r, g, b = v, p, q
+    return int(r * 255), int(g * 255), int(b * 255)
+
+
+_GOLDEN = 0.61803398875
+
+
+def _reach_palette(self: Builder, w: int, h: int) -> Palette[int]:
+    """One distinct colour per distinct `parent[i]` value observed in
+    the in-bounds region. No find, no walk — colours key directly off
+    the raw parent pointer so the dump performs zero union-find work.
+    -1 -> transparent.
+    """
+    parent = self.reach_parent
+    keys: set[int] = set()
+    for y in range(h):
+        base = y * MAX_WIDTH
+        for x in range(w):
+            v = parent[base + x]
+            if v != -1:
+                keys.add(v)
+    special: dict[int, Colour] = {-1: TRANSPARENT}
+    for k, key in enumerate(sorted(keys)):
+        hue = (k * _GOLDEN) % 1.0
+        r, g, b = _hsv_to_rgb(hue, 0.65, 0.95)
+        special[key] = Colour(r, g, b, 160)
+    return Palette(
+        stops=[
+            PaletteStop(t=0, colour=TRANSPARENT),
+            PaletteStop(t=1, colour=TRANSPARENT),
+        ],
+        special=special,
+    )
+
+
 def dump(self: Builder, _ct: Controller) -> None:
     w, h = self.w, self.h
     env = self.env
@@ -85,8 +151,7 @@ def dump(self: Builder, _ct: Controller) -> None:
             vis("round", self.round)
             vis("role", str(self.role))
             vis("role_age", self.role_age)
-            vis("permanent_role", self.permanent_role)
-            vis("symmetry", self.symmetry)
+            vis("symmetry", None if self.symmetry is None else self.symmetry.name)
             vis("symmetry_candidates", sorted(s.name for s in self.symmetry_candidates))
             vis("en_core_seen", self.en_core_seen)
         with Scope("terrain"):
@@ -122,6 +187,13 @@ def dump(self: Builder, _ct: Controller) -> None:
             )
         with Scope("distances"):
             vis("bfs_dist", I16Grid(_crop(self.bfs_dist, w, h), palette=P_DIST))
+            vis(
+                "reach_root",
+                I16Grid(
+                    _reach_roots(self, w, h),
+                    palette=_reach_palette(self, w, h),
+                ),
+            )
             vis(
                 "move_dist",
                 I16Grid(_crop(self.move_search.dist, w, h), palette=P_DIST),

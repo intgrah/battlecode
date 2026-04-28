@@ -21,17 +21,57 @@ TARGETS: tuple[tuple[str, str, str], ...] = (
     ("astar_jps_dial.py.j2", "spsp/astar", "jps_dial.py"),
     ("astar_jps_precomp.py.j2", "spsp/astar", "jps_precomp.py"),
     ("astar_jps_mpsp.py.j2", "mpsp", "astar_jps_mpsp.py"),
+    ("astar_jps_stepped.py.j2", "stepped", "jps.py"),
+    ("dp_step.py.j2", "stepped", "dp_step.py"),
 )
+
+
+def add_const(var: str, k: int) -> str:
+    """`var + k` simplified: drop +0, write +(-k) as -k."""
+    if k == 0:
+        return var
+    if k > 0:
+        return f"{var} + {k}"
+    return f"{var} - {-k}"
+
+
+def cell_offset(dx: int, dy: int) -> str:
+    out = "pos"
+    if dy == 1:
+        out += " + w"
+    elif dy == -1:
+        out += " - w"
+    elif dy == 2:
+        out += " + w2"
+    elif dy == -2:
+        out += " - w2"
+    elif dy == 3:
+        out += " + w3"
+    elif dy == -3:
+        out += " - w3"
+    elif dy == 4:
+        out += " + w4"
+    elif dy == -4:
+        out += " - w4"
+    elif dy > 0:
+        out += f" + {dy} * w"
+    elif dy < 0:
+        out += f" - {-dy} * w"
+    if dx > 0:
+        out += f" + {dx}"
+    elif dx < 0:
+        out += f" - {-dx}"
+    return out
 
 
 def main() -> None:
     env = Environment(
         loader=FileSystemLoader(TEMPLATES),
         undefined=StrictUndefined,
-        trim_blocks=True,
-        lstrip_blocks=True,
         keep_trailing_newline=True,
     )
+    env.globals["add_const"] = add_const
+    env.globals["cell_offset"] = cell_offset
     outs: list[Path] = []
     for template_name, subdir, out_name in TARGETS:
         tmpl = env.get_template(template_name)

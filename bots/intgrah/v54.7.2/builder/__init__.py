@@ -25,18 +25,18 @@ from cambc import (
     ResourceType,
 )
 from config import DEBUG_DUMP, HARDCODE
-from hardcode.identify import core_for, find_core, identify_map
+from hardcode.identify import find_core, identify_map
 from hardcode.map import SYMMETRY, TILES, decode
-from unit import Unit
+from unit import CoreAwareUnit
 from util.constants import FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH
 from util.debug import Scope, flush
 from util.debug import debug as log
 from util.directions import DIR4, DIR8, DIR8_DELTA
-from util.symmetry import Symmetry
 
 from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
 from builder.algorithms.econ_astar import AStarSearch
+from builder.algorithms.reachability import update_reachability
 from builder.dump import dump
 from builder.hooks.heal import end_of_turn_heal
 from builder.hooks.indicators import indicators
@@ -59,7 +59,6 @@ from builder.update.econ import (
     update_ti_sink,
     update_unreachable_dangling,
 )
-from builder.update.markers import update_markers
 from builder.update.prune import prune_stale
 from builder.update.reflect import update_reflect
 from builder.update.role import update_role
@@ -72,7 +71,7 @@ if TYPE_CHECKING:
     from builder.algorithms.bugnav import WallFollow
 
 
-class Builder(Unit):
+class Builder(CoreAwareUnit):
     def _refresh_ti_leakage(self, i: int) -> None:
         new = self._ax_harv_at[i] > 0 or self._foundry_at[i] > 0
         if new != self.ti_leakage[i]:
@@ -320,6 +319,14 @@ class Builder(Unit):
 
         self.bfs_dist: Final[list[int]] = [INF] * MAX_N
         self.bfs_reset: Final[tuple[int, ...]] = (INF,) * MAX_N
+        self.reach_parent: Final[list[int]] = [-1] * MAX_N
+        """Union-find parent pointer for incremental reachability.
+        -1 = unadmitted; else points to parent (self if root). Seeded
+        when buildings are observed; flood-expanded across turns through
+        non-WALL env. See `algorithms/reachability.py`."""
+        self.reach_frontier: Final[list[int]] = []
+        """LIFO of admitted-but-not-yet-expanded tiles. Persists across
+        turns; bounded pop count per turn (`K_PER_TURN`)."""
         self.move_search: Final = MoveHeapAstar(self)
         self.conv_search: Final = AStarSearch(self)
         self.ax_conv_search: Final = AStarSearch(self)
@@ -349,11 +356,6 @@ class Builder(Unit):
         """Structural consumers: positions this tile's building outputs to.
         Mirrors `in_edges` so forward walks don't have to match on the
         building type."""
-
-        self.symmetry_candidates: set[Symmetry] = set(Symmetry)
-        """The current set of symmetry hypotheses."""
-        self.symmetry: Symmetry | None = None
-        """If `symmetry == {x}`, then this is `x`, otherwise `None`."""
 
         self.reflect_queue: deque[int] = deque()
         """At the moment symmetry is known, existing tiles in memory have to be reflected.
@@ -447,7 +449,6 @@ class Builder(Unit):
         # Role
         self.role: Role | None = None
         self.role_age: int = 0
-        self.permanent_role: bool = False
 
         # Economy
         self.ore_target: Position | None = None
@@ -529,23 +530,24 @@ class Builder(Unit):
         self.scout_radius: float = 10.0
 
     @override
+    def _narrow_symmetry_from_vision(self, ct: Controller) -> None:
+        # Builder's incremental `_narrow_symmetry` in update_vision sees
+        # the same turn-1 observations against its persistent grid, so
+        # the post_init pass would just duplicate the work.
+        pass
+
+    @override
+    def _resolve_my_core(self, ct: Controller) -> Position:
+        core = find_core(ct, self.my_team)
+        return core if core is not None else ct.get_position()
+
+    @override
     def post_init(self, ct: Controller) -> None:
         super().post_init(ct)
         self.opportunistic: bool = self.rng.random() < 0.5
 
-        core = find_core(ct, self.my_team)
-        if HARDCODE and core is not None:
-            self.known_map = identify_map(self.w, self.h, core)
-        else:
-            self.known_map = None
-        self.my_core = (
-            core
-            if core is not None
-            else (
-                core_for(self.known_map, self.my_team)
-                if self.known_map is not None
-                else Position(0, 0)
-            )
+        self.known_map = (
+            identify_map(self.w, self.h, self.my_core) if HARDCODE else None
         )
 
         # The 8 perimeter tiles of the core's 3x3 block (edges + corners,
@@ -579,8 +581,7 @@ class Builder(Unit):
 
         if self.known_map is not None:
             with Scope("hardcode", time=True):
-                self.symmetry = SYMMETRY[self.known_map]
-                self.symmetry_candidates = {self.symmetry}
+                self.symmetry_candidates = {SYMMETRY[self.known_map]}
                 tiles = decode(TILES[self.known_map](), w * h)
                 env = self.env
                 cost_grid = self.cost_grid
@@ -682,9 +683,9 @@ class Builder(Unit):
     update = update
     prune_stale = prune_stale
     update_vision = update_vision
-    update_markers = update_markers
     update_reflect = update_reflect
     update_bfs = update_bfs
+    update_reachability = update_reachability
     extract_path = extract_path
     update_ore_denial = update_ore_denial
     update_enemy_turrets = update_enemy_turrets

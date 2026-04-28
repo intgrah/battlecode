@@ -17,7 +17,6 @@ from cambc import Controller, Direction, EntityType, Environment, Position, Reso
 from util.constants import BASE_COST, INF, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
-from util.symmetry import Symmetry
 
 from builder.algorithms.bugnav import bugnav
 
@@ -103,60 +102,30 @@ def try_attack(ct: Controller, pos: Position) -> bool:
     return False
 
 
-_IS_UNIT = frozenset(
-    {EntityType.HARVESTER, EntityType.SENTINEL, EntityType.GUNNER, EntityType.LAUNCHER},
-)
-_EARLY_GAME_ROUND = 35
-_HARVESTER_RESERVE_EARLY = 10
-_HARVESTER_RESERVE_LATE = 20
-_LAUNCHER_RESERVE = 15
-
-
-def _foundry_reserve(self: Builder) -> int:
-    """Ti reserved for a pending foundry placement. Kicks in once we've
-    placed at least one Ax harvester (we're committing to the Ax economy
-    and a foundry is expected to follow). Prevents other builders from
-    spending the colony's last Ti on conveyors while a foundry is queued.
-    """
-    if self.round < 500:
-        return 0
-    if not self.ax_harvester_adjacent:
-        return 0
-    foundry_ti, _ = BASE_COST[EntityType.FOUNDRY]
-    return int(foundry_ti * self.scale)
-
-
-def _unit_reserve(self: Builder, etype: EntityType) -> int:
-    """Ti a unit placement should leave on top of its own cost, to avoid
-    spending the last Ti on a unit that then has no buffer to act.
-    """
-    if etype == EntityType.HARVESTER:
-        return (
-            _HARVESTER_RESERVE_EARLY
-            if self.round < _EARLY_GAME_ROUND
-            else _HARVESTER_RESERVE_LATE
-        )
-    if etype == EntityType.LAUNCHER:
-        return _LAUNCHER_RESERVE
-    return 0
-
-
 def ti_needed(self: Builder, etype: EntityType) -> int:
-    """Total Ti required to place `etype` on this tile, accounting for both
-    the scaled build cost and all reserves. Single source of truth for
-    `can_afford` and for user-facing "insufficient titanium" messages.
+    base = BASE_COST[etype][0]
+    scale = self.scale
+    foundry = (
+        int(BASE_COST[EntityType.FOUNDRY][0] * scale)
+        if self.round >= 500 and self.ax_harvester_adjacent
+        else 0
+    )
+    """Once we've committed to an Ax economy (round >= 500 with at least
+    one Ax harvester visible), keep enough Ti banked for a foundry so
+    other builders can't drain the colony before it's placed.
     """
-    ti_cost, _ax_cost = BASE_COST[etype]
-    if etype == EntityType.FOUNDRY:
-        # Foundry placement itself doesn't need to preserve the reserve (it
-        # IS the reserve target).
-        return int(ti_cost * self.scale)
-    if etype in _IS_UNIT:
-        unit_reserve = _unit_reserve(self, etype)
-        return int(
-            (ti_cost + unit_reserve) * (1 + self.scale) + _foundry_reserve(self),
-        )
-    return int(ti_cost * self.scale + _foundry_reserve(self))
+    match etype:
+        case EntityType.FOUNDRY:
+            return int(base * scale)
+        case EntityType.HARVESTER:
+            reserve = 10 if self.round < 35 else 20
+            return int((base + reserve) * (1 + scale)) + foundry
+        case EntityType.LAUNCHER:
+            return int((base + 15) * (1 + scale)) + foundry
+        case EntityType.SENTINEL | EntityType.GUNNER:
+            return int(base * (1 + scale)) + foundry
+        case _:
+            return int(base * scale) + foundry
 
 
 def can_afford(self: Builder, etype: EntityType) -> bool:
@@ -175,16 +144,13 @@ def try_place(
     if not can_afford(self, etype):
         log(
             "try_place: cannot afford {etype} at {pos} "
-            "(have {have}, need {need}; base {base}, scale {scale:.2f}, "
-            "foundry_reserve={fr}, unit_reserve={ur})",
+            "(have {have}, need {need}; base {base}, scale {scale:.2f})",
             etype=etype,
             pos=pos,
             have=self.ti,
             need=ti_needed(self, etype),
             base=BASE_COST[etype][0],
             scale=self.scale,
-            fr=_foundry_reserve(self),
-            ur=_unit_reserve(self, etype),
         )
         return False
     if destroy and ct.can_destroy(pos):
@@ -274,13 +240,6 @@ def try_heal(
     return False
 
 
-def get_enemy_core_pos(self: Builder) -> Position:
-    for sym in (Symmetry.ROT, Symmetry.VER, Symmetry.HOR):
-        if sym in self.symmetry_candidates:
-            return sym.action(self.my_core, self.w, self.h)
-    return Symmetry.ROT.action(self.my_core, self.w, self.h)
-
-
 def move_random(self: Builder, ct: Controller) -> bool:
     dir8 = DIR8.copy()
     self.rng.shuffle(dir8)
@@ -312,14 +271,23 @@ def ore_available(self: Builder, pos: Position) -> bool:
 
 def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None:
     """The cardinal of `ore_pos` chosen as the future flow-feed slot —
-    the empty cardinal closest to `ti_sink` / `my_core`. Reserved per
+    the empty cardinal closest to the relevant sink. Reserved per
     harvester so the harvester always has at least one consumer side.
+
+    Sink direction is bisector-aware: harvesters on our side feed back
+    toward `ti_sink` / `my_core`. Harvesters on the enemy side
+    (offensive) feed FORWARD toward `enemy_core`, so the gap left in
+    the surrounding barrier ring opens toward the push, not back home.
 
     Returns None if every cardinal already hosts a flow consumer or the
     builder, or if no sink is known. Excludes the builder's own tile
     (transient: the builder will step off; that tile may become the
-    feed too, but it's already an I/O slot regardless of sink choice)."""
-    sink = self.ti_sink if self.ti_sink is not None else self.my_core
+    feed too, but it's already an I/O slot regardless of sink choice).
+    """
+    if on_enemy_side(self, ore_pos):
+        sink = self.en_core_guess if self.symmetry is not None else None
+    else:
+        sink = self.ti_sink if self.ti_sink is not None else self.my_core
     if sink is None:
         return None
     free: list[Position] = []
@@ -400,7 +368,7 @@ def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
     """
     if self.symmetry is None:
         return None
-    enemy_core = get_enemy_core_pos(self)
+    enemy_core = self.en_core_guess
     best_target = None
     min_dist = INF
     for pos in self.nearby_tiles:
@@ -511,10 +479,11 @@ def on_enemy_side(self: Builder, pos: Position) -> bool:
     Mirrors the rule used by `_pick_ore` for harvester placement, so econ
     routing of harvester outputs uses the same split: ours-side tiles are
     routed home, enemy-side tiles are left for OFFENSE's `push_extend`.
-    Requires symmetry to be resolved; returns False otherwise."""
+    Requires symmetry to be resolved; returns False otherwise.
+    """
     if self.symmetry is None:
         return False
-    enemy_core = get_enemy_core_pos(self)
+    enemy_core = self.en_core_guess
     return (
         pos.distance_squared(self.my_core)
         > pos.distance_squared(enemy_core) + _BISECTOR_MARGIN_R2
@@ -522,7 +491,7 @@ def on_enemy_side(self: Builder, pos: Position) -> bool:
 
 
 def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
-    enemy_core = get_enemy_core_pos(self)
+    enemy_core = self.en_core_guess
     best_target = None
     min_dist = INF
     for pos in self.nearby_tiles:
