@@ -204,14 +204,37 @@ def bench_stepped(args: argparse.Namespace) -> None:
             passable = _passable(gt.cost)
             if not passable:
                 continue
-            queries = spsp_queries(passable, n_queries, SEED)
-            first_moves_cache: dict[tuple[int, int], set[int]] = {}
+            comp_id: list[int] = [-1] * m.n
+            next_id = 0
+            for seed in passable:
+                if comp_id[seed] != -1:
+                    continue
+                frontier = [seed]
+                comp_id[seed] = next_id
+                while frontier:
+                    cur = frontier.pop()
+                    cx, cy = cur % m.w, cur // m.w
+                    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
+                        nx, ny = cx + dx, cy + dy
+                        if 0 <= nx < m.w and 0 <= ny < m.h:
+                            nb = ny * m.w + nx
+                            if comp_id[nb] == -1 and gt.cost[nb] < INF:
+                                comp_id[nb] = next_id
+                                frontier.append(nb)
+                next_id += 1
+            raw_queries = spsp_queries(passable, n_queries * 4, SEED)
+            queries: list = []
+            for q in raw_queries:
+                if comp_id[q.start] == comp_id[q.goals[0]]:
+                    queries.append(q)
+                    if len(queries) >= n_queries:
+                        break
             dist_cache: dict[int, list[int]] = {}
+            first_moves_cache: dict[tuple[int, int], set[int]] = {}
             for a in algos:
                 prefix = f"{m.name:24s} {sc.value:11s} {a.NAME:30s}"
                 sys.stderr.write(f"\r{prefix}")
                 sys.stderr.flush()
-                stepper = a(ctx)
                 for q in queries:
                     if q.start not in dist_cache:
                         dist_cache[q.start] = dijkstra_from(gt, q.start)
@@ -221,6 +244,7 @@ def bench_stepped(args: argparse.Namespace) -> None:
                         first_moves_cache[key] = first_moves_for(
                             gt, q.start, q.goals[0], dist
                         )
+                    stepper = a(ctx)
                     res = run_stepped(
                         stepper, ctx, gt, q, DEFAULT_CFG, dist, first_moves_cache[key]
                     )
@@ -307,6 +331,7 @@ def _parse_spsp_row(r: dict[str, str]) -> SpspRow:
         goal=int(r["goal"]),
         n_goals=int(r["n_goals"]),
         total_time_us=float(r["total_time_us"]),
+        peak_step_us=float(r.get("peak_step_us", "0") or "0"),
         reached=r["reached"] == "1",
         ref_reachable=r["ref_reachable"] == "1",
         opt_ratio=opt_float("opt_ratio"),

@@ -1287,6 +1287,7 @@ def astar_jps_precomp(
                             + _h * n
                             + idx,
                         )
+
             if (
                 cost[node - stride_dy0] is inf
                 and cost[node + 1 - stride_dy0] is not inf
@@ -1780,6 +1781,7 @@ def astar_jps_precomp(
                             + _h * n
                             + idx,
                         )
+
             if (
                 cost[node - stride_dy0] is inf
                 and cost[node + 1 - stride_dy0] is not inf
@@ -2273,6 +2275,7 @@ def astar_jps_precomp(
                             + _h * n
                             + idx,
                         )
+
             if (
                 cost[node - stride_dy0] is inf
                 and cost[node + -1 - stride_dy0] is not inf
@@ -2766,6 +2769,7 @@ def astar_jps_precomp(
                             + _h * n
                             + idx,
                         )
+
             if (
                 cost[node - stride_dy0] is inf
                 and cost[node + -1 - stride_dy0] is not inf

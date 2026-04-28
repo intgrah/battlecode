@@ -800,6 +800,7 @@ def astar_jps_dial(
                                     bk[(nd + (hxh if hxh > hyh else hyh)) % mod].append(
                                         idx
                                     )
+
                         if (
                             cost[node - stride_dy0] is inf
                             and cost[node + dx0 - stride_dy0] is not inf

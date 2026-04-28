@@ -16,12 +16,12 @@ def update(self: Builder, ct: Controller) -> None:
             self.prune_stale(ct)
         with Scope("vision", time=True):
             self.update_vision(ct)
-        with Scope("markers", time=True):
-            self.update_markers(ct)
         with Scope("reflect", time=True):
             self.update_reflect()
         with Scope("bfs", time=True):
             self.update_bfs(self.my_pos.x, self.my_pos.y)
+        with Scope("reachability", time=True):
+            self.update_reachability()
         with Scope("ore_deny", time=True):
             self.update_ore_denial()
         with Scope("turrets", time=True):

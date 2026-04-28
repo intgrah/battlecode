@@ -1,154 +1,41 @@
-"""Bug1 (Lumelsky & Stepanov, 1987) — stepped."""
+"""Bug1 — plan once via virtual circumnavigation, BFS-shortcut per step."""
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import override
 
-from bench_nav.common import INF
 from bench_nav.precomputation import COST
-from bench_nav.stepped.bug._common import (
-    WallFollowState,
-    WallStepOutcome,
-    bresenham,
-    dir_to_goal,
-    dist_sq,
-    has_los,
-    make_passable_closures,
-    neighbour,
-    wall_follow_step,
-)
+from bench_nav.stepped.bug._planner import bug1_plan
+from bench_nav.stepped.dp_step import dp_step
 from bench_nav.types import AlgoName, PrecompCtx, Stepped
 
 
-class _Mode(Enum):
-    MOTION = 0
-    CIRCUMNAV = 1
-    RETURN_TO_LEAVE = 2
-
-
-class _Bug1Base(Stepped):
+class Bug1(Stepped):
+    NAME = AlgoName("bug-bug1")
     REQUIRES = frozenset({COST})
-    _use_los = False
 
     @override
     def __init__(self, ctx: PrecompCtx) -> None:
         self.w = ctx.w
         self.h = ctx.h
+        self.n = ctx.n
         self.cost = ctx[COST]
-        self.passable, self.on_map = make_passable_closures(
-            ctx.w, ctx.h, self.cost, INF
-        )
         self._active_goal: int | None = None
-        self._mode = _Mode.MOTION
-        self._wf = WallFollowState(
-            pos=(0, 0), current_obstacle=(0, 0), obstacle_on_right=True
-        )
-        self._best_leave: tuple[int, int] = (0, 0)
-        self._best_leave_dist_sq = 0
-        self._global_min_dist_sq = 0
-        self._follow_visited: set[tuple[tuple[int, int], tuple[int, int], bool]] = set()
-        self._los_queue: list[tuple[int, int]] = []
-
-    def _reset(self, p: tuple[int, int], g: tuple[int, int]) -> None:
-        self._mode = _Mode.MOTION
-        self._wf = WallFollowState(pos=p, current_obstacle=p, obstacle_on_right=True)
-        self._best_leave = p
-        self._best_leave_dist_sq = dist_sq(p, g)
-        self._global_min_dist_sq = dist_sq(p, g)
-        self._follow_visited.clear()
-        self._los_queue.clear()
+        self._path_idx: list[int] = [-1] * ctx.n
+        self._has_path: bool = False
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        w = self.w
-        p = (pos % w, pos // w)
-        g = (goal % w, goal // w)
         if goal != self._active_goal:
             self._active_goal = goal
-            self._reset(p, g)
-        if not self.passable(*p) or not self.passable(*g):
-            return None
-        if p == g:
-            return pos
-
-        if self._los_queue:
-            np = self._los_queue.pop(0)
-            return np[1] * w + np[0]
-
-        if self._use_los and has_los(p, g, self.passable):
-            queue = bresenham(p, g)[1:]
-            if queue:
-                self._los_queue = queue[1:]
-                first = queue[0]
-                return first[1] * w + first[0]
-
-        if self._mode is _Mode.MOTION:
-            d = dir_to_goal(p, g)
-            np = neighbour(p, d)
-            if self.passable(*np):
-                d2 = dist_sq(np, g)
-                self._global_min_dist_sq = min(self._global_min_dist_sq, d2)
-                return np[1] * w + np[0]
-            self._mode = _Mode.CIRCUMNAV
-            self._wf = WallFollowState(
-                pos=p,
-                current_obstacle=neighbour(p, d),
-                obstacle_on_right=True,
-            )
-            self._best_leave = p
-            self._best_leave_dist_sq = dist_sq(p, g)
-            self._follow_visited.clear()
-            self._follow_visited.add(
-                (self._wf.pos, self._wf.current_obstacle, self._wf.obstacle_on_right)
-            )
-            return pos
-        if self._mode is _Mode.CIRCUMNAV:
-            self._wf.pos = p
-            outcome = wall_follow_step(self._wf, self.passable, self.on_map)
-            if outcome is WallStepOutcome.SURROUNDED:
+            self._path_idx[:] = [-1] * self.n
+            raw = bug1_plan(self.cost, self.w, self.h, pos, goal)
+            if raw is None:
+                self._has_path = False
                 return None
-            np = self._wf.pos
-            d2 = dist_sq(np, g)
-            if d2 < self._best_leave_dist_sq:
-                self._best_leave = np
-                self._best_leave_dist_sq = d2
-            state = (
-                self._wf.pos,
-                self._wf.current_obstacle,
-                self._wf.obstacle_on_right,
-            )
-            if state in self._follow_visited:
-                if self._best_leave_dist_sq >= self._global_min_dist_sq:
-                    return None
-                self._global_min_dist_sq = self._best_leave_dist_sq
-                self._mode = _Mode.RETURN_TO_LEAVE
-                self._follow_visited.clear()
-                self._follow_visited.add(state)
-            else:
-                self._follow_visited.add(state)
-            return np[1] * w + np[0]
-        # RETURN_TO_LEAVE
-        if p == self._best_leave:
-            self._mode = _Mode.MOTION
-            return pos
-        self._wf.pos = p
-        outcome = wall_follow_step(self._wf, self.passable, self.on_map)
-        if outcome is WallStepOutcome.SURROUNDED:
+            for i, c in enumerate(raw):
+                self._path_idx[c] = i
+            self._has_path = True
+        if not self._has_path:
             return None
-        np = self._wf.pos
-        state = (self._wf.pos, self._wf.current_obstacle, self._wf.obstacle_on_right)
-        if state in self._follow_visited:
-            return None
-        self._follow_visited.add(state)
-        return np[1] * w + np[0]
-
-
-class Bug1(_Bug1Base):
-    NAME = AlgoName("bug-bug1")
-    _use_los = False
-
-
-class Bug1Los(_Bug1Base):
-    NAME = AlgoName("bug-bug1-los")
-    _use_los = True
+        return dp_step(self.w, self.cost, self.h, pos, self._path_idx)

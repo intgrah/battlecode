@@ -1,14 +1,19 @@
 """Chain-laying for Ti and Ax harvester outputs.
 
-Public entry: `route_chain(self, ct, start)`. Internals handle resource
-classification, upstream-tree reuse, conveyor/bridge placement, and the
-foundry-retarget side effect when an Ax chain lands on a Ti conveyor.
+Two public entry points share a single one-step worker `extend_step`:
+
+- `extend_chain` — auto-pick target by resource (Ti -> ti_sink, Ax ->
+  ax_sink). Used by ECON's chain-extension tasks.
+- `extend_step` — picks an explicit target. Used by OFFENSE
+  (`push_extend`) to point at the enemy core.
+
+Failures raise typed `TaskRejectedError` subclasses defined here, so
+callers don't need their own wrapper exception types.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
 from building import (
     BuildingArmouredConveyor,
@@ -35,6 +40,7 @@ from builder.helpers import (
     try_move_with_road,
     try_place,
 )
+from builder.tasks.rejected import Reason, TaskRejectedError
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -44,16 +50,122 @@ _UPSTREAM_MAX_NODES_RES = 80
 """Cap on upstream BFS size in `resource_at`."""
 
 
-@dataclass(frozen=True, slots=True)
-class RouteFail:
-    """Why a route_chain attempt did nothing this turn. `kind` is a stable
-    machine-readable tag; `tmpl` + `args` mirror the typed-debug shape so
-    a failing task can re-emit the reason as a structured msg.
-    """
+# -- Routing-failure exceptions --------------------------------------
+#
+# Each terminal "did nothing this turn" branch in `_extend_step` /
+# `extend_chain` raises one of these. Tasks that call into this module
+# don't catch them; they propagate up to the policy runner which logs
+# the typed reason and moves on to the next task.
 
-    kind: str
-    tmpl: str
-    args: dict[str, object]
+
+class TaskRejectedStartEqualsTargetError(TaskRejectedError):
+    def __init__(self, pos: Position) -> None:
+        self.pos = pos
+
+    @override
+    def reason(self) -> Reason:
+        return "start == target ({pos})", {"pos": self.pos}
+
+
+class TaskRejectedAdjacentToCoreError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "{start} is already adjacent to core; nothing to lay", {
+            "start": self.start,
+        }
+
+
+class TaskRejectedNoUpstreamPathError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "no upstream chain reaches {start}", {"start": self.start}
+
+
+class TaskRejectedStartUnpassableError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "{start} is unpassable and no upstream fallback", {"start": self.start}
+
+
+class TaskRejectedAStarFailedError(TaskRejectedError):
+    def __init__(
+        self,
+        start: Position,
+        target: Position,
+        resource: ResourceType,
+        fail: str,
+    ) -> None:
+        self.start = start
+        self.target = target
+        self.resource = resource
+        self.fail = fail
+
+    @override
+    def reason(self) -> Reason:
+        return "A* {resource} {start}->{target}: {fail}", {
+            "resource": self.resource,
+            "start": self.start,
+            "target": self.target,
+            "fail": self.fail,
+        }
+
+
+class TaskRejectedNothingToLayError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "in range of {start} but A* path is empty", {"start": self.start}
+
+
+class TaskRejectedLayAndMoveBothFailedError(TaskRejectedError):
+    def __init__(self, start: Position, target: Position) -> None:
+        self.start = start
+        self.target = target
+
+    @override
+    def reason(self) -> Reason:
+        return "could neither lay at {start} nor move toward {target}", {
+            "start": self.start,
+            "target": self.target,
+        }
+
+
+class TaskRejectedDanglingEnemySideError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "{start} is enemy-side; deferring to OFFENSE", {"start": self.start}
+
+
+class TaskRejectedResourceUnclassifiableError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "cannot classify resource at {start}", {"start": self.start}
+
+
+class TaskRejectedAxNoSinkError(TaskRejectedError):
+    def __init__(self, start: Position) -> None:
+        self.start = start
+
+    @override
+    def reason(self) -> Reason:
+        return "chain at {start} is Ax but ax_sink is None", {"start": self.start}
 
 
 def resource_at(self: Builder, pos: Position) -> ResourceType | None:
@@ -258,31 +370,36 @@ def _lay_segment(
     return False
 
 
-def _route_to(
+def extend_step(
     self: Builder,
     ct: Controller,
     start: Position,
     target: Position,
     resource: ResourceType,
-) -> bool:
-    """Return True iff a useful action was taken this turn (a conveyor was
-    placed, a bridge was placed, or the builder moved).
+) -> None:
+    """Lay one segment toward `target` and/or take one step toward it.
+    Snaps `start` to the harvester-cardinal closest to `target` if
+    applicable. Raises a `TaskRejectedError` subclass on every no-op
+    branch; returns None if a conveyor/bridge was placed OR the builder
+    moved this turn.
     """
+    start = best_harvester_neighbour(self, start, target)
+
     if start == target:
-        return False
+        raise TaskRejectedStartEqualsTargetError(start)
     if chebyshev(start, target) <= 1 and target == self.my_core:
-        return False
+        raise TaskRejectedAdjacentToCoreError(start)
 
     current_pos = self.my_pos
     existing_path = trace_upstream(self, start)
     if not existing_path:
-        return False
+        raise TaskRejectedNoUpstreamPathError(start)
 
     if not self.is_passable(start):
         if len(existing_path) > 1:
             start = existing_path[-2]
         else:
-            return False
+            raise TaskRejectedStartUnpassableError(start)
 
     search = (
         self.ax_conv_search
@@ -291,76 +408,57 @@ def _route_to(
     )
     path = search.search(ct, start, target, resource)
     if path is None:
-        debug(
-            "A* {resource} {start}->{target}: {fail}",
-            resource=resource,
-            start=start,
-            target=target,
-            fail=search.last_fail_reason,
+        raise TaskRejectedAStarFailedError(
+            start,
+            target,
+            resource,
+            search.last_fail_reason,
         )
-    else:
-        is_ax = resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
-        colour = (200, 0, 255) if is_ax else (80, 160, 255)
-        for i in range(len(path) - 1):
-            line(ct, path[i], path[i + 1], *colour)
 
-    if path:
-        path_start_index = 0
-        for i, pos in enumerate(path):
-            if pos in existing_path:
-                start = pos
-                path_start_index = i
-        path = path[path_start_index:]
+    is_ax = resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
+    colour = (200, 0, 255) if is_ax else (80, 160, 255)
+    for i in range(len(path) - 1):
+        line(ct, path[i], path[i + 1], *colour)
+
+    path_start_index = 0
+    for i, pos in enumerate(path):
+        if pos in existing_path:
+            start = pos
+            path_start_index = i
+    path = path[path_start_index:]
 
     did_something = False
     if chebyshev(current_pos, start) <= 1:
-        if not path or len(path) < 2:
-            return False
+        if len(path) < 2:
+            raise TaskRejectedNothingToLayError(start)
         if _lay_segment(self, ct, start, path):
             did_something = True
     if make_move(self, ct, start):
         did_something = True
-    return did_something
+    if not did_something:
+        raise TaskRejectedLayAndMoveBothFailedError(start, target)
 
 
-def route_chain(self: Builder, ct: Controller, start: Position) -> bool:
-    """Route a chain from `start` toward the right sink. Ti -> ti_sink
-    (nearest Ti conveyor reaching core, or core itself). Ax -> ax_sink. Ax
-    chains are skipped when no ax_sink is set, to prevent raw Ax being
-    shipped to the core where it would be destroyed.
+def extend_chain(self: Builder, ct: Controller, start: Position) -> None:
+    """Auto-target wrapper around `extend_step`: classifies the chain's
+    resource and picks the right sink. Ti -> ti_sink (nearest Ti
+    conveyor reaching core, or core itself). Ax -> ax_sink. Ax chains
+    are skipped when no ax_sink is set, to prevent raw Ax being shipped
+    to the core where it would be destroyed.
 
-    Bisector gate: when `start` is on the enemy side of the bisector
-    (same r²=20 margin used for harvester placement), defer to OFFENSE's
+    Bisector gate: when `start` is on the enemy side, defer to OFFENSE's
     `push_extend`. ECON does not route enemy-side dangling ends home.
     """
     if on_enemy_side(self, start):
-        debug("route_chain: {start} is enemy-side, deferring to OFFENSE", start=start)
-        return False
+        raise TaskRejectedDanglingEnemySideError(start)
     resource = resource_at(self, start)
     if resource is None:
-        debug("cannot classify resource at {start}", start=start)
-        return False
+        raise TaskRejectedResourceUnclassifiableError(start)
     if resource == ResourceType.RAW_AXIONITE:
         target = self.ax_sink
         if target is None:
-            debug("chain at {start} is Ax but ax_sink is None", start=start)
-            return False
-        start = best_harvester_neighbour(self, start, target)
-        return _route_to(self, ct, start, target, resource)
+            raise TaskRejectedAxNoSinkError(start)
+        extend_step(self, ct, start, target, resource)
+        return
     target = self.ti_sink if self.ti_sink is not None else self.my_core
-    start = best_harvester_neighbour(self, start, target)
-    return _route_to(self, ct, start, target, resource)
-
-
-def route_chain_toward(
-    self: Builder,
-    ct: Controller,
-    start: Position,
-    target: Position,
-) -> bool:
-    """Route a chain from `start` toward `target`, regardless of which
-    sink the resource would normally feed. Used by PUSH builders to
-    extend dangling ends toward the enemy core.
-    """
-    start = best_harvester_neighbour(self, start, target)
-    return _route_to(self, ct, start, target, ResourceType.TITANIUM)
+    extend_step(self, ct, start, target, resource)

@@ -140,7 +140,9 @@ def serialize(v: object) -> dict[str, Any]:
     """Convert a vis-primitive value into a tagged dict for the debug
     tree. Returns `{"$type": <type>, ...}`. The debug module's `vis()`
     helper dispatches here when the value is one of these dataclasses
-    rather than a plain Python value."""
+    rather than a plain Python value.
+    """
+
     match v:
         case BoolGrid() | U8Grid() | I16Grid() | U16Grid() | F32Grid():
             return {

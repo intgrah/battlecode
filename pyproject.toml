@@ -59,6 +59,7 @@ dev = [
     "protobuf>=7.34.1",
     "pydeps>=3.0.2",
     "ruff",
+    "scikit-learn>=1.8.0",
     "scipy>=1.17.1",
     "ty",
     "vulture>=2.16",
@@ -75,7 +76,7 @@ module-root = ""
 module-name = ["scripts"]
 
 [tool.ruff]
-exclude = ["ref", "archive/cambc-1.2.0"]
+exclude = ["ref", "archive/cambc-1.2.0", "foo.py"]
 
 [tool.ruff.lint]
 select = ["ALL"]
