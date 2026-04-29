@@ -21,7 +21,11 @@ from building import BuildingHarvester, BuildingMarker, BuildingRoad
 from cambc import EntityType, Environment
 from util.directions import DIR4
 
-from builder.helpers import harvester_io_cardinals, try_place
+from builder.helpers import (
+    harvester_barrier_saturated,
+    harvester_io_cardinals,
+    try_place,
+)
 from builder.tasks.rejected import Reason, TaskRejectedError
 
 if TYPE_CHECKING:
@@ -76,6 +80,12 @@ def pave_near_harvester(self: Builder, ct: Controller) -> None:
         # I/O exclusion: skip tiles that any adjacent harvester reserves
         # as its flow / feed slot.
         if any(pos in harvester_io_cardinals(self, ore) for ore in ore_tiles):
+            continue
+        # Saturation cap: don't place a 4th barrier around any harvester
+        # this tile is cardinal to. Different builders may compute
+        # different feed cardinals; if 3 are already barriered, leave
+        # the last open or the harvester gets sealed off.
+        if any(harvester_barrier_saturated(self, ore) for ore in ore_tiles):
             continue
         if try_place(self, ct, EntityType.BARRIER, pos):
             return

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from building import (
     BuildingArmouredConveyor,
+    BuildingBarrier,
     BuildingBridge,
     BuildingConveyor,
     BuildingCore,
@@ -18,7 +19,6 @@ from util.constants import BASE_COST, INF, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
 from util.metrics import chebyshev, claims_by_proximity
-
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -35,10 +35,21 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
     if self.my_pos == target:
         log("make_move: already on target {target}", target=target)
         return False
-    next_move = self.bugnav.step(self, ct, target)
+    next_move = self.bugnav.step(self, target)
     if next_move is None:
+        # Bugnav can't find a plan that progresses (typically two builders
+        # head-butting in a corridor — both planners route through each
+        # other's tile). Take a random unblocked step to break the
+        # deadlock; one builder yielding lets the other progress.
+        if move_random(self, ct):
+            log(
+                "make_move: bugnav stuck, took random step {start}->{target}",
+                start=self.my_pos,
+                target=target,
+            )
+            return True
         log(
-            "make_move: FAILED {start}->{target} (bugnav: no plan)",
+            "make_move: FAILED {start}->{target} (bugnav: no plan, random step also blocked)",
             start=self.my_pos,
             target=target,
         )
@@ -342,6 +353,24 @@ def harvester_io_cardinals(self: Builder, ore_pos: Position) -> set[Position]:
     if feed is not None:
         reserved.add(feed)
     return reserved
+
+
+def harvester_barrier_saturated(self: Builder, ore_pos: Position) -> bool:
+    """True iff at least 3 of `ore_pos`'s 4 in-bounds cardinals already
+    host a barrier. Used to prevent placing a 4th barrier and sealing
+    the harvester off — different builders may compute different feed
+    cardinals and disagree on which side to leave open, so each
+    barrier-placement site must independently refuse to fill the last
+    open cardinal.
+    """
+    barriers = 0
+    for d in DIR4:
+        c = ore_pos.add(d)
+        if not self.in_bounds(c):
+            continue
+        if isinstance(self.get_building(c), BuildingBarrier):
+            barriers += 1
+    return barriers >= 3
 
 
 def pick_ore_target(self: Builder) -> Position | None:

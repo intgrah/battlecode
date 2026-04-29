@@ -15,6 +15,7 @@ from util.directions import DIR4, get_direction_object
 
 from builder.helpers import (
     can_afford,
+    harvester_barrier_saturated,
     harvester_feed_cardinal,
     harvester_io_cardinals,
     make_move,
@@ -121,17 +122,26 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
         # this (or an adjacent) harvester. Walls off the harvester from
         # parasitic gunner placements before it even exists. The I/O
         # cardinals — including the future feed slot picked toward
-        # ti_sink / my_core — stay clear.
-        io_reserved = harvester_io_cardinals(self, target_pos)
-        for n in unpaved_neighbors:
-            if n == self.my_pos or n in io_reserved:
-                continue
-            if try_place(self, ct, EntityType.BARRIER, n):
-                log(
-                    f"build_at_ore: BARRIER at neighbour {n} of ore "
-                    f"{target_pos} (proactive harvester wall)",
-                )
-                return True
+        # ti_sink / my_core — stay clear. Also refuse to place if 3 of
+        # 4 cardinals are already barriered (different builders may
+        # compute different feeds and disagree; the cap prevents the
+        # last open cardinal being sealed).
+        if harvester_barrier_saturated(self, target_pos):
+            log(
+                f"build_at_ore: refusing to place 4th barrier around ore "
+                f"{target_pos} (already 3 cardinals barriered)",
+            )
+        else:
+            io_reserved = harvester_io_cardinals(self, target_pos)
+            for n in unpaved_neighbors:
+                if n == self.my_pos or n in io_reserved:
+                    continue
+                if try_place(self, ct, EntityType.BARRIER, n):
+                    log(
+                        f"build_at_ore: BARRIER at neighbour {n} of ore "
+                        f"{target_pos} (proactive harvester wall)",
+                    )
+                    return True
 
         # All non-IO cardinals barriered (or unaffordable). Pave the
         # chosen feed cardinal with a road so an enemy can't squat-

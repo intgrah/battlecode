@@ -1,126 +1,75 @@
-"""Structured tree-shaped debug logging.
+"""Bot-side debug helpers — structured per-turn JSON tree + cambc
+indicator overlays.
 
 Per-turn flow:
 - The first `Scope` of the turn starts a fresh root node and stack.
 - Nested `Scope`s become child nodes of the current top-of-stack scope.
-  Bodies append `msg` and `vis` nodes via `debug()` and `vis()`.
+- Bodies append `msg` and `vis` nodes via `debug()` and `vis()`.
 - At end of turn, the bot calls `flush()` which prints the root tree as
-  one line of JSON to stdout. No prefix — every line of bot stdout is
-  this tree.
+  one line of JSON to stdout.
 
-No crash safety: if a turn raises mid-way, `flush()` is never called
-and the partial tree is discarded. The validator forbids `try/finally`
-so this is intentional.
+The same-elision cache (used by `vis()` to emit `{"$type": "same"}`
+when a payload is unchanged from the previous turn) is owned by a
+`Dumper` instance from `visualiser`. The scope stack is shared
+between the module-level `Scope` machinery and the Dumper (Dumper
+holds a read-only reference to it).
 
-Schema: see `Schema` section below. All nodes carry `$type`. Typed
-values (positions, directions, etc.) are also tagged with `$type` so
-the viewer can render them as hoverable widgets.
-
-When `DEBUG_LOG` is unset, every public function is a no-op.
+`dot()` and `line()` wrap `ct.draw_indicator_dot` / `_line`. These are
+the cambc engine-side overlay API: visible to all spectators, on/off
+globally per replay.
 """
 
 from __future__ import annotations
 
 import json
 from contextlib import AbstractContextManager
-from enum import Enum
 from time import perf_counter_ns
-from typing import TYPE_CHECKING, Any, ClassVar, Self, override
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Self, override
 
 from config import DEBUG_LOG
+from visualiser import Dump, Dumper, _auto_wrap
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
     from types import TracebackType
 
     from cambc import Controller, Position
 
-__all__ = [
-    "Scope",
-    "debug",
-    "dot",
-    "flush",
-    "line",
-    "tagged",
-    "vis",
-]
+__all__ = ["Scope", "debug", "dot", "flush", "line", "vis"]
 
 
 _TYPE = "$type"
 
 
-if TYPE_CHECKING:
-    Node = dict[str, Any]
-
-
 # Active scope stack. `_stack[0]` is the per-turn root once the
 # top-level `Scope("turn")` has been entered; `_stack[-1]` is the
-# current parent for new children. `flush()` is called from inside
-# the root scope, so it reads `_stack[0]` directly.
-_stack: list[Node] = []
+# current parent for new children. Single-threaded per subinterpreter.
+_stack: list[dict[str, Any]] = []
+
+# Per-subinterpreter Dumper. Holds the same-elision cache and a
+# read-only reference to `_stack`.
+_dumper: Final[Dumper] = Dumper(_stack)
 
 
-def _push(node: Node) -> None:
+def _push(node: dict[str, Any]) -> None:
     if _stack:
         _stack[-1]["children"].append(node)
     _stack.append(node)
 
 
-def _pop() -> Node:
+def _pop() -> dict[str, Any]:
     return _stack.pop()
 
 
-def _emit_child(node: Node) -> None:
+def _emit_child(node: dict[str, Any]) -> None:
     if _stack:
         _stack[-1]["children"].append(node)
-
-
-def tagged(value: object) -> Node:
-    from cambc import Position  # noqa: PLC0415
-    from visualiser import (  # noqa: PLC0415
-        BoolGrid,
-        F32Grid,
-        I16Grid,
-        Tiles,
-        U8Grid,
-        U16Grid,
-        VectorField,
-        serialize,
-    )
-
-    if value is None:
-        return {_TYPE: "scalar", "v": None}
-    if isinstance(value, bool):
-        return {_TYPE: "scalar", "v": value}
-    if isinstance(value, int):
-        return {_TYPE: "scalar", "v": value}
-    if isinstance(value, float):
-        return {_TYPE: "scalar", "v": value}
-    if isinstance(value, str):
-        return {_TYPE: "scalar", "v": value}
-    if isinstance(value, Position):
-        return {_TYPE: "pos", "x": value.x, "y": value.y}
-    if isinstance(value, Enum):
-        return {_TYPE: "scalar", "v": value.name}
-    if isinstance(
-        value,
-        BoolGrid | U8Grid | I16Grid | U16Grid | F32Grid | Tiles | VectorField,
-    ):
-        return serialize(value)
-    if isinstance(value, (set, frozenset, list, tuple)):
-        items = list(value)
-        if items and all(isinstance(p, Position) for p in items):
-            return {_TYPE: "set_pos", "v": [[p.x, p.y] for p in items]}
-        return {_TYPE: "scalar", "v": [tagged(x) for x in items]}
-    if isinstance(value, dict):
-        return {_TYPE: "scalar", "v": {str(k): tagged(v) for k, v in value.items()}}
-    return {_TYPE: "repr", "v": str(value)}
 
 
 class Scope(AbstractContextManager):
     """Tree-internal node. On enter, push a `scope` node onto the stack
     and attach to its parent. On exit, record `us` if `time=True`, then
-    pop."""
+    pop. Exceptions propagate cleanly — `__exit__` always pops.
+    """
 
     _root_t0: ClassVar[int] = 0
 
@@ -132,7 +81,11 @@ class Scope(AbstractContextManager):
 
         @override
         def __enter__(self) -> Self:
-            node: Node = {_TYPE: "scope", "name": self.label, "children": []}
+            node: dict[str, Any] = {
+                _TYPE: "scope",
+                "name": self.label,
+                "children": [],
+            }
             if self.time:
                 node["_t0"] = perf_counter_ns()
             _push(node)
@@ -165,27 +118,34 @@ class Scope(AbstractContextManager):
 if DEBUG_LOG:
 
     def debug(tmpl: str, /, **args: object) -> None:
+        """Append a msg node under the current scope. `tmpl` is a Python
+        format-string fragment using `{name}` slots; `args` provide the
+        values referenced by those slots. Raw Python values (Position,
+        int, str, bool, None) are auto-wrapped into the appropriate
+        widget type (Position -> tile widget). Pre-typed `Dump*` values
+        are accepted unchanged.
+        """
         _emit_child(
             {
                 _TYPE: "msg",
                 "tmpl": tmpl,
-                "args": {k: tagged(v) for k, v in args.items()},
+                "args": {k: _auto_wrap(v) for k, v in args.items()},
             },
         )
 
-    _vis_cache: dict[str, object] = {}
-
-    def vis(name: str, value: object) -> None:
-        payload = value if isinstance(value, dict) and _TYPE in value else tagged(value)
-        if _vis_cache.get(name) == payload:
-            payload = {_TYPE: "same"}
-        else:
-            _vis_cache[name] = payload
-        _emit_child({_TYPE: "vis", "name": name, "value": payload})
+    def vis(name: str, value: Dump) -> None:
+        """Append a vis node under the current scope. `value` must be one
+        of the `Dump*` types defined in `visualiser`. Same-elision
+        is handled by the module-level `Dumper`.
+        """
+        _dumper.dump(name, value)
 
     _last_flush_us: int = 0
 
     def flush() -> None:
+        """Print the root scope as one JSON line. MUST be called from
+        inside the top-level `Scope("turn", ...)` block, before that
+        block's `__exit__` pops the root."""
         global _last_flush_us  # noqa: PLW0603
         if not _stack:
             msg = "flush() called outside any Scope"
@@ -202,19 +162,19 @@ if DEBUG_LOG:
 
     def line(
         ct: Controller,
-        a: Position,
-        b: Position,
+        pos_a: Position,
+        pos_b: Position,
         r: int,
         g: int,
-        bl: int,
+        b: int,
     ) -> None:
-        ct.draw_indicator_line(a, b, r, g, bl)
+        ct.draw_indicator_line(pos_a, pos_b, r, g, b)
 else:
 
     def debug(tmpl: str, /, **args: object) -> None:
         pass
 
-    def vis(name: str, value: object) -> None:
+    def vis(name: str, value: Dump) -> None:
         pass
 
     def flush() -> None:
@@ -225,26 +185,10 @@ else:
 
     def line(
         ct: Controller,
-        a: Position,
-        b: Position,
+        pos_a: Position,
+        pos_b: Position,
         r: int,
         g: int,
-        bl: int,
+        b: int,
     ) -> None:
         pass
-
-
-def vis_grid(
-    dtype: str,
-    data: Iterable[bool | int | float],
-    palette: str = "default",
-) -> Node:
-    return {_TYPE: f"{dtype}grid", "v": list(data), "palette": palette}
-
-
-def vis_tiles(positions: Iterable[Position]) -> Node:
-    return {_TYPE: "tiles", "v": [[p.x, p.y] for p in positions]}
-
-
-def vis_same() -> Node:
-    return {_TYPE: "same"}

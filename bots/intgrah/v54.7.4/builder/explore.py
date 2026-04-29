@@ -18,13 +18,13 @@ __all__ = ["explore"]
 
 
 def explore(self: Builder, ct: Controller) -> None:
-    self.scout_age += 1
+    self.explore_age += 1
 
     if (
-        self.scout_age > 20
-        or self.scout_target is None
-        or self.my_pos.distance_squared(self.scout_target) < 3
-        or self.get_cost(self.scout_target) == INF
+        self.explore_age > 20
+        or self.explore_target is None
+        or self.my_pos.distance_squared(self.explore_target) < 3
+        or self.get_cost(self.explore_target) == INF
     ):
         t = Position(-1, -1)
         for _ in range(200):
@@ -32,15 +32,15 @@ def explore(self: Builder, ct: Controller) -> None:
                 break
             theta = self.rng.random() * 2 * math.pi
             t = Position(
-                self.my_pos.x + round(math.cos(theta) * self.scout_radius),
-                self.my_pos.y + round(math.sin(theta) * self.scout_radius),
+                self.my_pos.x + round(math.cos(theta) * self.explore_radius),
+                self.my_pos.y + round(math.sin(theta) * self.explore_radius),
             )
-            self.scout_radius = max(1.0, self.scout_radius - 0.1)
+            self.explore_radius = max(1.0, self.explore_radius - 0.1)
         else:
             return
 
-        self.scout_age = 0
-        self.scout_target = t
+        self.explore_age = 0
+        self.explore_target = t
 
     if self.ti < 75:
         dir8 = DIR8.copy()
@@ -49,4 +49,4 @@ def explore(self: Builder, ct: Controller) -> None:
             if try_move_dir(ct, d):
                 break
     else:
-        make_move(self, ct, self.scout_target)
+        make_move(self, ct, self.explore_target)
