@@ -1,1 +1,1 @@
-bots/intgrah/v54.7.4
+bots/intgrah/v54.7.6
