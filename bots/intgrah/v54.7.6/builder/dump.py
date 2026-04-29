@@ -6,8 +6,10 @@ payload so the renderer knows exactly how to display it.
 
 from __future__ import annotations
 
+from math import sqrt
 from typing import TYPE_CHECKING
 
+from cambc import Position
 from util.constants import INF, MAX_WIDTH
 from util.debug import Scope, vis
 from util.visualiser import (
@@ -94,14 +96,15 @@ def _bisector_tiles(self: Builder) -> set[Position]:
     cached = getattr(self, "_bisector_cache", None)
     if cached is not None and cached[0] == (en_core, margin):
         return cached[1]
-    from cambc import Position as _Pos
 
-    my_core = self.my_core
     tiles: set[Position] = set()
     for y in range(self.h):
         for x in range(self.w):
-            p = _Pos(x=x, y=y)
-            if abs(p.distance_squared(my_core) - p.distance_squared(en_core)) <= margin:
+            p = Position(x, y)
+            if (
+                abs(p.distance_squared(self.my_core) - p.distance_squared(en_core))
+                <= margin
+            ):
                 tiles.add(p)
     self._bisector_cache = ((en_core, margin), tiles)
     return tiles
@@ -118,23 +121,25 @@ def _hsv_to_rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
     p = v * (1.0 - s)
     q = v * (1.0 - s * f)
     t = v * (1.0 - s * (1.0 - f))
-    i %= 6
-    if i == 0:
-        r, g, b = v, t, p
-    elif i == 1:
-        r, g, b = q, v, p
-    elif i == 2:
-        r, g, b = p, v, t
-    elif i == 3:
-        r, g, b = p, q, v
-    elif i == 4:
-        r, g, b = t, p, v
-    else:
-        r, g, b = v, p, q
+    match i % 6:
+        case 0:
+            r, g, b = v, t, p
+        case 1:
+            r, g, b = q, v, p
+        case 2:
+            r, g, b = p, v, t
+        case 3:
+            r, g, b = p, q, v
+        case 4:
+            r, g, b = t, p, v
+        case 5:
+            r, g, b = v, p, q
+        case _:
+            raise AssertionError
     return int(r * 255), int(g * 255), int(b * 255)
 
 
-_GOLDEN = 0.61803398875
+_GOLDEN = (sqrt(5) - 1) / 2
 
 
 def _reach_palette(self: Builder, w: int, h: int) -> Palette[int]:
