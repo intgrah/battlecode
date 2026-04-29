@@ -69,6 +69,13 @@ def _remove_topology(self: Builder, pos: Position, i: int) -> None:
         case BuildingFoundry(team=t) if t == self.my_team:
             self.my_foundries.discard(pos)
             self._bump_foundry(pos, -1)
+        case BuildingHarvester(team=t) if t == self.my_team:
+            self.my_harvesters.discard(pos)
+            env = self.env[i]
+            if env == Environment.ORE_AXIONITE:
+                self._bump_ax_harv(pos, -1)
+            elif env == Environment.ORE_TITANIUM:
+                self._bump_ti_harv(pos, -1)
         case BuildingHarvester():
             env = self.env[i]
             if env == Environment.ORE_AXIONITE:
@@ -123,6 +130,13 @@ def _add_topology(self: Builder, pos: Position, bld: Building) -> None:
         case BuildingFoundry(team=self.my_team):
             self.my_foundries.add(pos)
             self._bump_foundry(pos, +1)
+        case BuildingHarvester(team=t) if t == self.my_team:
+            self.my_harvesters.add(pos)
+            match self.env[self.idx(pos)]:
+                case Environment.ORE_AXIONITE:
+                    self._bump_ax_harv(pos, +1)
+                case Environment.ORE_TITANIUM:
+                    self._bump_ti_harv(pos, +1)
         case BuildingHarvester():
             match self.env[self.idx(pos)]:
                 case Environment.ORE_AXIONITE:
