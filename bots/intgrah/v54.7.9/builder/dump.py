@@ -6,6 +6,7 @@ payload so the renderer knows exactly how to display it.
 
 from __future__ import annotations
 
+from math import sqrt
 from typing import TYPE_CHECKING
 
 from util.constants import INF, MAX_WIDTH
@@ -142,7 +143,7 @@ def _hsv_to_rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
     return int(r * 255), int(g * 255), int(b * 255)
 
 
-_GOLDEN = 0.61803398875
+_GOLDEN = (sqrt(5) - 1) / 2
 
 
 def _reach_palette(self: Builder, w: int, h: int) -> Palette[int]:

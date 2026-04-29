@@ -407,7 +407,7 @@ class Builder(CoreAwareUnit):
         """Wall, Empty, Ti ore, Ax ore per tile."""
         self.building_ids: list[int | None] = [None] * MAX_N
         """Cached building entity ID per tile, for change detection."""
-        self.buildings: list[Building | None] = [None] * MAX_N
+        self.buildings: Final[list[Building | None]] = [None] * MAX_N
         """Building on a tile."""
         self.hp: list[int] = [0] * MAX_N
         """Hitpoints of building on tile."""
@@ -426,16 +426,16 @@ class Builder(CoreAwareUnit):
         # contamination, (c) is the tile reachable from the builder at all.
         # (c) is bfs_dist-based and checked live in A*. (a) and (b) are
         # incremental bitmaps and are combined into ti_routable / ax_routable.
-        self.buildable: list[bool] = [False] * MAX_N
+        self.buildable: Final[list[bool]] = [False] * MAX_N
         """True iff a conveyor/bridge/etc. could be placed on this tile now:
         empty terrain with no building, OR friendly road, OR any marker
         (markers are 1 HP and any team can overbuild). Maintained incrementally
         by `vision._update_cost`."""
-        self.ti_leakage: list[bool] = [False] * MAX_N
+        self.ti_leakage: Final[list[bool]] = [False] * MAX_N
         """True iff routing Ti through this tile would mix with Ax: tile is
         cardinal to an Ax harvester or a friendly foundry (foundry output is
         refined Ax)."""
-        self.ax_leakage: list[bool] = [False] * MAX_N
+        self.ax_leakage: Final[list[bool]] = [False] * MAX_N
         """True iff routing Ax through this tile would mix with Ti: tile is
         cardinal to a Ti harvester."""
         # Stored as `bytearray` (not `list[bool]`) — bytearray element access
@@ -443,19 +443,19 @@ class Builder(CoreAwareUnit):
         # A* inner loop does ~32 routable checks per node expansion.
         # `True`/`False` written into a bytearray slot are auto-converted to
         # `1`/`0`; reading returns `int` which still falses correctly.
-        self.ti_routable: bytearray = bytearray(MAX_N)
+        self.ti_routable: Final[bytearray] = bytearray(MAX_N)
         """Combined: `buildable[i] and not ti_leakage[i]`. A\\* for Ti chains
         checks this plus `bfs_dist[i] is not INF`."""
-        self.ax_routable: bytearray = bytearray(MAX_N)
+        self.ax_routable: Final[bytearray] = bytearray(MAX_N)
         """Combined: `buildable[i] and not ax_leakage[i]`. A\\* for Ax chains
         checks this plus `bfs_dist[i] is not INF`."""
         # Counts of leakage sources cardinal to each tile. ti_leakage[i] is
         # `_ax_harv_at[i] > 0 or _foundry_at[i] > 0`; ax_leakage[i] is
         # `_ti_harv_at[i] > 0`. Using counts avoids re-scanning cardinals on
         # every removal (multiple harvesters can share a cardinal neighbour).
-        self._ti_harv_at: list[int] = [0] * MAX_N
-        self._ax_harv_at: list[int] = [0] * MAX_N
-        self._foundry_at: list[int] = [0] * MAX_N
+        self._ti_harv_at: Final[list[int]] = [0] * MAX_N
+        self._ax_harv_at: Final[list[int]] = [0] * MAX_N
+        self._foundry_at: Final[list[int]] = [0] * MAX_N
 
         # Per-tile count of in_edges that come from a tile currently in
         # `ti_upstream` / `ax_upstream`. Maintained alongside the upstream
@@ -467,8 +467,8 @@ class Builder(CoreAwareUnit):
         # phantom-productive components that the count can't disprove —
         # acceptable given how rare bridge/splitter cycles are; oracle
         # check (gated on DEBUG_INVARIANTS) flags any drift.
-        self._ti_in_count: list[int] = [0] * MAX_N
-        self._ax_in_count: list[int] = [0] * MAX_N
+        self._ti_in_count: Final[list[int]] = [0] * MAX_N
+        self._ax_in_count: Final[list[int]] = [0] * MAX_N
 
         offsets = [dy * MAX_WIDTH + dx for dx, dy in DIR8_DELTA]
         pnb: list[list[int]] = [[] for _ in range(MAX_N)]
