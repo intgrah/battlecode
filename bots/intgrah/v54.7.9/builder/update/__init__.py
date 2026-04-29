@@ -28,7 +28,7 @@ def update(self: Builder, ct: Controller) -> None:
         with Scope("threat", time=True):
             self.apply_threat_overlay()
         with Scope("role", time=True):
-            self.update_role(ct)
+            self.update_role()
         with Scope("econ", time=True):
             self.update_map_econ(ct)
         with Scope("econ_reach", time=True):
@@ -46,8 +46,8 @@ def update(self: Builder, ct: Controller) -> None:
             self.update_foundry_target()
         with Scope("ti_sink", time=True):
             self.update_ti_sink()
-        with Scope("patrol_queue", time=True):
-            self.update_patrol_queue()
+        with Scope("patrol", time=True):
+            self.update_patrol()
         # Oracle: verifies the incrementally-maintained sets against
         # a from-scratch recomputation. Timed in its own scope so the
         # cost can be excluded by subtraction from the surrounding
