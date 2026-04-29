@@ -7,12 +7,15 @@ import base64
 import binascii
 import io
 import json
+import multiprocessing
+import os
 import random
 import shutil
 import socket
 import sys
 import tarfile
 import time
+import traceback
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any, Final
@@ -25,6 +28,14 @@ PORT: Final[int] = 9876
 UPLOAD_DIR: Final[Path] = Path("uploads")
 MAPS_DIR: Final[Path] = Path("maps")
 PRUNE_HOURS: Final[int] = 24
+
+# Cap concurrency to avoid OOM on high-vCPU instances. Each game uses ~500MB-1GB.
+# Override via env var CI_DAEMON_WORKERS.
+_CPU_COUNT = os.cpu_count() or 4
+# Leave headroom for the SSH daemon and other system work — running
+# cpu_count workers saturates the box to the point that SSH banner
+# exchange times out, which makes the sweep look hung.
+MAX_WORKERS: Final[int] = int(os.environ.get("CI_DAEMON_WORKERS", max(2, min(_CPU_COUNT // 4, 4))))
 
 executor: ProcessPoolExecutor
 
@@ -143,19 +154,23 @@ async def _handle_run(
     bot_a_name: str = msg.get("bot_a_name", bot_a_uuid)
     bot_b_name: str = msg.get("bot_b_name", bot_b_uuid)
 
+    def _fatal(err: str) -> None:
+        _write_line(writer, {"error": err, "fatal": True})
+        _write_line(writer, {"done": True, "score": "0-0", "draws": 0, "errors": 0, "fatal": err})
+
     bot_a_path = _resolve_bot_main(bot_a_uuid)
     if bot_a_path is None:
-        _write_line(writer, {"error": f"bot not found: {bot_a_uuid}"})
+        _fatal(f"bot not found: {bot_a_uuid}")
         return
 
     bot_b_path = _resolve_bot_main(bot_b_uuid)
     if bot_b_path is None:
-        _write_line(writer, {"error": f"bot not found: {bot_b_uuid}"})
+        _fatal(f"bot not found: {bot_b_uuid}")
         return
 
     maps = sorted(MAPS_DIR.glob("*.map26"))
     if not maps:
-        _write_line(writer, {"error": "no maps on server"})
+        _fatal("no maps on server")
         return
 
     job_id = uuid4().hex[:12]
@@ -186,23 +201,34 @@ async def _handle_run(
     wins_a = 0
     wins_b = 0
     draws = 0
+    errors = 0
     pending = set(tasks)
+    task_to_game = {t: i for i, t in enumerate(tasks)}
 
     while pending:
         done_set, pending = await asyncio.wait(
             pending, return_when=asyncio.FIRST_COMPLETED
         )
         for task in done_set:
+            game_idx = task_to_game.get(task, -1)
             try:
                 result = task.result()
             except Exception as e:
-                result = {"error": str(e)}
+                tb = traceback.format_exc()
+                print(f"Game {game_idx} crashed:\n{tb}", file=sys.stderr)
+                result = {
+                    "error": str(e) or type(e).__name__,
+                    "game": game_idx,
+                    "winner_side": "error",
+                }
 
             side = result.get("winner_side")
             if side == "a":
                 wins_a += 1
             elif side == "b":
                 wins_b += 1
+            elif side == "error":
+                errors += 1
             else:
                 draws += 1
 
@@ -216,7 +242,12 @@ async def _handle_run(
             _write_line(writer, result)
             await writer.drain()
 
-    _write_line(writer, {"done": True, "score": f"{wins_a}-{wins_b}", "draws": draws})
+    _write_line(writer, {
+        "done": True,
+        "score": f"{wins_a}-{wins_b}",
+        "draws": draws,
+        "errors": errors,
+    })
     await writer.drain()
 
 
@@ -269,16 +300,23 @@ async def _main() -> None:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     _prune_uploads()
 
-    executor = ProcessPoolExecutor(max_tasks_per_child=1)
-    print(f"Starting CI daemon on {HOST}:{PORT}")
+    # Fork mode: workers inherit the parent's semaphores in-memory,
+    # sidestepping the SemLock._rebuild race that spawn keeps hitting
+    # under the systemd service sandbox. `max_tasks_per_child` doesn't
+    # work with fork, so workers persist across games and slowly grow.
+    # With MAX_WORKERS capped at 8, total RSS stays under 32GB even
+    # over a 123-game sweep, which fits c7a.4xlarge.
+    mp_ctx = multiprocessing.get_context("fork")
+    executor = ProcessPoolExecutor(max_workers=MAX_WORKERS, mp_context=mp_ctx)
+    print(f"Starting CI daemon on {HOST}:{PORT} (workers={MAX_WORKERS}, cpu={_CPU_COUNT})")
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((HOST, PORT))
     sock.setblocking(False)
-    server = await asyncio.start_server(
-        _handle_client, sock=sock, limit=64 * 1024 * 1024
-    )
+    # Default StreamReader limit is 64KB. Bot uploads (base64 of tar.gz)
+    # can exceed this when the bot ships a large hardcoded map table.
+    server = await asyncio.start_server(_handle_client, sock=sock, limit=64 * 1024 * 1024)
     async with server:
         await server.serve_forever()
 
