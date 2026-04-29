@@ -108,9 +108,6 @@ def guard_harvester_neighbours(self: Builder, ct: Controller) -> None:
         # already walkable. Markers (1 HP, overbuildable) and empty
         # terrain both have cost > 1 in the grid; friendly roads /
         # conveyors etc. are cost 1 and need no prep.
-        # `harvester_feed_cardinal` now skips barriers, so a barrier'd
-        # cardinal is never picked as feed and no destroy step is
-        # needed here.
         if (
             affords_road
             and feed in near
