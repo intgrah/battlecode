@@ -23,4 +23,3 @@ def prune_stale(self: Builder, ct: Controller) -> None:
     self.friendly_turret_ray_tiles = {
         p for p in self.friendly_turret_ray_tiles if not ct.is_in_vision(p)
     }
-    self.patrol_queue = [p for p in self.patrol_queue if not ct.is_in_vision(p[0])]

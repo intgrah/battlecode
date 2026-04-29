@@ -21,6 +21,7 @@ from cambc import (
     Controller,
     EntityType,
     Environment,
+    GameConstants,
     Position,
     ResourceType,
 )
@@ -60,7 +61,7 @@ from builder.update.econ import (
     update_ti_sink,
     update_unreachable_dangling,
 )
-from builder.update.patrol import update_patrol_queue
+from builder.update.patrol import update_patrol
 from builder.update.prune import prune_stale
 from builder.update.reflect import update_reflect
 from builder.update.role import update_role
@@ -714,14 +715,25 @@ class Builder(CoreAwareUnit):
 
         # Patrol
         self.patrol_head: Position | None = None
-        self.patrol_queue: list[tuple[Position, int, float]] = []
-        """Defensive patrol candidates. Each entry is
-        `(pos, round_seen, priority_score)`. Tiles are appended in
-        `update_patrol_queue` (harvesters / foundries / active
-        conveyors) and pruned in `prune_stale` once they re-enter
-        vision. `run_patrol` picks the head by max
-        `(round - round_seen) * priority_score`.
-        """
+        self.last_seen: list[int] = [0] * MAX_N
+        """Per-tile timestamp of when this builder last had eyes on it.
+        Refreshed each turn for `nearby_tiles` and (transitively) for
+        the vision disc of the farthest friendly builder we can see.
+        `run_patrol` picks the oldest important tile (argmax of
+        `round - last_seen[i]` over our friendly buildings) and walks
+        toward it."""
+        self._vision_offsets: tuple[tuple[int, int, int], ...] = tuple(
+            (dx, dy, dy * MAX_WIDTH + dx)
+            for dx in range(-4, 5)
+            for dy in range(-4, 5)
+            if dx * dx + dy * dy <= GameConstants.BUILDER_BOT_VISION_RADIUS_SQ
+        )
+        """(dx, dy, flat_offset) triples covering a builder vision
+        disc (r² ≤ 20, 69 entries). The flat offset
+        `dy*MAX_WIDTH+dx` lets the inner loop in `update_patrol` add
+        a single int when the friend is far enough from the boundary
+        for bounds checks to be skipped; (dx, dy) is kept for the
+        boundary-adjacent slow path."""
 
         # Scouting (reactive frontier targeting)
         self.explore_target: Position | None = None
@@ -933,7 +945,7 @@ class Builder(CoreAwareUnit):
     update_foundry_target = update_foundry_target
     update_ti_sink = update_ti_sink
     update_economy_reachability = update_economy_reachability
-    update_patrol_queue = update_patrol_queue
+    update_patrol = update_patrol
     update_junctions = update_junctions
     can_place_junction = can_place_junction
     end_of_turn_heal = end_of_turn_heal
