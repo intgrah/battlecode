@@ -8,9 +8,9 @@ use prost::Message;
 
 use crate::map;
 use crate::proto;
-use cambc_common::{SpriteAtlas, SpriteConfig};
 use crate::state::{Entity, EntityKind, GameState};
 use crate::ui;
+use cambc_common::{SpriteAtlas, SpriteConfig};
 
 const FONT: &[u8] = include_bytes!("../assets/cambc/font.ttf");
 

@@ -1,6 +1,6 @@
-use cambc_common::constants as c;
 use crate::proto;
 use crate::state::{Entity, EntityKind};
+use cambc_common::constants as c;
 
 pub const fn label(kind: &EntityKind) -> &'static str {
     match kind {

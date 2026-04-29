@@ -390,12 +390,7 @@ pub fn render_map_panel(ui: &mut egui::Ui, app: &mut App) {
 
         if let Some((hx, hy)) = app.hover_tile {
             let r = tile_rect(hx, hy, ts, origin, zoom);
-            painter.rect_stroke(
-                r,
-                0.0,
-                Stroke::new(2.0, HOVER_COLOR),
-                StrokeKind::Outside,
-            );
+            painter.rect_stroke(r, 0.0, Stroke::new(2.0, HOVER_COLOR), StrokeKind::Outside);
         }
 
         let raw_scroll = ui.input(|i| {
@@ -734,23 +729,13 @@ fn draw_vis_overlay(
         crate::vis::VisField::Scalar { data } => {
             if let crate::vis::ScalarValue::Pos(x, y) = data {
                 let r = tile_rect(*x, *y, ts, origin, zoom);
-                painter.rect_stroke(
-                    r,
-                    0.0,
-                    Stroke::new(2.0, PINNED_COLOR),
-                    StrokeKind::Outside,
-                );
+                painter.rect_stroke(r, 0.0, Stroke::new(2.0, PINNED_COLOR), StrokeKind::Outside);
             }
         }
         crate::vis::VisField::Tile { pos } => {
             if let Some((x, y)) = pos {
                 let r = tile_rect(*x, *y, ts, origin, zoom);
-                painter.rect_stroke(
-                    r,
-                    0.0,
-                    Stroke::new(2.0, PINNED_COLOR),
-                    StrokeKind::Outside,
-                );
+                painter.rect_stroke(r, 0.0, Stroke::new(2.0, PINNED_COLOR), StrokeKind::Outside);
             }
         }
         crate::vis::VisField::Dot { pos, colour } => {

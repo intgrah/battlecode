@@ -517,10 +517,7 @@ pub fn render_top_panel(ui: &mut egui::Ui, app: &mut App) {
                 left[0].checkbox(&mut app.show_indicators, "Indicators (i)");
                 left[0].checkbox(&mut app.show_flow, "Empirical flow (f)");
                 left[0].checkbox(&mut app.show_ranges, "Ranges");
-                left[0].checkbox(
-                    &mut app.show_connected_textures,
-                    "Connected textures",
-                );
+                left[0].checkbox(&mut app.show_connected_textures, "Connected textures");
                 left[0].checkbox(&mut app.use_plain_roads, "Plain roads");
                 left[0].checkbox(&mut app.highlight_builders, "Highlight builders");
 
@@ -546,8 +543,7 @@ pub fn render_top_panel(ui: &mut egui::Ui, app: &mut App) {
                 let [text0, graph0, text1, graph1] = ents else {
                     unreachable!()
                 };
-                let slots: [(&mut egui::Ui, &mut egui::Ui); 2] =
-                    [(text0, graph0), (text1, graph1)];
+                let slots: [(&mut egui::Ui, &mut egui::Ui); 2] = [(text0, graph0), (text1, graph1)];
                 for (i, (text_col, graph_col)) in slots.into_iter().enumerate() {
                     if let Some(e) = at.get(i) {
                         text_col.monospace(format_entity_info(e, &state.cpu_time_us));
@@ -624,12 +620,7 @@ pub fn render_log_panel(ui: &mut egui::Ui, app: &mut App) {
                     if let Some(tree) = state.log_trees.get(&eid) {
                         ui.label(egui::RichText::new(format!("entity {eid}")).strong());
                         let path = format!("logtree-{eid}");
-                        render_log_node(
-                            ui,
-                            &tree.root,
-                            &path,
-                            &mut app.hover_tile,
-                        );
+                        render_log_node(ui, &tree.root, &path, &mut app.hover_tile);
                         if let Some(us) = tree.prev_flush_us {
                             ui.monospace(format!("prev_flush_us = {us}"));
                         }
@@ -728,17 +719,12 @@ fn render_log_node(
     }
 }
 
-fn render_tagged_inline(
-    ui: &mut egui::Ui,
-    t: &Tagged,
-    hover_tile: &mut Option<(i32, i32)>,
-) {
+fn render_tagged_inline(ui: &mut egui::Ui, t: &Tagged, hover_tile: &mut Option<(i32, i32)>) {
     match t {
         Tagged::Scalar(s) => render_scalar_inline(ui, s, hover_tile),
         Tagged::Tiles(d) => {
             let label = if d.len() <= 4 {
-                let parts: Vec<String> =
-                    d.iter().map(|(x, y)| format!("({x},{y})")).collect();
+                let parts: Vec<String> = d.iter().map(|(x, y)| format!("({x},{y})")).collect();
                 format!("tiles[{}]", parts.join(", "))
             } else {
                 format!("tiles[{} positions]", d.len())
@@ -757,8 +743,8 @@ fn render_tagged_inline(
         }
         Tagged::Tile(pos) => match pos {
             Some((x, y)) => {
-                let text = egui::RichText::new(format!("({x},{y})"))
-                    .color(egui::Color32::LIGHT_BLUE);
+                let text =
+                    egui::RichText::new(format!("({x},{y})")).color(egui::Color32::LIGHT_BLUE);
                 let resp = ui.selectable_label(false, text);
                 if resp.hovered() {
                     *hover_tile = Some((*x, *y));
@@ -771,9 +757,8 @@ fn render_tagged_inline(
         },
         Tagged::Dot { pos, colour } => match pos {
             Some((x, y)) => {
-                let text = egui::RichText::new(format!("({x},{y})")).color(
-                    egui::Color32::from_rgb(colour.r, colour.g, colour.b),
-                );
+                let text = egui::RichText::new(format!("({x},{y})"))
+                    .color(egui::Color32::from_rgb(colour.r, colour.g, colour.b));
                 let resp = ui.selectable_label(false, text);
                 if resp.hovered() {
                     *hover_tile = Some((*x, *y));
@@ -796,15 +781,10 @@ fn render_tagged_inline(
     }
 }
 
-fn render_scalar_inline(
-    ui: &mut egui::Ui,
-    s: &ScalarValue,
-    hover_tile: &mut Option<(i32, i32)>,
-) {
+fn render_scalar_inline(ui: &mut egui::Ui, s: &ScalarValue, hover_tile: &mut Option<(i32, i32)>) {
     match s {
         ScalarValue::Pos(x, y) => {
-            let text =
-                egui::RichText::new(format!("({x},{y})")).color(egui::Color32::LIGHT_BLUE);
+            let text = egui::RichText::new(format!("({x},{y})")).color(egui::Color32::LIGHT_BLUE);
             let resp = ui.selectable_label(false, text);
             if resp.hovered() {
                 *hover_tile = Some((*x, *y));
@@ -838,7 +818,10 @@ fn render_scalar_inline(
 
 /// Return the first child scope of `node` named `name`, or None.
 fn find_scope<'a>(node: &'a LogNode, name: &str) -> Option<&'a LogNode> {
-    if let LogNode::Scope { name: n, children, .. } = node {
+    if let LogNode::Scope {
+        name: n, children, ..
+    } = node
+    {
         if n == name {
             return Some(node);
         }
@@ -870,7 +853,11 @@ fn render_dump_node(
     for (i, child) in children.iter().enumerate() {
         let child_path = format!("{path}/{i}");
         match child {
-            LogNode::Scope { name, children: subs, .. } => {
+            LogNode::Scope {
+                name,
+                children: subs,
+                ..
+            } => {
                 let header = egui::RichText::new(name)
                     .strong()
                     .color(egui::Color32::from_rgb(160, 200, 240));
@@ -931,10 +918,73 @@ fn render_dump_entry(
     }
 }
 
-/// Render a single vis row. Map-renderable kinds (grid / tiles /
-/// vectorfield / scalar Pos) become hover/click rows driving the map
-/// overlay via `selected_vis_overlays`. Other scalars render as
-/// `name: <value>` text.
+/// Declarative classification of a vis row into one of three kinds:
+///
+/// - `Skip`: emit nothing.
+/// - `KeyValue`: `name: <body>` line, non-interactive.
+/// - `Selectable`: `name (x,y)` (or just `name`) selectable label that
+///   drives the map overlay; an optional preview position is shown on
+///   hover.
+enum RowKind<'a> {
+    Skip,
+    KeyValue(KeyValueBody<'a>),
+    Selectable { preview: Option<(i32, i32)> },
+}
+
+enum KeyValueBody<'a> {
+    Scalar(&'a ScalarValue),
+    NoneLiteral,
+}
+
+fn classify_row<'a>(inline: &'a Tagged, live: Option<&'a crate::vis::VisField>) -> RowKind<'a> {
+    use crate::vis::VisField;
+    match inline {
+        Tagged::Scalar(ScalarValue::Pos(x, y)) => RowKind::Selectable {
+            preview: Some((*x, *y)),
+        },
+        Tagged::Scalar(s) => RowKind::KeyValue(KeyValueBody::Scalar(s)),
+        Tagged::Tile(None) | Tagged::Dot { pos: None, .. } => {
+            RowKind::KeyValue(KeyValueBody::NoneLiteral)
+        }
+        Tagged::Tile(Some((x, y)))
+        | Tagged::Dot {
+            pos: Some((x, y)), ..
+        } => RowKind::Selectable {
+            preview: Some((*x, *y)),
+        },
+        Tagged::Tiles(_) | Tagged::Grid { .. } | Tagged::VectorField(_) | Tagged::Path { .. } => {
+            RowKind::Selectable { preview: None }
+        }
+        Tagged::Same => match live {
+            Some(VisField::Scalar {
+                data: ScalarValue::Pos(x, y),
+            }) => RowKind::Selectable {
+                preview: Some((*x, *y)),
+            },
+            Some(VisField::Scalar { data }) => RowKind::KeyValue(KeyValueBody::Scalar(data)),
+            Some(VisField::Tile { pos: None } | VisField::Dot { pos: None, .. }) => {
+                RowKind::KeyValue(KeyValueBody::NoneLiteral)
+            }
+            Some(
+                VisField::Tile { pos: Some((x, y)) }
+                | VisField::Dot {
+                    pos: Some((x, y)), ..
+                },
+            ) => RowKind::Selectable {
+                preview: Some((*x, *y)),
+            },
+            Some(_) => RowKind::Selectable { preview: None },
+            None => RowKind::Skip,
+        },
+    }
+}
+
+/// Render a single vis row. Classification drives the layout:
+/// scalar values become `name: value` lines; positional values
+/// (`Pos`/`Tile`/`Dot`) become selectable labels that drive map
+/// overlays and preview the position on hover; other map-renderable
+/// kinds (grid / tiles / vectorfield / path) become selectable name
+/// labels with no preview position.
 fn render_vis_row(
     ui: &mut egui::Ui,
     name: &str,
@@ -944,108 +994,65 @@ fn render_vis_row(
     selected: &mut std::collections::HashSet<String>,
     hovered: &mut Option<String>,
 ) {
-    use crate::vis::VisField;
-
-    // Resolve to a scalar value if this row is scalar-typed.
-    let scalar: Option<&ScalarValue> = match (inline, live) {
-        (Tagged::Scalar(s), _) => Some(s),
-        (Tagged::Same, Some(VisField::Scalar { data })) => Some(data),
-        _ => None,
-    };
-
-    // Pos scalars get the same selectable-row treatment as map-overlay
-    // fields (grid / tiles / vectorfield): hover previews on the map,
-    // click toggles a sticky overlay. Value follows the dump per turn.
-    if let Some(s @ ScalarValue::Pos(x, y)) = scalar {
-        let is_selected = selected.contains(name);
-        let mut text = egui::RichText::new(format!("{name} ({x},{y})")).monospace();
-        if is_selected {
-            text = text.color(egui::Color32::from_rgb(200, 240, 100)).strong();
-        }
-        let resp = ui.selectable_label(is_selected, text);
-        if resp.hovered() {
-            *hovered = Some(name.to_string());
-            *hover_tile = Some((*x, *y));
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-        if resp.clicked() {
-            if is_selected {
-                selected.remove(name);
-            } else {
-                selected.insert(name.to_string());
-            }
-        }
-        let _ = s;
-        return;
-    }
-
-    if let Some(s) = scalar {
-        ui.horizontal(|ui| {
-            ui.monospace(
-                egui::RichText::new(format!("{name}:"))
-                    .color(egui::Color32::from_rgb(200, 200, 160)),
-            );
-            render_scalar_inline(ui, s, &mut *hover_tile);
-        });
-        return;
-    }
-
-    // Map-renderable inline OR `Same`: figure out the kind by inspecting
-    // `live` (always the resolved value) — if absent, skip the row.
-    let kind = match (inline, live) {
-        (Tagged::Tiles(_) | Tagged::Grid { .. } | Tagged::VectorField(_), _) => {
-            Some(inline_kind(inline))
-        }
-        (Tagged::Same, Some(field)) => Some(field_kind(field)),
-        _ => None,
-    };
-    if let Some(kind_label) = kind {
-        let _ = kind_label;
-        let is_selected = selected.contains(name);
-        let mut text = egui::RichText::new(name).monospace();
-        if is_selected {
-            text = text
-                .color(egui::Color32::from_rgb(200, 240, 100))
-                .strong();
-        }
-        let resp = ui.selectable_label(is_selected, text);
-        if resp.hovered() {
-            *hovered = Some(name.to_string());
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-        if resp.clicked() {
-            if is_selected {
-                selected.remove(name);
-            } else {
-                selected.insert(name.to_string());
-            }
+    match classify_row(inline, live) {
+        RowKind::Skip => {}
+        RowKind::KeyValue(body) => render_key_value_row(ui, name, body, hover_tile),
+        RowKind::Selectable { preview } => {
+            render_selectable_row(ui, name, preview, hover_tile, selected, hovered);
         }
     }
 }
 
-fn inline_kind(t: &Tagged) -> &'static str {
-    match t {
-        Tagged::Grid { .. } => "grid",
-        Tagged::Tiles(_) => "tiles",
-        Tagged::Tile(..) => "tile",
-        Tagged::Dot { .. } => "dot",
-        Tagged::Path { .. } => "path",
-        Tagged::VectorField(_) => "vectorfield",
-        Tagged::Scalar(_) => "scalar",
-        Tagged::Same => "same",
-    }
+fn render_key_value_row(
+    ui: &mut egui::Ui,
+    name: &str,
+    body: KeyValueBody<'_>,
+    hover_tile: &mut Option<(i32, i32)>,
+) {
+    ui.horizontal(|ui| {
+        ui.monospace(
+            egui::RichText::new(format!("{name}:")).color(egui::Color32::from_rgb(200, 200, 160)),
+        );
+        match body {
+            KeyValueBody::Scalar(s) => render_scalar_inline(ui, s, hover_tile),
+            KeyValueBody::NoneLiteral => {
+                ui.monospace("None");
+            }
+        }
+    });
 }
 
-fn field_kind(f: &crate::vis::VisField) -> &'static str {
-    use crate::vis::VisField;
-    match f {
-        VisField::Grid { .. } => "grid",
-        VisField::Tiles { .. } => "tiles",
-        VisField::Tile { .. } => "tile",
-        VisField::Dot { .. } => "dot",
-        VisField::Path { .. } => "path",
-        VisField::VectorField(_) => "vectorfield",
-        VisField::Scalar { .. } => "scalar",
+fn render_selectable_row(
+    ui: &mut egui::Ui,
+    name: &str,
+    preview: Option<(i32, i32)>,
+    hover_tile: &mut Option<(i32, i32)>,
+    selected: &mut std::collections::HashSet<String>,
+    hovered: &mut Option<String>,
+) {
+    let is_selected = selected.contains(name);
+    let label = match preview {
+        Some((x, y)) => format!("{name} ({x},{y})"),
+        None => name.to_string(),
+    };
+    let mut text = egui::RichText::new(label).monospace();
+    if is_selected {
+        text = text.color(egui::Color32::from_rgb(200, 240, 100)).strong();
+    }
+    let resp = ui.selectable_label(is_selected, text);
+    if resp.hovered() {
+        *hovered = Some(name.to_string());
+        if let Some(pos) = preview {
+            *hover_tile = Some(pos);
+        }
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    if resp.clicked() {
+        if is_selected {
+            selected.remove(name);
+        } else {
+            selected.insert(name.to_string());
+        }
     }
 }
 
