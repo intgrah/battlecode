@@ -34,7 +34,9 @@ class Bug2Bounded(Stepped):
             self._active_goal = goal
             self._path_idx[:] = [-1] * self.n
             self._path_idx[pos] = 0
-            self._gen = bug2_plan_iter(self.cost, self.w, self.h, pos, goal, self._path_idx)
+            self._gen = bug2_plan_iter(
+                self.cost, self.w, self.h, pos, goal, self._path_idx
+            )
             self._gen_done = False
         if not self._gen_done and self._gen is not None:
             for _ in range(_BUDGET):

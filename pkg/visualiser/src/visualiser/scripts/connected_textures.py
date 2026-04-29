@@ -301,7 +301,9 @@ def render_bridge_base_tile(openings: frozenset[Dir], team: str) -> Image.Image:
             )
             top_y0, top_y1 = cy - pipe_outer_half, cy - pipe_outer_half + wall_thickness
             bot_y0, bot_y1 = cy + pipe_outer_half - wall_thickness, cy + pipe_outer_half
-            seg_lo, seg_hi = (cx + pipe_outer_half, size) if dx > 0 else (0.0, cx - pipe_outer_half)
+            seg_lo, seg_hi = (
+                (cx + pipe_outer_half, size) if dx > 0 else (0.0, cx - pipe_outer_half)
+            )
             d.rectangle((seg_lo, top_y0, seg_hi, top_y1), fill=rail)
             d.rectangle((seg_lo, bot_y0, seg_hi, bot_y1), fill=rail)
         else:
@@ -313,13 +315,20 @@ def render_bridge_base_tile(openings: frozenset[Dir], team: str) -> Image.Image:
             )
             lft_x0, lft_x1 = cx - pipe_outer_half, cx - pipe_outer_half + wall_thickness
             rgt_x0, rgt_x1 = cx + pipe_outer_half - wall_thickness, cx + pipe_outer_half
-            seg_lo, seg_hi = (cy + pipe_outer_half, size) if dy > 0 else (0.0, cy - pipe_outer_half)
+            seg_lo, seg_hi = (
+                (cy + pipe_outer_half, size) if dy > 0 else (0.0, cy - pipe_outer_half)
+            )
             d.rectangle((lft_x0, seg_lo, lft_x1, seg_hi), fill=rail)
             d.rectangle((rgt_x0, seg_lo, rgt_x1, seg_hi), fill=rail)
 
     # Body square.
     d.rectangle(
-        (cx - pipe_outer_half, cy - pipe_outer_half, cx + pipe_outer_half, cy + pipe_outer_half),
+        (
+            cx - pipe_outer_half,
+            cy - pipe_outer_half,
+            cx + pipe_outer_half,
+            cy + pipe_outer_half,
+        ),
         fill=body,
     )
 
@@ -330,26 +339,42 @@ def render_bridge_base_tile(openings: frozenset[Dir], team: str) -> Image.Image:
         dx, dy = dir_
         if dy < 0:
             d.rectangle(
-                (cx - pipe_outer_half, cy - pipe_outer_half,
-                 cx + pipe_outer_half, cy - pipe_outer_half + wall_thickness),
+                (
+                    cx - pipe_outer_half,
+                    cy - pipe_outer_half,
+                    cx + pipe_outer_half,
+                    cy - pipe_outer_half + wall_thickness,
+                ),
                 fill=rail,
             )
         elif dy > 0:
             d.rectangle(
-                (cx - pipe_outer_half, cy + pipe_outer_half - wall_thickness,
-                 cx + pipe_outer_half, cy + pipe_outer_half),
+                (
+                    cx - pipe_outer_half,
+                    cy + pipe_outer_half - wall_thickness,
+                    cx + pipe_outer_half,
+                    cy + pipe_outer_half,
+                ),
                 fill=rail,
             )
         elif dx < 0:
             d.rectangle(
-                (cx - pipe_outer_half, cy - pipe_outer_half,
-                 cx - pipe_outer_half + wall_thickness, cy + pipe_outer_half),
+                (
+                    cx - pipe_outer_half,
+                    cy - pipe_outer_half,
+                    cx - pipe_outer_half + wall_thickness,
+                    cy + pipe_outer_half,
+                ),
                 fill=rail,
             )
         else:
             d.rectangle(
-                (cx + pipe_outer_half - wall_thickness, cy - pipe_outer_half,
-                 cx + pipe_outer_half, cy + pipe_outer_half),
+                (
+                    cx + pipe_outer_half - wall_thickness,
+                    cy - pipe_outer_half,
+                    cx + pipe_outer_half,
+                    cy + pipe_outer_half,
+                ),
                 fill=rail,
             )
 

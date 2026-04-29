@@ -397,7 +397,15 @@ def bug2_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                             wdx = cw_wox - nx2
                             wdy = cw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (cw_woy * w + cw_wox) * 4 + face
                                 if ccw_faces[k]:
                                     met = True
@@ -437,7 +445,9 @@ def bug2_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                     if is_cardinal[cw_dir]:
                         pdx = cw_px - nx2
                         pdy = cw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if ccw_faces[k]:
                             met = True
@@ -462,7 +472,15 @@ def bug2_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                             wdx = ccw_wox - nx2
                             wdy = ccw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (ccw_woy * w + ccw_wox) * 4 + face
                                 if cw_faces[k]:
                                     met = True
@@ -499,7 +517,9 @@ def bug2_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                     if is_cardinal[ccw_dir]:
                         pdx = ccw_px - nx2
                         pdy = ccw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if cw_faces[k]:
                             met = True
@@ -606,17 +626,32 @@ def bug2_plan_iter(
                             wdx = cw_wox - nx2
                             wdy = cw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (cw_woy * w + cw_wox) * 4 + face
                                 if ccw_faces[k]:
                                     met = True
                                 cw_faces[k] = 1
                         nxt_cross = (ny2 - sy) * mdx - (nx2 - sx) * mdy
-                        if (cw_cross > 0 and nxt_cross < 0) or (cw_cross < 0 and nxt_cross > 0) or nxt_cross == 0:
+                        if (
+                            (cw_cross > 0 and nxt_cross < 0)
+                            or (cw_cross < 0 and nxt_cross > 0)
+                            or nxt_cross == 0
+                        ):
                             cell_dot = (nx2 - sx) * mdx + (ny2 - sy) * mdy
                             ddx = nx2 - gx
                             ddy = ny2 - gy
-                            if 0 < cell_dot <= goal_dot and ddx * ddx + ddy * ddy < hit_d:
+                            if (
+                                0 < cell_dot <= goal_dot
+                                and ddx * ddx + ddy * ddy < hit_d
+                            ):
                                 winner = 0
                                 win_x, win_y = nx2, ny2
                                 break
@@ -636,7 +671,9 @@ def bug2_plan_iter(
                     if is_cardinal[cw_dir]:
                         pdx = cw_px - nx2
                         pdy = cw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if ccw_faces[k]:
                             met = True
@@ -662,17 +699,32 @@ def bug2_plan_iter(
                             wdx = ccw_wox - nx2
                             wdy = ccw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (ccw_woy * w + ccw_wox) * 4 + face
                                 if cw_faces[k]:
                                     met = True
                                 ccw_faces[k] = 1
                         nxt_cross = (ny2 - sy) * mdx - (nx2 - sx) * mdy
-                        if (ccw_cross > 0 and nxt_cross < 0) or (ccw_cross < 0 and nxt_cross > 0) or nxt_cross == 0:
+                        if (
+                            (ccw_cross > 0 and nxt_cross < 0)
+                            or (ccw_cross < 0 and nxt_cross > 0)
+                            or nxt_cross == 0
+                        ):
                             cell_dot = (nx2 - sx) * mdx + (ny2 - sy) * mdy
                             ddx = nx2 - gx
                             ddy = ny2 - gy
-                            if 0 < cell_dot <= goal_dot and ddx * ddx + ddy * ddy < hit_d:
+                            if (
+                                0 < cell_dot <= goal_dot
+                                and ddx * ddx + ddy * ddy < hit_d
+                            ):
                                 winner = 1
                                 win_x, win_y = nx2, ny2
                                 break
@@ -692,7 +744,9 @@ def bug2_plan_iter(
                     if is_cardinal[ccw_dir]:
                         pdx = ccw_px - nx2
                         pdy = ccw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if cw_faces[k]:
                             met = True
@@ -947,7 +1001,6 @@ def _build_mline_seq(sx: int, sy: int, gx: int, gy: int) -> list[tuple[int, int]
             cy += syi
 
 
-
 def bug0_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | None:
     """Bug0 — greedy until hit, then fork CW + CCW walkers. A walker leaves
     when it can take any 8-step strictly closer to goal by Chebyshev. Walker
@@ -1029,7 +1082,15 @@ def bug0_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                             wdx = cw_wox - nx2
                             wdy = cw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (cw_woy * w + cw_wox) * 4 + face
                                 if ccw_faces[k]:
                                     met = True
@@ -1049,7 +1110,9 @@ def bug0_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                     if is_cardinal[cw_dir]:
                         pdx = cw_px - nx2
                         pdy = cw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if ccw_faces[k]:
                             met = True
@@ -1078,7 +1141,15 @@ def bug0_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                             wdx = ccw_wox - nx2
                             wdy = ccw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (ccw_woy * w + ccw_wox) * 4 + face
                                 if cw_faces[k]:
                                     met = True
@@ -1098,7 +1169,9 @@ def bug0_plan(cost: list[int], w: int, h: int, si: int, gi: int) -> list[int] | 
                     if is_cardinal[ccw_dir]:
                         pdx = ccw_px - nx2
                         pdy = ccw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if cw_faces[k]:
                             met = True
@@ -1207,7 +1280,15 @@ def bug0_plan_debug(
                             wdx = cw_wox - nx2
                             wdy = cw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (cw_woy * w + cw_wox) * 4 + face
                                 if ccw_faces[k]:
                                     met = True
@@ -1227,7 +1308,9 @@ def bug0_plan_debug(
                     if is_cardinal[cw_dir]:
                         pdx = cw_px - nx2
                         pdy = cw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if ccw_faces[k]:
                             met = True
@@ -1256,7 +1339,15 @@ def bug0_plan_debug(
                             wdx = ccw_wox - nx2
                             wdy = ccw_woy - ny2
                             if wdx == 0 or wdy == 0:
-                                face = 0 if wdx == -1 else 1 if wdx == 1 else 2 if wdy == 1 else 3
+                                face = (
+                                    0
+                                    if wdx == -1
+                                    else 1
+                                    if wdx == 1
+                                    else 2
+                                    if wdy == 1
+                                    else 3
+                                )
                                 k = (ccw_woy * w + ccw_wox) * 4 + face
                                 if cw_faces[k]:
                                     met = True
@@ -1276,7 +1367,9 @@ def bug0_plan_debug(
                     if is_cardinal[ccw_dir]:
                         pdx = ccw_px - nx2
                         pdy = ccw_py - ny2
-                        face = 0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        face = (
+                            0 if pdx == 1 else 1 if pdx == -1 else 2 if pdy == -1 else 3
+                        )
                         k = cell * 4 + face
                         if cw_faces[k]:
                             met = True

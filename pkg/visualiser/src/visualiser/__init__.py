@@ -203,7 +203,13 @@ _GRID_DTYPE: dict[type, str] = {
 def _serialise_dump(v: Dump) -> dict[str, Any]:
     """Convert a `Dump` value to its tagged dict representation."""
     match v:
-        case DumpBoolGrid() | DumpU8Grid() | DumpI16Grid() | DumpU16Grid() | DumpF32Grid():
+        case (
+            DumpBoolGrid()
+            | DumpU8Grid()
+            | DumpI16Grid()
+            | DumpU16Grid()
+            | DumpF32Grid()
+        ):
             return {
                 "$type": f"{_GRID_DTYPE[type(v)]}grid",
                 "v": list(v.data),

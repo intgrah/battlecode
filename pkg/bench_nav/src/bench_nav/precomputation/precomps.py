@@ -12,8 +12,8 @@ from bench_nav.precomputation.map_data import (
     build_pnb_dir,
     build_pnb_dual,
     build_pnb_fd,
-    build_pnb_skip,
     build_pnb_navdijkstra,
+    build_pnb_skip,
     build_pnbc,
     build_pnbc_navdijkstra,
 )
