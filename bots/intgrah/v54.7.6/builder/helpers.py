@@ -352,36 +352,47 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
         sink = self.ti_sink if self.ti_sink is not None else self.my_core
     if sink is None:
         return None
-    free: list[Position] = []
+    # Two-tier preference:
+    #   tier 1: an existing outward flow consumer adjacent to the ore
+    #           IS the harvester's actual feed — bridges (omnidirectional)
+    #           and conveyors/splitters whose direction points AWAY from
+    #           the ore. The builder steps off onto these (walkable),
+    #           and the chain extension picks up from there.
+    #   tier 2: an unbuilt cardinal where we'll later place a flow
+    #           consumer — empty terrain, friendly road, marker.
+    # Walls / harvesters / foundries / cores / barriers / inward-pointing
+    # conveyors are always rejected.
+    tier1: list[Position] = []
+    tier2: list[Position] = []
     for d in DIR4:
         c = ore_pos.add(d)
         if not self.in_bounds(c):
             continue
         if c == self.my_pos:
             continue
-        # Walls aren't valid output tiles — flow can't pass through.
-        # If a wall makes it into `free`, `harvester_io_cardinals`
-        # reserves the wall and guard_harvester_neighbours would happily
-        # plug the only actual exit with an inward conveyor.
         if self.get_env(c) == Environment.WALL:
             continue
         b = self.get_building(c)
+        if isinstance(b, BuildingBridge):
+            tier1.append(c)
+            continue
+        if isinstance(b, BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter):
+            # Outward iff its direction does NOT point at the ore.
+            if c.add(b.direction) == ore_pos:
+                continue  # inward guard
+            tier1.append(c)
+            continue
         if isinstance(
             b,
-            BuildingConveyor
-            | BuildingArmouredConveyor
-            | BuildingSplitter
-            | BuildingBridge
-            | BuildingFoundry
-            | BuildingCore
-            | BuildingHarvester
-            | BuildingBarrier,
+            BuildingFoundry | BuildingCore | BuildingHarvester | BuildingBarrier,
         ):
             continue
-        free.append(c)
-    if not free:
-        return None
-    return min(free, key=lambda c: c.distance_squared(sink))
+        tier2.append(c)
+    if tier1:
+        return min(tier1, key=lambda c: c.distance_squared(sink))
+    if tier2:
+        return min(tier2, key=lambda c: c.distance_squared(sink))
+    return None
 
 
 def harvester_io_cardinals(self: Builder, ore_pos: Position) -> set[Position]:

@@ -163,8 +163,8 @@ def dp_step_hop(
     best_idx = min_idx
     best_fs = -1
     if 4 <= px < w - 4 and 4 <= py < h - 4:
-        # cell 1: (-1, 0)
-        cell = pos - 1
+        # cell 1: (-1, -1)
+        cell = pos - w - 1
         if cost[cell] is not INF:
             reach1 = True
             gateway1 = 1
@@ -172,8 +172,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway1
-        # cell 2: (0, -1)
-        cell = pos - w
+        # cell 2: (-1, 1)
+        cell = pos + w - 1
         if cost[cell] is not INF:
             reach2 = True
             gateway2 = 2
@@ -181,8 +181,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway2
-        # cell 3: (0, 1)
-        cell = pos + w
+        # cell 3: (1, -1)
+        cell = pos - w + 1
         if cost[cell] is not INF:
             reach3 = True
             gateway3 = 3
@@ -190,8 +190,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway3
-        # cell 4: (1, 0)
-        cell = pos + 1
+        # cell 4: (1, 1)
+        cell = pos + w + 1
         if cost[cell] is not INF:
             reach4 = True
             gateway4 = 4
@@ -199,8 +199,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway4
-        # cell 5: (-1, -1)
-        cell = pos - w - 1
+        # cell 5: (-1, 0)
+        cell = pos - 1
         if cost[cell] is not INF:
             reach5 = True
             gateway5 = 5
@@ -208,8 +208,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway5
-        # cell 6: (-1, 1)
-        cell = pos + w - 1
+        # cell 6: (0, -1)
+        cell = pos - w
         if cost[cell] is not INF:
             reach6 = True
             gateway6 = 6
@@ -217,8 +217,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway6
-        # cell 7: (1, -1)
-        cell = pos - w + 1
+        # cell 7: (0, 1)
+        cell = pos + w
         if cost[cell] is not INF:
             reach7 = True
             gateway7 = 7
@@ -226,8 +226,8 @@ def dp_step_hop(
             if pi > best_idx:
                 best_idx = pi
                 best_fs = gateway7
-        # cell 8: (1, 1)
-        cell = pos + w + 1
+        # cell 8: (1, 0)
+        cell = pos + 1
         if cost[cell] is not INF:
             reach8 = True
             gateway8 = 8
@@ -238,9 +238,9 @@ def dp_step_hop(
         # cell 9: (-2, 0)
         cell = pos - 2
         if cost[cell] is not INF:
-            if reach1:
+            if reach5:
                 reach9 = True
-                gateway9 = gateway1
+                gateway9 = gateway5
             if reach9:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -249,9 +249,9 @@ def dp_step_hop(
         # cell 10: (0, -2)
         cell = pos - w2
         if cost[cell] is not INF:
-            if reach2:
+            if reach6:
                 reach10 = True
-                gateway10 = gateway2
+                gateway10 = gateway6
             if reach10:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -260,9 +260,9 @@ def dp_step_hop(
         # cell 11: (0, 2)
         cell = pos + w2
         if cost[cell] is not INF:
-            if reach3:
+            if reach7:
                 reach11 = True
-                gateway11 = gateway3
+                gateway11 = gateway7
             if reach11:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -271,9 +271,9 @@ def dp_step_hop(
         # cell 12: (2, 0)
         cell = pos + 2
         if cost[cell] is not INF:
-            if reach4:
+            if reach8:
                 reach12 = True
-                gateway12 = gateway4
+                gateway12 = gateway8
             if reach12:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -282,12 +282,12 @@ def dp_step_hop(
         # cell 13: (-2, -1)
         cell = pos - w - 2
         if cost[cell] is not INF:
-            if reach5:
-                reach13 = True
-                gateway13 = gateway5
-            elif reach1:
+            if reach1:
                 reach13 = True
                 gateway13 = gateway1
+            elif reach5:
+                reach13 = True
+                gateway13 = gateway5
             if reach13:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -296,12 +296,12 @@ def dp_step_hop(
         # cell 14: (-2, 1)
         cell = pos + w - 2
         if cost[cell] is not INF:
-            if reach6:
+            if reach2:
                 reach14 = True
-                gateway14 = gateway6
-            elif reach1:
+                gateway14 = gateway2
+            elif reach5:
                 reach14 = True
-                gateway14 = gateway1
+                gateway14 = gateway5
             if reach14:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -310,12 +310,12 @@ def dp_step_hop(
         # cell 15: (-1, -2)
         cell = pos - w2 - 1
         if cost[cell] is not INF:
-            if reach5:
+            if reach1:
                 reach15 = True
-                gateway15 = gateway5
-            elif reach2:
+                gateway15 = gateway1
+            elif reach6:
                 reach15 = True
-                gateway15 = gateway2
+                gateway15 = gateway6
             if reach15:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -324,12 +324,12 @@ def dp_step_hop(
         # cell 16: (-1, 2)
         cell = pos + w2 - 1
         if cost[cell] is not INF:
-            if reach6:
+            if reach2:
                 reach16 = True
-                gateway16 = gateway6
-            elif reach3:
+                gateway16 = gateway2
+            elif reach7:
                 reach16 = True
-                gateway16 = gateway3
+                gateway16 = gateway7
             if reach16:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -338,12 +338,12 @@ def dp_step_hop(
         # cell 17: (1, -2)
         cell = pos - w2 + 1
         if cost[cell] is not INF:
-            if reach7:
+            if reach3:
                 reach17 = True
-                gateway17 = gateway7
-            elif reach2:
+                gateway17 = gateway3
+            elif reach6:
                 reach17 = True
-                gateway17 = gateway2
+                gateway17 = gateway6
             if reach17:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -352,12 +352,12 @@ def dp_step_hop(
         # cell 18: (1, 2)
         cell = pos + w2 + 1
         if cost[cell] is not INF:
-            if reach8:
+            if reach4:
                 reach18 = True
-                gateway18 = gateway8
-            elif reach3:
+                gateway18 = gateway4
+            elif reach7:
                 reach18 = True
-                gateway18 = gateway3
+                gateway18 = gateway7
             if reach18:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -366,12 +366,12 @@ def dp_step_hop(
         # cell 19: (2, -1)
         cell = pos - w + 2
         if cost[cell] is not INF:
-            if reach7:
+            if reach3:
                 reach19 = True
-                gateway19 = gateway7
-            elif reach4:
+                gateway19 = gateway3
+            elif reach8:
                 reach19 = True
-                gateway19 = gateway4
+                gateway19 = gateway8
             if reach19:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -380,12 +380,12 @@ def dp_step_hop(
         # cell 20: (2, 1)
         cell = pos + w + 2
         if cost[cell] is not INF:
-            if reach8:
-                reach20 = True
-                gateway20 = gateway8
-            elif reach4:
+            if reach4:
                 reach20 = True
                 gateway20 = gateway4
+            elif reach8:
+                reach20 = True
+                gateway20 = gateway8
             if reach20:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -394,9 +394,9 @@ def dp_step_hop(
         # cell 21: (-2, -2)
         cell = pos - w2 - 2
         if cost[cell] is not INF:
-            if reach5:
+            if reach1:
                 reach21 = True
-                gateway21 = gateway5
+                gateway21 = gateway1
             if reach21:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -405,9 +405,9 @@ def dp_step_hop(
         # cell 22: (-2, 2)
         cell = pos + w2 - 2
         if cost[cell] is not INF:
-            if reach6:
+            if reach2:
                 reach22 = True
-                gateway22 = gateway6
+                gateway22 = gateway2
             if reach22:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -416,9 +416,9 @@ def dp_step_hop(
         # cell 23: (2, -2)
         cell = pos - w2 + 2
         if cost[cell] is not INF:
-            if reach7:
+            if reach3:
                 reach23 = True
-                gateway23 = gateway7
+                gateway23 = gateway3
             if reach23:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -427,9 +427,9 @@ def dp_step_hop(
         # cell 24: (2, 2)
         cell = pos + w2 + 2
         if cost[cell] is not INF:
-            if reach8:
+            if reach4:
                 reach24 = True
-                gateway24 = gateway8
+                gateway24 = gateway4
             if reach24:
                 pi = path_idx[cell]
                 if pi > best_idx:
@@ -1016,9 +1016,9 @@ def dp_step_hop(
                     best_idx = pi
                     best_fs = gateway68
     else:
-        # cell 1: (-1, 0)
+        # cell 1: (-1, -1)
         nx = px - 1
-        ny = py
+        ny = py - 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1028,9 +1028,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway1
-        # cell 2: (0, -1)
-        nx = px
-        ny = py - 1
+        # cell 2: (-1, 1)
+        nx = px - 1
+        ny = py + 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1040,9 +1040,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway2
-        # cell 3: (0, 1)
-        nx = px
-        ny = py + 1
+        # cell 3: (1, -1)
+        nx = px + 1
+        ny = py - 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1052,9 +1052,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway3
-        # cell 4: (1, 0)
+        # cell 4: (1, 1)
         nx = px + 1
-        ny = py
+        ny = py + 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1064,9 +1064,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway4
-        # cell 5: (-1, -1)
+        # cell 5: (-1, 0)
         nx = px - 1
-        ny = py - 1
+        ny = py
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1076,9 +1076,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway5
-        # cell 6: (-1, 1)
-        nx = px - 1
-        ny = py + 1
+        # cell 6: (0, -1)
+        nx = px
+        ny = py - 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1088,9 +1088,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway6
-        # cell 7: (1, -1)
-        nx = px + 1
-        ny = py - 1
+        # cell 7: (0, 1)
+        nx = px
+        ny = py + 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1100,9 +1100,9 @@ def dp_step_hop(
                 if pi > best_idx:
                     best_idx = pi
                     best_fs = gateway7
-        # cell 8: (1, 1)
+        # cell 8: (1, 0)
         nx = px + 1
-        ny = py + 1
+        ny = py
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
@@ -1118,9 +1118,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach1:
+                if reach5:
                     reach9 = True
-                    gateway9 = gateway1
+                    gateway9 = gateway5
                 if reach9:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1132,9 +1132,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach2:
+                if reach6:
                     reach10 = True
-                    gateway10 = gateway2
+                    gateway10 = gateway6
                 if reach10:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1146,9 +1146,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach3:
+                if reach7:
                     reach11 = True
-                    gateway11 = gateway3
+                    gateway11 = gateway7
                 if reach11:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1160,9 +1160,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach4:
+                if reach8:
                     reach12 = True
-                    gateway12 = gateway4
+                    gateway12 = gateway8
                 if reach12:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1174,12 +1174,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach5:
-                    reach13 = True
-                    gateway13 = gateway5
-                elif reach1:
+                if reach1:
                     reach13 = True
                     gateway13 = gateway1
+                elif reach5:
+                    reach13 = True
+                    gateway13 = gateway5
                 if reach13:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1191,12 +1191,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach6:
+                if reach2:
                     reach14 = True
-                    gateway14 = gateway6
-                elif reach1:
+                    gateway14 = gateway2
+                elif reach5:
                     reach14 = True
-                    gateway14 = gateway1
+                    gateway14 = gateway5
                 if reach14:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1208,12 +1208,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach5:
+                if reach1:
                     reach15 = True
-                    gateway15 = gateway5
-                elif reach2:
+                    gateway15 = gateway1
+                elif reach6:
                     reach15 = True
-                    gateway15 = gateway2
+                    gateway15 = gateway6
                 if reach15:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1225,12 +1225,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach6:
+                if reach2:
                     reach16 = True
-                    gateway16 = gateway6
-                elif reach3:
+                    gateway16 = gateway2
+                elif reach7:
                     reach16 = True
-                    gateway16 = gateway3
+                    gateway16 = gateway7
                 if reach16:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1242,12 +1242,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach7:
+                if reach3:
                     reach17 = True
-                    gateway17 = gateway7
-                elif reach2:
+                    gateway17 = gateway3
+                elif reach6:
                     reach17 = True
-                    gateway17 = gateway2
+                    gateway17 = gateway6
                 if reach17:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1259,12 +1259,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach8:
+                if reach4:
                     reach18 = True
-                    gateway18 = gateway8
-                elif reach3:
+                    gateway18 = gateway4
+                elif reach7:
                     reach18 = True
-                    gateway18 = gateway3
+                    gateway18 = gateway7
                 if reach18:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1276,12 +1276,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach7:
+                if reach3:
                     reach19 = True
-                    gateway19 = gateway7
-                elif reach4:
+                    gateway19 = gateway3
+                elif reach8:
                     reach19 = True
-                    gateway19 = gateway4
+                    gateway19 = gateway8
                 if reach19:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1293,12 +1293,12 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach8:
-                    reach20 = True
-                    gateway20 = gateway8
-                elif reach4:
+                if reach4:
                     reach20 = True
                     gateway20 = gateway4
+                elif reach8:
+                    reach20 = True
+                    gateway20 = gateway8
                 if reach20:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1310,9 +1310,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach5:
+                if reach1:
                     reach21 = True
-                    gateway21 = gateway5
+                    gateway21 = gateway1
                 if reach21:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1324,9 +1324,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach6:
+                if reach2:
                     reach22 = True
-                    gateway22 = gateway6
+                    gateway22 = gateway2
                 if reach22:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1338,9 +1338,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach7:
+                if reach3:
                     reach23 = True
-                    gateway23 = gateway7
+                    gateway23 = gateway3
                 if reach23:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -1352,9 +1352,9 @@ def dp_step_hop(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             if cost[cell] is not INF:
-                if reach8:
+                if reach4:
                     reach24 = True
-                    gateway24 = gateway8
+                    gateway24 = gateway4
                 if reach24:
                     pi = path_idx[cell]
                     if pi > best_idx:
@@ -2076,28 +2076,28 @@ def dp_step_hop(
         return pos
 
     if best_fs == 1:
-        return pos - 1
-
-    if best_fs == 2:
-        return pos - w
-
-    if best_fs == 3:
-        return pos + w
-
-    if best_fs == 4:
-        return pos + 1
-
-    if best_fs == 5:
         return pos - w - 1
 
-    if best_fs == 6:
+    if best_fs == 2:
         return pos + w - 1
 
-    if best_fs == 7:
+    if best_fs == 3:
         return pos - w + 1
 
-    if best_fs == 8:
+    if best_fs == 4:
         return pos + w + 1
+
+    if best_fs == 5:
+        return pos - 1
+
+    if best_fs == 6:
+        return pos - w
+
+    if best_fs == 7:
+        return pos + w
+
+    if best_fs == 8:
+        return pos + 1
 
     return pos
 
@@ -2168,8 +2168,8 @@ def dp_step(
     best_dist = INF
     best_fs = -1
     if 4 <= px < w - 4 and 4 <= py < h - 4:
-        # cell 1: (-1, 0)
-        cell = pos - 1
+        # cell 1: (-1, -1)
+        cell = pos - w - 1
         c = cost[cell]
         if c is not INF:
             dist1 = c
@@ -2178,8 +2178,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 1
-        # cell 2: (0, -1)
-        cell = pos - w
+        # cell 2: (-1, 1)
+        cell = pos + w - 1
         c = cost[cell]
         if c is not INF:
             dist2 = c
@@ -2188,8 +2188,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 2
-        # cell 3: (0, 1)
-        cell = pos + w
+        # cell 3: (1, -1)
+        cell = pos - w + 1
         c = cost[cell]
         if c is not INF:
             dist3 = c
@@ -2198,8 +2198,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 3
-        # cell 4: (1, 0)
-        cell = pos + 1
+        # cell 4: (1, 1)
+        cell = pos + w + 1
         c = cost[cell]
         if c is not INF:
             dist4 = c
@@ -2208,8 +2208,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 4
-        # cell 5: (-1, -1)
-        cell = pos - w - 1
+        # cell 5: (-1, 0)
+        cell = pos - 1
         c = cost[cell]
         if c is not INF:
             dist5 = c
@@ -2218,8 +2218,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 5
-        # cell 6: (-1, 1)
-        cell = pos + w - 1
+        # cell 6: (0, -1)
+        cell = pos - w
         c = cost[cell]
         if c is not INF:
             dist6 = c
@@ -2228,8 +2228,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 6
-        # cell 7: (1, -1)
-        cell = pos - w + 1
+        # cell 7: (0, 1)
+        cell = pos + w
         c = cost[cell]
         if c is not INF:
             dist7 = c
@@ -2238,8 +2238,8 @@ def dp_step(
                 best_idx = pi
                 best_dist = c
                 best_fs = 7
-        # cell 8: (1, 1)
-        cell = pos + w + 1
+        # cell 8: (1, 0)
+        cell = pos + 1
         c = cost[cell]
         if c is not INF:
             dist8 = c
@@ -2252,11 +2252,11 @@ def dp_step(
         cell = pos - 2
         c = cost[cell]
         if c is not INF:
-            if dist1 is not INF:
-                nd = dist1 + c
+            if dist5 is not INF:
+                nd = dist5 + c
                 if nd < dist9:
                     dist9 = nd
-                    gateway9 = 1
+                    gateway9 = 5
             if dist9 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist9 < best_dist):
@@ -2267,11 +2267,11 @@ def dp_step(
         cell = pos - w2
         c = cost[cell]
         if c is not INF:
-            if dist2 is not INF:
-                nd = dist2 + c
+            if dist6 is not INF:
+                nd = dist6 + c
                 if nd < dist10:
                     dist10 = nd
-                    gateway10 = 2
+                    gateway10 = 6
             if dist10 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist10 < best_dist):
@@ -2282,11 +2282,11 @@ def dp_step(
         cell = pos + w2
         c = cost[cell]
         if c is not INF:
-            if dist3 is not INF:
-                nd = dist3 + c
+            if dist7 is not INF:
+                nd = dist7 + c
                 if nd < dist11:
                     dist11 = nd
-                    gateway11 = 3
+                    gateway11 = 7
             if dist11 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist11 < best_dist):
@@ -2297,11 +2297,11 @@ def dp_step(
         cell = pos + 2
         c = cost[cell]
         if c is not INF:
-            if dist4 is not INF:
-                nd = dist4 + c
+            if dist8 is not INF:
+                nd = dist8 + c
                 if nd < dist12:
                     dist12 = nd
-                    gateway12 = 4
+                    gateway12 = 8
             if dist12 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist12 < best_dist):
@@ -2312,16 +2312,16 @@ def dp_step(
         cell = pos - w - 2
         c = cost[cell]
         if c is not INF:
-            if dist5 is not INF:
-                nd = dist5 + c
-                if nd < dist13:
-                    dist13 = nd
-                    gateway13 = 5
             if dist1 is not INF:
                 nd = dist1 + c
                 if nd < dist13:
                     dist13 = nd
                     gateway13 = 1
+            if dist5 is not INF:
+                nd = dist5 + c
+                if nd < dist13:
+                    dist13 = nd
+                    gateway13 = 5
             if dist13 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist13 < best_dist):
@@ -2332,16 +2332,16 @@ def dp_step(
         cell = pos + w - 2
         c = cost[cell]
         if c is not INF:
-            if dist6 is not INF:
-                nd = dist6 + c
+            if dist2 is not INF:
+                nd = dist2 + c
                 if nd < dist14:
                     dist14 = nd
-                    gateway14 = 6
-            if dist1 is not INF:
-                nd = dist1 + c
+                    gateway14 = 2
+            if dist5 is not INF:
+                nd = dist5 + c
                 if nd < dist14:
                     dist14 = nd
-                    gateway14 = 1
+                    gateway14 = 5
             if dist14 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist14 < best_dist):
@@ -2352,16 +2352,16 @@ def dp_step(
         cell = pos - w2 - 1
         c = cost[cell]
         if c is not INF:
-            if dist5 is not INF:
-                nd = dist5 + c
+            if dist1 is not INF:
+                nd = dist1 + c
                 if nd < dist15:
                     dist15 = nd
-                    gateway15 = 5
-            if dist2 is not INF:
-                nd = dist2 + c
+                    gateway15 = 1
+            if dist6 is not INF:
+                nd = dist6 + c
                 if nd < dist15:
                     dist15 = nd
-                    gateway15 = 2
+                    gateway15 = 6
             if dist15 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist15 < best_dist):
@@ -2372,16 +2372,16 @@ def dp_step(
         cell = pos + w2 - 1
         c = cost[cell]
         if c is not INF:
-            if dist6 is not INF:
-                nd = dist6 + c
+            if dist2 is not INF:
+                nd = dist2 + c
                 if nd < dist16:
                     dist16 = nd
-                    gateway16 = 6
-            if dist3 is not INF:
-                nd = dist3 + c
+                    gateway16 = 2
+            if dist7 is not INF:
+                nd = dist7 + c
                 if nd < dist16:
                     dist16 = nd
-                    gateway16 = 3
+                    gateway16 = 7
             if dist16 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist16 < best_dist):
@@ -2392,16 +2392,16 @@ def dp_step(
         cell = pos - w2 + 1
         c = cost[cell]
         if c is not INF:
-            if dist7 is not INF:
-                nd = dist7 + c
+            if dist3 is not INF:
+                nd = dist3 + c
                 if nd < dist17:
                     dist17 = nd
-                    gateway17 = 7
-            if dist2 is not INF:
-                nd = dist2 + c
+                    gateway17 = 3
+            if dist6 is not INF:
+                nd = dist6 + c
                 if nd < dist17:
                     dist17 = nd
-                    gateway17 = 2
+                    gateway17 = 6
             if dist17 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist17 < best_dist):
@@ -2412,16 +2412,16 @@ def dp_step(
         cell = pos + w2 + 1
         c = cost[cell]
         if c is not INF:
-            if dist8 is not INF:
-                nd = dist8 + c
+            if dist4 is not INF:
+                nd = dist4 + c
                 if nd < dist18:
                     dist18 = nd
-                    gateway18 = 8
-            if dist3 is not INF:
-                nd = dist3 + c
+                    gateway18 = 4
+            if dist7 is not INF:
+                nd = dist7 + c
                 if nd < dist18:
                     dist18 = nd
-                    gateway18 = 3
+                    gateway18 = 7
             if dist18 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist18 < best_dist):
@@ -2432,16 +2432,16 @@ def dp_step(
         cell = pos - w + 2
         c = cost[cell]
         if c is not INF:
-            if dist7 is not INF:
-                nd = dist7 + c
+            if dist3 is not INF:
+                nd = dist3 + c
                 if nd < dist19:
                     dist19 = nd
-                    gateway19 = 7
-            if dist4 is not INF:
-                nd = dist4 + c
+                    gateway19 = 3
+            if dist8 is not INF:
+                nd = dist8 + c
                 if nd < dist19:
                     dist19 = nd
-                    gateway19 = 4
+                    gateway19 = 8
             if dist19 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist19 < best_dist):
@@ -2452,16 +2452,16 @@ def dp_step(
         cell = pos + w + 2
         c = cost[cell]
         if c is not INF:
-            if dist8 is not INF:
-                nd = dist8 + c
-                if nd < dist20:
-                    dist20 = nd
-                    gateway20 = 8
             if dist4 is not INF:
                 nd = dist4 + c
                 if nd < dist20:
                     dist20 = nd
                     gateway20 = 4
+            if dist8 is not INF:
+                nd = dist8 + c
+                if nd < dist20:
+                    dist20 = nd
+                    gateway20 = 8
             if dist20 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist20 < best_dist):
@@ -2472,11 +2472,11 @@ def dp_step(
         cell = pos - w2 - 2
         c = cost[cell]
         if c is not INF:
-            if dist5 is not INF:
-                nd = dist5 + c
+            if dist1 is not INF:
+                nd = dist1 + c
                 if nd < dist21:
                     dist21 = nd
-                    gateway21 = 5
+                    gateway21 = 1
             if dist21 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist21 < best_dist):
@@ -2487,11 +2487,11 @@ def dp_step(
         cell = pos + w2 - 2
         c = cost[cell]
         if c is not INF:
-            if dist6 is not INF:
-                nd = dist6 + c
+            if dist2 is not INF:
+                nd = dist2 + c
                 if nd < dist22:
                     dist22 = nd
-                    gateway22 = 6
+                    gateway22 = 2
             if dist22 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist22 < best_dist):
@@ -2502,11 +2502,11 @@ def dp_step(
         cell = pos - w2 + 2
         c = cost[cell]
         if c is not INF:
-            if dist7 is not INF:
-                nd = dist7 + c
+            if dist3 is not INF:
+                nd = dist3 + c
                 if nd < dist23:
                     dist23 = nd
-                    gateway23 = 7
+                    gateway23 = 3
             if dist23 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist23 < best_dist):
@@ -2517,11 +2517,11 @@ def dp_step(
         cell = pos + w2 + 2
         c = cost[cell]
         if c is not INF:
-            if dist8 is not INF:
-                nd = dist8 + c
+            if dist4 is not INF:
+                nd = dist4 + c
                 if nd < dist24:
                     dist24 = nd
-                    gateway24 = 8
+                    gateway24 = 4
             if dist24 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist24 < best_dist):
@@ -2911,43 +2911,47 @@ def dp_step(
         # cell 45: (-4, 0)
         cell = pos - 4
         c = cost[cell]
-        if c is not INF and dist25 is not INF:
-            nd = dist25 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway25
+        if c is not INF:
+            if dist25 is not INF:
+                nd = dist25 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway25
         # cell 46: (0, -4)
         cell = pos - w4
         c = cost[cell]
-        if c is not INF and dist26 is not INF:
-            nd = dist26 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway26
+        if c is not INF:
+            if dist26 is not INF:
+                nd = dist26 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway26
         # cell 47: (0, 4)
         cell = pos + w4
         c = cost[cell]
-        if c is not INF and dist27 is not INF:
-            nd = dist27 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway27
+        if c is not INF:
+            if dist27 is not INF:
+                nd = dist27 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway27
         # cell 48: (4, 0)
         cell = pos + 4
         c = cost[cell]
-        if c is not INF and dist28 is not INF:
-            nd = dist28 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway28
+        if c is not INF:
+            if dist28 is not INF:
+                nd = dist28 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway28
         # cell 49: (-4, -1)
         cell = pos - w - 4
         c = cost[cell]
@@ -3111,43 +3115,47 @@ def dp_step(
         # cell 57: (-3, -3)
         cell = pos - w3 - 3
         c = cost[cell]
-        if c is not INF and dist21 is not INF:
-            nd = dist21 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway21
+        if c is not INF:
+            if dist21 is not INF:
+                nd = dist21 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway21
         # cell 58: (-3, 3)
         cell = pos + w3 - 3
         c = cost[cell]
-        if c is not INF and dist22 is not INF:
-            nd = dist22 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway22
+        if c is not INF:
+            if dist22 is not INF:
+                nd = dist22 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway22
         # cell 59: (3, -3)
         cell = pos - w3 + 3
         c = cost[cell]
-        if c is not INF and dist23 is not INF:
-            nd = dist23 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway23
+        if c is not INF:
+            if dist23 is not INF:
+                nd = dist23 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway23
         # cell 60: (3, 3)
         cell = pos + w3 + 3
         c = cost[cell]
-        if c is not INF and dist24 is not INF:
-            nd = dist24 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway24
+        if c is not INF:
+            if dist24 is not INF:
+                nd = dist24 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway24
         # cell 61: (-4, -2)
         cell = pos - w2 - 4
         c = cost[cell]
@@ -3309,8 +3317,8 @@ def dp_step(
                     best_dist = nd
                     best_fs = gw_local
     elif 3 <= px < w - 3 and 3 <= py < h - 3:
-        # cell 1: (-1, 0) [inner-3]
-        cell = pos - 1
+        # cell 1: (-1, -1) [inner-3]
+        cell = pos - w - 1
         c = cost[cell]
         if c is not INF:
             dist1 = c
@@ -3320,8 +3328,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 1
 
-        # cell 2: (0, -1) [inner-3]
-        cell = pos - w
+        # cell 2: (-1, 1) [inner-3]
+        cell = pos + w - 1
         c = cost[cell]
         if c is not INF:
             dist2 = c
@@ -3331,8 +3339,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 2
 
-        # cell 3: (0, 1) [inner-3]
-        cell = pos + w
+        # cell 3: (1, -1) [inner-3]
+        cell = pos - w + 1
         c = cost[cell]
         if c is not INF:
             dist3 = c
@@ -3342,8 +3350,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 3
 
-        # cell 4: (1, 0) [inner-3]
-        cell = pos + 1
+        # cell 4: (1, 1) [inner-3]
+        cell = pos + w + 1
         c = cost[cell]
         if c is not INF:
             dist4 = c
@@ -3353,8 +3361,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 4
 
-        # cell 5: (-1, -1) [inner-3]
-        cell = pos - w - 1
+        # cell 5: (-1, 0) [inner-3]
+        cell = pos - 1
         c = cost[cell]
         if c is not INF:
             dist5 = c
@@ -3364,8 +3372,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 5
 
-        # cell 6: (-1, 1) [inner-3]
-        cell = pos + w - 1
+        # cell 6: (0, -1) [inner-3]
+        cell = pos - w
         c = cost[cell]
         if c is not INF:
             dist6 = c
@@ -3375,8 +3383,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 6
 
-        # cell 7: (1, -1) [inner-3]
-        cell = pos - w + 1
+        # cell 7: (0, 1) [inner-3]
+        cell = pos + w
         c = cost[cell]
         if c is not INF:
             dist7 = c
@@ -3386,8 +3394,8 @@ def dp_step(
                 best_dist = c
                 best_fs = 7
 
-        # cell 8: (1, 1) [inner-3]
-        cell = pos + w + 1
+        # cell 8: (1, 0) [inner-3]
+        cell = pos + 1
         c = cost[cell]
         if c is not INF:
             dist8 = c
@@ -3401,11 +3409,11 @@ def dp_step(
         cell = pos - 2
         c = cost[cell]
         if c is not INF:
-            if dist1 is not INF:
-                nd = dist1 + c
+            if dist5 is not INF:
+                nd = dist5 + c
                 if nd < dist9:
                     dist9 = nd
-                    gateway9 = 1
+                    gateway9 = 5
             if dist9 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist9 < best_dist):
@@ -3417,11 +3425,11 @@ def dp_step(
         cell = pos - w2
         c = cost[cell]
         if c is not INF:
-            if dist2 is not INF:
-                nd = dist2 + c
+            if dist6 is not INF:
+                nd = dist6 + c
                 if nd < dist10:
                     dist10 = nd
-                    gateway10 = 2
+                    gateway10 = 6
             if dist10 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist10 < best_dist):
@@ -3433,11 +3441,11 @@ def dp_step(
         cell = pos + w2
         c = cost[cell]
         if c is not INF:
-            if dist3 is not INF:
-                nd = dist3 + c
+            if dist7 is not INF:
+                nd = dist7 + c
                 if nd < dist11:
                     dist11 = nd
-                    gateway11 = 3
+                    gateway11 = 7
             if dist11 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist11 < best_dist):
@@ -3449,11 +3457,11 @@ def dp_step(
         cell = pos + 2
         c = cost[cell]
         if c is not INF:
-            if dist4 is not INF:
-                nd = dist4 + c
+            if dist8 is not INF:
+                nd = dist8 + c
                 if nd < dist12:
                     dist12 = nd
-                    gateway12 = 4
+                    gateway12 = 8
             if dist12 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist12 < best_dist):
@@ -3465,16 +3473,16 @@ def dp_step(
         cell = pos - w - 2
         c = cost[cell]
         if c is not INF:
-            if dist5 is not INF:
-                nd = dist5 + c
-                if nd < dist13:
-                    dist13 = nd
-                    gateway13 = 5
             if dist1 is not INF:
                 nd = dist1 + c
                 if nd < dist13:
                     dist13 = nd
                     gateway13 = 1
+            if dist5 is not INF:
+                nd = dist5 + c
+                if nd < dist13:
+                    dist13 = nd
+                    gateway13 = 5
             if dist13 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist13 < best_dist):
@@ -3486,16 +3494,16 @@ def dp_step(
         cell = pos + w - 2
         c = cost[cell]
         if c is not INF:
-            if dist6 is not INF:
-                nd = dist6 + c
+            if dist2 is not INF:
+                nd = dist2 + c
                 if nd < dist14:
                     dist14 = nd
-                    gateway14 = 6
-            if dist1 is not INF:
-                nd = dist1 + c
+                    gateway14 = 2
+            if dist5 is not INF:
+                nd = dist5 + c
                 if nd < dist14:
                     dist14 = nd
-                    gateway14 = 1
+                    gateway14 = 5
             if dist14 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist14 < best_dist):
@@ -3507,16 +3515,16 @@ def dp_step(
         cell = pos - w2 - 1
         c = cost[cell]
         if c is not INF:
-            if dist5 is not INF:
-                nd = dist5 + c
+            if dist1 is not INF:
+                nd = dist1 + c
                 if nd < dist15:
                     dist15 = nd
-                    gateway15 = 5
-            if dist2 is not INF:
-                nd = dist2 + c
+                    gateway15 = 1
+            if dist6 is not INF:
+                nd = dist6 + c
                 if nd < dist15:
                     dist15 = nd
-                    gateway15 = 2
+                    gateway15 = 6
             if dist15 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist15 < best_dist):
@@ -3528,16 +3536,16 @@ def dp_step(
         cell = pos + w2 - 1
         c = cost[cell]
         if c is not INF:
-            if dist6 is not INF:
-                nd = dist6 + c
+            if dist2 is not INF:
+                nd = dist2 + c
                 if nd < dist16:
                     dist16 = nd
-                    gateway16 = 6
-            if dist3 is not INF:
-                nd = dist3 + c
+                    gateway16 = 2
+            if dist7 is not INF:
+                nd = dist7 + c
                 if nd < dist16:
                     dist16 = nd
-                    gateway16 = 3
+                    gateway16 = 7
             if dist16 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist16 < best_dist):
@@ -3549,16 +3557,16 @@ def dp_step(
         cell = pos - w2 + 1
         c = cost[cell]
         if c is not INF:
-            if dist7 is not INF:
-                nd = dist7 + c
+            if dist3 is not INF:
+                nd = dist3 + c
                 if nd < dist17:
                     dist17 = nd
-                    gateway17 = 7
-            if dist2 is not INF:
-                nd = dist2 + c
+                    gateway17 = 3
+            if dist6 is not INF:
+                nd = dist6 + c
                 if nd < dist17:
                     dist17 = nd
-                    gateway17 = 2
+                    gateway17 = 6
             if dist17 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist17 < best_dist):
@@ -3570,16 +3578,16 @@ def dp_step(
         cell = pos + w2 + 1
         c = cost[cell]
         if c is not INF:
-            if dist8 is not INF:
-                nd = dist8 + c
+            if dist4 is not INF:
+                nd = dist4 + c
                 if nd < dist18:
                     dist18 = nd
-                    gateway18 = 8
-            if dist3 is not INF:
-                nd = dist3 + c
+                    gateway18 = 4
+            if dist7 is not INF:
+                nd = dist7 + c
                 if nd < dist18:
                     dist18 = nd
-                    gateway18 = 3
+                    gateway18 = 7
             if dist18 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist18 < best_dist):
@@ -3591,16 +3599,16 @@ def dp_step(
         cell = pos - w + 2
         c = cost[cell]
         if c is not INF:
-            if dist7 is not INF:
-                nd = dist7 + c
+            if dist3 is not INF:
+                nd = dist3 + c
                 if nd < dist19:
                     dist19 = nd
-                    gateway19 = 7
-            if dist4 is not INF:
-                nd = dist4 + c
+                    gateway19 = 3
+            if dist8 is not INF:
+                nd = dist8 + c
                 if nd < dist19:
                     dist19 = nd
-                    gateway19 = 4
+                    gateway19 = 8
             if dist19 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist19 < best_dist):
@@ -3612,16 +3620,16 @@ def dp_step(
         cell = pos + w + 2
         c = cost[cell]
         if c is not INF:
-            if dist8 is not INF:
-                nd = dist8 + c
-                if nd < dist20:
-                    dist20 = nd
-                    gateway20 = 8
             if dist4 is not INF:
                 nd = dist4 + c
                 if nd < dist20:
                     dist20 = nd
                     gateway20 = 4
+            if dist8 is not INF:
+                nd = dist8 + c
+                if nd < dist20:
+                    dist20 = nd
+                    gateway20 = 8
             if dist20 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist20 < best_dist):
@@ -3633,11 +3641,11 @@ def dp_step(
         cell = pos - w2 - 2
         c = cost[cell]
         if c is not INF:
-            if dist5 is not INF:
-                nd = dist5 + c
+            if dist1 is not INF:
+                nd = dist1 + c
                 if nd < dist21:
                     dist21 = nd
-                    gateway21 = 5
+                    gateway21 = 1
             if dist21 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist21 < best_dist):
@@ -3649,11 +3657,11 @@ def dp_step(
         cell = pos + w2 - 2
         c = cost[cell]
         if c is not INF:
-            if dist6 is not INF:
-                nd = dist6 + c
+            if dist2 is not INF:
+                nd = dist2 + c
                 if nd < dist22:
                     dist22 = nd
-                    gateway22 = 6
+                    gateway22 = 2
             if dist22 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist22 < best_dist):
@@ -3665,11 +3673,11 @@ def dp_step(
         cell = pos - w2 + 2
         c = cost[cell]
         if c is not INF:
-            if dist7 is not INF:
-                nd = dist7 + c
+            if dist3 is not INF:
+                nd = dist3 + c
                 if nd < dist23:
                     dist23 = nd
-                    gateway23 = 7
+                    gateway23 = 3
             if dist23 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist23 < best_dist):
@@ -3681,11 +3689,11 @@ def dp_step(
         cell = pos + w2 + 2
         c = cost[cell]
         if c is not INF:
-            if dist8 is not INF:
-                nd = dist8 + c
+            if dist4 is not INF:
+                nd = dist4 + c
                 if nd < dist24:
                     dist24 = nd
-                    gateway24 = 8
+                    gateway24 = 4
             if dist24 is not INF:
                 pi = path_idx[cell]
                 if pi > best_idx or (pi == best_idx and dist24 < best_dist):
@@ -4099,13 +4107,14 @@ def dp_step(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist25 is not INF:
-                nd = dist25 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway25
+            if c is not INF:
+                if dist25 is not INF:
+                    nd = dist25 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway25
 
         # cell 46: (0, -4) [bounds-checked]
         nx = px
@@ -4113,13 +4122,14 @@ def dp_step(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist26 is not INF:
-                nd = dist26 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway26
+            if c is not INF:
+                if dist26 is not INF:
+                    nd = dist26 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway26
 
         # cell 47: (0, 4) [bounds-checked]
         nx = px
@@ -4127,13 +4137,14 @@ def dp_step(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist27 is not INF:
-                nd = dist27 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway27
+            if c is not INF:
+                if dist27 is not INF:
+                    nd = dist27 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway27
 
         # cell 48: (4, 0) [bounds-checked]
         nx = px + 4
@@ -4141,13 +4152,14 @@ def dp_step(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist28 is not INF:
-                nd = dist28 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway28
+            if c is not INF:
+                if dist28 is not INF:
+                    nd = dist28 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway28
 
         # cell 49: (-4, -1) [bounds-checked]
         nx = px - 4
@@ -4344,46 +4356,50 @@ def dp_step(
         # cell 57: (-3, -3) [inner-3]
         cell = pos - w3 - 3
         c = cost[cell]
-        if c is not INF and dist21 is not INF:
-            nd = dist21 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway21
+        if c is not INF:
+            if dist21 is not INF:
+                nd = dist21 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway21
 
         # cell 58: (-3, 3) [inner-3]
         cell = pos + w3 - 3
         c = cost[cell]
-        if c is not INF and dist22 is not INF:
-            nd = dist22 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway22
+        if c is not INF:
+            if dist22 is not INF:
+                nd = dist22 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway22
 
         # cell 59: (3, -3) [inner-3]
         cell = pos - w3 + 3
         c = cost[cell]
-        if c is not INF and dist23 is not INF:
-            nd = dist23 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway23
+        if c is not INF:
+            if dist23 is not INF:
+                nd = dist23 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway23
 
         # cell 60: (3, 3) [inner-3]
         cell = pos + w3 + 3
         c = cost[cell]
-        if c is not INF and dist24 is not INF:
-            nd = dist24 + c
-            pi = path_idx[cell]
-            if pi > best_idx or (pi == best_idx and nd < best_dist):
-                best_idx = pi
-                best_dist = nd
-                best_fs = gateway24
+        if c is not INF:
+            if dist24 is not INF:
+                nd = dist24 + c
+                pi = path_idx[cell]
+                if pi > best_idx or (pi == best_idx and nd < best_dist):
+                    best_idx = pi
+                    best_dist = nd
+                    best_fs = gateway24
 
         # cell 61: (-4, -2) [bounds-checked]
         nx = px - 4
@@ -4578,9 +4594,9 @@ def dp_step(
                         best_fs = gw_local
 
     else:
-        # cell 1: (-1, 0)
+        # cell 1: (-1, -1)
         nx = px - 1
-        ny = py
+        ny = py - 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4591,9 +4607,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 1
-        # cell 2: (0, -1)
-        nx = px
-        ny = py - 1
+        # cell 2: (-1, 1)
+        nx = px - 1
+        ny = py + 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4604,9 +4620,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 2
-        # cell 3: (0, 1)
-        nx = px
-        ny = py + 1
+        # cell 3: (1, -1)
+        nx = px + 1
+        ny = py - 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4617,9 +4633,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 3
-        # cell 4: (1, 0)
+        # cell 4: (1, 1)
         nx = px + 1
-        ny = py
+        ny = py + 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4630,9 +4646,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 4
-        # cell 5: (-1, -1)
+        # cell 5: (-1, 0)
         nx = px - 1
-        ny = py - 1
+        ny = py
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4643,9 +4659,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 5
-        # cell 6: (-1, 1)
-        nx = px - 1
-        ny = py + 1
+        # cell 6: (0, -1)
+        nx = px
+        ny = py - 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4656,9 +4672,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 6
-        # cell 7: (1, -1)
-        nx = px + 1
-        ny = py - 1
+        # cell 7: (0, 1)
+        nx = px
+        ny = py + 1
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4669,9 +4685,9 @@ def dp_step(
                     best_idx = pi
                     best_dist = c
                     best_fs = 7
-        # cell 8: (1, 1)
+        # cell 8: (1, 0)
         nx = px + 1
-        ny = py + 1
+        ny = py
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
@@ -4689,11 +4705,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist1 is not INF:
-                    nd = dist1 + c
+                if dist5 is not INF:
+                    nd = dist5 + c
                     if nd < dist9:
                         dist9 = nd
-                        gateway9 = 1
+                        gateway9 = 5
                 if dist9 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist9 < best_dist):
@@ -4707,11 +4723,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist2 is not INF:
-                    nd = dist2 + c
+                if dist6 is not INF:
+                    nd = dist6 + c
                     if nd < dist10:
                         dist10 = nd
-                        gateway10 = 2
+                        gateway10 = 6
                 if dist10 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist10 < best_dist):
@@ -4725,11 +4741,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist3 is not INF:
-                    nd = dist3 + c
+                if dist7 is not INF:
+                    nd = dist7 + c
                     if nd < dist11:
                         dist11 = nd
-                        gateway11 = 3
+                        gateway11 = 7
                 if dist11 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist11 < best_dist):
@@ -4743,11 +4759,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist4 is not INF:
-                    nd = dist4 + c
+                if dist8 is not INF:
+                    nd = dist8 + c
                     if nd < dist12:
                         dist12 = nd
-                        gateway12 = 4
+                        gateway12 = 8
                 if dist12 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist12 < best_dist):
@@ -4761,16 +4777,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist5 is not INF:
-                    nd = dist5 + c
-                    if nd < dist13:
-                        dist13 = nd
-                        gateway13 = 5
                 if dist1 is not INF:
                     nd = dist1 + c
                     if nd < dist13:
                         dist13 = nd
                         gateway13 = 1
+                if dist5 is not INF:
+                    nd = dist5 + c
+                    if nd < dist13:
+                        dist13 = nd
+                        gateway13 = 5
                 if dist13 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist13 < best_dist):
@@ -4784,16 +4800,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist6 is not INF:
-                    nd = dist6 + c
+                if dist2 is not INF:
+                    nd = dist2 + c
                     if nd < dist14:
                         dist14 = nd
-                        gateway14 = 6
-                if dist1 is not INF:
-                    nd = dist1 + c
+                        gateway14 = 2
+                if dist5 is not INF:
+                    nd = dist5 + c
                     if nd < dist14:
                         dist14 = nd
-                        gateway14 = 1
+                        gateway14 = 5
                 if dist14 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist14 < best_dist):
@@ -4807,16 +4823,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist5 is not INF:
-                    nd = dist5 + c
+                if dist1 is not INF:
+                    nd = dist1 + c
                     if nd < dist15:
                         dist15 = nd
-                        gateway15 = 5
-                if dist2 is not INF:
-                    nd = dist2 + c
+                        gateway15 = 1
+                if dist6 is not INF:
+                    nd = dist6 + c
                     if nd < dist15:
                         dist15 = nd
-                        gateway15 = 2
+                        gateway15 = 6
                 if dist15 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist15 < best_dist):
@@ -4830,16 +4846,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist6 is not INF:
-                    nd = dist6 + c
+                if dist2 is not INF:
+                    nd = dist2 + c
                     if nd < dist16:
                         dist16 = nd
-                        gateway16 = 6
-                if dist3 is not INF:
-                    nd = dist3 + c
+                        gateway16 = 2
+                if dist7 is not INF:
+                    nd = dist7 + c
                     if nd < dist16:
                         dist16 = nd
-                        gateway16 = 3
+                        gateway16 = 7
                 if dist16 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist16 < best_dist):
@@ -4853,16 +4869,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist7 is not INF:
-                    nd = dist7 + c
+                if dist3 is not INF:
+                    nd = dist3 + c
                     if nd < dist17:
                         dist17 = nd
-                        gateway17 = 7
-                if dist2 is not INF:
-                    nd = dist2 + c
+                        gateway17 = 3
+                if dist6 is not INF:
+                    nd = dist6 + c
                     if nd < dist17:
                         dist17 = nd
-                        gateway17 = 2
+                        gateway17 = 6
                 if dist17 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist17 < best_dist):
@@ -4876,16 +4892,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist8 is not INF:
-                    nd = dist8 + c
+                if dist4 is not INF:
+                    nd = dist4 + c
                     if nd < dist18:
                         dist18 = nd
-                        gateway18 = 8
-                if dist3 is not INF:
-                    nd = dist3 + c
+                        gateway18 = 4
+                if dist7 is not INF:
+                    nd = dist7 + c
                     if nd < dist18:
                         dist18 = nd
-                        gateway18 = 3
+                        gateway18 = 7
                 if dist18 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist18 < best_dist):
@@ -4899,16 +4915,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist7 is not INF:
-                    nd = dist7 + c
+                if dist3 is not INF:
+                    nd = dist3 + c
                     if nd < dist19:
                         dist19 = nd
-                        gateway19 = 7
-                if dist4 is not INF:
-                    nd = dist4 + c
+                        gateway19 = 3
+                if dist8 is not INF:
+                    nd = dist8 + c
                     if nd < dist19:
                         dist19 = nd
-                        gateway19 = 4
+                        gateway19 = 8
                 if dist19 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist19 < best_dist):
@@ -4922,16 +4938,16 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist8 is not INF:
-                    nd = dist8 + c
-                    if nd < dist20:
-                        dist20 = nd
-                        gateway20 = 8
                 if dist4 is not INF:
                     nd = dist4 + c
                     if nd < dist20:
                         dist20 = nd
                         gateway20 = 4
+                if dist8 is not INF:
+                    nd = dist8 + c
+                    if nd < dist20:
+                        dist20 = nd
+                        gateway20 = 8
                 if dist20 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist20 < best_dist):
@@ -4945,11 +4961,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist5 is not INF:
-                    nd = dist5 + c
+                if dist1 is not INF:
+                    nd = dist1 + c
                     if nd < dist21:
                         dist21 = nd
-                        gateway21 = 5
+                        gateway21 = 1
                 if dist21 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist21 < best_dist):
@@ -4963,11 +4979,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist6 is not INF:
-                    nd = dist6 + c
+                if dist2 is not INF:
+                    nd = dist2 + c
                     if nd < dist22:
                         dist22 = nd
-                        gateway22 = 6
+                        gateway22 = 2
                 if dist22 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist22 < best_dist):
@@ -4981,11 +4997,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist7 is not INF:
-                    nd = dist7 + c
+                if dist3 is not INF:
+                    nd = dist3 + c
                     if nd < dist23:
                         dist23 = nd
-                        gateway23 = 7
+                        gateway23 = 3
                 if dist23 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist23 < best_dist):
@@ -4999,11 +5015,11 @@ def dp_step(
             cell = ny * w + nx
             c = cost[cell]
             if c is not INF:
-                if dist8 is not INF:
-                    nd = dist8 + c
+                if dist4 is not INF:
+                    nd = dist4 + c
                     if nd < dist24:
                         dist24 = nd
-                        gateway24 = 8
+                        gateway24 = 4
                 if dist24 is not INF:
                     pi = path_idx[cell]
                     if pi > best_idx or (pi == best_idx and dist24 < best_dist):
@@ -5456,52 +5472,56 @@ def dp_step(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist25 is not INF:
-                nd = dist25 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway25
+            if c is not INF:
+                if dist25 is not INF:
+                    nd = dist25 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway25
         # cell 46: (0, -4)
         nx = px
         ny = py - 4
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist26 is not INF:
-                nd = dist26 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway26
+            if c is not INF:
+                if dist26 is not INF:
+                    nd = dist26 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway26
         # cell 47: (0, 4)
         nx = px
         ny = py + 4
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist27 is not INF:
-                nd = dist27 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway27
+            if c is not INF:
+                if dist27 is not INF:
+                    nd = dist27 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway27
         # cell 48: (4, 0)
         nx = px + 4
         ny = py
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist28 is not INF:
-                nd = dist28 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway28
+            if c is not INF:
+                if dist28 is not INF:
+                    nd = dist28 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway28
         # cell 49: (-4, -1)
         nx = px - 4
         ny = py - 1
@@ -5692,52 +5712,56 @@ def dp_step(
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist21 is not INF:
-                nd = dist21 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway21
+            if c is not INF:
+                if dist21 is not INF:
+                    nd = dist21 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway21
         # cell 58: (-3, 3)
         nx = px - 3
         ny = py + 3
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist22 is not INF:
-                nd = dist22 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway22
+            if c is not INF:
+                if dist22 is not INF:
+                    nd = dist22 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway22
         # cell 59: (3, -3)
         nx = px + 3
         ny = py - 3
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist23 is not INF:
-                nd = dist23 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway23
+            if c is not INF:
+                if dist23 is not INF:
+                    nd = dist23 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway23
         # cell 60: (3, 3)
         nx = px + 3
         ny = py + 3
         if 0 <= nx < w and 0 <= ny < h:
             cell = ny * w + nx
             c = cost[cell]
-            if c is not INF and dist24 is not INF:
-                nd = dist24 + c
-                pi = path_idx[cell]
-                if pi > best_idx or (pi == best_idx and nd < best_dist):
-                    best_idx = pi
-                    best_dist = nd
-                    best_fs = gateway24
+            if c is not INF:
+                if dist24 is not INF:
+                    nd = dist24 + c
+                    pi = path_idx[cell]
+                    if pi > best_idx or (pi == best_idx and nd < best_dist):
+                        best_idx = pi
+                        best_dist = nd
+                        best_fs = gateway24
         # cell 61: (-4, -2)
         nx = px - 4
         ny = py - 2
@@ -5926,27 +5950,27 @@ def dp_step(
         return pos
 
     if best_fs == 1:
-        return pos - 1
-
-    if best_fs == 2:
-        return pos - w
-
-    if best_fs == 3:
-        return pos + w
-
-    if best_fs == 4:
-        return pos + 1
-
-    if best_fs == 5:
         return pos - w - 1
 
-    if best_fs == 6:
+    if best_fs == 2:
         return pos + w - 1
 
-    if best_fs == 7:
+    if best_fs == 3:
         return pos - w + 1
 
-    if best_fs == 8:
+    if best_fs == 4:
         return pos + w + 1
+
+    if best_fs == 5:
+        return pos - 1
+
+    if best_fs == 6:
+        return pos - w
+
+    if best_fs == 7:
+        return pos + w
+
+    if best_fs == 8:
+        return pos + 1
 
     return pos

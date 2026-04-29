@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, override
 from cambc import EntityType
 from util.debug import debug as log
 
-from builder.harvest import step_off_and_build_harvester
+from builder.harvest import clear_barriered_feed, step_off_and_build_harvester
 from builder.helpers import (
     can_afford,
     harvester_feed_cardinal,
@@ -72,7 +72,14 @@ def build_harvester(self: Builder, ct: Controller) -> None:
         log("build_harvester: waiting on Ti for HARVESTER on {target}", target=target)
         return
     if harvester_feed_cardinal(self, target) is None:
-        log("build_harvester: no viable feed cardinal for {target}; waiting", target=target)
+        # Last-resort: if every cardinal is blocked but at least one
+        # is a friendly barrier, tear it down. Next turn the feed
+        # picker has somewhere to land.
+        if not clear_barriered_feed(self, ct, target):
+            log(
+                "build_harvester: no viable feed cardinal for {target}; waiting",
+                target=target,
+            )
         return
     if not step_off_and_build_harvester(self, ct, target):
         log("build_harvester: could not step off {target} this turn; waiting", target=target)

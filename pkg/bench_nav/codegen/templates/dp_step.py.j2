@@ -1,7 +1,13 @@
+{# Cells 1..4 are the 4 diagonals, 5..8 are the 4 cardinals — diagonals
+   come first so when two immediate-neighbour candidates lead to the
+   same (path_idx, dist), the diagonal wins the tiebreak. Effect: a
+   path that's purely cardinal (e.g. 4 cells north) is followed by an
+   alternating NW/NE zigzag — same number of moves, more tiles touched
+   and more roads laid down for other builders to reuse. -#}
 {%- set OFFSETS = [
     (0, 0),
-    (-1, 0), (0, -1), (0, 1), (1, 0),
     (-1, -1), (-1, 1), (1, -1), (1, 1),
+    (-1, 0), (0, -1), (0, 1), (1, 0),
     (-2, 0), (0, -2), (0, 2), (2, 0),
     (-2, -1), (-2, 1), (-1, -2), (-1, 2), (1, -2), (1, 2), (2, -1), (2, 1),
     (-2, -2), (-2, 2), (2, -2), (2, 2),
@@ -17,9 +23,9 @@
     [],
     [0], [0], [0], [0],
     [0], [0], [0], [0],
-    [1], [2], [3], [4],
-    [5, 1], [6, 1], [5, 2], [6, 3], [7, 2], [8, 3], [7, 4], [8, 4],
     [5], [6], [7], [8],
+    [1, 5], [2, 5], [1, 6], [2, 7], [3, 6], [4, 7], [3, 8], [4, 8],
+    [1], [2], [3], [4],
     [9], [10], [11], [12],
     [13, 9], [14, 9], [15, 10], [16, 11], [17, 10], [18, 11], [19, 12], [20, 12],
     [21, 13], [22, 14], [21, 15], [22, 16], [23, 17], [24, 18], [23, 19], [24, 20],
