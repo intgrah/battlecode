@@ -82,4 +82,7 @@ def build_harvester(self: Builder, ct: Controller) -> None:
             )
         return
     if not step_off_and_build_harvester(self, ct, target):
-        log("build_harvester: could not step off {target} this turn; waiting", target=target)
+        log(
+            "build_harvester: could not step off {target} this turn; waiting",
+            target=target,
+        )

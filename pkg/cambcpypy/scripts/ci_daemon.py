@@ -35,7 +35,9 @@ _CPU_COUNT = os.cpu_count() or 4
 # Leave headroom for the SSH daemon and other system work — running
 # cpu_count workers saturates the box to the point that SSH banner
 # exchange times out, which makes the sweep look hung.
-MAX_WORKERS: Final[int] = int(os.environ.get("CI_DAEMON_WORKERS", max(2, min(_CPU_COUNT // 4, 4))))
+MAX_WORKERS: Final[int] = int(
+    os.environ.get("CI_DAEMON_WORKERS", max(2, min(_CPU_COUNT // 4, 4)))
+)
 
 executor: ProcessPoolExecutor
 
@@ -156,7 +158,10 @@ async def _handle_run(
 
     def _fatal(err: str) -> None:
         _write_line(writer, {"error": err, "fatal": True})
-        _write_line(writer, {"done": True, "score": "0-0", "draws": 0, "errors": 0, "fatal": err})
+        _write_line(
+            writer,
+            {"done": True, "score": "0-0", "draws": 0, "errors": 0, "fatal": err},
+        )
 
     bot_a_path = _resolve_bot_main(bot_a_uuid)
     if bot_a_path is None:
@@ -242,12 +247,15 @@ async def _handle_run(
             _write_line(writer, result)
             await writer.drain()
 
-    _write_line(writer, {
-        "done": True,
-        "score": f"{wins_a}-{wins_b}",
-        "draws": draws,
-        "errors": errors,
-    })
+    _write_line(
+        writer,
+        {
+            "done": True,
+            "score": f"{wins_a}-{wins_b}",
+            "draws": draws,
+            "errors": errors,
+        },
+    )
     await writer.drain()
 
 
@@ -308,7 +316,9 @@ async def _main() -> None:
     # over a 123-game sweep, which fits c7a.4xlarge.
     mp_ctx = multiprocessing.get_context("fork")
     executor = ProcessPoolExecutor(max_workers=MAX_WORKERS, mp_context=mp_ctx)
-    print(f"Starting CI daemon on {HOST}:{PORT} (workers={MAX_WORKERS}, cpu={_CPU_COUNT})")
+    print(
+        f"Starting CI daemon on {HOST}:{PORT} (workers={MAX_WORKERS}, cpu={_CPU_COUNT})"
+    )
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -316,7 +326,9 @@ async def _main() -> None:
     sock.setblocking(False)
     # Default StreamReader limit is 64KB. Bot uploads (base64 of tar.gz)
     # can exceed this when the bot ships a large hardcoded map table.
-    server = await asyncio.start_server(_handle_client, sock=sock, limit=64 * 1024 * 1024)
+    server = await asyncio.start_server(
+        _handle_client, sock=sock, limit=64 * 1024 * 1024
+    )
     async with server:
         await server.serve_forever()
 
