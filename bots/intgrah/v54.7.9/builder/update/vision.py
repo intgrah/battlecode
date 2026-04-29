@@ -211,6 +211,9 @@ def _update_cost(
             case BuildingRoad(team=self.my_team):
                 cost = 1
                 buildable = True
+            case BuildingRoad():
+                cost = 1
+                buildable = False
             case BuildingMarker():
                 cost = ROAD_COST
                 buildable = True
