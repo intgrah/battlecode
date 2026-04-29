@@ -34,6 +34,7 @@ import time
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
+from shutil import which
 from typing import Any
 
 from cambc.api import api_get, api_post
@@ -547,7 +548,6 @@ def _cambc_bin() -> str:
     the well-known cambc venv since this script is typically invoked
     through that interpreter and `subprocess` won't see venv-local
     binaries unless they're on PATH."""
-    from shutil import which
 
     found = which("cambc")
     if found:
