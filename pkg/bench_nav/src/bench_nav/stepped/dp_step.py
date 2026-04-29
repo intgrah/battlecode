@@ -13,8 +13,11 @@ def dp_step_hop(
     h: int,
     pos: int,
     path_idx: list[int],
+    min_idx: int,
 ) -> int:
-    """Hop-only DP: max path_idx among reachable cells. Ignores edge weights."""
+    """Hop-only DP: max path_idx among reachable cells, only considering
+    cells with `path_idx > min_idx`. Returns `pos` if no such cell is
+    found (caller treats that as "no forward progress, replan")."""
     px = pos % w
     py = pos // w
     w2 = w + w
@@ -157,7 +160,7 @@ def dp_step_hop(
     gateway67 = -1
     reach68 = False
     gateway68 = -1
-    best_idx = -1
+    best_idx = min_idx
     best_fs = -1
     if 4 <= px < w - 4 and 4 <= py < h - 4:
         # cell 1: (-1, 0)
@@ -2105,8 +2108,12 @@ def dp_step(
     h: int,
     pos: int,
     path_idx: list[int],
+    min_idx: int,
 ) -> int:
-    """Cost-aware DP. Max path_idx, tiebreak min cumulative cost."""
+    """Cost-aware DP. Max path_idx, tiebreak min cumulative cost. Only
+    considers cells with `path_idx > min_idx` so the caller can require
+    strict forward progress along the plan; returns `pos` when no such
+    cell is reachable in the 69-cell window (caller replans)."""
     px = pos % w
     py = pos // w
     w2 = w + w
@@ -2157,7 +2164,7 @@ def dp_step(
     dist42 = INF
     dist43 = INF
     dist44 = INF
-    best_idx = -1
+    best_idx = min_idx
     best_dist = INF
     best_fs = -1
     if 4 <= px < w - 4 and 4 <= py < h - 4:
