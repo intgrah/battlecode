@@ -329,7 +329,24 @@ def _cmd_sync(args: argparse.Namespace) -> None:
         )
         if rc != 0:
             sys.exit(rc)
-    _ssh_run(ip, "systemctl restart ci-daemon 2>/dev/null || true")
+    _ssh_run(
+        ip,
+        f"sed -i 's|proto = {{ path = \"../proto\" }}|proto = {{ workspace = true }}|' "
+        f"{REMOTE_DIR}/cambcpypy/pyproject.toml",
+    )
+    rc = _ssh_run(
+        ip,
+        "systemctl restart ci-daemon && "
+        "for _ in $(seq 1 10); do "
+        "  systemctl is-active --quiet ci-daemon && exit 0; "
+        "  sleep 1; "
+        "done; "
+        "echo 'ci-daemon failed to come up; recent logs:' >&2; "
+        "journalctl -u ci-daemon -n 50 --no-pager >&2; "
+        "exit 1",
+    )
+    if rc != 0:
+        sys.exit(rc)
     print("Daemon restarted.")
 
 
@@ -428,7 +445,13 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             {"cmd": "upload", "name": bot_a, "data": base64.b64encode(tar_a).decode()},
         )
         resp = _recv_line(reader)
-        assert resp is not None
+        if resp is None:
+            print(
+                "Daemon closed connection before responding (is it running? "
+                "try `hetzner --server <name> sync` to restart it)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         if "error" in resp:
             print(f"Upload failed: {resp['error']}", file=sys.stderr)
             sys.exit(1)
@@ -441,7 +464,13 @@ def _cmd_ci(args: argparse.Namespace) -> None:
             {"cmd": "upload", "name": bot_b, "data": base64.b64encode(tar_b).decode()},
         )
         resp = _recv_line(reader)
-        assert resp is not None
+        if resp is None:
+            print(
+                "Daemon closed connection before responding (is it running? "
+                "try `hetzner --server <name> sync` to restart it)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         if "error" in resp:
             print(f"Upload failed: {resp['error']}", file=sys.stderr)
             sys.exit(1)

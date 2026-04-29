@@ -12,13 +12,13 @@ _OPENING_ROLES: Final = [
     Role.PERM_ECON,
     Role.ECON,
     Role.PERM_DEFENSE,
-    Role.DEFENSE,
+    Role.OFFENSE,
 ]
 
-_INITIAL_WEIGHTS: Final = {
-    True: {Role.DEFENSE: 6, Role.OFFENSE: 1, Role.ECON: 3},
-    False: {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3},
-}
+_INITIAL_WEIGHTS_VERY_EARLY: Final = {Role.DEFENSE: 2, Role.OFFENSE: 4, Role.ECON: 4}
+_INITIAL_WEIGHTS_EARLY: Final = {Role.DEFENSE: 5, Role.OFFENSE: 2, Role.ECON: 3}
+_INITIAL_WEIGHTS_LATE: Final = {Role.DEFENSE: 3, Role.OFFENSE: 4, Role.ECON: 3}
+
 
 _TRANSITION: Final[dict[Role, dict[Role, int]]] = {
     Role.ECON: {Role.OFFENSE: 60, Role.DEFENSE: 5, Role.ECON: 35},
@@ -45,8 +45,13 @@ def _pick_initial_role(self: Builder) -> Role:
     idx = self.round - 1
     if 0 <= idx < len(_OPENING_ROLES):
         return _OPENING_ROLES[idx]
-    early = self.round < 200
-    w = _INITIAL_WEIGHTS[early]
+    w = (
+        _INITIAL_WEIGHTS_VERY_EARLY
+        if self.round < 50
+        else _INITIAL_WEIGHTS_EARLY
+        if self.round < 200
+        else _INITIAL_WEIGHTS_LATE
+    )
     roles, weights = zip(*w.items(), strict=False)
     return self.rng.choices(roles, weights=weights)[0]
 

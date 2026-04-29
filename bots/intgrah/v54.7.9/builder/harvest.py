@@ -38,6 +38,7 @@ from builder.helpers import (
     can_afford,
     harvester_feed_cardinal,
     make_move,
+    make_move_or_adjacent,
     on_enemy_side,
     ore_available,
     try_move_with_road,
@@ -145,7 +146,7 @@ def walk_to_ore_claim(self: Builder, ct: Controller, target_pos: Position) -> bo
         target=target_pos,
         d=self.my_pos.distance_squared(target_pos),
     )
-    return try_move_with_road(self, ct, target_pos) or make_move(
+    return try_move_with_road(self, ct, target_pos) or make_move_or_adjacent(
         self,
         ct,
         target_pos,

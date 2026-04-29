@@ -738,12 +738,21 @@ def update_foundry_target(self: Builder) -> None:
 
     origin = self.dangling_output if self.dangling_output is not None else self.my_pos
 
+    junction_best: Position | None = None
+    junction_d = 1 << 30
     ax_chain_best: Position | None = None
     ax_chain_d = 1 << 30
     foundry_best: Position | None = None
     foundry_d = 1 << 30
     ti_cand_best: Position | None = None
     ti_cand_d = 1 << 30
+
+    with Scope("junctions", time=True):
+        for pos in self.junctions:
+            d = _manhattan(origin, pos)
+            if d < junction_d:
+                junction_d = d
+                junction_best = pos
 
     with Scope("foundries", time=True):
         for pos in self.my_foundries:
@@ -771,6 +780,8 @@ def update_foundry_target(self: Builder) -> None:
                 ti_cand_best = pos
 
     options: list[tuple[int, Position | None, str]] = []
+    if junction_best is not None:
+        options.append((junction_d, junction_best, "junction"))
     if ax_chain_best is not None:
         options.append((ax_chain_d, ax_chain_best, "ax_chain"))
     if foundry_best is not None:
@@ -787,22 +798,27 @@ def update_foundry_target(self: Builder) -> None:
         self.ax_sink = chosen
 
     # foundry_target is independent of ax_sink selection: commit when the
-    # Ax chain has physically connected to a valid kind-C site. Topology
-    # invalidation drops the commitment.
+    # Ax chain has physically connected to a valid kind-C site, or when the
+    # tile is a Ti+Ax junction (already fully wired). Topology invalidation
+    # drops the commitment.
     ft = self.foundry_target
     if ft is not None:
         bld = self.buildings[ft.y * MAX_WIDTH + ft.x]
-        still_valid = (
+        is_transport = (
             isinstance(bld, BuildingConveyor | BuildingArmouredConveyor)
             and bld.team == self.my_team
+        )
+        still_valid_junction = is_transport and ft in self.junctions
+        still_valid_kind_c = (
+            is_transport
             and ft in self.reaches_core
             and ft not in self.reaches_foundry
         )
-        if not still_valid:
+        if not (still_valid_junction or still_valid_kind_c):
             self.foundry_target = None
     if self.foundry_target is None and self.ax_sink is not None:
         chosen = self.ax_sink
-        if _foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen):
+        if chosen in self.junctions or (_foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen)):
             self.foundry_target = chosen
 
 

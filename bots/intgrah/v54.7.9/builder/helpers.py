@@ -19,7 +19,7 @@ from util.constants import BASE_COST, INF, MAX_WIDTH
 from util.debug import Scope
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
-from util.metrics import claims_by_proximity, manhattan
+from util.metrics import chebyshev, claims_by_proximity, manhattan
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -62,6 +62,46 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
         next=next_move,
     )
     return try_move_with_road(self, ct, next_move)
+
+
+def make_move_or_adjacent(self: Builder, ct: Controller, target: Position) -> bool:
+    """Like `make_move`, but if `target` itself is impassable (e.g. an
+    ore covered by a barrier, or our own conveyor), routes to the
+    closest passable cardinal of `target` instead. The caller is
+    responsible for whatever happens once adjacent (destroy the
+    blocker, fire on it, etc.). Returns False when the bot is already
+    adjacent so the caller takes over."""
+    if self.is_passable(target):
+        return make_move(self, ct, target)
+    best: Position | None = None
+    best_d = 1 << 30
+    for d in DIR4:
+        c = target.add(d)
+        if not self.in_bounds(c) or not self.is_passable(c):
+            continue
+        cd = chebyshev(self.my_pos, c)
+        if cd < best_d:
+            best_d = cd
+            best = c
+    if best is None:
+        log(
+            "make_move_or_adjacent: {target} impassable AND no passable cardinal",
+            target=target,
+        )
+        return False
+    if self.my_pos == best:
+        log(
+            "make_move_or_adjacent: already adjacent to {target} (at {pos})",
+            target=target,
+            pos=self.my_pos,
+        )
+        return False
+    log(
+        "make_move_or_adjacent: {target} impassable, routing to cardinal {adj}",
+        target=target,
+        adj=best,
+    )
+    return make_move(self, ct, best)
 
 
 def try_move_dir(ct: Controller, d: Direction) -> bool:

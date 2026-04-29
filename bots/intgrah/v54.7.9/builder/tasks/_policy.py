@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
     from builder import Builder
 
-type LeafFn = Callable[[Builder, Controller], None]
-type Gate = Callable[[Builder, Controller], bool]
+LeafFn = Callable[["Builder", "Controller"], None]
+Gate = Callable[["Builder", "Controller"], bool]
 
 
 @dataclass(frozen=True, slots=True)
