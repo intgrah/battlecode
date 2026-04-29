@@ -27,7 +27,7 @@ from util.visualiser import (
 )
 
 if TYPE_CHECKING:
-    from cambc import Controller, Position
+    from cambc import Controller
 
     from builder import Builder
 

@@ -30,10 +30,9 @@ import json
 import random
 import sqlite3
 import subprocess
-import sys
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -64,13 +63,14 @@ SCRIM_DB_FILENAME_IN_BRANCH = "scrim.db"
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def _our_team_id() -> str:
     creds = load_credentials()
     if not creds or not creds.get("team"):
-        raise SystemExit("not logged in or no team — run `cambc login`")
+        msg = "not logged in or no team — run `cambc login`"
+        raise SystemExit(msg)
     return creds["team"]["id"]
 
 
@@ -149,7 +149,9 @@ def _all_maps() -> list[str]:
     return sorted(p.stem for p in MAPS_DIR.glob("*.map26"))
 
 
-def _pick_maps_for_opponent(conn: sqlite3.Connection, team_id: str, n: int = 5) -> list[str]:
+def _pick_maps_for_opponent(
+    conn: sqlite3.Connection, team_id: str, n: int = 5
+) -> list[str]:
     """Pick `n` maps for a fresh match — least-recently-played wins ties.
 
     "Recently played" includes in-flight requested matches whose `games`
@@ -159,7 +161,8 @@ def _pick_maps_for_opponent(conn: sqlite3.Connection, team_id: str, n: int = 5) 
     """
     pool = _all_maps()
     if not pool:
-        raise RuntimeError(f"No maps in {MAPS_DIR}")
+        msg = f"No maps in {MAPS_DIR}"
+        raise RuntimeError(msg)
     last_played: dict[str, str] = {}
     # Completed matches via the games table (gives accurate per-map history).
     for r in conn.execute(
@@ -171,7 +174,9 @@ def _pick_maps_for_opponent(conn: sqlite3.Connection, team_id: str, n: int = 5) 
         """,
         (team_id,),
     ):
-        last_played[r["map_name"]] = max(last_played.get(r["map_name"], ""), r["last_played"] or "")
+        last_played[r["map_name"]] = max(
+            last_played.get(r["map_name"], ""), r["last_played"] or ""
+        )
     # In-flight or unsynced matches via the requested-time map_names column.
     for r in conn.execute(
         """
@@ -209,7 +214,7 @@ def _wait_for_rate_slot(conn: sqlite3.Connection, team_id: str) -> None:
         if row is None:
             return
         last = datetime.fromisoformat(row["requested_at"])
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         elapsed = (now - last).total_seconds()
         if elapsed >= RATE_LIMIT_PER_TEAM_S:
             return
@@ -228,11 +233,14 @@ def _request_unrated(team_id: str, maps: list[str]) -> str:
     data = api_post("/api/matches/unrated", body)
     match_id = data.get("matchId")
     if not match_id:
-        raise RuntimeError(f"no matchId in response: {data}")
+        msg = f"no matchId in response: {data}"
+        raise RuntimeError(msg)
     return match_id
 
 
-def _upsert_match_row(conn: sqlite3.Connection, m: dict[str, Any], our_team_id: str) -> None:
+def _upsert_match_row(
+    conn: sqlite3.Connection, m: dict[str, Any], our_team_id: str
+) -> None:
     """Insert/update a row in `matches` from an API match payload (the same
     shape returned by both `/api/matches` and `/api/matches/<id>['match']`)."""
     if m.get("teamAId") == our_team_id:
@@ -358,7 +366,9 @@ def _wait_for_match(conn: sqlite3.Connection, match_id: str) -> dict:
         if status in {"complete", "error"}:
             return data
         if time.time() - start > POLL_TIMEOUT_S:
-            print(f"timeout waiting for {match_id} (last status={status} stage={stage})")
+            print(
+                f"timeout waiting for {match_id} (last status={status} stage={stage})"
+            )
             return data
         print(f"  {match_id}: {status} {stage}", end="\r", flush=True)
         time.sleep(POLL_INTERVAL_S)
@@ -427,7 +437,8 @@ def _sync_matches(
             if not mid:
                 continue
             existed = conn.execute(
-                "SELECT 1 FROM matches WHERE match_id = ?", (mid,),
+                "SELECT 1 FROM matches WHERE match_id = ?",
+                (mid,),
             ).fetchone()
             _upsert_match_row(conn, m, our_team_id)
             if existed:
@@ -455,7 +466,9 @@ def cmd_sync(args: argparse.Namespace) -> None:
         n_subs = _sync_submissions(conn)
         new, updated = _sync_matches(conn, full=args.full)
         print(f"submissions: {n_subs} synced")
-        print(f"matches: {new} new, {updated} updated{' (full walk)' if args.full else ''}")
+        print(
+            f"matches: {new} new, {updated} updated{' (full walk)' if args.full else ''}"
+        )
 
 
 # ---------- subcommands ----------
@@ -490,20 +503,24 @@ def cmd_ladder(args: argparse.Namespace) -> None:
         rows.append((i, r))
     if args.around is not None:
         # Find our position in filtered list, take ±around.
-        our_idx = next((idx for idx, (_, r) in enumerate(rows) if r["teamId"] == our_team_id), None)
+        our_idx = next(
+            (idx for idx, (_, r) in enumerate(rows) if r["teamId"] == our_team_id), None
+        )
         if our_idx is not None:
             lo = max(0, our_idx - args.around)
             hi = min(len(rows), our_idx + args.around + 1)
             rows = rows[lo:hi]
     rows = rows[: args.limit]
-    print(f"our rating: {our_rating:.0f}    region={args.region or 'all'}  category={args.category or 'all'}")
+    print(
+        f"our rating: {our_rating:.0f}    region={args.region or 'all'}  category={args.category or 'all'}"
+    )
     print(f"  {'#':>3}  {'team':<35} {'rating':>6}  {'Δ':>6}  region   team_id")
     for rank, r in rows:
         rating = r.get("rating") or 0
         flag = " *" if r["teamId"] == our_team_id else "  "
         print(
-            f"  {rank:>3}  {r.get('teamName','?'):<35} {rating:>6.0f}  "
-            f"{rating - our_rating:+6.0f}  {r.get('region','?'):<8} {r['teamId']}{flag}",
+            f"  {rank:>3}  {r.get('teamName', '?'):<35} {rating:>6.0f}  "
+            f"{rating - our_rating:+6.0f}  {r.get('region', '?'):<8} {r['teamId']}{flag}",
         )
 
 
@@ -531,13 +548,15 @@ def _cambc_bin() -> str:
     through that interpreter and `subprocess` won't see venv-local
     binaries unless they're on PATH."""
     from shutil import which
+
     found = which("cambc")
     if found:
         return found
     candidate = Path.home() / "Code" / "venvs" / "cambc" / "bin" / "cambc"
     if candidate.exists():
         return str(candidate)
-    raise SystemExit("`cambc` CLI not found on PATH or in ~/Code/venvs/cambc/bin/")
+    msg = "`cambc` CLI not found on PATH or in ~/Code/venvs/cambc/bin/"
+    raise SystemExit(msg)
 
 
 def cmd_search(args: argparse.Namespace) -> None:
@@ -560,7 +579,8 @@ def cmd_submit(args: argparse.Namespace) -> None:
         if candidate.exists():
             bot_path = candidate
         else:
-            raise SystemExit(f"bot path not found: {bot_arg} (also tried {candidate})")
+            msg = f"bot path not found: {bot_arg} (also tried {candidate})"
+            raise SystemExit(msg)
     if args.name:
         name = args.name
     else:
@@ -611,9 +631,15 @@ def cmd_run(args: argparse.Namespace) -> None:
                 return
             for team_id in opponents:
                 maps = (
-                    args.maps.split(",") if args.maps else _pick_maps_for_opponent(conn, team_id)
+                    args.maps.split(",")
+                    if args.maps
+                    else _pick_maps_for_opponent(conn, team_id)
                 )
-                tag = "forever" if args.forever else f"round {args.rounds - rounds_left + 1}/{args.rounds}"
+                tag = (
+                    "forever"
+                    if args.forever
+                    else f"round {args.rounds - rounds_left + 1}/{args.rounds}"
+                )
                 print(f"[{tag}] {team_id}  maps={maps}")
                 _wait_for_rate_slot(conn, team_id)
                 try:
@@ -653,12 +679,15 @@ def cmd_poll(_args: argparse.Namespace) -> None:
 
 
 def _resolve_version_filter(
-    conn: sqlite3.Connection, bot: str | None, version: int | None,
+    conn: sqlite3.Connection,
+    bot: str | None,
+    version: int | None,
 ) -> tuple[int | None, str]:
     """Return (version_int, label) given either --bot NAME or --version V."""
     if version is not None:
         row = conn.execute(
-            "SELECT name FROM submissions WHERE version = ?", (version,),
+            "SELECT name FROM submissions WHERE version = ?",
+            (version,),
         ).fetchone()
         return version, f"v{version} ({row['name'] if row and row['name'] else '—'})"
     if bot is not None:
@@ -668,7 +697,8 @@ def _resolve_version_filter(
             (bot,),
         ).fetchone()
         if not row:
-            raise SystemExit(f"no submission named {bot!r} (run `scrim sync` first)")
+            msg = f"no submission named {bot!r} (run `scrim sync` first)"
+            raise SystemExit(msg)
         return int(row["version"]), f"v{row['version']} ({bot})"
     return None, "all versions"
 
@@ -680,7 +710,8 @@ def _summarise_team(
     by_map: bool = False,
 ) -> None:
     name_row = conn.execute(
-        "SELECT team_name FROM opponents WHERE team_id = ?", (team_id,),
+        "SELECT team_name FROM opponents WHERE team_id = ?",
+        (team_id,),
     ).fetchone()
     name = name_row["team_name"] if name_row else team_id
     where = "m.team_id = ? AND m.status = 'complete'"
@@ -730,11 +761,15 @@ def _summarise_team(
         print(f"  {'map':<30} {'W':>3} {'L':>3} {'D':>3}")
         for m in sorted(by):
             b = by[m]
-            total_w += b["w"]; total_l += b["l"]; total_d += b["d"]
+            total_w += b["w"]
+            total_l += b["l"]
+            total_d += b["d"]
             print(f"  {m:<30} {b['w']:>3} {b['l']:>3} {b['d']:>3}")
         total = total_w + total_l + total_d
         pct = (100.0 * total_w / total) if total else 0.0
-        print(f"  {'TOTAL':<30} {total_w:>3} {total_l:>3} {total_d:>3}   ({pct:.0f}% W)")
+        print(
+            f"  {'TOTAL':<30} {total_w:>3} {total_l:>3} {total_d:>3}   ({pct:.0f}% W)"
+        )
         return
 
     # Match-level summary — derive W/L from score_a/b directly. No games
@@ -762,7 +797,9 @@ def _summarise_team(
     for r in rows:
         side = r["our_side"]
         a, b = r["score_a"], r["score_b"]
-        bucket = by_trigger.setdefault(r["triggered_by"] or "?", {"w": 0, "l": 0, "d": 0})
+        bucket = by_trigger.setdefault(
+            r["triggered_by"] or "?", {"w": 0, "l": 0, "d": 0}
+        )
         n = r["n"]
         if a == b:
             bucket["d"] += n
@@ -775,7 +812,9 @@ def _summarise_team(
     total_w = total_l = total_d = 0
     for kind in sorted(by_trigger):
         b = by_trigger[kind]
-        total_w += b["w"]; total_l += b["l"]; total_d += b["d"]
+        total_w += b["w"]
+        total_l += b["l"]
+        total_d += b["d"]
         print(f"  {kind:<10} {b['w']:>3} {b['l']:>3} {b['d']:>3}")
     total = total_w + total_l + total_d
     pct = (100.0 * total_w / total) if total else 0.0
@@ -799,11 +838,16 @@ def cmd_status(args: argparse.Namespace) -> None:
 
 def _git(*args: str, capture: bool = True, check: bool = True) -> str:
     res = subprocess.run(
-        ["git", *args], cwd=ROOT, capture_output=capture, text=True, check=False,
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=capture,
+        text=True,
+        check=False,
     )
     if check and res.returncode != 0:
+        msg = f"git {' '.join(args)} failed (rc={res.returncode}): {res.stderr.strip()}"
         raise RuntimeError(
-            f"git {' '.join(args)} failed (rc={res.returncode}): {res.stderr.strip()}",
+            msg,
         )
     return res.stdout.strip()
 
@@ -813,7 +857,9 @@ def _remote_db_blob_sha() -> str | None:
     the branch doesn't exist remotely."""
     _git("fetch", "origin", SCRIM_DB_BRANCH, check=False)
     out = _git(
-        "rev-parse", "--verify", f"origin/{SCRIM_DB_BRANCH}:{SCRIM_DB_FILENAME_IN_BRANCH}",
+        "rev-parse",
+        "--verify",
+        f"origin/{SCRIM_DB_BRANCH}:{SCRIM_DB_FILENAME_IN_BRANCH}",
         check=False,
     )
     return out or None
@@ -822,7 +868,10 @@ def _remote_db_blob_sha() -> str | None:
 def _write_blob_to(sha: str, dest: Path) -> None:
     """Stream `git cat-file blob <sha>` into `dest` atomically."""
     res = subprocess.run(
-        ["git", "cat-file", "blob", sha], cwd=ROOT, capture_output=True, check=True,
+        ["git", "cat-file", "blob", sha],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
     )
     tmp = dest.with_suffix(dest.suffix + ".tmp")
     tmp.write_bytes(res.stdout)
@@ -834,7 +883,9 @@ def cmd_pull_state(_args: argparse.Namespace) -> None:
     from /api so any locally-known-only state is rebuilt from API truth."""
     sha = _remote_db_blob_sha()
     if not sha:
-        print(f"origin/{SCRIM_DB_BRANCH} has no {SCRIM_DB_FILENAME_IN_BRANCH} — nothing to pull")
+        print(
+            f"origin/{SCRIM_DB_BRANCH} has no {SCRIM_DB_FILENAME_IN_BRANCH} — nothing to pull"
+        )
         return
     _write_blob_to(sha, DB_PATH)
     print(f"pulled scrim.db (blob {sha[:10]})")
@@ -850,7 +901,8 @@ def cmd_push_state(_args: argparse.Namespace) -> None:
     derivable from /api will be re-synced; only locally-known queued
     match_ids could be lost, which is why we sync first to refresh)."""
     if not DB_PATH.exists():
-        raise SystemExit(f"{DB_PATH} missing — nothing to push")
+        msg = f"{DB_PATH} missing — nothing to push"
+        raise SystemExit(msg)
     # Sync from API first — capture any queued match_ids the API now knows
     # about (in case a previous run was interrupted before push).
     with _connect() as conn:
@@ -861,7 +913,11 @@ def cmd_push_state(_args: argparse.Namespace) -> None:
     # Build a one-entry tree.
     tree_in = f"100644 blob {blob_sha}\t{SCRIM_DB_FILENAME_IN_BRANCH}\n"
     res = subprocess.run(
-        ["git", "mktree"], cwd=ROOT, input=tree_in, capture_output=True, text=True,
+        ["git", "mktree"],
+        cwd=ROOT,
+        input=tree_in,
+        capture_output=True,
+        text=True,
         check=True,
     )
     tree_sha = res.stdout.strip()
@@ -872,7 +928,10 @@ def cmd_push_state(_args: argparse.Namespace) -> None:
     msg = f"scrim db @ {_now_iso()}"
     res = subprocess.run(
         ["git", "commit-tree", tree_sha, *parent_args, "-m", msg],
-        cwd=ROOT, capture_output=True, text=True, check=True,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     commit_sha = res.stdout.strip()
     _git("update-ref", f"refs/heads/{SCRIM_DB_BRANCH}", commit_sha)
@@ -896,7 +955,9 @@ def cmd_queued(_args: argparse.Namespace) -> None:
     if not rows:
         print("no queued matches")
         return
-    print(f"  {'match_id':<14} {'opponent':<25} {'v':>4} {'status':<10} {'maps':<40} requested_at")
+    print(
+        f"  {'match_id':<14} {'opponent':<25} {'v':>4} {'status':<10} {'maps':<40} requested_at"
+    )
     for r in rows:
         opp = (r["team_name"] or r["team_id"])[:25]
         try:
@@ -949,7 +1010,9 @@ def main() -> None:
     sp.add_argument("--region", help="filter by region (uk|international)")
     sp.add_argument("--category", help="filter by category (main|novice)")
     sp.add_argument("--limit", type=int, default=20, help="max rows to show")
-    sp.add_argument("--around", type=int, help="show N teams above/below us instead of top")
+    sp.add_argument(
+        "--around", type=int, help="show N teams above/below us instead of top"
+    )
     sp.add_argument("--include-banned", action="store_true")
     sp.set_defaults(func=cmd_ladder)
 
@@ -971,7 +1034,8 @@ def main() -> None:
 
     sp = sub.add_parser("sync", help="pull /api/submissions + recent matches")
     sp.add_argument(
-        "--full", action="store_true",
+        "--full",
+        action="store_true",
         help="walk all match pages (default: exit early after 5 all-existing pages)",
     )
     sp.set_defaults(func=cmd_sync)
@@ -981,11 +1045,14 @@ def main() -> None:
     sp.add_argument("--rounds", type=int, default=1)
     sp.add_argument("--maps", help="comma-separated map names (default: cycle)")
     sp.add_argument(
-        "--async", dest="async_", action="store_true",
+        "--async",
+        dest="async_",
+        action="store_true",
         help="submit and exit; use `poll` later to update status",
     )
     sp.add_argument(
-        "--forever", action="store_true",
+        "--forever",
+        action="store_true",
         help="loop indefinitely (rate-limit gates pacing)",
     )
     sp.set_defaults(func=cmd_run)
@@ -998,7 +1065,8 @@ def main() -> None:
     sp.add_argument("--bot", help="filter by submission name (e.g. intgrah/v54.7.9)")
     sp.add_argument("--version", type=int, help="filter by submission version number")
     sp.add_argument(
-        "--by-map", action="store_true",
+        "--by-map",
+        action="store_true",
         help="per-map breakdown (lazy-fetches /api/matches/<id> for missing games)",
     )
     sp.set_defaults(func=cmd_status)

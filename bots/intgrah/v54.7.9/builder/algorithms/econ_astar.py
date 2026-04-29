@@ -184,7 +184,6 @@ class AStarSearch:
             if resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
             else b.ti_routable
         )
-        cost_grid = b.cost_grid
         dist_fwd = self._dist
         dist_bwd = self._dist_bwd
         parent_fwd = self._parent_fwd
@@ -452,7 +451,6 @@ class AStarSearch:
             if resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
             else b.ti_routable
         )
-        cost_grid = b.cost_grid
         dist = self._dist
         neighbors = self._neighbors
         cardinal_neighbors = self._cardinal_neighbors

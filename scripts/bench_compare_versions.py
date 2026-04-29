@@ -17,12 +17,10 @@ from __future__ import annotations
 
 import argparse
 import gc
-import json
 import sys
 import time
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 ROOT: Path = Path(__file__).resolve().parents[1]
 ENGINE_SRC: Path = ROOT / "pkg" / "cambcpypy" / "src"
@@ -35,8 +33,6 @@ if str(PROTO_SRC) not in sys.path:
 if str(ENGINE_SRC) not in sys.path:
     sys.path.insert(0, str(ENGINE_SRC))
 
-if TYPE_CHECKING:
-    from cambc import Position, ResourceType
 
 
 def _load_modules() -> tuple:
@@ -71,8 +67,7 @@ def time_one(search, start, target, resource, fake_ct, repeats: int):
         elapsed = time.perf_counter_ns() - t0
         if result is None:
             return None, 0, None, 0
-        if elapsed < best_ns:
-            best_ns = elapsed
+        best_ns = min(best_ns, elapsed)
         last_path = result
         last_nodes = int(getattr(search, "last_nodes_expanded", 0))
     path_tuples = [(p.x, p.y) for p in last_path] if last_path else []
@@ -81,13 +76,11 @@ def time_one(search, start, target, resource, fake_ct, repeats: int):
 
 def main() -> None:
     args = parse_args()
-    bench_mod, cambc_mod, engine_mod = _load_modules()
+    bench_mod, _cambc_mod, engine_mod = _load_modules()
 
     cases = bench_mod.load_cases(args.cases)
     print(f"Loaded {len(cases)} cases from {args.cases}")
 
-    Position = cambc_mod.Position
-    ResourceType = cambc_mod.ResourceType
 
     def _runners_for(bot_name: str):
         player_cls = engine_mod._load_player_class(str(ROOT / "bots" / bot_name / "main.py"))
@@ -103,7 +96,7 @@ def main() -> None:
     gc.disable()
     try:
         results = []
-        for old_r, new_r in zip(old_runners, new_runners):
+        for old_r, new_r in zip(old_runners, new_runners, strict=False):
             old_ns, old_nodes, old_path, _ = time_one(
                 old_r.search, old_r.start, old_r.target, old_r.resource, fake_ct, args.repeats
             )
@@ -159,7 +152,7 @@ def main() -> None:
     for r in by_old[: args.top]:
         print(f"{r['case_id']:>5} {r['round']:>4} {r['path_len']:>5} "
               f"{r['old_ns']/1000:>8.1f} {r['new_ns']/1000:>8.1f} "
-              f"{r['speedup']:>7.2f}x {r['old_nodes']:>5} {r['new_nodes']:>5} {str(r['same_path']):>9}")
+              f"{r['speedup']:>7.2f}x {r['old_nodes']:>5} {r['new_nodes']:>5} {r['same_path']!s:>9}")
 
     # Cases where speedup is worst (regressions).
     by_speedup = sorted(results, key=lambda r: r["speedup"])
