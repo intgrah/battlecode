@@ -2,7 +2,7 @@
 
 Order:
   INFRASTRUCTURE group   (build_foundry, place_gunner, fix_enemy_conveyor,
-                          pave_inward_conveyors, resolve_congestion)
+                          guard_harvester_neighbours, resolve_congestion)
   EXTEND_CHAIN_IN_RANGE
   HEAL                    (shared)
   DENY_ENEMY_ORE          (shared)
@@ -14,7 +14,7 @@ Order:
   EXPLORE                 (shared)
   WANDER                  (shared)
 
-`pave_inward_conveyors` is the third phase, but it lives in INFRASTRUCTURE
+`guard_harvester_neighbours` is the third phase, but it lives in INFRASTRUCTURE
 because it can fire opportunistically on any visible harvester / claim.
 Visible chains-in-range and the inward ring strictly outrank starting a
 new claim; far chain-extension travel ranks below claiming a new ore so

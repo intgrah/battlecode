@@ -1,5 +1,5 @@
 """Helpers shared by the three ore-claim tasks (`claim_ore`,
-`pave_inward_conveyors`, `build_harvester`). The task layer dispatches
+`guard_harvester_neighbours`, `build_harvester`). The task layer dispatches
 priority — these helpers are pure mechanism.
 
 Phases:
@@ -151,14 +151,15 @@ def walk_to_ore_claim(self: Builder, ct: Controller, target_pos: Position) -> bo
     )
 
 
-def needs_inward_guard(
+def needs_harvester_guard(
     self: Builder,
     cardinal: Position,
     target: Position,
     io_reserved: set[Position],
 ) -> bool:
     """Whether `cardinal` (a tile cardinal to harvester/claimed-ore
-    `target`) needs an inward-facing conveyor placed. False if:
+    `target`) needs a guard (barrier or inward conveyor) placed.
+    False if:
       - the tile is already guarded (wall, harvester, non-walkable bld),
       - it's the builder's own tile,
       - it's reserved as an I/O slot (feed cardinal or already a flow
@@ -180,7 +181,7 @@ def needs_inward_guard(
     return True
 
 
-def place_inward_conveyor(
+def place_harvester_guard(
     self: Builder,
     ct: Controller,
     cardinal: Position,
@@ -195,7 +196,7 @@ def place_inward_conveyor(
     tile first if needed. Returns True if a build (or a destroy that
     enables one) action was taken.
     """
-    use_barrier = _should_use_barrier(self, cardinal)
+    use_barrier = _should_use_barrier(self, cardinal, target)
     etype = EntityType.BARRIER if use_barrier else EntityType.CONVEYOR
     if (
         isinstance(self.get_building(cardinal), BuildingRoad)
@@ -209,7 +210,7 @@ def place_inward_conveyor(
     if use_barrier:
         if ct.can_build_barrier(cardinal):
             log(
-                "place_inward_conveyor: BARRIER at {at} (>=3 walkable cardinals)",
+                "place_harvester_guard: BARRIER at {at} (>=3 walkable cardinals)",
                 at=cardinal,
             )
             ct.build_barrier(cardinal)
@@ -218,7 +219,7 @@ def place_inward_conveyor(
     inward = cardinal.direction_to(target)
     if ct.can_build_conveyor(cardinal, inward):
         log(
-            "place_inward_conveyor: CONVEYOR at {at} facing {dir} into {target}",
+            "place_harvester_guard: CONVEYOR at {at} facing {dir} into {target}",
             at=cardinal,
             dir=inward,
             target=target,
@@ -228,27 +229,57 @@ def place_inward_conveyor(
     return False
 
 
-def _should_use_barrier(self: Builder, guard_pos: Position) -> bool:
-    """Heuristic: a barrier here doesn't hinder walkability iff the
-    tile already has at least 3 walkable cardinal neighbours. Builders
-    can route around a barrier when the surrounding network has at
-    least three other walkable links; the harvester / target itself
-    isn't walkable so it doesn't count.
+def _should_use_barrier(
+    self: Builder,
+    guard_pos: Position,
+    target: Position,
+) -> bool:
+    """U-shape local-connectivity check.
 
-    Barriers are preferred when applicable because they're immune to
-    builder-fire (the attacker would need to stand on the tile, but
-    barriers aren't walkable). Inward conveyors are the fallback in
-    tighter geometry where the detour would hurt routing or
-    reachability.
+    The guard tile `g` sits at one cardinal of `target` (the
+    harvester / claim). Define the 5 8-neighbours of `g` excluding
+    `target` — the U shape opening away from the harvester:
+
+            top                    (g + d, where d = target -> g)
+       ┌────┼────┐
+    left_far    right_far          (g + left_diag, g + right_diag)
+       │         │
+    left_near    right_near        (g + left_perp, g + right_perp)
+       │         │
+       └─target──┘                 (target = g + opposite of d)
+
+    Barrier at `g` is safe (doesn't locally disconnect) iff:
+      - `top` is passable (the U has a "northern bridge" between
+        sides), OR
+      - one of {left_near, left_far} OR {right_near, right_far} has
+        zero passable tiles (no traffic on that side to disconnect).
+
+    Otherwise the only local left-right path runs through `g` and a
+    barrier would sever it — fall back to the inward conveyor
+    (walkable, preserves connectivity).
     """
-    count = 0
-    for d in DIR4:
-        n = guard_pos.add(d)
-        if not self.in_bounds(n):
-            continue
-        if self.is_walkable(n):
-            count += 1
-    return count >= 3
+    d = target.direction_to(guard_pos)
+    top = guard_pos.add(d)
+    left_perp = d.rotate_left().rotate_left()  # 90° CCW
+    right_perp = d.rotate_right().rotate_right()  # 90° CW
+    left_diag = d.rotate_left()  # 45° CCW
+    right_diag = d.rotate_right()  # 45° CW
+
+    def passable(p: Position) -> bool:
+        return self.in_bounds(p) and self.is_passable(p)
+
+    top_p = passable(top)
+    left_p = passable(guard_pos.add(left_perp)) or passable(
+        guard_pos.add(left_diag),
+    )
+    right_p = passable(guard_pos.add(right_perp)) or passable(
+        guard_pos.add(right_diag),
+    )
+
+    # Use conveyor (return False) iff top is impassable AND both side
+    # groups have ≥1 passable; otherwise barrier is locally safe.
+    must_use_conveyor = (not top_p) and left_p and right_p
+    return not must_use_conveyor
 
 
 def step_off_and_build_harvester(
@@ -314,7 +345,7 @@ def adjacent_pave_targets(self: Builder, pos: Position) -> list[Position]:
     """Tiles cardinal to `pos` that are friendly Ti harvesters OR a
     claimed-but-unbuilt ore tile (the builder is currently standing on
     one of {ore_target, ax_ore_target, offensive_ore_target} and needs
-    its inward ring placed). Used by `pave_inward_conveyors` to find
+    its inward ring placed). Used by `guard_harvester_neighbours` to find
     pave targets reachable from `pos`.
     """
     out: list[Position] = []
