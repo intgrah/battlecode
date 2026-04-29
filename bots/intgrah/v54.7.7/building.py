@@ -105,9 +105,9 @@ type Building = (
 )
 
 
-def make_building(ct: Controller, bid: int, etype: EntityType) -> Building:
+def make_building(ct: Controller, bid: int) -> Building:
     team = ct.get_team(bid)
-    match etype:
+    match ct.get_entity_type(bid):
         case EntityType.CONVEYOR:
             return BuildingConveyor(team, ct.get_direction(bid))
         case EntityType.ARMOURED_CONVEYOR:
@@ -135,7 +135,7 @@ def make_building(ct: Controller, bid: int, etype: EntityType) -> Building:
         case EntityType.LAUNCHER:
             return BuildingLauncher(team)
         case EntityType.MARKER:
-            return BuildingMarker(team, ct.get_marker_value(bid) if team == ct.get_team() else 0)
+            return BuildingMarker(team, ct.get_marker_value(bid))
         case EntityType.BUILDER_BOT:
             msg = "BUILDER_BOT is not a building"
             raise ValueError(msg)
