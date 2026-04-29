@@ -578,6 +578,14 @@ class Builder(CoreAwareUnit):
         """Friendly foundry positions. Maintained incrementally in vision
         update (`_add_topology`/`_remove_topology`) so `update_economy_reachability`
         and `update_foundry_target` don't need full-map scans."""
+        self.my_harvesters: set[Position] = set()
+        """Friendly harvester positions (Ti and Ax). Maintained incrementally
+        in vision update (`_add_topology`/`_remove_topology`) — same shape
+        as `my_foundries`. Used as a colony-progress signal that's more
+        responsive than `self.round`: thresholds and gates that previously
+        ramped on round number can ramp on `len(self.my_harvesters)`
+        instead, so a slow start delays the gate until we've actually
+        built up rather than on a fixed clock."""
         self.is_multi_input: set[Position] = set()
         """Tiles with >= 2 feeders (`len(in_edges[i]) >= 2`). Maintained
         incrementally in `_add_topology`/`_remove_topology`. Superset of
