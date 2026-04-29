@@ -392,15 +392,28 @@ def step_off_and_build_harvester(
 
     if ct.can_move(d):
         log(
-            "step_off_and_build_harvester: step {d} to feed {feed}, place HARVESTER on {target}",
+            "step_off_and_build_harvester: step {d} to feed {feed}",
             d=d,
             feed=feed,
-            target=target_pos,
         )
         ct.move(d)
         if ct.can_build_harvester(target_pos):
+            log(
+                "step_off_and_build_harvester: HARVESTER placed on {target}",
+                target=target_pos,
+            )
             ct.build_harvester(target_pos)
             self.ore_target = None
+        else:
+            log(
+                "step_off_and_build_harvester: stepped to {feed} but "
+                "can_build_harvester({target}) is False — building at {bld}",
+                feed=feed,
+                target=target_pos,
+                bld=type(self.get_building(target_pos)).__name__
+                if self.get_building(target_pos) is not None
+                else "None",
+            )
         return True
     log(
         "step_off_and_build_harvester: cannot move to feed {feed}; waiting",

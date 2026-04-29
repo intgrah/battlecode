@@ -19,7 +19,7 @@ from util.constants import BASE_COST, INF, MAX_WIDTH
 from util.debug import Scope
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
-from util.metrics import chebyshev, claims_by_proximity
+from util.metrics import claims_by_proximity, manhattan
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -141,14 +141,6 @@ def can_afford(self: Builder, etype: EntityType) -> bool:
     return self.ti >= ti_needed(self, etype)
 
 
-ORE_CLAIM_LENIENCY: float = 0.8
-"""Affordability fraction for picking up a new ore claim. 1.0 means we
-must have the full estimated cost in hand before claiming; lower values
-allow some Ti to accrue while we walk and pave. Tuned to prevent
-'abandonware' harvesters that get stranded on the far side of the map
-without enough Ti to chain back."""
-
-
 def required_ti_for_ore_claim(
     self: Builder,
     ore_pos: Position,
@@ -160,28 +152,42 @@ def required_ti_for_ore_claim(
     targets — a builder shouldn't commit to ore it can't realistically
     deliver from. Cost mix assumes ~70% conveyor / ~30% bridge along
     the chain (bridges hop r²<=9, ~3 tiles per build).
+
+    Distances are Manhattan (roads/conveyors connect cardinally).
+    Crowding/saturation penalty is applied at the leniency level
+    (see `ore_claim_leniency`).
     """
     s = self.scale
     h_cost = int(BASE_COST[EntityType.HARVESTER][0] * (1 + s))
     c_cost = int(BASE_COST[EntityType.CONVEYOR][0] * s)
     b_cost = int(BASE_COST[EntityType.BRIDGE][0] * s)
     r_cost = max(int(BASE_COST[EntityType.ROAD][0] * s), 1)
-    d_pos = chebyshev(self.my_pos, ore_pos)
-    d_sink = chebyshev(ore_pos, sink_pos)
+    d_pos = manhattan(self.my_pos, ore_pos)
+    d_sink = manhattan(ore_pos, sink_pos)
     walk_cost = d_pos * r_cost
     ring_cost = 3 * c_cost
     chain_cost = int(d_sink * (0.7 * c_cost + 0.3 * b_cost / 3))
     return h_cost + ring_cost + chain_cost + walk_cost
 
 
+def ore_claim_leniency(self: Builder) -> float:
+    """Leniency multiplier on `required_ti_for_ore_claim`. Scales
+    linearly with round, from 0.8 at T0 to 2.4 at T2000 — early game
+    we can commit to a claim with only 80% of the estimated cost in
+    hand (incoming income covers the rest); late game the trunk is
+    saturated, routes detour, and we want >2x the optimistic estimate
+    before risking another distant claim.
+    """
+    return 0.8 + 1.6 * self.round / 2000.0
+
+
 def can_afford_ore_claim(
     self: Builder,
     ore_pos: Position,
     sink_pos: Position,
-    leniency: float = ORE_CLAIM_LENIENCY,
 ) -> bool:
     return self.ti >= int(
-        required_ti_for_ore_claim(self, ore_pos, sink_pos) * leniency,
+        required_ti_for_ore_claim(self, ore_pos, sink_pos) * ore_claim_leniency(self),
     )
 
 
@@ -385,7 +391,9 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             tier1.append(c)
             classification[c] = "tier1: bridge"
             continue
-        if isinstance(b, BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter):
+        if isinstance(
+            b, BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter
+        ):
             # Outward iff its direction does NOT point at the ore.
             if c.add(b.direction) == ore_pos:
                 classification[c] = "inward_guard"
@@ -413,9 +421,7 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             c.add(d_away.rotate_left()),
             c.add(d_away.rotate_right()),
         )
-        has_escape = any(
-            self.in_bounds(p) and self.is_passable(p) for p in u_shape
-        )
+        has_escape = any(self.in_bounds(p) and self.is_passable(p) for p in u_shape)
         if not has_escape:
             classification[c] = "no_escape"
             continue
@@ -430,6 +436,8 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
     elif tier2:
         chosen = min(tier2, key=lambda c: c.distance_squared(sink))
         chosen_tier = "tier2"
+
+    del chosen_tier  # Was used for debugging
 
     # Verbose per-cardinal breakdown only when no feed was found —
     # that's the diagnostic case. When feed is chosen, a single
