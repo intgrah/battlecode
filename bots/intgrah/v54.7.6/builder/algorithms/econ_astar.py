@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
+from builder.algorithms.reachability import find as _uf_find
 from cambc import Controller, Position, ResourceType
 from util.constants import INF, MAX_N, MAX_WIDTH
-
-from builder.algorithms.reachability import find as _uf_find
 
 if TYPE_CHECKING:
     from builder import Builder

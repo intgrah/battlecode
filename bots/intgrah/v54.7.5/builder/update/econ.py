@@ -574,9 +574,7 @@ def check_invariants(self: Builder) -> None:
         log(f"INVARIANT_FAIL ti_upstream missing={miss} extra={extra}")
         for t in miss[:4]:
             i = t.y * MAX_WIDTH + t.x
-            feeders = [
-                (f, f in self.ti_upstream, f in oracle_ti) for f in in_edges[i]
-            ]
+            feeders = [(f, f in self.ti_upstream, f in oracle_ti) for f in in_edges[i]]
             log(
                 f"  miss t={t} ti_in_count={self._ti_in_count[i]} "
                 f"ti_harv_at={self._ti_harv_at[i]} feeders={feeders}",
@@ -587,9 +585,7 @@ def check_invariants(self: Builder) -> None:
         log(f"INVARIANT_FAIL ax_upstream missing={miss} extra={extra}")
         for t in miss[:4]:
             i = t.y * MAX_WIDTH + t.x
-            feeders = [
-                (f, f in self.ax_upstream, f in oracle_ax) for f in in_edges[i]
-            ]
+            feeders = [(f, f in self.ax_upstream, f in oracle_ax) for f in in_edges[i]]
             log(
                 f"  miss t={t} ax_in_count={self._ax_in_count[i]} "
                 f"ax_harv_at={self._ax_harv_at[i]} feeders={feeders}",

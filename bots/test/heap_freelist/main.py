@@ -3,14 +3,14 @@ import sys
 
 from cambc import Controller, EntityType, Position
 
-SIZE = 480     # getsizeof=513 -> glibc chunk 528
+SIZE = 480  # getsizeof=513 -> glibc chunk 528
 CHUNK = 528
-POOL = 7       # tcache max; filler trick sets k=5, so pool[3] always survives engine
-DRAIN = 3000   # exhaust any lingering 528-byte chunks from Python init
-PREDRAIN = 7   # empty tcache[528] after DRAIN's list-resize side effects
+POOL = 7  # tcache max; filler trick sets k=5, so pool[3] always survives engine
+DRAIN = 3000  # exhaust any lingering 528-byte chunks from Python init
+PREDRAIN = 7  # empty tcache[528] after DRAIN's list-resize side effects
 NUM_BITS = 4
 NUM_POOLS = 5  # pool_2 is decoy: engine wild-frees it in round 3; pool_4 absorbs any tail disturbances
-MESSAGE = 10   # 0b1010
+MESSAGE = 10  # 0b1010
 STRIDE = (POOL + 1) * CHUNK  # 8 * 528 = 4224; pool_i[3] = pool_0[3] + i * STRIDE
 
 
@@ -73,7 +73,9 @@ class Player:
         log(f"[CORE r1] pool_0[3]={self._base_target:x} stride={STRIDE}")
         for i in range(NUM_POOLS):
             t = self._base_target + i * STRIDE
-            log(f"[CORE r1] target_{i}={t:x} pool_{i}[3]={self._pool_addrs[i][3]:x} match={t == self._pool_addrs[i][3]}")
+            log(
+                f"[CORE r1] target_{i}={t:x} pool_{i}[3]={self._pool_addrs[i][3]:x} match={t == self._pool_addrs[i][3]}"
+            )
 
         pos = ct.get_position()
         for dy in range(-3, 4):
@@ -85,7 +87,9 @@ class Player:
                 tile = Position(pos.x + dx, pos.y + dy)
                 if ct.can_place_marker(tile):
                     ct.place_marker(tile, self._base_target & 0xFFFFFFFF)
-                    log(f"[CORE r1] marker at ({tile.x},{tile.y}) val={self._base_target & 0xFFFFFFFF:x}")
+                    log(
+                        f"[CORE r1] marker at ({tile.x},{tile.y}) val={self._base_target & 0xFFFFFFFF:x}"
+                    )
                     break
 
         if not self.spawned:
@@ -149,4 +153,6 @@ class Player:
             decoded = 0
             for b in self._bits:
                 decoded = (decoded << 1) | b
-            log(f"[BUILDER] decoded={decoded} expected={MESSAGE} {'OK' if decoded == MESSAGE else 'FAIL'}")
+            log(
+                f"[BUILDER] decoded={decoded} expected={MESSAGE} {'OK' if decoded == MESSAGE else 'FAIL'}"
+            )

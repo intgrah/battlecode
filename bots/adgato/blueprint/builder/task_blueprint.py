@@ -31,9 +31,9 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Position
-from util import chebyshev, BASE_COST
+from util import BASE_COST, chebyshev
 
-from builder.helpers import can_afford, make_move, move_random, try_place
+from builder.helpers import make_move, move_random
 
 if TYPE_CHECKING:
     from building import Building
@@ -66,7 +66,7 @@ _ENTITY_BLOCKED: set[Entity] = {
     Entity.HARVESTER,
     Entity.FOUNDRY,
     Entity.GUNNER,
-    Entity.BREACH
+    Entity.BREACH,
 }
 
 
@@ -77,7 +77,10 @@ def _matches(bld: Building | None, entry: BlueprintEntry, team: object) -> bool:
     match entry.kind:
         case Entity.CONVEYOR:
             return (
-                (isinstance(bld, BuildingConveyor) or isinstance(bld, BuildingArmouredConveyor))
+                (
+                    isinstance(bld, BuildingConveyor)
+                    or isinstance(bld, BuildingArmouredConveyor)
+                )
                 and bld.direction.name == entry.direction.name  # type: ignore[union-attr]
             )
         case Entity.ARMOURED_CONVEYOR:
@@ -181,7 +184,7 @@ def _place_entry(self: Builder, ct: Controller, entry: BlueprintEntry) -> bool:
     bld = self.buildings[self.idx(pos)]
     if bld is not None and _matches(bld, entry, self.my_team):
         return False
-    
+
     ti, ax = BASE_COST[etype]
     scale = ct.get_scale_percent() / 100
     if ct.get_global_resources() >= (ti * scale, ax * scale) and ct.can_destroy(pos):
@@ -230,7 +233,6 @@ def run_blueprint(self: Builder, ct: Controller) -> bool:
             return True
         make_move(self, ct, pos)
         return True
-    
 
     bld = self.get_building(pos)
     if bld is not None and bld.team != self.my_team:

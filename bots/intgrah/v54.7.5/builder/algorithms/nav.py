@@ -145,7 +145,12 @@ class BugNav:
                 saved.append((fi, cost_grid[fi]))
                 cost_grid[fi] = INF
             nxt = dp_step(
-                MAX_WIDTH, cost_grid, bot.h, si, self._path_idx, self._path_idx[si],
+                MAX_WIDTH,
+                cost_grid,
+                bot.h,
+                si,
+                self._path_idx,
+                self._path_idx[si],
             )
             for fi, prev in saved:
                 cost_grid[fi] = prev

@@ -18,10 +18,9 @@ from building import (
     BuildingSplitter,
     make_building,
 )
-from cambc import Controller, EntityType, Environment, GameConstants
+from cambc import Controller, EntityType, Environment, GameConstants, Position
 from util.constants import INF, MAX_WIDTH, ROAD_COST
-from util.directions import DIR8, DIR4
-from cambc import Position
+from util.directions import DIR4, DIR8
 
 if TYPE_CHECKING:
     from util.symmetry import Symmetry

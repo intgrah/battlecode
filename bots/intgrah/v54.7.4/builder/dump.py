@@ -25,8 +25,6 @@ from util.visualiser import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from cambc import Controller, Position
 
     from builder import Builder
@@ -224,7 +222,8 @@ def dump(self: Builder, _ct: Controller) -> None:
             vis(
                 "ax_conv_dist",
                 DumpI16Grid(
-                    data=_crop(self.ax_conv_search._dist, w, h), palette=P_DIST,
+                    data=_crop(self.ax_conv_search._dist, w, h),
+                    palette=P_DIST,
                 ),
             )
         with Scope("econ"):

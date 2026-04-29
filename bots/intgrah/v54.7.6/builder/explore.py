@@ -57,10 +57,7 @@ full γ penalty; falls off linearly to 0 at radius."""
 
 
 def explore(self: Builder, ct: Controller) -> None:
-    if (
-        self.explore_target is None
-        or _target_invalid(self, self.explore_target)
-    ):
+    if self.explore_target is None or _target_invalid(self, self.explore_target):
         self.explore_target = _pick_target(self)
 
     if self.explore_target is None:
@@ -114,7 +111,7 @@ def _score(
     pos = self.my_pos
     dx = c.x - pos.x
     dy = c.y - pos.y
-    chebyshev_d = abs(dx) if abs(dx) > abs(dy) else abs(dy)
+    chebyshev_d = max(abs(dy), abs(dx))
 
     score = float(chebyshev_d)
 
@@ -152,7 +149,7 @@ def _score(
             continue
         cx = abs(c.x - fb.x)
         cy = abs(c.y - fb.y)
-        d = cx if cx > cy else cy
+        d = max(cy, cx)
         if d < _CLUSTER_RADIUS:
             score += _CLUSTER_PENALTY * (1.0 - d / _CLUSTER_RADIUS)
 

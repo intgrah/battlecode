@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-
 from visualiser import (
     Colour,
     F32Grid,
-    I16Grid,
     Palette,
     PaletteStop,
     Tiles,
@@ -15,9 +13,8 @@ from visualiser import (
 
 if TYPE_CHECKING:
     from cambc import Controller
-
     from state import State
-    from builder import Builder
+
 
 __all__ = ["dump"]
 
@@ -77,6 +74,7 @@ P_PASS = Palette(
     },
 )
 
+
 def _unpad(grid: list[int], state: State) -> list[int]:
     """Extract the real w*h interior from a padded pw*ph cost grid."""
     w, h, pad, pw = state.w, state.h, state.pad, state.pw
@@ -110,5 +108,5 @@ def dump(state: State, _ct: Controller) -> None:
         ),
         harvester_adjacent=Tiles(
             [(p.x, p.y) for p in state.adjacent_to_harvester],
-        )
+        ),
     )

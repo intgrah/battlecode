@@ -6,8 +6,6 @@ from building import (
     BuildingArmouredConveyor,
     BuildingBridge,
     BuildingConveyor,
-    BuildingFoundry,
-    BuildingHarvester,
     BuildingCore,
     BuildingFoundry,
     BuildingHarvester,

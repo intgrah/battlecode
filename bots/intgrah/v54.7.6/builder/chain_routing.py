@@ -309,13 +309,10 @@ def _lay_segment(
         else False
     )
 
-    if (
-        direction in DIR4
-        and (
-            (not destination_building)
-            or destination_team == self.my_team
-            or destination_is_marker
-        )
+    if direction in DIR4 and (
+        (not destination_building)
+        or destination_team == self.my_team
+        or destination_is_marker
     ):
         # Routing over ore is fine — adversarial maps with carpet ore
         # force some tiles to be paved over (you can't harvest every

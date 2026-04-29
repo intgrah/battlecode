@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, override
 
 from building import BuildingHarvester
-from cambc import Environment, EntityType
+from cambc import EntityType, Environment
 from util.debug import debug as log
 from util.directions import DIR4
 

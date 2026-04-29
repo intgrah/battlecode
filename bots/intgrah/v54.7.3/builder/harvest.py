@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 from building import (
     BuildingBridge,
     BuildingConveyor,
-    BuildingRoad,
-    BuildingHarvester,
     BuildingMarker,
     BuildingRoad,
     BuildingSplitter,
@@ -17,12 +15,9 @@ from util.directions import DIR4, get_direction_object
 
 from builder.helpers import (
     can_afford,
-    harvester_feed_cardinal,
-    harvester_io_cardinals,
     make_move,
     ore_available,
     try_move_with_road,
-    try_place,
 )
 
 if TYPE_CHECKING:

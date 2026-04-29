@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING, Final, override
 
 from building import (
     BuildingArmouredConveyor,
+    BuildingBarrier,
     BuildingBreach,
     BuildingBridge,
-    BuildingBarrier,
-    BuildingHarvester,
     BuildingConveyor,
     BuildingCore,
     BuildingFoundry,
     BuildingGunner,
+    BuildingHarvester,
     BuildingLauncher,
     BuildingMarker,
     BuildingRoad,
