@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import override
 
-from cambc import Controller, EntityType, Environment, Position
+from cambc import Controller, EntityType, Environment, GameConstants, Position
 from unit import Unit
 from util.directions import DIR4
 
@@ -32,7 +32,7 @@ class Launcher(Unit):
         best_dest: Position | None = None
         best_score = 0
 
-        for uid in ct.get_nearby_units():
+        for uid in ct.get_nearby_units(GameConstants.ACTION_RADIUS_SQ):
             if ct.get_entity_type(uid) != EntityType.BUILDER_BOT:
                 continue
 
