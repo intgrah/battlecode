@@ -6,8 +6,8 @@ from typing import override
 
 from bench_nav.common import INF
 from bench_nav.precomputation import COST
-from bench_nav.stepped.dp_step import dp_step
 from bench_nav.stepped.bug._planner import bug2_plan
+from bench_nav.stepped.dp_step import dp_step
 from bench_nav.types import PrecompCtx, Stepped
 
 

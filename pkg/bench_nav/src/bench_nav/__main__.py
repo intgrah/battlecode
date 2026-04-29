@@ -6,9 +6,9 @@ from pathlib import Path
 from bench_nav.bench import (
     DEFAULT_N_QUERIES,
     bench_mpsp,
-    bench_stepped,
     bench_spsp,
     bench_sssp,
+    bench_stepped,
     bench_table_spsp,
     bench_table_sssp,
 )

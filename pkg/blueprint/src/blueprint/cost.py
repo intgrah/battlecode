@@ -92,9 +92,10 @@ def cumulative_cost(
 
 def final_scale(entries: list[BlueprintEntry], n_builders: int) -> float:
     """Team scale after the whole blueprint is placed."""
-    return initial_scale(n_builders) + sum(
-        SCALE_PCT.get(e.kind, 0.0) for e in entries
-    ) / 100.0
+    return (
+        initial_scale(n_builders)
+        + sum(SCALE_PCT.get(e.kind, 0.0) for e in entries) / 100.0
+    )
 
 
 def blueprint_cost_range(

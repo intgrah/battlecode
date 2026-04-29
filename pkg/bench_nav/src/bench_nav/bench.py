@@ -214,7 +214,16 @@ def bench_stepped(args: argparse.Namespace) -> None:
                 while frontier:
                     cur = frontier.pop()
                     cx, cy = cur % m.w, cur // m.w
-                    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
+                    for dx, dy in (
+                        (-1, 0),
+                        (1, 0),
+                        (0, -1),
+                        (0, 1),
+                        (-1, -1),
+                        (-1, 1),
+                        (1, -1),
+                        (1, 1),
+                    ):
                         nx, ny = cx + dx, cy + dy
                         if 0 <= nx < m.w and 0 <= ny < m.h:
                             nb = ny * m.w + nx

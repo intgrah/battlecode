@@ -193,17 +193,10 @@ class TriggerDetector:
             self._fire(h, ut.turn, EventTrigger.ASTAR_FAILED, fired)
 
         role = ut.belief.get("role")
-        if (
-            h.prev_role is not None
-            and role is not None
-            and role != h.prev_role
-        ):
+        if h.prev_role is not None and role is not None and role != h.prev_role:
             self._fire(h, ut.turn, EventTrigger.ROLE_CHANGED, fired)
 
-        if (
-            h.prev_hp is not None
-            and ut.hp <= h.prev_hp - self.HP_DROP_THRESHOLD
-        ):
+        if h.prev_hp is not None and ut.hp <= h.prev_hp - self.HP_DROP_THRESHOLD:
             self._fire(h, ut.turn, EventTrigger.HP_DROP, fired)
 
         if not ut.actions:
