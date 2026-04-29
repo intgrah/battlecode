@@ -38,6 +38,7 @@ from builder.helpers import (
     can_afford,
     harvester_feed_cardinal,
     make_move,
+    on_enemy_side,
     ore_available,
     try_move_with_road,
 )
@@ -282,6 +283,55 @@ def _should_use_barrier(
     return not must_use_conveyor
 
 
+def clear_barriered_feed(
+    self: Builder,
+    ct: Controller,
+    target_pos: Position,
+) -> bool:
+    """Last-resort: when `harvester_feed_cardinal(target_pos)` returns
+    None because every cardinal is blocked, look for a friendly
+    barrier on a cardinal closest to the relevant sink and destroy
+    it (free for builders). Next turn `harvester_feed_cardinal` will
+    pick the now-empty tile as feed, and `guard_harvester_neighbours`
+    paves a road on it. Returns True if a destroy was issued.
+
+    Mirrors `harvester_feed_cardinal`'s sink-direction selection so
+    the cleared cardinal is the one we'd actually want as feed.
+    """
+    if on_enemy_side(self, target_pos):
+        sink = self.en_core_guess if self.symmetry is not None else None
+    else:
+        sink = self.ti_sink if self.ti_sink is not None else self.my_core
+    if sink is None:
+        return False
+
+    candidates: list[Position] = []
+    for d in DIR4:
+        c = target_pos.add(d)
+        if not self.in_bounds(c) or c == self.my_pos:
+            continue
+        if self.get_env(c) == Environment.WALL:
+            continue
+        b = self.get_building(c)
+        if (
+            isinstance(b, BuildingBarrier)
+            and b.team == self.my_team
+            and ct.can_destroy(c)
+        ):
+            candidates.append(c)
+    if not candidates:
+        return False
+    chosen = min(candidates, key=lambda c: c.distance_squared(sink))
+    log(
+        "clear_barriered_feed: destroy friendly BARRIER on {pos} (last-resort feed clear for {target})",
+        pos=chosen,
+        target=target_pos,
+    )
+    ct.destroy(chosen)
+    self.apply_local_destroy(chosen)
+    return True
+
+
 def step_off_and_build_harvester(
     self: Builder,
     ct: Controller,
@@ -302,6 +352,24 @@ def step_off_and_build_harvester(
         return False
 
     d = self.my_pos.direction_to(feed)
+
+    # If the feed isn't walkable yet (marker / empty terrain that
+    # the proactive guard pass missed, or never ran for OFFENSE),
+    # pave a road on it as a last-resort. Burns this turn's action;
+    # the destroy + move + build sequence runs next turn when the
+    # feed is walkable.
+    if (
+        not ct.can_move(d)
+        and self.get_cost(feed) > 1
+        and can_afford(self, EntityType.ROAD)
+        and ct.can_build_road(feed)
+    ):
+        log(
+            "step_off_and_build_harvester: paving feed {feed} for step-off",
+            feed=feed,
+        )
+        ct.build_road(feed)
+        return True
 
     # Tear down any own-road on the ore (if we paved here on arrival).
     # Need to confirm we can step onto the feed tile BEFORE destroying;

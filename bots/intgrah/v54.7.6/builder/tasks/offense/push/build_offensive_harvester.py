@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, override
 from cambc import EntityType
 from util.debug import debug as log
 
-from builder.harvest import step_off_and_build_harvester
+from builder.harvest import clear_barriered_feed, step_off_and_build_harvester
 from builder.helpers import (
     can_afford,
     harvester_feed_cardinal,
@@ -51,7 +51,13 @@ def build_offensive_harvester(self: Builder, ct: Controller) -> None:
         log("build_offensive_harvester: waiting on Ti for {target}", target=target)
         return
     if harvester_feed_cardinal(self, target) is None:
-        log("build_offensive_harvester: no feed cardinal for {target}; waiting", target=target)
+        # Last-resort: clear a friendly barrier on a cardinal closest
+        # to sink so next turn the feed picker has somewhere to land.
+        if not clear_barriered_feed(self, ct, target):
+            log(
+                "build_offensive_harvester: no feed cardinal for {target}; waiting",
+                target=target,
+            )
         return
     if not step_off_and_build_harvester(self, ct, target):
         log("build_offensive_harvester: cannot step off {target}; waiting", target=target)

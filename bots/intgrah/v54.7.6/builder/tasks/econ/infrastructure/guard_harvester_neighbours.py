@@ -71,7 +71,13 @@ def guard_harvester_neighbours(self: Builder, ct: Controller) -> None:
             and self.get_env(pos) == Environment.ORE_TITANIUM
         ):
             targets.append(pos)
-    for tgt in (self.ore_target, self.ax_ore_target, self.offensive_ore_target):
+    # Only ECON / DEFENSE claims — offensive_ore_target is excluded
+    # because OFFENSE has its own task tree (no guard pass) and a
+    # role-mismatched builder standing on an offensive claim won't ever
+    # have build_harvester fire (its `_resolve_target` ignores
+    # `offensive_ore_target`). Including it here would just leave dead
+    # barrier rings on the enemy side after the builder wanders off.
+    for tgt in (self.ore_target, self.ax_ore_target):
         if tgt is not None and self.my_pos == tgt and tgt not in targets:
             targets.append(tgt)
 
