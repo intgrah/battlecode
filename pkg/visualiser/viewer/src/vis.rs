@@ -458,9 +458,7 @@ pub struct LogTree {
 impl LogTree {
     pub fn parse(raw: &str) -> Option<Self> {
         let value: Value = serde_json::from_str(raw).ok()?;
-        let prev_flush_us = value
-            .get("prev_flush_us")
-            .and_then(Value::as_i64);
+        let prev_flush_us = value.get("prev_flush_us").and_then(Value::as_i64);
         let root = parse_log_node(&value)?;
         Some(Self {
             root,

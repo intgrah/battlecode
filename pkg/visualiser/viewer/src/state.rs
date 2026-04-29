@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use cambc_common::constants;
 use crate::entity;
 use crate::proto;
 use crate::vis;
+use cambc_common::constants;
 
 #[derive(Clone, Debug)]
 pub struct Entity {
