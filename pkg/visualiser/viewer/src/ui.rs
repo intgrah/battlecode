@@ -755,6 +755,38 @@ fn render_tagged_inline(
             };
             ui.monospace(format!("grid[{n}]"));
         }
+        Tagged::Tile(pos) => match pos {
+            Some((x, y)) => {
+                let text = egui::RichText::new(format!("({x},{y})"))
+                    .color(egui::Color32::LIGHT_BLUE);
+                let resp = ui.selectable_label(false, text);
+                if resp.hovered() {
+                    *hover_tile = Some((*x, *y));
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+            }
+            None => {
+                ui.monospace("None");
+            }
+        },
+        Tagged::Dot { pos, colour } => match pos {
+            Some((x, y)) => {
+                let text = egui::RichText::new(format!("({x},{y})")).color(
+                    egui::Color32::from_rgb(colour.r, colour.g, colour.b),
+                );
+                let resp = ui.selectable_label(false, text);
+                if resp.hovered() {
+                    *hover_tile = Some((*x, *y));
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+            }
+            None => {
+                ui.monospace("None");
+            }
+        },
+        Tagged::Path { points, .. } => {
+            ui.monospace(format!("path[{} points]", points.len()));
+        }
         Tagged::VectorField(a) => {
             ui.monospace(format!("vectorfield[{}]", a.arrows.len()));
         }
@@ -995,6 +1027,9 @@ fn inline_kind(t: &Tagged) -> &'static str {
     match t {
         Tagged::Grid { .. } => "grid",
         Tagged::Tiles(_) => "tiles",
+        Tagged::Tile(..) => "tile",
+        Tagged::Dot { .. } => "dot",
+        Tagged::Path { .. } => "path",
         Tagged::VectorField(_) => "vectorfield",
         Tagged::Scalar(_) => "scalar",
         Tagged::Same => "same",
@@ -1006,6 +1041,9 @@ fn field_kind(f: &crate::vis::VisField) -> &'static str {
     match f {
         VisField::Grid { .. } => "grid",
         VisField::Tiles { .. } => "tiles",
+        VisField::Tile { .. } => "tile",
+        VisField::Dot { .. } => "dot",
+        VisField::Path { .. } => "path",
         VisField::VectorField(_) => "vectorfield",
         VisField::Scalar { .. } => "scalar",
     }
