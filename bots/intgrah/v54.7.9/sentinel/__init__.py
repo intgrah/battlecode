@@ -2,14 +2,59 @@ from __future__ import annotations
 
 from typing import Final, override
 
-from cambc import Controller, EntityType, GameConstants, Position
+from cambc import Controller, EntityType, GameConstants, Position, Team
 from unit import Unit
 
 __all__ = ["Sentinel"]
 
 
+_ENEMY_COMBAT: frozenset[EntityType] = frozenset(
+    {
+        EntityType.CORE,
+        EntityType.BREACH,
+        EntityType.SENTINEL,
+        EntityType.GUNNER,
+        EntityType.LAUNCHER,
+    },
+)
+
+
+def _feeds_enemy_combat(ct: Controller, my_team: Team, outputs: list[Position]) -> bool:
+    for out in outputs:
+        out_bid = ct.get_tile_building_id(out)
+        if out_bid is None:
+            continue
+        if ct.get_team(out_bid) == my_team:
+            continue
+        if ct.get_entity_type(out_bid) in _ENEMY_COMBAT:
+            return True
+    return False
+
+
+def _transport_outputs(ct: Controller, bid: int, pos: Position, etype: EntityType) -> list[Position]:
+    if etype == EntityType.BRIDGE:
+        return [ct.get_bridge_target(bid)]
+    d = ct.get_direction(bid)
+    if etype == EntityType.SPLITTER:
+        return [
+            pos.add(d),
+            pos.add(d.rotate_right().rotate_right()),
+            pos.add(d.rotate_left().rotate_left()),
+        ]
+    return [pos.add(d)]
+
+
+_TRANSPORT: frozenset[EntityType] = frozenset(
+    {
+        EntityType.CONVEYOR,
+        EntityType.ARMOURED_CONVEYOR,
+        EntityType.SPLITTER,
+        EntityType.BRIDGE,
+    },
+)
+
+
 _PRIORITY: dict[EntityType, int] = {
-    EntityType.BUILDER_BOT: 10,
     EntityType.SPLITTER: 9,
     EntityType.BRIDGE: 8,
     EntityType.BREACH: 7,
@@ -23,6 +68,14 @@ _PRIORITY: dict[EntityType, int] = {
     EntityType.BARRIER: 1,
     EntityType.ROAD: 1,
 }
+
+
+def _builder_score(hp: int) -> int:
+    if hp <= GameConstants.SENTINEL_DAMAGE:
+        return 15
+    if hp < GameConstants.BUILDER_BOT_MAX_HP:
+        return 7
+    return 5
 
 
 class Sentinel(Unit):
@@ -47,9 +100,7 @@ class Sentinel(Unit):
             uid = self.all_bots.get(tile)
 
             if tile in self.enemy_bots:
-                score = _PRIORITY[EntityType.BUILDER_BOT]
-                if ct.get_hp(uid) <= GameConstants.SENTINEL_DAMAGE:
-                    score += 1
+                score = _builder_score(ct.get_hp(uid))
                 if score > best_score:
                     best_score = score
                     best_target = tile
@@ -66,6 +117,12 @@ class Sentinel(Unit):
             if etype in (EntityType.MARKER, EntityType.HARVESTER):
                 continue
             score = _PRIORITY.get(etype, 0)
+            if etype in _TRANSPORT and _feeds_enemy_combat(
+                ct,
+                self.my_team,
+                _transport_outputs(ct, bid, tile, etype),
+            ):
+                score = 12
             if ct.get_hp(bid) <= GameConstants.SENTINEL_DAMAGE:
                 score += 1
             if score > best_score:
