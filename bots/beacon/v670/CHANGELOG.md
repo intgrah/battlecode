@@ -78,3 +78,27 @@ unconditionally; fix scopes that reset to the fire branch only.
   same engine seed gave different game outcomes. Strategy unchanged
   (the order is still an arbitrary permutation), but reproducibility
   restored, which is needed for honest A/B testing.
+
+## v670.6 (REVERTED) — heavy ECON weights regressed
+
+Tried `_INITIAL_WEIGHTS` early {DEFENSE: 2, OFFENSE: 1, ECON: 7} and
+late {DEFENSE: 2, OFFENSE: 3, ECON: 5} (vs original 6/1/3 and 3/4/3).
+Hypothesis: more economic builders → more Ti delivered → win the
+Ti-collected tiebreak.
+
+Result on the standard 10-map × 2-side pool: **3-17** (vs ~4-6 with
+original weights). Reverted. Likely failure mode: too few defenders
+let okbot raid early, snowball.
+
+Lesson: don't ship role-weight tweaks without thinking about the
+defensive trade-off. The original weights are tuned to keep a
+defender garrison alive while still building econ.
+
+## v670.7 (REVERTED) — Random(42) for shuffle seed
+
+Tried `random.Random(42)` instead of `random.Random(0)` for both
+module-level shuffles in `pathfind.py`. Result: 12-8 vs 11-9
+baseline — marginal, within noise. Reverted to Random(0).
+
+Lesson: shuffle seed doesn't materially affect path quality at
+this sample size; not worth tuning.
