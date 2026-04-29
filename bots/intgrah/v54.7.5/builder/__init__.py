@@ -34,7 +34,9 @@ from util.debug import debug as log
 from util.directions import DIR4, DIR8, DIR8_DELTA
 
 from builder.algorithms.econ_astar import AStarSearch
-from builder.algorithms.reachability import find as _uf_find, update_reachability
+from builder.algorithms.nav import BugNav
+from builder.algorithms.reachability import find as _uf_find
+from builder.algorithms.reachability import update_reachability
 from builder.dump import dump
 from builder.hooks.heal import end_of_turn_heal
 from builder.hooks.indicators import indicators
@@ -63,8 +65,6 @@ from builder.update.reflect import update_reflect
 from builder.update.role import update_role
 from builder.update.turrets import update_enemy_turrets, update_ore_denial
 from builder.update.vision import update_vision
-
-from builder.algorithms.nav import BugNav
 
 if TYPE_CHECKING:
     from building import Building

@@ -372,7 +372,10 @@ def _bug2_path_one(
             wp * 16
             + (
                 _dir_to_goal(
-                    wp % MAX_WIDTH, wp // MAX_WIDTH, wob % MAX_WIDTH, wob // MAX_WIDTH,
+                    wp % MAX_WIDTH,
+                    wp // MAX_WIDTH,
+                    wob % MAX_WIDTH,
+                    wob // MAX_WIDTH,
                 )
             )
             * 2
@@ -485,7 +488,10 @@ def _distbug_path_one(
             wp * 16
             + (
                 _dir_to_goal(
-                    wp % MAX_WIDTH, wp // MAX_WIDTH, wob % MAX_WIDTH, wob // MAX_WIDTH,
+                    wp % MAX_WIDTH,
+                    wp // MAX_WIDTH,
+                    wob % MAX_WIDTH,
+                    wob // MAX_WIDTH,
                 )
             )
             * 2

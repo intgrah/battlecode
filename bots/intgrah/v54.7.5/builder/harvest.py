@@ -22,7 +22,6 @@ from builder.helpers import (
     make_move,
     ore_available,
     try_move_with_road,
-    try_place,
 )
 
 if TYPE_CHECKING:
@@ -149,9 +148,8 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
                     and can_afford(self, EntityType.CONVEYOR)
                 ):
                     ct.destroy(n)
-                if (
-                    can_afford(self, EntityType.CONVEYOR)
-                    and ct.can_build_conveyor(n, inward)
+                if can_afford(self, EntityType.CONVEYOR) and ct.can_build_conveyor(
+                    n, inward
                 ):
                     log(
                         f"build_at_ore: inward CONVEYOR at neighbour {n} "
@@ -243,13 +241,10 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: Position) -> bool:
         # acceptable, since we'll fill the gap with this new harvester
         # plus its own ring.
         existing = self.get_building(target_pos)
-        if (
-            isinstance(
-                existing,
-                BuildingBarrier | BuildingConveyor | BuildingArmouredConveyor,
-            )
-            and ct.can_destroy(target_pos)
-        ):
+        if isinstance(
+            existing,
+            BuildingBarrier | BuildingConveyor | BuildingArmouredConveyor,
+        ) and ct.can_destroy(target_pos):
             log(
                 f"build_at_ore: destroying friendly guard on ore "
                 f"{target_pos} so we can claim it for a new harvester",

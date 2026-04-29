@@ -27,7 +27,9 @@ _ENTITY_BUILDING = {
 }
 
 
-def _plan(self: Builder) -> tuple[Position, tuple[tuple[EntityType, Position, Direction | None], ...]]:
+def _plan(
+    self: Builder,
+) -> tuple[Position, tuple[tuple[EntityType, Position, Direction | None], ...]]:
     is_a = self.my_team == Team.A
     if self.role == Role.SOCKET_GUARD_1:
         if is_a:
@@ -82,7 +84,11 @@ def run_guard(self: Builder, ct: Controller) -> bool:
             try_place(self, ct, etype, tpos, direction)
             return True
         b_id = ct.get_tile_building_id(tpos)
-        if b_id is not None and ct.get_hp(b_id) < ct.get_max_hp(b_id) and ct.can_heal(tpos):
+        if (
+            b_id is not None
+            and ct.get_hp(b_id) < ct.get_max_hp(b_id)
+            and ct.can_heal(tpos)
+        ):
             ct.heal(tpos)
             return True
 

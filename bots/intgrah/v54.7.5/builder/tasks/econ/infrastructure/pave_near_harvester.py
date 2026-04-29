@@ -17,12 +17,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, override
 
 from building import BuildingHarvester, BuildingMarker, BuildingRoad
-from cambc import Environment
+from cambc import EntityType, Environment
 from util.directions import DIR4
 
 from builder.helpers import can_afford, harvester_io_cardinals
 from builder.tasks.rejected import Reason, TaskRejectedError
-from cambc import EntityType
 
 if TYPE_CHECKING:
     from cambc import Controller, Position
@@ -80,10 +79,7 @@ def pave_near_harvester(self: Builder, ct: Controller) -> None:
         if not can_afford(self, EntityType.CONVEYOR):
             return
         inward = pos.direction_to(target)
-        if (
-            isinstance(self.get_building(pos), BuildingRoad)
-            and ct.can_destroy(pos)
-        ):
+        if isinstance(self.get_building(pos), BuildingRoad) and ct.can_destroy(pos):
             ct.destroy(pos)
         if ct.can_build_conveyor(pos, inward):
             ct.build_conveyor(pos, inward)

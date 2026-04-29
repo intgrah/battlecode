@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cambc import Controller, Environment
 from building import BuildingRoad
+from cambc import Controller, Environment
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 def fix_enemy_conveyor(self: Builder, ct: Controller) -> bool:
     for pos in self.nearby_tiles:
         enemy_pos = self.leads_to_enemy_building(pos)
-        if enemy_pos is not None and not isinstance(self.get_building(enemy_pos), BuildingRoad) and ct.can_destroy(pos):
+        if (
+            enemy_pos is not None
+            and not isinstance(self.get_building(enemy_pos), BuildingRoad)
+            and ct.can_destroy(pos)
+        ):
             ct.destroy(pos)
             if ct.can_build_road(pos):
                 ct.build_road(pos)

@@ -9,7 +9,9 @@ class Player:
         if not self.vandalised:
             try:
                 delattr(Controller, "get_id")
-                print(f"[unit {ct.get_entity_type().name}] delattr(Controller, 'get_id') OK")
+                print(
+                    f"[unit {ct.get_entity_type().name}] delattr(Controller, 'get_id') OK"
+                )
             except Exception as e:
                 print(f"[unit {ct.get_entity_type().name}] delattr failed: {e!r}")
             self.vandalised = True

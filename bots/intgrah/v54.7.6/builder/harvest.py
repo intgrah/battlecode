@@ -37,7 +37,6 @@ from util.directions import DIR4
 from builder.helpers import (
     can_afford,
     harvester_feed_cardinal,
-    harvester_io_cardinals,
     make_move,
     ore_available,
     try_move_with_road,
@@ -131,13 +130,10 @@ def walk_to_ore_claim(self: Builder, ct: Controller, target_pos: Position) -> bo
     # harvester, tear it down so we can walk onto the now-empty tile.
     if self.my_pos.distance_squared(target_pos) <= 2:
         existing = self.get_building(target_pos)
-        if (
-            isinstance(
-                existing,
-                BuildingBarrier | BuildingConveyor | BuildingArmouredConveyor,
-            )
-            and ct.can_destroy(target_pos)
-        ):
+        if isinstance(
+            existing,
+            BuildingBarrier | BuildingConveyor | BuildingArmouredConveyor,
+        ) and ct.can_destroy(target_pos):
             log(
                 "walk_to_ore_claim: destroying friendly guard on ore {target}",
                 target=target_pos,
@@ -151,7 +147,9 @@ def walk_to_ore_claim(self: Builder, ct: Controller, target_pos: Position) -> bo
         d=self.my_pos.distance_squared(target_pos),
     )
     return try_move_with_road(self, ct, target_pos) or make_move(
-        self, ct, target_pos,
+        self,
+        ct,
+        target_pos,
     )
 
 
@@ -204,7 +202,8 @@ def place_inward_conveyor(
         ct.destroy(cardinal)
         self.apply_local_destroy(cardinal)
     if can_afford(self, EntityType.CONVEYOR) and ct.can_build_conveyor(
-        cardinal, inward,
+        cardinal,
+        inward,
     ):
         log(
             "place_inward_conveyor: CONVEYOR at {at} facing {dir} into {target}",

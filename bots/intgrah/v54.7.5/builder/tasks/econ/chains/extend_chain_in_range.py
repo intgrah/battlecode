@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
 
+from util.metrics import claims_by_proximity
+
 from builder.chain_routing import extend_chain
 from builder.tasks.rejected import Reason, TaskRejectedError
-from util.metrics import claims_by_proximity
 
 if TYPE_CHECKING:
     from cambc import Controller, Position

@@ -318,11 +318,13 @@ def trace_upstream(self: Builder, position: Position) -> list[Position]:
 def ore_available(self: Builder, pos: Position) -> bool:
     b = self.get_building(pos)
     if b is not None:
-        if isinstance(b, BuildingRoad | BuildingMarker | BuildingBarrier):
-            pass
-        elif isinstance(
-            b, BuildingConveyor | BuildingArmouredConveyor,
-        ) and is_inward_guard(self, pos):
+        if isinstance(b, BuildingRoad | BuildingMarker | BuildingBarrier) or (
+            isinstance(
+                b,
+                BuildingConveyor | BuildingArmouredConveyor,
+            )
+            and is_inward_guard(self, pos)
+        ):
             pass
         else:
             return False

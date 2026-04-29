@@ -54,11 +54,20 @@ class Unit:
         self.rng = Random(self.my_id)
         core = find_core(ct, self.my_team)
         self.known_map = identify_map(ct, self.w, self.h, self.my_team, core)
-        self.my_core = core if core is not None else (
-            core_for(self.known_map, self.my_team) if self.known_map else Position(0, 0)
+        self.my_core = (
+            core
+            if core is not None
+            else (
+                core_for(self.known_map, self.my_team)
+                if self.known_map
+                else Position(0, 0)
+            )
         )
         self.blueprint, self.blueprint_positions = load_mirrored_blueprint(
-            self.known_map, self.w, self.h, self.my_team,
+            self.known_map,
+            self.w,
+            self.h,
+            self.my_team,
         )
 
     my_pos: Position

@@ -24,17 +24,21 @@ from util import DIR8, DIR8_DELTA, INF, N, Symmetry, W
 from builder.algorithms.astar import MoveHeapAstar
 from builder.algorithms.bfs import extract_path, update_bfs
 from builder.algorithms.econ_astar import AStarSearch
+
 if DEBUG_DUMP:
     from builder.dump import dump
+from blueprint import Entity as BlueprintEntity
+from hardcode.map import SYMMETRY, TILES, decode
+
 from builder.extra import deny_enemy_ore, fix_enemy_conveyor, pave_near_harvesters
 from builder.helpers import can_afford, try_move_dir, try_move_with_road
 from builder.role import Role
 from builder.task_attack import run_attack
 from builder.task_blueprint import blueprint_progress, run_blueprint
-from builder.task_guard import run_guard
 from builder.task_build_conveyors import route_to_core
 from builder.task_defend import place_gunner_nearby
 from builder.task_explore import explore
+from builder.task_guard import run_guard
 from builder.task_harvest import build_at_ore
 from builder.task_heal import heal_builders, run_heal
 from builder.task_patrol import run_patrol
@@ -49,8 +53,6 @@ from builder.update.prune import prune_stale
 from builder.update.role import update_role
 from builder.update.turrets import update_enemy_turrets, update_ore_denial
 from builder.update.vision import update_vision
-from blueprint import Entity as BlueprintEntity
-from hardcode.map import SYMMETRY, TILES, decode
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -141,7 +143,7 @@ def _blueprint(s: Builder, ct: Controller) -> bool:
 
 
 def _upgrade_conveyor(self: Builder, ct: Controller) -> bool:
-    cost_ti, cost_ax  = ct.get_armoured_conveyor_cost()
+    cost_ti, cost_ax = ct.get_armoured_conveyor_cost()
     ti, ax = ct.get_global_resources()
     if cost_ti > ti or cost_ax > ax:
         return False
@@ -206,7 +208,7 @@ def _prepopulate_blueprint_state(self: Builder) -> None:
 POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
     Role.OFFENSE: [
         _heal,
-        #pave_near_harvesters,
+        # pave_near_harvesters,
         _upgrade_conveyor,
         deny_enemy_ore,
         _attack,
@@ -215,7 +217,7 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
         place_gunner_nearby,
         fix_enemy_conveyor,
         _heal,
-        #pave_near_harvesters,
+        # pave_near_harvesters,
         _upgrade_conveyor,
         _blueprint,
         deny_enemy_ore,
@@ -225,7 +227,7 @@ POLICIES: dict[Role, list[Callable[[Builder, Controller], bool]]] = {
         place_gunner_nearby,
         fix_enemy_conveyor,
         _heal,
-        #pave_near_harvesters,
+        # pave_near_harvesters,
         _upgrade_conveyor,
         _blueprint,
         deny_enemy_ore,
@@ -445,12 +447,12 @@ class Builder(Unit):
         boundary_coords = []
 
         for cx in range(w):
-            boundary_coords.append((cx, 0))          # Top edge
+            boundary_coords.append((cx, 0))  # Top edge
             if h > 1:
                 boundary_coords.append((cx, h - 1))  # Bottom edge
 
         for cy in range(1, h - 1):
-            boundary_coords.append((0, cy))          # Left edge
+            boundary_coords.append((0, cy))  # Left edge
             if w > 1:
                 boundary_coords.append((w - 1, cy))  # Right edge
 
@@ -465,7 +467,7 @@ class Builder(Unit):
 
         t1 = ct.get_cpu_time_elapsed()
 
-        #self.conv_search.post_init()
+        # self.conv_search.post_init()
 
         t2 = ct.get_cpu_time_elapsed()
 
@@ -508,7 +510,6 @@ class Builder(Unit):
         print(f"t2 {t2}")
         print(f"t3 {t3}")
         print(f"t4 {t4}")
-
 
     def get_env(self, pos: Position) -> Environment | None:
         return self.env[self.idx(pos)]
@@ -594,8 +595,8 @@ class Builder(Unit):
     def _drain_pnb_backlog(self) -> None:
         if not self._pnb_wall_backlog:
             return
-        chunk = self._pnb_wall_backlog[-self._PNB_BACKLOG_PER_TURN:]
-        del self._pnb_wall_backlog[-self._PNB_BACKLOG_PER_TURN:]
+        chunk = self._pnb_wall_backlog[-self._PNB_BACKLOG_PER_TURN :]
+        del self._pnb_wall_backlog[-self._PNB_BACKLOG_PER_TURN :]
         for i in chunk:
             self.update_pnb(i)
 

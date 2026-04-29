@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
 
+from building import BuildingHarvester, BuildingRoad
 from cambc import Environment
 from util.directions import DIR4
-from building import BuildingHarvester, BuildingRoad
 
 from builder.tasks.rejected import TaskRejectedError
 

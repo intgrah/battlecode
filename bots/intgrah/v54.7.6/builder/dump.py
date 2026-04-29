@@ -25,8 +25,6 @@ from util.visualiser import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from cambc import Controller, Position
 
     from builder import Builder
@@ -97,15 +95,13 @@ def _bisector_tiles(self: Builder) -> set[Position]:
     if cached is not None and cached[0] == (en_core, margin):
         return cached[1]
     from cambc import Position as _Pos
+
     my_core = self.my_core
     tiles: set[Position] = set()
     for y in range(self.h):
         for x in range(self.w):
             p = _Pos(x=x, y=y)
-            if (
-                abs(p.distance_squared(my_core) - p.distance_squared(en_core))
-                <= margin
-            ):
+            if abs(p.distance_squared(my_core) - p.distance_squared(en_core)) <= margin:
                 tiles.add(p)
     self._bisector_cache = ((en_core, margin), tiles)
     return tiles
@@ -252,7 +248,8 @@ def dump(self: Builder, _ct: Controller) -> None:
             vis(
                 "ax_conv_dist",
                 DumpI16Grid(
-                    data=_crop(self.ax_conv_search._dist, w, h), palette=P_DIST,
+                    data=_crop(self.ax_conv_search._dist, w, h),
+                    palette=P_DIST,
                 ),
             )
         with Scope("econ"):
