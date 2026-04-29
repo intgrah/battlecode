@@ -25,6 +25,8 @@ def update(self: Builder, ct: Controller) -> None:
             self.update_ore_denial()
         with Scope("turrets", time=True):
             self.update_enemy_turrets()
+        with Scope("threat", time=True):
+            self.apply_threat_overlay()
         with Scope("role", time=True):
             self.update_role(ct)
         with Scope("econ", time=True):
