@@ -1,26 +1,123 @@
-"""Auto-scrim driver: cycle through maps, track W/L vs tracked opponents, store match IDs.
+"""Auto-scrim driver: continuously queues unrated matches against a curated
+list of opponents, attributes every match (ladder + unrated) to a specific
+submission version, and shares state across teammates via a dedicated git
+branch.
 
-Subcommands:
-  add <team_id> [--name LABEL]     add an opponent we care about
-  ladder [--region uk] [...]        print ladder rankings with team_ids
-  remove <team_id>                  drop an opponent
-  list                              show tracked opponents
-  search <query>                    search teams (calls `cambc team search`)
-  submit <bot> [--name N]           upload bot via cambc, record submission
-  sync                              pull /api/submissions + recent matches
-  run [--team T] [--rounds N|--forever]  submit unrated matches; poll to completion
-  poll                              update DB for any pending matches
-  status [--team T] [--bot N|--version V]  show W/L summary, optionally filtered by bot
-  replays <match_id> [--out DIR]    download replays for a match
+============================================================================
+HOW IT WORKS
+============================================================================
 
-State: scripts/scrim.db (SQLite). Maps drawn from maps/*.map26 with
-least-recently-played-against-this-opponent preference.
+1. Tracked opponents
+--------------------
+A small SQLite DB at `scripts/scrim.db` stores the team_ids we care about
+(`opponents` table). Manage them with:
 
-All match data (ladder + unrated) is pulled via /api/matches?teamIds=<us>,
-which carries `teamAVersion`/`teamBVersion` so every match is attributable
-to a specific submission. Submissions named via `cambc submission upload -n`
-provide the human-readable bot label (e.g. "intgrah/v54.7.9") that
-`status --bot intgrah/v54.7.9` filters on.
+    scrim ladder --region uk --limit 20    # browse, copy team_ids
+    scrim add <team_id> [--name LABEL]
+    scrim remove <team_id>
+    scrim list
+
+We picked a curated set: top-N UK teams within ±200 rating (qualifier
+prep) plus international teams within +200 of us (calibration). Avoid
+auto-add — it's noisy.
+
+2. Submitting matches
+---------------------
+    scrim run --forever --async
+
+Loops indefinitely, in each iteration:
+  - sync /api/matches and /api/submissions to refresh local DB
+  - pick the opponent we've queued least recently (oldest `requested_at`
+    in the `matches` table)
+  - pick 5 maps least-recently-queued against that opponent (using both
+    completed games and in-flight `map_names` so we don't re-queue the
+    same maps before the previous match completes)
+  - block until we have a free slot in the rate-limit window:
+      ** Server enforces 5 unrated requests per 10 minutes PER USER **
+      (not per opponent, not per team — confirmed via 429). Teammates
+      each have their own slot.
+  - POST /api/matches/unrated with opponentTeamId + 5 maps; record the
+    `match_id` immediately (status='requested')
+  - move on (`--async` skips waiting for completion; `poll` later updates)
+
+The unrated endpoint plays whichever submission is currently `isActive`
+on the ladder for both teams — we never specify a version. Match results
+record `teamAVersion` / `teamBVersion` server-side so attribution stays
+correct even after we upload a newer build.
+
+3. Submitting bots
+------------------
+    scrim submit <bot_path> [-n NAME]
+
+Wraps `cambc submission upload`. By default the submission's `name` is
+set to `<bot_path> (<git_short_sha>)` (e.g. `intgrah/v54.7.9 (bb45e58)`)
+so any submission can be traced back to source. After upload we re-sync
+so `status --bot intgrah/v54.7.9` immediately works.
+
+4. Reading results
+------------------
+    scrim status                            # all opponents, all versions
+    scrim status --bot intgrah/v54.7.9      # filter by submission name
+    scrim status --version 196              # filter by version number
+    scrim status --team <team_id>           # one opponent
+    scrim status --by-map                   # per-map breakdown (lazy-fetches games)
+    scrim queued                            # in-flight matches (status != complete/error)
+
+Match-level W/L is derived from `score_a` / `score_b` directly — no extra
+API calls. Per-map breakdown lazy-fetches `/api/matches/<id>` to populate
+the `games` table only for matches in scope.
+
+5. Coordinating with teammates
+------------------------------
+The shared scrim DB lives on an orphan `scrim-db` branch at origin (no
+shared history with master, only `scrim.db`). Push/pull goes through git
+plumbing (`hash-object` / `commit-tree` / `update-ref`) so neither
+operation checks out anything or touches the master working tree:
+
+    scrim pull-state    # fetch origin/scrim-db, overwrite local scrim.db,
+                        # then sync from /api to recover any new local
+                        # state (idempotent)
+    scrim push-state    # snapshot local scrim.db to origin/scrim-db
+
+Suggested flow when running concurrently: pull-state → run-batch →
+push-state. The map picker reads in-flight `map_names` rows so a
+teammate's recent submissions feed into our next picks (no duplicate
+maps queued).
+
+6. Match attribution
+--------------------
+Every match in the `matches` table carries:
+    our_version, their_version, triggered_by ('ladder' | 'unrated'),
+    our_side ('A' | 'B'), team_b_id/name, our_rating_before, elo_delta
+plus the raw API blob. So historical W/L queries by version work after
+arbitrarily many submissions.
+
+============================================================================
+SUBCOMMAND REFERENCE
+============================================================================
+
+  add <team_id> [--name LABEL]              track an opponent
+  remove <team_id>                          stop tracking
+  list                                      show tracked
+  ladder [--region] [--category] [--limit] [--around]
+                                            print ladder w/ team_ids
+  search <query>                            cambc team search
+
+  submit <bot> [-n NAME]                    upload (auto-named with git sha)
+  sync [--full]                             pull subs + matches from API
+
+  run [--team T] [--rounds N | --forever] [--maps M] [--async]
+                                            submit unrated matches
+  queued                                    show in-flight requests
+  poll                                      refresh stale 'requested' rows
+
+  status [--team T] [--bot N | --version V] [--by-map]
+                                            W/L summary
+
+  pull-state                                pull shared scrim.db (orphan branch)
+  push-state                                push local scrim.db (orphan branch)
+
+  replays <match_id> [--out DIR]            download replay files
 """
 
 from __future__ import annotations
