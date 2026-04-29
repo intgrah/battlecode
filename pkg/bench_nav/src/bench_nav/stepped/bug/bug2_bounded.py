@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from bench_nav.precomputation import COST
 from bench_nav.stepped.bug._planner import bug2_plan_iter
 from bench_nav.stepped.dp_step import dp_step
 from bench_nav.types import AlgoName, PrecompCtx, Stepped
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _BUDGET = 25
 

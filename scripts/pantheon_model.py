@@ -160,7 +160,7 @@ def fit_models(rows: list[dict]) -> None:
     print(classification_report(y, pred, target_names=["no_spawn", "spawn"], digits=3))
     print("Confusion matrix [[TN FP][FN TP]]:")
     print(confusion_matrix(y, pred))
-    coefs = sorted(zip(feats, lr.coef_[0]), key=lambda x: -abs(x[1]))
+    coefs = sorted(zip(feats, lr.coef_[0], strict=False), key=lambda x: -abs(x[1]))
     print("Coefs (sorted by |w|):")
     for f, w in coefs:
         print(f"  {f:24s}  {w:+.4e}")
@@ -224,7 +224,7 @@ def test_compound_rules(rows: list[dict]) -> None:
         prec = tp / (tp + fp) if (tp + fp) else 0
         rec = tp / (tp + fn_ct) if (tp + fn_ct) else 0
         f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0
-        acc = (tp + tn) / len(rows)
+        (tp + tn) / len(rows)
         print(
             f"  {name:50s}  prec={prec:.3f} rec={rec:.3f} f1={f1:.3f}  tp={tp}/{len(pos)} fp={fp}"
         )
@@ -250,7 +250,7 @@ def grid_search_compound(rows: list[dict]) -> None:
                 if r["ti"] >= k * r["builder_cost"] and r["rounds_since_spawn"] >= d
             )
             fn_ct = len(pos) - tp
-            tn = len(neg) - fp
+            len(neg) - fp
             prec = tp / (tp + fp) if (tp + fp) else 0
             rec = tp / (tp + fn_ct) if (tp + fn_ct) else 0
             f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0

@@ -50,7 +50,7 @@ def _img(w: int, h: int, cost: list[int]) -> Image.Image:
     return img
 
 
-def _draw_path(img, w, path, colour, width=2):
+def _draw_path(img, w, path, colour, width=2) -> None:
     d = ImageDraw.Draw(img)
     for i in range(len(path) - 1):
         ax, ay = path[i] % w, path[i] // w
@@ -67,7 +67,7 @@ def _draw_path(img, w, path, colour, width=2):
         )
 
 
-def _draw_cell(img, w, cell, colour, size=4):
+def _draw_cell(img, w, cell, colour, size=4) -> None:
     d = ImageDraw.Draw(img)
     x, y = cell % w, cell // w
     cx, cy = x * CELL + CELL // 2, y * CELL + CELL // 2

@@ -83,9 +83,7 @@ def is_guarded_cardinal(self: Builder, pos: Position) -> bool:
     b = self.get_building(pos)
     if b is None:
         return False
-    if isinstance(b, BuildingRoad | BuildingMarker):
-        return False
-    return True
+    return not isinstance(b, BuildingRoad | BuildingMarker)
 
 
 def walk_to_ore_claim(self: Builder, ct: Controller, target_pos: Position) -> bool:
@@ -188,23 +186,37 @@ def place_inward_conveyor(
     cardinal: Position,
     target: Position,
 ) -> bool:
-    """Place an inward-facing friendly conveyor at `cardinal` pointing
-    at `target`. Tears down a friendly road on the tile first if needed.
-    Returns True if a build (or a destroy that enables one) action was
-    taken.
+    """Place a guard at `cardinal` of `target` (a harvester / claim).
+    Picks BARRIER when `cardinal` already has >=3 walkable cardinal
+    neighbours (builders can route around the barrier; barriers are
+    immune to builder-fire so they're preferred where applicable),
+    otherwise places an inward-facing CONVEYOR (walkable, preserves
+    connectivity in tight geometry). Tears down a friendly road on the
+    tile first if needed. Returns True if a build (or a destroy that
+    enables one) action was taken.
     """
-    inward = cardinal.direction_to(target)
+    use_barrier = _should_use_barrier(self, cardinal)
+    etype = EntityType.BARRIER if use_barrier else EntityType.CONVEYOR
     if (
         isinstance(self.get_building(cardinal), BuildingRoad)
         and ct.can_destroy(cardinal)
-        and can_afford(self, EntityType.CONVEYOR)
+        and can_afford(self, etype)
     ):
         ct.destroy(cardinal)
         self.apply_local_destroy(cardinal)
-    if can_afford(self, EntityType.CONVEYOR) and ct.can_build_conveyor(
-        cardinal,
-        inward,
-    ):
+    if not can_afford(self, etype):
+        return False
+    if use_barrier:
+        if ct.can_build_barrier(cardinal):
+            log(
+                "place_inward_conveyor: BARRIER at {at} (>=3 walkable cardinals)",
+                at=cardinal,
+            )
+            ct.build_barrier(cardinal)
+            return True
+        return False
+    inward = cardinal.direction_to(target)
+    if ct.can_build_conveyor(cardinal, inward):
         log(
             "place_inward_conveyor: CONVEYOR at {at} facing {dir} into {target}",
             at=cardinal,
@@ -214,6 +226,29 @@ def place_inward_conveyor(
         ct.build_conveyor(cardinal, inward)
         return True
     return False
+
+
+def _should_use_barrier(self: Builder, guard_pos: Position) -> bool:
+    """Heuristic: a barrier here doesn't hinder walkability iff the
+    tile already has at least 3 walkable cardinal neighbours. Builders
+    can route around a barrier when the surrounding network has at
+    least three other walkable links; the harvester / target itself
+    isn't walkable so it doesn't count.
+
+    Barriers are preferred when applicable because they're immune to
+    builder-fire (the attacker would need to stand on the tile, but
+    barriers aren't walkable). Inward conveyors are the fallback in
+    tighter geometry where the detour would hurt routing or
+    reachability.
+    """
+    count = 0
+    for d in DIR4:
+        n = guard_pos.add(d)
+        if not self.in_bounds(n):
+            continue
+        if self.is_walkable(n):
+            count += 1
+    return count >= 3
 
 
 def step_off_and_build_harvester(

@@ -46,7 +46,7 @@ def main() -> None:
 
     decoded = bytes(decode_byte(t) for t in times)
     n = min(len(decoded), len(MESSAGE))
-    matches = sum(1 for a, b in zip(decoded[:n], MESSAGE[:n]) if a == b)
+    matches = sum(1 for a, b in zip(decoded[:n], MESSAGE[:n], strict=False) if a == b)
     print(f"compared {n} bytes: {matches} match ({100 * matches / n:.2f}%)")
 
     deltas = [times[i] - (BASE_US + STEP_US * MESSAGE[i]) for i in range(n)]

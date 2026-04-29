@@ -52,10 +52,10 @@ def per_replay(rows: list[dict]) -> dict[str, list[dict]]:
 def plot_timelines(rows: list[dict]) -> None:
     by_replay = per_replay(rows)
     n = len(by_replay)
-    fig, axes = plt.subplots(n, 1, figsize=(13, 2.5 * n), sharex=False)
+    _fig, axes = plt.subplots(n, 1, figsize=(13, 2.5 * n), sharex=False)
     if n == 1:
         axes = [axes]
-    for ax, (replay, rs) in zip(axes, by_replay.items()):
+    for ax, (replay, rs) in zip(axes, by_replay.items(), strict=False):
         turns = np.array([r["turn"] for r in rs])
         ti = np.array([r["ti"] for r in rs])
         cost = np.array([r["builder_cost"] for r in rs])
@@ -102,7 +102,7 @@ def plot_decision_scatter(rows: list[dict]) -> None:
     pos = [r for r in cand if r["spawned"]]
     neg = [r for r in cand if not r["spawned"]]
 
-    fig, ax = plt.subplots(figsize=(9, 7))
+    _fig, ax = plt.subplots(figsize=(9, 7))
     ax.scatter(
         [r["builder_cost"] for r in neg],
         [r["ti"] for r in neg],
@@ -158,7 +158,7 @@ def plot_ratio_histogram(rows: list[dict]) -> None:
     pos_ratio = [r["ti_div_cost"] for r in cand if r["spawned"]]
     neg_ratio = [r["ti_div_cost"] for r in cand if not r["spawned"]]
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    _fig, ax = plt.subplots(figsize=(9, 5))
     bins = np.linspace(1, 7, 31)
     ax.hist(
         neg_ratio,
@@ -213,7 +213,7 @@ def plot_gap_vs_ratio(rows: list[dict]) -> None:
     pos = [r for r in cand if r["spawned"]]
     neg = [r for r in cand if not r["spawned"]]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _fig, ax = plt.subplots(figsize=(10, 6))
     ax.scatter(
         [r["rounds_since_spawn"] for r in neg],
         [r["ti_div_cost"] for r in neg],
@@ -263,7 +263,7 @@ def plot_gap_vs_ratio(rows: list[dict]) -> None:
 
 def plot_units_curve(rows: list[dict]) -> None:
     by_replay = per_replay(rows)
-    fig, ax = plt.subplots(figsize=(11, 5))
+    _fig, ax = plt.subplots(figsize=(11, 5))
     for replay, rs in by_replay.items():
         turns = [r["turn"] for r in rs]
         units = [r["units_no_harv"] for r in rs]

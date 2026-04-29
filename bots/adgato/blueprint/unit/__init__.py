@@ -3,6 +3,7 @@ from __future__ import annotations
 from random import Random
 from typing import TYPE_CHECKING
 
+from cambc import Position
 from util import DIR4, DIR8, W
 
 from unit.blueprint import (
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from blueprint import BlueprintEntry
-    from cambc import Controller, Direction, Position, Team
+    from cambc import Controller, Direction, Team
     from hardcode.known import KnownMap
 
 __all__ = ["Unit"]
