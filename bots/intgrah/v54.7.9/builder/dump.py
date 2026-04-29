@@ -81,12 +81,8 @@ def _crop(arr: list[int], w: int, h: int) -> list[int]:
     ]
 
 
-def _crop_bool(arr: list[bool], w: int, h: int) -> list[bool]:
-    return [arr[y * MAX_WIDTH + x] for y in range(h) for x in range(w)]
-
-
-def _tile_or_none(p: Position | None) -> DumpScalar | DumpTile:
-    return DumpScalar(None) if p is None else DumpTile(p)
+def _crop_bool(arr: list[bool] | bytearray, w: int, h: int) -> list[bool]:
+    return [bool(arr[y * MAX_WIDTH + x]) for y in range(h) for x in range(w)]
 
 
 def _bisector_tiles(self: Builder) -> set[Position]:
@@ -267,13 +263,13 @@ def dump(self: Builder, _ct: Controller) -> None:
             )
         with Scope("econ"):
             with Scope("targets"):
-                vis("ti_ore_target", _tile_or_none(self.ore_target))
-                vis("ax_ore_target", _tile_or_none(self.ax_ore_target))
-                vis("offensive_ore_target", _tile_or_none(self.offensive_ore_target))
-                vis("foundry_target", _tile_or_none(self.foundry_target))
-                vis("ti_sink", _tile_or_none(self.ti_sink))
-                vis("ax_sink", _tile_or_none(self.ax_sink))
-                vis("dangling_output", _tile_or_none(self.dangling_output))
+                vis("ti_ore_target", DumpTile(self.ore_target))
+                vis("ax_ore_target", DumpTile(self.ax_ore_target))
+                vis("offensive_ore_target", DumpTile(self.offensive_ore_target))
+                vis("foundry_target", DumpTile(self.foundry_target))
+                vis("ti_sink", DumpTile(self.ti_sink))
+                vis("ax_sink", DumpTile(self.ax_sink))
+                vis("dangling_output", DumpTile(self.dangling_output))
             with Scope("sets"):
                 vis("dangling_set", DumpTiles(self.dangling_set))
                 vis("unreachable_dangling", DumpTiles(self.unreachable_dangling))
@@ -298,14 +294,14 @@ def dump(self: Builder, _ct: Controller) -> None:
                 vis("deny_ore_neighbours", DumpTiles(self.deny_ore_neighbours))
                 vis("bisector_buffer", DumpTiles(_bisector_tiles(self)))
         with Scope("offense"):
-            vis("offense_target", _tile_or_none(self.offense_target))
+            vis("offense_target", DumpTile(self.offense_target))
             vis("offense_turns", DumpScalar(self.offense_turns))
-            vis("offense_launcher", _tile_or_none(self.offense_launcher))
+            vis("offense_launcher", DumpTile(self.offense_launcher))
             vis(
                 "last_fire",
-                _tile_or_none(self.last_fire[0] if self.last_fire else None),
+                DumpTile(self.last_fire[0] if self.last_fire else None),
             )
-            vis("nearest_enemy_turret", _tile_or_none(self.nearest_enemy_turret))
+            vis("nearest_enemy_turret", DumpTile(self.nearest_enemy_turret))
             vis("enemy_turret_ray_tiles", DumpTiles(self.enemy_turret_ray_tiles))
             vis("friendly_turret_ray_tiles", DumpTiles(self.friendly_turret_ray_tiles))
             vis(
@@ -317,9 +313,9 @@ def dump(self: Builder, _ct: Controller) -> None:
             vis("ti", DumpScalar(self.ti))
             vis("ax", DumpScalar(self.ax))
         with Scope("misc"):
-            vis("repair_pos", _tile_or_none(self.repair_pos))
+            vis("repair_pos", DumpTile(self.repair_pos))
             vis("repaired_prev", DumpScalar(self.repaired_prev))
-            vis("explore_target", _tile_or_none(self.explore_target))
+            vis("explore_target", DumpTile(self.explore_target))
             vis(
                 "explore_heading",
                 DumpScalar(
@@ -329,16 +325,44 @@ def dump(self: Builder, _ct: Controller) -> None:
                 ),
             )
             vis("opportunistic", DumpScalar(self.opportunistic))
-            vis("patrol_head", _tile_or_none(self.patrol_head))
-            patrol_scores: list[float] = [-1.0] * (w * h)
+            vis("patrol_head", DumpTile(self.patrol_head))
+            patrol_age: list[float] = [-1.0] * (w * h)
+            last_seen_grid: list[int] = [0] * (w * h)
             crnd = self.round
-            for p, rnd, score in self.patrol_queue:
-                gi = p.y * w + p.x
-                patrol_scores[gi] = score * (crnd - rnd)
+            for y in range(h):
+                base = y * MAX_WIDTH
+                row_base = y * w
+                for x in range(w):
+                    seen = self.last_seen[base + x]
+                    last_seen_grid[row_base + x] = seen
+                    patrol_age[row_base + x] = float(crnd - seen)
             vis(
-                "patrol_queue",
-                DumpF32Grid(data=patrol_scores, palette=P_PATROL),
+                "patrol_age",
+                DumpF32Grid(data=patrol_age, palette=P_PATROL),
             )
+            vis(
+                "last_seen",
+                DumpI16Grid(data=last_seen_grid, palette=P_DIST),
+            )
+            best_age = -1
+            best_dist = 1 << 30
+            best_pos = None
+            mx, my_y = self.my_pos.x, self.my_pos.y
+            candidates = list(self.my_harvesters) + list(self.my_foundries)
+            if self.my_core is not None:
+                candidates.append(self.my_core)
+            for p in candidates:
+                age = crnd - self.last_seen[p.y * MAX_WIDTH + p.x]
+                if age < best_age:
+                    continue
+                dxv = p.x - mx
+                dyv = p.y - my_y
+                d = dxv * dxv + dyv * dyv
+                if age > best_age or d < best_dist:
+                    best_age = age
+                    best_dist = d
+                    best_pos = p
+            vis("patrol_target", DumpTile(best_pos))
             vis("reflect_queue_len", DumpScalar(len(self.reflect_queue)))
             vis("nearby_buildings", DumpScalar(len(self.nearby_buildings)))
             vis("healable_buildings", DumpTiles(self.healable_buildings))
