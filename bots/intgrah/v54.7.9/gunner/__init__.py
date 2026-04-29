@@ -35,9 +35,9 @@ class Gunner(Unit):
         super().run(ct)
 
         facing = ct.get_direction()
-        score, target = self._score_ray(ct, facing)
-        if score > 0 and target is not None and ct.can_fire(target):
-            ct.fire(target)
+        fire_target = self._fire_target(ct, facing)
+        if fire_target is not None and ct.can_fire(fire_target):
+            ct.fire(fire_target)
             self.idle_turns = 0
             return
 
@@ -48,6 +48,39 @@ class Gunner(Unit):
 
         if self.idle_turns > Gunner.SELF_DESTRUCT_THRESHOLD:
             self.try_self_destruct(ct)
+
+    def _fire_target(self, ct: Controller, direction: Direction) -> Position | None:
+        """Walk the forward ray. Return the first blocker iff firing
+        actually damages the enemy: enemy non-harvester building OR
+        enemy bot. A friendly absorber (any of our buildings except a
+        marker, or our bot) returns None — the engine shoots the first
+        blocker and a friendly one would eat the projectile.
+        """
+        cur = self.my_pos
+        for _ in range(3):
+            cur = cur.add(direction)
+            if cur.distance_squared(self.my_pos) > GameConstants.GUNNER_VISION_RADIUS_SQ:
+                return None
+            if not self.in_bounds(cur):
+                return None
+            if not ct.is_in_vision(cur):
+                return None
+            bid = ct.get_tile_building_id(cur)
+            if bid is not None:
+                etype = ct.get_entity_type(bid)
+                if etype == EntityType.MARKER:
+                    continue
+                if ct.get_team(bid) == self.my_team:
+                    return None
+                if etype == EntityType.HARVESTER:
+                    return None
+                return cur
+            uid = self.all_bots.get(cur)
+            if uid is not None:
+                if ct.get_team(uid) == self.my_team:
+                    return None
+                return cur
+        return None
 
     def _score_ray(
         self,

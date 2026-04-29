@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, override
 
 from util.constants import MAX_WIDTH
+from util.debug import debug as log
 from util.metrics import chebyshev
 
 from builder.helpers import make_move
@@ -50,6 +51,11 @@ def resolve_congestion(self: Builder, ct: Controller) -> None:
     """
     if not self.congested_junctions:
         raise TaskRejectedNoCongestedJunctionError
+    log(
+        "resolve_congestion: {n} congested junctions visible: {js}",
+        n=len(self.congested_junctions),
+        js=sorted(self.congested_junctions),
+    )
 
     targets: list[Position] = []
     for j in self.congested_junctions:
@@ -60,15 +66,24 @@ def resolve_congestion(self: Builder, ct: Controller) -> None:
             targets.append(feeder)
 
     if not targets:
+        log("resolve_congestion: no friendly feeders to remove")
         raise TaskRejectedNoFriendlyFeederError
+    log(
+        "resolve_congestion: {n} candidate feeders: {fs}",
+        n=len(targets),
+        fs=targets,
+    )
 
     for feeder in targets:
         if ct.can_destroy(feeder):
+            log("resolve_congestion: DESTROY feeder {feeder}", feeder=feeder)
             ct.destroy(feeder)
             self.apply_local_destroy(feeder)
             return
 
     nearest = min(targets, key=lambda p: chebyshev(self.my_pos, p))
+    log("resolve_congestion: walking toward nearest feeder {feeder}", feeder=nearest)
     if make_move(self, ct, nearest):
         return
+    log("resolve_congestion: could not approach {feeder}", feeder=nearest)
     raise TaskRejectedCannotApproachError(nearest)
