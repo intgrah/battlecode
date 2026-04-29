@@ -6,8 +6,8 @@ paving. High-priority structural maintenance work for ECON / DEFENSE.
 from builder.tasks._policy import TaskGroup
 from builder.tasks.econ.infrastructure.build_foundry import build_foundry
 from builder.tasks.econ.infrastructure.fix_enemy_conveyor import fix_enemy_conveyor
-from builder.tasks.econ.infrastructure.pave_inward_conveyors import (
-    pave_inward_conveyors,
+from builder.tasks.econ.infrastructure.guard_harvester_neighbours import (
+    guard_harvester_neighbours,
 )
 from builder.tasks.econ.infrastructure.place_gunner import place_gunner
 from builder.tasks.econ.infrastructure.resolve_congestion import resolve_congestion
@@ -23,7 +23,7 @@ ECON_INFRASTRUCTURE_GROUP = TaskGroup(
         build_foundry,
         place_gunner,
         fix_enemy_conveyor,
-        pave_inward_conveyors,
+        guard_harvester_neighbours,
         resolve_congestion,
     ),
 )

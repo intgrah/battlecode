@@ -1,6 +1,6 @@
 """Step off the claimed ore tile and place a harvester in the same
 turn. Lowest-priority of the three ore-claim phases — fires only after
-`claim_ore` is satisfied (we stand on the ore) and `pave_inward_conveyors`
+`claim_ore` is satisfied (we stand on the ore) and `guard_harvester_neighbours`
 has nothing more to add to the ring.
 
 When standing on the ore but unable to build (waiting on Ti, no viable

@@ -347,7 +347,7 @@ def extend_step(
     `start` is the dangling end (typically `self.dangling_output`),
     which `_check_dangling`'s early-gate guarantees is None / friendly
     road / marker — feasible by construction. No snap needed: by the
-    time chain extension fires, `pave_inward_conveyors` has already
+    time chain extension fires, `guard_harvester_neighbours` has already
     completed the inward ring, so the harvester has exactly one
     dangling cardinal (the feed) and the picker has selected it.
 

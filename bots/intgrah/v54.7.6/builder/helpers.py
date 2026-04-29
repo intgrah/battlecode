@@ -361,7 +361,7 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             continue
         # Walls aren't valid output tiles — flow can't pass through.
         # If a wall makes it into `free`, `harvester_io_cardinals`
-        # reserves the wall and pave_inward_conveyors would happily
+        # reserves the wall and guard_harvester_neighbours would happily
         # plug the only actual exit with an inward conveyor.
         if self.get_env(c) == Environment.WALL:
             continue
@@ -374,7 +374,8 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             | BuildingBridge
             | BuildingFoundry
             | BuildingCore
-            | BuildingHarvester,
+            | BuildingHarvester
+            | BuildingBarrier,
         ):
             continue
         free.append(c)

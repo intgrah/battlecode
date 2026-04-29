@@ -1,25 +1,27 @@
-"""Prep work around our Ti harvesters / claimed-but-unbuilt ore tiles.
+"""Guard work around our Ti harvesters / claimed-but-unbuilt ore tiles.
 Two kinds of action, both fired one-per-turn from this task:
 
-1. Inward-facing conveyor on a non-I/O cardinal that's currently
-   unguarded (empty / friendly road / marker). The conveyor points
-   back at the target so it acts as a guard (denies the tile to enemy
-   parasitic placements) without confusing flow routing — dangling-end
-   classification ignores conveyors pointing INTO a harvester.
+1. Guard on a non-I/O cardinal that's currently unguarded. The choice
+   between BARRIER and inward-facing CONVEYOR is `place_harvester_guard`'s
+   call — barrier when the cardinal already has >=3 walkable neighbours
+   (builders can route around; barriers are fire-immune), conveyor
+   otherwise (walkable, preserves connectivity in tight geometry).
+   Inward conveyors point back at the harvester so dangling-end
+   classification ignores them.
 
-2. Road on the feed (output) cardinal if it's empty terrain. The
-   builder will eventually step off the ore onto this tile to place
-   the harvester; the engine requires a walkable building (road
-   minimum) on the destination, so paving the feed ahead of time
-   means the step-off happens immediately when Ti is available.
+2. Road on the feed (output) cardinal if it isn't already walkable.
+   The builder will eventually step off the ore onto this tile to
+   place the harvester; the engine requires a walkable building
+   (road minimum) on the destination, so paving the feed ahead of
+   time means the step-off happens immediately when Ti is available.
 
 Already-guarded cardinals — walls, harvesters (any team), or any
-non-walkable building — count as guards: no inward conveyor is needed
-there. So a harvester adjacent to two harvesters plus a wall has
-nothing to pave on those three sides.
+non-walkable building — count as guards: no guard is needed there.
+So a harvester adjacent to two harvesters plus a wall has nothing
+to pave on those three sides.
 
 I/O exclusion: the cardinal chosen as the harvester's feed slot, or
-that already hosts a flow consumer, is reserved against inward-conveyor
+that already hosts a flow consumer, is reserved against guard
 placement (but the feed gets the road-prep treatment instead).
 """
 
@@ -33,8 +35,8 @@ from util.debug import debug as log
 from util.directions import DIR4
 
 from builder.harvest import (
-    needs_inward_guard,
-    place_inward_conveyor,
+    needs_harvester_guard,
+    place_harvester_guard,
 )
 from builder.helpers import (
     can_afford,
@@ -49,13 +51,13 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
-class TaskRejectedNoPaveCandidateError(TaskRejectedError):
+class TaskRejectedNoGuardCandidateError(TaskRejectedError):
     @override
     def reason(self) -> Reason:
-        return "nothing to pave around any visible harvester / claim"
+        return "nothing to guard around any visible harvester / claim"
 
 
-def pave_inward_conveyors(self: Builder, ct: Controller) -> None:
+def guard_harvester_neighbours(self: Builder, ct: Controller) -> None:
     # Iterate the (small) set of harvester / claim targets in range,
     # rather than all nearby tiles. Each target has at most 4 cardinals;
     # the inner work (feed cardinal, I/O reservation, guard checks)
@@ -74,22 +76,35 @@ def pave_inward_conveyors(self: Builder, ct: Controller) -> None:
             targets.append(tgt)
 
     if not targets:
-        raise TaskRejectedNoPaveCandidateError
+        raise TaskRejectedNoGuardCandidateError
 
     near = set(self.nearby_tiles)
     affords_road = can_afford(self, EntityType.ROAD)
-    affords_conveyor = can_afford(self, EntityType.CONVEYOR)
+    # Both barrier and conveyor cost the same in Ti, so a single check
+    # suffices for the guard placement branch.
+    affords_guard = can_afford(self, EntityType.CONVEYOR)
+
+    # Aggregate I/O reservations across ALL adjacent targets — a
+    # cardinal that's the feed (or already a flow consumer) of any
+    # target must not be guarded by another target's ring. Fixes the
+    # livelock where harvester X's feed kept getting barriered by
+    # harvester Y's guard pass and re-destroyed by X's feed-prep.
+    no_guard: set[Position] = set()
+    for target in targets:
+        no_guard |= harvester_io_cardinals(self, target)
 
     for target in targets:
         feed = harvester_feed_cardinal(self, target)
         if feed is None:
             continue
-        io_reserved = harvester_io_cardinals(self, target)
 
         # Feed-prep: pave a road on the feed cardinal if it isn't
         # already walkable. Markers (1 HP, overbuildable) and empty
         # terrain both have cost > 1 in the grid; friendly roads /
         # conveyors etc. are cost 1 and need no prep.
+        # `harvester_feed_cardinal` now skips barriers, so a barrier'd
+        # cardinal is never picked as feed and no destroy step is
+        # needed here.
         if (
             affords_road
             and feed in near
@@ -97,23 +112,22 @@ def pave_inward_conveyors(self: Builder, ct: Controller) -> None:
             and ct.can_build_road(feed)
         ):
             log(
-                "pave_inward_conveyors: ROAD on feed {feed} (prep step-off)",
+                "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
                 feed=feed,
             )
             ct.build_road(feed)
             return
 
-        # Inward-guard placement on a non-I/O cardinal that needs guarding.
-        if not affords_conveyor:
+        if not affords_guard:
             continue
         for d in DIR4:
             pos = target.add(d)
             if pos not in near:
                 continue
-            if pos in io_reserved:
+            if pos in no_guard:
                 continue
-            if not needs_inward_guard(self, pos, target, io_reserved):
+            if not needs_harvester_guard(self, pos, target, no_guard):
                 continue
-            if place_inward_conveyor(self, ct, pos, target):
+            if place_harvester_guard(self, ct, pos, target):
                 return
-    raise TaskRejectedNoPaveCandidateError
+    raise TaskRejectedNoGuardCandidateError
