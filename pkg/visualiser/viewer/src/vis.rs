@@ -169,6 +169,53 @@ fn parse_tagged(value: &Value) -> Tagged {
                 .unwrap_or_default();
             Tagged::Tiles(arr)
         }
+        "tile" => {
+            let xv = obj.get("x").and_then(Value::as_i64);
+            let yv = obj.get("y").and_then(Value::as_i64);
+            let pos = match (xv, yv) {
+                (Some(x), Some(y)) => Some((x as i32, y as i32)),
+                _ => None,
+            };
+            Tagged::Tile(pos)
+        }
+        "dot" => {
+            let xv = obj.get("x").and_then(Value::as_i64);
+            let yv = obj.get("y").and_then(Value::as_i64);
+            let pos = match (xv, yv) {
+                (Some(x), Some(y)) => Some((x as i32, y as i32)),
+                _ => None,
+            };
+            let colour = parse_colour(obj.get("colour")).unwrap_or(Colour {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            });
+            Tagged::Dot { pos, colour }
+        }
+        "path" => {
+            let points = obj
+                .get("v")
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|p| {
+                            let pp = p.as_array()?;
+                            let x = pp.first()?.as_i64()? as i32;
+                            let y = pp.get(1)?.as_i64()? as i32;
+                            Some((x, y))
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            let colour = parse_colour(obj.get("colour")).unwrap_or(Colour {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            });
+            Tagged::Path { points, colour }
+        }
         "uid" => {
             let id = obj.get("v").and_then(Value::as_i64).unwrap_or(0);
             Tagged::Scalar(ScalarValue::Int(id))
@@ -245,6 +292,15 @@ fn parse_tagged(value: &Value) -> Tagged {
     }
 }
 
+fn parse_colour(v: Option<&Value>) -> Option<Colour> {
+    let arr = v?.as_array()?;
+    let r = arr.first()?.as_u64()? as u8;
+    let g = arr.get(1)?.as_u64()? as u8;
+    let b = arr.get(2)?.as_u64()? as u8;
+    let a = arr.get(3).and_then(Value::as_u64).unwrap_or(255) as u8;
+    Some(Colour { r, g, b, a })
+}
+
 fn parse_scalar_value(v: &Value) -> ScalarValue {
     match v {
         Value::Null => ScalarValue::Null,
@@ -294,7 +350,24 @@ pub struct ArrowData {
 pub enum Tagged {
     Scalar(ScalarValue),
     Tiles(Vec<(i32, i32)>),
-    Grid { data: GridData, palette: PaletteDef },
+    /// Single tile drawn as a ring around the cell. `None` = no value
+    /// this turn (renderer skips).
+    Tile(Option<(i32, i32)>),
+    /// Single tile drawn as a filled coloured dot. `pos = None` = no
+    /// value this turn (renderer skips).
+    Dot {
+        pos: Option<(i32, i32)>,
+        colour: Colour,
+    },
+    /// Ordered list of tiles drawn as a polyline.
+    Path {
+        points: Vec<(i32, i32)>,
+        colour: Colour,
+    },
+    Grid {
+        data: GridData,
+        palette: PaletteDef,
+    },
     VectorField(ArrowData),
     /// Reuse the value from the prior turn. Caller resolves.
     Same,
@@ -304,9 +377,27 @@ pub enum Tagged {
 /// consumes. Built by walking the log tree and collecting `vis` nodes.
 #[derive(Clone, Debug)]
 pub enum VisField {
-    Grid { data: GridData, palette: PaletteDef },
-    Scalar { data: ScalarValue },
-    Tiles { data: Vec<(i32, i32)> },
+    Grid {
+        data: GridData,
+        palette: PaletteDef,
+    },
+    Scalar {
+        data: ScalarValue,
+    },
+    Tiles {
+        data: Vec<(i32, i32)>,
+    },
+    Tile {
+        pos: Option<(i32, i32)>,
+    },
+    Dot {
+        pos: Option<(i32, i32)>,
+        colour: Colour,
+    },
+    Path {
+        points: Vec<(i32, i32)>,
+        colour: Colour,
+    },
     VectorField(ArrowData),
 }
 
@@ -315,6 +406,9 @@ impl VisField {
         match t {
             Tagged::Scalar(s) => Some(Self::Scalar { data: s }),
             Tagged::Tiles(d) => Some(Self::Tiles { data: d }),
+            Tagged::Tile(pos) => Some(Self::Tile { pos }),
+            Tagged::Dot { pos, colour } => Some(Self::Dot { pos, colour }),
+            Tagged::Path { points, colour } => Some(Self::Path { points, colour }),
             Tagged::Grid { data, palette } => Some(Self::Grid { data, palette }),
             Tagged::VectorField(a) => Some(Self::VectorField(a)),
             Tagged::Same => None,

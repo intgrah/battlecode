@@ -742,6 +742,39 @@ fn draw_vis_overlay(
                 );
             }
         }
+        crate::vis::VisField::Tile { pos } => {
+            if let Some((x, y)) = pos {
+                let r = tile_rect(*x, *y, ts, origin, zoom);
+                painter.rect_stroke(
+                    r,
+                    0.0,
+                    Stroke::new(2.0, PINNED_COLOR),
+                    StrokeKind::Outside,
+                );
+            }
+        }
+        crate::vis::VisField::Dot { pos, colour } => {
+            if let Some((x, y)) = pos {
+                let center = tile_center(*x, *y, ts, origin, zoom);
+                let radius = ts * zoom * 0.3;
+                painter.circle_filled(
+                    center,
+                    radius,
+                    Color32::from_rgba_premultiplied(colour.r, colour.g, colour.b, colour.a),
+                );
+            }
+        }
+        crate::vis::VisField::Path { points, colour } => {
+            let stroke = Stroke::new(
+                (2.0 * zoom).max(1.0),
+                Color32::from_rgba_premultiplied(colour.r, colour.g, colour.b, colour.a),
+            );
+            for pair in points.windows(2) {
+                let a = tile_center(pair[0].0, pair[0].1, ts, origin, zoom);
+                let b = tile_center(pair[1].0, pair[1].1, ts, origin, zoom);
+                painter.line_segment([a, b], stroke);
+            }
+        }
     }
 }
 
