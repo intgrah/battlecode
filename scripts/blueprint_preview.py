@@ -12,7 +12,6 @@ from pathlib import Path
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 import pygame
-
 from blueprint import BlueprintEntry, Entity, mirror_entry, mirror_pos
 from blueprint.editor.assets import BG_COLOUR, EMPTY_COLOUR, load_assets
 from blueprint.editor.map_io import MapData, Tile, load_map
@@ -38,7 +37,9 @@ def _detect_symmetry(m: MapData) -> str:
     raise ValueError(msg)
 
 
-_BLUEPRINTS_DIR = Path(__file__).resolve().parents[1] / "pkg" / "blueprint" / "blueprints"
+_BLUEPRINTS_DIR = (
+    Path(__file__).resolve().parents[1] / "pkg" / "blueprint" / "blueprints"
+)
 
 
 def _load_blueprints() -> dict[str, tuple[BlueprintEntry, ...]]:
@@ -57,6 +58,7 @@ def _load_blueprints() -> dict[str, tuple[BlueprintEntry, ...]]:
         if isinstance(entries, tuple):
             out[p.stem] = entries
     return out
+
 
 _ROOT = Path(__file__).resolve().parents[1]
 _MAPS_DIR = _ROOT / "maps"

@@ -403,9 +403,7 @@ def parse_all(files: list[Path]) -> dict[Path, ast.Module]:
     return out
 
 
-def collect_local_modules(
-    root: Path, files: list[Path]
-) -> dict[tuple[str, ...], Path]:
+def collect_local_modules(root: Path, files: list[Path]) -> dict[tuple[str, ...], Path]:
     mods: dict[tuple[str, ...], Path] = {}
     for f in files:
         parts = module_path_from(root, f)
@@ -695,9 +693,7 @@ class Rewriter(ast.NodeTransformer):
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> ast.AST:
         if node.module and is_local_module(node.module, self.local_modules):
-            node.module = rename_dotted(
-                node.module, self.rename, self.local_modules
-            )
+            node.module = rename_dotted(node.module, self.rename, self.local_modules)
             new_names: list[ast.alias] = []
             for a in node.names:
                 if a.name == "*":

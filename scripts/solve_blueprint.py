@@ -28,11 +28,15 @@ for sub in ("bots/intgrah/v54.6.0", "pkg/proto/src", "pkg/blueprint/src"):
     sys.path.insert(0, str(ROOT / sub))
 
 from blueprint.known import KnownMap  # noqa: E402
-from hardcode.blueprints._generated import BLUEPRINTS  # type: ignore[import-not-found]  # noqa: E402
+from hardcode.blueprints._generated import (
+    BLUEPRINTS,  # type: ignore[import-not-found]
+)
 from proto import cambc_pb2  # type: ignore[attr-defined]  # noqa: E402
 
 
-def earliest_complete_turn(replay_path: Path, expected: set[tuple[int, int, int]]) -> int | None:
+def earliest_complete_turn(
+    replay_path: Path, expected: set[tuple[int, int, int]]
+) -> int | None:
     """Scan replay; return earliest turn index at which `expected` ⊆ team-A placed buildings.
 
     Expected entries are `(x, y, entity_type_int)`.
@@ -124,8 +128,13 @@ def main() -> None:
 
     km = KnownMap(args.map)
     entries = BLUEPRINTS[km]
-    expected: set[tuple[int, int, int]] = {(e.pos[0], e.pos[1], int(e.kind)) for e in entries}
-    print(f"map={args.map} entries={len(entries)} trials={args.n} workers={args.j}", file=sys.stderr)
+    expected: set[tuple[int, int, int]] = {
+        (e.pos[0], e.pos[1], int(e.kind)) for e in entries
+    }
+    print(
+        f"map={args.map} entries={len(entries)} trials={args.n} workers={args.j}",
+        file=sys.stderr,
+    )
 
     trial_dir = ROOT / "tmp" / "solve" / args.map
     trial_dir.mkdir(parents=True, exist_ok=True)
@@ -134,7 +143,15 @@ def main() -> None:
     t0 = time.time()
     with ProcessPoolExecutor(max_workers=args.j) as pool:
         futures = [
-            pool.submit(run_trial, args.map, seed, args.our_bot, args.opp_bot, expected, trial_dir)
+            pool.submit(
+                run_trial,
+                args.map,
+                seed,
+                args.our_bot,
+                args.opp_bot,
+                expected,
+                trial_dir,
+            )
             for seed in range(1, args.n + 1)
         ]
         done = 0
