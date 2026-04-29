@@ -64,6 +64,7 @@ from builder.update.patrol import update_patrol_queue
 from builder.update.prune import prune_stale
 from builder.update.reflect import update_reflect
 from builder.update.role import update_role
+from builder.update.threat import apply_threat_overlay
 from builder.update.turrets import update_enemy_turrets, update_ore_denial
 from builder.update.vision import apply_local_destroy, update_vision
 
@@ -419,7 +420,14 @@ class Builder(CoreAwareUnit):
         1 = road/walkable, ROAD_COST = empty / unobserved (optimistic).
         Initially all tiles ROAD_COST; post_init overwrites off-map cells
         (x >= w or y >= h) with INF; vision overwrites observed cells with
-        their real cost."""
+        their real cost. `apply_threat_overlay` then bumps tiles in
+        `enemy_turret_ray_tiles` / `adjacent_to_enemy_launcher` by
+        `THREAT_PENALTY` so dp_step's weighted tiebreak detours around
+        them when an alternative of the same plan-progress exists."""
+        self._threat_bumped: set[int] = set()
+        """Flat indices currently carrying a threat penalty in
+        `cost_grid`. Used to revert bumps before re-applying each turn,
+        so cleared threats restore base cost."""
 
         # Conveyor routing decomposes cleanly into: (a) is the tile buildable
         # by us right now, (b) would routing resource R through it cause
@@ -913,6 +921,7 @@ class Builder(CoreAwareUnit):
     update_reachability = update_reachability
     update_ore_denial = update_ore_denial
     update_enemy_turrets = update_enemy_turrets
+    apply_threat_overlay = apply_threat_overlay
     update_role = update_role
     update_map_econ = update_map_econ
     update_unreachable_dangling = update_unreachable_dangling
