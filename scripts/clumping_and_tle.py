@@ -88,13 +88,15 @@ def analyse(replay_path: Path, team_name: str, team_a: str, team_b: str) -> dict
                 ent_team = ent.get("team", -1)
                 if ent_team == t_idx:
                     tle_by_kind[kind_name] += 1
-                    tle_rows.append({
-                        "turn": turn_idx,
-                        "id": bo.id,
-                        "kind": kind_name,
-                        "exec_us": bo.exec_time_us,
-                        "stdout": bo.stdout[:200].replace("\n", " ")[:200],
-                    })
+                    tle_rows.append(
+                        {
+                            "turn": turn_idx,
+                            "id": bo.id,
+                            "kind": kind_name,
+                            "exec_us": bo.exec_time_us,
+                            "stdout": bo.stdout[:200].replace("\n", " ")[:200],
+                        }
+                    )
 
         # End of turn: record our builder positions.
         bucket = turn_idx // bucket_size
@@ -124,11 +126,15 @@ def analyse(replay_path: Path, team_name: str, team_a: str, team_b: str) -> dict
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--team", default="test")
-    ap.add_argument("--limit", type=int, default=0, help="process only N replays (0 = all)")
+    ap.add_argument(
+        "--limit", type=int, default=0, help="process only N replays (0 = all)"
+    )
     args = ap.parse_args()
 
     idx = json.loads(INDEX.read_text())
-    entries = sorted(idx.items(), key=lambda kv: kv[1].get("completedAt", ""), reverse=True)
+    entries = sorted(
+        idx.items(), key=lambda kv: kv[1].get("completedAt", ""), reverse=True
+    )
     if args.limit > 0:
         entries = entries[: args.limit]
 
@@ -158,13 +164,17 @@ def main() -> None:
         all_tle_by_kind.update(res["tle_by_kind"])
         tle_rows_all.extend([{**row, "replay": key} for row in res["tle_rows"]])
         if sum(res["tle_by_kind"].values()) > 0:
-            tle_matches[f"{meta['teamA']} vs {meta['teamB']}"] += sum(res["tle_by_kind"].values())
+            tle_matches[f"{meta['teamA']} vs {meta['teamB']}"] += sum(
+                res["tle_by_kind"].values()
+            )
 
     print(f"scanned {replays_scanned} replays for team={args.team}")
     print()
 
     # Clumping: distance-from-core distribution per 50-turn bucket.
-    print(f"{'turn':>8}  {'n':>5}  {'med':>5}  {'p25':>5}  {'p75':>5}  {'p90':>5}  {'max':>5}  {'units':>5}")
+    print(
+        f"{'turn':>8}  {'n':>5}  {'med':>5}  {'p25':>5}  {'p75':>5}  {'p90':>5}  {'max':>5}  {'units':>5}"
+    )
     for b in sorted(all_buckets):
         dists = all_buckets[b]
         if not dists:
@@ -183,14 +193,14 @@ def main() -> None:
         )
 
     print()
-    print("TLEs by entity kind (team {})".format(args.team))
+    print(f"TLEs by entity kind (team {args.team})")
     for kind, n in all_tle_by_kind.most_common():
         print(f"  {kind:>16}  {n}")
 
     print()
-    print("TLEs by match ({} total TLEs in {} matches with TLEs):".format(
-        sum(all_tle_by_kind.values()), len(tle_matches)
-    ))
+    print(
+        f"TLEs by match ({sum(all_tle_by_kind.values())} total TLEs in {len(tle_matches)} matches with TLEs):"
+    )
     for match, n in tle_matches.most_common(10):
         print(f"  {n:>4}  {match}")
 
@@ -198,7 +208,9 @@ def main() -> None:
     if tle_rows_all:
         print("Sample TLE events (most recent):")
         for row in tle_rows_all[:10]:
-            print(f"  turn={row['turn']:>4} id={row['id']:>4} kind={row['kind']:>14} exec={row['exec_us']}us")
+            print(
+                f"  turn={row['turn']:>4} id={row['id']:>4} kind={row['kind']:>14} exec={row['exec_us']}us"
+            )
             if row["stdout"].strip():
                 print(f"    stdout: {row['stdout']}")
 

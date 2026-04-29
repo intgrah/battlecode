@@ -77,8 +77,12 @@ def save_index(index: dict) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("n", type=int, nargs="?", default=20, help="number of recent matches")
-    ap.add_argument("--include-team", default=None, help="only matches involving this team")
+    ap.add_argument(
+        "n", type=int, nargs="?", default=20, help="number of recent matches"
+    )
+    ap.add_argument(
+        "--include-team", default=None, help="only matches involving this team"
+    )
     ap.add_argument("-j", type=int, default=20)
     args = ap.parse_args()
 
@@ -88,7 +92,9 @@ def main() -> None:
     matches = fetch_recent(args.n, args.include_team)
     print(f"selected {len(matches)} matches")
     for m in matches[:5]:
-        print(f"  {m.get('completedAt','?')}  {m.get('teamAName','?')} {m.get('scoreA',0)}-{m.get('scoreB',0)} {m.get('teamBName','?')}")
+        print(
+            f"  {m.get('completedAt', '?')}  {m.get('teamAName', '?')} {m.get('scoreA', 0)}-{m.get('scoreB', 0)} {m.get('teamBName', '?')}"
+        )
     if len(matches) > 5:
         print(f"  ... and {len(matches) - 5} more")
 
@@ -109,7 +115,10 @@ def main() -> None:
 
     done = failed = 0
     with ThreadPoolExecutor(max_workers=args.j) as pool:
-        futures = {pool.submit(download_game, token, m["id"], g, p): (m, g) for (m, g, p) in tasks}
+        futures = {
+            pool.submit(download_game, token, m["id"], g, p): (m, g)
+            for (m, g, p) in tasks
+        }
         for fut in as_completed(futures):
             m, g = futures[fut]
             ok = fut.result()

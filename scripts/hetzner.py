@@ -292,6 +292,7 @@ def _cmd_sync(args: argparse.Namespace) -> None:
     rsync = _rsync_cmd()
     print(f"Syncing to {ip}...")
     import base64 as _b64
+
     enc = _b64.b64encode(_WORKSPACE_PYPROJECT.encode()).decode()
     _ssh_run(
         ip,

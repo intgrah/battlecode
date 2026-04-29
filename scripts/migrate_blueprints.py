@@ -63,7 +63,7 @@ def render_generated(all_entries: dict[str, tuple[BlueprintEntry, ...]]) -> str:
         "",
         "from hardcode.known import KnownMap",
         "",
-        "__all__ = [\"BLUEPRINTS\"]",
+        '__all__ = ["BLUEPRINTS"]',
         "",
         "BLUEPRINTS: dict[KnownMap, tuple[BlueprintEntry, ...]] = {",
     ]
@@ -87,9 +87,7 @@ def render_generated(all_entries: dict[str, tuple[BlueprintEntry, ...]]) -> str:
 def main() -> None:
     known_names = load_known_map_names()
 
-    py_files = sorted(
-        p for p in BLUEPRINTS_DIR.glob("*.py") if p.stem != "__init__"
-    )
+    py_files = sorted(p for p in BLUEPRINTS_DIR.glob("*.py") if p.stem != "__init__")
     all_entries: dict[str, tuple[BlueprintEntry, ...]] = {}
     for p in py_files:
         if p.stem not in known_names:
