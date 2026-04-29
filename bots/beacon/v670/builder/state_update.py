@@ -109,10 +109,5 @@ def _update_ore_target(state: State, ct: Controller) -> None:
 
 
 def update_economy(state: State, ct: Controller) -> None:
-    t0 = ct.get_cpu_time_elapsed()
     _update_dangling(state, ct)
-    t1 = ct.get_cpu_time_elapsed()
-    print(f"  loose={t1 - t0}us")
     _update_ore_target(state, ct)
-    t2 = ct.get_cpu_time_elapsed()
-    print(f"  ore={t2 - t1}us")

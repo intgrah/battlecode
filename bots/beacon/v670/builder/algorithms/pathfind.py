@@ -20,7 +20,11 @@ _CPU_BUDGET = 1729
 _TIEBREAK_EPS = 1e-5
 
 _DIR8_DELTA = DIR8_DELTA.copy()
-random.shuffle(_DIR8_DELTA)
+# Deterministic per-process: previously this used unseeded `random.shuffle`,
+# making results vary run-to-run with the same engine seed and breaking A/B
+# testing of bot changes. Use a fixed permutation; the original randomization
+# was decorative tiebreaking, not load-bearing.
+random.Random(0).shuffle(_DIR8_DELTA)
 
 
 class AStarSearch:
@@ -308,7 +312,7 @@ _CONV_NEIGHBORS = [
     (-1, 1, DIAG_WEIGHT),
     (-1, -1, DIAG_WEIGHT),
 ] + [(dx, dy, COST_BRIDGE_EXTRA) for dx, dy in _BRIDGE_DELTAS]
-random.shuffle(_CONV_NEIGHBORS)
+random.Random(0).shuffle(_CONV_NEIGHBORS)
 
 
 def _turret_blocked_tiles(

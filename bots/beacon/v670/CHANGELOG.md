@@ -64,3 +64,17 @@ non-healer-range tile via `_pick_attack_destination(avoid_healers=True)`,
 or drops the target entirely. Earlier draft of the rule froze
 attackers in place because `state.offense_target = my_pos` was set
 unconditionally; fix scopes that reset to the fire branch only.
+
+## v670.5 — drop debug prints, seed module-level shuffles
+
+- `builder/__init__.py` and `builder/state_update.py`: removed
+  `print(f"  map={t1 - t0}us")` and friends. They ran every turn for
+  every unit and called `ct.get_cpu_time_elapsed()` 5–7 times per turn
+  alongside f-string formatting. No code reads them.
+- `builder/algorithms/pathfind.py`: replaced `random.shuffle(_DIR8_DELTA)`
+  and `random.shuffle(_CONV_NEIGHBORS)` with `random.Random(0).shuffle(...)`.
+  These were module-level shuffles using the unseeded global RNG, so
+  every fresh process got a different DIR8 expansion order — same map +
+  same engine seed gave different game outcomes. Strategy unchanged
+  (the order is still an arbitrary permutation), but reproducibility
+  restored, which is needed for honest A/B testing.
