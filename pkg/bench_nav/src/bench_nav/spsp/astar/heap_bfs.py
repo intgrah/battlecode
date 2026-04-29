@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import heapq
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from bench_nav.common import INF, Path_, bfs_dist, extract_parent
 from bench_nav.spsp.astar._base import AstarBase
-from bench_nav.types import PrecompCtx
+
+if TYPE_CHECKING:
+    from bench_nav.types import PrecompCtx
 
 
 class AstarHeapBfs(AstarBase):

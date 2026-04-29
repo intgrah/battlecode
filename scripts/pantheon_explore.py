@@ -73,7 +73,7 @@ def show_pre_spawn_window(rows: list[dict], spawn_turn: int, window: int = 5) ->
 def main() -> None:
     rows = load()
     by_replay = per_replay(rows)
-    for replay, rs in by_replay.items():
+    for rs in by_replay.values():
         show_spawn_pattern(rs)
         # Show a sample late-game spawn for context.
         spawns = [r for r in rs if r["spawned"]]

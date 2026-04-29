@@ -192,7 +192,7 @@ def parse_map(map_file: Path) -> dict[str, float]:
         ore_polar_variance = (
             sum(
                 (dx - mean_dx) ** 2 + (dy - mean_dy) ** 2
-                for dx, dy in zip(ore_dxs, ore_dys)
+                for dx, dy in zip(ore_dxs, ore_dys, strict=False)
             )
             / n
         )

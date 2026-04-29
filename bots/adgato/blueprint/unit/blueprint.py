@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 from blueprint import BlueprintEntry, mirror_entry
 from cambc import EntityType, Position, Team
 from hardcode.blueprints import BLUEPRINTS
-from hardcode.known import KnownMap
 from hardcode.map import CANDIDATES, CORE_A, CORE_B, DIMENSIONS, SYMMETRY, TILES, decode
 
 if TYPE_CHECKING:
     from cambc import Controller
+    from hardcode.known import KnownMap
 
 __all__ = ["find_core", "identify_map", "load_mirrored_blueprint"]
 

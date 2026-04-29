@@ -77,10 +77,7 @@ def _matches(bld: Building | None, entry: BlueprintEntry, team: object) -> bool:
     match entry.kind:
         case Entity.CONVEYOR:
             return (
-                (
-                    isinstance(bld, BuildingConveyor)
-                    or isinstance(bld, BuildingArmouredConveyor)
-                )
+                isinstance(bld, (BuildingConveyor, BuildingArmouredConveyor))
                 and bld.direction.name == entry.direction.name  # type: ignore[union-attr]
             )
         case Entity.ARMOURED_CONVEYOR:

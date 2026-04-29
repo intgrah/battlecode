@@ -144,11 +144,10 @@ def _update_cost(
                     if (
                         isinstance(adjbld, BuildingConveyor | BuildingArmouredConveyor)
                         and adjbld.team == self.my_team
-                    ):
-                        if not self.buildable[ji]:
-                            self.buildable[ji] = True
-                            self.ti_routable[ji] = not self.ti_leakage[i]
-                            self.ax_routable[ji] = not self.ax_leakage[i]
+                    ) and not self.buildable[ji]:
+                        self.buildable[ji] = True
+                        self.ti_routable[ji] = not self.ti_leakage[i]
+                        self.ax_routable[ji] = not self.ax_leakage[i]
                 cost = INF
                 buildable = False
             case _:

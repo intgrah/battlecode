@@ -136,8 +136,8 @@ def _score(
     unseen = 0
     for k in range(1, _LINE_SAMPLES + 1):
         t = k / (_LINE_SAMPLES + 1)
-        sx = int(round(pos.x + t * dx))
-        sy = int(round(pos.y + t * dy))
+        sx = round(pos.x + t * dx)
+        sy = round(pos.y + t * dy)
         if 0 <= sx < self.w and 0 <= sy < self.h and env[sy * MAX_WIDTH + sx] is None:
             unseen += 1
     score -= _FRONTIER_REWARD * (unseen / _LINE_SAMPLES)

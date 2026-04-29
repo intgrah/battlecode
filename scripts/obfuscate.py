@@ -414,10 +414,7 @@ def collect_local_modules(root: Path, files: list[Path]) -> dict[tuple[str, ...]
 
 def is_local_module(mod: str, local_modules: dict[tuple[str, ...], Path]) -> bool:
     parts = tuple(mod.split("."))
-    for i in range(1, len(parts) + 1):
-        if parts[:i] in local_modules:
-            return True
-    return False
+    return any(parts[:i] in local_modules for i in range(1, len(parts) + 1))
 
 
 def collect_stdlib_attrs(
@@ -730,14 +727,12 @@ def strip_type_imports(tree: ast.Module) -> None:
     def is_type_checking(node: ast.AST) -> bool:
         if isinstance(node, ast.Name) and node.id == "TYPE_CHECKING":
             return True
-        if (
+        return bool(
             isinstance(node, ast.Attribute)
             and isinstance(node.value, ast.Name)
             and node.value.id == "typing"
             and node.attr == "TYPE_CHECKING"
-        ):
-            return True
-        return False
+        )
 
     # typing exposes runtime decorators/helpers (override, dataclass_transform,
     # final, runtime_checkable, cast, ...) so we can't blanket-drop it. Only

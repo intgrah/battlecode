@@ -141,9 +141,8 @@ class BfsFdRaw(_BfsFdBase):
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        if goal != self._active_goal:
-            if not self._replan(pos, goal):
-                return None
+        if goal != self._active_goal and not self._replan(pos, goal):
+            return None
         i = self._path_idx[pos]
         if i < 0 or i + 1 >= len(self._path):
             return None
@@ -155,9 +154,8 @@ class BfsFdHop(_BfsFdBase):
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        if goal != self._active_goal:
-            if not self._replan(pos, goal):
-                return None
+        if goal != self._active_goal and not self._replan(pos, goal):
+            return None
         if not self._path:
             return None
         return dp_step_hop(self.w, self.cost, self.h, pos, self._path_idx)
@@ -168,9 +166,8 @@ class BfsFdCost(_BfsFdBase):
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        if goal != self._active_goal:
-            if not self._replan(pos, goal):
-                return None
+        if goal != self._active_goal and not self._replan(pos, goal):
+            return None
         if not self._path:
             return None
         return dp_step(self.w, self.cost, self.h, pos, self._path_idx)
@@ -181,9 +178,8 @@ class Bfs8Raw(_Bfs8Base):
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        if goal != self._active_goal:
-            if not self._replan(pos, goal):
-                return None
+        if goal != self._active_goal and not self._replan(pos, goal):
+            return None
         i = self._path_idx[pos]
         if i < 0 or i + 1 >= len(self._path):
             return None
@@ -195,9 +191,8 @@ class Bfs8Hop(_Bfs8Base):
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        if goal != self._active_goal:
-            if not self._replan(pos, goal):
-                return None
+        if goal != self._active_goal and not self._replan(pos, goal):
+            return None
         if not self._path:
             return None
         return dp_step_hop(self.w, self.cost, self.h, pos, self._path_idx)
@@ -208,9 +203,8 @@ class Bfs8Cost(_Bfs8Base):
 
     @override
     def step(self, pos: int, goal: int) -> int | None:
-        if goal != self._active_goal:
-            if not self._replan(pos, goal):
-                return None
+        if goal != self._active_goal and not self._replan(pos, goal):
+            return None
         if not self._path:
             return None
         return dp_step(self.w, self.cost, self.h, pos, self._path_idx)

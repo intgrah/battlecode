@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import override
+from typing import TYPE_CHECKING, override
 
 from bench_nav.common import CE, INF, Path_, bfs_dist, extract_parent
 from bench_nav.spsp.astar._base import AstarBase
-from bench_nav.types import PrecompCtx
+
+if TYPE_CHECKING:
+    from bench_nav.types import PrecompCtx
 
 assert CE + 2 == 5
 

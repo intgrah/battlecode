@@ -115,7 +115,6 @@ def step_sim(
     (px, py, wox, woy, wall_dir, moved, met, loop, painted, note)."""
     delta = -1 if cw == 1 else 1
     painted: list = []
-    note = ""
     for _ in range(8):
         wall_dir = (wall_dir + delta) % 8
         ndx = DX[wall_dir]
