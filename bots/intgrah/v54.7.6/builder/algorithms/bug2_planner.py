@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 from util.constants import INF, MAX_WIDTH
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 DX: tuple[int, ...] = (0, 1, 1, 1, 0, -1, -1, -1)
 DY: tuple[int, ...] = (-1, -1, 0, 1, 1, 1, 0, -1)
@@ -68,7 +68,7 @@ def bug2_plan_iter(
     si: int,
     gi: int,
     path_idx: list[int],
-) -> Iterator[int]:
+) -> Generator[int, None, bool]:
     """Generator. Mutates `path_idx` in place. Yields the flat cell
     index `y * MAX_WIDTH + x` each time it lays down a path tile so the
     caller can collect cells as they're committed (for visualisation,

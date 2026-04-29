@@ -314,15 +314,14 @@ class Builder(CoreAwareUnit):
                 self.unreachable_dangling.discard(t)
                 return
 
-        # A feeder only makes `t` dangling if the feeder is part of a
-        # productive Ti/Ax-carrying chain (downstream of a Ti or Ax
-        # harvester adjacency). Lone conveyors with no upstream — e.g.
-        # the inward guard ring around an unbuilt ore tile — have no
-        # resource flowing through them, so their empty output isn't a
-        # real chain end.
+        # Any feeder makes `t` dangling, optimistically trusting that
+        # it represents real flow. Splitters are the only exception —
+        # a satisfied splitter (>=2 outputs already host consumers)
+        # doesn't contribute its empty output as a chain end. Failure
+        # modes (false positives from inward guard rings / sourceless
+        # chains) get caught later by callers.
         is_dangling = t in self.adjacent_to_unconnected_harvester or any(
-            (f in self.ti_upstream or f in self.ax_upstream)
-            and not (
+            not (
                 isinstance(self.buildings[f.y * MAX_WIDTH + f.x], BuildingSplitter)
                 and self._splitter_satisfied(f)
             )
@@ -406,7 +405,7 @@ class Builder(CoreAwareUnit):
         """Wall, Empty, Ti ore, Ax ore per tile."""
         self.building_ids: list[int | None] = [None] * MAX_N
         """Cached building entity ID per tile, for change detection."""
-        self.buildings: list[Building | None] = [None] * MAX_N
+        self.buildings: Final[list[Building | None]] = [None] * MAX_N
         """Building on a tile."""
         self.hp: list[int] = [0] * MAX_N
         """Hitpoints of building on tile."""
@@ -420,49 +419,57 @@ class Builder(CoreAwareUnit):
         (x >= w or y >= h) with INF; vision overwrites observed cells with
         their real cost."""
 
-        # Conveyor routing decomposes cleanly into: (a) is the tile buildable
-        # by us right now, (b) would routing resource R through it cause
-        # contamination, (c) is the tile reachable from the builder at all.
-        # (c) is bfs_dist-based and checked live in A*. (a) and (b) are
-        # incremental bitmaps and are combined into ti_routable / ax_routable.
-        self.buildable: list[bool] = [False] * MAX_N
+        self.buildable: Final[list[bool]] = [False] * MAX_N
         """True iff a conveyor/bridge/etc. could be placed on this tile now:
         empty terrain with no building, OR friendly road, OR any marker
         (markers are 1 HP and any team can overbuild). Maintained incrementally
-        by `vision._update_cost`."""
-        self.ti_leakage: list[bool] = [False] * MAX_N
+        by `vision._update_cost`.
+
+        Conveyor routing decomposes cleanly into: (a) is the tile buildable
+        by us right now, (b) would routing resource R through it cause
+        contamination, (c) is the tile reachable from the builder at all.
+        (c) is UF-based and checked live in A*. (a) and (b) are incremental
+        bitmaps and are combined into `ti_routable` / `ax_routable`."""
+        self.ti_leakage: Final[list[bool]] = [False] * MAX_N
         """True iff routing Ti through this tile would mix with Ax: tile is
         cardinal to an Ax harvester or a friendly foundry (foundry output is
         refined Ax)."""
-        self.ax_leakage: list[bool] = [False] * MAX_N
+        self.ax_leakage: Final[list[bool]] = [False] * MAX_N
         """True iff routing Ax through this tile would mix with Ti: tile is
         cardinal to a Ti harvester."""
-        self.ti_routable: list[bool] = [False] * MAX_N
+        self.ti_routable: Final[list[bool]] = [False] * MAX_N
         """Combined: `buildable[i] and not ti_leakage[i]`. A\\* for Ti chains
         checks this plus `bfs_dist[i] is not INF`."""
-        self.ax_routable: list[bool] = [False] * MAX_N
+        self.ax_routable: Final[list[bool]] = [False] * MAX_N
         """Combined: `buildable[i] and not ax_leakage[i]`. A\\* for Ax chains
         checks this plus `bfs_dist[i] is not INF`."""
-        # Counts of leakage sources cardinal to each tile. ti_leakage[i] is
-        # `_ax_harv_at[i] > 0 or _foundry_at[i] > 0`; ax_leakage[i] is
-        # `_ti_harv_at[i] > 0`. Using counts avoids re-scanning cardinals on
-        # every removal (multiple harvesters can share a cardinal neighbour).
-        self._ti_harv_at: list[int] = [0] * MAX_N
-        self._ax_harv_at: list[int] = [0] * MAX_N
-        self._foundry_at: list[int] = [0] * MAX_N
+        self._ti_harv_at: Final[list[int]] = [0] * MAX_N
+        """Number of Ti harvesters whose 4 cardinals include this tile.
+        Bumped ±1 per cardinal in `_bump_ti_harv` whenever a Ti harvester
+        appears/disappears. `ax_leakage[i]` is `_ti_harv_at[i] > 0`. Counter
+        rather than bool because two Ti harvesters can share a cardinal —
+        we need the count to know when the last one left."""
+        self._ax_harv_at: Final[list[int]] = [0] * MAX_N
+        """Number of Ax harvesters whose 4 cardinals include this tile.
+        Same shape as `_ti_harv_at`; contributes to `ti_leakage[i]`."""
+        self._foundry_at: Final[list[int]] = [0] * MAX_N
+        """Number of friendly foundries whose 4 cardinals include this tile.
+        Contributes to `ti_leakage[i]` (foundry output is refined Ax, so
+        routing Ti through a foundry-adjacent tile would mix)."""
 
-        # Per-tile count of in_edges that come from a tile currently in
-        # `ti_upstream` / `ax_upstream`. Maintained alongside the upstream
-        # sets via `_on_in_edge_added` / `_on_in_edge_removed` and the
-        # harvester-adjacency bumps. Invariant:
-        #   t in ti_upstream  iff  _ti_in_count[t] > 0 or _ti_harv_at[t] > 0
-        #   _ti_in_count[t]   ==   |{ f in in_edges[t] : f in ti_upstream }|
-        # (and analogous for ax). Cycles in the flow graph can produce
-        # phantom-productive components that the count can't disprove —
-        # acceptable given how rare bridge/splitter cycles are; oracle
-        # check (gated on DEBUG_INVARIANTS) flags any drift.
-        self._ti_in_count: list[int] = [0] * MAX_N
-        self._ax_in_count: list[int] = [0] * MAX_N
+        self._ti_in_count: Final[list[int]] = [0] * MAX_N
+        """Per-tile count of in_edges that come from a tile currently in
+        `ti_upstream`. Maintained alongside the upstream set via
+        `_on_in_edge_added` / `_on_in_edge_removed` and the harvester-
+        adjacency bumps. Invariants:
+            t in ti_upstream  iff  _ti_in_count[t] > 0 or _ti_harv_at[t] > 0
+            _ti_in_count[t]   ==   |{ f in in_edges[t] : f in ti_upstream }|
+        Cycles in the flow graph can produce phantom-productive components
+        that the count can't disprove — acceptable given how rare
+        bridge/splitter cycles are; oracle check (gated on
+        DEBUG_INVARIANTS) flags any drift."""
+        self._ax_in_count: Final[list[int]] = [0] * MAX_N
+        """Same shape as `_ti_in_count`, for Ax flow."""
 
         offsets = [dy * MAX_WIDTH + dx for dx, dy in DIR8_DELTA]
         pnb: list[list[int]] = [[] for _ in range(MAX_N)]
@@ -572,6 +579,12 @@ class Builder(CoreAwareUnit):
         """Friendly foundry positions. Maintained incrementally in vision
         update (`_add_topology`/`_remove_topology`) so `update_economy_reachability`
         and `update_foundry_target` don't need full-map scans."""
+        self.my_harvesters: set[Position] = set()
+        """Friendly harvester positions (Ti and Ax). Invariant: equals
+        the set of `BuildingHarvester(team=self.my_team)` in
+        `self.buildings`. Maintained incrementally by `_add_topology`
+        / `_remove_topology` so consumers (`_near_core_saving_threshold`,
+        spawn-tempo etc.) get O(1) access to the count."""
         self.is_multi_input: set[Position] = set()
         """Tiles with >= 2 feeders (`len(in_edges[i]) >= 2`). Maintained
         incrementally in `_add_topology`/`_remove_topology`. Superset of
