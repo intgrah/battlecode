@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Final
 from builder.role import Role
 
 if TYPE_CHECKING:
-
     from builder import Builder
 
 
