@@ -397,6 +397,17 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             classification[c] = "wall"
             continue
         b = self.get_building(c)
+        if (
+            isinstance(
+                b,
+                BuildingBridge | BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter,
+            )
+            and b.team != self.my_team
+        ):
+            # Enemy transports never feed our chain — their flow goes
+            # somewhere we don't control.
+            classification[c] = "enemy_transport"
+            continue
         if isinstance(b, BuildingBridge):
             # Inward iff the bridge would deliver its stack back into the
             # harvester tile. ore_pos is a harvester — its raw output is
@@ -408,12 +419,10 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             classification[c] = "tier1: bridge"
             continue
         if isinstance(b, BuildingConveyor | BuildingArmouredConveyor):
-            # 1 output (along `direction`), 3 inputs. Outward iff its
-            # output doesn't point at ANY friendly harvester (covers both
-            # self-loop into ore_pos and a sibling-harvester loop where
-            # the conveyor was placed as a guard ring around a neighbour).
-            if is_inward_guard(self, c):
-                classification[c] = "inward_guard: conveyor output -> friendly harvester"
+            # 1 output (along `direction`), 3 inputs. Inward iff its
+            # output points at the ore.
+            if c.add(b.direction) == ore_pos:
+                classification[c] = "inward_guard: conveyor output -> ore"
                 continue
             tier1.append(c)
             classification[c] = "tier1: outward conveyor"
@@ -743,6 +752,12 @@ def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
         # leak Ti into an Ax chain (or Ax into a Ti chain) via an adjacent
         # transport tile.
         if harvester_would_contaminate(self, pos):
+            continue
+        # Feed-availability gate: skip ores with no viable feed cardinal
+        # (e.g. boxed in by enemy transports / walls / friendly inward
+        # guards / harvesters). Without a feed slot the harvester can't
+        # be built or its output goes nowhere we control.
+        if harvester_feed_cardinal(self, pos) is None:
             continue
         # Coordination: skip an ore tile if any visible friendly builder is
         # strictly closer. Each builder ends up claiming the ores it is
