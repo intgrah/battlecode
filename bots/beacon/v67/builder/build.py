@@ -98,7 +98,7 @@ class Fire:
     pos: Position
 
 
-type Action = (
+Action = (
     PlaceHarvester
     | PlaceConveyor
     | PlaceBridge
