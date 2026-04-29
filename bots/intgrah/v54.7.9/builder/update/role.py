@@ -5,15 +5,14 @@ from typing import TYPE_CHECKING, Final
 from builder.role import Role
 
 if TYPE_CHECKING:
-    from cambc import Controller
 
     from builder import Builder
 
 
 _OPENING_ROLES: Final = [
-    Role.DEFENSE,
-    Role.DEFENSE,
-    Role.DEFENSE,
+    Role.PERM_ECON,
+    Role.ECON,
+    Role.PERM_DEFENSE,
     Role.DEFENSE,
 ]
 
@@ -34,25 +33,28 @@ _REASSIGN_PERIOD: Final = 150
 _REASSIGN_AFTER: Final = 400
 
 
-def _pick_initial_role(self: Builder, ct: Controller) -> Role:
-    """Opening spawn slots use the hardcoded sequence; once the opening is
-    exhausted or late-game spawns arrive, fall back to a weighted random pick
-    biased by game stage (early defence-heavy, mid more aggressive).
+def _pick_initial_role(self: Builder) -> Role:
+    """Opening spawn slots use the hardcoded sequence indexed by the
+    builder's spawn round, since `get_unit_count()` is non-monotonic
+    — a builder dying mid-opening (or any round where the core
+    couldn't spawn) makes two later spawns share the same count and
+    pick the same opening slot. Round number always advances, so each
+    opening slot is unique. Once the opening sequence is exhausted,
+    fall back to a weighted random pick biased by game stage (early
+    defence-heavy, mid more aggressive).
     """
-    if self.round > 10:
-        early = self.round < 200
-        w = _INITIAL_WEIGHTS[early]
-        roles, weights = zip(*w.items(), strict=False)
-        return self.rng.choices(roles, weights=weights)[0]
-    idx = ct.get_unit_count() - 3
+    idx = self.round - 1
     if 0 <= idx < len(_OPENING_ROLES):
         return _OPENING_ROLES[idx]
-    return Role.ECON
+    early = self.round < 200
+    w = _INITIAL_WEIGHTS[early]
+    roles, weights = zip(*w.items(), strict=False)
+    return self.rng.choices(roles, weights=weights)[0]
 
 
-def update_role(self: Builder, ct: Controller) -> None:
+def update_role(self: Builder) -> None:
     if self.role is None:
-        self.role = _pick_initial_role(self, ct)
+        self.role = _pick_initial_role(self)
     if self.role_age > _REASSIGN_PERIOD and self.round > _REASSIGN_AFTER:
         self.role_age = 0
         row = _TRANSITION[self.role]
