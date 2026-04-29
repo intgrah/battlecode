@@ -398,18 +398,36 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             continue
         b = self.get_building(c)
         if isinstance(b, BuildingBridge):
+            # Inward iff the bridge would deliver its stack back into the
+            # harvester tile. ore_pos is a harvester — its raw output is
+            # destroyed there.
+            if b.target == ore_pos:
+                classification[c] = "inward_guard: bridge target == ore"
+                continue
             tier1.append(c)
             classification[c] = "tier1: bridge"
             continue
-        if isinstance(
-            b, BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter
-        ):
-            # Outward iff its direction does NOT point at the ore.
-            if c.add(b.direction) == ore_pos:
-                classification[c] = "inward_guard"
+        if isinstance(b, BuildingConveyor | BuildingArmouredConveyor):
+            # 1 output (along `direction`), 3 inputs. Outward iff its
+            # output doesn't point at ANY friendly harvester (covers both
+            # self-loop into ore_pos and a sibling-harvester loop where
+            # the conveyor was placed as a guard ring around a neighbour).
+            if is_inward_guard(self, c):
+                classification[c] = "inward_guard: conveyor output -> friendly harvester"
                 continue
             tier1.append(c)
-            classification[c] = "tier1: outward conv/splitter"
+            classification[c] = "tier1: outward conveyor"
+            continue
+        if isinstance(b, BuildingSplitter):
+            # Splitter has 3 outputs (direction, +90°, -90°) and 1 input
+            # from the back (opposite of direction). Outward iff the back
+            # faces the ore — only then does the splitter accept the
+            # harvester's output AND keep all 3 outputs pointing away.
+            if c.add(b.direction.opposite()) == ore_pos:
+                tier1.append(c)
+                classification[c] = "tier1: outward splitter"
+            else:
+                classification[c] = "inward_guard: splitter back not -> ore"
             continue
         if isinstance(
             b,
