@@ -22,7 +22,7 @@ def run_patrol(self: Builder, ct: Controller) -> bool:
     """
     if self.patrol_head is not None and ct.is_in_vision(self.patrol_head):
         if self.my_pos.distance_squared(self.patrol_head) <= PATROL_RANGE:
-                self.patrol_head = None
+            self.patrol_head = None
         else:
             for friend in self.friendly_bots:
                 if friend.distance_squared(self.patrol_head) <= PATROL_RANGE:
