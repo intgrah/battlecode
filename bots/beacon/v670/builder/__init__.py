@@ -153,27 +153,15 @@ class Builder(Unit):
 
     def run(self, ct: Controller) -> None:
         s = self.state
-        t0 = ct.get_cpu_time_elapsed()
         update_map(s, ct)
-        t1 = ct.get_cpu_time_elapsed()
-        print(f"  map={t1 - t0}us")
         update_splittable_locations(s, ct)
-        t2 = ct.get_cpu_time_elapsed()
-        print(f"  splittable={t2 - t1}us")
         update_role(s, ct)
-        t3 = ct.get_cpu_time_elapsed()
-        print(f"  role={t3 - t2}us")
-        print(f"update={t3 - t0}us")
 
         if DEBUG_DUMP:
             dump(s, ct)
 
         if s.role != Role.OFFENSE:
             update_economy(s, ct)
-            t4 = ct.get_cpu_time_elapsed()
-            print(f"  econ={t4 - t3}us")
-        else:
-            t4 = t3
 
         assert s.role is not None
         for task in POLICIES[s.role]:
@@ -182,10 +170,6 @@ class Builder(Unit):
 
         if s.role != Role.OFFENSE:
             _end_of_turn_heal(ct)
-
-        t5 = ct.get_cpu_time_elapsed()
-        print(f"task={t5 - t4}us")
-        print(f"total={t5 - t0}us")
 
 
 def _end_of_turn_heal(ct: Controller) -> None:
