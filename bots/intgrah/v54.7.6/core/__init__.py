@@ -33,6 +33,13 @@ class Core(CoreAwareUnit):
     means new spawns require strictly growing income — at equilibrium
     no further spawns happen, so constant-income games don't bleed Ti
     into builders that contribute nothing extra."""
+    INCOME_QUADRATIC_TERM: Final[float] = 0.05
+    """Quadratic kicker on the income gate: required income grows as
+    `INCOME_PER_UNIT * N + INCOME_QUADRATIC_TERM * N²`. Mild at small
+    N (4 builders ≈ +27% over linear, 8 ≈ +53%, 16 ≈ +106%) so early
+    growth still works, but the marginal income demanded by builder
+    N grows with N — captures the diminishing-return nature of late
+    builders (longer chains, distant ores, more competition for sites)."""
     SURPLUS_BASELINE: Final[int] = 50
     SURPLUS_SCALE_FACTOR: Final[int] = 60
     TRICKLE_COST_MULTIPLIER: Final[float] = 10.0
@@ -162,9 +169,13 @@ class Core(CoreAwareUnit):
         #   (spend banked Ti freely on more builders); low tempo
         #   tightens (hoard Ti for buildings — sparse maps spend better
         #   on infrastructure than on builders that have nothing to do).
-        has_income = (
-            income_rate * 4 > live_units * Core.INCOME_PER_UNIT / self.spawn_tempo
-        )
+        # Linear share + small quadratic kicker — diminishing returns
+        # for the Nth builder, without making the cap intractable.
+        income_threshold = (
+            Core.INCOME_PER_UNIT * live_units
+            + Core.INCOME_QUADRATIC_TERM * live_units * live_units
+        ) / self.spawn_tempo
+        has_income = income_rate * 4 > income_threshold
         has_surplus = self.ti > (
             Core.SURPLUS_BASELINE
             + Core.SURPLUS_SCALE_FACTOR * (ct.get_scale_percent() / 100)
