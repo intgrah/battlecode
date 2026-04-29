@@ -21,6 +21,8 @@ _ENEMY_COMBAT: frozenset[EntityType] = frozenset(
 
 def _feeds_enemy_combat(ct: Controller, my_team: Team, outputs: list[Position]) -> bool:
     for out in outputs:
+        if not ct.is_in_vision(out):
+            continue
         out_bid = ct.get_tile_building_id(out)
         if out_bid is None:
             continue
