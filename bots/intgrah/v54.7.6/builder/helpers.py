@@ -16,6 +16,7 @@ from building import (
 )
 from cambc import Controller, Direction, EntityType, Environment, Position, ResourceType
 from util.constants import BASE_COST, INF, MAX_WIDTH
+from util.debug import Scope
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
 from util.metrics import chebyshev, claims_by_proximity
@@ -351,6 +352,10 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
     else:
         sink = self.ti_sink if self.ti_sink is not None else self.my_core
     if sink is None:
+        log(
+            "harvester_feed_cardinal({ore}): no sink — symmetry unresolved",
+            ore=ore_pos,
+        )
         return None
     # Two-tier preference:
     #   tier 1: an existing outward flow consumer adjacent to the ore
@@ -364,35 +369,81 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
     # conveyors are always rejected.
     tier1: list[Position] = []
     tier2: list[Position] = []
+    classification: dict[Position, str] = {}
     for d in DIR4:
         c = ore_pos.add(d)
         if not self.in_bounds(c):
             continue
         if c == self.my_pos:
+            classification[c] = "my_pos"
             continue
         if self.get_env(c) == Environment.WALL:
+            classification[c] = "wall"
             continue
         b = self.get_building(c)
         if isinstance(b, BuildingBridge):
             tier1.append(c)
+            classification[c] = "tier1: bridge"
             continue
         if isinstance(b, BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter):
             # Outward iff its direction does NOT point at the ore.
             if c.add(b.direction) == ore_pos:
-                continue  # inward guard
+                classification[c] = "inward_guard"
+                continue
             tier1.append(c)
+            classification[c] = "tier1: outward conv/splitter"
             continue
         if isinstance(
             b,
             BuildingFoundry | BuildingCore | BuildingHarvester | BuildingBarrier,
         ):
+            classification[c] = type(b).__name__
+            continue
+        # Escape check (tier 2 only): when the builder steps off the
+        # ore onto c, the harvester sits on ore_pos. The builder must
+        # be able to move to at least one passable tile in c's
+        # U shape — top (across from ore_pos), left/right perp, and
+        # left/right far-diagonal corners — otherwise trapped.
+        # Same U shape as the barrier-vs-conveyor heuristic.
+        d_away = ore_pos.direction_to(c)
+        u_shape = (
+            c.add(d_away),
+            c.add(d_away.rotate_left().rotate_left()),
+            c.add(d_away.rotate_right().rotate_right()),
+            c.add(d_away.rotate_left()),
+            c.add(d_away.rotate_right()),
+        )
+        has_escape = any(
+            self.in_bounds(p) and self.is_passable(p) for p in u_shape
+        )
+        if not has_escape:
+            classification[c] = "no_escape"
             continue
         tier2.append(c)
+        classification[c] = "tier2: " + (type(b).__name__ if b is not None else "empty")
+
+    chosen: Position | None = None
+    chosen_tier = "none"
     if tier1:
-        return min(tier1, key=lambda c: c.distance_squared(sink))
-    if tier2:
-        return min(tier2, key=lambda c: c.distance_squared(sink))
-    return None
+        chosen = min(tier1, key=lambda c: c.distance_squared(sink))
+        chosen_tier = "tier1"
+    elif tier2:
+        chosen = min(tier2, key=lambda c: c.distance_squared(sink))
+        chosen_tier = "tier2"
+
+    # Verbose per-cardinal breakdown only when no feed was found —
+    # that's the diagnostic case. When feed is chosen, a single
+    # summary line is enough.
+    if chosen is None:
+        with Scope(f"feed_pick_{ore_pos.x}_{ore_pos.y}"):
+            log("feed_pick({ore}): NONE", ore=ore_pos)
+            for d in DIR4:
+                c = ore_pos.add(d)
+                if not self.in_bounds(c):
+                    continue
+                log("  {c}: {status}", c=c, status=classification.get(c, "?"))
+
+    return chosen
 
 
 def harvester_io_cardinals(self: Builder, ore_pos: Position) -> set[Position]:
