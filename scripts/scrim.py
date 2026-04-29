@@ -45,15 +45,15 @@ DB_PATH = ROOT / "scripts" / "scrim.db"
 MAPS_DIR = ROOT / "maps"
 POLL_INTERVAL_S = 5
 POLL_TIMEOUT_S = 600
-# Server-side limit on `/api/matches/unrated`: at most 1 request per
-# *opponent* team per `RATE_LIMIT_PER_TEAM_S` (10 minutes). One match
-# request bundles up to 5 maps. Whether the limit is per-our-team or
-# per-individual-user across teammates is unclear from the API; the
-# original docstring says "per team" and the local enforcement keys on
-# the opponent id, so we treat it as per-opponent. The shared scrim-db
-# branch lets teammates see each other's queued requests so neither
-# duplicates an in-flight slot regardless of which side of that read.
-RATE_LIMIT_PER_TEAM_S = 600
+# Server-side limit on `/api/matches/unrated`: at most
+# `RATE_LIMIT_MAX_REQUESTS` requests per `RATE_LIMIT_WINDOW_S` per *user*
+# (not per opponent, not per team — confirmed via 429 message
+# "max 5 test/unrated matches per 10 minutes"). One match request bundles
+# up to 5 maps (= 5 games). With 4 teammates each having their own
+# 5-per-10-min slot, a 5-person team can fire 25 requests = 125 games per
+# 10 min collectively if they coordinate via the shared scrim-db branch.
+RATE_LIMIT_MAX_REQUESTS = 5
+RATE_LIMIT_WINDOW_S = 600
 
 # Branch on `origin` storing the shared scrim.db snapshot. Orphan branch
 # (no shared history with master) — push/pull goes through git plumbing
@@ -196,33 +196,41 @@ def _pick_maps_for_opponent(
     return pool[:n]
 
 
-def _wait_for_rate_slot(conn: sqlite3.Connection, team_id: str) -> None:
-    """Block until at least RATE_LIMIT_PER_TEAM_S has elapsed since the
-    last request to `team_id`. Server allows one unrated match request
-    per opponent per 10 minutes (each request bundles up to 5 maps).
+def _wait_for_rate_slot(conn: sqlite3.Connection) -> None:
+    """Block until we have a free slot in the global rate-limit window
+    (RATE_LIMIT_MAX_REQUESTS requests per RATE_LIMIT_WINDOW_S, server-side
+    enforced per-USER not per-opponent — confirmed via 429 response).
+    Reads our local DB only; the `cmd_run` outer loop must `sync` first
+    so other-teammate submissions are visible (they push to scrim-db; we
+    pull). Local DB lacks rows submitted by teammates without a recent
+    push — those will hit the server-side 429 and `cmd_run` retries on
+    backoff.
     """
     while True:
-        row = conn.execute(
+        cutoff = datetime.now(UTC).timestamp() - RATE_LIMIT_WINDOW_S
+        rows = conn.execute(
             """
             SELECT requested_at FROM matches
-            WHERE team_id = ? AND requested_at IS NOT NULL
-              AND triggered_by = 'unrated'
+            WHERE triggered_by = 'unrated' AND requested_at IS NOT NULL
             ORDER BY requested_at DESC
-            LIMIT 1
+            LIMIT ?
             """,
-            (team_id,),
-        ).fetchone()
-        if row is None:
+            (RATE_LIMIT_MAX_REQUESTS,),
+        ).fetchall()
+        recent = [
+            r["requested_at"]
+            for r in rows
+            if datetime.fromisoformat(r["requested_at"]).timestamp() > cutoff
+        ]
+        if len(recent) < RATE_LIMIT_MAX_REQUESTS:
             return
-        last = datetime.fromisoformat(row["requested_at"])
-        now = datetime.now(UTC)
-        elapsed = (now - last).total_seconds()
-        if elapsed >= RATE_LIMIT_PER_TEAM_S:
-            return
-        wait_s = int(RATE_LIMIT_PER_TEAM_S - elapsed) + 1
+        oldest = datetime.fromisoformat(recent[-1])
+        wait_s = (
+            int(RATE_LIMIT_WINDOW_S - (datetime.now(UTC) - oldest).total_seconds()) + 2
+        )
         print(
-            f"  rate limit ({team_id}): last request {int(elapsed)}s ago; "
-            f"sleeping {wait_s}s",
+            f"  rate limit: {len(recent)}/{RATE_LIMIT_MAX_REQUESTS} requests "
+            f"in last {RATE_LIMIT_WINDOW_S}s; sleeping {wait_s}s",
         )
         time.sleep(min(wait_s, 30))
 
@@ -641,11 +649,15 @@ def cmd_run(args: argparse.Namespace) -> None:
                     else f"round {args.rounds - rounds_left + 1}/{args.rounds}"
                 )
                 print(f"[{tag}] {team_id}  maps={maps}")
-                _wait_for_rate_slot(conn, team_id)
+                _wait_for_rate_slot(conn)
                 try:
                     match_id = _request_unrated(team_id, maps)
-                except Exception as e:
+                except (Exception, SystemExit) as e:
+                    # api_post raises SystemExit(1) on HTTP 429; treat any
+                    # request failure as transient and back off briefly so
+                    # we don't tight-loop on a server-side rate-limit.
                     print(f"  request failed: {e}")
+                    time.sleep(15)
                     continue
                 _record_match_request(conn, match_id, team_id, maps)
                 print(f"  match_id={match_id}")
