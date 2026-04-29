@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING
 from debug import Scope, vis
 from visualiser import (
     TRANSPARENT,
-    BoolGrid,
     Colour,
-    I16Grid,
+    DumpBoolGrid,
+    DumpI16Grid,
+    DumpScalar,
+    DumpTiles,
     Palette,
     PaletteStop,
 )
@@ -54,18 +56,18 @@ def dump(state: State, _ct: Controller) -> None:
         with Scope("terrain"):
             vis(
                 "unseen",
-                BoolGrid([e is None for e in state.env], palette=P_FOG),
+                DumpBoolGrid([e is None for e in state.env], palette=P_FOG),
             )
             vis(
                 "cost",
-                I16Grid(
+                DumpI16Grid(
                     [c if c < 1e6 else -1 for c in _unpad(state.cost_grid, state)],
                     palette=P_COST,
                 ),
             )
             vis(
                 "conv_cost",
-                I16Grid(
+                DumpI16Grid(
                     [
                         c if c < 1e6 else -1
                         for c in _unpad(state.conveyor_cost_grid, state)
@@ -74,31 +76,13 @@ def dump(state: State, _ct: Controller) -> None:
                 ),
             )
         with Scope("sets"):
-            vis(
-                "enemy_launcher",
-                {
-                    "$type": "tiles",
-                    "v": [[p.x, p.y] for p in state.adjacent_to_enemy_launcher],
-                },
-            )
+            vis("enemy_launcher", DumpTiles(state.adjacent_to_enemy_launcher))
             vis(
                 "unconnected_harvester",
-                {
-                    "$type": "tiles",
-                    "v": [
-                        [p.x, p.y]
-                        for p in state.adjacent_to_unconnected_harvester
-                    ],
-                },
+                DumpTiles(state.adjacent_to_unconnected_harvester),
             )
-            vis(
-                "harvester_adjacent",
-                {
-                    "$type": "tiles",
-                    "v": [[p.x, p.y] for p in state.adjacent_to_harvester],
-                },
-            )
+            vis("harvester_adjacent", DumpTiles(state.adjacent_to_harvester))
         with Scope("identity"):
-            vis("symmetry", str(state.symmetry))
-            vis("symmetry_candidates", str(state.symmetry_candidates))
-            vis("role", str(state.role))
+            vis("symmetry", DumpScalar(str(state.symmetry)))
+            vis("symmetry_candidates", DumpScalar(str(state.symmetry_candidates)))
+            vis("role", DumpScalar(str(state.role)))

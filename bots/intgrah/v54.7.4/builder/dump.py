@@ -1,7 +1,7 @@
 """Per-turn state dump. Adds vis nodes to the debug tree under nested
 `Scope` categories (terrain, routability, distances, econ, offense,
-identity, resources, misc). Scalars use the auto-tagged path; grids
-and tile-sets use the visualiser primitives.
+identity, resources, misc). Every value is wrapped in a `Dump*` typed
+payload so the renderer knows exactly how to display it.
 """
 
 from __future__ import annotations
@@ -10,14 +10,18 @@ from typing import TYPE_CHECKING
 
 from util.constants import INF, MAX_WIDTH
 from util.debug import Scope, vis
-from visualiser import (
+from util.visualiser import (
     TRANSPARENT,
-    BoolGrid,
     Colour,
-    I16Grid,
+    DumpBoolGrid,
+    DumpDot,
+    DumpI16Grid,
+    DumpPath,
+    DumpScalar,
+    DumpTile,
+    DumpTiles,
     Palette,
     PaletteStop,
-    Tiles,
 )
 
 if TYPE_CHECKING:
@@ -73,22 +77,16 @@ def _crop_bool(arr: list[bool], w: int, h: int) -> list[bool]:
     return [arr[y * MAX_WIDTH + x] for y in range(h) for x in range(w)]
 
 
-def _tiles(positions: Iterable[Position]) -> Tiles:
-    return Tiles([(p.x, p.y) for p in positions])
+def _tile_or_none(p: Position | None) -> DumpScalar | DumpTile:
+    return DumpScalar(None) if p is None else DumpTile(p)
 
 
 def _reach_roots(self: Builder, w: int, h: int) -> list[int]:
-    """Raw `parent[i]` for each in-bounds tile. No find, no walk, no
-    work — the dump must do zero union-find work. Tiles with the same
-    parent pointer share a colour; the natural shape (chains, partial
-    compression) is preserved as-is.
-    """
     parent = self.reach_parent
     return [parent[y * MAX_WIDTH + x] for y in range(h) for x in range(w)]
 
 
 def _hsv_to_rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
-    """H in [0,1], s/v in [0,1]; returns 0..255 ints."""
     i = int(h * 6.0)
     f = h * 6.0 - i
     p = v * (1.0 - s)
@@ -114,11 +112,6 @@ _GOLDEN = 0.61803398875
 
 
 def _reach_palette(self: Builder, w: int, h: int) -> Palette[int]:
-    """One distinct colour per distinct `parent[i]` value observed in
-    the in-bounds region. No find, no walk — colours key directly off
-    the raw parent pointer so the dump performs zero union-find work.
-    -1 -> transparent.
-    """
     parent = self.reach_parent
     keys: set[int] = set()
     for y in range(h):
@@ -146,22 +139,44 @@ def dump(self: Builder, _ct: Controller) -> None:
     env = self.env
     with Scope("dump"):
         with Scope("identity"):
-            vis("id", self.my_id)
-            vis("pos", self.my_pos)
-            vis("round", self.round)
-            vis("role", str(self.role))
-            vis("role_age", self.role_age)
-            vis("symmetry", None if self.symmetry is None else self.symmetry.name)
-            vis("symmetry_candidates", sorted(s.name for s in self.symmetry_candidates))
-            vis("en_core_seen", self.en_core_seen)
-            vis("bugnav_path", self.bugnav.path_positions(w, h))
-            vis("bugnav_goal", self.bugnav.active_goal)
-            vis("bugnav_gen_done", self.bugnav.gen_done)
+            vis("id", DumpScalar(self.my_id))
+            vis("pos", DumpTile(self.my_pos))
+            vis("round", DumpScalar(self.round))
+            vis("role", DumpScalar(str(self.role)))
+            vis("role_age", DumpScalar(self.role_age))
+            vis(
+                "symmetry",
+                DumpScalar(None if self.symmetry is None else self.symmetry.name),
+            )
+            vis(
+                "symmetry_candidates",
+                DumpScalar(", ".join(sorted(s.name for s in self.symmetry_candidates))),
+            )
+            vis("en_core_seen", DumpScalar(self.en_core_seen))
+            vis(
+                "bugnav_path",
+                DumpPath(
+                    self.bugnav.committed_positions(),
+                    Colour(0, 200, 0, 180),
+                ),
+            )
+            vis(
+                "bugnav_goal",
+                DumpScalar(None)
+                if self.bugnav.active_goal is None
+                else DumpDot(self.bugnav.active_goal, Colour(255, 50, 50, 220)),
+            )
+            vis("bugnav_gen_done", DumpScalar(self.bugnav.gen_done))
+            vis("bugnav_unreachable", DumpScalar(self.bugnav.unreachable))
+            vis(
+                "bugnav_mline",
+                DumpPath(self.bugnav.mline(), Colour(255, 200, 0, 180)),
+            )
         with Scope("terrain"):
             vis(
                 "unseen",
-                BoolGrid(
-                    [
+                DumpBoolGrid(
+                    data=[
                         e is None
                         for y in range(h)
                         for e in env[y * MAX_WIDTH : y * MAX_WIDTH + w]
@@ -169,93 +184,107 @@ def dump(self: Builder, _ct: Controller) -> None:
                     palette=P_FOG,
                 ),
             )
-            vis("cost", I16Grid(_crop(self.cost_grid, w, h), palette=P_COST))
-            vis("buildable", BoolGrid(_crop_bool(self.buildable, w, h), palette=P_BOOL))
+            vis(
+                "cost",
+                DumpI16Grid(data=_crop(self.cost_grid, w, h), palette=P_COST),
+            )
+            vis(
+                "buildable",
+                DumpBoolGrid(data=_crop_bool(self.buildable, w, h), palette=P_BOOL),
+            )
         with Scope("routability"):
             vis(
                 "ti_routable",
-                BoolGrid(_crop_bool(self.ti_routable, w, h), palette=P_BOOL),
+                DumpBoolGrid(data=_crop_bool(self.ti_routable, w, h), palette=P_BOOL),
             )
             vis(
                 "ax_routable",
-                BoolGrid(_crop_bool(self.ax_routable, w, h), palette=P_BOOL),
+                DumpBoolGrid(data=_crop_bool(self.ax_routable, w, h), palette=P_BOOL),
             )
             vis(
                 "ti_leakage",
-                BoolGrid(_crop_bool(self.ti_leakage, w, h), palette=P_BOOL),
+                DumpBoolGrid(data=_crop_bool(self.ti_leakage, w, h), palette=P_BOOL),
             )
             vis(
                 "ax_leakage",
-                BoolGrid(_crop_bool(self.ax_leakage, w, h), palette=P_BOOL),
+                DumpBoolGrid(data=_crop_bool(self.ax_leakage, w, h), palette=P_BOOL),
             )
         with Scope("distances"):
             vis(
                 "reach_root",
-                I16Grid(
-                    _reach_roots(self, w, h),
+                DumpI16Grid(
+                    data=_reach_roots(self, w, h),
                     palette=_reach_palette(self, w, h),
                 ),
             )
             vis(
                 "ti_conv_dist",
-                I16Grid(_crop(self.conv_search._dist, w, h), palette=P_DIST),
+                DumpI16Grid(data=_crop(self.conv_search._dist, w, h), palette=P_DIST),
             )
             vis(
                 "ax_conv_dist",
-                I16Grid(_crop(self.ax_conv_search._dist, w, h), palette=P_DIST),
+                DumpI16Grid(
+                    data=_crop(self.ax_conv_search._dist, w, h), palette=P_DIST,
+                ),
             )
         with Scope("econ"):
             with Scope("targets"):
-                vis("ti_ore_target", self.ore_target)
-                vis("ax_ore_target", self.ax_ore_target)
-                vis("offensive_ore_target", self.offensive_ore_target)
-                vis("foundry_target", self.foundry_target)
-                vis("ti_sink", self.ti_sink)
-                vis("ax_sink", self.ax_sink)
-                vis("dangling_output", self.dangling_output)
+                vis("ti_ore_target", _tile_or_none(self.ore_target))
+                vis("ax_ore_target", _tile_or_none(self.ax_ore_target))
+                vis("offensive_ore_target", _tile_or_none(self.offensive_ore_target))
+                vis("foundry_target", _tile_or_none(self.foundry_target))
+                vis("ti_sink", _tile_or_none(self.ti_sink))
+                vis("ax_sink", _tile_or_none(self.ax_sink))
+                vis("dangling_output", _tile_or_none(self.dangling_output))
             with Scope("sets"):
-                vis("dangling_set", _tiles(self.dangling_set))
-                vis("unreachable_dangling", _tiles(self.unreachable_dangling))
-                vis("reaches_core", _tiles(self.reaches_core))
-                vis("reaches_foundry", _tiles(self.reaches_foundry))
-                vis("ti_upstream", _tiles(self.ti_upstream))
-                vis("ax_upstream", _tiles(self.ax_upstream))
-                vis("upstream_of_dangling", _tiles(self.upstream_of_dangling))
-                vis("upstream_of_congestion", _tiles(self.upstream_of_congestion))
-                vis("junctions", _tiles(self.junctions))
-                vis("is_multi_input", _tiles(self.is_multi_input))
-                vis("congested_junctions", _tiles(self.congested_junctions))
-                vis("my_foundries", _tiles(self.my_foundries))
+                vis("dangling_set", DumpTiles(self.dangling_set))
+                vis("unreachable_dangling", DumpTiles(self.unreachable_dangling))
+                vis("reaches_core", DumpTiles(self.reaches_core))
+                vis("reaches_foundry", DumpTiles(self.reaches_foundry))
+                vis("ti_upstream", DumpTiles(self.ti_upstream))
+                vis("ax_upstream", DumpTiles(self.ax_upstream))
+                vis("upstream_of_dangling", DumpTiles(self.upstream_of_dangling))
+                vis("upstream_of_congestion", DumpTiles(self.upstream_of_congestion))
+                vis("junctions", DumpTiles(self.junctions))
+                vis("is_multi_input", DumpTiles(self.is_multi_input))
+                vis("congested_junctions", DumpTiles(self.congested_junctions))
+                vis("my_foundries", DumpTiles(self.my_foundries))
             with Scope("harvesters"):
-                vis("ti_harvester_adjacent", _tiles(self.ti_harvester_adjacent))
-                vis("ax_harvester_adjacent", _tiles(self.ax_harvester_adjacent))
-                vis("harvester_adjacent", _tiles(self.adjacent_to_harvester))
+                vis("ti_harvester_adjacent", DumpTiles(self.ti_harvester_adjacent))
+                vis("ax_harvester_adjacent", DumpTiles(self.ax_harvester_adjacent))
+                vis("harvester_adjacent", DumpTiles(self.adjacent_to_harvester))
                 vis(
                     "unconnected_harvester",
-                    _tiles(self.adjacent_to_unconnected_harvester),
+                    DumpTiles(self.adjacent_to_unconnected_harvester),
                 )
-                vis("deny_ore_neighbours", _tiles(self.deny_ore_neighbours))
+                vis("deny_ore_neighbours", DumpTiles(self.deny_ore_neighbours))
         with Scope("offense"):
-            vis("offense_target", self.offense_target)
-            vis("offense_turns", self.offense_turns)
-            vis("offense_launcher", self.offense_launcher)
-            vis("last_fire", self.last_fire)
-            vis("nearest_enemy_turret", self.nearest_enemy_turret)
-            vis("enemy_turret_ray_tiles", _tiles(self.enemy_turret_ray_tiles))
-            vis("friendly_turret_ray_tiles", _tiles(self.friendly_turret_ray_tiles))
-            vis("adjacent_to_enemy_launcher", _tiles(self.adjacent_to_enemy_launcher))
-            vis("attack_blacklist", _tiles(self.attack_tile_blacklist.keys()))
+            vis("offense_target", _tile_or_none(self.offense_target))
+            vis("offense_turns", DumpScalar(self.offense_turns))
+            vis("offense_launcher", _tile_or_none(self.offense_launcher))
+            vis(
+                "last_fire",
+                _tile_or_none(self.last_fire[0] if self.last_fire else None),
+            )
+            vis("nearest_enemy_turret", _tile_or_none(self.nearest_enemy_turret))
+            vis("enemy_turret_ray_tiles", DumpTiles(self.enemy_turret_ray_tiles))
+            vis("friendly_turret_ray_tiles", DumpTiles(self.friendly_turret_ray_tiles))
+            vis(
+                "adjacent_to_enemy_launcher",
+                DumpTiles(self.adjacent_to_enemy_launcher),
+            )
+            vis("attack_blacklist", DumpTiles(self.attack_tile_blacklist.keys()))
         with Scope("resources"):
-            vis("ti", self.ti)
-            vis("ax", self.ax)
+            vis("ti", DumpScalar(self.ti))
+            vis("ax", DumpScalar(self.ax))
         with Scope("misc"):
-            vis("repair_pos", self.repair_pos)
-            vis("repaired_prev", self.repaired_prev)
-            vis("scout_target", self.scout_target)
-            vis("scout_age", self.scout_age)
-            vis("opportunistic", self.opportunistic)
-            vis("patrol_head", self.patrol_head)
-            vis("patrol_trail", _tiles(self.patrol_trail))
-            vis("reflect_queue_len", len(self.reflect_queue))
-            vis("nearby_buildings", len(self.nearby_buildings))
-            vis("healable_buildings", _tiles(self.healable_buildings))
+            vis("repair_pos", _tile_or_none(self.repair_pos))
+            vis("repaired_prev", DumpScalar(self.repaired_prev))
+            vis("explore_target", _tile_or_none(self.explore_target))
+            vis("explore_age", DumpScalar(self.explore_age))
+            vis("opportunistic", DumpScalar(self.opportunistic))
+            vis("patrol_head", _tile_or_none(self.patrol_head))
+            vis("patrol_trail", DumpTiles(self.patrol_trail))
+            vis("reflect_queue_len", DumpScalar(len(self.reflect_queue)))
+            vis("nearby_buildings", DumpScalar(len(self.nearby_buildings)))
+            vis("healable_buildings", DumpTiles(self.healable_buildings))

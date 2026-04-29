@@ -524,9 +524,9 @@ class Builder(CoreAwareUnit):
         self.patrol_trail: list[Position] = []
 
         # Scouting
-        self.scout_target: Position | None = None
-        self.scout_age: int = 0
-        self.scout_radius: float = 10.0
+        self.explore_target: Position | None = None
+        self.explore_age: int = 0
+        self.explore_radius: float = 10.0
 
     @override
     def _narrow_symmetry_from_vision(self, ct: Controller) -> None:
