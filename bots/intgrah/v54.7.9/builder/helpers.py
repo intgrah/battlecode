@@ -171,14 +171,24 @@ def required_ti_for_ore_claim(
 
 
 def ore_claim_leniency(self: Builder) -> float:
-    """Leniency multiplier on `required_ti_for_ore_claim`. Scales
-    linearly with round, from 0.8 at T0 to 2.4 at T2000 — early game
-    we can commit to a claim with only 80% of the estimated cost in
-    hand (incoming income covers the rest); late game the trunk is
-    saturated, routes detour, and we want >2x the optimistic estimate
-    before risking another distant claim.
+    """Leniency multiplier on `required_ti_for_ore_claim`. Decaying
+    exponential in friendly harvester count: starts at 0.8 with no
+    harvesters (commit to a claim with only 80% of the estimated cost
+    in hand — incoming income covers the rest), asymptotes to 2.4
+    once the colony is fully built up (trunk saturated, routes
+    detour, want >2x the optimistic estimate before risking a
+    distant claim). Harvester-count rather than round number so a
+    slow start delays the gate until we've actually built up.
+
+        n=0   → 0.80
+        n=4   → 1.10
+        n=8   → 1.27
+        n=16  → 1.66
+        n=32  → 2.07
+        n→∞   → 2.40
     """
-    return 0.8 + 1.6 * self.round / 2000.0
+    n = len(self.my_harvesters)
+    return 0.8 + 1.6 * (1 - 0.95**n)
 
 
 def can_afford_ore_claim(
