@@ -69,10 +69,10 @@ def build_harvester(self: Builder, ct: Controller) -> None:
     # complete the build is a "wait" not a "reject" — we don't want
     # `explore` to wander us off a claimed tile.
     if not can_afford(self, EntityType.HARVESTER):
-        log(f"build_harvester: waiting on Ti to build HARVESTER on {target}")
+        log("build_harvester: waiting on Ti for HARVESTER on {target}", target=target)
         return
     if harvester_feed_cardinal(self, target) is None:
-        log(f"build_harvester: no viable feed cardinal for {target}; waiting")
+        log("build_harvester: no viable feed cardinal for {target}; waiting", target=target)
         return
     if not step_off_and_build_harvester(self, ct, target):
-        log(f"build_harvester: could not step off {target} this turn; waiting")
+        log("build_harvester: could not step off {target} this turn; waiting", target=target)

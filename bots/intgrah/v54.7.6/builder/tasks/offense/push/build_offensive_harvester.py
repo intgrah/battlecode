@@ -48,10 +48,10 @@ def build_offensive_harvester(self: Builder, ct: Controller) -> None:
     # Anchor on the ore — wait for Ti / feed availability rather than
     # rejecting and letting `explore` wander us off.
     if not can_afford(self, EntityType.HARVESTER):
-        log(f"build_offensive_harvester: waiting on Ti for {target}")
+        log("build_offensive_harvester: waiting on Ti for {target}", target=target)
         return
     if harvester_feed_cardinal(self, target) is None:
-        log(f"build_offensive_harvester: no feed cardinal for {target}; waiting")
+        log("build_offensive_harvester: no feed cardinal for {target}; waiting", target=target)
         return
     if not step_off_and_build_harvester(self, ct, target):
-        log(f"build_offensive_harvester: cannot step off {target}; waiting")
+        log("build_offensive_harvester: cannot step off {target}; waiting", target=target)
