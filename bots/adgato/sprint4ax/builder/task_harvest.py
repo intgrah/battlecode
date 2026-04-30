@@ -10,10 +10,10 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment
-from util import DELTA_TO_DIR, DIR4, DIR_TO_DELTA, INF, can_afford, get_direction_object
+from util import DIR4, DELTA_TO_DIR, DIR_TO_DELTA, INF, can_afford, get_direction_object
 
-from .algorithms.pathfind import conv_pathfind
 from .extra import pave
+from .algorithms.pathfind import conv_pathfind
 from .helpers import make_move, try_move_with_road
 
 if TYPE_CHECKING:
@@ -68,7 +68,7 @@ def pick_ore_target(self: Builder, ct: Controller) -> PosInt:
     for pos in self.nearby_positions:
         terrain = self.get_env(pos)
 
-        if terrain in (Environment.ORE_TITANIUM, Environment.ORE_AXIONITE):
+        if terrain == Environment.ORE_TITANIUM or terrain == Environment.ORE_AXIONITE:
             match self.get_building(pos):
                 case BuildingHarvester():
                     continue
@@ -92,9 +92,7 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: PosInt) -> bool:
     maybe_unpaved = [
         pos
         for d in DIR4
-        if self.in_bounds(pos := target_pos + d)
-        and ct.is_in_vision(self.pos(pos))
-        and self.get_env(pos) != Environment.WALL
+        if self.in_bounds(pos := target_pos + d) and ct.is_in_vision(self.pos(pos)) and self.get_env(pos) != Environment.WALL
     ]
     if pave(self, ct, maybe_unpaved):
         return True
@@ -191,7 +189,8 @@ def build_at_ore(self: Builder, ct: Controller, target_pos: PosInt) -> bool:
                 for d in DIR4:
                     ortho_pos = target_pos + d
                     if (
-                        self.is_passable(ortho_pos) and self.my_sq_dist(ortho_pos) <= 2
+                        self.is_passable(ortho_pos)
+                        and self.my_sq_dist(ortho_pos) <= 2
                     ) and try_move_with_road(self, ct, ortho_pos):
                         return True
 
