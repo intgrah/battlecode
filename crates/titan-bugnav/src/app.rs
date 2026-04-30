@@ -199,6 +199,12 @@ impl titan_core::Playback for App {
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        // Space steps one algorithm tick — alias for the playback strip's
+        // step-forward so the keybinding matches replay/opening.
+        if ui.ctx().input(|i| i.key_pressed(egui::Key::Space)) {
+            self.step_once();
+        }
+
         if self.playing {
             let steps = titan_core::playback::speed_multiplier(self.speed) as usize;
             for _ in 0..steps {
