@@ -1,0 +1,6 @@
+# Pin cargo to the project's `.venv` Python (3.12, per `.python-version`)
+# so PyO3 builds work without typing PYO3_PYTHON= each time. The system
+# `python3` may be 3.14, which exceeds PyO3 0.23.5's max supported version.
+# Override by setting PYO3_PYTHON in your shell env.
+[env]
+PYO3_PYTHON = { value = ".venv/bin/python3.12", relative = true }
