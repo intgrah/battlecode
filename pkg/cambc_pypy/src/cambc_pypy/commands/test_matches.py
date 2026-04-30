@@ -4,7 +4,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from cambcpypy.api import api_get
+from cambc_pypy.api import api_get
 
 console = Console()
 

@@ -3,7 +3,7 @@
 import click
 from rich.console import Console
 
-from cambcpypy.auth import clear_credentials, load_credentials
+from cambc_pypy.auth import clear_credentials, load_credentials
 
 console = Console()
 

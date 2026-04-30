@@ -3,14 +3,14 @@ requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 
 [project]
-name = "cambcpypy"
+name = "cambc_pypy"
 version = "1.6.2-alpha"
 description = "Pure Python Battlecode engine for PyPy"
 requires-python = ">=3.11"
 dependencies = ["proto", "click", "rich"]
 
 [project.scripts]
-cambcpypy = "cambcpypy.cli:main"
+cambc_pypy = "cambc_pypy.cli:main"
 
 [tool.uv]
 python-preference = "only-managed"

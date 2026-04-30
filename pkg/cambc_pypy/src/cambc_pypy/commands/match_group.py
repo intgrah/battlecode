@@ -3,7 +3,7 @@
 import click
 from rich.console import Console
 
-from cambcpypy.compat import SmartGroup
+from cambc_pypy.compat import SmartGroup
 
 console = Console()
 
@@ -14,7 +14,7 @@ def match() -> None:
 
 
 # --- info (default subcommand) ---
-from cambcpypy.commands.match_detail import _show_match_detail
+from cambc_pypy.commands.match_detail import _show_match_detail
 
 
 @match.command()
@@ -25,7 +25,7 @@ def info(match_id: str) -> None:
 
 
 # --- list ---
-from cambcpypy.commands.matches import _show_matches
+from cambc_pypy.commands.matches import _show_matches
 
 
 @match.command("list")
@@ -48,7 +48,7 @@ def list_matches(match_type, team, mine, limit, cursor) -> None:
 
 
 # --- unrated ---
-from cambcpypy.commands.test import _show_unrated
+from cambc_pypy.commands.test import _show_unrated
 
 
 @match.command()
@@ -77,7 +77,7 @@ def unrated(opponent_id: str, source_match: str | None, maps: tuple[str, ...]) -
 
 
 # --- test ---
-from cambcpypy.commands.test_run import _show_test_run
+from cambc_pypy.commands.test_run import _show_test_run
 
 
 @match.command("test")
@@ -120,7 +120,7 @@ def replay(match_id: str, game: int | None, output: str | None) -> None:
     """
     import urllib.request
 
-    from cambcpypy.api import api_get
+    from cambc_pypy.api import api_get
 
     # Get match games to know how many there are
     data = api_get(f"/api/matches/{match_id}")
@@ -176,7 +176,7 @@ def watch(match_id: str, game: int | None) -> None:
     """
     import webbrowser
 
-    from cambcpypy.auth import get_api_url
+    from cambc_pypy.auth import get_api_url
 
     url = f"{get_api_url()}/visualiser?matchId={match_id}"
     if game is not None:
@@ -185,7 +185,7 @@ def watch(match_id: str, game: int | None) -> None:
 
 
 # --- tests ---
-from cambcpypy.commands.test_matches import _show_test_matches
+from cambc_pypy.commands.test_matches import _show_test_matches
 
 
 @match.command("tests")

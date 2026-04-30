@@ -3,7 +3,7 @@
 import click
 from rich.console import Console
 
-from cambcpypy.api import api_post
+from cambc_pypy.api import api_post
 
 console = Console()
 
@@ -25,7 +25,7 @@ def _show_unrated(
         console.print("[red]Unexpected response from server.[/red]")
         raise SystemExit(1)
 
-    from cambcpypy.auth import get_api_url
+    from cambc_pypy.auth import get_api_url
 
     msg = f"[green]Unrated match queued![/green] Match ID: {match_id}"
     if source_match:

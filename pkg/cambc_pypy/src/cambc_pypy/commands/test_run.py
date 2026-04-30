@@ -8,8 +8,8 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from cambcpypy.api import api_post_multipart
-from cambcpypy.config import find_config
+from cambc_pypy.api import api_post_multipart
+from cambc_pypy.config import find_config
 
 console = Console()
 
@@ -77,7 +77,7 @@ def _show_test_run(bot_a: str, bot_b: str, maps: tuple[str, ...]) -> None:
         raise SystemExit(1)
 
     if maps:
-        from cambcpypy.commands.run import resolve_map_path
+        from cambc_pypy.commands.run import resolve_map_path
 
         resolved_maps: list[Path] = []
         for map_arg in maps:

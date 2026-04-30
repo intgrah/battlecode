@@ -4,8 +4,8 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from cambcpypy.config import find_config
-from cambcpypy.engine import run_game
+from cambc_pypy.config import find_config
+from cambc_pypy.engine import run_game
 
 console = Console()
 
@@ -219,7 +219,7 @@ def run(
     _print_summary(console, result, name_a, name_b)
 
     if auto_watch:
-        from cambcpypy.commands import watch as watch_mod
+        from cambc_pypy.commands import watch as watch_mod
 
         ctx = click.get_current_context()
         ctx.invoke(watch_mod.watch, replay_file=replay)

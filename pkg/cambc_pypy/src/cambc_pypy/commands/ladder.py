@@ -4,8 +4,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from cambcpypy.api import api_get
-from cambcpypy.auth import load_credentials
+from cambc_pypy.api import api_get
+from cambc_pypy.auth import load_credentials
 
 console = Console()
 
