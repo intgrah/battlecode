@@ -1,0 +1,803 @@
+//! Translation of `bots/intgrah/v54.7.9/builder/algorithms/econ_astar.py`.
+//!
+//! A*-on-Dial conveyor router. The `AStarSearch` instance keeps long-lived
+//! buckets / bookkeeping so a paused search can resume next turn.
+
+use std::collections::HashMap;
+
+use cambc::{Controller, ControllerApi, Position, ResourceType};
+
+use crate::builder::algorithms::reachability::find as uf_find;
+use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
+
+const TARGET_DRIFT_SQ: i32 = 25;
+/// CPU budget measured as absolute turn-elapsed in microseconds (since
+/// `ct.get_cpu_time_elapsed()` returns the time since the start of the
+/// current turn). 1729us leaves ~270us for post-A* work before the 2ms
+/// server enforcement. Update() p50 is ~800us so A* typically runs for
+/// ~900us here; on rare slow-update turns A* may be compressed.
+const CPU_BUDGET: u64 = 1_7290;
+const BUCKET_COUNT: usize = 32;
+const BIDIRECTIONAL: bool = false;
+/// Diagonal (r²=2) is never a cardinal conveyor and never a legal bridge
+/// (bridges need r² in [3, 9]), so any diagonal step materialises as a
+/// bridge skipping to the next reachable tile along the path. Costed the
+/// same as a bridge so A* doesn't prefer a diagonal over a bridge unless
+/// the two cardinal alternatives are genuinely blocked.
+const DIAG_WEIGHT: i32 = 9;
+
+fn bridge_deltas() -> Vec<(i32, i32, i32)> {
+    let mut out: Vec<(i32, i32, i32)> = Vec::new();
+    for dx in -3..=3i32 {
+        for dy in -3..=3i32 {
+            let d2 = dx * dx + dy * dy;
+            if (3..=9).contains(&d2) {
+                out.push((dx, dy, 9));
+            }
+        }
+    }
+    out
+}
+
+fn conv_neighbors() -> Vec<(i32, i32, i32)> {
+    let mut out: Vec<(i32, i32, i32)> = vec![
+        (1, 0, 0),
+        (-1, 0, 0),
+        (0, 1, 0),
+        (0, -1, 0),
+        (1, 1, DIAG_WEIGHT),
+        (1, -1, DIAG_WEIGHT),
+        (-1, 1, DIAG_WEIGHT),
+        (-1, -1, DIAG_WEIGHT),
+    ];
+    out.extend(bridge_deltas());
+    out
+}
+
+fn x_of_table() -> Vec<i32> {
+    (0..MAX_N).map(|i| (i % MAX_WIDTH) as i32).collect()
+}
+
+fn y_of_table() -> Vec<i32> {
+    (0..MAX_N).map(|i| (i / MAX_WIDTH) as i32).collect()
+}
+
+/// Subset of `Builder` state read/written by the A* search. The Builder
+/// struct (Phase G6) embeds an instance of this and passes it to each
+/// `search` call; the algorithm code never touches the rest of the Builder.
+pub struct EconAstarCtx {
+    pub ax_routable: Vec<bool>,
+    pub ti_routable: Vec<bool>,
+    pub routing_extra: Vec<u8>,
+    pub reach_parent: Vec<i32>,
+    pub my_pos: Position,
+    pub nearby_tiles: Vec<Position>,
+    pub all_bots: HashMap<Position, i32>,
+}
+
+pub struct AStarSearch {
+    pub last_fail_reason: String,
+    pub last_nodes_expanded: i32,
+    /// Neighbour stencil (with extra cost) per cell. Bridge + diagonal
+    /// (extra=9) and cardinal (extra=0) merged.
+    neighbors: Vec<Vec<(i32, i32)>>,
+    /// Cardinal-only neighbour list (flat int) for the inner loop.
+    cardinal_neighbors: Vec<Vec<i32>>,
+    /// Diagonal + bridge neighbours (all carry extra=9).
+    weighted_neighbors: Vec<Vec<i32>>,
+    pub _dist: Vec<i32>,
+    dist_bwd: Vec<i32>,
+    parent_fwd: Vec<i32>,
+    parent_bwd: Vec<i32>,
+    closed_fwd: Vec<bool>,
+    closed_bwd: Vec<bool>,
+    touched_fwd: Vec<i32>,
+    touched_bwd: Vec<i32>,
+    buckets_fwd: Vec<Vec<i32>>,
+    buckets_bwd: Vec<Vec<i32>>,
+    x_heur_fwd: Vec<i32>,
+    y_heur_fwd: Vec<i32>,
+    x_heur_bwd: Vec<i32>,
+    y_heur_bwd: Vec<i32>,
+    reach_root_cache: Vec<i32>,
+    reach_root_touched: Vec<i32>,
+    /// `f_at[ni]` caches the f-value (g + h) of the most recent push of ni
+    /// into the open list. On pop, comparing `f_at[ni] != cur_f` is a cheap
+    /// stale-check.
+    f_at: Vec<i32>,
+    finished: bool,
+    target: Option<Position>,
+    x_of: Vec<i32>,
+    y_of: Vec<i32>,
+}
+
+impl AStarSearch {
+    /// Construct a fresh search with all per-tile data structures pre-allocated.
+    #[must_use]
+    pub fn new() -> Self {
+        let neighbors_template = conv_neighbors();
+        let mut neighbors: Vec<Vec<(i32, i32)>> = Vec::with_capacity(MAX_N);
+        let mut cardinal_neighbors: Vec<Vec<i32>> = Vec::with_capacity(MAX_N);
+        let mut weighted_neighbors: Vec<Vec<i32>> = Vec::with_capacity(MAX_N);
+        for cy in 0..MAX_WIDTH as i32 {
+            for cx in 0..MAX_WIDTH as i32 {
+                let mut all: Vec<(i32, i32)> = Vec::new();
+                let mut card: Vec<i32> = Vec::new();
+                let mut wt: Vec<i32> = Vec::new();
+                for &(dx, dy, extra) in &neighbors_template {
+                    let nx = cx + dx;
+                    let ny = cy + dy;
+                    if 0 <= nx && nx < MAX_WIDTH as i32 && 0 <= ny && ny < MAX_WIDTH as i32 {
+                        let ni = ny * (MAX_WIDTH as i32) + nx;
+                        all.push((ni, extra));
+                        if extra == 0 {
+                            card.push(ni);
+                        } else {
+                            wt.push(ni);
+                        }
+                    }
+                }
+                neighbors.push(all);
+                cardinal_neighbors.push(card);
+                weighted_neighbors.push(wt);
+            }
+        }
+        Self {
+            last_fail_reason: String::new(),
+            last_nodes_expanded: 0,
+            neighbors,
+            cardinal_neighbors,
+            weighted_neighbors,
+            _dist: vec![INF; MAX_N],
+            dist_bwd: vec![INF; MAX_N],
+            parent_fwd: vec![-1; MAX_N],
+            parent_bwd: vec![-1; MAX_N],
+            closed_fwd: vec![false; MAX_N],
+            closed_bwd: vec![false; MAX_N],
+            touched_fwd: Vec::new(),
+            touched_bwd: Vec::new(),
+            buckets_fwd: (0..BUCKET_COUNT).map(|_| Vec::new()).collect(),
+            buckets_bwd: (0..BUCKET_COUNT).map(|_| Vec::new()).collect(),
+            x_heur_fwd: vec![0; MAX_WIDTH],
+            y_heur_fwd: vec![0; MAX_WIDTH],
+            x_heur_bwd: vec![0; MAX_WIDTH],
+            y_heur_bwd: vec![0; MAX_WIDTH],
+            reach_root_cache: vec![-1; MAX_N],
+            reach_root_touched: Vec::new(),
+            f_at: vec![0; MAX_N],
+            finished: true,
+            target: None,
+            x_of: x_of_table(),
+            y_of: y_of_table(),
+        }
+    }
+
+    pub fn search(
+        &mut self,
+        ct: &mut Controller<'_>,
+        start: Position,
+        target: Position,
+        resource: ResourceType,
+        ctx: &mut EconAstarCtx,
+    ) -> Option<Vec<Position>> {
+        if BIDIRECTIONAL {
+            return self.search_bidirectional(ct, start, target, resource, ctx);
+        }
+        self.search_unidirectional(ct, start, target, resource, ctx)
+    }
+
+    fn search_bidirectional(
+        &mut self,
+        ct: &mut Controller<'_>,
+        start: Position,
+        target: Position,
+        resource: ResourceType,
+        ctx: &mut EconAstarCtx,
+    ) -> Option<Vec<Position>> {
+        let stride = MAX_WIDTH as i32;
+        let si = start.y * stride + start.x;
+        let gi = target.y * stride + target.x;
+        let gx = target.x;
+        let gy = target.y;
+        let sx = start.x;
+        let sy = start.y;
+        let dx = (gx - sx).abs();
+        let dy = (gy - sy).abs();
+
+        if si == gi {
+            self.finished = true;
+            self.target = Some(target);
+            self.last_fail_reason.clear();
+            self.last_nodes_expanded = 0;
+            return Some(vec![start]);
+        }
+        if dx + dy == 1 {
+            self.finished = true;
+            self.target = Some(target);
+            self.last_fail_reason.clear();
+            self.last_nodes_expanded = 0;
+            return Some(vec![start, target]);
+        }
+
+        let routable: &[bool] = if matches!(
+            resource,
+            ResourceType::RawAxionite | ResourceType::RefinedAxionite
+        ) {
+            &ctx.ax_routable
+        } else {
+            &ctx.ti_routable
+        };
+        let routing_extra = &ctx.routing_extra;
+        for i in 0..MAX_WIDTH {
+            self.x_heur_fwd[i] = ((i as i32) - gx).abs();
+            self.y_heur_fwd[i] = ((i as i32) - gy).abs();
+            self.x_heur_bwd[i] = ((i as i32) - sx).abs();
+            self.y_heur_bwd[i] = ((i as i32) - sy).abs();
+        }
+        for &idx in &self.touched_fwd {
+            self._dist[idx as usize] = INF;
+            self.parent_fwd[idx as usize] = -1;
+            self.closed_fwd[idx as usize] = false;
+        }
+        self.touched_fwd.clear();
+        for &idx in &self.touched_bwd {
+            self.dist_bwd[idx as usize] = INF;
+            self.parent_bwd[idx as usize] = -1;
+            self.closed_bwd[idx as usize] = false;
+        }
+        self.touched_bwd.clear();
+        let my_root = uf_find(&mut ctx.reach_parent, ctx.my_pos.y * stride + ctx.my_pos.x);
+        for &cached_i in &self.reach_root_touched {
+            self.reach_root_cache[cached_i as usize] = -1;
+        }
+        self.reach_root_touched.clear();
+        self.last_nodes_expanded = 0;
+        self.target = Some(target);
+        self.finished = false;
+
+        self._dist[si as usize] = 0;
+        self.parent_fwd[si as usize] = si;
+        self.touched_fwd.push(si);
+        self.dist_bwd[gi as usize] = 0;
+        self.parent_bwd[gi as usize] = gi;
+        self.touched_bwd.push(gi);
+
+        let nb_count = BUCKET_COUNT as i32;
+        let bucket_mask = nb_count - 1;
+        let f0 = self.x_heur_fwd[sx as usize] + self.y_heur_fwd[sy as usize];
+        for bucket in &mut self.buckets_fwd {
+            bucket.clear();
+        }
+        for bucket in &mut self.buckets_bwd {
+            bucket.clear();
+        }
+        self.buckets_fwd[(f0 & bucket_mask) as usize].push(si);
+        self.buckets_bwd[(f0 & bucket_mask) as usize].push(gi);
+        let mut cur_fwd = f0;
+        let mut cur_bwd = f0;
+        let mut emp_fwd: i32 = 0;
+        let mut emp_bwd: i32 = 0;
+        let mut best_cost = INF;
+        let mut best_meet: i32 = -1;
+
+        while emp_fwd < nb_count && emp_bwd < nb_count {
+            while emp_fwd < nb_count
+                && self.buckets_fwd[(cur_fwd & bucket_mask) as usize].is_empty()
+            {
+                cur_fwd += 1;
+                emp_fwd += 1;
+            }
+            while emp_bwd < nb_count
+                && self.buckets_bwd[(cur_bwd & bucket_mask) as usize].is_empty()
+            {
+                cur_bwd += 1;
+                emp_bwd += 1;
+            }
+            if emp_fwd >= nb_count || emp_bwd >= nb_count {
+                break;
+            }
+            if best_cost != INF && cur_fwd >= best_cost && cur_bwd >= best_cost {
+                break;
+            }
+
+            if cur_fwd <= cur_bwd {
+                let slot_fwd = (cur_fwd & bucket_mask) as usize;
+                emp_fwd = 0;
+                // Index-based iteration so relaxations pushed back into
+                // this same bucket (same f-value) are picked up — that's
+                // the common case for Manhattan-heuristic A* where every
+                // step toward the goal preserves f. Snapshotting via
+                // `mem::take` would silently drop them.
+                let mut idx = 0;
+                while idx < self.buckets_fwd[slot_fwd].len() {
+                    let node_i = self.buckets_fwd[slot_fwd][idx];
+                    idx += 1;
+                    let gn = self._dist[node_i as usize];
+                    if self.closed_fwd[node_i as usize]
+                        || gn
+                            + self.x_heur_fwd[self.x_of[node_i as usize] as usize]
+                            + self.y_heur_fwd[self.y_of[node_i as usize] as usize]
+                            != cur_fwd
+                    {
+                        continue;
+                    }
+                    self.closed_fwd[node_i as usize] = true;
+                    self.last_nodes_expanded += 1;
+                    let other_dist = self.dist_bwd[node_i as usize];
+                    if other_dist != INF {
+                        let cand = gn + other_dist;
+                        if cand < best_cost {
+                            best_cost = cand;
+                            best_meet = node_i;
+                        }
+                    }
+                    if ct.get_cpu_time_elapsed().unwrap() > CPU_BUDGET {
+                        self.finished = true;
+                        self.last_fail_reason = "cpu_budget".to_string();
+                        return None;
+                    }
+                    let nbrs = &self.neighbors[node_i as usize];
+                    for &(ni, extra) in nbrs {
+                        if ni != gi {
+                            if !routable[ni as usize] {
+                                continue;
+                            }
+                            let rp = ctx.reach_parent[ni as usize];
+                            if rp == -1 {
+                                continue;
+                            }
+                            if rp != my_root {
+                                let mut root = self.reach_root_cache[ni as usize];
+                                if root == -1 {
+                                    root = uf_find(&mut ctx.reach_parent, ni);
+                                    self.reach_root_cache[ni as usize] = root;
+                                    self.reach_root_touched.push(ni);
+                                }
+                                if root != my_root {
+                                    continue;
+                                }
+                            }
+                        }
+                        let nd = gn + 1 + extra + (routing_extra[ni as usize] as i32);
+                        if nd >= self._dist[ni as usize] {
+                            continue;
+                        }
+                        if self._dist[ni as usize] == INF {
+                            self.touched_fwd.push(ni);
+                        }
+                        self._dist[ni as usize] = nd;
+                        self.parent_fwd[ni as usize] = node_i;
+                        let h_val = self.x_heur_fwd[self.x_of[ni as usize] as usize]
+                            + self.y_heur_fwd[self.y_of[ni as usize] as usize];
+                        self.buckets_fwd[((nd + h_val) & bucket_mask) as usize].push(ni);
+                        let other_dist = self.dist_bwd[ni as usize];
+                        if other_dist != INF {
+                            let cand = nd + other_dist;
+                            if cand < best_cost {
+                                best_cost = cand;
+                                best_meet = ni;
+                            }
+                        }
+                    }
+                }
+                self.buckets_fwd[slot_fwd].clear();
+                cur_fwd += 1;
+                continue;
+            }
+            let slot_bwd = (cur_bwd & bucket_mask) as usize;
+            emp_bwd = 0;
+            let mut idx = 0;
+            while idx < self.buckets_bwd[slot_bwd].len() {
+                let node_i = self.buckets_bwd[slot_bwd][idx];
+                idx += 1;
+                let gn = self.dist_bwd[node_i as usize];
+                if self.closed_bwd[node_i as usize]
+                    || gn
+                        + self.x_heur_bwd[self.x_of[node_i as usize] as usize]
+                        + self.y_heur_bwd[self.y_of[node_i as usize] as usize]
+                        != cur_bwd
+                {
+                    continue;
+                }
+                self.closed_bwd[node_i as usize] = true;
+                self.last_nodes_expanded += 1;
+                let other_dist = self._dist[node_i as usize];
+                if other_dist != INF {
+                    let cand = gn + other_dist;
+                    if cand < best_cost {
+                        best_cost = cand;
+                        best_meet = node_i;
+                    }
+                }
+                if ct.get_cpu_time_elapsed().unwrap() > CPU_BUDGET {
+                    self.finished = true;
+                    self.last_fail_reason = "cpu_budget".to_string();
+                    return None;
+                }
+                let nbrs = &self.neighbors[node_i as usize];
+                for &(ni, extra) in nbrs {
+                    if ni != si {
+                        if !routable[ni as usize] {
+                            continue;
+                        }
+                        let rp = ctx.reach_parent[ni as usize];
+                        if rp == -1 {
+                            continue;
+                        }
+                        if rp != my_root {
+                            let mut root = self.reach_root_cache[ni as usize];
+                            if root == -1 {
+                                root = uf_find(&mut ctx.reach_parent, ni);
+                                self.reach_root_cache[ni as usize] = root;
+                                self.reach_root_touched.push(ni);
+                            }
+                            if root != my_root {
+                                continue;
+                            }
+                        }
+                    }
+                    let nd = gn + 1 + extra + (routing_extra[ni as usize] as i32);
+                    if nd >= self.dist_bwd[ni as usize] {
+                        continue;
+                    }
+                    if self.dist_bwd[ni as usize] == INF {
+                        self.touched_bwd.push(ni);
+                    }
+                    self.dist_bwd[ni as usize] = nd;
+                    self.parent_bwd[ni as usize] = node_i;
+                    let h_val = self.x_heur_bwd[self.x_of[ni as usize] as usize]
+                        + self.y_heur_bwd[self.y_of[ni as usize] as usize];
+                    self.buckets_bwd[((nd + h_val) & bucket_mask) as usize].push(ni);
+                    let other_dist = self._dist[ni as usize];
+                    if other_dist != INF {
+                        let cand = nd + other_dist;
+                        if cand < best_cost {
+                            best_cost = cand;
+                            best_meet = ni;
+                        }
+                    }
+                }
+            }
+            self.buckets_bwd[slot_bwd].clear();
+            cur_bwd += 1;
+        }
+
+        self.finished = true;
+        if best_meet == -1 {
+            self.last_fail_reason = "exhausted".to_string();
+            return None;
+        }
+
+        let mut rev_path: Vec<i32> = vec![best_meet];
+        let mut node = best_meet;
+        while node != si {
+            node = self.parent_fwd[node as usize];
+            if node == -1 {
+                self.last_fail_reason = "extraction_stuck".to_string();
+                return None;
+            }
+            rev_path.push(node);
+        }
+        rev_path.reverse();
+        node = best_meet;
+        while node != gi {
+            node = self.parent_bwd[node as usize];
+            if node == -1 {
+                self.last_fail_reason = "extraction_stuck".to_string();
+                return None;
+            }
+            rev_path.push(node);
+        }
+
+        self.last_fail_reason.clear();
+        Some(
+            rev_path
+                .into_iter()
+                .map(|i| Position {
+                    x: self.x_of[i as usize],
+                    y: self.y_of[i as usize],
+                })
+                .collect(),
+        )
+    }
+
+    fn search_unidirectional(
+        &mut self,
+        ct: &mut Controller<'_>,
+        start: Position,
+        target: Position,
+        resource: ResourceType,
+        ctx: &mut EconAstarCtx,
+    ) -> Option<Vec<Position>> {
+        let stride = MAX_WIDTH as i32;
+        let si = start.y * stride + start.x;
+        let mut gi = target.y * stride + target.x;
+        let mut resumed_search = false;
+
+        // Cross-turn resumption: reset `_dist` only when the previous search
+        // finished or the target has drifted. Otherwise keep accumulated
+        // distances so the search can continue where the last turn's CPU
+        // budget ran out.
+        let mut target = target;
+        if self.finished
+            || self.target.is_none()
+            || target.distance_squared(self.target.unwrap()) > TARGET_DRIFT_SQ
+        {
+            self._dist.fill(INF);
+            self.target = Some(target);
+        } else {
+            resumed_search = true;
+            target = self.target.unwrap();
+            gi = target.y * stride + target.x;
+        }
+
+        let routable: &[bool] = if matches!(
+            resource,
+            ResourceType::RawAxionite | ResourceType::RefinedAxionite
+        ) {
+            &ctx.ax_routable
+        } else {
+            &ctx.ti_routable
+        };
+        let routing_extra = &ctx.routing_extra;
+        let sx = start.x;
+        let sy = start.y;
+        for i in 0..MAX_WIDTH {
+            self.x_heur_fwd[i] = ((i as i32) - sx).abs();
+            self.y_heur_fwd[i] = ((i as i32) - sy).abs();
+        }
+        let my_root = uf_find(&mut ctx.reach_parent, ctx.my_pos.y * stride + ctx.my_pos.x);
+        for &cached_i in &self.reach_root_touched {
+            self.reach_root_cache[cached_i as usize] = -1;
+        }
+        self.reach_root_touched.clear();
+        let mut nodes_expanded = 0;
+
+        if self._dist[gi as usize] == INF {
+            self._dist[gi as usize] = 0;
+        }
+
+        let nb_count = BUCKET_COUNT as i32;
+        let bucket_mask = nb_count - 1;
+        let gx = target.x;
+        let gy = target.y;
+        let f0 = self.x_heur_fwd[gx as usize] + self.y_heur_fwd[gy as usize];
+        for bucket in &mut self.buckets_fwd {
+            bucket.clear();
+        }
+        self.buckets_fwd[(f0 & bucket_mask) as usize].push(gi);
+        self.f_at[gi as usize] = f0;
+        let mut cur_f = f0;
+        let mut emp: i32 = 0;
+
+        let cpu_budget = CPU_BUDGET;
+        let mut found = false;
+        while emp < nb_count {
+            if self.buckets_fwd[(cur_f & bucket_mask) as usize].is_empty() {
+                cur_f += 1;
+                emp += 1;
+                continue;
+            }
+            // CPU budget check at bucket boundaries only.
+            if ct.get_cpu_time_elapsed().unwrap() > cpu_budget {
+                self.finished = false;
+                self.last_fail_reason = "cpu_budget".to_string();
+                self.last_nodes_expanded = nodes_expanded;
+                return None;
+            }
+            emp = 0;
+            let slot = (cur_f & bucket_mask) as usize;
+            // Index-based iteration: relaxations pushed back into this
+            // same f-bucket (the common case for Manhattan-heuristic A*
+            // since every step toward the goal preserves f) must be
+            // picked up. Snapshotting via `mem::take` would drop them.
+            let mut idx = 0;
+            while idx < self.buckets_fwd[slot].len() {
+                let node_i = self.buckets_fwd[slot][idx];
+                idx += 1;
+                if self.f_at[node_i as usize] != cur_f {
+                    continue;
+                }
+                nodes_expanded += 1;
+                if node_i == si {
+                    found = true;
+                    break;
+                }
+                let gn = self._dist[node_i as usize];
+                let base_nd = gn + 1;
+                let weighted_nd = base_nd + 9;
+                let cardinals = &self.cardinal_neighbors[node_i as usize];
+                for &ni in cardinals {
+                    if !routable[ni as usize] {
+                        continue;
+                    }
+                    let rp = ctx.reach_parent[ni as usize];
+                    if rp != my_root {
+                        if rp == -1 {
+                            continue;
+                        }
+                        let mut root = self.reach_root_cache[ni as usize];
+                        if root == -1 {
+                            root = uf_find(&mut ctx.reach_parent, ni);
+                            self.reach_root_cache[ni as usize] = root;
+                            self.reach_root_touched.push(ni);
+                        }
+                        if root != my_root {
+                            continue;
+                        }
+                    }
+                    let nd = base_nd + (routing_extra[ni as usize] as i32);
+                    if nd >= self._dist[ni as usize] {
+                        continue;
+                    }
+                    self._dist[ni as usize] = nd;
+                    let nf = nd
+                        + self.x_heur_fwd[self.x_of[ni as usize] as usize]
+                        + self.y_heur_fwd[self.y_of[ni as usize] as usize];
+                    self.f_at[ni as usize] = nf;
+                    self.buckets_fwd[(nf & bucket_mask) as usize].push(ni);
+                }
+                let weighted = &self.weighted_neighbors[node_i as usize];
+                for &ni in weighted {
+                    if !routable[ni as usize] {
+                        continue;
+                    }
+                    let rp = ctx.reach_parent[ni as usize];
+                    if rp != my_root {
+                        if rp == -1 {
+                            continue;
+                        }
+                        let mut root = self.reach_root_cache[ni as usize];
+                        if root == -1 {
+                            root = uf_find(&mut ctx.reach_parent, ni);
+                            self.reach_root_cache[ni as usize] = root;
+                            self.reach_root_touched.push(ni);
+                        }
+                        if root != my_root {
+                            continue;
+                        }
+                    }
+                    let nd = weighted_nd + (routing_extra[ni as usize] as i32);
+                    if nd >= self._dist[ni as usize] {
+                        continue;
+                    }
+                    self._dist[ni as usize] = nd;
+                    let nf = nd
+                        + self.x_heur_fwd[self.x_of[ni as usize] as usize]
+                        + self.y_heur_fwd[self.y_of[ni as usize] as usize];
+                    self.f_at[ni as usize] = nf;
+                    self.buckets_fwd[(nf & bucket_mask) as usize].push(ni);
+                }
+            }
+            self.buckets_fwd[slot].clear();
+            if found {
+                break;
+            }
+            cur_f += 1;
+        }
+
+        self.finished = true;
+        self.last_nodes_expanded = nodes_expanded;
+        if !found {
+            self.last_fail_reason = "exhausted".to_string();
+            return None;
+        }
+
+        let mut path: Vec<i32> = vec![si];
+        let mut node = si;
+        let mut cur_d = self._dist[si as usize];
+        if resumed_search {
+            while node != gi {
+                let mut best_dist = cur_d;
+                let mut best = node;
+                let nbrs = &self.neighbors[node as usize];
+                for &(ni, extra) in nbrs {
+                    let mut d = self._dist[ni as usize];
+                    if d == INF {
+                        continue;
+                    }
+                    if ni != gi {
+                        if !routable[ni as usize] {
+                            continue;
+                        }
+                        let rp = ctx.reach_parent[ni as usize];
+                        if rp == -1 {
+                            continue;
+                        }
+                        if rp != my_root {
+                            let mut root = self.reach_root_cache[ni as usize];
+                            if root == -1 {
+                                root = uf_find(&mut ctx.reach_parent, ni);
+                                self.reach_root_cache[ni as usize] = root;
+                                self.reach_root_touched.push(ni);
+                            }
+                            if root != my_root {
+                                continue;
+                            }
+                        }
+                    }
+                    d += extra;
+                    if d < best_dist {
+                        best_dist = d;
+                        best = ni;
+                    }
+                }
+                if best == node {
+                    self.last_fail_reason = "extraction_stuck".to_string();
+                    return None;
+                }
+                path.push(best);
+                node = best;
+                cur_d = best_dist;
+            }
+        } else {
+            while node != gi {
+                let mut best_dist = cur_d;
+                let mut best = node;
+                let nbrs = &self.neighbors[node as usize];
+                for &(ni, extra) in nbrs {
+                    let mut d = self._dist[ni as usize];
+                    if d == INF {
+                        continue;
+                    }
+                    d += extra;
+                    if d < best_dist {
+                        best_dist = d;
+                        best = ni;
+                    }
+                }
+                if best == node {
+                    self.last_fail_reason = "extraction_stuck".to_string();
+                    return None;
+                }
+                path.push(best);
+                node = best;
+                cur_d = best_dist;
+            }
+        }
+
+        self.last_fail_reason.clear();
+        Some(
+            path.into_iter()
+                .map(|i| Position {
+                    x: self.x_of[i as usize],
+                    y: self.y_of[i as usize],
+                })
+                .collect(),
+        )
+    }
+
+    /// Run `search` but treat tiles occupied by other friendly bots as
+    /// non-routable. Mutates `ti_routable` / `ax_routable` temporarily.
+    pub fn search_blocked(
+        &mut self,
+        ct: &mut Controller<'_>,
+        start: Position,
+        goal: Position,
+        ctx: &mut EconAstarCtx,
+    ) -> Option<Vec<Position>> {
+        let stride = MAX_WIDTH as i32;
+        let mut saved: Vec<(usize, bool, bool)> = Vec::new();
+        let nearby = ctx.nearby_tiles.clone();
+        for pos in &nearby {
+            if ctx.all_bots.contains_key(pos) && *pos != start {
+                let idx = (pos.y * stride + pos.x) as usize;
+                saved.push((idx, ctx.ti_routable[idx], ctx.ax_routable[idx]));
+                ctx.ti_routable[idx] = false;
+                ctx.ax_routable[idx] = false;
+            }
+        }
+        let result = self.search(ct, start, goal, ResourceType::Titanium, ctx);
+        for (idx, ti_val, ax_val) in saved {
+            ctx.ti_routable[idx] = ti_val;
+            ctx.ax_routable[idx] = ax_val;
+        }
+        result
+    }
+}
+
+impl Default for AStarSearch {
+    fn default() -> Self {
+        Self::new()
+    }
+}

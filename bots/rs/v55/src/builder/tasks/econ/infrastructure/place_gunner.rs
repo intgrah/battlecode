@@ -1,0 +1,257 @@
+//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/place_gunner.py`.
+//!
+//! Defensive gunner / sentinel placement adjacent to a friendly harvester.
+//! Iterates DIR8 neighbours: gunner placement requires a forward-ray that
+//! hits an enemy harvester or transport (via `gunner_facing`); sentinel
+//! placement requires the nearest enemy turret to be within range
+//! (`sentinel_facing`). Falls back to placing on `my_pos` after a random
+//! step-off.
+
+use cambc::{
+    BuildExtra, Controller, ControllerApi, Direction, EntityType, GameConstants, Position, Team,
+};
+
+use crate::builder::Builder;
+use crate::builder::helpers::{move_random, try_place};
+use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
+use crate::building::Building;
+use crate::util::directions::{DIR4, DIR8};
+
+fn is_turret(b: Option<Building>) -> bool {
+    matches!(
+        b,
+        Some(
+            Building::Gunner { .. }
+                | Building::Sentinel { .. }
+                | Building::Breach { .. }
+                | Building::Launcher { .. }
+        )
+    )
+}
+
+fn is_turret_or_transport(b: Option<Building>) -> bool {
+    matches!(
+        b,
+        Some(
+            Building::Gunner { .. }
+                | Building::Sentinel { .. }
+                | Building::Breach { .. }
+                | Building::Launcher { .. }
+                | Building::Conveyor { .. }
+                | Building::ArmouredConveyor { .. }
+                | Building::Splitter { .. }
+        )
+    )
+}
+
+/// True if `b` is a friendly building we must NOT destroy when
+/// placing a turret. Destroying conveyors / roads / markers / enemy
+/// stuff is fine — they're cheap or hostile — but stomping our own
+/// harvester wipes ore output, and stomping our own foundry /
+/// launcher kills a huge Ti + scaling investment.
+fn is_precious_friendly(b: Option<Building>, team: Team) -> bool {
+    let Some(b) = b else { return false };
+    if b.team() != team {
+        return false;
+    }
+    matches!(
+        b,
+        Building::Harvester { .. } | Building::Foundry { .. } | Building::Launcher { .. }
+    )
+}
+
+/// Snap the unit vector from `from` to `to` to the nearest 45-degree direction.
+fn direction_to(from: Position, to: Position) -> Direction {
+    let dx = to.x - from.x;
+    let dy = to.y - from.y;
+    if dx == 0 && dy == 0 {
+        return Direction::Centre;
+    }
+    let angle = (-(dy as f64)).atan2(dx as f64);
+    let raw = (angle + 2.0 * std::f64::consts::PI + std::f64::consts::FRAC_PI_8)
+        / std::f64::consts::FRAC_PI_4;
+    let sector = (raw as i32).rem_euclid(8) as usize;
+    [
+        Direction::East,
+        Direction::Northeast,
+        Direction::North,
+        Direction::Northwest,
+        Direction::West,
+        Direction::Southwest,
+        Direction::South,
+        Direction::Southeast,
+    ][sector]
+}
+
+pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
+    if !self_.adjacent_to_harvester.contains(&position) {
+        return None;
+    }
+    if !self_.is_buildable(position) {
+        return None;
+    }
+    let b = self_.get_building(position);
+    if is_precious_friendly(b, self_.my_team) {
+        return None;
+    }
+    if is_turret(b) {
+        return None;
+    }
+    if let Some(&uid) = self_.all_bots.get(&position)
+        && uid != self_.my_id
+    {
+        return None;
+    }
+    for d in DIR8 {
+        let n = position.add(d);
+        if !self_.in_bounds(n) {
+            continue;
+        }
+        let nb = self_.get_building(n);
+        let is_enemy_gunner_or_sentinel = matches!(
+            nb,
+            Some(Building::Gunner { team, .. } | Building::Sentinel { team, .. }) if team != self_.my_team
+        );
+        if !is_enemy_gunner_or_sentinel {
+            continue;
+        }
+        for harvester_direction in DIR4 {
+            if harvester_direction != d {
+                let hn = position.add(harvester_direction);
+                if !self_.in_bounds(hn) {
+                    continue;
+                }
+                if matches!(self_.get_building(hn), Some(Building::Harvester { .. })) {
+                    return Some(d);
+                }
+            }
+        }
+    }
+    None
+}
+
+pub fn sentinel_facing(
+    self_: &Builder,
+    ct: &mut Controller<'_>,
+    position: Position,
+) -> Option<Direction> {
+    let b = self_.get_building(position);
+    let nearest = self_.nearest_enemy_turret;
+    if nearest.is_none()
+        || position.distance_squared(nearest.unwrap()) > GameConstants::SENTINEL_VISION_RADIUS_SQ
+        || !self_.adjacent_to_harvester.contains(&position)
+        || !self_.is_buildable(position)
+        || is_turret_or_transport(b)
+        || is_precious_friendly(b, self_.my_team)
+        || !self_.in_bounds(position)
+    {
+        return None;
+    }
+    if let Some(&uid) = self_.all_bots.get(&position)
+        && uid != self_.my_id
+    {
+        return None;
+    }
+
+    let nearest = nearest.unwrap();
+    let d = direction_to(position, nearest);
+    let mut found_harvester = false;
+    for harvester_direction in DIR4 {
+        if harvester_direction != d {
+            let hn = position.add(harvester_direction);
+            if !self_.in_bounds(hn) {
+                continue;
+            }
+            if matches!(self_.get_building(hn), Some(Building::Harvester { .. })) {
+                found_harvester = true;
+            }
+        }
+    }
+    if !found_harvester {
+        return None;
+    }
+
+    let shootable_tiles = ct
+        .get_attackable_tiles_from(position, d, EntityType::Sentinel)
+        .unwrap();
+    if shootable_tiles.contains(&nearest) {
+        return Some(d);
+    }
+    None
+}
+
+pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bool {
+    let neighbours_8 = self_.neighbours_8.clone();
+    for test_position in neighbours_8 {
+        let result = sentinel_facing(self_, ct, test_position);
+        if let Some(d) = result {
+            return try_place(
+                self_,
+                ct,
+                EntityType::Sentinel,
+                test_position,
+                BuildExtra::Direction(d),
+                true,
+            );
+        }
+    }
+    let my_pos = self_.my_pos;
+    let result = sentinel_facing(self_, ct, my_pos);
+    if let Some(d) = result
+        && move_random(self_, ct)
+    {
+        try_place(
+            self_,
+            ct,
+            EntityType::Sentinel,
+            my_pos,
+            BuildExtra::Direction(d),
+            true,
+        );
+        return true;
+    }
+    false
+}
+
+pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
+    let neighbours_8 = self_.neighbours_8.clone();
+    for test_position in neighbours_8 {
+        let result = gunner_facing(self_, test_position);
+        if let Some(d) = result {
+            if try_place(
+                self_,
+                ct,
+                EntityType::Gunner,
+                test_position,
+                BuildExtra::Direction(d),
+                true,
+            ) {
+                return Ok(());
+            }
+            return Err(TaskRejected::new(
+                "no valid gunner or sentinel placement nearby",
+            ));
+        }
+    }
+    let my_pos = self_.my_pos;
+    let result = gunner_facing(self_, my_pos);
+    if let Some(d) = result
+        && move_random(self_, ct)
+    {
+        try_place(
+            self_,
+            ct,
+            EntityType::Gunner,
+            my_pos,
+            BuildExtra::Direction(d),
+            true,
+        );
+        return Ok(());
+    }
+    if place_sentinel_nearby(self_, ct) {
+        return Ok(());
+    }
+    Err(TaskRejected::new(
+        "no valid gunner or sentinel placement nearby",
+    ))
+}

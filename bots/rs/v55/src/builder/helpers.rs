@@ -1,0 +1,1024 @@
+//! Translation of `bots/intgrah/v54.7.9/builder/helpers.py`.
+
+use std::collections::HashSet;
+
+use cambc::{
+    BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position,
+    ResourceType,
+};
+use serde_json::Map;
+
+use crate::builder::Builder;
+use crate::building::Building;
+use crate::util::constants::{MAX_WIDTH, base_cost};
+use crate::util::debug::{Scope, debug as log};
+use crate::util::directions::{DIR4, DIR8, delta_to_dir};
+use crate::util::metrics::{chebyshev, claims_by_proximity, manhattan};
+use crate::util::visualiser::auto_wrap_position;
+
+/// Return True iff this call actually issued a move. 'Already at target'
+/// and 'no plan' both return False — neither advances the builder, so the
+/// caller shouldn't treat the turn as productive.
+pub fn make_move(builder: &mut Builder, ct: &mut Controller<'_>, target: Position) -> bool {
+    if builder.state.my_pos == target {
+        let mut args = Map::new();
+        args.insert("target".to_string(), auto_wrap_position(target));
+        log("make_move: already on target {target}", args);
+        return false;
+    }
+    let next_move = builder.bugnav_step(target);
+    let Some(next_move) = next_move else {
+        if move_random(builder, ct) {
+            let mut args = Map::new();
+            args.insert(
+                "start".to_string(),
+                auto_wrap_position(builder.state.my_pos),
+            );
+            args.insert("target".to_string(), auto_wrap_position(target));
+            log(
+                "make_move: bugnav stuck, took random step {start}->{target}",
+                args,
+            );
+            return true;
+        }
+        let mut args = Map::new();
+        args.insert(
+            "start".to_string(),
+            auto_wrap_position(builder.state.my_pos),
+        );
+        args.insert("target".to_string(), auto_wrap_position(target));
+        log(
+            "make_move: FAILED {start}->{target} (bugnav: no plan, random step also blocked)",
+            args,
+        );
+        return false;
+    };
+    let mut args = Map::new();
+    args.insert(
+        "start".to_string(),
+        auto_wrap_position(builder.state.my_pos),
+    );
+    args.insert("target".to_string(), auto_wrap_position(target));
+    args.insert("next".to_string(), auto_wrap_position(next_move));
+    log("make_move: bugnav {start}->{target} step {next}", args);
+    try_move_with_road(builder, ct, next_move)
+}
+
+/// Like `make_move`, but if `target` itself is impassable, routes to the
+/// closest passable cardinal of `target` instead.
+pub fn make_move_or_adjacent(
+    builder: &mut Builder,
+    ct: &mut Controller<'_>,
+    target: Position,
+) -> bool {
+    if builder.is_passable(target) {
+        return make_move(builder, ct, target);
+    }
+    let mut best: Option<Position> = None;
+    let mut best_d: i32 = 1 << 30;
+    for d in DIR4 {
+        let c = target.add(d);
+        if !builder.in_bounds(c) || !builder.is_passable(c) {
+            continue;
+        }
+        let cd = chebyshev(builder.state.my_pos, c);
+        if cd < best_d {
+            best_d = cd;
+            best = Some(c);
+        }
+    }
+    let Some(best) = best else {
+        let mut args = Map::new();
+        args.insert("target".to_string(), auto_wrap_position(target));
+        log(
+            "make_move_or_adjacent: {target} impassable AND no passable cardinal",
+            args,
+        );
+        return false;
+    };
+    if builder.state.my_pos == best {
+        let mut args = Map::new();
+        args.insert("target".to_string(), auto_wrap_position(target));
+        args.insert("pos".to_string(), auto_wrap_position(builder.state.my_pos));
+        log(
+            "make_move_or_adjacent: already adjacent to {target} (at {pos})",
+            args,
+        );
+        return false;
+    }
+    let mut args = Map::new();
+    args.insert("target".to_string(), auto_wrap_position(target));
+    args.insert("adj".to_string(), auto_wrap_position(best));
+    log(
+        "make_move_or_adjacent: {target} impassable, routing to cardinal {adj}",
+        args,
+    );
+    make_move(builder, ct, best)
+}
+
+pub fn try_move_dir(ct: &mut Controller<'_>, d: Direction) -> bool {
+    if ct.can_move(d).unwrap() {
+        let mut args = Map::new();
+        args.insert("dir".to_string(), serde_json::Value::String(format!("{d}")));
+        log("try_move_dir: moving {dir}", args);
+        ct.move_(d).unwrap();
+        return true;
+    }
+    false
+}
+
+pub fn try_move_to(builder: &mut Builder, ct: &mut Controller<'_>, target_pos: Position) -> bool {
+    let dx = target_pos.x - builder.state.my_pos.x;
+    let dy = target_pos.y - builder.state.my_pos.y;
+    let Some(d) = delta_to_dir(dx, dy) else {
+        return false;
+    };
+    if ct.can_move(d).unwrap() {
+        let mut args = Map::new();
+        args.insert(
+            "start".to_string(),
+            auto_wrap_position(builder.state.my_pos),
+        );
+        args.insert("target".to_string(), auto_wrap_position(target_pos));
+        args.insert("dir".to_string(), serde_json::Value::String(format!("{d}")));
+        log("try_move_to: {start}->{target} dir {dir}", args);
+        let hx = (dx > 0) as i32 - (dx < 0) as i32;
+        let hy = (dy > 0) as i32 - (dy < 0) as i32;
+        builder.explore_heading = Some((hx, hy));
+        ct.move_(d).unwrap();
+        return true;
+    }
+    false
+}
+
+pub fn try_move_with_road(
+    builder: &mut Builder,
+    ct: &mut Controller<'_>,
+    target_pos: Position,
+) -> bool {
+    if builder.get_cost(target_pos) > 1 && ct.can_build_road(target_pos).unwrap() {
+        let mut args = Map::new();
+        args.insert("target".to_string(), auto_wrap_position(target_pos));
+        args.insert(
+            "cost".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(builder.get_cost(target_pos))),
+        );
+        log(
+            "try_move_with_road: paving road at {target} (cost={cost} > 1)",
+            args,
+        );
+        ct.build_road(target_pos).unwrap();
+    }
+    try_move_to(builder, ct, target_pos)
+}
+
+pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
+    if ct.can_fire(pos).unwrap() {
+        let mut args = Map::new();
+        args.insert("pos".to_string(), auto_wrap_position(pos));
+        log("try_attack: firing on {pos}", args);
+        ct.fire(pos).unwrap();
+        return true;
+    }
+    false
+}
+
+pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
+    let base = base_cost(etype).map(|c| c.0).unwrap_or(0);
+    let scale = builder.state.scale;
+    let foundry = if builder.state.round >= 500 && !builder.ax_harvester_adjacent.is_empty() {
+        ((base_cost(EntityType::Foundry).unwrap().0 as f64) * scale) as i32
+    } else {
+        0
+    };
+    match etype {
+        EntityType::Foundry => ((base as f64) * scale) as i32,
+        EntityType::Harvester => {
+            let reserve = if builder.state.round < 35 { 10 } else { 20 };
+            (((base + reserve) as f64) * (1.0 + scale)) as i32 + foundry
+        }
+        EntityType::Launcher => (((base + 15) as f64) * (1.0 + scale)) as i32 + foundry,
+        EntityType::Sentinel | EntityType::Gunner => {
+            ((base as f64) * (1.0 + scale)) as i32 + foundry
+        }
+        _ => ((base as f64) * scale) as i32 + foundry,
+    }
+}
+
+pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
+    builder.state.ti >= ti_needed(builder, etype)
+}
+
+/// Heuristic Ti cost to walk to `ore_pos`, place a harvester, ring
+/// it inward (worst case 3 sides), and route the chain back to
+/// `sink_pos`.
+pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
+    let s = builder.state.scale;
+    let h_cost = ((base_cost(EntityType::Harvester).unwrap().0 as f64) * (1.0 + s)) as i32;
+    let c_cost = ((base_cost(EntityType::Conveyor).unwrap().0 as f64) * s) as i32;
+    let b_cost = ((base_cost(EntityType::Bridge).unwrap().0 as f64) * s) as i32;
+    let r_cost = (((base_cost(EntityType::Road).unwrap().0 as f64) * s) as i32).max(1);
+    let d_pos = manhattan(builder.state.my_pos, ore_pos);
+    let d_sink = manhattan(ore_pos, sink_pos);
+    let walk_cost = d_pos * r_cost;
+    let ring_cost = 3 * c_cost;
+    let chain_cost =
+        ((d_sink as f64) * (0.7 * (c_cost as f64) + 0.3 * (b_cost as f64) / 3.0)) as i32;
+    h_cost + ring_cost + chain_cost + walk_cost
+}
+
+/// Leniency multiplier on `required_ti_for_ore_claim`. Decaying
+/// exponential in friendly harvester count: starts at 0.65, asymptotes to 1.60.
+pub fn ore_claim_leniency(builder: &Builder) -> f64 {
+    let n = builder.my_harvesters.len() as f64;
+    0.65 + 0.95 * (1.0 - 0.958f64.powf(n))
+}
+
+pub fn can_afford_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> bool {
+    builder.state.ti
+        >= ((required_ti_for_ore_claim(builder, ore_pos, sink_pos) as f64)
+            * ore_claim_leniency(builder)) as i32
+}
+
+/// Type alias for the optional third argument to `try_place`.
+/// Use `BuildExtra::None`, `BuildExtra::Direction(d)`, or
+/// `BuildExtra::Position(p)`.
+pub type TryPlaceExtra = BuildExtra;
+
+pub fn try_place(
+    builder: &mut Builder,
+    ct: &mut Controller<'_>,
+    etype: EntityType,
+    pos: Position,
+    extra: BuildExtra,
+    destroy: bool,
+) -> bool {
+    if !can_afford(builder, etype) {
+        let mut args = Map::new();
+        args.insert(
+            "etype".to_string(),
+            serde_json::Value::String(format!("{etype:?}")),
+        );
+        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(
+            "have".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(builder.state.ti)),
+        );
+        args.insert(
+            "need".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(ti_needed(builder, etype))),
+        );
+        args.insert(
+            "base".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(
+                base_cost(etype).map(|c| c.0).unwrap_or(0),
+            )),
+        );
+        args.insert("scale".to_string(), serde_json::json!(builder.state.scale));
+        log(
+            "try_place: cannot afford {etype} at {pos} (have {have}, need {need}; base {base}, scale {scale:.2f})",
+            args,
+        );
+        return false;
+    }
+    if destroy && ct.can_destroy(pos).unwrap() {
+        let mut args = Map::new();
+        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(
+            "etype".to_string(),
+            serde_json::Value::String(format!("{etype:?}")),
+        );
+        log(
+            "try_place: destroying existing building at {pos} for {etype}",
+            args,
+        );
+        ct.destroy(pos).unwrap();
+        builder.apply_local_destroy(pos);
+    }
+    if ct.can_build(etype, pos, extra).unwrap() {
+        let mut args = Map::new();
+        args.insert(
+            "etype".to_string(),
+            serde_json::Value::String(format!("{etype:?}")),
+        );
+        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(
+            "extra".to_string(),
+            serde_json::Value::String(format!("{extra:?}")),
+        );
+        args.insert(
+            "ti".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(builder.state.ti)),
+        );
+        args.insert("scale".to_string(), serde_json::json!(builder.state.scale));
+        log(
+            "try_place: built {etype} at {pos} extra={extra} (ti={ti}, scale={scale:.2f})",
+            args,
+        );
+        ct.build(etype, pos, extra).unwrap();
+        return true;
+    }
+    let mut args = Map::new();
+    args.insert(
+        "etype".to_string(),
+        serde_json::Value::String(format!("{etype:?}")),
+    );
+    args.insert("pos".to_string(), auto_wrap_position(pos));
+    args.insert(
+        "extra".to_string(),
+        serde_json::Value::String(format!("{extra:?}")),
+    );
+    log(
+        "try_place: controller rejected {etype} at {pos} extra={extra} (can_build False)",
+        args,
+    );
+    false
+}
+
+pub fn trace_downstream(
+    builder: &Builder,
+    start_pos: Position,
+    target_head: Option<Position>,
+) -> Vec<Position> {
+    let mut path: Vec<Position> = Vec::new();
+    _trace_downstream_inner(builder, start_pos, target_head, &mut path);
+    path
+}
+
+fn _trace_downstream_inner(
+    builder: &Builder,
+    start_pos: Position,
+    target_head: Option<Position>,
+    path: &mut Vec<Position>,
+) {
+    let mut current_pos = start_pos;
+    loop {
+        path.push(current_pos);
+        let bld = builder.get_building(current_pos);
+        match bld {
+            Some(
+                Building::Conveyor { direction, .. } | Building::ArmouredConveyor { direction, .. },
+            ) => {
+                current_pos = current_pos.add(direction);
+            }
+            Some(Building::Splitter { direction, .. }) => {
+                let handled = false;
+                for sd in DIR4 {
+                    if sd == direction.opposite() {
+                        continue;
+                    }
+                    let new_pos = current_pos.add(sd);
+                    if let Some(target_head) = target_head {
+                        let mut new_path = path.clone();
+                        _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
+                        if !new_path.is_empty() && new_path.contains(&target_head) {
+                            *path = new_path;
+                            return;
+                        }
+                    } else if builder.get_building(new_pos).is_none() {
+                        path.push(new_pos);
+                        return;
+                    }
+                }
+                if !handled {
+                    current_pos = current_pos.add(direction);
+                }
+            }
+            Some(Building::Bridge { target, .. }) => {
+                current_pos = target;
+            }
+            _ => break,
+        }
+        if path.contains(&current_pos) {
+            break;
+        }
+    }
+}
+
+pub fn try_heal(
+    builder: &Builder,
+    ct: &mut Controller<'_>,
+    position: Position,
+    conserve_ti: bool,
+) -> bool {
+    if conserve_ti && let Some(repair_pos) = builder.repair_pos {
+        let i = builder.idx(repair_pos);
+        if builder.buildings[i].is_none() || builder.hp[i] > builder.max_hp[i] - 4 {
+            return false;
+        }
+    }
+    if ct.can_heal(position).unwrap() {
+        let mut args = Map::new();
+        args.insert("pos".to_string(), auto_wrap_position(position));
+        log("try_heal: healing {pos}", args);
+        ct.heal(position).unwrap();
+        return true;
+    }
+    false
+}
+
+pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
+    let mut dir8: Vec<Direction> = DIR8.to_vec();
+    // Fisher-Yates shuffle using rng
+    for i in (1..dir8.len()).rev() {
+        let j = (builder.state.rng.next_u64() % ((i + 1) as u64)) as usize;
+        dir8.swap(i, j);
+    }
+    for direction in dir8 {
+        if ct.can_move(direction).unwrap() {
+            ct.move_(direction).unwrap();
+            return true;
+        }
+    }
+    false
+}
+
+pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
+    let mut path: Vec<Position> = Vec::new();
+    let mut feeders: Vec<Position> = vec![position];
+    while !feeders.is_empty() {
+        let position = feeders[0];
+        feeders = builder.get_in_edges(position);
+        if path.contains(&position) {
+            break;
+        }
+        path.push(position);
+    }
+    path
+}
+
+pub fn ore_available(builder: &Builder, pos: Position) -> bool {
+    let b = builder.get_building(pos);
+    if let Some(b) = b {
+        let allowed = matches!(
+            b,
+            Building::Road { .. } | Building::Marker { .. } | Building::Barrier { .. }
+        ) || (matches!(
+            b,
+            Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+        ) && is_inward_guard(builder, pos));
+        if !allowed {
+            return false;
+        }
+    }
+    if let Some(&uid) = builder.state.all_bots.get(&pos)
+        && uid != builder.state.my_id
+    {
+        return false;
+    }
+    true
+}
+
+/// The cardinal of `ore_pos` chosen as the future flow-feed slot.
+pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<Position> {
+    let sink: Option<Position> = if on_enemy_side(builder, ore_pos) {
+        if builder.symmetry().is_some() {
+            Some(builder.en_core_guess())
+        } else {
+            None
+        }
+    } else if let Some(t) = builder.ti_sink {
+        Some(t)
+    } else {
+        Some(builder.my_core)
+    };
+    let Some(sink) = sink else {
+        let mut args = Map::new();
+        args.insert("ore".to_string(), auto_wrap_position(ore_pos));
+        log(
+            "harvester_feed_cardinal({ore}): no sink — symmetry unresolved",
+            args,
+        );
+        return None;
+    };
+
+    let mut tier1: Vec<Position> = Vec::new();
+    let mut tier2: Vec<Position> = Vec::new();
+    let mut classification: Vec<(Position, &'static str)> = Vec::new();
+    for d in DIR4 {
+        let c = ore_pos.add(d);
+        if !builder.in_bounds(c) {
+            continue;
+        }
+        if c == builder.state.my_pos {
+            classification.push((c, "my_pos"));
+            continue;
+        }
+        if builder.get_env(c) == Some(Environment::Wall) {
+            classification.push((c, "wall"));
+            continue;
+        }
+        let b = builder.get_building(c);
+        if let Some(bv) = b
+            && matches!(
+                bv,
+                Building::Bridge { .. }
+                    | Building::Conveyor { .. }
+                    | Building::ArmouredConveyor { .. }
+                    | Building::Splitter { .. }
+            )
+            && bv.team() != builder.state.my_team
+        {
+            classification.push((c, "enemy_transport"));
+            continue;
+        }
+        match b {
+            Some(Building::Bridge { target, .. }) => {
+                if target == ore_pos {
+                    classification.push((c, "inward_guard: bridge target == ore"));
+                } else {
+                    tier1.push(c);
+                    classification.push((c, "tier1: bridge"));
+                }
+                continue;
+            }
+            Some(
+                Building::Conveyor { direction, .. } | Building::ArmouredConveyor { direction, .. },
+            ) => {
+                if c.add(direction) == ore_pos {
+                    classification.push((c, "inward_guard: conveyor output -> ore"));
+                } else {
+                    tier1.push(c);
+                    classification.push((c, "tier1: outward conveyor"));
+                }
+                continue;
+            }
+            Some(Building::Splitter { direction, .. }) => {
+                if c.add(direction.opposite()) == ore_pos {
+                    tier1.push(c);
+                    classification.push((c, "tier1: outward splitter"));
+                } else {
+                    classification.push((c, "inward_guard: splitter back not -> ore"));
+                }
+                continue;
+            }
+            Some(
+                Building::Foundry { .. }
+                | Building::Core { .. }
+                | Building::Harvester { .. }
+                | Building::Barrier { .. },
+            ) => {
+                classification.push((c, "blocking_building"));
+                continue;
+            }
+            _ => {}
+        }
+        // Escape check for tier 2.
+        let dx = c.x - ore_pos.x;
+        let dy = c.y - ore_pos.y;
+        let Some(d_away) = delta_to_dir(dx, dy) else {
+            continue;
+        };
+        let u_shape = [
+            c.add(d_away),
+            c.add(rotate_left(rotate_left(d_away))),
+            c.add(rotate_right(rotate_right(d_away))),
+            c.add(rotate_left(d_away)),
+            c.add(rotate_right(d_away)),
+        ];
+        let has_escape = u_shape
+            .iter()
+            .any(|p| builder.in_bounds(*p) && builder.is_passable(*p));
+        if !has_escape {
+            classification.push((c, "no_escape"));
+            continue;
+        }
+        tier2.push(c);
+        classification.push((c, "tier2"));
+    }
+
+    let chosen: Option<Position> = if !tier1.is_empty() {
+        Some(
+            *tier1
+                .iter()
+                .min_by_key(|c| c.distance_squared(sink))
+                .unwrap(),
+        )
+    } else if !tier2.is_empty() {
+        Some(
+            *tier2
+                .iter()
+                .min_by_key(|c| c.distance_squared(sink))
+                .unwrap(),
+        )
+    } else {
+        None
+    };
+
+    if chosen.is_none() {
+        let label = format!("feed_pick_{}_{}", ore_pos.x, ore_pos.y);
+        let _g = Scope::new(&label);
+        let mut args = Map::new();
+        args.insert("ore".to_string(), auto_wrap_position(ore_pos));
+        log("feed_pick({ore}): NONE", args);
+        for d in DIR4 {
+            let c = ore_pos.add(d);
+            if !builder.in_bounds(c) {
+                continue;
+            }
+            let status = classification
+                .iter()
+                .find_map(|(p, s)| if *p == c { Some(*s) } else { None })
+                .unwrap_or("?");
+            let mut args = Map::new();
+            args.insert("c".to_string(), auto_wrap_position(c));
+            args.insert(
+                "status".to_string(),
+                serde_json::Value::String(status.to_string()),
+            );
+            log("  {c}: {status}", args);
+        }
+    }
+
+    chosen
+}
+
+/// Cardinals of `ore_pos` that must NOT be barriered.
+pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<Position> {
+    let cardinals: Vec<Position> = DIR4
+        .iter()
+        .map(|&d| ore_pos.add(d))
+        .filter(|p| builder.in_bounds(*p))
+        .collect();
+    let mut reserved: HashSet<Position> = HashSet::new();
+    for c in &cardinals {
+        if *c == builder.state.my_pos {
+            reserved.insert(*c);
+            continue;
+        }
+        let b = builder.get_building(*c);
+        if matches!(
+            b,
+            Some(
+                Building::Conveyor { .. }
+                    | Building::ArmouredConveyor { .. }
+                    | Building::Splitter { .. }
+                    | Building::Bridge { .. }
+                    | Building::Foundry { .. }
+                    | Building::Core { .. }
+                    | Building::Harvester { .. }
+            )
+        ) {
+            reserved.insert(*c);
+        }
+    }
+    if let Some(feed) = harvester_feed_cardinal(builder, ore_pos) {
+        reserved.insert(feed);
+    }
+    reserved
+}
+
+/// True iff at least 3 of `ore_pos`'s 4 in-bounds cardinals already host a barrier.
+pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool {
+    let mut barriers = 0;
+    for d in DIR4 {
+        let c = ore_pos.add(d);
+        if !builder.in_bounds(c) {
+            continue;
+        }
+        if matches!(builder.get_building(c), Some(Building::Barrier { .. })) {
+            barriers += 1;
+        }
+    }
+    barriers >= 3
+}
+
+pub fn pick_ore_target(builder: &Builder) -> Option<Position> {
+    _pick_ore(builder, Environment::OreTitanium)
+}
+
+pub fn pick_ax_ore_target(builder: &Builder) -> Option<Position> {
+    _pick_ore(builder, Environment::OreAxionite)
+}
+
+/// Pick a Ti ore tile outside our econ disc for an offensive harvester.
+pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
+    let mut best_target: Option<Position> = None;
+    let mut min_dist = i32::MAX;
+    for pos in &builder.state.nearby_tiles {
+        if builder.get_env(*pos) != Some(Environment::OreTitanium) {
+            continue;
+        }
+        match builder.get_building(*pos) {
+            Some(Building::Harvester { .. }) => continue,
+            None
+            | Some(Building::Road { .. })
+            | Some(Building::Marker { .. })
+            | Some(Building::Barrier { .. }) => {}
+            Some(Building::Conveyor { .. } | Building::ArmouredConveyor { .. }) => {
+                if !is_inward_guard(builder, *pos) {
+                    continue;
+                }
+            }
+            _ => continue,
+        }
+        if !builder.is_reachable(*pos) {
+            continue;
+        }
+        let d = builder.state.my_pos.distance_squared(*pos);
+        if !ore_available(builder, *pos) {
+            continue;
+        }
+        if pos.distance_squared(builder.my_core) <= builder.econ_radius_sq {
+            continue;
+        }
+        if harvester_would_contaminate(builder, *pos) {
+            continue;
+        }
+        let friends_iter = builder.state.all_bots.iter().filter_map(|(p, &fid)| {
+            if fid != builder.state.my_id && builder.state.friendly_bots.contains(p) {
+                Some((*p, fid))
+            } else {
+                None
+            }
+        });
+        if !claims_by_proximity(
+            builder.state.my_pos,
+            builder.state.my_id,
+            *pos,
+            friends_iter,
+        ) {
+            continue;
+        }
+        if d < min_dist {
+            min_dist = d;
+            best_target = Some(*pos);
+        }
+    }
+    best_target
+}
+
+pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
+    let ore_env = builder.get_env(pos);
+    let (bad_upstream, bad_flows): (&HashSet<Position>, &[ResourceType]) =
+        if ore_env == Some(Environment::OreTitanium) {
+            (
+                &builder.ax_upstream,
+                &[ResourceType::RawAxionite, ResourceType::RefinedAxionite],
+            )
+        } else if ore_env == Some(Environment::OreAxionite) {
+            (&builder.ti_upstream, &[ResourceType::Titanium])
+        } else {
+            return false;
+        };
+    let mut pure_ti_conveyor_count = 0;
+    let mut heavy_hostile_count = 0;
+    let mut hostile_found = false;
+    for d in DIR4 {
+        let n = pos.add(d);
+        if !builder.in_bounds(n) {
+            continue;
+        }
+        let b = builder.get_building(n);
+        let Some(b) = b else { continue };
+        if !matches!(
+            b,
+            Building::Conveyor { .. }
+                | Building::ArmouredConveyor { .. }
+                | Building::Splitter { .. }
+                | Building::Bridge { .. }
+        ) {
+            continue;
+        }
+        if b.team() != builder.state.my_team {
+            continue;
+        }
+        let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
+        let is_bad = bad_upstream.contains(&n)
+            || builder.flow_history[ni].iter().any(
+                |(r, _): &(Option<ResourceType>, Option<i32>)| {
+                    r.is_some_and(|r| bad_flows.contains(&r))
+                },
+            );
+        if !is_bad {
+            continue;
+        }
+        hostile_found = true;
+        if ore_env == Some(Environment::OreAxionite) {
+            if matches!(b, Building::Conveyor { .. }) {
+                pure_ti_conveyor_count += 1;
+            } else {
+                heavy_hostile_count += 1;
+            }
+        }
+    }
+    if !hostile_found {
+        return false;
+    }
+    !(ore_env == Some(Environment::OreAxionite)
+        && heavy_hostile_count == 0
+        && pure_ti_conveyor_count == 1)
+}
+
+/// True if `pos` is outside our econ disc — i.e. more than
+/// sqrt(econ_radius_sq) (= 0.7·max(w,h)) from our core.
+pub fn on_enemy_side(builder: &Builder, pos: Position) -> bool {
+    pos.distance_squared(builder.my_core) > builder.econ_radius_sq
+}
+
+/// True if `pos` hosts a friendly conveyor whose flow direction
+/// points at an adjacent friendly harvester.
+pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
+    let b = builder.get_building(pos);
+    let Some(b) = b else {
+        return false;
+    };
+    let direction = match b {
+        Building::Conveyor { team, direction } | Building::ArmouredConveyor { team, direction } => {
+            if team != builder.state.my_team {
+                return false;
+            }
+            direction
+        }
+        _ => return false,
+    };
+    let target = pos.add(direction);
+    if !builder.in_bounds(target) {
+        return false;
+    }
+    let target_b = builder.get_building(target);
+    matches!(target_b, Some(Building::Harvester { team }) if team == builder.state.my_team)
+}
+
+fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
+    let mut best_target: Option<Position> = None;
+    let mut min_dist = i32::MAX;
+    for pos in &builder.state.nearby_tiles {
+        if builder.get_env(*pos) != Some(wanted) {
+            continue;
+        }
+        match builder.get_building(*pos) {
+            Some(Building::Harvester { .. }) => continue,
+            None
+            | Some(Building::Road { .. })
+            | Some(Building::Marker { .. })
+            | Some(Building::Barrier { .. }) => {}
+            Some(Building::Conveyor { .. } | Building::ArmouredConveyor { .. }) => {
+                if !is_inward_guard(builder, *pos) {
+                    continue;
+                }
+            }
+            _ => continue,
+        }
+        if !builder.is_reachable(*pos) {
+            continue;
+        }
+        let d = builder.state.my_pos.distance_squared(*pos);
+        if !ore_available(builder, *pos) {
+            continue;
+        }
+        if pos.distance_squared(builder.my_core) > builder.econ_radius_sq {
+            continue;
+        }
+        if harvester_would_contaminate(builder, *pos) {
+            continue;
+        }
+        if harvester_feed_cardinal(builder, *pos).is_none() {
+            continue;
+        }
+        let friends_iter = builder.state.all_bots.iter().filter_map(|(p, &fid)| {
+            if fid != builder.state.my_id && builder.state.friendly_bots.contains(p) {
+                Some((*p, fid))
+            } else {
+                None
+            }
+        });
+        if !claims_by_proximity(
+            builder.state.my_pos,
+            builder.state.my_id,
+            *pos,
+            friends_iter,
+        ) {
+            continue;
+        }
+        if d < min_dist {
+            min_dist = d;
+            best_target = Some(*pos);
+        }
+    }
+    best_target
+}
+
+const _UPSTREAM_MAX_NODES: usize = 80;
+const _DOWNSTREAM_MAX_NODES: usize = 80;
+
+/// BFS backwards via `in_edges` — all friendly transport tiles whose
+/// output structurally reaches `start`.
+pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
+    let mut visited: HashSet<Position> = HashSet::new();
+    visited.insert(start);
+    let mut queue: Vec<Position> = vec![start];
+    while let Some(pos) = queue.pop() {
+        if visited.len() >= _UPSTREAM_MAX_NODES {
+            break;
+        }
+        for &u in &builder.in_edges[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
+            if visited.contains(&u) {
+                continue;
+            }
+            visited.insert(u);
+            queue.push(u);
+        }
+    }
+    visited
+}
+
+/// BFS forwards via `out_edges`.
+pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
+    let mut visited: HashSet<Position> = HashSet::new();
+    visited.insert(start);
+    let mut queue: Vec<Position> = vec![start];
+    while let Some(pos) = queue.pop() {
+        if visited.len() >= _DOWNSTREAM_MAX_NODES {
+            break;
+        }
+        for &out in &builder.out_edges[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
+            if visited.contains(&out) {
+                continue;
+            }
+            visited.insert(out);
+            queue.push(out);
+        }
+    }
+    visited
+}
+
+pub fn chain_has_foundry(builder: &Builder, start: Position) -> bool {
+    for pos in upstream_tree(builder, start) {
+        if let Some(Building::Foundry { team }) = builder.get_building(pos)
+            && team == builder.state.my_team
+        {
+            return true;
+        }
+    }
+    for pos in downstream_tree(builder, start) {
+        if let Some(Building::Foundry { team }) = builder.get_building(pos)
+            && team == builder.state.my_team
+        {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn ax_feeds_target(builder: &Builder, target: Position) -> bool {
+    for &feeder in &builder.in_edges[(target.y as usize) * MAX_WIDTH + (target.x as usize)] {
+        if builder.ax_upstream.contains(&feeder) {
+            return true;
+        }
+    }
+    for d in DIR4 {
+        let n = target.add(d);
+        if !builder.in_bounds(n) {
+            continue;
+        }
+        let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
+        let nb = builder.buildings[ni];
+        if matches!(nb, Some(Building::Harvester { team }) if team == builder.state.my_team)
+            && builder.env[ni] == Some(Environment::OreAxionite)
+        {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn tile_has_ax_flow(builder: &Builder, pos: Position) -> bool {
+    for &(r, _rid) in &builder.flow_history[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
+        if matches!(
+            r,
+            Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite)
+        ) {
+            return true;
+        }
+    }
+    false
+}
+
+const fn rotate_right(d: Direction) -> Direction {
+    match d {
+        Direction::North => Direction::Northeast,
+        Direction::Northeast => Direction::East,
+        Direction::East => Direction::Southeast,
+        Direction::Southeast => Direction::South,
+        Direction::South => Direction::Southwest,
+        Direction::Southwest => Direction::West,
+        Direction::West => Direction::Northwest,
+        Direction::Northwest => Direction::North,
+        Direction::Centre => Direction::Centre,
+    }
+}
+
+const fn rotate_left(d: Direction) -> Direction {
+    match d {
+        Direction::North => Direction::Northwest,
+        Direction::Northeast => Direction::North,
+        Direction::East => Direction::Northeast,
+        Direction::Southeast => Direction::East,
+        Direction::South => Direction::Southeast,
+        Direction::Southwest => Direction::South,
+        Direction::West => Direction::Southwest,
+        Direction::Northwest => Direction::West,
+        Direction::Centre => Direction::Centre,
+    }
+}

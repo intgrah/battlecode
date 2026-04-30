@@ -1,0 +1,1265 @@
+use std::collections::HashSet;
+
+use cambc::{Controller, ControllerApi, EntityType, Environment, Position, ResourceType};
+use serde_json::{Map, Value};
+
+use crate::builder::Builder;
+use crate::builder::algorithms::reachability::find;
+use crate::builder::helpers::{
+    ax_feeds_target, can_afford_ore_claim, harvester_would_contaminate, is_inward_guard,
+    ore_available, pick_ax_ore_target, pick_offensive_ti_ore_target, pick_ore_target,
+};
+use crate::building::Building;
+use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, base_cost};
+use crate::util::debug::Scope;
+use crate::util::debug::debug as log;
+use crate::util::directions::DIR4;
+use crate::util::metrics::{chebyshev, claims_by_proximity};
+
+pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
+    let bld = builder.get_building(pos);
+    let ok = match bld {
+        None => true,
+        Some(Building::Conveyor { team, .. }) | Some(Building::Road { team }) => {
+            team == builder.state.my_team
+        }
+        _ => false,
+    };
+    if !ok {
+        return false;
+    }
+
+    let conv = builder.get_in_edges(pos);
+    let conv_adj: Vec<Position> = conv
+        .iter()
+        .copied()
+        .filter(|c| c.distance_squared(pos) <= 2)
+        .collect();
+    if conv_adj.len() >= 2 || conv.is_empty() {
+        return false;
+    }
+    let mut buildable_count = 0;
+    for d in DIR4 {
+        let new_pos = pos.add(d);
+        if !builder.in_bounds(new_pos) {
+            continue;
+        }
+        if builder.get_env(new_pos) != Some(Environment::Empty) {
+            continue;
+        }
+        match builder.get_building(new_pos) {
+            None => buildable_count += 1,
+            Some(
+                Building::Conveyor { .. } | Building::Bridge { .. } | Building::Splitter { .. },
+            ) => {}
+            Some(b) if b.team() == builder.state.my_team => buildable_count += 1,
+            Some(_) => {}
+        }
+    }
+    buildable_count >= 1
+}
+
+pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
+    let prev_unconn = builder.adjacent_to_unconnected_harvester.clone();
+    builder.adjacent_to_unconnected_harvester = builder
+        .adjacent_to_unconnected_harvester
+        .iter()
+        .copied()
+        .filter(|p| !ct.is_in_vision(*p).unwrap())
+        .collect::<HashSet<_>>();
+    builder.adjacent_to_harvester = builder
+        .adjacent_to_harvester
+        .iter()
+        .copied()
+        .filter(|p| !ct.is_in_vision(*p).unwrap())
+        .collect::<HashSet<_>>();
+
+    // Pass 1: scan visible harvesters to maintain
+    // `adjacent_to_unconnected_harvester` and `adjacent_to_harvester`.
+    let nearby = builder.state.nearby_tiles.clone();
+    let my_team = builder.state.my_team;
+    for pos in &nearby {
+        let pos = *pos;
+        let bld = builder.get_building(pos);
+        if !matches!(bld, Some(Building::Harvester { .. })) {
+            continue;
+        }
+        let mut adjacent_conveyor = false;
+        for d in DIR4 {
+            let n = pos.add(d);
+            if !builder.in_bounds(n) {
+                continue;
+            }
+            match builder.get_building(n) {
+                Some(
+                    Building::Conveyor {
+                        team,
+                        direction: cdir,
+                    }
+                    | Building::ArmouredConveyor {
+                        team,
+                        direction: cdir,
+                    },
+                ) if team == my_team => {
+                    if cdir != d.opposite() {
+                        let target = n.add(cdir);
+                        if builder.in_bounds(target)
+                            && matches!(
+                                builder.get_building(target),
+                                Some(Building::Harvester { .. })
+                            )
+                        {
+                            // skip — pushes into a harvester
+                        } else {
+                            adjacent_conveyor = true;
+                            break;
+                        }
+                    }
+                }
+                Some(
+                    Building::Bridge { team, .. }
+                    | Building::Splitter { team, .. }
+                    | Building::Foundry { team }
+                    | Building::Core { team }
+                    | Building::Gunner { team, .. }
+                    | Building::Sentinel { team, .. }
+                    | Building::Breach { team, .. }
+                    | Building::Launcher { team },
+                ) if team == my_team => {
+                    adjacent_conveyor = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if !adjacent_conveyor {
+            for d in DIR4 {
+                let n = pos.add(d);
+                if builder.in_bounds(n) {
+                    builder.adjacent_to_unconnected_harvester.insert(n);
+                }
+            }
+        }
+        for d in DIR4 {
+            let n = pos.add(d);
+            if builder.in_bounds(n) {
+                builder.adjacent_to_harvester.insert(n);
+            }
+        }
+    }
+
+    // Pass 2: movement cost_grid per-turn penalties for enemy turret rays
+    // and launcher adjacency.
+    for pos in &nearby {
+        let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+        if builder.cost_grid[i] != INF {
+            if builder.adjacent_to_enemy_launcher.contains(pos) {
+                builder.cost_grid[i] += 20;
+            }
+            if builder.enemy_turret_ray_tiles.contains(pos) {
+                builder.cost_grid[i] += 15;
+            }
+        }
+    }
+
+    // Reconcile dangling_set with harvester-adjacency changes
+    let changed: HashSet<Position> = prev_unconn
+        .symmetric_difference(&builder.adjacent_to_unconnected_harvester)
+        .copied()
+        .collect();
+    for p in changed {
+        builder._check_dangling(p, "unconn_flip");
+    }
+}
+
+/// Migrate tiles between `dangling_set` and `unreachable_dangling`
+/// according to map-level reachability (incremental UF, not BFS).
+pub fn update_unreachable_dangling(builder: &mut Builder) {
+    let my_i = (builder.state.my_pos.y as usize) * MAX_WIDTH + (builder.state.my_pos.x as usize);
+    if builder.reach_parent[my_i] == -1 {
+        return;
+    }
+    let my_root = find(&mut builder.reach_parent, my_i as i32);
+    let dangling: Vec<Position> = builder.dangling_set.iter().copied().collect();
+    for t in dangling {
+        let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
+        if builder.reach_parent[i] == -1 || find(&mut builder.reach_parent, i as i32) != my_root {
+            let mut args = Map::new();
+            args.insert(
+                "t".to_string(),
+                crate::util::visualiser::auto_wrap_position(t),
+            );
+            log("DANGLING discard(unreachable) t={t}", args);
+            builder.dangling_set.remove(&t);
+            builder.unreachable_dangling.insert(t);
+        }
+    }
+    let unreach: Vec<Position> = builder.unreachable_dangling.iter().copied().collect();
+    for t in unreach {
+        let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
+        if builder.reach_parent[i] != -1 && find(&mut builder.reach_parent, i as i32) == my_root {
+            let mut args = Map::new();
+            args.insert(
+                "t".to_string(),
+                crate::util::visualiser::auto_wrap_position(t),
+            );
+            log("DANGLING add(reachable-migrate) t={t}", args);
+            builder.unreachable_dangling.remove(&t);
+            builder.dangling_set.insert(t);
+        }
+    }
+}
+
+/// Refresh the cached `dangling_output` once per turn — no
+/// stickiness. Tasks (`extend_chain_*`, `push_extend`) and update
+/// helpers (`update_foundry_target`, `update_ti_sink`) read the cached
+/// value rather than re-running the selection.
+pub fn update_dangling(builder: &mut Builder) {
+    let result = pick_dangling_output(&*builder, None);
+    builder.dangling_output = result;
+}
+
+/// Pick the dangling end this builder should work on right now —
+/// no commitment, recomputed on demand. The proximity gate
+/// (`claims_by_proximity`) ensures at most one builder claims each end
+/// even though every builder runs the same selection independently.
+///
+/// If `ct` is provided, candidates are filtered to currently-visible
+/// tiles (used by `extend_chain_in_range`). Without `ct`, all dangling
+/// tiles are considered.
+/// Forward flood from seed tiles through `out_edges`. Helper for the
+/// debug-only `check_invariants` oracle. Pulled out of an inline closure
+/// so the translator's single-expr-lambda restriction doesn't apply.
+fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> HashSet<Position> {
+    let mut target: HashSet<Position> = HashSet::new();
+    let mut stack: Vec<Position> = Vec::new();
+    for s in seeds {
+        if target.contains(s) {
+            continue;
+        }
+        if out_edges[(s.y as usize) * MAX_WIDTH + (s.x as usize)].is_empty() {
+            continue;
+        }
+        target.insert(*s);
+        stack.push(*s);
+    }
+    while let Some(p) = stack.pop() {
+        for out in &out_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)] {
+            if target.contains(out) {
+                continue;
+            }
+            target.insert(*out);
+            stack.push(*out);
+        }
+    }
+    target
+}
+
+/// Chebyshev distance from `pos` to its nearest core_edge (or `my_core`
+/// if `core_edges` is empty — shouldn't happen post-init).
+fn chebyshev_to_nearest_core_edge(builder: &Builder, pos: Position) -> i32 {
+    let mut best_d = INF;
+    for e in &builder.core_edges {
+        let d = chebyshev(pos, *e);
+        if d < best_d {
+            best_d = d;
+        }
+    }
+    if best_d == INF {
+        chebyshev(pos, builder.my_core)
+    } else {
+        best_d
+    }
+}
+
+pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> Option<Position> {
+    let friendly: Vec<(Position, i32)> = builder
+        .state
+        .all_bots
+        .iter()
+        .filter(|&(pos, &uid)| {
+            uid != builder.state.my_id && builder.state.friendly_bots.contains(pos)
+        })
+        .map(|(&pos, &uid)| (pos, uid))
+        .collect();
+    let en_core = if builder.symmetry.is_some() {
+        Some(builder.en_core_guess)
+    } else {
+        None
+    };
+    let mut best: Option<Position> = None;
+    let mut best_score: (i32, i32) = (1 << 30, 1 << 30);
+    let dangling_iter: Vec<Position> = builder.dangling_set.iter().copied().collect();
+    for pos in dangling_iter {
+        if let Some(c) = ct
+            && !c.is_in_vision(pos).unwrap()
+        {
+            continue;
+        }
+        if !claims_by_proximity(
+            builder.state.my_pos,
+            builder.state.my_id,
+            pos,
+            friendly.iter().copied(),
+        ) {
+            continue;
+        }
+        let my_d = chebyshev(builder.state.my_pos, pos);
+        let chain_d = match en_core {
+            Some(ec) if pos.distance_squared(ec) < pos.distance_squared(builder.my_core) => {
+                chebyshev(pos, ec)
+            }
+            _ => chebyshev_to_nearest_core_edge(builder, pos),
+        };
+        let score = (my_d, chain_d);
+        if score < best_score {
+            best_score = score;
+            best = Some(pos);
+        }
+    }
+    best
+}
+
+pub fn update_ore_target(builder: &mut Builder) {
+    let mut candidate_ore = pick_ore_target(builder);
+    let needs_pick = builder.ore_target.is_none()
+        || builder
+            .ore_target
+            .is_some_and(|t| !ore_available(builder, t))
+        || builder.ore_target.is_some_and(|t| !builder.is_reachable(t))
+        || builder
+            .ore_target
+            .is_some_and(|t| harvester_would_contaminate(builder, t))
+        || (candidate_ore.is_some()
+            && candidate_ore
+                .unwrap()
+                .distance_squared(builder.state.my_pos)
+                <= 2
+            && builder
+                .ore_target
+                .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
+    if needs_pick {
+        let sink = builder.ti_sink.unwrap_or(builder.my_core);
+        if let Some(c) = candidate_ore
+            && !can_afford_ore_claim(builder, c, sink)
+        {
+            candidate_ore = None;
+        }
+        builder.ore_target = candidate_ore;
+    }
+}
+
+/// Enemy-side Ti ore claim. Same re-evaluation semantics as
+/// `update_ore_target`: keep the current pick if still valid and not
+/// trivially beaten by a much-closer alternative.
+pub fn update_offensive_ore_target(builder: &mut Builder) {
+    let mut candidate = pick_offensive_ti_ore_target(builder);
+    let needs_pick = builder.offensive_ore_target.is_none()
+        || builder
+            .offensive_ore_target
+            .is_some_and(|t| !ore_available(builder, t))
+        || builder
+            .offensive_ore_target
+            .is_some_and(|t| !builder.is_reachable(t))
+        || builder
+            .offensive_ore_target
+            .is_some_and(|t| harvester_would_contaminate(builder, t))
+        || (candidate.is_some()
+            && candidate.unwrap().distance_squared(builder.state.my_pos) <= 2
+            && builder
+                .offensive_ore_target
+                .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
+    if needs_pick {
+        let sink = if builder.symmetry.is_some() {
+            Some(builder.en_core_guess)
+        } else {
+            None
+        };
+        if let Some(c) = candidate
+            && let Some(s) = sink
+            && !can_afford_ore_claim(builder, c, s)
+        {
+            candidate = None;
+        }
+        builder.offensive_ore_target = candidate;
+    }
+}
+
+/// Derived from Blue Dragon / Kessoku Band: no Ax harvester before turn 500.
+const _AX_HARVESTER_ROUND_GATE: i32 = 500;
+
+/// Pure friendly `BuildingConveyor` with exactly one cardinal friendly
+/// Ax harvester. This is the designated foundry spot for a zero-length
+/// Ax chain — `harvester_would_contaminate` has already admitted the Ax
+/// harvester under the same geometric rule.
+fn _is_zero_length_foundry_spot(builder: &Builder, pos: Position) -> bool {
+    let bld = builder.buildings[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)];
+    let Some(Building::Conveyor { team, .. }) = bld else {
+        return false;
+    };
+    if team != builder.state.my_team {
+        return false;
+    }
+    let mut ax_harv_count = 0;
+    for d in DIR4 {
+        let n = pos.add(d);
+        if !builder.in_bounds(n) {
+            continue;
+        }
+        let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
+        let nb = builder.buildings[ni];
+        if let Some(Building::Harvester { team }) = nb
+            && team == builder.state.my_team
+            && builder.env[ni] == Some(Environment::OreAxionite)
+        {
+            ax_harv_count += 1;
+            if ax_harv_count > 1 {
+                return false;
+            }
+        }
+    }
+    ax_harv_count == 1
+}
+
+/// Foundry candidate: friendly Ti conveyor that reaches the core, is NOT
+/// on a chain already feeding a foundry, and is NOT structurally downstream
+/// of any known Ax harvester.
+fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    let bld = builder.buildings[i];
+    let Some(b) = bld else {
+        return false;
+    };
+    let is_conv = matches!(
+        b,
+        Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+    );
+    if !is_conv {
+        return false;
+    }
+    if b.team() != builder.state.my_team {
+        return false;
+    }
+    if builder.upstream_of_dangling.contains(&pos) {
+        return false;
+    }
+    if builder.reaches_foundry.contains(&pos) {
+        return false;
+    }
+    let is_foundry_spot = _is_zero_length_foundry_spot(builder, pos);
+    if !is_foundry_spot {
+        if builder.ax_harvester_adjacent.contains(&pos) {
+            return false;
+        }
+        if builder.ax_upstream.contains(&pos) {
+            return false;
+        }
+    }
+    let hist = &builder.flow_history[i];
+    let mut saw_ti = false;
+    let mut has_ax = false;
+    for (r, _rid) in hist {
+        let Some(r) = r else {
+            continue;
+        };
+        match r {
+            ResourceType::RawAxionite | ResourceType::RefinedAxionite => has_ax = true,
+            ResourceType::Titanium => saw_ti = true,
+        }
+    }
+    if has_ax && !is_foundry_spot && !ax_feeds_target(builder, pos) {
+        return false;
+    }
+    saw_ti
+}
+
+/// Occupancy count: non-None entries in the tile's flow_history.
+fn _tile_volume(builder: &Builder, pos: Position) -> usize {
+    builder.flow_history[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)]
+        .iter()
+        .filter(|(r, _)| r.is_some())
+        .count()
+}
+
+/// `pos` is a pure-Ax transport tile worth merging a new Ax chain into.
+fn _pure_ax_merge_ok(builder: &Builder, pos: Position) -> bool {
+    if _tile_volume(builder, pos) >= FLOW_HISTORY_LEN {
+        return false;
+    }
+    builder.ax_upstream.contains(&pos)
+        && !builder.ti_upstream.contains(&pos)
+        && !builder.upstream_of_dangling.contains(&pos)
+}
+
+/// Manhattan-distance threshold: a pre-existing foundry or Ax chain is only
+/// preferred over building a new foundry on a nearby Ti conveyor if the pre-
+/// existing option isn't more than this many tiles further. Otherwise creating
+/// a new foundry locally is the better choice.
+const _FOUNDRY_REUSE_THRESHOLD: i32 = 10;
+
+const fn _manhattan(a: Position, b: Position) -> i32 {
+    (a.x - b.x).abs() + (a.y - b.y).abs()
+}
+
+/// Find junctions (multi-feeder tiles) where the feeders' total
+/// observed inflow exceeds the junction's FLOW_HISTORY_LEN window — i.e.
+/// stacks arrive faster than a single-tile pass-through can forward.
+fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
+    let mut result: Vec<Position> = Vec::new();
+    for t in &builder.nearby_buildings {
+        let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
+        let bld = builder.buildings[i];
+        if !matches!(
+            bld,
+            Some(
+                Building::Conveyor { .. }
+                    | Building::ArmouredConveyor { .. }
+                    | Building::Bridge { .. }
+            )
+        ) {
+            continue;
+        }
+        let feeders = &builder.in_edges[i];
+        if feeders.len() < 2 {
+            continue;
+        }
+        let hist = &builder.flow_history[i];
+        if hist.len() < FLOW_HISTORY_LEN {
+            continue;
+        }
+        if hist.iter().filter(|(r, _)| r.is_some()).count() < FLOW_HISTORY_LEN {
+            continue;
+        }
+        let mut total: usize = 0;
+        let mut complete = true;
+        for f in feeders {
+            let fh = &builder.flow_history[(f.y as usize) * MAX_WIDTH + (f.x as usize)];
+            if fh.len() < FLOW_HISTORY_LEN {
+                complete = false;
+                break;
+            }
+            total += fh.iter().filter(|(r, _)| r.is_some()).count();
+        }
+        if complete && total > FLOW_HISTORY_LEN {
+            result.push(*t);
+        }
+    }
+    result
+}
+
+/// Transport tiles running empirically at full throughput.
+#[allow(dead_code)]
+fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
+    let mut result: Vec<Position> = Vec::new();
+    for t in &builder.nearby_buildings {
+        let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
+        let bld = builder.buildings[i];
+        if !matches!(
+            bld,
+            Some(
+                Building::Conveyor { .. }
+                    | Building::ArmouredConveyor { .. }
+                    | Building::Bridge { .. }
+            )
+        ) {
+            continue;
+        }
+        let hist = &builder.flow_history[i];
+        if hist.len() < FLOW_HISTORY_LEN {
+            continue;
+        }
+        if hist.iter().filter(|(r, _)| r.is_some()).count() >= FLOW_HISTORY_LEN {
+            result.push(*t);
+        }
+    }
+    result
+}
+
+/// Per-turn backward flood over the structural transport graph.
+/// Marks `reaches_core`, `reaches_foundry`, `upstream_of_dangling`,
+/// `upstream_of_congestion` (backward over `in_edges`).
+pub fn update_economy_reachability(builder: &mut Builder) {
+    builder.reaches_core = HashSet::new();
+    builder.reaches_foundry = HashSet::new();
+    builder.upstream_of_dangling = HashSet::new();
+    builder.upstream_of_congestion = HashSet::new();
+
+    {
+        let my_core = builder.my_core;
+        let mut roots: Vec<Position> = vec![my_core];
+        roots.extend(builder.core_edges.iter().copied());
+        flood_back(&builder.in_edges, &roots, &mut builder.reaches_core);
+    }
+
+    if !builder.my_foundries.is_empty() {
+        let roots: Vec<Position> = builder.my_foundries.iter().copied().collect();
+        flood_back(&builder.in_edges, &roots, &mut builder.reaches_foundry);
+    }
+
+    let dangling_roots: Vec<Position> = builder
+        .dangling_set
+        .iter()
+        .copied()
+        .filter(|p| !builder.in_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)].is_empty())
+        .collect();
+    flood_back(
+        &builder.in_edges,
+        &dangling_roots,
+        &mut builder.upstream_of_dangling,
+    );
+
+    builder.congested_junctions = _detect_congested_junctions(builder).into_iter().collect();
+    let cong_roots: Vec<Position> = builder.congested_junctions.iter().copied().collect();
+    flood_back(
+        &builder.in_edges,
+        &cong_roots,
+        &mut builder.upstream_of_congestion,
+    );
+}
+
+fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashSet<Position>) {
+    let mut stack: Vec<Position> = Vec::new();
+    for r in roots {
+        if !target.contains(r) {
+            target.insert(*r);
+            stack.push(*r);
+        }
+    }
+    while let Some(p) = stack.pop() {
+        let i = (p.y as usize) * MAX_WIDTH + (p.x as usize);
+        for u in &in_edges[i] {
+            if target.contains(u) {
+                continue;
+            }
+            target.insert(*u);
+            stack.push(*u);
+        }
+    }
+}
+
+/// Oracle: recompute the incrementally-maintained sets from scratch
+/// using the current `in_edges` / `out_edges` / harvester-adjacent state,
+/// and assert equality with the live values.
+pub fn check_invariants(builder: &Builder) {
+    let out_edges = &builder.out_edges;
+    let in_edges = &builder.in_edges;
+
+    // --- A: harvester-adjacent set vs counter ---
+    let expected_ti_adj: HashSet<Position> = builder
+        ._ti_harv_at
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &c)| {
+            if c > 0 {
+                Some(Position {
+                    x: (i % MAX_WIDTH) as i32,
+                    y: (i / MAX_WIDTH) as i32,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    let expected_ax_adj: HashSet<Position> = builder
+        ._ax_harv_at
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &c)| {
+            if c > 0 {
+                Some(Position {
+                    x: (i % MAX_WIDTH) as i32,
+                    y: (i / MAX_WIDTH) as i32,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+    if expected_ti_adj != builder.ti_harvester_adjacent {
+        let mut args = Map::new();
+        let mut missing: Vec<Position> = expected_ti_adj
+            .difference(&builder.ti_harvester_adjacent)
+            .copied()
+            .collect();
+        missing.sort();
+        let mut extra: Vec<Position> = builder
+            .ti_harvester_adjacent
+            .difference(&expected_ti_adj)
+            .copied()
+            .collect();
+        extra.sort();
+        args.insert(
+            "missing".to_string(),
+            Value::String(format!("{:?}", missing)),
+        );
+        args.insert("extra".to_string(), Value::String(format!("{:?}", extra)));
+        log(
+            "INVARIANT_FAIL ti_harvester_adjacent missing={missing} extra={extra}",
+            args,
+        );
+    }
+    if expected_ax_adj != builder.ax_harvester_adjacent {
+        let mut args = Map::new();
+        let mut missing: Vec<Position> = expected_ax_adj
+            .difference(&builder.ax_harvester_adjacent)
+            .copied()
+            .collect();
+        missing.sort();
+        let mut extra: Vec<Position> = builder
+            .ax_harvester_adjacent
+            .difference(&expected_ax_adj)
+            .copied()
+            .collect();
+        extra.sort();
+        args.insert(
+            "missing".to_string(),
+            Value::String(format!("{:?}", missing)),
+        );
+        args.insert("extra".to_string(), Value::String(format!("{:?}", extra)));
+        log(
+            "INVARIANT_FAIL ax_harvester_adjacent missing={missing} extra={extra}",
+            args,
+        );
+    }
+
+    // --- B: forward flood from harvester-adjacent seeds ---
+    let oracle_ti = flood_forward(out_edges, &builder.ti_harvester_adjacent);
+    let oracle_ax = flood_forward(out_edges, &builder.ax_harvester_adjacent);
+
+    if oracle_ti != builder.ti_upstream {
+        let mut miss: Vec<Position> = oracle_ti
+            .difference(&builder.ti_upstream)
+            .copied()
+            .collect();
+        miss.sort();
+        miss.truncate(8);
+        let mut extra: Vec<Position> = builder
+            .ti_upstream
+            .difference(&oracle_ti)
+            .copied()
+            .collect();
+        extra.sort();
+        extra.truncate(8);
+        let mut args = Map::new();
+        args.insert("missing".to_string(), Value::String(format!("{:?}", miss)));
+        args.insert("extra".to_string(), Value::String(format!("{:?}", extra)));
+        log(
+            "INVARIANT_FAIL ti_upstream missing={missing} extra={extra}",
+            args,
+        );
+        for t in miss.iter().take(4) {
+            let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
+            let feeders: Vec<(Position, bool, bool)> = in_edges[i]
+                .iter()
+                .map(|f| (*f, builder.ti_upstream.contains(f), oracle_ti.contains(f)))
+                .collect();
+            let mut args = Map::new();
+            args.insert("t".to_string(), Value::String(format!("{:?}", t)));
+            args.insert(
+                "ti_in_count".to_string(),
+                Value::Number(builder._ti_in_count[i].into()),
+            );
+            args.insert(
+                "ti_harv_at".to_string(),
+                Value::Number(builder._ti_harv_at[i].into()),
+            );
+            args.insert(
+                "feeders".to_string(),
+                Value::String(format!("{:?}", feeders)),
+            );
+            log(
+                "  miss t={t} ti_in_count={ti_in_count} ti_harv_at={ti_harv_at} feeders={feeders}",
+                args,
+            );
+        }
+    }
+    if oracle_ax != builder.ax_upstream {
+        let mut miss: Vec<Position> = oracle_ax
+            .difference(&builder.ax_upstream)
+            .copied()
+            .collect();
+        miss.sort();
+        miss.truncate(8);
+        let mut extra: Vec<Position> = builder
+            .ax_upstream
+            .difference(&oracle_ax)
+            .copied()
+            .collect();
+        extra.sort();
+        extra.truncate(8);
+        let mut args = Map::new();
+        args.insert("missing".to_string(), Value::String(format!("{:?}", miss)));
+        args.insert("extra".to_string(), Value::String(format!("{:?}", extra)));
+        log(
+            "INVARIANT_FAIL ax_upstream missing={missing} extra={extra}",
+            args,
+        );
+        for t in miss.iter().take(4) {
+            let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
+            let feeders: Vec<(Position, bool, bool)> = in_edges[i]
+                .iter()
+                .map(|f| (*f, builder.ax_upstream.contains(f), oracle_ax.contains(f)))
+                .collect();
+            let mut args = Map::new();
+            args.insert("t".to_string(), Value::String(format!("{:?}", t)));
+            args.insert(
+                "ax_in_count".to_string(),
+                Value::Number(builder._ax_in_count[i].into()),
+            );
+            args.insert(
+                "ax_harv_at".to_string(),
+                Value::Number(builder._ax_harv_at[i].into()),
+            );
+            args.insert(
+                "feeders".to_string(),
+                Value::String(format!("{:?}", feeders)),
+            );
+            log(
+                "  miss t={t} ax_in_count={ax_in_count} ax_harv_at={ax_harv_at} feeders={feeders}",
+                args,
+            );
+        }
+    }
+
+    // --- C: in-count drift (independent of B's outcome) ---
+    for i in 0..in_edges.len() {
+        if in_edges[i].is_empty() {
+            if builder._ti_in_count[i] != 0 || builder._ax_in_count[i] != 0 {
+                let t = Position {
+                    x: (i % MAX_WIDTH) as i32,
+                    y: (i / MAX_WIDTH) as i32,
+                };
+                let mut args = Map::new();
+                args.insert("t".to_string(), Value::String(format!("{:?}", t)));
+                args.insert(
+                    "ti".to_string(),
+                    Value::Number(builder._ti_in_count[i].into()),
+                );
+                args.insert(
+                    "ax".to_string(),
+                    Value::Number(builder._ax_in_count[i].into()),
+                );
+                log(
+                    "INVARIANT_FAIL in_count nonzero with empty in_edges t={t} ti={ti} ax={ax}",
+                    args,
+                );
+            }
+            continue;
+        }
+        let ti_expected = in_edges[i]
+            .iter()
+            .filter(|f| builder.ti_upstream.contains(f))
+            .count() as i32;
+        let ax_expected = in_edges[i]
+            .iter()
+            .filter(|f| builder.ax_upstream.contains(f))
+            .count() as i32;
+        if ti_expected != builder._ti_in_count[i] {
+            let t = Position {
+                x: (i % MAX_WIDTH) as i32,
+                y: (i / MAX_WIDTH) as i32,
+            };
+            let mut args = Map::new();
+            args.insert("t".to_string(), Value::String(format!("{:?}", t)));
+            args.insert(
+                "have".to_string(),
+                Value::Number(builder._ti_in_count[i].into()),
+            );
+            args.insert("expected".to_string(), Value::Number(ti_expected.into()));
+            args.insert(
+                "in_edges".to_string(),
+                Value::String(format!("{:?}", in_edges[i])),
+            );
+            log(
+                "INVARIANT_FAIL ti_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
+                args,
+            );
+        }
+        if ax_expected != builder._ax_in_count[i] {
+            let t = Position {
+                x: (i % MAX_WIDTH) as i32,
+                y: (i / MAX_WIDTH) as i32,
+            };
+            let mut args = Map::new();
+            args.insert("t".to_string(), Value::String(format!("{:?}", t)));
+            args.insert(
+                "have".to_string(),
+                Value::Number(builder._ax_in_count[i].into()),
+            );
+            args.insert("expected".to_string(), Value::Number(ax_expected.into()));
+            args.insert(
+                "in_edges".to_string(),
+                Value::String(format!("{:?}", in_edges[i])),
+            );
+            log(
+                "INVARIANT_FAIL ax_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
+                args,
+            );
+        }
+    }
+}
+
+/// Classify a feeder tile by its observed flow-history: 'ti' if only
+/// Ti stacks seen, 'ax' if only Ax stacks seen, None if no flow observed
+/// or mixed.
+fn _feeder_flow_kind(builder: &Builder, f: Position) -> Option<&'static str> {
+    let i = (f.y as usize) * MAX_WIDTH + (f.x as usize);
+    let mut seen_ti = false;
+    let mut seen_ax = false;
+    for (r, _rid) in &builder.flow_history[i] {
+        let Some(r) = r else {
+            continue;
+        };
+        match r {
+            ResourceType::Titanium => seen_ti = true,
+            ResourceType::RawAxionite | ResourceType::RefinedAxionite => seen_ax = true,
+        }
+    }
+    if seen_ti && !seen_ax {
+        return Some("ti");
+    }
+    if seen_ax && !seen_ti {
+        return Some("ax");
+    }
+    None
+}
+
+/// True iff `pos` is a viable foundry site: a friendly conveyor or
+/// armoured conveyor with >= 1 feeder delivering Ti only AND >= 1 feeder
+/// delivering Ax only.
+fn _is_junction(builder: &Builder, pos: Position) -> bool {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    let bld = builder.buildings[i];
+    let Some(b) = bld else {
+        return false;
+    };
+    let is_conv = matches!(
+        b,
+        Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+    );
+    if !is_conv {
+        return false;
+    }
+    if b.team() != builder.state.my_team {
+        return false;
+    }
+    let feeders = &builder.in_edges[i];
+    if feeders.len() < 2 {
+        return false;
+    }
+
+    let mut has_ti = false;
+    let mut has_ax = false;
+    for f in feeders {
+        let in_ti = builder.ti_upstream.contains(f);
+        let in_ax = builder.ax_upstream.contains(f);
+        if in_ti && !in_ax {
+            has_ti = true;
+        } else if in_ax && !in_ti {
+            has_ax = true;
+        }
+    }
+    if has_ti && has_ax {
+        return true;
+    }
+
+    for f in feeders {
+        match _feeder_flow_kind(builder, *f) {
+            Some("ti") => has_ti = true,
+            Some("ax") => has_ax = true,
+            _ => {}
+        }
+    }
+    has_ti && has_ax
+}
+
+/// Derive `self.junctions` from `is_multi_input` using `_is_junction`.
+pub fn update_junctions(builder: &mut Builder) {
+    builder.junctions.clear();
+    let candidates: Vec<Position> = builder.is_multi_input.iter().copied().collect();
+    for pos in candidates {
+        if _is_junction(builder, pos) {
+            builder.junctions.insert(pos);
+        }
+    }
+}
+
+/// Re-derive `ax_sink` every turn from three option classes.
+pub fn update_foundry_target(builder: &mut Builder) {
+    if builder.ax_ore_target.is_none() && builder.ax_harvester_adjacent.is_empty() {
+        builder.ax_sink = None;
+        builder.foundry_target = None;
+        return;
+    }
+
+    let origin = builder.dangling_output.unwrap_or(builder.state.my_pos);
+
+    let mut junction_best: Option<Position> = None;
+    let mut junction_d: i32 = 1 << 30;
+    let mut ax_chain_best: Option<Position> = None;
+    let mut ax_chain_d: i32 = 1 << 30;
+    let mut foundry_best: Option<Position> = None;
+    let mut foundry_d: i32 = 1 << 30;
+    let mut ti_cand_best: Option<Position> = None;
+    let mut ti_cand_d: i32 = 1 << 30;
+
+    {
+        let _g = Scope::new_timed("junctions");
+        for pos in &builder.junctions {
+            let d = _manhattan(origin, *pos);
+            if d < junction_d {
+                junction_d = d;
+                junction_best = Some(*pos);
+            }
+        }
+    }
+
+    {
+        let _g = Scope::new_timed("foundries");
+        for pos in &builder.my_foundries {
+            let d = _manhattan(origin, *pos);
+            if d < foundry_d {
+                foundry_d = d;
+                foundry_best = Some(*pos);
+            }
+        }
+    }
+
+    {
+        let _g = Scope::new_timed("ax_upstream");
+        for pos in &builder.ax_upstream {
+            if !_pure_ax_merge_ok(builder, *pos) {
+                continue;
+            }
+            let d = _manhattan(origin, *pos);
+            if d < ax_chain_d {
+                ax_chain_d = d;
+                ax_chain_best = Some(*pos);
+            }
+        }
+    }
+
+    {
+        let _g = Scope::new_timed("ti_candidates");
+        for pos in builder.reaches_core.difference(&builder.reaches_foundry) {
+            if !_foundry_local_ok(builder, *pos) {
+                continue;
+            }
+            let d = _manhattan(origin, *pos);
+            if d < ti_cand_d {
+                ti_cand_d = d;
+                ti_cand_best = Some(*pos);
+            }
+        }
+    }
+
+    let mut options: Vec<(i32, Position, &'static str)> = Vec::new();
+    if let Some(p) = junction_best {
+        options.push((junction_d, p, "junction"));
+    }
+    if let Some(p) = ax_chain_best {
+        options.push((ax_chain_d, p, "ax_chain"));
+    }
+    if let Some(p) = foundry_best {
+        options.push((foundry_d, p, "foundry"));
+    }
+    if let Some(p) = ti_cand_best {
+        options.push((ti_cand_d + _FOUNDRY_REUSE_THRESHOLD, p, "ti_candidate"));
+    }
+    if options.is_empty() {
+        builder.ax_sink = None;
+    } else {
+        options.sort_by_key(|o| o.0);
+        builder.ax_sink = Some(options[0].1);
+    }
+
+    let ft = builder.foundry_target;
+    if let Some(ft) = ft {
+        let bld = builder.buildings[(ft.y as usize) * MAX_WIDTH + (ft.x as usize)];
+        let is_transport = matches!(
+            bld,
+            Some(Building::Conveyor { team, .. } | Building::ArmouredConveyor { team, .. })
+                if team == builder.state.my_team
+        );
+        let still_valid_junction = is_transport && builder.junctions.contains(&ft);
+        let still_valid_kind_c = is_transport
+            && builder.reaches_core.contains(&ft)
+            && !builder.reaches_foundry.contains(&ft);
+        if !(still_valid_junction || still_valid_kind_c) {
+            builder.foundry_target = None;
+        }
+    }
+    if builder.foundry_target.is_none()
+        && let Some(chosen) = builder.ax_sink
+    {
+        if builder.junctions.contains(&chosen)
+            || (_foundry_local_ok(builder, chosen) && ax_feeds_target(builder, chosen))
+        {
+            builder.foundry_target = Some(chosen);
+        }
+    }
+}
+
+/// Empirical Ti-sink candidate.
+fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    let bld = builder.buildings[i];
+    let Some(b) = bld else {
+        return false;
+    };
+    let is_conv = matches!(
+        b,
+        Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+    );
+    if !is_conv {
+        return false;
+    }
+    if b.team() != builder.state.my_team {
+        return false;
+    }
+    if is_inward_guard(builder, pos) {
+        return false;
+    }
+    if builder.upstream_of_dangling.contains(&pos) && builder.ti_upstream.contains(&pos) {
+        return false;
+    }
+    if builder.upstream_of_congestion.contains(&pos) {
+        return false;
+    }
+    if builder.ax_harvester_adjacent.contains(&pos) {
+        return false;
+    }
+    if _tile_volume(builder, pos) >= FLOW_HISTORY_LEN {
+        return false;
+    }
+    let hist = &builder.flow_history[i];
+    let mut saw_ti = false;
+    for (r, _rid) in hist {
+        match r {
+            Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite) => return false,
+            Some(ResourceType::Titanium) => saw_ti = true,
+            _ => {}
+        }
+    }
+    saw_ti
+}
+
+/// Tier-1 (branch merge) requires this many Manhattan tiles saved vs.
+/// routing to core.
+fn _near_core_saving_threshold(builder: &Builder) -> i32 {
+    let r = builder.state.round;
+    if r < 100 {
+        1 + r / 20
+    } else {
+        6 + (r - 100) / 100
+    }
+}
+
+/// Pick where new Ti chains should terminate. Three-tier preference.
+pub fn update_ti_sink(builder: &mut Builder) {
+    let anchor = builder.dangling_output.unwrap_or(builder.state.my_pos);
+    let c = builder.my_core;
+    let d_builder_to_core =
+        (builder.state.my_pos.x - c.x).abs() + (builder.state.my_pos.y - c.y).abs();
+    let saving_threshold = _near_core_saving_threshold(builder);
+
+    let mut tier1_best: Option<Position> = None;
+    let mut tier1_d: i32 = 1 << 30;
+    let mut tier3_best: Option<Position> = None;
+    let mut tier3_d: i32 = 1 << 30;
+    let nearby = builder.state.nearby_tiles.clone();
+    for pos in &nearby {
+        if !_ti_sink_ok(builder, *pos) {
+            continue;
+        }
+        let d_anchor_sq = anchor.distance_squared(*pos);
+        let d_builder_to_cand =
+            (builder.state.my_pos.x - pos.x).abs() + (builder.state.my_pos.y - pos.y).abs();
+        let saving = d_builder_to_core - d_builder_to_cand;
+        if saving <= saving_threshold {
+            if d_anchor_sq < tier3_d {
+                tier3_d = d_anchor_sq;
+                tier3_best = Some(*pos);
+            }
+        } else if d_anchor_sq < tier1_d {
+            tier1_d = d_anchor_sq;
+            tier1_best = Some(*pos);
+        }
+    }
+
+    let mut tier2_best: Option<Position> = None;
+    let mut tier2_d: i32 = 1 << 30;
+    for edge in &builder.core_edges {
+        let d = anchor.distance_squared(*edge);
+        if d < tier2_d {
+            tier2_d = d;
+            tier2_best = Some(*edge);
+        }
+    }
+
+    let (best, best_d, tier): (Option<Position>, i32, i32) = if let Some(p) = tier1_best {
+        (Some(p), tier1_d, 1)
+    } else if let Some(p) = tier2_best {
+        (Some(p), tier2_d, 2)
+    } else {
+        (tier3_best, tier3_d, 3)
+    };
+
+    if best != builder.ti_sink {
+        let mut args = Map::new();
+        args.insert(
+            "from".to_string(),
+            Value::String(format!("{:?}", builder.ti_sink)),
+        );
+        args.insert("to".to_string(), Value::String(format!("{:?}", best)));
+        args.insert("tier".to_string(), Value::Number(tier.into()));
+        args.insert("anchor".to_string(), Value::String(format!("{:?}", anchor)));
+        args.insert("dist_sq".to_string(), Value::Number(best_d.into()));
+        log(
+            "update_ti_sink: ti_sink changed from {from} to {to} (tier {tier}, anchor={anchor}, dist_sq={dist_sq})",
+            args,
+        );
+    }
+    builder.ti_sink = best;
+}
+
+/// Pick the nearest unclaimed Ax-ore tile, gated on round AND Ti buffer.
+pub fn update_ax_ore_target(builder: &mut Builder) {
+    if builder.state.round < _AX_HARVESTER_ROUND_GATE {
+        builder.ax_ore_target = None;
+        return;
+    }
+    let Some((ti_base, _ax_base)) = base_cost(EntityType::Harvester) else {
+        builder.ax_ore_target = None;
+        return;
+    };
+    if builder.state.ti < 2 * ((ti_base as f64 * builder.state.scale) as i32) {
+        builder.ax_ore_target = None;
+        return;
+    }
+    let mut candidate = pick_ax_ore_target(builder);
+    let needs_pick = builder.ax_ore_target.is_none()
+        || builder
+            .ax_ore_target
+            .is_some_and(|t| !ore_available(builder, t))
+        || builder
+            .ax_ore_target
+            .is_some_and(|t| !builder.is_reachable(t))
+        || builder
+            .ax_ore_target
+            .is_some_and(|t| harvester_would_contaminate(builder, t))
+        || (candidate.is_some()
+            && candidate.unwrap().distance_squared(builder.state.my_pos) <= 2
+            && builder
+                .ax_ore_target
+                .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
+    if needs_pick {
+        let sink = builder.ax_sink.unwrap_or(builder.my_core);
+        if let Some(c) = candidate
+            && !can_afford_ore_claim(builder, c, sink)
+        {
+            candidate = None;
+        }
+        builder.ax_ore_target = candidate;
+    }
+}
