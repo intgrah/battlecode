@@ -42,7 +42,7 @@ pub fn update_patrol(builder: &mut Builder) {
         let take = if d > best_d {
             true
         } else if d == best_d {
-            (builder.state.rng.next_u64() & 1) == 0
+            builder.state.rng.randint(0, 1) == 0
         } else {
             false
         };

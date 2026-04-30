@@ -8,6 +8,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 cambc.workspace = true
+pyrust.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

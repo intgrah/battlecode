@@ -213,7 +213,10 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
     }
     let mut obj = serde_json::Map::new();
     obj.insert("stops".to_string(), serde_json::Value::Array(stops));
-    obj.insert("special".to_string(), serde_json::Value::Object(special_obj));
+    obj.insert(
+        "special".to_string(),
+        serde_json::Value::Object(special_obj),
+    );
     serde_json::Value::Object(obj)
 }
 

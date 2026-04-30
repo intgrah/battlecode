@@ -95,10 +95,8 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
         if candidates.len() >= _K_CANDIDATES {
             break;
         }
-        let r1 = builder.state.rng.next_u64();
-        let r2 = builder.state.rng.next_u64();
-        let x = (r1 % (w as u64)) as i32;
-        let y = (r2 % (h as u64)) as i32;
+        let x = builder.state.rng.randint(0, (w - 1) as i64) as i32;
+        let y = builder.state.rng.randint(0, (h - 1) as i64) as i32;
         if (x - cx).abs().max((y - cy).abs()) > radius {
             continue;
         }

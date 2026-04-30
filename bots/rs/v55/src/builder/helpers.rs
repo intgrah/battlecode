@@ -419,11 +419,7 @@ pub fn try_heal(
 
 pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     let mut dir8: Vec<Direction> = DIR8.to_vec();
-    // Fisher-Yates shuffle using rng
-    for i in (1..dir8.len()).rev() {
-        let j = (builder.state.rng.next_u64() % ((i + 1) as u64)) as usize;
-        dir8.swap(i, j);
-    }
+    builder.state.rng.shuffle(&mut dir8);
     for direction in dir8 {
         if ct.can_move(direction).unwrap() {
             ct.move_(direction).unwrap();

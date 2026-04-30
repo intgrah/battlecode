@@ -71,15 +71,11 @@ fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
     if total == 0 {
         return choices[0].0;
     }
-    let r = (builder.state.rng.next_u64() % u64::from(total)) as u32;
-    let mut acc: u32 = 0;
-    for &(role, w) in choices {
-        acc += w;
-        if r < acc {
-            return role;
-        }
-    }
-    choices[choices.len() - 1].0
+    // Mirror Python's `random.choices(population, weights=..., k=1)` so
+    // role transitions match across native ⇄ translated builds.
+    let population: Vec<Role> = choices.iter().map(|&(r, _)| r).collect();
+    let weights: Vec<f64> = choices.iter().map(|&(_, w)| f64::from(w)).collect();
+    *builder.state.rng.choices(&population, Some(&weights), 1)[0]
 }
 
 /// Opening spawn slots use the hardcoded sequence indexed by the

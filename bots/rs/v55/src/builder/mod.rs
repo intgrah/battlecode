@@ -920,7 +920,7 @@ impl Unit for Builder {
     fn post_init(&mut self, ct: &mut Controller<'_>) {
         CoreAwareUnit::post_init_core_aware(self, ct);
 
-        let r = self.state.rng.next_u64() as f64 / u64::MAX as f64;
+        let r = self.state.rng.random();
         self.opportunistic = r < 0.5;
 
         let s = self.state.width.max(self.state.height) as f64;
