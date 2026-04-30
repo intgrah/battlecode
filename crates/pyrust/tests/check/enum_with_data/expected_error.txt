@@ -1,0 +1,1 @@
+sum-type enum variants (with data) are not supported
