@@ -154,3 +154,64 @@ mode: sentinels placed without an ammo feed have no Ti and never fire
 — pure 30 Ti waste. Unwired the task; left the function defined as
 reference for a future correct implementation that requires an
 established Ti chain to feed the sentinel.
+
+## Final state (10 hour autonomous session ended)
+
+Best stable result: **~50-55% win rate vs okbot** on the standard 10-map ×
+2-side pool (jobs=4, seed=1). Final state ships v670.1–v670.5 + v670.15 +
+two unused helper functions in task_attack.py for future use.
+
+### What worked
+
+- v670.1 — gunner shoots-through-roads + gunner-priority rotation
+- v670.2 — bounds/vision guard for the 8-direction ray walk
+- v670.3 — chain planner routes around enemy transport
+- v670.4 — strict `should_attack` gate + reposition-on-refusal fallback.
+  Verified worth +2 wins on the standard pool; v670.13 (revert to
+  original heuristic gate) regressed from 11-9 to 9-11.
+- v670.5 — drop debug prints, seed module-level shuffles
+- v670.15 — defensive init retry on Builder construction (prevents
+  hard-resign from "Core not visible at spawn" on coffee-A)
+
+### What didn't (10 reverted experiments)
+
+- v670.6 ECON-heavy weights: 3-17 (huge regression — defenders
+  starved, okbot snowballs)
+- v670.7 different shuffle seed: 12-8 (within noise)
+- v670.8 looser role transitions: 8-12
+- v670.9 max_units=45: 9-11
+- v670.10 drop _opportunistic_attack: 8-12 (random fire actually
+  pulls weight)
+- v670.11 tiered gunner targeting: 10-10 (sentinel/launcher 3rd-tier)
+- v670.12 strict-gate `<` instead of `<=`: 10-10 (1-turn looser)
+- v670.13 revert strict gate entirely: 9-11 (proves strict gate value)
+- v670.14 _INITIAL_SPAWNS = 8: 3-17 (catastrophic — drained Ti)
+- Offensive sentinel in OFFENSE_TASKS: catastrophic (sentinel without
+  Ti-feed = pure waste)
+- Mid-conveyor attack via _try_attack_undefended_transport: arena
+  blowout loss (pulled OFFENSE bots away from harvester targets)
+
+### Why I couldn't crack 5-0
+
+- okbot's parameters are tightly tuned at the defaults; almost every
+  knob is a Pareto optimum. Bumping any value either way regressed.
+- The strategic capabilities that would *clearly* dominate (refined-Ax
+  delivery via Ax mining + foundry; offensive sentinel push with
+  proper Ti feed; barrier walls around core) all require multi-hour
+  refactors with high risk of breakage.
+- Side bias on certain maps (coffee, butterfly) is structural; one
+  side has terrain-driven advantage independent of bot strategy.
+- Sample variance: 10-match tests have ±2 wins of pure noise. A
+  single 5-0 sample wouldn't establish anything robust anyway.
+
+### Scaffolding kept for future iteration
+
+- `scripts/test_v670.sh` — parallel 10×2 pool runner with
+  per-iteration W/L tally
+- `scripts/_run_one_match.sh` — single-match runner (parallel-safe)
+- `bots/beacon/v670/builder/task_attack.py::place_offensive_sentinel`
+  — checks engine attack-pattern for enemy in range. Needs an
+  attached Ti feed before wiring.
+- `bots/beacon/v670/builder/task_attack.py::_try_attack_undefended_transport`
+  — finds enemy transport with no enemy bot defender in king-range.
+  Needs a guard against pulling OFFENSE off harvester targets.

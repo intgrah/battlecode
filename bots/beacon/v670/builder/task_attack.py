@@ -126,6 +126,69 @@ def should_attack(state: State, ct: Controller, pos: Position) -> bool:
     return True
 
 
+def _try_attack_undefended_transport(state: State, ct: Controller) -> bool:
+    """Pick the closest visible enemy conveyor/splitter/bridge/armoured
+    that has NO enemy bot adjacent (Chebyshev 1 of the tile). Walk to
+    it, attack if standing on it.
+
+    Skipping defended tiles (enemy bot adjacent) keeps consistent with
+    the strict should_attack gate: the bot would heal it 4 HP/turn vs
+    our 2 dmg/turn, so we'd just sink Ti. Undefended chain segments
+    are free kills — and a destroyed conveyor stalls the entire chain
+    downstream of it.
+    """
+    my_pos = ct.get_position()
+    my_team = ct.get_team()
+
+    best_pos: Position | None = None
+    best_dist = 1 << 30
+    for pos in ct.get_nearby_tiles():
+        b = state.get_building(pos)
+        if not isinstance(
+            b,
+            BuildingConveyor
+            | BuildingArmouredConveyor
+            | BuildingSplitter
+            | BuildingBridge,
+        ):
+            continue
+        if getattr(b, "team", None) == my_team:
+            continue
+        # Skip if any enemy bot sits within Chebyshev 1 — they'd heal.
+        defended = False
+        for d in DIR8:
+            n = pos.add(d)
+            if not state.in_bounds(n):
+                continue
+            if not ct.is_in_vision(n):
+                continue
+            uid = ct.get_tile_builder_bot_id(n)
+            if uid is not None and ct.get_team(uid) != my_team:
+                defended = True
+                break
+        if defended:
+            continue
+        # Also skip if defender on the tile itself.
+        if ct.is_in_vision(pos):
+            uid = ct.get_tile_builder_bot_id(pos)
+            if uid is not None and ct.get_team(uid) != my_team:
+                continue
+        d = my_pos.distance_squared(pos)
+        if d < best_dist:
+            best_dist = d
+            best_pos = pos
+
+    if best_pos is None:
+        return False
+
+    if my_pos == best_pos:
+        if ct.can_fire(my_pos):
+            ct.fire(my_pos)
+        return True
+    make_move(state, ct, best_pos)
+    return True
+
+
 def place_offensive_sentinel(state: State, ct: Controller) -> bool:
     """Place a sentinel at an adjacent buildable tile facing toward the
     enemy core, IFF the engine reports at least one enemy turret /
