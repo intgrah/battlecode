@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use proc_macro2::Span;
 
 use super::types::{Scope, Ty};
+use crate::cfg::CfgEnv;
 
 pub struct PyWriter {
     source_path: PathBuf,
@@ -10,17 +11,23 @@ pub struct PyWriter {
     indent: usize,
     pub scope: Scope,
     current_class: Vec<String>,
+    cfg: CfgEnv,
 }
 
 impl PyWriter {
-    pub fn new(source_path: &Path) -> Self {
+    pub fn new(source_path: &Path, cfg: CfgEnv) -> Self {
         Self {
             source_path: source_path.to_path_buf(),
             buf: String::new(),
             indent: 0,
             scope: Scope::new(),
             current_class: Vec::new(),
+            cfg,
         }
+    }
+
+    pub fn cfg(&self) -> &CfgEnv {
+        &self.cfg
     }
 
     pub fn enter_class(&mut self, name: String) {

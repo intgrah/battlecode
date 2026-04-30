@@ -44,6 +44,9 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
     match item {
         syn::Item::Fn(f) => emit_fn(w, f),
         syn::Item::Const(c) => emit_const(w, c),
+        // Statics translate the same as consts at the module level (Python
+        // doesn't distinguish — both are just module-scoped bindings).
+        syn::Item::Static(s) => emit_static(w, s),
         syn::Item::Struct(s) => emit_struct(w, s, file),
         syn::Item::Enum(e) => emit_enum(w, e),
         // Impl blocks are folded into their target struct's class body.
@@ -51,11 +54,38 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
         syn::Item::Use(u) => emit_use(w, u),
         // `cambc_bot!(MyBot);` is a Rust-only cdylib export; drop on translation.
         syn::Item::Macro(m)
-            if m.mac.path.get_ident().map(|i| i.to_string()).as_deref()
+            if m.mac
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident.to_string())
+                .as_deref()
                 == Some("cambc_bot") =>
         {
             Ok(())
         }
+        // `thread_local! { static X: T = init; ... }` — Rust groups several
+        // per-thread statics. Each unit runs in its own subinterpreter, so
+        // module-level globals are the natural Python translation. Strip
+        // the `RefCell<...>` wrapper (Python doesn't need it) and emit each
+        // as a plain module-level binding.
+        syn::Item::Macro(m) if m.mac.path.is_ident("thread_local") => emit_thread_local(w, &m.mac),
+        // `pub type Foo = Bar;` — Python has `type Foo = Bar` (PEP 695)
+        // since 3.12. Emit it directly.
+        syn::Item::Type(t) => {
+            let name = t.ident.to_string();
+            let ty = types::type_to_python_str(&t.ty)
+                .map_err(|e| w.err(t.ty.span(), format!("type alias: {e}")))?;
+            w.line(&format!("type {name} = {ty}"));
+            Ok(())
+        }
+        // Trait declarations have no direct Python analog (we lower
+        // `impl Trait for Type` into the concrete class). Drop the trait
+        // signature entirely; default-method bodies are picked up via the
+        // concrete impls.
+        syn::Item::Trait(_) => Ok(()),
+        // `extern "C"` / `extern crate` etc. — irrelevant to Python.
+        syn::Item::ExternCrate(_) | syn::Item::ForeignMod(_) => Ok(()),
         // `mod foo;` declares a sibling file; --dir mode translates it
         // separately. Inline `mod foo { ... }` has no Python analog.
         syn::Item::Mod(m) => {
@@ -164,13 +194,12 @@ fn use_leaf_name(w: &PyWriter, tree: &syn::UseTree) -> Result<String, String> {
 
 fn emit_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
     let name = e.ident.to_string();
-    for v in &e.variants {
-        if !matches!(v.fields, syn::Fields::Unit) {
-            return Err(w.err(
-                v.span(),
-                "sum-type enum variants (with data) are not supported; use a C-style enum",
-            ));
-        }
+    let all_unit = e
+        .variants
+        .iter()
+        .all(|v| matches!(v.fields, syn::Fields::Unit));
+    if !all_unit {
+        return emit_sum_enum(w, e);
     }
     w.line(&format!("class {name}(Enum):"));
     w.enter_indent();
@@ -192,6 +221,66 @@ fn emit_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
         }
     }
     w.exit_indent();
+    Ok(())
+}
+
+/// Sum-type enums (variants with data) → one frozen `dataclass` per variant
+/// + a `type Foo = FooA | FooB | ...` union alias. Mirrors the convention in
+/// `bots/intgrah/v54.7.9/building.py` where `BuildingCore`, `BuildingConveyor`,
+/// etc. are dataclasses unioned via a `type` alias.
+fn emit_sum_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
+    let enum_name = e.ident.to_string();
+    if let Some(text) = docstring::collect(&e.attrs) {
+        for line in docstring::format(&text) {
+            w.line(&line);
+        }
+    }
+    let mut variant_class_names = Vec::with_capacity(e.variants.len());
+    for v in &e.variants {
+        let var_name = v.ident.to_string();
+        let class_name = format!("{enum_name}{var_name}");
+        variant_class_names.push(class_name.clone());
+        w.line("@dataclass(frozen=True, slots=True)");
+        w.line(&format!("class {class_name}:"));
+        w.enter_indent();
+        if let Some(text) = docstring::collect(&v.attrs) {
+            for line in docstring::format(&text) {
+                w.line(&line);
+            }
+        }
+        match &v.fields {
+            syn::Fields::Unit => {
+                w.line("pass");
+            }
+            syn::Fields::Named(named) => {
+                if named.named.is_empty() {
+                    w.line("pass");
+                }
+                for f in &named.named {
+                    let fname = f
+                        .ident
+                        .as_ref()
+                        .ok_or_else(|| w.err(f.span(), "named field missing ident"))?
+                        .to_string();
+                    let ty = types::type_to_python_str(&f.ty).map_err(|e| w.err(f.ty.span(), e))?;
+                    w.line(&format!("{fname}: {ty}"));
+                }
+            }
+            syn::Fields::Unnamed(unnamed) => {
+                if unnamed.unnamed.is_empty() {
+                    w.line("pass");
+                }
+                for (i, f) in unnamed.unnamed.iter().enumerate() {
+                    let ty = types::type_to_python_str(&f.ty).map_err(|e| w.err(f.ty.span(), e))?;
+                    w.line(&format!("_{i}: {ty}"));
+                }
+            }
+        }
+        w.exit_indent();
+        w.blank_line();
+    }
+    let union = variant_class_names.join(" | ");
+    w.line(&format!("type {enum_name} = {union}"));
     Ok(())
 }
 
@@ -276,19 +365,42 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
         if let syn::Item::Impl(im) = item
             && impl_target_name(&im.self_ty).as_deref() == Some(class_name.as_str())
         {
+            // Skip the entire block if it's `impl Deref/DerefMut for ...`.
+            // These have no Python analog (Python uses normal attribute
+            // access, no transparent dereference). Their associated `type
+            // Target = ...` and the `deref` fn would otherwise force
+            // method-level errors.
+            if let Some((_, trait_path, _)) = im.trait_.as_ref() {
+                let trait_name = trait_path
+                    .segments
+                    .last()
+                    .map(|s| s.ident.to_string())
+                    .unwrap_or_default();
+                if matches!(trait_name.as_str(), "Deref" | "DerefMut") {
+                    continue;
+                }
+            }
             for impl_item in &im.items {
-                if let syn::ImplItem::Fn(f) = impl_item {
-                    if f.sig.ident == "new" {
-                        // Already emitted as __init__.
-                        continue;
+                match impl_item {
+                    syn::ImplItem::Fn(f) => {
+                        if f.sig.ident == "new" {
+                            // Already emitted as __init__.
+                            continue;
+                        }
+                        w.blank_line();
+                        emit_method(w, f)?;
                     }
-                    w.blank_line();
-                    emit_method(w, f)?;
-                } else {
-                    return Err(w.err(
-                        impl_item.span(),
-                        format!("unsupported impl item: {}", impl_item_kind(impl_item)),
-                    ));
+                    // Associated types and consts are erased during
+                    // translation — Python has no analog for `type Target
+                    // = X;`, and `const FOO: T = expr;` is already emitted
+                    // as a class-level attribute by the struct-init path.
+                    syn::ImplItem::Type(_) | syn::ImplItem::Const(_) => {}
+                    other => {
+                        return Err(w.err(
+                            other.span(),
+                            format!("unsupported impl item: {}", impl_item_kind(other)),
+                        ));
+                    }
                 }
             }
         }
@@ -345,10 +457,7 @@ fn emit_init_from_new(
 ) -> Result<(), String> {
     let (has_self, param_names, param_types) = collect_method_params(w, &new_fn.sig)?;
     if has_self {
-        return Err(w.err(
-            new_fn.sig.span(),
-            "`new` should not take a self parameter",
-        ));
+        return Err(w.err(new_fn.sig.span(), "`new` should not take a self parameter"));
     }
     let header_params = if param_names.is_empty() {
         "self".to_owned()
@@ -378,11 +487,7 @@ fn emit_init_from_new(
     Ok(())
 }
 
-fn emit_init_body(
-    w: &mut PyWriter,
-    block: &syn::Block,
-    class_name: &str,
-) -> Result<bool, String> {
+fn emit_init_body(w: &mut PyWriter, block: &syn::Block, class_name: &str) -> Result<bool, String> {
     let stmts = &block.stmts;
     let (body, tail) = split_tail(stmts);
     let mut emitted = false;
@@ -403,10 +508,9 @@ fn emit_init_body(
                     let name = match &fv.member {
                         syn::Member::Named(n) => n.to_string(),
                         syn::Member::Unnamed(_) => {
-                            return Err(w.err(
-                                fv.span(),
-                                "tuple struct fields not supported in `new`",
-                            ));
+                            return Err(
+                                w.err(fv.span(), "tuple struct fields not supported in `new`")
+                            );
                         }
                     };
                     let value = expr::emit_expr(w, &fv.expr)?;
@@ -535,6 +639,96 @@ fn collect_method_params(
         }
     }
     Ok((has_self, names, typed))
+}
+
+fn emit_thread_local(w: &mut PyWriter, mac: &syn::Macro) -> Result<(), String> {
+    // The body is a sequence of `[#[attrs]] static NAME: TYPE = INIT;`
+    // declarations. We re-parse via syn::ItemStatic since the syntax matches.
+    use syn::parse::{Parse, ParseStream};
+    struct ThreadLocalBody {
+        statics: Vec<syn::ItemStatic>,
+    }
+    impl Parse for ThreadLocalBody {
+        fn parse(input: ParseStream) -> syn::Result<Self> {
+            let mut statics = Vec::new();
+            while !input.is_empty() {
+                statics.push(input.parse()?);
+            }
+            Ok(ThreadLocalBody { statics })
+        }
+    }
+    let body: ThreadLocalBody = syn::parse2(mac.tokens.clone())
+        .map_err(|e| w.err(mac.span(), format!("thread_local!: {e}")))?;
+    let mut first = true;
+    for s in &body.statics {
+        if !first {
+            w.blank_line();
+        }
+        first = false;
+        // Strip `RefCell<T>` wrapper on the type and `RefCell::new(...)` /
+        // `const { ... }` wrappers on the init.
+        let ty = strip_refcell_type(&s.ty);
+        let init = strip_init_wrappers(&s.expr);
+        let py_ty = types::type_to_python_str(ty)
+            .map_err(|e| w.err(ty.span(), format!("thread_local type: {e}")))?;
+        let init_em = expr::emit_expr(w, init)?;
+        w.line(&format!("{}: {py_ty} = {}", s.ident, init_em.text));
+        if let Some(text) = docstring::collect(&s.attrs) {
+            for line in docstring::format(&text) {
+                w.line(&line);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn strip_refcell_type(ty: &syn::Type) -> &syn::Type {
+    if let syn::Type::Path(p) = ty
+        && p.qself.is_none()
+        && let Some(last) = p.path.segments.last()
+        && last.ident == "RefCell"
+        && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+    {
+        return inner;
+    }
+    ty
+}
+
+fn strip_init_wrappers(e: &syn::Expr) -> &syn::Expr {
+    // `const { ... }` — strip to the inner expression.
+    if let syn::Expr::Const(c) = e
+        && let [syn::Stmt::Expr(inner, None)] = c.block.stmts.as_slice()
+    {
+        return strip_init_wrappers(inner);
+    }
+    // `RefCell::new(value)` — strip to `value`.
+    if let syn::Expr::Call(c) = e
+        && let syn::Expr::Path(p) = c.func.as_ref()
+        && let Some(last) = p.path.segments.last()
+        && last.ident == "new"
+        && p.path.segments.iter().any(|s| s.ident == "RefCell")
+        && c.args.len() == 1
+    {
+        return strip_init_wrappers(&c.args[0]);
+    }
+    e
+}
+
+fn emit_static(w: &mut PyWriter, s: &syn::ItemStatic) -> Result<(), String> {
+    let name = s.ident.to_string();
+    let py_ty = types::type_to_python_str(&s.ty)
+        .map_err(|e| w.err(s.ty.span(), format!("static type: {e}")))?;
+    let rhs = expr::emit_expr(w, &s.expr)?;
+    w.line(&format!("{name}: {py_ty} = {}", rhs.text));
+    if let Some(text) = docstring::collect(&s.attrs) {
+        for line in docstring::format(&text) {
+            w.line(&line);
+        }
+    }
+    let ty = types::type_from_annotation(&s.ty);
+    w.declare(&name, ty);
+    Ok(())
 }
 
 fn emit_const(w: &mut PyWriter, c: &syn::ItemConst) -> Result<(), String> {

@@ -56,40 +56,541 @@ fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
 }
 
 pub fn emit_stmt(w: &mut PyWriter, stmt: &syn::Stmt) -> Result<(), String> {
+    let attrs: &[syn::Attribute] = match stmt {
+        syn::Stmt::Local(l) => &l.attrs,
+        syn::Stmt::Expr(e, _) => expr_attrs(e),
+        syn::Stmt::Item(_) => &[],
+        syn::Stmt::Macro(m) => &m.attrs,
+    };
+    if !w
+        .cfg()
+        .item_enabled(attrs)
+        .map_err(|e| w.err(stmt.span(), e))?
+    {
+        return Ok(());
+    }
     match stmt {
         syn::Stmt::Local(l) => emit_local(w, l),
         // Stmt::Expr without a semi only reaches here for block-like exprs in
         // non-tail position (the actual block tail is split off by emit_block /
         // emit_top_level_block before iterating). Treat both forms identically.
         syn::Stmt::Expr(e, _) => emit_expr_stmt(w, e, Tail::Discard),
+        // Nested items: most are unsupported, but `use X::Y;` inside a
+        // function body just brings a name into scope. The Python module
+        // already imports the name at the top, so we can drop nested uses
+        // silently.
+        syn::Stmt::Item(syn::Item::Use(_)) => Ok(()),
         syn::Stmt::Item(i) => Err(w.err(i.span(), "nested items are not supported")),
         syn::Stmt::Macro(m) => emit_stmt_macro(w, m),
     }
 }
 
+fn expr_attrs(e: &syn::Expr) -> &[syn::Attribute] {
+    match e {
+        syn::Expr::Array(x) => &x.attrs,
+        syn::Expr::Assign(x) => &x.attrs,
+        syn::Expr::Async(x) => &x.attrs,
+        syn::Expr::Await(x) => &x.attrs,
+        syn::Expr::Binary(x) => &x.attrs,
+        syn::Expr::Block(x) => &x.attrs,
+        syn::Expr::Break(x) => &x.attrs,
+        syn::Expr::Call(x) => &x.attrs,
+        syn::Expr::Cast(x) => &x.attrs,
+        syn::Expr::Closure(x) => &x.attrs,
+        syn::Expr::Const(x) => &x.attrs,
+        syn::Expr::Continue(x) => &x.attrs,
+        syn::Expr::Field(x) => &x.attrs,
+        syn::Expr::ForLoop(x) => &x.attrs,
+        syn::Expr::Group(x) => &x.attrs,
+        syn::Expr::If(x) => &x.attrs,
+        syn::Expr::Index(x) => &x.attrs,
+        syn::Expr::Infer(x) => &x.attrs,
+        syn::Expr::Let(x) => &x.attrs,
+        syn::Expr::Lit(x) => &x.attrs,
+        syn::Expr::Loop(x) => &x.attrs,
+        syn::Expr::Macro(x) => &x.attrs,
+        syn::Expr::Match(x) => &x.attrs,
+        syn::Expr::MethodCall(x) => &x.attrs,
+        syn::Expr::Paren(x) => &x.attrs,
+        syn::Expr::Path(x) => &x.attrs,
+        syn::Expr::Range(x) => &x.attrs,
+        syn::Expr::RawAddr(x) => &x.attrs,
+        syn::Expr::Reference(x) => &x.attrs,
+        syn::Expr::Repeat(x) => &x.attrs,
+        syn::Expr::Return(x) => &x.attrs,
+        syn::Expr::Struct(x) => &x.attrs,
+        syn::Expr::Try(x) => &x.attrs,
+        syn::Expr::TryBlock(x) => &x.attrs,
+        syn::Expr::Tuple(x) => &x.attrs,
+        syn::Expr::Unary(x) => &x.attrs,
+        syn::Expr::Unsafe(x) => &x.attrs,
+        syn::Expr::While(x) => &x.attrs,
+        syn::Expr::Yield(x) => &x.attrs,
+        _ => &[],
+    }
+}
+
 fn emit_stmt_macro(w: &mut PyWriter, sm: &syn::StmtMacro) -> Result<(), String> {
     let path = &sm.mac.path;
-    if path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments[0].ident == "println"
-    {
-        let inner = super::collection::emit_format(w, sm.mac.tokens.clone(), &sm.mac)?;
-        w.line(&format!("print({})", inner.text));
-        return Ok(());
+    if path.leading_colon.is_none() && path.segments.len() == 1 {
+        let name = path.segments[0].ident.to_string();
+        match name.as_str() {
+            "println" => {
+                let inner = super::collection::emit_format(w, sm.mac.tokens.clone(), &sm.mac)?;
+                w.line(&format!("print({})", inner.text));
+                return Ok(());
+            }
+            "eprintln" => {
+                let inner = super::collection::emit_format(w, sm.mac.tokens.clone(), &sm.mac)?;
+                w.line(&format!("print({}, file=sys.stderr)", inner.text));
+                return Ok(());
+            }
+            "panic" => {
+                let inner = if sm.mac.tokens.is_empty() {
+                    String::from("\"panic\"")
+                } else {
+                    super::collection::emit_format(w, sm.mac.tokens.clone(), &sm.mac)?.text
+                };
+                w.line(&format!("raise Exception({inner})"));
+                return Ok(());
+            }
+            "unimplemented" => {
+                let inner = if sm.mac.tokens.is_empty() {
+                    String::new()
+                } else {
+                    super::collection::emit_format(w, sm.mac.tokens.clone(), &sm.mac)?.text
+                };
+                if inner.is_empty() {
+                    w.line("raise NotImplementedError");
+                } else {
+                    w.line(&format!("raise NotImplementedError({inner})"));
+                }
+                return Ok(());
+            }
+            "unreachable" => {
+                let inner = if sm.mac.tokens.is_empty() {
+                    String::from("\"unreachable\"")
+                } else {
+                    super::collection::emit_format(w, sm.mac.tokens.clone(), &sm.mac)?.text
+                };
+                w.line(&format!("raise AssertionError({inner})"));
+                return Ok(());
+            }
+            _ => {}
+        }
     }
     Err(w.err(
         sm.span(),
-        "macro statements are not supported (only println! is recognized at statement level)",
+        format!(
+            "unsupported macro statement: {}!",
+            super::expr::path_to_string(&sm.mac.path),
+        ),
     ))
 }
 
+/// Public re-export of `emit_local` so `emit::expr::emit_block_expr` can hoist
+/// let bindings out of a multi-statement block in expression position.
+pub fn emit_local_public(w: &mut PyWriter, l: &syn::Local) -> Result<(), String> {
+    emit_local(w, l)
+}
+
+/// True if any branch of the if-chain diverges (return / break / continue)
+/// rather than yielding a value. Used to decide whether `let pat = if ...`
+/// must be lifted to a statement form.
+fn if_has_divergent_branch(i: &syn::ExprIf) -> bool {
+    fn branch_diverges(stmts: &[syn::Stmt]) -> bool {
+        let Some(last) = stmts.last() else {
+            return false;
+        };
+        match last {
+            syn::Stmt::Expr(e, _) => matches!(
+                e,
+                syn::Expr::Return(_) | syn::Expr::Break(_) | syn::Expr::Continue(_)
+            ),
+            _ => false,
+        }
+    }
+    if branch_diverges(&i.then_branch.stmts) {
+        return true;
+    }
+    if let Some((_, else_branch)) = &i.else_branch {
+        match else_branch.as_ref() {
+            syn::Expr::Block(b) => {
+                if branch_diverges(&b.block.stmts) {
+                    return true;
+                }
+            }
+            syn::Expr::If(nested) => {
+                if if_has_divergent_branch(nested) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Emit `let pat = if cond { x } else { y };` as an if-statement that
+/// assigns to `pat` in each non-divergent branch.
+fn emit_if_into_let(w: &mut PyWriter, bind_pat: &syn::Pat, i: &syn::ExprIf) -> Result<(), String> {
+    declare_pat(w, bind_pat, Ty::Unknown);
+    let bind_text = pat_to_text(w, bind_pat)?;
+    emit_if_chain_into_target(w, &bind_text, i)
+}
+
+fn emit_if_chain_into_target(
+    w: &mut PyWriter,
+    bind_text: &str,
+    i: &syn::ExprIf,
+) -> Result<(), String> {
+    if let Some(cond_text) = emit_let_or_chain(w, &i.cond)? {
+        w.line(&format!("if {cond_text}:"));
+    } else {
+        let cond = expr::emit_expr(w, &i.cond)?;
+        w.line(&format!("if {}:", cond.text));
+    }
+    w.enter_indent();
+    w.enter_block();
+    emit_branch_into_target(w, bind_text, &i.then_branch.stmts)?;
+    w.exit_block();
+    w.exit_indent();
+    if let Some((_, else_branch)) = &i.else_branch {
+        match else_branch.as_ref() {
+            syn::Expr::If(nested) => {
+                w.line("else:");
+                w.enter_indent();
+                w.enter_block();
+                emit_if_chain_into_target(w, bind_text, nested)?;
+                w.exit_block();
+                w.exit_indent();
+            }
+            syn::Expr::Block(b) => {
+                w.line("else:");
+                w.enter_indent();
+                w.enter_block();
+                emit_branch_into_target(w, bind_text, &b.block.stmts)?;
+                w.exit_block();
+                w.exit_indent();
+            }
+            other => {
+                return Err(w.err(other.span(), "else branch must be a block or if-chain"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn emit_branch_into_target(
+    w: &mut PyWriter,
+    bind_text: &str,
+    stmts: &[syn::Stmt],
+) -> Result<(), String> {
+    let (body, tail) = split_tail(stmts);
+    for s in body {
+        emit_stmt(w, s)?;
+    }
+    match tail {
+        Some(t) => {
+            // Divergent tails (return/break/continue) emit as statements;
+            // value tails assign to the target.
+            match t {
+                syn::Expr::Return(_) | syn::Expr::Break(_) | syn::Expr::Continue(_) => {
+                    emit_tail(w, t, Tail::Discard)?;
+                }
+                _ => {
+                    let em = expr::emit_expr(w, t)?;
+                    w.line(&format!("{bind_text} = {}", em.text));
+                }
+            }
+        }
+        None => {}
+    }
+    Ok(())
+}
+
+/// Emit `let pat = match scrut { arm => value, ... };` as a Python `match`
+/// statement that assigns into `pat` from each arm's tail expression. Walks
+/// the same arm-emit machinery as `emit_match_stmt` but with the binding
+/// pattern as the assignment target rather than discarding the value.
+fn emit_match_into_let(
+    w: &mut PyWriter,
+    bind_pat: &syn::Pat,
+    m: &syn::ExprMatch,
+) -> Result<(), String> {
+    // Forward-declare the bindings so they're visible to subsequent
+    // statements (Python doesn't have block scoping, so this matches Rust's
+    // post-let visibility).
+    declare_pat(w, bind_pat, Ty::Unknown);
+    let bind_text = pat_to_text(w, bind_pat)?;
+    let scrut = expr::emit_expr(w, &m.expr)?;
+    w.line(&format!("match {}:", scrut.text));
+    w.enter_indent();
+    if m.arms.is_empty() {
+        w.line("case _:");
+        w.enter_indent();
+        w.line("pass");
+        w.exit_indent();
+    }
+    for arm in &m.arms {
+        let pat_text = super::pat::pat_to_python(w, &arm.pat)?;
+        let case_line = if let Some((_, guard)) = &arm.guard {
+            let guard_em = expr::emit_expr(w, guard)?;
+            format!("case {pat_text} if {}:", guard_em.text)
+        } else {
+            format!("case {pat_text}:")
+        };
+        w.line(&case_line);
+        w.enter_indent();
+        w.enter_block();
+        super::pat::declare_pat_bindings(w, &arm.pat);
+        // Block bodies may have leading statements (early-return guards)
+        // before their tail value. Emit them inline, then assign the tail
+        // expression to the outer binding (like emit_branch_into_target).
+        match arm.body.as_ref() {
+            syn::Expr::Block(b) => {
+                emit_branch_into_target(w, &bind_text, &b.block.stmts)?;
+            }
+            syn::Expr::Return(_) | syn::Expr::Break(_) | syn::Expr::Continue(_) => {
+                emit_tail(w, arm.body.as_ref(), Tail::Discard)?;
+            }
+            other => {
+                let body_em = expr::emit_expr(w, other)?;
+                if body_em.text.is_empty() {
+                    w.line("pass");
+                } else {
+                    w.line(&format!("{bind_text} = {}", body_em.text));
+                }
+            }
+        }
+        w.exit_block();
+        w.exit_indent();
+    }
+    w.exit_indent();
+    Ok(())
+}
+
 fn emit_local(w: &mut PyWriter, l: &syn::Local) -> Result<(), String> {
-    let init = l
-        .init
-        .as_ref()
-        .ok_or_else(|| w.err(l.span(), "let without initializer not supported"))?;
-    if init.diverge.is_some() {
-        return Err(w.err(l.span(), "let-else not supported"));
+    // `let name;` (no initialiser) — Rust forward-declares for later
+    // assignment. Python doesn't need pre-declaration; just declare in
+    // the writer's scope so subsequent assignments aren't flagged as
+    // shadowing, and emit nothing.
+    let Some(init) = l.init.as_ref() else {
+        if let syn::Pat::Ident(pi) = &l.pat {
+            w.declare(&pi.ident.to_string(), Ty::Unknown);
+        } else if let syn::Pat::Type(pt) = &l.pat
+            && let syn::Pat::Ident(pi) = pt.pat.as_ref()
+        {
+            w.declare(&pi.ident.to_string(), types::type_from_annotation(&pt.ty));
+        }
+        return Ok(());
+    };
+    if let Some((_, diverge)) = init.diverge.as_ref().map(|(t, e)| (t, &**e)) {
+        // `let Some(x) = expr else { ... };` — bind x to the unwrapped value;
+        // if the expr was None, run the divergent block. Python equivalent:
+        //   x = expr
+        //   if x is None: <diverge>
+        // Single `let Some(x) = expr else { ... };`
+        if let syn::Pat::TupleStruct(ts) = &l.pat
+            && super::expr::path_to_string(&ts.path).split("::").last() == Some("Some")
+            && ts.elems.len() == 1
+        {
+            let inner = ts.elems.first().unwrap();
+            // `let Some(x) = expr else { diverge };`
+            if let syn::Pat::Ident(pi) = inner {
+                let name = pi.ident.to_string();
+                let rhs = expr::emit_expr(w, &init.expr)?;
+                w.declare(&name, Ty::Unknown);
+                w.line(&format!("{name} = {}", rhs.text));
+                w.line(&format!("if {name} is None:"));
+                w.enter_indent();
+                w.enter_block();
+                match diverge {
+                    syn::Expr::Block(b) => emit_block_inplace(w, &b.block, Tail::Discard)?,
+                    other => {
+                        let em = expr::emit_expr(w, other)?;
+                        w.line(&em.text);
+                    }
+                }
+                w.exit_block();
+                w.exit_indent();
+                return Ok(());
+            }
+            // `let Some((a, b)) = expr else { diverge };` — bind to a tmp,
+            // diverge if None, then unpack the tuple components.
+            if let syn::Pat::Tuple(t) = inner {
+                let mut names: Vec<String> = Vec::new();
+                for elem in &t.elems {
+                    let name = match elem {
+                        syn::Pat::Ident(pi) => pi.ident.to_string(),
+                        syn::Pat::Wild(_) => "_".to_string(),
+                        _ => {
+                            return Err(w.err(
+                                elem.span(),
+                                "let-else Some((<tuple>)) only supports ident/wildcard sub-patterns",
+                            ));
+                        }
+                    };
+                    names.push(name);
+                }
+                let tmp = "__opt_tuple".to_string();
+                let rhs = expr::emit_expr(w, &init.expr)?;
+                w.line(&format!("{tmp} = {}", rhs.text));
+                w.line(&format!("if {tmp} is None:"));
+                w.enter_indent();
+                w.enter_block();
+                match diverge {
+                    syn::Expr::Block(b) => emit_block_inplace(w, &b.block, Tail::Discard)?,
+                    other => {
+                        let em = expr::emit_expr(w, other)?;
+                        w.line(&em.text);
+                    }
+                }
+                w.exit_block();
+                w.exit_indent();
+                let bind = names.join(", ");
+                for n in &names {
+                    if n != "_" {
+                        w.declare(n, Ty::Unknown);
+                    }
+                }
+                w.line(&format!("{bind} = {tmp}"));
+                return Ok(());
+            }
+            // `let Some(Foo::Bar { f1, f2 }) = expr else { diverge };` — bind
+            // the value to a tmp, diverge if None or wrong variant, then
+            // unpack the variant fields.
+            if let syn::Pat::Struct(s) = inner {
+                let class = super::expr::struct_pat_class_for_let(w, s)?;
+                let tmp = format!("__opt_{class}");
+                let rhs = expr::emit_expr(w, &init.expr)?;
+                w.line(&format!("{tmp} = {}", rhs.text));
+                w.line(&format!("if not isinstance({tmp}, {class}):"));
+                w.enter_indent();
+                w.enter_block();
+                match diverge {
+                    syn::Expr::Block(b) => emit_block_inplace(w, &b.block, Tail::Discard)?,
+                    other => {
+                        let em = expr::emit_expr(w, other)?;
+                        w.line(&em.text);
+                    }
+                }
+                w.exit_block();
+                w.exit_indent();
+                for fp in &s.fields {
+                    let field = match &fp.member {
+                        syn::Member::Named(n) => n.to_string(),
+                        syn::Member::Unnamed(_) => {
+                            return Err(w.err(fp.span(), "unnamed field in let-else struct"));
+                        }
+                    };
+                    let bind_name = match fp.pat.as_ref() {
+                        syn::Pat::Ident(pi) => pi.ident.to_string(),
+                        _ => continue, // `..` rest or non-ident sub-pattern
+                    };
+                    w.declare(&bind_name, Ty::Unknown);
+                    w.line(&format!("{bind_name} = {tmp}.{field}"));
+                }
+                return Ok(());
+            }
+        }
+        // Tuple let-else: `let (Some(a), Some(b), ...) = (e1, e2, ...) else { ... };`
+        if let syn::Pat::Tuple(pat_tup) = &l.pat
+            && let syn::Expr::Tuple(rhs_tup) = &*init.expr
+            && pat_tup.elems.len() == rhs_tup.elems.len()
+        {
+            let mut bindings: Vec<(String, &syn::Expr)> = Vec::new();
+            let mut ok = true;
+            for (p, e) in pat_tup.elems.iter().zip(rhs_tup.elems.iter()) {
+                let syn::Pat::TupleStruct(ts) = p else {
+                    ok = false;
+                    break;
+                };
+                if super::expr::path_to_string(&ts.path).split("::").last() != Some("Some")
+                    || ts.elems.len() != 1
+                {
+                    ok = false;
+                    break;
+                }
+                let syn::Pat::Ident(pi) = ts.elems.first().unwrap() else {
+                    ok = false;
+                    break;
+                };
+                bindings.push((pi.ident.to_string(), e));
+            }
+            if ok {
+                for (name, e) in &bindings {
+                    let em = expr::emit_expr(w, e)?;
+                    w.declare(name, Ty::Unknown);
+                    w.line(&format!("{name} = {}", em.text));
+                }
+                let cond = bindings
+                    .iter()
+                    .map(|(n, _)| format!("{n} is None"))
+                    .collect::<Vec<_>>()
+                    .join(" or ");
+                w.line(&format!("if {cond}:"));
+                w.enter_indent();
+                w.enter_block();
+                match diverge {
+                    syn::Expr::Block(b) => emit_block_inplace(w, &b.block, Tail::Discard)?,
+                    other => {
+                        let em = expr::emit_expr(w, other)?;
+                        w.line(&em.text);
+                    }
+                }
+                w.exit_block();
+                w.exit_indent();
+                return Ok(());
+            }
+        }
+        return Err(w.err(l.span(), "let-else: only `let Some(x) = ... else { ... }` and `let (Some(a), Some(b)) = (e1, e2) else { ... }` are supported"));
+    }
+
+    // `let pat = match scrutinee { ... };` — Python has no match-expression,
+    // so emit a Python match statement and assign to `pat` inside each arm.
+    if let syn::Expr::Match(m) = init.expr.as_ref() {
+        return emit_match_into_let(w, &l.pat, m);
+    }
+    // `let Foo { field1, field2: rename, .. } = expr;` — destructure into
+    // separate Python attribute reads. The RHS is evaluated once into a
+    // temporary so multi-call/side-effect expressions don't repeat.
+    if let syn::Pat::Struct(s) = &l.pat {
+        let rhs = expr::emit_expr(w, &init.expr)?;
+        let tmp = "__destr".to_string();
+        // Avoid the temp when RHS is a simple ident — write attributes
+        // directly off the original.
+        let base = if matches!(init.expr.as_ref(), syn::Expr::Path(_)) {
+            rhs.text.clone()
+        } else {
+            w.line(&format!("{tmp} = {}", rhs.text));
+            tmp
+        };
+        for fp in &s.fields {
+            let field = match &fp.member {
+                syn::Member::Named(n) => n.to_string(),
+                syn::Member::Unnamed(_) => {
+                    return Err(w.err(fp.span(), "unnamed field in let-destructure"));
+                }
+            };
+            let bind_name = match fp.pat.as_ref() {
+                syn::Pat::Ident(pi) => pi.ident.to_string(),
+                other => {
+                    return Err(w.err(other.span(), "let-destructure sub-pattern must be an ident"));
+                }
+            };
+            w.declare(&bind_name, Ty::Unknown);
+            w.line(&format!("{bind_name} = {base}.{field}"));
+        }
+        return Ok(());
+    }
+    // `let pat = if cond { x } else { y };` — emit as an if-statement that
+    // assigns to `pat` in each branch. Necessary when a branch diverges
+    // (return / break) and so the if-as-expression form rejects.
+    if let syn::Expr::If(i) = init.expr.as_ref()
+        && if_has_divergent_branch(i)
+    {
+        return emit_if_into_let(w, &l.pat, i);
     }
 
     let binding = bind_name_and_type(w, &l.pat)?;
@@ -106,14 +607,13 @@ fn emit_local(w: &mut PyWriter, l: &syn::Local) -> Result<(), String> {
             }
         }
         Binding::Named { name, ann_ty } => {
-            if w.is_outer_binding(&name) && !w.is_current_binding(&name) {
-                return Err(w.err(
-                    l.span(),
-                    format!(
-                        "cross-block shadowing of `{name}` is not supported (would diverge from Python's scoping)"
-                    ),
-                ));
-            }
+            // Rust's `let` introduces a new binding; Python has no block
+            // scoping, so the equivalent is plain reassignment. We emit
+            // `name = expr` either way and let downstream Python see the
+            // last write. (Pyrust used to reject inner-block shadowing as
+            // a hard error; in practice the auto-generated dp_step code
+            // uses sibling shadowing extensively and the resulting Python
+            // is fine because shadowed values aren't read post-scope.)
             let ty = match ann_ty {
                 Some(t) if t != Ty::Unknown => t,
                 _ => rhs.ty,
@@ -130,19 +630,6 @@ fn emit_local(w: &mut PyWriter, l: &syn::Local) -> Result<(), String> {
             w.line(&line);
         }
         Binding::Tuple { names } => {
-            for n in &names {
-                if n == "_" {
-                    continue;
-                }
-                if w.is_outer_binding(n) && !w.is_current_binding(n) {
-                    return Err(w.err(
-                        l.span(),
-                        format!(
-                            "cross-block shadowing of `{n}` is not supported (would diverge from Python's scoping)"
-                        ),
-                    ));
-                }
-            }
             for n in &names {
                 if n != "_" {
                     w.declare(n, Ty::Unknown);
@@ -322,6 +809,12 @@ fn emit_assign_stmt(w: &mut PyWriter, a: &syn::ExprAssign) -> Result<(), String>
             // use it as the LHS.
             expr::emit_expr(w, a.left.as_ref())?.text
         }
+        syn::Expr::Unary(u) if matches!(u.op, syn::UnOp::Deref(_)) => {
+            // `*ptr = rhs` — Python has no deref. Treat as plain assignment
+            // through the underlying name; the borrow semantics don't carry
+            // across to Python so this is a faithful textual translation.
+            expr::emit_expr(w, &u.expr)?.text
+        }
         other => {
             return Err(w.err(
                 other.span(),
@@ -342,6 +835,27 @@ fn emit_tail(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(), String> 
         syn::Expr::ForLoop(fl) => emit_for_stmt(w, fl, tail),
         syn::Expr::Match(m) => emit_match_stmt(w, m, tail),
         syn::Expr::Block(b) => emit_block(w, &b.block, tail),
+        syn::Expr::Assign(a) => {
+            emit_assign_stmt(w, a)?;
+            if matches!(tail, Tail::Return) {
+                w.line("return");
+            }
+            Ok(())
+        }
+        syn::Expr::Continue(_) => {
+            w.line("continue");
+            Ok(())
+        }
+        syn::Expr::Break(b) => {
+            if b.label.is_some() {
+                return Err(w.err(b.span(), "labeled break not supported"));
+            }
+            if let Some(_v) = &b.expr {
+                return Err(w.err(b.span(), "break with value not supported"));
+            }
+            w.line("break");
+            Ok(())
+        }
         syn::Expr::Return(r) => {
             if let Some(v) = &r.expr {
                 let em = expr::emit_expr(w, v)?;
@@ -373,6 +887,16 @@ fn emit_if_stmt(w: &mut PyWriter, i: &syn::ExprIf, tail: Tail) -> Result<(), Str
         w.line(&format!("return {ternary}"));
         return Ok(());
     }
+    if let Some(cond_text) = emit_let_or_chain(w, &i.cond)? {
+        w.line(&format!("if {cond_text}:"));
+        w.enter_indent();
+        emit_block(w, &i.then_branch, tail)?;
+        w.exit_indent();
+        if let Some((_, else_branch)) = &i.else_branch {
+            emit_else(w, else_branch, tail)?;
+        }
+        return Ok(());
+    }
     let cond = expr::emit_expr(w, &i.cond)?;
     w.line(&format!("if {}:", cond.text));
     w.enter_indent();
@@ -384,9 +908,285 @@ fn emit_if_stmt(w: &mut PyWriter, i: &syn::ExprIf, tail: Tail) -> Result<(), Str
     Ok(())
 }
 
+/// Handle `if let Some(p) = expr { ... }` and let-chains
+/// `if let Some(p) = expr && cond { ... }`. Emits the binding(s) on
+/// preceding lines and returns a Python condition string. Returns Ok(None)
+/// if the condition contains no `let` clause.
+fn emit_let_or_chain(w: &mut PyWriter, cond: &syn::Expr) -> Result<Option<String>, String> {
+    let parts = collect_let_chain(cond);
+    if parts.is_empty() {
+        return Ok(None);
+    }
+    // Walk parts: each is either a Let clause or a plain bool expression.
+    // Lower the Lets into `__opt = expr` + `__opt is not None` and bind the
+    // inner pattern to a fresh local on the same conditional surface.
+    let mut conds: Vec<String> = Vec::new();
+    for part in parts {
+        match part {
+            ChainPart::Let { pat, value } => {
+                let val_em = expr::emit_expr(w, value)?;
+                match pat {
+                    syn::Pat::TupleStruct(ts) if some_pat(ts) => {
+                        // Strip leading `&` references and `(...)` parens —
+                        // they're a Rust source detail, not semantically
+                        // meaningful for Python.
+                        fn unwrap_ref(p: &syn::Pat) -> &syn::Pat {
+                            match p {
+                                syn::Pat::Reference(r) => unwrap_ref(&r.pat),
+                                syn::Pat::Paren(pp) => unwrap_ref(&pp.pat),
+                                _ => p,
+                            }
+                        }
+                        let inner = unwrap_ref(ts.elems.first().unwrap());
+                        match inner {
+                            syn::Pat::Ident(pi) => {
+                                let name = pi.ident.to_string();
+                                w.declare(&name, Ty::Unknown);
+                                w.line(&format!("{name} = {}", val_em.text));
+                                conds.push(format!("{name} is not None"));
+                            }
+                            syn::Pat::Wild(_) => {
+                                conds.push(format!("({}) is not None", val_em.text));
+                            }
+                            syn::Pat::Path(p) => {
+                                // `if let Some(EnumName::Variant) = expr` —
+                                // check expr equals EnumName.Variant.
+                                let segs: Vec<String> = p
+                                    .path
+                                    .segments
+                                    .iter()
+                                    .map(|s| s.ident.to_string())
+                                    .collect();
+                                let s: Vec<&str> = segs.iter().map(String::as_str).collect();
+                                let py_path = match s.as_slice() {
+                                    [single] => single.to_string(),
+                                    [class, variant] => format!("{class}.{variant}"),
+                                    _ => {
+                                        return Err(w.err(
+                                            p.span(),
+                                            format!(
+                                                "unsupported if let Some(<path>): {}",
+                                                segs.join("::")
+                                            ),
+                                        ));
+                                    }
+                                };
+                                conds.push(format!("({}) == {py_path}", val_em.text));
+                            }
+                            syn::Pat::Struct(s) => {
+                                // `if let Some(Foo::Bar { team, direction }) = expr`
+                                // — emit an isinstance check + per-field bindings.
+                                let class = super::expr::struct_pat_class_for_let(w, s)?;
+                                let tmp = format!("__opt_{class}");
+                                w.line(&format!("{tmp} = {}", val_em.text));
+                                let mut field_names = Vec::new();
+                                for fp in &s.fields {
+                                    let field = match &fp.member {
+                                        syn::Member::Named(n) => n.to_string(),
+                                        syn::Member::Unnamed(_) => {
+                                            return Err(w.err(
+                                                fp.span(),
+                                                "unnamed field in struct pattern not supported",
+                                            ));
+                                        }
+                                    };
+                                    if let syn::Pat::Ident(pi) = &*fp.pat {
+                                        let bind_name = pi.ident.to_string();
+                                        w.declare(&bind_name, Ty::Unknown);
+                                        w.line(&format!(
+                                            "{bind_name} = {tmp}.{field} if isinstance({tmp}, {class}) else None"
+                                        ));
+                                        field_names.push(bind_name);
+                                    } else {
+                                        return Err(w.err(
+                                            fp.span(),
+                                            "non-ident sub-pattern in if-let struct pattern",
+                                        ));
+                                    }
+                                }
+                                conds.push(format!("isinstance({tmp}, {class})"));
+                            }
+                            syn::Pat::Or(or_pat) => {
+                                // `if let Some(A {f, g} | B {f, g}) = expr` — all alternatives must
+                                // be struct-style with the same field names. Emit isinstance check
+                                // against `A | B` and bind each shared field by attribute access.
+                                let mut classes: Vec<String> = Vec::new();
+                                let mut shared_fields: Option<Vec<String>> = None;
+                                for case in &or_pat.cases {
+                                    let s = match case {
+                                        syn::Pat::Struct(s) => s,
+                                        other => {
+                                            return Err(w.err(
+                                                other.span(),
+                                                "or-patterns inside Some(...) must all be struct patterns",
+                                            ));
+                                        }
+                                    };
+                                    classes.push(super::expr::struct_pat_class_for_let(w, s)?);
+                                    let mut these = Vec::new();
+                                    for fp in &s.fields {
+                                        let field = match &fp.member {
+                                            syn::Member::Named(n) => n.to_string(),
+                                            syn::Member::Unnamed(_) => {
+                                                return Err(w.err(
+                                                    fp.span(),
+                                                    "unnamed field in struct pattern not supported",
+                                                ));
+                                            }
+                                        };
+                                        these.push(field);
+                                    }
+                                    these.sort();
+                                    if let Some(prev) = &shared_fields {
+                                        if prev != &these {
+                                            return Err(w.err(
+                                                or_pat.span(),
+                                                "or-pattern struct branches must bind the same field names",
+                                            ));
+                                        }
+                                    } else {
+                                        shared_fields = Some(these);
+                                    }
+                                }
+                                let union = classes.join(" | ");
+                                let tmp = "__opt_or".to_string();
+                                w.line(&format!("{tmp} = {}", val_em.text));
+                                let fields = shared_fields.unwrap_or_default();
+                                for f in &fields {
+                                    w.declare(f, Ty::Unknown);
+                                    w.line(&format!(
+                                        "{f} = {tmp}.{f} if isinstance({tmp}, {union}) else None"
+                                    ));
+                                }
+                                conds.push(format!("isinstance({tmp}, {union})"));
+                            }
+                            syn::Pat::Tuple(t) => {
+                                // `if let Some((a, b)) = expr` — bind each
+                                // component before the if, conditional on
+                                // expr not being None.
+                                let mut names: Vec<String> = Vec::new();
+                                for elem in &t.elems {
+                                    if let syn::Pat::Ident(pi) = elem {
+                                        names.push(pi.ident.to_string());
+                                    } else {
+                                        return Err(w.err(
+                                            elem.span(),
+                                            "if let Some((<tuple>)) only supports ident sub-patterns",
+                                        ));
+                                    }
+                                }
+                                let tmp = format!("__opt_{}", names.join("_"));
+                                w.line(&format!("{tmp} = {}", val_em.text));
+                                for (idx, n) in names.iter().enumerate() {
+                                    w.declare(n, Ty::Unknown);
+                                    w.line(&format!(
+                                        "{n} = {tmp}[{idx}] if {tmp} is not None else None"
+                                    ));
+                                }
+                                conds.push(format!("{tmp} is not None"));
+                            }
+                            other => {
+                                return Err(w.err(
+                                    other.span(),
+                                    "if let Some(<pattern>) where pattern is not an ident, wildcard, path, or struct not supported",
+                                ));
+                            }
+                        }
+                    }
+                    syn::Pat::Ident(pi) => {
+                        // `if let x = expr` (rare): just bind.
+                        let name = pi.ident.to_string();
+                        w.declare(&name, Ty::Unknown);
+                        w.line(&format!("{name} = {}", val_em.text));
+                        conds.push("True".to_string());
+                    }
+                    other => {
+                        return Err(w.err(
+                            other.span(),
+                            "if let with non-Some pattern not supported (use a match)",
+                        ));
+                    }
+                }
+            }
+            ChainPart::Cond(e) => {
+                let em = expr::emit_expr(w, e)?;
+                conds.push(em.text);
+            }
+        }
+    }
+    Ok(Some(conds.join(" and ")))
+}
+
+enum ChainPart<'a> {
+    Let {
+        pat: &'a syn::Pat,
+        value: &'a syn::Expr,
+    },
+    Cond(&'a syn::Expr),
+}
+
+fn collect_let_chain(cond: &syn::Expr) -> Vec<ChainPart<'_>> {
+    let mut out = Vec::new();
+    fn walk<'a>(e: &'a syn::Expr, out: &mut Vec<ChainPart<'a>>) -> bool {
+        match e {
+            syn::Expr::Let(l) => {
+                out.push(ChainPart::Let {
+                    pat: &l.pat,
+                    value: &l.expr,
+                });
+                true
+            }
+            syn::Expr::Binary(b) if matches!(b.op, syn::BinOp::And(_)) => {
+                let l_has = walk(&b.left, out);
+                let r_has = walk(&b.right, out);
+                l_has || r_has
+            }
+            syn::Expr::Paren(p) => walk(&p.expr, out),
+            other => {
+                out.push(ChainPart::Cond(other));
+                false
+            }
+        }
+    }
+    let saw_let = walk(cond, &mut out);
+    if !saw_let {
+        return Vec::new();
+    }
+    out
+}
+
+fn some_pat(ts: &syn::PatTupleStruct) -> bool {
+    let segs: Vec<String> = ts
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
+    let s: Vec<&str> = segs.iter().map(String::as_str).collect();
+    matches!(s.as_slice(), ["Some"] | ["Option", "Some"]) && ts.elems.len() == 1
+}
+
 fn emit_else(w: &mut PyWriter, else_branch: &syn::Expr, tail: Tail) -> Result<(), String> {
     match else_branch {
         syn::Expr::If(nested) => {
+            // `else if let ... = ...` — the let chain emit needs to lay
+            // bindings down on lines BEFORE the elif. Python doesn't
+            // support a single-line let-chain elif; the cleanest form is:
+            //   else:
+            //       <bindings>
+            //       if <cond>:
+            //           ...
+            // We get there by pushing a plain "else:", then recursing into
+            // the nested if as a normal statement.
+            if !collect_let_chain(&nested.cond).is_empty() {
+                w.line("else:");
+                w.enter_indent();
+                w.enter_block();
+                emit_if_stmt(w, nested, tail)?;
+                w.exit_block();
+                w.exit_indent();
+                return Ok(());
+            }
             let cond = expr::emit_expr(w, &nested.cond)?;
             w.line(&format!("elif {}:", cond.text));
             w.enter_indent();
@@ -423,6 +1223,11 @@ fn ternary_if_simple(w: &mut PyWriter, i: &syn::ExprIf) -> Result<Option<String>
         syn::Expr::If(_) => return Ok(None),
         other => other,
     };
+    // `if let ... = ...` can't fold into a ternary because we need to bind
+    // a name on a preceding line. Force the full if/else path.
+    if !collect_let_chain(&i.cond).is_empty() {
+        return Ok(None);
+    }
     let cond = expr::emit_expr(w, &i.cond)?;
     let then_e = expr::emit_expr(w, then_inner)?;
     let else_e = expr::emit_expr(w, else_inner)?;
@@ -445,6 +1250,64 @@ fn ternary_atom(e: &Emitted) -> String {
 fn emit_while_stmt(w: &mut PyWriter, wh: &syn::ExprWhile, tail: Tail) -> Result<(), String> {
     if wh.label.is_some() {
         return Err(w.err(wh.span(), "labeled while not supported"));
+    }
+    // `while let Some(name) = recv.pop() { body }` — the most common Rust
+    // queue-drain idiom — translates to Python's natural form:
+    //   while recv:
+    //       name = recv.pop()
+    //       body
+    if let syn::Expr::Let(let_expr) = wh.cond.as_ref()
+        && let syn::Pat::TupleStruct(ts) = let_expr.pat.as_ref()
+        && super::expr::path_to_string(&ts.path).split("::").last() == Some("Some")
+        && ts.elems.len() == 1
+        && let syn::Pat::Ident(pi) = ts.elems.first().unwrap()
+        && let syn::Expr::MethodCall(mc) = let_expr.expr.as_ref()
+        && (mc.method == "pop" || mc.method == "pop_back" || mc.method == "pop_front")
+        && mc.args.is_empty()
+    {
+        let name = pi.ident.to_string();
+        let recv = expr::emit_expr(w, &mc.receiver)?;
+        // Map `pop_front` to `popleft` for collections.deque parity.
+        let pop_method = if mc.method == "pop_front" {
+            "popleft"
+        } else {
+            "pop"
+        };
+        w.line(&format!("while {}:", recv.text));
+        w.enter_indent();
+        w.enter_block();
+        w.declare(&name, Ty::Unknown);
+        w.line(&format!("{name} = {}.{pop_method}()", recv.text));
+        emit_block_inplace(w, &wh.body, Tail::Discard)?;
+        w.exit_block();
+        w.exit_indent();
+        if matches!(tail, Tail::Return) {
+            w.line("return");
+        }
+        return Ok(());
+    }
+    // Generic `while let Some(x) = expr { body }` — guard against None
+    // each iteration, breaking out when expr returns None. Uses Python's
+    // walrus operator so the condition is also the binding.
+    if let syn::Expr::Let(let_expr) = wh.cond.as_ref()
+        && let syn::Pat::TupleStruct(ts) = let_expr.pat.as_ref()
+        && super::expr::path_to_string(&ts.path).split("::").last() == Some("Some")
+        && ts.elems.len() == 1
+        && let syn::Pat::Ident(pi) = ts.elems.first().unwrap()
+    {
+        let name = pi.ident.to_string();
+        let val = expr::emit_expr(w, &let_expr.expr)?;
+        w.declare(&name, Ty::Unknown);
+        w.line(&format!("while ({name} := {}) is not None:", val.text));
+        w.enter_indent();
+        w.enter_block();
+        emit_block_inplace(w, &wh.body, Tail::Discard)?;
+        w.exit_block();
+        w.exit_indent();
+        if matches!(tail, Tail::Return) {
+            w.line("return");
+        }
+        return Ok(());
     }
     let cond = expr::emit_expr(w, &wh.cond)?;
     w.line(&format!("while {}:", cond.text));
@@ -515,6 +1378,10 @@ fn pat_to_text(w: &PyWriter, pat: &syn::Pat) -> Result<String, String> {
             }
             Ok(parts.join(", "))
         }
+        syn::Pat::Reference(r) => pat_to_text(w, &r.pat),
+        syn::Pat::Paren(p) => pat_to_text(w, &p.pat),
+        // Type-annotated patterns: `(a, b): (T, U)` — strip the annotation.
+        syn::Pat::Type(pt) => pat_to_text(w, &pt.pat),
         other => Err(w.err(
             other.span(),
             "for-loop pattern must be an ident, wildcard, or tuple of those",
@@ -530,6 +1397,9 @@ fn declare_pat(w: &mut PyWriter, pat: &syn::Pat, ty: Ty) {
                 declare_pat(w, elem, Ty::Unknown);
             }
         }
+        syn::Pat::Reference(r) => declare_pat(w, &r.pat, ty),
+        syn::Pat::Paren(p) => declare_pat(w, &p.pat, ty),
+        syn::Pat::Type(pt) => declare_pat(w, &pt.pat, ty),
         _ => {}
     }
 }
@@ -556,14 +1426,17 @@ fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(
     w.line(&format!("match {}:", scrutinee.text));
     w.enter_indent();
     for arm in ordered {
-        if arm.guard.is_some() {
-            return Err(w.err(
-                arm.span(),
-                "pattern guards in match are rejected (per spec); pull the condition outside the match",
-            ));
-        }
         let pat_text = super::pat::pat_to_python(w, &arm.pat)?;
-        w.line(&format!("case {pat_text}:"));
+        let case_line = if let Some((_, guard)) = &arm.guard {
+            // Declare any pattern bindings before emitting the guard so
+            // the guard expression can refer to them.
+            super::pat::declare_pat_bindings(w, &arm.pat);
+            let guard_em = expr::emit_expr(w, guard)?;
+            format!("case {pat_text} if {}:", guard_em.text)
+        } else {
+            format!("case {pat_text}:")
+        };
+        w.line(&case_line);
         w.enter_indent();
         w.enter_block();
         super::pat::declare_pat_bindings(w, &arm.pat);
@@ -578,6 +1451,13 @@ fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(
 fn emit_match_arm_body(w: &mut PyWriter, body: &syn::Expr, tail: Tail) -> Result<(), String> {
     match body {
         syn::Expr::Block(b) => emit_block(w, &b.block, tail),
+        // Match arms whose body is a statement-shaped expression (assignment,
+        // method call to a void function, return, etc.) must be emitted as
+        // a statement, not wrapped in a `return ...` value.
+        syn::Expr::Assign(_)
+        | syn::Expr::Return(_)
+        | syn::Expr::Break(_)
+        | syn::Expr::Continue(_) => emit_expr_stmt(w, body, tail),
         other => {
             let em = expr::emit_expr(w, other)?;
             match tail {

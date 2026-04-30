@@ -71,7 +71,8 @@ fn main() -> PyResult<()> {
 }
 
 /// Resolve a human-readable bot label. For Python: parent dir of `main.py`
-/// or the file stem. For Rust: parent dir of the `.so`.
+/// or the file stem. For Rust: the cdylib's crate name (file stem with the
+/// leading `lib` stripped), which by convention matches the bot directory.
 fn bot_label(kind: &BotKind) -> String {
     let path: &Path = match kind {
         BotKind::Python(p) => Path::new(p),
@@ -84,20 +85,9 @@ fn bot_label(kind: &BotKind) -> String {
             .unwrap_or("?")
             .to_string()
     } else if path.extension().and_then(|s| s.to_str()) == Some("so") {
-        // .so name like libnothing_rs.so → parent's parent's parent dir name
-        // typically encodes the bot directory; fall back to stem otherwise.
-        path.parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .and_then(|p| p.file_name())
-            .and_then(|s| s.to_str())
-            .map(|s| format!("{s} (rust)"))
-            .unwrap_or_else(|| {
-                path.file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("?")
-                    .to_string()
-            })
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("?");
+        let name = stem.strip_prefix("lib").unwrap_or(stem);
+        format!("{name} (rust)")
     } else {
         path.file_stem()
             .and_then(|s| s.to_str())

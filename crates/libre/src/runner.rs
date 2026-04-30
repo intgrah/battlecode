@@ -359,7 +359,10 @@ impl GameRunner {
 
     /// Run one turn for a unit on a Rust team. No subinterpreter, no
     /// GIL contention — just construct a `UnitView` over the engine
-    /// `Game` and hand it to the bot via FFI.
+    /// `Game` and hand it to the bot via FFI. Captures the bot's stdout
+    /// per turn via fd redirection (mirrors the per-subinterpreter
+    /// `StringIO` capture used for Python bots) and emits it on the
+    /// replay's `BotOutput` diff.
     fn run_rust_unit(&mut self, unit_id: i32, team: Team) {
         let backend = match &self.team_backends[team.index()] {
             TeamBackend::Rust(b) => b,
@@ -369,21 +372,20 @@ impl GameRunner {
             .rust_unit_bots
             .entry(unit_id)
             .or_insert_with(|| (team, backend.create_bot()));
-        // Run the bot. Borrow the game mutably for the duration of
-        // `run` and drop the borrow before emitting the BotOutput diff.
-        {
-            let mut game = self.game.borrow_mut();
+        // Borrow the game mutably for the duration of `run`, then drop
+        // the borrow before emitting the BotOutput diff.
+        let game_cell = self.game.clone();
+        let stdout = crate::stdout_capture::capture(|| {
+            let mut game = game_cell.borrow_mut();
             let mut view = UnitView::new(&mut game, unit_id);
             backend.run_bot(bot_ptr, &mut view);
-        }
-        // Emit a BotOutput diff with empty stdout to keep the replay
-        // shape consistent with Python bots.
+        });
         self.game
             .borrow_mut()
             .replay_recorder
             .append(GameDiff::BotOutput {
                 id: unit_id,
-                stdout: String::new(),
+                stdout,
                 exec_time_us: 0,
                 tled: false,
             });

@@ -10,7 +10,7 @@
 //! of `libre-engine` so that `UnitView` / `Game` layouts agree. The
 //! Cargo workspace ensures this when both are part of the same build
 //! tree (e.g. `bots/test_rust/<bot>/Cargo.toml` depends on
-//! `pkg/crates/cambc` by relative path).
+//! `crates/cambc` by relative path).
 //!
 //! Methods on `Controller` (the engine's trait) are monomorphised into
 //! the bot's compiled copy, so no `dyn` fat-pointer is exchanged across

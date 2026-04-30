@@ -146,18 +146,8 @@ pub trait Controller {
     fn build_launcher(&mut self, position: Pos) -> Result<i32>;
     fn build_foundry(&mut self, position: Pos) -> Result<i32>;
 
-    fn can_build(
-        &self,
-        entity_type: EntityType,
-        position: Pos,
-        extra: BuildExtra,
-    ) -> Result<bool>;
-    fn build(
-        &mut self,
-        entity_type: EntityType,
-        position: Pos,
-        extra: BuildExtra,
-    ) -> Result<i32>;
+    fn can_build(&self, entity_type: EntityType, position: Pos, extra: BuildExtra) -> Result<bool>;
+    fn build(&mut self, entity_type: EntityType, position: Pos, extra: BuildExtra) -> Result<i32>;
 
     fn can_destroy(&self, building_pos: Pos) -> Result<bool>;
     fn destroy(&mut self, building_pos: Pos) -> Result<()>;
@@ -188,14 +178,8 @@ pub trait Controller {
     fn spawn_builder(&mut self, position: Pos) -> Result<i32>;
     fn can_spawn(&self, position: Pos) -> Result<bool>;
 
-    fn draw_indicator_line(
-        &mut self,
-        pos_a: Pos,
-        pos_b: Pos,
-        r: i32,
-        g: i32,
-        b: i32,
-    ) -> Result<()>;
+    fn draw_indicator_line(&mut self, pos_a: Pos, pos_b: Pos, r: i32, g: i32, b: i32)
+    -> Result<()>;
     fn draw_indicator_dot(&mut self, pos: Pos, r: i32, g: i32, b: i32) -> Result<()>;
 }
 
@@ -984,12 +968,7 @@ impl Controller for UnitView<'_> {
         Ok(self.game.build_foundry(self.unit, position))
     }
 
-    fn can_build(
-        &self,
-        entity_type: EntityType,
-        position: Pos,
-        extra: BuildExtra,
-    ) -> Result<bool> {
+    fn can_build(&self, entity_type: EntityType, position: Pos, extra: BuildExtra) -> Result<bool> {
         let dir = || match extra {
             BuildExtra::Direction(d) => Ok(d),
             _ => Err(GameError::new("Direction extra is required")),
@@ -1015,12 +994,7 @@ impl Controller for UnitView<'_> {
         }
     }
 
-    fn build(
-        &mut self,
-        entity_type: EntityType,
-        position: Pos,
-        extra: BuildExtra,
-    ) -> Result<i32> {
+    fn build(&mut self, entity_type: EntityType, position: Pos, extra: BuildExtra) -> Result<i32> {
         let dir = || match extra {
             BuildExtra::Direction(d) => Ok(d),
             _ => Err(GameError::new("Direction extra is required")),
@@ -1252,17 +1226,7 @@ impl Controller for UnitView<'_> {
             .entity(id)
             .ok_or_else(|| GameError::new("Unknown id"))?;
         match entity {
-            Entity::Marker(marker) => {
-                let unit = self
-                    .game
-                    .entity(self.unit)
-                    .and_then(|e| e.as_unit())
-                    .ok_or_else(|| GameError::new("Unit is not a unit"))?;
-                if marker.team != unit.team {
-                    return Err(GameError::new("Marker belongs to enemy team"));
-                }
-                Ok(marker.value)
-            }
+            Entity::Marker(marker) => Ok(marker.value),
             _ => Err(GameError::new("Entity is not a marker")),
         }
     }

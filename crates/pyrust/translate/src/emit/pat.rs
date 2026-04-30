@@ -45,6 +45,11 @@ pub fn declare_pat_bindings(w: &mut PyWriter, pat: &syn::Pat) {
                 declare_pat_bindings(w, elem);
             }
         }
+        syn::Pat::Struct(s) => {
+            for fp in &s.fields {
+                declare_pat_bindings(w, &fp.pat);
+            }
+        }
         syn::Pat::Or(o) => {
             if let Some(first) = o.cases.first() {
                 declare_pat_bindings(w, first);
@@ -119,13 +124,29 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 }
                 return pat_to_python(w, ts.elems.first().unwrap());
             }
-            Err(w.err(
-                ts.span(),
-                format!(
-                    "unsupported tuple-struct pattern: {} (only Some(...) is recognized)",
-                    slice.join("::")
-                ),
-            ))
+            // Sum-type enum tuple variant: `Foo::Bar(a, b)` → dataclass
+            // `FooBar(_0=a, _1=b)` matching `emit_sum_enum`'s convention.
+            // Bare 1-segment paths (`SomeStruct(a)`) likewise become
+            // `SomeStruct(_0=a)`.
+            let class = match slice.as_slice() {
+                [single] => (*single).to_owned(),
+                [head, tail] => format!("{head}{tail}"),
+                _ => {
+                    return Err(w.err(
+                        ts.span(),
+                        format!(
+                            "unsupported tuple-struct pattern path: {}",
+                            slice.join("::")
+                        ),
+                    ));
+                }
+            };
+            let mut parts = Vec::with_capacity(ts.elems.len());
+            for (i, elem) in ts.elems.iter().enumerate() {
+                let inner = pat_to_python(w, elem)?;
+                parts.push(format!("_{i}={inner}"));
+            }
+            Ok(format!("{class}({})", parts.join(", ")))
         }
         syn::Pat::Tuple(t) => {
             let mut parts = Vec::with_capacity(t.elems.len());
@@ -133,6 +154,46 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 parts.push(pat_to_python(w, elem)?);
             }
             Ok(format!("({})", parts.join(", ")))
+        }
+        syn::Pat::Struct(s) => {
+            // `Foo::Bar { x, y, .. }` — sum-type enum with named fields.
+            // Emit as `FooBar(x=x, y=y)` matching the dataclass-per-variant
+            // convention. Bare struct patterns `Foo { ... }` map to `Foo(...)`.
+            if s.qself.is_some() {
+                return Err(w.err(s.span(), "qualified struct pattern not supported"));
+            }
+            let segs: Vec<String> = s
+                .path
+                .segments
+                .iter()
+                .map(|seg| seg.ident.to_string())
+                .collect();
+            let class = match segs.as_slice() {
+                [single] => single.clone(),
+                [head, tail] => format!("{head}{tail}"),
+                _ => {
+                    return Err(w.err(
+                        s.span(),
+                        format!("unsupported struct pattern path: {}", segs.join("::")),
+                    ));
+                }
+            };
+            let mut parts = Vec::with_capacity(s.fields.len());
+            for fp in &s.fields {
+                let field = match &fp.member {
+                    syn::Member::Named(n) => n.to_string(),
+                    syn::Member::Unnamed(_) => {
+                        return Err(
+                            w.err(fp.span(), "unnamed field in struct pattern not supported")
+                        );
+                    }
+                };
+                let inner = pat_to_python(w, &fp.pat)?;
+                parts.push(format!("{field}={inner}"));
+            }
+            // The `..` rest pattern is silent — Python's class pattern is
+            // already by-keyword, unspecified fields don't need to appear.
+            Ok(format!("{class}({})", parts.join(", ")))
         }
         syn::Pat::Or(o) => {
             let mut parts = Vec::with_capacity(o.cases.len());
