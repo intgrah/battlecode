@@ -1,6 +1,6 @@
 """Generate per-junction conveyor PNG assets for the visualiser.
 
-Emits 128 PNGs into pkg/crates/titan/assets/:
+Emits 128 PNGs into crates/titan/assets/:
     {conveyor,armoured_conveyor}_{gold,silver}_{n,e,s,w}_{x,<sorted inputs>}.png
 
 The input suffix encodes the set of sides from which another friendly
@@ -460,12 +460,7 @@ def enumerate_input_sets(out_dir: Dir) -> list[frozenset[Dir]]:
 
 def main() -> None:
     base_dir = (
-        Path(__file__).resolve().parents[1]
-        / "pkg"
-        / "crates"
-        / "titan"
-        / "assets"
-        / "custom"
+        Path(__file__).resolve().parents[1] / "crates" / "titan" / "assets" / "custom"
     )
     conveyor_dir = base_dir / "conveyor"
     armoured_dir = base_dir / "armoured_conveyor"
