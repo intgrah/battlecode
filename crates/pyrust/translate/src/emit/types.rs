@@ -128,6 +128,41 @@ pub fn type_to_python_str(ty: &syn::Type) -> Result<String, String> {
             }
             Ok(format!("tuple[{}]", parts.join(", ")))
         }
+        // `fn(A, B) -> C` → `Callable[[A, B], C]`. The Python `Callable`
+        // import is left to user code (typing.Callable, conventional).
+        syn::Type::BareFn(bf) => {
+            let mut params = Vec::with_capacity(bf.inputs.len());
+            for input in &bf.inputs {
+                params.push(type_to_python_str(&input.ty)?);
+            }
+            let ret = match &bf.output {
+                syn::ReturnType::Default => "None".to_string(),
+                syn::ReturnType::Type(_, t) => type_to_python_str(t)?,
+            };
+            Ok(format!("Callable[[{}], {ret}]", params.join(", ")))
+        }
+        // `impl Trait` / `dyn Trait` in type position — emit the bare trait
+        // name. Python doesn't model trait bounds.
+        syn::Type::TraitObject(t) => {
+            for bound in &t.bounds {
+                if let syn::TypeParamBound::Trait(tb) = bound
+                    && let Some(last) = tb.path.segments.last()
+                {
+                    return Ok(last.ident.to_string());
+                }
+            }
+            Err("dyn Trait without a concrete bound".to_string())
+        }
+        syn::Type::ImplTrait(t) => {
+            for bound in &t.bounds {
+                if let syn::TypeParamBound::Trait(tb) = bound
+                    && let Some(last) = tb.path.segments.last()
+                {
+                    return Ok(last.ident.to_string());
+                }
+            }
+            Err("impl Trait without a concrete bound".to_string())
+        }
         other => Err(format!("unsupported type annotation: {other:?}")),
     }
 }

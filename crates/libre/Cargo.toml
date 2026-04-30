@@ -7,6 +7,7 @@ edition = "2024"
 cambc = { path = "../cambc" }
 cambc-proto.workspace = true
 clap = { version = "4.6.1", features = ["derive"] }
+clap_complete = "4"
 libc = { version = "0.2.186", optional = true }
 libloading = "0.8"
 libre-engine = { workspace = true, features = ["pyo3"] }

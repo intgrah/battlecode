@@ -1,3 +1,4 @@
+mod cfg;
 mod emit;
 mod parse;
 
@@ -5,6 +6,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+use cfg::CfgEnv;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -20,9 +23,18 @@ fn main() -> ExitCode {
             eprintln!("pyrust-translate: {e}");
             eprintln!();
             eprintln!("usage:");
-            eprintln!("  pyrust-translate <input.rs> [-o <output.py>]");
-            eprintln!("  pyrust-translate --check <input.rs>");
-            eprintln!("  pyrust-translate --dir <src_dir> -o <out_dir>");
+            eprintln!(
+                "  pyrust-translate [--cfg KEY[=VAL]]... [--release] <input.rs> [-o <output.py>]"
+            );
+            eprintln!("  pyrust-translate [--cfg KEY[=VAL]]... [--release] --check <input.rs>");
+            eprintln!(
+                "  pyrust-translate [--cfg KEY[=VAL]]... [--release] --dir <src_dir> -o <out_dir>"
+            );
+            eprintln!();
+            eprintln!("  --release           equivalent to --cfg debug_assertions=false");
+            eprintln!("  --cfg KEY           set boolean cfg flag (truthy)");
+            eprintln!("  --cfg KEY=true|false explicit boolean");
+            eprintln!("  --cfg KEY=value     set kv form for cfg(KEY = \"value\") matching");
             ExitCode::from(2)
         }
     }
@@ -33,13 +45,16 @@ enum Cmd {
     Translate {
         input: PathBuf,
         output: Option<PathBuf>,
+        cfg: CfgEnv,
     },
     Check {
         input: PathBuf,
+        cfg: CfgEnv,
     },
     Dir {
         src: PathBuf,
         out: PathBuf,
+        cfg: CfgEnv,
     },
 }
 
@@ -47,53 +62,79 @@ fn parse(args: &[String]) -> Result<Cmd, String> {
     if args.is_empty() {
         return Err("missing argument".into());
     }
-    match args[0].as_str() {
+    // Strip leading --cfg / --release flags. They may appear in any order
+    // before the subcommand or input path.
+    let mut cfg = CfgEnv::debug();
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--release" => {
+                cfg.apply_cfg_arg("debug_assertions=false")?;
+                i += 1;
+            }
+            "--cfg" => {
+                let val = args
+                    .get(i + 1)
+                    .ok_or_else(|| "--cfg requires an argument".to_string())?;
+                cfg.apply_cfg_arg(val)?;
+                i += 2;
+            }
+            _ => break,
+        }
+    }
+    let rest = &args[i..];
+    if rest.is_empty() {
+        return Err("missing input".into());
+    }
+    match rest[0].as_str() {
         "--check" => {
-            let [_, input] = args else {
+            let [_, input] = rest else {
                 return Err("--check expects exactly one input path".into());
             };
             Ok(Cmd::Check {
                 input: input.into(),
+                cfg,
             })
         }
         "--dir" => {
-            if args.len() != 4 || args[2] != "-o" {
+            if rest.len() != 4 || rest[2] != "-o" {
                 return Err("--dir expects: --dir <src> -o <out>".into());
             }
             Ok(Cmd::Dir {
-                src: PathBuf::from(&args[1]),
-                out: PathBuf::from(&args[3]),
+                src: PathBuf::from(&rest[1]),
+                out: PathBuf::from(&rest[3]),
+                cfg,
             })
         }
         _ => {
-            let input: PathBuf = args[0].as_str().into();
-            let output = match args.get(1).map(String::as_str) {
+            let input: PathBuf = rest[0].as_str().into();
+            let output = match rest.get(1).map(String::as_str) {
                 None => None,
-                Some("-o") => match args.get(2) {
+                Some("-o") => match rest.get(2) {
                     Some(p) => Some(PathBuf::from(p)),
                     None => return Err("-o requires a path argument".into()),
                 },
                 Some(other) => return Err(format!("unexpected argument: {other}")),
             };
-            if let Some(extra) = args.get(if output.is_some() { 3 } else { 1 }) {
+            if let Some(extra) = rest.get(if output.is_some() { 3 } else { 1 }) {
                 return Err(format!("unexpected trailing argument: {extra}"));
             }
-            Ok(Cmd::Translate { input, output })
+            Ok(Cmd::Translate { input, output, cfg })
         }
     }
 }
 
 fn run(cmd: &Cmd) -> Result<(), String> {
     match cmd {
-        Cmd::Translate { input, output } => translate_file(input, output.as_deref()),
-        Cmd::Check { input } => check_file(input),
-        Cmd::Dir { src, out } => translate_dir(src, out),
+        Cmd::Translate { input, output, cfg } => translate_file(input, output.as_deref(), cfg),
+        Cmd::Check { input, cfg } => check_file(input, cfg),
+        Cmd::Dir { src, out, cfg } => translate_dir(src, out, cfg),
     }
 }
 
-fn translate_file(input: &Path, output: Option<&Path>) -> Result<(), String> {
+fn translate_file(input: &Path, output: Option<&Path>, cfg: &CfgEnv) -> Result<(), String> {
     let source = read_source(input)?;
-    let py = translate_source(&source, input)?;
+    let py = translate_source(&source, input, cfg)?;
     match output {
         None => {
             io::stdout()
@@ -113,15 +154,13 @@ fn translate_file(input: &Path, output: Option<&Path>) -> Result<(), String> {
     Ok(())
 }
 
-fn check_file(input: &Path) -> Result<(), String> {
+fn check_file(input: &Path, cfg: &CfgEnv) -> Result<(), String> {
     let source = read_source(input)?;
-    // Run the full translator and discard the output; any rejection (parse-time
-    // or emit-time) bubbles up as a clear error.
-    let _ = translate_source(&source, input)?;
+    let _ = translate_source(&source, input, cfg)?;
     Ok(())
 }
 
-fn translate_dir(src: &Path, out: &Path) -> Result<(), String> {
+fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String> {
     if !src.is_dir() {
         return Err(format!("not a directory: {}", src.display()));
     }
@@ -133,7 +172,7 @@ fn translate_dir(src: &Path, out: &Path) -> Result<(), String> {
             .to_path_buf();
         let mut dest = out.join(&rel);
         dest.set_extension("py");
-        translate_file(&entry, Some(&dest))?;
+        translate_file(&entry, Some(&dest), cfg)?;
     }
     Ok(())
 }
@@ -163,7 +202,7 @@ fn read_source(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))
 }
 
-fn translate_source(source: &str, path: &Path) -> Result<String, String> {
+fn translate_source(source: &str, path: &Path, cfg: &CfgEnv) -> Result<String, String> {
     let file = parse::parse_file(source, path)?;
-    emit::emit_file(&file, path)
+    emit::emit_file(&file, path, cfg)
 }

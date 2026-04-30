@@ -10,6 +10,7 @@ use super::writer::PyWriter;
 #[derive(Clone, Copy, Debug)]
 pub enum CollectionMacro {
     List,
+    Vec,
     Dict,
     Set,
     Range,
@@ -27,6 +28,7 @@ pub fn recognize(path: &syn::Path) -> Option<CollectionMacro> {
     let slice: Vec<&str> = names.iter().map(String::as_str).collect();
     match slice.as_slice() {
         ["list"] | ["pyrust", "list"] => Some(CollectionMacro::List),
+        ["vec"] => Some(CollectionMacro::Vec),
         ["dict"] | ["pyrust", "dict"] => Some(CollectionMacro::Dict),
         ["set"] | ["pyrust", "set"] => Some(CollectionMacro::Set),
         ["range"] | ["pyrust", "range"] => Some(CollectionMacro::Range),
@@ -44,6 +46,7 @@ pub fn emit(w: &mut PyWriter, kind: CollectionMacro, mac: &syn::Macro) -> Result
     let tokens = mac.tokens.clone();
     match kind {
         CollectionMacro::List => emit_list(w, tokens, mac),
+        CollectionMacro::Vec => emit_vec(w, tokens, mac),
         CollectionMacro::Dict => emit_dict(w, tokens, mac),
         CollectionMacro::Set => emit_set(w, tokens, mac),
         CollectionMacro::Range => emit_range(w, tokens, mac),
@@ -51,6 +54,33 @@ pub fn emit(w: &mut PyWriter, kind: CollectionMacro, mac: &syn::Macro) -> Result
         CollectionMacro::DictComp => emit_dict_comp(w, tokens, mac),
         CollectionMacro::SetComp => emit_set_comp(w, tokens, mac),
         CollectionMacro::Format => emit_format(w, tokens, mac),
+    }
+}
+
+/// `vec![x, y, z]` → `[x, y, z]`. `vec![x; n]` → `[x] * n`.
+fn emit_vec(w: &mut PyWriter, tokens: TokenStream, mac: &syn::Macro) -> Result<Emitted, String> {
+    if let Ok(rep) = syn::parse2::<RepeatExpr>(tokens.clone()) {
+        let val = expr::emit_expr(w, &rep.value)?;
+        let len = expr::emit_expr(w, &rep.len)?;
+        return Ok(Emitted::atomic(
+            format!("[{}] * {}", val.text, len.text),
+            Ty::List,
+        ));
+    }
+    emit_list(w, tokens, mac)
+}
+
+struct RepeatExpr {
+    value: syn::Expr,
+    len: syn::Expr,
+}
+
+impl Parse for RepeatExpr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let value = input.parse()?;
+        let _: syn::Token![;] = input.parse()?;
+        let len = input.parse()?;
+        Ok(RepeatExpr { value, len })
     }
 }
 
@@ -114,14 +144,19 @@ fn build_py_fstring(
                 if !closed {
                     return Err(w.err(mac.span(), "unclosed `{` in format string"));
                 }
-                if spec.contains(':') {
-                    return Err(w.err(
-                        mac.span(),
-                        format!(
-                            "format spec `{{{spec}}}` not supported (use plain `{{}}` or `{{name}}`)"
-                        ),
-                    ));
-                }
+                // Translate Rust format specs to Python equivalents.
+                // - `{x:?}` (Debug) → `{x!r}` (Python repr)
+                // - `{x:.2f}`, `{x:>5}`, etc. → keep as-is (Python's format
+                //   mini-language is a strict superset for the cases we use).
+                let spec = if let Some((name, fmt)) = spec.split_once(':') {
+                    if fmt == "?" {
+                        format!("{name}!r")
+                    } else {
+                        format!("{name}:{fmt}")
+                    }
+                } else {
+                    spec
+                };
                 let placeholder = if spec.is_empty() {
                     let idx = next_positional;
                     next_positional += 1;

@@ -9,3 +9,4 @@ pub mod bindings;
 pub mod cli;
 pub mod runner;
 pub mod rust_backend;
+pub mod stdout_capture;

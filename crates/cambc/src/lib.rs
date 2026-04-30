@@ -13,9 +13,8 @@ pub use libre_engine::controller::{
     BuildExtra, Controller as ControllerApi, GameError, Result, UnitView as Controller,
 };
 pub use libre_engine::game_map::{
-    ArmouredConveyor, Barrier, Breach, Bridge, BuilderBot, Conveyor, Core,
-    Entity, Foundry, Gunner, Harvester, Launcher, Marker, PlayerState, Road,
-    Sentinel, Splitter, Tile,
+    ArmouredConveyor, Barrier, Breach, Bridge, BuilderBot, Conveyor, Core, Entity, Foundry, Gunner,
+    Harvester, Launcher, Marker, PlayerState, Road, Sentinel, Splitter, Tile,
 };
 
 /// A Rust bot. Implementors live as `class Player` after pyrust
@@ -68,8 +67,7 @@ macro_rules! cambc_bot {
         pub extern "C" fn __cambc_create_bot() -> *mut ::std::ffi::c_void {
             let bot: ::std::boxed::Box<dyn $crate::Bot> =
                 ::std::boxed::Box::new(<$ty as ::std::default::Default>::default());
-            ::std::boxed::Box::into_raw(::std::boxed::Box::new(bot))
-                as *mut ::std::ffi::c_void
+            ::std::boxed::Box::into_raw(::std::boxed::Box::new(bot)) as *mut ::std::ffi::c_void
         }
 
         #[unsafe(no_mangle)]
@@ -77,11 +75,30 @@ macro_rules! cambc_bot {
             bot: *mut ::std::ffi::c_void,
             view: *mut ::std::ffi::c_void,
         ) {
-            let bot = unsafe {
-                &mut *(bot as *mut ::std::boxed::Box<dyn $crate::Bot>)
-            };
+            let bot = unsafe { &mut *(bot as *mut ::std::boxed::Box<dyn $crate::Bot>) };
             let view = unsafe { &mut *(view as *mut $crate::Controller<'_>) };
-            bot.run(view);
+            // FFI safety: bot panics must NOT unwind across `extern "C"`
+            // (UB on most targets). Trap any panic, log it, and resign so
+            // the engine can continue. The error printout matches the
+            // Python bot's `try/except` in `main.py` so replays diff.
+            let result =
+                ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| bot.run(view)));
+            if let ::std::result::Result::Err(payload) = result {
+                let msg = if let ::std::option::Option::Some(s) =
+                    payload.downcast_ref::<&'static str>()
+                {
+                    (*s).to_string()
+                } else if let ::std::option::Option::Some(s) =
+                    payload.downcast_ref::<::std::string::String>()
+                {
+                    s.clone()
+                } else {
+                    "panic".to_string()
+                };
+                eprintln!("{msg}");
+                println!("{msg}");
+                let _ = $crate::ControllerApi::resign(view, ::std::option::Option::Some(msg));
+            }
         }
 
         #[unsafe(no_mangle)]

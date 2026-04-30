@@ -1,7 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use serde::Deserialize;
 
 /// Per-team bot resolution result. Either a Python `main.py` or a Rust
@@ -37,6 +38,21 @@ pub struct Cli {
 pub enum Command {
     /// Run a local match between two bots.
     Run(RunArgs),
+    /// Print a shell-completion script for the given shell to stdout.
+    /// Pipe into the appropriate completions file, e.g.
+    /// `cambc-libre completions fish > ~/.config/fish/completions/cambc-libre.fish`.
+    Completions {
+        /// One of: bash, zsh, fish, powershell, elvish.
+        shell: Shell,
+    },
+    /// Internal: list bots from the configured bots_dir, one per line.
+    /// Used by shell completions.
+    #[command(name = "_list-bots", hide = true)]
+    ListBots,
+    /// Internal: list maps from the configured maps_dir, one per line.
+    /// Used by shell completions.
+    #[command(name = "_list-maps", hide = true)]
+    ListMaps,
 }
 
 #[derive(clap::Args)]
@@ -65,6 +81,12 @@ pub struct RunArgs {
     /// Python copy produce identical replays.
     #[arg(long)]
     pub translate: bool,
+    /// Translate Rust bots in release mode (clears `debug_assertions`,
+    /// stripping `#[cfg(debug_assertions)]` items and turning
+    /// `cfg!(debug_assertions)` into `False`). Only meaningful with
+    /// `--translate`.
+    #[arg(long)]
+    pub release: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -125,25 +147,30 @@ fn find_config() -> (CambcConfig, PathBuf) {
 /// Python (`main.py` / `*.py`) vs Rust (`Cargo.toml` / `*.so`).
 /// `translate=true` forces a Rust source directory through
 /// `pyrust-translate` and returns the resulting Python bot.
-fn resolve_bot(path_str: &str, bots_dir: &Path, translate: bool) -> Result<BotKind, String> {
+fn resolve_bot(
+    path_str: &str,
+    bots_dir: &Path,
+    translate: bool,
+    release: bool,
+) -> Result<BotKind, String> {
     let direct = Path::new(path_str);
     let mut candidates: Vec<PathBuf> = vec![direct.to_path_buf()];
     if !direct.is_absolute() {
         candidates.push(bots_dir.join(path_str));
     }
     for p in &candidates {
-        if let Some(kind) = classify_path(p, translate)? {
+        if let Some(kind) = classify_path(p, translate, release)? {
             return Ok(kind);
         }
     }
     Err(format!("bot not found: {path_str}"))
 }
 
-fn classify_path(p: &Path, translate: bool) -> Result<Option<BotKind>, String> {
+fn classify_path(p: &Path, translate: bool, release: bool) -> Result<Option<BotKind>, String> {
     if p.is_dir() {
         let cargo = p.join("Cargo.toml");
         if cargo.is_file() {
-            return Ok(Some(load_rust_bot(p, translate)?));
+            return Ok(Some(load_rust_bot(p, translate, release)?));
         }
         let main = p.join("main.py");
         if main.is_file() {
@@ -156,7 +183,9 @@ fn classify_path(p: &Path, translate: bool) -> Result<Option<BotKind>, String> {
     }
     let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
     match ext {
-        "so" => Ok(Some(BotKind::Rust(p.canonicalize().map_err(|e| e.to_string())?))),
+        "so" => Ok(Some(BotKind::Rust(
+            p.canonicalize().map_err(|e| e.to_string())?,
+        ))),
         "py" => Ok(Some(BotKind::Python(canonical(p)?))),
         _ => Ok(None),
     }
@@ -164,9 +193,9 @@ fn classify_path(p: &Path, translate: bool) -> Result<Option<BotKind>, String> {
 
 /// Build a Rust bot directory and return its `.so`, or translate the
 /// source to Python and return the translated `main.py`.
-fn load_rust_bot(dir: &Path, translate: bool) -> Result<BotKind, String> {
+fn load_rust_bot(dir: &Path, translate: bool, release: bool) -> Result<BotKind, String> {
     if translate {
-        return translate_rust_bot(dir);
+        return translate_rust_bot(dir, release);
     }
     let so = build_rust_bot(dir)?;
     Ok(BotKind::Rust(so))
@@ -183,21 +212,68 @@ fn build_rust_bot(dir: &Path) -> Result<PathBuf, String> {
     if !status.success() {
         return Err(format!("cargo build failed in {}", dir.display()));
     }
-    // Find the produced .so. The crate-type=cdylib output lives in
-    // target/release/lib<crate>.so; find any .so directly under
-    // target/release/.
-    let release = dir.join("target").join("release");
-    for entry in fs::read_dir(&release).map_err(|e| format!("read {}: {e}", release.display()))? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("so") {
-            return path.canonicalize().map_err(|e| e.to_string());
-        }
+    // The .so is `lib<package_name with - → _>.so`. Read the package name
+    // from the bot's Cargo.toml directly; ask cargo metadata for the
+    // (possibly workspace-rooted) target directory.
+    let package_name = read_package_name(dir)?;
+    let target_dir = cargo_target_dir(dir)?;
+    let so_name = format!("lib{}.so", package_name.replace('-', "_"));
+    let so_path = target_dir.join("release").join(&so_name);
+    if !so_path.is_file() {
+        return Err(format!("expected {} not produced", so_path.display()));
     }
-    Err(format!("no .so produced in {}", release.display()))
+    so_path.canonicalize().map_err(|e| e.to_string())
 }
 
-fn translate_rust_bot(dir: &Path) -> Result<BotKind, String> {
+/// Read `package.name` from `<dir>/Cargo.toml`.
+fn read_package_name(dir: &Path) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct CargoToml {
+        package: Package,
+    }
+    #[derive(Deserialize)]
+    struct Package {
+        name: String,
+    }
+    let manifest = dir.join("Cargo.toml");
+    let text =
+        fs::read_to_string(&manifest).map_err(|e| format!("read {}: {e}", manifest.display()))?;
+    let parsed: CargoToml =
+        toml::from_str(&text).map_err(|e| format!("parse {}: {e}", manifest.display()))?;
+    Ok(parsed.package.name)
+}
+
+/// Resolve the target directory for the Cargo project at `dir`. Honours
+/// workspace membership: a bot crate that's part of a parent workspace
+/// produces its `.so` under the workspace's `target/`, not its own.
+fn cargo_target_dir(dir: &Path) -> Result<PathBuf, String> {
+    let output = std::process::Command::new("cargo")
+        .args(["metadata", "--no-deps", "--format-version=1"])
+        .current_dir(dir)
+        .output()
+        .map_err(|e| format!("cargo metadata: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "cargo metadata failed in {}: {}",
+            dir.display(),
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let stdout = std::str::from_utf8(&output.stdout)
+        .map_err(|e| format!("cargo metadata not utf-8: {e}"))?;
+    let key = "\"target_directory\":\"";
+    let start = stdout
+        .find(key)
+        .ok_or_else(|| "cargo metadata missing target_directory".to_string())?
+        + key.len();
+    let rest = &stdout[start..];
+    let end = rest
+        .find('"')
+        .ok_or_else(|| "cargo metadata target_directory unterminated".to_string())?;
+    Ok(PathBuf::from(&rest[..end]))
+}
+
+fn translate_rust_bot(dir: &Path, release: bool) -> Result<BotKind, String> {
     let translate_bin = pyrust_translate_bin()?;
     let src = dir.join("src");
     if !src.is_dir() {
@@ -214,23 +290,21 @@ fn translate_rust_bot(dir: &Path) -> Result<BotKind, String> {
         .join("cambc-libre-translated")
         .join(bot_name);
     fs::create_dir_all(&out_root).map_err(|e| format!("mkdir {}: {e}", out_root.display()))?;
+    let release_label = if release { " --release" } else { "" };
     eprintln!(
-        "[cambc-libre] pyrust-translate --dir {} -o {}",
+        "[cambc-libre] pyrust-translate{} --dir {} -o {}",
+        release_label,
         src.display(),
         out_root.display()
     );
-    let status = std::process::Command::new(&translate_bin)
-        .arg("--dir")
-        .arg(&src)
-        .arg("-o")
-        .arg(&out_root)
-        .status()
-        .map_err(|e| format!("pyrust-translate: {e}"))?;
+    let mut cmd = std::process::Command::new(&translate_bin);
+    if release {
+        cmd.arg("--release");
+    }
+    cmd.arg("--dir").arg(&src).arg("-o").arg(&out_root);
+    let status = cmd.status().map_err(|e| format!("pyrust-translate: {e}"))?;
     if !status.success() {
-        return Err(format!(
-            "pyrust-translate failed for {}",
-            src.display()
-        ));
+        return Err(format!("pyrust-translate failed for {}", src.display()));
     }
     // The bot's entry point is src/lib.rs → lib.py. Rename to main.py
     // so the existing Python loader picks up `Player` from main.py.
@@ -242,7 +316,10 @@ fn translate_rust_bot(dir: &Path) -> Result<BotKind, String> {
         fs::rename(&lib_py, &main_py).map_err(|e| format!("rename: {e}"))?;
     }
     if !main_py.is_file() {
-        return Err(format!("translated bot has no main.py at {}", main_py.display()));
+        return Err(format!(
+            "translated bot has no main.py at {}",
+            main_py.display()
+        ));
     }
     Ok(BotKind::Python(canonical(&main_py)?))
 }
@@ -295,6 +372,96 @@ fn canonical(p: &Path) -> Result<String, String> {
 }
 
 /// Parse CLI args, resolve config + paths, and produce engine `Args`.
+/// Recursively walk `bots_dir` and print the relative path of each bot.
+/// A bot is a directory containing `main.py` (Python) or `Cargo.toml` (Rust).
+/// Stops descending once a bot is found at any level.
+fn list_bots(bots_dir: &Path) {
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<String>) {
+        if dir != root && (dir.join("main.py").is_file() || dir.join("Cargo.toml").is_file()) {
+            if let Ok(rel) = dir.strip_prefix(root) {
+                out.push(rel.to_string_lossy().into_owned());
+            }
+            return;
+        }
+        let entries = match fs::read_dir(dir) {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_dir() {
+                continue;
+            }
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name.starts_with('.') || matches!(name, "target" | "src" | "__pycache__") {
+                continue;
+            }
+            walk(root, &p, out);
+        }
+    }
+    let mut bots: Vec<String> = Vec::new();
+    walk(bots_dir, bots_dir, &mut bots);
+    bots.sort();
+    for b in bots {
+        println!("{b}");
+    }
+}
+
+/// Print the file stem of every `*.map26` directly under `maps_dir`.
+fn list_maps(maps_dir: &Path) {
+    let entries = match fs::read_dir(maps_dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    let mut maps: Vec<String> = Vec::new();
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.extension().and_then(|e| e.to_str()) != Some("map26") {
+            continue;
+        }
+        if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+            maps.push(stem.to_string());
+        }
+    }
+    maps.sort();
+    for m in maps {
+        println!("{m}");
+    }
+}
+
+/// Fish-specific tail appended after `clap_complete::generate` so that
+/// positional args of `run` get dynamic completion from the configured
+/// `bots_dir` and `maps_dir`.
+const FISH_DYNAMIC_TAIL: &str = r##"
+# --- dynamic completion for `run` positionals (cambc-libre) ---
+function __cambc_libre_run_position
+    set -l cmd (commandline -opc)
+    set -l n 0
+    set -l skip 0
+    for tok in $cmd
+        if test $skip -eq 1
+            set skip 0
+            continue
+        end
+        switch $tok
+            case 'cambc-libre' '*/cambc-libre' 'run'
+                continue
+            case '--replay' '--seed' '--tle'
+                set skip 1
+            case '--*' '-*'
+                # value-less flag (or unknown) — don't count
+                continue
+            case '*'
+                set n (math $n + 1)
+        end
+    end
+    echo $n
+end
+
+complete -c cambc-libre -n "__fish_cambc_libre_using_subcommand run; and test (__cambc_libre_run_position) -le 1" -f -a "(cambc-libre _list-bots)"
+complete -c cambc-libre -n "__fish_cambc_libre_using_subcommand run; and test (__cambc_libre_run_position) -eq 2" -f -a "(cambc-libre _list-maps)"
+"##;
+
 pub fn parse_args() -> Result<Args, String> {
     let cli = Cli::parse();
     let (cfg, project_root) = find_config();
@@ -302,9 +469,26 @@ pub fn parse_args() -> Result<Args, String> {
     let maps_dir = project_root.join(&cfg.maps_dir);
 
     match cli.command {
+        Command::Completions { shell } => {
+            let mut cmd = Cli::command();
+            let bin_name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+            if shell == Shell::Fish {
+                print!("{FISH_DYNAMIC_TAIL}");
+            }
+            std::process::exit(0);
+        }
+        Command::ListBots => {
+            list_bots(&bots_dir);
+            std::process::exit(0);
+        }
+        Command::ListMaps => {
+            list_maps(&maps_dir);
+            std::process::exit(0);
+        }
         Command::Run(a) => {
-            let player_a = resolve_bot(&a.bot_a, &bots_dir, a.translate)?;
-            let player_b = resolve_bot(&a.bot_b, &bots_dir, a.translate)?;
+            let player_a = resolve_bot(&a.bot_a, &bots_dir, a.translate, a.release)?;
+            let player_b = resolve_bot(&a.bot_b, &bots_dir, a.translate, a.release)?;
             let map = resolve_map(&a.map, &maps_dir)?;
             let replay = a.replay.unwrap_or(cfg.replay);
             let seed = a.seed.unwrap_or(cfg.seed);

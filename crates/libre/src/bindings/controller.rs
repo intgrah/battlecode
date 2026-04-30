@@ -14,9 +14,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use libre_engine::common::{Direction, EntityType, Pos};
-use libre_engine::controller::{
-    BuildExtra, Controller as ControllerTrait, GameError, UnitView,
-};
+use libre_engine::controller::{BuildExtra, Controller as ControllerTrait, GameError, UnitView};
 use libre_engine::game::Game;
 
 use super::py_convert::game_error;
@@ -322,11 +320,7 @@ impl Controller {
         map_err(self.with_view(|v| v.can_build_bridge(position, target)))
     }
 
-    fn can_build_armoured_conveyor(
-        &self,
-        position: Pos,
-        direction: Direction,
-    ) -> PyResult<bool> {
+    fn can_build_armoured_conveyor(&self, position: Pos, direction: Direction) -> PyResult<bool> {
         self.check_deadline()?;
         map_err(self.with_view(|v| v.can_build_armoured_conveyor(position, direction)))
     }
