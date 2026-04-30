@@ -799,6 +799,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "660c0520455b1013b9bcb0393d5f643d7e4454fb69c915b8d6d2aa0e9a45acc3"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2088,6 +2097,7 @@ dependencies = [
  "cambc",
  "cambc-proto",
  "clap",
+ "clap_complete",
  "libc",
  "libloading",
  "libre-engine",
@@ -2336,6 +2346,153 @@ name = "noop_proc_macro"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
+
+[[package]]
+name = "nothing-100"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1000"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1100"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1200"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1300"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1400"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1500"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1600"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1700"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1800"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-1900"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-200"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-2000"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-300"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-400"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-50"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-500"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-600"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-700"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-800"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
+
+[[package]]
+name = "nothing-900"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+]
 
 [[package]]
 name = "num-bigint"
@@ -3187,6 +3344,7 @@ name = "pyrust-translate"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
+ "quote",
  "syn",
 ]
 
@@ -3957,10 +4115,13 @@ dependencies = [
 name = "titan"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "clap_complete",
  "eframe",
  "titan-blueprint",
  "titan-bugnav",
  "titan-core",
+ "titan-opening",
  "titan-replay",
 ]
 
@@ -3995,6 +4156,20 @@ dependencies = [
  "rayon",
  "serde",
  "toml",
+]
+
+[[package]]
+name = "titan-opening"
+version = "0.1.0"
+dependencies = [
+ "cambc-proto",
+ "eframe",
+ "libre-engine",
+ "libre-replay",
+ "prost",
+ "serde",
+ "serde_json",
+ "titan-core",
 ]
 
 [[package]]
