@@ -4,7 +4,7 @@ from typing import override
 
 from cambc import Controller, Direction, EntityType, Position
 from unit import Unit
-from util import DELTA_TO_DIR, DIR8
+from util import DIR8, DELTA_TO_DIR
 
 __all__ = ["Gunner"]
 
