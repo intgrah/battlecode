@@ -177,7 +177,7 @@ impl Core {
             }
             return;
         }
-        let mut d = DIR8[(self.state.rng.next_u64() % 8) as usize];
+        let mut d = *self.state.rng.choice(&DIR8);
         for _ in 0..8 {
             let sp = self.state.my_pos.add(d);
             if ct.can_spawn(sp).unwrap() {

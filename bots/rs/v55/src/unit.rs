@@ -20,37 +20,12 @@ use crate::util::constants::MAX_WIDTH;
 use crate::util::directions::{DIR4, DIR8};
 use crate::util::symmetry::Symmetry;
 
-/// Deterministic per-unit PRNG, seeded from the unit's entity id. Mirrors
-/// Python's `Random(self.my_id)` for shape; concrete RNG operations
-/// (`shuffle`, `choices`, `random`) are added as concrete units start needing
-/// them. For now this is a tiny LCG that exposes a bare `next_u64`.
-#[derive(Clone, Copy, Debug)]
-pub struct Rng {
-    state: u64,
-}
-
-impl Rng {
-    /// Seed from a 32-bit value (the entity id).
-    #[must_use]
-    pub const fn from_seed(seed: i32) -> Self {
-        // Splitmix-style cast so seed=0 is non-degenerate.
-        let s = (seed as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
-        Self { state: s }
-    }
-
-    /// Advance and return a 64-bit value (LCG step + xorshift).
-    pub fn next_u64(&mut self) -> u64 {
-        self.state = self
-            .state
-            .wrapping_mul(6364136223846793005)
-            .wrapping_add(1442695040888963407);
-        let mut x = self.state;
-        x ^= x >> 33;
-        x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
-        x ^= x >> 33;
-        x
-    }
-}
+/// Per-unit PRNG, seeded from the unit's entity id. Wraps
+/// `pyrust::random::Random` (a bit-exact reimplementation of CPython's
+/// MT19937 + `_randbelow` algorithm), so any random call produces the
+/// same sequence in native Rust as in pyrust-translated Python — the
+/// requirement for v55-native ⇄ v55-translated replay parity.
+pub use pyrust::random::Random as Rng;
 
 /// Per-turn cached state shared by every unit. Concrete units embed this and
 /// access via `Unit::state` / `state_mut`.
@@ -118,7 +93,7 @@ impl UnitState {
             height: 0,
             my_id: 0,
             my_team: Team::A,
-            rng: Rng::from_seed(0),
+            rng: Rng::new(0),
             my_pos: Position { x: 0, y: 0 },
             nearby_tiles: Vec::new(),
             enemy_bots: HashSet::new(),
@@ -274,7 +249,7 @@ pub fn post_init_default<U: Unit + ?Sized>(this: &mut U, ct: &mut Controller<'_>
     s.height = ct.get_map_height().unwrap();
     s.my_id = ct.get_id().unwrap();
     s.my_team = ct.get_team(None).unwrap();
-    s.rng = Rng::from_seed(s.my_id);
+    s.rng = Rng::new(s.my_id as i64);
     this.narrow_symmetry_from_vision(ct);
 }
 

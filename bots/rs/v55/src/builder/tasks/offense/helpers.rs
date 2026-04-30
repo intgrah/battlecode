@@ -370,11 +370,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         explore(self_, ct);
     } else {
         let mut dir8 = DIR8.to_vec();
-        // Fisher-Yates shuffle using rng
-        for i in (1..dir8.len()).rev() {
-            let j = (self_.rng.next_u64() as usize) % (i + 1);
-            dir8.swap(i, j);
-        }
+        self_.rng.shuffle(&mut dir8);
         for d in dir8 {
             if try_move_dir(ct, d) {
                 break;

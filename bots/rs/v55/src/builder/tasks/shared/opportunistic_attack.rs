@@ -15,7 +15,7 @@ pub fn opportunistic_attack(self_: &mut Builder, ct: &mut Controller<'_>) -> Tas
     if !self_.opportunistic {
         return Err(TaskRejected::new("builder is not in opportunistic mode"));
     }
-    let r = (self_.rng.next_u64() as f64) / (u64::MAX as f64);
+    let r = self_.rng.random();
     if r >= 0.2 {
         return Err(TaskRejected::new("random gate (p=0.2) declined"));
     }
