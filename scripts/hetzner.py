@@ -228,7 +228,7 @@ apt-get update -qq
 apt-get install -y -qq python3 python3-venv rsync > /dev/null
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
-mkdir -p {REMOTE_DIR}/bots {REMOTE_DIR}/maps {REMOTE_DIR}/lib {REMOTE_DIR}/scripts {REMOTE_DIR}/cambcpypy
+mkdir -p {REMOTE_DIR}/bots {REMOTE_DIR}/maps {REMOTE_DIR}/lib {REMOTE_DIR}/scripts {REMOTE_DIR}/cambc_pypy
 
 cat > /etc/systemd/system/ci-daemon.service <<UNIT
 [Unit]
@@ -240,7 +240,7 @@ Type=simple
 WorkingDirectory={REMOTE_DIR}
 Environment=PATH=/root/.local/bin:/usr/bin:/bin
 Environment=VIRTUAL_ENV=
-ExecStart=/root/.local/bin/uv run --project cambcpypy python cambcpypy/scripts/ci_daemon.py
+ExecStart=/root/.local/bin/uv run --project cambc_pypy python cambc_pypy/scripts/ci_daemon.py
 Restart=always
 RestartSec=2
 
@@ -264,7 +264,7 @@ def _cmd_provision(args: argparse.Namespace) -> None:
 _SYNC_DIRS = [
     ("bots/", "bots/"),
     ("maps/", "maps/"),
-    ("pkg/cambcpypy/", "cambcpypy/"),
+    ("pkg/cambc_pypy/", "cambc_pypy/"),
     ("pkg/proto/", "proto/"),
 ]
 
@@ -283,7 +283,7 @@ requires-python = ">=3.11"
 python-preference = "only-managed"
 
 [tool.uv.workspace]
-members = ["cambcpypy", "proto"]
+members = ["cambc_pypy", "proto"]
 """
 
 
@@ -332,7 +332,7 @@ def _cmd_sync(args: argparse.Namespace) -> None:
     _ssh_run(
         ip,
         f"sed -i 's|proto = {{ path = \"../proto\" }}|proto = {{ workspace = true }}|' "
-        f"{REMOTE_DIR}/cambcpypy/pyproject.toml",
+        f"{REMOTE_DIR}/cambc_pypy/pyproject.toml",
     )
     rc = _ssh_run(
         ip,

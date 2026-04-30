@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.11"
 
 [[package]]
-name = "cambcpypy"
+name = "cambc_pypy"
 version = "1.6.2-alpha"
 source = { editable = "." }
 dependencies = [

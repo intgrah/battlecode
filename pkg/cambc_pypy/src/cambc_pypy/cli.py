@@ -1,8 +1,8 @@
 import click
 from rich.console import Console
 
-from cambcpypy import __version__
-from cambcpypy.compat import deprecation_warning
+from cambc_pypy import __version__
+from cambc_pypy.compat import deprecation_warning
 
 console = Console()
 
@@ -11,7 +11,7 @@ console = Console()
 @click.version_option(version=__version__)
 def main() -> None:
     """Cambridge Battlecode CLI"""
-    from cambcpypy.version_check import check_for_update
+    from cambc_pypy.version_check import check_for_update
 
     latest = check_for_update()
     if latest:
@@ -22,7 +22,7 @@ def main() -> None:
 
 
 # -- Unchanged top-level commands --
-from cambcpypy.commands import login, logout, map_editor, run, starter, status, watch
+from cambc_pypy.commands import login, logout, map_editor, run, starter, status, watch
 
 main.add_command(run.run)
 main.add_command(watch.watch)
@@ -33,10 +33,10 @@ main.add_command(status.status)
 main.add_command(map_editor.map_editor)
 
 # -- New entity groups --
-from cambcpypy.commands.ladder import ladder
-from cambcpypy.commands.match_group import match as match_group
-from cambcpypy.commands.submission import submission
-from cambcpypy.commands.team_group import team
+from cambc_pypy.commands.ladder import ladder
+from cambc_pypy.commands.match_group import match as match_group
+from cambc_pypy.commands.submission import submission
+from cambc_pypy.commands.team_group import team
 
 main.add_command(submission)
 main.add_command(match_group)
@@ -51,7 +51,7 @@ main.add_command(ladder)
 @click.option("--name", "-n", default=None, help="Optional name for this submission")
 def submit(path: str, name: str | None) -> None:
     """Upload a bot to the platform (alias for `submission upload`)."""
-    from cambcpypy.commands.submission import upload
+    from cambc_pypy.commands.submission import upload
 
     ctx = click.get_current_context()
     ctx.invoke(upload, path=path, name=name)
@@ -73,7 +73,7 @@ main.add_command(submit)
 def _dep_matches(match_type, team, mine, limit, cursor) -> None:
     """Deprecated. Use: cambc match list"""
     deprecation_warning("matches", "match list")
-    from cambcpypy.commands.matches import _show_matches
+    from cambc_pypy.commands.matches import _show_matches
 
     _show_matches(match_type, team, limit, cursor, mine=mine)
 
@@ -93,7 +93,7 @@ main.add_command(_dep_matches)
 def _dep_unrated(opponent_id, source_match, maps) -> None:
     """Deprecated. Use: cambc match unrated"""
     deprecation_warning("unrated", "match unrated")
-    from cambcpypy.commands.test import _show_unrated
+    from cambc_pypy.commands.test import _show_unrated
 
     _show_unrated(opponent_id, source_match, maps or None)
 
@@ -113,7 +113,7 @@ main.add_command(_dep_unrated)
 def _dep_test_run(bot_a, bot_b, maps) -> None:
     """Deprecated. Use: cambc match test"""
     deprecation_warning("test-run", "match test")
-    from cambcpypy.commands.test_run import _show_test_run
+    from cambc_pypy.commands.test_run import _show_test_run
 
     _show_test_run(bot_a, bot_b, maps)
 
@@ -126,7 +126,7 @@ main.add_command(_dep_test_run)
 def _dep_test_matches(limit) -> None:
     """Deprecated. Use: cambc match tests"""
     deprecation_warning("test-matches", "match tests")
-    from cambcpypy.commands.test_matches import _show_test_matches
+    from cambc_pypy.commands.test_matches import _show_test_matches
 
     _show_test_matches(limit)
 
@@ -135,7 +135,7 @@ main.add_command(_dep_test_matches)
 
 
 # For `teams`, re-register the old group with a deprecation warning
-from cambcpypy.commands.teams import teams as _teams_group
+from cambc_pypy.commands.teams import teams as _teams_group
 
 
 class _DeprecatedTeamsGroup(click.Group):
@@ -157,7 +157,7 @@ main.add_command(_dep_teams)
 def _dep_init() -> None:
     """Deprecated. Use: cambc starter"""
     deprecation_warning("init", "starter")
-    from cambcpypy.commands.init import init as _init_impl
+    from cambc_pypy.commands.init import init as _init_impl
 
     click.get_current_context().invoke(_init_impl)
 

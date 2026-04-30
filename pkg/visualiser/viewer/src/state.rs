@@ -449,7 +449,6 @@ fn apply_update(
                 // the last one wins for vis_data, all are kept as raw
                 // log trees concatenated). Anything that doesn't parse
                 // as JSON falls back to the raw outputs panel.
-                let mut tree_text = String::new();
                 for line in o.stdout.lines() {
                     let line_trim = line.trim();
                     if line_trim.is_empty() {
@@ -461,8 +460,6 @@ fn apply_update(
                         let resolved = vis::resolve_same(raw, prior);
                         state.vis_data.entry(o.id).or_default().extend(resolved);
                         state.log_trees.insert(o.id, tree);
-                        tree_text.push_str(line_trim);
-                        tree_text.push('\n');
                     } else {
                         state.outputs.push((o.id, line.to_string()));
                     }

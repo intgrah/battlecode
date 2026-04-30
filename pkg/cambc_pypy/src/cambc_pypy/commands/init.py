@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from cambcpypy.config import CONFIG_FILENAME
+from cambc_pypy.config import CONFIG_FILENAME
 
 console = Console()
 

@@ -1,20 +1,20 @@
-"""cambc team — search teams and view team profiles (replaces `teams`)."""
+"""cambc teams — search teams and view team info."""
 
 import click
 from rich.console import Console
 from rich.table import Table
 
-from cambcpypy.api import api_get
+from cambc_pypy.api import api_get
 
 console = Console()
 
 
 @click.group()
-def team() -> None:
+def teams() -> None:
     """Search teams and view team profiles."""
 
 
-@team.command()
+@teams.command()
 @click.argument("query")
 def search(query: str) -> None:
     """Search for teams by name."""
@@ -49,20 +49,20 @@ def search(query: str) -> None:
     console.print(table)
 
 
-@team.command()
+@teams.command()
 @click.argument("team_id")
 def info(team_id: str) -> None:
     """View detailed info for a team by ID."""
     data = api_get(f"/api/teams/{team_id}")
 
-    team_data = data.get("team", {})
+    team = data.get("team", {})
     members = data.get("members", [])
     rating = data.get("rating")
 
     console.print(
-        f"\n[bold]{team_data.get('name', '?')}[/bold]  [dim]({team_data.get('id', '?')})[/dim]"
+        f"\n[bold]{team.get('name', '?')}[/bold]  [dim]({team.get('id', '?')})[/dim]"
     )
-    console.print(f"  Category: {team_data.get('category', '?')}")
+    console.print(f"  Category: {team.get('category', '?')}")
     console.print(f"  Region:   {data.get('region', '?')}")
 
     if rating:

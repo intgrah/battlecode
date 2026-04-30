@@ -31,7 +31,7 @@ def _open_platform() -> None:
     """Open the platform map editor page in the user's browser."""
     import webbrowser
 
-    from cambcpypy.auth import get_api_url
+    from cambc_pypy.auth import get_api_url
 
     base_url = get_api_url()
     url = f"{base_url}/map-editor"

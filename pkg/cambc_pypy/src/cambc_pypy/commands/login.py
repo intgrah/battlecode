@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 import click
 from rich.console import Console
 
-from cambcpypy.auth import get_api_url, load_credentials, save_credentials
+from cambc_pypy.auth import get_api_url, load_credentials, save_credentials
 
 console = Console()
 

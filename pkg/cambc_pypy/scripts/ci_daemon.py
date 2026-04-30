@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Final
 from uuid import uuid4
 
-from cambcpypy.engine import run_game
+from cambc_pypy.engine import run_game
 
 HOST: Final[str] = "127.0.0.1"
 PORT: Final[int] = 9876
@@ -69,7 +69,7 @@ def _run_one_game(
     result = run_game(
         bot_a_path,
         bot_b_path,
-        "cambcpypy/src/cambcpypy",
+        "cambc_pypy/src/cambc_pypy",
         map_path,
         replay_path,
         seed=seed,

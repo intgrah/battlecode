@@ -38,7 +38,7 @@ def _open_platform(match_id: str, game_number: int | None) -> None:
     """Open the platform visualiser page in the user's browser."""
     import webbrowser
 
-    from cambcpypy.auth import get_api_url
+    from cambc_pypy.auth import get_api_url
 
     base_url = get_api_url()
     url = f"{base_url}/visualiser?matchId={match_id}"

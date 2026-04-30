@@ -6,7 +6,7 @@ import urllib.request
 
 from rich.console import Console
 
-from cambcpypy.auth import get_api_url, get_token
+from cambc_pypy.auth import get_api_url, get_token
 
 console = Console()
 

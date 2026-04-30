@@ -5,7 +5,7 @@ import click
 from rich.console import Console
 from rich.prompt import Confirm
 
-from cambcpypy.config import CONFIG_FILENAME
+from cambc_pypy.config import CONFIG_FILENAME
 
 console = Console()
 
@@ -31,7 +31,7 @@ __pycache__/
 venv/
 """
 
-STARTER_BOT = importlib.resources.files("cambcpypy.data") / "starter_bot.py"
+STARTER_BOT = importlib.resources.files("cambc_pypy.data") / "starter_bot.py"
 
 
 def _get_maps_source():
@@ -40,7 +40,7 @@ def _get_maps_source():
     repo_maps = Path(__file__).resolve().parent.parent.parent.parent.parent / "maps"
     if repo_maps.is_dir() and any(repo_maps.glob("*.map26")):
         return repo_maps
-    return importlib.resources.files("cambcpypy.data.maps")
+    return importlib.resources.files("cambc_pypy.data.maps")
 
 
 @click.command()

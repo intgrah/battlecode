@@ -5,12 +5,12 @@ import warnings
 
 if sys.implementation.name != "pypy":
     warnings.warn(
-        f"cambcpypy is running under {sys.implementation.name}. Expected PyPy.",
+        f"cambc_pypy is running under {sys.implementation.name}. Expected PyPy.",
         RuntimeWarning,
         stacklevel=1,
     )
 
-from cambcpypy.engine import (
+from cambc_pypy.engine import (
     Controller,
     Direction,
     EntityType,

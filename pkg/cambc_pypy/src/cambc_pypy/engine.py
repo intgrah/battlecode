@@ -2228,9 +2228,9 @@ def _patch_typing_compat() -> None:
     if not hasattr(typing, "override"):
         typing.override = lambda f: f
 
-    import cambcpypy
+    import cambc_pypy
 
-    sys.modules["cambc"] = cambcpypy
+    sys.modules["cambc"] = cambc_pypy
 
 
 _TYPE_STMT_RE = re.compile(r"^type\s+(\w+)\s*=", re.MULTILINE)

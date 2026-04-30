@@ -3,7 +3,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from cambcpypy import __version__
+from cambc_pypy import __version__
 
 PYPI_PACKAGE = "cambc"
 CACHE_DIR = Path.home() / ".cambc"

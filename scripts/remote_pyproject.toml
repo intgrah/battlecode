@@ -1,2 +1,2 @@
 [tool.uv.workspace]
-members = ["cambcpypy", "proto"]
+members = ["cambc_pypy", "proto"]

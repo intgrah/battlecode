@@ -104,7 +104,7 @@ def _enemy_healer_near(ct: Controller, pos: Position) -> bool:
     The bounds guards are load-bearing: the real cambc engine raises
     `Position out of bounds` on `ct.get_tile_builder_bot_id(n)` when
     `n` is off-map, even if `ct.is_in_vision(n)` didn't reject it
-    first. cambcpypy happens to return False for OOB from
+    first. cambc_pypy happens to return False for OOB from
     is_in_vision, which is why the hetzner sweeps passed but the
     official-server test crashed on maps where an enemy harvester
     sits at the edge.
