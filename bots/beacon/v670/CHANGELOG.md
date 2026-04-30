@@ -230,3 +230,12 @@ across every map.
 Lesson: core spawn should NOT bypass income gates — every bot needs
 backing income to be productive long-term. Emergency reactive spawning
 is short-term defensive but kills medium-term economy.
+
+## Final session note: init retry value confirmed
+
+Re-tested at end of session: removing the v670.15 init retry from
+`main.py` regressed the standard pool from 10-10 to **5-15**. The
+defensive try/except is worth +5 wins, not just a bug fix — the
+fewer crash-induced 0-turn losses adds up.
+
+Init retry RESTORED. Final state ships v670.1–v670.5 + v670.15.
