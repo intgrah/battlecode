@@ -11,11 +11,13 @@ from builder.role import Role
 from builder.tasks._policy import Policy
 from builder.tasks.defense import DEFENSE_GROUP
 from builder.tasks.econ import ECON_GROUP
-from builder.tasks.offense import OFFENSE_GROUP
+from builder.tasks.offense import PARASITIC_ROLE_GROUP, PUSH_ROLE_GROUP
 
 POLICIES: dict[Role, Policy] = {
-    Role.OFFENSE: OFFENSE_GROUP,
+    Role.PUSH: PUSH_ROLE_GROUP,
+    Role.PARASITIC: PARASITIC_ROLE_GROUP,
     Role.ECON: ECON_GROUP,
+    Role.ECON_REACTIVE: ECON_GROUP,
     Role.DEFENSE: DEFENSE_GROUP,
     Role.PERM_ECON: ECON_GROUP,
     Role.PERM_DEFENSE: DEFENSE_GROUP,

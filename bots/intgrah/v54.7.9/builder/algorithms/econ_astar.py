@@ -184,6 +184,7 @@ class AStarSearch:
             if resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
             else b.ti_routable
         )
+        routing_extra = b.routing_extra
         dist_fwd = self._dist
         dist_bwd = self._dist_bwd
         parent_fwd = self._parent_fwd
@@ -316,7 +317,7 @@ class AStarSearch:
                                     reach_root_append(ni)
                                 if root != my_root:
                                     continue
-                        nd = gn + 1 + extra
+                        nd = gn + 1 + extra + routing_extra[ni]
                         if nd >= dist_fwd[ni]:
                             continue
                         if dist_fwd[ni] == INF:
@@ -371,7 +372,7 @@ class AStarSearch:
                                 reach_root_append(ni)
                             if root != my_root:
                                 continue
-                    nd = gn + 1 + extra
+                    nd = gn + 1 + extra + routing_extra[ni]
                     if nd >= dist_bwd[ni]:
                         continue
                     if dist_bwd[ni] == INF:
@@ -451,6 +452,7 @@ class AStarSearch:
             if resource in (ResourceType.RAW_AXIONITE, ResourceType.REFINED_AXIONITE)
             else b.ti_routable
         )
+        routing_extra = b.routing_extra
         dist = self._dist
         neighbors = self._neighbors
         cardinal_neighbors = self._cardinal_neighbors
@@ -558,10 +560,11 @@ class AStarSearch:
                             reach_root_append(ni)
                         if root != my_root:
                             continue
-                    if base_nd >= dist[ni]:
+                    nd = base_nd + routing_extra[ni]
+                    if nd >= dist[ni]:
                         continue
-                    dist[ni] = base_nd
-                    nf = base_nd + x_heur[x_of[ni]] + y_heur[y_of[ni]]
+                    dist[ni] = nd
+                    nf = nd + x_heur[x_of[ni]] + y_heur[y_of[ni]]
                     f_at[ni] = nf
                     bk_append[nf & bucket_mask](ni)
                 # Weighted neighbours: diagonals + bridges (extra always 9,
@@ -580,10 +583,11 @@ class AStarSearch:
                             reach_root_append(ni)
                         if root != my_root:
                             continue
-                    if weighted_nd >= dist[ni]:
+                    nd = weighted_nd + routing_extra[ni]
+                    if nd >= dist[ni]:
                         continue
-                    dist[ni] = weighted_nd
-                    nf = weighted_nd + x_heur[x_of[ni]] + y_heur[y_of[ni]]
+                    dist[ni] = nd
+                    nf = nd + x_heur[x_of[ni]] + y_heur[y_of[ni]]
                     f_at[ni] = nf
                     bk_append[nf & bucket_mask](ni)
             if found:

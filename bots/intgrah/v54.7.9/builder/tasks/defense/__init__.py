@@ -18,6 +18,7 @@ Order:
 from builder.tasks._policy import TaskGroup
 from builder.tasks.defense.patrol_cheap import patrol_cheap
 from builder.tasks.defense.patrol_late import patrol_late
+from builder.tasks.defense.stalk_enemy import stalk_enemy
 from builder.tasks.econ.chains.extend_chain_approach import extend_chain_approach
 from builder.tasks.econ.chains.extend_chain_in_range import extend_chain_in_range
 from builder.tasks.econ.infrastructure import ECON_INFRASTRUCTURE_GROUP
@@ -35,6 +36,7 @@ DEFENSE_GROUP = TaskGroup(
         ECON_INFRASTRUCTURE_GROUP,
         extend_chain_in_range,
         HEAL_GROUP,
+        stalk_enemy,
         deny_enemy_ore,
         patrol_cheap,
         claim_ore,

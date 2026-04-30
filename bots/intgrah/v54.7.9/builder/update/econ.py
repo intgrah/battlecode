@@ -843,7 +843,13 @@ def _ti_sink_ok(self: Builder, pos: Position) -> bool:
     # them would dump Ti into the harvester instead of the core.
     if is_inward_guard(self, pos):
         return False
-    if pos in self.upstream_of_dangling:
+    if pos in self.upstream_of_dangling and pos in self.ti_upstream:
+        # Reject only when this tile is BOTH upstream of a dangling end
+        # AND already carrying Ti from a Ti harvester. A pre-existing Ti
+        # flow into a dead-end chain shouldn't be reinforced. An empty
+        # tile that's upstream of a dangling end (no live Ti yet) is
+        # still a fine merge target — adding our flow gives that branch
+        # a productive purpose.
         return False
     if pos in self.upstream_of_congestion:
         return False
