@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections import namedtuple
 from dataclasses import dataclass
+from collections import namedtuple
 
 from cambc import ResourceType
 
-FlowValue = namedtuple("FlowValue", ["ti", "ax", "rax"], defaults=[0, 0, 0])
+FlowValue = namedtuple('FlowValue', ['ti', 'ax', 'rax'], defaults=[0, 0, 0])
 
 _LAZY_FLOW_TABLE: list[FlowValue] = [FlowValue()] * 256
 
@@ -46,12 +46,10 @@ class Flow:
             flow_new[history & 3] += 1
             history >>= 2
 
-        _LAZY_FLOW_TABLE[self.recent_outgoing] = FlowValue(
-            flow_new[1], flow_new[2], flow_new[3]
-        )
-
+        _LAZY_FLOW_TABLE[self.recent_outgoing] = FlowValue(flow_new[1], flow_new[2], flow_new[3])
+    
     def has_flow(self) -> bool:
         return self.recent_outgoing > 0
-
+    
     def get_flow(self) -> FlowValue:
         return _LAZY_FLOW_TABLE[self.recent_outgoing]
