@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "nothing_rs"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+cambc = { path = "../../../../crates/cambc" }
+pyrust = { path = "../../../../crates/pyrust/shim" }
