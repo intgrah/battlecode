@@ -212,23 +212,21 @@ def required_ti_for_ore_claim(
 
 def ore_claim_leniency(self: Builder) -> float:
     """Leniency multiplier on `required_ti_for_ore_claim`. Decaying
-    exponential in friendly harvester count: starts at 0.8 with no
-    harvesters (commit to a claim with only 80% of the estimated cost
-    in hand — incoming income covers the rest), asymptotes to 2.4
-    once the colony is fully built up (trunk saturated, routes
-    detour, want >2x the optimistic estimate before risking a
-    distant claim). Harvester-count rather than round number so a
+    exponential in friendly harvester count: starts at 0.65 (commit
+    to a claim with only 65% of the estimated cost in hand — incoming
+    income covers the rest), asymptotes to 1.60 once the colony is
+    fully built up. Harvester-count rather than round number so a
     slow start delays the gate until we've actually built up.
 
-        n=0   → 0.80
-        n=4   → 1.10
-        n=8   → 1.27
-        n=16  → 1.66
-        n=32  → 2.07
-        n→∞   → 2.40
+        n=0   → 0.65
+        n=4   → 0.80
+        n=8   → 0.93
+        n=16  → 1.13
+        n=32  → 1.37
+        n→∞   → 1.60
     """
     n = len(self.my_harvesters)
-    return 0.8 + 1.6 * (1 - 0.95**n)
+    return 0.65 + 0.95 * (1 - 0.958**n)
 
 
 def can_afford_ore_claim(
@@ -596,13 +594,9 @@ def pick_ax_ore_target(self: Builder) -> Position | None:
 
 
 def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
-    """Pick an enemy-side Ti ore tile (more than r²=20 closer to enemy
-    core than to ours) for an offensive harvester. Requires symmetry to
-    be resolved; returns None otherwise.
-    """
-    if self.symmetry is None:
-        return None
-    enemy_core = self.en_core_guess
+    """Pick a Ti ore tile outside our econ disc (further than
+    sqrt(econ_radius_sq) = 0.7·max(w,h) from our core) for an
+    offensive harvester."""
     best_target = None
     min_dist = INF
     for pos in self.nearby_tiles:
@@ -623,10 +617,7 @@ def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
         d = self.my_pos.distance_squared(pos)
         if not ore_available(self, pos):
             continue
-        if (
-            pos.distance_squared(enemy_core)
-            >= pos.distance_squared(self.my_core) - self.bisector_margin_r2
-        ):
+        if pos.distance_squared(self.my_core) <= self.econ_radius_sq:
             continue
         if harvester_would_contaminate(self, pos):
             continue
@@ -717,22 +708,11 @@ def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
 
 
 def on_enemy_side(self: Builder, pos: Position) -> bool:
-    """True if `pos` is more than `self.bisector_margin_r2` closer to
-    enemy_core than to ours. The margin scales linearly with map size
-    (computed in `post_init`); on a 50x50 map it's 20, smaller on
-    smaller maps.
-    Mirrors the rule used by `_pick_ore` for harvester placement, so econ
-    routing of harvester outputs uses the same split: ours-side tiles are
-    routed home, enemy-side tiles are left for OFFENSE's `push_extend`.
-    Requires symmetry to be resolved; returns False otherwise.
-    """
-    if self.symmetry is None:
-        return False
-    enemy_core = self.en_core_guess
-    return (
-        pos.distance_squared(self.my_core)
-        > pos.distance_squared(enemy_core) + self.bisector_margin_r2
-    )
+    """True if `pos` is outside our econ disc — i.e. more than
+    sqrt(econ_radius_sq) (= 0.7·max(w,h)) from our core. Tiles inside
+    the disc are economy-eligible; tiles outside are offence-only.
+    Independent of symmetry resolution (uses our own core only)."""
+    return pos.distance_squared(self.my_core) > self.econ_radius_sq
 
 
 def is_inward_guard(self: Builder, pos: Position) -> bool:
@@ -755,7 +735,6 @@ def is_inward_guard(self: Builder, pos: Position) -> bool:
 
 
 def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
-    enemy_core = self.en_core_guess
     best_target = None
     min_dist = INF
     for pos in self.nearby_tiles:
@@ -780,13 +759,7 @@ def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
         d = self.my_pos.distance_squared(pos)
         if not ore_available(self, pos):
             continue
-        # Bisector gate: skip ore that is more than r²=20 closer to enemy
-        # core than to ours. Routing such ore home is expensive, and if we
-        # could afford it we'd already have economic dominance.
-        if (
-            pos.distance_squared(self.my_core)
-            > pos.distance_squared(enemy_core) + self.bisector_margin_r2
-        ):
+        if pos.distance_squared(self.my_core) > self.econ_radius_sq:
             continue
         # Contamination gate: skip an ore if placing a harvester there would
         # leak Ti into an Ax chain (or Ax into a Ti chain) via an adjacent

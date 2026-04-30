@@ -77,16 +77,32 @@ def _target_invalid(self: Builder, target: Position) -> bool:
 
 
 def _pick_target(self: Builder) -> Position | None:
-    """Sample K random unobserved tiles, score each, pick the lowest."""
+    """Sample K random unobserved tiles within an expanding Chebyshev
+    radius of a center, score each, pick the lowest. The radius grows
+    linearly from 0.4·s at T0 to cap·s at T100 (capped), where
+    `s = max(w, h)`.
+
+    For OFFENSE the center is `en_core_guess` — fog gets cleared in a
+    growing orbit around the enemy core rather than around the bot.
+    Cap is 1.0 (eventually full map). For ECON / DEFENSE the center
+    is the bot itself with cap 0.8."""
     w, h = self.w, self.h
     env = self.env
     rng = self.rng
+    is_offense = self.role is not None and self.role.is_offensive()
+    cap = 1.0 if is_offense else 0.8
+    frac = min(cap, 0.4 + (cap - 0.4) * self.round / 100)
+    radius = int(max(w, h) * frac)
+    center = self.en_core_guess if is_offense else self.my_pos
+    cx, cy = center.x, center.y
     candidates: list[Position] = []
     for _ in range(_K_CANDIDATES * 4):
         if len(candidates) >= _K_CANDIDATES:
             break
         x = rng.randrange(w)
         y = rng.randrange(h)
+        if max(abs(x - cx), abs(y - cy)) > radius:
+            continue
         if env[y * MAX_WIDTH + x] is None:
             candidates.append(Position(x, y))
     if not candidates:
@@ -96,9 +112,9 @@ def _pick_target(self: Builder) -> Position | None:
     best_score = float("inf")
     heading = self.explore_heading
     for c in candidates:
-        s = _score(self, c, heading)
-        if s < best_score:
-            best_score = s
+        score = _score(self, c, heading)
+        if score < best_score:
+            best_score = score
             best = c
     return best
 

@@ -26,29 +26,29 @@ __all__ = ["Core"]
 class Core(CoreAwareUnit):
     INITIAL_SPAWNS: Final[int] = 4
     INCOME_SAMPLES: Final[int] = 16
-    INCOME_PER_UNIT: Final[float] = 0.75
+    INCOME_PER_UNIT: Final[float] = 0.65
     """Each live unit demands at least this much expected income per
     round (x4 for the actual harvest cadence) before another spawn is
     allowed. Setting this above 0.25 (a single harvester's contribution)
     means new spawns require strictly growing income — at equilibrium
     no further spawns happen, so constant-income games don't bleed Ti
     into builders that contribute nothing extra."""
-    INCOME_QUADRATIC_TERM: Final[float] = 0.05
+    INCOME_QUADRATIC_TERM: Final[float] = 0.04
     """Quadratic kicker on the income gate: required income grows as
     `INCOME_PER_UNIT * N + INCOME_QUADRATIC_TERM * N²`. Mild at small
     N (4 builders ≈ +27% over linear, 8 ≈ +53%, 16 ≈ +106%) so early
     growth still works, but the marginal income demanded by builder
     N grows with N — captures the diminishing-return nature of late
     builders (longer chains, distant ores, more competition for sites)."""
-    SURPLUS_BASELINE: Final[int] = 50
-    SURPLUS_SCALE_FACTOR: Final[int] = 60
-    TRICKLE_COST_MULTIPLIER: Final[float] = 10.0
+    SURPLUS_BASELINE: Final[int] = 40
+    SURPLUS_SCALE_FACTOR: Final[int] = 50
+    TRICKLE_COST_MULTIPLIER: Final[float] = 8.0
     """Banked Ti above `TRICKLE_COST_MULTIPLIER * current builder cost`
     triggers a slow trickle-spawn gate regardless of income / standard
     surplus. We're rich enough to spend ~10 builders' worth and still
     have a builder left over. The threshold tracks scaling, so late-game
     expensive builders raise the bar automatically."""
-    TRICKLE_MIN_INTERVAL: Final[int] = 50
+    TRICKLE_MIN_INTERVAL: Final[int] = 40
     """Minimum rounds between trickle-spawns. Keeps the trickle slow."""
     CROWDING_LIMIT: Final[int] = 3
     """Maximum friendly builders allowed in core's vision before
@@ -154,6 +154,11 @@ class Core(CoreAwareUnit):
         live_units = ct.get_unit_count()
         if live_units >= self.max_team_units:
             return False
+        # Threat gate: enemy builders outnumber the friendlies we can
+        # see near the core. Spawn ASAP regardless of income / surplus
+        # / crowding — a decimated defence is worse than a crowded one.
+        if len(self.enemy_bots) > len(self.friendly_bots):
+            return True
         # Crowding gate: too many friendly builders in our vision means
         # they're stuck near the core (blocked routes, no reachable
         # work). Adding more won't help — they'd just join the pile.

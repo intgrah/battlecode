@@ -458,6 +458,13 @@ class Builder(CoreAwareUnit):
         self.ax_routable: Final[bytearray] = bytearray(MAX_N)
         """Combined: `buildable[i] and not ax_leakage[i]`. A\\* for Ax chains
         checks this plus `bfs_dist[i] is not INF`."""
+        self.routing_extra: Final[bytearray] = bytearray(MAX_N)
+        """Per-tile additive cost added to `econ_astar` relaxation. 0 for
+        normal placements (empty / friendly road / marker); 4 for enemy
+        roads (routable via destroy-then-build, but costs 2 fires / 4 Ti
+        to clear). The 4-Ti weight makes routing prefer a detour up to
+        4 tiles long over crossing an enemy road, but accept it when
+        there's no cheaper path."""
         # Counts of leakage sources cardinal to each tile. ti_leakage[i] is
         # `_ax_harv_at[i] > 0 or _foundry_at[i] > 0`; ax_leakage[i] is
         # `_ti_harv_at[i] > 0`. Using counts avoids re-scanning cardinals on
@@ -762,11 +769,13 @@ class Builder(CoreAwareUnit):
         super().post_init(ct)
         self.opportunistic: bool = self.rng.random() < 0.5
 
-        self.bisector_margin_r2: int = round(20 * min(self.w, self.h) / 50)
-        """Bisector buffer width (r²): scales linearly with min(w, h).
-        Original constant was 20 on a 50x50 map; smaller maps need a
-        narrower neutral band so the bisector classification still
-        leaves room on each side for offensive / economic claims."""
+        s = max(self.w, self.h)
+        self.econ_radius_sq: int = round((0.7 * s) ** 2)
+        """Squared radius from our core inside which an ore is considered
+        eligible for economy (claim/harvest by ECON / DEFENSE). Tiles
+        outside this disc are OFFENSE-only — used by
+        `pick_offensive_ti_ore_target` and the harvester-output routing
+        split in `on_enemy_side`."""
 
         # Mark off-map cells (outside w x h) as INF in cost_grid so the
         # planner / dp_step naturally reject them via cost-check, even
@@ -975,7 +984,7 @@ class Builder(CoreAwareUnit):
             with Scope("hooks", time=True):
                 with Scope("indicators", time=True):
                     self.indicators(ct)
-                if self.role != Role.OFFENSE:
+                if not self.role.is_offensive():
                     with Scope("heal", time=True):
                         self.end_of_turn_heal(ct)
                 with Scope("symmetry", time=True):
