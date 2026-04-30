@@ -102,3 +102,23 @@ baseline — marginal, within noise. Reverted to Random(0).
 
 Lesson: shuffle seed doesn't materially affect path quality at
 this sample size; not worth tuning.
+
+## Reverted iterations log
+
+The following changes were tested on the standard 10-map × 2-side
+parallel pool (jobs=4, seed=1) and reverted because they regressed
+or didn't beat the baseline 11-9 result:
+
+- v670.6 — `_INITIAL_WEIGHTS` set to econ-heavy {2,1,7}/{2,3,5} → 3-17
+- v670.7 — `random.Random(42)` shuffle seed → 12-8 (within noise)
+- v670.8 — looser `_TRANSITION` (DEFENSE → 30/60/15 etc.) → 8-12
+- v670.9 — `_MAX_TEAM_UNITS = 45` → 9-11
+- v670.10 — drop `_opportunistic_attack` from ECON_TASKS → 8-12
+  (the random 20% attack actually pulls weight)
+- v670.11 — gunner rotation 3rd-tier sentinel/launcher target → 10-10
+- v670.12 — strict gate `<` instead of `<=` (1-turn looser) → 10-10
+
+Pattern: simple parameter knobs are tightly tuned at the okbot
+baseline; bumps in either direction regress. Real wins probably
+need new capability (foundry/refined-Ax, sentinel push, bridges
+to bypass walls), not parameter tuning.
