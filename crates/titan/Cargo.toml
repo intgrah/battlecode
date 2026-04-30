@@ -6,9 +6,12 @@ edition.workspace = true
 [dependencies]
 titan-blueprint = { path = "../titan-blueprint" }
 titan-bugnav = { path = "../titan-bugnav" }
+titan-opening = { path = "../titan-opening" }
 titan-replay = { path = "../titan-replay" }
 titan-core.workspace = true
 eframe.workspace = true
+clap = { version = "4.6.1", features = ["derive"] }
+clap_complete = "4"
 
 [lints]
 workspace = true

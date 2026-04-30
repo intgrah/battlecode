@@ -171,7 +171,7 @@ impl App {
                 self.follow_entity = false;
             }
             if i.key_pressed(Key::Space) {
-                self.toggle_playing();
+                self.step_forward(1);
             }
             if i.key_pressed(Key::ArrowRight) {
                 if shift {

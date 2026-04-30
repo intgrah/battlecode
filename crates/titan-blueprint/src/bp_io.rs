@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 use crate::blueprint::{BlueprintEntry, Direction, Entity};
 
 pub fn blueprints_dir() -> PathBuf {
-    // Crate is at pkg/crates/blueprint/; the persisted .bp files live
-    // alongside the Python solver/blueprints in pkg/blueprint/blueprints/
-    // (kept there because the Python side reads them too).
+    // Crate is at crates/titan-blueprint/; the persisted .bp files live
+    // alongside the Python solver in pkg/blueprint/blueprints/ (kept
+    // there because the Python side reads them too).
     let manifest = env!("CARGO_MANIFEST_DIR");
     let p = Path::new(manifest)
         .join("..")
         .join("..")
+        .join("pkg")
         .join("blueprint")
         .join("blueprints");
     p.canonicalize().unwrap_or(p)

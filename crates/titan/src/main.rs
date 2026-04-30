@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::Arc;
 
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use eframe::egui;
 use titan_core::{
     BuildCtx, CambcConfig, FilePicker, ModeApp, PickResult, ResponseExt, SpriteConfig, SpriteSet,
@@ -30,10 +32,10 @@ fn find_assets_dir() -> PathBuf {
     let exe = std::env::current_exe().unwrap_or_default();
     let exe_dir = exe.parent().unwrap_or_else(|| Path::new(".")).to_path_buf();
     let candidates = [
-        exe_dir.join("../../../crates/titan/assets"),
+        exe_dir.join("../../crates/titan/assets"),
         exe_dir.join("../../assets"),
         exe_dir.join("../assets"),
-        Path::new("pkg/crates/titan/assets").to_path_buf(),
+        Path::new("crates/titan/assets").to_path_buf(),
         Path::new("assets").to_path_buf(),
     ];
     candidates
@@ -43,20 +45,50 @@ fn find_assets_dir() -> PathBuf {
         .unwrap_or_else(|| Path::new("assets").to_path_buf())
 }
 
-fn usage() -> ! {
-    eprintln!("usage: titan <mode> [args...]");
-    eprintln!();
-    eprintln!("modes:");
-    eprintln!("    replay [<replay.replay26>]   replay viewer (defaults to cambc.toml)");
-    eprintln!("    blueprint <map.map26>        blueprint editor");
-    eprintln!("    bugnav [map]                 bug-nav viewer");
-    process::exit(1);
+#[derive(Parser)]
+#[command(
+    name = "titan",
+    version,
+    about = "Cambridge Battlecode visualisation, planning, and pathfinding tools"
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Replay viewer. Path defaults to `cambc.toml`'s `replay` field.
+    Replay { replay: Option<PathBuf> },
+    /// Blueprint editor.
+    Blueprint { map: PathBuf },
+    /// Bug-navigation viewer. Map path defaults to the first map in
+    /// `cambc.toml`'s `maps_dir`.
+    Bugnav { map: Option<PathBuf> },
+    /// Opening-book editor.
+    Opening { map: PathBuf },
+    /// Print a shell-completion script. Pipe into the appropriate
+    /// completions file, e.g.
+    /// `titan completions fish > ~/.config/fish/completions/titan.fish`.
+    Completions {
+        /// One of: bash, zsh, fish, powershell, elvish.
+        shell: Shell,
+    },
+    /// Internal: list maps from `cambc.toml`'s `maps_dir`. Used by
+    /// shell completions.
+    #[command(name = "_list-maps", hide = true)]
+    ListMaps,
+    /// Internal: list `*.replay26` files in the project root. Used by
+    /// shell completions.
+    #[command(name = "_list-replays", hide = true)]
+    ListReplays,
 }
 
 enum Inputs {
     Replay(titan_replay::Inputs),
     Blueprint(titan_blueprint::Inputs),
     Bugnav(titan_bugnav::Inputs),
+    Opening(titan_opening::Inputs),
 }
 
 impl Inputs {
@@ -65,24 +97,166 @@ impl Inputs {
             Self::Replay(i) => Box::new(titan_replay::build(atlas, i)),
             Self::Blueprint(i) => Box::new(titan_blueprint::build(atlas, i)),
             Self::Bugnav(i) => Box::new(titan_bugnav::build(atlas, i)),
+            Self::Opening(i) => Box::new(titan_opening::build(atlas, i)),
         }
     }
 }
 
-fn parse_cli(mode: &str, args: Vec<OsString>, config: &CambcConfig) -> Result<Inputs, String> {
-    match mode {
-        "replay" => {
-            let mut a = args;
-            if a.len() <= 1 {
-                a.push(config.replay_path().into_os_string());
-            }
-            titan_replay::parse_args(a).map(Inputs::Replay)
+fn parse_command(command: Command, config: &CambcConfig) -> Result<Inputs, String> {
+    match command {
+        Command::Replay { replay } => {
+            let path = match replay {
+                Some(p) => resolve_replay(&p, config)?,
+                None => config.replay_path(),
+            };
+            titan_replay::parse_args(vec![OsString::new(), path.into_os_string()])
+                .map(Inputs::Replay)
         }
-        "blueprint" => titan_blueprint::parse_args(args).map(Inputs::Blueprint),
-        "bugnav" => titan_bugnav::parse_args(args).map(Inputs::Bugnav),
-        _ => Err(format!("unknown mode: {mode}")),
+        Command::Blueprint { map } => {
+            let resolved = resolve_map(&map, config)?;
+            titan_blueprint::parse_args(vec![OsString::new(), resolved.into_os_string()])
+                .map(Inputs::Blueprint)
+        }
+        Command::Bugnav { map } => {
+            let mut args = vec![OsString::new()];
+            if let Some(p) = map {
+                args.push(resolve_map(&p, config)?.into_os_string());
+            }
+            titan_bugnav::parse_args(args).map(Inputs::Bugnav)
+        }
+        Command::Opening { map } => {
+            let resolved = resolve_map(&map, config)?;
+            titan_opening::parse_args(vec![OsString::new(), resolved.into_os_string()])
+                .map(Inputs::Opening)
+        }
+        Command::Completions { .. } | Command::ListMaps | Command::ListReplays => {
+            unreachable!("non-app commands handled in main")
+        }
     }
 }
+
+/// Resolve a map argument to an absolute `.map26` file. Mirrors
+/// `cambc-libre`'s logic: tries `path`, `<maps_dir>/<path>`,
+/// `<path>.map26`, `<maps_dir>/<path>.map26`.
+fn resolve_map(path: &Path, config: &CambcConfig) -> Result<PathBuf, String> {
+    let mut candidates: Vec<PathBuf> = vec![path.to_path_buf()];
+    if !path.is_absolute() {
+        candidates.push(config.maps_path().join(path));
+    }
+    let bare = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+    if !bare.ends_with(".map26") {
+        let with_ext = format!("{}.map26", path.display());
+        candidates.push(PathBuf::from(&with_ext));
+        if !path.is_absolute() {
+            candidates.push(config.maps_path().join(format!("{bare}.map26")));
+        }
+    }
+    for p in &candidates {
+        if p.is_file() {
+            return p
+                .canonicalize()
+                .map_err(|e| format!("{}: {e}", p.display()));
+        }
+    }
+    Err(format!("map not found: {}", path.display()))
+}
+
+/// Resolve a replay argument. Tries `path`, `<project_root>/<path>`,
+/// `<path>.replay26`, `<project_root>/<path>.replay26`.
+fn resolve_replay(path: &Path, config: &CambcConfig) -> Result<PathBuf, String> {
+    let mut candidates: Vec<PathBuf> = vec![path.to_path_buf()];
+    if !path.is_absolute() {
+        candidates.push(config.project_root.join(path));
+    }
+    let bare = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+    if !bare.ends_with(".replay26") {
+        candidates.push(PathBuf::from(format!("{}.replay26", path.display())));
+        if !path.is_absolute() {
+            candidates.push(config.project_root.join(format!("{bare}.replay26")));
+        }
+    }
+    for p in &candidates {
+        if p.is_file() {
+            return p
+                .canonicalize()
+                .map_err(|e| format!("{}: {e}", p.display()));
+        }
+    }
+    Err(format!("replay not found: {}", path.display()))
+}
+
+/// Print the *stem* of every `.map26` directly under `maps_dir`. Used
+/// by shell completions so the user can complete bare names.
+fn list_maps(config: &CambcConfig) {
+    let dir = config.maps_path();
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return;
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|e| {
+            let p = e.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("map26") {
+                p.file_stem().map(|n| n.to_string_lossy().into_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    for n in names {
+        println!("{n}");
+    }
+}
+
+/// Print the stem of every `*.replay26` in the project root.
+fn list_replays(config: &CambcConfig) {
+    let Ok(entries) = std::fs::read_dir(&config.project_root) else {
+        return;
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|e| {
+            let p = e.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("replay26") {
+                p.file_stem().map(|n| n.to_string_lossy().into_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    for n in names {
+        println!("{n}");
+    }
+}
+
+/// Fish-specific tail appended after `clap_complete::generate` so that
+/// `replay`'s positional gets dynamic completion from project `*.replay26`
+/// files, and `blueprint`/`bugnav`/`opening`'s positional gets the
+/// `maps_dir` map list.
+const FISH_DYNAMIC_TAIL: &str = r#"
+function __titan_pos
+    set -l cmd (commandline -opc)
+    set -l n 0
+    for tok in $cmd
+        switch $tok
+            case 'titan' '*/titan' 'replay' 'blueprint' 'bugnav' 'opening'
+                continue
+            case '--*' '-*'
+                continue
+            case '*'
+                set n (math $n + 1)
+        end
+    end
+    echo $n
+end
+
+complete -c titan -n "__fish_titan_using_subcommand replay; and test (__titan_pos) -le 1" -f -a "(titan _list-replays)"
+complete -c titan -n "__fish_titan_using_subcommand blueprint; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
+complete -c titan -n "__fish_titan_using_subcommand bugnav; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
+complete -c titan -n "__fish_titan_using_subcommand opening; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
+"#;
 
 fn parse_replay_path(path: PathBuf) -> Result<Inputs, String> {
     titan_replay::parse_args(vec![OsString::new(), path.into()]).map(Inputs::Replay)
@@ -90,6 +264,10 @@ fn parse_replay_path(path: PathBuf) -> Result<Inputs, String> {
 
 fn parse_blueprint_path(path: PathBuf) -> Result<Inputs, String> {
     titan_blueprint::parse_args(vec![OsString::new(), path.into()]).map(Inputs::Blueprint)
+}
+
+fn parse_opening_path(path: PathBuf) -> Result<Inputs, String> {
+    titan_opening::parse_args(vec![OsString::new(), path.into()]).map(Inputs::Opening)
 }
 
 fn parse_bugnav_default() -> Result<Inputs, String> {
@@ -244,6 +422,15 @@ impl TitanApp {
                             }
                             ui.close();
                         }
+                        if ui.button("Opening…").clickable().clicked() {
+                            self.switch_mode(
+                                "Open map for opening",
+                                self.config.maps_path(),
+                                &["map26"],
+                                parse_opening_path,
+                            );
+                            ui.close();
+                        }
                     });
 
                     ui.separator();
@@ -303,16 +490,31 @@ impl eframe::App for TitanApp {
 }
 
 fn main() -> eframe::Result {
-    let mut args: Vec<OsString> = std::env::args_os().collect();
-    let mode = args
-        .get(1)
-        .map_or_else(|| usage(), |s| s.to_string_lossy().into_owned());
-
-    args.remove(0);
-
+    let cli = Cli::parse();
     let config = titan_core::find_config();
 
-    let inputs = parse_cli(&mode, args, &config).unwrap_or_else(|e| {
+    match cli.command {
+        Command::Completions { shell } => {
+            let mut cmd = Cli::command();
+            let bin_name = cmd.get_name().to_string();
+            clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+            if shell == Shell::Fish {
+                print!("{FISH_DYNAMIC_TAIL}");
+            }
+            std::process::exit(0);
+        }
+        Command::ListMaps => {
+            list_maps(&config);
+            std::process::exit(0);
+        }
+        Command::ListReplays => {
+            list_replays(&config);
+            std::process::exit(0);
+        }
+        _ => {}
+    }
+
+    let inputs = parse_command(cli.command, &config).unwrap_or_else(|e| {
         eprintln!("{e}");
         process::exit(1);
     });
