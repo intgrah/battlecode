@@ -1,0 +1,1043 @@
+//! Translation of `bots/intgrah/v54.7.9/builder/__init__.py`.
+//!
+//! `Builder` is the bot's most complex unit — it owns map belief, conveyor
+//! routing graphs, navigation state, role/task scheduling, and per-turn
+//! ephemeral sets. Submodules implement the algorithms (`algorithms/`),
+//! per-turn updates (`update/`), end-of-turn hooks (`hooks/`), and the
+//! task-policy tree (`tasks/`); this file wires them together.
+
+pub mod algorithms;
+pub mod chain_routing;
+pub mod dump;
+pub mod explore;
+pub mod harvest;
+pub mod helpers;
+pub mod hooks;
+pub mod patrol;
+pub mod role;
+pub mod tasks;
+pub mod update;
+
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::ops::{Deref, DerefMut};
+
+use cambc::{
+    Controller, ControllerApi, EntityType, Environment, GameConstants, Position, ResourceType,
+};
+use serde_json::Map;
+
+use crate::builder::algorithms::econ_astar::AStarSearch;
+use crate::builder::algorithms::nav::BugNav;
+use crate::builder::algorithms::reachability::update_reachability;
+use crate::builder::hooks::heal::end_of_turn_heal;
+use crate::builder::hooks::indicators::indicators;
+use crate::builder::hooks::propagate_symmetry::end_of_turn_propagate_symmetry;
+use crate::builder::role::Role;
+use crate::builder::tasks::_policy::run_policy;
+use crate::builder::tasks::offense::helpers::begin_turn_offense;
+use crate::builder::tasks::policy_for_role;
+use crate::builder::update::update;
+use crate::building::Building;
+use crate::config::DEBUG_DUMP;
+use crate::hardcode::identify::{KnownMap, identify_map};
+use crate::unit::{CoreAwareUnit, Unit, UnitState, run_default};
+use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH, ROAD_COST};
+use crate::util::debug::{Scope, debug as log};
+use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
+use crate::util::symmetry::Symmetry;
+
+/// The Builder unit. Embeds `UnitState` (auto-Deref'd so `builder.my_pos`
+/// resolves transparently) plus per-builder map belief, navigation state,
+/// economy bookkeeping, role state, and offense/heal trackers.
+pub struct Builder {
+    /// Generic per-turn unit state (position, neighbours, visible bots,
+    /// resources, symmetry candidates). Deref'd so peer code can write
+    /// `builder.my_pos` instead of `builder.state.my_pos`.
+    pub state: UnitState,
+
+    /// Allied core position (3x3 centre). Mirrors Python `self.my_core`.
+    pub my_core: Position,
+    /// Mirror of `my_core` under the chosen `symmetry_guess` — cached at
+    /// the start of each turn so `builder.en_core_guess` (no parens) and
+    /// `builder.en_core_guess()` (the trait method) are interchangeable.
+    pub en_core_guess: Position,
+    /// `Some(s)` once a single symmetry remains in `state.symmetry_candidates`,
+    /// else `None`. Cached field for peer code that uses `if builder.symmetry`.
+    pub symmetry: Option<Symmetry>,
+
+    /// Wall / Empty / OreTitanium / OreAxionite per tile (None = unobserved).
+    pub env: Vec<Option<Environment>>,
+    /// Cached entity ids per tile, for change detection.
+    pub building_ids: Vec<Option<i32>>,
+    /// Building on each tile.
+    pub buildings: Vec<Option<Building>>,
+    /// HP of building on each tile.
+    pub hp: Vec<i32>,
+    /// Max HP of building on each tile.
+    pub max_hp: Vec<i32>,
+
+    /// Movement cost per tile.
+    pub cost_grid: Vec<i32>,
+    /// Flat indices currently carrying a threat penalty in `cost_grid`.
+    pub _threat_bumped: HashSet<usize>,
+
+    /// True iff a routable building could be placed on this tile.
+    pub buildable: Vec<bool>,
+    /// True iff Ti routing through this tile would mix with Ax.
+    pub ti_leakage: Vec<bool>,
+    /// True iff Ax routing through this tile would mix with Ti.
+    pub ax_leakage: Vec<bool>,
+    /// `buildable[i] && !ti_leakage[i]`.
+    pub ti_routable: Vec<bool>,
+    /// `buildable[i] && !ax_leakage[i]`.
+    pub ax_routable: Vec<bool>,
+    /// Per-tile additive A* relaxation cost (0 normally, 4 for enemy roads).
+    pub routing_extra: Vec<u8>,
+
+    pub _ti_harv_at: Vec<i32>,
+    pub _ax_harv_at: Vec<i32>,
+    pub _foundry_at: Vec<i32>,
+
+    pub _ti_in_count: Vec<i32>,
+    pub _ax_in_count: Vec<i32>,
+
+    /// Passable-neighbour list per tile (flat indices). Pre-built for full
+    /// `MAX_WIDTH × MAX_WIDTH`; trimmed in `post_init` for the actual map.
+    pub pnb: Vec<Vec<i32>>,
+
+    /// Union-find parent pointer for incremental reachability.
+    pub reach_parent: Vec<i32>,
+    /// Frontier of admitted-but-unexpanded tiles. Persists across turns.
+    pub reach_frontier: Vec<i32>,
+
+    /// A* search instance for Ti chain routing.
+    pub conv_search: AStarSearch,
+    /// A* search instance for Ax chain routing.
+    pub ax_conv_search: AStarSearch,
+
+    /// Bug2-bounded planner + dp_step path-follower. Persists across turns.
+    pub bugnav: BugNav,
+
+    /// Per-tile rolling window of `(resource, stack_id)` observations.
+    pub flow_history: Vec<VecDeque<(Option<ResourceType>, Option<i32>)>>,
+
+    /// Structural feeders: `in_edges[i]` lists positions that output onto tile i.
+    pub in_edges: Vec<Vec<Position>>,
+    /// Structural consumers: `out_edges[i]` lists positions that tile i outputs to.
+    pub out_edges: Vec<Vec<Position>>,
+
+    /// Tiles to mirror via symmetry once it's resolved (rate-limited).
+    pub reflect_queue: VecDeque<usize>,
+
+    // Ephemeral (recomputed each turn, but stored to avoid re-allocation cost).
+    pub nearby_buildings: Vec<Position>,
+    pub healable_buildings: Vec<Position>,
+    pub adjacent_to_unconnected_harvester: HashSet<Position>,
+    pub adjacent_to_harvester: HashSet<Position>,
+    pub ti_harvester_adjacent: HashSet<Position>,
+    pub ax_harvester_adjacent: HashSet<Position>,
+    pub reaches_core: HashSet<Position>,
+    pub reaches_foundry: HashSet<Position>,
+    pub ti_upstream: HashSet<Position>,
+    pub ax_upstream: HashSet<Position>,
+    pub upstream_of_dangling: HashSet<Position>,
+    pub congested_junctions: HashSet<Position>,
+    pub upstream_of_congestion: HashSet<Position>,
+    pub my_foundries: HashSet<Position>,
+    pub my_harvesters: HashSet<Position>,
+    pub is_multi_input: HashSet<Position>,
+    pub junctions: HashSet<Position>,
+    pub adjacent_to_enemy_launcher: HashSet<Position>,
+    pub enemy_turret_ray_tiles: HashSet<Position>,
+    pub friendly_turret_ray_tiles: HashSet<Position>,
+    pub deny_ore_neighbours: HashSet<Position>,
+    pub nearest_enemy_turret: Option<Position>,
+
+    // Role
+    pub role: Option<Role>,
+    pub role_age: i32,
+
+    // Economy
+    pub ore_target: Option<Position>,
+    pub ax_ore_target: Option<Position>,
+    pub offensive_ore_target: Option<Position>,
+    pub foundry_target: Option<Position>,
+    pub ax_sink: Option<Position>,
+    pub ti_sink: Option<Position>,
+    pub dangling_set: HashSet<Position>,
+    pub unreachable_dangling: HashSet<Position>,
+    pub dangling_output: Option<Position>,
+
+    // Repair
+    pub repair_pos: Option<Position>,
+    pub repaired_prev: bool,
+
+    // Offense
+    pub en_core_seen: bool,
+    pub offense_target: Option<Position>,
+    pub offense_turns: i32,
+    pub offense_launcher: Option<Position>,
+    pub last_fire: Option<(Position, i32)>,
+    pub attack_tile_blacklist: HashMap<Position, i32>,
+
+    // Patrol
+    pub patrol_head: Option<Position>,
+    pub last_seen: Vec<i32>,
+    pub _vision_offsets: Vec<(i32, i32, i32)>,
+
+    // Scouting
+    pub explore_target: Option<Position>,
+    pub explore_heading: Option<(i32, i32)>,
+
+    // post_init-derived
+    pub opportunistic: bool,
+    pub econ_radius_sq: i32,
+    pub known_map: Option<KnownMap>,
+    /// 8 perimeter tiles of the core's 3x3 block.
+    pub core_edges: [Position; 8],
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Deref for Builder {
+    type Target = UnitState;
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl DerefMut for Builder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.state
+    }
+}
+
+impl Builder {
+    /// ct-independent allocation. Mirrors Python `Builder.__init__`.
+    #[must_use]
+    pub fn new() -> Self {
+        let pnb = Self::build_initial_pnb();
+        let flow_history: Vec<VecDeque<(Option<ResourceType>, Option<i32>)>> = (0..MAX_N)
+            .map(|_| VecDeque::with_capacity(FLOW_HISTORY_LEN))
+            .collect();
+        let in_edges: Vec<Vec<Position>> = (0..MAX_N).map(|_| Vec::new()).collect();
+        let out_edges: Vec<Vec<Position>> = (0..MAX_N).map(|_| Vec::new()).collect();
+        let mut vision_offsets: Vec<(i32, i32, i32)> = Vec::new();
+        for dx in -4..=4i32 {
+            for dy in -4..=4i32 {
+                if dx * dx + dy * dy <= GameConstants::BUILDER_BOT_VISION_RADIUS_SQ {
+                    vision_offsets.push((dx, dy, dy * (MAX_WIDTH as i32) + dx));
+                }
+            }
+        }
+        Self {
+            state: UnitState::new(),
+            my_core: Position { x: 0, y: 0 },
+            en_core_guess: Position { x: 0, y: 0 },
+            symmetry: None,
+            env: vec![None; MAX_N],
+            building_ids: vec![None; MAX_N],
+            buildings: vec![None; MAX_N],
+            hp: vec![0; MAX_N],
+            max_hp: vec![0; MAX_N],
+            cost_grid: vec![ROAD_COST; MAX_N],
+            _threat_bumped: HashSet::new(),
+            buildable: vec![false; MAX_N],
+            ti_leakage: vec![false; MAX_N],
+            ax_leakage: vec![false; MAX_N],
+            ti_routable: vec![false; MAX_N],
+            ax_routable: vec![false; MAX_N],
+            routing_extra: vec![0u8; MAX_N],
+            _ti_harv_at: vec![0; MAX_N],
+            _ax_harv_at: vec![0; MAX_N],
+            _foundry_at: vec![0; MAX_N],
+            _ti_in_count: vec![0; MAX_N],
+            _ax_in_count: vec![0; MAX_N],
+            pnb,
+            reach_parent: vec![-1; MAX_N],
+            reach_frontier: Vec::new(),
+            conv_search: AStarSearch::new(),
+            ax_conv_search: AStarSearch::new(),
+            bugnav: BugNav::new(),
+            flow_history,
+            in_edges,
+            out_edges,
+            reflect_queue: VecDeque::new(),
+            nearby_buildings: Vec::new(),
+            healable_buildings: Vec::new(),
+            adjacent_to_unconnected_harvester: HashSet::new(),
+            adjacent_to_harvester: HashSet::new(),
+            ti_harvester_adjacent: HashSet::new(),
+            ax_harvester_adjacent: HashSet::new(),
+            reaches_core: HashSet::new(),
+            reaches_foundry: HashSet::new(),
+            ti_upstream: HashSet::new(),
+            ax_upstream: HashSet::new(),
+            upstream_of_dangling: HashSet::new(),
+            congested_junctions: HashSet::new(),
+            upstream_of_congestion: HashSet::new(),
+            my_foundries: HashSet::new(),
+            my_harvesters: HashSet::new(),
+            is_multi_input: HashSet::new(),
+            junctions: HashSet::new(),
+            adjacent_to_enemy_launcher: HashSet::new(),
+            enemy_turret_ray_tiles: HashSet::new(),
+            friendly_turret_ray_tiles: HashSet::new(),
+            deny_ore_neighbours: HashSet::new(),
+            nearest_enemy_turret: None,
+            role: None,
+            role_age: 0,
+            ore_target: None,
+            ax_ore_target: None,
+            offensive_ore_target: None,
+            foundry_target: None,
+            ax_sink: None,
+            ti_sink: None,
+            dangling_set: HashSet::new(),
+            unreachable_dangling: HashSet::new(),
+            dangling_output: None,
+            repair_pos: None,
+            repaired_prev: true,
+            en_core_seen: false,
+            offense_target: None,
+            offense_turns: 0,
+            offense_launcher: None,
+            last_fire: None,
+            attack_tile_blacklist: HashMap::new(),
+            patrol_head: None,
+            last_seen: vec![0; MAX_N],
+            _vision_offsets: vision_offsets,
+            explore_target: None,
+            explore_heading: None,
+            opportunistic: false,
+            econ_radius_sq: 0,
+            known_map: None,
+            core_edges: [Position { x: 0, y: 0 }; 8],
+        }
+    }
+
+    fn build_initial_pnb() -> Vec<Vec<i32>> {
+        let mut pnb: Vec<Vec<i32>> = (0..MAX_N).map(|_| Vec::new()).collect();
+        let stride = MAX_WIDTH as i32;
+        let offsets: Vec<i32> = DIR8_DELTA
+            .iter()
+            .map(|&(dx, dy)| dy * stride + dx)
+            .collect();
+        for cy in 1..(MAX_WIDTH as i32 - 1) {
+            let row = cy * stride;
+            for cx in 1..(MAX_WIDTH as i32 - 1) {
+                let i = (row + cx) as usize;
+                pnb[i] = offsets.iter().map(|&o| (i as i32) + o).collect();
+            }
+        }
+        for cy in 0..MAX_WIDTH as i32 {
+            let row = cy * stride;
+            for cx in 0..MAX_WIDTH as i32 {
+                if (1..(MAX_WIDTH as i32 - 1)).contains(&cx)
+                    && (1..(MAX_WIDTH as i32 - 1)).contains(&cy)
+                {
+                    continue;
+                }
+                let i = (row + cx) as usize;
+                let mut nbs: Vec<i32> = Vec::new();
+                for &(dx, dy) in &DIR8_DELTA {
+                    let nx = cx + dx;
+                    let ny = cy + dy;
+                    if (0..MAX_WIDTH as i32).contains(&nx) && (0..MAX_WIDTH as i32).contains(&ny) {
+                        nbs.push(ny * stride + nx);
+                    }
+                }
+                pnb[i] = nbs;
+            }
+        }
+        pnb
+    }
+
+    /// Recompute `pnb[i]` and the relevant entries of every neighbour after
+    /// tile i's passability changed. Mirrors Python `Builder.update_pnb`.
+    pub fn update_pnb(&mut self, i: usize) {
+        let w = self.state.width;
+        let h = self.state.height;
+        let cx = (i % MAX_WIDTH) as i32;
+        let cy = (i / MAX_WIDTH) as i32;
+        let passable = self.cost_grid[i] != INF;
+        self.pnb[i].clear();
+        if passable {
+            for &(dx, dy) in &DIR8_DELTA {
+                let nx = cx + dx;
+                let ny = cy + dy;
+                if (0..w).contains(&nx) && (0..h).contains(&ny) {
+                    let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
+                    if self.cost_grid[ni] != INF {
+                        self.pnb[i].push(ni as i32);
+                    }
+                }
+            }
+        }
+        for &(dx, dy) in &DIR8_DELTA {
+            let nx = cx + dx;
+            let ny = cy + dy;
+            if !((0..w).contains(&nx) && (0..h).contains(&ny)) {
+                continue;
+            }
+            let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
+            if self.cost_grid[ni] == INF {
+                continue;
+            }
+            let nb_list = &mut self.pnb[ni];
+            if passable {
+                if !nb_list.contains(&(i as i32)) {
+                    nb_list.push(i as i32);
+                }
+            } else if let Some(p) = nb_list.iter().position(|&x| x == i as i32) {
+                nb_list.swap_remove(p);
+            }
+        }
+    }
+
+    /// Position to flat index (inherent shadow of `Unit::idx` so peer code
+    /// in `crate::builder::*` doesn't need to import the trait).
+    #[inline]
+    pub fn idx(&self, pos: Position) -> usize {
+        (pos.y as usize) * MAX_WIDTH + (pos.x as usize)
+    }
+
+    /// In-bounds check (inherent shadow of `Unit::in_bounds`).
+    #[inline]
+    pub fn in_bounds(&self, pos: Position) -> bool {
+        pos.x >= 0 && pos.x < self.state.width && pos.y >= 0 && pos.y < self.state.height
+    }
+
+    /// Resolved symmetry (inherent shadow of `Unit::symmetry` so peer code
+    /// can use `builder.symmetry()` without importing the trait).
+    #[inline]
+    pub fn symmetry(&self) -> Option<Symmetry> {
+        self.symmetry
+    }
+
+    /// Inherent shadow of `Unit::symmetry_guess`.
+    pub fn symmetry_guess(&self) -> Symmetry {
+        for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
+            if self.state.symmetry_candidates.contains(&sym) {
+                return sym;
+            }
+        }
+        Symmetry::Rot
+    }
+
+    /// Cached enemy core guess.
+    #[inline]
+    pub fn en_core_guess(&self) -> Position {
+        self.en_core_guess
+    }
+
+    pub fn get_env(&self, pos: Position) -> Option<Environment> {
+        self.env[self.idx(pos)]
+    }
+
+    pub fn get_building(&self, pos: Position) -> Option<Building> {
+        self.buildings[self.idx(pos)]
+    }
+
+    pub fn get_cost(&self, pos: Position) -> i32 {
+        self.cost_grid[self.idx(pos)]
+    }
+
+    pub fn is_passable(&self, pos: Position) -> bool {
+        self.cost_grid[self.idx(pos)] != INF
+    }
+
+    pub fn is_reachable(&self, pos: Position) -> bool {
+        let i = self.idx(pos) as i32;
+        let my_i = (self.state.my_pos.y * (MAX_WIDTH as i32)) + self.state.my_pos.x;
+        if self.reach_parent[i as usize] == -1 || self.reach_parent[my_i as usize] == -1 {
+            return false;
+        }
+        crate::builder::algorithms::reachability::find_ro(&self.reach_parent, i)
+            == crate::builder::algorithms::reachability::find_ro(&self.reach_parent, my_i)
+    }
+
+    pub fn is_walkable(&self, pos: Position) -> bool {
+        if !self.is_passable(pos) {
+            return false;
+        }
+        matches!(
+            self.buildings[self.idx(pos)],
+            Some(
+                Building::Conveyor { .. }
+                    | Building::Road { .. }
+                    | Building::Splitter { .. }
+                    | Building::ArmouredConveyor { .. }
+                    | Building::Bridge { .. }
+            )
+        )
+    }
+
+    pub fn get_in_edges(&self, pos: Position) -> Vec<Position> {
+        self.in_edges[self.idx(pos)].clone()
+    }
+
+    pub fn get_out_edges(&self, pos: Position) -> Vec<Position> {
+        self.out_edges[self.idx(pos)].clone()
+    }
+
+    pub fn is_buildable(&self, pos: Position) -> bool {
+        let i = self.idx(pos);
+        let b = self.buildings[i];
+        self.env[i] != Some(Environment::Wall)
+            && (b.is_none() || b.unwrap().team() == self.state.my_team)
+    }
+
+    pub fn is_friendly_turret(&self, pos: Position) -> bool {
+        let b = self.buildings[self.idx(pos)];
+        let Some(b) = b else {
+            return false;
+        };
+        if matches!(
+            b,
+            Building::Conveyor { .. }
+                | Building::Road { .. }
+                | Building::Splitter { .. }
+                | Building::ArmouredConveyor { .. }
+                | Building::Bridge { .. }
+        ) {
+            return false;
+        }
+        b.team() == self.state.my_team
+    }
+
+    pub fn is_enemy_building(&self, pos: Position) -> bool {
+        let b = self.buildings[self.idx(pos)];
+        b.is_some_and(|b| b.team() != self.state.my_team)
+    }
+
+    pub fn leads_to_enemy_building(&self, pos: Position) -> bool {
+        let b = self.buildings[self.idx(pos)];
+        let Some(b) = b else {
+            return false;
+        };
+        if b.team() != self.state.my_team {
+            return false;
+        }
+        let output_location = match b {
+            Building::Conveyor { direction, .. } => pos.add(direction),
+            Building::Bridge { target, .. } => target,
+            _ => return false,
+        };
+        if !self.in_bounds(output_location) {
+            return false;
+        }
+        self.is_enemy_building(output_location)
+    }
+
+    /// Drain the reachability frontier, expanding admitted tiles into their
+    /// 8-connected non-WALL neighbours up to `K_PER_TURN` pops.
+    pub fn update_reachability(&mut self) {
+        update_reachability(
+            &mut self.reach_parent,
+            &mut self.reach_frontier,
+            &self.env,
+            self.state.width,
+            self.state.height,
+        );
+    }
+
+    /// Mid-turn invariant fix-up after `ct.destroy(pos)`.
+    pub fn apply_local_destroy(&mut self, pos: Position) {
+        crate::builder::update::vision::apply_local_destroy(self, pos);
+    }
+
+    /// Run the Ti A* search. Constructs an `EconAstarCtx` from this
+    /// builder's borrowed state and forwards to `conv_search.search`.
+    pub fn ti_conv_astar(
+        &mut self,
+        ct: &mut Controller<'_>,
+        start: Position,
+        target: Position,
+        resource: ResourceType,
+    ) -> Option<Vec<Position>> {
+        let mut ctx = self.make_econ_ctx();
+        let path = self
+            .conv_search
+            .search(ct, start, target, resource, &mut ctx);
+        self.absorb_econ_ctx(ctx);
+        path
+    }
+
+    /// Run the Ax A* search. Same shape as `ti_conv_astar` but goes
+    /// through `ax_conv_search`.
+    pub fn ax_conv_astar(
+        &mut self,
+        ct: &mut Controller<'_>,
+        start: Position,
+        target: Position,
+        resource: ResourceType,
+    ) -> Option<Vec<Position>> {
+        let mut ctx = self.make_econ_ctx();
+        let path = self
+            .ax_conv_search
+            .search(ct, start, target, resource, &mut ctx);
+        self.absorb_econ_ctx(ctx);
+        path
+    }
+
+    fn make_econ_ctx(&self) -> crate::builder::algorithms::econ_astar::EconAstarCtx {
+        crate::builder::algorithms::econ_astar::EconAstarCtx {
+            ax_routable: self.ax_routable.clone(),
+            ti_routable: self.ti_routable.clone(),
+            routing_extra: self.routing_extra.clone(),
+            reach_parent: self.reach_parent.clone(),
+            my_pos: self.state.my_pos,
+            nearby_tiles: self.state.nearby_tiles.clone(),
+            all_bots: self.state.all_bots.clone(),
+        }
+    }
+
+    fn absorb_econ_ctx(&mut self, ctx: crate::builder::algorithms::econ_astar::EconAstarCtx) {
+        // The search may have run path-halving in `reach_parent`; sync back so
+        // future UF calls see the compressed paths.
+        self.reach_parent = ctx.reach_parent;
+    }
+
+    /// One A* step toward `target`. Returns the next position to step to,
+    /// or `None` if the goal is unreachable / already at goal. Borrow-splits
+    /// internally so the bugnav state and the cost grid can be passed
+    /// simultaneously.
+    pub fn bugnav_step(&mut self, target: Position) -> Option<Position> {
+        let Self {
+            bugnav,
+            cost_grid,
+            state,
+            ..
+        } = self;
+        let mut ctx = crate::builder::algorithms::nav::NavCtx {
+            my_pos: state.my_pos,
+            cost_grid,
+            w: state.width,
+            h: state.height,
+            nearby_tiles: &state.nearby_tiles,
+            all_bots: &state.all_bots,
+        };
+        bugnav.step(&mut ctx, target)
+    }
+
+    fn _refresh_ti_leakage(&mut self, i: usize) {
+        let new = self._ax_harv_at[i] > 0 || self._foundry_at[i] > 0;
+        if new != self.ti_leakage[i] {
+            self.ti_leakage[i] = new;
+            self.ti_routable[i] = self.buildable[i] && !new;
+        }
+    }
+
+    fn _refresh_ax_leakage(&mut self, i: usize) {
+        let new = self._ti_harv_at[i] > 0;
+        if new != self.ax_leakage[i] {
+            self.ax_leakage[i] = new;
+            self.ax_routable[i] = self.buildable[i] && !new;
+        }
+    }
+
+    pub fn _bump_ti_harv(&mut self, pos: Position, delta: i32) {
+        for d in DIR4 {
+            let n = pos.add(d);
+            if !self.in_bounds(n) {
+                continue;
+            }
+            let ni = self.idx(n);
+            let old = self._ti_harv_at[ni];
+            self._ti_harv_at[ni] += delta;
+            let new = self._ti_harv_at[ni];
+            self._refresh_ax_leakage(ni);
+            if old == 0 && new > 0 {
+                self.ti_harvester_adjacent.insert(n);
+                self._reeval_ti_upstream(n);
+            } else if old > 0 && new == 0 {
+                self.ti_harvester_adjacent.remove(&n);
+                self._reeval_ti_upstream(n);
+            }
+        }
+    }
+
+    pub fn _bump_ax_harv(&mut self, pos: Position, delta: i32) {
+        for d in DIR4 {
+            let n = pos.add(d);
+            if !self.in_bounds(n) {
+                continue;
+            }
+            let ni = self.idx(n);
+            let old = self._ax_harv_at[ni];
+            self._ax_harv_at[ni] += delta;
+            let new = self._ax_harv_at[ni];
+            self._refresh_ti_leakage(ni);
+            if old == 0 && new > 0 {
+                self.ax_harvester_adjacent.insert(n);
+                self._reeval_ax_upstream(n);
+            } else if old > 0 && new == 0 {
+                self.ax_harvester_adjacent.remove(&n);
+                self._reeval_ax_upstream(n);
+            }
+        }
+    }
+
+    pub fn _reeval_ti_upstream(&mut self, t: Position) {
+        let i = self.idx(t);
+        let has_seed = self._ti_harv_at[i] > 0 && !self.out_edges[i].is_empty();
+        let target = has_seed || self._ti_in_count[i] > 0;
+        self._set_ti_upstream(t, target);
+    }
+
+    pub fn _reeval_ax_upstream(&mut self, t: Position) {
+        let i = self.idx(t);
+        let has_seed = self._ax_harv_at[i] > 0 && !self.out_edges[i].is_empty();
+        let target = has_seed || self._ax_in_count[i] > 0;
+        self._set_ax_upstream(t, target);
+    }
+
+    fn _set_ti_upstream(&mut self, t: Position, want: bool) {
+        let is_in = self.ti_upstream.contains(&t);
+        if want == is_in {
+            return;
+        }
+        let i = self.idx(t);
+        let delta: i32;
+        if want {
+            self.ti_upstream.insert(t);
+            delta = 1;
+        } else {
+            self.ti_upstream.remove(&t);
+            delta = -1;
+        }
+        let outs: Vec<Position> = self.out_edges[i].clone();
+        for out in &outs {
+            let oi = self.idx(*out);
+            self._ti_in_count[oi] += delta;
+            self._reeval_ti_upstream(*out);
+        }
+        for out in &outs {
+            self._check_dangling(*out, "ti_upstream_change");
+        }
+    }
+
+    fn _set_ax_upstream(&mut self, t: Position, want: bool) {
+        let is_in = self.ax_upstream.contains(&t);
+        if want == is_in {
+            return;
+        }
+        let i = self.idx(t);
+        let delta: i32;
+        if want {
+            self.ax_upstream.insert(t);
+            delta = 1;
+        } else {
+            self.ax_upstream.remove(&t);
+            delta = -1;
+        }
+        let outs: Vec<Position> = self.out_edges[i].clone();
+        for out in &outs {
+            let oi = self.idx(*out);
+            self._ax_in_count[oi] += delta;
+            self._reeval_ax_upstream(*out);
+        }
+        for out in &outs {
+            self._check_dangling(*out, "ax_upstream_change");
+        }
+    }
+
+    pub fn _on_in_edge_added(&mut self, t: Position, f: Position) {
+        let i = self.idx(t);
+        if self.ti_upstream.contains(&f) {
+            self._ti_in_count[i] += 1;
+            self._reeval_ti_upstream(t);
+        }
+        if self.ax_upstream.contains(&f) {
+            self._ax_in_count[i] += 1;
+            self._reeval_ax_upstream(t);
+        }
+    }
+
+    pub fn _on_in_edge_removed(&mut self, t: Position, f: Position) {
+        let i = self.idx(t);
+        if self.ti_upstream.contains(&f) {
+            self._ti_in_count[i] -= 1;
+            self._reeval_ti_upstream(t);
+        }
+        if self.ax_upstream.contains(&f) {
+            self._ax_in_count[i] -= 1;
+            self._reeval_ax_upstream(t);
+        }
+    }
+
+    pub fn _on_out_edges_changed(&mut self, pos: Position) {
+        self._reeval_ti_upstream(pos);
+        self._reeval_ax_upstream(pos);
+    }
+
+    pub fn _bump_foundry(&mut self, pos: Position, delta: i32) {
+        for d in DIR4 {
+            let n = pos.add(d);
+            if self.in_bounds(n) {
+                let ni = self.idx(n);
+                self._foundry_at[ni] += delta;
+                self._refresh_ti_leakage(ni);
+            }
+        }
+    }
+
+    pub fn _check_multi_input(&mut self, t: Position) {
+        let idx = self.idx(t);
+        if self.in_edges[idx].len() >= 2 {
+            self.is_multi_input.insert(t);
+        } else {
+            self.is_multi_input.remove(&t);
+        }
+    }
+
+    fn _is_flow_consumer(&self, pos: Position) -> bool {
+        let b = self.buildings[self.idx(pos)];
+        let Some(b) = b else {
+            return false;
+        };
+        if b.team() != self.state.my_team {
+            return false;
+        }
+        matches!(
+            b,
+            Building::Conveyor { .. }
+                | Building::ArmouredConveyor { .. }
+                | Building::Bridge { .. }
+                | Building::Splitter { .. }
+                | Building::Foundry { .. }
+                | Building::Core { .. }
+                | Building::Gunner { .. }
+                | Building::Sentinel { .. }
+                | Building::Breach { .. }
+                | Building::Launcher { .. }
+        )
+    }
+
+    fn _splitter_satisfied(&self, splitter_pos: Position) -> bool {
+        let mut count = 0;
+        for out in &self.out_edges[self.idx(splitter_pos)] {
+            if self._is_flow_consumer(*out) {
+                count += 1;
+                if count >= 2 {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn _check_dangling(&mut self, t: Position, _trigger: &str) {
+        let i = self.idx(t);
+        let bld = self.buildings[i];
+        let env_i = self.env[i];
+        let my_team = self.state.my_team;
+        let admit_terrain = match bld {
+            None if env_i != Some(Environment::Wall) => true,
+            Some(Building::Road { team }) if team == my_team => true,
+            Some(Building::Marker { .. }) => true,
+            _ => false,
+        };
+        if !admit_terrain {
+            self.dangling_set.remove(&t);
+            self.unreachable_dangling.remove(&t);
+            return;
+        }
+
+        let unconn_adj = self.adjacent_to_unconnected_harvester.contains(&t);
+        let mut feeders_unsatisfied = false;
+        let in_edges_t: Vec<Position> = self.in_edges[i].clone();
+        for f in &in_edges_t {
+            let in_ti = self.ti_upstream.contains(f);
+            let in_ax = self.ax_upstream.contains(f);
+            if !in_ti && !in_ax {
+                continue;
+            }
+            let fi = self.idx(*f);
+            let fb = self.buildings[fi];
+            let is_satisfied_splitter =
+                matches!(fb, Some(Building::Splitter { .. })) && self._splitter_satisfied(*f);
+            if !is_satisfied_splitter {
+                feeders_unsatisfied = true;
+                break;
+            }
+        }
+        let is_dangling = unconn_adj || feeders_unsatisfied;
+
+        if is_dangling {
+            if !self.unreachable_dangling.contains(&t) {
+                self.dangling_set.insert(t);
+            }
+        } else {
+            self.dangling_set.remove(&t);
+            self.unreachable_dangling.remove(&t);
+        }
+    }
+
+    /// Set `pnb[(cy, cx)]` to its 8-king-move neighbours within `(w, h)`.
+    /// Pulled out of `post_init` so the body is a single statement and the
+    /// translator doesn't need multi-statement-closure support.
+    fn pnb_fix_boundary(&mut self, cx: i32, cy: i32, w: i32, h: i32) {
+        let stride = MAX_WIDTH as i32;
+        let mut nbs: Vec<i32> = Vec::new();
+        for &(dx, dy) in &DIR8_DELTA {
+            let nx = cx + dx;
+            let ny = cy + dy;
+            if (0..w).contains(&nx) && (0..h).contains(&ny) {
+                nbs.push(ny * stride + nx);
+            }
+        }
+        self.pnb[(cy * stride + cx) as usize] = nbs;
+    }
+
+    /// Mirror `my_core` under `symmetry_guess`.
+    fn refresh_symmetry_cache(&mut self) {
+        let count = self.state.symmetry_candidates.len();
+        self.symmetry = if count == 1 {
+            self.state.symmetry_candidates.iter().next().copied()
+        } else {
+            None
+        };
+        let guess = self.symmetry_guess();
+        self.en_core_guess = guess.action(self.my_core, self.state.width, self.state.height);
+    }
+}
+
+impl Unit for Builder {
+    fn state(&self) -> &UnitState {
+        &self.state
+    }
+
+    fn state_mut(&mut self) -> &mut UnitState {
+        &mut self.state
+    }
+
+    fn post_init(&mut self, ct: &mut Controller<'_>) {
+        CoreAwareUnit::post_init_core_aware(self, ct);
+
+        let r = self.state.rng.next_u64() as f64 / u64::MAX as f64;
+        self.opportunistic = r < 0.5;
+
+        let s = self.state.width.max(self.state.height) as f64;
+        self.econ_radius_sq = ((0.7 * s) * (0.7 * s)).round() as i32;
+
+        // Mark off-map cells as INF.
+        let w = self.state.width;
+        let h = self.state.height;
+        for y in 0..MAX_WIDTH as i32 {
+            let base = (y as usize) * MAX_WIDTH;
+            for x in 0..MAX_WIDTH as i32 {
+                if x >= w || y >= h {
+                    self.cost_grid[base + (x as usize)] = INF;
+                }
+            }
+        }
+
+        self.known_map = if crate::config::HARDCODE {
+            identify_map(self.state.width, self.state.height, self.my_core)
+        } else {
+            None
+        };
+
+        // Core perimeter — 8 tiles in DIR8 order.
+        for (i, d) in DIR8.iter().enumerate() {
+            self.core_edges[i] = self.my_core.add(*d);
+        }
+
+        // Trim pnb at the actual map boundary (right column + bottom row).
+        let _scope = Scope::new_timed("pnb");
+        for cx in 0..w {
+            self.pnb_fix_boundary(cx, h - 1, w, h);
+        }
+        for cy in 0..(h - 1) {
+            self.pnb_fix_boundary(w - 1, cy, w, h);
+        }
+        drop(_scope);
+
+        self.refresh_symmetry_cache();
+    }
+
+    fn run(&mut self, ct: &mut Controller<'_>) {
+        run_default(self, ct);
+        self.refresh_symmetry_cache();
+
+        let _g = Scope::new_timed("body");
+        let mut args = Map::new();
+        args.insert(
+            "id".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.state.my_id)),
+        );
+        args.insert(
+            "pos".to_string(),
+            crate::util::visualiser::auto_wrap_position(self.state.my_pos),
+        );
+        args.insert(
+            "round".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(self.state.round)),
+        );
+        log("Builder {id} pos={pos} round={round}", args);
+
+        update(self, ct);
+        begin_turn_offense(self, ct);
+
+        if DEBUG_DUMP {
+            crate::builder::dump::dump(self, ct);
+        }
+
+        let role = self.role.expect("role must be set after update");
+        {
+            let _g = Scope::new_timed("tasks");
+            let policy = policy_for_role(role);
+            run_policy(self, ct, policy);
+        }
+        {
+            let _g = Scope::new_timed("hooks");
+            {
+                let _g = Scope::new_timed("indicators");
+                indicators(self, ct);
+            }
+            if !role.is_offensive() {
+                let _g = Scope::new_timed("heal");
+                end_of_turn_heal(self, ct);
+            }
+            {
+                let _g = Scope::new_timed("symmetry");
+                end_of_turn_propagate_symmetry(self, ct);
+            }
+        }
+    }
+
+    fn narrow_symmetry_from_vision(&mut self, _ct: &mut Controller<'_>) {
+        // Builder's incremental `_narrow_symmetry` in update_vision sees
+        // the same turn-1 observations against its persistent grid, so
+        // the post_init pass would just duplicate the work.
+    }
+}
+
+impl CoreAwareUnit for Builder {
+    fn my_core(&self) -> Position {
+        self.my_core
+    }
+
+    fn set_my_core(&mut self, pos: Position) {
+        self.my_core = pos;
+    }
+
+    fn resolve_my_core(&mut self, ct: &mut Controller<'_>) -> Position {
+        // Scan vision for an allied core building.
+        let my_team = self.state.my_team;
+        for bid in ct.get_nearby_buildings(None).unwrap() {
+            if ct.get_team(Some(bid)).unwrap() == my_team
+                && ct.get_entity_type(Some(bid)).unwrap() == EntityType::Core
+            {
+                return ct.get_position(Some(bid)).unwrap();
+            }
+        }
+        ct.get_position(None).unwrap()
+    }
+}

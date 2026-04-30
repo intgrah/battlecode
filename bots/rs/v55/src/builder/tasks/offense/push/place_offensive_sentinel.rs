@@ -1,0 +1,132 @@
+//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/place_offensive_sentinel.py`.
+//!
+//! Drop a sentinel on a dangling end whose attack ray reaches a valuable
+//! enemy structure. Candidates come from `dangling_set` (chain tips, never
+//! existing conveyors).
+
+use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position};
+
+use crate::builder::Builder;
+use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
+use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
+use crate::building::Building;
+use crate::util::constants::MAX_WIDTH;
+use crate::util::directions::DIR8;
+
+/// Sentinel-worthy enemy targets:
+/// - Transports (conveyors / splitters / bridges) — economy disruption,
+///   sentinels eat the chain tile-by-tile.
+/// - Core, gunners, sentinels, breach, launchers — direct threats.
+fn is_enemy_valuable(self_: &Builder, pos: Position) -> bool {
+    let Some(b) = self_.get_building(pos) else {
+        return false;
+    };
+    if b.team() == self_.my_team {
+        return false;
+    }
+    if matches!(b, Building::Harvester { .. }) {
+        return false;
+    }
+    matches!(
+        b,
+        Building::Conveyor { .. }
+            | Building::ArmouredConveyor { .. }
+            | Building::Splitter { .. }
+            | Building::Bridge { .. }
+            | Building::Core { .. }
+            | Building::Gunner { .. }
+            | Building::Sentinel { .. }
+            | Building::Breach { .. }
+            | Building::Launcher { .. }
+    )
+}
+
+/// `side` is a deliverer for a turret at `pos` iff it's a structural
+/// feeder of `pos` (conveyor / splitter / bridge in `in_edges`) or a
+/// friendly harvester.
+fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
+    let in_edges = &self_.in_edges[pos.y as usize * MAX_WIDTH + pos.x as usize];
+    if in_edges.contains(&side) {
+        return true;
+    }
+    matches!(
+        self_.get_building(side),
+        Some(Building::Harvester { team }) if team == self_.my_team
+    )
+}
+
+/// First DIR8 direction such that a sentinel at `pos` facing `d`
+/// has at least one valuable enemy in its attack ray AND has no
+/// feeder on the tile in direction `d`.
+fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> Option<Direction> {
+    for d in DIR8 {
+        let front = pos.add(d);
+        if self_.in_bounds(front) && delivers_ammo(self_, pos, front) {
+            continue;
+        }
+        let tiles = ct
+            .get_attackable_tiles_from(pos, d, EntityType::Sentinel)
+            .unwrap();
+        for t in tiles {
+            if is_enemy_valuable(self_, t) {
+                return Some(d);
+            }
+        }
+    }
+    None
+}
+
+pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
+    if !can_afford(self_, EntityType::Sentinel) {
+        return Err(TaskRejected::new("cannot afford SENTINEL"));
+    }
+
+    let mut best_pos: Option<Position> = None;
+    let mut best_facing: Option<Direction> = None;
+    let mut best_dist = 1 << 30;
+    let dangling = self_.dangling_set.clone();
+    for pos in dangling {
+        if !self_.is_buildable(pos) {
+            continue;
+        }
+        if let Some(&uid) = self_.all_bots.get(&pos)
+            && uid != self_.my_id
+        {
+            continue;
+        }
+        let facing = sentinel_facing(self_, ct, pos);
+        let Some(facing) = facing else {
+            continue;
+        };
+        let d = self_.my_pos.distance_squared(pos);
+        if d < best_dist {
+            best_dist = d;
+            best_pos = Some(pos);
+            best_facing = Some(facing);
+        }
+    }
+
+    let (Some(best_pos), Some(best_facing)) = (best_pos, best_facing) else {
+        return Err(TaskRejected::new(
+            "no dangling end with an enemy in sentinel range",
+        ));
+    };
+
+    if self_.my_pos == best_pos {
+        move_random(self_, ct);
+        return Ok(());
+    }
+    if self_.my_pos.distance_squared(best_pos) <= 2 {
+        try_place(
+            self_,
+            ct,
+            EntityType::Sentinel,
+            best_pos,
+            BuildExtra::Direction(best_facing),
+            true,
+        );
+        return Ok(());
+    }
+    make_move(self_, ct, best_pos);
+    Ok(())
+}
