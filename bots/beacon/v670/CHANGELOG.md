@@ -215,3 +215,18 @@ two unused helper functions in task_attack.py for future use.
 - `bots/beacon/v670/builder/task_attack.py::_try_attack_undefended_transport`
   — finds enemy transport with no enemy bot defender in king-range.
   Needs a guard against pulling OFFENSE off harvester targets.
+
+## v670.16 (REVERTED) — emergency spawn on enemy-in-core-vision
+
+Tried bypassing income/surplus gates in `Core._should_spawn` whenever
+any enemy unit was within the core's r²=36 vision. Idea: spawn extra
+defenders proactively when threatened.
+
+Result on standard pool: **0-20** — catastrophic. With a stalking
+enemy near core, we spawned every turn we could afford one, draining
+Ti reserves and starving harvester construction. Economy collapsed
+across every map.
+
+Lesson: core spawn should NOT bypass income gates — every bot needs
+backing income to be productive long-term. Emergency reactive spawning
+is short-term defensive but kills medium-term economy.
