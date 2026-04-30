@@ -21,19 +21,28 @@ class Player:
 
     def run(self, ct: Controller) -> None:
         if self.unit is None:
-            match ct.get_entity_type():
-                case EntityType.BUILDER_BOT:
-                    self.unit = Builder(ct)
-                case EntityType.CORE:
-                    self.unit = Core(ct)
-                case EntityType.SENTINEL:
-                    self.unit = Sentinel(ct)
-                case EntityType.GUNNER:
-                    self.unit = Gunner(ct)
-                case EntityType.LAUNCHER:
-                    self.unit = Launcher(ct)
-                case _:
-                    return
+            try:
+                match ct.get_entity_type():
+                    case EntityType.BUILDER_BOT:
+                        self.unit = Builder(ct)
+                    case EntityType.CORE:
+                        self.unit = Core(ct)
+                    case EntityType.SENTINEL:
+                        self.unit = Sentinel(ct)
+                    case EntityType.GUNNER:
+                        self.unit = Gunner(ct)
+                    case EntityType.LAUNCHER:
+                        self.unit = Launcher(ct)
+                    case _:
+                        return
+            except RuntimeError as e:
+                # Builder.__init__ can raise "Core not visible at spawn"
+                # on certain maps where the spawn position lands on a
+                # core tile but get_nearby_buildings doesn't return the
+                # core entity within the same round (engine quirk).
+                # Skip this turn — re-init next round.
+                print(f"INIT_RETRY: {e}", file=sys.stderr)
+                return
         try:
             self.unit.run(ct)
         except GameError as e:

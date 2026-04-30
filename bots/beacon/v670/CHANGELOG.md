@@ -122,3 +122,35 @@ Pattern: simple parameter knobs are tightly tuned at the okbot
 baseline; bumps in either direction regress. Real wins probably
 need new capability (foundry/refined-Ax, sentinel push, bridges
 to bypass walls), not parameter tuning.
+
+## v670.15 — robust init: catch RuntimeError, retry next turn
+
+`main.py`: wrapped the `Builder(ct)` / `Core(ct)` / etc. construction in
+`try / except RuntimeError`. The crash mode it fixes is
+`State.find_core` raising "Core not visible at spawn" — observed on
+coffee-A side at seed=1 in v670.5 baseline runs, which caused a hard
+resign at turn 0 for the first builder.
+
+The exact engine condition isn't fully understood (the bot spawns on a
+core tile, which should always have the core visible). Retrying next
+round is defensive: if find_core fails we skip the turn and try again,
+and `print(f"INIT_RETRY: {e}", file=sys.stderr)` flags it for
+post-mortem.
+
+Standard-pool result: 10-10 (down from 11-9). The retry is noise-positive
+on most maps but unblocks coffee-A from a turn-0 resign. Keeping it
+because correctness > tiny win-rate loss.
+
+## v670 — place_offensive_sentinel function added (UNUSED)
+
+`task_attack.py`: defined `place_offensive_sentinel(state, ct)` that
+walks DIR8 around the bot looking for a buildable tile facing the
+enemy core where the engine reports an enemy in the sentinel's attack
+pattern. Costs 30 Ti + scale.
+
+Wired briefly into OFFENSE_TASKS between _heal and _attack. Result on
+arena was catastrophic (v670 290 vs okbot 29820). Plausible failure
+mode: sentinels placed without an ammo feed have no Ti and never fire
+— pure 30 Ti waste. Unwired the task; left the function defined as
+reference for a future correct implementation that requires an
+established Ti chain to feed the sentinel.

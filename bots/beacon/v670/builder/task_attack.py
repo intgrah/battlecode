@@ -121,9 +121,94 @@ def should_attack(state: State, ct: Controller, pos: Position) -> bool:
         epos = ct.get_position(uid)
         cheby = max(abs(epos.x - pos.x), abs(epos.y - pos.y))
         enemy_arrival = max(0, cheby - _HEAL_RANGE_CHEBY)
-        if enemy_arrival < destroy_turns:
+        if enemy_arrival <= destroy_turns:
             return False
     return True
+
+
+def place_offensive_sentinel(state: State, ct: Controller) -> bool:
+    """Place a sentinel at an adjacent buildable tile facing toward the
+    enemy core, IFF the engine reports at least one enemy turret /
+    transport / core in the sentinel's attack pattern from there.
+
+    Sentinels: r²=32, 18 dmg, hits within 1 king-move of the facing
+    line. Self-funded offensive pressure — once placed, the sentinel
+    just sits there draining enemy economy as long as it has Ti.
+
+    Gates:
+    - Round > 200 (don't drain early-game Ti).
+    - Ti surplus: > 100 Ti above the sentinel cost. Avoids starving
+      harvester construction.
+    - Bot's role is OFFENSE.
+    - Place tile must not be a friendly turret/transport (don't
+      stomp our own infrastructure).
+    """
+    if ct.get_current_round() < 200:
+        return False
+    if not can_afford(ct, EntityType.SENTINEL):
+        return False
+    sent_cost_ti, _ = ct.get_sentinel_cost()
+    ti, _ = ct.get_global_resources()
+    if ti < sent_cost_ti + 100:
+        return False
+
+    my_pos = ct.get_position()
+    enemy_core = get_enemy_core_pos(state)
+    my_team = ct.get_team()
+
+    for d in DIR8:
+        place_pos = my_pos.add(d)
+        if not state.in_bounds(place_pos):
+            continue
+        if not ct.is_in_vision(place_pos):
+            continue
+        if not state.is_buildable(place_pos):
+            continue
+        # Don't overwrite friendly turrets, transport, harvester, foundry,
+        # launcher — those are big investments.
+        b = state.get_building(place_pos)
+        if isinstance(
+            b,
+            BuildingGunner
+            | BuildingSentinel
+            | BuildingLauncher
+            | BuildingHarvester
+            | BuildingConveyor
+            | BuildingArmouredConveyor
+            | BuildingSplitter
+            | BuildingBridge,
+        ):
+            continue
+        # Don't stomp another bot.
+        builder_here = ct.get_tile_builder_bot_id(place_pos)
+        if builder_here is not None and builder_here != ct.get_id():
+            continue
+        # Face the enemy core — pick the DIR8 direction toward it.
+        facing = place_pos.direction_to(enemy_core)
+        if facing is None or facing == Direction.CENTRE:
+            continue
+        # Check engine for an enemy in the sentinel's attack pattern.
+        try:
+            tiles = ct.get_attackable_tiles_from(
+                place_pos, facing, EntityType.SENTINEL
+            )
+        except Exception:  # noqa: BLE001
+            continue
+        has_enemy = False
+        for t in tiles:
+            if not state.in_bounds(t):
+                continue
+            tb = state.get_building(t)
+            if tb is None:
+                continue
+            if getattr(tb, "team", None) != my_team:
+                has_enemy = True
+                break
+        if not has_enemy:
+            continue
+        if try_place(ct, EntityType.SENTINEL, place_pos, facing):
+            return True
+    return False
 
 
 def _enemy_healer_near(ct: Controller, pos: Position) -> bool:
