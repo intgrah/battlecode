@@ -121,7 +121,7 @@ def should_attack(state: State, ct: Controller, pos: Position) -> bool:
         epos = ct.get_position(uid)
         cheby = max(abs(epos.x - pos.x), abs(epos.y - pos.y))
         enemy_arrival = max(0, cheby - _HEAL_RANGE_CHEBY)
-        if enemy_arrival <= destroy_turns:
+        if enemy_arrival < destroy_turns:
             return False
     return True
 
