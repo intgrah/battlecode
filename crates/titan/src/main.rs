@@ -65,8 +65,9 @@ enum Command {
     /// Bug-navigation viewer. Map path defaults to the first map in
     /// `cambc.toml`'s `maps_dir`.
     Bugnav { map: Option<PathBuf> },
-    /// Opening-book editor.
-    Opening { map: PathBuf },
+    /// Opening-book editor. Accepts a map path (`.map26`) for a
+    /// fresh book or an existing `.opening` file to edit.
+    Opening { path: PathBuf },
     /// Print a shell-completion script. Pipe into the appropriate
     /// completions file, e.g.
     /// `titan completions fish > ~/.config/fish/completions/titan.fish`.
@@ -82,6 +83,10 @@ enum Command {
     /// shell completions.
     #[command(name = "_list-replays", hide = true)]
     ListReplays,
+    /// Internal: list `*.opening` files in the project root. Used by
+    /// shell completions for the `opening` subcommand.
+    #[command(name = "_list-openings", hide = true)]
+    ListOpenings,
 }
 
 enum Inputs {
@@ -124,12 +129,26 @@ fn parse_command(command: Command, config: &CambcConfig) -> Result<Inputs, Strin
             }
             titan_bugnav::parse_args(args).map(Inputs::Bugnav)
         }
-        Command::Opening { map } => {
-            let resolved = resolve_map(&map, config)?;
+        Command::Opening { path } => {
+            // Accept an existing `.opening` (load it) or a `.map26`
+            // (start a fresh book on that map). For `.opening` we
+            // pass through; for everything else we resolve via the
+            // map-name shortcut so `titan opening foo` works the
+            // same way as `titan blueprint foo`.
+            let resolved =
+                if path.extension().and_then(|s| s.to_str()) == Some("opening") && path.is_file() {
+                    path.canonicalize()
+                        .map_err(|e| format!("{}: {e}", path.display()))?
+                } else {
+                    resolve_map(&path, config)?
+                };
             titan_opening::parse_args(vec![OsString::new(), resolved.into_os_string()])
                 .map(Inputs::Opening)
         }
-        Command::Completions { .. } | Command::ListMaps | Command::ListReplays => {
+        Command::Completions { .. }
+        | Command::ListMaps
+        | Command::ListReplays
+        | Command::ListOpenings => {
             unreachable!("non-app commands handled in main")
         }
     }
@@ -209,6 +228,41 @@ fn list_maps(config: &CambcConfig) {
     }
 }
 
+/// Print every `*.opening` file path under the project root,
+/// recursively. Openings have no fixed home — they typically live
+/// next to the map they reference, which can be in any subdirectory
+/// — so the completion suggests full paths rather than bare stems.
+fn list_openings(config: &CambcConfig) {
+    let mut paths: Vec<String> = Vec::new();
+    walk_for_extension(&config.project_root, "opening", &mut paths);
+    paths.sort();
+    for p in paths {
+        println!("{p}");
+    }
+}
+
+fn walk_for_extension(dir: &Path, ext: &str, out: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            // Skip target / .git / node_modules — common big dirs
+            // that won't have user-authored openings.
+            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            if matches!(name, "target" | ".git" | "node_modules" | ".venv") {
+                continue;
+            }
+            walk_for_extension(&p, ext, out);
+        } else if p.extension().and_then(|s| s.to_str()) == Some(ext) {
+            if let Some(s) = p.to_str() {
+                out.push(s.to_string());
+            }
+        }
+    }
+}
+
 /// Print the stem of every `*.replay26` in the project root.
 fn list_replays(config: &CambcConfig) {
     let Ok(entries) = std::fs::read_dir(&config.project_root) else {
@@ -255,6 +309,7 @@ end
 complete -c titan -n "__fish_titan_using_subcommand replay; and test (__titan_pos) -le 1" -f -a "(titan _list-replays)"
 complete -c titan -n "__fish_titan_using_subcommand blueprint; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
 complete -c titan -n "__fish_titan_using_subcommand bugnav; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
+complete -c titan -n "__fish_titan_using_subcommand opening; and test (__titan_pos) -le 1" -f -a "(titan _list-openings)"
 complete -c titan -n "__fish_titan_using_subcommand opening; and test (__titan_pos) -le 1" -f -a "(titan _list-maps)"
 "#;
 
@@ -509,6 +564,10 @@ fn main() -> eframe::Result {
         }
         Command::ListReplays => {
             list_replays(&config);
+            std::process::exit(0);
+        }
+        Command::ListOpenings => {
+            list_openings(&config);
             std::process::exit(0);
         }
         _ => {}

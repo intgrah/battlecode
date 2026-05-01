@@ -11,6 +11,8 @@ members = [
     "crates/pyrust/shim",
     "crates/pyrust/translate",
     "crates/pyrust/harness",
+    "crates/pyrust/macros",
+    "crates/pyrust/ra-spike",
     "crates/libre-engine",
     "crates/libre-replay",
     "crates/libre",
@@ -26,6 +28,8 @@ path = "crates/libre-engine"
 path = "crates/libre-replay"
 [workspace.dependencies.cambc]
 path = "crates/cambc"
+[workspace.dependencies.pyrust]
+path = "crates/pyrust/shim"
 
 [workspace.package]
 edition = "2024"

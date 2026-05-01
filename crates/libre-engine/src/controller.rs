@@ -186,7 +186,12 @@ pub trait Controller {
 /// Polymorphic third argument to `c.build` / `c.can_build`.
 ///
 /// Mirrors the Python `Direction | Position | None` of the generic
-/// dispatch — Rust prefers a tagged enum over `dyn Any`.
+/// dispatch — Rust prefers a tagged enum over `dyn Any`. The
+/// `#[pyrust::transparent]` attribute tells the pyrust translator to
+/// erase this wrapper: each variant lowers to its inner Python value
+/// (`None`, `Direction`, or `Pos`) so the Python `cambc` API receives
+/// the union the way it expects it.
+#[pyrust::transparent]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BuildExtra {
     None,

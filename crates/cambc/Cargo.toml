@@ -8,6 +8,7 @@ path = "src/lib.rs"
 
 [dependencies]
 libre-engine.workspace = true
+pyrust.workspace = true
 
 [lints]
 workspace = true
