@@ -8,7 +8,7 @@ use crate::util::directions::{DIR4, DIR8};
 
 pub fn update_ore_denial(builder: &mut Builder) {
     builder.deny_ore_neighbours = pyrust::set::new!();
-    let nearby = builder.state.nearby_tiles.clone();
+    let nearby = pyrust::clone!(builder.state.nearby_tiles);
     let my_team = builder.state.my_team;
     for pos in &nearby {
         let env = builder.env[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)];
@@ -58,7 +58,7 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
     }
 
     let mut min_dist = INF;
-    let nearby = builder.state.nearby_tiles.clone();
+    let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
         let is_enemy_turret = matches!(

@@ -228,7 +228,7 @@ impl UnitState {
         if pyrust::is_some!(self.resolved_symmetry()) {
             return;
         }
-        let nearby = self.nearby_tiles.clone();
+        let nearby = pyrust::clone!(self.nearby_tiles);
         let my_team = self.my_team;
         if let Some(sym) = find_symmetry_marker(ct, &nearby, my_team) {
             self.symmetry_candidates.clear();

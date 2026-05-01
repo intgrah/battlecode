@@ -2051,6 +2051,19 @@ fn emit_pyrust_dsl(
                 Ty::Unknown,
             )))
         }
+        ["clone"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "clone!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            // Default to Vec-shaped clone — for HashSet/HashMap clone
+            // bot author should use the type-specific macro.
+            Ok(Some(Emitted::atomic(
+                format!("list({})", inner.text),
+                Ty::Unknown,
+            )))
+        }
         ["round"] => {
             let args = parse_args!();
             if args.len() != 1 {

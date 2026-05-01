@@ -57,7 +57,7 @@ impl<T: Clone + PartialEq> Palette<T> {
     /// Return a copy of the palette with additional special values merged in.
     #[must_use]
     pub fn with_special(&self, special: &[(T, Colour)]) -> Self {
-        let mut merged: Vec<(T, Colour)> = self.special.clone();
+        let mut merged: Vec<(T, Colour)> = pyrust::clone!(self.special);
         for (k, c) in special {
             if let Some(slot) = pyrust::find!(merged.iter_mut(), |t| &t.0 == k) {
                 slot.1 = *c;
@@ -66,7 +66,7 @@ impl<T: Clone + PartialEq> Palette<T> {
             }
         }
         Self {
-            stops: self.stops.clone(),
+            stops: pyrust::clone!(self.stops),
             special: merged,
         }
     }

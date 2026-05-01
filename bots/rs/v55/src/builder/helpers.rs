@@ -322,11 +322,11 @@ fn _trace_downstream_inner(
             Some(EntityType::Splitter) => {
                 // Splitter's 3 outputs (forward + two perpendicular sides).
                 // Try each as a path branch.
-                let outs: Vec<Position> = builder.out_edges[i].clone();
+                let outs: Vec<Position> = pyrust::clone!(builder.out_edges[i]);
                 let mut handled = false;
                 for new_pos in pyrust::copied!(pyrust::iter!(outs)) {
                     if let Some(target_head) = target_head {
-                        let mut new_path = path.clone();
+                        let mut new_path = pyrust::clone!(path);
                         _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
                         if !new_path.is_empty() && pyrust::vec::contains!(new_path, &target_head) {
                             *path = new_path;

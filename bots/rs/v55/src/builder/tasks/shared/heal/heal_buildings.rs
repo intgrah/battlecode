@@ -23,7 +23,7 @@ use crate::util::metrics::chebyshev;
 fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Option<Position> {
     let mut best: Option<Position> = None;
     let mut best_score: (i32, i32, i32) = (0, 0, 0);
-    let healable = self_.healable_buildings.clone();
+    let healable = pyrust::clone!(self_.healable_buildings);
     for pos in healable {
         let i = self_.idx(pos);
         let hp = self_.hp[i];

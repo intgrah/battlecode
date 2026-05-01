@@ -46,7 +46,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     }
     let destination = pyrust::unwrap!(destination);
 
-    let neighbours_8 = self_.neighbours_8.clone();
+    let neighbours_8 = pyrust::clone!(self_.neighbours_8);
     let buildable_8 = buildable(self_, &neighbours_8);
     let launcher_location = closest(destination, buildable_8);
 

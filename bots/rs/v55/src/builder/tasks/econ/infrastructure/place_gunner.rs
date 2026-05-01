@@ -187,7 +187,7 @@ pub fn sentinel_facing(
 }
 
 pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bool {
-    let neighbours_8 = self_.neighbours_8.clone();
+    let neighbours_8 = pyrust::clone!(self_.neighbours_8);
     for test_position in neighbours_8 {
         let result = sentinel_facing(self_, ct, test_position);
         if let Some(d) = result {
@@ -220,7 +220,7 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
 }
 
 pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    let neighbours_8 = self_.neighbours_8.clone();
+    let neighbours_8 = pyrust::clone!(self_.neighbours_8);
     for test_position in neighbours_8 {
         let result = gunner_facing(self_, test_position);
         if let Some(d) = result {

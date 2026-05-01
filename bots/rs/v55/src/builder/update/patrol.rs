@@ -15,7 +15,7 @@ pub fn update_patrol(builder: &mut Builder) {
     let rnd = builder.state.round;
 
     let mut own_count: i32 = 0;
-    let nearby = builder.state.nearby_tiles.clone();
+    let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         builder.last_seen[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] = rnd;
         own_count += 1;
@@ -65,7 +65,7 @@ pub fn update_patrol(builder: &mut Builder) {
     let h = builder.state.height;
     let base = (fy as i32) * (MAX_WIDTH as i32) + (fx as i32);
     let mut transitive_count: i32 = 0;
-    let offsets: Vec<(i32, i32, i32)> = builder._vision_offsets.clone();
+    let offsets: Vec<(i32, i32, i32)> = pyrust::clone!(builder._vision_offsets);
     if pyrust::vec::contains!((4..(w - 4)), &fx) && pyrust::vec::contains!((4..(h - 4)), &fy) {
         for (_, _, off) in &offsets {
             builder.last_seen[(base + off) as usize] = rnd;
