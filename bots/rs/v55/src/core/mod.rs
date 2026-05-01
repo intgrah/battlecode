@@ -128,10 +128,10 @@ impl Core {
         if live_units >= self.max_team_units {
             return false;
         }
-        if self.state.enemy_bots.len() > self.state.friendly_bots.len() {
+        if pyrust::len!(self.state.enemy_bots) > pyrust::len!(self.state.friendly_bots) {
             return true;
         }
-        if self.state.friendly_bots.len() > Self::CROWDING_LIMIT {
+        if pyrust::len!(self.state.friendly_bots) > Self::CROWDING_LIMIT {
             return false;
         }
         let live = pyrust::float!(live_units);
@@ -232,12 +232,12 @@ impl Unit for Core {
         self.state.cache_per_turn_state(ct);
         self.state.check_symmetry_marker(ct);
         let incoming = self.count_incoming(ct);
-        if self.deliveries.len() == Self::INCOME_SAMPLES {
+        if pyrust::len!(self.deliveries) == Self::INCOME_SAMPLES {
             self.deliveries.pop_back();
         }
         pyrust::vec::push_front!(self.deliveries, incoming);
         let total: i32 = pyrust::sum!(pyrust::iter!(self.deliveries));
-        let income_rate = pyrust::float!(total) / self.deliveries.len() as f64;
+        let income_rate = pyrust::float!(total) / pyrust::len!(self.deliveries) as f64;
 
         self.maybe_convert(ct);
 

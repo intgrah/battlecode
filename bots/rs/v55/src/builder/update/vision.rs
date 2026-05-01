@@ -393,7 +393,7 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                 let r = pyrust::unwrap!(ct.get_stored_resource(Some(bid_v)));
                 let rid = pyrust::unwrap!(ct.get_stored_resource_id(Some(bid_v)));
                 pyrust::vec::push_back!(builder.flow_history[i], (r, rid));
-                while builder.flow_history[i].len() > FLOW_HISTORY_LEN {
+                while pyrust::len!(builder.flow_history[i]) > FLOW_HISTORY_LEN {
                     pyrust::vec::pop_front!(builder.flow_history[i]);
                 }
             }

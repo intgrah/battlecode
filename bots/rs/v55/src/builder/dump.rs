@@ -540,8 +540,8 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             }
         }
         vis_tile("patrol_target", best_pos);
-        vis_scalar_int("reflect_queue_len", builder.reflect_queue.len() as i64);
-        vis_scalar_int("nearby_buildings", builder.nearby_buildings.len() as i64);
+        vis_scalar_int("reflect_queue_len", pyrust::len!(builder.reflect_queue) as i64);
+        vis_scalar_int("nearby_buildings", pyrust::len!(builder.nearby_buildings) as i64);
         vis_tiles(
             "healable_buildings",
             pyrust::copied!(pyrust::iter!(builder.healable_buildings)),

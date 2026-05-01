@@ -309,7 +309,7 @@ impl AStarSearch {
                 // step toward the goal preserves f. Snapshotting via
                 // `mem::take` would silently drop them.
                 let mut idx = 0;
-                while idx < self.buckets_fwd[slot_fwd].len() {
+                while idx < pyrust::len!(self.buckets_fwd[slot_fwd]) {
                     let node_i = self.buckets_fwd[slot_fwd][idx];
                     idx += 1;
                     let gn = self._dist[node_i as usize];
@@ -387,7 +387,7 @@ impl AStarSearch {
             let slot_bwd = (cur_bwd & bucket_mask) as usize;
             emp_bwd = 0;
             let mut idx = 0;
-            while idx < self.buckets_bwd[slot_bwd].len() {
+            while idx < pyrust::len!(self.buckets_bwd[slot_bwd]) {
                 let node_i = self.buckets_bwd[slot_bwd][idx];
                 idx += 1;
                 let gn = self.dist_bwd[node_i as usize];
@@ -589,7 +589,7 @@ impl AStarSearch {
             // since every step toward the goal preserves f) must be
             // picked up. Snapshotting via `mem::take` would drop them.
             let mut idx = 0;
-            while idx < self.buckets_fwd[slot].len() {
+            while idx < pyrust::len!(self.buckets_fwd[slot]) {
                 let node_i = self.buckets_fwd[slot][idx];
                 idx += 1;
                 if self.f_at[node_i as usize] != cur_f {

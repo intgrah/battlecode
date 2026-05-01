@@ -58,6 +58,8 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("rev", 0) => Some("rev"),
         ("enumerate", 0) => Some("enumerate"),
         ("count", 0) => Some("count"),
+        ("next", 0) => Some("next"),
+        ("len", 0) => Some("len"),
         ("sum", 0) => Some("sum"),
         ("min", 0) => Some("min"),
         ("max", 0) => Some("max"),

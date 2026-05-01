@@ -2188,6 +2188,17 @@ fn emit_pyrust_dsl(
                 Ty::Int,
             )))
         }
+        ["next"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "next!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("next(iter({}), None)", it.text),
+                Ty::Unknown,
+            )))
+        }
         ["sum"] => {
             let args = parse_args!();
             if args.len() != 1 {

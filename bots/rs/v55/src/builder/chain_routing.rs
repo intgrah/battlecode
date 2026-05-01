@@ -48,7 +48,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
     pyrust::set::add!(visited, pos);
     let mut stack: Vec<Position> = vec![pos];
     while let Some(p) = pyrust::vec::pop!(stack) {
-        if visited.len() > _UPSTREAM_MAX_NODES_RES {
+        if pyrust::len!(visited) > _UPSTREAM_MAX_NODES_RES {
             break;
         }
         if pyrust::vec::contains!(builder.ti_harvester_adjacent, &p) {
@@ -192,7 +192,7 @@ fn _lay_segment(
     }
 
     let mut direction: Option<Direction> = None;
-    if start_pos.distance_squared(builder.my_core) <= 5 && path[path.len() - 1] == builder.my_core {
+    if start_pos.distance_squared(builder.my_core) <= 5 && path[pyrust::len!(path) - 1] == builder.my_core {
         for d in DIR4 {
             if start_pos.add(d).distance_squared(builder.my_core) <= 2 {
                 direction = Some(d);
@@ -303,8 +303,8 @@ pub fn extend_step(
     }
 
     if !builder.is_passable(start) {
-        if existing_path.len() > 1 {
-            start = existing_path[existing_path.len() - 2];
+        if pyrust::len!(existing_path) > 1 {
+            start = existing_path[pyrust::len!(existing_path) - 2];
         } else {
             return Some(TaskRejected::from_string(format!(
                 "{start:?} is unpassable and no upstream fallback"
@@ -336,7 +336,7 @@ pub fn extend_step(
     };
 
     let colour: (i32, i32, i32) = if is_ax { (200, 0, 255) } else { (80, 160, 255) };
-    for i in 0..(path.len() - 1) {
+    for i in 0..(pyrust::len!(path) - 1) {
         line(ct, path[i], path[i + 1], colour.0, colour.1, colour.2);
     }
 
@@ -352,7 +352,7 @@ pub fn extend_step(
 
     let mut did_something = false;
     if chebyshev(current_pos, start) <= 1 {
-        if path.len() < 2 {
+        if pyrust::len!(path) < 2 {
             return Some(TaskRejected::from_string(format!(
                 "in range of {start:?} but A* path is empty"
             )));

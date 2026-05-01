@@ -25,7 +25,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
     pyrust::set::add!(visited, start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(cur) = pyrust::vec::pop!(queue) {
-        if visited.len() >= UPSTREAM_SEARCH_CAP {
+        if pyrust::len!(visited) >= UPSTREAM_SEARCH_CAP {
             break;
         }
         for &u in &self_.in_edges[cur.y as usize * MAX_WIDTH + cur.x as usize] {

@@ -17,7 +17,7 @@ use crate::util::directions::{DIR4, delta_to_dir};
 /// side = `pos + d.opposite()` = feeder_pos.
 fn feeder_delta(self_: &Builder, pos: Position) -> Option<Direction> {
     let feeders = &self_.in_edges[pos.y as usize * MAX_WIDTH + pos.x as usize];
-    if feeders.len() != 1 {
+    if pyrust::len!(feeders) != 1 {
         return None;
     }
     let feeder = feeders[0];

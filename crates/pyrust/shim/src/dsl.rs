@@ -262,6 +262,15 @@ macro_rules! __pyrust_count {
     };
 }
 
+/// `pyrust::next!(it)` — `Iterator::next` returning `Option<T>`.
+/// Receiver must be an iterator (wrap collection in `pyrust::iter!`).
+#[macro_export]
+macro_rules! __pyrust_next {
+    ($e:expr) => {
+        $e.next()
+    };
+}
+
 /// Sum of an iterator's elements. Receiver must already be an iterator.
 /// Item type inferred from binding context.
 #[macro_export]
@@ -360,7 +369,7 @@ macro_rules! __pyrust_print {
 #[macro_export]
 macro_rules! __pyrust_len {
     ($x:expr) => {
-        $x.len() as i64
+        $x.len()
     };
 }
 
@@ -430,7 +439,7 @@ macro_rules! __pyrust_vec_clear {
 #[macro_export]
 macro_rules! __pyrust_vec_len {
     ($v:expr) => {
-        $v.len() as i64
+        $v.len()
     };
 }
 
@@ -496,7 +505,7 @@ macro_rules! __pyrust_set_remove {
 #[macro_export]
 macro_rules! __pyrust_set_len {
     ($s:expr) => {
-        $s.len() as i64
+        $s.len()
     };
 }
 
@@ -571,7 +580,7 @@ macro_rules! __pyrust_dict_remove {
 #[macro_export]
 macro_rules! __pyrust_dict_len {
     ($m:expr) => {
-        $m.len() as i64
+        $m.len()
     };
 }
 
@@ -640,7 +649,7 @@ macro_rules! __pyrust_string_clear {
 #[macro_export]
 macro_rules! __pyrust_string_len {
     ($s:expr) => {
-        $s.len() as i64
+        $s.len()
     };
 }
 

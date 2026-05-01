@@ -235,7 +235,7 @@ impl Bug2Planner {
                         self.done_value = true;
                         return Some(true);
                     }
-                    if self.m_i + 1 >= self.mline_seq.len() {
+                    if self.m_i + 1 >= pyrust::len!(self.mline_seq) {
                         self.state = State::Done;
                         self.done_value = false;
                         return Some(false);
@@ -356,7 +356,7 @@ impl Bug2Planner {
                     } else {
                         &self.ccw_path
                     };
-                    if idx < chosen_path.len() {
+                    if idx < pyrust::len!(chosen_path) {
                         let c = chosen_path[idx];
                         self.path_idx[c as usize] = self.path_len;
                         self.path_len += 1;
@@ -377,7 +377,7 @@ impl Bug2Planner {
                 State::AdvanceAfterWinner => {
                     let walker_dot =
                         (self.win_x - self.sx) * self.mdx + (self.win_y - self.sy) * self.mdy;
-                    while self.m_i + 1 < self.mline_seq.len() {
+                    while self.m_i + 1 < pyrust::len!(self.mline_seq) {
                         let (mx, my) = self.mline_seq[self.m_i + 1];
                         if (mx - self.sx) * self.mdx + (my - self.sy) * self.mdy <= walker_dot {
                             self.m_i += 1;

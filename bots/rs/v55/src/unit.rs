@@ -241,7 +241,7 @@ impl UnitState {
     /// field (which Python would shadow).
     #[must_use]
     pub fn resolved_symmetry(&self) -> Option<Symmetry> {
-        if self.symmetry_candidates.len() == 1 {
+        if pyrust::len!(self.symmetry_candidates) == 1 {
             pyrust::copied!(pyrust::iter!(self.symmetry_candidates).next())
         } else {
             None
