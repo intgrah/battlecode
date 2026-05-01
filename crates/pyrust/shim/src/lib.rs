@@ -110,6 +110,12 @@ pub mod string {
         __pyrust_string_len as len, __pyrust_string_new as new,
     };
 }
+pub mod time {
+    pub use crate::__pyrust_time_now_ns as now_ns;
+}
+pub mod serde {
+    pub use crate::__pyrust_serde_array_mut as array_mut;
+}
 
 pub use builtins::{
     PyAbs, PyLen, PyMin, PySorted, PyStr, PySum, abs as abs_fn, all as all_fn, any as any_fn,

@@ -184,7 +184,16 @@ impl<'src> V55Migrator<'src> {
         let method = mc.method.to_string();
         let macro_name = dsl_macro(&method, mc.args.len()).expect("checked at call site");
         let recv_text = self.build_recv_text(&mc.receiver);
-        let arg_texts: Vec<String> = mc.args.iter().map(|a| self.build_arg_text(a)).collect();
+        let mut arg_texts: Vec<String> = mc.args.iter().map(|a| self.build_arg_text(a)).collect();
+        // For `collect::<T>()`, preserve the turbofish type as a second
+        // macro argument so the Rust side keeps type inference. The
+        // translator ignores the type and emits `list(...)` regardless.
+        if method == "collect"
+            && let Some(tb) = &mc.turbofish
+            && let Some(syn::GenericArgument::Type(ty)) = tb.args.first()
+        {
+            arg_texts.push(self.span_text(ty.span()));
+        }
         if arg_texts.is_empty() {
             format!("pyrust::{macro_name}!({recv_text})")
         } else {
@@ -306,20 +315,128 @@ impl<'ast> Visit<'ast> for V55Migrator<'_> {
 
     /// Descend into ANY macro's body so chain methods nested inside
     /// macro arguments (`vec![x.unwrap()]`, `format!("{}", x.iter())`,
-    /// `pyrust::*!(x.copied())`, etc.) still get migrated. syn's
-    /// default for ExprMacro skips token bodies; we parse them as a
-    /// comma-separated expression list. Best-effort — macros whose
-    /// grammar isn't comma-separated expressions fail to parse and
-    /// we just don't recurse.
+    /// `pyrust::*!(x.copied())`, `serde_json::json!({...})`, etc.) still
+    /// get migrated. syn's default for ExprMacro skips token bodies.
+    ///
+    /// Strategy:
+    /// 1. For known JSON-shaped macros (`serde_json::json!`, `json!`),
+    ///    walk via a JSON-value tree walker — same shape as the
+    ///    translator's emit_json so the migrator covers the same surface.
+    /// 2. For everything else, try parsing the body as a comma-separated
+    ///    expression list, then as a single expression. If both fail,
+    ///    walk down into any token-tree Group and recurse — this catches
+    ///    method calls buried inside arbitrary macro bodies.
     fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
-        let tokens = em.mac.tokens.clone();
+        let segs: Vec<String> = em
+            .mac
+            .path
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect();
+        let s: Vec<&str> = segs.iter().map(String::as_str).collect();
+        if matches!(s.as_slice(), ["serde_json", "json"] | ["json"]) {
+            let trees: Vec<proc_macro2::TokenTree> = em.mac.tokens.clone().into_iter().collect();
+            self.walk_json_value(&trees);
+            return;
+        }
+        self.walk_macro_tokens(em.mac.tokens.clone());
+    }
+}
+
+impl V55Migrator<'_> {
+    /// Try several parses on a generic macro body, recursing into any
+    /// expressions found. Falls back to descending into nested groups.
+    fn walk_macro_tokens(&mut self, tokens: proc_macro2::TokenStream) {
         let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
-        if let Ok(args) = syn::parse::Parser::parse2(parser, tokens) {
+        if let Ok(args) = syn::parse::Parser::parse2(parser, tokens.clone()) {
             for arg in args {
                 self.visit_expr(&arg);
             }
+            return;
+        }
+        if let Ok(expr) = syn::parse2::<syn::Expr>(tokens.clone()) {
+            self.visit_expr(&expr);
+            return;
+        }
+        for tt in tokens {
+            if let proc_macro2::TokenTree::Group(g) = tt {
+                self.walk_macro_tokens(g.stream());
+            }
         }
     }
+
+    /// Walk a `serde_json::json!` value (object | array | expr).
+    fn walk_json_value(&mut self, trees: &[proc_macro2::TokenTree]) {
+        use proc_macro2::{Delimiter, TokenTree};
+        if trees.is_empty() {
+            return;
+        }
+        if trees.len() == 1
+            && let TokenTree::Group(g) = &trees[0]
+        {
+            let inner: Vec<TokenTree> = g.stream().into_iter().collect();
+            match g.delimiter() {
+                Delimiter::Brace => return self.walk_json_object(&inner),
+                Delimiter::Bracket => return self.walk_json_array(&inner),
+                _ => {}
+            }
+        }
+        // Bare ident `null` is JSON null, no expr to migrate.
+        if trees.len() == 1
+            && let TokenTree::Ident(i) = &trees[0]
+            && *i == "null"
+        {
+            return;
+        }
+        // Otherwise treat the slice as a Rust expression and visit it.
+        let stream: proc_macro2::TokenStream = trees.iter().cloned().collect();
+        if let Ok(expr) = syn::parse2::<syn::Expr>(stream) {
+            self.visit_expr(&expr);
+        }
+    }
+
+    fn walk_json_object(&mut self, trees: &[proc_macro2::TokenTree]) {
+        use proc_macro2::TokenTree;
+        for seg in split_top_level_commas(trees) {
+            if seg.is_empty() {
+                continue;
+            }
+            let colon_idx = seg
+                .iter()
+                .position(|tt| matches!(tt, TokenTree::Punct(p) if p.as_char() == ':'));
+            let val_trees = match colon_idx {
+                Some(i) => &seg[i + 1..],
+                None => seg,
+            };
+            self.walk_json_value(val_trees);
+        }
+    }
+
+    fn walk_json_array(&mut self, trees: &[proc_macro2::TokenTree]) {
+        for seg in split_top_level_commas(trees) {
+            if seg.is_empty() {
+                continue;
+            }
+            self.walk_json_value(seg);
+        }
+    }
+}
+
+fn split_top_level_commas(trees: &[proc_macro2::TokenTree]) -> Vec<&[proc_macro2::TokenTree]> {
+    use proc_macro2::TokenTree;
+    let mut segments: Vec<&[proc_macro2::TokenTree]> = Vec::new();
+    let mut start = 0;
+    for (i, tt) in trees.iter().enumerate() {
+        if let TokenTree::Punct(p) = tt
+            && p.as_char() == ','
+        {
+            segments.push(&trees[start..i]);
+            start = i + 1;
+        }
+    }
+    segments.push(&trees[start..]);
+    segments
 }
 
 fn migrate_file(path: &std::path::Path) -> std::io::Result<bool> {

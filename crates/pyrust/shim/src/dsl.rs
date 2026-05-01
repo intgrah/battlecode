@@ -275,6 +275,9 @@ macro_rules! __pyrust_collect {
     ($e:expr) => {
         $e.collect()
     };
+    ($e:expr, $t:ty) => {
+        $e.collect::<$t>()
+    };
 }
 
 /// `pyrust::enumerate!(it)` — Python `enumerate(it)`. Receiver must
@@ -888,5 +891,38 @@ macro_rules! __pyrust_string_is_empty {
 macro_rules! __pyrust_to_string {
     ($x:expr) => {
         $x.to_string()
+    };
+}
+
+// =====================================================================
+// Time — monotonic nanosecond clock
+// =====================================================================
+
+/// `pyrust::time::now_ns!()` — wall/monotonic time in nanoseconds as u64.
+/// Rust: `Instant::now()` relative to a process-local epoch (lazily
+/// initialised on first call). Python: `time.perf_counter_ns()`.
+///
+/// Used only for instrumentation (debug timing). Values are inherently
+/// non-deterministic; replays exclude these from byte-equality checks.
+#[macro_export]
+macro_rules! __pyrust_time_now_ns {
+    () => {{
+        use ::std::sync::OnceLock;
+        use ::std::time::Instant;
+        static EPOCH: OnceLock<Instant> = OnceLock::new();
+        EPOCH.get_or_init(Instant::now).elapsed().as_nanos() as u64
+    }};
+}
+
+// =====================================================================
+// serde_json::Value accessors — Python: identity (Value is dict/list)
+// =====================================================================
+
+/// `pyrust::serde::array_mut!(v)` — `&mut Vec<Value>` from a `Value`
+/// known to hold an array. Rust panics if not array; Python identity.
+#[macro_export]
+macro_rules! __pyrust_serde_array_mut {
+    ($v:expr) => {
+        $v.as_array_mut().unwrap()
     };
 }

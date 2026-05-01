@@ -15,8 +15,6 @@
 //! calls per turn, so no locking is needed in practice — `unsafe` reads from
 //! a `static mut` are fine on this single-threaded path.
 
-use std::time::Instant;
-
 use cambc::{Controller, ControllerApi, Position};
 use serde_json::{Map, Value};
 
@@ -27,11 +25,11 @@ use crate::util::visualiser::{Dump, Dumper};
 const TYPE_KEY: &str = "$type";
 
 /// Per-frame entry: the index of this scope's child slot inside its parent's
-/// `children` array, plus (for timed scopes) the start instant. The frame at
-/// index 0 has `parent_child_idx = None` because it is the root.
+/// `children` array, plus (for timed scopes) the start nanosecond timestamp.
+/// The frame at index 0 has `parent_child_idx = None` because it is the root.
 struct Frame {
     parent_child_idx: Option<usize>,
-    t0: Option<Instant>,
+    t0_ns: Option<u64>,
 }
 
 /// Per-bot debug state. One instance per process via `DebugCtx::global()`.
@@ -77,10 +75,14 @@ impl DebugCtx {
     pub fn push_scope(&mut self, label: &str, timed: bool) {
         let node = serde_json::json!({
             TYPE_KEY: "scope",
-            "name": label.to_string(),
+            "name": pyrust::to_string!(label),
             "children": [],
         });
-        let t0 = if timed { Some(Instant::now()) } else { None };
+        let t0_ns = if timed {
+            Some(pyrust::time::now_ns!())
+        } else {
+            None
+        };
         if pyrust::is_none!(self.root) {
             // First scope of the turn: this becomes the root.
             self.root = Some(node);
@@ -88,20 +90,20 @@ impl DebugCtx {
                 self.frames,
                 Frame {
                     parent_child_idx: None,
-                    t0,
+                    t0_ns,
                 }
             );
             return;
         }
         let parent = self.current_scope_mut();
-        let children = pyrust::unwrap!(parent["children"].as_array_mut());
+        let children = pyrust::serde::array_mut!(parent["children"]);
         let idx = pyrust::len!(children);
         pyrust::vec::push!(children, node);
         pyrust::vec::push!(
             self.frames,
             Frame {
                 parent_child_idx: Some(idx),
-                t0,
+                t0_ns,
             }
         );
     }
@@ -111,8 +113,8 @@ impl DebugCtx {
             pyrust::vec::pop!(self.frames),
             "Scope::drop with empty frame stack"
         );
-        if let Some(t0) = frame.t0 {
-            let us = t0.elapsed().as_micros() as u64;
+        if let Some(t0_ns) = frame.t0_ns {
+            let us = (pyrust::time::now_ns!() - t0_ns) / 1000;
             if pyrust::vec::is_empty!(self.frames) {
                 // The frame we just popped was the root.
                 let root = pyrust::expect!(pyrust::as_mut!(self.root), "ROOT must be Some");
@@ -136,13 +138,13 @@ impl DebugCtx {
             return;
         }
         let parent = self.current_scope_mut();
-        pyrust::vec::push!(pyrust::unwrap!(parent["children"].as_array_mut()), node);
+        pyrust::vec::push!(pyrust::serde::array_mut!(parent["children"]), node);
     }
 
     pub fn debug(&mut self, tmpl: &str, args: Map<String, Value>) {
         let node = serde_json::json!({
             TYPE_KEY: "msg",
-            "tmpl": tmpl.to_string(),
+            "tmpl": pyrust::to_string!(tmpl),
             "args": Value::Object(args),
         });
         self.emit_child(node);
@@ -168,10 +170,10 @@ impl DebugCtx {
         let prev_us = self.last_flush_us;
         let root = pyrust::expect!(pyrust::as_mut!(self.root), "flush() called outside any Scope");
         root["prev_flush_us"] = serde_json::Value::Number(pyrust::into!(prev_us));
-        let t0 = Instant::now();
+        let t0_ns = pyrust::time::now_ns!();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");
         println!("{payload}");
-        self.last_flush_us = t0.elapsed().as_micros() as u64;
+        self.last_flush_us = (pyrust::time::now_ns!() - t0_ns) / 1000;
     }
 }
 
