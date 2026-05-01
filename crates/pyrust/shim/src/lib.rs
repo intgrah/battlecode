@@ -80,9 +80,10 @@ pub mod vec {
 }
 pub mod set {
     pub use crate::{
-        __pyrust_set_add as add, __pyrust_set_clear as clear, __pyrust_set_contains as contains,
-        __pyrust_set_difference as difference, __pyrust_set_is_empty as is_empty,
-        __pyrust_set_len as len, __pyrust_set_new as new, __pyrust_set_remove as remove,
+        __pyrust_set_add as add, __pyrust_set_clear as clear, __pyrust_set_clone as clone,
+        __pyrust_set_contains as contains, __pyrust_set_difference as difference,
+        __pyrust_set_is_empty as is_empty, __pyrust_set_len as len, __pyrust_set_new as new,
+        __pyrust_set_remove as remove,
     };
 }
 pub mod dict {

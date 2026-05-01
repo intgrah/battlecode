@@ -577,6 +577,14 @@ macro_rules! __pyrust_set_new {
     };
 }
 
+/// `pyrust::set::clone!(s)` — Rust `s.clone()`, Python `set(s)`.
+#[macro_export]
+macro_rules! __pyrust_set_clone {
+    ($s:expr) => {
+        ($s).clone()
+    };
+}
+
 #[macro_export]
 macro_rules! __pyrust_set_add {
     ($s:expr, $x:expr) => {

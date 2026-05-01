@@ -2586,6 +2586,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
         // set::*
         // ============================================================
         ["set", "new"] => Ok(Some(Emitted::atomic("set()".to_string(), Ty::Set))),
+        ["set", "clone"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "set::clone!: expected (set)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("set({})", inner.text),
+                Ty::Set,
+            )))
+        }
         ["set", "add"] => {
             let args = parse_args!();
             if args.len() != 2 {
