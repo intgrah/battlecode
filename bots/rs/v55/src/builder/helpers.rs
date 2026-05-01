@@ -511,7 +511,7 @@ pub fn try_heal(
 }
 
 pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
-    let mut dir8: Vec<Direction> = DIR8.to_vec();
+    let mut dir8: Vec<Direction> = pyrust::to_vec!(DIR8);
     builder.state.rng.shuffle(&mut dir8);
     for direction in dir8 {
         if pyrust::unwrap!(ct.can_move(direction)) {

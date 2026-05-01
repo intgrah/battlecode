@@ -342,7 +342,7 @@ pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
 #[must_use] 
 pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Position {
     let my_pos = self_.my_pos;
-    let mut sorted: Vec<Position> = vulnerable.to_vec();
+    let mut sorted: Vec<Position> = pyrust::to_vec!(vulnerable);
     pyrust::sort_by_key!(sorted, |p| my_pos.distance_squared(*p));
     for &h in &sorted {
         if !enemy_healer_near(self_, h) && !friendly_bot_adjacent(self_, h) {
@@ -375,7 +375,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
     {
         explore(self_, ct);
     } else {
-        let mut dir8 = DIR8.to_vec();
+        let mut dir8 = pyrust::to_vec!(DIR8);
         self_.rng.shuffle(&mut dir8);
         for d in dir8 {
             if try_move_dir(ct, d) {

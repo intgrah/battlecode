@@ -97,6 +97,7 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("sort_by_key", 1) => Some("sort_by_key"),
         // ---- Conversions / utilities ----
         ("to_string", 0) => Some("to_string"),
+        ("to_vec", 0) => Some("to_vec"),
         ("contains", 1) => Some("vec::contains"),
         ("contains_key", 1) => Some("dict::contains"),
         // ---- Mutating Vec/Set/Dict methods (single-shot) ----
