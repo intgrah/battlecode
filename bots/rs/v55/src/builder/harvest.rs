@@ -309,7 +309,7 @@ pub fn clear_barriered_feed(
 ) -> bool {
     let sink = if on_enemy_side(builder, target_pos) {
         if pyrust::is_some!(builder.symmetry) {
-            Some(builder.en_core_guess())
+            Some(builder.en_core_guess)
         } else {
             None
         }

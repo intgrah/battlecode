@@ -62,7 +62,7 @@ pub struct Builder {
     pub my_core: Position,
     /// Mirror of `my_core` under the chosen `symmetry_guess` — cached at
     /// the start of each turn so `builder.en_core_guess` (no parens) and
-    /// `builder.en_core_guess()` (the trait method) are interchangeable.
+    /// `builder.en_core_guess` (the trait method) are interchangeable.
     pub en_core_guess: Position,
     /// `Some(s)` once a single symmetry remains in `state.symmetry_candidates`,
     /// else `None`. Cached field for peer code that uses `if builder.symmetry`.
