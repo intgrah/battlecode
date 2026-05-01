@@ -36,12 +36,17 @@ def update(self: Builder, ct: Controller) -> None:
         with Scope("junctions", time=True):
             self.update_junctions()
         with Scope("dangling", time=True):
-            self.update_unreachable_dangling()
-            self.update_dangling()
-        with Scope("ore", time=True):
-            self.update_ore_target()
-            self.update_ax_ore_target()
-            self.update_offensive_ore_target()
+            with Scope("update_unreachable_dangling", time=True):
+                self.update_unreachable_dangling()
+            with Scope("update_dangling", time=True):
+                self.update_dangling()
+        with Scope("ore_target", time=True):
+            with Scope("ti_ore_target", time=True):
+                self.update_ti_ore_target()
+            with Scope("ax_ore_target", time=True):
+                self.update_ax_ore_target()
+            with Scope("offensive_ti_ore_target", time=True):
+                self.update_offensive_ore_target()
         with Scope("foundry_target", time=True):
             self.update_foundry_target()
         with Scope("ti_sink", time=True):
