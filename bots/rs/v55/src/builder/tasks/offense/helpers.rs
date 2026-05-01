@@ -383,7 +383,7 @@ pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
         let new_blacklist: HashMap<Position, i32> = self_
             .attack_tile_blacklist
             .iter()
-            .filter_map(|(&p, &n)| if n > 1 { Some((p, n - 1)) } else { None })
+            .filter_map(|t| if *t.1 > 1 { Some((*t.0, *t.1 - 1)) } else { None })
             .collect();
         self_.attack_tile_blacklist = new_blacklist;
     }

@@ -459,7 +459,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         vis_tile("offense_target", builder.offense_target);
         vis_scalar_int("offense_turns", builder.offense_turns as i64);
         vis_tile("offense_launcher", builder.offense_launcher);
-        vis_tile("last_fire", builder.last_fire.map(|(p, _)| p));
+        vis_tile("last_fire", builder.last_fire.map(|t| t.0));
         vis_tile("nearest_enemy_turret", builder.nearest_enemy_turret);
         vis_tiles(
             "enemy_turret_ray_tiles",

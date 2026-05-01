@@ -59,7 +59,7 @@ impl<T: Clone + PartialEq> Palette<T> {
     pub fn with_special(&self, special: &[(T, Colour)]) -> Self {
         let mut merged: Vec<(T, Colour)> = self.special.clone();
         for (k, c) in special {
-            if let Some(slot) = merged.iter_mut().find(|(kk, _)| kk == k) {
+            if let Some(slot) = merged.iter_mut().find(|t| &t.0 == k) {
                 slot.1 = *c;
             } else {
                 merged.push((k.clone(), *c));

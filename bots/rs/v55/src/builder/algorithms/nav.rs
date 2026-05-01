@@ -276,7 +276,7 @@ impl BugNav {
         };
         build_mline_seq(s.x, s.y, g.x, g.y)
             .into_iter()
-            .map(|(x, y)| Position { x, y })
+            .map(|t| Position { x: t.0, y: t.1 })
             .collect()
     }
 }
