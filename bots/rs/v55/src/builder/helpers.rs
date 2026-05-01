@@ -712,7 +712,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 continue;
             }
             let status = pyrust::unwrap_or!(
-                pyrust::iter!(classification).find_map(|t| if t.0 == c { Some(t.1) } else { None }),
+                pyrust::find_map!(pyrust::iter!(classification), |t| if t.0 == c { Some(t.1) } else { None }),
                 "?"
             );
             let mut args = Map::new();
