@@ -5,18 +5,12 @@
 
 use std::collections::HashMap;
 
-use cambc::{Controller, ControllerApi, Position, ResourceType};
+use cambc::{Controller, Position, ResourceType};
 
 use crate::builder::algorithms::reachability::find as uf_find;
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
 
 const TARGET_DRIFT_SQ: i32 = 25;
-/// CPU budget measured as absolute turn-elapsed in microseconds (since
-/// `ct.get_cpu_time_elapsed()` returns the time since the start of the
-/// current turn). 1729us leaves ~270us for post-A* work before the 2ms
-/// server enforcement. `Update()` p50 is ~800us so A* typically runs for
-/// ~900us here; on rare slow-update turns A* may be compressed.
-const CPU_BUDGET: u64 = 1_7290;
 const BUCKET_COUNT: usize = 32;
 const BIDIRECTIONAL: bool = false;
 /// Diagonal (r²=2) is never a cardinal conveyor and never a legal bridge
@@ -174,21 +168,19 @@ impl AStarSearch {
 
     pub fn search(
         &mut self,
-        ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
         ctx: &mut EconAstarCtx,
     ) -> Option<Vec<Position>> {
         if BIDIRECTIONAL {
-            return self.search_bidirectional(ct, start, target, resource, ctx);
+            return self.search_bidirectional(start, target, resource, ctx);
         }
-        self.search_unidirectional(ct, start, target, resource, ctx)
+        self.search_unidirectional(start, target, resource, ctx)
     }
 
     fn search_bidirectional(
         &mut self,
-        ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
@@ -331,11 +323,6 @@ impl AStarSearch {
                             best_meet = node_i;
                         }
                     }
-                    if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
-                        self.finished = true;
-                        self.last_fail_reason = pyrust::to_string!("cpu_budget");
-                        return None;
-                    }
                     let nbrs = &self.neighbors[node_i as usize];
                     for &(ni, extra) in nbrs {
                         if ni != gi {
@@ -411,11 +398,6 @@ impl AStarSearch {
                         best_cost = cand;
                         best_meet = node_i;
                     }
-                }
-                if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
-                    self.finished = true;
-                    self.last_fail_reason = pyrust::to_string!("cpu_budget");
-                    return None;
                 }
                 let nbrs = &self.neighbors[node_i as usize];
                 for &(ni, extra) in nbrs {
@@ -504,7 +486,6 @@ impl AStarSearch {
 
     fn search_unidirectional(
         &mut self,
-        ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
@@ -571,20 +552,12 @@ impl AStarSearch {
         let mut cur_f = f0;
         let mut emp: i32 = 0;
 
-        let cpu_budget = CPU_BUDGET;
         let mut found = false;
         while emp < nb_count {
             if pyrust::vec::is_empty!(self.buckets_fwd[(cur_f & bucket_mask) as usize]) {
                 cur_f += 1;
                 emp += 1;
                 continue;
-            }
-            // CPU budget check at bucket boundaries only.
-            if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > cpu_budget {
-                self.finished = false;
-                self.last_fail_reason = pyrust::to_string!("cpu_budget");
-                self.last_nodes_expanded = nodes_expanded;
-                return None;
             }
             emp = 0;
             let slot = (cur_f & bucket_mask) as usize;
@@ -787,7 +760,7 @@ impl AStarSearch {
                 ctx.ax_routable[idx] = false;
             }
         }
-        let result = self.search(ct, start, goal, ResourceType::Titanium, ctx);
+        let result = self.search(start, goal, ResourceType::Titanium, ctx);
         for (idx, ti_val, ax_val) in saved {
             ctx.ti_routable[idx] = ti_val;
             ctx.ax_routable[idx] = ax_val;
