@@ -1832,7 +1832,12 @@ fn some_binding_check(pat: &syn::Pat) -> Option<String> {
     if ts.elems.len() != 1 {
         return None;
     }
-    let inner = ts.elems.first().unwrap();
+    // Drill through reference pattern: `Some(&uid)` has Pat::Reference
+    // wrapping Pat::Ident. The Rust ref pattern is a no-op in Python.
+    let mut inner = ts.elems.first().unwrap();
+    while let syn::Pat::Reference(pr) = inner {
+        inner = &pr.pat;
+    }
     if let syn::Pat::Ident(pi) = inner {
         Some(format!("{} is not None", pi.ident))
     } else {

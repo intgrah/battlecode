@@ -613,6 +613,26 @@ macro_rules! __pyrust_vec_take {
     };
 }
 
+/// `pyrust::signum!(x)` — Rust `i32::signum()`. Returns -1/0/1 for
+/// negative/zero/positive. Python equivalent: `(x > 0) - (x < 0)`.
+#[macro_export]
+macro_rules! __pyrust_signum {
+    ($x:expr) => {
+        ($x).signum()
+    };
+}
+
+/// `pyrust::dict::collect!(it)` — collect an iterator of (k, v) pairs
+/// into a HashMap (Rust) / dict (Python). Bot author chooses this when
+/// the target type is a HashMap; the bare `pyrust::collect!` would emit
+/// a list in Python.
+#[macro_export]
+macro_rules! __pyrust_dict_collect {
+    ($e:expr) => {
+        $e.collect::<::std::collections::HashMap<_, _>>()
+    };
+}
+
 /// `pyrust::vec::dedup!(v)` — `Vec::dedup()`, removes consecutive
 /// duplicates in place. Python equivalent: rebuild list keeping only
 /// elements that differ from the previous one.

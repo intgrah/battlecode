@@ -66,6 +66,7 @@ pub use crate::__pyrust_sort as sort;
 pub use crate::__pyrust_sort_by_key as sort_by_key;
 pub use crate::__pyrust_sorted as sorted;
 pub use crate::__pyrust_sorted_by_key as sorted_by_key;
+pub use crate::__pyrust_signum as signum;
 pub use crate::__pyrust_sqrt as sqrt;
 pub use crate::__pyrust_powf as powf;
 pub use crate::__pyrust_powi as powi;
@@ -100,7 +101,8 @@ pub mod set {
 }
 pub mod dict {
     pub use crate::{
-        __pyrust_dict_clear as clear, __pyrust_dict_contains as contains, __pyrust_dict_get as get,
+        __pyrust_dict_clear as clear, __pyrust_dict_collect as collect,
+        __pyrust_dict_contains as contains, __pyrust_dict_get as get,
         __pyrust_dict_insert as insert, __pyrust_dict_is_empty as is_empty,
         __pyrust_dict_items as items, __pyrust_dict_keys as keys, __pyrust_dict_len as len,
         __pyrust_dict_new as new, __pyrust_dict_remove as remove, __pyrust_dict_values as values,
