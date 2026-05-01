@@ -140,10 +140,10 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     for pos in &nearby {
         let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
         if builder.cost_grid[i] != INF {
-            if builder.adjacent_to_enemy_launcher.contains(pos) {
+            if pyrust::vec::contains!(builder.adjacent_to_enemy_launcher, pos) {
                 builder.cost_grid[i] += 20;
             }
-            if builder.enemy_turret_ray_tiles.contains(pos) {
+            if pyrust::vec::contains!(builder.enemy_turret_ray_tiles, pos) {
                 builder.cost_grid[i] += 15;
             }
         }
@@ -225,7 +225,7 @@ fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> Hash
     let mut target: HashSet<Position> = pyrust::set::new!();
     let mut stack: Vec<Position> = pyrust::vec::new!();
     for s in seeds {
-        if target.contains(s) {
+        if pyrust::vec::contains!(target, s) {
             continue;
         }
         if out_edges[(s.y as usize) * MAX_WIDTH + (s.x as usize)].is_empty() {
@@ -236,7 +236,7 @@ fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> Hash
     }
     while let Some(p) = stack.pop() {
         for out in &out_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)] {
-            if target.contains(out) {
+            if pyrust::vec::contains!(target, out) {
                 continue;
             }
             target.insert(*out);
@@ -425,18 +425,18 @@ fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
     if team != Some(builder.state.my_team) {
         return false;
     }
-    if builder.upstream_of_dangling.contains(&pos) {
+    if pyrust::vec::contains!(builder.upstream_of_dangling, &pos) {
         return false;
     }
-    if builder.reaches_foundry.contains(&pos) {
+    if pyrust::vec::contains!(builder.reaches_foundry, &pos) {
         return false;
     }
     let is_foundry_spot = _is_zero_length_foundry_spot(builder, pos);
     if !is_foundry_spot {
-        if builder.ax_harvester_adjacent.contains(&pos) {
+        if pyrust::vec::contains!(builder.ax_harvester_adjacent, &pos) {
             return false;
         }
-        if builder.ax_upstream.contains(&pos) {
+        if pyrust::vec::contains!(builder.ax_upstream, &pos) {
             return false;
         }
     }
@@ -468,9 +468,9 @@ fn _pure_ax_merge_ok(builder: &Builder, pos: Position) -> bool {
     if _tile_volume(builder, pos) >= FLOW_HISTORY_LEN {
         return false;
     }
-    builder.ax_upstream.contains(&pos)
-        && !builder.ti_upstream.contains(&pos)
-        && !builder.upstream_of_dangling.contains(&pos)
+    pyrust::vec::contains!(builder.ax_upstream, &pos)
+        && !pyrust::vec::contains!(builder.ti_upstream, &pos)
+        && !pyrust::vec::contains!(builder.upstream_of_dangling, &pos)
 }
 
 /// Manhattan-distance threshold: a pre-existing foundry or Ax chain is only
@@ -588,7 +588,7 @@ pub fn update_economy_reachability(builder: &mut Builder) {
 fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashSet<Position>) {
     let mut stack: Vec<Position> = pyrust::vec::new!();
     for r in roots {
-        if !target.contains(r) {
+        if !pyrust::vec::contains!(target, r) {
             target.insert(*r);
             stack.push(*r);
         }
@@ -596,7 +596,7 @@ fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashS
     while let Some(p) = stack.pop() {
         let i = (p.y as usize) * MAX_WIDTH + (p.x as usize);
         for u in &in_edges[i] {
-            if target.contains(u) {
+            if pyrust::vec::contains!(target, u) {
                 continue;
             }
             target.insert(*u);
@@ -873,8 +873,8 @@ fn _is_junction(builder: &Builder, pos: Position) -> bool {
     let mut has_ti = false;
     let mut has_ax = false;
     for f in feeders {
-        let in_ti = builder.ti_upstream.contains(f);
-        let in_ax = builder.ax_upstream.contains(f);
+        let in_ti = pyrust::vec::contains!(builder.ti_upstream, f);
+        let in_ax = pyrust::vec::contains!(builder.ax_upstream, f);
         if in_ti && !in_ax {
             has_ti = true;
         } else if in_ax && !in_ti {
@@ -1009,10 +1009,10 @@ pub fn update_foundry_target(builder: &mut Builder) {
             builder.building_kind[fi],
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
         ) && builder.building_team[fi] == Some(builder.state.my_team);
-        let still_valid_junction = is_transport && builder.junctions.contains(&ft);
+        let still_valid_junction = is_transport && pyrust::vec::contains!(builder.junctions, &ft);
         let still_valid_kind_c = is_transport
-            && builder.reaches_core.contains(&ft)
-            && !builder.reaches_foundry.contains(&ft);
+            && pyrust::vec::contains!(builder.reaches_core, &ft)
+            && !pyrust::vec::contains!(builder.reaches_foundry, &ft);
         if !(still_valid_junction || still_valid_kind_c) {
             builder.foundry_target = None;
         }
@@ -1020,7 +1020,7 @@ pub fn update_foundry_target(builder: &mut Builder) {
     if pyrust::is_none!(builder.foundry_target)
         && let Some(chosen) = builder.ax_sink
     {
-        if builder.junctions.contains(&chosen)
+        if pyrust::vec::contains!(builder.junctions, &chosen)
             || (_foundry_local_ok(builder, chosen) && ax_feeds_target(builder, chosen))
         {
             builder.foundry_target = Some(chosen);
@@ -1046,13 +1046,13 @@ fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     if is_inward_guard(builder, pos) {
         return false;
     }
-    if builder.upstream_of_dangling.contains(&pos) && builder.ti_upstream.contains(&pos) {
+    if pyrust::vec::contains!(builder.upstream_of_dangling, &pos) && pyrust::vec::contains!(builder.ti_upstream, &pos) {
         return false;
     }
-    if builder.upstream_of_congestion.contains(&pos) {
+    if pyrust::vec::contains!(builder.upstream_of_congestion, &pos) {
         return false;
     }
-    if builder.ax_harvester_adjacent.contains(&pos) {
+    if pyrust::vec::contains!(builder.ax_harvester_adjacent, &pos) {
         return false;
     }
     if _tile_volume(builder, pos) >= FLOW_HISTORY_LEN {

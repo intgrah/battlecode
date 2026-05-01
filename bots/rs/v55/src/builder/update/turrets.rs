@@ -28,7 +28,7 @@ pub fn update_ore_denial(builder: &mut Builder) {
                 has_enemy = true;
                 break;
             }
-            if builder.state.enemy_bots.contains(&n) {
+            if pyrust::vec::contains!(builder.state.enemy_bots, &n) {
                 has_enemy = true;
                 break;
             }

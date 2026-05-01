@@ -2607,12 +2607,12 @@ fn parse_macro_arg_list(tokens: proc_macro2::TokenStream) -> Result<Vec<syn::Exp
 }
 
 /// `pyrust::macro!(recv, |x| body)` — argument shape with one
-/// receiver expression and a one-parameter closure. Used by min_by /
-/// max_by / sort_by_key / map / filter / filter_map / find / any /
-/// all / is_some_and / sorted_by_key.
+/// receiver expression and a one-parameter closure. The closure is
+/// parsed as a full `syn::ExprClosure` so `|_| body`, `|&x| body`,
+/// `|(a, b)| body`, and explicit type annotations all work.
 struct ClosureArgs {
     recv: syn::Expr,
-    param: syn::Ident,
+    param: String,
     body: syn::Expr,
 }
 
@@ -2620,10 +2620,30 @@ impl syn::parse::Parse for ClosureArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let recv: syn::Expr = input.parse()?;
         let _: syn::Token![,] = input.parse()?;
-        let _: syn::Token![|] = input.parse()?;
-        let param: syn::Ident = input.parse()?;
-        let _: syn::Token![|] = input.parse()?;
-        let body: syn::Expr = input.parse()?;
+        let closure: syn::ExprClosure = input.parse()?;
+        if closure.inputs.len() != 1 {
+            return Err(input.error("expected single-parameter closure"));
+        }
+        let param = format_closure_param(closure.inputs.first().unwrap());
+        let body = (*closure.body).clone();
         Ok(ClosureArgs { recv, param, body })
+    }
+}
+
+/// Render a closure parameter pattern as Python lambda parameter
+/// text. For tuple destructure `(a, b)`, emits a fresh name and the
+/// caller handles the body substitution; here we just emit `_t<n>`
+/// for tuple patterns and leave body as-is — caller's responsibility
+/// to convert tuple-uses to t.0/t.1 (the v55 source already does).
+fn format_closure_param(p: &syn::Pat) -> String {
+    match p {
+        syn::Pat::Ident(pi) => pi.ident.to_string(),
+        syn::Pat::Wild(_) => "_".to_string(),
+        syn::Pat::Type(pt) => format_closure_param(&pt.pat),
+        syn::Pat::Reference(r) => format_closure_param(&r.pat),
+        syn::Pat::Paren(p) => format_closure_param(&p.pat),
+        // Tuple-destructure patterns: render as a fresh name. The
+        // body is expected to use field accesses like `t.0`/`t.1`.
+        _ => "_t".to_string(),
     }
 }

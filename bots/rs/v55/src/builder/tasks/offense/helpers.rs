@@ -140,10 +140,10 @@ pub fn pick_conveyor_target(
         if !self_.is_passable(pos) {
             continue;
         }
-        if self_.attack_tile_blacklist.contains_key(&pos) {
+        if pyrust::dict::contains!(self_.attack_tile_blacklist, &pos) {
             continue;
         }
-        if self_.friendly_turret_ray_tiles.contains(&pos) {
+        if pyrust::vec::contains!(self_.friendly_turret_ray_tiles, &pos) {
             continue;
         }
         if let Some(&uid) = self_.all_bots.get(&pos)
@@ -207,10 +207,10 @@ pub fn pick_attack_destination(
         {
             continue;
         }
-        if self_.attack_tile_blacklist.contains_key(&pos) {
+        if pyrust::dict::contains!(self_.attack_tile_blacklist, &pos) {
             continue;
         }
-        if self_.friendly_turret_ray_tiles.contains(&pos) {
+        if pyrust::vec::contains!(self_.friendly_turret_ray_tiles, &pos) {
             continue;
         }
         let kind = self_.kind_at(pos);
@@ -224,7 +224,7 @@ pub fn pick_attack_destination(
         if avoid_healers && enemy_healer_near(self_, pos) {
             continue;
         }
-        let in_ray: i32 = if self_.enemy_turret_ray_tiles.contains(&pos) {
+        let in_ray: i32 = if pyrust::vec::contains!(self_.enemy_turret_ray_tiles, &pos) {
             1
         } else {
             0
@@ -339,13 +339,13 @@ pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Positi
 pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
     let en_core = self_.en_core_guess;
 
-    if self_.nearby_tiles.contains(&en_core) {
+    if pyrust::vec::contains!(self_.nearby_tiles, &en_core) {
         self_.en_core_seen = true;
     }
 
     if !self_.en_core_seen {
         make_move(self_, ct, en_core);
-    } else if self_.nearby_tiles.contains(&en_core)
+    } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
             >= ((GameConstants::HARVESTER_BASE_COST.0 + 50) as f64 * (1.0 + self_.scale)) as i32
     {

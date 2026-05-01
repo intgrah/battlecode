@@ -27,7 +27,7 @@ impl Launcher {
     }
 
     fn is_empty_walkable(&self, ct: &mut Controller<'_>, pos: Position) -> bool {
-        self.is_walkable(ct, pos) && !self.state.all_bots.contains_key(&pos)
+        self.is_walkable(ct, pos) && !pyrust::dict::contains!(self.state.all_bots, &pos)
     }
 
     fn is_walkable(&self, ct: &mut Controller<'_>, pos: Position) -> bool {
@@ -41,7 +41,7 @@ impl Launcher {
             return false;
         };
         let et = pyrust::unwrap!(ct.get_entity_type(Some(bid)));
-        PASSABLE_BUILDINGS.contains(&et)
+        pyrust::vec::contains!(PASSABLE_BUILDINGS, &et)
     }
 
     fn find_harvester_attack_tiles(&self, ct: &mut Controller<'_>) -> Vec<Position> {

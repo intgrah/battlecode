@@ -26,7 +26,7 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
     let enemy_tiles: Vec<_> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.enemy_turret_ray_tiles)));
     for tile in enemy_tiles {
         let i = (tile.y as usize) * MAX_WIDTH + (tile.x as usize);
-        if builder.cost_grid[i] != INF && !builder._threat_bumped.contains(&i) {
+        if builder.cost_grid[i] != INF && !pyrust::vec::contains!(builder._threat_bumped, &i) {
             builder.cost_grid[i] += THREAT_PENALTY;
             builder._threat_bumped.insert(i);
         }
@@ -34,7 +34,7 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
     let launcher_tiles: Vec<_> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.adjacent_to_enemy_launcher)));
     for tile in launcher_tiles {
         let i = (tile.y as usize) * MAX_WIDTH + (tile.x as usize);
-        if builder.cost_grid[i] != INF && !builder._threat_bumped.contains(&i) {
+        if builder.cost_grid[i] != INF && !pyrust::vec::contains!(builder._threat_bumped, &i) {
             builder.cost_grid[i] += THREAT_PENALTY;
             builder._threat_bumped.insert(i);
         }

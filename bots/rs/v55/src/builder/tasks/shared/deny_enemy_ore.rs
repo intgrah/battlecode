@@ -12,7 +12,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn deny_enemy_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     for &pos in &self_.nearby_tiles.clone() {
-        if self_.deny_ore_neighbours.contains(&pos)
+        if pyrust::vec::contains!(self_.deny_ore_neighbours, &pos)
             && self_.get_env(pos) != Some(Environment::Wall)
             && pyrust::is_none!(self_.get_building(pos))
             && pyrust::unwrap!(ct.can_build_road(pos))

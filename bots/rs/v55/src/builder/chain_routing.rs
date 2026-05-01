@@ -33,8 +33,8 @@ const _UPSTREAM_MAX_NODES_RES: usize = 80;
 /// if it can't be determined — caller must NOT silently default to Ti,
 /// because routing Ax as Ti sends raw Ax to the core where it's destroyed.
 pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
-    let ax_adj = builder.ax_harvester_adjacent.contains(&pos);
-    let ti_adj = builder.ti_harvester_adjacent.contains(&pos);
+    let ax_adj = pyrust::vec::contains!(builder.ax_harvester_adjacent, &pos);
+    let ti_adj = pyrust::vec::contains!(builder.ti_harvester_adjacent, &pos);
     if ax_adj && !ti_adj {
         return Some(ResourceType::RawAxionite);
     }
@@ -51,10 +51,10 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
         if visited.len() > _UPSTREAM_MAX_NODES_RES {
             break;
         }
-        if builder.ti_harvester_adjacent.contains(&p) {
+        if pyrust::vec::contains!(builder.ti_harvester_adjacent, &p) {
             seen_ti = true;
         }
-        if builder.ax_harvester_adjacent.contains(&p) {
+        if pyrust::vec::contains!(builder.ax_harvester_adjacent, &p) {
             seen_ax = true;
         }
         let pi = (p.y as usize) * MAX_WIDTH + (p.x as usize);
@@ -71,7 +71,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
             return None;
         }
         for &u in &builder.in_edges[pi] {
-            if visited.contains(&u) {
+            if pyrust::vec::contains!(visited, &u) {
                 continue;
             }
             visited.insert(u);
@@ -343,7 +343,7 @@ pub fn extend_step(
     let existing_set: HashSet<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(existing_path)));
     let mut path_start_index: usize = 0;
     for (i, pos) in pyrust::enumerate!(pyrust::iter!(path)) {
-        if existing_set.contains(pos) {
+        if pyrust::vec::contains!(existing_set, pos) {
             start = *pos;
             path_start_index = i;
         }

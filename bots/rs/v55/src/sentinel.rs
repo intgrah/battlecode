@@ -174,7 +174,7 @@ impl Unit for Sentinel {
             let bid = pyrust::unwrap!(ct.get_tile_building_id(tile));
             let uid = pyrust::copied!(self.state.all_bots.get(&tile));
 
-            if self.state.enemy_bots.contains(&tile) {
+            if pyrust::vec::contains!(self.state.enemy_bots, &tile) {
                 let hp = pyrust::unwrap!(ct.get_hp(uid));
                 let score = _builder_score(hp);
                 if score > best_score {
@@ -184,7 +184,7 @@ impl Unit for Sentinel {
                 continue;
             }
 
-            if self.state.friendly_bots.contains(&tile) {
+            if pyrust::vec::contains!(self.state.friendly_bots, &tile) {
                 continue;
             }
 

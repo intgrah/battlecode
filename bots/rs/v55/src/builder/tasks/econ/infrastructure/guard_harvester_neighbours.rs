@@ -29,7 +29,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
     for tgt_opt in [self_.ore_target, self_.ax_ore_target] {
         if let Some(tgt) = tgt_opt
             && my_pos == tgt
-            && !targets.contains(&tgt)
+            && !pyrust::vec::contains!(targets, &tgt)
         {
             targets.push(tgt);
         }
@@ -60,7 +60,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         };
 
         if affords_road
-            && near.contains(&feed)
+            && pyrust::vec::contains!(near, &feed)
             && self_.get_cost(feed) > 1
             && pyrust::unwrap!(ct.can_build_road(feed))
         {
@@ -79,10 +79,10 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         }
         for d in DIR4 {
             let pos = target.add(d);
-            if !near.contains(&pos) {
+            if !pyrust::vec::contains!(near, &pos) {
                 continue;
             }
-            if no_guard.contains(&pos) {
+            if pyrust::vec::contains!(no_guard, &pos) {
                 continue;
             }
             if !needs_harvester_guard(self_, pos, target, &no_guard) {

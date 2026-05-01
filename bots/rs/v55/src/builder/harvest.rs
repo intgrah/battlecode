@@ -167,7 +167,7 @@ pub fn needs_harvester_guard(
     if cardinal == builder.state.my_pos {
         return false;
     }
-    if io_reserved.contains(&cardinal) {
+    if pyrust::vec::contains!(io_reserved, &cardinal) {
         return false;
     }
     if is_guarded_cardinal(builder, cardinal) {
@@ -460,7 +460,7 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
             out.push(n);
             continue;
         }
-        if claimed_targets.contains(&n) {
+        if pyrust::vec::contains!(claimed_targets, &n) {
             out.push(n);
         }
     }

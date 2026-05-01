@@ -415,10 +415,13 @@ macro_rules! __pyrust_vec_is_empty {
     };
 }
 
+/// `pyrust::vec::contains!(v, x)` — the arg is passed verbatim to
+/// `Vec::contains`. The bot's source typically has `&x` already, so
+/// we don't add another reference.
 #[macro_export]
 macro_rules! __pyrust_vec_contains {
     ($v:expr, $x:expr) => {
-        $v.contains(&$x)
+        $v.contains($x)
     };
 }
 
@@ -449,10 +452,11 @@ macro_rules! __pyrust_set_add {
     };
 }
 
+/// `pyrust::set::contains!(s, x)` — arg passed verbatim.
 #[macro_export]
 macro_rules! __pyrust_set_contains {
     ($s:expr, $x:expr) => {
-        $s.contains(&$x)
+        $s.contains($x)
     };
 }
 
@@ -513,10 +517,11 @@ macro_rules! __pyrust_dict_insert {
     };
 }
 
+/// `pyrust::dict::contains!(m, k)` — arg passed verbatim.
 #[macro_export]
 macro_rules! __pyrust_dict_contains {
     ($m:expr, $k:expr) => {
-        $m.contains_key(&$k)
+        $m.contains_key($k)
     };
 }
 

@@ -48,7 +48,7 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
         let dmg_per_turn = (attackers * 2).max(2);
         let turns_to_die = (hp / dmg_per_turn).max(1);
         let can_reach = turns_to_reach <= turns_to_die + 1;
-        let is_critical = self_.adjacent_to_harvester.contains(&pos);
+        let is_critical = pyrust::vec::contains!(self_.adjacent_to_harvester, &pos);
 
         let tier = if is_critical && can_reach {
             3
@@ -122,7 +122,7 @@ pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
     };
 
     let heal_position = repair_pos;
-    let being_attacked = self_.enemy_bots.contains(&heal_position);
+    let being_attacked = pyrust::vec::contains!(self_.enemy_bots, &heal_position);
 
     let building_to_heal = best_adjacent_healable_building(self_);
     let save_money = being_attacked && self_.repaired_prev;

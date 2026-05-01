@@ -29,7 +29,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
             break;
         }
         for &u in &self_.in_edges[cur.y as usize * MAX_WIDTH + cur.x as usize] {
-            if visited.contains(&u) {
+            if pyrust::vec::contains!(visited, &u) {
                 continue;
             }
             visited.insert(u);

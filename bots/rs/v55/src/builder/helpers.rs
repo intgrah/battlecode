@@ -373,7 +373,7 @@ fn _trace_downstream_inner(
                     if let Some(target_head) = target_head {
                         let mut new_path = path.clone();
                         _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
-                        if !new_path.is_empty() && new_path.contains(&target_head) {
+                        if !new_path.is_empty() && pyrust::vec::contains!(new_path, &target_head) {
                             *path = new_path;
                             return;
                         }
@@ -394,7 +394,7 @@ fn _trace_downstream_inner(
             }
             _ => break,
         }
-        if path.contains(&current_pos) {
+        if pyrust::vec::contains!(path, &current_pos) {
             break;
         }
     }
@@ -440,7 +440,7 @@ pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
     while !feeders.is_empty() {
         let position = feeders[0];
         feeders = builder.get_in_edges(position);
-        if path.contains(&position) {
+        if pyrust::vec::contains!(path, &position) {
             break;
         }
         path.push(position);
@@ -777,7 +777,7 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
             continue;
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
-        let is_bad = bad_upstream.contains(&n)
+        let is_bad = pyrust::vec::contains!(bad_upstream, &n)
             || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| t.0.is_some_and(|res| bad_flows.contains(&res)));
         if !is_bad {
             continue;
@@ -902,7 +902,7 @@ pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
             break;
         }
         for &u in &builder.in_edges[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
-            if visited.contains(&u) {
+            if pyrust::vec::contains!(visited, &u) {
                 continue;
             }
             visited.insert(u);
@@ -922,7 +922,7 @@ pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> 
             break;
         }
         for &out in &builder.out_edges[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
-            if visited.contains(&out) {
+            if pyrust::vec::contains!(visited, &out) {
                 continue;
             }
             visited.insert(out);
@@ -953,7 +953,7 @@ pub fn chain_has_foundry(builder: &Builder, start: Position) -> bool {
 
 pub fn ax_feeds_target(builder: &Builder, target: Position) -> bool {
     for &feeder in &builder.in_edges[(target.y as usize) * MAX_WIDTH + (target.x as usize)] {
-        if builder.ax_upstream.contains(&feeder) {
+        if pyrust::vec::contains!(builder.ax_upstream, &feeder) {
             return true;
         }
     }

@@ -66,7 +66,7 @@ pub fn update_patrol(builder: &mut Builder) {
     let base = (fy as i32) * (MAX_WIDTH as i32) + (fx as i32);
     let mut transitive_count: i32 = 0;
     let offsets: Vec<(i32, i32, i32)> = builder._vision_offsets.clone();
-    if (4..(w - 4)).contains(&fx) && (4..(h - 4)).contains(&fy) {
+    if pyrust::vec::contains!((4..(w - 4)), &fx) && pyrust::vec::contains!((4..(h - 4)), &fy) {
         for (_, _, off) in &offsets {
             builder.last_seen[(base + off) as usize] = rnd;
             transitive_count += 1;
@@ -75,7 +75,7 @@ pub fn update_patrol(builder: &mut Builder) {
         for (dx, dy, off) in &offsets {
             let nx = fx + dx;
             let ny = fy + dy;
-            if (0..w).contains(&nx) && (0..h).contains(&ny) {
+            if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
                 builder.last_seen[(base + off) as usize] = rnd;
                 transitive_count += 1;
             }

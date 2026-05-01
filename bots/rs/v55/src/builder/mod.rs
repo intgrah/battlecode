@@ -339,8 +339,8 @@ impl Builder {
         for cy in 0..MAX_WIDTH as i32 {
             let row = cy * stride;
             for cx in 0..MAX_WIDTH as i32 {
-                if (1..(MAX_WIDTH as i32 - 1)).contains(&cx)
-                    && (1..(MAX_WIDTH as i32 - 1)).contains(&cy)
+                if pyrust::vec::contains!((1..(MAX_WIDTH as i32 - 1)), &cx)
+                    && pyrust::vec::contains!((1..(MAX_WIDTH as i32 - 1)), &cy)
                 {
                     continue;
                 }
@@ -349,7 +349,7 @@ impl Builder {
                 for &(dx, dy) in &DIR8_DELTA {
                     let nx = cx + dx;
                     let ny = cy + dy;
-                    if (0..MAX_WIDTH as i32).contains(&nx) && (0..MAX_WIDTH as i32).contains(&ny) {
+                    if pyrust::vec::contains!((0..MAX_WIDTH as i32), &nx) && pyrust::vec::contains!((0..MAX_WIDTH as i32), &ny) {
                         nbs.push(ny * stride + nx);
                     }
                 }
@@ -372,7 +372,7 @@ impl Builder {
             for &(dx, dy) in &DIR8_DELTA {
                 let nx = cx + dx;
                 let ny = cy + dy;
-                if (0..w).contains(&nx) && (0..h).contains(&ny) {
+                if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
                     let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
                     if self.cost_grid[ni] != INF {
                         self.pnb[i].push(ni as i32);
@@ -383,7 +383,7 @@ impl Builder {
         for &(dx, dy) in &DIR8_DELTA {
             let nx = cx + dx;
             let ny = cy + dy;
-            if !((0..w).contains(&nx) && (0..h).contains(&ny)) {
+            if !(pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny)) {
                 continue;
             }
             let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
@@ -392,7 +392,7 @@ impl Builder {
             }
             let nb_list = &mut self.pnb[ni];
             if passable {
-                if !nb_list.contains(&(i as i32)) {
+                if !pyrust::vec::contains!(nb_list, &(i as i32)) {
                     nb_list.push(i as i32);
                 }
             } else if let Some(p) = pyrust::iter!(nb_list).position(|&x| x == i as i32) {
@@ -424,7 +424,7 @@ impl Builder {
     /// Inherent shadow of `Unit::symmetry_guess`.
     pub fn symmetry_guess(&self) -> Symmetry {
         for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
-            if self.state.symmetry_candidates.contains(&sym) {
+            if pyrust::vec::contains!(self.state.symmetry_candidates, &sym) {
                 return sym;
             }
         }
@@ -719,7 +719,7 @@ impl Builder {
     }
 
     fn _set_ti_upstream(&mut self, t: Position, want: bool) {
-        let is_in = self.ti_upstream.contains(&t);
+        let is_in = pyrust::vec::contains!(self.ti_upstream, &t);
         if want == is_in {
             return;
         }
@@ -744,7 +744,7 @@ impl Builder {
     }
 
     fn _set_ax_upstream(&mut self, t: Position, want: bool) {
-        let is_in = self.ax_upstream.contains(&t);
+        let is_in = pyrust::vec::contains!(self.ax_upstream, &t);
         if want == is_in {
             return;
         }
@@ -770,11 +770,11 @@ impl Builder {
 
     pub fn _on_in_edge_added(&mut self, t: Position, f: Position) {
         let i = self.idx(t);
-        if self.ti_upstream.contains(&f) {
+        if pyrust::vec::contains!(self.ti_upstream, &f) {
             self._ti_in_count[i] += 1;
             self._reeval_ti_upstream(t);
         }
-        if self.ax_upstream.contains(&f) {
+        if pyrust::vec::contains!(self.ax_upstream, &f) {
             self._ax_in_count[i] += 1;
             self._reeval_ax_upstream(t);
         }
@@ -782,11 +782,11 @@ impl Builder {
 
     pub fn _on_in_edge_removed(&mut self, t: Position, f: Position) {
         let i = self.idx(t);
-        if self.ti_upstream.contains(&f) {
+        if pyrust::vec::contains!(self.ti_upstream, &f) {
             self._ti_in_count[i] -= 1;
             self._reeval_ti_upstream(t);
         }
-        if self.ax_upstream.contains(&f) {
+        if pyrust::vec::contains!(self.ax_upstream, &f) {
             self._ax_in_count[i] -= 1;
             self._reeval_ax_upstream(t);
         }
@@ -871,12 +871,12 @@ impl Builder {
             return;
         }
 
-        let unconn_adj = self.adjacent_to_unconnected_harvester.contains(&t);
+        let unconn_adj = pyrust::vec::contains!(self.adjacent_to_unconnected_harvester, &t);
         let mut feeders_unsatisfied = false;
         let in_edges_t: Vec<Position> = self.in_edges[i].clone();
         for f in &in_edges_t {
-            let in_ti = self.ti_upstream.contains(f);
-            let in_ax = self.ax_upstream.contains(f);
+            let in_ti = pyrust::vec::contains!(self.ti_upstream, f);
+            let in_ax = pyrust::vec::contains!(self.ax_upstream, f);
             if !in_ti && !in_ax {
                 continue;
             }
@@ -891,7 +891,7 @@ impl Builder {
         let is_dangling = unconn_adj || feeders_unsatisfied;
 
         if is_dangling {
-            if !self.unreachable_dangling.contains(&t) {
+            if !pyrust::vec::contains!(self.unreachable_dangling, &t) {
                 self.dangling_set.insert(t);
             }
         } else {
@@ -909,7 +909,7 @@ impl Builder {
         for &(dx, dy) in &DIR8_DELTA {
             let nx = cx + dx;
             let ny = cy + dy;
-            if (0..w).contains(&nx) && (0..h).contains(&ny) {
+            if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
                 nbs.push(ny * stride + nx);
             }
         }

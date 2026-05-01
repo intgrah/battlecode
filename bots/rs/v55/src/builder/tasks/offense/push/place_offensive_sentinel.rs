@@ -41,7 +41,7 @@ fn is_enemy_valuable(self_: &Builder, pos: Position) -> bool {
 /// feeder of `pos` or a friendly harvester.
 fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     let in_edges = &self_.in_edges[pos.y as usize * MAX_WIDTH + pos.x as usize];
-    if in_edges.contains(&side) {
+    if pyrust::vec::contains!(in_edges, &side) {
         return true;
     }
     self_.kind_at(side) == Some(EntityType::Harvester)
