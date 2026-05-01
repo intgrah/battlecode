@@ -131,3 +131,6 @@ pub use pyrust_macros::exception;
 /// Inert attribute consumed by `pyrust-translate`. See
 /// `pyrust_macros::transparent` for behaviour.
 pub use pyrust_macros::transparent;
+/// Inert attribute consumed by `pyrust-translate`. See
+/// `pyrust_macros::context_manager` for behaviour.
+pub use pyrust_macros::context_manager;

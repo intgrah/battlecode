@@ -280,7 +280,7 @@ fn chebyshev_to_nearest_core_edge(builder: &Builder, pos: Position) -> i32 {
 #[must_use] 
 pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> Option<Position> {
     let friendly: Vec<(Position, i32)> = pyrust::collect!(pyrust::map!(
-        pyrust::filter!(pyrust::iter!(builder.state.all_bots), |t| {
+        pyrust::filter!(pyrust::dict::items!(builder.state.all_bots), |t| {
             *t.1 != builder.state.my_id && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
         }),
         |t| (*t.0, *t.1)

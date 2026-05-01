@@ -455,7 +455,13 @@ impl Builder {
     #[must_use] 
     pub fn get_building(&self, pos: Position) -> Option<(EntityType, Team)> {
         let i = self.idx(pos);
-        Some((self.building_kind[i]?, self.building_team[i]?))
+        let kind = self.building_kind[i];
+        let team = self.building_team[i];
+        if pyrust::is_some!(kind) && pyrust::is_some!(team) {
+            Some((pyrust::unwrap!(kind), pyrust::unwrap!(team)))
+        } else {
+            None
+        }
     }
 
     #[must_use] 
@@ -1000,14 +1006,15 @@ impl Unit for Builder {
         }
 
         // Trim pnb at the actual map boundary (right column + bottom row).
-        let _scope = Scope::new_timed("pnb");
-        for cx in 0..w {
-            self.pnb_fix_boundary(cx, h - 1, w, h);
+        {
+            let _scope = Scope::new_timed("pnb");
+            for cx in 0..w {
+                self.pnb_fix_boundary(cx, h - 1, w, h);
+            }
+            for cy in 0..(h - 1) {
+                self.pnb_fix_boundary(w - 1, cy, w, h);
+            }
         }
-        for cy in 0..(h - 1) {
-            self.pnb_fix_boundary(w - 1, cy, w, h);
-        }
-        pyrust::drop!(_scope);
 
         self.refresh_symmetry_cache();
     }

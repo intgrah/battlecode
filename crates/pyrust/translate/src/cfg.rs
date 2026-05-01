@@ -49,6 +49,10 @@ pub struct CfgEnv {
     /// Names of types carrying `#[pyrust::exception]`. The struct emitter
     /// adds `Exception` to the type's Python base list so `raise X` works.
     pub exception_def_names: std::collections::HashSet<String>,
+    /// Names of types carrying `#[pyrust::context_manager]`. The struct
+    /// emitter adds `__enter__`/`__exit__` methods, and `let _g = T::CTOR(..)`
+    /// inside a block translates to `with T(..) as _g:` wrapping the rest.
+    pub context_manager_def_names: std::collections::HashSet<String>,
 }
 
 impl CfgEnv {

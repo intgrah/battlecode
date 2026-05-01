@@ -31,3 +31,18 @@ pub fn transparent(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn exception(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
+
+/// Mark a struct as a Python context manager. The translator:
+/// 1. Synthesises `__enter__(self): return self` and
+///    `__exit__(self, *args): self.drop()` on the emitted Python class
+///    (the user's existing `Drop` impl is wrapped).
+/// 2. Translates `let _NAME = T::CTOR(args);` (where T is marked) inside
+///    a block as `with T(args) as _NAME:` followed by an indented body
+///    containing the rest of the block. The Rust constructor's body
+///    (e.g. `push_scope`) runs at object construction (i.e. before the
+///    `with` even enters); `__exit__` runs the drop body. No-op at
+///    compile time.
+#[proc_macro_attribute]
+pub fn context_manager(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}

@@ -804,6 +804,26 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
             emitted_methods.insert(name);
         }
     }
+    // `#[pyrust::context_manager]`: synthesise `__enter__` (returns self)
+    // and `__exit__` (delegates to `drop` if defined). Constructor body
+    // (e.g. push_scope) already ran in __init__.
+    if w.is_context_manager_type(&class_name) {
+        let has_drop = emitted_methods.contains("drop");
+        w.blank_line();
+        w.line("def __enter__(self):");
+        w.enter_indent();
+        w.line("return self");
+        w.exit_indent();
+        w.blank_line();
+        w.line("def __exit__(self, exc_type, exc, tb):");
+        w.enter_indent();
+        if has_drop {
+            w.line("self.drop()");
+        } else {
+            w.line("pass");
+        }
+        w.exit_indent();
+    }
     w.exit_class();
     w.exit_indent();
     Ok(())

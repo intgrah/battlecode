@@ -162,7 +162,7 @@ impl DebugCtx {
             let idx = pyrust::expect!(f.parent_child_idx, "non-root frame must have idx");
             node = &mut node["children"][idx];
         }
-        let children = pyrust::unwrap!(node["children"].as_array_mut());
+        let children = pyrust::serde::array_mut!(node["children"]);
         self.dumper.dump(children, name, value);
     }
 
@@ -204,6 +204,7 @@ fn ctx() -> &'static mut DebugCtx {
 ///
 /// pyrust will translate `let _g = Scope::new("foo");` blocks back to Python
 /// `with Scope("foo"):` blocks (RAII guard ↔ context manager).
+#[pyrust::context_manager]
 pub struct Scope {
     pub label: String,
 }
