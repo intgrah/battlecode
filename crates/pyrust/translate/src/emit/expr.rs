@@ -353,7 +353,10 @@ fn emit_inline_call(
     // the def is a method.
     let mut bindings: Vec<(&'static str, syn::Expr)> = Vec::new();
     if def.has_self {
-        bindings.push(("self", receiver.expect("method inline needs receiver").clone()));
+        bindings.push((
+            "self",
+            receiver.expect("method inline needs receiver").clone(),
+        ));
     }
     let owned_names: Vec<String> = def.params.clone();
     // For each formal: either substitute the arg expression in directly
@@ -364,12 +367,12 @@ fn emit_inline_call(
     let mut subst: HashMap<String, syn::Expr> = HashMap::new();
     let mut tmp_n: u32 = 0;
     let handle = |w: &mut PyWriter,
-                      formal: String,
-                      expr: &syn::Expr,
-                      refs: usize,
-                      walrus_emits: &mut Vec<(String, Emitted)>,
-                      subst: &mut HashMap<String, syn::Expr>,
-                      tmp_n: &mut u32|
+                  formal: String,
+                  expr: &syn::Expr,
+                  refs: usize,
+                  walrus_emits: &mut Vec<(String, Emitted)>,
+                  subst: &mut HashMap<String, syn::Expr>,
+                  tmp_n: &mut u32|
      -> Result<(), String> {
         if refs == 0 {
             return Ok(());
@@ -380,7 +383,8 @@ fn emit_inline_call(
             let tmp = format!("__inl{tmp_n}");
             *tmp_n += 1;
             let em = emit_expr(w, expr)?;
-            let tmp_expr: syn::Expr = syn::parse_str(&tmp).map_err(|e| format!("inline tmp ident: {e}"))?;
+            let tmp_expr: syn::Expr =
+                syn::parse_str(&tmp).map_err(|e| format!("inline tmp ident: {e}"))?;
             walrus_emits.push((tmp, em));
             subst.insert(formal, tmp_expr);
         }
@@ -388,11 +392,27 @@ fn emit_inline_call(
     };
     for (formal, expr) in &bindings {
         let refs = body_ref_counts.get(formal).copied().unwrap_or(0);
-        handle(w, (*formal).to_string(), expr, refs, &mut walrus_emits, &mut subst, &mut tmp_n)?;
+        handle(
+            w,
+            (*formal).to_string(),
+            expr,
+            refs,
+            &mut walrus_emits,
+            &mut subst,
+            &mut tmp_n,
+        )?;
     }
     for (i, formal) in owned_names.iter().enumerate() {
         let refs = body_ref_counts.get(formal.as_str()).copied().unwrap_or(0);
-        handle(w, formal.clone(), args[i], refs, &mut walrus_emits, &mut subst, &mut tmp_n)?;
+        handle(
+            w,
+            formal.clone(),
+            args[i],
+            refs,
+            &mut walrus_emits,
+            &mut subst,
+            &mut tmp_n,
+        )?;
     }
     // AST-substitute formals in a clone of the body. visit_mut walks
     // the tree and replaces leaf single-segment Path matches with the
@@ -423,10 +443,7 @@ fn emit_inline_call(
 /// is a key in `subst` with the corresponding expression. `self` is the
 /// Rust keyword path; `syn` represents it as a single-segment path with
 /// ident `self`, so it substitutes uniformly with normal idents.
-fn substitute_idents(
-    e: &mut syn::Expr,
-    subst: &std::collections::HashMap<String, syn::Expr>,
-) {
+fn substitute_idents(e: &mut syn::Expr, subst: &std::collections::HashMap<String, syn::Expr>) {
     use syn::visit_mut::VisitMut;
     struct V<'a> {
         subst: &'a std::collections::HashMap<String, syn::Expr>,
@@ -461,10 +478,7 @@ fn count_path_refs(e: &syn::Expr) -> std::collections::HashMap<&'static str, usi
     }
     impl<'ast> Visit<'ast> for V<'ast> {
         fn visit_expr_path(&mut self, p: &'ast syn::ExprPath) {
-            if p.qself.is_none()
-                && p.path.leading_colon.is_none()
-                && p.path.segments.len() == 1
-            {
+            if p.qself.is_none() && p.path.leading_colon.is_none() && p.path.segments.len() == 1 {
                 let s = p.path.segments[0].ident.to_string();
                 let key: &'static str = match s.as_str() {
                     "self" => "self",
@@ -2435,8 +2449,16 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             // b need parens if they're at lower precedence (e.g. an addition
             // / subtraction expression). c is at addition precedence so it's
             // safe to emit without parens.
-            let a_text = if a.prec < Prec::Mul { format!("({})", a.text) } else { a.text };
-            let b_text = if b.prec < Prec::Mul { format!("({})", b.text) } else { b.text };
+            let a_text = if a.prec < Prec::Mul {
+                format!("({})", a.text)
+            } else {
+                a.text
+            };
+            let b_text = if b.prec < Prec::Mul {
+                format!("({})", b.text)
+            } else {
+                b.text
+            };
             Ok(Some(Emitted::atomic(
                 format!("({} * {} + {})", a_text, b_text, c.text),
                 Ty::Float,
@@ -2622,27 +2644,26 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             //   pyrust::map!(it, f)          — function reference (treated
             //                                  as `|x| f(x)`).
             // Try ClosureArgs first; on failure, parse as (it, callable).
-            let (it_text, pname, body_text) =
-                match syn::parse2::<ClosureArgs>(tokens.clone()) {
-                    Ok(parsed) => {
-                        let it = emit_expr(w, &parsed.recv)?;
-                        let body = emit_expr(w, &parsed.body)?;
-                        (it.text, parsed.param.clone(), body.text)
+            let (it_text, pname, body_text) = match syn::parse2::<ClosureArgs>(tokens.clone()) {
+                Ok(parsed) => {
+                    let it = emit_expr(w, &parsed.recv)?;
+                    let body = emit_expr(w, &parsed.body)?;
+                    (it.text, parsed.param.clone(), body.text)
+                }
+                Err(_) => {
+                    let args = parse_macro_arg_list(tokens.clone())
+                        .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
+                    if args.len() != 2 {
+                        return Err(w.err(
+                            em.span(),
+                            format!("{display}!: expected (it, closure) or (it, callable)"),
+                        ));
                     }
-                    Err(_) => {
-                        let args = parse_macro_arg_list(tokens.clone())
-                            .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
-                        if args.len() != 2 {
-                            return Err(w.err(
-                                em.span(),
-                                format!("{display}!: expected (it, closure) or (it, callable)"),
-                            ));
-                        }
-                        let it = emit_expr(w, &args[0])?;
-                        let f = emit_expr(w, &args[1])?;
-                        (it.text, "__x".to_string(), format!("{}(__x)", f.text))
-                    }
-                };
+                    let it = emit_expr(w, &args[0])?;
+                    let f = emit_expr(w, &args[1])?;
+                    (it.text, "__x".to_string(), format!("{}(__x)", f.text))
+                }
+            };
             let text = match tail[0] {
                 "map" => format!("({} for {} in {})", body_text, pname, it_text),
                 "filter" => format!("({1} for {1} in {2} if {0})", body_text, pname, it_text),

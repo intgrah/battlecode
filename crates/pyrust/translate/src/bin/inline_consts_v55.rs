@@ -36,8 +36,8 @@ fn already_inlined(attrs: &[syn::Attribute]) -> bool {
 
 #[derive(Debug, Clone)]
 struct Edit {
-    line: usize,    // 1-based line where the const item starts
-    column: usize,  // 0-based column (byte offset within line)
+    line: usize,   // 1-based line where the const item starts
+    column: usize, // 0-based column (byte offset within line)
 }
 
 fn line_offsets(src: &str) -> Vec<usize> {

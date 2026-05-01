@@ -43,9 +43,9 @@ pub use crate::__pyrust_floor as floor;
 pub use crate::__pyrust_into as into;
 pub use crate::__pyrust_into_iter as into_iter;
 pub use crate::__pyrust_is_none as is_none;
+pub use crate::__pyrust_is_none_or as is_none_or;
 pub use crate::__pyrust_is_some as is_some;
 pub use crate::__pyrust_is_some_and as is_some_and;
-pub use crate::__pyrust_is_none_or as is_none_or;
 pub use crate::__pyrust_iter as iter;
 pub use crate::__pyrust_iter_max as max;
 pub use crate::__pyrust_iter_max_by as max_by;
@@ -54,7 +54,9 @@ pub use crate::__pyrust_iter_min_by as min_by;
 pub use crate::__pyrust_iter_sum as sum;
 pub use crate::__pyrust_len as len;
 pub use crate::__pyrust_map as map;
+pub use crate::__pyrust_mul_add as mul_add;
 pub use crate::__pyrust_next as next;
+pub use crate::__pyrust_opt_map as opt_map;
 pub use crate::__pyrust_opt_take as opt_take;
 pub use crate::__pyrust_position as position;
 pub use crate::__pyrust_powf as powf;
@@ -64,8 +66,6 @@ pub use crate::__pyrust_rem_euclid as rem_euclid;
 pub use crate::__pyrust_rev as rev;
 pub use crate::__pyrust_rng_choices as rng_choices;
 pub use crate::__pyrust_round as round;
-pub use crate::__pyrust_mul_add as mul_add;
-pub use crate::__pyrust_opt_map as opt_map;
 pub use crate::__pyrust_signum as signum;
 pub use crate::__pyrust_skip as skip;
 pub use crate::__pyrust_sort as sort;
@@ -135,12 +135,12 @@ pub use prelude::PyDisplay;
 /// Inert attribute consumed by `pyrust-translate`. See
 /// `pyrust_macros::context_manager` for behaviour.
 pub use pyrust_macros::context_manager;
-/// Inert attribute consumed by `pyrust-translate`. See
-/// `pyrust_macros::inline` for behaviour.
-pub use pyrust_macros::inline;
 /// Inert attribute consumed by `pyrust-translate`. Marks the type as a
 /// Python `Exception` subclass.
 pub use pyrust_macros::exception;
+/// Inert attribute consumed by `pyrust-translate`. See
+/// `pyrust_macros::inline` for behaviour.
+pub use pyrust_macros::inline;
 /// Inert attribute consumed by `pyrust-translate`. See
 /// `pyrust_macros::transparent` for behaviour.
 pub use pyrust_macros::transparent;
