@@ -42,7 +42,6 @@ from builder.dump import dump
 from builder.hooks.heal import end_of_turn_heal
 from builder.hooks.indicators import indicators
 from builder.hooks.propagate_symmetry import end_of_turn_propagate_symmetry
-from builder.role import Role
 from builder.tasks import POLICIES
 from builder.tasks._policy import run_policy
 from builder.tasks.offense.helpers import begin_turn_offense
@@ -57,7 +56,7 @@ from builder.update.econ import (
     update_junctions,
     update_map_econ,
     update_offensive_ore_target,
-    update_ore_target,
+    update_ti_ore_target,
     update_ti_sink,
     update_unreachable_dangling,
 )
@@ -71,6 +70,8 @@ from builder.update.vision import apply_local_destroy, update_vision
 
 if TYPE_CHECKING:
     from building import Building
+
+    from builder.role import Role
 
 
 class Builder(CoreAwareUnit):
@@ -590,6 +591,8 @@ class Builder(CoreAwareUnit):
         """Transport tiles whose flow leads into a congested junction. Union
         of upstream trees of `congested_junctions`. Used to reject Ti-sink
         candidates and to identify conveyors worth upgrading into splitters."""
+        self.visible_ti_ores: set[Position] = set()
+        self.visible_ax_ores: set[Position] = set()
         self.my_foundries: set[Position] = set()
         """Friendly foundry positions. Maintained incrementally in vision
         update (`_add_topology`/`_remove_topology`) so `update_economy_reachability`
@@ -948,7 +951,7 @@ class Builder(CoreAwareUnit):
     update_unreachable_dangling = update_unreachable_dangling
     update_dangling = update_dangling
     check_invariants = check_invariants
-    update_ore_target = update_ore_target
+    update_ti_ore_target = update_ti_ore_target
     update_ax_ore_target = update_ax_ore_target
     update_offensive_ore_target = update_offensive_ore_target
     update_foundry_target = update_foundry_target
