@@ -610,6 +610,22 @@ macro_rules! __pyrust_vec_take {
     };
 }
 
+/// `pyrust::vec::first!(v)` — `Vec::first()`, Python `(v[0] if v else None)`.
+#[macro_export]
+macro_rules! __pyrust_vec_first {
+    ($v:expr) => {
+        ($v).first()
+    };
+}
+
+/// `pyrust::vec::last!(v)` — `Vec::last()`, Python `(v[-1] if v else None)`.
+#[macro_export]
+macro_rules! __pyrust_vec_last {
+    ($v:expr) => {
+        ($v).last()
+    };
+}
+
 /// Pop the last element. Returns `Option<T>` — `None` on empty.
 /// Translator emits `(v.pop() if v else None)` for Python parity.
 #[macro_export]

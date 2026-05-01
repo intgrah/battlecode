@@ -95,7 +95,7 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
                     // n.add(cdir) where cdir = direction(n), but here we
                     // need to know if the output points away from the
                     // harvester. Equivalent: out_edges[ni][0] != pos.
-                    if let Some(&out) = builder.out_edges[ni].first()
+                    if let Some(&out) = pyrust::vec::first!(builder.out_edges[ni])
                         && out != pos {
                             // The conveyor faces somewhere else than the
                             // harvester's tile. If that destination is itself
