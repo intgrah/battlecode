@@ -132,6 +132,7 @@ struct GameRunner {
     /// first action by a unit on a Rust team; dropped on unit death.
     rust_unit_bots: HashMap<i32, (Team, *mut std::ffi::c_void)>,
     turn_timeout_ms: u64,
+    max_rounds: i32,
     /// Banked extra time per bot (nanoseconds), used to absorb CPU jitter.
     bot_extra_time_ns: HashMap<i32, u64>,
     /// The Rust-backed Controller class, set on each subinterpreter's cambc module.
@@ -143,12 +144,13 @@ impl GameRunner {
     fn run(&mut self, py: Python) -> PyResult<()> {
         let gc = self.gc_mod.clone_ref(py).into_bound(py);
         gc.call_method0("disable")?;
-        for i in 0..MAX_TURNS {
+        let limit = self.max_rounds.min(MAX_TURNS);
+        for i in 0..limit {
             self.run_turn(py, &gc)?;
             if i % 100 == 0 {
                 println!("Completed turn {i}");
             }
-            if self.game.borrow_mut().winner_team().is_some() {
+            if self.game.borrow_mut().winner_team(false).is_some() {
                 break;
             }
         }
@@ -717,6 +719,7 @@ pub fn run(args: Args) -> PyResult<MatchSummary> {
             unit_runners: HashMap::new(),
             rust_unit_bots: HashMap::new(),
             turn_timeout_ms: args.turn_timeout_ms,
+            max_rounds: args.max_rounds,
             bot_extra_time_ns: HashMap::new(),
             controller_cls,
             gc_mod,
@@ -725,7 +728,10 @@ pub fn run(args: Args) -> PyResult<MatchSummary> {
         runner.destroy_all_subinterpreters();
         runner.destroy_all_rust_bots();
         let mut game = runner.game.borrow_mut();
-        let winner = game.winner_team();
+        // Final winner: force tiebreak if we're stopping early via
+        // `--rounds`, so a still-alive game collapses to a winner via
+        // the regular tiebreak instead of returning None.
+        let winner = game.winner_team(true);
         libre_replay::write_replay(&game.replay_recorder, &args.replay, winner).map_err(|err| {
             pyo3::exceptions::PyIOError::new_err(format!(
                 "failed to write replay {}: {}",

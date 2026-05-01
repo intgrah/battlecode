@@ -18,6 +18,7 @@ pub struct Args {
     pub replay: String,
     pub map: String,
     pub turn_timeout_ms: u64,
+    pub max_rounds: i32,
     pub seed: u64,
     pub suppress_indicators: bool,
     pub engine_root: PathBuf,
@@ -76,6 +77,10 @@ pub struct RunArgs {
     /// tracks real CPU time for `get_cpu_time_elapsed`. Default 0.
     #[arg(long, default_value_t = 0)]
     pub tle: u64,
+    /// Cut the game off after this many rounds and decide the winner via
+    /// the regular tiebreak. Default is the official `MAX_TURNS` (2000).
+    #[arg(long)]
+    pub rounds: Option<i32>,
     /// Translate Rust bots to Python via `pyrust-translate` before
     /// running. Useful for verifying that a Rust bot and its translated
     /// Python copy produce identical replays.
@@ -484,6 +489,9 @@ pub fn parse_args() -> Result<Args, String> {
                 replay,
                 map,
                 turn_timeout_ms: a.tle,
+                max_rounds: a
+                    .rounds
+                    .unwrap_or(libre_engine::common::game_constants::MAX_TURNS),
                 seed,
                 suppress_indicators: false,
                 engine_root,
