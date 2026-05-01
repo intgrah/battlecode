@@ -56,7 +56,9 @@ fn body_is_supported(e: &syn::Expr) -> bool {
             true
         }
         syn::Expr::Lit(_) => true,
-        syn::Expr::Field(f) => matches!(&f.member, syn::Member::Named(_)) && body_is_supported(&f.base),
+        syn::Expr::Field(f) => {
+            matches!(&f.member, syn::Member::Named(_)) && body_is_supported(&f.base)
+        }
         syn::Expr::Index(i) => body_is_supported(&i.expr) && body_is_supported(&i.index),
         syn::Expr::Binary(b) => {
             let op_ok = matches!(
@@ -130,7 +132,9 @@ fn signature_is_inlinable(sig: &syn::Signature) -> bool {
     // has a name to replace.
     let has_self = matches!(sig.inputs.first(), Some(syn::FnArg::Receiver(_)));
     for arg in sig.inputs.iter().skip(if has_self { 1 } else { 0 }) {
-        let syn::FnArg::Typed(pt) = arg else { return false };
+        let syn::FnArg::Typed(pt) = arg else {
+            return false;
+        };
         if !matches!(pt.pat.as_ref(), syn::Pat::Ident(_)) {
             return false;
         }

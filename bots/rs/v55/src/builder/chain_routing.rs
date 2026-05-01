@@ -183,7 +183,8 @@ fn _lay_segment(
     }
 
     let bid = pyrust::unwrap!(ct.get_tile_building_id(start_pos));
-    let entity_type: Option<EntityType> = pyrust::opt_map!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
+    let entity_type: Option<EntityType> =
+        pyrust::opt_map!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
 
     if entity_type == Some(EntityType::Road)
         && let Some(b) = bid
@@ -244,8 +245,9 @@ fn _lay_segment(
     }
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
-    let destination_team: Option<_> =
-        pyrust::opt_map!(destination_building, |b| pyrust::unwrap!(ct.get_team(Some(b))));
+    let destination_team: Option<_> = pyrust::opt_map!(destination_building, |b| pyrust::unwrap!(
+        ct.get_team(Some(b))
+    ));
     let destination_is_marker = if let Some(b) = destination_building {
         pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Marker
     } else {

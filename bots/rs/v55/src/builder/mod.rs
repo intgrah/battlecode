@@ -620,9 +620,7 @@ impl Builder {
         resource: ResourceType,
     ) -> Option<Vec<Position>> {
         let mut ctx = self.make_econ_ctx();
-        let path = self
-            .conv_search
-            .search(start, target, resource, &mut ctx);
+        let path = self.conv_search.search(start, target, resource, &mut ctx);
         self.absorb_econ_ctx(ctx);
         path
     }

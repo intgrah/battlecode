@@ -491,7 +491,8 @@ fn translate_source(source: &str, path: &Path, cfg: &CfgEnv) -> Result<String, S
 /// different bodies (or different param lists) across files is
 /// dropped from the map.
 fn scan_inline_fns(src: &Path) -> std::collections::HashMap<String, crate::cfg::InlineFn> {
-    let mut map: std::collections::HashMap<String, crate::cfg::InlineFn> = std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<String, crate::cfg::InlineFn> =
+        std::collections::HashMap::new();
     let mut conflicts: std::collections::HashSet<String> = std::collections::HashSet::new();
     // Workspace-wide collection of all method/free-fn bodies by name.
     // After scanning, any inline-registered name whose body diverges
@@ -567,12 +568,16 @@ fn collect_all_method_bodies(
     for item in &file.items {
         match item {
             syn::Item::Fn(f) => {
-                out.entry(f.sig.ident.to_string()).or_default().insert(block_sig(&f.block));
+                out.entry(f.sig.ident.to_string())
+                    .or_default()
+                    .insert(block_sig(&f.block));
             }
             syn::Item::Impl(im) => {
                 for ii in &im.items {
                     if let syn::ImplItem::Fn(f) = ii {
-                        out.entry(f.sig.ident.to_string()).or_default().insert(block_sig(&f.block));
+                        out.entry(f.sig.ident.to_string())
+                            .or_default()
+                            .insert(block_sig(&f.block));
                     }
                 }
             }
@@ -581,7 +586,9 @@ fn collect_all_method_bodies(
                     if let syn::TraitItem::Fn(f) = ii
                         && let Some(b) = &f.default
                     {
-                        out.entry(f.sig.ident.to_string()).or_default().insert(block_sig(b));
+                        out.entry(f.sig.ident.to_string())
+                            .or_default()
+                            .insert(block_sig(b));
                     }
                 }
             }
@@ -631,7 +638,8 @@ fn collect_inline_fns(
         };
         // Reject `&mut self` methods: substitution would duplicate
         // mutation effects.
-        let has_self = matches!(sig.inputs.first(), Some(syn::FnArg::Receiver(r)) if r.mutability.is_none());
+        let has_self =
+            matches!(sig.inputs.first(), Some(syn::FnArg::Receiver(r)) if r.mutability.is_none());
         if matches!(sig.inputs.first(), Some(syn::FnArg::Receiver(r)) if r.mutability.is_some()) {
             return;
         }

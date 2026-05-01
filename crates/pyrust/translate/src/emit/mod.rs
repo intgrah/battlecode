@@ -569,4 +569,3 @@ impl syn::parse::Parse for MacroExprList {
         Ok(Self(out))
     }
 }
-
