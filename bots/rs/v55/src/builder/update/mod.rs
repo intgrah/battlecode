@@ -63,14 +63,29 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
     }
     {
         let _g = Scope::new_timed("dangling");
-        econ::update_unreachable_dangling(builder);
-        econ::update_dangling(builder);
+        {
+            let _g = Scope::new_timed("dangling");
+            econ::update_unreachable_dangling(builder);
+        }
+        {
+            let _g = Scope::new_timed("dangling");
+            econ::update_dangling(builder);
+        }
     }
     {
-        let _g = Scope::new_timed("ore");
-        econ::update_ore_target(builder);
-        econ::update_ax_ore_target(builder);
-        econ::update_offensive_ore_target(builder);
+        let _g = Scope::new_timed("ore_target");
+        {
+            let _g = Scope::new_timed("update_ti_ore_target");
+            econ::update_ti_ore_target(builder);
+        }
+        {
+            let _g = Scope::new_timed("update_ax_ore_target");
+            econ::update_ax_ore_target(builder);
+        }
+        {
+            let _g = Scope::new_timed("update_offensive_ore_target");
+            econ::update_offensive_ore_target(builder);
+        }
     }
     {
         let _g = Scope::new_timed("foundry_target");
