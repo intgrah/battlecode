@@ -241,7 +241,7 @@ pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
 
 #[must_use] 
 pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
-    let base = pyrust::unwrap_or!(pyrust::map!(base_cost(etype), |c| c.0), 0);
+    let base = if let Some(c) = base_cost(etype) { c.0 } else { 0 };
     let scale = builder.state.scale;
     let foundry = if builder.state.round >= 500 && !pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
         (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * scale) as i32
