@@ -81,8 +81,8 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
         .role
         .is_some_and(|r: crate::builder::role::Role| r.is_offensive());
     let cap: f64 = if is_offense { 1.0 } else { 0.8 };
-    let frac = (cap).min(0.4 + (cap - 0.4) * (builder.state.round as f64) / 100.0);
-    let radius = ((w.max(h) as f64) * frac) as i32;
+    let frac = pyrust::min!((cap), 0.4 + (cap - 0.4) * (builder.state.round as f64) / 100.0);
+    let radius = ((pyrust::max!(w, h) as f64) * frac) as i32;
     let center = if is_offense {
         builder.en_core_guess()
     } else {
@@ -97,7 +97,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
         }
         let x = builder.state.rng.randint(0, (w - 1) as i64) as i32;
         let y = builder.state.rng.randint(0, (h - 1) as i64) as i32;
-        if (x - cx).abs().max((y - cy).abs()) > radius {
+        if pyrust::max!(pyrust::abs!((x - cx)), pyrust::abs!((y - cy))) > radius {
             continue;
         }
         let i = (y as usize) * MAX_WIDTH + (x as usize);
@@ -126,7 +126,7 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     let pos = builder.state.my_pos;
     let dx = c.x - pos.x;
     let dy = c.y - pos.y;
-    let chebyshev_d = dx.abs().max(dy.abs());
+    let chebyshev_d = pyrust::max!(pyrust::abs!(dx), pyrust::abs!(dy));
 
     let mut score = chebyshev_d as f64;
 
@@ -138,8 +138,8 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     {
         let cx = (dx > 0) as i32 - (dx < 0) as i32;
         let cy = (dy > 0) as i32 - (dy < 0) as i32;
-        let h_mag = (((hx * hx + hy * hy) as f64).sqrt()).abs();
-        let c_mag = (((cx * cx + cy * cy) as f64).sqrt()).abs();
+        let h_mag = pyrust::abs!((((hx * hx + hy * hy) as f64).sqrt()));
+        let c_mag = pyrust::abs!((((cx * cx + cy * cy) as f64).sqrt()));
         if h_mag > 0.0 && c_mag > 0.0 {
             let cos_align = ((hx * cx + hy * cy) as f64) / (h_mag * c_mag);
             score += _HEADING_WEIGHT * (1.0 - cos_align);
@@ -152,8 +152,8 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     let mut unseen = 0;
     for k in 1..=_LINE_SAMPLES {
         let t = (k as f64) / ((_LINE_SAMPLES + 1) as f64);
-        let sx = ((pos.x as f64) + t * (dx as f64)).round() as i32;
-        let sy = ((pos.y as f64) + t * (dy as f64)).round() as i32;
+        let sx = pyrust::round!(((pos.x as f64) + t * (dx as f64))) as i32;
+        let sy = pyrust::round!(((pos.y as f64) + t * (dy as f64))) as i32;
         if 0 <= sx
             && sx < builder.state.width
             && 0 <= sy
@@ -175,9 +175,9 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
         if *fb == pos {
             continue;
         }
-        let cdx = (c.x - fb.x).abs();
-        let cdy = (c.y - fb.y).abs();
-        let d = cdx.max(cdy);
+        let cdx = pyrust::abs!((c.x - fb.x));
+        let cdy = pyrust::abs!((c.y - fb.y));
+        let d = pyrust::max!(cdx, cdy);
         if d < _CLUSTER_RADIUS {
             score += _CLUSTER_PENALTY * (1.0 - (d as f64) / (_CLUSTER_RADIUS as f64));
         }

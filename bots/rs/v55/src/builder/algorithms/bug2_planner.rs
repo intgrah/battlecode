@@ -34,8 +34,8 @@ const IS_CARDINAL: [bool; 8] = [true, false, true, false, true, false, true, fal
 /// Build the Bresenham m-line sequence from `(sx, sy)` to `(gx, gy)`.
 pub fn build_mline_seq(sx: i32, sy: i32, gx: i32, gy: i32) -> Vec<(i32, i32)> {
     let mut out: Vec<(i32, i32)> = pyrust::vec::new!();
-    let dx = (gx - sx).abs();
-    let dy = (gy - sy).abs();
+    let dx = pyrust::abs!((gx - sx));
+    let dy = pyrust::abs!((gy - sy));
     let sxi = if sx < gx { 1 } else { -1 };
     let syi = if sy < gy { 1 } else { -1 };
     let mut err = dx - dy;

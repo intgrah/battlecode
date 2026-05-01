@@ -107,7 +107,7 @@ pub fn step_reachability(
             }
             let ny = n / stride;
             let nx = n % stride;
-            if (ny - cy).abs() > 1 || (nx - cx).abs() > 1 {
+            if pyrust::abs!((ny - cy)) > 1 || pyrust::abs!((nx - cx)) > 1 {
                 continue;
             }
             if nx >= w || ny >= h {

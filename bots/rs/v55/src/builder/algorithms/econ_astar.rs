@@ -201,8 +201,8 @@ impl AStarSearch {
         let gy = target.y;
         let sx = start.x;
         let sy = start.y;
-        let dx = (gx - sx).abs();
-        let dy = (gy - sy).abs();
+        let dx = pyrust::abs!((gx - sx));
+        let dy = pyrust::abs!((gy - sy));
 
         if si == gi {
             self.finished = true;
@@ -229,10 +229,10 @@ impl AStarSearch {
         };
         let routing_extra = &ctx.routing_extra;
         for i in 0..MAX_WIDTH {
-            self.x_heur_fwd[i] = ((i as i32) - gx).abs();
-            self.y_heur_fwd[i] = ((i as i32) - gy).abs();
-            self.x_heur_bwd[i] = ((i as i32) - sx).abs();
-            self.y_heur_bwd[i] = ((i as i32) - sy).abs();
+            self.x_heur_fwd[i] = pyrust::abs!(((i as i32) - gx));
+            self.y_heur_fwd[i] = pyrust::abs!(((i as i32) - gy));
+            self.x_heur_bwd[i] = pyrust::abs!(((i as i32) - sx));
+            self.y_heur_bwd[i] = pyrust::abs!(((i as i32) - sy));
         }
         for &idx in &self.touched_fwd {
             self._dist[idx as usize] = INF;
@@ -540,8 +540,8 @@ impl AStarSearch {
         let sx = start.x;
         let sy = start.y;
         for i in 0..MAX_WIDTH {
-            self.x_heur_fwd[i] = ((i as i32) - sx).abs();
-            self.y_heur_fwd[i] = ((i as i32) - sy).abs();
+            self.x_heur_fwd[i] = pyrust::abs!(((i as i32) - sx));
+            self.y_heur_fwd[i] = pyrust::abs!(((i as i32) - sy));
         }
         let my_root = uf_find(&mut ctx.reach_parent, ctx.my_pos.y * stride + ctx.my_pos.x);
         for &cached_i in &self.reach_root_touched {

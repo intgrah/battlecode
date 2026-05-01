@@ -63,6 +63,15 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("sum", 0) => Some("sum"),
         ("min", 0) => Some("min"),
         ("max", 0) => Some("max"),
+        // Pairwise min/max: `a.min(b)` / `a.max(b)`.
+        ("min", 1) => Some("min"),
+        ("max", 1) => Some("max"),
+        // Float / numeric scalar methods.
+        ("abs", 0) => Some("abs"),
+        ("round", 0) => Some("round"),
+        ("sqrt", 0) => Some("sqrt"),
+        ("floor", 0) => Some("floor"),
+        ("ceil", 0) => Some("ceil"),
         ("zip", 1) => Some("zip"),
         ("chain", 1) => Some("chain"),
         ("take", 1) => Some("take"),
@@ -148,12 +157,13 @@ impl<'src> V55Migrator<'src> {
     }
 
     /// Build the full nested DSL text for a chain-root method call.
-    /// Recursively handles inner chain methods on the receiver.
+    /// Recursively handles inner chain methods on the receiver AND
+    /// inside the args (so the visitor doesn't need a separate pass).
     fn build_chain_text(&self, mc: &syn::ExprMethodCall) -> String {
         let method = mc.method.to_string();
         let macro_name = dsl_macro(&method, mc.args.len()).expect("checked at call site");
         let recv_text = self.build_recv_text(&mc.receiver);
-        let arg_texts: Vec<String> = mc.args.iter().map(|a| self.span_text(a.span())).collect();
+        let arg_texts: Vec<String> = mc.args.iter().map(|a| self.build_arg_text(a)).collect();
         if arg_texts.is_empty() {
             format!("pyrust::{}!({})", macro_name, recv_text)
         } else {
@@ -164,6 +174,21 @@ impl<'src> V55Migrator<'src> {
                 arg_texts.join(", ")
             )
         }
+    }
+
+    /// Rewrite a chain-method argument. If the arg is itself a chain
+    /// method, recurse via build_chain_text. If it's a non-chain
+    /// method call sitting on top of a chain (like `(x).abs()` where
+    /// `.abs()` is a chain method), the build_recv_text path captures
+    /// it. For anything else we emit verbatim source — closure bodies,
+    /// arithmetic exprs, calls, etc.
+    fn build_arg_text(&self, e: &syn::Expr) -> String {
+        if let syn::Expr::MethodCall(mc) = e
+            && dsl_macro(&mc.method.to_string(), mc.args.len()).is_some()
+        {
+            return self.build_chain_text(mc);
+        }
+        self.span_text(e.span())
     }
 
     /// Build text for an expression appearing as the receiver of a
@@ -238,19 +263,19 @@ impl<'ast, 'src> Visit<'ast> for V55Migrator<'src> {
 
         if is_chain {
             // CHAIN ROOT — emit a single edit covering the whole chain.
+            // build_chain_text already rewrote inner chains in BOTH the
+            // receiver path and the args, so we don't visit either: doing
+            // so would generate inner edits that overlap the outer edit
+            // and cascade incorrectly when applied.
             let rep = self.build_chain_text(mc);
             if let Some((start, end)) = self.span_to_byte_range(mc.span()) {
                 self.add_edit(start, end, rep);
             }
-            // Walk receiver under the flag (suppress inner roots).
+            // Walk receiver under the flag for completeness (suppress any
+            // accidental edit emission from non-chain children).
             self.inside_chain_recv = true;
             self.visit_expr(&mc.receiver);
             self.inside_chain_recv = false;
-            // Args are independent (visit normally to find their own
-            // chain roots).
-            for arg in &mc.args {
-                self.visit_expr(arg);
-            }
             return;
         }
 

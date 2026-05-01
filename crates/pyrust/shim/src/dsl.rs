@@ -107,6 +107,39 @@ macro_rules! __pyrust_abs {
     };
 }
 
+/// `pyrust::round!(x)` — Python `round(x)` (returns float in Rust,
+/// but Python's `round` on float returns int by default).
+#[macro_export]
+macro_rules! __pyrust_round {
+    ($x:expr) => {
+        ($x).round()
+    };
+}
+
+/// `pyrust::sqrt!(x)` — Python `math.sqrt(x)`.
+#[macro_export]
+macro_rules! __pyrust_sqrt {
+    ($x:expr) => {
+        ($x).sqrt()
+    };
+}
+
+/// `pyrust::floor!(x)` — Python `math.floor(x)`.
+#[macro_export]
+macro_rules! __pyrust_floor {
+    ($x:expr) => {
+        ($x).floor()
+    };
+}
+
+/// `pyrust::ceil!(x)` — Python `math.ceil(x)`.
+#[macro_export]
+macro_rules! __pyrust_ceil {
+    ($x:expr) => {
+        ($x).ceil()
+    };
+}
+
 // =====================================================================
 // Iterator — chains / adapters / consumers (top-level macros)
 // =====================================================================
@@ -286,6 +319,9 @@ macro_rules! __pyrust_iter_min {
     ($it:expr) => {
         $it.min()
     };
+    ($a:expr, $b:expr) => {
+        ($a).min($b)
+    };
 }
 
 /// `pyrust::max!(it)` on an iterator — `max(...)`; `None` for empty.
@@ -293,6 +329,9 @@ macro_rules! __pyrust_iter_min {
 macro_rules! __pyrust_iter_max {
     ($it:expr) => {
         $it.max()
+    };
+    ($a:expr, $b:expr) => {
+        ($a).max($b)
     };
 }
 

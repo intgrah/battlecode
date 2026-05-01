@@ -201,7 +201,7 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
     let h_cost = ((pyrust::unwrap!(base_cost(EntityType::Harvester)).0 as f64) * (1.0 + s)) as i32;
     let c_cost = ((pyrust::unwrap!(base_cost(EntityType::Conveyor)).0 as f64) * s) as i32;
     let b_cost = ((pyrust::unwrap!(base_cost(EntityType::Bridge)).0 as f64) * s) as i32;
-    let r_cost = (((pyrust::unwrap!(base_cost(EntityType::Road)).0 as f64) * s) as i32).max(1);
+    let r_cost = pyrust::max!((((pyrust::unwrap!(base_cost(EntityType::Road)).0 as f64) * s) as i32), 1);
     let d_pos = manhattan(builder.state.my_pos, ore_pos);
     let d_sink = manhattan(ore_pos, sink_pos);
     let walk_cost = d_pos * r_cost;

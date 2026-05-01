@@ -44,9 +44,9 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
         }
 
         let dist = chebyshev(self_.my_pos, pos);
-        let turns_to_reach = (dist - 1).max(0);
-        let dmg_per_turn = (attackers * 2).max(2);
-        let turns_to_die = (hp / dmg_per_turn).max(1);
+        let turns_to_reach = pyrust::max!((dist - 1), 0);
+        let dmg_per_turn = pyrust::max!((attackers * 2), 2);
+        let turns_to_die = pyrust::max!((hp / dmg_per_turn), 1);
         let can_reach = turns_to_reach <= turns_to_die + 1;
         let is_critical = pyrust::vec::contains!(self_.adjacent_to_harvester, &pos);
 
