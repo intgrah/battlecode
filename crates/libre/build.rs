@@ -22,9 +22,10 @@ fn main() {
         ])
         .output();
     if let Ok(ref out) = py_cfg
-        && out.status.success() {
-            let include_dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let c_src = r#"
+        && out.status.success()
+    {
+        let include_dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let c_src = r#"
 #define Py_BUILD_CORE
 #include <Python.h>
 #include <stdio.h>
@@ -43,38 +44,39 @@ int main() {
         offsetof(PyThreadState, interp));
     return 0;
 }
-"#.to_string();
-            let c_path = out_dir.join("cpython_offsets.c");
-            let bin_path = out_dir.join("cpython_offsets_probe");
-            fs::write(&c_path, &c_src).expect("write cpython_offsets.c");
-            let cc = std::env::var("CC").unwrap_or_else(|_| "cc".into());
-            let compile = Command::new(&cc)
-                .args([
-                    "-DPy_BUILD_CORE",
-                    &format!("-I{include_dir}"),
-                    &format!("-I{include_dir}/internal"),
-                    c_path.to_str().unwrap(),
-                    "-o",
-                    bin_path.to_str().unwrap(),
-                ])
-                .output();
-            if let Ok(ref cout) = compile {
-                if cout.status.success() {
-                    let run = Command::new(&bin_path).output();
-                    if let Ok(ref rout) = run
-                        && rout.status.success() {
-                            let rs_code = String::from_utf8_lossy(&rout.stdout);
-                            fs::write(&offsets_path, rs_code.as_ref())
-                                .expect("write cpython_offsets.rs");
-                            eprintln!("cpython offsets:\n{rs_code}");
-                            probed = true;
-                        }
-                } else {
-                    let stderr = String::from_utf8_lossy(&cout.stderr);
-                    eprintln!("Warning: cpython offset probe compile failed: {stderr}");
+"#
+        .to_string();
+        let c_path = out_dir.join("cpython_offsets.c");
+        let bin_path = out_dir.join("cpython_offsets_probe");
+        fs::write(&c_path, &c_src).expect("write cpython_offsets.c");
+        let cc = std::env::var("CC").unwrap_or_else(|_| "cc".into());
+        let compile = Command::new(&cc)
+            .args([
+                "-DPy_BUILD_CORE",
+                &format!("-I{include_dir}"),
+                &format!("-I{include_dir}/internal"),
+                c_path.to_str().unwrap(),
+                "-o",
+                bin_path.to_str().unwrap(),
+            ])
+            .output();
+        if let Ok(ref cout) = compile {
+            if cout.status.success() {
+                let run = Command::new(&bin_path).output();
+                if let Ok(ref rout) = run
+                    && rout.status.success()
+                {
+                    let rs_code = String::from_utf8_lossy(&rout.stdout);
+                    fs::write(&offsets_path, rs_code.as_ref()).expect("write cpython_offsets.rs");
+                    eprintln!("cpython offsets:\n{rs_code}");
+                    probed = true;
                 }
+            } else {
+                let stderr = String::from_utf8_lossy(&cout.stderr);
+                eprintln!("Warning: cpython offset probe compile failed: {stderr}");
             }
         }
+    }
 
     if !probed && !offsets_path.exists() {
         fs::write(

@@ -106,7 +106,7 @@ impl DerefMut for Entity {
 }
 
 impl Entity {
-    #[must_use] 
+    #[must_use]
     pub const fn as_unit(&self) -> Option<Unit<'_>> {
         match self {
             Self::BuilderBot(bot) => Some(Unit::BuilderBot(bot)),
@@ -131,7 +131,7 @@ impl Entity {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn as_turret(&self) -> Option<Turret<'_>> {
         match self {
             Self::Gunner(t) => Some(Turret::Gunner(t)),
@@ -152,7 +152,7 @@ impl Entity {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn as_building(&self) -> Option<Building<'_>> {
         match self {
             Self::BuilderBot(_) => None,
@@ -193,7 +193,7 @@ impl Entity {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn scale_contribution(&self) -> i32 {
         // Values are in milli-percent: +10 = +1%. Per docs/spec/reference.md
         // and docs/spec/resources.md cost-scaling table.
@@ -206,14 +206,14 @@ impl Entity {
             Self::Harvester(_) => 50, // +5%
             Self::Bridge(_) | Self::Gunner(_) | Self::Breach(_) | Self::Launcher(_) => 100, // +10%
             Self::Sentinel(_) => 200, // +20%
-            Self::Foundry(_) => 500,  // +50%
+            Self::Foundry(_) => 500, // +50%
             // BuilderBot scale (+20%) is applied at spawn/remove sites,
             // not via scale_contribution (it isn't a building).
             _ => 0,
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn resource_to_feed(&self) -> Option<ResourceType> {
         match self {
             Self::Conveyor(c) => c.stored,
@@ -238,7 +238,7 @@ impl Entity {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn output_targets(&self) -> Vec<Pos> {
         match self {
             Self::Conveyor(c) => vec![c.position + c.direction],
@@ -306,7 +306,7 @@ impl Entity {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn can_accept_from(
         &self,
         resource: ResourceType,
@@ -430,7 +430,7 @@ impl Entity {
     /// For harvesters, returns `None` even when `cooldown == 0`, because
     /// a producer doesn't know its output id until it actually produces;
     /// the distribute loop assigns a fresh id at that moment.
-    #[must_use] 
+    #[must_use]
     pub fn feed_id(&self) -> Option<i32> {
         match self {
             Self::Conveyor(c) => c.stored_resource_id,
@@ -514,12 +514,12 @@ define_category! {
 }
 
 impl UnitBase {
-    #[must_use] 
+    #[must_use]
     pub const fn can_act(&self) -> bool {
         self.action_cooldown <= 0
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn can_move(&self) -> bool {
         self.move_cooldown <= 0
     }
@@ -535,7 +535,7 @@ impl UnitBase {
 }
 
 impl Unit<'_> {
-    #[must_use] 
+    #[must_use]
     pub const fn vision_radius_sq(&self) -> i32 {
         match self {
             Unit::BuilderBot(_) => BUILDER_BOT_VISION_RADIUS_SQ,
@@ -547,7 +547,7 @@ impl Unit<'_> {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn action_radius_sq(&self) -> i32 {
         match self {
             Unit::Core(_) => CORE_ACTION_RADIUS_SQ,
@@ -605,7 +605,7 @@ impl TurretBase {
 }
 
 impl Turret<'_> {
-    #[must_use] 
+    #[must_use]
     pub const fn vision_radius_sq(&self) -> i32 {
         match self {
             Turret::Gunner(_) => GUNNER_VISION_RADIUS_SQ,
@@ -755,12 +755,12 @@ pub struct Tile {
 }
 
 impl Tile {
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.building.is_none() && self.environment != Environment::Wall
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_bot_passable(&self, entities: &FxHashMap<i32, Entity>, team: Team) -> bool {
         if self.builder_bot.is_some() {
             return false;
@@ -791,12 +791,12 @@ pub struct GameMap {
 }
 
 impl GameMap {
-    #[must_use] 
+    #[must_use]
     pub const fn in_bounds(&self, pos: Pos) -> bool {
         pos.x >= 0 && pos.x < self.width && pos.y >= 0 && pos.y < self.height
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn tile(&self, pos: Pos) -> &Tile {
         assert!(self.in_bounds(pos), "position out of bounds: {pos:?}");
         &self.tiles[pos.y as usize][pos.x as usize]
@@ -906,9 +906,7 @@ impl GameMap {
         let resource_type = match self.tile(position).environment {
             Environment::OreTitanium => ResourceType::Titanium,
             Environment::OreAxionite => ResourceType::RawAxionite,
-            env => panic!(
-                "build_harvester called on non-ore tile {position:?}: {env:?}"
-            ),
+            env => panic!("build_harvester called on non-ore tile {position:?}: {env:?}"),
         };
         Harvester {
             building: BuildingBase {
@@ -1104,7 +1102,7 @@ pub struct PlayerState {
 }
 
 impl PlayerState {
-    #[must_use] 
+    #[must_use]
     pub const fn can_afford(&self, cost: (i32, i32)) -> bool {
         self.titanium >= cost.0 && self.axionite >= cost.1
     }

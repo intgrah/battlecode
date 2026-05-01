@@ -75,7 +75,7 @@ pub struct ReplayRecorder {
 }
 
 impl ReplayRecorder {
-    #[must_use] 
+    #[must_use]
     pub const fn new(
         environment: Vec<Vec<Environment>>,
         cores: Vec<(Pos, Team)>,
@@ -126,15 +126,15 @@ impl ReplayRecorder {
     }
 
     /// Borrowed views for the `libre-replay` crate's protobuf builder.
-    #[must_use] 
+    #[must_use]
     pub fn environment(&self) -> &[Vec<Environment>] {
         &self.environment
     }
-    #[must_use] 
+    #[must_use]
     pub fn cores(&self) -> &[(Pos, Team)] {
         &self.cores
     }
-    #[must_use] 
+    #[must_use]
     pub fn turns(&self) -> &[Vec<GameDiff>] {
         &self.diffs
     }

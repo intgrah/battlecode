@@ -49,7 +49,7 @@ pub struct Game {
 }
 
 impl Game {
-    #[must_use] 
+    #[must_use]
     pub fn new(
         environment: Vec<Vec<Environment>>,
         cores: Vec<(Pos, Team)>,
@@ -100,11 +100,7 @@ impl Game {
             harvesters: Vec::new(),
             rng: StdRng::seed_from_u64(seed),
             edge_last_used: FxHashMap::default(),
-            replay_recorder: ReplayRecorder::new(
-                environment,
-                cores.clone(),
-                suppress_indicators,
-            ),
+            replay_recorder: ReplayRecorder::new(environment, cores.clone(), suppress_indicators),
             resign_message: None,
             resign_called: false,
         };
@@ -155,7 +151,7 @@ impl Game {
 
     /// Count living units (Core + `BuilderBots` + Gunner + Sentinel + Breach
     /// + Launcher) on `team`. Used to enforce `MAX_TEAM_UNITS`.
-    #[must_use] 
+    #[must_use]
     pub fn unit_count(&self, team: Team) -> i32 {
         self.entities
             .values()
@@ -178,13 +174,13 @@ impl Game {
         self.players[team.index()].spend(cost);
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn scaled_cost(&self, team: Team, base: (i32, i32)) -> (i32, i32) {
         let scale_milli = self.players[team.index()].scale_milli;
         (base.0 * scale_milli / 1000, base.1 * scale_milli / 1000)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_tile_bot_passable(&self, pos: Pos, team: Team) -> bool {
         if !self.game_map.in_bounds(pos) {
             return false;
@@ -193,7 +189,7 @@ impl Game {
         tile.is_bot_passable(&self.entities, team)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn entity(&self, id: i32) -> Option<&Entity> {
         self.entities.get(&id)
     }
@@ -202,7 +198,7 @@ impl Game {
         self.entities.get_mut(&id)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn has_core(&self, team: Team) -> bool {
         self.entities.values().any(|entity| match entity {
             Entity::Core(core) => core.team == team,

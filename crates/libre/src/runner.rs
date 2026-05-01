@@ -48,7 +48,7 @@ impl TeamBackend {
 /// Used by `Controller::check_deadline()` for cooperative TLE enforcement.
 /// Returns 0 when the `tle` feature is disabled.
 #[cfg(feature = "tle")]
-#[must_use] 
+#[must_use]
 pub fn thread_cpu_time_ns() -> u64 {
     cpu_time_ns_for_clock(libc::CLOCK_THREAD_CPUTIME_ID)
 }
@@ -228,7 +228,9 @@ impl GameRunner {
             // then absorb any already-raised exception via a Python no-op.
             runner.watchdog.clear_async_exc();
             for _ in 0..100 {
-                if let Ok(_) = py.eval(c"None", None, None) { break }
+                if let Ok(_) = py.eval(c"None", None, None) {
+                    break;
+                }
                 runner.watchdog.clear_async_exc();
                 continue;
             }
@@ -289,7 +291,9 @@ impl GameRunner {
             // and disarm, then absorb any already-raised exception.
             runner.watchdog.clear_async_exc();
             for _ in 0..100 {
-                if let Ok(_) = py.eval(c"None", None, None) { break }
+                if let Ok(_) = py.eval(c"None", None, None) {
+                    break;
+                }
                 runner.watchdog.clear_async_exc();
                 continue;
             }
@@ -407,7 +411,10 @@ impl GameRunner {
             };
             let mut tstate: *mut PyThreadState = std::ptr::null_mut();
             let status = Py_NewInterpreterFromConfig(&raw mut tstate, &raw const config);
-            assert!(!(pyo3_ffi::PyStatus_IsError(status) != 0 || tstate.is_null()), "Py_NewInterpreterFromConfig failed");
+            assert!(
+                !(pyo3_ffi::PyStatus_IsError(status) != 0 || tstate.is_null()),
+                "Py_NewInterpreterFromConfig failed"
+            );
             tstate
         };
 
@@ -500,9 +507,10 @@ impl GameRunner {
         self.end_subinterpreters(&dead_python);
         for id in dead_rust {
             if let Some((team, bot_ptr)) = self.rust_unit_bots.remove(&id)
-                && let TeamBackend::Rust(rb) = &self.team_backends[team.index()] {
-                    rb.drop_bot(bot_ptr);
-                }
+                && let TeamBackend::Rust(rb) = &self.team_backends[team.index()]
+            {
+                rb.drop_bot(bot_ptr);
+            }
         }
     }
 

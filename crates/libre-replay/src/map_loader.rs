@@ -32,9 +32,10 @@ pub fn load_map(path: &str) -> io::Result<(Vec<Vec<Environment>>, Vec<(Pos, Team
         .cores
         .iter()
         .map(|core| {
-            let pos = core
-                .position
-                .as_ref().map_or_else(|| panic!("core missing position"), |p| Pos { x: p.x, y: p.y });
+            let pos = core.position.as_ref().map_or_else(
+                || panic!("core missing position"),
+                |p| Pos { x: p.x, y: p.y },
+            );
             let team = match proto::Team::try_from(core.team) {
                 Ok(proto::Team::A) => Team::A,
                 Ok(proto::Team::B) => Team::B,
@@ -65,11 +66,11 @@ pub fn save_map(
 
     let map = build_proto_map(environment, cores);
     let mut buf = Vec::new();
-    map.encode(&mut buf)
-        .map_err(|err| io::Error::other(err))?;
+    map.encode(&mut buf).map_err(io::Error::other)?;
     if let Some(parent) = Path::new(path).parent()
-        && !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
     fs::write(path, buf)
 }

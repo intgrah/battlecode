@@ -68,7 +68,9 @@ impl Watchdog {
         // matches pthread_self() (which is what CPython stores there).
         let current_pthread = unsafe { libc::pthread_self() } as std::ffi::c_ulong;
         let tid_at_offset = unsafe {
-            *(tstate as *const u8).add(offsets::THREAD_ID_OFFSET).cast::<std::ffi::c_ulong>()
+            *(tstate as *const u8)
+                .add(offsets::THREAD_ID_OFFSET)
+                .cast::<std::ffi::c_ulong>()
         };
         assert_eq!(
             current_pthread,
@@ -146,7 +148,10 @@ impl Watchdog {
         let state = self.inner.mu.lock().unwrap();
         if !state.tstate.is_null() {
             unsafe {
-                let async_exc_ptr = state.tstate.add(offsets::ASYNC_EXC_OFFSET).cast::<*mut u8>();
+                let async_exc_ptr = state
+                    .tstate
+                    .add(offsets::ASYNC_EXC_OFFSET)
+                    .cast::<*mut u8>();
                 std::ptr::write_volatile(async_exc_ptr, std::ptr::null_mut());
             }
         }
@@ -178,7 +183,8 @@ fn watchdog_thread(inner: Arc<Inner>) {
     unsafe {
         let mut cpuset: libc::cpu_set_t = std::mem::zeroed();
         libc::CPU_SET(0, &mut cpuset);
-        let ret = libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &raw const cpuset);
+        let ret =
+            libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &raw const cpuset);
         if ret != 0 {
             eprintln!(
                 "[watchdog] sched_setaffinity to core 0 failed: {}",
@@ -296,7 +302,10 @@ fn fire(state: &State) {
     unsafe {
         // 1. Set tstate->async_exc = PyExc_SystemExit
         //    SystemExit is immortal in CPython 3.12 — no Py_INCREF needed.
-        let async_exc_ptr = state.tstate.add(offsets::ASYNC_EXC_OFFSET).cast::<*mut u8>();
+        let async_exc_ptr = state
+            .tstate
+            .add(offsets::ASYNC_EXC_OFFSET)
+            .cast::<*mut u8>();
         let async_exc_atomic = &*(async_exc_ptr as *const std::sync::atomic::AtomicPtr<u8>);
         async_exc_atomic.store(state.system_exit, Ordering::Release);
 
