@@ -13,11 +13,11 @@ pub enum Symmetry {
     Ver = 2,
 }
 
-impl Symmetry {
-    /// All three symmetries, in priority order (matches Python's
-    /// `Symmetry` enum iteration order).
-    pub const ALL: [Symmetry; 3] = [Symmetry::Rot, Symmetry::Hor, Symmetry::Ver];
+/// All three symmetries, in priority order (matches Python's
+/// `Symmetry` enum iteration order).
+pub const ALL: [Symmetry; 3] = [Symmetry::Rot, Symmetry::Hor, Symmetry::Ver];
 
+impl Symmetry {
     /// Apply this symmetry to `pos` on a map with the given dimensions.
     #[must_use]
     pub const fn action(self, pos: Position, w: i32, h: i32) -> Position {

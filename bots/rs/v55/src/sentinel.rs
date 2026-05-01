@@ -2,7 +2,7 @@
 
 use cambc::{Controller, ControllerApi, Direction, EntityType, GameConstants, Position, Team};
 
-use crate::unit::{Unit, UnitState, run_default};
+use crate::unit::{Unit, UnitState};
 
 const SELF_DESTRUCT_THRESHOLD: i32 = 16;
 
@@ -125,6 +125,14 @@ pub struct Sentinel {
 }
 
 impl Sentinel {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            state: UnitState::new(),
+            idle_turns: 0,
+        }
+    }
+
     fn try_self_destruct(&mut self, ct: &mut Controller<'_>) {
         let my_team = self.state.my_team;
         let mut has_ally = false;
@@ -151,7 +159,8 @@ impl Unit for Sentinel {
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
-        run_default(self, ct);
+        self.state.cache_per_turn_state(ct);
+        self.state.check_symmetry_marker(ct);
         if ct.get_action_cooldown().unwrap() > 0 {
             return;
         }

@@ -48,17 +48,19 @@ impl Marker {
         let raw = encrypted ^ KEY;
         let tag = (raw >> TAG_SHIFT) & TAG_MASK;
         let payload = raw & PAYLOAD_MASK;
-        match tag {
-            TAG_SYMMETRY => {
-                let sym = match payload & 0x3 {
-                    0 => Symmetry::Rot,
-                    1 => Symmetry::Hor,
-                    2 => Symmetry::Ver,
-                    _ => return None,
-                };
-                Some(Marker::Symmetry { symmetry: sym })
-            }
-            _ => None,
+        // `if/else` rather than `match`: Python `case CONST:` parses as a
+        // binding pattern, not a value comparison, so an idiomatic Rust
+        // match-on-constants doesn't translate cleanly.
+        if tag == TAG_SYMMETRY {
+            let sym = match payload & 0x3 {
+                0 => Symmetry::Rot,
+                1 => Symmetry::Hor,
+                2 => Symmetry::Ver,
+                _ => return None,
+            };
+            Some(Marker::Symmetry { symmetry: sym })
+        } else {
+            None
         }
     }
 }

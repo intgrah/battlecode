@@ -60,27 +60,36 @@ fn is_precious_friendly(b: Option<Building>, team: Team) -> bool {
     )
 }
 
-/// Snap the unit vector from `from` to `to` to the nearest 45-degree direction.
-fn direction_to(from: Position, to: Position) -> Direction {
-    let dx = to.x - from.x;
-    let dy = to.y - from.y;
+/// Snap the unit vector from `src` to `dst` to the nearest 45-degree direction.
+fn direction_to(src: Position, dst: Position) -> Direction {
+    let dx = dst.x - src.x;
+    let dy = dst.y - src.y;
     if dx == 0 && dy == 0 {
         return Direction::Centre;
     }
-    let angle = (-(dy as f64)).atan2(dx as f64);
-    let raw = (angle + 2.0 * std::f64::consts::PI + std::f64::consts::FRAC_PI_8)
-        / std::f64::consts::FRAC_PI_4;
-    let sector = (raw as i32).rem_euclid(8) as usize;
-    [
-        Direction::East,
-        Direction::Northeast,
-        Direction::North,
-        Direction::Northwest,
-        Direction::West,
-        Direction::Southwest,
-        Direction::South,
-        Direction::Southeast,
-    ][sector]
+    let adx = dx.abs();
+    let ady = dy.abs();
+    if adx * 5 < ady * 2 {
+        return if dy < 0 {
+            Direction::North
+        } else {
+            Direction::South
+        };
+    }
+    if ady * 5 < adx * 2 {
+        return if dx < 0 {
+            Direction::West
+        } else {
+            Direction::East
+        };
+    }
+    match (dx.signum(), dy.signum()) {
+        (1, -1) => Direction::Northeast,
+        (1, 1) => Direction::Southeast,
+        (-1, 1) => Direction::Southwest,
+        (-1, -1) => Direction::Northwest,
+        _ => Direction::Centre,
+    }
 }
 
 pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {

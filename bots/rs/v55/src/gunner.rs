@@ -2,7 +2,7 @@
 
 use cambc::{Controller, ControllerApi, Direction, EntityType, GameConstants, Position};
 
-use crate::unit::{Unit, UnitState, run_default};
+use crate::unit::{Unit, UnitState};
 use crate::util::directions::DIR8;
 
 /// Valid priority targets for rotation: other enemy turrets we should
@@ -194,7 +194,8 @@ impl Unit for Gunner {
 
     fn run(&mut self, ct: &mut Controller<'_>) {
         // super().run(ct) — populate cached per-turn state.
-        run_default(self, ct);
+        self.state.cache_per_turn_state(ct);
+        self.state.check_symmetry_marker(ct);
 
         let facing = ct.get_direction(None).unwrap();
         let fire_target = self.fire_target(ct, facing);

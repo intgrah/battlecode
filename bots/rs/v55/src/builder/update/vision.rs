@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
-use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, Position};
+use cambc::{Controller, ControllerApi, Direction, EntityType, Environment, GameConstants, Position};
 
 use crate::builder::Builder;
 use crate::building::{Building, make_building};
-use crate::util::constants::{INF, MAX_WIDTH, ROAD_COST};
+use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST};
 use crate::util::directions::DIR8;
 use crate::util::symmetry::Symmetry;
 
@@ -29,8 +29,7 @@ fn _edge_targets(pos: Position, bld: Building) -> Vec<Position> {
     }
 }
 
-const fn rotate_right(d: cambc::Direction) -> cambc::Direction {
-    use cambc::Direction;
+const fn rotate_right(d: Direction) -> Direction {
     match d {
         Direction::North => Direction::Northeast,
         Direction::Northeast => Direction::East,
@@ -44,8 +43,7 @@ const fn rotate_right(d: cambc::Direction) -> cambc::Direction {
     }
 }
 
-const fn rotate_left(d: cambc::Direction) -> cambc::Direction {
-    use cambc::Direction;
+const fn rotate_left(d: Direction) -> Direction {
     match d {
         Direction::North => Direction::Northwest,
         Direction::Northeast => Direction::North,
@@ -449,7 +447,7 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                 let r = ct.get_stored_resource(Some(bid_v)).unwrap();
                 let rid = ct.get_stored_resource_id(Some(bid_v)).unwrap();
                 builder.flow_history[i].push_back((r, rid));
-                while builder.flow_history[i].len() > crate::util::constants::FLOW_HISTORY_LEN {
+                while builder.flow_history[i].len() > FLOW_HISTORY_LEN {
                     builder.flow_history[i].pop_front();
                 }
             }

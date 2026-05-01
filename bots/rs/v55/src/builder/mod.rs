@@ -27,8 +27,8 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
-use crate::builder::algorithms::nav::BugNav;
-use crate::builder::algorithms::reachability::update_reachability;
+use crate::builder::algorithms::nav::{BugNav, NavCtx};
+use crate::builder::algorithms::reachability::{find_ro, update_reachability};
 use crate::builder::hooks::heal::end_of_turn_heal;
 use crate::builder::hooks::indicators::indicators;
 use crate::builder::hooks::propagate_symmetry::end_of_turn_propagate_symmetry;
@@ -36,15 +36,18 @@ use crate::builder::role::Role;
 use crate::builder::tasks::_policy::run_policy;
 use crate::builder::tasks::offense::helpers::begin_turn_offense;
 use crate::builder::tasks::policy_for_role;
+use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::update::update;
+use crate::builder::update::vision::apply_local_destroy as vision_apply_local_destroy;
 use crate::building::Building;
-use crate::config::DEBUG_DUMP;
+use crate::config::{DEBUG_DUMP, HARDCODE};
 use crate::hardcode::identify::{KnownMap, identify_map};
-use crate::unit::{CoreAwareUnit, Unit, UnitState, run_default};
+use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH, ROAD_COST};
 use crate::util::debug::{Scope, debug as log};
 use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
 use crate::util::symmetry::Symmetry;
+use crate::util::visualiser::auto_wrap_position;
 
 /// The Builder unit. Embeds `UnitState` (auto-Deref'd so `builder.my_pos`
 /// resolves transparently) plus per-builder map belief, navigation state,
@@ -457,8 +460,7 @@ impl Builder {
         if self.reach_parent[i as usize] == -1 || self.reach_parent[my_i as usize] == -1 {
             return false;
         }
-        crate::builder::algorithms::reachability::find_ro(&self.reach_parent, i)
-            == crate::builder::algorithms::reachability::find_ro(&self.reach_parent, my_i)
+        find_ro(&self.reach_parent, i) == find_ro(&self.reach_parent, my_i)
     }
 
     pub fn is_walkable(&self, pos: Position) -> bool {
@@ -548,7 +550,7 @@ impl Builder {
 
     /// Mid-turn invariant fix-up after `ct.destroy(pos)`.
     pub fn apply_local_destroy(&mut self, pos: Position) {
-        crate::builder::update::vision::apply_local_destroy(self, pos);
+        vision_apply_local_destroy(self, pos);
     }
 
     /// Run the Ti A* search. Constructs an `EconAstarCtx` from this
@@ -585,8 +587,8 @@ impl Builder {
         path
     }
 
-    fn make_econ_ctx(&self) -> crate::builder::algorithms::econ_astar::EconAstarCtx {
-        crate::builder::algorithms::econ_astar::EconAstarCtx {
+    fn make_econ_ctx(&self) -> EconAstarCtx {
+        EconAstarCtx {
             ax_routable: self.ax_routable.clone(),
             ti_routable: self.ti_routable.clone(),
             routing_extra: self.routing_extra.clone(),
@@ -597,7 +599,7 @@ impl Builder {
         }
     }
 
-    fn absorb_econ_ctx(&mut self, ctx: crate::builder::algorithms::econ_astar::EconAstarCtx) {
+    fn absorb_econ_ctx(&mut self, ctx: EconAstarCtx) {
         // The search may have run path-halving in `reach_parent`; sync back so
         // future UF calls see the compressed paths.
         self.reach_parent = ctx.reach_parent;
@@ -614,7 +616,7 @@ impl Builder {
             state,
             ..
         } = self;
-        let mut ctx = crate::builder::algorithms::nav::NavCtx {
+        let mut ctx = NavCtx {
             my_pos: state.my_pos,
             cost_grid,
             w: state.width,
@@ -918,7 +920,13 @@ impl Unit for Builder {
     }
 
     fn post_init(&mut self, ct: &mut Controller<'_>) {
-        CoreAwareUnit::post_init_core_aware(self, ct);
+        // Builder's per-turn `update_vision` does the symmetry narrowing
+        // incrementally against its persistent grid, so the post_init pass
+        // skips `narrow_symmetry_from_vision` (otherwise both run on the
+        // same turn-1 observations).
+        self.state.init_static_state(ct);
+        let core = self.resolve_my_core(ct);
+        self.set_my_core(core);
 
         let r = self.state.rng.random();
         self.opportunistic = r < 0.5;
@@ -938,7 +946,7 @@ impl Unit for Builder {
             }
         }
 
-        self.known_map = if crate::config::HARDCODE {
+        self.known_map = if HARDCODE {
             identify_map(self.state.width, self.state.height, self.my_core)
         } else {
             None
@@ -963,7 +971,8 @@ impl Unit for Builder {
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
-        run_default(self, ct);
+        self.state.cache_per_turn_state(ct);
+        self.state.check_symmetry_marker(ct);
         self.refresh_symmetry_cache();
 
         let _g = Scope::new_timed("body");
@@ -972,10 +981,7 @@ impl Unit for Builder {
             "id".to_string(),
             serde_json::Value::Number(serde_json::Number::from(self.state.my_id)),
         );
-        args.insert(
-            "pos".to_string(),
-            crate::util::visualiser::auto_wrap_position(self.state.my_pos),
-        );
+        args.insert("pos".to_string(), auto_wrap_position(self.state.my_pos));
         args.insert(
             "round".to_string(),
             serde_json::Value::Number(serde_json::Number::from(self.state.round)),
@@ -1010,12 +1016,6 @@ impl Unit for Builder {
                 end_of_turn_propagate_symmetry(self, ct);
             }
         }
-    }
-
-    fn narrow_symmetry_from_vision(&mut self, _ct: &mut Controller<'_>) {
-        // Builder's incremental `_narrow_symmetry` in update_vision sees
-        // the same turn-1 observations against its persistent grid, so
-        // the post_init pass would just duplicate the work.
     }
 }
 

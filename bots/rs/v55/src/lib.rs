@@ -63,12 +63,12 @@ impl Player {
     pub fn new() -> Self {
         Self {
             unit: None,
-            builder: Builder::default(),
-            core: Core::default(),
-            sentinel: Sentinel::default(),
-            gunner: Gunner::default(),
-            launcher: Launcher::default(),
-            breach: Breach::default(),
+            builder: Builder::new(),
+            core: Core::new(),
+            sentinel: Sentinel::new(),
+            gunner: Gunner::new(),
+            launcher: Launcher::new(),
+            breach: Breach::new(),
         }
     }
 

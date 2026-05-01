@@ -17,7 +17,7 @@
 
 use std::collections::HashSet;
 
-use cambc::{Controller, ControllerApi, EntityType, Environment, Position, Team};
+use cambc::{Controller, ControllerApi, Direction, EntityType, Environment, Position, Team};
 use serde_json::Map;
 
 use crate::builder::Builder;
@@ -27,7 +27,7 @@ use crate::builder::helpers::{
 };
 use crate::building::Building;
 use crate::util::debug::debug as log;
-use crate::util::directions::DIR4;
+use crate::util::directions::{DIR4, delta_to_dir};
 use crate::util::visualiser::auto_wrap_position;
 
 /// Enemy road/conveyor/splitter/bridge cardinal-adjacent to `pos`,
@@ -112,7 +112,7 @@ pub fn walk_to_ore_claim(
         if builder.state.my_pos.distance_squared(contest_pos) <= 2 {
             let dx = contest_pos.x - builder.state.my_pos.x;
             let dy = contest_pos.y - builder.state.my_pos.y;
-            if let Some(d) = crate::util::directions::delta_to_dir(dx, dy)
+            if let Some(d) = delta_to_dir(dx, dy)
                 && ct.can_move(d).unwrap()
             {
                 ct.move_(d).unwrap();
@@ -229,7 +229,7 @@ pub fn place_harvester_guard(
     }
     let dx = target.x - cardinal.x;
     let dy = target.y - cardinal.y;
-    let Some(inward) = crate::util::directions::delta_to_dir(dx, dy) else {
+    let Some(inward) = delta_to_dir(dx, dy) else {
         return false;
     };
     if ct.can_build_conveyor(cardinal, inward).unwrap() {
@@ -254,7 +254,7 @@ pub fn place_harvester_guard(
 fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position) -> bool {
     let dx = guard_pos.x - target.x;
     let dy = guard_pos.y - target.y;
-    let Some(d) = crate::util::directions::delta_to_dir(dx, dy) else {
+    let Some(d) = delta_to_dir(dx, dy) else {
         return false;
     };
     let top = guard_pos.add(d);
@@ -349,7 +349,7 @@ pub fn step_off_and_build_harvester(
 
     let dx = feed.x - builder.state.my_pos.x;
     let dy = feed.y - builder.state.my_pos.y;
-    let Some(d) = crate::util::directions::delta_to_dir(dx, dy) else {
+    let Some(d) = delta_to_dir(dx, dy) else {
         return false;
     };
 
@@ -473,8 +473,7 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
     out
 }
 
-const fn rotate_right(d: cambc::Direction) -> cambc::Direction {
-    use cambc::Direction;
+const fn rotate_right(d: Direction) -> Direction {
     match d {
         Direction::North => Direction::Northeast,
         Direction::Northeast => Direction::East,
@@ -488,8 +487,7 @@ const fn rotate_right(d: cambc::Direction) -> cambc::Direction {
     }
 }
 
-const fn rotate_left(d: cambc::Direction) -> cambc::Direction {
-    use cambc::Direction;
+const fn rotate_left(d: Direction) -> Direction {
     match d {
         Direction::North => Direction::Northwest,
         Direction::Northeast => Direction::North,
