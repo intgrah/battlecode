@@ -1007,7 +1007,7 @@ impl Unit for Builder {
         for cy in 0..(h - 1) {
             self.pnb_fix_boundary(w - 1, cy, w, h);
         }
-        drop(_scope);
+        pyrust::drop!(_scope);
 
         self.refresh_symmetry_cache();
     }

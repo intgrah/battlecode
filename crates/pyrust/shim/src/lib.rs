@@ -26,6 +26,7 @@ pub use crate::__pyrust_cast_int as int;
 pub use crate::__pyrust_ceil as ceil;
 pub use crate::__pyrust_chain as chain;
 pub use crate::__pyrust_clone as clone;
+pub use crate::__pyrust_drop as drop;
 pub use crate::__pyrust_cloned as cloned;
 pub use crate::__pyrust_collect as collect;
 pub use crate::__pyrust_copied as copied;
