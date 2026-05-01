@@ -160,7 +160,7 @@ impl Core {
 
     fn try_spawn(&mut self, ct: &mut Controller<'_>) {
         if self.spawned < Self::INITIAL_SPAWNS {
-            let en_core = self.en_core_guess;
+            let en_core = self.en_core_guess();
             let mut corners: Vec<Position> =
                 pyrust::collect!(pyrust::map!(pyrust::iter!(CORNERS), |&d| self
                     .state
