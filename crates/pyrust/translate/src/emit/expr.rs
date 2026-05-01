@@ -2694,6 +2694,16 @@ fn expr_kind(e: &syn::Expr) -> &'static str {
 // emitted as a multi-line statement when the call appears in statement
 // position; in expression position it would have to be hoisted.
 
+/// Public surface for use by `emit_stmt_macro` so a statement-position
+/// `pyrust::vec::push!(v, x);` reaches the same dispatch as an
+/// expression-position macro.
+pub(crate) fn emit_pyrust_dsl_for_stmt(
+    w: &mut PyWriter,
+    em: &syn::ExprMacro,
+) -> Result<Option<Emitted>, String> {
+    emit_pyrust_dsl(w, em)
+}
+
 /// Try the pyrust DSL pattern dispatch. Returns `Some(emitted)` if the
 /// macro path matched a known DSL macro, `None` otherwise.
 fn emit_pyrust_dsl(
