@@ -1023,7 +1023,9 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
     best_target
 }
 
+#[pyrust::inline]
 const _UPSTREAM_MAX_NODES: usize = 80;
+#[pyrust::inline]
 const _DOWNSTREAM_MAX_NODES: usize = 80;
 
 /// BFS backwards via `in_edges` — all friendly transport tiles whose

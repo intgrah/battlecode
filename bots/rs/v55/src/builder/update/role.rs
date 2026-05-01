@@ -8,6 +8,7 @@ const _OPENING_ROLES: [Role; 4] = [
     Role::Econ,
 ];
 
+#[pyrust::inline]
 /// `ECON_REACTIVE` auto-flips to DEFENSE once `self.round` exceeds this.
 /// Picks up an early-game economic-map snapshot before pivoting.
 const _ECON_REACTIVE_FLIP_ROUND: i32 = 25;
@@ -63,7 +64,9 @@ const fn _transition_for(role: Role) -> &'static [(Role, u32)] {
     }
 }
 
+#[pyrust::inline]
 const _REASSIGN_PERIOD: i32 = 150;
+#[pyrust::inline]
 const _REASSIGN_AFTER: i32 = 400;
 
 fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {

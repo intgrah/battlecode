@@ -10,15 +10,19 @@ use cambc::{Controller, ControllerApi, EntityType, Position, Team};
 
 use crate::util::symmetry::Symmetry;
 
+#[pyrust::inline]
 /// XOR key applied to the encoded `u32` to scramble the wire format.
 pub const KEY: u32 = 0xDEAD_BEEF;
+#[pyrust::inline]
 /// Bit position of the tag inside the unscrambled 32-bit value.
 pub const TAG_SHIFT: u32 = 28;
+#[pyrust::inline]
 /// Mask for the 4-bit tag field.
 pub const TAG_MASK: u32 = 0xF;
 /// Mask for the 28-bit payload field.
 pub const PAYLOAD_MASK: u32 = (1 << TAG_SHIFT) - 1;
 
+#[pyrust::inline]
 /// Tag for `MarkerSymmetry` (matches Python `_registry` order: 0 = first
 /// subclass to be declared).
 const TAG_SYMMETRY: u32 = 0;

@@ -178,6 +178,7 @@ pub fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String>
     for n in context_manager {
         cfg.context_manager_def_names.insert(n);
     }
+    cfg.inline_consts = scan_inline_consts(src);
 
     let table = tyctx::FileTyTable::empty();
     for entry in &entries {
@@ -306,6 +307,99 @@ fn scan_pyrust_attrs(
         }
     }
     (transparent, exception, context_manager)
+}
+
+/// Walk the workspace and collect every `#[pyrust::inline]`-annotated
+/// const that has a literal RHS. Returns name → Python literal text.
+/// Names that conflict (same name, different literal across files) are
+/// dropped from the map so we never inline ambiguously.
+fn scan_inline_consts(src: &Path) -> std::collections::HashMap<String, String> {
+    let mut map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut conflicts: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let workspace_root = match find_workspace_root(src) {
+        Some(r) => r,
+        None => src.to_path_buf(),
+    };
+    let mut stack = vec![workspace_root];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(ft) = entry.file_type() else { continue };
+            if ft.is_dir() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str == "target" || name_str.starts_with('.') {
+                    continue;
+                }
+                stack.push(path);
+            } else if ft.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
+                let Ok(source) = fs::read_to_string(&path) else {
+                    continue;
+                };
+                let Ok(file) = syn::parse_file(&source) else {
+                    continue;
+                };
+                for item in &file.items {
+                    let syn::Item::Const(c) = item else { continue };
+                    if !has_pyrust_inline(&c.attrs) {
+                        continue;
+                    }
+                    let Some(lit) = literal_const_text(&c.expr) else {
+                        continue;
+                    };
+                    let name = c.ident.to_string();
+                    if conflicts.contains(&name) {
+                        continue;
+                    }
+                    match map.get(&name) {
+                        Some(prev) if *prev != lit => {
+                            conflicts.insert(name.clone());
+                            map.remove(&name);
+                        }
+                        _ => {
+                            map.insert(name, lit);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    map
+}
+
+fn has_pyrust_inline(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(|a| {
+        let segs: Vec<String> = a
+            .path()
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect();
+        segs == ["pyrust", "inline"]
+    })
+}
+
+fn literal_const_text(expr: &syn::Expr) -> Option<String> {
+    match expr {
+        syn::Expr::Lit(l) => match &l.lit {
+            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
+            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
+            syn::Lit::Bool(b) => Some(if b.value { "True" } else { "False" }.to_string()),
+            syn::Lit::Str(s) => {
+                let v = s.value().replace('\\', "\\\\").replace('"', "\\\"");
+                Some(format!("\"{v}\""))
+            }
+            _ => None,
+        },
+        syn::Expr::Unary(u) if matches!(u.op, syn::UnOp::Neg(_)) => {
+            literal_const_text(&u.expr).map(|s| format!("-{s}"))
+        }
+        _ => None,
+    }
 }
 
 fn find_workspace_root(start: &Path) -> Option<PathBuf> {

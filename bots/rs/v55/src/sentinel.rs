@@ -4,6 +4,7 @@ use cambc::{Controller, ControllerApi, Direction, EntityType, GameConstants, Pos
 
 use crate::unit::{Unit, UnitState};
 
+#[pyrust::inline]
 const SELF_DESTRUCT_THRESHOLD: i32 = 16;
 
 const fn is_enemy_combat(et: EntityType) -> bool {

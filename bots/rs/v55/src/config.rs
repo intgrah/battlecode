@@ -14,6 +14,7 @@ pub const DEBUG_DUMP: bool = pyrust::is_some!(option_env!("DEBUG_DUMP"));
 /// tree machinery, so dumping with logging off would emit nothing.
 pub const DEBUG_LOG: bool = pyrust::is_some!(option_env!("DEBUG_LOG")) || DEBUG_DUMP;
 
+#[pyrust::inline]
 /// Use hardcoding.
 pub const HARDCODE: bool = false;
 

@@ -53,6 +53,12 @@ pub struct CfgEnv {
     /// emitter adds `__enter__`/`__exit__` methods, and `let _g = T::CTOR(..)`
     /// inside a block translates to `with T(..) as _g:` wrapping the rest.
     pub context_manager_def_names: std::collections::HashSet<String>,
+    /// Workspace-wide `#[pyrust::inline]` literal-RHS consts: name →
+    /// Python literal text. Single-segment ident references resolve
+    /// directly to the literal (CPython LOAD_CONST instead of
+    /// LOAD_GLOBAL). Conflicting names (same name, different literal
+    /// across files) are absent from this map.
+    pub inline_consts: std::collections::HashMap<String, String>,
 }
 
 impl CfgEnv {

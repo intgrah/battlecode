@@ -22,23 +22,29 @@ use crate::builder::Builder;
 use crate::builder::helpers::make_move;
 use crate::util::constants::MAX_WIDTH;
 
+#[pyrust::inline]
 /// Number of unobserved tiles to sample as candidate targets each replan.
 const _K_CANDIDATES: usize = 20;
 
+#[pyrust::inline]
 /// Number of points sampled along self->target line for frontier-density score.
 const _LINE_SAMPLES: i32 = 8;
 
+#[pyrust::inline]
 /// α: penalty for picking targets misaligned with current heading.
 /// 0 = pure distance; large = strict heading commitment.
 const _HEADING_WEIGHT: f64 = 8.0;
 
+#[pyrust::inline]
 /// β: reward per unobserved-tile-along-path. Drives the bot toward
 /// candidates whose route cuts through fog rather than known territory.
 const _FRONTIER_REWARD: f64 = 6.0;
 
+#[pyrust::inline]
 /// γ: per-friendly-bot proximity penalty around candidate.
 const _CLUSTER_PENALTY: f64 = 30.0;
 
+#[pyrust::inline]
 /// Friendly bots within this chebyshev radius of a candidate add the
 /// full γ penalty; falls off linearly to 0 at radius.
 const _CLUSTER_RADIUS: i32 = 20;

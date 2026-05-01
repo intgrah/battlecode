@@ -375,6 +375,7 @@ pub fn update_offensive_ore_target(builder: &mut Builder) {
     }
 }
 
+#[pyrust::inline]
 /// Derived from Blue Dragon / Kessoku Band: no Ax harvester before turn 500.
 const _AX_HARVESTER_ROUND_GATE: i32 = 500;
 
@@ -478,6 +479,7 @@ fn _pure_ax_merge_ok(builder: &Builder, pos: Position) -> bool {
         && !pyrust::vec::contains!(builder.upstream_of_dangling, &pos)
 }
 
+#[pyrust::inline]
 /// Manhattan-distance threshold: a pre-existing foundry or Ax chain is only
 /// preferred over building a new foundry on a nearby Ti conveyor if the pre-
 /// existing option isn't more than this many tiles further. Otherwise creating

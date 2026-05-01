@@ -29,6 +29,7 @@ use cambc::Environment;
 
 use crate::util::constants::MAX_WIDTH;
 
+#[pyrust::inline]
 /// Hard cap on frontier pops per turn.
 pub const K_PER_TURN: usize = 25;
 

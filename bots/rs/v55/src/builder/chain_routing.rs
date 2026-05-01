@@ -26,6 +26,7 @@ use crate::util::directions::{DIR4, DIR8, delta_to_dir, get_direction_object, is
 use crate::util::metrics::{chebyshev, reachable_path_end};
 use crate::util::visualiser::auto_wrap_position;
 
+#[pyrust::inline]
 /// Cap on upstream BFS size in `resource_at`.
 const _UPSTREAM_MAX_NODES_RES: usize = 80;
 

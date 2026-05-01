@@ -12,8 +12,11 @@ use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
 
 #[pyrust::inline]
 const TARGET_DRIFT_SQ: i32 = 25;
+#[pyrust::inline]
 const BUCKET_COUNT: usize = 32;
+#[pyrust::inline]
 const BIDIRECTIONAL: bool = false;
+#[pyrust::inline]
 /// Diagonal (r²=2) is never a cardinal conveyor and never a legal bridge
 /// (bridges need r² in [3, 9]), so any diagonal step materialises as a
 /// bridge skipping to the next reachable tile along the path. Costed the

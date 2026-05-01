@@ -11,6 +11,7 @@ use crate::builder::Builder;
 use crate::builder::explore::explore as run_explore;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
+#[pyrust::inline]
 const EXPLORE_MIN_TI: i32 = 100;
 
 pub fn explore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
