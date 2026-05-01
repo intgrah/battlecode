@@ -1233,6 +1233,14 @@ impl eframe::App for App {
             <Self as titan_core::Playback>::step_forward(self, 1);
         }
 
+        egui::Panel::left("opening-resources")
+            .resizable(true)
+            .default_size(180.0)
+            .frame(titan_core::style::panel_frame(ui.style()))
+            .show_inside(ui, |ui| {
+                self.render_left_panel(ui);
+            });
+
         egui::Panel::right("opening-sidebar")
             .resizable(true)
             .default_size(280.0)
@@ -1274,6 +1282,71 @@ impl eframe::App for App {
 }
 
 impl App {
+    /// Left panel: player's current resource stockpile and the
+    /// per-building scaled cost table. Order mirrors the replay
+    /// viewer's stats panel for consistency.
+    fn render_left_panel(&mut self, ui: &mut egui::Ui) {
+        use libre_engine::common::game_constants as gc;
+        use libre_engine::common::Team;
+
+        let p = &self.sim.game.players[0];
+        let ti = p.titanium;
+        let ax = p.axionite;
+
+        ui.heading("Resources");
+        ui.separator();
+        egui::Grid::new("opening-resources-grid")
+            .num_columns(2)
+            .min_col_width(60.0)
+            .show(ui, |ui| {
+                ui.label("Ti");
+                ui.monospace(format!("{ti}"));
+                ui.end_row();
+                ui.label("Ax");
+                ui.monospace(format!("{ax}"));
+                ui.end_row();
+            });
+
+        ui.add_space(8.0);
+        ui.heading("Costs");
+        ui.label(egui::RichText::new("scaled to current state").weak());
+        ui.separator();
+        // Order: builder, road, barrier, conveyor, armoured conveyor,
+        // bridge, splitter, harvester, foundry, gunner, sentinel,
+        // breach, launcher. Same as the replay's stats panel.
+        let rows: &[(&str, (i32, i32))] = &[
+            ("Builder", gc::BUILDER_BOT_BASE_COST),
+            ("Road", gc::ROAD_BASE_COST),
+            ("Barrier", gc::BARRIER_BASE_COST),
+            ("Conveyor", gc::CONVEYOR_BASE_COST),
+            ("ArmConv", gc::ARMOURED_CONVEYOR_BASE_COST),
+            ("Bridge", gc::BRIDGE_BASE_COST),
+            ("Splitter", gc::SPLITTER_BASE_COST),
+            ("Harvester", gc::HARVESTER_BASE_COST),
+            ("Foundry", gc::FOUNDRY_BASE_COST),
+            ("Gunner", gc::GUNNER_BASE_COST),
+            ("Sentinel", gc::SENTINEL_BASE_COST),
+            ("Breach", gc::BREACH_BASE_COST),
+            ("Launcher", gc::LAUNCHER_BASE_COST),
+        ];
+        egui::Grid::new("opening-costs-grid")
+            .num_columns(3)
+            .min_col_width(40.0)
+            .show(ui, |ui| {
+                ui.label("");
+                ui.label(egui::RichText::new("Ti").weak());
+                ui.label(egui::RichText::new("Ax").weak());
+                ui.end_row();
+                for (name, base) in rows {
+                    let (sti, sax) = self.sim.game.scaled_cost(Team::A, *base);
+                    ui.label(*name);
+                    ui.monospace(format!("{sti}"));
+                    ui.monospace(if sax == 0 { String::new() } else { format!("{sax}") });
+                    ui.end_row();
+                }
+            });
+    }
+
     fn render_sidebar(&mut self, ui: &mut egui::Ui) {
         ui.heading("opening");
         ui.label(
@@ -1286,12 +1359,9 @@ impl App {
 
         // ── Status block ──────────────────────────────────────────
         // Always-on. Everything the keyboard handler reads from
-        // hidden state, plus every piece of game state the user needs
-        // while authoring — turn position, the player's resources,
-        // selection, chord direction, and the most recent event.
-        let p = &self.sim.game.players;
-        let ti = p[0].titanium;
-        let ax = p[0].axionite;
+        // hidden state — turn position, selection, chord direction,
+        // and the most recent event. Resources and costs live in the
+        // dedicated left panel.
         let edit_turn = self.edit_turn;
         let horizon = self.opening.horizon;
         let chord_dir = direction_from_mask(self.chord.max_mask);
@@ -1337,8 +1407,6 @@ impl App {
                         horizon_delta = 1;
                     }
                 });
-
-                ui.label(format!("Ti = {ti}    Ax = {ax}"));
 
                 let chord_text = match chord_dir {
                     Some(d) => format!("chord: {}  ({})", arrow_for(d), name_for(d)),
@@ -1524,6 +1592,9 @@ impl App {
         let (response, painter) = ui.allocate_painter(avail, egui::Sense::click_and_drag());
         let rect = response.rect;
         painter.rect_filled(rect, 0.0, ui.visuals().extreme_bg_color);
+        if response.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
 
         // Layout: leave a left gutter for unit labels, use the rest
         // for the x-axis (turn 0..horizon) and y-axis (unit lanes).
@@ -1715,11 +1786,13 @@ impl App {
                 // Centre cancel.
                 let cancel_rect =
                     egui::Rect::from_center_size(centre, egui::Vec2::splat(inner * 1.4));
-                let cancel_resp = ui.interact(
-                    cancel_rect,
-                    egui::Id::new("wheel-cancel"),
-                    egui::Sense::click(),
-                );
+                let cancel_resp = ui
+                    .interact(
+                        cancel_rect,
+                        egui::Id::new("wheel-cancel"),
+                        egui::Sense::click(),
+                    )
+                    .on_hover_cursor(egui::CursorIcon::PointingHand);
                 let cancel_bg = if cancel_resp.hovered() {
                     egui::Color32::from_rgb(0x60, 0x40, 0x40)
                 } else {
@@ -1746,11 +1819,13 @@ impl App {
                         std::f32::consts::TAU * (i as f32 / n) - std::f32::consts::FRAC_PI_2;
                     let p = egui::pos2(centre.x + angle.cos() * mid, centre.y + angle.sin() * mid);
                     let hit_rect = egui::Rect::from_center_size(p, egui::Vec2::splat(wedge));
-                    let resp = ui.interact(
-                        hit_rect,
-                        egui::Id::new(("wheel-wedge", i)),
-                        egui::Sense::click(),
-                    );
+                    let resp = ui
+                        .interact(
+                            hit_rect,
+                            egui::Id::new(("wheel-wedge", i)),
+                            egui::Sense::click(),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::PointingHand);
                     // No persistent fill — just a faint hover glow
                     // around the icon when the cursor is on it.
                     if resp.hovered() {
