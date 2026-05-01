@@ -2109,6 +2109,21 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 prec: Prec::Atom,
             }))
         }
+        ["is_none_or"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("is_none_or!: {e}")))?;
+            let opt = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.clone();
+            Ok(Some(Emitted {
+                text: format!(
+                    "({0} is None or (lambda {1}: {2})({0}))",
+                    opt.text, pname, body.text
+                ),
+                ty: Ty::Bool,
+                prec: Prec::Atom,
+            }))
+        }
         ["int"] => {
             let args = parse_args!();
             if args.len() != 1 {
@@ -2211,6 +2226,44 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             Ok(Some(Emitted::atomic(
                 format!("(({0} > 0) - ({0} < 0))", inner.text),
                 Ty::Int,
+            )))
+        }
+        ["mul_add"] => {
+            let args = parse_args!();
+            if args.len() != 3 {
+                return Err(w.err(em.span(), "mul_add!: expected (a, b, c)"));
+            }
+            let a = emit_expr(w, &args[0])?;
+            let b = emit_expr(w, &args[1])?;
+            let c = emit_expr(w, &args[2])?;
+            // `a*b + c` — multiplication binds tighter than `+/-`, so a and
+            // b need parens if they're at lower precedence (e.g. an addition
+            // / subtraction expression). c is at addition precedence so it's
+            // safe to emit without parens.
+            let a_text = if a.prec < Prec::Mul { format!("({})", a.text) } else { a.text };
+            let b_text = if b.prec < Prec::Mul { format!("({})", b.text) } else { b.text };
+            Ok(Some(Emitted::atomic(
+                format!("({} * {} + {})", a_text, b_text, c.text),
+                Ty::Float,
+            )))
+        }
+        ["opt_map"] => {
+            // Option::map: `opt.map(|x| body)` → `(body if opt is not None else None)`
+            // with `x` bound to opt's value inside body.
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("opt_map!: {e}")))?;
+            let opt = emit_expr(w, &parsed.recv)?;
+            let pname = parsed.param.clone();
+            // Bind `x` so that body emission has it in scope. We declare
+            // before emitting body so type lookups work.
+            w.declare(&pname, Ty::Unknown);
+            let body = emit_expr(w, &parsed.body)?;
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "((lambda {1}: {0})({2}) if {2} is not None else None)",
+                    body.text, pname, opt.text
+                ),
+                Ty::Unknown,
             )))
         }
         ["powf" | "powi"] => {
@@ -2369,17 +2422,38 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             )))
         }
         ["map" | "filter" | "filter_map"] => {
-            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
-                .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
-            let it = emit_expr(w, &parsed.recv)?;
-            let body = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.clone();
+            // Two forms:
+            //   pyrust::map!(it, |x| body)   — closure
+            //   pyrust::map!(it, f)          — function reference (treated
+            //                                  as `|x| f(x)`).
+            // Try ClosureArgs first; on failure, parse as (it, callable).
+            let (it_text, pname, body_text) =
+                match syn::parse2::<ClosureArgs>(tokens.clone()) {
+                    Ok(parsed) => {
+                        let it = emit_expr(w, &parsed.recv)?;
+                        let body = emit_expr(w, &parsed.body)?;
+                        (it.text, parsed.param.clone(), body.text)
+                    }
+                    Err(_) => {
+                        let args = parse_macro_arg_list(tokens.clone())
+                            .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
+                        if args.len() != 2 {
+                            return Err(w.err(
+                                em.span(),
+                                format!("{display}!: expected (it, closure) or (it, callable)"),
+                            ));
+                        }
+                        let it = emit_expr(w, &args[0])?;
+                        let f = emit_expr(w, &args[1])?;
+                        (it.text, "__x".to_string(), format!("{}(__x)", f.text))
+                    }
+                };
             let text = match tail[0] {
-                "map" => format!("({} for {} in {})", body.text, pname, it.text),
-                "filter" => format!("({1} for {1} in {2} if {0})", body.text, pname, it.text),
+                "map" => format!("({} for {} in {})", body_text, pname, it_text),
+                "filter" => format!("({1} for {1} in {2} if {0})", body_text, pname, it_text),
                 "filter_map" => format!(
                     "(__v for {1} in {2} if (__v := {0}) is not None)",
-                    body.text, pname, it.text
+                    body_text, pname, it_text
                 ),
                 _ => unreachable!(),
             };

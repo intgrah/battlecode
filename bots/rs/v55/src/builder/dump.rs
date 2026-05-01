@@ -150,10 +150,10 @@ fn _reach_roots(builder: &Builder, w: i32, h: i32) -> Vec<i16> {
 
 fn _hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     let i = (h * 6.0) as i32;
-    let f = h.mul_add(6.0, -f64::from(i));
+    let f = pyrust::mul_add!(h, 6.0, -f64::from(i));
     let p = v * (1.0 - s);
-    let q = v * s.mul_add(-f, 1.0);
-    let t = v * s.mul_add(-(1.0 - f), 1.0);
+    let q = v * pyrust::mul_add!(s, -f, 1.0);
+    let t = v * pyrust::mul_add!(s, -(1.0 - f), 1.0);
     let (r, g, b) = match pyrust::rem_euclid!(i, 6) {
         0 => (v, t, p),
         1 => (q, v, p),
@@ -484,7 +484,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         vis_tile("offense_target", builder.offense_target);
         vis_scalar_int("offense_turns", i64::from(builder.offense_turns));
         vis_tile("offense_launcher", builder.offense_launcher);
-        vis_tile("last_fire", pyrust::map!(builder.last_fire, |t| t.0));
+        vis_tile("last_fire", pyrust::opt_map!(builder.last_fire, |t| t.0));
         vis_tile("nearest_enemy_turret", builder.nearest_enemy_turret);
         vis_tiles(
             "enemy_turret_ray_tiles",
