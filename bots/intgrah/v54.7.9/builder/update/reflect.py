@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from cambc import Environment, Position
-from util.constants import INF, MAX_WIDTH, ROAD_COST
+from cambc import Environment
+from util.constants import IDX_TO_POS, INF, MAX_WIDTH, ROAD_COST
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -27,7 +27,7 @@ def update_reflect(self: Builder) -> None:
     w, h = self.w, self.h
     for _ in range(min(len(pending), _REFLECT_BUDGET)):
         i = pending.popleft()
-        t = Position(i % MAX_WIDTH, i // MAX_WIDTH)
+        t = IDX_TO_POS[i]
         m = sym.action(t, w, h)
         mi = m.y * MAX_WIDTH + m.x
         if self.env[mi] is not None:
