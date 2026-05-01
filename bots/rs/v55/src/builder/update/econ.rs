@@ -16,7 +16,7 @@ use crate::util::directions::DIR4;
 use crate::util::metrics::{chebyshev, claims_by_proximity};
 use crate::util::visualiser::auto_wrap_position;
 
-#[must_use] 
+#[must_use]
 pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
     let my_team = builder.state.my_team;
     let kind = builder.kind_at(pos);
@@ -97,19 +97,20 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
                     // need to know if the output points away from the
                     // harvester. Equivalent: out_edges[ni][0] != pos.
                     if let Some(&out) = pyrust::vec::first!(builder.out_edges[ni])
-                        && out != pos {
-                            // The conveyor faces somewhere else than the
-                            // harvester's tile. If that destination is itself
-                            // a friendly harvester, this conveyor pushes
-                            // INTO another harvester — skip; otherwise it's
-                            // a real outbound feeder.
-                            if !(builder.in_bounds(out)
-                                && builder.kind_at(out) == Some(EntityType::Harvester))
-                            {
-                                adjacent_conveyor = true;
-                                break;
-                            }
+                        && out != pos
+                    {
+                        // The conveyor faces somewhere else than the
+                        // harvester's tile. If that destination is itself
+                        // a friendly harvester, this conveyor pushes
+                        // INTO another harvester — skip; otherwise it's
+                        // a real outbound feeder.
+                        if !(builder.in_bounds(out)
+                            && builder.kind_at(out) == Some(EntityType::Harvester))
+                        {
+                            adjacent_conveyor = true;
+                            break;
                         }
+                    }
                 }
                 Some(
                     EntityType::Bridge
@@ -186,11 +187,7 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if builder.reach_parent[i] == -1 || find(&mut builder.reach_parent, i as i32) != my_root {
             let mut args = Map::new();
-            pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                auto_wrap_position(t)
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), auto_wrap_position(t));
             log("DANGLING discard(unreachable) t={t}", args);
             pyrust::set::remove!(builder.dangling_set, &t);
             pyrust::set::add!(builder.unreachable_dangling, t);
@@ -203,11 +200,7 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if builder.reach_parent[i] != -1 && find(&mut builder.reach_parent, i as i32) == my_root {
             let mut args = Map::new();
-            pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("t"),
-                auto_wrap_position(t)
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), auto_wrap_position(t));
             log("DANGLING add(reachable-migrate) t={t}", args);
             pyrust::set::remove!(builder.unreachable_dangling, &t);
             pyrust::set::add!(builder.dangling_set, t);
@@ -277,7 +270,7 @@ fn chebyshev_to_nearest_core_edge(builder: &Builder, pos: Position) -> i32 {
     }
 }
 
-#[must_use] 
+#[must_use]
 pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> Option<Position> {
     let friendly: Vec<(Position, i32)> = pyrust::collect!(pyrust::map!(
         pyrust::filter!(pyrust::dict::items!(builder.state.all_bots), |t| {
@@ -329,15 +322,16 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
 pub fn update_ore_target(builder: &mut Builder) {
     let mut candidate_ore = pick_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ore_target)
-        || pyrust::is_some_and!(builder
-            .ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder
-            .ore_target, |t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder.ore_target, |t| harvester_would_contaminate(
+            builder, t
+        ))
         || (pyrust::is_some!(candidate_ore)
             && pyrust::unwrap!(candidate_ore).distance_squared(builder.state.my_pos) <= 2
-            && pyrust::is_some_and!(builder
-                .ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder.ore_target, |t| t
+                .distance_squared(builder.state.my_pos)
+                > 2));
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
         if let Some(c) = candidate_ore
@@ -355,16 +349,16 @@ pub fn update_ore_target(builder: &mut Builder) {
 pub fn update_offensive_ore_target(builder: &mut Builder) {
     let mut candidate = pick_offensive_ti_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.offensive_ore_target)
-        || pyrust::is_some_and!(builder
-            .offensive_ore_target, |t| !ore_available(builder, t))
-        || pyrust::is_some_and!(builder
-            .offensive_ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder
-            .offensive_ore_target, |t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder.offensive_ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.offensive_ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder.offensive_ore_target, |t| {
+            harvester_would_contaminate(builder, t)
+        })
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
-            && pyrust::is_some_and!(builder
-                .offensive_ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder.offensive_ore_target, |t| t
+                .distance_squared(builder.state.my_pos)
+                > 2));
     if needs_pick {
         let sink = if pyrust::is_some!(builder.symmetry) {
             Some(builder.en_core_guess)
@@ -1027,7 +1021,9 @@ pub fn update_junctions(builder: &mut Builder) {
 
 /// Re-derive `ax_sink` every turn from three option classes.
 pub fn update_foundry_target(builder: &mut Builder) {
-    if pyrust::is_none!(builder.ax_ore_target) && pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
+    if pyrust::is_none!(builder.ax_ore_target)
+        && pyrust::vec::is_empty!(builder.ax_harvester_adjacent)
+    {
         builder.ax_sink = None;
         builder.foundry_target = None;
         return;
@@ -1143,9 +1139,9 @@ pub fn update_foundry_target(builder: &mut Builder) {
         && let Some(chosen) = builder.ax_sink
         && (pyrust::vec::contains!(builder.junctions, &chosen)
             || (_foundry_local_ok(builder, chosen) && ax_feeds_target(builder, chosen)))
-        {
-            builder.foundry_target = Some(chosen);
-        }
+    {
+        builder.foundry_target = Some(chosen);
+    }
 }
 
 /// Empirical Ti-sink candidate.
@@ -1265,7 +1261,11 @@ pub fn update_ti_sink(builder: &mut Builder) {
             pyrust::to_string!("to"),
             Value::String(format!("{best:?}"))
         );
-        pyrust::dict::insert!(args, pyrust::to_string!("tier"), Value::Number(pyrust::into!(tier)));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("tier"),
+            Value::Number(pyrust::into!(tier))
+        );
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("anchor"),
@@ -1300,16 +1300,16 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
     }
     let mut candidate = pick_ax_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ax_ore_target)
-        || pyrust::is_some_and!(builder
-            .ax_ore_target, |t| !ore_available(builder, t))
-        || pyrust::is_some_and!(builder
-            .ax_ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder
-            .ax_ore_target, |t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder.ax_ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.ax_ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder.ax_ore_target, |t| harvester_would_contaminate(
+            builder, t
+        ))
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
-            && pyrust::is_some_and!(builder
-                .ax_ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder.ax_ore_target, |t| t
+                .distance_squared(builder.state.my_pos)
+                > 2));
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ax_sink, builder.my_core);
         if let Some(c) = candidate

@@ -61,7 +61,10 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         ));
     }
     log(
-        &format!("resolve_congestion: {} candidate feeders", pyrust::len!(targets)),
+        &format!(
+            "resolve_congestion: {} candidate feeders",
+            pyrust::len!(targets)
+        ),
         Map::new(),
     );
 
@@ -85,9 +88,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         p.x
     )));
     log(
-        &format!(
-            "resolve_congestion: walking toward nearest feeder {nearest:?}"
-        ),
+        &format!("resolve_congestion: walking toward nearest feeder {nearest:?}"),
         Map::new(),
     );
     if make_move(self_, ct, nearest) {

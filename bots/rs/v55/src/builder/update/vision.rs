@@ -317,7 +317,9 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         let bld_changed = builder.building_ids[i] != bid;
         if pyrust::is_none!(builder.env[i]) {
             pyrust::vec::push_back!(builder.reflect_queue, i);
-            let is_core = pyrust::is_some_and!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
+            let is_core =
+                pyrust::is_some_and!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b)))
+                    == EntityType::Core);
             pyrust::vec::push!(new_observations, (pos, env, is_core));
             if env != Environment::Wall {
                 let py = pos.y;

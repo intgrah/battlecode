@@ -13,7 +13,7 @@ pub const TILES: &[u8] = &[];
 
 /// Placeholder for `decode(buf, w, h)`. Real impl returns a dense per-tile
 /// array; stub is unreachable when `HARDCODE` is false.
-#[must_use] 
+#[must_use]
 pub fn decode(_buf: &[u8], _w: i32, _h: i32) -> Vec<u8> {
     unimplemented!("hardcode::map::decode stub — Phase E")
 }

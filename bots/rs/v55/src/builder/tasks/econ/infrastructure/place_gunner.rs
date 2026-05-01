@@ -82,7 +82,7 @@ const fn direction_to(src: Position, dst: Position) -> Direction {
     }
 }
 
-#[must_use] 
+#[must_use]
 pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
     if !pyrust::vec::contains!(self_.adjacent_to_harvester, &position) {
         return None;

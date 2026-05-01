@@ -239,15 +239,20 @@ pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
     false
 }
 
-#[must_use] 
+#[must_use]
 pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
-    let base = if let Some(c) = base_cost(etype) { c.0 } else { 0 };
-    let scale = builder.state.scale;
-    let foundry = if builder.state.round >= 500 && !pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
-        (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * scale) as i32
+    let base = if let Some(c) = base_cost(etype) {
+        c.0
     } else {
         0
     };
+    let scale = builder.state.scale;
+    let foundry =
+        if builder.state.round >= 500 && !pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
+            (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * scale) as i32
+        } else {
+            0
+        };
     match etype {
         EntityType::Foundry => (pyrust::float!(base) * scale) as i32,
         EntityType::Harvester => {
@@ -262,7 +267,7 @@ pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
     }
 }
 
-#[must_use] 
+#[must_use]
 pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
     builder.state.ti >= ti_needed(builder, etype)
 }
@@ -270,10 +275,11 @@ pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
 /// Heuristic Ti cost to walk to `ore_pos`, place a harvester, ring
 /// it inward (worst case 3 sides), and route the chain back to
 /// `sink_pos`.
-#[must_use] 
+#[must_use]
 pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
     let s = builder.state.scale;
-    let h_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * (1.0 + s)) as i32;
+    let h_cost =
+        (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * (1.0 + s)) as i32;
     let c_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Conveyor)).0) * s) as i32;
     let b_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Bridge)).0) * s) as i32;
     let r_cost = pyrust::max!(
@@ -284,20 +290,21 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
     let d_sink = manhattan(ore_pos, sink_pos);
     let walk_cost = d_pos * r_cost;
     let ring_cost = 3 * c_cost;
-    let chain_cost =
-        (pyrust::float!(d_sink) * (0.7 * pyrust::float!(c_cost) + 0.3 * pyrust::float!(b_cost) / 3.0)) as i32;
+    let chain_cost = (pyrust::float!(d_sink)
+        * 0.7f64.mul_add(f64::from(c_cost), 0.3 * pyrust::float!(b_cost) / 3.0))
+        as i32;
     h_cost + ring_cost + chain_cost + walk_cost
 }
 
 /// Leniency multiplier on `required_ti_for_ore_claim`. Decaying
 /// exponential in friendly harvester count: starts at 0.65, asymptotes to 1.60.
-#[must_use] 
+#[must_use]
 pub fn ore_claim_leniency(builder: &Builder) -> f64 {
     let n = pyrust::len!(builder.my_harvesters) as f64;
-    0.95 * (1.0 - pyrust::powf!(0.958f64, n)) + 0.65
+    0.95f64.mul_add(1.0 - pyrust::powf!(0.958f64, n), 0.65)
 }
 
-#[must_use] 
+#[must_use]
 pub fn can_afford_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> bool {
     builder.state.ti
         >= (pyrust::float!(required_ti_for_ore_claim(builder, ore_pos, sink_pos))
@@ -419,7 +426,7 @@ pub fn try_place(
     false
 }
 
-#[must_use] 
+#[must_use]
 pub fn trace_downstream(
     builder: &Builder,
     start_pos: Position,
@@ -457,7 +464,9 @@ fn _trace_downstream_inner(
                     if let Some(target_head) = target_head {
                         let mut new_path = pyrust::clone!(path);
                         _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
-                        if !pyrust::vec::is_empty!(new_path) && pyrust::vec::contains!(new_path, &target_head) {
+                        if !pyrust::vec::is_empty!(new_path)
+                            && pyrust::vec::contains!(new_path, &target_head)
+                        {
                             *path = new_path;
                             return;
                         }
@@ -522,7 +531,7 @@ pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     false
 }
 
-#[must_use] 
+#[must_use]
 pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
     let mut path: Vec<Position> = pyrust::vec::new!();
     let mut feeders: Vec<Position> = vec![position];
@@ -537,7 +546,7 @@ pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
     path
 }
 
-#[must_use] 
+#[must_use]
 pub fn ore_available(builder: &Builder, pos: Position) -> bool {
     if let Some((kind, _team)) = builder.get_building(pos) {
         let allowed = matches!(
@@ -558,7 +567,7 @@ pub fn ore_available(builder: &Builder, pos: Position) -> bool {
 }
 
 /// The cardinal of `ore_pos` chosen as the future flow-feed slot.
-#[must_use] 
+#[must_use]
 pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<Position> {
     let sink: Option<Position> = if on_enemy_side(builder, ore_pos) {
         if pyrust::is_some!(builder.symmetry) {
@@ -615,7 +624,10 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         }
         match kind {
             Some(EntityType::Bridge) => {
-                let target = pyrust::unwrap_or!(pyrust::copied!(pyrust::vec::first!(builder.out_edges[ci])), c);
+                let target = pyrust::unwrap_or!(
+                    pyrust::copied!(pyrust::vec::first!(builder.out_edges[ci])),
+                    c
+                );
                 if target == ore_pos {
                     pyrust::vec::push!(classification, (c, "inward_guard: bridge target == ore"));
                 } else {
@@ -625,7 +637,10 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 continue;
             }
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                let target = pyrust::unwrap_or!(pyrust::copied!(pyrust::vec::first!(builder.out_edges[ci])), c);
+                let target = pyrust::unwrap_or!(
+                    pyrust::copied!(pyrust::vec::first!(builder.out_edges[ci])),
+                    c
+                );
                 if target == ore_pos {
                     pyrust::vec::push!(classification, (c, "inward_guard: conveyor output -> ore"));
                 } else {
@@ -712,7 +727,11 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 continue;
             }
             let status = pyrust::unwrap_or!(
-                pyrust::find_map!(pyrust::iter!(classification), |t| if t.0 == c { Some(t.1) } else { None }),
+                pyrust::find_map!(pyrust::iter!(classification), |t| if t.0 == c {
+                    Some(t.1)
+                } else {
+                    None
+                }),
                 "?"
             );
             let mut args = Map::new();
@@ -730,7 +749,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
 }
 
 /// Cardinals of `ore_pos` that must NOT be barriered.
-#[must_use] 
+#[must_use]
 pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<Position> {
     let cardinals: Vec<Position> = pyrust::collect!(pyrust::filter!(
         pyrust::map!(pyrust::iter!(DIR4), |&d| ore_pos.add(d)),
@@ -764,7 +783,7 @@ pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<P
 }
 
 /// True iff at least 3 of `ore_pos`'s 4 in-bounds cardinals already host a barrier.
-#[must_use] 
+#[must_use]
 pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool {
     let mut barriers = 0;
     for d in DIR4 {
@@ -779,18 +798,18 @@ pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool
     barriers >= 3
 }
 
-#[must_use] 
+#[must_use]
 pub fn pick_ore_target(builder: &Builder) -> Option<Position> {
     _pick_ore(builder, Environment::OreTitanium)
 }
 
-#[must_use] 
+#[must_use]
 pub fn pick_ax_ore_target(builder: &Builder) -> Option<Position> {
     _pick_ore(builder, Environment::OreAxionite)
 }
 
 /// Pick a Ti ore tile outside our econ disc for an offensive harvester.
-#[must_use] 
+#[must_use]
 pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
@@ -846,7 +865,7 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
     best_target
 }
 
-#[must_use] 
+#[must_use]
 pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
     let ore_env = builder.get_env(pos);
     let (bad_upstream, bad_flows): (&HashSet<Position>, &[ResourceType]) =
@@ -885,8 +904,10 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
         let is_bad = pyrust::vec::contains!(bad_upstream, &n)
-            || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| pyrust::is_some_and!(t
-                .0, |res| pyrust::vec::contains!(bad_flows, &res)));
+            || pyrust::any!(
+                pyrust::iter!(builder.flow_history[ni]),
+                |t| pyrust::is_some_and!(t.0, |res| pyrust::vec::contains!(bad_flows, &res))
+            );
         if !is_bad {
             continue;
         }
@@ -909,14 +930,14 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
 
 /// True if `pos` is outside our econ disc — i.e. more than
 /// `sqrt(econ_radius_sq)` (= 0.7·max(w,h)) from our core.
-#[must_use] 
+#[must_use]
 pub const fn on_enemy_side(builder: &Builder, pos: Position) -> bool {
     pos.distance_squared(builder.my_core) > builder.econ_radius_sq
 }
 
 /// True if `pos` hosts a friendly conveyor whose flow direction
 /// points at an adjacent friendly harvester.
-#[must_use] 
+#[must_use]
 pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
     let i = builder.idx(pos);
     let kind = builder.building_kind[i];
@@ -1004,7 +1025,7 @@ const _DOWNSTREAM_MAX_NODES: usize = 80;
 
 /// BFS backwards via `in_edges` — all friendly transport tiles whose
 /// output structurally reaches `start`.
-#[must_use] 
+#[must_use]
 pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
     let mut visited: HashSet<Position> = pyrust::set::new!();
     pyrust::set::add!(visited, start);
@@ -1025,7 +1046,7 @@ pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
 }
 
 /// BFS forwards via `out_edges`.
-#[must_use] 
+#[must_use]
 pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
     let mut visited: HashSet<Position> = pyrust::set::new!();
     pyrust::set::add!(visited, start);
@@ -1045,7 +1066,7 @@ pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> 
     visited
 }
 
-#[must_use] 
+#[must_use]
 pub fn chain_has_foundry(builder: &Builder, start: Position) -> bool {
     let my_team = builder.state.my_team;
     for pos in upstream_tree(builder, start) {
@@ -1065,7 +1086,7 @@ pub fn chain_has_foundry(builder: &Builder, start: Position) -> bool {
     false
 }
 
-#[must_use] 
+#[must_use]
 pub fn ax_feeds_target(builder: &Builder, target: Position) -> bool {
     for &feeder in &builder.in_edges[(target.y as usize) * MAX_WIDTH + (target.x as usize)] {
         if pyrust::vec::contains!(builder.ax_upstream, &feeder) {
@@ -1088,7 +1109,7 @@ pub fn ax_feeds_target(builder: &Builder, target: Position) -> bool {
     false
 }
 
-#[must_use] 
+#[must_use]
 pub fn tile_has_ax_flow(builder: &Builder, pos: Position) -> bool {
     for &(r, _rid) in &builder.flow_history[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
         if matches!(

@@ -408,14 +408,14 @@ impl Builder {
     /// Position to flat index (inherent shadow of `Unit::idx` so peer code
     /// in `crate::builder::*` doesn't need to import the trait).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn idx(&self, pos: Position) -> usize {
         (pos.y as usize) * MAX_WIDTH + (pos.x as usize)
     }
 
     /// In-bounds check (inherent shadow of `Unit::in_bounds`).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn in_bounds(&self, pos: Position) -> bool {
         pos.x >= 0 && pos.x < self.state.width && pos.y >= 0 && pos.y < self.state.height
     }
@@ -423,13 +423,13 @@ impl Builder {
     /// Resolved symmetry (inherent shadow of `Unit::symmetry` so peer code
     /// can use `builder.symmetry` without importing the trait).
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn symmetry(&self) -> Option<Symmetry> {
         self.symmetry
     }
 
     /// Inherent shadow of `Unit::symmetry_guess`.
-    #[must_use] 
+    #[must_use]
     pub fn symmetry_guess(&self) -> Symmetry {
         for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
             if pyrust::vec::contains!(self.state.symmetry_candidates, &sym) {
@@ -441,19 +441,19 @@ impl Builder {
 
     /// Cached enemy core guess.
     #[inline]
-    #[must_use] 
+    #[must_use]
     pub const fn en_core_guess(&self) -> Position {
         self.en_core_guess
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn get_env(&self, pos: Position) -> Option<Environment> {
         self.env[self.idx(pos)]
     }
 
     /// Kind + team at `pos`, or `None` if no building / not in vision.
-    #[must_use] 
-    pub fn get_building(&self, pos: Position) -> Option<(EntityType, Team)> {
+    #[must_use]
+    pub const fn get_building(&self, pos: Position) -> Option<(EntityType, Team)> {
         let i = self.idx(pos);
         let kind = self.building_kind[i];
         let team = self.building_team[i];
@@ -464,27 +464,27 @@ impl Builder {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn kind_at(&self, pos: Position) -> Option<EntityType> {
         self.building_kind[self.idx(pos)]
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn team_at(&self, pos: Position) -> Option<Team> {
         self.building_team[self.idx(pos)]
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn get_cost(&self, pos: Position) -> i32 {
         self.cost_grid[self.idx(pos)]
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn is_passable(&self, pos: Position) -> bool {
         self.cost_grid[self.idx(pos)] != INF
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_reachable(&self, pos: Position) -> bool {
         let i = self.idx(pos) as i32;
         let my_i = (self.state.my_pos.y * (MAX_WIDTH as i32)) + self.state.my_pos.x;
@@ -494,7 +494,7 @@ impl Builder {
         find_ro(&self.reach_parent, i) == find_ro(&self.reach_parent, my_i)
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn is_walkable(&self, pos: Position) -> bool {
         if !self.is_passable(pos) {
             return false;
@@ -511,17 +511,17 @@ impl Builder {
         )
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get_in_edges(&self, pos: Position) -> Vec<Position> {
         pyrust::clone!(self.in_edges[self.idx(pos)])
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn get_out_edges(&self, pos: Position) -> Vec<Position> {
         pyrust::clone!(self.out_edges[self.idx(pos)])
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_buildable(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         self.env[i] != Some(Environment::Wall)
@@ -529,7 +529,7 @@ impl Builder {
                 || self.building_team[i] == Some(self.state.my_team))
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_friendly_turret(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         let Some(kind) = self.building_kind[i] else {
@@ -548,7 +548,7 @@ impl Builder {
         self.building_team[i] == Some(self.state.my_team)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_enemy_building(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         match self.building_team[i] {
@@ -557,7 +557,7 @@ impl Builder {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn leads_to_enemy_building(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         if self.building_team[i] != Some(self.state.my_team) {

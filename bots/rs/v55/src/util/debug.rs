@@ -168,7 +168,10 @@ impl DebugCtx {
 
     pub fn flush(&mut self) {
         let prev_us = self.last_flush_us;
-        let root = pyrust::expect!(pyrust::as_mut!(self.root), "flush() called outside any Scope");
+        let root = pyrust::expect!(
+            pyrust::as_mut!(self.root),
+            "flush() called outside any Scope"
+        );
         root["prev_flush_us"] = serde_json::Value::Number(pyrust::into!(prev_us));
         let t0_ns = pyrust::time::now_ns!();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");

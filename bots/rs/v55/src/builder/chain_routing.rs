@@ -32,7 +32,7 @@ const _UPSTREAM_MAX_NODES_RES: usize = 80;
 /// Infer which resource a chain starting at `pos` carries. Returns None
 /// if it can't be determined — caller must NOT silently default to Ti,
 /// because routing Ax as Ti sends raw Ax to the core where it's destroyed.
-#[must_use] 
+#[must_use]
 pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
     let ax_adj = pyrust::vec::contains!(builder.ax_harvester_adjacent, &pos);
     let ti_adj = pyrust::vec::contains!(builder.ti_harvester_adjacent, &pos);
@@ -182,11 +182,7 @@ fn _lay_segment(
     }
 
     let bid = pyrust::unwrap!(ct.get_tile_building_id(start_pos));
-    let entity_type: Option<EntityType> = if let Some(b) = bid {
-        Some(pyrust::unwrap!(ct.get_entity_type(Some(b))))
-    } else {
-        None
-    };
+    let entity_type: Option<EntityType> = bid.map(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
 
     if entity_type == Some(EntityType::Road)
         && let Some(b) = bid
@@ -247,11 +243,8 @@ fn _lay_segment(
     }
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
-    let destination_team: Option<_> = if let Some(b) = destination_building {
-        Some(pyrust::unwrap!(ct.get_team(Some(b))))
-    } else {
-        None
-    };
+    let destination_team: Option<_> =
+        destination_building.map(|b| pyrust::unwrap!(ct.get_team(Some(b))));
     let destination_is_marker = if let Some(b) = destination_building {
         pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Marker
     } else {

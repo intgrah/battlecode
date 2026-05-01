@@ -54,7 +54,9 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
             3
         } else if damage >= 4 && can_reach {
             2
-        } else { i32::from(damage >= 4) };
+        } else {
+            i32::from(damage >= 4)
+        };
         let score = (tier, damage, turns_to_die - turns_to_reach);
 
         if score > best_score {

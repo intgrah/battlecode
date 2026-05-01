@@ -32,7 +32,7 @@ const DY: [i32; 8] = [-1, -1, 0, 1, 1, 1, 0, -1];
 const IS_CARDINAL: [bool; 8] = [true, false, true, false, true, false, true, false];
 
 /// Build the Bresenham m-line sequence from `(sx, sy)` to `(gx, gy)`.
-#[must_use] 
+#[must_use]
 pub fn build_mline_seq(sx: i32, sy: i32, gx: i32, gy: i32) -> Vec<(i32, i32)> {
     let mut out: Vec<(i32, i32)> = pyrust::vec::new!();
     let dx = pyrust::abs!((gx - sx));
@@ -141,7 +141,7 @@ pub struct Bug2Planner {
 
 impl Bug2Planner {
     /// Construct a new planner. Equivalent to entering the Python generator.
-    #[must_use] 
+    #[must_use]
     pub fn new(cost: &[i32], w: i32, h: i32, si: i32, gi: i32, path_idx: Vec<i32>) -> Self {
         let stride = MAX_WIDTH as i32;
         let n_pad = stride * stride;
