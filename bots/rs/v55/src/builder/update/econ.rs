@@ -14,6 +14,7 @@ use crate::util::debug::Scope;
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
 use crate::util::metrics::{chebyshev, claims_by_proximity};
+use auto_wrap_position;
 
 #[must_use] 
 pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
@@ -188,7 +189,7 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("t"),
-                crate::util::visualiser::auto_wrap_position(t)
+                auto_wrap_position(t)
             );
             log("DANGLING discard(unreachable) t={t}", args);
             pyrust::set::remove!(builder.dangling_set, &t);
@@ -205,7 +206,7 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("t"),
-                crate::util::visualiser::auto_wrap_position(t)
+                auto_wrap_position(t)
             );
             log("DANGLING add(reachable-migrate) t={t}", args);
             pyrust::set::remove!(builder.unreachable_dangling, &t);
