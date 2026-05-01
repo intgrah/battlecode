@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use proc_macro2::Span;
@@ -51,6 +51,10 @@ pub struct PyWriter {
     /// class but want `Self::Variant` paths to resolve through the
     /// enum (whose dataclass for Variant is `EnumNameVariant`).
     self_overrides: Vec<Option<String>>,
+    /// File-level `#[pyrust::inline]` consts: name → Python literal.
+    /// Single-segment ident references resolve to the literal directly,
+    /// and the `const` declaration itself is suppressed.
+    inline_consts: HashMap<String, String>,
 }
 
 impl PyWriter {
@@ -72,7 +76,20 @@ impl PyWriter {
             tmp_counter: std::cell::Cell::new(0),
             folded_imports: HashSet::new(),
             self_overrides: Vec::new(),
+            inline_consts: HashMap::new(),
         }
+    }
+
+    /// Register an `#[pyrust::inline]`-marked const. Use sites resolve
+    /// to `lit` and the declaration is suppressed.
+    pub fn note_inline_const(&mut self, name: String, lit: String) {
+        self.inline_consts.insert(name, lit);
+    }
+
+    /// Look up an inline-const by name. Returns the Python literal text
+    /// to substitute, or None if the name is not inlined.
+    pub fn inline_const_lit(&self, name: &str) -> Option<&str> {
+        self.inline_consts.get(name).map(String::as_str)
     }
 
     /// Allocate a fresh `__tN` identifier for one-shot walrus bindings.

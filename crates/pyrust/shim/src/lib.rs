@@ -135,6 +135,9 @@ pub use prelude::PyDisplay;
 /// Inert attribute consumed by `pyrust-translate`. See
 /// `pyrust_macros::context_manager` for behaviour.
 pub use pyrust_macros::context_manager;
+/// Inert attribute consumed by `pyrust-translate`. See
+/// `pyrust_macros::inline` for behaviour.
+pub use pyrust_macros::inline;
 /// Inert attribute consumed by `pyrust-translate`. Marks the type as a
 /// Python `Exception` subclass.
 pub use pyrust_macros::exception;
