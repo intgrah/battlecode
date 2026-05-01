@@ -670,6 +670,15 @@ macro_rules! __pyrust_set_clone {
     };
 }
 
+/// `pyrust::set::collect!(it)` — Rust `it.collect::<HashSet<_>>()`,
+/// Python `set(it)`.
+#[macro_export]
+macro_rules! __pyrust_set_collect {
+    ($it:expr) => {
+        ($it).collect::<::std::collections::HashSet<_>>()
+    };
+}
+
 #[macro_export]
 macro_rules! __pyrust_set_add {
     ($s:expr, $x:expr) => {

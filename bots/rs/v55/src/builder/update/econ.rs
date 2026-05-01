@@ -60,11 +60,11 @@ pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
 
 pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     let prev_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
-    builder.adjacent_to_unconnected_harvester = pyrust::collect!(pyrust::filter!(
+    builder.adjacent_to_unconnected_harvester = pyrust::set::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.adjacent_to_unconnected_harvester)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));
-    builder.adjacent_to_harvester = pyrust::collect!(pyrust::filter!(
+    builder.adjacent_to_harvester = pyrust::set::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.adjacent_to_harvester)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));
