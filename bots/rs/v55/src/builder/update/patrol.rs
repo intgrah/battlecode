@@ -26,7 +26,7 @@ pub fn update_patrol(builder: &mut Builder) {
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("n"),
-            Value::Number(own_count.into())
+            Value::Number(pyrust::into!(own_count))
         );
         log(
             "patrol: refreshed {n} own-vision tiles, no friends in vision",
@@ -59,7 +59,7 @@ pub fn update_patrol(builder: &mut Builder) {
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("n"),
-            Value::Number(own_count.into())
+            Value::Number(pyrust::into!(own_count))
         );
         log(
             "patrol: refreshed {n} own-vision tiles, no farthest friend selected",
@@ -95,16 +95,16 @@ pub fn update_patrol(builder: &mut Builder) {
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("own"),
-        Value::Number(own_count.into())
+        Value::Number(pyrust::into!(own_count))
     );
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("trans"),
-        Value::Number(transitive_count.into())
+        Value::Number(pyrust::into!(transitive_count))
     );
     pyrust::dict::insert!(args, pyrust::to_string!("friend"), auto_wrap_position(best));
-    pyrust::dict::insert!(args, pyrust::to_string!("d"), Value::Number(best_d.into()));
-    pyrust::dict::insert!(args, pyrust::to_string!("nf"), Value::Number(nf.into()));
+    pyrust::dict::insert!(args, pyrust::to_string!("d"), Value::Number(pyrust::into!(best_d)));
+    pyrust::dict::insert!(args, pyrust::to_string!("nf"), Value::Number(pyrust::into!(nf)));
     log(
         "patrol: refreshed own={own} + transitive={trans} via farthest friend \
          {friend} (d²={d}, total friends={nf})",

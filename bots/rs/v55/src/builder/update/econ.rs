@@ -758,12 +758,12 @@ pub fn check_invariants(builder: &Builder) {
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("ti_in_count"),
-                Value::Number(builder._ti_in_count[i].into())
+                Value::Number(pyrust::into!(builder._ti_in_count[i]))
             );
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("ti_harv_at"),
-                Value::Number(builder._ti_harv_at[i].into())
+                Value::Number(pyrust::into!(builder._ti_harv_at[i]))
             );
             pyrust::dict::insert!(
                 args,
@@ -817,12 +817,12 @@ pub fn check_invariants(builder: &Builder) {
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("ax_in_count"),
-                Value::Number(builder._ax_in_count[i].into())
+                Value::Number(pyrust::into!(builder._ax_in_count[i]))
             );
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("ax_harv_at"),
-                Value::Number(builder._ax_harv_at[i].into())
+                Value::Number(pyrust::into!(builder._ax_harv_at[i]))
             );
             pyrust::dict::insert!(
                 args,
@@ -853,12 +853,12 @@ pub fn check_invariants(builder: &Builder) {
                 pyrust::dict::insert!(
                     args,
                     pyrust::to_string!("ti"),
-                    Value::Number(builder._ti_in_count[i].into())
+                    Value::Number(pyrust::into!(builder._ti_in_count[i]))
                 );
                 pyrust::dict::insert!(
                     args,
                     pyrust::to_string!("ax"),
-                    Value::Number(builder._ax_in_count[i].into())
+                    Value::Number(pyrust::into!(builder._ax_in_count[i]))
                 );
                 log(
                     "INVARIANT_FAIL in_count nonzero with empty in_edges t={t} ti={ti} ax={ax}",
@@ -889,12 +889,12 @@ pub fn check_invariants(builder: &Builder) {
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("have"),
-                Value::Number(builder._ti_in_count[i].into())
+                Value::Number(pyrust::into!(builder._ti_in_count[i]))
             );
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("expected"),
-                Value::Number(ti_expected.into())
+                Value::Number(pyrust::into!(ti_expected))
             );
             pyrust::dict::insert!(
                 args,
@@ -920,12 +920,12 @@ pub fn check_invariants(builder: &Builder) {
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("have"),
-                Value::Number(builder._ax_in_count[i].into())
+                Value::Number(pyrust::into!(builder._ax_in_count[i]))
             );
             pyrust::dict::insert!(
                 args,
                 pyrust::to_string!("expected"),
-                Value::Number(ax_expected.into())
+                Value::Number(pyrust::into!(ax_expected))
             );
             pyrust::dict::insert!(
                 args,
@@ -1264,7 +1264,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
             pyrust::to_string!("to"),
             Value::String(format!("{best:?}"))
         );
-        pyrust::dict::insert!(args, pyrust::to_string!("tier"), Value::Number(tier.into()));
+        pyrust::dict::insert!(args, pyrust::to_string!("tier"), Value::Number(pyrust::into!(tier)));
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("anchor"),
@@ -1273,7 +1273,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
         pyrust::dict::insert!(
             args,
             pyrust::to_string!("dist_sq"),
-            Value::Number(best_d.into())
+            Value::Number(pyrust::into!(best_d))
         );
         log(
             "update_ti_sink: ti_sink changed from {from} to {to} (tier {tier}, anchor={anchor}, dist_sq={dist_sq})",
