@@ -31,12 +31,12 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
     }
     match old_kind {
         Some(EntityType::Foundry) if old_team == Some(my_team) => {
-            builder.my_foundries.remove(&pos);
+            pyrust::set::remove!(builder.my_foundries, &pos);
             builder._bump_foundry(pos, -1);
         }
         Some(EntityType::Harvester) => {
             if old_team == Some(my_team) {
-                builder.my_harvesters.remove(&pos);
+                pyrust::set::remove!(builder.my_harvesters, &pos);
             }
             let env = builder.env[i];
             if env == Some(Environment::OreAxionite) {
@@ -96,12 +96,12 @@ pub fn _add_topology(
     }
     match kind {
         EntityType::Foundry if team == builder.state.my_team => {
-            builder.my_foundries.insert(pos);
+            pyrust::set::add!(builder.my_foundries, pos);
             builder._bump_foundry(pos, 1);
         }
         EntityType::Harvester => {
             if team == builder.state.my_team {
-                builder.my_harvesters.insert(pos);
+                pyrust::set::add!(builder.my_harvesters, pos);
             }
             let idx = builder.idx(pos);
             match builder.env[idx] {
@@ -231,7 +231,7 @@ fn _update_turret_rays(
             for d in DIR8 {
                 let n = pos.add(d);
                 if builder.in_bounds(n) {
-                    builder.adjacent_to_enemy_launcher.insert(n);
+                    pyrust::set::add!(builder.adjacent_to_enemy_launcher, n);
                 }
             }
         }
@@ -244,7 +244,7 @@ fn _update_turret_rays(
                     break;
                 }
                 if builder.in_bounds(ray) {
-                    builder.enemy_turret_ray_tiles.insert(ray);
+                    pyrust::set::add!(builder.enemy_turret_ray_tiles, ray);
                 }
             }
         }
@@ -253,7 +253,7 @@ fn _update_turret_rays(
             for tile in pyrust::unwrap!(ct
                 .get_attackable_tiles_from(pos, d, EntityType::Sentinel))
             {
-                builder.enemy_turret_ray_tiles.insert(tile);
+                pyrust::set::add!(builder.enemy_turret_ray_tiles, tile);
             }
         }
         EntityType::Gunner => {
@@ -270,7 +270,7 @@ fn _update_turret_rays(
                 if builder.get_env(ray) == Some(Environment::Wall) {
                     break;
                 }
-                builder.friendly_turret_ray_tiles.insert(ray);
+                pyrust::set::add!(builder.friendly_turret_ray_tiles, ray);
                 if pyrust::is_some!(builder.get_building(ray)) {
                     break;
                 }
@@ -290,11 +290,11 @@ fn _update_turret_rays(
                 if builder.get_env(ray) == Some(Environment::Wall) {
                     break;
                 }
-                builder.friendly_turret_ray_tiles.insert(ray);
+                pyrust::set::add!(builder.friendly_turret_ray_tiles, ray);
                 for hd in DIR8 {
                     let h = ray.add(hd);
                     if builder.in_bounds(h) {
-                        builder.friendly_turret_ray_tiles.insert(h);
+                        pyrust::set::add!(builder.friendly_turret_ray_tiles, h);
                     }
                 }
                 if pyrust::is_some!(builder.get_building(ray)) {
@@ -420,12 +420,12 @@ fn _narrow_symmetry(builder: &mut Builder, new_observations: &[(Position, Enviro
             };
             let mirror_is_core = builder.building_kind[mi] == Some(EntityType::Core);
             if mirror_env != env || mirror_is_core != is_core {
-                invalid.insert(sym);
+                pyrust::set::add!(invalid, sym);
                 break;
             }
         }
     }
     for sym in invalid {
-        builder.state.symmetry_candidates.remove(&sym);
+        pyrust::set::remove!(builder.state.symmetry_candidates, &sym);
     }
 }

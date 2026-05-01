@@ -82,6 +82,14 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("push", 1) => Some("vec::push"),
         ("pop", 0) => Some("vec::pop"),
         ("extend", 1) => Some("vec::extend"),
+        // 1-arg `.insert(x)` is HashSet::insert / BTreeSet::insert; the
+        // bot's Vec::insert sites (2-arg with index) translate to dict
+        // insert below — bot must hand-fix any Vec::insert site.
+        ("insert", 1) => Some("set::add"),
+        ("insert", 2) => Some("dict::insert"),
+        // `.remove(&k)` 1-arg covers HashSet, HashMap (returns Option),
+        // BTreeSet/Map. Default to set::remove.
+        ("remove", 1) => Some("set::remove"),
         // ---- Option methods (single-shot, not chain) ----
         ("is_some", 0) => Some("is_some"),
         ("is_none", 0) => Some("is_none"),

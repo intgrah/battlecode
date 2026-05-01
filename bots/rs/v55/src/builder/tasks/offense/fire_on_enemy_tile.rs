@@ -54,7 +54,7 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     let my_pos = self_.my_pos;
 
     if being_healed {
-        self_.attack_tile_blacklist.insert(my_pos, 5);
+        pyrust::dict::insert!(self_.attack_tile_blacklist, my_pos, 5);
         self_.last_fire = None;
         let alt = pick_attack_destination(self_, target, true);
         if let Some(a) = alt

@@ -129,7 +129,7 @@ fn _econ_disc_tiles(builder: &Builder) -> HashSet<Position> {
         for x in 0..w {
             let p = Position { x, y };
             if p.distance_squared(core) <= r2 {
-                tiles.insert(p);
+                pyrust::set::add!(tiles, p);
             }
         }
     }
@@ -176,7 +176,7 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
         let base = (y as usize) * MAX_WIDTH;
         for x in 0..w {
             let v = parent[base + (x as usize)];
-            if v != -1 && seen.insert(v) {
+            if v != -1 && pyrust::set::add!(seen, v) {
                 pyrust::vec::push!(keys, v);
             }
         }

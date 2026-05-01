@@ -22,7 +22,7 @@ const UPSTREAM_SEARCH_CAP: usize = 80;
 /// bridge is found. Returns the bridge position or None.
 fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
     let mut visited: HashSet<Position> = pyrust::set::new!();
-    visited.insert(start);
+    pyrust::set::add!(visited, start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(cur) = pyrust::vec::pop!(queue) {
         if visited.len() >= UPSTREAM_SEARCH_CAP {
@@ -32,7 +32,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
             if pyrust::vec::contains!(visited, &u) {
                 continue;
             }
-            visited.insert(u);
+            pyrust::set::add!(visited, u);
             if self_.kind_at(u) == Some(EntityType::Bridge)
                 && self_.team_at(u) == Some(self_.my_team)
             {

@@ -674,10 +674,10 @@ impl Builder {
             let new = self._ti_harv_at[ni];
             self._refresh_ax_leakage(ni);
             if old == 0 && new > 0 {
-                self.ti_harvester_adjacent.insert(n);
+                pyrust::set::add!(self.ti_harvester_adjacent, n);
                 self._reeval_ti_upstream(n);
             } else if old > 0 && new == 0 {
-                self.ti_harvester_adjacent.remove(&n);
+                pyrust::set::remove!(self.ti_harvester_adjacent, &n);
                 self._reeval_ti_upstream(n);
             }
         }
@@ -695,10 +695,10 @@ impl Builder {
             let new = self._ax_harv_at[ni];
             self._refresh_ti_leakage(ni);
             if old == 0 && new > 0 {
-                self.ax_harvester_adjacent.insert(n);
+                pyrust::set::add!(self.ax_harvester_adjacent, n);
                 self._reeval_ax_upstream(n);
             } else if old > 0 && new == 0 {
-                self.ax_harvester_adjacent.remove(&n);
+                pyrust::set::remove!(self.ax_harvester_adjacent, &n);
                 self._reeval_ax_upstream(n);
             }
         }
@@ -726,10 +726,10 @@ impl Builder {
         let i = self.idx(t);
         let delta: i32;
         if want {
-            self.ti_upstream.insert(t);
+            pyrust::set::add!(self.ti_upstream, t);
             delta = 1;
         } else {
-            self.ti_upstream.remove(&t);
+            pyrust::set::remove!(self.ti_upstream, &t);
             delta = -1;
         }
         let outs: Vec<Position> = self.out_edges[i].clone();
@@ -751,10 +751,10 @@ impl Builder {
         let i = self.idx(t);
         let delta: i32;
         if want {
-            self.ax_upstream.insert(t);
+            pyrust::set::add!(self.ax_upstream, t);
             delta = 1;
         } else {
-            self.ax_upstream.remove(&t);
+            pyrust::set::remove!(self.ax_upstream, &t);
             delta = -1;
         }
         let outs: Vec<Position> = self.out_edges[i].clone();
@@ -811,9 +811,9 @@ impl Builder {
     pub fn _check_multi_input(&mut self, t: Position) {
         let idx = self.idx(t);
         if self.in_edges[idx].len() >= 2 {
-            self.is_multi_input.insert(t);
+            pyrust::set::add!(self.is_multi_input, t);
         } else {
-            self.is_multi_input.remove(&t);
+            pyrust::set::remove!(self.is_multi_input, &t);
         }
     }
 
@@ -866,8 +866,8 @@ impl Builder {
             _ => false,
         };
         if !admit_terrain {
-            self.dangling_set.remove(&t);
-            self.unreachable_dangling.remove(&t);
+            pyrust::set::remove!(self.dangling_set, &t);
+            pyrust::set::remove!(self.unreachable_dangling, &t);
             return;
         }
 
@@ -892,11 +892,11 @@ impl Builder {
 
         if is_dangling {
             if !pyrust::vec::contains!(self.unreachable_dangling, &t) {
-                self.dangling_set.insert(t);
+                pyrust::set::add!(self.dangling_set, t);
             }
         } else {
-            self.dangling_set.remove(&t);
-            self.unreachable_dangling.remove(&t);
+            pyrust::set::remove!(self.dangling_set, &t);
+            pyrust::set::remove!(self.unreachable_dangling, &t);
         }
     }
 
@@ -996,15 +996,9 @@ impl Unit for Builder {
 
         let _g = Scope::new_timed("body");
         let mut args = Map::new();
-        args.insert(
-            pyrust::to_string!("id"),
-            serde_json::Value::Number(serde_json::Number::from(self.state.my_id)),
-        );
-        args.insert(pyrust::to_string!("pos"), auto_wrap_position(self.state.my_pos));
-        args.insert(
-            pyrust::to_string!("round"),
-            serde_json::Value::Number(serde_json::Number::from(self.state.round)),
-        );
+        pyrust::dict::insert!(args, pyrust::to_string!("id"), serde_json::Value::Number(serde_json::Number::from(self.state.my_id)));
+        pyrust::dict::insert!(args, pyrust::to_string!("pos"), auto_wrap_position(self.state.my_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("round"), serde_json::Value::Number(serde_json::Number::from(self.state.round)));
         log("Builder {id} pos={pos} round={round}", args);
 
         update(self, ct);
