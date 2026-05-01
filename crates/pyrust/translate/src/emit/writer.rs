@@ -55,6 +55,10 @@ pub struct PyWriter {
     /// Single-segment ident references resolve to the literal directly,
     /// and the `const` declaration itself is suppressed.
     inline_consts: HashMap<String, String>,
+    /// Stack of inline functions currently being expanded. Used to
+    /// guard against recursive inline expansion (`fn a(...) { b(...) }`
+    /// where `b` calls `a`).
+    inlining_stack: Vec<String>,
 }
 
 impl PyWriter {
@@ -77,7 +81,22 @@ impl PyWriter {
             folded_imports: HashSet::new(),
             self_overrides: Vec::new(),
             inline_consts: HashMap::new(),
+            inlining_stack: Vec::new(),
         }
+    }
+
+    /// True iff we're already expanding `name`'s body. Used to short-
+    /// circuit recursive inline calls so we don't expand forever.
+    pub fn is_inlining(&self, name: &str) -> bool {
+        self.inlining_stack.iter().any(|n| n == name)
+    }
+
+    pub fn push_inlining(&mut self, name: &str) {
+        self.inlining_stack.push(name.to_string());
+    }
+
+    pub fn pop_inlining(&mut self) {
+        self.inlining_stack.pop();
     }
 
     /// Register an `#[pyrust::inline]`-marked const. Use sites resolve
