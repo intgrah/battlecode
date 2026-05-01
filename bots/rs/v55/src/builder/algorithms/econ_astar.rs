@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use cambc::{Controller, Position, ResourceType};
+use cambc::{Position, ResourceType};
 
 use crate::builder::algorithms::reachability::find as uf_find;
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
@@ -751,7 +751,6 @@ impl AStarSearch {
     /// non-routable. Mutates `ti_routable` / `ax_routable` temporarily.
     pub fn search_blocked(
         &mut self,
-        ct: &mut Controller<'_>,
         start: Position,
         goal: Position,
         ctx: &mut EconAstarCtx,
