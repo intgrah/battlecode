@@ -1349,11 +1349,11 @@ fn emit_static(w: &mut PyWriter, s: &syn::ItemStatic) -> Result<(), String> {
 
 fn emit_const(w: &mut PyWriter, c: &syn::ItemConst) -> Result<(), String> {
     let name = c.ident.to_string();
-    // `#[pyrust::inline]`: literal already registered file-wide; skip
-    // the declaration entirely so use sites compile to LOAD_CONST.
-    if w.inline_const_lit(&name).is_some() {
-        return Ok(());
-    }
+    // `#[pyrust::inline]` consts: still emit `NAME: Final[T] = LIT` here
+    // so cross-module imports (`from util.constants import MAX_WIDTH`)
+    // resolve at runtime. The substitution at use sites is what saves
+    // LOAD_GLOBAL inside this file's hot loops; the declaration is
+    // unused locally but required for downstream importers.
     let py_ty = types::type_to_python_str(&c.ty)
         .map_err(|e| w.err(c.ty.span(), format!("const type: {e}")))?;
     let rhs = expr::emit_expr(w, &c.expr)?;
