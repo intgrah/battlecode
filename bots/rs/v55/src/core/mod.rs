@@ -236,7 +236,7 @@ impl Unit for Core {
         self.state.check_symmetry_marker(ct);
         let incoming = self.count_incoming(ct);
         if pyrust::len!(self.deliveries) == Self::INCOME_SAMPLES {
-            self.deliveries.pop_back();
+            pyrust::vec::pop_back!(self.deliveries);
         }
         pyrust::vec::push_front!(self.deliveries, incoming);
         let total: i32 = pyrust::sum!(pyrust::iter!(self.deliveries));
