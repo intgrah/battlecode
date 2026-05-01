@@ -332,11 +332,34 @@ fn emit_match_into_let(
         w.line("pass");
         w.exit_indent();
     }
+    // Reorder None-arms first so a catch-all `case x` (the collapsed
+    // `Some(x)` pattern) doesn't shadow them. Mirrors `emit_match_stmt`.
+    let mut none_arms: Vec<&syn::Arm> = Vec::new();
+    let mut other_arms: Vec<&syn::Arm> = Vec::new();
     for arm in &m.arms {
+        if super::pat::is_none_pattern(&arm.pat) {
+            none_arms.push(arm);
+        } else {
+            other_arms.push(arm);
+        }
+    }
+    let ordered: Vec<&syn::Arm> = none_arms
+        .into_iter()
+        .chain(other_arms.into_iter())
+        .collect();
+    for arm in ordered {
         let pat_text = super::pat::pat_to_python(w, &arm.pat)?;
+        let some_check = some_binding_check(&arm.pat);
         let case_line = if let Some((_, guard)) = &arm.guard {
+            super::pat::declare_pat_bindings(w, &arm.pat);
             let guard_em = expr::emit_expr(w, guard)?;
-            format!("case {pat_text} if {}:", guard_em.text)
+            let combined = match some_check {
+                Some(ck) => format!("{ck} and ({})", guard_em.text),
+                None => guard_em.text,
+            };
+            format!("case {pat_text} if {combined}:")
+        } else if let Some(ck) = some_check {
+            format!("case {pat_text} if {ck}:")
         } else {
             format!("case {pat_text}:")
         };
@@ -755,6 +778,14 @@ pub fn emit_expr_stmt(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(),
         }
         syn::Expr::Return(r) => {
             if let Some(v) = &r.expr {
+                // `return Err(X)` and `return Err(X.into())` translate to
+                // `raise X` — the Python form uses exceptions for the
+                // error path that Rust expresses through Result.
+                if let Some(inner) = strip_err_call(v) {
+                    let em = expr::emit_expr(w, inner)?;
+                    w.line(&format!("raise {}", em.text));
+                    return Ok(());
+                }
                 let em = expr::emit_expr(w, v)?;
                 w.line(&format!("return {}", em.text));
             } else {
@@ -763,6 +794,9 @@ pub fn emit_expr_stmt(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(),
             Ok(())
         }
         syn::Expr::Assign(a) => emit_assign_stmt(w, a),
+        // `unsafe { ... }` in statement position: emit the inner block's
+        // statements directly (the `unsafe` marker has no Python analog).
+        syn::Expr::Unsafe(u) => emit_block(w, &u.block, tail),
         syn::Expr::MethodCall(mc) if try_emit_dict_insert(w, mc)?.is_some() => Ok(()),
         other => {
             let em = expr::emit_expr(w, other)?;
@@ -858,6 +892,11 @@ fn emit_tail(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(), String> 
         }
         syn::Expr::Return(r) => {
             if let Some(v) = &r.expr {
+                if let Some(inner) = strip_err_call(v) {
+                    let em = expr::emit_expr(w, inner)?;
+                    w.line(&format!("raise {}", em.text));
+                    return Ok(());
+                }
                 let em = expr::emit_expr(w, v)?;
                 w.line(&format!("return {}", em.text));
             } else {
@@ -866,6 +905,15 @@ fn emit_tail(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(), String> 
             Ok(())
         }
         other => {
+            // Tail expression `Err(X)` in a function returning Result —
+            // translate to `raise X`.
+            if matches!(tail, Tail::Return)
+                && let Some(inner) = strip_err_call(other)
+            {
+                let em = expr::emit_expr(w, inner)?;
+                w.line(&format!("raise {}", em.text));
+                return Ok(());
+            }
             let em = expr::emit_expr(w, other)?;
             match tail {
                 Tail::Discard => {
@@ -1110,7 +1158,9 @@ fn emit_let_or_chain(w: &mut PyWriter, cond: &syn::Expr) -> Result<Option<String
             }
             ChainPart::Cond(e) => {
                 let em = expr::emit_expr(w, e)?;
-                conds.push(em.text);
+                // Parenthesise: subsequent join with `" and "` would otherwise
+                // bind tighter than any inner `or` (Python `and > or`).
+                conds.push(format!("({})", em.text));
             }
         }
     }
@@ -1335,13 +1385,29 @@ fn emit_loop_stmt(w: &mut PyWriter, lo: &syn::ExprLoop, tail: Tail) -> Result<()
 }
 
 fn emit_for_stmt(w: &mut PyWriter, fl: &syn::ExprForLoop, tail: Tail) -> Result<(), String> {
+    use syn::spanned::Spanned;
     if fl.label.is_some() {
         return Err(w.err(fl.span(), "labeled for not supported"));
     }
     let iter_expr = unwrap_iterable(&fl.expr);
+    // Look up the ra_ap-resolved kind of the iterable BEFORE emitting it,
+    // so HashMap/BTreeMap iteration over a 2-tuple pattern picks up
+    // `.items()` even when the legacy `Ty` plumbing reports `Unknown`.
+    let iter_ra_kind = w.ty_at(iter_expr.span()).cloned();
     let iter = expr::emit_expr(w, iter_expr)?;
     let pat_text = pat_to_text(w, &fl.pat)?;
-    w.line(&format!("for {pat_text} in {}:", iter.text));
+    let is_tuple_pat = matches!(unwrap_pat_ref(&fl.pat), syn::Pat::Tuple(t) if t.elems.len() == 2);
+    let iter_is_map = matches!(iter.ty, Ty::Dict)
+        || matches!(
+            iter_ra_kind,
+            Some(crate::tyctx::TyKind::HashMap | crate::tyctx::TyKind::BTreeMap)
+        );
+    let iter_text = if is_tuple_pat && iter_is_map {
+        format!("{}.items()", iter.text)
+    } else {
+        iter.text
+    };
+    w.line(&format!("for {pat_text} in {}:", iter_text));
     w.enter_indent();
     w.enter_block();
     declare_pat(w, &fl.pat, Ty::Unknown);
@@ -1352,6 +1418,117 @@ fn emit_for_stmt(w: &mut PyWriter, fl: &syn::ExprForLoop, tail: Tail) -> Result<
         w.line("return");
     }
     Ok(())
+}
+
+/// Recognise `(Ok-arm, Err-arm)` ordering on a 2-arm match's patterns.
+/// Returns `(ok_arm, err_arm)` regardless of source ordering.
+fn identify_result_arms<'a>(
+    a0: &'a syn::Arm,
+    a1: &'a syn::Arm,
+) -> Option<(&'a syn::Arm, &'a syn::Arm)> {
+    let kind0 = result_arm_kind(&a0.pat);
+    let kind1 = result_arm_kind(&a1.pat);
+    match (kind0, kind1) {
+        (Some("Ok"), Some("Err")) => Some((a0, a1)),
+        (Some("Err"), Some("Ok")) => Some((a1, a0)),
+        _ => None,
+    }
+}
+
+fn result_arm_kind(p: &syn::Pat) -> Option<&'static str> {
+    let syn::Pat::TupleStruct(ts) = p else {
+        return None;
+    };
+    let segs: Vec<String> = ts
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
+    let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+    match slice.as_slice() {
+        ["Ok"] | ["Result", "Ok"] => Some("Ok"),
+        ["Err"] | ["Result", "Err"] => Some("Err"),
+        _ => None,
+    }
+}
+
+fn emit_result_match_as_try(
+    w: &mut PyWriter,
+    scrut_expr: &syn::Expr,
+    ok_arm: &syn::Arm,
+    err_arm: &syn::Arm,
+    tail: Tail,
+) -> Result<(), String> {
+    let err_binding = match &err_arm.pat {
+        syn::Pat::TupleStruct(ts) if ts.elems.len() == 1 => match ts.elems.first().unwrap() {
+            syn::Pat::Ident(i) => Some(i.ident.to_string()),
+            syn::Pat::Wild(_) => None,
+            _ => None,
+        },
+        _ => None,
+    };
+    // The cambc sandbox's AST validator only allows specific exception
+    // names. We use ra_ap to confirm the err type exists for pre-pass
+    // bookkeeping, but the emitted handler is `except Exception` so the
+    // sandbox accepts the file regardless of the err type's name.
+    let scrut = expr::emit_expr(w, scrut_expr)?;
+    w.line("try:");
+    w.enter_indent();
+    w.enter_block();
+    if !scrut.text.is_empty() {
+        w.line(&scrut.text);
+    }
+    super::pat::declare_pat_bindings(w, &ok_arm.pat);
+    emit_match_arm_body(w, &ok_arm.body, tail)?;
+    w.exit_block();
+    w.exit_indent();
+    let bind = err_binding.clone().unwrap_or_else(|| "_e".to_owned());
+    w.line(&format!("except Exception as {bind}:"));
+    w.enter_indent();
+    w.enter_block();
+    if let Some(name) = &err_binding {
+        w.declare(name, Ty::Unknown);
+    }
+    super::pat::declare_pat_bindings(w, &err_arm.pat);
+    emit_match_arm_body(w, &err_arm.body, tail)?;
+    w.exit_block();
+    w.exit_indent();
+    Ok(())
+}
+
+/// `Err(x)` / `Result::Err(x)` → return `Some(x)` for the inner expression.
+/// Used by `return Err(...)` to lower to `raise ...`.
+fn strip_err_call(e: &syn::Expr) -> Option<&syn::Expr> {
+    let syn::Expr::Call(c) = e else { return None };
+    let syn::Expr::Path(p) = c.func.as_ref() else {
+        return None;
+    };
+    if p.qself.is_some() {
+        return None;
+    }
+    let segs: Vec<String> = p
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
+    let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+    if !matches!(slice.as_slice(), ["Err"] | ["Result", "Err"]) {
+        return None;
+    }
+    if c.args.len() != 1 {
+        return None;
+    }
+    Some(c.args.first().unwrap())
+}
+
+fn unwrap_pat_ref(p: &syn::Pat) -> &syn::Pat {
+    match p {
+        syn::Pat::Reference(r) => unwrap_pat_ref(&r.pat),
+        syn::Pat::Paren(p) => unwrap_pat_ref(&p.pat),
+        other => other,
+    }
 }
 
 fn unwrap_iterable(e: &syn::Expr) -> &syn::Expr {
@@ -1405,6 +1582,14 @@ fn declare_pat(w: &mut PyWriter, pat: &syn::Pat, ty: Ty) {
 }
 
 fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(), String> {
+    // Special case: `match expr { Ok(...) => ..., Err(e) => ... }` translates
+    // to `try: ... except Exception as e: ...` because Result/Err are erased
+    // in favour of Python exceptions.
+    if m.arms.len() == 2
+        && let Some((ok_arm, err_arm)) = identify_result_arms(&m.arms[0], &m.arms[1])
+    {
+        return emit_result_match_as_try(w, &m.expr, ok_arm, err_arm, tail);
+    }
     let scrutinee = expr::emit_expr(w, &m.expr)?;
     // Reorder: any arm whose pattern matches `None` must come before catch-all
     // `Some(_)` / ident-binding arms, otherwise Python's `case _` will swallow
@@ -1427,12 +1612,23 @@ fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(
     w.enter_indent();
     for arm in ordered {
         let pat_text = super::pat::pat_to_python(w, &arm.pat)?;
+        // `Some(<binding>)` collapses to a bare ident in pat_to_python, but
+        // Python's bare ident is a capture that always matches (including
+        // `None`). Restore the `is not None` semantics by injecting it into
+        // the case's guard.
+        let some_check = some_binding_check(&arm.pat);
         let case_line = if let Some((_, guard)) = &arm.guard {
             // Declare any pattern bindings before emitting the guard so
             // the guard expression can refer to them.
             super::pat::declare_pat_bindings(w, &arm.pat);
             let guard_em = expr::emit_expr(w, guard)?;
-            format!("case {pat_text} if {}:", guard_em.text)
+            let combined = match some_check {
+                Some(ck) => format!("{ck} and ({})", guard_em.text),
+                None => guard_em.text,
+            };
+            format!("case {pat_text} if {combined}:")
+        } else if let Some(ck) = some_check {
+            format!("case {pat_text} if {ck}:")
         } else {
             format!("case {pat_text}:")
         };
@@ -1446,6 +1642,36 @@ fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(
     }
     w.exit_indent();
     Ok(())
+}
+
+/// `Some(<ident>)` collapses to a bare-ident capture in Python's pattern
+/// language, which matches any value including `None`. Recover the
+/// not-None check so the arm only fires when the scrutinee was `Some`.
+/// Returns the check string (e.g. `"ec is not None"`) or `None` when the
+/// pattern doesn't begin with a `Some(<ident>)` shape.
+fn some_binding_check(pat: &syn::Pat) -> Option<String> {
+    let syn::Pat::TupleStruct(ts) = pat else {
+        return None;
+    };
+    let segs: Vec<String> = ts
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
+    let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+    if !matches!(slice.as_slice(), ["Some"] | ["Option", "Some"]) {
+        return None;
+    }
+    if ts.elems.len() != 1 {
+        return None;
+    }
+    let inner = ts.elems.first().unwrap();
+    if let syn::Pat::Ident(pi) = inner {
+        Some(format!("{} is not None", pi.ident))
+    } else {
+        None
+    }
 }
 
 fn emit_match_arm_body(w: &mut PyWriter, body: &syn::Expr, tail: Tail) -> Result<(), String> {

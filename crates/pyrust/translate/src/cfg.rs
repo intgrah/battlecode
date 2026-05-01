@@ -22,6 +22,25 @@ pub struct CfgEnv {
     /// Key=value pairs (e.g. `target_os = "linux"`). Set explicitly via
     /// `--cfg key=value`. `cfg(key = "v")` matches iff `flags_kv[key] == "v"`.
     kv: HashMap<String, String>,
+    /// Project-wide sum-type enum registry. Key is the Python module path
+    /// the enum lives in (e.g. `builder.tasks._policy`). Value is a map of
+    /// `EnumName` → list of variant names. Built by the `--dir` driver
+    /// during pre-scan; used by `emit_use` to import variant dataclasses
+    /// alongside the enum type itself.
+    pub sum_enum_registry: HashMap<String, HashMap<String, Vec<String>>>,
+    /// Project-wide trait registry: trait name → (`ItemTrait` def, Python
+    /// module path of the trait's source file). Lets `emit_struct` fold
+    /// the trait's default-method bodies into the concrete class, and
+    /// auto-import any free functions the body references from the
+    /// trait's defining module.
+    pub trait_registry: HashMap<String, (syn::ItemTrait, String)>,
+    /// Method names that we know are field accessors by convention —
+    /// at least one `impl X for Struct` in the workspace has `fn <name>`
+    /// where `Struct` also has a `<name>` field. The translator emits
+    /// `obj.<name>()` calls as `obj.<name>` (attribute access) for these
+    /// names, bypassing the field-shadowing problem in folded trait
+    /// default bodies (where ra_ap can't see through the generic).
+    pub field_accessor_names: std::collections::HashSet<String>,
 }
 
 impl CfgEnv {

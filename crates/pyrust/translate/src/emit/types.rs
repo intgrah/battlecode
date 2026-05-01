@@ -118,6 +118,9 @@ pub fn type_to_python_str(ty: &syn::Type) -> Result<String, String> {
     match ty {
         syn::Type::Path(p) if p.qself.is_none() => path_type_to_python(&p.path),
         syn::Type::Reference(r) => type_to_python_str(&r.elem),
+        // `_` placeholder: drop to a bare collection name (Python doesn't
+        // need the element type for runtime annotations).
+        syn::Type::Infer(_) => Ok("object".to_owned()),
         syn::Type::Array(a) => Ok(format!("list[{}]", type_to_python_str(&a.elem)?)),
         syn::Type::Slice(s) => Ok(format!("list[{}]", type_to_python_str(&s.elem)?)),
         syn::Type::Tuple(t) if t.elems.is_empty() => Ok("None".to_owned()),
@@ -185,11 +188,26 @@ fn path_type_to_python(path: &syn::Path) -> Result<String, String> {
         (false, ["f32" | "f64"]) => Ok("float".to_owned()),
         (false, ["bool"]) => Ok("bool".to_owned()),
         (false, ["str" | "String"]) => Ok("str".to_owned()),
-        (false, ["List"] | ["pyrust", "List"]) => {
+        (
+            false,
+            ["List"]
+            | ["pyrust", "List"]
+            | ["Vec"]
+            | ["VecDeque"]
+            | ["std", "collections", "VecDeque"],
+        ) => {
             let arg = generic_type_arg(last_seg, 0)?;
             Ok(format!("list[{}]", type_to_python_str(arg)?))
         }
-        (false, ["Dict"] | ["pyrust", "Dict"]) => {
+        (
+            false,
+            ["Dict"]
+            | ["pyrust", "Dict"]
+            | ["HashMap"]
+            | ["BTreeMap"]
+            | ["std", "collections", "HashMap"]
+            | ["std", "collections", "BTreeMap"],
+        ) => {
             let k = generic_type_arg(last_seg, 0)?;
             let v = generic_type_arg(last_seg, 1)?;
             Ok(format!(
@@ -198,7 +216,15 @@ fn path_type_to_python(path: &syn::Path) -> Result<String, String> {
                 type_to_python_str(v)?
             ))
         }
-        (false, ["Set"] | ["pyrust", "Set"]) => {
+        (
+            false,
+            ["Set"]
+            | ["pyrust", "Set"]
+            | ["HashSet"]
+            | ["BTreeSet"]
+            | ["std", "collections", "HashSet"]
+            | ["std", "collections", "BTreeSet"],
+        ) => {
             let arg = generic_type_arg(last_seg, 0)?;
             Ok(format!("set[{}]", type_to_python_str(arg)?))
         }

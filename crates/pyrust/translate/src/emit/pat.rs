@@ -97,7 +97,15 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 return match slice.as_slice() {
                     ["None"] | ["Option", "None"] => Ok("None".to_owned()),
                     [single] => Ok((*single).to_owned()),
-                    [class, variant] => Ok(format!("{class}.{variant}")),
+                    [class, variant] => {
+                        // Sum-type enum variant: dataclass `ClassVariant()`.
+                        // C-style enum: literal `Class.Variant`.
+                        if w.is_sum_enum(class) {
+                            Ok(format!("{class}{variant}()"))
+                        } else {
+                            Ok(format!("{class}.{variant}"))
+                        }
+                    }
                     _ => Err(w.err(
                         p.span(),
                         format!("unsupported path pattern: {}", slice.join("::")),

@@ -48,7 +48,7 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
         // doesn't distinguish — both are just module-scoped bindings).
         syn::Item::Static(s) => emit_static(w, s),
         syn::Item::Struct(s) => emit_struct(w, s, file),
-        syn::Item::Enum(e) => emit_enum(w, e),
+        syn::Item::Enum(e) => emit_enum_with_file(w, e, file),
         // Impl blocks are folded into their target struct's class body.
         syn::Item::Impl(_) => Ok(()),
         syn::Item::Use(u) => emit_use(w, u),
@@ -79,10 +79,15 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
             w.line(&format!("type {name} = {ty}"));
             Ok(())
         }
-        // Trait declarations have no direct Python analog (we lower
-        // `impl Trait for Type` into the concrete class). Drop the trait
-        // signature entirely; default-method bodies are picked up via the
-        // concrete impls.
+        // Trait declarations don't have a direct Python analog (we lower
+        // `impl Trait for Type` into the concrete class). Emit a stub
+        // class so cross-module `use crate::unit::Unit;` imports keep
+        // working — Python doesn't need the methods, the concrete classes
+        // already carry them via the flattened impls.
+        // Traits don't get a Python class. Their default methods are
+        // folded into the concrete struct's class via `emit_struct` (which
+        // consults `cfg.trait_registry`). Emitting an empty trait class
+        // would also clash with field-name shadowing in implementors.
         syn::Item::Trait(_) => Ok(()),
         // `extern "C"` / `extern crate` etc. — irrelevant to Python.
         syn::Item::ExternCrate(_) | syn::Item::ForeignMod(_) => Ok(()),
@@ -95,6 +100,21 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
                     "inline `mod foo { ... }` not supported (only external `mod foo;`)",
                 ));
             }
+            // `mod foo;` declares a sibling submodule. We only need a
+            // Python import for it when this file actually references
+            // `foo::xxx` somewhere in expression position — eagerly
+            // importing every declared submodule is what triggers
+            // circular-init failures (`builder.tasks.__init__` → all
+            // children → back through `chain_routing` etc).
+            let name = m.ident.to_string();
+            if !w.is_module_referenced(&name) {
+                return Ok(());
+            }
+            if w.is_root_module() {
+                w.line(&format!("import {name}"));
+            } else {
+                w.line(&format!("from . import {name}"));
+            }
             Ok(())
         }
         other => Err(w.err(
@@ -106,21 +126,18 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
 
 fn emit_use(w: &mut PyWriter, u: &syn::ItemUse) -> Result<(), String> {
     if let Some(first) = first_use_ident(&u.tree)
-        && matches!(first.as_str(), "pyrust" | "std" | "core")
+        && matches!(first.as_str(), "std" | "core" | "serde" | "serde_json")
     {
-        // `use pyrust::<stdlib>;` mirrors Python's `import <stdlib>`
-        // for known modules (random, math, etc.). Other shim/stdlib
-        // imports have no Python analog and are dropped.
-        if first == "pyrust"
-            && let syn::UseTree::Path(p) = &u.tree
-            && let syn::UseTree::Name(n) = &*p.tree
-        {
-            let name = n.ident.to_string();
-            if matches!(name.as_str(), "random" | "math") {
-                w.line(&format!("import {name}"));
-            }
-        }
         return Ok(());
+    }
+    // `use pyrust::<stdlib>` mirrors Python imports for the modules the
+    // shim mirrors (random, math, etc.). Strip the `pyrust::` prefix and
+    // emit a regular Python import.
+    if let Some(first) = first_use_ident(&u.tree)
+        && first == "pyrust"
+        && let syn::UseTree::Path(p) = &u.tree
+    {
+        return emit_pyrust_use(w, &p.tree);
     }
     let mut prefix = Vec::new();
     let mut tree = &u.tree;
@@ -137,20 +154,20 @@ fn emit_use(w: &mut PyWriter, u: &syn::ItemUse) -> Result<(), String> {
     match tree {
         syn::UseTree::Name(n) => {
             let name = n.ident.to_string();
-            if path.is_empty() {
-                w.line(&format!("import {name}"));
-            } else {
-                w.line(&format!("from {path} import {name}"));
+            if w.is_transparent_type(&name) {
+                return Ok(());
             }
+            let mut entries = vec![(name.clone(), name)];
+            expand_sum_enum_variants(w, &path, &mut entries);
+            emit_import_line(w, &path, &entries);
         }
         syn::UseTree::Rename(r) => {
             let from = r.ident.to_string();
             let alias = r.rename.to_string();
-            if path.is_empty() {
-                w.line(&format!("import {from} as {alias}"));
-            } else {
-                w.line(&format!("from {path} import {from} as {alias}"));
+            if w.is_transparent_type(&from) {
+                return Ok(());
             }
+            emit_import_line(w, &path, &[(format!("{from} as {alias}"), alias)]);
         }
         syn::UseTree::Glob(_) => {
             if path.is_empty() {
@@ -162,17 +179,66 @@ fn emit_use(w: &mut PyWriter, u: &syn::ItemUse) -> Result<(), String> {
             if path.is_empty() {
                 return Err(w.err(u.span(), "grouped import requires a module path"));
             }
-            let mut names = Vec::with_capacity(g.items.len());
-            for item in &g.items {
-                names.push(use_leaf_name(w, item)?);
+            let mut entries: Vec<(String, String)> = Vec::with_capacity(g.items.len());
+            for it in &g.items {
+                entries.push(use_leaf_pair(w, it)?);
             }
-            w.line(&format!("from {path} import {}", names.join(", ")));
+            entries.retain(|(_, alias)| !w.is_transparent_type(alias));
+            if entries.is_empty() {
+                return Ok(());
+            }
+            expand_sum_enum_variants(w, &path, &mut entries);
+            emit_import_line(w, &path, &entries);
         }
         syn::UseTree::Path(_) => {
             unreachable!("path segments already consumed");
         }
     }
     Ok(())
+}
+
+/// Emit a `from {path} import ...` line, splitting into runtime and
+/// type-only groups. Type-only entries (those whose alias name appears only
+/// in annotations) go under an `if TYPE_CHECKING:` block, with a `from
+/// typing import TYPE_CHECKING` import emitted on first use.
+fn emit_import_line(w: &mut PyWriter, path: &str, entries: &[(String, String)]) {
+    if entries.is_empty() {
+        return;
+    }
+    let mut runtime: Vec<&str> = Vec::new();
+    let mut type_only: Vec<&str> = Vec::new();
+    for (clause, alias) in entries {
+        if w.is_runtime_ident(alias) {
+            runtime.push(clause);
+        } else {
+            type_only.push(clause);
+        }
+    }
+    if !runtime.is_empty() {
+        if path.is_empty() {
+            for c in &runtime {
+                w.line(&format!("import {c}"));
+            }
+        } else {
+            w.line(&format!("from {path} import {}", runtime.join(", ")));
+        }
+    }
+    if !type_only.is_empty() {
+        if !w.has_emitted_type_checking_import() {
+            w.line("from typing import TYPE_CHECKING");
+            w.mark_type_checking_imported();
+        }
+        w.line("if TYPE_CHECKING:");
+        w.enter_indent();
+        if path.is_empty() {
+            for c in &type_only {
+                w.line(&format!("import {c}"));
+            }
+        } else {
+            w.line(&format!("from {path} import {}", type_only.join(", ")));
+        }
+        w.exit_indent();
+    }
 }
 
 fn first_use_ident(tree: &syn::UseTree) -> Option<String> {
@@ -184,6 +250,77 @@ fn first_use_ident(tree: &syn::UseTree) -> Option<String> {
     }
 }
 
+/// Translate `use pyrust::<rest>` after the `pyrust::` prefix has been peeled.
+/// `pyrust::random` → `import random`. `pyrust::random::Random` → `from random
+/// import Random`. `pyrust::random::Random as Rng` → `from random import Random
+/// as Rng`. Modules outside the `random`/`math` allowlist are dropped silently.
+fn emit_pyrust_use(w: &mut PyWriter, tree: &syn::UseTree) -> Result<(), String> {
+    match tree {
+        syn::UseTree::Name(n) => {
+            let name = n.ident.to_string();
+            if matches!(name.as_str(), "random" | "math") {
+                w.line(&format!("import {name}"));
+            }
+            Ok(())
+        }
+        syn::UseTree::Rename(r) => {
+            let from = r.ident.to_string();
+            let alias = r.rename.to_string();
+            if matches!(from.as_str(), "random" | "math") {
+                w.line(&format!("import {from} as {alias}"));
+            }
+            Ok(())
+        }
+        syn::UseTree::Path(p) => {
+            let module = p.ident.to_string();
+            if !matches!(module.as_str(), "random" | "math") {
+                return Ok(());
+            }
+            match &*p.tree {
+                syn::UseTree::Name(n) => {
+                    w.line(&format!("from {module} import {}", n.ident));
+                }
+                syn::UseTree::Rename(r) => {
+                    w.line(&format!("from {module} import {} as {}", r.ident, r.rename));
+                }
+                syn::UseTree::Group(g) => {
+                    let mut names = Vec::with_capacity(g.items.len());
+                    for it in &g.items {
+                        names.push(use_leaf_name(w, it)?);
+                    }
+                    w.line(&format!("from {module} import {}", names.join(", ")));
+                }
+                _ => {}
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// When a `use {path}::Foo` import names a sum-type enum registered for
+/// that module, also pull in the per-variant dataclasses (`FooA`, `FooB`,
+/// …) so pattern matches and constructors elsewhere in the file can find
+/// them.
+fn expand_sum_enum_variants(w: &PyWriter, path: &str, entries: &mut Vec<(String, String)>) {
+    let module = w.cfg().sum_enum_registry.get(path);
+    let Some(module) = module else { return };
+    let mut additions: Vec<(String, String)> = Vec::new();
+    for (_, alias) in entries.iter() {
+        if let Some(variants) = module.get(alias) {
+            for v in variants {
+                let combined = format!("{alias}{v}");
+                additions.push((combined.clone(), combined));
+            }
+        }
+    }
+    for add in additions {
+        if !entries.iter().any(|(_, a)| *a == add.1) {
+            entries.push(add);
+        }
+    }
+}
+
 fn use_leaf_name(w: &PyWriter, tree: &syn::UseTree) -> Result<String, String> {
     match tree {
         syn::UseTree::Name(n) => Ok(n.ident.to_string()),
@@ -192,7 +329,61 @@ fn use_leaf_name(w: &PyWriter, tree: &syn::UseTree) -> Result<String, String> {
     }
 }
 
+/// Like `use_leaf_name` but returns `(import-clause, alias-name)`. The clause
+/// is what goes after `from {path} import …`; the alias is the local name
+/// brought into scope (used to look up runtime usage).
+fn use_leaf_pair(w: &PyWriter, tree: &syn::UseTree) -> Result<(String, String), String> {
+    match tree {
+        syn::UseTree::Name(n) => {
+            let s = n.ident.to_string();
+            Ok((s.clone(), s))
+        }
+        syn::UseTree::Rename(r) => {
+            let from = r.ident.to_string();
+            let alias = r.rename.to_string();
+            Ok((format!("{from} as {alias}"), alias))
+        }
+        other => Err(w.err(other.span(), "nested `use` groups not supported")),
+    }
+}
+
 fn emit_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
+    emit_c_enum_with_impls(w, e, &[])
+}
+
+pub fn emit_enum_with_file(
+    w: &mut PyWriter,
+    e: &syn::ItemEnum,
+    file: &syn::File,
+) -> Result<(), String> {
+    let all_unit = e
+        .variants
+        .iter()
+        .all(|v| matches!(v.fields, syn::Fields::Unit));
+    if !all_unit {
+        return emit_sum_enum_with_file(w, e, file);
+    }
+    let name = e.ident.to_string();
+    let impls: Vec<&syn::ItemImpl> = file
+        .items
+        .iter()
+        .filter_map(|i| {
+            if let syn::Item::Impl(im) = i {
+                if impl_target_name(&im.self_ty).as_deref() == Some(name.as_str()) {
+                    return Some(im);
+                }
+            }
+            None
+        })
+        .collect();
+    emit_c_enum_with_impls(w, e, &impls)
+}
+
+fn emit_c_enum_with_impls(
+    w: &mut PyWriter,
+    e: &syn::ItemEnum,
+    impls: &[&syn::ItemImpl],
+) -> Result<(), String> {
     let name = e.ident.to_string();
     let all_unit = e
         .variants
@@ -201,14 +392,16 @@ fn emit_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
     if !all_unit {
         return emit_sum_enum(w, e);
     }
-    w.line(&format!("class {name}(Enum):"));
+    // `IntEnum` (not `Enum`) so `int(variant)` and bitwise/comparison ops
+    // against ints behave the way Rust's `enum X { A = 0, ... }` does.
+    w.line(&format!("class {name}(IntEnum):"));
     w.enter_indent();
     if let Some(text) = docstring::collect(&e.attrs) {
         for line in docstring::format(&text) {
             w.line(&line);
         }
     }
-    if e.variants.is_empty() {
+    if e.variants.is_empty() && impls.is_empty() {
         w.line("pass");
     } else {
         for v in &e.variants {
@@ -220,6 +413,44 @@ fn emit_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
             w.line(&format!("{var_name} = {value}"));
         }
     }
+    w.enter_class(name);
+    for im in impls {
+        // `impl Display for Foo` is debug-only; drop it (Python `__str__`
+        // would need a different signature anyway).
+        if let Some((_, trait_path, _)) = im.trait_.as_ref() {
+            let trait_name = trait_path
+                .segments
+                .last()
+                .map(|s| s.ident.to_string())
+                .unwrap_or_default();
+            if matches!(trait_name.as_str(), "Display" | "Debug") {
+                continue;
+            }
+        }
+        for impl_item in &im.items {
+            match impl_item {
+                syn::ImplItem::Const(c) => {
+                    let cname = c.ident.to_string();
+                    let py_ty = types::type_to_python_str(&c.ty)
+                        .map_err(|err| w.err(c.ty.span(), format!("const type: {err}")))?;
+                    let rhs = expr::emit_expr(w, &c.expr)?;
+                    w.line(&format!("{cname}: Final[{py_ty}] = {}", rhs.text));
+                }
+                syn::ImplItem::Fn(f) => {
+                    w.blank_line();
+                    emit_method(w, f)?;
+                }
+                syn::ImplItem::Type(_) => {}
+                other => {
+                    return Err(w.err(
+                        other.span(),
+                        format!("unsupported impl item: {}", impl_item_kind(other)),
+                    ));
+                }
+            }
+        }
+    }
+    w.exit_class();
     w.exit_indent();
     Ok(())
 }
@@ -228,13 +459,33 @@ fn emit_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
 /// + a `type Foo = FooA | FooB | ...` union alias. Mirrors the convention in
 /// `bots/intgrah/v54.7.9/building.py` where `BuildingCore`, `BuildingConveyor`,
 /// etc. are dataclasses unioned via a `type` alias.
-fn emit_sum_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
+fn emit_sum_enum_with_file(
+    w: &mut PyWriter,
+    e: &syn::ItemEnum,
+    file: &syn::File,
+) -> Result<(), String> {
     let enum_name = e.ident.to_string();
     if let Some(text) = docstring::collect(&e.attrs) {
         for line in docstring::format(&text) {
             w.line(&line);
         }
     }
+    // Collect `impl <enum_name> { fn ... }` blocks once — every variant
+    // class needs the methods so calls like `MarkerSymmetry(...).encode()`
+    // and `b.team()` work directly on the variant instance.
+    let impls: Vec<&syn::ItemImpl> = file
+        .items
+        .iter()
+        .filter_map(|i| {
+            if let syn::Item::Impl(im) = i
+                && im.trait_.is_none()
+                && impl_target_name(&im.self_ty).as_deref() == Some(enum_name.as_str())
+            {
+                return Some(im);
+            }
+            None
+        })
+        .collect();
     let mut variant_class_names = Vec::with_capacity(e.variants.len());
     for v in &e.variants {
         let var_name = v.ident.to_string();
@@ -276,12 +527,68 @@ fn emit_sum_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
                 }
             }
         }
+        // Fold `impl Enum { fn ... }` methods into THIS variant's class
+        // body. Methods that match-extract a same-named field are skipped
+        // — the variant already exposes the field directly.
+        let variant_field_names: Vec<String> = match &v.fields {
+            syn::Fields::Named(named) => named
+                .named
+                .iter()
+                .filter_map(|f| f.ident.as_ref().map(|i| i.to_string()))
+                .collect(),
+            _ => Vec::new(),
+        };
+        w.enter_class(class_name.clone());
+        w.set_current_class_fields(variant_field_names.clone());
+        let mut emitted_methods = std::collections::HashSet::new();
+        for im in &impls {
+            for ii in &im.items {
+                if let syn::ImplItem::Fn(f) = ii {
+                    let name = f.sig.ident.to_string();
+                    if emitted_methods.contains(&name) {
+                        continue;
+                    }
+                    if variant_field_names.iter().any(|fn_| fn_ == &name) {
+                        // Body would just match-extract the same-named
+                        // field; Python field access does the right thing.
+                        emitted_methods.insert(name);
+                        continue;
+                    }
+                    w.blank_line();
+                    emit_method(w, f)?;
+                    emitted_methods.insert(name);
+                }
+            }
+        }
+        w.exit_class();
         w.exit_indent();
         w.blank_line();
     }
-    let union = variant_class_names.join(" | ");
-    w.line(&format!("type {enum_name} = {union}"));
+    // Sum-type enum alias: lower as a runtime binding, not a `type` statement,
+    // so static methods on the enum (`EnumName::method`) resolve through the
+    // alias. With `type X = Y`, `X` is a `TypeAliasType` whose attribute
+    // access doesn't reach the underlying class. With `X = Y | Z`, `X` is a
+    // union (no methods) — but a single-variant enum collapses to `X = Y`,
+    // which exposes `Y`'s methods via `X.method`.
+    if variant_class_names.len() == 1 {
+        w.line(&format!("{enum_name} = {}", variant_class_names[0]));
+    } else {
+        let union = variant_class_names.join(" | ");
+        w.line(&format!("type {enum_name} = {union}"));
+    }
     Ok(())
+}
+
+fn emit_sum_enum(w: &mut PyWriter, e: &syn::ItemEnum) -> Result<(), String> {
+    // Without file context, emit without method folding. Used when called
+    // from `emit_enum_with_file` for files that don't expose impl context
+    // for sum enums (rare; legacy callers).
+    let dummy_file = syn::File {
+        shebang: None,
+        attrs: Vec::new(),
+        items: Vec::new(),
+    };
+    emit_sum_enum_with_file(w, e, &dummy_file)
 }
 
 fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Result<(), String> {
@@ -331,7 +638,18 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
         }
     };
 
-    w.line(&format!("class {class_name}:"));
+    let mut bases = collect_trait_bases(w, file, &class_name);
+    // `#[pyrust::exception]` adds `Exception` so `raise X` and
+    // `except X` work as Python exception machinery.
+    if w.is_exception_type(&class_name) {
+        bases.insert(0, "Exception".to_owned());
+    }
+    let header = if bases.is_empty() {
+        format!("class {class_name}:")
+    } else {
+        format!("class {class_name}({}):", bases.join(", "))
+    };
+    w.line(&header);
     w.enter_indent();
     if let Some(text) = docstring::collect(&s.attrs) {
         for line in docstring::format(&text) {
@@ -354,6 +672,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
     // __init__ from the struct fields (positional, in declaration order).
     let new_fn = find_new_fn(file, &class_name);
     w.enter_class(class_name.clone());
+    w.set_current_class_fields(field_specs.iter().map(|(n, _, _)| n.clone()).collect());
     w.blank_line();
     if let Some(nf) = new_fn {
         emit_init_from_new(w, nf, &class_name)?;
@@ -361,23 +680,38 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
         emit_auto_init(w, &field_specs);
     }
 
+    // If the struct has `impl Deref { fn deref(&self) -> &self.field }`,
+    // synthesise `__getattr__` that proxies to that field, so Rust's
+    // auto-deref `self.x` (when `x` is on the deref target) keeps working
+    // in Python.
+    let deref_field = find_deref_target_field(file, &class_name);
+    if let Some(field) = &deref_field {
+        w.blank_line();
+        w.line("def __getattr__(self, name):");
+        w.enter_indent();
+        w.line(&format!("return getattr(self.{field}, name)"));
+        w.exit_indent();
+    }
+    // Track which method names this struct's impls have already emitted so
+    // we don't emit a trait default that's been overridden.
+    let mut emitted_methods: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut implemented_traits: Vec<String> = Vec::new();
     for item in &file.items {
         if let syn::Item::Impl(im) = item
             && impl_target_name(&im.self_ty).as_deref() == Some(class_name.as_str())
         {
-            // Skip the entire block if it's `impl Deref/DerefMut for ...`.
-            // These have no Python analog (Python uses normal attribute
-            // access, no transparent dereference). Their associated `type
-            // Target = ...` and the `deref` fn would otherwise force
-            // method-level errors.
             if let Some((_, trait_path, _)) = im.trait_.as_ref() {
                 let trait_name = trait_path
                     .segments
                     .last()
                     .map(|s| s.ident.to_string())
                     .unwrap_or_default();
+                // `Deref` / `DerefMut`: no Python analog; field access works.
                 if matches!(trait_name.as_str(), "Deref" | "DerefMut") {
                     continue;
+                }
+                if !trait_name.is_empty() {
+                    implemented_traits.push(trait_name);
                 }
             }
             for impl_item in &im.items {
@@ -387,14 +721,26 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
                             // Already emitted as __init__.
                             continue;
                         }
+                        if is_field_accessor(f, fields) {
+                            // Trait-accessor methods that forward to a same-
+                            // named field — Python's field access does the
+                            // right thing; emitting the method would shadow
+                            // the field on instance lookup.
+                            emitted_methods.insert(f.sig.ident.to_string());
+                            continue;
+                        }
                         w.blank_line();
                         emit_method(w, f)?;
+                        emitted_methods.insert(f.sig.ident.to_string());
                     }
-                    // Associated types and consts are erased during
-                    // translation — Python has no analog for `type Target
-                    // = X;`, and `const FOO: T = expr;` is already emitted
-                    // as a class-level attribute by the struct-init path.
-                    syn::ImplItem::Type(_) | syn::ImplItem::Const(_) => {}
+                    syn::ImplItem::Const(c) => {
+                        let cname = c.ident.to_string();
+                        let py_ty = types::type_to_python_str(&c.ty)
+                            .map_err(|err| w.err(c.ty.span(), format!("const type: {err}")))?;
+                        let rhs = expr::emit_expr(w, &c.expr)?;
+                        w.line(&format!("{cname}: Final[{py_ty}] = {}", rhs.text));
+                    }
+                    syn::ImplItem::Type(_) => {}
                     other => {
                         return Err(w.err(
                             other.span(),
@@ -403,6 +749,61 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
                     }
                 }
             }
+        }
+    }
+    // Fold in default-bodied trait methods for every trait this struct
+    // implements (recursively for super-traits). Don't emit names already
+    // covered by the concrete impl.
+    let mut trait_queue = implemented_traits.clone();
+    let mut visited_traits: std::collections::HashSet<String> = std::collections::HashSet::new();
+    while let Some(tname) = trait_queue.pop() {
+        if !visited_traits.insert(tname.clone()) {
+            continue;
+        }
+        let Some((trait_def, trait_module_path)) = w.cfg().trait_registry.get(&tname).cloned()
+        else {
+            continue;
+        };
+        // Super-traits become extra trait queues to fold from.
+        for sup in &trait_def.supertraits {
+            if let syn::TypeParamBound::Trait(tb) = sup
+                && let Some(seg) = tb.path.segments.last()
+            {
+                trait_queue.push(seg.ident.to_string());
+            }
+        }
+        // Free-function imports for the folded body were already emitted
+        // at file top by `emit_folded_trait_imports`.
+        let _ = trait_module_path;
+        for ti in &trait_def.items {
+            let syn::TraitItem::Fn(tf) = ti else {
+                continue;
+            };
+            let Some(body) = &tf.default else { continue };
+            let name = tf.sig.ident.to_string();
+            if emitted_methods.contains(&name) {
+                continue;
+            }
+            // Trait abstract methods that match a struct field name are
+            // also field accessors — skip them too.
+            if fields
+                .iter()
+                .any(|f| f.ident.as_ref().map(|i| *i == name).unwrap_or(false))
+            {
+                emitted_methods.insert(name);
+                continue;
+            }
+            // Synthesise an `ImplItemFn` from the trait method's default body.
+            let impl_fn = syn::ImplItemFn {
+                attrs: tf.attrs.clone(),
+                vis: syn::Visibility::Inherited,
+                defaultness: None,
+                sig: tf.sig.clone(),
+                block: body.clone(),
+            };
+            w.blank_line();
+            emit_method(w, &impl_fn)?;
+            emitted_methods.insert(name);
         }
     }
     w.exit_class();
@@ -715,6 +1116,191 @@ fn strip_init_wrappers(e: &syn::Expr) -> &syn::Expr {
     e
 }
 
+/// Inspect the file for `impl Deref for {class}` and extract the target
+/// field name from `fn deref(&self) -> &self.<field> { &self.<field> }`.
+/// Returns the field name (e.g. `"state"`).
+fn find_deref_target_field(file: &syn::File, class_name: &str) -> Option<String> {
+    for item in &file.items {
+        let syn::Item::Impl(im) = item else { continue };
+        if impl_target_name(&im.self_ty).as_deref() != Some(class_name) {
+            continue;
+        }
+        let Some((_, trait_path, _)) = im.trait_.as_ref() else {
+            continue;
+        };
+        let trait_name = trait_path
+            .segments
+            .last()
+            .map(|s| s.ident.to_string())
+            .unwrap_or_default();
+        if trait_name != "Deref" {
+            continue;
+        }
+        for impl_item in &im.items {
+            let syn::ImplItem::Fn(f) = impl_item else {
+                continue;
+            };
+            if f.sig.ident != "deref" {
+                continue;
+            }
+            // Body should be a single-expression block returning &self.<field>.
+            if f.block.stmts.len() != 1 {
+                return None;
+            }
+            let syn::Stmt::Expr(expr, _) = &f.block.stmts[0] else {
+                return None;
+            };
+            let inner = match expr {
+                syn::Expr::Reference(r) => r.expr.as_ref(),
+                other => other,
+            };
+            if let syn::Expr::Field(fe) = inner
+                && let syn::Expr::Path(p) = fe.base.as_ref()
+                && p.path.segments.len() == 1
+                && p.path.segments[0].ident == "self"
+                && let syn::Member::Named(name) = &fe.member
+            {
+                return Some(name.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// True when the impl method is a no-arg accessor whose name matches a
+/// struct field — `fn state(&self) -> &UnitState { &self.state }`. Such
+/// methods exist purely to bridge Rust's trait/field separation; in Python
+/// the field is already accessible by name, so emitting the method would
+/// shadow it.
+fn is_field_accessor(
+    f: &syn::ImplItemFn,
+    fields: &syn::punctuated::Punctuated<syn::Field, syn::Token![,]>,
+) -> bool {
+    if !f
+        .sig
+        .inputs
+        .iter()
+        .all(|inp| matches!(inp, syn::FnArg::Receiver(_)))
+    {
+        return false;
+    }
+    let name = f.sig.ident.to_string();
+    fields
+        .iter()
+        .any(|fld| fld.ident.as_ref().map(|i| i == &name).unwrap_or(false))
+}
+
+/// Walk a trait's default-method bodies for the leaf identifiers of
+/// function-position paths. These become the auto-import targets when the
+/// body is folded into a concrete struct in another module.
+fn collect_folded_call_idents(t: &syn::ItemTrait) -> std::collections::HashSet<String> {
+    use syn::visit::Visit;
+    struct V {
+        out: std::collections::HashSet<String>,
+    }
+    impl<'ast> Visit<'ast> for V {
+        fn visit_expr_call(&mut self, c: &'ast syn::ExprCall) {
+            if let syn::Expr::Path(p) = c.func.as_ref()
+                && let Some(seg) = p.path.segments.last()
+                && p.path.segments.len() == 1
+            {
+                let name = seg.ident.to_string();
+                // Built-in Rust prelude items don't need a Python import —
+                // they're either Python keywords (`None`) or stripped by
+                // the translator (`Some`, `Ok`, `Err`).
+                if !matches!(name.as_str(), "Some" | "None" | "Ok" | "Err") {
+                    self.out.insert(name);
+                }
+            }
+            syn::visit::visit_expr_call(self, c);
+        }
+    }
+    let mut v = V {
+        out: std::collections::HashSet::new(),
+    };
+    for ti in &t.items {
+        if let syn::TraitItem::Fn(tf) = ti
+            && let Some(body) = &tf.default
+        {
+            v.visit_block(body);
+        }
+    }
+    v.out
+}
+
+/// Walk `file` for `impl SomeTrait for Class` blocks and return the trait
+/// names. Used to make the Python class inherit from each trait class so
+/// trait default methods are visible. Standard library traits with no Python
+/// analog are filtered out (`Display`, `Debug`, `Default`, `Drop`, `Deref`,
+/// `DerefMut`).
+fn collect_trait_bases(w: &PyWriter, file: &syn::File, class_name: &str) -> Vec<String> {
+    let mut bases = Vec::new();
+    for item in &file.items {
+        if let syn::Item::Impl(im) = item
+            && impl_target_name(&im.self_ty).as_deref() == Some(class_name)
+            && let Some((_, trait_path, _)) = im.trait_.as_ref()
+        {
+            let trait_name = trait_path
+                .segments
+                .last()
+                .map(|s| s.ident.to_string())
+                .unwrap_or_default();
+            if w.is_transparent_type(&trait_name) {
+                continue;
+            }
+            if matches!(
+                trait_name.as_str(),
+                "Display" | "Debug" | "Default" | "Drop" | "Deref" | "DerefMut"
+            ) {
+                continue;
+            }
+            if !bases.iter().any(|b: &String| b == &trait_name) {
+                bases.push(trait_name);
+            }
+        }
+    }
+    bases
+}
+
+fn emit_trait(w: &mut PyWriter, t: &syn::ItemTrait) -> Result<(), String> {
+    let name = t.ident.to_string();
+    w.line(&format!("class {name}:"));
+    w.enter_indent();
+    if let Some(text) = docstring::collect(&t.attrs) {
+        for line in docstring::format(&text) {
+            w.line(&line);
+        }
+    }
+    w.enter_class(name);
+    let mut emitted = false;
+    for item in &t.items {
+        if let syn::TraitItem::Fn(f) = item
+            && f.default.is_some()
+        {
+            if emitted {
+                w.blank_line();
+            }
+            // Synthesize an `ImplItemFn` from the trait method's default
+            // body so we can reuse the existing method emitter.
+            let impl_fn = syn::ImplItemFn {
+                attrs: f.attrs.clone(),
+                vis: syn::Visibility::Inherited,
+                defaultness: None,
+                sig: f.sig.clone(),
+                block: f.default.clone().unwrap(),
+            };
+            emit_method(w, &impl_fn)?;
+            emitted = true;
+        }
+    }
+    if !emitted {
+        w.line("pass");
+    }
+    w.exit_class();
+    w.exit_indent();
+    Ok(())
+}
+
 fn emit_static(w: &mut PyWriter, s: &syn::ItemStatic) -> Result<(), String> {
     let name = s.ident.to_string();
     let py_ty = types::type_to_python_str(&s.ty)
@@ -781,6 +1367,10 @@ fn emit_fn(w: &mut PyWriter, f: &syn::ItemFn) -> Result<(), String> {
             w.line(&line);
         }
     }
+    let assigned_globals = collect_assigned_statics(&f.block, w);
+    if !assigned_globals.is_empty() {
+        w.line(&format!("global {}", assigned_globals.join(", ")));
+    }
     for (n, t) in &param_types {
         w.declare(n, *t);
     }
@@ -793,6 +1383,36 @@ fn emit_fn(w: &mut PyWriter, f: &syn::ItemFn) -> Result<(), String> {
     w.exit_block();
     w.exit_indent();
     Ok(())
+}
+
+/// Collect names of module-level statics that this block writes to. Used to
+/// emit a Python `global X` declaration so the function's assignment hits
+/// the module binding rather than creating a local.
+fn collect_assigned_statics(block: &syn::Block, w: &PyWriter) -> Vec<String> {
+    use syn::visit::Visit;
+    struct AssignVisitor<'a> {
+        statics: &'a std::collections::HashSet<String>,
+        found: std::collections::BTreeSet<String>,
+    }
+    impl<'a, 'ast> Visit<'ast> for AssignVisitor<'a> {
+        fn visit_expr_assign(&mut self, a: &'ast syn::ExprAssign) {
+            if let syn::Expr::Path(p) = &*a.left
+                && let Some(seg) = p.path.segments.last()
+            {
+                let name = seg.ident.to_string();
+                if self.statics.contains(&name) {
+                    self.found.insert(name);
+                }
+            }
+            syn::visit::visit_expr_assign(self, a);
+        }
+    }
+    let mut v = AssignVisitor {
+        statics: w.statics(),
+        found: std::collections::BTreeSet::new(),
+    };
+    v.visit_block(block);
+    v.found.into_iter().collect()
 }
 
 fn emit_top_level_block(w: &mut PyWriter, block: &syn::Block) -> Result<(), String> {

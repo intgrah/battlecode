@@ -10,3 +10,10 @@ pub use builtins::{
 };
 pub use collections::{Dict, List, Set};
 pub use prelude::{PyDisplay, print};
+
+/// Inert attribute consumed by `pyrust-translate`. Marks the type as a
+/// Python `Exception` subclass.
+pub use pyrust_macros::exception;
+/// Inert attribute consumed by `pyrust-translate`. See
+/// `pyrust_macros::transparent` for behaviour.
+pub use pyrust_macros::transparent;
