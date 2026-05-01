@@ -93,7 +93,20 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                     .iter()
                     .map(|s| s.ident.to_string())
                     .collect();
-                let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+                // Resolve `Self::Variant` to the surrounding class.
+                let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false)
+                {
+                    if let Some(cls) = w.current_class() {
+                        let mut v = vec![cls.to_string()];
+                        v.extend(segs.iter().skip(1).cloned());
+                        v
+                    } else {
+                        segs.clone()
+                    }
+                } else {
+                    segs.clone()
+                };
+                let slice: Vec<&str> = resolved.iter().map(String::as_str).collect();
                 return match slice.as_slice() {
                     ["None"] | ["Option", "None"] => Ok("None".to_owned()),
                     [single] => Ok((*single).to_owned()),
