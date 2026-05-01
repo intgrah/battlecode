@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 n = 7
 print("plain text")
 print(f"answer: {n}")

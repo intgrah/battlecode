@@ -82,8 +82,8 @@ pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
 pub fn should_attack(self_: &Builder, pos: Position) -> bool {
     let enemy_builder = nearest_enemy_bot(self_);
     let i = self_.idx(pos);
-    enemy_builder.is_none()
-        || chebyshev(self_.my_pos, enemy_builder.unwrap()) > 2
+    pyrust::is_none!(enemy_builder)
+        || chebyshev(self_.my_pos, pyrust::unwrap!(enemy_builder)) > 2
         || self_.hp[i] <= self_.max_hp[i] - 4
         || self_.hp[i] <= 4
         || can_afford(self_, EntityType::Harvester)
@@ -106,20 +106,20 @@ pub fn friendly_bot_adjacent(self_: &Builder, pos: Position) -> bool {
 /// Chebyshev distance from `pos` to the nearest OTHER friendly
 /// builder bot.
 pub fn min_friendly_chebyshev(ct: &mut Controller<'_>, pos: Position) -> i32 {
-    let my_team = ct.get_team(None).unwrap();
-    let my_id = ct.get_id().unwrap();
+    let my_team = pyrust::unwrap!(ct.get_team(None));
+    let my_id = pyrust::unwrap!(ct.get_id());
     let mut best = 999;
-    for uid in ct.get_nearby_units(None).unwrap() {
+    for uid in pyrust::unwrap!(ct.get_nearby_units(None)) {
         if uid == my_id {
             continue;
         }
-        if ct.get_entity_type(Some(uid)).unwrap() != EntityType::BuilderBot {
+        if pyrust::unwrap!(ct.get_entity_type(Some(uid))) != EntityType::BuilderBot {
             continue;
         }
-        if ct.get_team(Some(uid)).unwrap() != my_team {
+        if pyrust::unwrap!(ct.get_team(Some(uid))) != my_team {
             continue;
         }
-        let d = chebyshev(pos, ct.get_position(Some(uid)).unwrap());
+        let d = chebyshev(pos, pyrust::unwrap!(ct.get_position(Some(uid))));
         if d < best {
             best = d;
         }
@@ -172,9 +172,9 @@ pub fn pick_conveyor_target(
         }
         let near_core = pos.distance_squared(enemy_core) <= 25;
         let mut has_flow = false;
-        if ct.is_in_vision(pos).unwrap()
-            && let Some(bid) = ct.get_tile_building_id(pos).unwrap()
-            && ct.get_stored_resource(Some(bid)).unwrap().is_some()
+        if pyrust::unwrap!(ct.is_in_vision(pos))
+            && let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(pos))
+            && pyrust::is_some!(ct.get_stored_resource(Some(bid)).unwrap())
         {
             has_flow = true;
         }
@@ -206,7 +206,7 @@ pub fn pick_attack_destination(
     target: Position,
     avoid_healers: bool,
 ) -> Option<Position> {
-    let mut candidates: Vec<(i32, i32, i32, Position)> = Vec::new();
+    let mut candidates: Vec<(i32, i32, i32, Position)> = pyrust::vec::new!();
     for d in DIR4 {
         let pos = target.add(d);
         if !self_.in_bounds(pos) {
@@ -316,7 +316,7 @@ fn has_open_side(self_: &Builder, position: Position) -> bool {
 /// Enemy harvesters with at least one passable, unoccupied,
 /// non-allied-transport cardinal.
 pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
-    let mut result: Vec<Position> = Vec::new();
+    let mut result: Vec<Position> = pyrust::vec::new!();
     for &p in &self_.nearby_buildings {
         let Some((kind, team)) = self_.get_building(p) else {
             continue;
@@ -349,7 +349,7 @@ pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Positi
             return h;
         }
     }
-    closest(my_pos, vulnerable.iter().copied()).expect("vulnerable is non-empty by caller contract")
+    pyrust::expect!(closest(my_pos, vulnerable.iter().copied()), "vulnerable is non-empty by caller contract")
 }
 
 pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
@@ -397,7 +397,7 @@ pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
     if self_.offense_turns > 25 {
         invalidate_target = true;
     } else if let Some(tgt) = self_.offense_target
-        && ct.is_in_vision(tgt).unwrap()
+        && pyrust::unwrap!(ct.is_in_vision(tgt))
     {
         let occupied = match self_.all_bots.get(&tgt) {
             Some(&uid) if uid != self_.my_id => true,

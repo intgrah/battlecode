@@ -63,7 +63,8 @@ pub mod vec {
     pub use crate::{
         __pyrust_vec_clear as clear, __pyrust_vec_contains as contains,
         __pyrust_vec_extend as extend, __pyrust_vec_is_empty as is_empty,
-        __pyrust_vec_len as len, __pyrust_vec_pop as pop, __pyrust_vec_push as push,
+        __pyrust_vec_len as len, __pyrust_vec_new as new, __pyrust_vec_pop as pop,
+        __pyrust_vec_push as push,
     };
 }
 pub mod set {
@@ -71,7 +72,7 @@ pub mod set {
         __pyrust_set_add as add, __pyrust_set_clear as clear,
         __pyrust_set_contains as contains, __pyrust_set_difference as difference,
         __pyrust_set_is_empty as is_empty, __pyrust_set_len as len,
-        __pyrust_set_remove as remove,
+        __pyrust_set_new as new, __pyrust_set_remove as remove,
     };
 }
 pub mod dict {
@@ -80,13 +81,14 @@ pub mod dict {
         __pyrust_dict_get as get, __pyrust_dict_insert as insert,
         __pyrust_dict_is_empty as is_empty, __pyrust_dict_items as items,
         __pyrust_dict_keys as keys, __pyrust_dict_len as len,
-        __pyrust_dict_remove as remove, __pyrust_dict_values as values,
+        __pyrust_dict_new as new, __pyrust_dict_remove as remove,
+        __pyrust_dict_values as values,
     };
 }
 pub mod string {
     pub use crate::{
         __pyrust_string_clear as clear, __pyrust_string_is_empty as is_empty,
-        __pyrust_string_len as len,
+        __pyrust_string_len as len, __pyrust_string_new as new,
     };
 }
 

@@ -24,7 +24,7 @@ fn p_fog() -> Palette<bool> {
                 colour: Colour::new(0, 0, 0, 180),
             },
         ],
-        special: Vec::new(),
+        special: pyrust::vec::new!(),
     }
 }
 
@@ -72,7 +72,7 @@ fn p_bool() -> Palette<bool> {
                 colour: Colour::new(120, 180, 240, 140),
             },
         ],
-        special: Vec::new(),
+        special: pyrust::vec::new!(),
     }
 }
 
@@ -120,7 +120,7 @@ fn _crop_bool(arr: &[bool], w: i32, h: i32) -> Vec<bool> {
 
 /// Tiles inside our econ disc — eligible for ECON/DEFENSE ore claims.
 fn _econ_disc_tiles(builder: &Builder) -> HashSet<Position> {
-    let mut tiles: HashSet<Position> = HashSet::new();
+    let mut tiles: HashSet<Position> = pyrust::set::new!();
     let w = builder.state.width;
     let h = builder.state.height;
     let core = builder.my_core;
@@ -170,8 +170,8 @@ const _GOLDEN: f64 = 0.6180339887498949;
 
 fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
     let parent = &builder.reach_parent;
-    let mut keys: Vec<i32> = Vec::new();
-    let mut seen: HashSet<i32> = HashSet::new();
+    let mut keys: Vec<i32> = pyrust::vec::new!();
+    let mut seen: HashSet<i32> = pyrust::set::new!();
     for y in 0..h {
         let base = (y as usize) * MAX_WIDTH;
         for x in 0..w {
@@ -310,7 +310,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         let mut unseen: Vec<bool> = Vec::with_capacity((w * h) as usize);
         for y in 0..h {
             for x in 0..w {
-                unseen.push(builder.env[(y as usize) * MAX_WIDTH + (x as usize)].is_none());
+                unseen.push(pyrust::is_none!(builder.env[(y as usize) * MAX_WIDTH + (x as usize)]));
             }
         }
         vis(

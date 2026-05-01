@@ -116,11 +116,11 @@ pub fn make_move_or_adjacent(
 }
 
 pub fn try_move_dir(ct: &mut Controller<'_>, d: Direction) -> bool {
-    if ct.can_move(d).unwrap() {
+    if pyrust::unwrap!(ct.can_move(d)) {
         let mut args = Map::new();
         args.insert("dir".to_string(), serde_json::Value::String(format!("{d}")));
         log("try_move_dir: moving {dir}", args);
-        ct.move_(d).unwrap();
+        pyrust::unwrap!(ct.move_(d));
         return true;
     }
     false
@@ -132,7 +132,7 @@ pub fn try_move_to(builder: &mut Builder, ct: &mut Controller<'_>, target_pos: P
     let Some(d) = delta_to_dir(dx, dy) else {
         return false;
     };
-    if ct.can_move(d).unwrap() {
+    if pyrust::unwrap!(ct.can_move(d)) {
         let mut args = Map::new();
         args.insert(
             "start".to_string(),
@@ -144,7 +144,7 @@ pub fn try_move_to(builder: &mut Builder, ct: &mut Controller<'_>, target_pos: P
         let hx = (dx > 0) as i32 - (dx < 0) as i32;
         let hy = (dy > 0) as i32 - (dy < 0) as i32;
         builder.explore_heading = Some((hx, hy));
-        ct.move_(d).unwrap();
+        pyrust::unwrap!(ct.move_(d));
         return true;
     }
     false
@@ -155,7 +155,7 @@ pub fn try_move_with_road(
     ct: &mut Controller<'_>,
     target_pos: Position,
 ) -> bool {
-    if builder.get_cost(target_pos) > 1 && ct.can_build_road(target_pos).unwrap() {
+    if builder.get_cost(target_pos) > 1 && pyrust::unwrap!(ct.can_build_road(target_pos)) {
         let mut args = Map::new();
         args.insert("target".to_string(), auto_wrap_position(target_pos));
         args.insert(
@@ -166,27 +166,27 @@ pub fn try_move_with_road(
             "try_move_with_road: paving road at {target} (cost={cost} > 1)",
             args,
         );
-        ct.build_road(target_pos).unwrap();
+        pyrust::unwrap!(ct.build_road(target_pos));
     }
     try_move_to(builder, ct, target_pos)
 }
 
 pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
-    if ct.can_fire(pos).unwrap() {
+    if pyrust::unwrap!(ct.can_fire(pos)) {
         let mut args = Map::new();
         args.insert("pos".to_string(), auto_wrap_position(pos));
         log("try_attack: firing on {pos}", args);
-        ct.fire(pos).unwrap();
+        pyrust::unwrap!(ct.fire(pos));
         return true;
     }
     false
 }
 
 pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
-    let base = base_cost(etype).map(|c| c.0).unwrap_or(0);
+    let base = pyrust::unwrap_or!(base_cost(etype).map(|c| c.0), 0);
     let scale = builder.state.scale;
     let foundry = if builder.state.round >= 500 && !builder.ax_harvester_adjacent.is_empty() {
-        ((base_cost(EntityType::Foundry).unwrap().0 as f64) * scale) as i32
+        ((pyrust::unwrap!(base_cost(EntityType::Foundry)).0 as f64) * scale) as i32
     } else {
         0
     };
@@ -213,10 +213,10 @@ pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
 /// `sink_pos`.
 pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
     let s = builder.state.scale;
-    let h_cost = ((base_cost(EntityType::Harvester).unwrap().0 as f64) * (1.0 + s)) as i32;
-    let c_cost = ((base_cost(EntityType::Conveyor).unwrap().0 as f64) * s) as i32;
-    let b_cost = ((base_cost(EntityType::Bridge).unwrap().0 as f64) * s) as i32;
-    let r_cost = (((base_cost(EntityType::Road).unwrap().0 as f64) * s) as i32).max(1);
+    let h_cost = ((pyrust::unwrap!(base_cost(EntityType::Harvester)).0 as f64) * (1.0 + s)) as i32;
+    let c_cost = ((pyrust::unwrap!(base_cost(EntityType::Conveyor)).0 as f64) * s) as i32;
+    let b_cost = ((pyrust::unwrap!(base_cost(EntityType::Bridge)).0 as f64) * s) as i32;
+    let r_cost = (((pyrust::unwrap!(base_cost(EntityType::Road)).0 as f64) * s) as i32).max(1);
     let d_pos = manhattan(builder.state.my_pos, ore_pos);
     let d_sink = manhattan(ore_pos, sink_pos);
     let walk_cost = d_pos * r_cost;
@@ -282,7 +282,7 @@ pub fn try_place(
         );
         return false;
     }
-    if destroy && ct.can_destroy(pos).unwrap() {
+    if destroy && pyrust::unwrap!(ct.can_destroy(pos)) {
         let mut args = Map::new();
         args.insert("pos".to_string(), auto_wrap_position(pos));
         args.insert(
@@ -293,10 +293,10 @@ pub fn try_place(
             "try_place: destroying existing building at {pos} for {etype}",
             args,
         );
-        ct.destroy(pos).unwrap();
+        pyrust::unwrap!(ct.destroy(pos));
         builder.apply_local_destroy(pos);
     }
-    if ct.can_build(etype, pos, extra).unwrap() {
+    if pyrust::unwrap!(ct.can_build(etype, pos, extra)) {
         let mut args = Map::new();
         args.insert(
             "etype".to_string(),
@@ -316,7 +316,7 @@ pub fn try_place(
             "try_place: built {etype} at {pos} extra={extra} (ti={ti}, scale={scale:.2f})",
             args,
         );
-        ct.build(etype, pos, extra).unwrap();
+        pyrust::unwrap!(ct.build(etype, pos, extra));
         return true;
     }
     let mut args = Map::new();
@@ -341,7 +341,7 @@ pub fn trace_downstream(
     start_pos: Position,
     target_head: Option<Position>,
 ) -> Vec<Position> {
-    let mut path: Vec<Position> = Vec::new();
+    let mut path: Vec<Position> = pyrust::vec::new!();
     _trace_downstream_inner(builder, start_pos, target_head, &mut path);
     path
 }
@@ -377,7 +377,7 @@ fn _trace_downstream_inner(
                             *path = new_path;
                             return;
                         }
-                    } else if builder.get_building(new_pos).is_none() {
+                    } else if pyrust::is_none!(builder.get_building(new_pos)) {
                         path.push(new_pos);
                         handled = true;
                         return;
@@ -408,15 +408,15 @@ pub fn try_heal(
 ) -> bool {
     if conserve_ti && let Some(repair_pos) = builder.repair_pos {
         let i = builder.idx(repair_pos);
-        if builder.building_kind[i].is_none() || builder.hp[i] > builder.max_hp[i] - 4 {
+        if pyrust::is_none!(builder.building_kind[i]) || builder.hp[i] > builder.max_hp[i] - 4 {
             return false;
         }
     }
-    if ct.can_heal(position).unwrap() {
+    if pyrust::unwrap!(ct.can_heal(position)) {
         let mut args = Map::new();
         args.insert("pos".to_string(), auto_wrap_position(position));
         log("try_heal: healing {pos}", args);
-        ct.heal(position).unwrap();
+        pyrust::unwrap!(ct.heal(position));
         return true;
     }
     false
@@ -426,8 +426,8 @@ pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     let mut dir8: Vec<Direction> = DIR8.to_vec();
     builder.state.rng.shuffle(&mut dir8);
     for direction in dir8 {
-        if ct.can_move(direction).unwrap() {
-            ct.move_(direction).unwrap();
+        if pyrust::unwrap!(ct.can_move(direction)) {
+            pyrust::unwrap!(ct.move_(direction));
             return true;
         }
     }
@@ -435,7 +435,7 @@ pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
 }
 
 pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
-    let mut path: Vec<Position> = Vec::new();
+    let mut path: Vec<Position> = pyrust::vec::new!();
     let mut feeders: Vec<Position> = vec![position];
     while !feeders.is_empty() {
         let position = feeders[0];
@@ -470,7 +470,7 @@ pub fn ore_available(builder: &Builder, pos: Position) -> bool {
 /// The cardinal of `ore_pos` chosen as the future flow-feed slot.
 pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<Position> {
     let sink: Option<Position> = if on_enemy_side(builder, ore_pos) {
-        if builder.symmetry().is_some() {
+        if pyrust::is_some!(builder.symmetry()) {
             Some(builder.en_core_guess())
         } else {
             None
@@ -490,9 +490,9 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         return None;
     };
 
-    let mut tier1: Vec<Position> = Vec::new();
-    let mut tier2: Vec<Position> = Vec::new();
-    let mut classification: Vec<(Position, &'static str)> = Vec::new();
+    let mut tier1: Vec<Position> = pyrust::vec::new!();
+    let mut tier2: Vec<Position> = pyrust::vec::new!();
+    let mut classification: Vec<(Position, &'static str)> = pyrust::vec::new!();
     for d in DIR4 {
         let c = ore_pos.add(d);
         if !builder.in_bounds(c) {
@@ -524,7 +524,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         }
         match kind {
             Some(EntityType::Bridge) => {
-                let target = builder.out_edges[ci].first().copied().unwrap_or(c);
+                let target = pyrust::unwrap_or!(builder.out_edges[ci].first().copied(), c);
                 if target == ore_pos {
                     classification.push((c, "inward_guard: bridge target == ore"));
                 } else {
@@ -534,7 +534,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 continue;
             }
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                let target = builder.out_edges[ci].first().copied().unwrap_or(c);
+                let target = pyrust::unwrap_or!(builder.out_edges[ci].first().copied(), c);
                 if target == ore_pos {
                     classification.push((c, "inward_guard: conveyor output -> ore"));
                 } else {
@@ -595,23 +595,21 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
 
     let chosen: Option<Position> = if !tier1.is_empty() {
         Some(
-            *tier1
+            *pyrust::unwrap!(tier1
                 .iter()
-                .min_by_key(|c| c.distance_squared(sink))
-                .unwrap(),
+                .min_by_key(|c| c.distance_squared(sink))),
         )
     } else if !tier2.is_empty() {
         Some(
-            *tier2
+            *pyrust::unwrap!(tier2
                 .iter()
-                .min_by_key(|c| c.distance_squared(sink))
-                .unwrap(),
+                .min_by_key(|c| c.distance_squared(sink))),
         )
     } else {
         None
     };
 
-    if chosen.is_none() {
+    if pyrust::is_none!(chosen) {
         let label = format!("feed_pick_{}_{}", ore_pos.x, ore_pos.y);
         let _g = Scope::new(&label);
         let mut args = Map::new();
@@ -622,10 +620,9 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             if !builder.in_bounds(c) {
                 continue;
             }
-            let status = classification
+            let status = pyrust::unwrap_or!(classification
                 .iter()
-                .find_map(|t| if t.0 == c { Some(t.1) } else { None })
-                .unwrap_or("?");
+                .find_map(|t| if t.0 == c { Some(t.1) } else { None }), "?");
             let mut args = Map::new();
             args.insert("c".to_string(), auto_wrap_position(c));
             args.insert(
@@ -646,7 +643,7 @@ pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<P
         .map(|&d| ore_pos.add(d))
         .filter(|p| builder.in_bounds(*p))
         .collect();
-    let mut reserved: HashSet<Position> = HashSet::new();
+    let mut reserved: HashSet<Position> = pyrust::set::new!();
     for c in &cardinals {
         if *c == builder.state.my_pos {
             reserved.insert(*c);
@@ -873,7 +870,7 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
         if harvester_would_contaminate(builder, *pos) {
             continue;
         }
-        if harvester_feed_cardinal(builder, *pos).is_none() {
+        if pyrust::is_none!(harvester_feed_cardinal(builder, *pos)) {
             continue;
         }
         let friends_iter = builder.state.all_bots.iter().filter_map(|t| {
@@ -905,7 +902,7 @@ const _DOWNSTREAM_MAX_NODES: usize = 80;
 /// BFS backwards via `in_edges` — all friendly transport tiles whose
 /// output structurally reaches `start`.
 pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
-    let mut visited: HashSet<Position> = HashSet::new();
+    let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(pos) = queue.pop() {
@@ -925,7 +922,7 @@ pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
 
 /// BFS forwards via `out_edges`.
 pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
-    let mut visited: HashSet<Position> = HashSet::new();
+    let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(pos) = queue.pop() {

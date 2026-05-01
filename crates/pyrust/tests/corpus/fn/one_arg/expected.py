@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def double(x):
     return x * 2
 

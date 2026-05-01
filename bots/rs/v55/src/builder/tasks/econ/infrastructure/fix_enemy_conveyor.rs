@@ -13,11 +13,11 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 pub fn fix_enemy_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let nearby = self_.nearby_tiles.clone();
     for pos in nearby {
-        if self_.leads_to_enemy_building(pos) && ct.can_destroy(pos).unwrap() {
-            ct.destroy(pos).unwrap();
+        if self_.leads_to_enemy_building(pos) && pyrust::unwrap!(ct.can_destroy(pos)) {
+            pyrust::unwrap!(ct.destroy(pos));
             self_.apply_local_destroy(pos);
-            if ct.can_build_road(pos).unwrap() {
-                ct.build_road(pos).unwrap();
+            if pyrust::unwrap!(ct.can_build_road(pos)) {
+                pyrust::unwrap!(ct.build_road(pos));
                 return None;
             }
         }

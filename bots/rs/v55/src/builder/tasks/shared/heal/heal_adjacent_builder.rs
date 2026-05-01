@@ -18,12 +18,12 @@ pub fn heal_adjacent_builder(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
             "low HP on enemy tile — fight to death, no heal",
         ));
     }
-    let adjacent_builders = ct.get_nearby_units(Some(2)).unwrap();
+    let adjacent_builders = pyrust::unwrap!(ct.get_nearby_units(Some(2)));
     for eid in adjacent_builders {
-        if ct.get_hp(Some(eid)).unwrap() <= ct.get_max_hp(Some(eid)).unwrap() - 4
-            && ct.get_team(Some(eid)).unwrap() == self_.my_team
+        if pyrust::unwrap!(ct.get_hp(Some(eid))) <= pyrust::unwrap!(ct.get_max_hp(Some(eid))) - 4
+            && pyrust::unwrap!(ct.get_team(Some(eid))) == self_.my_team
         {
-            let position = ct.get_position(Some(eid)).unwrap();
+            let position = pyrust::unwrap!(ct.get_position(Some(eid)));
             if has_wounded_enemy(self_, position) {
                 continue;
             }

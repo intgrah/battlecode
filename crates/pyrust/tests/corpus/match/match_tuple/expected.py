@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def quadrant(p):
     match p:
         case (0, 0):

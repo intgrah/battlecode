@@ -25,15 +25,15 @@ pub fn opportunistic_attack(self_: &mut Builder, ct: &mut Controller<'_>) -> Tas
             self_.round
         )));
     }
-    if !ct.can_fire(self_.my_pos).unwrap() {
+    if !pyrust::unwrap!(ct.can_fire(self_.my_pos)) {
         return Some(TaskRejected::new("ct.can_fire(my_pos) is False"));
     }
-    let bid = ct.get_tile_building_id(self_.my_pos).unwrap();
-    if ct.get_team(bid).unwrap() == self_.my_team {
+    let bid = pyrust::unwrap!(ct.get_tile_building_id(self_.my_pos));
+    if pyrust::unwrap!(ct.get_team(bid)) == self_.my_team {
         return Some(TaskRejected::new(
             "tile under builder holds a friendly building",
         ));
     }
-    ct.fire(self_.my_pos).unwrap();
+    pyrust::unwrap!(ct.fire(self_.my_pos));
     None
 }

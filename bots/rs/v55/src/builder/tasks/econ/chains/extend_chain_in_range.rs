@@ -16,7 +16,7 @@ pub fn extend_chain_in_range(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
     let Some(dangling) = self_.dangling_output else {
         return Some(TaskRejected::new("no dangling output"));
     };
-    if !ct.is_in_vision(dangling).unwrap() {
+    if !pyrust::unwrap!(ct.is_in_vision(dangling)) {
         return Some(TaskRejected::from_string(format!(
             "dangling {:?} not in vision",
             dangling

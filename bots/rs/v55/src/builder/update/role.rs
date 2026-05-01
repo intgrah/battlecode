@@ -102,7 +102,7 @@ fn _pick_initial_role(builder: &mut Builder) -> Role {
 }
 
 pub fn update_role(builder: &mut Builder) {
-    if builder.role.is_none() {
+    if pyrust::is_none!(builder.role) {
         builder.role = Some(_pick_initial_role(builder));
     }
     if builder.role == Some(Role::EconReactive) && builder.state.round > _ECON_REACTIVE_FLIP_ROUND {
@@ -111,7 +111,7 @@ pub fn update_role(builder: &mut Builder) {
     }
     if builder.role_age > _REASSIGN_PERIOD && builder.state.round > _REASSIGN_AFTER {
         builder.role_age = 0;
-        let row = _transition_for(builder.role.unwrap());
+        let row = _transition_for(pyrust::unwrap!(builder.role));
         let new_role = weighted_choice(builder, row);
         builder.role = Some(new_role);
         if new_role.is_offensive() {

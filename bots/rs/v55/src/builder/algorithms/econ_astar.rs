@@ -27,7 +27,7 @@ const BIDIRECTIONAL: bool = false;
 const DIAG_WEIGHT: i32 = 9;
 
 fn bridge_deltas() -> Vec<(i32, i32, i32)> {
-    let mut out: Vec<(i32, i32, i32)> = Vec::new();
+    let mut out: Vec<(i32, i32, i32)> = pyrust::vec::new!();
     for dx in -3..=3i32 {
         for dy in -3..=3i32 {
             let d2 = dx * dx + dy * dy;
@@ -121,9 +121,9 @@ impl AStarSearch {
         let mut weighted_neighbors: Vec<Vec<i32>> = Vec::with_capacity(MAX_N);
         for cy in 0..MAX_WIDTH as i32 {
             for cx in 0..MAX_WIDTH as i32 {
-                let mut all: Vec<(i32, i32)> = Vec::new();
-                let mut card: Vec<i32> = Vec::new();
-                let mut wt: Vec<i32> = Vec::new();
+                let mut all: Vec<(i32, i32)> = pyrust::vec::new!();
+                let mut card: Vec<i32> = pyrust::vec::new!();
+                let mut wt: Vec<i32> = pyrust::vec::new!();
                 for &(dx, dy, extra) in &neighbors_template {
                     let nx = cx + dx;
                     let ny = cy + dy;
@@ -143,7 +143,7 @@ impl AStarSearch {
             }
         }
         Self {
-            last_fail_reason: String::new(),
+            last_fail_reason: pyrust::string::new!(),
             last_nodes_expanded: 0,
             neighbors,
             cardinal_neighbors,
@@ -154,16 +154,16 @@ impl AStarSearch {
             parent_bwd: vec![-1; MAX_N],
             closed_fwd: vec![false; MAX_N],
             closed_bwd: vec![false; MAX_N],
-            touched_fwd: Vec::new(),
-            touched_bwd: Vec::new(),
-            buckets_fwd: (0..BUCKET_COUNT).map(|_| Vec::new()).collect(),
-            buckets_bwd: (0..BUCKET_COUNT).map(|_| Vec::new()).collect(),
+            touched_fwd: pyrust::vec::new!(),
+            touched_bwd: pyrust::vec::new!(),
+            buckets_fwd: (0..BUCKET_COUNT).map(|_| pyrust::vec::new!()).collect(),
+            buckets_bwd: (0..BUCKET_COUNT).map(|_| pyrust::vec::new!()).collect(),
             x_heur_fwd: vec![0; MAX_WIDTH],
             y_heur_fwd: vec![0; MAX_WIDTH],
             x_heur_bwd: vec![0; MAX_WIDTH],
             y_heur_bwd: vec![0; MAX_WIDTH],
             reach_root_cache: vec![-1; MAX_N],
-            reach_root_touched: Vec::new(),
+            reach_root_touched: pyrust::vec::new!(),
             f_at: vec![0; MAX_N],
             finished: true,
             target: None,
@@ -331,7 +331,7 @@ impl AStarSearch {
                             best_meet = node_i;
                         }
                     }
-                    if ct.get_cpu_time_elapsed().unwrap() > CPU_BUDGET {
+                    if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
                         self.finished = true;
                         self.last_fail_reason = "cpu_budget".to_string();
                         return None;
@@ -409,7 +409,7 @@ impl AStarSearch {
                         best_meet = node_i;
                     }
                 }
-                if ct.get_cpu_time_elapsed().unwrap() > CPU_BUDGET {
+                if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
                     self.finished = true;
                     self.last_fail_reason = "cpu_budget".to_string();
                     return None;
@@ -520,14 +520,14 @@ impl AStarSearch {
         // budget ran out.
         let mut target = target;
         if self.finished
-            || self.target.is_none()
-            || target.distance_squared(self.target.unwrap()) > TARGET_DRIFT_SQ
+            || pyrust::is_none!(self.target)
+            || target.distance_squared(pyrust::unwrap!(self.target)) > TARGET_DRIFT_SQ
         {
             self._dist.fill(INF);
             self.target = Some(target);
         } else {
             resumed_search = true;
-            target = self.target.unwrap();
+            target = pyrust::unwrap!(self.target);
             gi = target.y * stride + target.x;
         }
 
@@ -579,7 +579,7 @@ impl AStarSearch {
                 continue;
             }
             // CPU budget check at bucket boundaries only.
-            if ct.get_cpu_time_elapsed().unwrap() > cpu_budget {
+            if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > cpu_budget {
                 self.finished = false;
                 self.last_fail_reason = "cpu_budget".to_string();
                 self.last_nodes_expanded = nodes_expanded;
@@ -777,7 +777,7 @@ impl AStarSearch {
         ctx: &mut EconAstarCtx,
     ) -> Option<Vec<Position>> {
         let stride = MAX_WIDTH as i32;
-        let mut saved: Vec<(usize, bool, bool)> = Vec::new();
+        let mut saved: Vec<(usize, bool, bool)> = pyrust::vec::new!();
         let nearby = ctx.nearby_tiles.clone();
         for pos in &nearby {
             if ctx.all_bots.contains_key(pos) && *pos != start {

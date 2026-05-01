@@ -16,7 +16,7 @@ use crate::util::directions::DIR4;
 use crate::util::visualiser::auto_wrap_position;
 
 pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    let mut targets: Vec<Position> = Vec::new();
+    let mut targets: Vec<Position> = pyrust::vec::new!();
     for &pos in &self_.nearby_tiles {
         if self_.kind_at(pos) == Some(EntityType::Harvester)
             && self_.team_at(pos) == Some(self_.my_team)
@@ -45,7 +45,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
     let affords_road = can_afford(self_, EntityType::Road);
     let affords_guard = can_afford(self_, EntityType::Conveyor);
 
-    let mut no_guard: HashSet<Position> = HashSet::new();
+    let mut no_guard: HashSet<Position> = pyrust::set::new!();
     for &target in &targets {
         for p in harvester_io_cardinals(self_, target) {
             no_guard.insert(p);
@@ -62,7 +62,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         if affords_road
             && near.contains(&feed)
             && self_.get_cost(feed) > 1
-            && ct.can_build_road(feed).unwrap()
+            && pyrust::unwrap!(ct.can_build_road(feed))
         {
             let mut args = Map::new();
             args.insert("feed".to_string(), auto_wrap_position(feed));
@@ -70,7 +70,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
                 "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
                 args,
             );
-            ct.build_road(feed).unwrap();
+            pyrust::unwrap!(ct.build_road(feed));
             return None;
         }
 

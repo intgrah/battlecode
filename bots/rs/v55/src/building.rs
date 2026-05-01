@@ -11,8 +11,8 @@ use cambc::{Controller, ControllerApi, Direction, EntityType, Position, Team};
 /// building) — by convention callers gate on `is_in_vision` first.
 #[must_use]
 pub fn make_building(ct: &Controller<'_>, bid: i32) -> (EntityType, Team) {
-    let kind = ct.get_entity_type(Some(bid)).unwrap();
-    let team = ct.get_team(Some(bid)).unwrap();
+    let kind = pyrust::unwrap!(ct.get_entity_type(Some(bid)));
+    let team = pyrust::unwrap!(ct.get_team(Some(bid)));
     if matches!(kind, EntityType::BuilderBot) {
         panic!("BUILDER_BOT is not a building");
     }
@@ -35,14 +35,14 @@ pub fn edge_targets(
         }
         EntityType::Bridge => vec![ct.get_bridge_target(bid).unwrap()],
         EntityType::Splitter => {
-            let d = ct.get_direction(Some(bid)).unwrap();
+            let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
             vec![
                 pos.add(d),
                 pos.add(rotate_right_2(d)),
                 pos.add(rotate_left_2(d)),
             ]
         }
-        _ => Vec::new(),
+        _ => pyrust::vec::new!(),
     }
 }
 

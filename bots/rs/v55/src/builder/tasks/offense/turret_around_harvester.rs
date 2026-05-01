@@ -137,8 +137,8 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         );
     }
 
-    if ct.can_build_road(build_position).unwrap() {
-        ct.build_road(build_position).unwrap();
+    if pyrust::unwrap!(ct.can_build_road(build_position)) {
+        pyrust::unwrap!(ct.build_road(build_position));
     }
     scout_toward_enemy(self_, ct);
     None

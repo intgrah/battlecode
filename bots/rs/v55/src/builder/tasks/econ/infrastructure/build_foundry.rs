@@ -83,8 +83,8 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         let dirs = self_.dir_neighbours_4.clone();
         let mut moved = false;
         for (d, _npos) in dirs {
-            if ct.can_move(d).unwrap() {
-                ct.move_(d).unwrap();
+            if pyrust::unwrap!(ct.can_move(d)) {
+                pyrust::unwrap!(ct.move_(d));
                 moved = true;
                 break;
             }

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def maybe(n):
     return n if n >= 0 else None
 

@@ -29,7 +29,7 @@ const INNER_R2: i32 = 8;
 /// ore-rich nearby).
 #[must_use]
 pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> f64 {
-    let pos = ct.get_position(None).unwrap();
+    let pos = pyrust::unwrap!(ct.get_position(None));
     let cx = pos.x;
     let cy = pos.y;
     let w = width;
@@ -44,7 +44,7 @@ pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> 
         let x = cx + dx;
         let y = cy + dy;
         if x >= 0 && x < w && y >= 0 && y < h {
-            let env = ct.get_tile_env(Position { x, y }).unwrap();
+            let env = pyrust::unwrap!(ct.get_tile_env(Position { x, y }));
             if env != Environment::Wall {
                 cardinal_exits += 1;
             }
@@ -69,7 +69,7 @@ pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> 
             if !(x >= 0 && x < w && y >= 0 && y < h) {
                 continue;
             }
-            let env = ct.get_tile_env(Position { x, y }).unwrap();
+            let env = pyrust::unwrap!(ct.get_tile_env(Position { x, y }));
             let is_wall = env == Environment::Wall;
             if d2 <= INNER_R2 {
                 inner_total += 1;

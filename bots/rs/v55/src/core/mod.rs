@@ -89,7 +89,7 @@ impl Core {
         let surplus_ax = self.state.ax - Self::CONVERSION_AX_THRESHOLD;
         if need > 0 && surplus_ax > 0 {
             let amount = surplus_ax.min((need + 3) / 4);
-            ct.convert(amount).unwrap();
+            pyrust::unwrap!(ct.convert(amount));
         }
     }
 
@@ -102,17 +102,17 @@ impl Core {
                 if !self.in_bounds(src) {
                     continue;
                 }
-                let Some(bid) = ct.get_tile_building_id(src).unwrap() else {
+                let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(src)) else {
                     continue;
                 };
-                let etype = ct.get_entity_type(Some(bid)).unwrap();
+                let etype = pyrust::unwrap!(ct.get_entity_type(Some(bid)));
                 if !matches!(etype, EntityType::Conveyor | EntityType::ArmouredConveyor) {
                     continue;
                 }
-                if ct.get_direction(Some(bid)).unwrap().opposite() != cd {
+                if pyrust::unwrap!(ct.get_direction(Some(bid))).opposite() != cd {
                     continue;
                 }
-                if ct.get_stored_resource(Some(bid)).unwrap() == Some(ResourceType::Titanium) {
+                if pyrust::unwrap!(ct.get_stored_resource(Some(bid))) == Some(ResourceType::Titanium) {
                     count += 1;
                 }
             }
@@ -124,7 +124,7 @@ impl Core {
         if self.spawned < Self::INITIAL_SPAWNS {
             return true;
         }
-        let live_units = ct.get_unit_count().unwrap();
+        let live_units = pyrust::unwrap!(ct.get_unit_count());
         if live_units >= self.max_team_units {
             return false;
         }
@@ -140,10 +140,10 @@ impl Core {
             / self.spawn_tempo;
         let has_income = income_rate * 4.0 > income_threshold;
         let surplus_threshold = (pyrust::float!(Self::SURPLUS_BASELINE)
-            + pyrust::float!(Self::SURPLUS_SCALE_FACTOR) * (ct.get_scale_percent().unwrap() / 100.0))
+            + pyrust::float!(Self::SURPLUS_SCALE_FACTOR) * (pyrust::unwrap!(ct.get_scale_percent()) / 100.0))
             * (2.0 - self.spawn_tempo);
         let has_surplus = pyrust::float!(self.state.ti) > surplus_threshold;
-        let builder_ti_cost = ct.get_builder_bot_cost().unwrap().0;
+        let builder_ti_cost = pyrust::unwrap!(ct.get_builder_bot_cost()).0;
         let has_trickle = pyrust::float!(self.state.ti)
             > pyrust::float!(builder_ti_cost) * Self::TRICKLE_COST_MULTIPLIER
             && self.state.round - self.last_spawn_round > Self::TRICKLE_MIN_INTERVAL;
@@ -153,7 +153,7 @@ impl Core {
     }
 
     fn spawn_at(&mut self, ct: &mut Controller<'_>, pos: Position) {
-        ct.spawn_builder(pos).unwrap();
+        pyrust::unwrap!(ct.spawn_builder(pos));
         self.spawned += 1;
         self.last_spawn_round = self.state.round;
     }
@@ -165,12 +165,12 @@ impl Core {
                 CORNERS.iter().map(|&d| self.state.my_pos.add(d)).collect();
             corners.sort_by_key(|p| en_core.distance_squared(*p));
             let preferred = corners[self.spawned as usize];
-            if ct.can_spawn(preferred).unwrap() {
+            if pyrust::unwrap!(ct.can_spawn(preferred)) {
                 self.spawn_at(ct, preferred);
                 return;
             }
             for sp in &corners {
-                if *sp != preferred && ct.can_spawn(*sp).unwrap() {
+                if *sp != preferred && pyrust::unwrap!(ct.can_spawn(*sp)) {
                     self.spawn_at(ct, *sp);
                     return;
                 }
@@ -180,13 +180,13 @@ impl Core {
         let mut d = *self.state.rng.choice(&DIR8);
         for _ in 0..8 {
             let sp = self.state.my_pos.add(d);
-            if ct.can_spawn(sp).unwrap() {
+            if pyrust::unwrap!(ct.can_spawn(sp)) {
                 self.spawn_at(ct, sp);
                 return;
             }
             d = rotate_right(d);
         }
-        if ct.can_spawn(self.state.my_pos).unwrap() {
+        if pyrust::unwrap!(ct.can_spawn(self.state.my_pos)) {
             let p = self.state.my_pos;
             self.spawn_at(ct, p);
         }
@@ -257,6 +257,6 @@ impl CoreAwareUnit for Core {
     }
 
     fn resolve_my_core(&mut self, ct: &mut Controller<'_>) -> Position {
-        ct.get_position(None).unwrap()
+        pyrust::unwrap!(ct.get_position(None))
     }
 }

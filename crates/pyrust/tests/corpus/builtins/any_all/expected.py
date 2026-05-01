@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 truthy = [False, False, True]
 allyes = [True, True, True]
 print(any(truthy))

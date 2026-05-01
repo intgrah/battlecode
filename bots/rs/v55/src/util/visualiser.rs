@@ -48,7 +48,7 @@ impl<T> Palette<T> {
     pub fn new(stops: Vec<PaletteStop<T>>) -> Self {
         Self {
             stops,
-            special: Vec::new(),
+            special: pyrust::vec::new!(),
         }
     }
 }
@@ -195,7 +195,7 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
         .collect();
     let mut special_obj = serde_json::Map::new();
     for (k, c) in &p.special {
-        let v = serde_json::to_value(k).unwrap_or(serde_json::Value::Null);
+        let v = pyrust::unwrap_or!(serde_json::to_value(k), serde_json::Value::Null);
         let key = if let Some(s) = v.as_str() {
             s.to_string()
         } else {
@@ -296,12 +296,12 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
             obj.insert("$type".to_string(), serde_json::json!("vectorfield"));
             obj.insert(
                 "angles".to_string(),
-                serde_json::to_value(angles).unwrap_or(serde_json::Value::Null),
+                pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null),
             );
             if let Some(m) = magnitudes {
                 obj.insert(
                     "magnitudes".to_string(),
-                    serde_json::to_value(m).unwrap_or(serde_json::Value::Null),
+                    pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null),
                 );
             }
             serde_json::Value::Object(obj)
@@ -358,7 +358,7 @@ impl Dumper {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            same_cache: HashMap::new(),
+            same_cache: pyrust::dict::new!(),
         }
     }
 

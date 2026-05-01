@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 s = "hello, world"
 if s.startswith("hello"):
     print("hi-prefix")

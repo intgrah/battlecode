@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def lookup(found):
     return 99 if found else None
 

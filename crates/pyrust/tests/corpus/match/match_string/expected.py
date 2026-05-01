@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def cardinal(s):
     match s:
         case "north":

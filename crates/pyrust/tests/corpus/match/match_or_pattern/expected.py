@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def parity(n):
     match n:
         case 0 | 2 | 4 | 6 | 8:

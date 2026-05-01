@@ -37,7 +37,7 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
         let needed = healers_needed(attackers);
         let rank = deconflict_rank(self_, ct, self_.my_pos, pos);
         if rank >= needed {
-            if !ct.is_in_vision(pos).unwrap() {
+            if !pyrust::unwrap!(ct.is_in_vision(pos)) {
                 self_.hp[i] = max_hp;
             }
             continue;
@@ -100,7 +100,7 @@ fn best_adjacent_healable_building(self_: &Builder) -> Option<Position> {
 
 pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if let Some(rp) = self_.repair_pos
-        && ct.is_in_vision(rp).unwrap()
+        && pyrust::unwrap!(ct.is_in_vision(rp))
     {
         let ti_idx = self_.idx(rp);
         if let Some((_kind, team)) = self_.get_building(rp)
@@ -113,8 +113,8 @@ pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
         }
     }
     let new_repair = best_healable_building(self_, ct);
-    if (new_repair.is_some() && new_repair.unwrap().distance_squared(self_.my_pos) <= 2)
-        || self_.repair_pos.is_none()
+    if (pyrust::is_some!(new_repair) && pyrust::unwrap!(new_repair).distance_squared(self_.my_pos) <= 2)
+        || pyrust::is_none!(self_.repair_pos)
     {
         self_.repair_pos = new_repair;
     }

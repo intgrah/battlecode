@@ -18,7 +18,7 @@ pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
             "low HP on enemy tile — fight to death, no heal",
         ));
     }
-    if ct.get_hp(None).unwrap() > ct.get_max_hp(None).unwrap() - GameConstants::HEAL_AMOUNT {
+    if pyrust::unwrap!(ct.get_hp(None)) > pyrust::unwrap!(ct.get_max_hp(None)) - GameConstants::HEAL_AMOUNT {
         return Some(TaskRejected::new(
             "self HP within HEAL_AMOUNT of max — heal would waste Ti",
         ));
@@ -33,9 +33,9 @@ pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
 
     let dir_neighbours_8 = self_.dir_neighbours_8.clone();
     for (d, n) in dir_neighbours_8 {
-        if ct.can_move(d).unwrap() && !has_wounded_enemy(self_, n) {
-            ct.move_(d).unwrap();
-            let cur = ct.get_position(None).unwrap();
+        if pyrust::unwrap!(ct.can_move(d)) && !has_wounded_enemy(self_, n) {
+            pyrust::unwrap!(ct.move_(d));
+            let cur = pyrust::unwrap!(ct.get_position(None));
             try_heal(self_, ct, cur, false);
             return None;
         }

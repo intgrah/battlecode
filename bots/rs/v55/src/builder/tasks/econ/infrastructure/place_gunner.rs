@@ -116,7 +116,7 @@ pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
         let nt = self_.team_at(n);
         let is_enemy_gunner_or_sentinel =
             matches!(nk, Some(EntityType::Gunner | EntityType::Sentinel))
-                && nt.is_some()
+                && pyrust::is_some!(nt)
                 && nt != Some(self_.my_team);
         if !is_enemy_gunner_or_sentinel {
             continue;
@@ -144,8 +144,8 @@ pub fn sentinel_facing(
     let kind = self_.kind_at(position);
     let team = self_.team_at(position);
     let nearest = self_.nearest_enemy_turret;
-    if nearest.is_none()
-        || position.distance_squared(nearest.unwrap()) > GameConstants::SENTINEL_VISION_RADIUS_SQ
+    if pyrust::is_none!(nearest)
+        || position.distance_squared(pyrust::unwrap!(nearest)) > GameConstants::SENTINEL_VISION_RADIUS_SQ
         || !self_.adjacent_to_harvester.contains(&position)
         || !self_.is_buildable(position)
         || is_turret_or_transport(kind)
@@ -160,7 +160,7 @@ pub fn sentinel_facing(
         return None;
     }
 
-    let nearest = nearest.unwrap();
+    let nearest = pyrust::unwrap!(nearest);
     let d = direction_to(position, nearest);
     let mut found_harvester = false;
     for harvester_direction in DIR4 {
@@ -178,9 +178,8 @@ pub fn sentinel_facing(
         return None;
     }
 
-    let shootable_tiles = ct
-        .get_attackable_tiles_from(position, d, EntityType::Sentinel)
-        .unwrap();
+    let shootable_tiles = pyrust::unwrap!(ct
+        .get_attackable_tiles_from(position, d, EntityType::Sentinel));
     if shootable_tiles.contains(&nearest) {
         return Some(d);
     }

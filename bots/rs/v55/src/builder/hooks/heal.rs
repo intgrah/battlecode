@@ -16,37 +16,37 @@ use crate::util::directions::DIR8;
 ///    all 9 tiles, so we pick any DIR8 cardinal of the core centre that's
 ///    in action range.
 pub fn end_of_turn_heal(builder: &mut Builder, ct: &mut Controller<'_>) {
-    let my_pos = ct.get_position(None).unwrap();
-    if ct.can_heal(my_pos).unwrap() && ct.get_hp(None).unwrap() < ct.get_max_hp(None).unwrap() {
+    let my_pos = pyrust::unwrap!(ct.get_position(None));
+    if pyrust::unwrap!(ct.can_heal(my_pos)) && pyrust::unwrap!(ct.get_hp(None)) < pyrust::unwrap!(ct.get_max_hp(None)) {
         log(&format!("end_of_turn_heal: self at {my_pos:?}"), Map::new());
-        ct.heal(my_pos).unwrap();
+        pyrust::unwrap!(ct.heal(my_pos));
     }
-    for unit in ct.get_nearby_units(None).unwrap() {
-        if ct.get_team(Some(unit)).unwrap() != builder.state.my_team {
+    for unit in pyrust::unwrap!(ct.get_nearby_units(None)) {
+        if pyrust::unwrap!(ct.get_team(Some(unit))) != builder.state.my_team {
             continue;
         }
-        if ct.get_hp(Some(unit)).unwrap() >= ct.get_max_hp(Some(unit)).unwrap() {
+        if pyrust::unwrap!(ct.get_hp(Some(unit))) >= pyrust::unwrap!(ct.get_max_hp(Some(unit))) {
             continue;
         }
-        if ct.get_entity_type(Some(unit)).unwrap() == EntityType::Core {
+        if pyrust::unwrap!(ct.get_entity_type(Some(unit))) == EntityType::Core {
             for &d in &DIR8 {
-                let heal_pos = ct.get_position(Some(unit)).unwrap().add(d);
-                if ct.can_heal(heal_pos).unwrap() {
+                let heal_pos = pyrust::unwrap!(ct.get_position(Some(unit))).add(d);
+                if pyrust::unwrap!(ct.can_heal(heal_pos)) {
                     log(
                         &format!("end_of_turn_heal: core at {heal_pos:?}"),
                         Map::new(),
                     );
-                    ct.heal(heal_pos).unwrap();
+                    pyrust::unwrap!(ct.heal(heal_pos));
                     break;
                 }
             }
-        } else if ct.can_heal(ct.get_position(Some(unit)).unwrap()).unwrap() {
-            let unit_pos = ct.get_position(Some(unit)).unwrap();
+        } else if pyrust::unwrap!(ct.can_heal(ct.get_position(Some(unit)).unwrap())) {
+            let unit_pos = pyrust::unwrap!(ct.get_position(Some(unit)));
             log(
                 &format!("end_of_turn_heal: friendly unit at {unit_pos:?}"),
                 Map::new(),
             );
-            ct.heal(unit_pos).unwrap();
+            pyrust::unwrap!(ct.heal(unit_pos));
         }
     }
 }

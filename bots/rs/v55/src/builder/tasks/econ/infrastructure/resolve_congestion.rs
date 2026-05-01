@@ -32,11 +32,11 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     // deterministic across hash-randomized iteration of `congested_junctions`.
     let mut junctions: Vec<Position> = self_.congested_junctions.iter().copied().collect();
     junctions.sort_by_key(|p| (p.y, p.x));
-    let mut targets: Vec<Position> = Vec::new();
+    let mut targets: Vec<Position> = pyrust::vec::new!();
     for j in junctions {
         for &feeder in &self_.in_edges[j.y as usize * MAX_WIDTH + j.x as usize] {
             let fi = feeder.y as usize * MAX_WIDTH + feeder.x as usize;
-            if self_.building_kind[fi].is_none() {
+            if pyrust::is_none!(self_.building_kind[fi]) {
                 continue;
             }
             if self_.building_team[fi] != Some(self_.my_team) {
@@ -65,12 +65,12 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     );
 
     for &feeder in &targets {
-        if ct.can_destroy(feeder).unwrap() {
+        if pyrust::unwrap!(ct.can_destroy(feeder)) {
             log(
                 &format!("resolve_congestion: DESTROY feeder {:?}", feeder),
                 Map::new(),
             );
-            ct.destroy(feeder).unwrap();
+            pyrust::unwrap!(ct.destroy(feeder));
             self_.apply_local_destroy(feeder);
             return None;
         }
@@ -78,10 +78,9 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     let my_pos = self_.my_pos;
     // Tiebreak by (y, x) on top of chebyshev distance.
-    let nearest = *targets
+    let nearest = *pyrust::unwrap!(targets
         .iter()
-        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x))
-        .unwrap();
+        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x)));
     log(
         &format!(
             "resolve_congestion: walking toward nearest feeder {:?}",

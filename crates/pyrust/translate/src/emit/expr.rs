@@ -1346,6 +1346,25 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         .map(|e| e.text.as_str())
         .collect::<Vec<_>>()
         .join(", ");
+    // Path-recognised stdlib / serde_json zero-arg constructors. These
+    // are the well-known empty-collection idioms — the bot can keep
+    // using bare `Vec::new()` etc. in const positions where the
+    // `pyrust::vec::new!()` macro can't expand to a const expression.
+    if c.args.is_empty() {
+        let segs: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
+        let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+        let py = match slice.as_slice() {
+            ["Vec", "new"] | ["VecDeque", "new"] => Some(("[]", Ty::List)),
+            ["HashSet", "new"] | ["BTreeSet", "new"] => Some(("set()", Ty::Set)),
+            ["HashMap", "new"] | ["BTreeMap", "new"] => Some(("{}", Ty::Dict)),
+            ["serde_json", "Map", "new"] | ["Map", "new"] => Some(("{}", Ty::Dict)),
+            ["String", "new"] => Some(("\"\"", Ty::Str)),
+            _ => None,
+        };
+        if let Some((py_text, py_ty)) = py {
+            return Ok(Emitted::atomic(py_text.to_string(), py_ty));
+        }
+    }
     // `Some(x)` / `Option::Some(x)` / `Ok(x)` / `Result::Ok(x)` collapse to
     // their inner value — these are Rust LANGUAGE-level type constructors,
     // not method-name guesses. The Python side has neither wrapper.
@@ -2250,6 +2269,7 @@ fn emit_pyrust_dsl(
         // ============================================================
         // vec::*
         // ============================================================
+        ["vec", "new"] => Ok(Some(Emitted::atomic("[]".to_string(), Ty::List))),
         ["vec", "push"] => {
             let args = parse_args!();
             if args.len() != 2 {
@@ -2333,6 +2353,7 @@ fn emit_pyrust_dsl(
         // ============================================================
         // set::*
         // ============================================================
+        ["set", "new"] => Ok(Some(Emitted::atomic("set()".to_string(), Ty::Set))),
         ["set", "add"] => {
             let args = parse_args!();
             if args.len() != 2 {
@@ -2416,6 +2437,7 @@ fn emit_pyrust_dsl(
         // ============================================================
         // dict::*
         // ============================================================
+        ["dict", "new"] => Ok(Some(Emitted::atomic("{}".to_string(), Ty::Dict))),
         ["dict", "insert"] => {
             let args = parse_args!();
             if args.len() != 3 {
@@ -2522,6 +2544,7 @@ fn emit_pyrust_dsl(
         // ============================================================
         // string::*
         // ============================================================
+        ["string", "new"] => Ok(Some(Emitted::atomic("\"\"".to_string(), Ty::Str))),
         ["string", "clear"] => {
             let args = parse_args!();
             if args.len() != 1 {

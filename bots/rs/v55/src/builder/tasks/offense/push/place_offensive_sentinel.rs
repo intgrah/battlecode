@@ -57,9 +57,8 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
         if self_.in_bounds(front) && delivers_ammo(self_, pos, front) {
             continue;
         }
-        let tiles = ct
-            .get_attackable_tiles_from(pos, d, EntityType::Sentinel)
-            .unwrap();
+        let tiles = pyrust::unwrap!(ct
+            .get_attackable_tiles_from(pos, d, EntityType::Sentinel));
         for t in tiles {
             if is_enemy_valuable(self_, t) {
                 return Some(d);

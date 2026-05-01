@@ -26,7 +26,7 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
                 builder._check_dangling(t, &format!("edge_removed src={:?}", pos));
             }
         }
-        builder.out_edges[i] = Vec::new();
+        builder.out_edges[i] = pyrust::vec::new!();
         builder._on_out_edges_changed(pos);
     }
     match old_kind {
@@ -65,7 +65,7 @@ pub fn _add_topology(
     if team == builder.state.my_team {
         let targets = edge_targets(ct, pos, bid, kind);
         if !targets.is_empty() {
-            let mut outs: Vec<Position> = Vec::new();
+            let mut outs: Vec<Position> = pyrust::vec::new!();
             for t in targets {
                 if builder.in_bounds(t) {
                     let ti = builder.idx(t);
@@ -236,7 +236,7 @@ fn _update_turret_rays(
             }
         }
         EntityType::Gunner if enemy => {
-            let d = ct.get_direction(Some(bid)).unwrap();
+            let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
             let mut ray = pos;
             for _ in 0..3 {
                 ray = ray.add(d);
@@ -249,16 +249,15 @@ fn _update_turret_rays(
             }
         }
         EntityType::Sentinel if enemy => {
-            let d = ct.get_direction(Some(bid)).unwrap();
-            for tile in ct
-                .get_attackable_tiles_from(pos, d, EntityType::Sentinel)
-                .unwrap()
+            let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
+            for tile in pyrust::unwrap!(ct
+                .get_attackable_tiles_from(pos, d, EntityType::Sentinel))
             {
                 builder.enemy_turret_ray_tiles.insert(tile);
             }
         }
         EntityType::Gunner => {
-            let d = ct.get_direction(Some(bid)).unwrap();
+            let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
             let mut ray = pos;
             for _ in 0..3 {
                 ray = ray.add(d);
@@ -272,13 +271,13 @@ fn _update_turret_rays(
                     break;
                 }
                 builder.friendly_turret_ray_tiles.insert(ray);
-                if builder.get_building(ray).is_some() {
+                if pyrust::is_some!(builder.get_building(ray)) {
                     break;
                 }
             }
         }
         EntityType::Sentinel => {
-            let d = ct.get_direction(Some(bid)).unwrap();
+            let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
             let mut ray = pos;
             for _ in 0..6 {
                 ray = ray.add(d);
@@ -298,7 +297,7 @@ fn _update_turret_rays(
                         builder.friendly_turret_ray_tiles.insert(h);
                     }
                 }
-                if builder.get_building(ray).is_some() {
+                if pyrust::is_some!(builder.get_building(ray)) {
                     break;
                 }
             }
@@ -308,19 +307,19 @@ fn _update_turret_rays(
 }
 
 pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
-    let mut new_observations: Vec<(Position, Environment, bool)> = Vec::new();
+    let mut new_observations: Vec<(Position, Environment, bool)> = pyrust::vec::new!();
     let nearby = builder.state.nearby_tiles.clone();
     for pos in &nearby {
         let pos = *pos;
         let i = builder.idx(pos);
-        let env = ct.get_tile_env(pos).unwrap();
-        let bid = ct.get_tile_building_id(pos).unwrap();
+        let env = pyrust::unwrap!(ct.get_tile_env(pos));
+        let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
         let env_changed = builder.env[i] != Some(env);
         let bld_changed = builder.building_ids[i] != bid;
-        if builder.env[i].is_none() {
+        if pyrust::is_none!(builder.env[i]) {
             builder.reflect_queue.push_back(i);
             let is_core =
-                bid.is_some_and(|b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Core);
+                bid.is_some_and(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
             new_observations.push((pos, env, is_core));
             if env != Environment::Wall {
                 let py = pos.y;
@@ -349,16 +348,16 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         builder.building_ids[i] = bid;
 
         if bld_changed || env_changed {
-            if bid.is_none() {
+            if pyrust::is_none!(bid) {
                 apply_local_destroy(builder, pos);
             } else {
                 _remove_topology(builder, pos, i);
-                let bid_v = bid.unwrap();
+                let bid_v = pyrust::unwrap!(bid);
                 let (kind, team) = make_building(ct, bid_v);
                 builder.building_kind[i] = Some(kind);
                 builder.building_team[i] = Some(team);
-                builder.hp[i] = ct.get_hp(bid).unwrap();
-                builder.max_hp[i] = ct.get_max_hp(bid).unwrap();
+                builder.hp[i] = pyrust::unwrap!(ct.get_hp(bid));
+                builder.max_hp[i] = pyrust::unwrap!(ct.get_max_hp(bid));
                 _add_topology(builder, ct, pos, bid_v, kind, team);
                 _apply_post_transition(builder, pos, i, Some(env), "building_changed");
             }
@@ -368,12 +367,12 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
             {
                 _update_turret_rays(builder, ct, pos, bid_v, kind, team);
             }
-        } else if bid.is_some() {
-            builder.hp[i] = ct.get_hp(bid).unwrap();
-            builder.max_hp[i] = ct.get_max_hp(bid).unwrap();
+        } else if pyrust::is_some!(bid) {
+            builder.hp[i] = pyrust::unwrap!(ct.get_hp(bid));
+            builder.max_hp[i] = pyrust::unwrap!(ct.get_max_hp(bid));
         }
 
-        if bid.is_some() {
+        if pyrust::is_some!(bid) {
             let kind = builder.building_kind[i];
             let team = builder.building_team[i];
             builder.nearby_buildings.push(pos);
@@ -390,9 +389,9 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                         | EntityType::Splitter
                 )
             ) {
-                let bid_v = bid.unwrap();
-                let r = ct.get_stored_resource(Some(bid_v)).unwrap();
-                let rid = ct.get_stored_resource_id(Some(bid_v)).unwrap();
+                let bid_v = pyrust::unwrap!(bid);
+                let r = pyrust::unwrap!(ct.get_stored_resource(Some(bid_v)));
+                let rid = pyrust::unwrap!(ct.get_stored_resource_id(Some(bid_v)));
                 builder.flow_history[i].push_back((r, rid));
                 while builder.flow_history[i].len() > FLOW_HISTORY_LEN {
                     builder.flow_history[i].pop_front();
@@ -401,13 +400,13 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
     }
 
-    if builder.symmetry.is_none() {
+    if pyrust::is_none!(builder.symmetry) {
         _narrow_symmetry(builder, &new_observations);
     }
 }
 
 fn _narrow_symmetry(builder: &mut Builder, new_observations: &[(Position, Environment, bool)]) {
-    let mut invalid: HashSet<Symmetry> = HashSet::new();
+    let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
     let candidates: Vec<Symmetry> = builder.state.symmetry_candidates.iter().copied().collect();
     let w = builder.state.width;
     let h = builder.state.height;

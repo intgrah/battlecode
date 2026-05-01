@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 class Point:
     x: int
     y: int

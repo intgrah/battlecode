@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def pair(n):
     return (n, n * n)
 

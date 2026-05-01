@@ -36,17 +36,17 @@ pub fn deconflict_rank(
 ) -> i32 {
     let my_d = chebyshev(my_pos, target);
     let mut rank = 0;
-    for uid in ct.get_nearby_units(None).unwrap() {
+    for uid in pyrust::unwrap!(ct.get_nearby_units(None)) {
         if uid == self_.my_id {
             continue;
         }
-        if ct.get_entity_type(Some(uid)).unwrap() != EntityType::BuilderBot {
+        if pyrust::unwrap!(ct.get_entity_type(Some(uid))) != EntityType::BuilderBot {
             continue;
         }
-        if ct.get_team(Some(uid)).unwrap() != self_.my_team {
+        if pyrust::unwrap!(ct.get_team(Some(uid))) != self_.my_team {
             continue;
         }
-        let fp = ct.get_position(Some(uid)).unwrap();
+        let fp = pyrust::unwrap!(ct.get_position(Some(uid)));
         let fd = chebyshev(fp, target);
         if fd < my_d || (fd == my_d && uid < self_.my_id) {
             rank += 1;
@@ -95,5 +95,5 @@ pub fn fight_to_death(self_: &Builder, ct: &mut Controller<'_>) -> bool {
     if self_.hp[i] <= 2 {
         return true;
     }
-    self_.hp[i] <= 6 && ct.get_hp(None).unwrap() > 18
+    self_.hp[i] <= 6 && pyrust::unwrap!(ct.get_hp(None)) > 18
 }
