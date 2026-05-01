@@ -230,7 +230,7 @@ pub fn pick_attack_destination(
             0
         };
         let dist = self_.my_pos.distance_squared(pos);
-        candidates.push((in_ray, cost, dist, pos));
+        pyrust::vec::push!(candidates, (in_ray, cost, dist, pos));
     }
     if candidates.is_empty() {
         return None;
@@ -312,7 +312,7 @@ pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
             continue;
         }
         if has_open_side(self_, p) {
-            result.push(p);
+            pyrust::vec::push!(result, p);
         }
     }
     result

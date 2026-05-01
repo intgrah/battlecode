@@ -22,7 +22,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             && self_.team_at(pos) == Some(self_.my_team)
             && self_.get_env(pos) == Some(Environment::OreTitanium)
         {
-            targets.push(pos);
+            pyrust::vec::push!(targets, pos);
         }
     }
     let my_pos = self_.my_pos;
@@ -31,7 +31,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             && my_pos == tgt
             && !pyrust::vec::contains!(targets, &tgt)
         {
-            targets.push(tgt);
+            pyrust::vec::push!(targets, tgt);
         }
     }
 

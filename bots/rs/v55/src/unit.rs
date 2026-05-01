@@ -136,14 +136,14 @@ impl UnitState {
         for &d in &DIR4 {
             let p = my_pos.add(d);
             if in_bounds(p, width, height) {
-                dir_neighbours_4.push((d, p));
+                pyrust::vec::push!(dir_neighbours_4, (d, p));
             }
         }
         let mut dir_neighbours_8: Vec<(Direction, Position)> = Vec::with_capacity(8);
         for &d in &DIR8 {
             let p = my_pos.add(d);
             if in_bounds(p, width, height) {
-                dir_neighbours_8.push((d, p));
+                pyrust::vec::push!(dir_neighbours_8, (d, p));
             }
         }
         let neighbours_4: Vec<Position> = pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_4), |t| t.1));

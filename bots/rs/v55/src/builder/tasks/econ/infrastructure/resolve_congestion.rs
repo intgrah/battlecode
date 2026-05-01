@@ -42,7 +42,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
             if self_.building_team[fi] != Some(self_.my_team) {
                 continue;
             }
-            targets.push(feeder);
+            pyrust::vec::push!(targets, feeder);
         }
     }
     // Same feeder may be reachable through multiple junctions; dedupe and

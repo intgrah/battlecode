@@ -42,7 +42,7 @@ pub fn build_mline_seq(sx: i32, sy: i32, gx: i32, gy: i32) -> Vec<(i32, i32)> {
     let mut cx = sx;
     let mut cy = sy;
     loop {
-        out.push((cx, cy));
+        pyrust::vec::push!(out, (cx, cy));
         if cx == gx && cy == gy {
             return out;
         }
@@ -447,7 +447,7 @@ impl Bug2Planner {
                 self.cw_px = nx2;
                 self.cw_py = ny2;
                 self.cw_cross = nxt_cross;
-                self.cw_path.push(cell);
+                pyrust::vec::push!(self.cw_path, cell);
                 if IS_CARDINAL[self.cw_dir as usize] {
                     self.cw_dir = (self.cw_dir + 2).rem_euclid(8);
                 } else {
@@ -547,7 +547,7 @@ impl Bug2Planner {
                 self.ccw_px = nx2;
                 self.ccw_py = ny2;
                 self.ccw_cross = nxt_cross;
-                self.ccw_path.push(cell);
+                pyrust::vec::push!(self.ccw_path, cell);
                 if IS_CARDINAL[self.ccw_dir as usize] {
                     self.ccw_dir = (self.ccw_dir - 2).rem_euclid(8);
                 } else {

@@ -32,7 +32,7 @@ fn bridge_deltas() -> Vec<(i32, i32, i32)> {
         for dy in -3..=3i32 {
             let d2 = dx * dx + dy * dy;
             if pyrust::vec::contains!((3..=9), &d2) {
-                out.push((dx, dy, 9));
+                pyrust::vec::push!(out, (dx, dy, 9));
             }
         }
     }
@@ -50,7 +50,7 @@ fn conv_neighbors() -> Vec<(i32, i32, i32)> {
         (-1, 1, DIAG_WEIGHT),
         (-1, -1, DIAG_WEIGHT),
     ];
-    out.extend(bridge_deltas());
+    pyrust::vec::extend!(out, bridge_deltas());
     out
 }
 
@@ -129,17 +129,17 @@ impl AStarSearch {
                     let ny = cy + dy;
                     if 0 <= nx && nx < MAX_WIDTH as i32 && 0 <= ny && ny < MAX_WIDTH as i32 {
                         let ni = ny * (MAX_WIDTH as i32) + nx;
-                        all.push((ni, extra));
+                        pyrust::vec::push!(all, (ni, extra));
                         if extra == 0 {
-                            card.push(ni);
+                            pyrust::vec::push!(card, ni);
                         } else {
-                            wt.push(ni);
+                            pyrust::vec::push!(wt, ni);
                         }
                     }
                 }
-                neighbors.push(all);
-                cardinal_neighbors.push(card);
-                weighted_neighbors.push(wt);
+                pyrust::vec::push!(neighbors, all);
+                pyrust::vec::push!(cardinal_neighbors, card);
+                pyrust::vec::push!(weighted_neighbors, wt);
             }
         }
         Self {
@@ -257,10 +257,10 @@ impl AStarSearch {
 
         self._dist[si as usize] = 0;
         self.parent_fwd[si as usize] = si;
-        self.touched_fwd.push(si);
+        pyrust::vec::push!(self.touched_fwd, si);
         self.dist_bwd[gi as usize] = 0;
         self.parent_bwd[gi as usize] = gi;
-        self.touched_bwd.push(gi);
+        pyrust::vec::push!(self.touched_bwd, gi);
 
         let nb_count = BUCKET_COUNT as i32;
         let bucket_mask = nb_count - 1;
@@ -271,8 +271,8 @@ impl AStarSearch {
         for bucket in &mut self.buckets_bwd {
             bucket.clear();
         }
-        self.buckets_fwd[(f0 & bucket_mask) as usize].push(si);
-        self.buckets_bwd[(f0 & bucket_mask) as usize].push(gi);
+        pyrust::vec::push!(self.buckets_fwd[(f0 & bucket_mask) as usize], si);
+        pyrust::vec::push!(self.buckets_bwd[(f0 & bucket_mask) as usize], gi);
         let mut cur_fwd = f0;
         let mut cur_bwd = f0;
         let mut emp_fwd: i32 = 0;
@@ -351,7 +351,7 @@ impl AStarSearch {
                                 if root == -1 {
                                     root = uf_find(&mut ctx.reach_parent, ni);
                                     self.reach_root_cache[ni as usize] = root;
-                                    self.reach_root_touched.push(ni);
+                                    pyrust::vec::push!(self.reach_root_touched, ni);
                                 }
                                 if root != my_root {
                                     continue;
@@ -363,13 +363,13 @@ impl AStarSearch {
                             continue;
                         }
                         if self._dist[ni as usize] == INF {
-                            self.touched_fwd.push(ni);
+                            pyrust::vec::push!(self.touched_fwd, ni);
                         }
                         self._dist[ni as usize] = nd;
                         self.parent_fwd[ni as usize] = node_i;
                         let h_val = self.x_heur_fwd[self.x_of[ni as usize] as usize]
                             + self.y_heur_fwd[self.y_of[ni as usize] as usize];
-                        self.buckets_fwd[((nd + h_val) & bucket_mask) as usize].push(ni);
+                        pyrust::vec::push!(self.buckets_fwd[((nd + h_val) & bucket_mask) as usize], ni);
                         let other_dist = self.dist_bwd[ni as usize];
                         if other_dist != INF {
                             let cand = nd + other_dist;
@@ -429,7 +429,7 @@ impl AStarSearch {
                             if root == -1 {
                                 root = uf_find(&mut ctx.reach_parent, ni);
                                 self.reach_root_cache[ni as usize] = root;
-                                self.reach_root_touched.push(ni);
+                                pyrust::vec::push!(self.reach_root_touched, ni);
                             }
                             if root != my_root {
                                 continue;
@@ -441,13 +441,13 @@ impl AStarSearch {
                         continue;
                     }
                     if self.dist_bwd[ni as usize] == INF {
-                        self.touched_bwd.push(ni);
+                        pyrust::vec::push!(self.touched_bwd, ni);
                     }
                     self.dist_bwd[ni as usize] = nd;
                     self.parent_bwd[ni as usize] = node_i;
                     let h_val = self.x_heur_bwd[self.x_of[ni as usize] as usize]
                         + self.y_heur_bwd[self.y_of[ni as usize] as usize];
-                    self.buckets_bwd[((nd + h_val) & bucket_mask) as usize].push(ni);
+                    pyrust::vec::push!(self.buckets_bwd[((nd + h_val) & bucket_mask) as usize], ni);
                     let other_dist = self._dist[ni as usize];
                     if other_dist != INF {
                         let cand = nd + other_dist;
@@ -476,7 +476,7 @@ impl AStarSearch {
                 self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                 return None;
             }
-            rev_path.push(node);
+            pyrust::vec::push!(rev_path, node);
         }
         rev_path.reverse();
         node = best_meet;
@@ -486,7 +486,7 @@ impl AStarSearch {
                 self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                 return None;
             }
-            rev_path.push(node);
+            pyrust::vec::push!(rev_path, node);
         }
 
         pyrust::string::clear!(self.last_fail_reason);
@@ -562,7 +562,7 @@ impl AStarSearch {
         for bucket in &mut self.buckets_fwd {
             bucket.clear();
         }
-        self.buckets_fwd[(f0 & bucket_mask) as usize].push(gi);
+        pyrust::vec::push!(self.buckets_fwd[(f0 & bucket_mask) as usize], gi);
         self.f_at[gi as usize] = f0;
         let mut cur_f = f0;
         let mut emp: i32 = 0;
@@ -617,7 +617,7 @@ impl AStarSearch {
                         if root == -1 {
                             root = uf_find(&mut ctx.reach_parent, ni);
                             self.reach_root_cache[ni as usize] = root;
-                            self.reach_root_touched.push(ni);
+                            pyrust::vec::push!(self.reach_root_touched, ni);
                         }
                         if root != my_root {
                             continue;
@@ -632,7 +632,7 @@ impl AStarSearch {
                         + self.x_heur_fwd[self.x_of[ni as usize] as usize]
                         + self.y_heur_fwd[self.y_of[ni as usize] as usize];
                     self.f_at[ni as usize] = nf;
-                    self.buckets_fwd[(nf & bucket_mask) as usize].push(ni);
+                    pyrust::vec::push!(self.buckets_fwd[(nf & bucket_mask) as usize], ni);
                 }
                 let weighted = &self.weighted_neighbors[node_i as usize];
                 for &ni in weighted {
@@ -648,7 +648,7 @@ impl AStarSearch {
                         if root == -1 {
                             root = uf_find(&mut ctx.reach_parent, ni);
                             self.reach_root_cache[ni as usize] = root;
-                            self.reach_root_touched.push(ni);
+                            pyrust::vec::push!(self.reach_root_touched, ni);
                         }
                         if root != my_root {
                             continue;
@@ -663,7 +663,7 @@ impl AStarSearch {
                         + self.x_heur_fwd[self.x_of[ni as usize] as usize]
                         + self.y_heur_fwd[self.y_of[ni as usize] as usize];
                     self.f_at[ni as usize] = nf;
-                    self.buckets_fwd[(nf & bucket_mask) as usize].push(ni);
+                    pyrust::vec::push!(self.buckets_fwd[(nf & bucket_mask) as usize], ni);
                 }
             }
             self.buckets_fwd[slot].clear();
@@ -706,7 +706,7 @@ impl AStarSearch {
                             if root == -1 {
                                 root = uf_find(&mut ctx.reach_parent, ni);
                                 self.reach_root_cache[ni as usize] = root;
-                                self.reach_root_touched.push(ni);
+                                pyrust::vec::push!(self.reach_root_touched, ni);
                             }
                             if root != my_root {
                                 continue;
@@ -723,7 +723,7 @@ impl AStarSearch {
                     self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                     return None;
                 }
-                path.push(best);
+                pyrust::vec::push!(path, best);
                 node = best;
                 cur_d = best_dist;
             }
@@ -747,7 +747,7 @@ impl AStarSearch {
                     self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                     return None;
                 }
-                path.push(best);
+                pyrust::vec::push!(path, best);
                 node = best;
                 cur_d = best_dist;
             }
@@ -777,7 +777,7 @@ impl AStarSearch {
         for pos in &nearby {
             if pyrust::dict::contains!(ctx.all_bots, pos) && *pos != start {
                 let idx = (pos.y * stride + pos.x) as usize;
-                saved.push((idx, ctx.ti_routable[idx], ctx.ax_routable[idx]));
+                pyrust::vec::push!(saved, (idx, ctx.ti_routable[idx], ctx.ax_routable[idx]));
                 ctx.ti_routable[idx] = false;
                 ctx.ax_routable[idx] = false;
             }

@@ -62,7 +62,7 @@ impl<T: Clone + PartialEq> Palette<T> {
             if let Some(slot) = pyrust::find!(merged.iter_mut(), |t| &t.0 == k) {
                 slot.1 = *c;
             } else {
-                merged.push((k.clone(), *c));
+                pyrust::vec::push!(merged, (k.clone(), *c));
             }
         }
         Self {
@@ -378,7 +378,7 @@ impl Dumper {
             "name": name,
             "value": value_field,
         });
-        scope_children.push(node);
+        pyrust::vec::push!(scope_children, node);
     }
 }
 

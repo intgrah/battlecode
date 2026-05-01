@@ -47,7 +47,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
     let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(pos);
     let mut stack: Vec<Position> = vec![pos];
-    while let Some(p) = stack.pop() {
+    while let Some(p) = pyrust::vec::pop!(stack) {
         if visited.len() > _UPSTREAM_MAX_NODES_RES {
             break;
         }
@@ -75,7 +75,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
                 continue;
             }
             visited.insert(u);
-            stack.push(u);
+            pyrust::vec::push!(stack, u);
         }
     }
 

@@ -307,7 +307,7 @@ pub fn clear_barriered_feed(
             && builder.team_at(c) == Some(builder.state.my_team)
             && pyrust::unwrap!(ct.can_destroy(c))
         {
-            candidates.push(c);
+            pyrust::vec::push!(candidates, c);
         }
     }
     if candidates.is_empty() {
@@ -457,11 +457,11 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
             && builder.team_at(n) == Some(builder.state.my_team)
             && builder.get_env(n) == Some(Environment::OreTitanium)
         {
-            out.push(n);
+            pyrust::vec::push!(out, n);
             continue;
         }
         if pyrust::vec::contains!(claimed_targets, &n) {
-            out.push(n);
+            pyrust::vec::push!(out, n);
         }
     }
     out
