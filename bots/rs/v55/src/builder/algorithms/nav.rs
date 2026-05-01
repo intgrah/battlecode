@@ -117,7 +117,7 @@ impl BugNav {
                 self.path_idx_storage[si as usize] = 0;
                 self.unreachable = false;
                 self.committed = vec![si];
-                let path_idx = std::mem::take(&mut self.path_idx_storage);
+                let path_idx = pyrust::vec::take!(self.path_idx_storage);
                 self.planner = Some(Bug2Planner::new(
                     ctx.cost_grid,
                     ctx.w,

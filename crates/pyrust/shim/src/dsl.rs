@@ -543,6 +543,15 @@ macro_rules! __pyrust_vec_fill {
     };
 }
 
+/// `pyrust::vec::take!(obj.field)` — Rust `std::mem::take(&mut obj.field)`.
+/// Python: `(__t := obj.field, setattr(obj, 'field', []))[0]`.
+#[macro_export]
+macro_rules! __pyrust_vec_take {
+    ($e:expr) => {
+        ::std::mem::take(&mut $e)
+    };
+}
+
 /// Pop the last element. Returns `Option<T>` — `None` on empty.
 /// Translator emits `(v.pop() if v else None)` for Python parity.
 #[macro_export]
