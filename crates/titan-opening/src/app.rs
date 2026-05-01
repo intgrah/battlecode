@@ -1636,10 +1636,12 @@ impl App {
                 );
             }
 
-            // Label in the gutter.
-            let label = match oid {
-                0 => format!("{} #{oid}", plan.kind.label()),
-                _ => format!("{} #{oid}", plan.kind.label()),
+            // Label in the gutter — kind plus birth-turn suffix.
+            // Cores get no suffix (always one, always at T0).
+            let label = if oid == crate::opening::CORE_OPENING_ID {
+                plan.kind.label().to_string()
+            } else {
+                format!("{} T{}", plan.kind.label(), plan.spawn_turn)
             };
             painter.text(
                 egui::pos2(plot_x0 - 4.0, lane_y),
@@ -2373,19 +2375,20 @@ fn unit_lanes(opening: &Opening) -> Vec<u32> {
     lanes
 }
 
-/// One-line description of a unit for sidebar lists: kind, position,
-/// and (when tracked) opening-id. Player-team only; team B units
-/// aren't represented in the opening so they don't appear here.
+/// One-line description of a unit for sidebar lists. The numeric
+/// suffix is the unit's *birth turn* (T<n>), not its internal
+/// opening_id — opening_ids are sparse and meaningless to the user
+/// (delete + readd jumps the id), whereas the birth turn is stable
+/// and self-explanatory. The core has no suffix (it's always there).
 fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
     let Some(e) = sim.game.entities.get(&uid) else {
         return format!("uid {uid} (gone)");
     };
     let (x, y) = (e.position.x, e.position.y);
     let opening_id = sim.engine_to_opening.get(&uid).copied();
-    let kind = opening_id
-        .and_then(|oid| opening.team.units.get(&oid).map(|p| p.kind))
-        .map(|k| k.label().to_string())
-        .unwrap_or_else(|| match e {
+    let plan = opening_id.and_then(|oid| opening.team.units.get(&oid));
+    let kind = plan.map(|p| p.kind.label().to_string()).unwrap_or_else(|| {
+        match e {
             libre_engine::game_map::Entity::Core(_) => "core".to_string(),
             libre_engine::game_map::Entity::BuilderBot(_) => "builder".to_string(),
             libre_engine::game_map::Entity::Gunner(_) => "gunner".to_string(),
@@ -2393,11 +2396,13 @@ fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
             libre_engine::game_map::Entity::Breach(_) => "breach".to_string(),
             libre_engine::game_map::Entity::Launcher(_) => "launcher".to_string(),
             _ => format!("uid {uid}"),
-        });
-    match opening_id {
-        Some(0) => format!("{kind} ({x},{y})"),
-        Some(oid) => format!("{kind} #{oid} ({x},{y})"),
-        None => format!("{kind} (enemy) ({x},{y})"),
+        }
+    });
+    match (opening_id, plan) {
+        (Some(0), _) => format!("{kind} ({x},{y})"),
+        (Some(_), Some(p)) => format!("{kind} T{} ({x},{y})", p.spawn_turn),
+        (Some(oid), None) => format!("{kind} #{oid} ({x},{y})"),
+        (None, _) => format!("{kind} (enemy) ({x},{y})"),
     }
 }
 
