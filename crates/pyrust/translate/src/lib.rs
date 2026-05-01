@@ -179,6 +179,7 @@ pub fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String>
         cfg.context_manager_def_names.insert(n);
     }
     cfg.inline_consts = scan_inline_consts(src);
+    cfg.inline_fns = scan_inline_fns(src);
 
     let table = tyctx::FileTyTable::empty();
     for entry in &entries {
@@ -482,4 +483,153 @@ fn read_source(path: &Path) -> Result<String, String> {
 fn translate_source(source: &str, path: &Path, cfg: &CfgEnv) -> Result<String, String> {
     let file = parse::parse_file(source, path)?;
     emit::emit_file(&file, path, cfg, &tyctx::FileTyTable::empty())
+}
+
+/// Walk the workspace and collect every `#[pyrust::inline]`-annotated
+/// function or `&self` method whose body is a single expression.
+/// Same conflict policy as `scan_inline_consts`: a name with two
+/// different bodies (or different param lists) across files is
+/// dropped from the map.
+fn scan_inline_fns(src: &Path) -> std::collections::HashMap<String, crate::cfg::InlineFn> {
+    let mut map: std::collections::HashMap<String, crate::cfg::InlineFn> = std::collections::HashMap::new();
+    let mut conflicts: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let workspace_root = match find_workspace_root(src) {
+        Some(r) => r,
+        None => src.to_path_buf(),
+    };
+    let mut stack = vec![workspace_root];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(ft) = entry.file_type() else { continue };
+            if ft.is_dir() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str == "target" || name_str.starts_with('.') {
+                    continue;
+                }
+                stack.push(path);
+            } else if ft.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
+                let Ok(source) = fs::read_to_string(&path) else {
+                    continue;
+                };
+                let Ok(file) = syn::parse_file(&source) else {
+                    continue;
+                };
+                collect_inline_fns(&file, &mut map, &mut conflicts);
+            }
+        }
+    }
+    map
+}
+
+fn collect_inline_fns(
+    file: &syn::File,
+    map: &mut std::collections::HashMap<String, crate::cfg::InlineFn>,
+    conflicts: &mut std::collections::HashSet<String>,
+) {
+    fn body_signature(body: &syn::Expr) -> String {
+        // Conflict detection across files: just stringify via Debug.
+        // Token-equality would be tighter but requires `quote::ToTokens`,
+        // which isn't in this crate's deps. Debug captures structural
+        // equality including spans, which is fine — same source text
+        // round-trips to the same Debug output deterministically.
+        format!("{body:?}")
+    }
+
+    fn extract_single_expr(b: &syn::Block) -> Option<&syn::Expr> {
+        // Body must be exactly one statement, a tail expression
+        // (no semicolon).
+        if b.stmts.len() != 1 {
+            return None;
+        }
+        match &b.stmts[0] {
+            syn::Stmt::Expr(e, None) => Some(e),
+            _ => None,
+        }
+    }
+
+    fn try_register(
+        name: String,
+        sig: &syn::Signature,
+        body: Option<&syn::Expr>,
+        map: &mut std::collections::HashMap<String, crate::cfg::InlineFn>,
+        conflicts: &mut std::collections::HashSet<String>,
+    ) {
+        if conflicts.contains(&name) {
+            return;
+        }
+        let Some(body) = body else {
+            return;
+        };
+        // Reject `&mut self` methods: substitution would duplicate
+        // mutation effects.
+        let has_self = matches!(sig.inputs.first(), Some(syn::FnArg::Receiver(r)) if r.mutability.is_none());
+        if matches!(sig.inputs.first(), Some(syn::FnArg::Receiver(r)) if r.mutability.is_some()) {
+            return;
+        }
+        let mut params: Vec<String> = Vec::new();
+        for arg in sig.inputs.iter().skip(if has_self { 1 } else { 0 }) {
+            let syn::FnArg::Typed(pt) = arg else {
+                return;
+            };
+            let syn::Pat::Ident(pi) = pt.pat.as_ref() else {
+                return;
+            };
+            params.push(pi.ident.to_string());
+        }
+        let new_def = crate::cfg::InlineFn {
+            params,
+            has_self,
+            body: body.clone(),
+        };
+        match map.get(&name) {
+            Some(prev) => {
+                if prev.params != new_def.params
+                    || prev.has_self != new_def.has_self
+                    || body_signature(&prev.body) != body_signature(&new_def.body)
+                {
+                    conflicts.insert(name.clone());
+                    map.remove(&name);
+                }
+            }
+            None => {
+                map.insert(name, new_def);
+            }
+        }
+    }
+
+    for item in &file.items {
+        match item {
+            syn::Item::Fn(f) if has_pyrust_inline(&f.attrs) => {
+                try_register(
+                    f.sig.ident.to_string(),
+                    &f.sig,
+                    extract_single_expr(&f.block),
+                    map,
+                    conflicts,
+                );
+            }
+            syn::Item::Impl(im) => {
+                for ii in &im.items {
+                    if let syn::ImplItem::Fn(f) = ii
+                        && has_pyrust_inline(&f.attrs)
+                    {
+                        try_register(
+                            f.sig.ident.to_string(),
+                            &f.sig,
+                            extract_single_expr(&f.block),
+                            map,
+                            conflicts,
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }

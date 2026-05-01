@@ -289,8 +289,19 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
     // method names or guesses receiver types — anything the bot wants
     // rewritten for Python (Vec::push, HashSet::contains, Iterator::map,
     // etc.) must be wrapped in a `pyrust::*!` macro at the call site.
-    let recv = emit_expr(w, &m.receiver)?;
     let method = m.method.to_string();
+    // `#[pyrust::inline]`-marked single-expression method: substitute
+    // body with `self`=receiver and params=args, lifting non-atomic
+    // args via walrus where ref counts demand.
+    if let Some(def) = w.cfg().inline_fns.get(&method).cloned()
+        && def.has_self
+        && def.params.len() == m.args.len()
+        && !w.is_inlining(&method)
+    {
+        let arg_exprs: Vec<&syn::Expr> = m.args.iter().collect();
+        return emit_inline_call(w, &method, &def, Some(&m.receiver), &arg_exprs);
+    }
+    let recv = emit_expr(w, &m.receiver)?;
     let arg_exprs: Vec<&syn::Expr> = m.args.iter().collect();
     let mut arg_texts = Vec::with_capacity(arg_exprs.len());
     for a in &arg_exprs {
@@ -311,6 +322,262 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
         format!("{recv_text}.{py_method}({})", arg_texts.join(", ")),
         Ty::Unknown,
     ))
+}
+
+/// Substitute an `#[pyrust::inline]` body at the call site.
+///
+/// `self` (if present) and each named parameter are bound to the
+/// corresponding receiver/argument expression. For each formal:
+///
+/// - 0 refs in body → arg dropped (still emitted for side effects? no:
+///   Rust's call-by-value would have evaluated it, but inlining loses
+///   that — current policy: skip evaluation. Side-effecting args
+///   passed to unused params is a programming error).
+/// - 1 ref + atomic arg → substitute textually.
+/// - 1 ref + non-atomic arg → substitute textually (single eval, fine).
+/// - 2+ refs + atomic arg → substitute textually (LOAD_FAST is cheap).
+/// - 2+ refs + non-atomic arg → walrus-bind to a fresh tmp.
+///
+/// All walrus bindings are emitted as a leading tuple element, with
+/// the body text as the tail; the final form is `(__a := arg, …,
+/// body)[-1]`.
+fn emit_inline_call(
+    w: &mut PyWriter,
+    name: &str,
+    def: &crate::cfg::InlineFn,
+    receiver: Option<&syn::Expr>,
+    args: &[&syn::Expr],
+) -> Result<Emitted, String> {
+    use std::collections::HashMap;
+    // Build (formal name, expr) list. Receiver (`self`) goes first if
+    // the def is a method.
+    let mut bindings: Vec<(&'static str, &syn::Expr)> = Vec::new();
+    if def.has_self {
+        bindings.push(("self", receiver.expect("method inline needs receiver")));
+    }
+    // Owned param names so we can mix with the static "self".
+    let owned_names: Vec<String> = def.params.clone();
+    let mut subst: HashMap<String, String> = HashMap::new();
+    // Emit each arg/receiver to text, wrapping in walrus when the
+    // body refs the formal 2+ times AND the arg isn't atomic.
+    let body_ref_counts = count_path_refs(&def.body);
+    let mut walrus_chain: Vec<String> = Vec::new();
+    let mut tmp_n: u32 = 0;
+    let mut next_tmp = || {
+        let n = format!("__inl{tmp_n}");
+        tmp_n += 1;
+        n
+    };
+    for (i, b) in bindings.iter().enumerate() {
+        let formal = b.0;
+        let expr = b.1;
+        let refs = body_ref_counts.get(formal).copied().unwrap_or(0);
+        if refs == 0 {
+            continue;
+        }
+        let em = emit_expr(w, expr)?;
+        let atomic = is_atomic_expr(expr);
+        if atomic || refs == 1 {
+            // For atomic OR single-ref, parenthesise non-atomic to make
+            // attr/index access on the substituted text safe.
+            let text = if em.prec < Prec::Atom {
+                format!("({})", em.text)
+            } else {
+                em.text.clone()
+            };
+            subst.insert(formal.to_string(), text);
+        } else {
+            let tmp = next_tmp();
+            walrus_chain.push(format!("({tmp} := {})", em.text));
+            subst.insert(formal.to_string(), tmp);
+        }
+        let _ = i;
+    }
+    for (i, formal) in owned_names.iter().enumerate() {
+        let expr = args[i];
+        let refs = body_ref_counts.get(formal.as_str()).copied().unwrap_or(0);
+        if refs == 0 {
+            continue;
+        }
+        let em = emit_expr(w, expr)?;
+        let atomic = is_atomic_expr(expr);
+        if atomic || refs == 1 {
+            let text = if em.prec < Prec::Atom {
+                format!("({})", em.text)
+            } else {
+                em.text.clone()
+            };
+            subst.insert(formal.clone(), text);
+        } else {
+            let tmp = next_tmp();
+            walrus_chain.push(format!("({tmp} := {})", em.text));
+            subst.insert(formal.clone(), tmp);
+        }
+    }
+    // Re-emit body with substitution.
+    w.push_inlining(name);
+    let body_em = emit_expr_with_subst(w, &def.body, &subst);
+    w.pop_inlining();
+    let body_em = body_em?;
+    if walrus_chain.is_empty() {
+        return Ok(body_em);
+    }
+    // (__a := arg, …, body)[-1]
+    let mut parts = walrus_chain;
+    parts.push(body_em.text);
+    Ok(Emitted::atomic(
+        format!("({})[-1]", parts.join(", ")),
+        body_em.ty,
+    ))
+}
+
+/// Count occurrences of each single-segment path ident in `e`.
+/// Used to decide whether to walrus-bind a non-atomic arg.
+fn count_path_refs(e: &syn::Expr) -> std::collections::HashMap<&'static str, usize> {
+    use syn::visit::Visit;
+    struct V<'a> {
+        counts: std::collections::HashMap<&'static str, usize>,
+        _phantom: std::marker::PhantomData<&'a ()>,
+    }
+    impl<'ast> Visit<'ast> for V<'ast> {
+        fn visit_expr_path(&mut self, p: &'ast syn::ExprPath) {
+            if p.qself.is_none()
+                && p.path.leading_colon.is_none()
+                && p.path.segments.len() == 1
+            {
+                let s = p.path.segments[0].ident.to_string();
+                let key: &'static str = match s.as_str() {
+                    "self" => "self",
+                    _ => Box::leak(s.into_boxed_str()),
+                };
+                *self.counts.entry(key).or_insert(0) += 1;
+            }
+            syn::visit::visit_expr_path(self, p);
+        }
+    }
+    let mut v = V {
+        counts: std::collections::HashMap::new(),
+        _phantom: std::marker::PhantomData,
+    };
+    v.visit_expr(e);
+    v.counts
+}
+
+/// True iff substituting `e` repeatedly would not duplicate work or
+/// observable side effects: bare ident, literal, or `expr.field` /
+/// `expr[i]` chain rooted in an atomic.
+fn is_atomic_expr(e: &syn::Expr) -> bool {
+    match e {
+        syn::Expr::Path(p) => p.path.segments.len() <= 2,
+        syn::Expr::Lit(_) => true,
+        syn::Expr::Field(f) => is_atomic_expr(&f.base),
+        syn::Expr::Index(i) => is_atomic_expr(&i.expr) && is_atomic_expr(&i.index),
+        syn::Expr::Reference(r) => is_atomic_expr(&r.expr),
+        syn::Expr::Unary(u) if matches!(u.op, syn::UnOp::Deref(_)) => is_atomic_expr(&u.expr),
+        syn::Expr::Paren(p) => is_atomic_expr(&p.expr),
+        _ => false,
+    }
+}
+
+/// Re-emit `e` with single-segment ident references replaced by the
+/// substitution table's text. `self` references (`self` and
+/// `self.<field>` chains) get the receiver-text substitution.
+fn emit_expr_with_subst(
+    w: &mut PyWriter,
+    e: &syn::Expr,
+    subst: &std::collections::HashMap<String, String>,
+) -> Result<Emitted, String> {
+    // Walk + rewrite. We do this by transforming the AST on the fly:
+    // wherever a single-segment Expr::Path matches, return the
+    // substitution as an atomic Emitted. For everything else, re-enter
+    // emit_expr after recursively transforming child Exprs that contain
+    // refs.
+    //
+    // The simplest correct implementation: walk via syn::fold to
+    // produce a new Expr with text-substitutions wrapped in a
+    // `Verbatim` token group. But syn::fold is heavyweight.
+    //
+    // Easier: special-case the common shapes (Path, Field, Index,
+    // Binary, Unary, Call, MethodCall, Paren, Tuple) and recurse into
+    // children. Anything else: clone + emit_expr (loses substitutions
+    // beneath it — accept for now).
+    if let syn::Expr::Path(p) = e
+        && p.qself.is_none()
+        && p.path.leading_colon.is_none()
+        && p.path.segments.len() == 1
+    {
+        let name = p.path.segments[0].ident.to_string();
+        if let Some(text) = subst.get(&name) {
+            return Ok(Emitted::atomic(text.clone(), Ty::Unknown));
+        }
+    }
+    if let syn::Expr::Field(f) = e {
+        let base = emit_expr_with_subst(w, &f.base, subst)?;
+        let base_text = if base.prec < Prec::Atom {
+            format!("({})", base.text)
+        } else {
+            base.text
+        };
+        let field_text = match &f.member {
+            syn::Member::Named(n) => n.to_string(),
+            syn::Member::Unnamed(i) => format!("[{}]", i.index),
+        };
+        return Ok(match &f.member {
+            syn::Member::Named(_) => Emitted::atomic(format!("{base_text}.{field_text}"), Ty::Unknown),
+            syn::Member::Unnamed(_) => Emitted::atomic(format!("{base_text}{field_text}"), Ty::Unknown),
+        });
+    }
+    if let syn::Expr::Index(i) = e {
+        let base = emit_expr_with_subst(w, &i.expr, subst)?;
+        let idx = emit_expr_with_subst(w, &i.index, subst)?;
+        let base_text = if base.prec < Prec::Atom {
+            format!("({})", base.text)
+        } else {
+            base.text
+        };
+        return Ok(Emitted::atomic(
+            format!("{base_text}[{}]", idx.text),
+            Ty::Unknown,
+        ));
+    }
+    if let syn::Expr::Binary(b) = e {
+        let l = emit_expr_with_subst(w, &b.left, subst)?;
+        let r = emit_expr_with_subst(w, &b.right, subst)?;
+        let op = match b.op {
+            syn::BinOp::Add(_) => "+",
+            syn::BinOp::Sub(_) => "-",
+            syn::BinOp::Mul(_) => "*",
+            syn::BinOp::Div(_) => "//", // integer division for usize/i32
+            syn::BinOp::Rem(_) => "%",
+            syn::BinOp::Eq(_) => "==",
+            syn::BinOp::Ne(_) => "!=",
+            syn::BinOp::Lt(_) => "<",
+            syn::BinOp::Le(_) => "<=",
+            syn::BinOp::Gt(_) => ">",
+            syn::BinOp::Ge(_) => ">=",
+            syn::BinOp::And(_) => "and",
+            syn::BinOp::Or(_) => "or",
+            _ => {
+                // Fall back to full emit on unknown ops.
+                return emit_expr(w, e);
+            }
+        };
+        return Ok(Emitted::atomic(
+            format!("({} {} {})", l.text, op, r.text),
+            Ty::Unknown,
+        ));
+    }
+    if let syn::Expr::Paren(p) = e {
+        return emit_expr_with_subst(w, &p.expr, subst);
+    }
+    if let syn::Expr::Cast(c) = e {
+        // `as <Ty>` is a no-op in Python (translator strips casts).
+        return emit_expr_with_subst(w, &c.expr, subst);
+    }
+    // Fallback: anything not specially handled above gets standard
+    // emission. Substitutions beneath that node are lost, which is OK
+    // for the simple bodies we target.
+    emit_expr(w, e)
 }
 
 fn paren_at_least(e: &Emitted, ctx: Prec) -> String {

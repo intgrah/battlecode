@@ -59,6 +59,27 @@ pub struct CfgEnv {
     /// LOAD_GLOBAL). Conflicting names (same name, different literal
     /// across files) are absent from this map.
     pub inline_consts: std::collections::HashMap<String, String>,
+    /// Workspace-wide `#[pyrust::inline]` single-expression functions
+    /// and `&self` methods, keyed by function name. Call sites that
+    /// resolve to one of these get the body substituted in place of
+    /// the call (parameter ↔ argument with walrus binding for
+    /// non-atomic args). Same conflict policy as `inline_consts`:
+    /// duplicate names with different bodies drop from the map.
+    pub inline_fns: std::collections::HashMap<String, InlineFn>,
+}
+
+/// A single-expression function or `&self` method registered as
+/// inlinable via `#[pyrust::inline]`. Stored at file pre-scan; consumed
+/// by the call-site emit path.
+#[derive(Debug, Clone)]
+pub struct InlineFn {
+    /// Parameter names in order, NOT including `self`.
+    pub params: Vec<String>,
+    /// True iff the function takes `&self` as its first arg.
+    pub has_self: bool,
+    /// The single-expression body (the tail expression of `{ expr }`,
+    /// or the bare expression if the source uses `=> expr` form).
+    pub body: syn::Expr,
 }
 
 impl CfgEnv {

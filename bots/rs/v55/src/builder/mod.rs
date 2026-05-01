@@ -409,6 +409,7 @@ impl Builder {
     /// in `crate::builder::*` doesn't need to import the trait).
     #[inline]
     #[must_use]
+    #[pyrust::inline]
     pub const fn idx(&self, pos: Position) -> usize {
         (pos.y as usize) * MAX_WIDTH + (pos.x as usize)
     }
