@@ -16,7 +16,7 @@ impl TaskRejected {
     #[must_use]
     pub fn new(reason: &str) -> Self {
         Self {
-            reason: reason.to_string(),
+            reason: pyrust::to_string!(reason),
         }
     }
 

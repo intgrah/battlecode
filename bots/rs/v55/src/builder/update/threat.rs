@@ -14,7 +14,7 @@ use crate::util::constants::{INF, MAX_WIDTH};
 pub const THREAT_PENALTY: i32 = 50;
 
 pub fn apply_threat_overlay(builder: &mut Builder) {
-    let bumped_indices: Vec<usize> = builder._threat_bumped.iter().copied().collect();
+    let bumped_indices: Vec<usize> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder._threat_bumped)));
     for i in bumped_indices {
         let env = builder.env[i];
         let kind = builder.building_kind[i];
@@ -23,7 +23,7 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
     }
     builder._threat_bumped.clear();
 
-    let enemy_tiles: Vec<_> = builder.enemy_turret_ray_tiles.iter().copied().collect();
+    let enemy_tiles: Vec<_> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.enemy_turret_ray_tiles)));
     for tile in enemy_tiles {
         let i = (tile.y as usize) * MAX_WIDTH + (tile.x as usize);
         if builder.cost_grid[i] != INF && !builder._threat_bumped.contains(&i) {
@@ -31,7 +31,7 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
             builder._threat_bumped.insert(i);
         }
     }
-    let launcher_tiles: Vec<_> = builder.adjacent_to_enemy_launcher.iter().copied().collect();
+    let launcher_tiles: Vec<_> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.adjacent_to_enemy_launcher)));
     for tile in launcher_tiles {
         let i = (tile.y as usize) * MAX_WIDTH + (tile.x as usize);
         if builder.cost_grid[i] != INF && !builder._threat_bumped.contains(&i) {

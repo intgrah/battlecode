@@ -21,11 +21,7 @@ use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 
 pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    positions
-        .iter()
-        .copied()
-        .filter(|p| self_.is_passable(*p) && !self_.all_bots.contains_key(p))
-        .collect()
+    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |p| self_.is_passable(*p) && !self_.all_bots.contains_key(p)))
 }
 
 pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
@@ -41,19 +37,11 @@ pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
 }
 
 pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    positions
-        .iter()
-        .copied()
-        .filter(|&p| !is_allied_transport(self_, p))
-        .collect()
+    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |&p| !is_allied_transport(self_, p)))
 }
 
 pub fn buildable(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    positions
-        .iter()
-        .copied()
-        .filter(|&p| is_cheap_overbuild(self_, p))
-        .collect()
+    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |&p| is_cheap_overbuild(self_, p)))
 }
 
 fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
@@ -76,7 +64,7 @@ pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
     if self_.enemy_bots.is_empty() {
         return None;
     }
-    closest(self_.my_pos, self_.enemy_bots.iter().copied())
+    closest(self_.my_pos, pyrust::copied!(pyrust::iter!(self_.enemy_bots)))
 }
 
 pub fn should_attack(self_: &Builder, pos: Position) -> bool {
@@ -90,17 +78,13 @@ pub fn should_attack(self_: &Builder, pos: Position) -> bool {
 }
 
 pub fn enemy_healer_near(self_: &Builder, pos: Position) -> bool {
-    self_
-        .enemy_bots
-        .iter()
-        .any(|p| p.distance_squared(pos) <= 2)
+    pyrust::any!(pyrust::iter!(self_
+        .enemy_bots), |p| p.distance_squared(pos) <= 2)
 }
 
 pub fn friendly_bot_adjacent(self_: &Builder, pos: Position) -> bool {
-    self_
-        .friendly_bots
-        .iter()
-        .any(|p| p.distance_squared(pos) <= 1)
+    pyrust::any!(pyrust::iter!(self_
+        .friendly_bots), |p| p.distance_squared(pos) <= 1)
 }
 
 /// Chebyshev distance from `pos` to the nearest OTHER friendly
@@ -338,7 +322,7 @@ pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
 pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Position {
     let my_pos = self_.my_pos;
     let mut sorted: Vec<Position> = vulnerable.to_vec();
-    sorted.sort_by_key(|p| my_pos.distance_squared(*p));
+    pyrust::sort_by_key!(sorted, |p| my_pos.distance_squared(*p));
     for &h in &sorted {
         if !enemy_healer_near(self_, h) && !friendly_bot_adjacent(self_, h) {
             return h;
@@ -380,11 +364,8 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
 /// Per-turn offense bookkeeping.
 pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
     if !self_.attack_tile_blacklist.is_empty() {
-        let new_blacklist: HashMap<Position, i32> = self_
-            .attack_tile_blacklist
-            .iter()
-            .filter_map(|t| if *t.1 > 1 { Some((*t.0, *t.1 - 1)) } else { None })
-            .collect();
+        let new_blacklist: HashMap<Position, i32> = pyrust::collect!(pyrust::filter_map!(pyrust::iter!(self_
+            .attack_tile_blacklist), |t| if *t.1 > 1 { Some((*t.0, *t.1 - 1)) } else { None }));
         self_.attack_tile_blacklist = new_blacklist;
     }
     if let Some(last) = self_.last_fire

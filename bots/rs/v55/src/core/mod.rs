@@ -162,8 +162,8 @@ impl Core {
         if self.spawned < Self::INITIAL_SPAWNS {
             let en_core = self.en_core_guess();
             let mut corners: Vec<Position> =
-                CORNERS.iter().map(|&d| self.state.my_pos.add(d)).collect();
-            corners.sort_by_key(|p| en_core.distance_squared(*p));
+                pyrust::collect!(pyrust::map!(pyrust::iter!(CORNERS), |&d| self.state.my_pos.add(d)));
+            pyrust::sort_by_key!(corners, |p| en_core.distance_squared(*p));
             let preferred = corners[self.spawned as usize];
             if pyrust::unwrap!(ct.can_spawn(preferred)) {
                 self.spawn_at(ct, preferred);
@@ -236,7 +236,7 @@ impl Unit for Core {
             self.deliveries.pop_back();
         }
         self.deliveries.push_front(incoming);
-        let total: i32 = self.deliveries.iter().sum();
+        let total: i32 = pyrust::sum!(pyrust::iter!(self.deliveries));
         let income_rate = pyrust::float!(total) / self.deliveries.len() as f64;
 
         self.maybe_convert(ct);

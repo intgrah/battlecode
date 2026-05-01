@@ -209,7 +209,7 @@ impl Scope {
             ctx().push_scope(label, false);
         }
         Self {
-            label: label.to_string(),
+            label: pyrust::to_string!(label),
         }
     }
 
@@ -221,7 +221,7 @@ impl Scope {
             ctx().push_scope(label, true);
         }
         Self {
-            label: label.to_string(),
+            label: pyrust::to_string!(label),
         }
     }
 }

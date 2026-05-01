@@ -75,11 +75,11 @@ macro_rules! __pyrust_is_none {
     };
 }
 
-/// `pyrust::is_some_and!(opt, |x| pred)` — Python `x is not None and pred(x)`.
+/// `pyrust::is_some_and!(opt, closure)`.
 #[macro_export]
 macro_rules! __pyrust_is_some_and {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.is_some_and(|$x| $body)
+    ($e:expr, $f:expr) => {
+        $e.is_some_and($f)
     };
 }
 
@@ -144,28 +144,32 @@ macro_rules! __pyrust_cloned {
     };
 }
 
-/// `pyrust::collect!(it)` — terminal collect into a Vec. Python:
-/// `list(it)` (or pass-through if already a list comprehension).
+/// `pyrust::collect!(it)` — terminal `.collect()` (target type
+/// inferred from binding context). Python emits the inner expr (a
+/// generator) directly when target is a list comprehension; for
+/// HashSet/HashMap targets the bot author should use the right
+/// ranges-comprehension equivalent.
 #[macro_export]
 macro_rules! __pyrust_collect {
     ($e:expr) => {
-        $e.collect::<Vec<_>>()
+        $e.collect()
     };
 }
 
-/// `pyrust::enumerate!(xs)` — Python `enumerate(xs)`.
+/// `pyrust::enumerate!(it)` — Python `enumerate(it)`. Receiver must
+/// already be an iterator (wrap collections in `pyrust::iter!` first).
 #[macro_export]
 macro_rules! __pyrust_enumerate {
     ($e:expr) => {
-        $e.iter().enumerate()
+        $e.enumerate()
     };
 }
 
-/// `pyrust::zip!(a, b)` — Python `zip(a, b)`.
+/// `pyrust::zip!(a, b)` — Python `zip(a, b)`. Both args must be iterators.
 #[macro_export]
 macro_rules! __pyrust_zip {
     ($a:expr, $b:expr) => {
-        $a.iter().zip($b.iter())
+        $a.zip($b)
     };
 }
 
@@ -201,51 +205,52 @@ macro_rules! __pyrust_chain {
     };
 }
 
-/// `pyrust::map!(it, |x| body)` — Python `(body for x in it)`.
+/// `pyrust::map!(it, closure)` — Python `(body for x in it)`.
 #[macro_export]
 macro_rules! __pyrust_map {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.map(|$x| $body)
+    ($e:expr, $f:expr) => {
+        $e.map($f)
     };
 }
 
-/// `pyrust::filter!(it, |x| pred)` — Python `(x for x in it if pred)`.
+/// `pyrust::filter!(it, closure)` — Python `(x for x in it if pred)`.
 #[macro_export]
 macro_rules! __pyrust_filter {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.filter(|$x| $body)
+    ($e:expr, $f:expr) => {
+        $e.filter($f)
     };
 }
 
-/// `pyrust::filter_map!(it, |x| body)` — Python `(v for x in it if (v := body) is not None)`.
+/// `pyrust::filter_map!(it, closure)`.
 #[macro_export]
 macro_rules! __pyrust_filter_map {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.filter_map(|$x| $body)
+    ($e:expr, $f:expr) => {
+        $e.filter_map($f)
     };
 }
 
-/// `pyrust::find!(it, |x| pred)` — Python `next((x for x in it if pred), None)`.
+/// `pyrust::find!(it, closure)`. Returns `Option<T>` (or whatever
+/// `Iterator::find` would; bot author adds `.copied()` if needed).
 #[macro_export]
 macro_rules! __pyrust_find {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.find(|$x| $body).copied()
+    ($e:expr, $f:expr) => {
+        $e.find($f)
     };
 }
 
-/// `pyrust::any!(it, |x| pred)` — Python `any(pred(x) for x in it)`.
+/// `pyrust::any!(it, closure)`. Receiver must be an iterator.
 #[macro_export]
 macro_rules! __pyrust_any {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.iter().any(|$x| $body)
+    ($e:expr, $f:expr) => {
+        $e.any($f)
     };
 }
 
-/// `pyrust::all!(it, |x| pred)` — Python `all(pred(x) for x in it)`.
+/// `pyrust::all!(it, closure)`. Receiver must be an iterator.
 #[macro_export]
 macro_rules! __pyrust_all {
-    ($e:expr, |$x:ident| $body:expr) => {
-        $e.iter().all(|$x| $body)
+    ($e:expr, $f:expr) => {
+        $e.all($f)
     };
 }
 
@@ -257,46 +262,44 @@ macro_rules! __pyrust_count {
     };
 }
 
-/// Sum of an ordered iterable's elements. Iterable must be Vec / slice /
-/// range — never a HashSet/HashMap.
+/// Sum of an iterator's elements. Receiver must already be an iterator.
+/// Item type inferred from binding context.
 #[macro_export]
 macro_rules! __pyrust_iter_sum {
     ($it:expr) => {
-        $it.iter().copied().sum::<i64>()
+        $it.sum()
     };
 }
 
-/// `pyrust::min!(xs)` — `min(xs)`; `None` for empty.
+/// `pyrust::min!(it)` on an iterator — `min(...)`; `None` for empty.
 #[macro_export]
 macro_rules! __pyrust_iter_min {
     ($it:expr) => {
-        $it.iter().copied().min()
+        $it.min()
     };
 }
 
-/// `pyrust::max!(xs)` — `max(xs)`; `None` for empty.
+/// `pyrust::max!(it)` on an iterator — `max(...)`; `None` for empty.
 #[macro_export]
 macro_rules! __pyrust_iter_max {
     ($it:expr) => {
-        $it.iter().copied().max()
+        $it.max()
     };
 }
 
-/// `pyrust::min_by!(xs, |x| key)` — `min(xs, key=...)`. Caller is
-/// responsible for the key being globally unique to avoid
-/// iteration-order dependence on ties.
+/// `pyrust::min_by!(it, closure)`. Receiver must be an iterator.
 #[macro_export]
 macro_rules! __pyrust_iter_min_by {
-    ($it:expr, |$x:ident| $key:expr) => {
-        $it.iter().min_by_key(|$x| $key).copied()
+    ($it:expr, $f:expr) => {
+        $it.min_by_key($f)
     };
 }
 
-/// `pyrust::max_by!(xs, |x| key)` — `max(xs, key=...)`.
+/// `pyrust::max_by!(it, closure)`. Receiver must be an iterator.
 #[macro_export]
 macro_rules! __pyrust_iter_max_by {
-    ($it:expr, |$x:ident| $key:expr) => {
-        $it.iter().max_by_key(|$x| $key).copied()
+    ($it:expr, $f:expr) => {
+        $it.max_by_key($f)
     };
 }
 
@@ -312,11 +315,11 @@ macro_rules! __pyrust_sort {
     };
 }
 
-/// `pyrust::sort_by_key!(v, |x| key)` — `v.sort_by_key(|x| key)` ⟷ `v.sort(key=lambda x: key)`.
+/// `pyrust::sort_by_key!(v, closure)` ⟷ `v.sort(key=lambda x: key)`.
 #[macro_export]
 macro_rules! __pyrust_sort_by_key {
-    ($v:expr, |$x:ident| $key:expr) => {
-        $v.sort_by_key(|$x| $key)
+    ($v:expr, $f:expr) => {
+        $v.sort_by_key($f)
     };
 }
 

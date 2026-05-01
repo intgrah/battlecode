@@ -30,7 +30,7 @@ pub const fn chebyshev(p1: Position, p2: Position) -> i32 {
 #[must_use]
 pub fn reachable_path_end(path: &[Position], current_pos: Position, max_range: i32) -> Position {
     let limit = max_range * max_range;
-    for &pos in path.iter().rev() {
+    for &pos in pyrust::rev!(pyrust::iter!(path)) {
         if euclidean_sq(current_pos, pos) <= limit {
             return pos;
         }
@@ -46,9 +46,7 @@ pub fn closest<I>(target: Position, positions: I) -> Option<Position>
 where
     I: IntoIterator<Item = Position>,
 {
-    positions
-        .into_iter()
-        .min_by_key(|p| (euclidean_sq(target, *p), p.y, p.x))
+    pyrust::min_by!(pyrust::into_iter!(positions), |p| (euclidean_sq(target, *p), p.y, p.x))
 }
 
 /// Returns `true` iff `my_id` at `my_pos` is the rightful claimant of `target`

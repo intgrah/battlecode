@@ -39,10 +39,10 @@ fn _walkable_anchor(builder: &Builder, pos: Position) -> Option<Position> {
 /// bridge / splitter tiles that are downstream of a harvester).
 fn _candidate_iter(builder: &Builder) -> Vec<Position> {
     let mut out: Vec<Position> = pyrust::vec::new!();
-    out.extend(builder.my_harvesters.iter().copied());
-    out.extend(builder.my_foundries.iter().copied());
-    out.extend(builder.ti_upstream.iter().copied());
-    out.extend(builder.ax_upstream.iter().copied());
+    out.extend(pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
+    out.extend(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
+    out.extend(pyrust::copied!(pyrust::iter!(builder.ti_upstream)));
+    out.extend(pyrust::copied!(pyrust::iter!(builder.ax_upstream)));
     out.push(builder.my_core);
     out
 }
@@ -87,7 +87,7 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
         let reached = builder.state.my_pos.distance_squared(h) <= 2;
         if reached || head_age <= 0 {
             let mut args = Map::new();
-            args.insert("head".to_string(), auto_wrap_position(h));
+            args.insert(pyrust::to_string!("head"), auto_wrap_position(h));
             log("patrol: head {head} reached / refreshed, repicking", args);
             head = None;
         }
@@ -98,9 +98,9 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
         if let Some(h) = head {
             let age = rnd - builder.last_seen[(h.y as usize) * MAX_WIDTH + (h.x as usize)];
             let mut args = Map::new();
-            args.insert("head".to_string(), auto_wrap_position(h));
+            args.insert(pyrust::to_string!("head"), auto_wrap_position(h));
             args.insert(
-                "age".to_string(),
+                pyrust::to_string!("age"),
                 serde_json::Value::Number(serde_json::Number::from(age)),
             );
             log("patrol: new head {head} (age={age})", args);

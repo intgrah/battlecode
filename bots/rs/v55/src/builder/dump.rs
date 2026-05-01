@@ -183,7 +183,7 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
     }
     keys.sort_unstable();
     let mut special: Vec<(i64, Colour)> = vec![(-1, TRANSPARENT)];
-    for (k, key) in keys.iter().enumerate() {
+    for (k, key) in pyrust::enumerate!(pyrust::iter!(keys)) {
         let hue = ((k as f64) * _GOLDEN).rem_euclid(1.0);
         let (r, g, b) = _hsv_to_rgb(hue, 0.65, 0.95);
         special.push((*key as i64, Colour::new(r, g, b, 160)));
@@ -213,8 +213,8 @@ where
 {
     // Sort by (y, x) so dumps are deterministic across hash-randomized
     // iteration of HashSet/HashMap source collections.
-    let mut data: Vec<Position> = iter.into_iter().collect();
-    data.sort_by_key(|p| (p.y, p.x));
+    let mut data: Vec<Position> = pyrust::collect!(pyrust::into_iter!(iter));
+    pyrust::sort_by_key!(data, |p| (p.y, p.x));
     vis(name, &Dump::Tiles { data });
 }
 
@@ -222,7 +222,7 @@ fn vis_scalar_str(name: &str, s: &str) {
     vis(
         name,
         &Dump::Scalar {
-            value: ScalarValue::Str(s.to_string()),
+            value: ScalarValue::Str(pyrust::to_string!(s)),
         },
     );
 }
@@ -272,12 +272,9 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             Some(s) => vis_scalar_str("symmetry", &format!("{s}")),
             None => vis_scalar_null("symmetry"),
         }
-        let mut sym_names: Vec<String> = builder
+        let mut sym_names: Vec<String> = pyrust::collect!(pyrust::map!(pyrust::iter!(builder
             .state
-            .symmetry_candidates
-            .iter()
-            .map(|s| format!("{s}"))
-            .collect();
+            .symmetry_candidates), |s| format!("{s}")));
         sym_names.sort();
         vis_scalar_str("symmetry_candidates", &sym_names.join(", "));
         vis_scalar_bool("en_core_seen", builder.en_core_seen);
@@ -404,52 +401,52 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         }
         {
             let _g = Scope::new("sets");
-            vis_tiles("dangling_set", builder.dangling_set.iter().copied());
+            vis_tiles("dangling_set", pyrust::copied!(pyrust::iter!(builder.dangling_set)));
             vis_tiles(
                 "unreachable_dangling",
-                builder.unreachable_dangling.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.unreachable_dangling)),
             );
-            vis_tiles("reaches_core", builder.reaches_core.iter().copied());
-            vis_tiles("reaches_foundry", builder.reaches_foundry.iter().copied());
-            vis_tiles("ti_upstream", builder.ti_upstream.iter().copied());
-            vis_tiles("ax_upstream", builder.ax_upstream.iter().copied());
+            vis_tiles("reaches_core", pyrust::copied!(pyrust::iter!(builder.reaches_core)));
+            vis_tiles("reaches_foundry", pyrust::copied!(pyrust::iter!(builder.reaches_foundry)));
+            vis_tiles("ti_upstream", pyrust::copied!(pyrust::iter!(builder.ti_upstream)));
+            vis_tiles("ax_upstream", pyrust::copied!(pyrust::iter!(builder.ax_upstream)));
             vis_tiles(
                 "upstream_of_dangling",
-                builder.upstream_of_dangling.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.upstream_of_dangling)),
             );
             vis_tiles(
                 "upstream_of_congestion",
-                builder.upstream_of_congestion.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.upstream_of_congestion)),
             );
-            vis_tiles("junctions", builder.junctions.iter().copied());
-            vis_tiles("is_multi_input", builder.is_multi_input.iter().copied());
+            vis_tiles("junctions", pyrust::copied!(pyrust::iter!(builder.junctions)));
+            vis_tiles("is_multi_input", pyrust::copied!(pyrust::iter!(builder.is_multi_input)));
             vis_tiles(
                 "congested_junctions",
-                builder.congested_junctions.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.congested_junctions)),
             );
-            vis_tiles("my_foundries", builder.my_foundries.iter().copied());
+            vis_tiles("my_foundries", pyrust::copied!(pyrust::iter!(builder.my_foundries)));
         }
         {
             let _g = Scope::new("harvesters");
             vis_tiles(
                 "ti_harvester_adjacent",
-                builder.ti_harvester_adjacent.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.ti_harvester_adjacent)),
             );
             vis_tiles(
                 "ax_harvester_adjacent",
-                builder.ax_harvester_adjacent.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.ax_harvester_adjacent)),
             );
             vis_tiles(
                 "harvester_adjacent",
-                builder.adjacent_to_harvester.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.adjacent_to_harvester)),
             );
             vis_tiles(
                 "unconnected_harvester",
-                builder.adjacent_to_unconnected_harvester.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.adjacent_to_unconnected_harvester)),
             );
             vis_tiles(
                 "deny_ore_neighbours",
-                builder.deny_ore_neighbours.iter().copied(),
+                pyrust::copied!(pyrust::iter!(builder.deny_ore_neighbours)),
             );
             vis_tiles("econ_disc", _econ_disc_tiles(builder));
         }
@@ -459,23 +456,23 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         vis_tile("offense_target", builder.offense_target);
         vis_scalar_int("offense_turns", builder.offense_turns as i64);
         vis_tile("offense_launcher", builder.offense_launcher);
-        vis_tile("last_fire", builder.last_fire.map(|t| t.0));
+        vis_tile("last_fire", pyrust::map!(builder.last_fire, |t| t.0));
         vis_tile("nearest_enemy_turret", builder.nearest_enemy_turret);
         vis_tiles(
             "enemy_turret_ray_tiles",
-            builder.enemy_turret_ray_tiles.iter().copied(),
+            pyrust::copied!(pyrust::iter!(builder.enemy_turret_ray_tiles)),
         );
         vis_tiles(
             "friendly_turret_ray_tiles",
-            builder.friendly_turret_ray_tiles.iter().copied(),
+            pyrust::copied!(pyrust::iter!(builder.friendly_turret_ray_tiles)),
         );
         vis_tiles(
             "adjacent_to_enemy_launcher",
-            builder.adjacent_to_enemy_launcher.iter().copied(),
+            pyrust::copied!(pyrust::iter!(builder.adjacent_to_enemy_launcher)),
         );
         vis_tiles(
             "attack_blacklist",
-            builder.attack_tile_blacklist.keys().copied(),
+            pyrust::copied!(builder.attack_tile_blacklist.keys()),
         );
     }
     {
@@ -525,8 +522,8 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         let mut best_pos: Option<Position> = None;
         let mx = builder.state.my_pos.x;
         let my_y = builder.state.my_pos.y;
-        let mut candidates: Vec<Position> = builder.my_harvesters.iter().copied().collect();
-        candidates.extend(builder.my_foundries.iter().copied());
+        let mut candidates: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
+        candidates.extend(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
         candidates.push(builder.my_core);
         for p in &candidates {
             let age = crnd - builder.last_seen[(p.y as usize) * MAX_WIDTH + (p.x as usize)];
@@ -547,7 +544,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         vis_scalar_int("nearby_buildings", builder.nearby_buildings.len() as i64);
         vis_tiles(
             "healable_buildings",
-            builder.healable_buildings.iter().copied(),
+            pyrust::copied!(pyrust::iter!(builder.healable_buildings)),
         );
     }
 }

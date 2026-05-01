@@ -120,7 +120,7 @@ fn _retarget_foundry_to_junction(builder: &mut Builder, landing: Position) {
         return;
     }
     let mut args = Map::new();
-    args.insert("landing".to_string(), auto_wrap_position(landing));
+    args.insert(pyrust::to_string!("landing"), auto_wrap_position(landing));
     debug("retarget foundry to junction at {landing}", args);
     builder.foundry_target = Some(landing);
 }
@@ -177,7 +177,7 @@ fn _lay_segment(
     }
 
     let bid = pyrust::unwrap!(ct.get_tile_building_id(start_pos));
-    let entity_type = bid.map(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
+    let entity_type = pyrust::map!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
 
     if let Some(EntityType::Road) = entity_type
         && let Some(b) = bid
@@ -185,7 +185,7 @@ fn _lay_segment(
         && pyrust::unwrap!(ct.can_fire(start_pos))
     {
         let mut args = Map::new();
-        args.insert("pos".to_string(), auto_wrap_position(start_pos));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(start_pos));
         debug("chain: fire on enemy road at {pos}", args);
         pyrust::unwrap!(ct.fire(start_pos));
         return true;
@@ -231,7 +231,7 @@ fn _lay_segment(
     }
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
-    let destination_team = destination_building.map(|b| pyrust::unwrap!(ct.get_team(Some(b))));
+    let destination_team = pyrust::map!(destination_building, |b| pyrust::unwrap!(ct.get_team(Some(b))));
     let destination_is_marker = pyrust::unwrap_or!(destination_building
         .map(|b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Marker), false);
 
@@ -340,9 +340,9 @@ pub fn extend_step(
         line(ct, path[i], path[i + 1], colour.0, colour.1, colour.2);
     }
 
-    let existing_set: HashSet<Position> = existing_path.iter().copied().collect();
+    let existing_set: HashSet<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(existing_path)));
     let mut path_start_index: usize = 0;
-    for (i, pos) in path.iter().enumerate() {
+    for (i, pos) in pyrust::enumerate!(pyrust::iter!(path)) {
         if existing_set.contains(pos) {
             start = *pos;
             path_start_index = i;
