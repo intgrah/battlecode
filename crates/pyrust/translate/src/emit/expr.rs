@@ -290,798 +290,13 @@ fn emit_index_expr(w: &mut PyWriter, i: &syn::ExprIndex) -> Result<Emitted, Stri
 }
 
 fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted, String> {
-    use syn::spanned::Spanned;
-    // Look up the ra_ap-resolved type kind of the receiver before lowering
-    // it. Method dispatch (Option::map vs Iterator::map, etc.) reads this.
-    let recv_kind = w.ty_at(m.receiver.span()).cloned();
+    // Method calls pass through verbatim. The translator never inspects
+    // method names or guesses receiver types — anything the bot wants
+    // rewritten for Python (Vec::push, HashSet::contains, Iterator::map,
+    // etc.) must be wrapped in a `pyrust::*!` macro at the call site.
     let recv = emit_expr(w, &m.receiver)?;
     let method = m.method.to_string();
     let arg_exprs: Vec<&syn::Expr> = m.args.iter().collect();
-
-    // Type-driven field-accessor collapse: if the receiver is an ADT and
-    // its struct fields include a name matching the method, with zero
-    // args, emit field access. Also fires for sum-type enums where every
-    // variant carries the same-named field (e.g. `Building::team()` —
-    // each variant has a `team: Team`, the impl method just match-extracts
-    // it). Cuts out the trait-accessor methods (e.g. `Unit::state(&self)
-    // -> &UnitState`) that Python doesn't need.
-    if arg_exprs.is_empty()
-        && let Some(rk) = recv_kind.as_ref()
-        && let Some(adt) = rk.adt()
-        && (adt.field_names.iter().any(|f| f == method.as_str())
-            || adt.all_variants_have_field(method.as_str()))
-    {
-        return Ok(Emitted::atomic(
-            format!("{}.{}", recv.text, method),
-            Ty::Unknown,
-        ));
-    }
-    // Folded trait default body fallback: ra_ap's per-file type table
-    // doesn't cover spans that came from another file (where the trait
-    // is defined). When the receiver is `self` and the surrounding class
-    // has a same-named field, treat it like the field-accessor collapse.
-    if arg_exprs.is_empty() && recv.text == "self" && w.current_class_has_field(method.as_str()) {
-        return Ok(Emitted::atomic(format!("self.{}", method), Ty::Unknown));
-    }
-    match (method.as_str(), recv.ty, arg_exprs.len()) {
-        ("contains", Ty::List | Ty::Set | Ty::Unknown, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted {
-                text: format!(
-                    "{} in {}",
-                    paren_at_least(&arg, Prec::Cmp),
-                    paren_at_least(&recv, Prec::Cmp),
-                ),
-                ty: Ty::Bool,
-                prec: Prec::Cmp,
-            });
-        }
-        ("contains_key", Ty::Dict | Ty::Unknown, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted {
-                text: format!(
-                    "{} in {}",
-                    paren_at_least(&arg, Prec::Cmp),
-                    paren_at_least(&recv, Prec::Cmp),
-                ),
-                ty: Ty::Bool,
-                prec: Prec::Cmp,
-            });
-        }
-        ("iter", _, 0) => return Ok(recv),
-        ("into", _, 0) => return Ok(recv),
-        ("into_iter", _, 0) => return Ok(recv),
-        ("clone", _, 0) => return Ok(recv),
-        ("enumerate", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("enumerate({})", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        // Rust iterator's `.next() -> Option<T>` becomes Python
-        // `next(iter(recv), None)`. The `.iter()` we already collapse, so
-        // the translator must wrap manually here.
-        ("next", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("next(iter({}), None)", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("zip", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("zip({}, {})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("rev", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("reversed({})", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("chain", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("itertools.chain({}, {})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("take", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("itertools.islice({}, {})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("skip", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("itertools.islice({}, {}, None)", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("to_string", _, 0) => return Ok(recv),
-        ("to_owned", _, 0) => return Ok(recv),
-        ("to_vec", _, 0) => {
-            return Ok(Emitted::atomic(format!("list({})", recv.text), Ty::List));
-        }
-        ("as_str", _, 0) => return Ok(recv),
-        ("as_mut", _, 0) => return Ok(recv),
-        ("as_ref", _, 0) => return Ok(recv),
-        ("as_deref", _, 0) => return Ok(recv),
-        ("expect", _, 1) => return Ok(recv),
-        // `Option::take()` — Rust ownership transfer; in Python we just
-        // read the value and let the surrounding code overwrite the field
-        // on the next assignment. Loses the "leave None during body"
-        // observability, but v55 never inspects the field mid-body.
-        ("take", _, 0) => return Ok(recv),
-        // `random.Random.choices(pop, weights, k)` — Python's stdlib makes
-        // `k` keyword-only. Translate to `.choices(pop, weights, k=K)`.
-        ("choices", _, 3) => {
-            let pop = emit_expr(w, arg_exprs[0])?;
-            let weights = emit_expr(w, arg_exprs[1])?;
-            let k = emit_expr(w, arg_exprs[2])?;
-            return Ok(Emitted::atomic(
-                format!(
-                    "{}.choices({}, {}, k={})",
-                    recv.text, pop.text, weights.text, k.text
-                ),
-                Ty::List,
-            ));
-        }
-        ("choices", _, 2) => {
-            // `.choices(pop, k)` — uniform.
-            let pop = emit_expr(w, arg_exprs[0])?;
-            let k = emit_expr(w, arg_exprs[1])?;
-            return Ok(Emitted::atomic(
-                format!("{}.choices({}, k={})", recv.text, pop.text, k.text),
-                Ty::List,
-            ));
-        }
-        // `rng.sample(pop, k)` — k is positional in Python.
-        ("shuffle", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.shuffle({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        // `t.elapsed()` where `t` came from `Instant::now()` becomes
-        // `(time.monotonic() - t)`; `.as_micros()` then scales the float
-        // diff into integer microseconds. We do these together because
-        // the bot's only `elapsed` uses chain straight into `.as_micros()`.
-        ("elapsed", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("(time.monotonic() - {})", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("as_micros", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("int({} * 1000000)", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("as_millis", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("int({} * 1000)", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("as_secs", _, 0) => {
-            return Ok(Emitted::atomic(format!("int({})", recv.text), Ty::Int));
-        }
-        ("as_secs_f64" | "as_secs_f32", _, 0) => return Ok(recv),
-        ("copied", _, 0) => return Ok(recv),
-        ("cloned", _, 0) => return Ok(recv),
-        ("push", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.append({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        // `set.insert(x)` → `set.add(x)`. `map.insert(k, v)` → `map[k] = v`.
-        ("insert", Ty::Set, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.add({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("insert", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.add({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("insert", _, 2) => {
-            let key = emit_expr(w, arg_exprs[0])?;
-            let val = emit_expr(w, arg_exprs[1])?;
-            return Ok(Emitted::atomic(
-                format!("{}[{}] = {}", recv.text, key.text, val.text),
-                Ty::Unit,
-            ));
-        }
-        ("remove", Ty::Set | Ty::Unknown, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.discard({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("contains_key", _, 1) | ("contains", Ty::Dict, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("({} in {})", arg.text, recv.text),
-                Ty::Bool,
-            ));
-        }
-        ("get", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.get({})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("clear", _, 0) => {
-            // Python strings are immutable; `String::clear()` becomes
-            // assignment to the empty string. ra_ap reports `&str` as
-            // `TyKind::Str` and `String` as an Adt named "String"; both map
-            // to Python `str`.
-            let is_string = matches!(recv_kind, Some(crate::tyctx::TyKind::Str))
-                || recv_kind
-                    .as_ref()
-                    .and_then(|k| k.adt())
-                    .map(|a| a.name == "String")
-                    .unwrap_or(false);
-            if is_string {
-                return Ok(Emitted::atomic(
-                    format!("{} = \"\"", recv.text),
-                    Ty::Unit,
-                ));
-            }
-            return Ok(Emitted::atomic(format!("{}.clear()", recv.text), Ty::Unit));
-        }
-        ("pop", _, 0) => {
-            // Rust `Vec::pop()` / `VecDeque::pop_back()` return `Option<T>`
-            // (None on empty); Python `list.pop()` raises IndexError. Wrap
-            // with a truthy check so the translation matches the Option
-            // contract.
-            return Ok(Emitted::atomic(
-                format!("({0}.pop() if {0} else None)", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("pop_back", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("({0}.pop() if {0} else None)", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("pop_front", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("({0}.pop(0) if {0} else None)", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("split_off", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}[{}:]", recv.text, arg.text),
-                Ty::List,
-            ));
-        }
-        ("front", _, 0) => {
-            return Ok(Emitted::atomic(format!("{}[0]", recv.text), Ty::Unknown));
-        }
-        ("back", _, 0) => {
-            return Ok(Emitted::atomic(format!("{}[-1]", recv.text), Ty::Unknown));
-        }
-        ("first", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("({0}[0] if {0} else None)", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("last", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("({0}[-1] if {0} else None)", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("push_back", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.append({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("push_front", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.insert(0, {})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("extend", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.extend({})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("remove", Ty::List, 1) | ("swap_remove", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{}.pop({})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("retain", _, 1) => {
-            // `xs.retain(|x| pred)` → `xs[:] = [x for x in xs if pred]`.
-            if let syn::Expr::Closure(cl) = arg_exprs[0]
-                && cl.inputs.len() == 1
-                && let Some(body) = closure_body_expr(cl)
-                && let Some(param_text) = closure_param_text(cl.inputs.first().unwrap())
-            {
-                w.scope.push();
-                w.scope.declare(&param_text, Ty::Unknown);
-                let body_res = emit_expr(w, body);
-                w.scope.pop();
-                let body_em = body_res?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "{0}[:] = [{param_text} for {param_text} in {0} if {1}]",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Unit,
-                ));
-            }
-        }
-        ("truncate", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("del {}[{}:]", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("resize", _, 2) => {
-            let n = emit_expr(w, arg_exprs[0])?;
-            let v = emit_expr(w, arg_exprs[1])?;
-            return Ok(Emitted::atomic(
-                format!(
-                    "{0}.extend([{2}] * max(0, {1} - len({0})))",
-                    recv.text, n.text, v.text
-                ),
-                Ty::Unit,
-            ));
-        }
-        ("reverse", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("{}.reverse()", recv.text),
-                Ty::Unit,
-            ));
-        }
-        ("sort", _, 0) => {
-            return Ok(Emitted::atomic(format!("{}.sort()", recv.text), Ty::Unit));
-        }
-        ("dedup", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!(
-                    "{0}[:] = [x for i, x in enumerate({0}) if i == 0 or {0}[i-1] != x]",
-                    recv.text
-                ),
-                Ty::Unit,
-            ));
-        }
-        ("fill", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("{0}[:] = [{1}] * len({0})", recv.text, arg.text),
-                Ty::Unit,
-            ));
-        }
-        ("len", _, 0) => {
-            return Ok(Emitted::atomic(format!("len({})", recv.text), Ty::Int));
-        }
-        ("is_empty", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("(len({}) == 0)", recv.text),
-                Ty::Bool,
-            ));
-        }
-        ("abs", _, 0) => {
-            return Ok(Emitted::atomic(format!("abs({})", recv.text), Ty::Int));
-        }
-        ("round", _, 0) => {
-            return Ok(Emitted::atomic(format!("round({})", recv.text), Ty::Int));
-        }
-        ("floor", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("math.floor({})", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("ceil", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("math.ceil({})", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("sqrt", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("math.sqrt({})", recv.text),
-                Ty::Unknown,
-            ));
-        }
-        ("min", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("min({}, {})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("max", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("max({}, {})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("clamp", _, 2) => {
-            let lo = emit_expr(w, arg_exprs[0])?;
-            let hi = emit_expr(w, arg_exprs[1])?;
-            return Ok(Emitted::atomic(
-                format!("max({}, min({}, {}))", lo.text, recv.text, hi.text),
-                Ty::Unknown,
-            ));
-        }
-        ("rem_euclid", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("(({}) % ({}))", recv.text, arg.text),
-                Ty::Int,
-            ));
-        }
-        ("div_euclid", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("(({}) // ({}))", recv.text, arg.text),
-                Ty::Int,
-            ));
-        }
-        ("pow", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("(({}) ** ({}))", recv.text, arg.text),
-                Ty::Int,
-            ));
-        }
-        ("powi" | "powf", _, 1) => {
-            let arg = emit_expr(w, arg_exprs[0])?;
-            return Ok(Emitted::atomic(
-                format!("({} ** {})", recv.text, arg.text),
-                Ty::Unknown,
-            ));
-        }
-        ("signum", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("(0 if {0} == 0 else (1 if {0} > 0 else -1))", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("sum", _, 0) => {
-            return Ok(Emitted::atomic(format!("sum({})", recv.text), Ty::Int));
-        }
-        ("product", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("math.prod({})", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("count", _, 0) => {
-            return Ok(Emitted::atomic(
-                format!("sum(1 for _ in {})", recv.text),
-                Ty::Int,
-            ));
-        }
-        ("collect", _, 0) => {
-            // `.collect()` materialises an iterator. Default to `list(...)`,
-            // but honour the turbofish: `.collect::<HashSet<_>>()` →
-            // `set(...)`, `.collect::<HashMap<_, _>>()` → `dict(...)`.
-            let turbofish_kind = m
-                .turbofish
-                .as_ref()
-                .and_then(|tb| tb.args.first())
-                .and_then(|arg| match arg {
-                    syn::GenericArgument::Type(syn::Type::Path(tp)) => tp.path.segments.last(),
-                    _ => None,
-                })
-                .map(|seg| seg.ident.to_string());
-            let (wrap, ty) = match turbofish_kind.as_deref() {
-                Some("HashSet" | "BTreeSet") => ("set", Ty::Set),
-                Some("HashMap" | "BTreeMap") => ("dict", Ty::Dict),
-                _ => ("list", Ty::List),
-            };
-            return Ok(Emitted::atomic(format!("{wrap}({})", recv.text), ty));
-        }
-        ("map", _, 1) => {
-            if let syn::Expr::Closure(c) = arg_exprs[0] {
-                // ra_ap-resolved receiver type decides the dispatch:
-                //   Option::map(|x| body)  → walrus-conditional in Python
-                //   Iterator::map(|p| body) → generator expression
-                if matches!(recv_kind, Some(TyKind::Option)) {
-                    return emit_option_map(w, &recv, c);
-                }
-                return emit_iter_map(w, &recv, c);
-            }
-        }
-        ("filter_map", _, 1) => {
-            // `iter.filter_map(|p| if cond { Some(x) } else { None })` →
-            // `(x for p in iter if cond)`. Generator expression.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(body) = closure_body_expr(c)
-                && let syn::Expr::If(if_expr) = body
-                && let Some((_, else_branch)) = &if_expr.else_branch
-                && let syn::Expr::Block(else_block) = else_branch.as_ref()
-                && else_block.block.stmts.len() == 1
-                && let syn::Stmt::Expr(else_inner, None) = &else_block.block.stmts[0]
-                && super::pat::is_none_pattern(&else_pat_for_expr(else_inner))
-                && let syn::Stmt::Expr(then_inner, None) =
-                    &if_expr.then_branch.stmts[if_expr.then_branch.stmts.len() - 1]
-                && let syn::Expr::Call(call) = then_inner
-                && is_some_call(call)
-                && call.args.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let cond_em = emit_expr(w, &if_expr.cond)?;
-                let some_inner_em = emit_expr(w, &call.args[0])?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "({} for {param_text} in {} if {})",
-                        some_inner_em.text, recv.text, cond_em.text
-                    ),
-                    Ty::Unknown,
-                ));
-            }
-        }
-        ("find_map", _, 1) => {
-            // `iter.find_map(|p| if cond { Some(x) } else { None })` →
-            // `next((x for p in iter if cond), None)`. Limited to that
-            // exact closure shape; otherwise pass through to the catch-all.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(body) = closure_body_expr(c)
-                && let syn::Expr::If(if_expr) = body
-                && let Some((_, else_branch)) = &if_expr.else_branch
-                && let syn::Expr::Block(else_block) = else_branch.as_ref()
-                && else_block.block.stmts.len() == 1
-                && let syn::Stmt::Expr(else_inner, None) = &else_block.block.stmts[0]
-                && super::pat::is_none_pattern(&else_pat_for_expr(else_inner))
-                && let syn::Stmt::Expr(then_inner, None) =
-                    &if_expr.then_branch.stmts[if_expr.then_branch.stmts.len() - 1]
-                && let syn::Expr::Call(call) = then_inner
-                && is_some_call(call)
-                && call.args.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let cond_em = emit_expr(w, &if_expr.cond)?;
-                let some_inner_em = emit_expr(w, &call.args[0])?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "next(({} for {param_text} in {} if {}), None)",
-                        some_inner_em.text, recv.text, cond_em.text
-                    ),
-                    Ty::Unknown,
-                ));
-            }
-        }
-        ("find", _, 1) => {
-            // `iter.find(|p| body)` → `next((p for p in iter if body), None)`
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-                && let Some(body) = closure_body_expr(c)
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let body_em = emit_expr(w, body)?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "next((({param_text}) for {param_text} in {} if {}), None)",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Unknown,
-                ));
-            }
-        }
-        ("position", _, 1) => {
-            // `iter.position(|p| body)` → returns the index of the first
-            // matching element. Python: `next((i for i, p in enumerate(iter)
-            // if body), None)`.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-                && let Some(body) = closure_body_expr(c)
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let body_em = emit_expr(w, body)?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "next((__i for __i, {param_text} in enumerate({}) if {}), None)",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Unknown,
-                ));
-            }
-        }
-        ("min_by_key", _, 1) | ("max_by_key", _, 1) => {
-            // `iter.min_by_key(|p| key)` → `min(iter, key=lambda p: key, default=None)`.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-                && let Some(body) = closure_body_expr(c)
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let body_em = emit_expr(w, body)?;
-                let func = if method == "min_by_key" { "min" } else { "max" };
-                return Ok(Emitted::atomic(
-                    format!(
-                        "{func}({}, key=lambda {param_text}: {}, default=None)",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Unknown,
-                ));
-            }
-        }
-        ("sort_by_key", _, 1) => {
-            // `vec.sort_by_key(|p| key)` → `vec.sort(key=lambda p: key)`.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-                && let Some(body) = closure_body_expr(c)
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let body_em = emit_expr(w, body)?;
-                return Ok(Emitted {
-                    text: format!(
-                        "{}.sort(key=lambda {param_text}: {})",
-                        recv.text, body_em.text
-                    ),
-                    ty: Ty::Unit,
-                    prec: Prec::Atom,
-                });
-            }
-        }
-        ("iter_mut", _, 0) => return Ok(recv),
-        ("any", _, 1) | ("all", _, 1) => {
-            // `iter.any(|p| body)` / `iter.all(|p| body)` →
-            // `any(body for p in iter)` / `all(...)`. Generator handles
-            // tuple-pattern params natively.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-                && let Some(body) = closure_body_expr(c)
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let body_em = emit_expr(w, body)?;
-                let func = method.as_str();
-                return Ok(Emitted::atomic(
-                    format!("{func}({} for {param_text} in {})", body_em.text, recv.text),
-                    Ty::Bool,
-                ));
-            }
-        }
-        ("filter", _, 1) => {
-            // `iter.filter(|p| body)` → `(p for p in iter if body)`. Tuple
-            // patterns get unpacked natively by Python's `for x, y in ...`.
-            if let syn::Expr::Closure(c) = arg_exprs[0]
-                && c.inputs.len() == 1
-                && let Some(param_text) = closure_param_text(&c.inputs[0])
-                && let Some(body) = closure_body_expr(c)
-            {
-                declare_closure_pat_idents(w, &c.inputs[0]);
-                let body_em = emit_expr(w, body)?;
-                // Yield variable is awkward when param is a tuple; reuse
-                // the iter element by repeating param tokens (works for
-                // both ident and tuple patterns).
-                return Ok(Emitted::atomic(
-                    format!(
-                        "(({param_text}) for {param_text} in {} if {})",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Unknown,
-                ));
-            }
-        }
-        ("len", Ty::List | Ty::Dict | Ty::Set | Ty::Str, 0) => {
-            return Ok(Emitted::atomic(format!("len({})", recv.text), Ty::Int));
-        }
-        ("is_none", _, 0) => {
-            return Ok(Emitted {
-                text: format!("{} is None", paren_at_least(&recv, Prec::Cmp)),
-                ty: Ty::Bool,
-                prec: Prec::Cmp,
-            });
-        }
-        ("is_some_and", _, 1) => {
-            // `opt.is_some_and(|x| pred)` → `(x := opt) is not None and pred`.
-            if let syn::Expr::Closure(cl) = arg_exprs[0]
-                && cl.inputs.len() == 1
-                && let Some(body) = closure_body_expr(cl)
-                && let Some(param_text) = closure_param_text(cl.inputs.first().unwrap())
-            {
-                w.scope.push();
-                w.scope.declare(&param_text, Ty::Unknown);
-                let body_res = emit_expr(w, body);
-                w.scope.pop();
-                let body_em = body_res?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "(({param_text} := {}) is not None and {})",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Bool,
-                ));
-            }
-        }
-        ("is_none_or", _, 1) => {
-            if let syn::Expr::Closure(cl) = arg_exprs[0]
-                && cl.inputs.len() == 1
-                && let Some(body) = closure_body_expr(cl)
-                && let Some(param_text) = closure_param_text(cl.inputs.first().unwrap())
-            {
-                w.scope.push();
-                w.scope.declare(&param_text, Ty::Unknown);
-                let body_res = emit_expr(w, body);
-                w.scope.pop();
-                let body_em = body_res?;
-                return Ok(Emitted::atomic(
-                    format!(
-                        "(({param_text} := {}) is None or {})",
-                        recv.text, body_em.text
-                    ),
-                    Ty::Bool,
-                ));
-            }
-        }
-        ("is_some", _, 0) => {
-            return Ok(Emitted {
-                text: format!("{} is not None", paren_at_least(&recv, Prec::Cmp)),
-                ty: Ty::Bool,
-                prec: Prec::Cmp,
-            });
-        }
-        ("unwrap", _, 0) => return Ok(recv),
-        ("ok", _, 0) => return Ok(recv),
-        ("unwrap_or", _, 1) => {
-            // Walrus-bind the receiver to a fresh temp so it evaluates once.
-            let default = emit_expr(w, arg_exprs[0])?;
-            let default_text = paren_at_least(&default, Prec::Or);
-            let tmp = w.fresh_tmp();
-            return Ok(Emitted {
-                text: format!(
-                    "({tmp} if ({tmp} := {}) is not None else {default_text})",
-                    recv.text
-                ),
-                ty: default.ty,
-                prec: Prec::Atom,
-            });
-        }
-        ("insert", Ty::Dict, _) => {
-            return Err(w.err(
-                m.span(),
-                ".insert on a dict returns Option<V> in Rust but None in Python; use it as a statement instead of capturing the return value",
-            ));
-        }
-        _ => {}
-    }
-
     let mut arg_texts = Vec::with_capacity(arg_exprs.len());
     for a in &arg_exprs {
         arg_texts.push(emit_expr(w, a)?.text);
@@ -1091,7 +306,6 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
     } else {
         recv.text
     };
-    let result_ty = method_return_type(&method, recv.ty);
     // Rust-keyword renames: `move_` → `move` (Python keyword in pattern
     // position only; method name is fine in Python).
     let py_method: &str = match method.as_str() {
@@ -1100,20 +314,8 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
     };
     Ok(Emitted::atomic(
         format!("{recv_text}.{py_method}({})", arg_texts.join(", ")),
-        result_ty,
+        Ty::Unknown,
     ))
-}
-
-fn method_return_type(name: &str, recv_ty: Ty) -> Ty {
-    match (name, recv_ty) {
-        ("len", _) => Ty::Int,
-        ("pop", Ty::List) => Ty::Unknown,
-        ("append", Ty::List) => Ty::Unit,
-        ("clear", _) => Ty::Unit,
-        ("startswith" | "endswith", _) => Ty::Bool,
-        ("upper" | "lower" | "strip" | "lstrip" | "rstrip" | "replace", _) => Ty::Str,
-        _ => Ty::Unknown,
-    }
 }
 
 fn paren_at_least(e: &Emitted, ctx: Prec) -> String {
@@ -2144,25 +1346,9 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         .map(|e| e.text.as_str())
         .collect::<Vec<_>>()
         .join(", ");
-    if let Some(call) = shim::recognize(path) {
-        let ty = match call {
-            ShimCall::Print => Ty::Unit,
-            ShimCall::Len => Ty::Int,
-            ShimCall::Min | ShimCall::Max | ShimCall::Sum | ShimCall::Abs => Ty::Unknown,
-            ShimCall::Sorted | ShimCall::Reversed => Ty::List,
-            ShimCall::Any | ShimCall::All => Ty::Bool,
-            ShimCall::Enumerate | ShimCall::Zip => Ty::Unknown,
-            ShimCall::RandomChoice => Ty::Unknown,
-            ShimCall::RandomRandint => Ty::Int,
-            ShimCall::RandomSeed => Ty::Unit,
-        };
-        return Ok(Emitted::atomic(
-            format!("{}({joined})", call.python_name()),
-            ty,
-        ));
-    }
-    // `Some(x)` / `Option::Some(x)` and `Ok(x)` / `Result::Ok(x)` collapse to
-    // their inner value — Python has neither wrapper, errors travel as exceptions.
+    // `Some(x)` / `Option::Some(x)` / `Ok(x)` / `Result::Ok(x)` collapse to
+    // their inner value — these are Rust LANGUAGE-level type constructors,
+    // not method-name guesses. The Python side has neither wrapper.
     if path.leading_colon.is_none() {
         let names: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
         let slice: Vec<&str> = names.iter().map(String::as_str).collect();
@@ -2174,18 +1360,6 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 return Err(w.err(c.span(), "Some/Ok expects exactly one argument"));
             }
             return Ok(arg_emits.into_iter().next().unwrap());
-        }
-        // Rust's prelude `drop(x)` runs the `Drop::drop` impl. We translate
-        // it to a method call so the user's `impl Drop for X` (lowered to
-        // a `drop` method on the Python class) fires explicitly. This is a
-        // generic Rust → Python lowering, not bot-specific.
-        if matches!(
-            slice.as_slice(),
-            ["drop"] | ["std", "mem", "drop"] | ["mem", "drop"]
-        ) && c.args.len() == 1
-        {
-            let arg = arg_emits.into_iter().next().unwrap();
-            return Ok(Emitted::atomic(format!("{}.drop()", arg.text), Ty::Unit));
         }
     }
     if path.leading_colon.is_none() && path.segments.len() == 2 {
@@ -2201,6 +1375,7 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         // `Trait::method(self, args)` — the trait class isn't emitted (its
         // default methods are folded into each concrete struct), so we
         // rewrite the call into method-call form on the first argument.
+        // This is attribute-registry driven, not name-based.
         if w.cfg().trait_registry.contains_key(&class_name) && !c.args.is_empty() {
             let first = arg_emits.first().unwrap().text.clone();
             let rest: Vec<&str> = arg_emits.iter().skip(1).map(|e| e.text.as_str()).collect();
@@ -2209,51 +1384,9 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 Ty::Unknown,
             ));
         }
-        // Numeric `T::from(x)` constructors map to Python's int/float.
-        if tail == "from" && c.args.len() == 1 {
-            let py = match class_name.as_str() {
-                "f32" | "f64" => Some(("float", Ty::Float)),
-                "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
-                | "u128" | "usize" => Some(("int", Ty::Int)),
-                _ => None,
-            };
-            if let Some((name, ty)) = py {
-                return Ok(Emitted::atomic(format!("{name}({joined})"), ty));
-            }
-        }
-        if tail == "default" && c.args.is_empty() {
-            // `T::default()` becomes `T()` — the auto-generated Python
-            // class always has a no-arg constructor for the Default impl.
-            return Ok(Emitted::atomic(format!("{class_name}()"), Ty::Unknown));
-        }
-        if tail == "new" || tail == "with_capacity" {
-            // Container default / pre-sized constructors map to Python
-            // literals (Python lists/dicts/sets don't take a capacity hint).
-            match class_name.as_str() {
-                "Vec" | "List" | "VecDeque" => {
-                    return Ok(Emitted::atomic("[]".to_owned(), Ty::List));
-                }
-                "HashMap" | "BTreeMap" | "Dict" | "Map" => {
-                    return Ok(Emitted::atomic("{}".to_owned(), Ty::Dict));
-                }
-                "HashSet" | "BTreeSet" | "Set" => {
-                    return Ok(Emitted::atomic("set()".to_owned(), Ty::Set));
-                }
-                "String" => {
-                    return Ok(Emitted::atomic("\"\"".to_owned(), Ty::Unknown));
-                }
-                _ => {}
-            }
-            if tail == "new" {
-                // Constructor convention: `Type::new(args)` becomes `Type(args)`.
-                return Ok(Emitted::atomic(
-                    format!("{class_name}({joined})"),
-                    Ty::Unknown,
-                ));
-            }
-        }
         // Sum-type variant constructor: `Foo::Bar(args)` → `FooBar(args)`
         // (matching the dataclass-per-variant lowering in `emit_sum_enum`).
+        // Attribute-driven via the sum-enum registry.
         if w.is_sum_enum_variant(&class_name, &tail) {
             let mut parts = Vec::with_capacity(arg_emits.len());
             for (i, em) in arg_emits.iter().enumerate() {
@@ -2264,30 +1397,19 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 Ty::Unknown,
             ));
         }
+        // Generic `Type::method(args)` — pass through as Python class
+        // method call. Bot is responsible for wrapping any Rust builtin
+        // (Vec::new, String::from, i64::from, ...) in a `pyrust::*!` macro
+        // — the translator does not name-match here.
         return Ok(Emitted::atomic(
             format!("{class_name}.{tail}({joined})"),
             Ty::Unknown,
         ));
     }
-    // `std::mem::take(&mut x)` — Rust takes ownership and replaces with
-    // default. Python doesn't move; emit as the inner expression. The
-    // surrounding code in v55 always reassigns the original location
-    // afterwards, so the alias semantics are equivalent in practice.
-    if !path.leading_colon.is_some() {
-        let names: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
-        let slice: Vec<&str> = names.iter().map(String::as_str).collect();
-        if matches!(slice.as_slice(), ["std", "mem", "take"] | ["mem", "take"]) {
-            if arg_emits.len() != 1 {
-                return Err(w.err(c.span(), "std::mem::take expects exactly one argument"));
-            }
-            return Ok(arg_emits.into_iter().next().unwrap());
-        }
-    }
     if path.leading_colon.is_some() || path.segments.len() != 1 {
         // Multi-segment path call (e.g. `crate::util::directions::delta_to_dir(...)`).
-        // Emit the leaf identifier — the user's `use` statements
-        // typically expose it at this name. If not, the resulting Python
-        // raises NameError, which is a clearer signal than failing here.
+        // Emit the leaf identifier — the user's `use` statements typically
+        // expose it at this name.
         let segs: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
         if let Some(leaf) = segs.last() {
             let ty = w.lookup(leaf).unwrap_or(Ty::Unknown);
@@ -2296,7 +1418,7 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         return Err(w.err(
             path.span(),
             format!(
-                "unknown call target: {} (only single-ident user fns, pyrust shim calls, and `Type::method` are supported)",
+                "unknown call target: {} (only single-ident user fns and `Type::method` calls are supported; wrap Rust builtins in `pyrust::*!` macros)",
                 path_to_string(path)
             ),
         ));
@@ -2718,189 +1840,594 @@ fn emit_pyrust_dsl(
         .map(|s| s.ident.to_string())
         .collect();
     let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
-    // Two surface forms: `pyrust::<ns>::<name>!(...)` (preferred) and
-    // `<ns>::<name>!(...)` (after a `use pyrust::<ns>;` brings the
-    // namespace into scope). Strip the leading `pyrust` if present.
-    let tail: &[&str] = if slice.first() == Some(&"pyrust") {
-        &slice[1..]
+    // Surface forms after the `pyrust` namespace shake-out:
+    //
+    //   `pyrust::<name>!(...)`            — top-level free function
+    //   `pyrust::<ns>::<name>!(...)`      — type-namespaced method
+    //   `<ns>::<name>!(...)`              — `use pyrust::<ns>;` brought
+    //                                         the type namespace in scope
+    //
+    // Top-level free functions always carry the `pyrust::` prefix at
+    // the call site (they don't have a namespace to bring in scope).
+    const TYPE_NS: &[&str] = &["vec", "set", "dict", "string"];
+    let tail: Vec<&str> = if slice.first() == Some(&"pyrust") {
+        slice[1..].to_vec()
+    } else if slice.len() == 2 && TYPE_NS.contains(&slice[0]) {
+        slice.clone()
     } else {
-        &slice[..]
-    };
-    if tail.len() != 2 {
         return Ok(None);
-    }
-    let ns = tail[0];
-    let name = tail[1];
+    };
     let tokens = em.mac.tokens.clone();
+    let display = tail.join("::");
 
     macro_rules! parse_args {
         () => {
             parse_macro_arg_list(tokens.clone())
-                .map_err(|e| w.err(em.span(), format!("{ns}::{name}!: {e}")))?
+                .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?
         };
     }
 
-    // Helper: emit each parsed arg.
     let emit_args = |w: &mut PyWriter, args: &[syn::Expr]| -> Result<Vec<Emitted>, String> {
         args.iter().map(|a| emit_expr(w, a)).collect()
     };
 
-    match (ns, name) {
-        // result::try_!(expr) — Option-shape `?` propagation. In
-        // statement position the caller threads us through emit_stmt;
-        // in expression position we synthesise a walrus expression that
-        // evaluates to None (the unused expression value) and a
-        // raise-on-Some side effect would be needed — instead we
-        // restrict to statement position via a parser hint.
-        ("result", "try_") => {
+    // Helper: emit a 1-arg "identity passthrough" (Rust expression
+    // text only — Python equivalent is just the inner expression).
+    let identity = |w: &mut PyWriter, n: &str| -> Result<Emitted, String> {
+        let args = parse_macro_arg_list(tokens.clone())
+            .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
+        if args.len() != 1 {
+            return Err(w.err(em.span(), format!("{n}!: expected 1 argument")));
+        }
+        emit_expr(w, &args[0])
+    };
+
+    match tail.as_slice() {
+        // ============================================================
+        // Top-level: Option / control flow / cast
+        // ============================================================
+        ["try_"] => {
             let args = parse_args!();
             if args.len() != 1 {
-                return Err(w.err(em.span(), "result::try_!: expected 1 argument"));
+                return Err(w.err(em.span(), "try_!: expected 1 argument"));
             }
             let inner = emit_expr(w, &args[0])?;
-            // Emit as statement-shaped block. Caller in expression
-            // position will get a malformed result, but the typical use
-            // is `pyrust::result::try_!(call())` as a standalone stmt,
-            // which the surrounding emit_stmt accepts.
             let tmp = w.fresh_tmp();
             w.line(&format!("{tmp} = {}", inner.text));
             w.line(&format!("if {tmp} is not None:"));
             w.enter_indent();
             w.line(&format!("return {tmp}"));
             w.exit_indent();
-            return Ok(Some(Emitted::atomic("None".to_string(), Ty::Unknown)));
+            Ok(Some(Emitted::atomic("None".to_string(), Ty::Unknown)))
         }
-        ("iter", "sum") => {
+        ["unwrap"] => {
+            // Option<T>.unwrap() → x. The Some wrapper was already
+            // erased on the Rust side (Python sees the bare value).
+            Ok(Some(identity(w, "unwrap")?))
+        }
+        ["expect"] => {
+            // Option<T>.expect(msg) → x. Drops the message.
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "expect!: expected (opt, msg)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(inner))
+        }
+        ["unwrap_or"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "unwrap_or!: expected (opt, default)"));
+            }
+            let opt = emit_expr(w, &args[0])?;
+            let dflt = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("({0} if {0} is not None else {1})", opt.text, dflt.text),
+                Ty::Unknown,
+            )))
+        }
+        ["is_some"] => {
             let args = parse_args!();
             if args.len() != 1 {
-                return Err(w.err(em.span(), "iter::sum!: expected 1 argument"));
+                return Err(w.err(em.span(), "is_some!: expected 1 argument"));
             }
-            let it = emit_expr(w, &args[0])?;
-            return Ok(Some(Emitted::atomic(
-                format!("sum({})", it.text),
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted {
+                text: format!("({} is not None)", inner.text),
+                ty: Ty::Bool,
+                prec: Prec::Atom,
+            }))
+        }
+        ["is_none"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "is_none!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted {
+                text: format!("({} is None)", inner.text),
+                ty: Ty::Bool,
+                prec: Prec::Atom,
+            }))
+        }
+        ["is_some_and"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("is_some_and!: {e}")))?;
+            let opt = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            Ok(Some(Emitted {
+                text: format!(
+                    "({0} is not None and (lambda {1}: {2})({0}))",
+                    opt.text, pname, body.text
+                ),
+                ty: Ty::Bool,
+                prec: Prec::Atom,
+            }))
+        }
+        ["int"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "int!: expected 1 argument"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("int({})", emits[0].text),
                 Ty::Int,
-            )));
+            )))
         }
-        ("iter", "min") | ("iter", "max") => {
+        ["float"] => {
             let args = parse_args!();
             if args.len() != 1 {
-                return Err(w.err(em.span(), "iter::min/max!: expected 1 argument"));
+                return Err(w.err(em.span(), "float!: expected 1 argument"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("float({})", emits[0].text),
+                Ty::Float,
+            )))
+        }
+        ["abs"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "abs!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("abs({})", inner.text),
+                Ty::Unknown,
+            )))
+        }
+
+        // ============================================================
+        // Iterator: identity / no-op in Python (lists/dicts are iterable)
+        // ============================================================
+        ["iter"] | ["into_iter"] | ["copied"] | ["cloned"] | ["collect"] => {
+            Ok(Some(identity(w, tail[0])?))
+        }
+        ["enumerate"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "enumerate!: expected 1 argument"));
             }
             let it = emit_expr(w, &args[0])?;
-            // Python `min(empty)` raises; emit a null-safe wrapper so
-            // semantics match Rust's `Option<T>` return.
-            let py_fn = if name == "min" { "min" } else { "max" };
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
+                format!("enumerate({})", it.text),
+                Ty::Unknown,
+            )))
+        }
+        ["zip"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "zip!: expected (a, b)"));
+            }
+            let a = emit_expr(w, &args[0])?;
+            let b = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("zip({}, {})", a.text, b.text),
+                Ty::Unknown,
+            )))
+        }
+        ["take"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "take!: expected (it, n)"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            let n = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("itertools.islice({}, {})", it.text, n.text),
+                Ty::Unknown,
+            )))
+        }
+        ["skip"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "skip!: expected (it, n)"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            let n = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("itertools.islice({}, {}, None)", it.text, n.text),
+                Ty::Unknown,
+            )))
+        }
+        ["rev"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "rev!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("reversed({})", it.text),
+                Ty::Unknown,
+            )))
+        }
+        ["chain"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "chain!: expected (a, b)"));
+            }
+            let a = emit_expr(w, &args[0])?;
+            let b = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("itertools.chain({}, {})", a.text, b.text),
+                Ty::Unknown,
+            )))
+        }
+        ["map"] | ["filter"] | ["filter_map"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
+            let it = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            let text = match tail[0] {
+                "map" => format!("({} for {} in {})", body.text, pname, it.text),
+                "filter" => format!(
+                    "({1} for {1} in {2} if {0})",
+                    body.text, pname, it.text
+                ),
+                "filter_map" => format!(
+                    "(__v for {1} in {2} if (__v := {0}) is not None)",
+                    body.text, pname, it.text
+                ),
+                _ => unreachable!(),
+            };
+            Ok(Some(Emitted::atomic(text, Ty::Unknown)))
+        }
+        ["find"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("find!: {e}")))?;
+            let it = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            Ok(Some(Emitted::atomic(
                 format!(
-                    "({0}({1}) if {1} else None)",
-                    py_fn, it.text
+                    "next(({1} for {1} in {2} if {0}), None)",
+                    body.text, pname, it.text
                 ),
                 Ty::Unknown,
-            )));
+            )))
         }
-        ("iter", "min_by") | ("iter", "max_by") => {
-            // `min_by!(xs, |x| key)` — parse manually because closures
-            // aren't comma-list compatible.
-            let parsed = syn::parse2::<MinMaxByArgs>(tokens.clone())
-                .map_err(|e| w.err(em.span(), format!("{ns}::{name}!: {e}")))?;
-            let it = emit_expr(w, &parsed.iter)?;
+        ["any"] | ["all"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
+            let it = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            let py_fn = tail[0];
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "{0}({1} for {2} in {3})",
+                    py_fn, body.text, pname, it.text
+                ),
+                Ty::Bool,
+            )))
+        }
+        ["count"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "count!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("sum(1 for _ in {})", it.text),
+                Ty::Int,
+            )))
+        }
+        ["sum"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "sum!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(format!("sum({})", it.text), Ty::Int)))
+        }
+        ["min"] | ["max"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "min/max!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            let py_fn = tail[0];
+            Ok(Some(Emitted::atomic(
+                format!("({0}({1}) if {1} else None)", py_fn, it.text),
+                Ty::Unknown,
+            )))
+        }
+        ["min_by"] | ["max_by"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
+            let it = emit_expr(w, &parsed.recv)?;
             let key = emit_expr(w, &parsed.body)?;
             let pname = parsed.param.to_string();
-            let py_fn = if name == "min_by" { "min" } else { "max" };
-            return Ok(Some(Emitted::atomic(
+            let py_fn = if tail[0] == "min_by" { "min" } else { "max" };
+            Ok(Some(Emitted::atomic(
                 format!(
                     "({0}({1}, key=lambda {2}: {3}) if {1} else None)",
                     py_fn, it.text, pname, key.text
                 ),
                 Ty::Unknown,
-            )));
+            )))
         }
-        ("vec", "push") => {
+        ["sort"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "sort!: expected (vec)"));
+            }
+            let v = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(format!("{}.sort()", v.text), Ty::Unit)))
+        }
+        ["sort_by_key"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("sort_by_key!: {e}")))?;
+            let v = emit_expr(w, &parsed.recv)?;
+            let key = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            Ok(Some(Emitted::atomic(
+                format!("{}.sort(key=lambda {}: {})", v.text, pname, key.text),
+                Ty::Unit,
+            )))
+        }
+        ["sorted"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "sorted!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("sorted({})", it.text),
+                Ty::Unknown,
+            )))
+        }
+        ["sorted_by_key"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("sorted_by_key!: {e}")))?;
+            let it = emit_expr(w, &parsed.recv)?;
+            let key = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            Ok(Some(Emitted::atomic(
+                format!("sorted({}, key=lambda {}: {})", it.text, pname, key.text),
+                Ty::Unknown,
+            )))
+        }
+        ["print"] => {
+            let args = parse_args!();
+            let emits = emit_args(w, &args)?;
+            let joined = emits
+                .iter()
+                .map(|e| e.text.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            Ok(Some(Emitted::atomic(format!("print({})", joined), Ty::Unit)))
+        }
+        ["len"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "len!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("len({})", inner.text),
+                Ty::Int,
+            )))
+        }
+        ["to_string"] => {
+            // Python: usually `str(x)`, but if x is already a string
+            // literal or known str, just pass through. Default to str(x)
+            // for safety.
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "to_string!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("str({})", inner.text),
+                Ty::Str,
+            )))
+        }
+
+        // ============================================================
+        // vec::*
+        // ============================================================
+        ["vec", "push"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "vec::push!: expected (vec, item)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{}.append({})", emits[0].text, emits[1].text),
                 Ty::Unit,
-            )));
+            )))
         }
-        ("vec", "pop") => {
+        ["vec", "pop"] => {
             let args = parse_args!();
             if args.len() != 1 {
                 return Err(w.err(em.span(), "vec::pop!: expected (vec)"));
             }
             let emits = emit_args(w, &args)?;
-            // Rust `Vec::pop()` returns Option<T>; Python `list.pop()`
-            // raises on empty. Wrap so semantics match.
-            return Ok(Some(Emitted::atomic(
-                format!(
-                    "({0}.pop() if {0} else None)",
-                    emits[0].text
-                ),
+            Ok(Some(Emitted::atomic(
+                format!("({0}.pop() if {0} else None)", emits[0].text),
                 Ty::Unknown,
-            )));
+            )))
         }
-        ("vec", "clear") => {
+        ["vec", "clear"] => {
             let args = parse_args!();
             if args.len() != 1 {
                 return Err(w.err(em.span(), "vec::clear!: expected (vec)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{}.clear()", emits[0].text),
                 Ty::Unit,
-            )));
+            )))
         }
-        ("set", "add") => {
+        ["vec", "len"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::len!: expected (vec)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("len({})", inner.text),
+                Ty::Int,
+            )))
+        }
+        ["vec", "is_empty"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::is_empty!: expected (vec)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted {
+                text: format!("(not {})", inner.text),
+                ty: Ty::Bool,
+                prec: Prec::Not,
+            }))
+        }
+        ["vec", "contains"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::contains!: expected (vec, item)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted {
+                text: format!("({} in {})", emits[1].text, emits[0].text),
+                ty: Ty::Bool,
+                prec: Prec::Atom,
+            }))
+        }
+        ["vec", "extend"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::extend!: expected (vec, other)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.extend({})", emits[0].text, emits[1].text),
+                Ty::Unit,
+            )))
+        }
+
+        // ============================================================
+        // set::*
+        // ============================================================
+        ["set", "add"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "set::add!: expected (set, item)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{}.add({})", emits[0].text, emits[1].text),
                 Ty::Bool,
-            )));
+            )))
         }
-        ("set", "contains") | ("dict", "contains") => {
+        ["set", "contains"] | ["dict", "contains"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "contains!: expected (collection, item)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted {
+            Ok(Some(Emitted {
                 text: format!("({} in {})", emits[1].text, emits[0].text),
                 ty: Ty::Bool,
                 prec: Prec::Atom,
-            }));
+            }))
         }
-        ("set", "remove") => {
+        ["set", "remove"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "set::remove!: expected (set, item)"));
             }
             let emits = emit_args(w, &args)?;
-            // Python `set.discard` is the no-raise variant matching
-            // Rust's `HashSet::remove` (returns bool indicating presence).
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{}.discard({})", emits[0].text, emits[1].text),
                 Ty::Unit,
-            )));
+            )))
         }
-        ("dict", "insert") => {
+        ["set", "len"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "set::len!: expected (set)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("len({})", inner.text),
+                Ty::Int,
+            )))
+        }
+        ["set", "is_empty"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "set::is_empty!: expected (set)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted {
+                text: format!("(not {})", inner.text),
+                ty: Ty::Bool,
+                prec: Prec::Not,
+            }))
+        }
+        ["set", "clear"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "set::clear!: expected (set)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.clear()", inner.text),
+                Ty::Unit,
+            )))
+        }
+        ["set", "difference"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "set::difference!: expected (a, b)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("({} - {})", emits[0].text, emits[1].text),
+                Ty::Unknown,
+            )))
+        }
+
+        // ============================================================
+        // dict::*
+        // ============================================================
+        ["dict", "insert"] => {
             let args = parse_args!();
             if args.len() != 3 {
                 return Err(w.err(em.span(), "dict::insert!: expected (dict, key, value)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{}[{}] = {}", emits[0].text, emits[1].text, emits[2].text),
                 Ty::Unit,
-            )));
+            )))
         }
-        ("dict", "get") => {
+        ["dict", "get"] => {
             let args = parse_args!();
             let emits = emit_args(w, &args)?;
             let text = match emits.len() {
@@ -2911,52 +2438,125 @@ fn emit_pyrust_dsl(
                 ),
                 _ => return Err(w.err(em.span(), "dict::get!: expected 2 or 3 arguments")),
             };
-            return Ok(Some(Emitted::atomic(text, Ty::Unknown)));
+            Ok(Some(Emitted::atomic(text, Ty::Unknown)))
         }
-        ("dict", "remove") => {
+        ["dict", "remove"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "dict::remove!: expected (dict, key)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{}.pop({}, None)", emits[0].text, emits[1].text),
                 Ty::Unknown,
-            )));
+            )))
         }
-        ("string", "clear") => {
+        ["dict", "len"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::len!: expected (dict)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("len({})", inner.text),
+                Ty::Int,
+            )))
+        }
+        ["dict", "is_empty"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::is_empty!: expected (dict)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted {
+                text: format!("(not {})", inner.text),
+                ty: Ty::Bool,
+                prec: Prec::Not,
+            }))
+        }
+        ["dict", "clear"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::clear!: expected (dict)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.clear()", inner.text),
+                Ty::Unit,
+            )))
+        }
+        ["dict", "items"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::items!: expected (dict)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.items()", inner.text),
+                Ty::Unknown,
+            )))
+        }
+        ["dict", "keys"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::keys!: expected (dict)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.keys()", inner.text),
+                Ty::Unknown,
+            )))
+        }
+        ["dict", "values"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::values!: expected (dict)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.values()", inner.text),
+                Ty::Unknown,
+            )))
+        }
+
+        // ============================================================
+        // string::*
+        // ============================================================
+        ["string", "clear"] => {
             let args = parse_args!();
             if args.len() != 1 {
                 return Err(w.err(em.span(), "string::clear!: expected (s)"));
             }
             let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
+            Ok(Some(Emitted::atomic(
                 format!("{} = \"\"", emits[0].text),
                 Ty::Unit,
-            )));
+            )))
         }
-        ("cast", "int") => {
+        ["string", "len"] => {
             let args = parse_args!();
             if args.len() != 1 {
-                return Err(w.err(em.span(), "cast::int!: expected (x)"));
+                return Err(w.err(em.span(), "string::len!: expected (s)"));
             }
-            let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
-                format!("int({})", emits[0].text),
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("len({})", inner.text),
                 Ty::Int,
-            )));
+            )))
         }
-        ("cast", "float") => {
+        ["string", "is_empty"] => {
             let args = parse_args!();
             if args.len() != 1 {
-                return Err(w.err(em.span(), "cast::float!: expected (x)"));
+                return Err(w.err(em.span(), "string::is_empty!: expected (s)"));
             }
-            let emits = emit_args(w, &args)?;
-            return Ok(Some(Emitted::atomic(
-                format!("float({})", emits[0].text),
-                Ty::Float,
-            )));
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted {
+                text: format!("({} == \"\")", inner.text),
+                ty: Ty::Bool,
+                prec: Prec::Cmp,
+            }))
         }
+
         _ => Ok(None),
     }
 }
@@ -2972,21 +2572,24 @@ fn parse_macro_arg_list(tokens: proc_macro2::TokenStream) -> Result<Vec<syn::Exp
     Ok(parsed.into_iter().collect())
 }
 
-/// `iter::min_by!(xs, |x| key)` — argument shape with a closure.
-struct MinMaxByArgs {
-    iter: syn::Expr,
+/// `pyrust::macro!(recv, |x| body)` — argument shape with one
+/// receiver expression and a one-parameter closure. Used by min_by /
+/// max_by / sort_by_key / map / filter / filter_map / find / any /
+/// all / is_some_and / sorted_by_key.
+struct ClosureArgs {
+    recv: syn::Expr,
     param: syn::Ident,
     body: syn::Expr,
 }
 
-impl syn::parse::Parse for MinMaxByArgs {
+impl syn::parse::Parse for ClosureArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let iter: syn::Expr = input.parse()?;
+        let recv: syn::Expr = input.parse()?;
         let _: syn::Token![,] = input.parse()?;
         let _: syn::Token![|] = input.parse()?;
         let param: syn::Ident = input.parse()?;
         let _: syn::Token![|] = input.parse()?;
         let body: syn::Expr = input.parse()?;
-        Ok(MinMaxByArgs { iter, param, body })
+        Ok(ClosureArgs { recv, param, body })
     }
 }

@@ -1,27 +1,25 @@
 //! pyrust DSL macros. Each macro:
 //!
-//! - Expands at the Rust call site to the natural Rust expression
-//!   (zero-cost, no allocation overhead beyond what plain Rust would
-//!   incur).
+//! - Expands at the Rust call site to a natural Rust expression
+//!   (zero-cost beyond what plain Rust would incur).
 //! - The pyrust translator recognizes the macro's path and emits the
-//!   matching Python expression directly. The translator never inspects
-//!   types: the macro name carries the language's intended semantics.
+//!   matching Python expression directly. The translator NEVER inspects
+//!   types or pattern-matches on bare method names: a macro path is the
+//!   only signal it accepts. Anything not wrapped in a `pyrust::*!` macro
+//!   passes through to Python literally.
 //!
 //! Macros are exposed under module paths in `lib.rs`, so callers write
-//! `pyrust::vec::push!(v, x)`, `pyrust::iter::sum!(xs)`, etc. The
-//! `__pyrust_*` underscore-prefixed names below are implementation
+//! `pyrust::vec::push!(v, x)`, `pyrust::sum!(xs)`, `pyrust::iter!(xs)`,
+//! etc. The `__pyrust_*` underscore-prefixed names are implementation
 //! details — the path-qualified surface is the public API.
 
-// ---- Result / Option propagation ----
+// =====================================================================
+// Top-level — language-level / control-flow / type-cast
+// =====================================================================
 
-/// `pyrust::result::try_!(expr)` — propagate the failure value out of
-/// the enclosing function. Used in place of Rust's `?` operator on
-/// `Option<E>` (the pyrust convention for "may fail with reason E").
-///
-/// Rust expansion: if `expr` is `Some(rej)`, `return Some(rej)`. If
-/// `None`, fall through.
-///
-/// Python emission: `_r = expr; if _r is not None: return _r`.
+/// `pyrust::try_!(expr)` — propagate Some(rej) out of an Option-shape
+/// failure-result function. Replaces Rust's `?` on `Option<E>` (whose
+/// native semantics are the wrong direction for this use).
 #[macro_export]
 macro_rules! __pyrust_try {
     ($e:expr) => {
@@ -34,10 +32,233 @@ macro_rules! __pyrust_try {
     };
 }
 
-// ---- iter::* (deterministic iteration over Vec / sorted) ----
+/// `pyrust::unwrap!(opt)` — `opt.unwrap()`. Python: pass-through (the
+/// Some-branch erasure means an Option<T> on Rust side becomes a bare
+/// T or None on Python side; `.unwrap()` is a no-op on both, modulo a
+/// runtime check).
+#[macro_export]
+macro_rules! __pyrust_unwrap {
+    ($e:expr) => {
+        $e.unwrap()
+    };
+}
 
-/// Sum of an iterable's elements. Iterable must be an ordered
-/// collection (Vec, slice, range, etc.) — never a HashSet/HashMap.
+/// `pyrust::expect!(opt, msg)` — `opt.expect(msg)`.
+#[macro_export]
+macro_rules! __pyrust_expect {
+    ($e:expr, $m:expr) => {
+        $e.expect($m)
+    };
+}
+
+/// `pyrust::unwrap_or!(opt, default)` — `opt.unwrap_or(default)`.
+#[macro_export]
+macro_rules! __pyrust_unwrap_or {
+    ($e:expr, $d:expr) => {
+        $e.unwrap_or($d)
+    };
+}
+
+/// `pyrust::is_some!(opt)` — Python `x is not None`.
+#[macro_export]
+macro_rules! __pyrust_is_some {
+    ($e:expr) => {
+        $e.is_some()
+    };
+}
+
+/// `pyrust::is_none!(opt)` — Python `x is None`.
+#[macro_export]
+macro_rules! __pyrust_is_none {
+    ($e:expr) => {
+        $e.is_none()
+    };
+}
+
+/// `pyrust::is_some_and!(opt, |x| pred)` — Python `x is not None and pred(x)`.
+#[macro_export]
+macro_rules! __pyrust_is_some_and {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.is_some_and(|$x| $body)
+    };
+}
+
+/// `pyrust::int!(x)` — Python `int(x)`.
+#[macro_export]
+macro_rules! __pyrust_cast_int {
+    ($x:expr) => {
+        ($x) as i64
+    };
+}
+
+/// `pyrust::float!(x)` — Python `float(x)`.
+#[macro_export]
+macro_rules! __pyrust_cast_float {
+    ($x:expr) => {
+        ($x) as f64
+    };
+}
+
+/// `pyrust::abs!(x)` — Python `abs(x)`.
+#[macro_export]
+macro_rules! __pyrust_abs {
+    ($x:expr) => {
+        ($x).abs()
+    };
+}
+
+// =====================================================================
+// Iterator — chains / adapters / consumers (top-level macros)
+// =====================================================================
+
+/// `pyrust::iter!(xs)` — Rust `xs.iter()` adapter, Python no-op
+/// (lists/tuples/dicts are already iterable).
+#[macro_export]
+macro_rules! __pyrust_iter {
+    ($e:expr) => {
+        $e.iter()
+    };
+}
+
+/// `pyrust::into_iter!(xs)` — same as iter for translation purposes.
+#[macro_export]
+macro_rules! __pyrust_into_iter {
+    ($e:expr) => {
+        $e.into_iter()
+    };
+}
+
+/// `pyrust::copied!(it)` — no-op in Python; in Rust elements become owned.
+#[macro_export]
+macro_rules! __pyrust_copied {
+    ($e:expr) => {
+        $e.copied()
+    };
+}
+
+/// `pyrust::cloned!(it)` — no-op in Python; in Rust elements become owned.
+#[macro_export]
+macro_rules! __pyrust_cloned {
+    ($e:expr) => {
+        $e.cloned()
+    };
+}
+
+/// `pyrust::collect!(it)` — terminal collect into a Vec. Python:
+/// `list(it)` (or pass-through if already a list comprehension).
+#[macro_export]
+macro_rules! __pyrust_collect {
+    ($e:expr) => {
+        $e.collect::<Vec<_>>()
+    };
+}
+
+/// `pyrust::enumerate!(xs)` — Python `enumerate(xs)`.
+#[macro_export]
+macro_rules! __pyrust_enumerate {
+    ($e:expr) => {
+        $e.iter().enumerate()
+    };
+}
+
+/// `pyrust::zip!(a, b)` — Python `zip(a, b)`.
+#[macro_export]
+macro_rules! __pyrust_zip {
+    ($a:expr, $b:expr) => {
+        $a.iter().zip($b.iter())
+    };
+}
+
+/// `pyrust::take!(it, n)` — Python `itertools.islice(it, n)`.
+#[macro_export]
+macro_rules! __pyrust_take {
+    ($e:expr, $n:expr) => {
+        $e.take($n)
+    };
+}
+
+/// `pyrust::skip!(it, n)` — Python `itertools.islice(it, n, None)`.
+#[macro_export]
+macro_rules! __pyrust_skip {
+    ($e:expr, $n:expr) => {
+        $e.skip($n)
+    };
+}
+
+/// `pyrust::rev!(xs)` — Python `reversed(xs)`.
+#[macro_export]
+macro_rules! __pyrust_rev {
+    ($e:expr) => {
+        $e.rev()
+    };
+}
+
+/// `pyrust::chain!(a, b)` — Python `itertools.chain(a, b)`.
+#[macro_export]
+macro_rules! __pyrust_chain {
+    ($a:expr, $b:expr) => {
+        $a.chain($b)
+    };
+}
+
+/// `pyrust::map!(it, |x| body)` — Python `(body for x in it)`.
+#[macro_export]
+macro_rules! __pyrust_map {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.map(|$x| $body)
+    };
+}
+
+/// `pyrust::filter!(it, |x| pred)` — Python `(x for x in it if pred)`.
+#[macro_export]
+macro_rules! __pyrust_filter {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.filter(|$x| $body)
+    };
+}
+
+/// `pyrust::filter_map!(it, |x| body)` — Python `(v for x in it if (v := body) is not None)`.
+#[macro_export]
+macro_rules! __pyrust_filter_map {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.filter_map(|$x| $body)
+    };
+}
+
+/// `pyrust::find!(it, |x| pred)` — Python `next((x for x in it if pred), None)`.
+#[macro_export]
+macro_rules! __pyrust_find {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.find(|$x| $body).copied()
+    };
+}
+
+/// `pyrust::any!(it, |x| pred)` — Python `any(pred(x) for x in it)`.
+#[macro_export]
+macro_rules! __pyrust_any {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.iter().any(|$x| $body)
+    };
+}
+
+/// `pyrust::all!(it, |x| pred)` — Python `all(pred(x) for x in it)`.
+#[macro_export]
+macro_rules! __pyrust_all {
+    ($e:expr, |$x:ident| $body:expr) => {
+        $e.iter().all(|$x| $body)
+    };
+}
+
+/// `pyrust::count!(it)` — Python `sum(1 for _ in it)` or `len(it)` if known-len.
+#[macro_export]
+macro_rules! __pyrust_count {
+    ($e:expr) => {
+        $e.count()
+    };
+}
+
+/// Sum of an ordered iterable's elements. Iterable must be Vec / slice /
+/// range — never a HashSet/HashMap.
 #[macro_export]
 macro_rules! __pyrust_iter_sum {
     ($it:expr) => {
@@ -45,7 +266,7 @@ macro_rules! __pyrust_iter_sum {
     };
 }
 
-/// `min(xs)` — returns `Option<T>`; `None` for an empty iterable.
+/// `pyrust::min!(xs)` — `min(xs)`; `None` for empty.
 #[macro_export]
 macro_rules! __pyrust_iter_min {
     ($it:expr) => {
@@ -53,7 +274,7 @@ macro_rules! __pyrust_iter_min {
     };
 }
 
-/// `max(xs)` — returns `Option<T>`.
+/// `pyrust::max!(xs)` — `max(xs)`; `None` for empty.
 #[macro_export]
 macro_rules! __pyrust_iter_max {
     ($it:expr) => {
@@ -61,7 +282,7 @@ macro_rules! __pyrust_iter_max {
     };
 }
 
-/// `min_by_key(xs, |x| key)` — returns `Option<T>`. Caller is
+/// `pyrust::min_by!(xs, |x| key)` — `min(xs, key=...)`. Caller is
 /// responsible for the key being globally unique to avoid
 /// iteration-order dependence on ties.
 #[macro_export]
@@ -71,7 +292,7 @@ macro_rules! __pyrust_iter_min_by {
     };
 }
 
-/// `max_by_key(xs, |x| key)` — same as `min_by` but maximised.
+/// `pyrust::max_by!(xs, |x| key)` — `max(xs, key=...)`.
 #[macro_export]
 macro_rules! __pyrust_iter_max_by {
     ($it:expr, |$x:ident| $key:expr) => {
@@ -79,7 +300,70 @@ macro_rules! __pyrust_iter_max_by {
     };
 }
 
-// ---- vec::* (ordered, mutable list) ----
+// =====================================================================
+// Sort macros — operate on a Vec in place (no return value).
+// =====================================================================
+
+/// `pyrust::sort!(v)` — `v.sort()` ⟷ Python `v.sort()`.
+#[macro_export]
+macro_rules! __pyrust_sort {
+    ($v:expr) => {
+        $v.sort()
+    };
+}
+
+/// `pyrust::sort_by_key!(v, |x| key)` — `v.sort_by_key(|x| key)` ⟷ `v.sort(key=lambda x: key)`.
+#[macro_export]
+macro_rules! __pyrust_sort_by_key {
+    ($v:expr, |$x:ident| $key:expr) => {
+        $v.sort_by_key(|$x| $key)
+    };
+}
+
+/// `pyrust::sorted!(xs)` — Python `sorted(xs)`. Useful as the
+/// canonical "sort hash-collection contents" idiom.
+#[macro_export]
+macro_rules! __pyrust_sorted {
+    ($xs:expr) => {{
+        let mut __v: ::std::vec::Vec<_> = $xs.iter().copied().collect();
+        __v.sort();
+        __v
+    }};
+}
+
+/// `pyrust::sorted_by_key!(xs, |x| key)` — Python `sorted(xs, key=...)`.
+#[macro_export]
+macro_rules! __pyrust_sorted_by_key {
+    ($xs:expr, |$x:ident| $key:expr) => {{
+        let mut __v: ::std::vec::Vec<_> = $xs.iter().copied().collect();
+        __v.sort_by_key(|$x| $key);
+        __v
+    }};
+}
+
+// =====================================================================
+// Free Python builtins
+// =====================================================================
+
+/// `pyrust::print!(args...)` — Python `print(args)`.
+#[macro_export]
+macro_rules! __pyrust_print {
+    ($($a:expr),* $(,)?) => {
+        println!("{}", format!("{:?}", ($($a,)*)))
+    };
+}
+
+/// `pyrust::len!(x)` — Python `len(x)`.
+#[macro_export]
+macro_rules! __pyrust_len {
+    ($x:expr) => {
+        $x.len() as i64
+    };
+}
+
+// =====================================================================
+// vec::* — Vec / List
+// =====================================================================
 
 #[macro_export]
 macro_rules! __pyrust_vec_push {
@@ -104,7 +388,37 @@ macro_rules! __pyrust_vec_clear {
     };
 }
 
-// ---- set::* (HashSet / BTreeSet — point ops only, NEVER iterated) ----
+#[macro_export]
+macro_rules! __pyrust_vec_len {
+    ($v:expr) => {
+        $v.len() as i64
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_vec_is_empty {
+    ($v:expr) => {
+        $v.is_empty()
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_vec_contains {
+    ($v:expr, $x:expr) => {
+        $v.contains(&$x)
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_vec_extend {
+    ($v:expr, $other:expr) => {
+        $v.extend($other)
+    };
+}
+
+// =====================================================================
+// set::* — HashSet / BTreeSet
+// =====================================================================
 
 #[macro_export]
 macro_rules! __pyrust_set_add {
@@ -127,7 +441,38 @@ macro_rules! __pyrust_set_remove {
     };
 }
 
-// ---- dict::* (HashMap / BTreeMap — point ops only) ----
+#[macro_export]
+macro_rules! __pyrust_set_len {
+    ($s:expr) => {
+        $s.len() as i64
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_set_is_empty {
+    ($s:expr) => {
+        $s.is_empty()
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_set_clear {
+    ($s:expr) => {
+        $s.clear()
+    };
+}
+
+/// `pyrust::set::difference!(a, b)` — Python `a - b` (returns set).
+#[macro_export]
+macro_rules! __pyrust_set_difference {
+    ($a:expr, $b:expr) => {
+        $a.difference($b)
+    };
+}
+
+// =====================================================================
+// dict::* — HashMap / BTreeMap
+// =====================================================================
 
 #[macro_export]
 macro_rules! __pyrust_dict_insert {
@@ -160,7 +505,56 @@ macro_rules! __pyrust_dict_remove {
     };
 }
 
-// ---- string::* ----
+#[macro_export]
+macro_rules! __pyrust_dict_len {
+    ($m:expr) => {
+        $m.len() as i64
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_dict_is_empty {
+    ($m:expr) => {
+        $m.is_empty()
+    };
+}
+
+#[macro_export]
+macro_rules! __pyrust_dict_clear {
+    ($m:expr) => {
+        $m.clear()
+    };
+}
+
+/// `pyrust::dict::items!(m)` — iteration as (k, v) pairs.
+/// Rust: `m.iter()` yielding `(&K, &V)`.
+/// Python: `m.items()` yielding `(K, V)`.
+#[macro_export]
+macro_rules! __pyrust_dict_items {
+    ($m:expr) => {
+        $m.iter()
+    };
+}
+
+/// `pyrust::dict::keys!(m)`.
+#[macro_export]
+macro_rules! __pyrust_dict_keys {
+    ($m:expr) => {
+        $m.keys()
+    };
+}
+
+/// `pyrust::dict::values!(m)`.
+#[macro_export]
+macro_rules! __pyrust_dict_values {
+    ($m:expr) => {
+        $m.values()
+    };
+}
+
+// =====================================================================
+// string::*
+// =====================================================================
 
 /// Reset a `String` to empty. Rust calls `clear()`; Python assigns
 /// `s = ""` because Python strings are immutable.
@@ -171,18 +565,24 @@ macro_rules! __pyrust_string_clear {
     };
 }
 
-// ---- cast::* ----
-
 #[macro_export]
-macro_rules! __pyrust_cast_int {
-    ($x:expr) => {
-        ($x) as i64
+macro_rules! __pyrust_string_len {
+    ($s:expr) => {
+        $s.len() as i64
     };
 }
 
 #[macro_export]
-macro_rules! __pyrust_cast_float {
+macro_rules! __pyrust_string_is_empty {
+    ($s:expr) => {
+        $s.is_empty()
+    };
+}
+
+/// `pyrust::to_string!(x)` — Python `str(x)` or no-op when already str.
+#[macro_export]
+macro_rules! __pyrust_to_string {
     ($x:expr) => {
-        ($x) as f64
+        $x.to_string()
     };
 }
