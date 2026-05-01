@@ -45,7 +45,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
     let mut seen_ti = false;
     let mut seen_ax = false;
     let mut visited: HashSet<Position> = pyrust::set::new!();
-    visited.insert(pos);
+    pyrust::set::add!(visited, pos);
     let mut stack: Vec<Position> = vec![pos];
     while let Some(p) = pyrust::vec::pop!(stack) {
         if visited.len() > _UPSTREAM_MAX_NODES_RES {
@@ -74,7 +74,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
             if pyrust::vec::contains!(visited, &u) {
                 continue;
             }
-            visited.insert(u);
+            pyrust::set::add!(visited, u);
             pyrust::vec::push!(stack, u);
         }
     }
@@ -120,7 +120,7 @@ fn _retarget_foundry_to_junction(builder: &mut Builder, landing: Position) {
         return;
     }
     let mut args = Map::new();
-    args.insert(pyrust::to_string!("landing"), auto_wrap_position(landing));
+    pyrust::dict::insert!(args, pyrust::to_string!("landing"), auto_wrap_position(landing));
     debug("retarget foundry to junction at {landing}", args);
     builder.foundry_target = Some(landing);
 }
@@ -185,7 +185,7 @@ fn _lay_segment(
         && pyrust::unwrap!(ct.can_fire(start_pos))
     {
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("pos"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("pos"), auto_wrap_position(start_pos));
         debug("chain: fire on enemy road at {pos}", args);
         pyrust::unwrap!(ct.fire(start_pos));
         return true;

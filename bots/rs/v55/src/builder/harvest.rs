@@ -84,7 +84,7 @@ pub fn walk_to_ore_claim(
     if builder.state.my_pos == target_pos {
         if !ore_available(builder, target_pos) {
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
+            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
             log("walk_to_ore_claim: ore {target} no longer available", args);
             return false;
         }
@@ -96,8 +96,8 @@ pub fn walk_to_ore_claim(
     let contest_pos = find_contest_target(builder, target_pos, builder.state.my_team);
     if let Some(contest_pos) = contest_pos {
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("contest"), auto_wrap_position(contest_pos));
-        args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("contest"), auto_wrap_position(contest_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
         log(
             "walk_to_ore_claim: CONTEST enemy at {contest} adj to ore {target}",
             args,
@@ -131,7 +131,7 @@ pub fn walk_to_ore_claim(
         ) && pyrust::unwrap!(ct.can_destroy(target_pos))
         {
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
+            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
             log(
                 "walk_to_ore_claim: destroying friendly guard on ore {target}",
                 args,
@@ -142,13 +142,10 @@ pub fn walk_to_ore_claim(
     }
 
     let mut args = Map::new();
-    args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
-    args.insert(
-        pyrust::to_string!("d"),
-        serde_json::Value::Number(serde_json::Number::from(
+    pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
+    pyrust::dict::insert!(args, pyrust::to_string!("d"), serde_json::Value::Number(serde_json::Number::from(
             builder.state.my_pos.distance_squared(target_pos),
-        )),
-    );
+        )));
     log(
         "walk_to_ore_claim: walking toward ore {target} dist²={d}",
         args,
@@ -212,7 +209,7 @@ pub fn place_harvester_guard(
     if use_barrier {
         if pyrust::unwrap!(ct.can_build_barrier(cardinal)) {
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("at"), auto_wrap_position(cardinal));
+            pyrust::dict::insert!(args, pyrust::to_string!("at"), auto_wrap_position(cardinal));
             log(
                 "place_harvester_guard: BARRIER at {at} (>=3 walkable cardinals)",
                 args,
@@ -229,12 +226,9 @@ pub fn place_harvester_guard(
     };
     if pyrust::unwrap!(ct.can_build_conveyor(cardinal, inward)) {
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("at"), auto_wrap_position(cardinal));
-        args.insert(
-            pyrust::to_string!("dir"),
-            serde_json::Value::String(format!("{inward}")),
-        );
-        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
+        pyrust::dict::insert!(args, pyrust::to_string!("at"), auto_wrap_position(cardinal));
+        pyrust::dict::insert!(args, pyrust::to_string!("dir"), serde_json::Value::String(format!("{inward}")));
+        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
         log(
             "place_harvester_guard: CONVEYOR at {at} facing {dir} into {target}",
             args,
@@ -317,8 +311,8 @@ pub fn clear_barriered_feed(
         .iter()
         .min_by_key(|c| c.distance_squared(sink)));
     let mut args = Map::new();
-    args.insert(pyrust::to_string!("pos"), auto_wrap_position(chosen));
-    args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
+    pyrust::dict::insert!(args, pyrust::to_string!("pos"), auto_wrap_position(chosen));
+    pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
     log(
         "clear_barriered_feed: destroy friendly BARRIER on {pos} (last-resort feed clear for {target})",
         args,
@@ -352,7 +346,7 @@ pub fn step_off_and_build_harvester(
         && pyrust::unwrap!(ct.can_build_road(feed))
     {
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
+        pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
         log(
             "step_off_and_build_harvester: paving feed {feed} for step-off",
             args,
@@ -366,7 +360,7 @@ pub fn step_off_and_build_harvester(
     {
         if !pyrust::unwrap!(ct.can_move(d)) {
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
+            pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
             log(
                 "step_off_and_build_harvester: feed {feed} blocked; waiting",
                 args,
@@ -374,8 +368,8 @@ pub fn step_off_and_build_harvester(
             return true;
         }
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("at"), auto_wrap_position(builder.state.my_pos));
-        args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
+        pyrust::dict::insert!(args, pyrust::to_string!("at"), auto_wrap_position(builder.state.my_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
         log(
             "step_off_and_build_harvester: destroy own ROAD at {at}, step to feed {feed}",
             args,
@@ -387,8 +381,8 @@ pub fn step_off_and_build_harvester(
 
     if pyrust::unwrap!(ct.can_move(d)) {
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("d"), serde_json::Value::String(format!("{d}")));
-        args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
+        pyrust::dict::insert!(args, pyrust::to_string!("d"), serde_json::Value::String(format!("{d}")));
+        pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
         log(
             "step_off_and_build_harvester: step {d} to feed {feed}",
             args,
@@ -396,7 +390,7 @@ pub fn step_off_and_build_harvester(
         pyrust::unwrap!(ct.move_(d));
         if pyrust::unwrap!(ct.can_build_harvester(target_pos)) {
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
+            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
             log(
                 "step_off_and_build_harvester: HARVESTER placed on {target}",
                 args,
@@ -406,15 +400,12 @@ pub fn step_off_and_build_harvester(
         } else {
             let kind = builder.kind_at(target_pos);
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
-            args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
-            args.insert(
-                pyrust::to_string!("bld"),
-                serde_json::Value::String(match kind {
+            pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
+            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));
+            pyrust::dict::insert!(args, pyrust::to_string!("bld"), serde_json::Value::String(match kind {
                     Some(k) => format!("{k:?}"),
                     None => pyrust::to_string!("None"),
-                }),
-            );
+                }));
             log(
                 "step_off_and_build_harvester: stepped to {feed} but can_build_harvester({target}) is False — building at {bld}",
                 args,
@@ -423,7 +414,7 @@ pub fn step_off_and_build_harvester(
         return true;
     }
     let mut args = Map::new();
-    args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
+    pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
     log(
         "step_off_and_build_harvester: cannot move to feed {feed}; waiting",
         args,
@@ -445,7 +436,7 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
         if let Some(t) = tgt
             && builder.state.my_pos == t
         {
-            claimed_targets.insert(t);
+            pyrust::set::add!(claimed_targets, t);
         }
     }
     for d in DIR4 {

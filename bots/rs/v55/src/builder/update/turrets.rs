@@ -37,7 +37,7 @@ pub fn update_ore_denial(builder: &mut Builder) {
             for d in DIR4 {
                 let n = pos.add(d);
                 if builder.in_bounds(n) {
-                    builder.deny_ore_neighbours.insert(n);
+                    pyrust::set::add!(builder.deny_ore_neighbours, n);
                 }
             }
         }

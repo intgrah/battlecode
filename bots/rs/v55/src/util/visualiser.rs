@@ -198,22 +198,16 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
         } else {
             pyrust::to_string!(v)
         };
-        special_obj.insert(
-            key,
-            serde_json::json!([
+        pyrust::dict::insert!(special_obj, key, serde_json::json!([
                 c.as_array()[0],
                 c.as_array()[1],
                 c.as_array()[2],
                 c.as_array()[3],
-            ]),
-        );
+            ]));
     }
     let mut obj = serde_json::Map::new();
-    obj.insert(pyrust::to_string!("stops"), serde_json::Value::Array(stops));
-    obj.insert(
-        pyrust::to_string!("special"),
-        serde_json::Value::Object(special_obj),
-    );
+    pyrust::dict::insert!(obj, pyrust::to_string!("stops"), serde_json::Value::Array(stops));
+    pyrust::dict::insert!(obj, pyrust::to_string!("special"), serde_json::Value::Object(special_obj));
     serde_json::Value::Object(obj)
 }
 
@@ -290,16 +284,10 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
         }
         Dump::VectorField { angles, magnitudes } => {
             let mut obj = serde_json::Map::new();
-            obj.insert(pyrust::to_string!("$type"), serde_json::json!("vectorfield"));
-            obj.insert(
-                pyrust::to_string!("angles"),
-                pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null),
-            );
+            pyrust::dict::insert!(obj, pyrust::to_string!("$type"), serde_json::json!("vectorfield"));
+            pyrust::dict::insert!(obj, pyrust::to_string!("angles"), pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null));
             if let Some(m) = magnitudes {
-                obj.insert(
-                    pyrust::to_string!("magnitudes"),
-                    pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null),
-                );
+                pyrust::dict::insert!(obj, pyrust::to_string!("magnitudes"), pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null));
             }
             serde_json::Value::Object(obj)
         }
@@ -366,7 +354,7 @@ impl Dumper {
         let payload = serialise_dump(value);
         let same = self.same_cache.get(name) == Some(&payload);
         if !same {
-            self.same_cache.insert(pyrust::to_string!(name), payload.clone());
+            pyrust::dict::insert!(self.same_cache, pyrust::to_string!(name), payload.clone());
         }
         let value_field = if same {
             serde_json::json!({"$type": "same"})

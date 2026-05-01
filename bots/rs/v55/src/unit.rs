@@ -86,7 +86,7 @@ impl UnitState {
     pub fn new() -> Self {
         let mut symmetry_candidates: HashSet<Symmetry> = pyrust::set::new!();
         for s in ALL {
-            symmetry_candidates.insert(s);
+            pyrust::set::add!(symmetry_candidates, s);
         }
         Self {
             width: 0,
@@ -161,13 +161,13 @@ impl UnitState {
             let Some(uid) = pyrust::unwrap!(ct.get_tile_builder_bot_id(pos)) else {
                 continue;
             };
-            all_bots.insert(pos, uid);
+            pyrust::dict::insert!(all_bots, pos, uid);
             if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
                 if uid != my_id {
-                    friendly_bots.insert(pos);
+                    pyrust::set::add!(friendly_bots, pos);
                 }
             } else {
-                enemy_bots.insert(pos);
+                pyrust::set::add!(enemy_bots, pos);
             }
         }
 
@@ -201,7 +201,7 @@ impl UnitState {
                 Some(b) => pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core,
                 None => false,
             };
-            vision.insert(pos, (pyrust::unwrap!(ct.get_tile_env(pos)), is_core));
+            pyrust::dict::insert!(vision, pos, (pyrust::unwrap!(ct.get_tile_env(pos)), is_core));
         }
 
         let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
@@ -212,13 +212,13 @@ impl UnitState {
                 if let Some(o) = other
                     && o != val
                 {
-                    invalid.insert(sym);
+                    pyrust::set::add!(invalid, sym);
                     break;
                 }
             }
         }
         for sym in invalid {
-            self.symmetry_candidates.remove(&sym);
+            pyrust::set::remove!(self.symmetry_candidates, &sym);
         }
     }
 
@@ -232,7 +232,7 @@ impl UnitState {
         let my_team = self.my_team;
         if let Some(sym) = find_symmetry_marker(ct, &nearby, my_team) {
             self.symmetry_candidates.clear();
-            self.symmetry_candidates.insert(sym);
+            pyrust::set::add!(self.symmetry_candidates, sym);
         }
     }
 

@@ -48,7 +48,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
     let mut no_guard: HashSet<Position> = pyrust::set::new!();
     for &target in &targets {
         for p in harvester_io_cardinals(self_, target) {
-            no_guard.insert(p);
+            pyrust::set::add!(no_guard, p);
         }
     }
 
@@ -65,7 +65,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             && pyrust::unwrap!(ct.can_build_road(feed))
         {
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
+            pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
             log(
                 "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
                 args,

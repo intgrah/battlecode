@@ -123,14 +123,14 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
             for d in DIR4 {
                 let n = pos.add(d);
                 if builder.in_bounds(n) {
-                    builder.adjacent_to_unconnected_harvester.insert(n);
+                    pyrust::set::add!(builder.adjacent_to_unconnected_harvester, n);
                 }
             }
         }
         for d in DIR4 {
             let n = pos.add(d);
             if builder.in_bounds(n) {
-                builder.adjacent_to_harvester.insert(n);
+                pyrust::set::add!(builder.adjacent_to_harvester, n);
             }
         }
     }
@@ -175,13 +175,10 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if builder.reach_parent[i] == -1 || find(&mut builder.reach_parent, i as i32) != my_root {
             let mut args = Map::new();
-            args.insert(
-                pyrust::to_string!("t"),
-                crate::util::visualiser::auto_wrap_position(t),
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), crate::util::visualiser::auto_wrap_position(t));
             log("DANGLING discard(unreachable) t={t}", args);
-            builder.dangling_set.remove(&t);
-            builder.unreachable_dangling.insert(t);
+            pyrust::set::remove!(builder.dangling_set, &t);
+            pyrust::set::add!(builder.unreachable_dangling, t);
         }
     }
     let mut unreach: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.unreachable_dangling)));
@@ -190,13 +187,10 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if builder.reach_parent[i] != -1 && find(&mut builder.reach_parent, i as i32) == my_root {
             let mut args = Map::new();
-            args.insert(
-                pyrust::to_string!("t"),
-                crate::util::visualiser::auto_wrap_position(t),
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), crate::util::visualiser::auto_wrap_position(t));
             log("DANGLING add(reachable-migrate) t={t}", args);
-            builder.unreachable_dangling.remove(&t);
-            builder.dangling_set.insert(t);
+            pyrust::set::remove!(builder.unreachable_dangling, &t);
+            pyrust::set::add!(builder.dangling_set, t);
         }
     }
 }
@@ -231,7 +225,7 @@ fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> Hash
         if out_edges[(s.y as usize) * MAX_WIDTH + (s.x as usize)].is_empty() {
             continue;
         }
-        target.insert(*s);
+        pyrust::set::add!(target, *s);
         pyrust::vec::push!(stack, *s);
     }
     while let Some(p) = pyrust::vec::pop!(stack) {
@@ -239,7 +233,7 @@ fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> Hash
             if pyrust::vec::contains!(target, out) {
                 continue;
             }
-            target.insert(*out);
+            pyrust::set::add!(target, *out);
             pyrust::vec::push!(stack, *out);
         }
     }
@@ -589,7 +583,7 @@ fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashS
     let mut stack: Vec<Position> = pyrust::vec::new!();
     for r in roots {
         if !pyrust::vec::contains!(target, r) {
-            target.insert(*r);
+            pyrust::set::add!(target, *r);
             pyrust::vec::push!(stack, *r);
         }
     }
@@ -599,7 +593,7 @@ fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashS
             if pyrust::vec::contains!(target, u) {
                 continue;
             }
-            target.insert(*u);
+            pyrust::set::add!(target, *u);
             pyrust::vec::push!(stack, *u);
         }
     }
@@ -642,11 +636,8 @@ pub fn check_invariants(builder: &Builder) {
         let mut extra: Vec<Position> = pyrust::collect!(pyrust::copied!(builder
             .ti_harvester_adjacent.difference(&expected_ti_adj)));
         extra.sort();
-        args.insert(
-            pyrust::to_string!("missing"),
-            Value::String(format!("{:?}", missing)),
-        );
-        args.insert(pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
+        pyrust::dict::insert!(args, pyrust::to_string!("missing"), Value::String(format!("{:?}", missing)));
+        pyrust::dict::insert!(args, pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
         log(
             "INVARIANT_FAIL ti_harvester_adjacent missing={missing} extra={extra}",
             args,
@@ -659,11 +650,8 @@ pub fn check_invariants(builder: &Builder) {
         let mut extra: Vec<Position> = pyrust::collect!(pyrust::copied!(builder
             .ax_harvester_adjacent.difference(&expected_ax_adj)));
         extra.sort();
-        args.insert(
-            pyrust::to_string!("missing"),
-            Value::String(format!("{:?}", missing)),
-        );
-        args.insert(pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
+        pyrust::dict::insert!(args, pyrust::to_string!("missing"), Value::String(format!("{:?}", missing)));
+        pyrust::dict::insert!(args, pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
         log(
             "INVARIANT_FAIL ax_harvester_adjacent missing={missing} extra={extra}",
             args,
@@ -683,8 +671,8 @@ pub fn check_invariants(builder: &Builder) {
         extra.sort();
         extra.truncate(8);
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("missing"), Value::String(format!("{:?}", miss)));
-        args.insert(pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
+        pyrust::dict::insert!(args, pyrust::to_string!("missing"), Value::String(format!("{:?}", miss)));
+        pyrust::dict::insert!(args, pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
         log(
             "INVARIANT_FAIL ti_upstream missing={missing} extra={extra}",
             args,
@@ -693,19 +681,10 @@ pub fn check_invariants(builder: &Builder) {
             let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
             let feeders: Vec<(Position, bool, bool)> = pyrust::collect!(pyrust::map!(pyrust::iter!(in_edges[i]), |f| (*f, builder.ti_upstream.contains(f), oracle_ti.contains(f))));
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
-            args.insert(
-                pyrust::to_string!("ti_in_count"),
-                Value::Number(builder._ti_in_count[i].into()),
-            );
-            args.insert(
-                pyrust::to_string!("ti_harv_at"),
-                Value::Number(builder._ti_harv_at[i].into()),
-            );
-            args.insert(
-                pyrust::to_string!("feeders"),
-                Value::String(format!("{:?}", feeders)),
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
+            pyrust::dict::insert!(args, pyrust::to_string!("ti_in_count"), Value::Number(builder._ti_in_count[i].into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("ti_harv_at"), Value::Number(builder._ti_harv_at[i].into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("feeders"), Value::String(format!("{:?}", feeders)));
             log(
                 "  miss t={t} ti_in_count={ti_in_count} ti_harv_at={ti_harv_at} feeders={feeders}",
                 args,
@@ -721,8 +700,8 @@ pub fn check_invariants(builder: &Builder) {
         extra.sort();
         extra.truncate(8);
         let mut args = Map::new();
-        args.insert(pyrust::to_string!("missing"), Value::String(format!("{:?}", miss)));
-        args.insert(pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
+        pyrust::dict::insert!(args, pyrust::to_string!("missing"), Value::String(format!("{:?}", miss)));
+        pyrust::dict::insert!(args, pyrust::to_string!("extra"), Value::String(format!("{:?}", extra)));
         log(
             "INVARIANT_FAIL ax_upstream missing={missing} extra={extra}",
             args,
@@ -731,19 +710,10 @@ pub fn check_invariants(builder: &Builder) {
             let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
             let feeders: Vec<(Position, bool, bool)> = pyrust::collect!(pyrust::map!(pyrust::iter!(in_edges[i]), |f| (*f, builder.ax_upstream.contains(f), oracle_ax.contains(f))));
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
-            args.insert(
-                pyrust::to_string!("ax_in_count"),
-                Value::Number(builder._ax_in_count[i].into()),
-            );
-            args.insert(
-                pyrust::to_string!("ax_harv_at"),
-                Value::Number(builder._ax_harv_at[i].into()),
-            );
-            args.insert(
-                pyrust::to_string!("feeders"),
-                Value::String(format!("{:?}", feeders)),
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
+            pyrust::dict::insert!(args, pyrust::to_string!("ax_in_count"), Value::Number(builder._ax_in_count[i].into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("ax_harv_at"), Value::Number(builder._ax_harv_at[i].into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("feeders"), Value::String(format!("{:?}", feeders)));
             log(
                 "  miss t={t} ax_in_count={ax_in_count} ax_harv_at={ax_harv_at} feeders={feeders}",
                 args,
@@ -760,15 +730,9 @@ pub fn check_invariants(builder: &Builder) {
                     y: (i / MAX_WIDTH) as i32,
                 };
                 let mut args = Map::new();
-                args.insert(pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
-                args.insert(
-                    pyrust::to_string!("ti"),
-                    Value::Number(builder._ti_in_count[i].into()),
-                );
-                args.insert(
-                    pyrust::to_string!("ax"),
-                    Value::Number(builder._ax_in_count[i].into()),
-                );
+                pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
+                pyrust::dict::insert!(args, pyrust::to_string!("ti"), Value::Number(builder._ti_in_count[i].into()));
+                pyrust::dict::insert!(args, pyrust::to_string!("ax"), Value::Number(builder._ax_in_count[i].into()));
                 log(
                     "INVARIANT_FAIL in_count nonzero with empty in_edges t={t} ti={ti} ax={ax}",
                     args,
@@ -784,16 +748,10 @@ pub fn check_invariants(builder: &Builder) {
                 y: (i / MAX_WIDTH) as i32,
             };
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
-            args.insert(
-                pyrust::to_string!("have"),
-                Value::Number(builder._ti_in_count[i].into()),
-            );
-            args.insert(pyrust::to_string!("expected"), Value::Number(ti_expected.into()));
-            args.insert(
-                pyrust::to_string!("in_edges"),
-                Value::String(format!("{:?}", in_edges[i])),
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
+            pyrust::dict::insert!(args, pyrust::to_string!("have"), Value::Number(builder._ti_in_count[i].into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("expected"), Value::Number(ti_expected.into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("in_edges"), Value::String(format!("{:?}", in_edges[i])));
             log(
                 "INVARIANT_FAIL ti_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
                 args,
@@ -805,16 +763,10 @@ pub fn check_invariants(builder: &Builder) {
                 y: (i / MAX_WIDTH) as i32,
             };
             let mut args = Map::new();
-            args.insert(pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
-            args.insert(
-                pyrust::to_string!("have"),
-                Value::Number(builder._ax_in_count[i].into()),
-            );
-            args.insert(pyrust::to_string!("expected"), Value::Number(ax_expected.into()));
-            args.insert(
-                pyrust::to_string!("in_edges"),
-                Value::String(format!("{:?}", in_edges[i])),
-            );
+            pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
+            pyrust::dict::insert!(args, pyrust::to_string!("have"), Value::Number(builder._ax_in_count[i].into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("expected"), Value::Number(ax_expected.into()));
+            pyrust::dict::insert!(args, pyrust::to_string!("in_edges"), Value::String(format!("{:?}", in_edges[i])));
             log(
                 "INVARIANT_FAIL ax_in_count drift t={t} have={have} expected={expected} in_edges={in_edges}",
                 args,
@@ -901,7 +853,7 @@ pub fn update_junctions(builder: &mut Builder) {
     let candidates: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.is_multi_input)));
     for pos in candidates {
         if _is_junction(builder, pos) {
-            builder.junctions.insert(pos);
+            pyrust::set::add!(builder.junctions, pos);
         }
     }
 }
@@ -1133,14 +1085,11 @@ pub fn update_ti_sink(builder: &mut Builder) {
 
     if best != builder.ti_sink {
         let mut args = Map::new();
-        args.insert(
-            pyrust::to_string!("from"),
-            Value::String(format!("{:?}", builder.ti_sink)),
-        );
-        args.insert(pyrust::to_string!("to"), Value::String(format!("{:?}", best)));
-        args.insert(pyrust::to_string!("tier"), Value::Number(tier.into()));
-        args.insert(pyrust::to_string!("anchor"), Value::String(format!("{:?}", anchor)));
-        args.insert(pyrust::to_string!("dist_sq"), Value::Number(best_d.into()));
+        pyrust::dict::insert!(args, pyrust::to_string!("from"), Value::String(format!("{:?}", builder.ti_sink)));
+        pyrust::dict::insert!(args, pyrust::to_string!("to"), Value::String(format!("{:?}", best)));
+        pyrust::dict::insert!(args, pyrust::to_string!("tier"), Value::Number(tier.into()));
+        pyrust::dict::insert!(args, pyrust::to_string!("anchor"), Value::String(format!("{:?}", anchor)));
+        pyrust::dict::insert!(args, pyrust::to_string!("dist_sq"), Value::Number(best_d.into()));
         log(
             "update_ti_sink: ti_sink changed from {from} to {to} (tier {tier}, anchor={anchor}, dist_sq={dist_sq})",
             args,
