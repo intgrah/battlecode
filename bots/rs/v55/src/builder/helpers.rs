@@ -463,7 +463,6 @@ fn _trace_downstream_inner(
                 // Splitter's 3 outputs (forward + two perpendicular sides).
                 // Try each as a path branch.
                 let outs: Vec<Position> = pyrust::clone!(builder.out_edges[i]);
-                let mut handled = false;
                 for new_pos in pyrust::copied!(pyrust::iter!(outs)) {
                     if let Some(target_head) = target_head {
                         let mut new_path = pyrust::clone!(path);
@@ -476,17 +475,8 @@ fn _trace_downstream_inner(
                         }
                     } else if pyrust::is_none!(builder.get_building(new_pos)) {
                         pyrust::vec::push!(path, new_pos);
-                        handled = true;
                         return;
                     }
-                }
-                if !handled {
-                    if pyrust::vec::is_empty!(outs) {
-                        break;
-                    }
-                    // Forward = first output (canonical convention from
-                    // `edge_targets`).
-                    current_pos = outs[0];
                 }
             }
             _ => break,
