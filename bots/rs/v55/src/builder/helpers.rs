@@ -285,7 +285,7 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
     let walk_cost = d_pos * r_cost;
     let ring_cost = 3 * c_cost;
     let chain_cost =
-        (pyrust::float!(d_sink) * 0.7f64.mul_add(pyrust::float!(c_cost), 0.3 * pyrust::float!(b_cost) / 3.0)) as i32;
+        (pyrust::float!(d_sink) * (0.7 * pyrust::float!(c_cost) + 0.3 * pyrust::float!(b_cost) / 3.0)) as i32;
     h_cost + ring_cost + chain_cost + walk_cost
 }
 
@@ -294,7 +294,7 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
 #[must_use] 
 pub fn ore_claim_leniency(builder: &Builder) -> f64 {
     let n = pyrust::len!(builder.my_harvesters) as f64;
-    0.95f64.mul_add(1.0 - 0.958f64.powf(n), 0.65)
+    0.95 * (1.0 - 0.958f64.powf(n)) + 0.65
 }
 
 #[must_use] 
