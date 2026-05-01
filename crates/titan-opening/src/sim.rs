@@ -242,7 +242,10 @@ pub enum SimError {
 fn dispatch_one(game: &mut Game, uid: i32, action: Action) -> Result<Option<i32>, String> {
     let mut view = UnitView::new(game, uid);
     match action {
-        Action::Move { dir } => view.move_(direction(dir)?).map(|()| None).map_err(stringify),
+        Action::Move { dir } => view
+            .move_(direction(dir)?)
+            .map(|()| None)
+            .map_err(stringify),
 
         Action::Spawn { dir } => {
             let centre = view.get_position(None).map_err(stringify)?;

@@ -256,9 +256,10 @@ fn walk_for_extension(dir: &Path, ext: &str, out: &mut Vec<String>) {
             }
             walk_for_extension(&p, ext, out);
         } else if p.extension().and_then(|s| s.to_str()) == Some(ext)
-            && let Some(s) = p.to_str() {
-                out.push(s.to_string());
-            }
+            && let Some(s) = p.to_str()
+        {
+            out.push(s.to_string());
+        }
     }
 }
 
