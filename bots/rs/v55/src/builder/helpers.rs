@@ -807,56 +807,63 @@ pub fn pick_ax_ore_target(builder: &Builder) -> Option<Position> {
 /// Pick a Ti ore tile outside our econ disc for an offensive harvester.
 #[must_use]
 pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
+    let econ_radius_sq = builder.econ_radius_sq;
+    let my_pos = builder.state.my_pos;
+    let my_core = builder.my_core;
+    // Materialise once: re-iterating `all_bots` per candidate inside the
+    // hot loop dominated the search before this fix.
+    let friendlies: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
+        pyrust::dict::items!(builder.state.all_bots),
+        |t| if *t.1 != builder.state.my_id
+            && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
+        {
+            Some((*t.0, *t.1))
+        } else {
+            None
+        }
+    ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
-    for pos in &builder.state.nearby_tiles {
-        if builder.get_env(*pos) != Some(Environment::OreTitanium) {
+    // Cheapest filters first: O(1) UF lookup, O(1) distance, then
+    // bot/building checks, then early-exit on distance, then the
+    // expensive cardinal-scan filters last. Sort for deterministic
+    // iteration order across native-Rust and pyrust-translated runs.
+    for pos in pyrust::sorted!(builder.visible_ti_ores) {
+        if !builder.is_reachable(pos) {
             continue;
         }
-        match builder.kind_at(*pos) {
-            Some(EntityType::Harvester) => continue,
+        if pos.distance_squared(my_core) <= econ_radius_sq {
+            continue;
+        }
+        if !ore_available(builder, pos) {
+            continue;
+        }
+        let d = my_pos.distance_squared(pos);
+        if d >= min_dist {
+            continue;
+        }
+        match builder.kind_at(pos) {
             None | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                if !is_inward_guard(builder, *pos) {
+                if !is_inward_guard(builder, pos) {
                     continue;
                 }
             }
             _ => continue,
         }
-        if !builder.is_reachable(*pos) {
-            continue;
-        }
-        let d = builder.state.my_pos.distance_squared(*pos);
-        if !ore_available(builder, *pos) {
-            continue;
-        }
-        if pos.distance_squared(builder.my_core) <= builder.econ_radius_sq {
-            continue;
-        }
-        if harvester_would_contaminate(builder, *pos) {
-            continue;
-        }
-        let friends_iter = pyrust::filter_map!(pyrust::dict::items!(builder.state.all_bots), |t| {
-            if *t.1 != builder.state.my_id
-                && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
-            {
-                Some((*t.0, *t.1))
-            } else {
-                None
-            }
-        });
         if !claims_by_proximity(
-            builder.state.my_pos,
+            my_pos,
             builder.state.my_id,
-            *pos,
-            friends_iter,
+            pos,
+            pyrust::copied!(pyrust::iter!(friendlies)),
         ) {
             continue;
         }
-        if d < min_dist {
-            min_dist = d;
-            best_target = Some(*pos);
+        if harvester_would_contaminate(builder, pos) {
+            continue;
         }
+        min_dist = d;
+        best_target = Some(pos);
     }
     best_target
 }
@@ -960,59 +967,69 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
 }
 
 fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
+    let ore_set = if wanted == Environment::OreTitanium {
+        &builder.visible_ti_ores
+    } else {
+        &builder.visible_ax_ores
+    };
+    let econ_radius_sq = builder.econ_radius_sq;
+    let my_pos = builder.state.my_pos;
+    let my_core = builder.my_core;
+    let friendlies: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
+        pyrust::dict::items!(builder.state.all_bots),
+        |t| if *t.1 != builder.state.my_id
+            && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
+        {
+            Some((*t.0, *t.1))
+        } else {
+            None
+        }
+    ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
-    for pos in &builder.state.nearby_tiles {
-        if builder.get_env(*pos) != Some(wanted) {
+    // Sort for deterministic iteration order — Rust HashSet and Python
+    // set iterate in different orders, so without an explicit sort
+    // the native-Rust and pyrust-translated runs would tie-break
+    // differently and diverge at the first ore tile.
+    for pos in pyrust::sorted!(ore_set) {
+        if !builder.is_reachable(pos) {
             continue;
         }
-        match builder.kind_at(*pos) {
-            Some(EntityType::Harvester) => continue,
+        if pos.distance_squared(my_core) > econ_radius_sq {
+            continue;
+        }
+        if !ore_available(builder, pos) {
+            continue;
+        }
+        let d = my_pos.distance_squared(pos);
+        if d >= min_dist {
+            continue;
+        }
+        match builder.kind_at(pos) {
             None | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                if !is_inward_guard(builder, *pos) {
+                if !is_inward_guard(builder, pos) {
                     continue;
                 }
             }
             _ => continue,
         }
-        if !builder.is_reachable(*pos) {
-            continue;
-        }
-        let d = builder.state.my_pos.distance_squared(*pos);
-        if !ore_available(builder, *pos) {
-            continue;
-        }
-        if pos.distance_squared(builder.my_core) > builder.econ_radius_sq {
-            continue;
-        }
-        if harvester_would_contaminate(builder, *pos) {
-            continue;
-        }
-        if pyrust::is_none!(harvester_feed_cardinal(builder, *pos)) {
-            continue;
-        }
-        let friends_iter = pyrust::filter_map!(pyrust::dict::items!(builder.state.all_bots), |t| {
-            if *t.1 != builder.state.my_id
-                && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
-            {
-                Some((*t.0, *t.1))
-            } else {
-                None
-            }
-        });
         if !claims_by_proximity(
-            builder.state.my_pos,
+            my_pos,
             builder.state.my_id,
-            *pos,
-            friends_iter,
+            pos,
+            pyrust::copied!(pyrust::iter!(friendlies)),
         ) {
             continue;
         }
-        if d < min_dist {
-            min_dist = d;
-            best_target = Some(*pos);
+        if harvester_would_contaminate(builder, pos) {
+            continue;
         }
+        if pyrust::is_none!(harvester_feed_cardinal(builder, pos)) {
+            continue;
+        }
+        min_dist = d;
+        best_target = Some(pos);
     }
     best_target
 }

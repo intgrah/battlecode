@@ -149,6 +149,12 @@ pub struct Builder {
     pub congested_junctions: HashSet<Position>,
     pub upstream_of_congestion: HashSet<Position>,
     pub my_foundries: HashSet<Position>,
+    /// Currently-visible Ti ore tiles with no harvester on them. Maintained
+    /// incrementally in vision update so `pick_ore_target` and friends only
+    /// scan ore tiles, not all 69 nearby tiles.
+    pub visible_ti_ores: HashSet<Position>,
+    /// Currently-visible Ax ore tiles with no harvester on them.
+    pub visible_ax_ores: HashSet<Position>,
     pub my_harvesters: HashSet<Position>,
     pub is_multi_input: HashSet<Position>,
     pub junctions: HashSet<Position>,
@@ -287,6 +293,8 @@ impl Builder {
             congested_junctions: pyrust::set::new!(),
             upstream_of_congestion: pyrust::set::new!(),
             my_foundries: pyrust::set::new!(),
+            visible_ti_ores: pyrust::set::new!(),
+            visible_ax_ores: pyrust::set::new!(),
             my_harvesters: pyrust::set::new!(),
             is_multi_input: pyrust::set::new!(),
             junctions: pyrust::set::new!(),
