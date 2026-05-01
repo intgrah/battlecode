@@ -13,6 +13,8 @@ The point: write a bot in Rust, get a typechecked native build *and* a Python bu
 
 The shim is the language reference: any code that compiles against `pyrust::prelude::*` *and* nothing else is guaranteed to translate.
 
+**For DSL conventions and the full macro surface, see [DSL.md](DSL.md).**
+
 ## What round-trips
 
 Translation aims for parity with the natively executed Rust, not surface fidelity. The translator drops, rewrites, or specialises freely.
