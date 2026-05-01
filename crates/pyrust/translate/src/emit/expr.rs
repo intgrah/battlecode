@@ -2535,6 +2535,30 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unit,
             )))
         }
+        ["vec", "take"] => {
+            // `pyrust::vec::take!(obj.field)` — read field, replace with [].
+            // Same pattern as opt_take but the default is empty list.
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::take!: expected (obj.field)"));
+            }
+            let syn::Expr::Field(fexpr) = &args[0] else {
+                return Err(w.err(em.span(), "vec::take!: argument must be a field expression"));
+            };
+            let base = emit_expr(w, &fexpr.base)?;
+            let field_name = match &fexpr.member {
+                syn::Member::Named(id) => id.to_string(),
+                syn::Member::Unnamed(idx) => idx.index.to_string(),
+            };
+            let tmp = w.fresh_tmp();
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "(({tmp} := {0}.{field_name}), setattr({0}, '{field_name}', []))[0]",
+                    base.text
+                ),
+                Ty::List,
+            )))
+        }
         ["vec", "swap_remove"] => {
             let args = parse_args!();
             if args.len() != 2 {
