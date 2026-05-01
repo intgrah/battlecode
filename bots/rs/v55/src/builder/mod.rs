@@ -973,7 +973,7 @@ impl Unit for Builder {
         let r = self.state.rng.random();
         self.opportunistic = r < 0.5;
 
-        let s = f64::from(pyrust::max!(self.state.width, self.state.height));
+        let s = pyrust::float!(pyrust::max!(self.state.width, self.state.height));
         self.econ_radius_sq = pyrust::round!(((0.7 * s) * (0.7 * s))) as i32;
 
         // Mark off-map cells as INF.

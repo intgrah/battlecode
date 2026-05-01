@@ -244,21 +244,21 @@ pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
     let base = pyrust::unwrap_or!(pyrust::map!(base_cost(etype), |c| c.0), 0);
     let scale = builder.state.scale;
     let foundry = if builder.state.round >= 500 && !builder.ax_harvester_adjacent.is_empty() {
-        (f64::from(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * scale) as i32
+        (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * scale) as i32
     } else {
         0
     };
     match etype {
-        EntityType::Foundry => (f64::from(base) * scale) as i32,
+        EntityType::Foundry => (pyrust::float!(base) * scale) as i32,
         EntityType::Harvester => {
             let reserve = if builder.state.round < 35 { 10 } else { 20 };
-            (f64::from(base + reserve) * (1.0 + scale)) as i32 + foundry
+            (pyrust::float!(base + reserve) * (1.0 + scale)) as i32 + foundry
         }
-        EntityType::Launcher => (f64::from(base + 15) * (1.0 + scale)) as i32 + foundry,
+        EntityType::Launcher => (pyrust::float!(base + 15) * (1.0 + scale)) as i32 + foundry,
         EntityType::Sentinel | EntityType::Gunner => {
-            (f64::from(base) * (1.0 + scale)) as i32 + foundry
+            (pyrust::float!(base) * (1.0 + scale)) as i32 + foundry
         }
-        _ => (f64::from(base) * scale) as i32 + foundry,
+        _ => (pyrust::float!(base) * scale) as i32 + foundry,
     }
 }
 
@@ -273,11 +273,11 @@ pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
 #[must_use] 
 pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> i32 {
     let s = builder.state.scale;
-    let h_cost = (f64::from(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * (1.0 + s)) as i32;
-    let c_cost = (f64::from(pyrust::unwrap!(base_cost(EntityType::Conveyor)).0) * s) as i32;
-    let b_cost = (f64::from(pyrust::unwrap!(base_cost(EntityType::Bridge)).0) * s) as i32;
+    let h_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Harvester)).0) * (1.0 + s)) as i32;
+    let c_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Conveyor)).0) * s) as i32;
+    let b_cost = (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Bridge)).0) * s) as i32;
     let r_cost = pyrust::max!(
-        ((f64::from(pyrust::unwrap!(base_cost(EntityType::Road)).0) * s) as i32),
+        ((pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Road)).0) * s) as i32),
         1
     );
     let d_pos = manhattan(builder.state.my_pos, ore_pos);
@@ -285,7 +285,7 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
     let walk_cost = d_pos * r_cost;
     let ring_cost = 3 * c_cost;
     let chain_cost =
-        (f64::from(d_sink) * 0.7f64.mul_add(f64::from(c_cost), 0.3 * f64::from(b_cost) / 3.0)) as i32;
+        (pyrust::float!(d_sink) * 0.7f64.mul_add(pyrust::float!(c_cost), 0.3 * pyrust::float!(b_cost) / 3.0)) as i32;
     h_cost + ring_cost + chain_cost + walk_cost
 }
 
@@ -300,7 +300,7 @@ pub fn ore_claim_leniency(builder: &Builder) -> f64 {
 #[must_use] 
 pub fn can_afford_ore_claim(builder: &Builder, ore_pos: Position, sink_pos: Position) -> bool {
     builder.state.ti
-        >= (f64::from(required_ti_for_ore_claim(builder, ore_pos, sink_pos))
+        >= (pyrust::float!(required_ti_for_ore_claim(builder, ore_pos, sink_pos))
             * ore_claim_leniency(builder)) as i32
 }
 
