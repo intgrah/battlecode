@@ -2257,6 +2257,20 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        ["position"] => {
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("position!: {e}")))?;
+            let it = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.clone();
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "next((__i for __i, {1} in enumerate({2}) if {0}), None)",
+                    body.text, pname, it.text
+                ),
+                Ty::Unknown,
+            )))
+        }
         ["any" | "all"] => {
             let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
                 .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;

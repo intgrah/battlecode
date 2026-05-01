@@ -291,6 +291,16 @@ macro_rules! __pyrust_find {
     };
 }
 
+/// `pyrust::position!(it, closure)` — `Iterator::position`. Returns
+/// `Option<usize>`; Python emits `next((i for i, x in enumerate(it)
+/// if pred(x)), None)`.
+#[macro_export]
+macro_rules! __pyrust_position {
+    ($e:expr, $f:expr) => {
+        $e.position($f)
+    };
+}
+
 /// `pyrust::any!(it, closure)`. Receiver must be an iterator.
 #[macro_export]
 macro_rules! __pyrust_any {
