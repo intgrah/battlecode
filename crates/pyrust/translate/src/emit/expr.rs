@@ -2523,6 +2523,18 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        ["vec", "fill"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::fill!: expected (vec, value)"));
+            }
+            let emits = emit_args(w, &args)?;
+            // Mutate in place — Python `v[:] = [x] * len(v)`.
+            Ok(Some(Emitted::atomic(
+                format!("{0}[:] = [{1}] * len({0})", emits[0].text, emits[1].text),
+                Ty::Unit,
+            )))
+        }
         ["vec", "swap_remove"] => {
             let args = parse_args!();
             if args.len() != 2 {

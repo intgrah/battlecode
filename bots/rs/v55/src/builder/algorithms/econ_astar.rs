@@ -524,7 +524,7 @@ impl AStarSearch {
             || pyrust::is_none!(self.target)
             || target.distance_squared(pyrust::unwrap!(self.target)) > TARGET_DRIFT_SQ
         {
-            self._dist.fill(INF);
+            pyrust::vec::fill!(self._dist, INF);
             self.target = Some(target);
         } else {
             resumed_search = true;

@@ -113,7 +113,7 @@ impl BugNav {
                 }
                 self.active_goal = Some(goal);
                 self.active_start = Some(pos);
-                self.path_idx_storage.fill(-1);
+                pyrust::vec::fill!(self.path_idx_storage, -1);
                 self.path_idx_storage[si as usize] = 0;
                 self.unreachable = false;
                 self.committed = vec![si];
