@@ -17,7 +17,7 @@ use crate::prelude::PyDisplay;
 pub struct List<T>(pub Vec<T>);
 
 impl<T> List<T> {
-    #[must_use] 
+    #[must_use]
     pub const fn new() -> Self {
         Self(Vec::new())
     }
@@ -30,12 +30,12 @@ impl<T> List<T> {
         self.0.pop().expect("pop from empty list")
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn len(&self) -> usize {
         self.0.len()
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -110,17 +110,17 @@ impl<T: PyDisplay> PyDisplay for List<T> {
 pub struct Dict<K, V>(pub HashMap<K, V>);
 
 impl<K, V> Dict<K, V> {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self(HashMap::new())
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -181,17 +181,17 @@ impl<K: PyDisplay, V: PyDisplay> PyDisplay for Dict<K, V> {
 pub struct Set<T>(pub HashSet<T>);
 
 impl<T> Set<T> {
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self(HashSet::new())
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

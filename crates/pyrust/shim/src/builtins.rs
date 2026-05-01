@@ -205,12 +205,12 @@ pub fn reversed<T: PySorted + ?Sized>(value: &T) -> T::Owned {
     value.py_reversed()
 }
 
-#[must_use] 
+#[must_use]
 pub fn any(value: &List<bool>) -> bool {
     value.0.iter().copied().any(|x| x)
 }
 
-#[must_use] 
+#[must_use]
 pub fn all(value: &List<bool>) -> bool {
     value.0.iter().copied().all(|x| x)
 }

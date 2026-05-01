@@ -17,10 +17,7 @@ use ra_ap_project_model::CargoConfig;
 use ra_ap_syntax::ast::{self, AstNode};
 use ra_ap_vfs::VfsPath;
 
-fn adt_name(
-    db: &ra_ap_ide_db::RootDatabase,
-    ty: &ra_ap_hir::Type<'_>,
-) -> Option<&'static str> {
+fn adt_name(db: &ra_ap_ide_db::RootDatabase, ty: &ra_ap_hir::Type<'_>) -> Option<&'static str> {
     let adt = ty.as_adt()?;
     let name = adt.name(db).as_str().to_owned();
     Some(match name.as_str() {

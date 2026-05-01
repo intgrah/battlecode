@@ -94,17 +94,16 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                     .map(|s| s.ident.to_string())
                     .collect();
                 // Resolve `Self::Variant` to the surrounding class.
-                let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false)
-                {
+                let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
                     if let Some(cls) = w.current_class() {
                         let mut v = vec![cls.to_string()];
                         v.extend(segs.iter().skip(1).cloned());
                         v
                     } else {
-                        segs.clone()
+                        segs
                     }
                 } else {
-                    segs.clone()
+                    segs
                 };
                 let slice: Vec<&str> = resolved.iter().map(String::as_str).collect();
                 return match slice.as_slice() {
@@ -138,16 +137,16 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 .map(|s| s.ident.to_string())
                 .collect();
             // Resolve Self::Variant to surrounding class.
-            let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false) {
+            let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
                 if let Some(cls) = w.current_class() {
                     let mut v = vec![cls.to_string()];
                     v.extend(segs.iter().skip(1).cloned());
                     v
                 } else {
-                    segs.clone()
+                    segs
                 }
             } else {
-                segs.clone()
+                segs
             };
             let slice: Vec<&str> = resolved.iter().map(String::as_str).collect();
             // `Some(p)` collapses to the inner pattern.
@@ -202,16 +201,16 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 .map(|seg| seg.ident.to_string())
                 .collect();
             // Resolve `Self::Variant` to current class.
-            let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false) {
+            let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
                 if let Some(cls) = w.current_class() {
                     let mut v = vec![cls.to_string()];
                     v.extend(segs.iter().skip(1).cloned());
                     v
                 } else {
-                    segs.clone()
+                    segs
                 }
             } else {
-                segs.clone()
+                segs
             };
             let class = match resolved.as_slice() {
                 [single] => single.clone(),

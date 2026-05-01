@@ -44,19 +44,20 @@ struct V55Migrator<'src> {
 fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
     match (method, n_args) {
         // ---- Iterator-chain identities (Python no-op: emit recv) ----
-        ("iter" | "into_iter" | "copied" | "cloned" | "collect" | "into" | "as_ref" | "as_mut", 0) => {
-            Some(match method {
-                "iter" => "iter",
-                "into_iter" => "into_iter",
-                "copied" => "copied",
-                "cloned" => "cloned",
-                "collect" => "collect",
-                "into" => "into",
-                "as_ref" => "as_ref",
-                "as_mut" => "as_mut",
-                _ => unreachable!(),
-            })
-        }
+        (
+            "iter" | "into_iter" | "copied" | "cloned" | "collect" | "into" | "as_ref" | "as_mut",
+            0,
+        ) => Some(match method {
+            "iter" => "iter",
+            "into_iter" => "into_iter",
+            "copied" => "copied",
+            "cloned" => "cloned",
+            "collect" => "collect",
+            "into" => "into",
+            "as_ref" => "as_ref",
+            "as_mut" => "as_mut",
+            _ => unreachable!(),
+        }),
         // ---- Iterator-chain transforms ----
         ("rev", 0) => Some("rev"),
         ("enumerate", 0) => Some("enumerate"),
@@ -321,12 +322,12 @@ impl<'ast> Visit<'ast> for V55Migrator<'_> {
     /// Descend into ANY macro's body so chain methods nested inside
     /// macro arguments (`vec![x.unwrap()]`, `format!("{}", x.iter())`,
     /// `pyrust::*!(x.copied())`, `serde_json::json!({...})`, etc.) still
-    /// get migrated. syn's default for ExprMacro skips token bodies.
+    /// get migrated. syn's default for `ExprMacro` skips token bodies.
     ///
     /// Strategy:
     /// 1. For known JSON-shaped macros (`serde_json::json!`, `json!`),
     ///    walk via a JSON-value tree walker — same shape as the
-    ///    translator's emit_json so the migrator covers the same surface.
+    ///    translator's `emit_json` so the migrator covers the same surface.
     /// 2. For everything else, try parsing the body as a comma-separated
     ///    expression list, then as a single expression. If both fail,
     ///    walk down into any token-tree Group and recurse — this catches
