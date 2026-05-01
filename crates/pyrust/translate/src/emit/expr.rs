@@ -2135,6 +2135,18 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Float,
             )))
         }
+        ["powf"] | ["powi"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "powf/powi!: expected (x, y)"));
+            }
+            let x = emit_expr(w, &args[0])?;
+            let y = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("(({}) ** ({}))", x.text, y.text),
+                Ty::Float,
+            )))
+        }
         ["floor"] => {
             let args = parse_args!();
             if args.len() != 1 {

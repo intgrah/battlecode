@@ -79,6 +79,8 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("floor", 0) => Some("floor"),
         ("ceil", 0) => Some("ceil"),
         ("rem_euclid", 1) => Some("rem_euclid"),
+        ("powf", 1) => Some("powf"),
+        ("powi", 1) => Some("powi"),
         // Cloning — default to Vec-shaped clone. Bot hand-fixes
         // HashSet/HashMap clones using type-specific macros.
         ("clone", 0) => Some("clone"),

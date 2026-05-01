@@ -162,6 +162,22 @@ macro_rules! __pyrust_sqrt {
     };
 }
 
+/// `pyrust::powf!(x, y)` — Rust `x.powf(y)`, Python `(x ** y)`.
+#[macro_export]
+macro_rules! __pyrust_powf {
+    ($x:expr, $y:expr) => {
+        ($x).powf($y)
+    };
+}
+
+/// `pyrust::powi!(x, y)` — Rust `x.powi(y)`, Python `(x ** y)`.
+#[macro_export]
+macro_rules! __pyrust_powi {
+    ($x:expr, $y:expr) => {
+        ($x).powi($y)
+    };
+}
+
 /// `pyrust::floor!(x)` — Python `math.floor(x)`.
 #[macro_export]
 macro_rules! __pyrust_floor {
