@@ -367,7 +367,7 @@ pub fn extend_step(
             path_start_index = i;
         }
     }
-    path = path.split_off(path_start_index);
+    path = pyrust::to_vec!(path[path_start_index..]);
 
     let mut did_something = false;
     if chebyshev(current_pos, start) <= 1 {
