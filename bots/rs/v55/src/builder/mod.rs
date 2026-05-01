@@ -605,7 +605,6 @@ impl Builder {
     /// builder's borrowed state and forwards to `conv_search.search`.
     pub fn ti_conv_astar(
         &mut self,
-        ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
@@ -613,7 +612,7 @@ impl Builder {
         let mut ctx = self.make_econ_ctx();
         let path = self
             .conv_search
-            .search(ct, start, target, resource, &mut ctx);
+            .search(start, target, resource, &mut ctx);
         self.absorb_econ_ctx(ctx);
         path
     }
@@ -622,7 +621,6 @@ impl Builder {
     /// through `ax_conv_search`.
     pub fn ax_conv_astar(
         &mut self,
-        ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
@@ -630,7 +628,7 @@ impl Builder {
         let mut ctx = self.make_econ_ctx();
         let path = self
             .ax_conv_search
-            .search(ct, start, target, resource, &mut ctx);
+            .search(start, target, resource, &mut ctx);
         self.absorb_econ_ctx(ctx);
         path
     }

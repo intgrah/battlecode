@@ -335,9 +335,9 @@ pub fn extend_step(
     let path = {
         let _g = Scope::new_timed("conv_astar");
         if is_ax {
-            builder.ax_conv_astar(ct, start, target, resource)
+            builder.ax_conv_astar(start, target, resource)
         } else {
-            builder.ti_conv_astar(ct, start, target, resource)
+            builder.ti_conv_astar(start, target, resource)
         }
     };
     let Some(mut path) = path else {
