@@ -31,9 +31,9 @@ pub fn edge_targets(
 ) -> Vec<Position> {
     match kind {
         EntityType::Conveyor | EntityType::ArmouredConveyor => {
-            vec![pos.add(ct.get_direction(Some(bid)).unwrap())]
+            vec![pos.add(pyrust::unwrap!(ct.get_direction(Some(bid))))]
         }
-        EntityType::Bridge => vec![ct.get_bridge_target(bid).unwrap()],
+        EntityType::Bridge => vec![pyrust::unwrap!(ct.get_bridge_target(bid))],
         EntityType::Splitter => {
             let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
             vec![
