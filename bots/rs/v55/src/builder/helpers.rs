@@ -354,7 +354,7 @@ fn _trace_downstream_inner(
 ) {
     let mut current_pos = start_pos;
     loop {
-        path.push(current_pos);
+        pyrust::vec::push!(path, current_pos);
         let i = builder.idx(current_pos);
         let kind = builder.building_kind[i];
         match kind {
@@ -378,7 +378,7 @@ fn _trace_downstream_inner(
                             return;
                         }
                     } else if pyrust::is_none!(builder.get_building(new_pos)) {
-                        path.push(new_pos);
+                        pyrust::vec::push!(path, new_pos);
                         handled = true;
                         return;
                     }
@@ -443,7 +443,7 @@ pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
         if pyrust::vec::contains!(path, &position) {
             break;
         }
-        path.push(position);
+        pyrust::vec::push!(path, position);
     }
     path
 }
@@ -499,11 +499,11 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             continue;
         }
         if c == builder.state.my_pos {
-            classification.push((c, "my_pos"));
+            pyrust::vec::push!(classification, (c, "my_pos"));
             continue;
         }
         if builder.get_env(c) == Some(Environment::Wall) {
-            classification.push((c, "wall"));
+            pyrust::vec::push!(classification, (c, "wall"));
             continue;
         }
         let ci = builder.idx(c);
@@ -519,27 +519,27 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             )
         ) && team != Some(builder.state.my_team)
         {
-            classification.push((c, "enemy_transport"));
+            pyrust::vec::push!(classification, (c, "enemy_transport"));
             continue;
         }
         match kind {
             Some(EntityType::Bridge) => {
                 let target = pyrust::unwrap_or!(builder.out_edges[ci].first().copied(), c);
                 if target == ore_pos {
-                    classification.push((c, "inward_guard: bridge target == ore"));
+                    pyrust::vec::push!(classification, (c, "inward_guard: bridge target == ore"));
                 } else {
-                    tier1.push(c);
-                    classification.push((c, "tier1: bridge"));
+                    pyrust::vec::push!(tier1, c);
+                    pyrust::vec::push!(classification, (c, "tier1: bridge"));
                 }
                 continue;
             }
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
                 let target = pyrust::unwrap_or!(builder.out_edges[ci].first().copied(), c);
                 if target == ore_pos {
-                    classification.push((c, "inward_guard: conveyor output -> ore"));
+                    pyrust::vec::push!(classification, (c, "inward_guard: conveyor output -> ore"));
                 } else {
-                    tier1.push(c);
-                    classification.push((c, "tier1: outward conveyor"));
+                    pyrust::vec::push!(tier1, c);
+                    pyrust::vec::push!(classification, (c, "tier1: outward conveyor"));
                 }
                 continue;
             }
@@ -550,10 +550,10 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 if outs.len() == 3 {
                     let back = crate::building::splitter_back_input(c, outs);
                     if back == ore_pos {
-                        tier1.push(c);
-                        classification.push((c, "tier1: outward splitter"));
+                        pyrust::vec::push!(tier1, c);
+                        pyrust::vec::push!(classification, (c, "tier1: outward splitter"));
                     } else {
-                        classification.push((c, "inward_guard: splitter back not -> ore"));
+                        pyrust::vec::push!(classification, (c, "inward_guard: splitter back not -> ore"));
                     }
                 }
                 continue;
@@ -564,7 +564,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 | EntityType::Harvester
                 | EntityType::Barrier,
             ) => {
-                classification.push((c, "blocking_building"));
+                pyrust::vec::push!(classification, (c, "blocking_building"));
                 continue;
             }
             _ => {}
@@ -584,11 +584,11 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         ];
         let has_escape = pyrust::any!(pyrust::iter!(u_shape), |p| builder.in_bounds(*p) && builder.is_passable(*p));
         if !has_escape {
-            classification.push((c, "no_escape"));
+            pyrust::vec::push!(classification, (c, "no_escape"));
             continue;
         }
-        tier2.push(c);
-        classification.push((c, "tier2"));
+        pyrust::vec::push!(tier2, c);
+        pyrust::vec::push!(classification, (c, "tier2"));
     }
 
     let chosen: Option<Position> = if !tier1.is_empty() {
@@ -897,7 +897,7 @@ pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
     let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(start);
     let mut queue: Vec<Position> = vec![start];
-    while let Some(pos) = queue.pop() {
+    while let Some(pos) = pyrust::vec::pop!(queue) {
         if visited.len() >= _UPSTREAM_MAX_NODES {
             break;
         }
@@ -906,7 +906,7 @@ pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
                 continue;
             }
             visited.insert(u);
-            queue.push(u);
+            pyrust::vec::push!(queue, u);
         }
     }
     visited
@@ -917,7 +917,7 @@ pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> 
     let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(start);
     let mut queue: Vec<Position> = vec![start];
-    while let Some(pos) = queue.pop() {
+    while let Some(pos) = pyrust::vec::pop!(queue) {
         if visited.len() >= _DOWNSTREAM_MAX_NODES {
             break;
         }
@@ -926,7 +926,7 @@ pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> 
                 continue;
             }
             visited.insert(out);
-            queue.push(out);
+            pyrust::vec::push!(queue, out);
         }
     }
     visited

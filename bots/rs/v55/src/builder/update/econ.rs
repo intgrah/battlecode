@@ -232,15 +232,15 @@ fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> Hash
             continue;
         }
         target.insert(*s);
-        stack.push(*s);
+        pyrust::vec::push!(stack, *s);
     }
-    while let Some(p) = stack.pop() {
+    while let Some(p) = pyrust::vec::pop!(stack) {
         for out in &out_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)] {
             if pyrust::vec::contains!(target, out) {
                 continue;
             }
             target.insert(*out);
-            stack.push(*out);
+            pyrust::vec::push!(stack, *out);
         }
     }
     target
@@ -518,7 +518,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
             total += pyrust::count!(pyrust::filter!(pyrust::iter!(fh), |t| pyrust::is_some!(t.0)));
         }
         if complete && total > FLOW_HISTORY_LEN {
-            result.push(*t);
+            pyrust::vec::push!(result, *t);
         }
     }
     result
@@ -541,7 +541,7 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
             continue;
         }
         if pyrust::count!(pyrust::filter!(pyrust::iter!(hist), |t| pyrust::is_some!(t.0))) >= FLOW_HISTORY_LEN {
-            result.push(*t);
+            pyrust::vec::push!(result, *t);
         }
     }
     result
@@ -559,7 +559,7 @@ pub fn update_economy_reachability(builder: &mut Builder) {
     {
         let my_core = builder.my_core;
         let mut roots: Vec<Position> = vec![my_core];
-        roots.extend(pyrust::copied!(pyrust::iter!(builder.core_edges)));
+        pyrust::vec::extend!(roots, pyrust::copied!(pyrust::iter!(builder.core_edges)));
         flood_back(&builder.in_edges, &roots, &mut builder.reaches_core);
     }
 
@@ -590,17 +590,17 @@ fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashS
     for r in roots {
         if !pyrust::vec::contains!(target, r) {
             target.insert(*r);
-            stack.push(*r);
+            pyrust::vec::push!(stack, *r);
         }
     }
-    while let Some(p) = stack.pop() {
+    while let Some(p) = pyrust::vec::pop!(stack) {
         let i = (p.y as usize) * MAX_WIDTH + (p.x as usize);
         for u in &in_edges[i] {
             if pyrust::vec::contains!(target, u) {
                 continue;
             }
             target.insert(*u);
-            stack.push(*u);
+            pyrust::vec::push!(stack, *u);
         }
     }
 }
@@ -984,16 +984,16 @@ pub fn update_foundry_target(builder: &mut Builder) {
 
     let mut options: Vec<(i32, Position, &'static str)> = pyrust::vec::new!();
     if let Some(p) = junction_best {
-        options.push((junction_d, p, "junction"));
+        pyrust::vec::push!(options, (junction_d, p, "junction"));
     }
     if let Some(p) = ax_chain_best {
-        options.push((ax_chain_d, p, "ax_chain"));
+        pyrust::vec::push!(options, (ax_chain_d, p, "ax_chain"));
     }
     if let Some(p) = foundry_best {
-        options.push((foundry_d, p, "foundry"));
+        pyrust::vec::push!(options, (foundry_d, p, "foundry"));
     }
     if let Some(p) = ti_cand_best {
-        options.push((ti_cand_d + _FOUNDRY_REUSE_THRESHOLD, p, "ti_candidate"));
+        pyrust::vec::push!(options, (ti_cand_d + _FOUNDRY_REUSE_THRESHOLD, p, "ti_candidate"));
     }
     if options.is_empty() {
         builder.ax_sink = None;

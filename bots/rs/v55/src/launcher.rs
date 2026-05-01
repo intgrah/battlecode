@@ -69,7 +69,7 @@ impl Launcher {
                 if pyrust::unwrap!(ct.get_team(Some(adj_bid))) == my_team {
                     continue;
                 }
-                targets.push(adj);
+                pyrust::vec::push!(targets, adj);
             }
         }
         targets

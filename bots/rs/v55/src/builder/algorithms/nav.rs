@@ -157,7 +157,7 @@ impl BugNav {
                         None => {
                             let yielded = planner.last_yielded;
                             if yielded != -1 {
-                                self.committed.push(yielded);
+                                pyrust::vec::push!(self.committed, yielded);
                             }
                         }
                     }
@@ -175,7 +175,7 @@ impl BugNav {
                     continue;
                 }
                 let fi = (fb_pos.y * stride + fb_pos.x) as usize;
-                saved.push((fi, ctx.cost_grid[fi]));
+                pyrust::vec::push!(saved, (fi, ctx.cost_grid[fi]));
                 ctx.cost_grid[fi] = INF;
             }
             let path_idx_ref: &[i32] = if let Some(p) = self.planner.as_ref() {

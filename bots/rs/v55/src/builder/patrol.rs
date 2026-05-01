@@ -39,11 +39,11 @@ fn _walkable_anchor(builder: &Builder, pos: Position) -> Option<Position> {
 /// bridge / splitter tiles that are downstream of a harvester).
 fn _candidate_iter(builder: &Builder) -> Vec<Position> {
     let mut out: Vec<Position> = pyrust::vec::new!();
-    out.extend(pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
-    out.extend(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
-    out.extend(pyrust::copied!(pyrust::iter!(builder.ti_upstream)));
-    out.extend(pyrust::copied!(pyrust::iter!(builder.ax_upstream)));
-    out.push(builder.my_core);
+    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
+    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.my_foundries)));
+    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.ti_upstream)));
+    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.ax_upstream)));
+    pyrust::vec::push!(out, builder.my_core);
     out
 }
 

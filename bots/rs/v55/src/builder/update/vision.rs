@@ -60,7 +60,7 @@ pub fn _add_topology(
     let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
     if builder.reach_parent[i] == -1 {
         builder.reach_parent[i] = i as i32;
-        builder.reach_frontier.push(i as i32);
+        pyrust::vec::push!(builder.reach_frontier, i as i32);
     }
     if team == builder.state.my_team {
         let targets = edge_targets(ct, pos, bid, kind);
@@ -69,8 +69,8 @@ pub fn _add_topology(
             for t in targets {
                 if builder.in_bounds(t) {
                     let ti = builder.idx(t);
-                    builder.in_edges[ti].push(pos);
-                    outs.push(t);
+                    pyrust::vec::push!(builder.in_edges[ti], pos);
+                    pyrust::vec::push!(outs, t);
                     builder._check_multi_input(t);
                 }
             }
@@ -320,7 +320,7 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
             builder.reflect_queue.push_back(i);
             let is_core =
                 bid.is_some_and(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
-            new_observations.push((pos, env, is_core));
+            pyrust::vec::push!(new_observations, (pos, env, is_core));
             if env != Environment::Wall {
                 let py = pos.y;
                 let px = pos.x;
@@ -338,7 +338,7 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                         }
                         let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
                         if builder.reach_parent[ni] != -1 {
-                            builder.reach_frontier.push(ni as i32);
+                            pyrust::vec::push!(builder.reach_frontier, ni as i32);
                         }
                     }
                 }
@@ -375,9 +375,9 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         if pyrust::is_some!(bid) {
             let kind = builder.building_kind[i];
             let team = builder.building_team[i];
-            builder.nearby_buildings.push(pos);
+            pyrust::vec::push!(builder.nearby_buildings, pos);
             if builder.hp[i] < builder.max_hp[i] && team == Some(builder.state.my_team) {
-                builder.healable_buildings.push(pos);
+                pyrust::vec::push!(builder.healable_buildings, pos);
             }
 
             if matches!(

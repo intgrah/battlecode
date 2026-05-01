@@ -78,6 +78,10 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("to_string", 0) => Some("to_string"),
         ("contains", 1) => Some("vec::contains"),
         ("contains_key", 1) => Some("dict::contains"),
+        // ---- Mutating Vec/Set/Dict methods (single-shot) ----
+        ("push", 1) => Some("vec::push"),
+        ("pop", 0) => Some("vec::pop"),
+        ("extend", 1) => Some("vec::extend"),
         // ---- Option methods (single-shot, not chain) ----
         ("is_some", 0) => Some("is_some"),
         ("is_none", 0) => Some("is_none"),

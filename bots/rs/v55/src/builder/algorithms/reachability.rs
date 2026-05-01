@@ -94,7 +94,7 @@ pub fn step_reachability(
     let stride = MAX_WIDTH as i32;
     let parent_len = parent.len() as i32;
     for _ in 0..K_PER_TURN {
-        let Some(i) = frontier.pop() else {
+        let Some(i) = pyrust::vec::pop!(frontier) else {
             return;
         };
         let mut cur_root = find(parent, i);
@@ -131,7 +131,7 @@ pub fn step_reachability(
                 continue;
             }
             parent[n as usize] = cur_root;
-            frontier.push(n);
+            pyrust::vec::push!(frontier, n);
         }
     }
 }

@@ -84,7 +84,7 @@ impl DebugCtx {
         if pyrust::is_none!(self.root) {
             // First scope of the turn: this becomes the root.
             self.root = Some(node);
-            self.frames.push(Frame {
+            pyrust::vec::push!(self.frames, Frame {
                 parent_child_idx: None,
                 t0,
             });
@@ -93,8 +93,8 @@ impl DebugCtx {
         let parent = self.current_scope_mut();
         let children = pyrust::unwrap!(parent["children"].as_array_mut());
         let idx = children.len();
-        children.push(node);
-        self.frames.push(Frame {
+        pyrust::vec::push!(children, node);
+        pyrust::vec::push!(self.frames, Frame {
             parent_child_idx: Some(idx),
             t0,
         });
@@ -129,7 +129,7 @@ impl DebugCtx {
             return;
         }
         let parent = self.current_scope_mut();
-        pyrust::unwrap!(parent["children"].as_array_mut()).push(node);
+        pyrust::vec::push!(pyrust::unwrap!(parent["children"].as_array_mut()), node);
     }
 
     pub fn debug(&mut self, tmpl: &str, args: Map<String, Value>) {

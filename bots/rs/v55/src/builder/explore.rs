@@ -102,7 +102,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
         }
         let i = (y as usize) * MAX_WIDTH + (x as usize);
         if pyrust::is_none!(builder.env[i]) {
-            candidates.push(Position { x, y });
+            pyrust::vec::push!(candidates, Position { x, y });
         }
     }
     if candidates.is_empty() {

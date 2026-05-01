@@ -101,7 +101,7 @@ fn _crop(arr: &[i32], w: i32, h: i32) -> Vec<i16> {
         let base = (y as usize) * MAX_WIDTH;
         for x in 0..w {
             let c = arr[base + (x as usize)];
-            out.push(if c < 1_000_000 { c as i16 } else { -1 });
+            pyrust::vec::push!(out, if c < 1_000_000 { c as i16 } else { -1 });
         }
     }
     out
@@ -112,7 +112,7 @@ fn _crop_bool(arr: &[bool], w: i32, h: i32) -> Vec<bool> {
     for y in 0..h {
         let base = (y as usize) * MAX_WIDTH;
         for x in 0..w {
-            out.push(arr[base + (x as usize)]);
+            pyrust::vec::push!(out, arr[base + (x as usize)]);
         }
     }
     out
@@ -142,7 +142,7 @@ fn _reach_roots(builder: &Builder, w: i32, h: i32) -> Vec<i16> {
     for y in 0..h {
         let base = (y as usize) * MAX_WIDTH;
         for x in 0..w {
-            out.push(parent[base + (x as usize)] as i16);
+            pyrust::vec::push!(out, parent[base + (x as usize)] as i16);
         }
     }
     out
@@ -177,7 +177,7 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
         for x in 0..w {
             let v = parent[base + (x as usize)];
             if v != -1 && seen.insert(v) {
-                keys.push(v);
+                pyrust::vec::push!(keys, v);
             }
         }
     }
@@ -186,7 +186,7 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
     for (k, key) in pyrust::enumerate!(pyrust::iter!(keys)) {
         let hue = ((k as f64) * _GOLDEN).rem_euclid(1.0);
         let (r, g, b) = _hsv_to_rgb(hue, 0.65, 0.95);
-        special.push((*key as i64, Colour::new(r, g, b, 160)));
+        pyrust::vec::push!(special, (*key as i64, Colour::new(r, g, b, 160)));
     }
     Palette {
         stops: vec![
@@ -307,7 +307,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         let mut unseen: Vec<bool> = Vec::with_capacity((w * h) as usize);
         for y in 0..h {
             for x in 0..w {
-                unseen.push(pyrust::is_none!(builder.env[(y as usize) * MAX_WIDTH + (x as usize)]));
+                pyrust::vec::push!(unseen, pyrust::is_none!(builder.env[(y as usize) * MAX_WIDTH + (x as usize)]));
             }
         }
         vis(
@@ -523,8 +523,8 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         let mx = builder.state.my_pos.x;
         let my_y = builder.state.my_pos.y;
         let mut candidates: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
-        candidates.extend(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
-        candidates.push(builder.my_core);
+        pyrust::vec::extend!(candidates, pyrust::copied!(pyrust::iter!(builder.my_foundries)));
+        pyrust::vec::push!(candidates, builder.my_core);
         for p in &candidates {
             let age = crnd - builder.last_seen[(p.y as usize) * MAX_WIDTH + (p.x as usize)];
             if age < best_age {

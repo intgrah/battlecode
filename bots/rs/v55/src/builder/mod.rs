@@ -234,7 +234,7 @@ impl Builder {
         for dx in -4..=4i32 {
             for dy in -4..=4i32 {
                 if dx * dx + dy * dy <= GameConstants::BUILDER_BOT_VISION_RADIUS_SQ {
-                    vision_offsets.push((dx, dy, dy * (MAX_WIDTH as i32) + dx));
+                    pyrust::vec::push!(vision_offsets, (dx, dy, dy * (MAX_WIDTH as i32) + dx));
                 }
             }
         }
@@ -350,7 +350,7 @@ impl Builder {
                     let nx = cx + dx;
                     let ny = cy + dy;
                     if pyrust::vec::contains!((0..MAX_WIDTH as i32), &nx) && pyrust::vec::contains!((0..MAX_WIDTH as i32), &ny) {
-                        nbs.push(ny * stride + nx);
+                        pyrust::vec::push!(nbs, ny * stride + nx);
                     }
                 }
                 pnb[i] = nbs;
@@ -375,7 +375,7 @@ impl Builder {
                 if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
                     let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
                     if self.cost_grid[ni] != INF {
-                        self.pnb[i].push(ni as i32);
+                        pyrust::vec::push!(self.pnb[i], ni as i32);
                     }
                 }
             }
@@ -393,7 +393,7 @@ impl Builder {
             let nb_list = &mut self.pnb[ni];
             if passable {
                 if !pyrust::vec::contains!(nb_list, &(i as i32)) {
-                    nb_list.push(i as i32);
+                    pyrust::vec::push!(nb_list, i as i32);
                 }
             } else if let Some(p) = pyrust::iter!(nb_list).position(|&x| x == i as i32) {
                 nb_list.swap_remove(p);
@@ -910,7 +910,7 @@ impl Builder {
             let nx = cx + dx;
             let ny = cy + dy;
             if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
-                nbs.push(ny * stride + nx);
+                pyrust::vec::push!(nbs, ny * stride + nx);
             }
         }
         self.pnb[(cy * stride + cx) as usize] = nbs;

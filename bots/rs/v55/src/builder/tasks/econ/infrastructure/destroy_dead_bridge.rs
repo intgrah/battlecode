@@ -24,7 +24,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
     let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(start);
     let mut queue: Vec<Position> = vec![start];
-    while let Some(cur) = queue.pop() {
+    while let Some(cur) = pyrust::vec::pop!(queue) {
         if visited.len() >= UPSTREAM_SEARCH_CAP {
             break;
         }
@@ -38,7 +38,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
             {
                 return Some(u);
             }
-            queue.push(u);
+            pyrust::vec::push!(queue, u);
         }
     }
     None
