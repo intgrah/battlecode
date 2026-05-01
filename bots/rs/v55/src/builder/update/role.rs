@@ -74,7 +74,7 @@ fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
     // Mirror Python's `random.choices(population, weights=..., k=1)` so
     // role transitions match across native ⇄ translated builds.
     let population: Vec<Role> = choices.iter().map(|t| t.0).collect();
-    let weights: Vec<f64> = choices.iter().map(|t| f64::from(t.1)).collect();
+    let weights: Vec<f64> = choices.iter().map(|t| pyrust::float!(t.1)).collect();
     *builder.state.rng.choices(&population, Some(&weights), 1)[0]
 }
 
