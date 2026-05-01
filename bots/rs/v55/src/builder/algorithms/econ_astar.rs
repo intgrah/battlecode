@@ -10,6 +10,7 @@ use cambc::{Controller, Position, ResourceType};
 use crate::builder::algorithms::reachability::find as uf_find;
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
 
+#[pyrust::inline]
 const TARGET_DRIFT_SQ: i32 = 25;
 const BUCKET_COUNT: usize = 32;
 const BIDIRECTIONAL: bool = false;

@@ -32,6 +32,25 @@ pub fn exception(_attr: TokenStream, item: TokenStream) -> TokenStream {
     item
 }
 
+/// Mark a literal-valued `const` for inlining at every use site. The
+/// translator drops the `Final[...] = ...` declaration entirely and
+/// substitutes the literal directly wherever the const is referenced.
+/// On Python's side this saves a `LOAD_GLOBAL` per access (replaced
+/// with `LOAD_CONST`); only useful for hot-loop reads.
+///
+/// Restrictions:
+/// - RHS must be a literal (`Lit::Int`, `Lit::Float`, `Lit::Bool`,
+///   `Lit::Str`). The translator rejects anything else.
+/// - File-local only — cross-module `use` of an inline const drops the
+///   import too, but only the importing file sees the inline; if the
+///   const is referenced from a folded trait body in another file, that
+///   file does not get the inline (yet).
+/// No-op at compile time.
+#[proc_macro_attribute]
+pub fn inline(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    item
+}
+
 /// Mark a struct as a Python context manager. The translator:
 /// 1. Synthesises `__enter__(self): return self` and
 ///    `__exit__(self, *args): self.drop()` on the emitted Python class

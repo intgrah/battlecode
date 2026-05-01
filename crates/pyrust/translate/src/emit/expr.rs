@@ -1226,6 +1226,14 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
     if p.qself.is_some() {
         return Err(w.err(p.span(), "qualified paths not supported"));
     }
+    // `#[pyrust::inline]` const reference: emit the literal directly so
+    // CPython compiles to LOAD_CONST instead of LOAD_GLOBAL.
+    if p.path.leading_colon.is_none()
+        && p.path.segments.len() == 1
+        && let Some(lit) = w.inline_const_lit(&p.path.segments[0].ident.to_string())
+    {
+        return Ok(Emitted::atomic(lit.to_string(), Ty::Unknown));
+    }
     // `#[pyrust::transparent]` enum unit variant — `Foo::None` becomes
     // Python `None`. Match syntactically: if the path's penultimate
     // segment names a `#[pyrust::transparent]` type known via the
