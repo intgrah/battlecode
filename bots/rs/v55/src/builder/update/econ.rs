@@ -1300,7 +1300,7 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
         builder.ax_ore_target = None;
         return;
     };
-    if builder.state.ti < 2 * ((f64::from(ti_base) * builder.state.scale) as i32) {
+    if builder.state.ti < 2 * ((pyrust::float!(ti_base) * builder.state.scale) as i32) {
         builder.ax_ore_target = None;
         return;
     }

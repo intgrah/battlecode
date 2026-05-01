@@ -1354,6 +1354,25 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
     {
         let segs: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
         let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+        // 1-arg numeric `T::from(x)` constructors — Python `int(x)` /
+        // `float(x)`. This is the standard Rust integer-widening /
+        // float-promotion idiom and is path-recognized rather than
+        // requiring a DSL macro.
+        if c.args.len() == 1 {
+            let py = match slice.as_slice() {
+                ["f32", "from"] | ["f64", "from"] => Some(("float", Ty::Float)),
+                ["i8", "from"] | ["i16", "from"] | ["i32", "from"] | ["i64", "from"]
+                | ["i128", "from"] | ["isize", "from"] | ["u8", "from"] | ["u16", "from"]
+                | ["u32", "from"] | ["u64", "from"] | ["u128", "from"] | ["usize", "from"] => {
+                    Some(("int", Ty::Int))
+                }
+                _ => None,
+            };
+            if let Some((name, ty)) = py {
+                let inner = emit_expr(w, c.args.first().unwrap())?;
+                return Ok(Emitted::atomic(format!("{name}({})", inner.text), ty));
+            }
+        }
         // Zero-arg empty constructor.
         if c.args.is_empty() {
             let py = match slice.as_slice() {

@@ -84,9 +84,9 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
     let cap: f64 = if is_offense { 1.0 } else { 0.8 };
     let frac = pyrust::min!(
         (cap),
-        0.4 + (cap - 0.4) * f64::from(builder.state.round) / 100.0
+        0.4 + (cap - 0.4) * pyrust::float!(builder.state.round) / 100.0
     );
-    let radius = (f64::from(pyrust::max!(w, h)) * frac) as i32;
+    let radius = (pyrust::float!(pyrust::max!(w, h)) * frac) as i32;
     let center = if is_offense {
         builder.en_core_guess()
     } else {
@@ -132,7 +132,7 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     let dy = c.y - pos.y;
     let chebyshev_d = pyrust::max!(pyrust::abs!(dx), pyrust::abs!(dy));
 
-    let mut score = f64::from(chebyshev_d);
+    let mut score = pyrust::float!(chebyshev_d);
 
     // Heading commitment: penalty when the target is misaligned with
     // the direction we've been going. cos_align in [-1, 1]; (1 - x) in
@@ -142,10 +142,10 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     {
         let cx = i32::from(dx > 0) - i32::from(dx < 0);
         let cy = i32::from(dy > 0) - i32::from(dy < 0);
-        let h_mag = pyrust::abs!((pyrust::sqrt!(f64::from(hx * hx + hy * hy))));
-        let c_mag = pyrust::abs!((pyrust::sqrt!(f64::from(cx * cx + cy * cy))));
+        let h_mag = pyrust::abs!((pyrust::sqrt!(pyrust::float!(hx * hx + hy * hy))));
+        let c_mag = pyrust::abs!((pyrust::sqrt!(pyrust::float!(cx * cx + cy * cy))));
         if h_mag > 0.0 && c_mag > 0.0 {
-            let cos_align = f64::from(hx * cx + hy * cy) / (h_mag * c_mag);
+            let cos_align = pyrust::float!(hx * cx + hy * cy) / (h_mag * c_mag);
             score += _HEADING_WEIGHT * (1.0 - cos_align);
         }
     }
@@ -155,9 +155,9 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     // number of unobserved samples, normalised by sample count.
     let mut unseen = 0;
     for k in 1..=_LINE_SAMPLES {
-        let t = f64::from(k) / f64::from(_LINE_SAMPLES + 1);
-        let sx = pyrust::round!((f64::from(pos.x) + t * f64::from(dx))) as i32;
-        let sy = pyrust::round!((f64::from(pos.y) + t * f64::from(dy))) as i32;
+        let t = pyrust::float!(k) / pyrust::float!(_LINE_SAMPLES + 1);
+        let sx = pyrust::round!((pyrust::float!(pos.x) + t * pyrust::float!(dx))) as i32;
+        let sy = pyrust::round!((pyrust::float!(pos.y) + t * pyrust::float!(dy))) as i32;
         if 0 <= sx
             && sx < builder.state.width
             && 0 <= sy
@@ -167,7 +167,7 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
             unseen += 1;
         }
     }
-    score -= _FRONTIER_REWARD * f64::from(unseen) / f64::from(_LINE_SAMPLES);
+    score -= _FRONTIER_REWARD * pyrust::float!(unseen) / pyrust::float!(_LINE_SAMPLES);
 
     // Cluster penalty: if any friendly bot is near the candidate, add
     // to the score. Linear falloff to zero at _CLUSTER_RADIUS. Iterate
@@ -184,7 +184,7 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
         let cdy = pyrust::abs!((c.y - fb.y));
         let d = pyrust::max!(cdx, cdy);
         if d < _CLUSTER_RADIUS {
-            score += _CLUSTER_PENALTY * (1.0 - f64::from(d) / f64::from(_CLUSTER_RADIUS));
+            score += _CLUSTER_PENALTY * (1.0 - pyrust::float!(d) / pyrust::float!(_CLUSTER_RADIUS));
         }
     }
 

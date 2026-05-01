@@ -371,7 +371,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
-            >= (f64::from(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale)) as i32
+            >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale)) as i32
     {
         explore(self_, ct);
     } else {

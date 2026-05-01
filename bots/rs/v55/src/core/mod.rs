@@ -140,7 +140,7 @@ impl Core {
         let income_threshold = Self::INCOME_PER_UNIT.mul_add(live, Self::INCOME_QUADRATIC_TERM * live * live)
             / self.spawn_tempo;
         let has_income = income_rate * 4.0 > income_threshold;
-        let surplus_threshold = f64::from(Self::SURPLUS_SCALE_FACTOR).mul_add(pyrust::unwrap!(ct.get_scale_percent()) / 100.0, f64::from(Self::SURPLUS_BASELINE))
+        let surplus_threshold = pyrust::float!(Self::SURPLUS_SCALE_FACTOR).mul_add(pyrust::unwrap!(ct.get_scale_percent()) / 100.0, pyrust::float!(Self::SURPLUS_BASELINE))
             * (2.0 - self.spawn_tempo);
         let has_surplus = pyrust::float!(self.state.ti) > surplus_threshold;
         let builder_ti_cost = pyrust::unwrap!(ct.get_builder_bot_cost()).0;
