@@ -12,18 +12,6 @@ v replay="replay.replay26": vv
 vv:
     cargo build --release -p visualiser-viewer
 
-be map=default_map: bee
-    target/release/blueprint-editor {{ map }}
-
-bee:
-    cargo build --release -p blueprint-editor
-
-bv map=default_map: bvv
-    target/release/bugnav-viewer {{ map }}
-
-bvv:
-    cargo build --release -p bugnav-viewer
-
 w replay="replay.replay26":
     cambc watch {{ replay }}
 
