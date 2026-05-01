@@ -267,6 +267,7 @@ pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
     }
 }
 
+#[pyrust::inline]
 #[must_use]
 pub fn can_afford(builder: &Builder, etype: EntityType) -> bool {
     builder.state.ti >= ti_needed(builder, etype)
@@ -801,11 +802,13 @@ pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool
     barriers >= 3
 }
 
+#[pyrust::inline]
 #[must_use]
 pub fn pick_ore_target(builder: &Builder) -> Option<Position> {
     _pick_ore(builder, Environment::OreTitanium)
 }
 
+#[pyrust::inline]
 #[must_use]
 pub fn pick_ax_ore_target(builder: &Builder) -> Option<Position> {
     _pick_ore(builder, Environment::OreAxionite)
@@ -931,6 +934,7 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         && pure_ti_conveyor_count == 1)
 }
 
+#[pyrust::inline]
 /// True if `pos` is outside our econ disc — i.e. more than
 /// `sqrt(econ_radius_sq)` (= 0.7·max(w,h)) from our core.
 #[must_use]

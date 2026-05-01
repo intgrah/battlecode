@@ -207,12 +207,14 @@ impl Bug2Planner {
         }
     }
 
+    #[pyrust::inline]
     /// Read-only borrow of the in-progress `path_idx` array.
     #[must_use]
     pub fn path_idx(&self) -> &[i32] {
         &self._path_idx
     }
 
+    #[pyrust::inline]
     /// Take ownership of `path_idx`.
     #[must_use]
     pub fn into_path_idx(self) -> Vec<i32> {

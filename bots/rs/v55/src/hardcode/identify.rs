@@ -12,6 +12,7 @@ pub fn find_core(_ct: &Controller<'_>, _hint: Position) -> Position {
     unimplemented!("hardcode::identify::find_core stub — Phase E")
 }
 
+#[pyrust::inline]
 /// Placeholder for `identify_map(w, h, my_core)`. Real impl returns a
 /// `KnownMap` describing the precomputed level. Returns `None` because
 /// the v55 default is `HARDCODE=false`.

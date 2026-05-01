@@ -210,6 +210,7 @@ impl Default for Builder {
 
 impl Deref for Builder {
     type Target = UnitState;
+    #[pyrust::inline]
     fn deref(&self) -> &Self::Target {
         &self.state
     }
@@ -414,6 +415,7 @@ impl Builder {
         (pos.y as usize) * MAX_WIDTH + (pos.x as usize)
     }
 
+    #[pyrust::inline]
     /// In-bounds check (inherent shadow of `Unit::in_bounds`).
     #[inline]
     #[must_use]
@@ -421,6 +423,7 @@ impl Builder {
         pos.x >= 0 && pos.x < self.state.width && pos.y >= 0 && pos.y < self.state.height
     }
 
+    #[pyrust::inline]
     /// Resolved symmetry (inherent shadow of `Unit::symmetry` so peer code
     /// can use `builder.symmetry` without importing the trait).
     #[inline]
@@ -440,6 +443,7 @@ impl Builder {
         Symmetry::Rot
     }
 
+    #[pyrust::inline]
     /// Cached enemy core guess.
     #[inline]
     #[must_use]
@@ -447,6 +451,7 @@ impl Builder {
         self.en_core_guess
     }
 
+    #[pyrust::inline]
     #[must_use]
     pub const fn get_env(&self, pos: Position) -> Option<Environment> {
         self.env[self.idx(pos)]
@@ -465,21 +470,25 @@ impl Builder {
         }
     }
 
+    #[pyrust::inline]
     #[must_use]
     pub const fn kind_at(&self, pos: Position) -> Option<EntityType> {
         self.building_kind[self.idx(pos)]
     }
 
+    #[pyrust::inline]
     #[must_use]
     pub const fn team_at(&self, pos: Position) -> Option<Team> {
         self.building_team[self.idx(pos)]
     }
 
+    #[pyrust::inline]
     #[must_use]
     pub const fn get_cost(&self, pos: Position) -> i32 {
         self.cost_grid[self.idx(pos)]
     }
 
+    #[pyrust::inline]
     #[must_use]
     pub const fn is_passable(&self, pos: Position) -> bool {
         self.cost_grid[self.idx(pos)] != INF
@@ -958,6 +967,7 @@ impl Builder {
 }
 
 impl Unit for Builder {
+    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }
@@ -1074,6 +1084,7 @@ impl Unit for Builder {
 }
 
 impl CoreAwareUnit for Builder {
+    #[pyrust::inline]
     fn my_core_pos(&self) -> Position {
         self.my_core
     }

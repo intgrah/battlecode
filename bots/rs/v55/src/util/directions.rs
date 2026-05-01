@@ -63,6 +63,7 @@ pub const fn delta_to_dir(dx: i32, dy: i32) -> Option<Direction> {
     }
 }
 
+#[pyrust::inline]
 /// Direction from `from_pos` to `to_pos`, or `None` if not adjacent in king-move.
 #[must_use]
 pub const fn get_direction_object(from_pos: Position, to_pos: Position) -> Option<Direction> {
