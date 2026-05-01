@@ -17,12 +17,12 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn chew_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if !vulnerable_harvesters(self_).is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "a vulnerable harvester is in vision — handle that first",
         ));
     }
     if self_.offense_target.is_some() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "offense_target is set — walk_to_cached_target handles it",
         ));
     }
@@ -31,7 +31,7 @@ pub fn chew_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     let my_pos = self_.my_pos;
     let conveyor_target = pick_conveyor_target(self_, ct, enemy_core, my_pos);
     let Some(conveyor_target) = conveyor_target else {
-        return Err(TaskRejected::new("pick_conveyor_target returned None"));
+        return Some(TaskRejected::new("pick_conveyor_target returned None"));
     };
 
     if my_pos == conveyor_target {
@@ -41,5 +41,5 @@ pub fn chew_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     } else {
         make_move(self_, ct, conveyor_target);
     }
-    Ok(())
+    None
 }

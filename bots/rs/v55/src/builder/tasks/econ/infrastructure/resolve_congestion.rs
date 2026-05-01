@@ -18,7 +18,7 @@ use crate::util::metrics::chebyshev;
 
 pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.congested_junctions.is_empty() {
-        return Err(TaskRejected::new("no congested junction in range"));
+        return Some(TaskRejected::new("no congested junction in range"));
     }
     log(
         &format!(
@@ -55,7 +55,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
             "resolve_congestion: no friendly feeders to remove",
             Map::new(),
         );
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "congested junction has no friendly feeder to remove",
         ));
     }
@@ -72,7 +72,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
             );
             ct.destroy(feeder).unwrap();
             self_.apply_local_destroy(feeder);
-            return Ok(());
+            return None;
         }
     }
 
@@ -90,13 +90,13 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         Map::new(),
     );
     if make_move(self_, ct, nearest) {
-        return Ok(());
+        return None;
     }
     log(
         &format!("resolve_congestion: could not approach {:?}", nearest),
         Map::new(),
     );
-    Err(TaskRejected::from_string(format!(
+    Some(TaskRejected::from_string(format!(
         "cannot approach feeder {:?}",
         nearest
     )))

@@ -17,7 +17,7 @@ use crate::util::visualiser::auto_wrap_position;
 
 pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.enemy_bots.is_empty() {
-        return Err(TaskRejected::new("no enemy builder in vision"));
+        return Some(TaskRejected::new("no enemy builder in vision"));
     }
 
     let my_pos = self_.my_pos;
@@ -45,7 +45,7 @@ pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let target_d = best_key.0;
 
     let Some(target) = target else {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "another friendly builder is closer to every visible enemy",
         ));
     };
@@ -55,5 +55,5 @@ pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     args.insert("d".to_string(), serde_json::Value::Number(target_d.into()));
     log("stalk_enemy: following {target} (d²={d})", args);
     make_move(self_, ct, target);
-    Ok(())
+    None
 }

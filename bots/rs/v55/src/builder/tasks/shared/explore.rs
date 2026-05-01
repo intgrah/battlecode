@@ -15,11 +15,11 @@ const EXPLORE_MIN_TI: i32 = 100;
 
 pub fn explore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.ti <= EXPLORE_MIN_TI {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "ti={} <= {}; exploring would burn roads we can't recoup",
             self_.ti, EXPLORE_MIN_TI
         )));
     }
     run_explore(self_, ct);
-    Ok(())
+    None
 }

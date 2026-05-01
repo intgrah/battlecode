@@ -19,13 +19,13 @@ const FOUNDRY_ROUND_GATE: i32 = 500;
 
 pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.round < FOUNDRY_ROUND_GATE {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "round {} < gate {}",
             self_.round, FOUNDRY_ROUND_GATE
         )));
     }
     let Some(target) = self_.foundry_target else {
-        return Err(TaskRejected::new("foundry_target is None"));
+        return Some(TaskRejected::new("foundry_target is None"));
     };
     let kind = self_.kind_at(target);
     let team = self_.team_at(target);
@@ -34,26 +34,26 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     );
     if !is_conveyor {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "{:?}: got {:?}, expected Ti conveyor",
             target, kind
         )));
     }
     if team != Some(self_.my_team) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "{:?}: conveyor held by enemy team",
             target
         )));
     }
     if self_.get_env(target) != Some(Environment::Empty) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "{:?}: terrain is {:?}, not EMPTY",
             target,
             self_.get_env(target)
         )));
     }
     if !ax_feeds_target(self_, target) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "ax chain hasn't reached {:?}",
             target
         )));
@@ -66,7 +66,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
                 &format!("build_foundry: holding {:?} until affordable", target),
                 Map::new(),
             );
-            return Ok(());
+            return None;
         }
         log(
             &format!(
@@ -76,7 +76,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
             Map::new(),
         );
         make_move(self_, ct, target);
-        return Ok(());
+        return None;
     }
 
     if self_.my_pos == target {
@@ -97,7 +97,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
                 ),
                 Map::new(),
             );
-            return Ok(());
+            return None;
         }
     }
 
@@ -111,7 +111,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
             ),
             Map::new(),
         );
-        return Ok(());
+        return None;
     }
 
     if self_.my_pos.distance_squared(target) <= 2
@@ -128,7 +128,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
             &format!("build_foundry: PLACED at {:?}", target),
             Map::new(),
         );
-        return Ok(());
+        return None;
     }
 
     log(
@@ -136,5 +136,5 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         Map::new(),
     );
     make_move(self_, ct, target);
-    Ok(())
+    None
 }

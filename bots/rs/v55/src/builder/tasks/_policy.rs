@@ -5,7 +5,7 @@
 //! A `Policy` is either a `TaskGroup` (an internal node with named children
 //! and an optional gate) or a leaf function `LeafFn` of shape
 //! `(Builder, Controller) -> TaskResult`. Leaves either complete the turn
-//! (return `Ok(())`) or return `Err(TaskRejected)` to defer to the next
+//! (return `None`) or return `Err(TaskRejected)` to defer to the next
 //! sibling.
 //!
 //! Traversal: depth-first, first-success-wins. `run_policy` returns true
@@ -66,8 +66,8 @@ pub fn run_policy(self_: &mut Builder, ct: &mut Controller<'_>, policy: &Policy)
             let scope_label = format!("task={name}");
             let _scope = Scope::new_timed(&scope_label);
             match fn_(self_, ct) {
-                Ok(()) => true,
-                Err(rej) => {
+                None => true,
+                Some(rej) => {
                     let mut args = Map::new();
                     args.insert(
                         "name".to_string(),

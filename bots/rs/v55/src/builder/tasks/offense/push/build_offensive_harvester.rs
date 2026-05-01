@@ -15,16 +15,16 @@ use crate::util::visualiser::auto_wrap_position;
 
 pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(target) = self_.offensive_ore_target else {
-        return Err(TaskRejected::new("offensive_ore_target is None"));
+        return Some(TaskRejected::new("offensive_ore_target is None"));
     };
     if self_.my_pos != target {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "not on offensive ore {:?}",
             target
         )));
     }
     if !ore_available(self_, target) {
-        return Err(TaskRejected::new("offensive_ore_target is None"));
+        return Some(TaskRejected::new("offensive_ore_target is None"));
     }
     if !can_afford(self_, EntityType::Harvester) {
         let mut args = Map::new();
@@ -33,7 +33,7 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
             "build_offensive_harvester: waiting on Ti for {target}",
             args,
         );
-        return Ok(());
+        return None;
     }
     if harvester_feed_cardinal(self_, target).is_none() {
         if !clear_barriered_feed(self_, ct, target) {
@@ -44,7 +44,7 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
                 args,
             );
         }
-        return Ok(());
+        return None;
     }
     if !step_off_and_build_harvester(self_, ct, target) {
         let mut args = Map::new();
@@ -54,5 +54,5 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
             args,
         );
     }
-    Ok(())
+    None
 }

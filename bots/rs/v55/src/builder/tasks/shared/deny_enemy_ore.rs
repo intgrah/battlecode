@@ -18,10 +18,10 @@ pub fn deny_enemy_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
             && ct.can_build_road(pos).unwrap()
         {
             ct.build_road(pos).unwrap();
-            return Ok(());
+            return None;
         }
     }
-    Err(TaskRejected::new(
+    Some(TaskRejected::new(
         "no in-range tile is a denial candidate right now",
     ))
 }

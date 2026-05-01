@@ -14,12 +14,12 @@ use crate::builder::tasks::shared::heal::_helpers::{fight_to_death, has_wounded_
 
 pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if fight_to_death(self_, ct) {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "low HP on enemy tile — fight to death, no heal",
         ));
     }
     if ct.get_hp(None).unwrap() > ct.get_max_hp(None).unwrap() - GameConstants::HEAL_AMOUNT {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "self HP within HEAL_AMOUNT of max — heal would waste Ti",
         ));
     }
@@ -28,7 +28,7 @@ pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if !has_wounded_enemy(self_, my_pos) {
         try_heal(self_, ct, my_pos, false);
         move_random(self_, ct);
-        return Ok(());
+        return None;
     }
 
     let dir_neighbours_8 = self_.dir_neighbours_8.clone();
@@ -37,11 +37,11 @@ pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
             ct.move_(d).unwrap();
             let cur = ct.get_position(None).unwrap();
             try_heal(self_, ct, cur, false);
-            return Ok(());
+            return None;
         }
     }
 
-    Err(TaskRejected::new(
+    Some(TaskRejected::new(
         "on wounded enemy tile, no safe step-off direction",
     ))
 }

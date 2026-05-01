@@ -1,17 +1,11 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/tasks/rejected.py`.
 //!
-//! Python uses 72 distinct `TaskRejectedError` subclasses for typed
-//! debug rendering. The Rust translation collapses them into a single
-//! struct carrying a static reason string — the policy runner only
-//! needs to know "task rejected, here's why".
+//! Failure model is Option-shape, not Result: `None` = task fired,
+//! `Some(TaskRejected)` = task rejected. Dodges Python exceptions
+//! (which would be non-deterministic if any unrelated exception
+//! propagated mid-turn) and matches the pyrust DSL `try_!` macro for
+//! early propagation.
 
-/// A task cannot fire this turn. The `reason` string is rendered to
-/// the debug log when a task rejects.
-///
-/// `#[pyrust::exception]` makes the translated Python class subclass
-/// `Exception`, so v55's `Err(TaskRejected::new(...))` lowering as
-/// `raise TaskRejected(...)` works at runtime.
-#[pyrust::exception]
 #[derive(Clone, Debug)]
 pub struct TaskRejected {
     pub reason: String,
@@ -39,6 +33,6 @@ impl core::fmt::Display for TaskRejected {
     }
 }
 
-/// Result type used by every task leaf: `Ok(())` = task fired,
-/// `Err(TaskRejected)` = move on to the next sibling.
-pub type TaskResult = Result<(), TaskRejected>;
+/// Result type used by every task leaf: `None` = task fired,
+/// `Some(TaskRejected)` = move on to the next sibling.
+pub type TaskResult = Option<TaskRejected>;

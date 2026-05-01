@@ -14,7 +14,7 @@ use crate::builder::tasks::shared::heal::_helpers::{fight_to_death, has_wounded_
 
 pub fn heal_adjacent_builder(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if fight_to_death(self_, ct) {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "low HP on enemy tile — fight to death, no heal",
         ));
     }
@@ -28,9 +28,9 @@ pub fn heal_adjacent_builder(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
                 continue;
             }
             if try_heal(self_, ct, position, false) {
-                return Ok(());
+                return None;
             }
         }
     }
-    Err(TaskRejected::new("no damaged friendly bot in heal range"))
+    Some(TaskRejected::new("no damaged friendly bot in heal range"))
 }

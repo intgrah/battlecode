@@ -233,9 +233,9 @@ pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult 
                 BuildExtra::Direction(d),
                 true,
             ) {
-                return Ok(());
+                return None;
             }
-            return Err(TaskRejected::new(
+            return Some(TaskRejected::new(
                 "no valid gunner or sentinel placement nearby",
             ));
         }
@@ -253,12 +253,12 @@ pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult 
             BuildExtra::Direction(d),
             true,
         );
-        return Ok(());
+        return None;
     }
     if place_sentinel_nearby(self_, ct) {
-        return Ok(());
+        return None;
     }
-    Err(TaskRejected::new(
+    Some(TaskRejected::new(
         "no valid gunner or sentinel placement nearby",
     ))
 }

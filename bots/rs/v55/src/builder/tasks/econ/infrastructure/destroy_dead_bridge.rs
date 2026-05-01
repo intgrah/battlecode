@@ -46,7 +46,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
 
 pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.unreachable_dangling.is_empty() {
-        return Err(TaskRejected::new("no unreachable dangling"));
+        return Some(TaskRejected::new("no unreachable dangling"));
     }
     let my_pos = self_.my_pos;
     let target = *self_
@@ -55,7 +55,7 @@ pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> Task
         .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x))
         .unwrap();
     let Some(bridge) = find_upstream_bridge(self_, target) else {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "no bridge upstream of unreachable dangling {:?}",
             target
         )));
@@ -63,12 +63,12 @@ pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> Task
     if ct.can_destroy(bridge).unwrap() {
         ct.destroy(bridge).unwrap();
         self_.apply_local_destroy(bridge);
-        return Ok(());
+        return None;
     }
     if make_move(self_, ct, bridge) {
-        return Ok(());
+        return None;
     }
-    Err(TaskRejected::from_string(format!(
+    Some(TaskRejected::from_string(format!(
         "cannot destroy or approach bridge {:?}",
         bridge
     )))
