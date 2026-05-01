@@ -83,6 +83,16 @@ macro_rules! __pyrust_is_some_and {
     };
 }
 
+/// `pyrust::opt_take!(field)` — Rust `Option::take()`. The translator
+/// emits a 2-step rebind in Python (read field, clear it, yield old
+/// value). Argument MUST be a place expression `obj.field`.
+#[macro_export]
+macro_rules! __pyrust_opt_take {
+    ($e:expr) => {
+        ($e).take()
+    };
+}
+
 /// `pyrust::int!(x)` — Python `int(x)`.
 #[macro_export]
 macro_rules! __pyrust_cast_int {
