@@ -114,6 +114,7 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("unwrap", 0) => Some("unwrap"),
         ("expect", 1) => Some("expect"),
         ("unwrap_or", 1) => Some("unwrap_or"),
+        ("is_some_and", 1) => Some("is_some_and"),
         _ => None,
     }
 }
