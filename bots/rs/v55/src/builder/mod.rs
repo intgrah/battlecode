@@ -1068,7 +1068,7 @@ impl Unit for Builder {
 }
 
 impl CoreAwareUnit for Builder {
-    fn my_core(&self) -> Position {
+    fn my_core_pos(&self) -> Position {
         self.my_core
     }
 
