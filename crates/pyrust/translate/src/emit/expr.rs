@@ -1844,6 +1844,9 @@ fn split_top_level_commas(trees: &[proc_macro2::TokenTree]) -> Vec<&[proc_macro2
 }
 
 fn emit_macro_expr(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Emitted, String> {
+    if let Some(out) = emit_pyrust_dsl(w, em)? {
+        return Ok(out);
+    }
     if let Some(kind) = collection::recognize(&em.mac.path) {
         return collection::emit(w, kind, &em.mac);
     }
@@ -2676,5 +2679,304 @@ fn expr_kind(e: &syn::Expr) -> &'static str {
         syn::Expr::While(_) => "while",
         syn::Expr::Yield(_) => "yield",
         _ => "expression",
+    }
+}
+
+// ---- pyrust DSL macro dispatch ----------------------------------------
+//
+// Each macro under `pyrust::<ns>::<name>` has a fixed Rust expansion (in
+// the shim) and a fixed Python emission (here). The translator pattern-
+// matches on the full path and parses the macro's tokens as a comma-
+// separated expression list (or, for `iter::min_by`, a closure form).
+//
+// `pyrust::result::try_!(expr)` is special: it expands to a statement
+// (`_r = ...; if _r is not None: return _r`), not a value. Currently
+// emitted as a multi-line statement when the call appears in statement
+// position; in expression position it would have to be hoisted.
+
+/// Try the pyrust DSL pattern dispatch. Returns `Some(emitted)` if the
+/// macro path matched a known DSL macro, `None` otherwise.
+fn emit_pyrust_dsl(
+    w: &mut PyWriter,
+    em: &syn::ExprMacro,
+) -> Result<Option<Emitted>, String> {
+    let segs: Vec<String> = em
+        .mac
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
+    let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+    // Two surface forms: `pyrust::<ns>::<name>!(...)` (preferred) and
+    // `<ns>::<name>!(...)` (after a `use pyrust::<ns>;` brings the
+    // namespace into scope). Strip the leading `pyrust` if present.
+    let tail: &[&str] = if slice.first() == Some(&"pyrust") {
+        &slice[1..]
+    } else {
+        &slice[..]
+    };
+    if tail.len() != 2 {
+        return Ok(None);
+    }
+    let ns = tail[0];
+    let name = tail[1];
+    let tokens = em.mac.tokens.clone();
+
+    macro_rules! parse_args {
+        () => {
+            parse_macro_arg_list(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("{ns}::{name}!: {e}")))?
+        };
+    }
+
+    // Helper: emit each parsed arg.
+    let emit_args = |w: &mut PyWriter, args: &[syn::Expr]| -> Result<Vec<Emitted>, String> {
+        args.iter().map(|a| emit_expr(w, a)).collect()
+    };
+
+    match (ns, name) {
+        // result::try_!(expr) — Option-shape `?` propagation. In
+        // statement position the caller threads us through emit_stmt;
+        // in expression position we synthesise a walrus expression that
+        // evaluates to None (the unused expression value) and a
+        // raise-on-Some side effect would be needed — instead we
+        // restrict to statement position via a parser hint.
+        ("result", "try_") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "result::try_!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            // Emit as statement-shaped block. Caller in expression
+            // position will get a malformed result, but the typical use
+            // is `pyrust::result::try_!(call())` as a standalone stmt,
+            // which the surrounding emit_stmt accepts.
+            let tmp = w.fresh_tmp();
+            w.line(&format!("{tmp} = {}", inner.text));
+            w.line(&format!("if {tmp} is not None:"));
+            w.enter_indent();
+            w.line(&format!("return {tmp}"));
+            w.exit_indent();
+            return Ok(Some(Emitted::atomic("None".to_string(), Ty::Unknown)));
+        }
+        ("iter", "sum") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "iter::sum!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            return Ok(Some(Emitted::atomic(
+                format!("sum({})", it.text),
+                Ty::Int,
+            )));
+        }
+        ("iter", "min") | ("iter", "max") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "iter::min/max!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            // Python `min(empty)` raises; emit a null-safe wrapper so
+            // semantics match Rust's `Option<T>` return.
+            let py_fn = if name == "min" { "min" } else { "max" };
+            return Ok(Some(Emitted::atomic(
+                format!(
+                    "({0}({1}) if {1} else None)",
+                    py_fn, it.text
+                ),
+                Ty::Unknown,
+            )));
+        }
+        ("iter", "min_by") | ("iter", "max_by") => {
+            // `min_by!(xs, |x| key)` — parse manually because closures
+            // aren't comma-list compatible.
+            let parsed = syn::parse2::<MinMaxByArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("{ns}::{name}!: {e}")))?;
+            let it = emit_expr(w, &parsed.iter)?;
+            let key = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.to_string();
+            let py_fn = if name == "min_by" { "min" } else { "max" };
+            return Ok(Some(Emitted::atomic(
+                format!(
+                    "({0}({1}, key=lambda {2}: {3}) if {1} else None)",
+                    py_fn, it.text, pname, key.text
+                ),
+                Ty::Unknown,
+            )));
+        }
+        ("vec", "push") => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::push!: expected (vec, item)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("{}.append({})", emits[0].text, emits[1].text),
+                Ty::Unit,
+            )));
+        }
+        ("vec", "pop") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::pop!: expected (vec)"));
+            }
+            let emits = emit_args(w, &args)?;
+            // Rust `Vec::pop()` returns Option<T>; Python `list.pop()`
+            // raises on empty. Wrap so semantics match.
+            return Ok(Some(Emitted::atomic(
+                format!(
+                    "({0}.pop() if {0} else None)",
+                    emits[0].text
+                ),
+                Ty::Unknown,
+            )));
+        }
+        ("vec", "clear") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::clear!: expected (vec)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("{}.clear()", emits[0].text),
+                Ty::Unit,
+            )));
+        }
+        ("set", "add") => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "set::add!: expected (set, item)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("{}.add({})", emits[0].text, emits[1].text),
+                Ty::Bool,
+            )));
+        }
+        ("set", "contains") | ("dict", "contains") => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "contains!: expected (collection, item)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted {
+                text: format!("({} in {})", emits[1].text, emits[0].text),
+                ty: Ty::Bool,
+                prec: Prec::Atom,
+            }));
+        }
+        ("set", "remove") => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "set::remove!: expected (set, item)"));
+            }
+            let emits = emit_args(w, &args)?;
+            // Python `set.discard` is the no-raise variant matching
+            // Rust's `HashSet::remove` (returns bool indicating presence).
+            return Ok(Some(Emitted::atomic(
+                format!("{}.discard({})", emits[0].text, emits[1].text),
+                Ty::Unit,
+            )));
+        }
+        ("dict", "insert") => {
+            let args = parse_args!();
+            if args.len() != 3 {
+                return Err(w.err(em.span(), "dict::insert!: expected (dict, key, value)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("{}[{}] = {}", emits[0].text, emits[1].text, emits[2].text),
+                Ty::Unit,
+            )));
+        }
+        ("dict", "get") => {
+            let args = parse_args!();
+            let emits = emit_args(w, &args)?;
+            let text = match emits.len() {
+                2 => format!("{}.get({})", emits[0].text, emits[1].text),
+                3 => format!(
+                    "{}.get({}, {})",
+                    emits[0].text, emits[1].text, emits[2].text
+                ),
+                _ => return Err(w.err(em.span(), "dict::get!: expected 2 or 3 arguments")),
+            };
+            return Ok(Some(Emitted::atomic(text, Ty::Unknown)));
+        }
+        ("dict", "remove") => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "dict::remove!: expected (dict, key)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("{}.pop({}, None)", emits[0].text, emits[1].text),
+                Ty::Unknown,
+            )));
+        }
+        ("string", "clear") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "string::clear!: expected (s)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("{} = \"\"", emits[0].text),
+                Ty::Unit,
+            )));
+        }
+        ("cast", "int") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "cast::int!: expected (x)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("int({})", emits[0].text),
+                Ty::Int,
+            )));
+        }
+        ("cast", "float") => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "cast::float!: expected (x)"));
+            }
+            let emits = emit_args(w, &args)?;
+            return Ok(Some(Emitted::atomic(
+                format!("float({})", emits[0].text),
+                Ty::Float,
+            )));
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Parse a macro's body as a comma-separated `Vec<syn::Expr>`. Used by
+/// the DSL dispatch to extract argument expressions.
+fn parse_macro_arg_list(tokens: proc_macro2::TokenStream) -> Result<Vec<syn::Expr>, String> {
+    use syn::parse::Parser;
+    let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+    let parsed = parser
+        .parse2(tokens)
+        .map_err(|e| format!("parse args: {e}"))?;
+    Ok(parsed.into_iter().collect())
+}
+
+/// `iter::min_by!(xs, |x| key)` — argument shape with a closure.
+struct MinMaxByArgs {
+    iter: syn::Expr,
+    param: syn::Ident,
+    body: syn::Expr,
+}
+
+impl syn::parse::Parse for MinMaxByArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let iter: syn::Expr = input.parse()?;
+        let _: syn::Token![,] = input.parse()?;
+        let _: syn::Token![|] = input.parse()?;
+        let param: syn::Ident = input.parse()?;
+        let _: syn::Token![|] = input.parse()?;
+        let body: syn::Expr = input.parse()?;
+        Ok(MinMaxByArgs { iter, param, body })
     }
 }

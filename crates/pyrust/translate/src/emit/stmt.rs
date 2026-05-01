@@ -1500,6 +1500,12 @@ fn emit_result_match_as_try(
     err_arm: &syn::Arm,
     tail: Tail,
 ) -> Result<(), String> {
+    // `match expr { Ok(()) => ok, Err(rej) => err }` lowers to the
+    // Option-shape: `Result<(), E>` is represented in Python as `E | None`,
+    // with `None` = success and a non-None value = the err. The match
+    // becomes `let rej = expr; if rej is None { ok } else { err }`.
+    // Avoids `try/except` (which the cambc sandbox's allowlist would
+    // reject for non-builtin err types) and avoids swallowing real bugs.
     let err_binding = match &err_arm.pat {
         syn::Pat::TupleStruct(ts) if ts.elems.len() == 1 => match ts.elems.first().unwrap() {
             syn::Pat::Ident(i) => Some(i.ident.to_string()),
@@ -1508,28 +1514,20 @@ fn emit_result_match_as_try(
         },
         _ => None,
     };
-    // The cambc sandbox's AST validator only allows specific exception
-    // names. We use ra_ap to confirm the err type exists for pre-pass
-    // bookkeeping, but the emitted handler is `except Exception` so the
-    // sandbox accepts the file regardless of the err type's name.
     let scrut = expr::emit_expr(w, scrut_expr)?;
-    w.line("try:");
+    let bind = err_binding.clone().unwrap_or_else(|| "_e".to_owned());
+    w.declare(&bind, Ty::Unknown);
+    w.line(&format!("{bind} = {}", scrut.text));
+    w.line(&format!("if {bind} is None:"));
     w.enter_indent();
     w.enter_block();
-    if !scrut.text.is_empty() {
-        w.line(&scrut.text);
-    }
     super::pat::declare_pat_bindings(w, &ok_arm.pat);
     emit_match_arm_body(w, &ok_arm.body, tail)?;
     w.exit_block();
     w.exit_indent();
-    let bind = err_binding.clone().unwrap_or_else(|| "_e".to_owned());
-    w.line(&format!("except Exception as {bind}:"));
+    w.line("else:");
     w.enter_indent();
     w.enter_block();
-    if let Some(name) = &err_binding {
-        w.declare(name, Ty::Unknown);
-    }
     super::pat::declare_pat_bindings(w, &err_arm.pat);
     emit_match_arm_body(w, &err_arm.body, tail)?;
     w.exit_block();
