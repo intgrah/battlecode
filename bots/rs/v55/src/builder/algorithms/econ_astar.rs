@@ -207,14 +207,14 @@ impl AStarSearch {
         if si == gi {
             self.finished = true;
             self.target = Some(target);
-            self.last_fail_reason.clear();
+            pyrust::string::clear!(self.last_fail_reason);
             self.last_nodes_expanded = 0;
             return Some(vec![start]);
         }
         if dx + dy == 1 {
             self.finished = true;
             self.target = Some(target);
-            self.last_fail_reason.clear();
+            pyrust::string::clear!(self.last_fail_reason);
             self.last_nodes_expanded = 0;
             return Some(vec![start, target]);
         }
@@ -489,7 +489,7 @@ impl AStarSearch {
             rev_path.push(node);
         }
 
-        self.last_fail_reason.clear();
+        pyrust::string::clear!(self.last_fail_reason);
         Some(
             rev_path
                 .into_iter()
@@ -756,7 +756,7 @@ impl AStarSearch {
             }
         }
 
-        self.last_fail_reason.clear();
+        pyrust::string::clear!(self.last_fail_reason);
         Some(
             path.into_iter()
                 .map(|i| Position {

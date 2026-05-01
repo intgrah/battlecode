@@ -134,18 +134,18 @@ impl Core {
         if self.state.friendly_bots.len() > Self::CROWDING_LIMIT {
             return false;
         }
-        let live = f64::from(live_units);
+        let live = pyrust::float!(live_units);
         let income_threshold = (Self::INCOME_PER_UNIT * live
             + Self::INCOME_QUADRATIC_TERM * live * live)
             / self.spawn_tempo;
         let has_income = income_rate * 4.0 > income_threshold;
-        let surplus_threshold = (f64::from(Self::SURPLUS_BASELINE)
-            + f64::from(Self::SURPLUS_SCALE_FACTOR) * (ct.get_scale_percent().unwrap() / 100.0))
+        let surplus_threshold = (pyrust::float!(Self::SURPLUS_BASELINE)
+            + pyrust::float!(Self::SURPLUS_SCALE_FACTOR) * (ct.get_scale_percent().unwrap() / 100.0))
             * (2.0 - self.spawn_tempo);
-        let has_surplus = f64::from(self.state.ti) > surplus_threshold;
+        let has_surplus = pyrust::float!(self.state.ti) > surplus_threshold;
         let builder_ti_cost = ct.get_builder_bot_cost().unwrap().0;
-        let has_trickle = f64::from(self.state.ti)
-            > f64::from(builder_ti_cost) * Self::TRICKLE_COST_MULTIPLIER
+        let has_trickle = pyrust::float!(self.state.ti)
+            > pyrust::float!(builder_ti_cost) * Self::TRICKLE_COST_MULTIPLIER
             && self.state.round - self.last_spawn_round > Self::TRICKLE_MIN_INTERVAL;
         (self.state.round > 20 && has_income)
             || (self.state.round > 40 && has_surplus)
@@ -220,8 +220,8 @@ impl Unit for Core {
         };
         self.known_map = known;
         let area = self.state.width * self.state.height;
-        let numerator = f64::from((36 - 18) * (area - 20 * 20));
-        let denominator = f64::from(50 * 50 - 20 * 20);
+        let numerator = pyrust::float!((36 - 18) * (area - 20 * 20));
+        let denominator = pyrust::float!(50 * 50 - 20 * 20);
         let raw = 18.0 + numerator / denominator;
         self.max_team_units = raw.round() as i32;
         let _scope = Scope::new_timed("spawn_tempo");
@@ -237,7 +237,7 @@ impl Unit for Core {
         }
         self.deliveries.push_front(incoming);
         let total: i32 = self.deliveries.iter().sum();
-        let income_rate = f64::from(total) / self.deliveries.len() as f64;
+        let income_rate = pyrust::float!(total) / self.deliveries.len() as f64;
 
         self.maybe_convert(ct);
 
