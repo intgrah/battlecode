@@ -88,7 +88,7 @@ fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
 /// defence-heavy, mid more aggressive).
 fn _pick_initial_role(builder: &mut Builder) -> Role {
     let idx = builder.state.round - 1;
-    if (0..(_OPENING_ROLES.len() as i32)).contains(&idx) {
+    if pyrust::vec::contains!((0..(_OPENING_ROLES.len() as i32)), &idx) {
         return _OPENING_ROLES[idx as usize];
     }
     let w: &[(Role, u32)] = if builder.state.round < 50 {

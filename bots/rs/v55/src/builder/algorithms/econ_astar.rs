@@ -31,7 +31,7 @@ fn bridge_deltas() -> Vec<(i32, i32, i32)> {
     for dx in -3..=3i32 {
         for dy in -3..=3i32 {
             let d2 = dx * dx + dy * dy;
-            if (3..=9).contains(&d2) {
+            if pyrust::vec::contains!((3..=9), &d2) {
                 out.push((dx, dy, 9));
             }
         }
@@ -775,7 +775,7 @@ impl AStarSearch {
         let mut saved: Vec<(usize, bool, bool)> = pyrust::vec::new!();
         let nearby = ctx.nearby_tiles.clone();
         for pos in &nearby {
-            if ctx.all_bots.contains_key(pos) && *pos != start {
+            if pyrust::dict::contains!(ctx.all_bots, pos) && *pos != start {
                 let idx = (pos.y * stride + pos.x) as usize;
                 saved.push((idx, ctx.ti_routable[idx], ctx.ax_routable[idx]));
                 ctx.ti_routable[idx] = false;

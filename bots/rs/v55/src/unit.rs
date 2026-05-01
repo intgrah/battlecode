@@ -253,7 +253,7 @@ impl UnitState {
     #[must_use]
     pub fn symmetry_guess(&self) -> Symmetry {
         for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
-            if self.symmetry_candidates.contains(&sym) {
+            if pyrust::vec::contains!(self.symmetry_candidates, &sym) {
                 return sym;
             }
         }

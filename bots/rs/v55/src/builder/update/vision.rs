@@ -19,7 +19,7 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
                 continue;
             }
             let ti = builder.idx(t);
-            if builder.in_edges[ti].contains(&pos) {
+            if pyrust::vec::contains!(builder.in_edges[ti], &pos) {
                 builder.in_edges[ti].retain(|&p| p != pos);
                 builder._on_in_edge_removed(t, pos);
                 builder._check_multi_input(t);
@@ -74,18 +74,18 @@ pub fn _add_topology(
                     builder._check_multi_input(t);
                 }
             }
-            let was_ti_in = builder.ti_upstream.contains(&pos);
-            let was_ax_in = builder.ax_upstream.contains(&pos);
+            let was_ti_in = pyrust::vec::contains!(builder.ti_upstream, &pos);
+            let was_ax_in = pyrust::vec::contains!(builder.ax_upstream, &pos);
             let pi = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
             builder.out_edges[pi] = outs.clone();
             builder._on_out_edges_changed(pos);
             for t in &outs {
                 let ti = builder.idx(*t);
-                if was_ti_in && builder.ti_upstream.contains(&pos) {
+                if was_ti_in && pyrust::vec::contains!(builder.ti_upstream, &pos) {
                     builder._ti_in_count[ti] += 1;
                     builder._reeval_ti_upstream(*t);
                 }
-                if was_ax_in && builder.ax_upstream.contains(&pos) {
+                if was_ax_in && pyrust::vec::contains!(builder.ax_upstream, &pos) {
                     builder._ax_in_count[ti] += 1;
                     builder._reeval_ax_upstream(*t);
                 }
@@ -331,8 +331,8 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                         }
                         let nx = px + dx;
                         let ny = py + dy;
-                        if !(0..builder.state.width).contains(&nx)
-                            || !(0..builder.state.height).contains(&ny)
+                        if !pyrust::vec::contains!((0..builder.state.width), &nx)
+                            || !pyrust::vec::contains!((0..builder.state.height), &ny)
                         {
                             continue;
                         }

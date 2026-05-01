@@ -24,7 +24,7 @@ fn feeder_delta(self_: &Builder, pos: Position) -> Option<Direction> {
     let dx = pos.x - feeder.x;
     let dy = pos.y - feeder.y;
     let d = delta_to_dir(dx, dy)?;
-    if !DIR4.contains(&d) {
+    if !pyrust::vec::contains!(DIR4, &d) {
         return None;
     }
     Some(d)

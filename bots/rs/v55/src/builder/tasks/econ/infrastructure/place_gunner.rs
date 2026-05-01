@@ -88,7 +88,7 @@ fn direction_to(src: Position, dst: Position) -> Direction {
 }
 
 pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
-    if !self_.adjacent_to_harvester.contains(&position) {
+    if !pyrust::vec::contains!(self_.adjacent_to_harvester, &position) {
         return None;
     }
     if !self_.is_buildable(position) {
@@ -146,7 +146,7 @@ pub fn sentinel_facing(
     let nearest = self_.nearest_enemy_turret;
     if pyrust::is_none!(nearest)
         || position.distance_squared(pyrust::unwrap!(nearest)) > GameConstants::SENTINEL_VISION_RADIUS_SQ
-        || !self_.adjacent_to_harvester.contains(&position)
+        || !pyrust::vec::contains!(self_.adjacent_to_harvester, &position)
         || !self_.is_buildable(position)
         || is_turret_or_transport(kind)
         || is_precious_friendly(kind, team, self_.my_team)
@@ -180,7 +180,7 @@ pub fn sentinel_facing(
 
     let shootable_tiles = pyrust::unwrap!(ct
         .get_attackable_tiles_from(position, d, EntityType::Sentinel));
-    if shootable_tiles.contains(&nearest) {
+    if pyrust::vec::contains!(shootable_tiles, &nearest) {
         return Some(d);
     }
     None
