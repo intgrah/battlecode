@@ -50,6 +50,7 @@ pub use crate::__pyrust_iter_sum as sum;
 pub use crate::__pyrust_len as len;
 pub use crate::__pyrust_map as map;
 pub use crate::__pyrust_next as next;
+pub use crate::__pyrust_position as position;
 pub use crate::__pyrust_print as print;
 pub use crate::__pyrust_rev as rev;
 pub use crate::__pyrust_round as round;
@@ -73,6 +74,7 @@ pub mod vec {
         __pyrust_vec_new as new, __pyrust_vec_pop as pop, __pyrust_vec_pop_back as pop_back,
         __pyrust_vec_pop_front as pop_front, __pyrust_vec_push as push,
         __pyrust_vec_push_back as push_back, __pyrust_vec_push_front as push_front,
+        __pyrust_vec_swap_remove as swap_remove,
     };
 }
 pub mod set {

@@ -498,6 +498,15 @@ macro_rules! __pyrust_vec_pop_back {
     };
 }
 
+/// `pyrust::vec::swap_remove!(v, i)` — Rust `Vec::swap_remove(i)`,
+/// Python: swap with last then pop (O(1) — order not preserved).
+#[macro_export]
+macro_rules! __pyrust_vec_swap_remove {
+    ($v:expr, $i:expr) => {
+        $v.swap_remove($i)
+    };
+}
+
 /// Pop the last element. Returns `Option<T>` — `None` on empty.
 /// Translator emits `(v.pop() if v else None)` for Python parity.
 #[macro_export]
