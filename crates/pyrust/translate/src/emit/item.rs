@@ -537,7 +537,11 @@ fn emit_sum_enum_with_file(
                 .collect(),
             _ => Vec::new(),
         };
-        w.enter_class(class_name.clone());
+        // Variant class body: methods are folded from `impl Enum`, so
+        // `Self::Variant` paths in those bodies should resolve through
+        // the enum (whose dataclass is `EnumNameVariant`), not through
+        // the variant class (which would yield `EnumNameVariantVariant`).
+        w.enter_class_with_self(class_name.clone(), enum_name.clone());
         w.set_current_class_fields(variant_field_names.clone());
         let mut emitted_methods = std::collections::HashSet::new();
         for im in &impls {

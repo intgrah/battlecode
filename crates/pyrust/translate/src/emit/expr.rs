@@ -150,7 +150,7 @@ fn struct_path_name(w: &PyWriter, path: &syn::Path) -> Result<String, String> {
         let ident = &segs[0];
         if ident == "Self" {
             return w
-                .current_class()
+                .self_type()
                 .map(String::from)
                 .ok_or_else(|| w.err(path.span(), "`Self` outside of an impl block"));
         }
@@ -160,7 +160,7 @@ fn struct_path_name(w: &PyWriter, path: &syn::Path) -> Result<String, String> {
     // `Foo::Bar { ... }` → dataclass `FooBar(...)`.
     if segs.len() == 2 && !matches!(segs[0].as_str(), "crate" | "super" | "self") {
         let head = if segs[0] == "Self" {
-            w.current_class()
+            w.self_type()
                 .map(String::from)
                 .ok_or_else(|| w.err(path.span(), "`Self::` outside of an impl block"))?
         } else {
@@ -820,9 +820,10 @@ fn matches_pat_to_bool(w: &mut PyWriter, scrut: &str, pat: &syn::Pat) -> Result<
                 .iter()
                 .map(|s| s.ident.to_string())
                 .collect();
-            // Resolve `Self::Variant` to the surrounding class.
+            // Resolve `Self::Variant` to the surrounding class
+            // (or variant override).
             let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
-                if let Some(cls) = w.current_class() {
+                if let Some(cls) = w.self_type() {
                     let mut v = vec![cls.to_string()];
                     v.extend(segs.iter().skip(1).cloned());
                     v
@@ -1264,7 +1265,7 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
         // constructor `EnumNameVariant()`. For C-style enums (or plain
         // class constants) emit `Class.Variant`.
         let class = if head == "Self" {
-            w.current_class()
+            w.self_type()
                 .map(String::from)
                 .ok_or_else(|| w.err(p.span(), "`Self::` outside of an impl block"))?
         } else {
@@ -1502,7 +1503,7 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         let head = path.segments[0].ident.to_string();
         let tail = path.segments[1].ident.to_string();
         let class_name = if head == "Self" {
-            w.current_class()
+            w.self_type()
                 .map(String::from)
                 .ok_or_else(|| w.err(path.span(), "`Self::` outside of an impl block"))?
         } else {
