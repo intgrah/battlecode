@@ -167,12 +167,15 @@ pub fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String>
     // `#[pyrust::exception]`. Pure syntactic — read .rs files, parse with
     // syn, look at attributes. Used by `emit_use` (drop transparent
     // imports) and the struct emitter (subclass `Exception`).
-    let (transparent, exception) = scan_pyrust_attrs(src);
+    let (transparent, exception, context_manager) = scan_pyrust_attrs(src);
     for n in transparent {
         cfg.transparent_def_names.insert(n);
     }
     for n in exception {
         cfg.exception_def_names.insert(n);
+    }
+    for n in context_manager {
+        cfg.context_manager_def_names.insert(n);
     }
 
     let table = tyctx::FileTyTable::empty();
@@ -259,9 +262,11 @@ fn scan_pyrust_attrs(
 ) -> (
     std::collections::HashSet<String>,
     std::collections::HashSet<String>,
+    std::collections::HashSet<String>,
 ) {
     let mut transparent = std::collections::HashSet::new();
     let mut exception = std::collections::HashSet::new();
+    let mut context_manager = std::collections::HashSet::new();
     let workspace_root = match find_workspace_root(src) {
         Some(r) => r,
         None => src.to_path_buf(),
@@ -290,11 +295,16 @@ fn scan_pyrust_attrs(
                 let Ok(file) = syn::parse_file(&source) else {
                     continue;
                 };
-                collect_pyrust_attrs_from_file(&file, &mut transparent, &mut exception);
+                collect_pyrust_attrs_from_file(
+                    &file,
+                    &mut transparent,
+                    &mut exception,
+                    &mut context_manager,
+                );
             }
         }
     }
-    (transparent, exception)
+    (transparent, exception, context_manager)
 }
 
 fn find_workspace_root(start: &Path) -> Option<PathBuf> {
@@ -321,6 +331,7 @@ fn collect_pyrust_attrs_from_file(
     file: &syn::File,
     transparent: &mut std::collections::HashSet<String>,
     exception: &mut std::collections::HashSet<String>,
+    context_manager: &mut std::collections::HashSet<String>,
 ) {
     for item in &file.items {
         let (name, attrs): (String, &[syn::Attribute]) = match item {
@@ -341,6 +352,8 @@ fn collect_pyrust_attrs_from_file(
                 transparent.insert(name.clone());
             } else if path_text == "pyrust::exception" {
                 exception.insert(name.clone());
+            } else if path_text == "pyrust::context_manager" {
+                context_manager.insert(name.clone());
             }
         }
     }

@@ -821,7 +821,7 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
         if harvester_would_contaminate(builder, *pos) {
             continue;
         }
-        let friends_iter = pyrust::filter_map!(pyrust::iter!(builder.state.all_bots), |t| {
+        let friends_iter = pyrust::filter_map!(pyrust::dict::items!(builder.state.all_bots), |t| {
             if *t.1 != builder.state.my_id
                 && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
             {
@@ -974,7 +974,7 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
         if pyrust::is_none!(harvester_feed_cardinal(builder, *pos)) {
             continue;
         }
-        let friends_iter = pyrust::filter_map!(pyrust::iter!(builder.state.all_bots), |t| {
+        let friends_iter = pyrust::filter_map!(pyrust::dict::items!(builder.state.all_bots), |t| {
             if *t.1 != builder.state.my_id
                 && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
             {

@@ -99,6 +99,13 @@ impl PyWriter {
         self.types.is_exception_name(name) || self.cfg.exception_def_names.contains(name)
     }
 
+    /// True when `name` carries `#[pyrust::context_manager]`. The struct
+    /// emitter adds `__enter__`/`__exit__` methods, and `let _g = T::CTOR(..)`
+    /// becomes `with T(..) as _g:` followed by an indented body.
+    pub fn is_context_manager_type(&self, name: &str) -> bool {
+        self.cfg.context_manager_def_names.contains(name)
+    }
+
     /// True if a folded-trait import for `ident` has already been emitted
     /// in this file.
     pub fn has_emitted_folded_import(&self, ident: &str) -> bool {

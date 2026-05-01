@@ -23,27 +23,101 @@ pub fn emit_block(w: &mut PyWriter, block: &syn::Block, tail: Tail) -> Result<()
 pub fn emit_block_inplace(w: &mut PyWriter, block: &syn::Block, tail: Tail) -> Result<(), String> {
     let stmts = &block.stmts;
     let (body, tail_expr) = split_tail(stmts);
-    let mut emitted_anything = false;
-    for s in body {
+    let emitted = emit_stmt_seq(w, body, tail_expr, tail)?;
+    if !emitted {
+        w.line("pass");
+    }
+    Ok(())
+}
+
+/// Emit a sequence of statements followed by an optional tail expression.
+/// This is the central walker that handles `#[pyrust::context_manager]`
+/// `let _g = T::CTOR(args);` bindings: when one is encountered, we emit
+/// `with EXPR as _g:` and recurse on the remaining statements indented
+/// under it. Returns whether any line was emitted.
+fn emit_stmt_seq(
+    w: &mut PyWriter,
+    body: &[syn::Stmt],
+    tail_expr: Option<&syn::Expr>,
+    tail: Tail,
+) -> Result<bool, String> {
+    let mut emitted = false;
+    for (i, s) in body.iter().enumerate() {
+        // Detect `let _NAME = EXPR;` where EXPR's head path segment is a
+        // registered `#[pyrust::context_manager]` type. The remaining
+        // statements (and tail) become the `with` body, indented.
+        if let Some((bind_name, init_expr)) = ctx_manager_let(w, s) {
+            let init = expr::emit_expr(w, init_expr)?;
+            // Reserve the binding name in the current scope so subsequent
+            // statements don't re-declare.
+            w.declare(&bind_name, Ty::Unknown);
+            w.line(&format!("with {} as {}:", init.text, bind_name));
+            w.enter_indent();
+            w.enter_block();
+            let inner_emitted = emit_stmt_seq(w, &body[i + 1..], tail_expr, tail)?;
+            if !inner_emitted {
+                w.line("pass");
+            }
+            w.exit_block();
+            w.exit_indent();
+            return Ok(true);
+        }
         emit_stmt(w, s)?;
-        emitted_anything = true;
+        emitted = true;
     }
     match tail_expr {
         Some(t) => {
             emit_tail(w, t, tail)?;
-            emitted_anything = true;
+            emitted = true;
         }
         None => {
             if matches!(tail, Tail::Return) {
                 w.line("return");
-                emitted_anything = true;
+                emitted = true;
             }
         }
     }
-    if !emitted_anything {
-        w.line("pass");
+    Ok(emitted)
+}
+
+/// If `stmt` is `let _NAME = EXPR;` (with `_NAME` matching the RAII guard
+/// convention `_*`) AND `EXPR` is a call/path whose head segment is a
+/// registered `#[pyrust::context_manager]` type, return `(NAME, EXPR)`.
+/// Otherwise None.
+fn ctx_manager_let<'a>(
+    w: &PyWriter,
+    stmt: &'a syn::Stmt,
+) -> Option<(String, &'a syn::Expr)> {
+    let syn::Stmt::Local(l) = stmt else { return None };
+    let init = l.init.as_ref()?;
+    if init.diverge.is_some() {
+        return None;
     }
-    Ok(())
+    let bind_name = match &l.pat {
+        syn::Pat::Ident(pi) => pi.ident.to_string(),
+        _ => return None,
+    };
+    if !bind_name.starts_with('_') {
+        return None;
+    }
+    let head = ctx_manager_call_head(&init.expr)?;
+    if !w.is_context_manager_type(&head) {
+        return None;
+    }
+    Some((bind_name, init.expr.as_ref()))
+}
+
+/// Extract the head type-name from a call/path expression. For
+/// `Scope::new("foo")` returns `Some("Scope")`. For `T::method()` returns
+/// `Some("T")`. For anything else returns None.
+fn ctx_manager_call_head(e: &syn::Expr) -> Option<String> {
+    let func = match e {
+        syn::Expr::Call(c) => c.func.as_ref(),
+        syn::Expr::Path(p) => return p.path.segments.first().map(|s| s.ident.to_string()),
+        _ => return None,
+    };
+    let syn::Expr::Path(p) = func else { return None };
+    p.path.segments.first().map(|s| s.ident.to_string())
 }
 
 const fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
@@ -924,6 +998,38 @@ fn emit_tail(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(), String> 
             {
                 let em = expr::emit_expr(w, inner)?;
                 w.line(&format!("raise {}", em.text));
+                return Ok(());
+            }
+            // `Self { f1: v1, f2: v2 }` as the return tail of a method
+            // (other than `new`, which gets handled in `emit_init_body`)
+            // is a Rust struct literal — pure field assignment, no
+            // constructor call. Translate as `__new__`-bypass plus
+            // attribute assignments so Python's `__init__` side effects
+            // don't run twice. Critical for `#[pyrust::context_manager]`
+            // alternate constructors like `Scope::new_timed`.
+            if matches!(tail, Tail::Return)
+                && let syn::Expr::Struct(s) = other
+                && s.qself.is_none()
+                && s.rest.is_none()
+                && s.path.is_ident("Self")
+                && let Some(class_name) = w.current_class().map(String::from)
+            {
+                let tmp = "__self";
+                w.line(&format!("{tmp} = {class_name}.__new__({class_name})"));
+                for fv in &s.fields {
+                    let name = match &fv.member {
+                        syn::Member::Named(n) => n.to_string(),
+                        syn::Member::Unnamed(_) => {
+                            return Err(w.err(
+                                fv.span(),
+                                "tuple struct literals not supported in Self {}",
+                            ));
+                        }
+                    };
+                    let value = expr::emit_expr(w, &fv.expr)?;
+                    w.line(&format!("{tmp}.{name} = {}", value.text));
+                }
+                w.line(&format!("return {tmp}"));
                 return Ok(());
             }
             let em = expr::emit_expr(w, other)?;
