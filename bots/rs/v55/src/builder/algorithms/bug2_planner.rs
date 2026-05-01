@@ -86,7 +86,7 @@ pub struct Bug2Planner {
     h: i32,
     gi: i32,
     /// Mutated in place; exposed via `path_idx()` and `into_path_idx()`.
-    path_idx: Vec<i32>,
+    _path_idx: Vec<i32>,
 
     // Persistent state across yields.
     stride: i32,
@@ -163,7 +163,7 @@ impl Bug2Planner {
             w,
             h,
             gi,
-            path_idx,
+            _path_idx: path_idx,
             stride,
             n_pad,
             sx,
@@ -210,13 +210,13 @@ impl Bug2Planner {
     /// Read-only borrow of the in-progress `path_idx` array.
     #[must_use]
     pub fn path_idx(&self) -> &[i32] {
-        &self.path_idx
+        &self._path_idx
     }
 
     /// Take ownership of `path_idx`.
     #[must_use]
     pub fn into_path_idx(self) -> Vec<i32> {
-        self.path_idx
+        self._path_idx
     }
 
     /// Advance one yield-equivalent. Returns `Some(true)` if reached goal,
@@ -248,7 +248,7 @@ impl Bug2Planner {
                     let nb = ny * self.stride + nx;
                     if cost[nb as usize] != INF {
                         self.pos = nb;
-                        self.path_idx[nb as usize] = self.path_len;
+                        self._path_idx[nb as usize] = self.path_len;
                         self.path_len += 1;
                         self.m_i += 1;
                         self.last_yielded = nb;
@@ -360,7 +360,7 @@ impl Bug2Planner {
                     };
                     if idx < pyrust::len!(chosen_path) {
                         let c = chosen_path[idx];
-                        self.path_idx[c as usize] = self.path_len;
+                        self._path_idx[c as usize] = self.path_len;
                         self.path_len += 1;
                         self.last_yielded = c;
                         self.state = State::EmitChosen { idx: idx + 1 };
@@ -370,7 +370,7 @@ impl Bug2Planner {
                 }
                 State::EmitWinner => {
                     self.pos = self.win_y * self.stride + self.win_x;
-                    self.path_idx[self.pos as usize] = self.path_len;
+                    self._path_idx[self.pos as usize] = self.path_len;
                     self.path_len += 1;
                     self.last_yielded = self.pos;
                     self.state = State::AdvanceAfterWinner;
