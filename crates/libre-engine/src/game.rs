@@ -206,7 +206,13 @@ impl Game {
         })
     }
 
-    pub fn winner_team(&mut self) -> Option<Team> {
+    /// Returns the winning team if the game is decided.
+    ///
+    /// `force_end = true` collapses an undecided game (both cores alive,
+    /// turn count not yet at `MAX_TURNS`) to a winner via the regular
+    /// tiebreak — used by the runner when `--rounds` cuts the game off
+    /// early.
+    pub fn winner_team(&mut self, force_end: bool) -> Option<Team> {
         let alive = [Team::A, Team::B]
             .into_iter()
             .filter(|t| self.has_core(*t))
@@ -214,7 +220,7 @@ impl Game {
         if alive.len() == 1 {
             return Some(alive[0]);
         }
-        if self.turn >= MAX_TURNS || alive.is_empty() {
+        if force_end || self.turn >= MAX_TURNS || alive.is_empty() {
             let a = &self.players[0];
             let b = &self.players[1];
             // Tiebreak 1: most axionite collected
