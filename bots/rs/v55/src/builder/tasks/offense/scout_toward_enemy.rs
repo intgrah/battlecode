@@ -13,5 +13,5 @@ use crate::builder::tasks::rejected::TaskResult;
 
 pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     scout(self_, ct);
-    Ok(())
+    None
 }

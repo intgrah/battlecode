@@ -32,7 +32,7 @@ fn feeder_delta(self_: &Builder, pos: Position) -> Option<Direction> {
 
 pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if !can_afford(self_, EntityType::Splitter) {
-        return Err(TaskRejected::new("cannot afford SPLITTER"));
+        return Some(TaskRejected::new("cannot afford SPLITTER"));
     }
 
     let mut best_split: Option<Position> = None;
@@ -70,7 +70,7 @@ pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
     }
 
     let (Some(best_split), Some(best_dir)) = (best_split, best_dir) else {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no friendly sentinel with a splittable upstream conveyor",
         ));
     };
@@ -84,8 +84,8 @@ pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
             BuildExtra::Direction(best_dir),
             true,
         );
-        return Ok(());
+        return None;
     }
     make_move(self_, ct, best_split);
-    Ok(())
+    None
 }

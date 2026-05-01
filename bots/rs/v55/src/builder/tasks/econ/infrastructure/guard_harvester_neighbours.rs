@@ -36,7 +36,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
     }
 
     if targets.is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "nothing to guard around any visible harvester / claim",
         ));
     }
@@ -71,7 +71,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
                 args,
             );
             ct.build_road(feed).unwrap();
-            return Ok(());
+            return None;
         }
 
         if !affords_guard {
@@ -89,11 +89,11 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
                 continue;
             }
             if place_harvester_guard(self_, ct, pos, target) {
-                return Ok(());
+                return None;
             }
         }
     }
-    Err(TaskRejected::new(
+    Some(TaskRejected::new(
         "nothing to guard around any visible harvester / claim",
     ))
 }

@@ -71,7 +71,7 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
 
 pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if !can_afford(self_, EntityType::Sentinel) {
-        return Err(TaskRejected::new("cannot afford SENTINEL"));
+        return Some(TaskRejected::new("cannot afford SENTINEL"));
     }
 
     let mut best_pos: Option<Position> = None;
@@ -100,14 +100,14 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
     }
 
     let (Some(best_pos), Some(best_facing)) = (best_pos, best_facing) else {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no dangling end with an enemy in sentinel range",
         ));
     };
 
     if self_.my_pos == best_pos {
         move_random(self_, ct);
-        return Ok(());
+        return None;
     }
     if self_.my_pos.distance_squared(best_pos) <= 2 {
         try_place(
@@ -118,8 +118,8 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
             BuildExtra::Direction(best_facing),
             true,
         );
-        return Ok(());
+        return None;
     }
     make_move(self_, ct, best_pos);
-    Ok(())
+    None
 }

@@ -26,25 +26,25 @@ fn resolve_target(self_: &Builder) -> Option<Position> {
 
 pub fn claim_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(target) = resolve_target(self_) else {
-        return Err(TaskRejected::new("no ore_target / ax_ore_target to claim"));
+        return Some(TaskRejected::new("no ore_target / ax_ore_target to claim"));
     };
     if self_.my_pos == target {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "already standing on ore {:?}",
             target
         )));
     }
     if !ore_available(self_, target) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "ore {:?} no longer available",
             target
         )));
     }
     if !walk_to_ore_claim(self_, ct, target) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "could not progress toward ore {:?}",
             target
         )));
     }
-    Ok(())
+    None
 }

@@ -14,20 +14,20 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn push_extend(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.symmetry().is_none() {
-        return Err(TaskRejected::new("symmetry unresolved; en_core unknown"));
+        return Some(TaskRejected::new("symmetry unresolved; en_core unknown"));
     }
     let Some(start) = self_.dangling_output else {
-        return Err(TaskRejected::new("no dangling output"));
+        return Some(TaskRejected::new("no dangling output"));
     };
     if !on_enemy_side(self_, start) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "dangling {:?} is on our side of the bisector",
             start
         )));
     }
     let resource = resource_at(self_, start);
     if resource != Some(ResourceType::Titanium) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "dangling {:?} is {:?}, push_extend is Ti-only",
             start, resource
         )));

@@ -13,12 +13,12 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn patrol_late(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.adjacent_to_harvester.is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no friendly harvester-adjacent tile in view",
         ));
     }
     if !run_patrol(self_, ct) {
-        return Err(TaskRejected::new("run_patrol produced no action"));
+        return Some(TaskRejected::new("run_patrol produced no action"));
     }
-    Ok(())
+    None
 }

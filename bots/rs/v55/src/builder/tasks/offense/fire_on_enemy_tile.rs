@@ -17,24 +17,24 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
     if vulnerable.is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "not cardinally adjacent to a vulnerable harvester",
         ));
     }
     let target = pick_harvester_target(self_, &vulnerable);
     if self_.my_pos.distance_squared(target) != 1 {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "not cardinally adjacent to a vulnerable harvester",
         ));
     }
 
     if is_allied_transport(self_, self_.my_pos) {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "standing on friendly transport — fire would break own chain",
         ));
     }
     if !self_.is_enemy_building(self_.my_pos) {
-        return Err(TaskRejected::new("not standing on an enemy building"));
+        return Some(TaskRejected::new("not standing on an enemy building"));
     }
 
     // Check for actual healing.
@@ -64,7 +64,7 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         }
         self_.offense_target = Some(my_pos);
         self_.offense_turns = 0;
-        return Ok(());
+        return None;
     }
 
     if !should_attack(self_, my_pos) {
@@ -77,7 +77,7 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         }
         self_.offense_target = Some(my_pos);
         self_.offense_turns = 0;
-        return Ok(());
+        return None;
     }
 
     let bid_here = ct.get_tile_building_id(my_pos).unwrap();
@@ -88,5 +88,5 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     try_attack(ct, my_pos);
     self_.offense_target = Some(my_pos);
     self_.offense_turns = 0;
-    Ok(())
+    None
 }

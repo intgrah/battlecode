@@ -18,11 +18,11 @@ pub fn fix_enemy_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
             self_.apply_local_destroy(pos);
             if ct.can_build_road(pos).unwrap() {
                 ct.build_road(pos).unwrap();
-                return Ok(());
+                return None;
             }
         }
     }
-    Err(TaskRejected::new(
+    Some(TaskRejected::new(
         "no enemy-feeding conveyor in action range",
     ))
 }

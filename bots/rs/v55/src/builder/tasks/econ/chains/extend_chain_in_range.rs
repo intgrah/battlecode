@@ -14,10 +14,10 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn extend_chain_in_range(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(dangling) = self_.dangling_output else {
-        return Err(TaskRejected::new("no dangling output"));
+        return Some(TaskRejected::new("no dangling output"));
     };
     if !ct.is_in_vision(dangling).unwrap() {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "dangling {:?} not in vision",
             dangling
         )));

@@ -20,10 +20,10 @@ pub fn wander(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     dirs.sort_by_key(|&d| -chebyshev(my_pos.add(d), my_core));
     for d in dirs {
         if try_move_dir(ct, d) {
-            return Ok(());
+            return None;
         }
     }
-    Err(TaskRejected::new(
+    Some(TaskRejected::new(
         "no walkable direction available without paving",
     ))
 }

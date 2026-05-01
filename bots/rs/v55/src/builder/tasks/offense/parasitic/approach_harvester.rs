@@ -21,7 +21,7 @@ use crate::util::metrics::closest;
 pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
     if vulnerable.is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no vulnerable enemy harvesters in vision",
         ));
     }
@@ -29,7 +29,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     let on_friendly_conveyor = is_allied_transport(self_, self_.my_pos);
     if self_.my_pos.distance_squared(target) == 1 && !on_friendly_conveyor {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "already adjacent to target (fire/turret task handles this)",
         ));
     }
@@ -41,7 +41,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         let filtered = without_allied_transport(self_, &opens);
         destination = closest(self_.my_pos, filtered);
         if destination.is_none() {
-            return Err(TaskRejected::new("no walkable cardinal of target"));
+            return Some(TaskRejected::new("no walkable cardinal of target"));
         }
     }
     let destination = destination.unwrap();
@@ -92,5 +92,5 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     {
         try_attack(ct, cur_pos);
     }
-    Ok(())
+    None
 }

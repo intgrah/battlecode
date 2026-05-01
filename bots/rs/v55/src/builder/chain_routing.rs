@@ -283,14 +283,14 @@ pub fn extend_step(
     mut start: Position,
     target: Position,
     resource: ResourceType,
-) -> Result<(), TaskRejected> {
+) -> Option<TaskRejected> {
     if start == target {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "start == target ({start:?})"
         )));
     }
     if chebyshev(start, target) <= 1 && target == builder.my_core {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "{start:?} is already adjacent to core; nothing to lay"
         )));
     }
@@ -298,7 +298,7 @@ pub fn extend_step(
     let current_pos = builder.state.my_pos;
     let existing_path = trace_upstream(builder, start);
     if existing_path.is_empty() {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "no upstream chain reaches {start:?}"
         )));
     }
@@ -307,7 +307,7 @@ pub fn extend_step(
         if existing_path.len() > 1 {
             start = existing_path[existing_path.len() - 2];
         } else {
-            return Err(TaskRejected::from_string(format!(
+            return Some(TaskRejected::from_string(format!(
                 "{start:?} is unpassable and no upstream fallback"
             )));
         }
@@ -331,7 +331,7 @@ pub fn extend_step(
         } else {
             builder.conv_search.last_fail_reason.clone()
         };
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "A* {resource} {start:?}->{target:?}: {fail}"
         )));
     };
@@ -354,7 +354,7 @@ pub fn extend_step(
     let mut did_something = false;
     if chebyshev(current_pos, start) <= 1 {
         if path.len() < 2 {
-            return Err(TaskRejected::from_string(format!(
+            return Some(TaskRejected::from_string(format!(
                 "in range of {start:?} but A* path is empty"
             )));
         }
@@ -366,11 +366,11 @@ pub fn extend_step(
         did_something = true;
     }
     if !did_something {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "could neither lay at {start:?} nor move toward {target:?}"
         )));
     }
-    Ok(())
+    None
 }
 
 /// Auto-target wrapper around `extend_step`: classifies the chain's
@@ -379,22 +379,22 @@ pub fn extend_chain(
     builder: &mut Builder,
     ct: &mut Controller<'_>,
     start: Position,
-) -> Result<(), TaskRejected> {
+) -> Option<TaskRejected> {
     if on_enemy_side(builder, start) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "{start:?} is enemy-side; deferring to OFFENSE"
         )));
     }
     let resource = resource_at(builder, start);
     let Some(resource) = resource else {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "cannot classify resource at {start:?}"
         )));
     };
     if resource == ResourceType::RawAxionite {
         let target = builder.ax_sink;
         let Some(target) = target else {
-            return Err(TaskRejected::from_string(format!(
+            return Some(TaskRejected::from_string(format!(
                 "chain at {start:?} is Ax but ax_sink is None"
             )));
         };

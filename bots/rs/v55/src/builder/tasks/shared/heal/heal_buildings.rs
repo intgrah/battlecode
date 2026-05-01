@@ -120,7 +120,7 @@ pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
     }
 
     let Some(repair_pos) = self_.repair_pos else {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no damaged friendly building worth healing right now",
         ));
     };
@@ -140,5 +140,5 @@ pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
     if let Some(bpos) = building_to_heal {
         self_.repaired_prev = try_heal(self_, ct, bpos, save_money) || self_.repaired_prev;
     }
-    Ok(())
+    None
 }

@@ -14,12 +14,12 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn walk_to_cached_target(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if !vulnerable_harvesters(self_).is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "a vulnerable harvester is in vision — approach it first",
         ));
     }
     let Some(offense_target) = self_.offense_target else {
-        return Err(TaskRejected::new("offense_target is None"));
+        return Some(TaskRejected::new("offense_target is None"));
     };
 
     if let Some(ol) = self_.offense_launcher {
@@ -28,9 +28,9 @@ pub fn walk_to_cached_target(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
             && self_.my_pos.distance_squared(offense_target) > 8
         {
             make_move(self_, ct, ol);
-            return Ok(());
+            return None;
         }
     }
     make_move(self_, ct, offense_target);
-    Ok(())
+    None
 }

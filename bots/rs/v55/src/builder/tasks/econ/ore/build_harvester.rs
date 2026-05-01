@@ -29,19 +29,19 @@ fn resolve_target(self_: &Builder) -> Option<Position> {
 
 pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(target) = resolve_target(self_) else {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no ore_target / ax_ore_target to harvest",
         ));
     };
     if self_.my_pos != target {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "not standing on ore {:?}",
             target
         )));
     }
     if !ore_available(self_, target) {
         self_.ore_target = None;
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "no ore_target / ax_ore_target to harvest",
         ));
     }
@@ -52,7 +52,7 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
             "build_harvester: waiting on Ti for HARVESTER on {target}",
             args,
         );
-        return Ok(());
+        return None;
     }
     if harvester_feed_cardinal(self_, target).is_none() {
         if !clear_barriered_feed(self_, ct, target) {
@@ -63,7 +63,7 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
                 args,
             );
         }
-        return Ok(());
+        return None;
     }
     if !step_off_and_build_harvester(self_, ct, target) {
         let mut args = Map::new();
@@ -73,5 +73,5 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
             args,
         );
     }
-    Ok(())
+    None
 }

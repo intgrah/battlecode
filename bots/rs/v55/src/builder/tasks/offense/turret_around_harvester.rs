@@ -63,23 +63,23 @@ const fn rotate_right(d: Direction) -> Direction {
 pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
     if vulnerable.is_empty() {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "not on empty terrain cardinal to a vulnerable harvester",
         ));
     }
     let target = pick_harvester_target(self_, &vulnerable);
     if self_.my_pos.distance_squared(target) != 1 {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "not on empty terrain cardinal to a vulnerable harvester",
         ));
     }
     if is_allied_transport(self_, self_.my_pos) {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "not on empty terrain cardinal to a vulnerable harvester",
         ));
     }
     if self_.is_enemy_building(self_.my_pos) {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "not on empty terrain cardinal to a vulnerable harvester",
         ));
     }
@@ -141,5 +141,5 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         ct.build_road(build_position).unwrap();
     }
     scout_toward_enemy(self_, ct);
-    Ok(())
+    None
 }

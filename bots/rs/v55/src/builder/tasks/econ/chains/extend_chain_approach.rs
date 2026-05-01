@@ -15,7 +15,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn extend_chain_approach(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(dangling) = self_.dangling_output else {
-        return Err(TaskRejected::new("no dangling output"));
+        return Some(TaskRejected::new("no dangling output"));
     };
     extend_chain(self_, ct, dangling)
 }

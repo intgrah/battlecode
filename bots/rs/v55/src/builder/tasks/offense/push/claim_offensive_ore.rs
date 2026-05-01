@@ -13,25 +13,25 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn claim_offensive_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let Some(target) = self_.offensive_ore_target else {
-        return Err(TaskRejected::new("offensive_ore_target is None"));
+        return Some(TaskRejected::new("offensive_ore_target is None"));
     };
     if self_.my_pos == target {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "already on offensive ore {:?}",
             target
         )));
     }
     if !ore_available(self_, target) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "offensive ore {:?} unavailable",
             target
         )));
     }
     if !walk_to_ore_claim(self_, ct, target) {
-        return Err(TaskRejected::from_string(format!(
+        return Some(TaskRejected::from_string(format!(
             "no progress toward {:?}",
             target
         )));
     }
-    Ok(())
+    None
 }

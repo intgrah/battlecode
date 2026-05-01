@@ -14,12 +14,12 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn patrol_cheap(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if can_afford(self_, EntityType::Harvester) {
-        return Err(TaskRejected::new(
+        return Some(TaskRejected::new(
             "can afford a harvester, should build instead of patrol",
         ));
     }
     if !run_patrol(self_, ct) {
-        return Err(TaskRejected::new("run_patrol produced no action"));
+        return Some(TaskRejected::new("run_patrol produced no action"));
     }
-    Ok(())
+    None
 }
