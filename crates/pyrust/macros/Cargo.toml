@@ -1,14 +1,12 @@
 [package]
-name = "pyrust"
+name = "pyrust-macros"
 version = "0.1.0"
 edition.workspace = true
 
 [lib]
-path = "src/lib.rs"
+proc-macro = true
 
 [dependencies]
-rand = "0.10.1"
-pyrust-macros = { path = "../macros" }
 
 [lints]
 workspace = true

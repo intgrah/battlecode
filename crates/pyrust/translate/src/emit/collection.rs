@@ -144,20 +144,13 @@ fn build_py_fstring(
                 if !closed {
                     return Err(w.err(mac.span(), "unclosed `{` in format string"));
                 }
-                // Translate Rust format specs to Python equivalents.
-                // - `{x:?}` (Debug) → `{x!r}` (Python repr)
-                // - `{x:.2f}`, `{x:>5}`, etc. → keep as-is (Python's format
-                //   mini-language is a strict superset for the cases we use).
-                let spec = if let Some((name, fmt)) = spec.split_once(':') {
-                    if fmt == "?" {
-                        format!("{name}!r")
-                    } else {
-                        format!("{name}:{fmt}")
-                    }
-                } else {
-                    spec
+                // Split argument from format spec. `{x:?}` → name="x", fmt="?".
+                // `{:?}` → name="", fmt="?". `{x}` → name="x", fmt=None.
+                let (arg_part, fmt_part) = match spec.split_once(':') {
+                    Some((n, f)) => (n.to_string(), Some(f.to_string())),
+                    None => (spec, None),
                 };
-                let placeholder = if spec.is_empty() {
+                let resolved_arg = if arg_part.is_empty() {
                     let idx = next_positional;
                     next_positional += 1;
                     args.get(idx).cloned().ok_or_else(|| {
@@ -170,12 +163,20 @@ fn build_py_fstring(
                             ),
                         )
                     })?
-                } else if let Ok(idx) = spec.parse::<usize>() {
+                } else if let Ok(idx) = arg_part.parse::<usize>() {
                     args.get(idx).cloned().ok_or_else(|| {
                         w.err(mac.span(), format!("positional `{{{idx}}}` out of range"))
                     })?
                 } else {
-                    spec
+                    arg_part
+                };
+                // `{x:?}` (Debug) → `{x!r}` (Python repr).
+                // `{x:.2f}`, `{x:>5}`, etc. — Python's format mini-language is
+                // a superset of Rust's for the cases we use.
+                let placeholder = match fmt_part.as_deref() {
+                    None => resolved_arg,
+                    Some("?") => format!("{resolved_arg}!r"),
+                    Some(f) => format!("{resolved_arg}:{f}"),
                 };
                 body.push('{');
                 body.push_str(&placeholder);

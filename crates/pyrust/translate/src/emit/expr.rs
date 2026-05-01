@@ -5,6 +5,7 @@ use super::collection;
 use super::shim::{self, ShimCall};
 use super::types::{Ty, promote_numeric};
 use super::writer::PyWriter;
+use crate::tyctx::TyKind;
 
 #[derive(Clone, Debug)]
 pub struct Emitted {
@@ -73,6 +74,23 @@ pub fn emit_expr(w: &mut PyWriter, expr: &syn::Expr) -> Result<Emitted, String> 
         syn::Expr::Cast(c) => {
             let inner = emit_expr(w, &c.expr)?;
             let cast_ty = super::types::type_from_annotation(&c.ty);
+            // `enum_value as u32` → `int(enum_value)`. Plain `int as u32`
+            // round-trips since `int(int)` is identity. We only wrap when
+            // the target is a Python-int / Python-float type, which avoids
+            // wrapping struct casts (`Foo as Bar` — usually meaningless and
+            // already passes through identity).
+            let py_target = match super::types::type_to_python_str(&c.ty).ok().as_deref() {
+                Some("int") => Some("int"),
+                Some("float") => Some("float"),
+                _ => None,
+            };
+            if let Some(name) = py_target {
+                return Ok(Emitted {
+                    text: format!("{name}({})", inner.text),
+                    ty: cast_ty,
+                    prec: Prec::Atom,
+                });
+            }
             Ok(Emitted {
                 ty: cast_ty,
                 ..inner
@@ -247,10 +265,39 @@ fn emit_index_expr(w: &mut PyWriter, i: &syn::ExprIndex) -> Result<Emitted, Stri
 }
 
 fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted, String> {
+    use syn::spanned::Spanned;
+    // Look up the ra_ap-resolved type kind of the receiver before lowering
+    // it. Method dispatch (Option::map vs Iterator::map, etc.) reads this.
+    let recv_kind = w.ty_at(m.receiver.span()).cloned();
     let recv = emit_expr(w, &m.receiver)?;
     let method = m.method.to_string();
     let arg_exprs: Vec<&syn::Expr> = m.args.iter().collect();
 
+    // Type-driven field-accessor collapse: if the receiver is an ADT and
+    // its struct fields include a name matching the method, with zero
+    // args, emit field access. Also fires for sum-type enums where every
+    // variant carries the same-named field (e.g. `Building::team()` —
+    // each variant has a `team: Team`, the impl method just match-extracts
+    // it). Cuts out the trait-accessor methods (e.g. `Unit::state(&self)
+    // -> &UnitState`) that Python doesn't need.
+    if arg_exprs.is_empty()
+        && let Some(rk) = recv_kind.as_ref()
+        && let Some(adt) = rk.adt()
+        && (adt.field_names.iter().any(|f| f == method.as_str())
+            || adt.all_variants_have_field(method.as_str()))
+    {
+        return Ok(Emitted::atomic(
+            format!("{}.{}", recv.text, method),
+            Ty::Unknown,
+        ));
+    }
+    // Folded trait default body fallback: ra_ap's per-file type table
+    // doesn't cover spans that came from another file (where the trait
+    // is defined). When the receiver is `self` and the surrounding class
+    // has a same-named field, treat it like the field-accessor collapse.
+    if arg_exprs.is_empty() && recv.text == "self" && w.current_class_has_field(method.as_str()) {
+        return Ok(Emitted::atomic(format!("self.{}", method), Ty::Unknown));
+    }
     match (method.as_str(), recv.ty, arg_exprs.len()) {
         ("contains", Ty::List | Ty::Set | Ty::Unknown, 1) => {
             let arg = emit_expr(w, arg_exprs[0])?;
@@ -277,16 +324,460 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
             });
         }
         ("iter", _, 0) => return Ok(recv),
-        ("collect", _, 0) => {
-            // `.collect()` materialises an iterator. Wrap in `list(...)`
-            // (Python's default sequence). Set/dict collections aren't used
-            // in v55; if needed later, distinguish via target-type annotation.
+        ("into", _, 0) => return Ok(recv),
+        ("into_iter", _, 0) => return Ok(recv),
+        ("clone", _, 0) => return Ok(recv),
+        ("enumerate", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("enumerate({})", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        // Rust iterator's `.next() -> Option<T>` becomes Python
+        // `next(iter(recv), None)`. The `.iter()` we already collapse, so
+        // the translator must wrap manually here.
+        ("next", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("next(iter({}), None)", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("zip", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("zip({}, {})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("rev", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("reversed({})", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("chain", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("itertools.chain({}, {})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("take", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("itertools.islice({}, {})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("skip", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("itertools.islice({}, {}, None)", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("to_string", _, 0) => return Ok(recv),
+        ("to_owned", _, 0) => return Ok(recv),
+        ("to_vec", _, 0) => {
             return Ok(Emitted::atomic(format!("list({})", recv.text), Ty::List));
         }
+        ("as_str", _, 0) => return Ok(recv),
+        ("as_mut", _, 0) => return Ok(recv),
+        ("as_ref", _, 0) => return Ok(recv),
+        ("as_deref", _, 0) => return Ok(recv),
+        ("expect", _, 1) => return Ok(recv),
+        // `Option::take()` — Rust ownership transfer; in Python we just
+        // read the value and let the surrounding code overwrite the field
+        // on the next assignment. Loses the "leave None during body"
+        // observability, but v55 never inspects the field mid-body.
+        ("take", _, 0) => return Ok(recv),
+        // `random.Random.choices(pop, weights, k)` — Python's stdlib makes
+        // `k` keyword-only. Translate to `.choices(pop, weights, k=K)`.
+        ("choices", _, 3) => {
+            let pop = emit_expr(w, arg_exprs[0])?;
+            let weights = emit_expr(w, arg_exprs[1])?;
+            let k = emit_expr(w, arg_exprs[2])?;
+            return Ok(Emitted::atomic(
+                format!(
+                    "{}.choices({}, {}, k={})",
+                    recv.text, pop.text, weights.text, k.text
+                ),
+                Ty::List,
+            ));
+        }
+        ("choices", _, 2) => {
+            // `.choices(pop, k)` — uniform.
+            let pop = emit_expr(w, arg_exprs[0])?;
+            let k = emit_expr(w, arg_exprs[1])?;
+            return Ok(Emitted::atomic(
+                format!("{}.choices({}, k={})", recv.text, pop.text, k.text),
+                Ty::List,
+            ));
+        }
+        // `rng.sample(pop, k)` — k is positional in Python.
+        ("shuffle", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.shuffle({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        // `t.elapsed()` where `t` came from `Instant::now()` becomes
+        // `(time.monotonic() - t)`; `.as_micros()` then scales the float
+        // diff into integer microseconds. We do these together because
+        // the bot's only `elapsed` uses chain straight into `.as_micros()`.
+        ("elapsed", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("(time.monotonic() - {})", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("as_micros", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("int({} * 1000000)", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("as_millis", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("int({} * 1000)", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("as_secs", _, 0) => {
+            return Ok(Emitted::atomic(format!("int({})", recv.text), Ty::Int));
+        }
+        ("as_secs_f64" | "as_secs_f32", _, 0) => return Ok(recv),
+        ("copied", _, 0) => return Ok(recv),
+        ("cloned", _, 0) => return Ok(recv),
+        ("push", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.append({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        // `set.insert(x)` → `set.add(x)`. `map.insert(k, v)` → `map[k] = v`.
+        ("insert", Ty::Set, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.add({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("insert", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.add({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("insert", _, 2) => {
+            let key = emit_expr(w, arg_exprs[0])?;
+            let val = emit_expr(w, arg_exprs[1])?;
+            return Ok(Emitted::atomic(
+                format!("{}[{}] = {}", recv.text, key.text, val.text),
+                Ty::Unit,
+            ));
+        }
+        ("remove", Ty::Set | Ty::Unknown, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.discard({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("contains_key", _, 1) | ("contains", Ty::Dict, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("({} in {})", arg.text, recv.text),
+                Ty::Bool,
+            ));
+        }
+        ("get", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.get({})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("clear", _, 0) => {
+            // Python strings are immutable; `String::clear()` becomes
+            // assignment to the empty string. The detection is via ra_ap
+            // type info on the receiver — if unknown, assume mutable
+            // collection and use `.clear()`.
+            if matches!(recv_kind, Some(crate::tyctx::TyKind::Str)) {
+                return Ok(Emitted::atomic(
+                    format!("{} = \"\"", recv.text),
+                    Ty::Unit,
+                ));
+            }
+            return Ok(Emitted::atomic(format!("{}.clear()", recv.text), Ty::Unit));
+        }
+        ("pop", _, 0) => {
+            // Rust `Vec::pop()` / `VecDeque::pop_back()` return `Option<T>`
+            // (None on empty); Python `list.pop()` raises IndexError. Wrap
+            // with a truthy check so the translation matches the Option
+            // contract.
+            return Ok(Emitted::atomic(
+                format!("({0}.pop() if {0} else None)", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("pop_back", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("({0}.pop() if {0} else None)", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("pop_front", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("({0}.pop(0) if {0} else None)", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("front", _, 0) => {
+            return Ok(Emitted::atomic(format!("{}[0]", recv.text), Ty::Unknown));
+        }
+        ("back", _, 0) => {
+            return Ok(Emitted::atomic(format!("{}[-1]", recv.text), Ty::Unknown));
+        }
+        ("first", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("({0}[0] if {0} else None)", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("last", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("({0}[-1] if {0} else None)", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("push_back", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.append({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("push_front", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.insert(0, {})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("extend", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.extend({})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("remove", Ty::List, 1) | ("swap_remove", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}.pop({})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("retain", _, 1) => {
+            // `xs.retain(|x| pred)` → `xs[:] = [x for x in xs if pred]`.
+            if let syn::Expr::Closure(cl) = arg_exprs[0]
+                && cl.inputs.len() == 1
+                && let Some(body) = closure_body_expr(cl)
+                && let Some(param_text) = closure_param_text(cl.inputs.first().unwrap())
+            {
+                w.scope.push();
+                w.scope.declare(&param_text, Ty::Unknown);
+                let body_res = emit_expr(w, body);
+                w.scope.pop();
+                let body_em = body_res?;
+                return Ok(Emitted::atomic(
+                    format!(
+                        "{0}[:] = [{param_text} for {param_text} in {0} if {1}]",
+                        recv.text, body_em.text
+                    ),
+                    Ty::Unit,
+                ));
+            }
+        }
+        ("truncate", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("del {}[{}:]", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("resize", _, 2) => {
+            let n = emit_expr(w, arg_exprs[0])?;
+            let v = emit_expr(w, arg_exprs[1])?;
+            return Ok(Emitted::atomic(
+                format!(
+                    "{0}.extend([{2}] * max(0, {1} - len({0})))",
+                    recv.text, n.text, v.text
+                ),
+                Ty::Unit,
+            ));
+        }
+        ("reverse", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("{}.reverse()", recv.text),
+                Ty::Unit,
+            ));
+        }
+        ("sort", _, 0) => {
+            return Ok(Emitted::atomic(format!("{}.sort()", recv.text), Ty::Unit));
+        }
+        ("dedup", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!(
+                    "{0}[:] = [x for i, x in enumerate({0}) if i == 0 or {0}[i-1] != x]",
+                    recv.text
+                ),
+                Ty::Unit,
+            ));
+        }
+        ("fill", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{0}[:] = [{1}] * len({0})", recv.text, arg.text),
+                Ty::Unit,
+            ));
+        }
+        ("len", _, 0) => {
+            return Ok(Emitted::atomic(format!("len({})", recv.text), Ty::Int));
+        }
+        ("is_empty", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("(len({}) == 0)", recv.text),
+                Ty::Bool,
+            ));
+        }
+        ("abs", _, 0) => {
+            return Ok(Emitted::atomic(format!("abs({})", recv.text), Ty::Int));
+        }
+        ("round", _, 0) => {
+            return Ok(Emitted::atomic(format!("round({})", recv.text), Ty::Int));
+        }
+        ("floor", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("math.floor({})", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("ceil", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("math.ceil({})", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("sqrt", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("math.sqrt({})", recv.text),
+                Ty::Unknown,
+            ));
+        }
+        ("min", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("min({}, {})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("max", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("max({}, {})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("clamp", _, 2) => {
+            let lo = emit_expr(w, arg_exprs[0])?;
+            let hi = emit_expr(w, arg_exprs[1])?;
+            return Ok(Emitted::atomic(
+                format!("max({}, min({}, {}))", lo.text, recv.text, hi.text),
+                Ty::Unknown,
+            ));
+        }
+        ("rem_euclid", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("(({}) % ({}))", recv.text, arg.text),
+                Ty::Int,
+            ));
+        }
+        ("div_euclid", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("(({}) // ({}))", recv.text, arg.text),
+                Ty::Int,
+            ));
+        }
+        ("pow", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("(({}) ** ({}))", recv.text, arg.text),
+                Ty::Int,
+            ));
+        }
+        ("powi" | "powf", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("({} ** {})", recv.text, arg.text),
+                Ty::Unknown,
+            ));
+        }
+        ("signum", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("(0 if {0} == 0 else (1 if {0} > 0 else -1))", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("sum", _, 0) => {
+            return Ok(Emitted::atomic(format!("sum({})", recv.text), Ty::Int));
+        }
+        ("product", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("math.prod({})", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("count", _, 0) => {
+            return Ok(Emitted::atomic(
+                format!("sum(1 for _ in {})", recv.text),
+                Ty::Int,
+            ));
+        }
+        ("collect", _, 0) => {
+            // `.collect()` materialises an iterator. Default to `list(...)`,
+            // but honour the turbofish: `.collect::<HashSet<_>>()` →
+            // `set(...)`, `.collect::<HashMap<_, _>>()` → `dict(...)`.
+            let turbofish_kind = m
+                .turbofish
+                .as_ref()
+                .and_then(|tb| tb.args.first())
+                .and_then(|arg| match arg {
+                    syn::GenericArgument::Type(syn::Type::Path(tp)) => tp.path.segments.last(),
+                    _ => None,
+                })
+                .map(|seg| seg.ident.to_string());
+            let (wrap, ty) = match turbofish_kind.as_deref() {
+                Some("HashSet" | "BTreeSet") => ("set", Ty::Set),
+                Some("HashMap" | "BTreeMap") => ("dict", Ty::Dict),
+                _ => ("list", Ty::List),
+            };
+            return Ok(Emitted::atomic(format!("{wrap}({})", recv.text), ty));
+        }
         ("map", _, 1) => {
-            // `iter.map(|p| body)` → `(body for p in iter)` — generator
-            // expression handles tuple-pattern params naturally (`for x, y in iter`).
             if let syn::Expr::Closure(c) = arg_exprs[0] {
+                // ra_ap-resolved receiver type decides the dispatch:
+                //   Option::map(|x| body)  → walrus-conditional in Python
+                //   Iterator::map(|p| body) → generator expression
+                if matches!(recv_kind, Some(TyKind::Option)) {
+                    return emit_option_map(w, &recv, c);
+                }
                 return emit_iter_map(w, &recv, c);
             }
         }
@@ -480,6 +971,47 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
                 prec: Prec::Cmp,
             });
         }
+        ("is_some_and", _, 1) => {
+            // `opt.is_some_and(|x| pred)` → `(x := opt) is not None and pred`.
+            if let syn::Expr::Closure(cl) = arg_exprs[0]
+                && cl.inputs.len() == 1
+                && let Some(body) = closure_body_expr(cl)
+                && let Some(param_text) = closure_param_text(cl.inputs.first().unwrap())
+            {
+                w.scope.push();
+                w.scope.declare(&param_text, Ty::Unknown);
+                let body_res = emit_expr(w, body);
+                w.scope.pop();
+                let body_em = body_res?;
+                return Ok(Emitted::atomic(
+                    format!(
+                        "(({param_text} := {}) is not None and {})",
+                        recv.text, body_em.text
+                    ),
+                    Ty::Bool,
+                ));
+            }
+        }
+        ("is_none_or", _, 1) => {
+            if let syn::Expr::Closure(cl) = arg_exprs[0]
+                && cl.inputs.len() == 1
+                && let Some(body) = closure_body_expr(cl)
+                && let Some(param_text) = closure_param_text(cl.inputs.first().unwrap())
+            {
+                w.scope.push();
+                w.scope.declare(&param_text, Ty::Unknown);
+                let body_res = emit_expr(w, body);
+                w.scope.pop();
+                let body_em = body_res?;
+                return Ok(Emitted::atomic(
+                    format!(
+                        "(({param_text} := {}) is None or {})",
+                        recv.text, body_em.text
+                    ),
+                    Ty::Bool,
+                ));
+            }
+        }
         ("is_some", _, 0) => {
             return Ok(Emitted {
                 text: format!("{} is not None", paren_at_least(&recv, Prec::Cmp)),
@@ -490,13 +1022,17 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
         ("unwrap", _, 0) => return Ok(recv),
         ("ok", _, 0) => return Ok(recv),
         ("unwrap_or", _, 1) => {
+            // Walrus-bind the receiver to a fresh temp so it evaluates once.
             let default = emit_expr(w, arg_exprs[0])?;
-            let recv_text = paren_at_least(&recv, Prec::Or);
             let default_text = paren_at_least(&default, Prec::Or);
+            let tmp = w.fresh_tmp();
             return Ok(Emitted {
-                text: format!("{recv_text} if {recv_text} is not None else {default_text}"),
+                text: format!(
+                    "({tmp} if ({tmp} := {}) is not None else {default_text})",
+                    recv.text
+                ),
                 ty: default.ty,
-                prec: Prec::Lambda,
+                prec: Prec::Atom,
             });
         }
         ("insert", Ty::Dict, _) => {
@@ -633,6 +1169,38 @@ fn closure_body_expr(c: &syn::ExprClosure) -> Option<&syn::Expr> {
         },
         other => Some(other),
     }
+}
+
+/// `Option::map(|x| body)` → `((x := opt) is not None and (body)) or None` is
+/// wrong (loses falsy-but-non-None bodies). Use the conditional expression:
+/// `((x := opt), body)[1] if opt is not None else None`.
+/// Walrus + tuple-index keeps it expression-shaped without re-evaluating
+/// `opt`.
+fn emit_option_map(
+    w: &mut PyWriter,
+    recv: &Emitted,
+    c: &syn::ExprClosure,
+) -> Result<Emitted, String> {
+    if c.inputs.len() != 1 {
+        return Err(w.err(c.span(), "map closure must take exactly one parameter"));
+    }
+    let param_text = closure_param_text(&c.inputs[0]).ok_or_else(|| {
+        w.err(
+            c.inputs[0].span(),
+            "map closure parameter pattern not supported",
+        )
+    })?;
+    declare_closure_pat_idents(w, &c.inputs[0]);
+    let body = closure_body_expr(c)
+        .ok_or_else(|| w.err(c.span(), "map closure needs single-expr body"))?;
+    let body_em = emit_expr(w, body)?;
+    Ok(Emitted::atomic(
+        format!(
+            "({} if ({param_text} := {}) is not None else None)",
+            body_em.text, recv.text
+        ),
+        Ty::Unknown,
+    ))
 }
 
 fn emit_iter_map(
@@ -1033,7 +1601,11 @@ fn struct_pat_class(w: &PyWriter, pat: &syn::Pat) -> Result<String, String> {
     }
 }
 
-fn emit_json(w: &mut PyWriter, tokens: proc_macro2::TokenStream, span: Span) -> Result<Emitted, String> {
+fn emit_json(
+    w: &mut PyWriter,
+    tokens: proc_macro2::TokenStream,
+    span: Span,
+) -> Result<Emitted, String> {
     use proc_macro2::TokenTree;
     // Top-level: parse the entire token stream as one JSON value. The
     // grammar is: object `{...}`, array `[...]`, or a Rust expression.
@@ -1071,8 +1643,8 @@ fn json_value(
     }
     // Otherwise treat the whole token slice as a Rust expression.
     let stream: proc_macro2::TokenStream = trees.iter().cloned().collect();
-    let expr: syn::Expr = syn::parse2(stream)
-        .map_err(|e| w.err(span, format!("json!() value: {e}")))?;
+    let expr: syn::Expr =
+        syn::parse2(stream).map_err(|e| w.err(span, format!("json!() value: {e}")))?;
     Ok(emit_expr(w, &expr)?.text)
 }
 
@@ -1118,9 +1690,7 @@ fn json_array(
     Ok(format!("[{}]", parts.join(", ")))
 }
 
-fn split_top_level_commas(
-    trees: &[proc_macro2::TokenTree],
-) -> Vec<&[proc_macro2::TokenTree]> {
+fn split_top_level_commas(trees: &[proc_macro2::TokenTree]) -> Vec<&[proc_macro2::TokenTree]> {
     use proc_macro2::TokenTree;
     let mut segments: Vec<&[proc_macro2::TokenTree]> = Vec::new();
     let mut start = 0;
@@ -1253,6 +1823,17 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
     if p.qself.is_some() {
         return Err(w.err(p.span(), "qualified paths not supported"));
     }
+    // `#[pyrust::transparent]` enum unit variant — `Foo::None` becomes
+    // Python `None`. Only a multi-segment path can be a variant (a bare
+    // ident is a variable binding, which we mustn't erase even if its
+    // type is the transparent enum).
+    if p.path.segments.len() >= 2
+        && let Some(result_kind) = w.ty_at(p.span())
+        && let Some(adt) = result_kind.adt()
+        && adt.is_transparent
+    {
+        return Ok(Emitted::atomic("None", Ty::Unknown));
+    }
     if p.path.leading_colon.is_none() && p.path.segments.len() == 2 {
         let head = p.path.segments[0].ident.to_string();
         let tail = p.path.segments[1].ident.to_string();
@@ -1260,7 +1841,9 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
             return Ok(Emitted::atomic("None", Ty::Unknown));
         }
         // Class-qualified value: enum variant or class constant.
-        // `Direction::North` → `Direction.North`.
+        // For sum-type enums the variant is a dataclass; emit a no-arg
+        // constructor `EnumNameVariant()`. For C-style enums (or plain
+        // class constants) emit `Class.Variant`.
         let class = if head == "Self" {
             w.current_class()
                 .map(String::from)
@@ -1268,6 +1851,52 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
         } else {
             head
         };
+        // Numeric type constants: `i32::MAX`, `f64::INFINITY`, etc.
+        let int_types = matches!(
+            class.as_str(),
+            "i8" | "i16"
+                | "i32"
+                | "i64"
+                | "i128"
+                | "isize"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "u128"
+                | "usize"
+        );
+        let float_types = matches!(class.as_str(), "f32" | "f64");
+        if int_types {
+            match tail.as_str() {
+                "MAX" => return Ok(Emitted::atomic("9223372036854775807", Ty::Int)),
+                "MIN" => return Ok(Emitted::atomic("-9223372036854775808", Ty::Int)),
+                _ => {}
+            }
+        }
+        if float_types {
+            match tail.as_str() {
+                "INFINITY" => {
+                    return Ok(Emitted::atomic("float(\"inf\")", Ty::Unknown));
+                }
+                "NEG_INFINITY" => {
+                    return Ok(Emitted::atomic("float(\"-inf\")", Ty::Unknown));
+                }
+                "NAN" => {
+                    return Ok(Emitted::atomic("float(\"nan\")", Ty::Unknown));
+                }
+                "MAX" => {
+                    return Ok(Emitted::atomic(
+                        "1.7976931348623157e+308".to_owned(),
+                        Ty::Unknown,
+                    ));
+                }
+                _ => {}
+            }
+        }
+        if w.is_sum_enum_variant(&class, &tail) {
+            return Ok(Emitted::atomic(format!("{class}{tail}()"), Ty::Unknown));
+        }
         return Ok(Emitted::atomic(format!("{class}.{tail}"), Ty::Unknown));
     }
     if p.path.leading_colon.is_some() || p.path.segments.len() != 1 {
@@ -1298,6 +1927,33 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
 }
 
 fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
+    // Type-driven: a 1-arg call that produces `serde_json::Value` (or
+    // `serde_json::Number`) is wrapping a Python-equivalent value into a
+    // tagged JSON node. Python's `json` module uses bare dict/list/str/int,
+    // so emit just the argument and drop the constructor.
+    if c.args.len() == 1
+        && let Some(result_kind) = w.ty_at(c.span())
+        && let Some(adt) = result_kind.adt()
+        && (adt.matches_crate_type("serde_json", "Value")
+            || adt.matches_crate_type("serde_json", "Number"))
+    {
+        return emit_expr(w, c.args.first().unwrap());
+    }
+    // `#[pyrust::transparent]` enum variant constructor — erase the
+    // wrapper. `Foo::Direction(d)` becomes just `d`; multi-field variants
+    // are an error because there's no obvious Python equivalent.
+    if let Some(result_kind) = w.ty_at(c.span())
+        && let Some(adt) = result_kind.adt()
+        && adt.is_transparent
+    {
+        if c.args.len() == 1 {
+            return emit_expr(w, c.args.first().unwrap());
+        }
+        return Err(w.err(
+            c.span(),
+            "transparent enum variant must have exactly one field",
+        ));
+    }
     let path = match c.func.as_ref() {
         syn::Expr::Path(p) if p.qself.is_none() => &p.path,
         other => {
@@ -1344,6 +2000,18 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
             }
             return Ok(arg_emits.into_iter().next().unwrap());
         }
+        // Rust's prelude `drop(x)` runs the `Drop::drop` impl. We translate
+        // it to a method call so the user's `impl Drop for X` (lowered to
+        // a `drop` method on the Python class) fires explicitly. This is a
+        // generic Rust → Python lowering, not bot-specific.
+        if matches!(
+            slice.as_slice(),
+            ["drop"] | ["std", "mem", "drop"] | ["mem", "drop"]
+        ) && c.args.len() == 1
+        {
+            let arg = arg_emits.into_iter().next().unwrap();
+            return Ok(Emitted::atomic(format!("{}.drop()", arg.text), Ty::Unit));
+        }
     }
     if path.leading_colon.is_none() && path.segments.len() == 2 {
         let head = path.segments[0].ident.to_string();
@@ -1355,10 +2023,69 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         } else {
             head
         };
-        if tail == "new" {
-            // Constructor convention: `Type::new(args)` becomes `Type(args)`.
+        // `Trait::method(self, args)` — the trait class isn't emitted (its
+        // default methods are folded into each concrete struct), so we
+        // rewrite the call into method-call form on the first argument.
+        if w.cfg().trait_registry.contains_key(&class_name) && !c.args.is_empty() {
+            let first = arg_emits.first().unwrap().text.clone();
+            let rest: Vec<&str> = arg_emits.iter().skip(1).map(|e| e.text.as_str()).collect();
             return Ok(Emitted::atomic(
-                format!("{class_name}({joined})"),
+                format!("{first}.{tail}({})", rest.join(", ")),
+                Ty::Unknown,
+            ));
+        }
+        // Numeric `T::from(x)` constructors map to Python's int/float.
+        if tail == "from" && c.args.len() == 1 {
+            let py = match class_name.as_str() {
+                "f32" | "f64" => Some(("float", Ty::Float)),
+                "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
+                | "u128" | "usize" => Some(("int", Ty::Int)),
+                _ => None,
+            };
+            if let Some((name, ty)) = py {
+                return Ok(Emitted::atomic(format!("{name}({joined})"), ty));
+            }
+        }
+        if tail == "default" && c.args.is_empty() {
+            // `T::default()` becomes `T()` — the auto-generated Python
+            // class always has a no-arg constructor for the Default impl.
+            return Ok(Emitted::atomic(format!("{class_name}()"), Ty::Unknown));
+        }
+        if tail == "new" || tail == "with_capacity" {
+            // Container default / pre-sized constructors map to Python
+            // literals (Python lists/dicts/sets don't take a capacity hint).
+            match class_name.as_str() {
+                "Vec" | "List" | "VecDeque" => {
+                    return Ok(Emitted::atomic("[]".to_owned(), Ty::List));
+                }
+                "HashMap" | "BTreeMap" | "Dict" | "Map" => {
+                    return Ok(Emitted::atomic("{}".to_owned(), Ty::Dict));
+                }
+                "HashSet" | "BTreeSet" | "Set" => {
+                    return Ok(Emitted::atomic("set()".to_owned(), Ty::Set));
+                }
+                "String" => {
+                    return Ok(Emitted::atomic("\"\"".to_owned(), Ty::Unknown));
+                }
+                _ => {}
+            }
+            if tail == "new" {
+                // Constructor convention: `Type::new(args)` becomes `Type(args)`.
+                return Ok(Emitted::atomic(
+                    format!("{class_name}({joined})"),
+                    Ty::Unknown,
+                ));
+            }
+        }
+        // Sum-type variant constructor: `Foo::Bar(args)` → `FooBar(args)`
+        // (matching the dataclass-per-variant lowering in `emit_sum_enum`).
+        if w.is_sum_enum_variant(&class_name, &tail) {
+            let mut parts = Vec::with_capacity(arg_emits.len());
+            for (i, em) in arg_emits.iter().enumerate() {
+                parts.push(format!("_{i}={}", em.text));
+            }
+            return Ok(Emitted::atomic(
+                format!("{class_name}{tail}({})", parts.join(", ")),
                 Ty::Unknown,
             ));
         }
@@ -1523,20 +2250,20 @@ fn emit_unary(w: &mut PyWriter, u: &syn::ExprUnary) -> Result<Emitted, String> {
             })
         }
         syn::UnOp::Not(_) => match inner.ty {
-            Ty::Bool => {
-                let inner_text = paren_left(&inner, Prec::Not);
-                Ok(Emitted {
-                    text: format!("not {inner_text}"),
-                    ty: Ty::Bool,
-                    prec: Prec::Not,
-                })
-            }
-            Ty::Int | Ty::Unknown => {
+            Ty::Int => {
                 let inner_text = paren_left(&inner, Prec::Unary);
                 Ok(Emitted {
                     text: format!("~{inner_text}"),
                     ty: inner.ty,
                     prec: Prec::Unary,
+                })
+            }
+            Ty::Bool | Ty::Unknown => {
+                let inner_text = paren_left(&inner, Prec::Not);
+                Ok(Emitted {
+                    text: format!("not {inner_text}"),
+                    ty: Ty::Bool,
+                    prec: Prec::Not,
                 })
             }
             other => Err(w.err(u.span(), format!("cannot apply ! to {other:?}"))),
