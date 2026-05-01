@@ -320,7 +320,7 @@ pub const fn in_bounds(pos: Position, width: i32, height: i32) -> bool {
 pub trait CoreAwareUnit: Unit {
     /// Allied core position (top-left or centre per concrete subclass'
     /// convention — Python uses centre).
-    fn my_core(&self) -> Position;
+    fn my_core_pos(&self) -> Position;
     /// Set the cached core position; called from `post_init_core_aware`.
     fn set_my_core(&mut self, pos: Position);
     /// Resolve the allied core's position. Called once at `post_init` to
@@ -342,6 +342,6 @@ pub trait CoreAwareUnit: Unit {
     /// `symmetry_guess`. Exact once symmetry is resolved.
     fn en_core_guess(&self) -> Position {
         let s = self.unit_state();
-        s.symmetry_guess().action(self.my_core(), s.width, s.height)
+        s.symmetry_guess().action(self.my_core_pos(), s.width, s.height)
     }
 }
