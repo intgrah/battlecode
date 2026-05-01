@@ -307,9 +307,7 @@ pub fn clear_barriered_feed(
     if candidates.is_empty() {
         return false;
     }
-    let chosen = *pyrust::unwrap!(candidates
-        .iter()
-        .min_by_key(|c| c.distance_squared(sink)));
+    let chosen = *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(candidates), |c| c.distance_squared(sink)));
     let mut args = Map::new();
     pyrust::dict::insert!(args, pyrust::to_string!("pos"), auto_wrap_position(chosen));
     pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target_pos));

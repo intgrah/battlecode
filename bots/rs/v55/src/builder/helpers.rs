@@ -168,7 +168,7 @@ pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
 }
 
 pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
-    let base = pyrust::unwrap_or!(base_cost(etype).map(|c| c.0), 0);
+    let base = pyrust::unwrap_or!(pyrust::map!(base_cost(etype), |c| c.0), 0);
     let scale = builder.state.scale;
     let foundry = if builder.state.round >= 500 && !builder.ax_harvester_adjacent.is_empty() {
         ((pyrust::unwrap!(base_cost(EntityType::Foundry)).0 as f64) * scale) as i32
@@ -479,7 +479,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         }
         match kind {
             Some(EntityType::Bridge) => {
-                let target = pyrust::unwrap_or!(builder.out_edges[ci].first().copied(), c);
+                let target = pyrust::unwrap_or!(pyrust::copied!(builder.out_edges[ci].first()), c);
                 if target == ore_pos {
                     pyrust::vec::push!(classification, (c, "inward_guard: bridge target == ore"));
                 } else {
@@ -489,7 +489,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 continue;
             }
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                let target = pyrust::unwrap_or!(builder.out_edges[ci].first().copied(), c);
+                let target = pyrust::unwrap_or!(pyrust::copied!(builder.out_edges[ci].first()), c);
                 if target == ore_pos {
                     pyrust::vec::push!(classification, (c, "inward_guard: conveyor output -> ore"));
                 } else {
@@ -548,15 +548,11 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
 
     let chosen: Option<Position> = if !tier1.is_empty() {
         Some(
-            *pyrust::unwrap!(tier1
-                .iter()
-                .min_by_key(|c| c.distance_squared(sink))),
+            *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(tier1), |c| c.distance_squared(sink))),
         )
     } else if !tier2.is_empty() {
         Some(
-            *pyrust::unwrap!(tier2
-                .iter()
-                .min_by_key(|c| c.distance_squared(sink))),
+            *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(tier2), |c| c.distance_squared(sink))),
         )
     } else {
         None
@@ -573,8 +569,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             if !builder.in_bounds(c) {
                 continue;
             }
-            let status = pyrust::unwrap_or!(classification
-                .iter()
+            let status = pyrust::unwrap_or!(pyrust::iter!(classification)
                 .find_map(|t| if t.0 == c { Some(t.1) } else { None }), "?");
             let mut args = Map::new();
             pyrust::dict::insert!(args, pyrust::to_string!("c"), auto_wrap_position(c));
@@ -672,7 +667,7 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
             continue;
         }
         let friends_iter = pyrust::filter_map!(pyrust::iter!(builder.state.all_bots), |t| {
-            if *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0) {
+            if *t.1 != builder.state.my_id && pyrust::vec::contains!(builder.state.friendly_bots, t.0) {
                 Some((*t.0, *t.1))
             } else {
                 None
@@ -730,7 +725,7 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
         let is_bad = pyrust::vec::contains!(bad_upstream, &n)
-            || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| t.0.is_some_and(|res| bad_flows.contains(&res)));
+            || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| t.0.is_some_and(|res| pyrust::vec::contains!(bad_flows, &res)));
         if !is_bad {
             continue;
         }
@@ -818,7 +813,7 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
             continue;
         }
         let friends_iter = pyrust::filter_map!(pyrust::iter!(builder.state.all_bots), |t| {
-            if *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0) {
+            if *t.1 != builder.state.my_id && pyrust::vec::contains!(builder.state.friendly_bots, t.0) {
                 Some((*t.0, *t.1))
             } else {
                 None

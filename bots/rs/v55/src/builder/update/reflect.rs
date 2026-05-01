@@ -20,7 +20,7 @@ pub fn update_reflect(builder: &mut Builder) {
     let h = builder.state.height;
     let n = pyrust::min!(pyrust::len!(builder.reflect_queue), _REFLECT_BUDGET);
     for _ in 0..n {
-        let i = pyrust::unwrap!(builder.reflect_queue.pop_front());
+        let i = pyrust::unwrap!(pyrust::vec::pop_front!(builder.reflect_queue));
         let t = Position {
             x: (i % MAX_WIDTH) as i32,
             y: (i / MAX_WIDTH) as i32,

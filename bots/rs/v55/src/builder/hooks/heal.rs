@@ -40,7 +40,7 @@ pub fn end_of_turn_heal(builder: &mut Builder, ct: &mut Controller<'_>) {
                     break;
                 }
             }
-        } else if pyrust::unwrap!(ct.can_heal(ct.get_position(Some(unit)).unwrap())) {
+        } else if pyrust::unwrap!(ct.can_heal(pyrust::unwrap!(ct.get_position(Some(unit))))) {
             let unit_pos = pyrust::unwrap!(ct.get_position(Some(unit)));
             log(
                 &format!("end_of_turn_heal: friendly unit at {unit_pos:?}"),

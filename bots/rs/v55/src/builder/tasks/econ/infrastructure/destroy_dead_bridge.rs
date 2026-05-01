@@ -49,10 +49,8 @@ pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> Task
         return Some(TaskRejected::new("no unreachable dangling"));
     }
     let my_pos = self_.my_pos;
-    let target = *pyrust::unwrap!(self_
-        .unreachable_dangling
-        .iter()
-        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x)));
+    let target = *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(self_
+        .unreachable_dangling), |&&p| (chebyshev(my_pos, p), p.y, p.x)));
     let Some(bridge) = find_upstream_bridge(self_, target) else {
         return Some(TaskRejected::from_string(format!(
             "no bridge upstream of unreachable dangling {:?}",

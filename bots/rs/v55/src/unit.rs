@@ -242,7 +242,7 @@ impl UnitState {
     #[must_use]
     pub fn resolved_symmetry(&self) -> Option<Symmetry> {
         if pyrust::len!(self.symmetry_candidates) == 1 {
-            pyrust::copied!(pyrust::iter!(self.symmetry_candidates).next())
+            pyrust::copied!(pyrust::next!(pyrust::iter!(self.symmetry_candidates)))
         } else {
             None
         }

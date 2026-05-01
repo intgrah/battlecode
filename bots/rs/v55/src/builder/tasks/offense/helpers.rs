@@ -21,7 +21,7 @@ use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 
 pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |p| self_.is_passable(*p) && !self_.all_bots.contains_key(p)))
+    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |p| self_.is_passable(*p) && !pyrust::dict::contains!(self_.all_bots, p)))
 }
 
 pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
@@ -158,7 +158,7 @@ pub fn pick_conveyor_target(
         let mut has_flow = false;
         if pyrust::unwrap!(ct.is_in_vision(pos))
             && let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(pos))
-            && pyrust::is_some!(ct.get_stored_resource(Some(bid)).unwrap())
+            && pyrust::is_some!(pyrust::unwrap!(ct.get_stored_resource(Some(bid))))
         {
             has_flow = true;
         }
@@ -333,7 +333,7 @@ pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Positi
             return h;
         }
     }
-    pyrust::expect!(closest(my_pos, vulnerable.iter().copied()), "vulnerable is non-empty by caller contract")
+    pyrust::expect!(closest(my_pos, pyrust::copied!(pyrust::iter!(vulnerable))), "vulnerable is non-empty by caller contract")
 }
 
 pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
