@@ -274,7 +274,6 @@ fn cargo_target_dir(dir: &Path) -> Result<PathBuf, String> {
 }
 
 fn translate_rust_bot(dir: &Path, release: bool) -> Result<BotKind, String> {
-    let translate_bin = pyrust_translate_bin()?;
     let src = dir.join("src");
     if !src.is_dir() {
         return Err(format!("Rust bot has no src/ dir: {}", dir.display()));
@@ -297,15 +296,16 @@ fn translate_rust_bot(dir: &Path, release: bool) -> Result<BotKind, String> {
         src.display(),
         out_root.display()
     );
-    let mut cmd = std::process::Command::new(&translate_bin);
+    // Call the translator in-process via the library API instead of
+    // spawning a separate `pyrust-translate` binary. Same effect, but
+    // `cargo install cambc-libre` no longer needs a sibling binary.
+    let mut cfg = pyrust_translate::CfgEnv::debug();
     if release {
-        cmd.arg("--release");
+        cfg.apply_cfg_arg("debug_assertions=false")
+            .map_err(|e| format!("pyrust-translate cfg: {e}"))?;
     }
-    cmd.arg("--dir").arg(&src).arg("-o").arg(&out_root);
-    let status = cmd.status().map_err(|e| format!("pyrust-translate: {e}"))?;
-    if !status.success() {
-        return Err(format!("pyrust-translate failed for {}", src.display()));
-    }
+    pyrust_translate::translate_dir(&src, &out_root, &cfg)
+        .map_err(|e| format!("pyrust-translate failed for {}: {e}", src.display()))?;
     // The bot's entry point is src/lib.rs → lib.py. Rename to main.py
     // so the existing Python loader picks up `Player` from main.py.
     // Always overwrite — pyrust-translate just regenerated lib.py and
@@ -322,24 +322,6 @@ fn translate_rust_bot(dir: &Path, release: bool) -> Result<BotKind, String> {
         ));
     }
     Ok(BotKind::Python(canonical(&main_py)?))
-}
-
-fn pyrust_translate_bin() -> Result<PathBuf, String> {
-    if let Some(p) = std::env::var_os("PYRUST_TRANSLATE_BIN") {
-        return Ok(PathBuf::from(p));
-    }
-    // Same workspace as cambc-libre; the translate binary lives in the
-    // same target/{debug,release} dir.
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let dir = exe.parent().ok_or("current_exe has no parent")?;
-    let candidate = dir.join("pyrust-translate");
-    if candidate.is_file() {
-        return Ok(candidate);
-    }
-    Err(format!(
-        "pyrust-translate binary not found next to {}; build with `cargo build -p pyrust-translate` or set PYRUST_TRANSLATE_BIN",
-        exe.display()
-    ))
 }
 
 /// Resolve a map to an absolute `.map26` file.

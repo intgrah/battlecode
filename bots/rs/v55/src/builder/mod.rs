@@ -39,7 +39,7 @@ use crate::builder::tasks::policy_for_role;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::update::update;
 use crate::builder::update::vision::apply_local_destroy as vision_apply_local_destroy;
-use crate::building::Building;
+use cambc::Team;
 use crate::config::{DEBUG_DUMP, HARDCODE};
 use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
@@ -69,47 +69,49 @@ pub struct Builder {
     pub symmetry: Option<Symmetry>,
 
     /// Wall / Empty / OreTitanium / OreAxionite per tile (None = unobserved).
-    pub env: Vec<Option<Environment>>,
+    pub env: [Option<Environment>; MAX_N],
     /// Cached entity ids per tile, for change detection.
-    pub building_ids: Vec<Option<i32>>,
-    /// Building on each tile.
-    pub buildings: Vec<Option<Building>>,
+    pub building_ids: [Option<i32>; MAX_N],
+    /// Building kind per tile (None when no building / not in vision).
+    pub building_kind: [Option<EntityType>; MAX_N],
+    /// Owning team per tile, parallel to `building_kind`.
+    pub building_team: [Option<Team>; MAX_N],
     /// HP of building on each tile.
-    pub hp: Vec<i32>,
+    pub hp: [i32; MAX_N],
     /// Max HP of building on each tile.
-    pub max_hp: Vec<i32>,
+    pub max_hp: [i32; MAX_N],
 
     /// Movement cost per tile.
-    pub cost_grid: Vec<i32>,
+    pub cost_grid: [i32; MAX_N],
     /// Flat indices currently carrying a threat penalty in `cost_grid`.
     pub _threat_bumped: HashSet<usize>,
 
     /// True iff a routable building could be placed on this tile.
-    pub buildable: Vec<bool>,
+    pub buildable: [bool; MAX_N],
     /// True iff Ti routing through this tile would mix with Ax.
-    pub ti_leakage: Vec<bool>,
+    pub ti_leakage: [bool; MAX_N],
     /// True iff Ax routing through this tile would mix with Ti.
-    pub ax_leakage: Vec<bool>,
+    pub ax_leakage: [bool; MAX_N],
     /// `buildable[i] && !ti_leakage[i]`.
-    pub ti_routable: Vec<bool>,
+    pub ti_routable: [bool; MAX_N],
     /// `buildable[i] && !ax_leakage[i]`.
-    pub ax_routable: Vec<bool>,
+    pub ax_routable: [bool; MAX_N],
     /// Per-tile additive A* relaxation cost (0 normally, 4 for enemy roads).
-    pub routing_extra: Vec<u8>,
+    pub routing_extra: [u8; MAX_N],
 
-    pub _ti_harv_at: Vec<i32>,
-    pub _ax_harv_at: Vec<i32>,
-    pub _foundry_at: Vec<i32>,
+    pub _ti_harv_at: [i32; MAX_N],
+    pub _ax_harv_at: [i32; MAX_N],
+    pub _foundry_at: [i32; MAX_N],
 
-    pub _ti_in_count: Vec<i32>,
-    pub _ax_in_count: Vec<i32>,
+    pub _ti_in_count: [i32; MAX_N],
+    pub _ax_in_count: [i32; MAX_N],
 
     /// Passable-neighbour list per tile (flat indices). Pre-built for full
     /// `MAX_WIDTH × MAX_WIDTH`; trimmed in `post_init` for the actual map.
-    pub pnb: Vec<Vec<i32>>,
+    pub pnb: [Vec<i32>; MAX_N],
 
     /// Union-find parent pointer for incremental reachability.
-    pub reach_parent: Vec<i32>,
+    pub reach_parent: [i32; MAX_N],
     /// Frontier of admitted-but-unexpanded tiles. Persists across turns.
     pub reach_frontier: Vec<i32>,
 
@@ -122,12 +124,12 @@ pub struct Builder {
     pub bugnav: BugNav,
 
     /// Per-tile rolling window of `(resource, stack_id)` observations.
-    pub flow_history: Vec<VecDeque<(Option<ResourceType>, Option<i32>)>>,
+    pub flow_history: [VecDeque<(Option<ResourceType>, Option<i32>)>; MAX_N],
 
     /// Structural feeders: `in_edges[i]` lists positions that output onto tile i.
-    pub in_edges: Vec<Vec<Position>>,
+    pub in_edges: [Vec<Position>; MAX_N],
     /// Structural consumers: `out_edges[i]` lists positions that tile i outputs to.
-    pub out_edges: Vec<Vec<Position>>,
+    pub out_edges: [Vec<Position>; MAX_N],
 
     /// Tiles to mirror via symmetry once it's resolved (rate-limited).
     pub reflect_queue: VecDeque<usize>,
@@ -185,7 +187,7 @@ pub struct Builder {
 
     // Patrol
     pub patrol_head: Option<Position>,
-    pub last_seen: Vec<i32>,
+    pub last_seen: [i32; MAX_N],
     pub _vision_offsets: Vec<(i32, i32, i32)>,
 
     // Scouting
@@ -224,11 +226,10 @@ impl Builder {
     #[must_use]
     pub fn new() -> Self {
         let pnb = Self::build_initial_pnb();
-        let flow_history: Vec<VecDeque<(Option<ResourceType>, Option<i32>)>> = (0..MAX_N)
-            .map(|_| VecDeque::with_capacity(FLOW_HISTORY_LEN))
-            .collect();
-        let in_edges: Vec<Vec<Position>> = (0..MAX_N).map(|_| Vec::new()).collect();
-        let out_edges: Vec<Vec<Position>> = (0..MAX_N).map(|_| Vec::new()).collect();
+        let flow_history: [VecDeque<(Option<ResourceType>, Option<i32>)>; MAX_N] =
+            [const { VecDeque::new() }; MAX_N];
+        let in_edges: [Vec<Position>; MAX_N] = [const { Vec::new() }; MAX_N];
+        let out_edges: [Vec<Position>; MAX_N] = [const { Vec::new() }; MAX_N];
         let mut vision_offsets: Vec<(i32, i32, i32)> = Vec::new();
         for dx in -4..=4i32 {
             for dy in -4..=4i32 {
@@ -242,26 +243,27 @@ impl Builder {
             my_core: Position { x: 0, y: 0 },
             en_core_guess: Position { x: 0, y: 0 },
             symmetry: None,
-            env: vec![None; MAX_N],
-            building_ids: vec![None; MAX_N],
-            buildings: vec![None; MAX_N],
-            hp: vec![0; MAX_N],
-            max_hp: vec![0; MAX_N],
-            cost_grid: vec![ROAD_COST; MAX_N],
+            env: [None; MAX_N],
+            building_ids: [None; MAX_N],
+            building_kind: [None; MAX_N],
+            building_team: [None; MAX_N],
+            hp: [0; MAX_N],
+            max_hp: [0; MAX_N],
+            cost_grid: [ROAD_COST; MAX_N],
             _threat_bumped: HashSet::new(),
-            buildable: vec![false; MAX_N],
-            ti_leakage: vec![false; MAX_N],
-            ax_leakage: vec![false; MAX_N],
-            ti_routable: vec![false; MAX_N],
-            ax_routable: vec![false; MAX_N],
-            routing_extra: vec![0u8; MAX_N],
-            _ti_harv_at: vec![0; MAX_N],
-            _ax_harv_at: vec![0; MAX_N],
-            _foundry_at: vec![0; MAX_N],
-            _ti_in_count: vec![0; MAX_N],
-            _ax_in_count: vec![0; MAX_N],
+            buildable: [false; MAX_N],
+            ti_leakage: [false; MAX_N],
+            ax_leakage: [false; MAX_N],
+            ti_routable: [false; MAX_N],
+            ax_routable: [false; MAX_N],
+            routing_extra: [0u8; MAX_N],
+            _ti_harv_at: [0; MAX_N],
+            _ax_harv_at: [0; MAX_N],
+            _foundry_at: [0; MAX_N],
+            _ti_in_count: [0; MAX_N],
+            _ax_in_count: [0; MAX_N],
             pnb,
-            reach_parent: vec![-1; MAX_N],
+            reach_parent: [-1; MAX_N],
             reach_frontier: Vec::new(),
             conv_search: AStarSearch::new(),
             ax_conv_search: AStarSearch::new(),
@@ -312,7 +314,7 @@ impl Builder {
             last_fire: None,
             attack_tile_blacklist: HashMap::new(),
             patrol_head: None,
-            last_seen: vec![0; MAX_N],
+            last_seen: [0; MAX_N],
             _vision_offsets: vision_offsets,
             explore_target: None,
             explore_heading: None,
@@ -323,8 +325,8 @@ impl Builder {
         }
     }
 
-    fn build_initial_pnb() -> Vec<Vec<i32>> {
-        let mut pnb: Vec<Vec<i32>> = (0..MAX_N).map(|_| Vec::new()).collect();
+    fn build_initial_pnb() -> [Vec<i32>; MAX_N] {
+        let mut pnb: [Vec<i32>; MAX_N] = [const { Vec::new() }; MAX_N];
         let stride = MAX_WIDTH as i32;
         let offsets: Vec<i32> = DIR8_DELTA
             .iter()
@@ -442,8 +444,18 @@ impl Builder {
         self.env[self.idx(pos)]
     }
 
-    pub fn get_building(&self, pos: Position) -> Option<Building> {
-        self.buildings[self.idx(pos)]
+    /// Kind + team at `pos`, or `None` if no building / not in vision.
+    pub fn get_building(&self, pos: Position) -> Option<(EntityType, Team)> {
+        let i = self.idx(pos);
+        Some((self.building_kind[i]?, self.building_team[i]?))
+    }
+
+    pub fn kind_at(&self, pos: Position) -> Option<EntityType> {
+        self.building_kind[self.idx(pos)]
+    }
+
+    pub fn team_at(&self, pos: Position) -> Option<Team> {
+        self.building_team[self.idx(pos)]
     }
 
     pub fn get_cost(&self, pos: Position) -> i32 {
@@ -468,13 +480,13 @@ impl Builder {
             return false;
         }
         matches!(
-            self.buildings[self.idx(pos)],
+            self.building_kind[self.idx(pos)],
             Some(
-                Building::Conveyor { .. }
-                    | Building::Road { .. }
-                    | Building::Splitter { .. }
-                    | Building::ArmouredConveyor { .. }
-                    | Building::Bridge { .. }
+                EntityType::Conveyor
+                    | EntityType::Road
+                    | EntityType::Splitter
+                    | EntityType::ArmouredConveyor
+                    | EntityType::Bridge
             )
         )
     }
@@ -489,47 +501,57 @@ impl Builder {
 
     pub fn is_buildable(&self, pos: Position) -> bool {
         let i = self.idx(pos);
-        let b = self.buildings[i];
         self.env[i] != Some(Environment::Wall)
-            && (b.is_none() || b.unwrap().team() == self.state.my_team)
+            && (self.building_team[i].is_none()
+                || self.building_team[i] == Some(self.state.my_team))
     }
 
     pub fn is_friendly_turret(&self, pos: Position) -> bool {
-        let b = self.buildings[self.idx(pos)];
-        let Some(b) = b else {
+        let i = self.idx(pos);
+        let Some(kind) = self.building_kind[i] else {
             return false;
         };
         if matches!(
-            b,
-            Building::Conveyor { .. }
-                | Building::Road { .. }
-                | Building::Splitter { .. }
-                | Building::ArmouredConveyor { .. }
-                | Building::Bridge { .. }
+            kind,
+            EntityType::Conveyor
+                | EntityType::Road
+                | EntityType::Splitter
+                | EntityType::ArmouredConveyor
+                | EntityType::Bridge
         ) {
             return false;
         }
-        b.team() == self.state.my_team
+        self.building_team[i] == Some(self.state.my_team)
     }
 
     pub fn is_enemy_building(&self, pos: Position) -> bool {
-        let b = self.buildings[self.idx(pos)];
-        b.is_some_and(|b| b.team() != self.state.my_team)
+        let i = self.idx(pos);
+        match self.building_team[i] {
+            Some(t) => t != self.state.my_team,
+            None => false,
+        }
     }
 
     pub fn leads_to_enemy_building(&self, pos: Position) -> bool {
-        let b = self.buildings[self.idx(pos)];
-        let Some(b) = b else {
-            return false;
-        };
-        if b.team() != self.state.my_team {
+        let i = self.idx(pos);
+        if self.building_team[i] != Some(self.state.my_team) {
             return false;
         }
-        let output_location = match b {
-            Building::Conveyor { direction, .. } => pos.add(direction),
-            Building::Bridge { target, .. } => target,
-            _ => return false,
-        };
+        // Routing buildings (Conveyor / ArmouredConveyor / Bridge) have a
+        // single output edge; non-routing kinds have empty `out_edges`.
+        // Splitters have 3 outputs and are deliberately excluded — only
+        // single-target routers count as "leading to" downstream.
+        let kind = self.building_kind[i];
+        if !matches!(
+            kind,
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
+        ) {
+            return false;
+        }
+        if self.out_edges[i].is_empty() {
+            return false;
+        }
+        let output_location = self.out_edges[i][0];
         if !self.in_bounds(output_location) {
             return false;
         }
@@ -799,25 +821,25 @@ impl Builder {
     }
 
     fn _is_flow_consumer(&self, pos: Position) -> bool {
-        let b = self.buildings[self.idx(pos)];
-        let Some(b) = b else {
+        let i = self.idx(pos);
+        let Some(kind) = self.building_kind[i] else {
             return false;
         };
-        if b.team() != self.state.my_team {
+        if self.building_team[i] != Some(self.state.my_team) {
             return false;
         }
         matches!(
-            b,
-            Building::Conveyor { .. }
-                | Building::ArmouredConveyor { .. }
-                | Building::Bridge { .. }
-                | Building::Splitter { .. }
-                | Building::Foundry { .. }
-                | Building::Core { .. }
-                | Building::Gunner { .. }
-                | Building::Sentinel { .. }
-                | Building::Breach { .. }
-                | Building::Launcher { .. }
+            kind,
+            EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Bridge
+                | EntityType::Splitter
+                | EntityType::Foundry
+                | EntityType::Core
+                | EntityType::Gunner
+                | EntityType::Sentinel
+                | EntityType::Breach
+                | EntityType::Launcher
         )
     }
 
@@ -836,13 +858,14 @@ impl Builder {
 
     pub fn _check_dangling(&mut self, t: Position, _trigger: &str) {
         let i = self.idx(t);
-        let bld = self.buildings[i];
+        let kind = self.building_kind[i];
+        let team = self.building_team[i];
         let env_i = self.env[i];
         let my_team = self.state.my_team;
-        let admit_terrain = match bld {
+        let admit_terrain = match kind {
             None if env_i != Some(Environment::Wall) => true,
-            Some(Building::Road { team }) if team == my_team => true,
-            Some(Building::Marker { .. }) => true,
+            Some(EntityType::Road) if team == Some(my_team) => true,
+            Some(EntityType::Marker) => true,
             _ => false,
         };
         if !admit_terrain {
@@ -861,9 +884,8 @@ impl Builder {
                 continue;
             }
             let fi = self.idx(*f);
-            let fb = self.buildings[fi];
-            let is_satisfied_splitter =
-                matches!(fb, Some(Building::Splitter { .. })) && self._splitter_satisfied(*f);
+            let is_satisfied_splitter = self.building_kind[fi] == Some(EntityType::Splitter)
+                && self._splitter_satisfied(*f);
             if !is_satisfied_splitter {
                 feeders_unsatisfied = true;
                 break;

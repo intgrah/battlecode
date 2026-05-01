@@ -5,13 +5,12 @@
 //! it, then needs to keep walking back. Routes via `offense_launcher` if
 //! one is set and the target is far; else direct.
 
-use cambc::Controller;
+use cambc::{Controller, EntityType};
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
 use crate::builder::tasks::offense::helpers::vulnerable_harvesters;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 
 pub fn walk_to_cached_target(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if !vulnerable_harvesters(self_).is_empty() {
@@ -24,9 +23,8 @@ pub fn walk_to_cached_target(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
     };
 
     if let Some(ol) = self_.offense_launcher {
-        let rl = self_.get_building(ol);
-        if let Some(Building::Launcher { team }) = rl
-            && team == self_.my_team
+        if self_.kind_at(ol) == Some(EntityType::Launcher)
+            && self_.team_at(ol) == Some(self_.my_team)
             && self_.my_pos.distance_squared(offense_target) > 8
         {
             make_move(self_, ct, ol);

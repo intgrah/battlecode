@@ -2414,6 +2414,7 @@ dependencies = [
  "prost",
  "pyo3",
  "pyo3-ffi",
+ "pyrust-translate",
  "serde",
  "toml",
 ]
@@ -3820,14 +3821,6 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "ra_ap_hir",
- "ra_ap_ide",
- "ra_ap_ide_db",
- "ra_ap_load-cargo",
- "ra_ap_paths",
- "ra_ap_project_model",
- "ra_ap_syntax",
- "ra_ap_vfs",
  "syn",
 ]
 

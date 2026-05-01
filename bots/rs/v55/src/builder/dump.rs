@@ -211,7 +211,10 @@ fn vis_tiles<I>(name: &str, iter: I)
 where
     I: IntoIterator<Item = Position>,
 {
-    let data: Vec<Position> = iter.into_iter().collect();
+    // Sort by (y, x) so dumps are deterministic across hash-randomized
+    // iteration of HashSet/HashMap source collections.
+    let mut data: Vec<Position> = iter.into_iter().collect();
+    data.sort_by_key(|p| (p.y, p.x));
     vis(name, &Dump::Tiles { data });
 }
 

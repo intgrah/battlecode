@@ -17,7 +17,7 @@ pub mod sentinel;
 pub mod unit;
 pub mod util;
 
-use cambc::{Controller, ControllerApi, EntityType};
+use cambc::{Bot, Controller, ControllerApi, EntityType};
 
 use crate::breach::Breach;
 use crate::builder::Builder;
@@ -28,22 +28,12 @@ use crate::sentinel::Sentinel;
 use crate::unit::Unit;
 use crate::util::debug::{Scope, flush};
 
-/// Which of the six unit subtypes this `Player` instance resolved to. Cached
-/// after the first turn so subsequent turns skip the dispatch + `post_init`.
-#[derive(Clone, Copy, Debug)]
-enum UnitKind {
-    Builder,
-    Core,
-    Sentinel,
-    Gunner,
-    Launcher,
-    Breach,
-}
-
 /// The bot. The engine constructs one `Player` per unit (the FFI entry
-/// point) and calls `Bot::run` each turn.
+/// point) and calls `Bot::run` each turn. `unit` caches which of the six
+/// concrete subtypes this instance resolved to so subsequent turns skip
+/// the dispatch + `post_init`.
 pub struct Player {
-    unit: Option<UnitKind>,
+    unit: Option<EntityType>,
     builder: Builder,
     core: Core,
     sentinel: Sentinel,
@@ -52,15 +42,8 @@ pub struct Player {
     breach: Breach,
 }
 
-impl Default for Player {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Player {
-    #[must_use]
-    pub fn new() -> Self {
+impl Bot for Player {
+    fn new() -> Self {
         Self {
             unit: None,
             builder: Builder::new(),
@@ -72,47 +55,35 @@ impl Player {
         }
     }
 
-    fn run_turn(&mut self, ct: &mut Controller<'_>) {
+    fn run(&mut self, ct: &mut Controller<'_>) {
         let _turn = Scope::new("turn");
         if self.unit.is_none() {
-            let kind = match ct.get_entity_type(None).unwrap() {
-                EntityType::BuilderBot => UnitKind::Builder,
-                EntityType::Core => UnitKind::Core,
-                EntityType::Sentinel => UnitKind::Sentinel,
-                EntityType::Gunner => UnitKind::Gunner,
-                EntityType::Launcher => UnitKind::Launcher,
-                EntityType::Breach => UnitKind::Breach,
-                et => panic!("Player::run on unsupported entity type: {et:?}"),
-            };
+            let kind = ct.get_entity_type(None).unwrap();
             self.unit = Some(kind);
             let _scope = Scope::new_timed("post_init");
             match kind {
-                UnitKind::Builder => self.builder.post_init(ct),
-                UnitKind::Core => self.core.post_init(ct),
-                UnitKind::Sentinel => self.sentinel.post_init(ct),
-                UnitKind::Gunner => self.gunner.post_init(ct),
-                UnitKind::Launcher => self.launcher.post_init(ct),
-                UnitKind::Breach => self.breach.post_init(ct),
+                EntityType::BuilderBot => self.builder.post_init(ct),
+                EntityType::Core => self.core.post_init(ct),
+                EntityType::Sentinel => self.sentinel.post_init(ct),
+                EntityType::Gunner => self.gunner.post_init(ct),
+                EntityType::Launcher => self.launcher.post_init(ct),
+                EntityType::Breach => self.breach.post_init(ct),
+                et => panic!("Player::run on unsupported entity type: {et:?}"),
             }
         }
         {
             let _scope = Scope::new_timed("run");
             match self.unit.expect("kind set above") {
-                UnitKind::Builder => self.builder.run(ct),
-                UnitKind::Core => self.core.run(ct),
-                UnitKind::Sentinel => self.sentinel.run(ct),
-                UnitKind::Gunner => self.gunner.run(ct),
-                UnitKind::Launcher => self.launcher.run(ct),
-                UnitKind::Breach => self.breach.run(ct),
+                EntityType::BuilderBot => self.builder.run(ct),
+                EntityType::Core => self.core.run(ct),
+                EntityType::Sentinel => self.sentinel.run(ct),
+                EntityType::Gunner => self.gunner.run(ct),
+                EntityType::Launcher => self.launcher.run(ct),
+                EntityType::Breach => self.breach.run(ct),
+                _ => {}
             }
         }
         flush();
-    }
-}
-
-impl cambc::Bot for Player {
-    fn run(&mut self, ct: &mut Controller<'_>) {
-        self.run_turn(ct);
     }
 }
 

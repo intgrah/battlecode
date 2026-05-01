@@ -20,10 +20,9 @@ use crate::builder::helpers::{
     make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
 };
 use crate::builder::tasks::rejected::TaskRejected;
-use crate::building::Building;
 use crate::util::constants::MAX_WIDTH;
 use crate::util::debug::{Scope, debug, line};
-use crate::util::directions::{DIR4, DIR8, delta_to_dir, get_direction_object};
+use crate::util::directions::{DIR4, DIR8, delta_to_dir, get_direction_object, is_cardinal};
 use crate::util::metrics::{chebyshev, reachable_path_end};
 use crate::util::visualiser::auto_wrap_position;
 
@@ -96,14 +95,15 @@ fn _retarget_foundry_to_junction(builder: &mut Builder, landing: Position) {
     if builder.foundry_target == Some(landing) {
         return;
     }
-    let bld = builder.get_building(landing);
+    let kind = builder.kind_at(landing);
+    let team = builder.team_at(landing);
     if !matches!(
-        bld,
-        Some(Building::Conveyor { .. } | Building::ArmouredConveyor { .. })
+        kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     ) {
         return;
     }
-    if bld.unwrap().team() != builder.state.my_team {
+    if team != Some(builder.state.my_team) {
         return;
     }
     let hist = &builder.flow_history[(landing.y as usize) * MAX_WIDTH + (landing.x as usize)];
@@ -237,7 +237,7 @@ fn _lay_segment(
         .unwrap_or(false);
 
     if let Some(d) = direction
-        && d.is_cardinal()
+        && is_cardinal(d)
         && (destination_building.is_none()
             || destination_team == Some(builder.state.my_team)
             || destination_is_marker)

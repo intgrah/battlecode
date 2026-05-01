@@ -209,6 +209,31 @@ fn emit_array_expr(w: &mut PyWriter, a: &syn::ExprArray) -> Result<Emitted, Stri
 }
 
 fn emit_repeat_expr(w: &mut PyWriter, r: &syn::ExprRepeat) -> Result<Emitted, String> {
+    // `[const { expr }; N]` → `[<expr> for _ in range(N)]`. Each iteration
+    // evaluates the inner expression freshly, matching Rust's per-slot
+    // copy of the const value. Plain `[V] * N` would alias N references
+    // to the same Python object, which is wrong for any mutable type.
+    if let syn::Expr::Const(c) = r.expr.as_ref() {
+        // The const block is a `{ stmts; tail-expr }` body; pull the
+        // tail expression out. If the block has multiple statements,
+        // we need a more elaborate lowering — bail to single-expr form.
+        let block = &c.block;
+        if block.stmts.len() == 1
+            && let syn::Stmt::Expr(inner_expr, None) = &block.stmts[0]
+        {
+            let val = emit_expr(w, inner_expr)?;
+            let len = emit_expr(w, &r.len)?;
+            return Ok(Emitted {
+                text: format!("[{} for _ in range({})]", val.text, len.text),
+                ty: Ty::List,
+                prec: Prec::Atom,
+            });
+        }
+        return Err(w.err(
+            r.span(),
+            "const-block in array repeat must contain a single expression",
+        ));
+    }
     let val = emit_expr(w, &r.expr)?;
     let len = emit_expr(w, &r.len)?;
     let val_text = if val.prec < Prec::Mul {
@@ -503,10 +528,16 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
         }
         ("clear", _, 0) => {
             // Python strings are immutable; `String::clear()` becomes
-            // assignment to the empty string. The detection is via ra_ap
-            // type info on the receiver — if unknown, assume mutable
-            // collection and use `.clear()`.
-            if matches!(recv_kind, Some(crate::tyctx::TyKind::Str)) {
+            // assignment to the empty string. ra_ap reports `&str` as
+            // `TyKind::Str` and `String` as an Adt named "String"; both map
+            // to Python `str`.
+            let is_string = matches!(recv_kind, Some(crate::tyctx::TyKind::Str))
+                || recv_kind
+                    .as_ref()
+                    .and_then(|k| k.adt())
+                    .map(|a| a.name == "String")
+                    .unwrap_or(false);
+            if is_string {
                 return Ok(Emitted::atomic(
                     format!("{} = \"\"", recv.text),
                     Ty::Unit,
@@ -534,6 +565,13 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
             return Ok(Emitted::atomic(
                 format!("({0}.pop(0) if {0} else None)", recv.text),
                 Ty::Unknown,
+            ));
+        }
+        ("split_off", _, 1) => {
+            let arg = emit_expr(w, arg_exprs[0])?;
+            return Ok(Emitted::atomic(
+                format!("{}[{}:]", recv.text, arg.text),
+                Ty::List,
             ));
         }
         ("front", _, 0) => {
@@ -1446,6 +1484,30 @@ fn emit_matches(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Emitted, String
         syn::parse2(em.mac.tokens.clone()).map_err(|e| w.err(span, format!("matches!: {e}")))?;
     let scrut_em = emit_expr(w, &args.scrutinee)?;
     let scrut = paren_at_least(&scrut_em, Prec::Cmp);
+    // When the pattern carries field bindings the guard refers to (e.g.
+    // `matches!(x, Some(A {team, ..} | B {team, ..}) if team != my)`), the
+    // boolean lowering alone loses the binding. Walrus-bind the inspected
+    // value, then call the guard as a lambda receiving each captured field
+    // by attribute access. Only the `Some(struct | struct | …)` shape with
+    // identical binding names across all alternatives is supported.
+    if let Some(g) = &args.guard
+        && let Some((classes, bindings)) = some_or_struct_bindings(&args.pat)
+    {
+        let g_em = emit_expr(w, g)?;
+        let class_union = classes.join(" | ");
+        let tmp = w.fresh_tmp();
+        let attrs: Vec<String> = bindings.iter().map(|b| format!("{tmp}.{b}")).collect();
+        let lam_args = bindings.join(", ");
+        let lam = format!(
+            "(lambda {lam_args}: {})({})",
+            g_em.text,
+            attrs.join(", ")
+        );
+        let body = format!(
+            "(({tmp} := {scrut}) is not None and isinstance({tmp}, {class_union}) and {lam})"
+        );
+        return Ok(Emitted::atomic(body, Ty::Bool));
+    }
     let body = matches_pat_to_bool(w, &scrut, &args.pat)?;
     let with_guard = if let Some(g) = &args.guard {
         let g_em = emit_expr(w, g)?;
@@ -1454,6 +1516,81 @@ fn emit_matches(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Emitted, String
         body
     };
     Ok(Emitted::atomic(format!("({with_guard})"), Ty::Bool))
+}
+
+/// Detect `Some(StructPat | StructPat | ...)` where every alternative is a
+/// struct pattern that binds the same set of field names. Returns the list
+/// of class names (for `isinstance`) and the shared binding names (in the
+/// order they appear in the first alternative). Used by `emit_matches` to
+/// surface guard-referenced field bindings as lambda parameters.
+fn some_or_struct_bindings(pat: &syn::Pat) -> Option<(Vec<String>, Vec<String>)> {
+    let syn::Pat::TupleStruct(ts) = pat else {
+        return None;
+    };
+    let segs: Vec<String> = ts.path.segments.iter().map(|s| s.ident.to_string()).collect();
+    let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+    if !matches!(slice.as_slice(), ["Some"] | ["Option", "Some"]) {
+        return None;
+    }
+    if ts.elems.len() != 1 {
+        return None;
+    }
+    let inner = strip_pat_wrappers(ts.elems.first().unwrap());
+    let cases: Vec<&syn::Pat> = match inner {
+        syn::Pat::Or(o) => o.cases.iter().collect(),
+        other => vec![other],
+    };
+    let mut classes = Vec::with_capacity(cases.len());
+    let mut shared: Option<Vec<String>> = None;
+    for c in cases {
+        let s = match strip_pat_wrappers(c) {
+            syn::Pat::Struct(s) => s,
+            _ => return None,
+        };
+        let last = s.path.segments.last()?.ident.to_string();
+        let class_name = match s.path.segments.len() {
+            1 => last,
+            2 => format!("{}{}", s.path.segments[0].ident, last),
+            _ => return None,
+        };
+        classes.push(class_name);
+        let mut these = Vec::new();
+        for fp in &s.fields {
+            let field = match &fp.member {
+                syn::Member::Named(n) => n.to_string(),
+                syn::Member::Unnamed(_) => return None,
+            };
+            // Only collect fields whose binding is a plain ident with the
+            // same name as the field — these can be lifted to lambda args.
+            if let syn::Pat::Ident(pi) = &*fp.pat
+                && pi.ident == field
+            {
+                these.push(field);
+            }
+        }
+        these.sort();
+        match &shared {
+            None => shared = Some(these),
+            Some(prev) => {
+                if prev != &these {
+                    return None;
+                }
+            }
+        }
+    }
+    let shared = shared?;
+    if shared.is_empty() {
+        return None;
+    }
+    Some((classes, shared))
+}
+
+fn strip_pat_wrappers(p: &syn::Pat) -> &syn::Pat {
+    match p {
+        syn::Pat::Paren(pp) => strip_pat_wrappers(&pp.pat),
+        syn::Pat::Reference(r) => strip_pat_wrappers(&r.pat),
+        other => other,
+    }
 }
 
 fn matches_pat_to_bool(w: &mut PyWriter, scrut: &str, pat: &syn::Pat) -> Result<String, String> {

@@ -2,10 +2,13 @@
 
 use cambc::{Bot, Controller, ControllerApi, cambc_bot};
 
-#[derive(Default)]
 pub struct Player;
 
 impl Bot for Player {
+    fn new() -> Self {
+        Player
+    }
+
     fn run(&mut self, c: &mut Controller<'_>) {
         if c.get_current_round().unwrap() == 50 {
             let _ = c.resign(None);

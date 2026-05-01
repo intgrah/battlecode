@@ -9,50 +9,43 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Positi
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::constants::MAX_WIDTH;
 use crate::util::directions::DIR8;
 
-/// Sentinel-worthy enemy targets:
-/// - Transports (conveyors / splitters / bridges) — economy disruption,
-///   sentinels eat the chain tile-by-tile.
-/// - Core, gunners, sentinels, breach, launchers — direct threats.
+/// Sentinel-worthy enemy targets.
 fn is_enemy_valuable(self_: &Builder, pos: Position) -> bool {
-    let Some(b) = self_.get_building(pos) else {
+    let Some((kind, team)) = self_.get_building(pos) else {
         return false;
     };
-    if b.team() == self_.my_team {
+    if team == self_.my_team {
         return false;
     }
-    if matches!(b, Building::Harvester { .. }) {
+    if kind == EntityType::Harvester {
         return false;
     }
     matches!(
-        b,
-        Building::Conveyor { .. }
-            | Building::ArmouredConveyor { .. }
-            | Building::Splitter { .. }
-            | Building::Bridge { .. }
-            | Building::Core { .. }
-            | Building::Gunner { .. }
-            | Building::Sentinel { .. }
-            | Building::Breach { .. }
-            | Building::Launcher { .. }
+        kind,
+        EntityType::Conveyor
+            | EntityType::ArmouredConveyor
+            | EntityType::Splitter
+            | EntityType::Bridge
+            | EntityType::Core
+            | EntityType::Gunner
+            | EntityType::Sentinel
+            | EntityType::Breach
+            | EntityType::Launcher
     )
 }
 
 /// `side` is a deliverer for a turret at `pos` iff it's a structural
-/// feeder of `pos` (conveyor / splitter / bridge in `in_edges`) or a
-/// friendly harvester.
+/// feeder of `pos` or a friendly harvester.
 fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     let in_edges = &self_.in_edges[pos.y as usize * MAX_WIDTH + pos.x as usize];
     if in_edges.contains(&side) {
         return true;
     }
-    matches!(
-        self_.get_building(side),
-        Some(Building::Harvester { team }) if team == self_.my_team
-    )
+    self_.kind_at(side) == Some(EntityType::Harvester)
+        && self_.team_at(side) == Some(self_.my_team)
 }
 
 /// First DIR8 direction such that a sentinel at `pos` facing `d`

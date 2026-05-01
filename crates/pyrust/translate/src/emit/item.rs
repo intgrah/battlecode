@@ -834,21 +834,28 @@ fn emit_auto_init(w: &mut PyWriter, fields: &[(String, String, Ty)]) {
 }
 
 fn find_new_fn<'a>(file: &'a syn::File, class_name: &str) -> Option<&'a syn::ImplItemFn> {
+    // Inherent `impl Foo { fn new(...) -> Self { ... } }` wins. If absent,
+    // accept a trait-impl's `new()` (e.g. `impl Bot for Player { fn new() })
+    // — the constructor body is the same regardless of which surface
+    // declares it, and Python only cares about `__init__`.
+    let mut trait_new: Option<&'a syn::ImplItemFn> = None;
     for item in &file.items {
         if let syn::Item::Impl(im) = item
-            && im.trait_.is_none()
             && impl_target_name(&im.self_ty).as_deref() == Some(class_name)
         {
             for impl_item in &im.items {
                 if let syn::ImplItem::Fn(f) = impl_item
                     && f.sig.ident == "new"
                 {
-                    return Some(f);
+                    if im.trait_.is_none() {
+                        return Some(f);
+                    }
+                    trait_new = Some(f);
                 }
             }
         }
     }
-    None
+    trait_new
 }
 
 fn emit_init_from_new(

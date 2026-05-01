@@ -17,8 +17,9 @@ pub fn apply_threat_overlay(builder: &mut Builder) {
     let bumped_indices: Vec<usize> = builder._threat_bumped.iter().copied().collect();
     for i in bumped_indices {
         let env = builder.env[i];
-        let bld = builder.buildings[i];
-        _update_cost(builder, i, env, bld);
+        let kind = builder.building_kind[i];
+        let team = builder.building_team[i];
+        _update_cost(builder, i, env, kind, team);
     }
     builder._threat_bumped.clear();
 

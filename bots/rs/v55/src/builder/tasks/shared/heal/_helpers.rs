@@ -71,11 +71,11 @@ pub const fn healers_needed(attackers: i32) -> i32 {
 /// detect tiles where a friendly builder is mid-kill and shouldn't be
 /// pulled away by a heal.
 pub fn has_wounded_enemy(self_: &Builder, position: Position) -> bool {
-    let Some(b) = self_.get_building(position) else {
+    let Some((_kind, team)) = self_.get_building(position) else {
         return false;
     };
     let i = self_.idx(position);
-    b.team() != self_.my_team && self_.hp[i] < self_.max_hp[i]
+    team != self_.my_team && self_.hp[i] < self_.max_hp[i]
 }
 
 /// True iff we're standing on an enemy building at low HP and
@@ -85,9 +85,10 @@ pub fn has_wounded_enemy(self_: &Builder, position: Position) -> bool {
 /// while still mostly intact (>18 HP max means we're probably a fresh
 /// bot still committing to the kill).
 pub fn fight_to_death(self_: &Builder, ct: &mut Controller<'_>) -> bool {
-    let b = self_.get_building(self_.my_pos);
-    let Some(b) = b else { return false };
-    if b.team() == self_.my_team {
+    let Some((_kind, team)) = self_.get_building(self_.my_pos) else {
+        return false;
+    };
+    if team == self_.my_team {
         return false;
     }
     let i = self_.idx(self_.my_pos);

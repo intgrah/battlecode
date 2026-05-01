@@ -15,7 +15,6 @@ use crate::builder::tasks::offense::helpers::{
     should_attack, vulnerable_harvesters, without_allied_transport,
 };
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::directions::DIR4;
 use crate::util::metrics::closest;
 
@@ -55,7 +54,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         .neighbours_8
         .iter()
         .copied()
-        .filter(|&p| matches!(self_.get_building(p), Some(Building::Launcher { .. })))
+        .filter(|&p| self_.kind_at(p) == Some(EntityType::Launcher))
         .collect();
     let best_adjacent_launcher = closest(destination, adjacent_launchers);
 

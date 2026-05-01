@@ -23,6 +23,17 @@ pub const DIR4: [Direction; 4] = [
     Direction::West,
 ];
 
+/// True for the four cardinal directions (N/E/S/W). Mirrors the Rust
+/// `Direction::is_cardinal()` helper from `libre-engine`, which has no
+/// Python counterpart on `cambc.Direction`.
+#[must_use]
+pub const fn is_cardinal(d: Direction) -> bool {
+    matches!(
+        d,
+        Direction::North | Direction::East | Direction::South | Direction::West
+    )
+}
+
 /// `(dx, dy)` offsets for `DIR8`, in the same order.
 pub const DIR8_DELTA: [(i32, i32); 8] = [
     (0, -1),  // North

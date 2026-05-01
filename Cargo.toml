@@ -30,6 +30,8 @@ path = "crates/libre-replay"
 path = "crates/cambc"
 [workspace.dependencies.pyrust]
 path = "crates/pyrust/shim"
+[workspace.dependencies.pyrust-translate]
+path = "crates/pyrust/translate"
 
 [workspace.package]
 edition = "2024"

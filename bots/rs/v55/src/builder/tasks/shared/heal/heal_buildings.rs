@@ -102,11 +102,10 @@ pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
     if let Some(rp) = self_.repair_pos
         && ct.is_in_vision(rp).unwrap()
     {
-        let b = self_.get_building(rp);
         let ti_idx = self_.idx(rp);
-        if let Some(b) = b
+        if let Some((_kind, team)) = self_.get_building(rp)
             && self_.hp[ti_idx] < self_.max_hp[ti_idx] - 2
-            && b.team() == self_.my_team
+            && team == self_.my_team
         {
             // keep
         } else {
