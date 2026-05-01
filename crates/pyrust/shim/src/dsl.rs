@@ -535,6 +535,14 @@ macro_rules! __pyrust_vec_swap_remove {
     };
 }
 
+/// `pyrust::vec::fill!(v, x)` — Rust `Vec::fill`, Python `v[:] = [x] * len(v)`.
+#[macro_export]
+macro_rules! __pyrust_vec_fill {
+    ($v:expr, $x:expr) => {
+        ($v).fill($x)
+    };
+}
+
 /// Pop the last element. Returns `Option<T>` — `None` on empty.
 /// Translator emits `(v.pop() if v else None)` for Python parity.
 #[macro_export]

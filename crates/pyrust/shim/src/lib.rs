@@ -77,7 +77,7 @@ pub mod vec {
         __pyrust_vec_new as new, __pyrust_vec_pop as pop, __pyrust_vec_pop_back as pop_back,
         __pyrust_vec_pop_front as pop_front, __pyrust_vec_push as push,
         __pyrust_vec_push_back as push_back, __pyrust_vec_push_front as push_front,
-        __pyrust_vec_swap_remove as swap_remove,
+        __pyrust_vec_swap_remove as swap_remove, __pyrust_vec_fill as fill,
     };
 }
 pub mod set {
