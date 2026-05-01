@@ -83,7 +83,7 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     let bid_here = pyrust::unwrap!(ct.get_tile_building_id(my_pos));
     if let Some(bid) = bid_here {
         let pre_hp = pyrust::unwrap!(ct.get_hp(Some(bid)));
-        self_.last_fire = Some((my_pos, (pre_hp - 2).max(0)));
+        self_.last_fire = Some((my_pos, pyrust::max!((pre_hp - 2), 0)));
     }
     try_attack(ct, my_pos);
     self_.offense_target = Some(my_pos);

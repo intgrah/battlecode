@@ -5,7 +5,7 @@ use cambc::Position;
 /// L-1 distance.
 #[must_use]
 pub const fn manhattan(p1: Position, p2: Position) -> i32 {
-    (p1.x - p2.x).abs() + (p1.y - p2.y).abs()
+    pyrust::abs!((p1.x - p2.x)) + pyrust::abs!((p1.y - p2.y))
 }
 
 /// L-2 distance, squared.
@@ -19,8 +19,8 @@ pub const fn euclidean_sq(p1: Position, p2: Position) -> i32 {
 /// L-infinity distance.
 #[must_use]
 pub const fn chebyshev(p1: Position, p2: Position) -> i32 {
-    let dx = (p1.x - p2.x).abs();
-    let dy = (p1.y - p2.y).abs();
+    let dx = pyrust::abs!((p1.x - p2.x));
+    let dy = pyrust::abs!((p1.y - p2.y));
     if dx > dy { dx } else { dy }
 }
 

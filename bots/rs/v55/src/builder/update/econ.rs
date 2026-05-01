@@ -474,7 +474,7 @@ fn _pure_ax_merge_ok(builder: &Builder, pos: Position) -> bool {
 const _FOUNDRY_REUSE_THRESHOLD: i32 = 10;
 
 const fn _manhattan(a: Position, b: Position) -> i32 {
-    (a.x - b.x).abs() + (a.y - b.y).abs()
+    pyrust::abs!((a.x - b.x)) + pyrust::abs!((a.y - b.y))
 }
 
 /// Find junctions (multi-feeder tiles) where the feeders' total
@@ -1038,7 +1038,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
     let anchor = pyrust::unwrap_or!(builder.dangling_output, builder.state.my_pos);
     let c = builder.my_core;
     let d_builder_to_core =
-        (builder.state.my_pos.x - c.x).abs() + (builder.state.my_pos.y - c.y).abs();
+        pyrust::abs!((builder.state.my_pos.x - c.x)) + pyrust::abs!((builder.state.my_pos.y - c.y));
     let saving_threshold = _near_core_saving_threshold(builder);
 
     let mut tier1_best: Option<Position> = None;
@@ -1052,7 +1052,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
         }
         let d_anchor_sq = anchor.distance_squared(*pos);
         let d_builder_to_cand =
-            (builder.state.my_pos.x - pos.x).abs() + (builder.state.my_pos.y - pos.y).abs();
+            pyrust::abs!((builder.state.my_pos.x - pos.x)) + pyrust::abs!((builder.state.my_pos.y - pos.y));
         let saving = d_builder_to_core - d_builder_to_cand;
         if saving <= saving_threshold {
             if d_anchor_sq < tier3_d {

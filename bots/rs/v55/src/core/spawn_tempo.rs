@@ -35,9 +35,9 @@ pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> 
     let w = width;
     let h = height;
 
-    let centre_dist = (cx - w / 2).abs().max((cy - h / 2).abs());
+    let centre_dist = pyrust::max!(pyrust::abs!((cx - w / 2)), pyrust::abs!((cy - h / 2)));
     let eccentricity = pyrust::float!(centre_dist) / pyrust::float!(w.max(h).max(1));
-    let edge_dist = cx.min(cy).min(w - 1 - cx).min(h - 1 - cy);
+    let edge_dist = pyrust::min!(pyrust::min!(pyrust::min!(cx, cy), w - 1 - cx), h - 1 - cy);
 
     let mut cardinal_exits: i32 = 0;
     for (dx, dy) in [(-2, 0), (2, 0), (0, -2), (0, 2)] {

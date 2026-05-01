@@ -171,7 +171,7 @@ pub fn pick_conveyor_target(
         };
         let spacing = min_friendly_chebyshev(ct, pos);
         let my_dist = my_pos.distance_squared(pos);
-        let score = (tier, -spacing.min(3), my_dist);
+        let score = (tier, -pyrust::min!(spacing, 3), my_dist);
         match best_score {
             Some(prev) if score >= prev => {}
             _ => {

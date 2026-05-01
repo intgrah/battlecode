@@ -2051,6 +2051,50 @@ fn emit_pyrust_dsl(
                 Ty::Unknown,
             )))
         }
+        ["round"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "round!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("round({})", inner.text),
+                Ty::Float,
+            )))
+        }
+        ["sqrt"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "sqrt!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("math.sqrt({})", inner.text),
+                Ty::Float,
+            )))
+        }
+        ["floor"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "floor!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("math.floor({})", inner.text),
+                Ty::Float,
+            )))
+        }
+        ["ceil"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "ceil!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("math.ceil({})", inner.text),
+                Ty::Float,
+            )))
+        }
 
         // ============================================================
         // Iterator: identity / no-op in Python (lists/dicts are iterable)
@@ -2209,15 +2253,23 @@ fn emit_pyrust_dsl(
         }
         ["min"] | ["max"] => {
             let args = parse_args!();
-            if args.len() != 1 {
-                return Err(w.err(em.span(), "min/max!: expected 1 argument"));
-            }
-            let it = emit_expr(w, &args[0])?;
             let py_fn = tail[0];
-            Ok(Some(Emitted::atomic(
-                format!("({0}({1}) if {1} else None)", py_fn, it.text),
-                Ty::Unknown,
-            )))
+            if args.len() == 1 {
+                let it = emit_expr(w, &args[0])?;
+                Ok(Some(Emitted::atomic(
+                    format!("({0}({1}) if {1} else None)", py_fn, it.text),
+                    Ty::Unknown,
+                )))
+            } else if args.len() == 2 {
+                let a = emit_expr(w, &args[0])?;
+                let b = emit_expr(w, &args[1])?;
+                Ok(Some(Emitted::atomic(
+                    format!("{0}({1}, {2})", py_fn, a.text, b.text),
+                    Ty::Unknown,
+                )))
+            } else {
+                Err(w.err(em.span(), "min/max!: expected 1 or 2 arguments"))
+            }
         }
         ["min_by"] | ["max_by"] => {
             let parsed = syn::parse2::<ClosureArgs>(tokens.clone())

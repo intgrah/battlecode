@@ -88,7 +88,7 @@ impl Core {
         let need = Self::CONVERSION_TI_THRESHOLD - self.state.ti;
         let surplus_ax = self.state.ax - Self::CONVERSION_AX_THRESHOLD;
         if need > 0 && surplus_ax > 0 {
-            let amount = surplus_ax.min((need + 3) / 4);
+            let amount = pyrust::min!(surplus_ax, (need + 3) / 4);
             pyrust::unwrap!(ct.convert(amount));
         }
     }
@@ -223,7 +223,7 @@ impl Unit for Core {
         let numerator = pyrust::float!((36 - 18) * (area - 20 * 20));
         let denominator = pyrust::float!(50 * 50 - 20 * 20);
         let raw = 18.0 + numerator / denominator;
-        self.max_team_units = raw.round() as i32;
+        self.max_team_units = pyrust::round!(raw) as i32;
         let _scope = Scope::new_timed("spawn_tempo");
         self.spawn_tempo = compute_spawn_tempo(self.state.width, self.state.height, ct);
     }

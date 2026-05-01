@@ -21,8 +21,8 @@ fn direction_to(src: Position, dst: Position) -> Direction {
     if dx == 0 && dy == 0 {
         return Direction::Centre;
     }
-    let adx = dx.abs();
-    let ady = dy.abs();
+    let adx = pyrust::abs!(dx);
+    let ady = pyrust::abs!(dy);
     if adx * 5 < ady * 2 {
         return if dy < 0 {
             Direction::North
