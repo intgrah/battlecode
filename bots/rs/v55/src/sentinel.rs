@@ -89,7 +89,7 @@ fn _transport_outputs(
     if etype == EntityType::Bridge {
         return vec![ct.get_bridge_target(bid).unwrap()];
     }
-    let d = ct.get_direction(Some(bid)).unwrap();
+    let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
     if etype == EntityType::Splitter {
         return vec![
             pos.add(d),
@@ -102,16 +102,16 @@ fn _transport_outputs(
 
 fn _feeds_enemy_combat(ct: &mut Controller<'_>, my_team: Team, outputs: &[Position]) -> bool {
     for &out in outputs {
-        if !ct.is_in_vision(out).unwrap() {
+        if !pyrust::unwrap!(ct.is_in_vision(out)) {
             continue;
         }
-        let Some(out_bid) = ct.get_tile_building_id(out).unwrap() else {
+        let Some(out_bid) = pyrust::unwrap!(ct.get_tile_building_id(out)) else {
             continue;
         };
-        if ct.get_team(Some(out_bid)).unwrap() == my_team {
+        if pyrust::unwrap!(ct.get_team(Some(out_bid))) == my_team {
             continue;
         }
-        if is_enemy_combat(ct.get_entity_type(Some(out_bid)).unwrap()) {
+        if is_enemy_combat(pyrust::unwrap!(ct.get_entity_type(Some(out_bid)))) {
             return true;
         }
     }
@@ -136,15 +136,15 @@ impl Sentinel {
     fn try_self_destruct(&mut self, ct: &mut Controller<'_>) {
         let my_team = self.state.my_team;
         let mut has_ally = false;
-        for uid in ct.get_nearby_units(None).unwrap() {
-            if ct.get_team(Some(uid)).unwrap() == my_team {
+        for uid in pyrust::unwrap!(ct.get_nearby_units(None)) {
+            if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
                 has_ally = true;
             } else {
                 return;
             }
         }
         if has_ally {
-            ct.self_destruct().unwrap();
+            pyrust::unwrap!(ct.self_destruct());
         }
     }
 }
@@ -161,7 +161,7 @@ impl Unit for Sentinel {
     fn run(&mut self, ct: &mut Controller<'_>) {
         self.state.cache_per_turn_state(ct);
         self.state.check_symmetry_marker(ct);
-        if ct.get_action_cooldown().unwrap() > 0 {
+        if pyrust::unwrap!(ct.get_action_cooldown()) > 0 {
             return;
         }
 
@@ -169,13 +169,13 @@ impl Unit for Sentinel {
         let mut best_score: i32 = -1;
         let mut best_target: Option<Position> = None;
 
-        let attackable = ct.get_attackable_tiles().unwrap();
+        let attackable = pyrust::unwrap!(ct.get_attackable_tiles());
         for tile in attackable {
-            let bid = ct.get_tile_building_id(tile).unwrap();
+            let bid = pyrust::unwrap!(ct.get_tile_building_id(tile));
             let uid = self.state.all_bots.get(&tile).copied();
 
             if self.state.enemy_bots.contains(&tile) {
-                let hp = ct.get_hp(uid).unwrap();
+                let hp = pyrust::unwrap!(ct.get_hp(uid));
                 let score = _builder_score(hp);
                 if score > best_score {
                     best_score = score;
@@ -191,10 +191,10 @@ impl Unit for Sentinel {
             let Some(bid) = bid else {
                 continue;
             };
-            if ct.get_team(Some(bid)).unwrap() == my_team {
+            if pyrust::unwrap!(ct.get_team(Some(bid))) == my_team {
                 continue;
             }
-            let etype = ct.get_entity_type(Some(bid)).unwrap();
+            let etype = pyrust::unwrap!(ct.get_entity_type(Some(bid)));
             if matches!(etype, EntityType::Marker | EntityType::Harvester) {
                 continue;
             }
@@ -205,7 +205,7 @@ impl Unit for Sentinel {
                     score = 12;
                 }
             }
-            if ct.get_hp(Some(bid)).unwrap() <= GameConstants::SENTINEL_DAMAGE {
+            if pyrust::unwrap!(ct.get_hp(Some(bid))) <= GameConstants::SENTINEL_DAMAGE {
                 score += 1;
             }
             if score > best_score {
@@ -215,9 +215,9 @@ impl Unit for Sentinel {
         }
 
         if let Some(target) = best_target
-            && ct.can_fire(target).unwrap()
+            && pyrust::unwrap!(ct.can_fire(target))
         {
-            ct.fire(target).unwrap();
+            pyrust::unwrap!(ct.fire(target));
             self.idle_turns = 0;
         } else {
             self.idle_turns += 1;

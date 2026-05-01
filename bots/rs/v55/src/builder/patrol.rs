@@ -38,7 +38,7 @@ fn _walkable_anchor(builder: &Builder, pos: Position) -> Option<Position> {
 /// `ti_upstream` and `ax_upstream` covers conveyor / armoured /
 /// bridge / splitter tiles that are downstream of a harvester).
 fn _candidate_iter(builder: &Builder) -> Vec<Position> {
-    let mut out: Vec<Position> = Vec::new();
+    let mut out: Vec<Position> = pyrust::vec::new!();
     out.extend(builder.my_harvesters.iter().copied());
     out.extend(builder.my_foundries.iter().copied());
     out.extend(builder.ti_upstream.iter().copied());
@@ -93,7 +93,7 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
         }
     }
 
-    if head.is_none() {
+    if pyrust::is_none!(head) {
         head = _pick_head(builder);
         if let Some(h) = head {
             let age = rnd - builder.last_seen[(h.y as usize) * MAX_WIDTH + (h.x as usize)];

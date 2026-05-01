@@ -31,31 +31,31 @@ impl Launcher {
     }
 
     fn is_walkable(&self, ct: &mut Controller<'_>, pos: Position) -> bool {
-        if !self.in_bounds(pos) || !ct.is_in_vision(pos).unwrap() {
+        if !self.in_bounds(pos) || !pyrust::unwrap!(ct.is_in_vision(pos)) {
             return false;
         }
-        if ct.get_tile_env(pos).unwrap() == Environment::Wall {
+        if pyrust::unwrap!(ct.get_tile_env(pos)) == Environment::Wall {
             return false;
         }
-        let Some(bid) = ct.get_tile_building_id(pos).unwrap() else {
+        let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(pos)) else {
             return false;
         };
-        let et = ct.get_entity_type(Some(bid)).unwrap();
+        let et = pyrust::unwrap!(ct.get_entity_type(Some(bid)));
         PASSABLE_BUILDINGS.contains(&et)
     }
 
     fn find_harvester_attack_tiles(&self, ct: &mut Controller<'_>) -> Vec<Position> {
-        let mut targets: Vec<Position> = Vec::new();
+        let mut targets: Vec<Position> = pyrust::vec::new!();
         let nearby = self.state.nearby_tiles.clone();
         let my_team = self.state.my_team;
         for pos in nearby {
-            let Some(bid) = ct.get_tile_building_id(pos).unwrap() else {
+            let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(pos)) else {
                 continue;
             };
-            if ct.get_entity_type(Some(bid)).unwrap() != EntityType::Harvester {
+            if pyrust::unwrap!(ct.get_entity_type(Some(bid))) != EntityType::Harvester {
                 continue;
             }
-            if ct.get_team(Some(bid)).unwrap() == my_team {
+            if pyrust::unwrap!(ct.get_team(Some(bid))) == my_team {
                 continue;
             }
             for &d in &DIR4 {
@@ -63,10 +63,10 @@ impl Launcher {
                 if !self.is_empty_walkable(ct, adj) {
                     continue;
                 }
-                let Some(adj_bid) = ct.get_tile_building_id(adj).unwrap() else {
+                let Some(adj_bid) = pyrust::unwrap!(ct.get_tile_building_id(adj)) else {
                     continue;
                 };
-                if ct.get_team(Some(adj_bid)).unwrap() == my_team {
+                if pyrust::unwrap!(ct.get_team(Some(adj_bid))) == my_team {
                     continue;
                 }
                 targets.push(adj);
@@ -82,12 +82,12 @@ impl Launcher {
         let my_team = self.state.my_team;
         let my_pos = self.state.my_pos;
         for pos in nearby {
-            let bid = ct.get_tile_building_id(pos).unwrap();
+            let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
             if !self.is_empty_walkable(ct, pos) {
                 continue;
             }
             if let Some(b) = bid
-                && ct.get_team(Some(b)).unwrap() == my_team
+                && pyrust::unwrap!(ct.get_team(Some(b))) == my_team
             {
                 continue;
             }
@@ -123,18 +123,17 @@ impl Unit for Launcher {
         let mut best_score: i32 = 0;
 
         let my_team = self.state.my_team;
-        for uid in ct
-            .get_nearby_units(Some(GameConstants::ACTION_RADIUS_SQ))
-            .unwrap()
+        for uid in pyrust::unwrap!(ct
+            .get_nearby_units(Some(GameConstants::ACTION_RADIUS_SQ)))
         {
-            if ct.get_entity_type(Some(uid)).unwrap() != EntityType::BuilderBot {
+            if pyrust::unwrap!(ct.get_entity_type(Some(uid))) != EntityType::BuilderBot {
                 continue;
             }
 
             let mut score: i32 = 0;
             let mut dest: Option<Position> = None;
 
-            let team = ct.get_team(Some(uid)).unwrap();
+            let team = pyrust::unwrap!(ct.get_team(Some(uid)));
             if team == my_team {
                 if let Some(hd) = harvest_dest {
                     score = 8;
@@ -146,7 +145,7 @@ impl Unit for Launcher {
             }
 
             if score > best_score {
-                best_bot = Some(ct.get_position(Some(uid)).unwrap());
+                best_bot = Some(pyrust::unwrap!(ct.get_position(Some(uid))));
                 best_dest = dest;
                 best_score = score;
             }
@@ -154,9 +153,9 @@ impl Unit for Launcher {
 
         if let Some(bb) = best_bot
             && let Some(bd) = best_dest
-            && ct.can_launch(bb, bd).unwrap()
+            && pyrust::unwrap!(ct.can_launch(bb, bd))
         {
-            ct.launch(bb, bd).unwrap();
+            pyrust::unwrap!(ct.launch(bb, bd));
         }
     }
 }

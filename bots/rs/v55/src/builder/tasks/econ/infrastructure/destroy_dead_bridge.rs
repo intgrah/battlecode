@@ -21,7 +21,7 @@ const UPSTREAM_SEARCH_CAP: usize = 80;
 /// BFS backwards from `start` through `in_edges` until a friendly
 /// bridge is found. Returns the bridge position or None.
 fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
-    let mut visited: HashSet<Position> = HashSet::new();
+    let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(cur) = queue.pop() {
@@ -49,19 +49,18 @@ pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> Task
         return Some(TaskRejected::new("no unreachable dangling"));
     }
     let my_pos = self_.my_pos;
-    let target = *self_
+    let target = *pyrust::unwrap!(self_
         .unreachable_dangling
         .iter()
-        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x))
-        .unwrap();
+        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x)));
     let Some(bridge) = find_upstream_bridge(self_, target) else {
         return Some(TaskRejected::from_string(format!(
             "no bridge upstream of unreachable dangling {:?}",
             target
         )));
     };
-    if ct.can_destroy(bridge).unwrap() {
-        ct.destroy(bridge).unwrap();
+    if pyrust::unwrap!(ct.can_destroy(bridge)) {
+        pyrust::unwrap!(ct.destroy(bridge));
         self_.apply_local_destroy(bridge);
         return None;
     }

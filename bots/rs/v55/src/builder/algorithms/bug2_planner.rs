@@ -33,7 +33,7 @@ const IS_CARDINAL: [bool; 8] = [true, false, true, false, true, false, true, fal
 
 /// Build the Bresenham m-line sequence from `(sx, sy)` to `(gx, gy)`.
 pub fn build_mline_seq(sx: i32, sy: i32, gx: i32, gy: i32) -> Vec<(i32, i32)> {
-    let mut out: Vec<(i32, i32)> = Vec::new();
+    let mut out: Vec<(i32, i32)> = pyrust::vec::new!();
     let dx = (gx - sx).abs();
     let dy = (gy - sy).abs();
     let sxi = if sx < gx { 1 } else { -1 };
@@ -176,12 +176,12 @@ impl Bug2Planner {
             path_len: 1,
             m_i: 0,
             hit_d: 0,
-            cw_faces: Vec::new(),
-            ccw_faces: Vec::new(),
+            cw_faces: pyrust::vec::new!(),
+            ccw_faces: pyrust::vec::new!(),
             cw_px: 0,
             cw_py: 0,
             cw_dir: 0,
-            cw_path: Vec::new(),
+            cw_path: pyrust::vec::new!(),
             cw_alive: false,
             cw_cross: 0,
             cw_wox: 0,
@@ -189,7 +189,7 @@ impl Bug2Planner {
             ccw_px: 0,
             ccw_py: 0,
             ccw_dir: 0,
-            ccw_path: Vec::new(),
+            ccw_path: pyrust::vec::new!(),
             ccw_alive: false,
             ccw_cross: 0,
             ccw_wox: 0,

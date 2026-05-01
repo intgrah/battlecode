@@ -54,7 +54,7 @@ impl DebugCtx {
     pub fn new() -> Self {
         Self {
             root: None,
-            frames: Vec::new(),
+            frames: pyrust::vec::new!(),
             dumper: Dumper::new(),
             last_flush_us: 0,
         }
@@ -63,12 +63,12 @@ impl DebugCtx {
     /// Walk into the current scope node (the deepest open scope), using
     /// the parent-child indices recorded in `frames`.
     fn current_scope_mut(&mut self) -> &mut Value {
-        let root = self.root.as_mut().expect("scope active but root is None");
+        let root = pyrust::expect!(self.root.as_mut(), "scope active but root is None");
         let mut node: &mut Value = root;
         // Skip frame 0 (the root frame). Each subsequent frame says which
         // child slot of the previous scope it occupies.
         for f in &self.frames[1..] {
-            let idx = f.parent_child_idx.expect("non-root frame must have idx");
+            let idx = pyrust::expect!(f.parent_child_idx, "non-root frame must have idx");
             node = &mut node["children"][idx];
         }
         node
@@ -81,7 +81,7 @@ impl DebugCtx {
             "children": [],
         });
         let t0 = if timed { Some(Instant::now()) } else { None };
-        if self.root.is_none() {
+        if pyrust::is_none!(self.root) {
             // First scope of the turn: this becomes the root.
             self.root = Some(node);
             self.frames.push(Frame {
@@ -91,7 +91,7 @@ impl DebugCtx {
             return;
         }
         let parent = self.current_scope_mut();
-        let children = parent["children"].as_array_mut().unwrap();
+        let children = pyrust::unwrap!(parent["children"].as_array_mut());
         let idx = children.len();
         children.push(node);
         self.frames.push(Frame {
@@ -101,18 +101,17 @@ impl DebugCtx {
     }
 
     pub fn pop_scope(&mut self) {
-        let frame = self
+        let frame = pyrust::expect!(self
             .frames
-            .pop()
-            .expect("Scope::drop with empty frame stack");
+            .pop(), "Scope::drop with empty frame stack");
         if let Some(t0) = frame.t0 {
             let us = t0.elapsed().as_micros() as u64;
             if self.frames.is_empty() {
                 // The frame we just popped was the root.
-                let root = self.root.as_mut().expect("ROOT must be Some");
+                let root = pyrust::expect!(self.root.as_mut(), "ROOT must be Some");
                 root["us"] = serde_json::Value::Number(us.into());
             } else {
-                let idx = frame.parent_child_idx.expect("non-root has idx");
+                let idx = pyrust::expect!(frame.parent_child_idx, "non-root has idx");
                 let parent = self.current_scope_mut();
                 parent["children"][idx]["us"] = serde_json::Value::Number(us.into());
             }
@@ -130,7 +129,7 @@ impl DebugCtx {
             return;
         }
         let parent = self.current_scope_mut();
-        parent["children"].as_array_mut().unwrap().push(node);
+        pyrust::unwrap!(parent["children"].as_array_mut()).push(node);
     }
 
     pub fn debug(&mut self, tmpl: &str, args: Map<String, Value>) {
@@ -148,25 +147,24 @@ impl DebugCtx {
         }
         // Split-borrow: walk root → child slot via raw indexing so the
         // borrow into the children Vec is disjoint from `self.dumper`.
-        let root = self.root.as_mut().expect("scope active but root is None");
+        let root = pyrust::expect!(self.root.as_mut(), "scope active but root is None");
         let mut node: &mut Value = root;
         for f in &self.frames[1..] {
-            let idx = f.parent_child_idx.expect("non-root frame must have idx");
+            let idx = pyrust::expect!(f.parent_child_idx, "non-root frame must have idx");
             node = &mut node["children"][idx];
         }
-        let children = node["children"].as_array_mut().unwrap();
+        let children = pyrust::unwrap!(node["children"].as_array_mut());
         self.dumper.dump(children, name, value);
     }
 
     pub fn flush(&mut self) {
         let prev_us = self.last_flush_us;
-        let root = self
+        let root = pyrust::expect!(self
             .root
-            .as_mut()
-            .expect("flush() called outside any Scope");
+            .as_mut(), "flush() called outside any Scope");
         root["prev_flush_us"] = serde_json::Value::Number(prev_us.into());
         let t0 = Instant::now();
-        let payload = serde_json::to_string(root).expect("root scope must serialise");
+        let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");
         println!("{payload}");
         self.last_flush_us = t0.elapsed().as_micros() as u64;
     }
@@ -186,10 +184,10 @@ static mut CTX: Option<DebugCtx> = None;
 
 #[allow(static_mut_refs)]
 fn ctx() -> &'static mut DebugCtx {
-    if unsafe { CTX.is_none() } {
+    if unsafe { pyrust::is_none!(CTX) } {
         unsafe { CTX = Some(DebugCtx::new()) };
     }
-    unsafe { CTX.as_mut().unwrap() }
+    unsafe { pyrust::unwrap!(CTX.as_mut()) }
 }
 
 /// Tree-internal scope guard. Constructed via `Scope::new` (untimed) or
@@ -271,7 +269,7 @@ pub fn dot(ct: &mut Controller<'_>, pos: Position, r: i32, g: i32, b: i32) {
     if !DEBUG_LOG {
         return;
     }
-    ct.draw_indicator_dot(pos, r, g, b).unwrap();
+    pyrust::unwrap!(ct.draw_indicator_dot(pos, r, g, b));
 }
 
 /// Wrapper over `Controller::draw_indicator_line`.
@@ -279,5 +277,5 @@ pub fn line(ct: &mut Controller<'_>, pos_a: Position, pos_b: Position, r: i32, g
     if !DEBUG_LOG {
         return;
     }
-    ct.draw_indicator_line(pos_a, pos_b, r, g, b).unwrap();
+    pyrust::unwrap!(ct.draw_indicator_line(pos_a, pos_b, r, g, b));
 }

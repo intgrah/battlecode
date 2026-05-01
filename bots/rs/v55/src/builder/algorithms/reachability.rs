@@ -127,7 +127,7 @@ pub fn step_reachability(
                 continue;
             }
             let e = env[n as usize];
-            if e.is_none() || e == Some(Environment::Wall) {
+            if pyrust::is_none!(e) || e == Some(Environment::Wall) {
                 continue;
             }
             parent[n as usize] = cur_root;

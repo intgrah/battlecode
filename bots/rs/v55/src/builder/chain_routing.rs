@@ -44,7 +44,7 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
 
     let mut seen_ti = false;
     let mut seen_ax = false;
-    let mut visited: HashSet<Position> = HashSet::new();
+    let mut visited: HashSet<Position> = pyrust::set::new!();
     visited.insert(pos);
     let mut stack: Vec<Position> = vec![pos];
     while let Some(p) = stack.pop() {
@@ -135,15 +135,15 @@ fn _clear_with_turret(
 ) -> bool {
     if build_pos == builder.state.my_pos {
         for d in DIR8 {
-            if ct.can_move(d).unwrap() {
-                ct.move_(d).unwrap();
+            if pyrust::unwrap!(ct.can_move(d)) {
+                pyrust::unwrap!(ct.move_(d));
                 break;
             }
         }
     }
-    if build_pos == ct.get_position(None).unwrap() {
+    if build_pos == pyrust::unwrap!(ct.get_position(None)) {
         for d in DIR8 {
-            let pos = ct.get_position(None).unwrap().add(d);
+            let pos = pyrust::unwrap!(ct.get_position(None)).add(d);
             if try_move_with_road(builder, ct, pos) {
                 break;
             }
@@ -176,18 +176,18 @@ fn _lay_segment(
         return false;
     }
 
-    let bid = ct.get_tile_building_id(start_pos).unwrap();
-    let entity_type = bid.map(|b| ct.get_entity_type(Some(b)).unwrap());
+    let bid = pyrust::unwrap!(ct.get_tile_building_id(start_pos));
+    let entity_type = bid.map(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
 
     if let Some(EntityType::Road) = entity_type
         && let Some(b) = bid
-        && ct.get_team(Some(b)).unwrap() != builder.state.my_team
-        && ct.can_fire(start_pos).unwrap()
+        && pyrust::unwrap!(ct.get_team(Some(b))) != builder.state.my_team
+        && pyrust::unwrap!(ct.can_fire(start_pos))
     {
         let mut args = Map::new();
         args.insert("pos".to_string(), auto_wrap_position(start_pos));
         debug("chain: fire on enemy road at {pos}", args);
-        ct.fire(start_pos).unwrap();
+        pyrust::unwrap!(ct.fire(start_pos));
         return true;
     }
 
@@ -204,21 +204,21 @@ fn _lay_segment(
     }
 
     if let Some(EntityType::Conveyor) = entity_type
-        && ct.get_direction(bid).unwrap() == direction.unwrap_or(Direction::Centre)
+        && pyrust::unwrap!(ct.get_direction(bid)) == pyrust::unwrap_or!(direction, Direction::Centre)
     {
         return true;
     }
     if let Some(EntityType::Bridge) = entity_type
         && let Some(b) = bid
     {
-        let bridge_output = ct.get_bridge_target(b).unwrap();
-        if !ct.is_in_vision(bridge_output).unwrap() || builder.is_buildable(bridge_output) {
+        let bridge_output = pyrust::unwrap!(ct.get_bridge_target(b));
+        if !pyrust::unwrap!(ct.is_in_vision(bridge_output)) || builder.is_buildable(bridge_output) {
             return true;
         }
     }
 
     let next_pos = path[1];
-    if !ct.is_in_vision(next_pos).unwrap() {
+    if !pyrust::unwrap!(ct.is_in_vision(next_pos)) {
         let target = reachable_path_end(path, start_pos, 3);
         return try_place(
             builder,
@@ -230,15 +230,14 @@ fn _lay_segment(
         );
     }
 
-    let destination_building = ct.get_tile_building_id(next_pos).unwrap();
-    let destination_team = destination_building.map(|b| ct.get_team(Some(b)).unwrap());
-    let destination_is_marker = destination_building
-        .map(|b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Marker)
-        .unwrap_or(false);
+    let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
+    let destination_team = destination_building.map(|b| pyrust::unwrap!(ct.get_team(Some(b))));
+    let destination_is_marker = pyrust::unwrap_or!(destination_building
+        .map(|b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Marker), false);
 
     if let Some(d) = direction
         && is_cardinal(d)
-        && (destination_building.is_none()
+        && (pyrust::is_none!(destination_building)
             || destination_team == Some(builder.state.my_team)
             || destination_is_marker)
     {
@@ -400,6 +399,6 @@ pub fn extend_chain(
         };
         return extend_step(builder, ct, start, target, resource);
     }
-    let target = builder.ti_sink.unwrap_or(builder.my_core);
+    let target = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
     extend_step(builder, ct, start, target, resource)
 }

@@ -26,11 +26,11 @@ pub fn end_of_turn_propagate_symmetry(builder: &mut Builder, ct: &mut Controller
         if builder.env[i] == Some(Environment::Wall) {
             continue;
         }
-        if builder.building_kind[i].is_some() {
+        if pyrust::is_some!(builder.building_kind[i]) {
             continue;
         }
-        if ct.can_place_marker(target).unwrap() {
-            ct.place_marker(target, payload).unwrap();
+        if pyrust::unwrap!(ct.can_place_marker(target)) {
+            pyrust::unwrap!(ct.place_marker(target, payload));
             return;
         }
     }

@@ -230,7 +230,7 @@ impl Builder {
             [const { VecDeque::new() }; MAX_N];
         let in_edges: [Vec<Position>; MAX_N] = [const { Vec::new() }; MAX_N];
         let out_edges: [Vec<Position>; MAX_N] = [const { Vec::new() }; MAX_N];
-        let mut vision_offsets: Vec<(i32, i32, i32)> = Vec::new();
+        let mut vision_offsets: Vec<(i32, i32, i32)> = pyrust::vec::new!();
         for dx in -4..=4i32 {
             for dy in -4..=4i32 {
                 if dx * dx + dy * dy <= GameConstants::BUILDER_BOT_VISION_RADIUS_SQ {
@@ -250,7 +250,7 @@ impl Builder {
             hp: [0; MAX_N],
             max_hp: [0; MAX_N],
             cost_grid: [ROAD_COST; MAX_N],
-            _threat_bumped: HashSet::new(),
+            _threat_bumped: pyrust::set::new!(),
             buildable: [false; MAX_N],
             ti_leakage: [false; MAX_N],
             ax_leakage: [false; MAX_N],
@@ -264,7 +264,7 @@ impl Builder {
             _ax_in_count: [0; MAX_N],
             pnb,
             reach_parent: [-1; MAX_N],
-            reach_frontier: Vec::new(),
+            reach_frontier: pyrust::vec::new!(),
             conv_search: AStarSearch::new(),
             ax_conv_search: AStarSearch::new(),
             bugnav: BugNav::new(),
@@ -272,27 +272,27 @@ impl Builder {
             in_edges,
             out_edges,
             reflect_queue: VecDeque::new(),
-            nearby_buildings: Vec::new(),
-            healable_buildings: Vec::new(),
-            adjacent_to_unconnected_harvester: HashSet::new(),
-            adjacent_to_harvester: HashSet::new(),
-            ti_harvester_adjacent: HashSet::new(),
-            ax_harvester_adjacent: HashSet::new(),
-            reaches_core: HashSet::new(),
-            reaches_foundry: HashSet::new(),
-            ti_upstream: HashSet::new(),
-            ax_upstream: HashSet::new(),
-            upstream_of_dangling: HashSet::new(),
-            congested_junctions: HashSet::new(),
-            upstream_of_congestion: HashSet::new(),
-            my_foundries: HashSet::new(),
-            my_harvesters: HashSet::new(),
-            is_multi_input: HashSet::new(),
-            junctions: HashSet::new(),
-            adjacent_to_enemy_launcher: HashSet::new(),
-            enemy_turret_ray_tiles: HashSet::new(),
-            friendly_turret_ray_tiles: HashSet::new(),
-            deny_ore_neighbours: HashSet::new(),
+            nearby_buildings: pyrust::vec::new!(),
+            healable_buildings: pyrust::vec::new!(),
+            adjacent_to_unconnected_harvester: pyrust::set::new!(),
+            adjacent_to_harvester: pyrust::set::new!(),
+            ti_harvester_adjacent: pyrust::set::new!(),
+            ax_harvester_adjacent: pyrust::set::new!(),
+            reaches_core: pyrust::set::new!(),
+            reaches_foundry: pyrust::set::new!(),
+            ti_upstream: pyrust::set::new!(),
+            ax_upstream: pyrust::set::new!(),
+            upstream_of_dangling: pyrust::set::new!(),
+            congested_junctions: pyrust::set::new!(),
+            upstream_of_congestion: pyrust::set::new!(),
+            my_foundries: pyrust::set::new!(),
+            my_harvesters: pyrust::set::new!(),
+            is_multi_input: pyrust::set::new!(),
+            junctions: pyrust::set::new!(),
+            adjacent_to_enemy_launcher: pyrust::set::new!(),
+            enemy_turret_ray_tiles: pyrust::set::new!(),
+            friendly_turret_ray_tiles: pyrust::set::new!(),
+            deny_ore_neighbours: pyrust::set::new!(),
             nearest_enemy_turret: None,
             role: None,
             role_age: 0,
@@ -302,8 +302,8 @@ impl Builder {
             foundry_target: None,
             ax_sink: None,
             ti_sink: None,
-            dangling_set: HashSet::new(),
-            unreachable_dangling: HashSet::new(),
+            dangling_set: pyrust::set::new!(),
+            unreachable_dangling: pyrust::set::new!(),
             dangling_output: None,
             repair_pos: None,
             repaired_prev: true,
@@ -312,7 +312,7 @@ impl Builder {
             offense_turns: 0,
             offense_launcher: None,
             last_fire: None,
-            attack_tile_blacklist: HashMap::new(),
+            attack_tile_blacklist: pyrust::dict::new!(),
             patrol_head: None,
             last_seen: [0; MAX_N],
             _vision_offsets: vision_offsets,
@@ -348,7 +348,7 @@ impl Builder {
                     continue;
                 }
                 let i = (row + cx) as usize;
-                let mut nbs: Vec<i32> = Vec::new();
+                let mut nbs: Vec<i32> = pyrust::vec::new!();
                 for &(dx, dy) in &DIR8_DELTA {
                     let nx = cx + dx;
                     let ny = cy + dy;
@@ -502,7 +502,7 @@ impl Builder {
     pub fn is_buildable(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         self.env[i] != Some(Environment::Wall)
-            && (self.building_team[i].is_none()
+            && (pyrust::is_none!(self.building_team[i])
                 || self.building_team[i] == Some(self.state.my_team))
     }
 
@@ -908,7 +908,7 @@ impl Builder {
     /// translator doesn't need multi-statement-closure support.
     fn pnb_fix_boundary(&mut self, cx: i32, cy: i32, w: i32, h: i32) {
         let stride = MAX_WIDTH as i32;
-        let mut nbs: Vec<i32> = Vec::new();
+        let mut nbs: Vec<i32> = pyrust::vec::new!();
         for &(dx, dy) in &DIR8_DELTA {
             let nx = cx + dx;
             let ny = cy + dy;
@@ -1017,7 +1017,7 @@ impl Unit for Builder {
             crate::builder::dump::dump(self, ct);
         }
 
-        let role = self.role.expect("role must be set after update");
+        let role = pyrust::expect!(self.role, "role must be set after update");
         {
             let _g = Scope::new_timed("tasks");
             let policy = policy_for_role(role);
@@ -1053,13 +1053,13 @@ impl CoreAwareUnit for Builder {
     fn resolve_my_core(&mut self, ct: &mut Controller<'_>) -> Position {
         // Scan vision for an allied core building.
         let my_team = self.state.my_team;
-        for bid in ct.get_nearby_buildings(None).unwrap() {
-            if ct.get_team(Some(bid)).unwrap() == my_team
-                && ct.get_entity_type(Some(bid)).unwrap() == EntityType::Core
+        for bid in pyrust::unwrap!(ct.get_nearby_buildings(None)) {
+            if pyrust::unwrap!(ct.get_team(Some(bid))) == my_team
+                && pyrust::unwrap!(ct.get_entity_type(Some(bid))) == EntityType::Core
             {
-                return ct.get_position(Some(bid)).unwrap();
+                return pyrust::unwrap!(ct.get_position(Some(bid)));
             }
         }
-        ct.get_position(None).unwrap()
+        pyrust::unwrap!(ct.get_position(None))
     }
 }

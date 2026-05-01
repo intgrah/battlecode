@@ -365,6 +365,16 @@ macro_rules! __pyrust_len {
 // vec::* — Vec / List
 // =====================================================================
 
+/// `pyrust::vec::new!()` — Python `[]`. Rust expansion uses
+/// `Default::default()` so it works for `Vec<T>`, `VecDeque<T>`, or any
+/// other ordered collection the surrounding type context fixes.
+#[macro_export]
+macro_rules! __pyrust_vec_new {
+    () => {
+        ::std::default::Default::default()
+    };
+}
+
 #[macro_export]
 macro_rules! __pyrust_vec_push {
     ($v:expr, $x:expr) => {
@@ -420,6 +430,15 @@ macro_rules! __pyrust_vec_extend {
 // set::* — HashSet / BTreeSet
 // =====================================================================
 
+/// `pyrust::set::new!()` — Python `set()`. Rust expansion uses
+/// `Default::default()` so it works for `HashSet<T>` / `BTreeSet<T>`.
+#[macro_export]
+macro_rules! __pyrust_set_new {
+    () => {
+        ::std::default::Default::default()
+    };
+}
+
 #[macro_export]
 macro_rules! __pyrust_set_add {
     ($s:expr, $x:expr) => {
@@ -473,6 +492,16 @@ macro_rules! __pyrust_set_difference {
 // =====================================================================
 // dict::* — HashMap / BTreeMap
 // =====================================================================
+
+/// `pyrust::dict::new!()` — Python `{}`. Rust expansion uses
+/// `Default::default()` so it works for `HashMap<K,V>`, `BTreeMap<K,V>`,
+/// or `serde_json::Map<String, Value>`.
+#[macro_export]
+macro_rules! __pyrust_dict_new {
+    () => {
+        ::std::default::Default::default()
+    };
+}
 
 #[macro_export]
 macro_rules! __pyrust_dict_insert {
@@ -555,6 +584,15 @@ macro_rules! __pyrust_dict_values {
 // =====================================================================
 // string::*
 // =====================================================================
+
+/// `pyrust::string::new!()` — Python `""`. Rust expansion uses
+/// `Default::default()` for type-context inference (works for `String`).
+#[macro_export]
+macro_rules! __pyrust_string_new {
+    () => {
+        ::std::default::Default::default()
+    };
+}
 
 /// Reset a `String` to empty. Rust calls `clear()`; Python assigns
 /// `s = ""` because Python strings are immutable.

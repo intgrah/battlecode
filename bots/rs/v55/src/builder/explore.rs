@@ -44,7 +44,7 @@ const _CLUSTER_PENALTY: f64 = 30.0;
 const _CLUSTER_RADIUS: i32 = 20;
 
 pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) {
-    if builder.explore_target.is_none() || _target_invalid(builder, builder.explore_target.unwrap())
+    if pyrust::is_none!(builder.explore_target) || _target_invalid(builder, pyrust::unwrap!(builder.explore_target))
     {
         builder.explore_target = _pick_target(builder);
     }
@@ -62,7 +62,7 @@ pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) {
 /// would reject every fog tile by definition.
 fn _target_invalid(builder: &Builder, target: Position) -> bool {
     let i = (target.y as usize) * MAX_WIDTH + (target.x as usize);
-    builder.env[i].is_some()
+    pyrust::is_some!(builder.env[i])
 }
 
 /// Sample K random unobserved tiles within an expanding Chebyshev
@@ -90,7 +90,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
     };
     let cx = center.x;
     let cy = center.y;
-    let mut candidates: Vec<Position> = Vec::new();
+    let mut candidates: Vec<Position> = pyrust::vec::new!();
     for _ in 0..(_K_CANDIDATES * 4) {
         if candidates.len() >= _K_CANDIDATES {
             break;
@@ -101,7 +101,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
             continue;
         }
         let i = (y as usize) * MAX_WIDTH + (x as usize);
-        if builder.env[i].is_none() {
+        if pyrust::is_none!(builder.env[i]) {
             candidates.push(Position { x, y });
         }
     }
@@ -158,7 +158,7 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
             && sx < builder.state.width
             && 0 <= sy
             && sy < builder.state.height
-            && builder.env[(sy as usize) * MAX_WIDTH + (sx as usize)].is_none()
+            && pyrust::is_none!(builder.env[(sy as usize) * MAX_WIDTH + (sx as usize)])
         {
             unseen += 1;
         }

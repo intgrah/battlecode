@@ -57,8 +57,8 @@ impl Bot for Player {
 
     fn run(&mut self, ct: &mut Controller<'_>) {
         let _turn = Scope::new("turn");
-        if self.unit.is_none() {
-            let kind = ct.get_entity_type(None).unwrap();
+        if pyrust::is_none!(self.unit) {
+            let kind = pyrust::unwrap!(ct.get_entity_type(None));
             self.unit = Some(kind);
             let _scope = Scope::new_timed("post_init");
             match kind {
@@ -73,7 +73,7 @@ impl Bot for Player {
         }
         {
             let _scope = Scope::new_timed("run");
-            match self.unit.expect("kind set above") {
+            match pyrust::expect!(self.unit, "kind set above") {
                 EntityType::BuilderBot => self.builder.run(ct),
                 EntityType::Core => self.core.run(ct),
                 EntityType::Sentinel => self.sentinel.run(ct),

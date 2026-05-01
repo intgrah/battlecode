@@ -158,8 +158,13 @@ dependencies = [
 name = "pyrust"
 version = "0.1.0"
 dependencies = [
+ "pyrust-macros",
  "rand",
 ]
+
+[[package]]
+name = "pyrust-macros"
+version = "0.1.0"
 
 [[package]]
 name = "pyrust-runner"

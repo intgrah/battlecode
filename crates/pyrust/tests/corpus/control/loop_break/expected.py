@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 i = 0
 while True:
     if i >= 3:

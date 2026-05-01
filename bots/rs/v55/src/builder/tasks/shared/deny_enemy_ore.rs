@@ -14,10 +14,10 @@ pub fn deny_enemy_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
     for &pos in &self_.nearby_tiles.clone() {
         if self_.deny_ore_neighbours.contains(&pos)
             && self_.get_env(pos) != Some(Environment::Wall)
-            && self_.get_building(pos).is_none()
-            && ct.can_build_road(pos).unwrap()
+            && pyrust::is_none!(self_.get_building(pos))
+            && pyrust::unwrap!(ct.can_build_road(pos))
         {
-            ct.build_road(pos).unwrap();
+            pyrust::unwrap!(ct.build_road(pos));
             return None;
         }
     }

@@ -35,7 +35,7 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
         );
         return None;
     }
-    if harvester_feed_cardinal(self_, target).is_none() {
+    if pyrust::is_none!(harvester_feed_cardinal(self_, target)) {
         if !clear_barriered_feed(self_, ct, target) {
             let mut args = Map::new();
             args.insert("target".to_string(), auto_wrap_position(target));

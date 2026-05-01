@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def name(n):
     match n:
         case 0:

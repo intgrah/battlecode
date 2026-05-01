@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 def add_one(v):
     v.append(1)
 

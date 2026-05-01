@@ -84,7 +84,7 @@ impl UnitState {
     /// `Player::default()` (5s window).
     #[must_use]
     pub fn new() -> Self {
-        let mut symmetry_candidates: HashSet<Symmetry> = HashSet::new();
+        let mut symmetry_candidates: HashSet<Symmetry> = pyrust::set::new!();
         for s in ALL {
             symmetry_candidates.insert(s);
         }
@@ -95,18 +95,18 @@ impl UnitState {
             my_team: Team::A,
             rng: Rng::new(0),
             my_pos: Position { x: 0, y: 0 },
-            nearby_tiles: Vec::new(),
-            enemy_bots: HashSet::new(),
-            friendly_bots: HashSet::new(),
-            all_bots: HashMap::new(),
+            nearby_tiles: pyrust::vec::new!(),
+            enemy_bots: pyrust::set::new!(),
+            friendly_bots: pyrust::set::new!(),
+            all_bots: pyrust::dict::new!(),
             round: 0,
             ti: 0,
             ax: 0,
             scale: 0.0,
-            dir_neighbours_4: Vec::new(),
-            dir_neighbours_8: Vec::new(),
-            neighbours_4: Vec::new(),
-            neighbours_8: Vec::new(),
+            dir_neighbours_4: pyrust::vec::new!(),
+            dir_neighbours_8: pyrust::vec::new!(),
+            neighbours_4: pyrust::vec::new!(),
+            neighbours_8: pyrust::vec::new!(),
             symmetry_candidates,
         }
     }
@@ -115,10 +115,10 @@ impl UnitState {
     /// impls call this on their `state` field — the receiver is concrete
     /// `&mut UnitState`, so pyrust translates field accesses cleanly.
     pub fn init_static_state(&mut self, ct: &mut Controller<'_>) {
-        self.width = ct.get_map_width().unwrap();
-        self.height = ct.get_map_height().unwrap();
-        self.my_id = ct.get_id().unwrap();
-        self.my_team = ct.get_team(None).unwrap();
+        self.width = pyrust::unwrap!(ct.get_map_width());
+        self.height = pyrust::unwrap!(ct.get_map_height());
+        self.my_id = pyrust::unwrap!(ct.get_id());
+        self.my_team = pyrust::unwrap!(ct.get_team(None));
         self.rng = Rng::new(self.my_id as i64);
     }
 
@@ -126,7 +126,7 @@ impl UnitState {
     /// resources, visible bots. Concrete `Unit::run` impls call this on
     /// their `state` field.
     pub fn cache_per_turn_state(&mut self, ct: &mut Controller<'_>) {
-        let my_pos = ct.get_position(None).unwrap();
+        let my_pos = pyrust::unwrap!(ct.get_position(None));
         let width = self.width;
         let height = self.height;
         let my_team = self.my_team;
@@ -149,20 +149,20 @@ impl UnitState {
         let neighbours_4: Vec<Position> = dir_neighbours_4.iter().map(|t| t.1).collect();
         let neighbours_8: Vec<Position> = dir_neighbours_8.iter().map(|t| t.1).collect();
 
-        let round = ct.get_current_round().unwrap();
-        let (ti, ax) = ct.get_global_resources().unwrap();
-        let scale = ct.get_scale_percent().unwrap() / 100.0;
-        let nearby_tiles = ct.get_nearby_tiles(None).unwrap();
+        let round = pyrust::unwrap!(ct.get_current_round());
+        let (ti, ax) = pyrust::unwrap!(ct.get_global_resources());
+        let scale = pyrust::unwrap!(ct.get_scale_percent()) / 100.0;
+        let nearby_tiles = pyrust::unwrap!(ct.get_nearby_tiles(None));
 
-        let mut enemy_bots: HashSet<Position> = HashSet::new();
-        let mut friendly_bots: HashSet<Position> = HashSet::new();
-        let mut all_bots: HashMap<Position, i32> = HashMap::new();
+        let mut enemy_bots: HashSet<Position> = pyrust::set::new!();
+        let mut friendly_bots: HashSet<Position> = pyrust::set::new!();
+        let mut all_bots: HashMap<Position, i32> = pyrust::dict::new!();
         for &pos in &nearby_tiles {
-            let Some(uid) = ct.get_tile_builder_bot_id(pos).unwrap() else {
+            let Some(uid) = pyrust::unwrap!(ct.get_tile_builder_bot_id(pos)) else {
                 continue;
             };
             all_bots.insert(pos, uid);
-            if ct.get_team(Some(uid)).unwrap() == my_team {
+            if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
                 if uid != my_id {
                     friendly_bots.insert(pos);
                 }
@@ -189,22 +189,22 @@ impl UnitState {
     /// One-shot narrowing of `symmetry_candidates` from current vision.
     /// Mirrors Python `narrow_symmetry_from_vision`.
     pub fn narrow_symmetry_from_vision(&mut self, ct: &mut Controller<'_>) {
-        if self.resolved_symmetry().is_some() {
+        if pyrust::is_some!(self.resolved_symmetry()) {
             return;
         }
         let width = self.width;
         let height = self.height;
-        let mut vision: HashMap<Position, (Environment, bool)> = HashMap::new();
-        for pos in ct.get_nearby_tiles(None).unwrap() {
-            let bid = ct.get_tile_building_id(pos).unwrap();
+        let mut vision: HashMap<Position, (Environment, bool)> = pyrust::dict::new!();
+        for pos in pyrust::unwrap!(ct.get_nearby_tiles(None)) {
+            let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
             let is_core = match bid {
-                Some(b) => ct.get_entity_type(Some(b)).unwrap() == EntityType::Core,
+                Some(b) => pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core,
                 None => false,
             };
-            vision.insert(pos, (ct.get_tile_env(pos).unwrap(), is_core));
+            vision.insert(pos, (pyrust::unwrap!(ct.get_tile_env(pos)), is_core));
         }
 
-        let mut invalid: HashSet<Symmetry> = HashSet::new();
+        let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
         let candidates: Vec<Symmetry> = self.symmetry_candidates.iter().copied().collect();
         for sym in candidates {
             for (&pos, val) in &vision {
@@ -225,7 +225,7 @@ impl UnitState {
     /// Mirrors Python `_check_symmetry_marker`: pin candidate set to whatever
     /// an allied symmetry marker in vision asserts.
     pub fn check_symmetry_marker(&mut self, ct: &mut Controller<'_>) {
-        if self.resolved_symmetry().is_some() {
+        if pyrust::is_some!(self.resolved_symmetry()) {
             return;
         }
         let nearby = self.nearby_tiles.clone();

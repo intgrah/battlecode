@@ -74,16 +74,16 @@ pub fn find_symmetry_marker(
     my_team: Team,
 ) -> Option<Symmetry> {
     for &pos in nearby_tiles {
-        let Some(bid) = ct.get_tile_building_id(pos).unwrap() else {
+        let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(pos)) else {
             continue;
         };
-        if ct.get_entity_type(Some(bid)).unwrap() != EntityType::Marker {
+        if pyrust::unwrap!(ct.get_entity_type(Some(bid))) != EntityType::Marker {
             continue;
         }
-        if ct.get_team(Some(bid)).unwrap() != my_team {
+        if pyrust::unwrap!(ct.get_team(Some(bid))) != my_team {
             continue;
         }
-        let value = ct.get_marker_value(bid).unwrap();
+        let value = pyrust::unwrap!(ct.get_marker_value(bid));
         if let Some(Marker::Symmetry { symmetry }) = Marker::decode(value) {
             return Some(symmetry);
         }

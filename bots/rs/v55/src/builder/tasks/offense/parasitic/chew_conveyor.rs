@@ -21,7 +21,7 @@ pub fn chew_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
             "a vulnerable harvester is in vision — handle that first",
         ));
     }
-    if self_.offense_target.is_some() {
+    if pyrust::is_some!(self_.offense_target) {
         return Some(TaskRejected::new(
             "offense_target is set — walk_to_cached_target handles it",
         ));

@@ -20,14 +20,14 @@ pub fn update_reflect(builder: &mut Builder) {
     let h = builder.state.height;
     let n = builder.reflect_queue.len().min(_REFLECT_BUDGET);
     for _ in 0..n {
-        let i = builder.reflect_queue.pop_front().unwrap();
+        let i = pyrust::unwrap!(builder.reflect_queue.pop_front());
         let t = Position {
             x: (i % MAX_WIDTH) as i32,
             y: (i / MAX_WIDTH) as i32,
         };
         let m = sym.action(t, w, h);
         let mi = (m.y as usize) * MAX_WIDTH + (m.x as usize);
-        if builder.env[mi].is_some() {
+        if pyrust::is_some!(builder.env[mi]) {
             continue;
         }
         let env = builder.env[i];

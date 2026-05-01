@@ -64,13 +64,13 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
         .adjacent_to_unconnected_harvester
         .iter()
         .copied()
-        .filter(|p| !ct.is_in_vision(*p).unwrap())
+        .filter(|p| !pyrust::unwrap!(ct.is_in_vision(*p)))
         .collect::<HashSet<_>>();
     builder.adjacent_to_harvester = builder
         .adjacent_to_harvester
         .iter()
         .copied()
-        .filter(|p| !ct.is_in_vision(*p).unwrap())
+        .filter(|p| !pyrust::unwrap!(ct.is_in_vision(*p)))
         .collect::<HashSet<_>>();
 
     // Pass 1: scan visible harvesters to maintain
@@ -237,8 +237,8 @@ pub fn update_dangling(builder: &mut Builder) {
 /// debug-only `check_invariants` oracle. Pulled out of an inline closure
 /// so the translator's single-expr-lambda restriction doesn't apply.
 fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> HashSet<Position> {
-    let mut target: HashSet<Position> = HashSet::new();
-    let mut stack: Vec<Position> = Vec::new();
+    let mut target: HashSet<Position> = pyrust::set::new!();
+    let mut stack: Vec<Position> = pyrust::vec::new!();
     for s in seeds {
         if target.contains(s) {
             continue;
@@ -288,7 +288,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
         })
         .map(|t| (*t.0, *t.1))
         .collect();
-    let en_core = if builder.symmetry.is_some() {
+    let en_core = if pyrust::is_some!(builder.symmetry) {
         Some(builder.en_core_guess)
     } else {
         None
@@ -300,7 +300,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
     let dangling_iter: Vec<Position> = builder.dangling_set.iter().copied().collect();
     for pos in dangling_iter {
         if let Some(c) = ct
-            && !c.is_in_vision(pos).unwrap()
+            && !pyrust::unwrap!(c.is_in_vision(pos))
         {
             continue;
         }
@@ -330,7 +330,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
 
 pub fn update_ore_target(builder: &mut Builder) {
     let mut candidate_ore = pick_ore_target(builder);
-    let needs_pick = builder.ore_target.is_none()
+    let needs_pick = pyrust::is_none!(builder.ore_target)
         || builder
             .ore_target
             .is_some_and(|t| !ore_available(builder, t))
@@ -338,16 +338,15 @@ pub fn update_ore_target(builder: &mut Builder) {
         || builder
             .ore_target
             .is_some_and(|t| harvester_would_contaminate(builder, t))
-        || (candidate_ore.is_some()
-            && candidate_ore
-                .unwrap()
+        || (pyrust::is_some!(candidate_ore)
+            && pyrust::unwrap!(candidate_ore)
                 .distance_squared(builder.state.my_pos)
                 <= 2
             && builder
                 .ore_target
                 .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
     if needs_pick {
-        let sink = builder.ti_sink.unwrap_or(builder.my_core);
+        let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
         if let Some(c) = candidate_ore
             && !can_afford_ore_claim(builder, c, sink)
         {
@@ -362,7 +361,7 @@ pub fn update_ore_target(builder: &mut Builder) {
 /// trivially beaten by a much-closer alternative.
 pub fn update_offensive_ore_target(builder: &mut Builder) {
     let mut candidate = pick_offensive_ti_ore_target(builder);
-    let needs_pick = builder.offensive_ore_target.is_none()
+    let needs_pick = pyrust::is_none!(builder.offensive_ore_target)
         || builder
             .offensive_ore_target
             .is_some_and(|t| !ore_available(builder, t))
@@ -372,13 +371,13 @@ pub fn update_offensive_ore_target(builder: &mut Builder) {
         || builder
             .offensive_ore_target
             .is_some_and(|t| harvester_would_contaminate(builder, t))
-        || (candidate.is_some()
-            && candidate.unwrap().distance_squared(builder.state.my_pos) <= 2
+        || (pyrust::is_some!(candidate)
+            && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
             && builder
                 .offensive_ore_target
                 .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
     if needs_pick {
-        let sink = if builder.symmetry.is_some() {
+        let sink = if pyrust::is_some!(builder.symmetry) {
             Some(builder.en_core_guess)
         } else {
             None
@@ -482,7 +481,7 @@ fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
 fn _tile_volume(builder: &Builder, pos: Position) -> usize {
     builder.flow_history[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)]
         .iter()
-        .filter(|t| t.0.is_some())
+        .filter(|t| pyrust::is_some!(t.0))
         .count()
 }
 
@@ -510,7 +509,7 @@ const fn _manhattan(a: Position, b: Position) -> i32 {
 /// observed inflow exceeds the junction's FLOW_HISTORY_LEN window — i.e.
 /// stacks arrive faster than a single-tile pass-through can forward.
 fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
-    let mut result: Vec<Position> = Vec::new();
+    let mut result: Vec<Position> = pyrust::vec::new!();
     for t in &builder.nearby_buildings {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if !matches!(
@@ -527,7 +526,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
         if hist.len() < FLOW_HISTORY_LEN {
             continue;
         }
-        if hist.iter().filter(|t| t.0.is_some()).count() < FLOW_HISTORY_LEN {
+        if hist.iter().filter(|t| pyrust::is_some!(t.0)).count() < FLOW_HISTORY_LEN {
             continue;
         }
         let mut total: usize = 0;
@@ -538,7 +537,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
                 complete = false;
                 break;
             }
-            total += fh.iter().filter(|t| t.0.is_some()).count();
+            total += fh.iter().filter(|t| pyrust::is_some!(t.0)).count();
         }
         if complete && total > FLOW_HISTORY_LEN {
             result.push(*t);
@@ -550,7 +549,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
 /// Transport tiles running empirically at full throughput.
 #[allow(dead_code)]
 fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
-    let mut result: Vec<Position> = Vec::new();
+    let mut result: Vec<Position> = pyrust::vec::new!();
     for t in &builder.nearby_buildings {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if !matches!(
@@ -563,7 +562,7 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
         if hist.len() < FLOW_HISTORY_LEN {
             continue;
         }
-        if hist.iter().filter(|t| t.0.is_some()).count() >= FLOW_HISTORY_LEN {
+        if hist.iter().filter(|t| pyrust::is_some!(t.0)).count() >= FLOW_HISTORY_LEN {
             result.push(*t);
         }
     }
@@ -574,10 +573,10 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
 /// Marks `reaches_core`, `reaches_foundry`, `upstream_of_dangling`,
 /// `upstream_of_congestion` (backward over `in_edges`).
 pub fn update_economy_reachability(builder: &mut Builder) {
-    builder.reaches_core = HashSet::new();
-    builder.reaches_foundry = HashSet::new();
-    builder.upstream_of_dangling = HashSet::new();
-    builder.upstream_of_congestion = HashSet::new();
+    builder.reaches_core = pyrust::set::new!();
+    builder.reaches_foundry = pyrust::set::new!();
+    builder.upstream_of_dangling = pyrust::set::new!();
+    builder.upstream_of_congestion = pyrust::set::new!();
 
     {
         let my_core = builder.my_core;
@@ -613,7 +612,7 @@ pub fn update_economy_reachability(builder: &mut Builder) {
 }
 
 fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashSet<Position>) {
-    let mut stack: Vec<Position> = Vec::new();
+    let mut stack: Vec<Position> = pyrust::vec::new!();
     for r in roots {
         if !target.contains(r) {
             target.insert(*r);
@@ -979,13 +978,13 @@ pub fn update_junctions(builder: &mut Builder) {
 
 /// Re-derive `ax_sink` every turn from three option classes.
 pub fn update_foundry_target(builder: &mut Builder) {
-    if builder.ax_ore_target.is_none() && builder.ax_harvester_adjacent.is_empty() {
+    if pyrust::is_none!(builder.ax_ore_target) && builder.ax_harvester_adjacent.is_empty() {
         builder.ax_sink = None;
         builder.foundry_target = None;
         return;
     }
 
-    let origin = builder.dangling_output.unwrap_or(builder.state.my_pos);
+    let origin = pyrust::unwrap_or!(builder.dangling_output, builder.state.my_pos);
 
     let mut junction_best: Option<Position> = None;
     let mut junction_d: i32 = 1 << 30;
@@ -1053,7 +1052,7 @@ pub fn update_foundry_target(builder: &mut Builder) {
         }
     }
 
-    let mut options: Vec<(i32, Position, &'static str)> = Vec::new();
+    let mut options: Vec<(i32, Position, &'static str)> = pyrust::vec::new!();
     if let Some(p) = junction_best {
         options.push((junction_d, p, "junction"));
     }
@@ -1088,7 +1087,7 @@ pub fn update_foundry_target(builder: &mut Builder) {
             builder.foundry_target = None;
         }
     }
-    if builder.foundry_target.is_none()
+    if pyrust::is_none!(builder.foundry_target)
         && let Some(chosen) = builder.ax_sink
     {
         if builder.junctions.contains(&chosen)
@@ -1154,7 +1153,7 @@ fn _near_core_saving_threshold(builder: &Builder) -> i32 {
 
 /// Pick where new Ti chains should terminate. Three-tier preference.
 pub fn update_ti_sink(builder: &mut Builder) {
-    let anchor = builder.dangling_output.unwrap_or(builder.state.my_pos);
+    let anchor = pyrust::unwrap_or!(builder.dangling_output, builder.state.my_pos);
     let c = builder.my_core;
     let d_builder_to_core =
         (builder.state.my_pos.x - c.x).abs() + (builder.state.my_pos.y - c.y).abs();
@@ -1235,7 +1234,7 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
         return;
     }
     let mut candidate = pick_ax_ore_target(builder);
-    let needs_pick = builder.ax_ore_target.is_none()
+    let needs_pick = pyrust::is_none!(builder.ax_ore_target)
         || builder
             .ax_ore_target
             .is_some_and(|t| !ore_available(builder, t))
@@ -1245,13 +1244,13 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
         || builder
             .ax_ore_target
             .is_some_and(|t| harvester_would_contaminate(builder, t))
-        || (candidate.is_some()
-            && candidate.unwrap().distance_squared(builder.state.my_pos) <= 2
+        || (pyrust::is_some!(candidate)
+            && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
             && builder
                 .ax_ore_target
                 .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
     if needs_pick {
-        let sink = builder.ax_sink.unwrap_or(builder.my_core);
+        let sink = pyrust::unwrap_or!(builder.ax_sink, builder.my_core);
         if let Some(c) = candidate
             && !can_afford_ore_claim(builder, c, sink)
         {

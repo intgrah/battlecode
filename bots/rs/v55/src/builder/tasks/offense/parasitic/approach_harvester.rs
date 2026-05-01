@@ -35,16 +35,16 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     }
 
     let mut destination = pick_attack_destination(self_, target, false);
-    if destination.is_none() {
+    if pyrust::is_none!(destination) {
         let cardinal_positions: Vec<_> = DIR4.iter().map(|&d| target.add(d)).collect();
         let opens = open_tiles(self_, &cardinal_positions);
         let filtered = without_allied_transport(self_, &opens);
         destination = closest(self_.my_pos, filtered);
-        if destination.is_none() {
+        if pyrust::is_none!(destination) {
             return Some(TaskRejected::new("no walkable cardinal of target"));
         }
     }
-    let destination = destination.unwrap();
+    let destination = pyrust::unwrap!(destination);
 
     let neighbours_8 = self_.neighbours_8.clone();
     let buildable_8 = buildable(self_, &neighbours_8);
@@ -67,7 +67,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     {
         // wait
     } else if let Some(loc) = launcher_location
-        && best_adjacent_launcher.is_none()
+        && pyrust::is_none!(best_adjacent_launcher)
         && self_.is_walkable(destination)
         && loc.distance_squared(destination) <= GameConstants::LAUNCHER_VISION_RADIUS_SQ
         && try_place(self_, ct, EntityType::Launcher, loc, BuildExtra::None, true)
@@ -85,7 +85,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         make_move(self_, ct, target);
     }
 
-    let cur_pos = ct.get_position(None).unwrap();
+    let cur_pos = pyrust::unwrap!(ct.get_position(None));
     if cur_pos.distance_squared(target) == 1
         && self_.is_enemy_building(cur_pos)
         && should_attack(self_, cur_pos)

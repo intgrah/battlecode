@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 xs = [10, 20, 30]
 print(xs[0])
 print(xs[2])

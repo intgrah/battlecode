@@ -67,7 +67,7 @@ impl BugNav {
             gen_done: false,
             path_idx_storage: vec![-1; MAX_N],
             unreachable: false,
-            committed: Vec::new(),
+            committed: pyrust::vec::new!(),
         }
     }
 
@@ -133,26 +133,24 @@ impl BugNav {
                 return None;
             }
 
-            if !self.gen_done && self.planner.is_some() {
+            if !self.gen_done && pyrust::is_some!(self.planner) {
                 for _ in 0..PLAN_BUDGET {
-                    let planner = self.planner.as_mut().expect("planner is Some");
+                    let planner = pyrust::expect!(self.planner.as_mut(), "planner is Some");
                     match planner.step(ctx.cost_grid) {
                         Some(true) => {
                             self.gen_done = true;
-                            self.path_idx_storage = self
+                            self.path_idx_storage = pyrust::expect!(self
                                 .planner
-                                .take()
-                                .expect("planner is Some")
+                                .take(), "planner is Some")
                                 .into_path_idx();
                             break;
                         }
                         Some(false) => {
                             self.gen_done = true;
                             self.unreachable = true;
-                            self.path_idx_storage = self
+                            self.path_idx_storage = pyrust::expect!(self
                                 .planner
-                                .take()
-                                .expect("planner is Some")
+                                .take(), "planner is Some")
                                 .into_path_idx();
                             break;
                         }
@@ -171,7 +169,7 @@ impl BugNav {
 
             // Overlay other-builder positions as INF in cost_grid so dp_step
             // routes around them. Restore after the call.
-            let mut saved: Vec<(usize, i32)> = Vec::new();
+            let mut saved: Vec<(usize, i32)> = pyrust::vec::new!();
             for (fb_pos, _) in ctx.all_bots {
                 if *fb_pos == pos {
                     continue;
@@ -272,7 +270,7 @@ impl BugNav {
     #[must_use]
     pub fn mline(&self) -> Vec<Position> {
         let (Some(s), Some(g)) = (self.active_start, self.active_goal) else {
-            return Vec::new();
+            return pyrust::vec::new!();
         };
         build_mline_seq(s.x, s.y, g.x, g.y)
             .into_iter()

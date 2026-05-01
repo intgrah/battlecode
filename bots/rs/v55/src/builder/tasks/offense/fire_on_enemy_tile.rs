@@ -42,9 +42,9 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     if let Some((pos, expected_hp)) = self_.last_fire
         && pos == self_.my_pos
     {
-        let bid_here = ct.get_tile_building_id(self_.my_pos).unwrap();
+        let bid_here = pyrust::unwrap!(ct.get_tile_building_id(self_.my_pos));
         if let Some(bid) = bid_here {
-            let current_hp = ct.get_hp(Some(bid)).unwrap();
+            let current_hp = pyrust::unwrap!(ct.get_hp(Some(bid)));
             if current_hp > expected_hp {
                 being_healed = true;
             }
@@ -80,9 +80,9 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         return None;
     }
 
-    let bid_here = ct.get_tile_building_id(my_pos).unwrap();
+    let bid_here = pyrust::unwrap!(ct.get_tile_building_id(my_pos));
     if let Some(bid) = bid_here {
-        let pre_hp = ct.get_hp(Some(bid)).unwrap();
+        let pre_hp = pyrust::unwrap!(ct.get_hp(Some(bid)));
         self_.last_fire = Some((my_pos, (pre_hp - 2).max(0)));
     }
     try_attack(ct, my_pos);

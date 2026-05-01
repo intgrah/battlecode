@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 a: int | None = 3
 b: int | None = None
 if a is None:
