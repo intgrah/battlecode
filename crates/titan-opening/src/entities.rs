@@ -94,7 +94,7 @@ pub fn resource_sprite(e: &Entity) -> Option<&'static str> {
 /// `z_order` so the two apps render overlapping units identically:
 /// flat ground stuff first (roads / markers / barriers), then
 /// directional buildings, then production buildings, then turrets,
-/// then cores, then BuilderBots last so they always sit on top.
+/// then cores, then `BuilderBots` last so they always sit on top.
 const fn z_order(e: &Entity) -> i32 {
     match e {
         Entity::Road(_) => 0,
@@ -241,7 +241,10 @@ fn feeds_into(neighbor: &Entity, target: (i32, i32)) -> bool {
                 return false;
             };
             let back = (-dx, -dy);
-            let delta = (target.0 - neighbor.position.x, target.1 - neighbor.position.y);
+            let delta = (
+                target.0 - neighbor.position.x,
+                target.1 - neighbor.position.y,
+            );
             CARDINALS.contains(&delta) && delta != back
         }
         Entity::Bridge(b) => (b.target.x, b.target.y) == target,
@@ -266,7 +269,8 @@ fn collect_feeding_inputs(
         }
         let n = (pos.0 + dx, pos.1 + dy);
         let feeds = by_pos.get(&n).is_some_and(|list| {
-            list.iter().any(|e| e.team == entity.team && feeds_into(e, pos))
+            list.iter()
+                .any(|e| e.team == entity.team && feeds_into(e, pos))
         });
         if feeds {
             inputs.push((dx, dy));

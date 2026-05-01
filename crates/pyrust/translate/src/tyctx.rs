@@ -70,22 +70,22 @@ impl AdtInfo {
 
 impl TyKind {
     #[allow(dead_code)]
-    pub fn adt(&self) -> Option<&AdtInfo> {
+    pub const fn adt(&self) -> Option<&AdtInfo> {
         match self {
-            TyKind::Adt(a) => Some(a),
+            Self::Adt(a) => Some(a),
             _ => None,
         }
     }
     #[allow(dead_code)]
-    pub fn adt_name(&self) -> Option<&str> {
+    pub const fn adt_name(&self) -> Option<&str> {
         match self {
-            TyKind::Adt(a) => Some(a.name.as_str()),
+            Self::Adt(a) => Some(a.name.as_str()),
             _ => None,
         }
     }
     #[allow(dead_code)]
-    pub fn is_iterator_like(&self) -> bool {
-        matches!(self, TyKind::Iterator | TyKind::Vec | TyKind::VecDeque)
+    pub const fn is_iterator_like(&self) -> bool {
+        matches!(self, Self::Iterator | Self::Vec | Self::VecDeque)
     }
 }
 
@@ -94,16 +94,16 @@ impl TyKind {
 pub struct FileTyTable;
 
 impl FileTyTable {
-    pub fn empty() -> Self {
-        FileTyTable
+    pub const fn empty() -> Self {
+        Self
     }
-    pub fn kind_for(&self, _r: Range<usize>) -> Option<&TyKind> {
+    pub const fn kind_for(&self, _r: Range<usize>) -> Option<&TyKind> {
         None
     }
-    pub fn is_transparent_name(&self, _name: &str) -> bool {
+    pub const fn is_transparent_name(&self, _name: &str) -> bool {
         false
     }
-    pub fn is_exception_name(&self, _name: &str) -> bool {
+    pub const fn is_exception_name(&self, _name: &str) -> bool {
         false
     }
 }
@@ -113,11 +113,11 @@ pub struct TyCtx;
 
 impl TyCtx {
     #[allow(dead_code)]
-    pub fn load(_manifest_path: &Path) -> Result<Self, String> {
-        Ok(TyCtx)
+    pub const fn load(_manifest_path: &Path) -> Result<Self, String> {
+        Ok(Self)
     }
     #[allow(dead_code)]
-    pub fn build_file_table(&self, _source_path: &Path) -> Option<FileTyTable> {
+    pub const fn build_file_table(&self, _source_path: &Path) -> Option<FileTyTable> {
         Some(FileTyTable)
     }
 }

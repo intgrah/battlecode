@@ -37,7 +37,7 @@ pub struct Game {
     pub harvesters: Vec<i32>,
     pub rng: StdRng,
     pub replay_recorder: ReplayRecorder,
-    /// Maps (source_pos, sink_pos) -> last turn the edge was used, for global LRU priority.
+    /// Maps (`source_pos`, `sink_pos`) -> last turn the edge was used, for global LRU priority.
     pub edge_last_used: FxHashMap<(Pos, Pos), i32>,
     /// Optional resign message captured by `Controller::resign`. Surfaced
     /// in the match summary; not part of the replay stream.
@@ -49,6 +49,7 @@ pub struct Game {
 }
 
 impl Game {
+    #[must_use] 
     pub fn new(
         environment: Vec<Vec<Environment>>,
         cores: Vec<(Pos, Team)>,
@@ -56,7 +57,7 @@ impl Game {
         suppress_indicators: bool,
     ) -> Self {
         let height = environment.len() as i32;
-        let width = environment.first().map(|row| row.len()).unwrap_or(0) as i32;
+        let width = environment.first().map_or(0, std::vec::Vec::len) as i32;
         let mut tiles = Vec::new();
         for y in 0..height {
             let mut row = Vec::new();
@@ -100,7 +101,7 @@ impl Game {
             rng: StdRng::seed_from_u64(seed),
             edge_last_used: FxHashMap::default(),
             replay_recorder: ReplayRecorder::new(
-                environment.clone(),
+                environment,
                 cores.clone(),
                 suppress_indicators,
             ),
@@ -147,13 +148,14 @@ impl Game {
         game
     }
 
-    pub fn new_id(&mut self) -> i32 {
+    pub const fn new_id(&mut self) -> i32 {
         self.next_id += 1;
         self.next_id
     }
 
-    /// Count living units (Core + BuilderBots + Gunner + Sentinel + Breach
+    /// Count living units (Core + `BuilderBots` + Gunner + Sentinel + Breach
     /// + Launcher) on `team`. Used to enforce `MAX_TEAM_UNITS`.
+    #[must_use] 
     pub fn unit_count(&self, team: Team) -> i32 {
         self.entities
             .values()
@@ -172,15 +174,17 @@ impl Game {
             .count() as i32
     }
 
-    pub fn spend(&mut self, team: Team, cost: (i32, i32)) {
+    pub const fn spend(&mut self, team: Team, cost: (i32, i32)) {
         self.players[team.index()].spend(cost);
     }
 
-    pub fn scaled_cost(&self, team: Team, base: (i32, i32)) -> (i32, i32) {
+    #[must_use] 
+    pub const fn scaled_cost(&self, team: Team, base: (i32, i32)) -> (i32, i32) {
         let scale_milli = self.players[team.index()].scale_milli;
         (base.0 * scale_milli / 1000, base.1 * scale_milli / 1000)
     }
 
+    #[must_use] 
     pub fn is_tile_bot_passable(&self, pos: Pos, team: Team) -> bool {
         if !self.game_map.in_bounds(pos) {
             return false;
@@ -189,6 +193,7 @@ impl Game {
         tile.is_bot_passable(&self.entities, team)
     }
 
+    #[must_use] 
     pub fn entity(&self, id: i32) -> Option<&Entity> {
         self.entities.get(&id)
     }
@@ -197,6 +202,7 @@ impl Game {
         self.entities.get_mut(&id)
     }
 
+    #[must_use] 
     pub fn has_core(&self, team: Team) -> bool {
         self.entities.values().any(|entity| match entity {
             Entity::Core(core) => core.team == team,
@@ -285,10 +291,10 @@ impl Game {
                 Some(entity) => {
                     let mut unit = entity
                         .as_unit_mut()
-                        .unwrap_or_else(|| panic!("unit_order contains non-unit id {}", unit_id));
+                        .unwrap_or_else(|| panic!("unit_order contains non-unit id {unit_id}"));
                     unit.end_turn();
                 }
-                None => panic!("unit_order contains unknown id {}", unit_id),
+                None => panic!("unit_order contains unknown id {unit_id}"),
             }
         }
 
@@ -299,8 +305,8 @@ impl Game {
                         h.cooldown -= 1;
                     }
                 }
-                Some(_) => panic!("harvesters contains non-harvester id {}", id),
-                None => panic!("harvesters contains unknown id {}", id),
+                Some(_) => panic!("harvesters contains non-harvester id {id}"),
+                None => panic!("harvesters contains unknown id {id}"),
             }
         }
     }
@@ -308,23 +314,20 @@ impl Game {
     pub fn move_builder_bot(&mut self, id: i32, to_pos: Pos) {
         let (from_pos, bot_team) = match self.entity(id) {
             Some(Entity::BuilderBot(bot)) => (bot.position, bot.team),
-            Some(_) => panic!("id {} is not a builder bot", id),
-            None => panic!("unknown builder bot id {}", id),
+            Some(_) => panic!("id {id} is not a builder bot"),
+            None => panic!("unknown builder bot id {id}"),
         };
         assert_ne!(
             from_pos, to_pos,
-            "builder bot {} moved to its current position",
-            id
+            "builder bot {id} moved to its current position"
         );
         assert!(
             self.game_map.in_bounds(from_pos),
-            "builder bot position out of bounds: {:?}",
-            from_pos
+            "builder bot position out of bounds: {from_pos:?}"
         );
         assert!(
             self.game_map.in_bounds(to_pos),
-            "target position out of bounds: {:?}",
-            to_pos
+            "target position out of bounds: {to_pos:?}"
         );
         let tile = self.game_map.tile_mut(to_pos);
         assert!(
@@ -350,7 +353,7 @@ impl Game {
         let entity = self
             .entities
             .get_mut(&id)
-            .unwrap_or_else(|| panic!("unknown entity id {}", id));
+            .unwrap_or_else(|| panic!("unknown entity id {id}"));
         entity.hp -= amount;
         self.replay_recorder
             .append(GameDiff::UpdateHp { id, delta: -amount });
@@ -376,7 +379,7 @@ impl Game {
         }
     }
 
-    /// Heal all friendly entities on a tile (building + builder bot) by HEAL_AMOUNT, capped at max HP.
+    /// Heal all friendly entities on a tile (building + builder bot) by `HEAL_AMOUNT`, capped at max HP.
     pub fn heal_tile(&mut self, pos: Pos, team: Team) {
         assert!(self.game_map.in_bounds(pos));
         let tile = self.game_map.tile(pos);
@@ -399,8 +402,8 @@ impl Game {
     pub fn remove_builder_bot(&mut self, id: i32) {
         let bot = match self.entities.remove(&id) {
             Some(Entity::BuilderBot(bot)) => bot,
-            Some(_) => panic!("id {} is not a builder bot", id),
-            None => panic!("unknown builder bot id {}", id),
+            Some(_) => panic!("id {id} is not a builder bot"),
+            None => panic!("unknown builder bot id {id}"),
         };
         // Builder bot scaling contribution: -20% (removes the +20% added at
         // spawn time). See docs/spec/resources.md cost-scaling table.
@@ -408,15 +411,13 @@ impl Game {
         let pos = bot.position;
         assert!(
             self.game_map.in_bounds(pos),
-            "builder bot position out of bounds: {:?}",
-            pos
+            "builder bot position out of bounds: {pos:?}"
         );
         let tile = self.game_map.tile_mut(pos);
         assert_eq!(
             tile.builder_bot,
             Some(id),
-            "builder bot tile reference mismatch at {:?}",
-            pos
+            "builder bot tile reference mismatch at {pos:?}"
         );
         tile.builder_bot = None;
         self.unit_order.retain(|unit_id| *unit_id != id);
@@ -425,9 +426,9 @@ impl Game {
 
     pub fn remove_building(&mut self, id: i32) {
         let building = match self.entities.remove(&id) {
-            Some(Entity::BuilderBot(_)) => panic!("id {} is not a building", id),
+            Some(Entity::BuilderBot(_)) => panic!("id {id} is not a building"),
             Some(entity) => entity,
-            None => panic!("unknown building id {}", id),
+            None => panic!("unknown building id {id}"),
         };
         self.players[building.team.index()].scale_milli -= building.scale_contribution();
         if matches!(
@@ -444,34 +445,30 @@ impl Game {
             self.harvesters.retain(|hid| *hid != id);
         }
         let pos = building.position;
-        match building {
-            Entity::Core(_) => {
-                for d in [
-                    Direction::North,
-                    Direction::Northeast,
-                    Direction::East,
-                    Direction::Southeast,
-                    Direction::South,
-                    Direction::Southwest,
-                    Direction::West,
-                    Direction::Northwest,
-                    Direction::Centre,
-                ] {
-                    let p = pos + d;
-                    assert!(self.game_map.in_bounds(p));
-                    let tile = self.game_map.tile_mut(p);
-                    assert!(tile.building == Some(id));
-                    tile.building = None;
-                }
+        if let Entity::Core(_) = building {
+            for d in [
+                Direction::North,
+                Direction::Northeast,
+                Direction::East,
+                Direction::Southeast,
+                Direction::South,
+                Direction::Southwest,
+                Direction::West,
+                Direction::Northwest,
+                Direction::Centre,
+            ] {
+                let p = pos + d;
+                assert!(self.game_map.in_bounds(p));
+                let tile = self.game_map.tile_mut(p);
+                assert!(tile.building == Some(id));
+                tile.building = None;
             }
-            _ => {
-                assert!(
-                    self.game_map.in_bounds(pos),
-                    "building position out of bounds: {:?}",
-                    pos
-                );
-                self.game_map.tile_mut(pos).building = None;
-            }
+        } else {
+            assert!(
+                self.game_map.in_bounds(pos),
+                "building position out of bounds: {pos:?}"
+            );
+            self.game_map.tile_mut(pos).building = None;
         }
         self.replay_recorder.append(GameDiff::RemoveEntity { id });
     }
@@ -484,7 +481,7 @@ impl Game {
             Some(_) => {
                 self.remove_building(id);
             }
-            None => panic!("unknown unit id {}", id),
+            None => panic!("unknown unit id {id}"),
         }
     }
 }

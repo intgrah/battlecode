@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use cambc::{EntityType, Environment};
 
 use crate::builder::Builder;

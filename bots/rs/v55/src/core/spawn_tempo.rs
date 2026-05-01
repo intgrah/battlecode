@@ -36,7 +36,8 @@ pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> 
     let h = height;
 
     let centre_dist = pyrust::max!(pyrust::abs!((cx - w / 2)), pyrust::abs!((cy - h / 2)));
-    let eccentricity = pyrust::float!(centre_dist) / pyrust::float!(pyrust::max!(pyrust::max!(w, h), 1));
+    let eccentricity =
+        pyrust::float!(centre_dist) / pyrust::float!(pyrust::max!(pyrust::max!(w, h), 1));
     let edge_dist = pyrust::min!(pyrust::min!(pyrust::min!(cx, cy), w - 1 - cx), h - 1 - cy);
 
     let mut cardinal_exits: i32 = 0;
@@ -91,12 +92,12 @@ pub fn compute_spawn_tempo(width: i32, height: i32, ct: &mut Controller<'_>) -> 
         }
     }
 
-    let inner_wall_density = pyrust::float!(inner_walls) / pyrust::float!(pyrust::max!(inner_total, 1));
-    let outer_wall_density = pyrust::float!(outer_walls) / pyrust::float!(pyrust::max!(outer_total, 1));
+    let inner_wall_density =
+        pyrust::float!(inner_walls) / pyrust::float!(pyrust::max!(inner_total, 1));
+    let outer_wall_density =
+        pyrust::float!(outer_walls) / pyrust::float!(pyrust::max!(outer_total, 1));
 
-    BIAS + W_ECCENTRICITY * eccentricity
-        + W_EDGE_DIST * pyrust::float!(edge_dist)
-        + W_CARDINAL_EXITS * pyrust::float!(cardinal_exits)
+    W_CARDINAL_EXITS.mul_add(cardinal_exits as f64, W_EDGE_DIST.mul_add(f64::from(edge_dist), W_ECCENTRICITY.mul_add(eccentricity, BIAS)))
         + W_INNER_WALL_DENSITY * inner_wall_density
         + W_OUTER_WALL_DENSITY * outer_wall_density
         + W_NEAREST_TI_D2 * pyrust::float!(nearest_ti_d2)

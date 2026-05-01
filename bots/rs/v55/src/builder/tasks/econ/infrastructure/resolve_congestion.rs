@@ -30,7 +30,8 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     // Sort the junction iteration so candidate-feeder accumulation is
     // deterministic across hash-randomized iteration of `congested_junctions`.
-    let mut junctions: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.congested_junctions)));
+    let mut junctions: Vec<Position> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.congested_junctions)));
     pyrust::sort_by_key!(junctions, |p| (p.y, p.x));
     let mut targets: Vec<Position> = pyrust::vec::new!();
     for j in junctions {
@@ -67,7 +68,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     for &feeder in &targets {
         if pyrust::unwrap!(ct.can_destroy(feeder)) {
             log(
-                &format!("resolve_congestion: DESTROY feeder {:?}", feeder),
+                &format!("resolve_congestion: DESTROY feeder {feeder:?}"),
                 Map::new(),
             );
             pyrust::unwrap!(ct.destroy(feeder));
@@ -78,11 +79,14 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     let my_pos = self_.my_pos;
     // Tiebreak by (y, x) on top of chebyshev distance.
-    let nearest = *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(targets), |&&p| (chebyshev(my_pos, p), p.y, p.x)));
+    let nearest = *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(targets), |&&p| (
+        chebyshev(my_pos, p),
+        p.y,
+        p.x
+    )));
     log(
         &format!(
-            "resolve_congestion: walking toward nearest feeder {:?}",
-            nearest
+            "resolve_congestion: walking toward nearest feeder {nearest:?}"
         ),
         Map::new(),
     );
@@ -90,11 +94,10 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         return None;
     }
     log(
-        &format!("resolve_congestion: could not approach {:?}", nearest),
+        &format!("resolve_congestion: could not approach {nearest:?}"),
         Map::new(),
     );
     Some(TaskRejected::from_string(format!(
-        "cannot approach feeder {:?}",
-        nearest
+        "cannot approach feeder {nearest:?}"
     )))
 }

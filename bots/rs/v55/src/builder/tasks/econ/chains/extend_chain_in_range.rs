@@ -18,8 +18,7 @@ pub fn extend_chain_in_range(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
     };
     if !pyrust::unwrap!(ct.is_in_vision(dangling)) {
         return Some(TaskRejected::from_string(format!(
-            "dangling {:?} not in vision",
-            dangling
+            "dangling {dangling:?} not in vision"
         )));
     }
     extend_chain(self_, ct, dangling)

@@ -1,7 +1,7 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/build_foundry.py`.
 //!
 //! Replace a designated Ti conveyor (`foundry_target`) with a foundry
-//! once its Ax feed is established. Gated on round >= FOUNDRY_ROUND_GATE.
+//! once its Ax feed is established. Gated on round >= `FOUNDRY_ROUND_GATE`.
 //! Checks the target is still a friendly pure conveyor, that an Ax cardinal
 //! feeds it, and that we can afford the build; walks adjacent and destroys-
 //! then-builds the foundry.
@@ -35,14 +35,12 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     );
     if !is_conveyor {
         return Some(TaskRejected::from_string(format!(
-            "{:?}: got {:?}, expected Ti conveyor",
-            target, kind
+            "{target:?}: got {kind:?}, expected Ti conveyor"
         )));
     }
     if team != Some(self_.my_team) {
         return Some(TaskRejected::from_string(format!(
-            "{:?}: conveyor held by enemy team",
-            target
+            "{target:?}: conveyor held by enemy team"
         )));
     }
     if self_.get_env(target) != Some(Environment::Empty) {
@@ -54,8 +52,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     }
     if !ax_feeds_target(self_, target) {
         return Some(TaskRejected::from_string(format!(
-            "ax chain hasn't reached {:?}",
-            target
+            "ax chain hasn't reached {target:?}"
         )));
     }
 
@@ -63,15 +60,14 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     if !can_afford(self_, EntityType::Foundry) {
         if dist_sq <= 2 {
             log(
-                &format!("build_foundry: holding {:?} until affordable", target),
+                &format!("build_foundry: holding {target:?} until affordable"),
                 Map::new(),
             );
             return None;
         }
         log(
             &format!(
-                "build_foundry: walking toward {:?}, can't afford yet",
-                target
+                "build_foundry: walking toward {target:?}, can't afford yet"
             ),
             Map::new(),
         );
@@ -92,8 +88,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         if !moved {
             log(
                 &format!(
-                    "build_foundry: stuck on {:?}, cannot step off this turn",
-                    target
+                    "build_foundry: stuck on {target:?}, cannot step off this turn"
                 ),
                 Map::new(),
             );
@@ -106,8 +101,7 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     {
         log(
             &format!(
-                "build_foundry: {:?} occupied by friendly bot, holding",
-                target
+                "build_foundry: {target:?} occupied by friendly bot, holding"
             ),
             Map::new(),
         );
@@ -125,14 +119,14 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
         )
     {
         log(
-            &format!("build_foundry: PLACED at {:?}", target),
+            &format!("build_foundry: PLACED at {target:?}"),
             Map::new(),
         );
         return None;
     }
 
     log(
-        &format!("build_foundry: out of range of {:?}, walking", target),
+        &format!("build_foundry: out of range of {target:?}, walking"),
         Map::new(),
     );
     make_move(self_, ct, target);

@@ -15,7 +15,7 @@
 //! which it appeared and the tile it appeared on. That tuple is
 //! unique because:
 //!   - Cores exist from turn 0 at fixed map-data positions.
-//!   - A core spawns at most one builder per turn (action_cooldown
+//!   - A core spawns at most one builder per turn (`action_cooldown`
 //!     limits it). The builder's birth tile is the spawn target.
 //!   - A builder builds at most one turret per turn for the same
 //!     reason. The turret's birth tile is the build target.

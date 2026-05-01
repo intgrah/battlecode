@@ -174,7 +174,7 @@ pub struct ArmedState {
 /// One undoable commit. We store the entire pre-mutation `Opening`
 /// snapshot — index-based deltas would drift stale when later commits
 /// replace a same-category action, when the sidebar ✕ shifts indices,
-/// or when `ensure_unit_tree` prunes a UnitPlan whose creating action
+/// or when `ensure_unit_tree` prunes a `UnitPlan` whose creating action
 /// got removed. Snapshots are small (a few KB) and restoration is
 /// trivial.
 #[derive(Clone, Debug)]
@@ -253,6 +253,7 @@ impl Pending {
 }
 
 impl App {
+    #[must_use] 
     pub fn new(
         atlas: Arc<SpriteSet>,
         map: proto::Map,
@@ -308,7 +309,7 @@ impl App {
         let Some(uid) = self.selected else { return };
         if self.sim.engine_to_opening.get(&uid).is_none() {
             return;
-        };
+        }
         let Some(e) = self.sim.game.entities.get(&uid) else {
             return;
         };
@@ -409,7 +410,7 @@ impl App {
 
     /// Shift+RMB: move builder one step in the (gx,gy) direction. If
     /// the target is unwalkable but the underlying tile is empty/Ti/Ax
-    /// ore, queue BuildRoad first so the move lands on the road.
+    /// ore, queue `BuildRoad` first so the move lands on the road.
     fn handle_shift_rmb(&mut self, gx: i32, gy: i32) {
         let Some(uid) = self.selected else { return };
         let Some(&opening_id) = self.sim.engine_to_opening.get(&uid) else {
@@ -986,7 +987,7 @@ impl App {
     fn force_save_to(&mut self, path: PathBuf) {
         match serde_json::to_vec_pretty(&self.opening) {
             Ok(bytes) => match std::fs::write(&path, bytes) {
-                Ok(_) => {
+                Ok(()) => {
                     let display = path.display().to_string();
                     self.opening_path = Some(path);
                     let empties = count_empty_unit_turns(&self.opening);
@@ -1286,8 +1287,8 @@ impl App {
     /// per-building scaled cost table. Order mirrors the replay
     /// viewer's stats panel for consistency.
     fn render_left_panel(&mut self, ui: &mut egui::Ui) {
-        use libre_engine::common::game_constants as gc;
         use libre_engine::common::Team;
+        use libre_engine::common::game_constants as gc;
 
         let p = &self.sim.game.players[0];
         let ti = p.titanium;
@@ -1341,7 +1342,11 @@ impl App {
                     let (sti, sax) = self.sim.game.scaled_cost(Team::A, *base);
                     ui.label(*name);
                     ui.monospace(format!("{sti}"));
-                    ui.monospace(if sax == 0 { String::new() } else { format!("{sax}") });
+                    ui.monospace(if sax == 0 {
+                        String::new()
+                    } else {
+                        format!("{sax}")
+                    });
                     ui.end_row();
                 }
             });
@@ -1451,8 +1456,8 @@ impl App {
         // Action queue display. Read-only except for ✕ delete.
         // All authoring is keyboard-driven via the chord scheme; the
         // sidebar is just a window into the opening's per-turn slots.
-        if let Some(id) = self.selected {
-            if let Some(&opening_id) = self.sim.engine_to_opening.get(&id) {
+        if let Some(id) = self.selected
+            && let Some(&opening_id) = self.sim.engine_to_opening.get(&id) {
                 let turn = self.edit_turn;
                 if turn < self.opening.horizon {
                     titan_core::style::section_title(ui, &format!("actions @ T{turn}"));
@@ -1490,7 +1495,6 @@ impl App {
                     }
                 }
             }
-        }
         ui.separator();
 
         titan_core::style::section_title(ui, "spawn order");
@@ -1606,12 +1610,12 @@ impl App {
         let row_h = if lanes.is_empty() {
             16.0
         } else {
-            ((rect.height() - 2.0 * ROW_PADDING_Y) / lanes.len() as f32).clamp(14.0, 28.0)
+            (2.0f32.mul_add(-ROW_PADDING_Y, rect.height()) / lanes.len() as f32).clamp(14.0, 28.0)
         };
 
         // Click / drag: convert pointer to (turn, lane), seek+select.
-        if response.clicked() || response.dragged() {
-            if let Some(p) = response.interact_pointer_pos() {
+        if (response.clicked() || response.dragged())
+            && let Some(p) = response.interact_pointer_pos() {
                 let frac = ((p.x - plot_x0) / plot_w).clamp(0.0, 1.0);
                 let target_turn = (frac * horizon as f32) as usize;
                 let last = self.opening.horizon.saturating_sub(1);
@@ -1635,7 +1639,6 @@ impl App {
                     }
                 }
             }
-        }
 
         // X-axis ticks (every 5 turns).
         let tick_color = ui.visuals().weak_text_color();
@@ -1681,7 +1684,7 @@ impl App {
             let Some(plan) = self.opening.team.units.get(&oid) else {
                 continue;
             };
-            let lane_y = rect.top() + ROW_PADDING_Y + (i as f32 + 0.5) * row_h;
+            let lane_y = (i as f32 + 0.5).mul_add(row_h, rect.top() + ROW_PADDING_Y);
             let bar_y0 = lane_y - row_h * 0.32;
             let bar_y1 = lane_y + row_h * 0.32;
             let x0 = plot_x0 + plot_w * (plan.spawn_turn as f32 / horizon as f32);
@@ -1726,7 +1729,7 @@ impl App {
             if let Some(parent_id) = plan.parent
                 && let Some(&parent_lane) = lane_idx.get(&parent_id)
             {
-                let parent_y = rect.top() + ROW_PADDING_Y + (parent_lane as f32 + 0.5) * row_h;
+                let parent_y = (parent_lane as f32 + 0.5).mul_add(row_h, rect.top() + ROW_PADDING_Y);
                 painter.line_segment(
                     [egui::pos2(x0, parent_y), egui::pos2(x0, lane_y)],
                     egui::Stroke::new(1.5, kind_color.gamma_multiply(0.6)),
@@ -1816,8 +1819,8 @@ impl App {
                 // the action has no clean visual.
                 for (i, option) in wheel.options.iter().enumerate() {
                     let angle =
-                        std::f32::consts::TAU * (i as f32 / n) - std::f32::consts::FRAC_PI_2;
-                    let p = egui::pos2(centre.x + angle.cos() * mid, centre.y + angle.sin() * mid);
+                        std::f32::consts::TAU.mul_add(i as f32 / n, -std::f32::consts::FRAC_PI_2);
+                    let p = egui::pos2(angle.cos().mul_add(mid, centre.x), angle.sin().mul_add(mid, centre.y));
                     let hit_rect = egui::Rect::from_center_size(p, egui::Vec2::splat(wedge));
                     let resp = ui
                         .interact(
@@ -1829,11 +1832,7 @@ impl App {
                     // No persistent fill — just a faint hover glow
                     // around the icon when the cursor is on it.
                     if resp.hovered() {
-                        painter.rect_filled(
-                            hit_rect,
-                            8.0,
-                            egui::Color32::from_white_alpha(0x18),
-                        );
+                        painter.rect_filled(hit_rect, 8.0, egui::Color32::from_white_alpha(0x18));
                     }
 
                     // Icon (top of cell) + label (bottom).
@@ -1841,7 +1840,7 @@ impl App {
                         egui::pos2(p.x, p.y - 6.0),
                         egui::Vec2::splat(icon),
                     );
-                    let label_pos = egui::pos2(p.x, p.y + icon * 0.5);
+                    let label_pos = egui::pos2(p.x, icon.mul_add(0.5, p.y));
                     if let Some(name) = pending_sprite(*option)
                         && let Some(tex) = self.atlas.get(name)
                     {
@@ -2283,7 +2282,7 @@ fn wheel_options_for(e: &libre_engine::game_map::Entity) -> Vec<Pending> {
     }
 }
 
-/// Map a Pending tool to its DirectionalAction key for last-used
+/// Map a Pending tool to its `DirectionalAction` key for last-used
 /// memory, or None if the tool has no `dir` field.
 const fn directional_kind_for(p: Pending) -> Option<DirectionalAction> {
     match p {
@@ -2300,7 +2299,7 @@ const fn directional_kind_for(p: Pending) -> Option<DirectionalAction> {
 /// True if a builder can stand on this entity (per Battlecode rules:
 /// conveyors, armoured conveyors, splitters, bridges, roads, allied
 /// core).
-fn is_walkable_building(e: &libre_engine::game_map::Entity) -> bool {
+const fn is_walkable_building(e: &libre_engine::game_map::Entity) -> bool {
     use libre_engine::game_map::Entity;
     matches!(
         e,
@@ -2358,7 +2357,7 @@ const fn action_target_at(a: &crate::opening::Action, gx: i32, gy: i32) -> bool 
 /// step for that action kind. Conveyors / armoured conveyors /
 /// splitters take cardinal directions only (game rule), so rotation
 /// snaps through N→E→S→W; everything else cycles through all 8.
-/// Returns the kind/dir for last_used update if rotated.
+/// Returns the kind/dir for `last_used` update if rotated.
 fn rotate_action_dir(a: &mut crate::opening::Action) -> Option<(DirectionalAction, i32)> {
     use crate::opening::Action;
     let next8 = |d: i32| (d + 1) % 8;
@@ -2422,7 +2421,7 @@ const fn kind_color(kind: crate::opening::UnitKind) -> egui::Color32 {
 
 /// Unit lanes for the tree panel and Up/Down navigation. Returns
 /// opening IDs in BFS order rooted at the core: parent before its
-/// children, siblings in (spawn_turn, opening_id) order. Stable as
+/// children, siblings in (`spawn_turn`, `opening_id`) order. Stable as
 /// long as ids don't get reused (sparse allocator guarantees this).
 fn unit_lanes(opening: &Opening) -> Vec<u32> {
     let mut lanes = Vec::with_capacity(opening.team.units.len());
@@ -2452,7 +2451,7 @@ fn unit_lanes(opening: &Opening) -> Vec<u32> {
 
 /// One-line description of a unit for sidebar lists. The numeric
 /// suffix is the unit's *birth turn* (T<n>), not its internal
-/// opening_id — opening_ids are sparse and meaningless to the user
+/// `opening_id` — `opening_ids` are sparse and meaningless to the user
 /// (delete + readd jumps the id), whereas the birth turn is stable
 /// and self-explanatory. The core has no suffix (it's always there).
 fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
@@ -2462,8 +2461,7 @@ fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
     let (x, y) = (e.position.x, e.position.y);
     let opening_id = sim.engine_to_opening.get(&uid).copied();
     let plan = opening_id.and_then(|oid| opening.team.units.get(&oid));
-    let kind = plan.map(|p| p.kind.label().to_string()).unwrap_or_else(|| {
-        match e {
+    let kind = plan.map_or_else(|| match e {
             libre_engine::game_map::Entity::Core(_) => "core".to_string(),
             libre_engine::game_map::Entity::BuilderBot(_) => "builder".to_string(),
             libre_engine::game_map::Entity::Gunner(_) => "gunner".to_string(),
@@ -2471,8 +2469,7 @@ fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
             libre_engine::game_map::Entity::Breach(_) => "breach".to_string(),
             libre_engine::game_map::Entity::Launcher(_) => "launcher".to_string(),
             _ => format!("uid {uid}"),
-        }
-    });
+        }, |p| p.kind.label().to_string());
     match (opening_id, plan) {
         (Some(0), _) => format!("{kind} ({x},{y})"),
         (Some(_), Some(p)) => format!("{kind} T{} ({x},{y})", p.spawn_turn),

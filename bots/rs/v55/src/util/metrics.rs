@@ -46,7 +46,11 @@ pub fn closest<I>(target: Position, positions: I) -> Option<Position>
 where
     I: IntoIterator<Item = Position>,
 {
-    pyrust::min_by!(pyrust::into_iter!(positions), |p| (euclidean_sq(target, *p), p.y, p.x))
+    pyrust::min_by!(pyrust::into_iter!(positions), |p| (
+        euclidean_sq(target, *p),
+        p.y,
+        p.x
+    ))
 }
 
 /// Returns `true` iff `my_id` at `my_pos` is the rightful claimant of `target`

@@ -102,11 +102,11 @@ impl Launcher {
 }
 
 impl Unit for Launcher {
-    fn state(&self) -> &UnitState {
+    fn unit_state(&self) -> &UnitState {
         &self.state
     }
 
-    fn state_mut(&mut self) -> &mut UnitState {
+    fn unit_state_mut(&mut self) -> &mut UnitState {
         &mut self.state
     }
 
@@ -123,9 +123,7 @@ impl Unit for Launcher {
         let mut best_score: i32 = 0;
 
         let my_team = self.state.my_team;
-        for uid in pyrust::unwrap!(ct
-            .get_nearby_units(Some(GameConstants::ACTION_RADIUS_SQ)))
-        {
+        for uid in pyrust::unwrap!(ct.get_nearby_units(Some(GameConstants::ACTION_RADIUS_SQ))) {
             if pyrust::unwrap!(ct.get_entity_type(Some(uid))) != EntityType::BuilderBot {
                 continue;
             }

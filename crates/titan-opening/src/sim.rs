@@ -205,7 +205,8 @@ impl Sim {
                         // birthday position — what the runtime bot
                         // will see on its first `run()`.
                         if let Some(e) = self.game.entities.get(&new_id) {
-                            self.birth.insert(cid, (child_spawn, e.position.x, e.position.y));
+                            self.birth
+                                .insert(cid, (child_spawn, e.position.x, e.position.y));
                         }
                     }
                 }
@@ -241,7 +242,7 @@ pub enum SimError {
 fn dispatch_one(game: &mut Game, uid: i32, action: Action) -> Result<Option<i32>, String> {
     let mut view = UnitView::new(game, uid);
     match action {
-        Action::Move { dir } => view.move_(direction(dir)?).map(|_| None).map_err(stringify),
+        Action::Move { dir } => view.move_(direction(dir)?).map(|()| None).map_err(stringify),
 
         Action::Spawn { dir } => {
             let centre = view.get_position(None).map_err(stringify)?;
@@ -299,16 +300,16 @@ fn dispatch_one(game: &mut Game, uid: i32, action: Action) -> Result<Option<i32>
             .map(Some)
             .map_err(stringify),
 
-        Action::Destroy { x, y } => view.destroy(Pos { x, y }).map(|_| None).map_err(stringify),
-        Action::Heal { x, y } => view.heal(Pos { x, y }).map(|_| None).map_err(stringify),
-        Action::Attack { x, y } => view.fire(Pos { x, y }).map(|_| None).map_err(stringify),
+        Action::Destroy { x, y } => view.destroy(Pos { x, y }).map(|()| None).map_err(stringify),
+        Action::Heal { x, y } => view.heal(Pos { x, y }).map(|()| None).map_err(stringify),
+        Action::Attack { x, y } => view.fire(Pos { x, y }).map(|()| None).map_err(stringify),
         Action::PlaceMarker { x, y, value } => view
             .place_marker(Pos { x, y }, value)
-            .map(|_| None)
+            .map(|()| None)
             .map_err(stringify),
         Action::Rotate { dir } => view
             .rotate(direction(dir)?)
-            .map(|_| None)
+            .map(|()| None)
             .map_err(stringify),
     }
 }

@@ -70,7 +70,7 @@ const fn rotate_left(d: Direction) -> Direction {
     }
 }
 
-fn _builder_score(hp: i32) -> i32 {
+const fn _builder_score(hp: i32) -> i32 {
     if hp <= GameConstants::SENTINEL_DAMAGE {
         return 15;
     }
@@ -150,11 +150,11 @@ impl Sentinel {
 }
 
 impl Unit for Sentinel {
-    fn state(&self) -> &UnitState {
+    fn unit_state(&self) -> &UnitState {
         &self.state
     }
 
-    fn state_mut(&mut self) -> &mut UnitState {
+    fn unit_state_mut(&mut self) -> &mut UnitState {
         &mut self.state
     }
 

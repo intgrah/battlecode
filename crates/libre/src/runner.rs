@@ -34,7 +34,7 @@ enum TeamBackend {
 }
 
 impl TeamBackend {
-    fn python_path(&self) -> Option<&str> {
+    const fn python_path(&self) -> Option<&str> {
         match self {
             Self::Python { bot_path } => Some(bot_path.as_str()),
             Self::Rust(_) => None,
@@ -43,10 +43,12 @@ impl TeamBackend {
 }
 
 /// Returns the calling thread's cumulative CPU time in nanoseconds.
-/// Uses CLOCK_THREAD_CPUTIME_ID (per-thread, not process-wide).
-/// Used by Controller::check_deadline() for cooperative TLE enforcement.
+///
+/// Uses `CLOCK_THREAD_CPUTIME_ID` (per-thread, not process-wide).
+/// Used by `Controller::check_deadline()` for cooperative TLE enforcement.
 /// Returns 0 when the `tle` feature is disabled.
 #[cfg(feature = "tle")]
+#[must_use] 
 pub fn thread_cpu_time_ns() -> u64 {
     cpu_time_ns_for_clock(libc::CLOCK_THREAD_CPUTIME_ID)
 }
@@ -63,13 +65,13 @@ fn cpu_time_ns_for_clock(clock_id: libc::clockid_t) -> u64 {
         tv_nsec: 0,
     };
     unsafe {
-        libc::clock_gettime(clock_id, &mut ts);
+        libc::clock_gettime(clock_id, &raw mut ts);
     }
     ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
 }
 
 /// CPU clock ID for the main thread. Captured at startup via
-/// pthread_getcpuclockid so the watchdog on core 0 can read the main
+/// `pthread_getcpuclockid` so the watchdog on core 0 can read the main
 /// thread's CPU time without the GIL.
 #[cfg(feature = "tle")]
 static MAIN_THREAD_CLOCK_ID: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
@@ -78,7 +80,7 @@ static MAIN_THREAD_CLOCK_ID: std::sync::atomic::AtomicI32 = std::sync::atomic::A
 fn init_main_thread_clock_id() {
     let mut clock_id: libc::clockid_t = 0;
     unsafe {
-        libc::pthread_getcpuclockid(libc::pthread_self(), &mut clock_id);
+        libc::pthread_getcpuclockid(libc::pthread_self(), &raw mut clock_id);
     }
     MAIN_THREAD_CLOCK_ID.store(clock_id, std::sync::atomic::Ordering::Relaxed);
 }
@@ -98,10 +100,10 @@ pub fn main_thread_cpu_time_ns() -> u64 {
 }
 
 /// CPU start time (absolute ns) for the current unit turn.
-/// Written by perform_unit_actions, read by Controller::get_cpu_time_elapsed.
+/// Written by `perform_unit_actions`, read by `Controller::get_cpu_time_elapsed`.
 pub(crate) static CPU_START_NS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 /// CPU deadline (absolute ns, in per-thread CPU time) for the current unit turn.
-/// Written by perform_unit_actions, read by Controller::check_deadline.
+/// Written by `perform_unit_actions`, read by `Controller::check_deadline`.
 pub(crate) static CPU_DEADLINE_NS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0);
 
@@ -144,7 +146,7 @@ impl GameRunner {
         for i in 0..MAX_TURNS {
             self.run_turn(py, &gc)?;
             if i % 100 == 0 {
-                println!("Completed turn {}", i);
+                println!("Completed turn {i}");
             }
             if self.game.borrow_mut().winner_team().is_some() {
                 break;
@@ -226,13 +228,9 @@ impl GameRunner {
             // then absorb any already-raised exception via a Python no-op.
             runner.watchdog.clear_async_exc();
             for _ in 0..100 {
-                match py.eval(c"None", None, None) {
-                    Ok(_) => break,
-                    Err(_) => {
-                        runner.watchdog.clear_async_exc();
-                        continue;
-                    }
-                }
+                if let Ok(_) = py.eval(c"None", None, None) { break }
+                runner.watchdog.clear_async_exc();
+                continue;
             }
 
             // Create StringIO in the subinterpreter for stdout capture.
@@ -291,13 +289,9 @@ impl GameRunner {
             // and disarm, then absorb any already-raised exception.
             runner.watchdog.clear_async_exc();
             for _ in 0..100 {
-                match py.eval(c"None", None, None) {
-                    Ok(_) => break,
-                    Err(_) => {
-                        runner.watchdog.clear_async_exc();
-                        continue;
-                    }
-                }
+                if let Ok(_) = py.eval(c"None", None, None) { break }
+                runner.watchdog.clear_async_exc();
+                continue;
             }
 
             // Handle errors (still in subinterpreter for err.print)
@@ -412,10 +406,8 @@ impl GameRunner {
                 gil: PyInterpreterConfig_SHARED_GIL,
             };
             let mut tstate: *mut PyThreadState = std::ptr::null_mut();
-            let status = Py_NewInterpreterFromConfig(&mut tstate, &config);
-            if pyo3_ffi::PyStatus_IsError(status) != 0 || tstate.is_null() {
-                panic!("Py_NewInterpreterFromConfig failed");
-            }
+            let status = Py_NewInterpreterFromConfig(&raw mut tstate, &raw const config);
+            assert!(!(pyo3_ffi::PyStatus_IsError(status) != 0 || tstate.is_null()), "Py_NewInterpreterFromConfig failed");
             tstate
         };
 
@@ -507,11 +499,10 @@ impl GameRunner {
 
         self.end_subinterpreters(&dead_python);
         for id in dead_rust {
-            if let Some((team, bot_ptr)) = self.rust_unit_bots.remove(&id) {
-                if let TeamBackend::Rust(rb) = &self.team_backends[team.index()] {
+            if let Some((team, bot_ptr)) = self.rust_unit_bots.remove(&id)
+                && let TeamBackend::Rust(rb) = &self.team_backends[team.index()] {
                     rb.drop_bot(bot_ptr);
                 }
-            }
         }
     }
 
@@ -561,7 +552,7 @@ impl GameRunner {
     }
 
     /// Destroy all remaining subinterpreters. Must be called before process
-    /// exit to avoid "PyInterpreterState_Delete: remaining subinterpreters".
+    /// exit to avoid "`PyInterpreterState_Delete`: remaining subinterpreters".
     fn destroy_all_subinterpreters(&mut self) {
         let all: Vec<i32> = self.unit_runners.keys().copied().collect();
         self.end_subinterpreters(&all);
@@ -622,11 +613,11 @@ pub fn run(args: Args) -> PyResult<MatchSummary> {
             BotKind::Rust(_) => Ok(()),
         };
         match (&a_check, &b_check) {
-            (Err(e), Ok(_)) => {
+            (Err(e), Ok(())) => {
                 eprintln!("Bot A failed validation: {e}");
                 std::process::exit(10);
             }
-            (Ok(_), Err(e)) => {
+            (Ok(()), Err(e)) => {
                 eprintln!("Bot B failed validation: {e}");
                 std::process::exit(11);
             }
@@ -666,11 +657,11 @@ pub fn run(args: Args) -> PyResult<MatchSummary> {
         };
         trial_wd.shutdown();
         match (&a_result, &b_result) {
-            (Err(e), Ok(_)) => {
+            (Err(e), Ok(())) => {
                 eprintln!("Bot A failed to load: {e}");
                 std::process::exit(10);
             }
-            (Ok(_), Err(e)) => {
+            (Ok(()), Err(e)) => {
                 eprintln!("Bot B failed to load: {e}");
                 std::process::exit(11);
             }
@@ -713,7 +704,7 @@ pub fn run(args: Args) -> PyResult<MatchSummary> {
         let mut runner = GameRunner {
             game: Rc::new(RefCell::new(game)),
             team_backends: [backend_a, backend_b],
-            engine_root: args.engine_root.to_path_buf(),
+            engine_root: args.engine_root.clone(),
             main_tstate,
             unit_runners: HashMap::new(),
             rust_unit_bots: HashMap::new(),
@@ -809,10 +800,10 @@ fn bot_kind_to_backend(kind: BotKind) -> PyResult<TeamBackend> {
 ///
 /// Only allows handlers of the form `except Name:` or `except (Name, ...):`
 /// where every name is in the whitelist of known-safe builtin exceptions plus
-/// GameError. This guarantees the type expression is always a valid exception
-/// type, preventing the TypeError side-channel that could be used to evade TLE.
+/// `GameError`. This guarantees the type expression is always a valid exception
+/// type, preventing the `TypeError` side-channel that could be used to evade TLE.
 ///
-/// Excluded from the whitelist: BaseException, SystemExit, KeyboardInterrupt
+/// Excluded from the whitelist: `BaseException`, `SystemExit`, `KeyboardInterrupt`
 /// (used for TLE/engine control)
 fn check_except_handlers(py: Python, main_py_path: &str) -> PyResult<()> {
     // Use the same dict for globals and locals so that `import ast` bindings
@@ -936,7 +927,7 @@ const CAMBC_SHIM_SOURCE: &str = include_str!("cambc_shim.py");
 /// `sys.modules`, ahead of any disk-resolved `cambc` package. Called once
 /// per interpreter (main + each subinterpreter) before any `py.import`,
 /// `init_type_cache`, or bot import runs. Removes the engine's runtime
-/// dependency on the upstream `cambc` PyPI wheel.
+/// dependency on the upstream `cambc` `PyPI` wheel.
 ///
 /// The shim is installed as `cambc._types` (matching the upstream wheel's
 /// layout), with `cambc` as a package that re-exports its public symbols.

@@ -1,4 +1,4 @@
-use super::*;
+use super::{Game, Pos, Turret, GUNNER_VISION_RADIUS_SQ, Environment, RngExt, SeedableRng, Direction, Entity, GUNNER_DAMAGE, GameDiff, GUNNER_AMMO_COST, GUNNER_FIRE_COOLDOWN, SENTINEL_VISION_RADIUS_SQ, SENTINEL_DAMAGE, SENTINEL_AMMO_COST, SENTINEL_FIRE_COOLDOWN, BREACH_ATTACK_RADIUS_SQ, BREACH_DAMAGE, BREACH_SPLASH_DAMAGE, BREACH_AMMO_COST, BREACH_FIRE_COOLDOWN, LAUNCHER_VISION_RADIUS_SQ, LAUNCHER_FIRE_COOLDOWN};
 use crate::common::game_constants::{GUNNER_AXIONITE_DAMAGE, SENTINEL_STUN_DURATION};
 
 impl Game {
@@ -7,6 +7,7 @@ impl Game {
     /// targetable but do not block farther targets; builder bots and
     /// non-marker buildings are both targetable and blocking. Per
     /// `docs/spec/turrets.md` (Gunner) and `docs/api/controller.md`.
+    #[must_use] 
     pub fn gunner_target(&self, turret_id: i32) -> Option<Pos> {
         let entity = self.entity(turret_id).expect("unknown turret");
         let Turret::Gunner(turret) = entity.as_turret().expect("not a turret") else {
@@ -41,6 +42,7 @@ impl Game {
 
     /// Whether `target` is a legal gunner-fire target from `turret_id`'s
     /// current position and facing.
+    #[must_use] 
     pub fn gunner_can_fire_at(&self, turret_id: i32, target: Pos) -> bool {
         let entity = self.entity(turret_id).expect("unknown turret");
         let Turret::Gunner(turret) = entity.as_turret().expect("not a turret") else {
@@ -51,6 +53,7 @@ impl Game {
 
     /// Same as [`Self::gunner_can_fire_at`] but for a hypothetical gunner
     /// at any position/direction (used by `Controller::can_fire_from`).
+    #[must_use] 
     pub fn gunner_can_fire_from_at(&self, origin: Pos, dir: Direction, target: Pos) -> bool {
         if !dir.is_directional() {
             return false;
@@ -130,6 +133,7 @@ impl Game {
 
     /// Check whether `target` is in the Sentinel's attack range: the intersection
     /// of the Chebyshev-1 line shape and the vision radius.
+    #[must_use] 
     pub fn sentinel_target_valid(&self, turret_id: i32, target: Pos) -> bool {
         let entity = self.entity(turret_id).expect("unknown turret");
         let Turret::Sentinel(turret) = entity.as_turret().expect("not a turret") else {
@@ -139,7 +143,8 @@ impl Game {
     }
 
     /// Same shape check from a hypothetical position/direction.
-    pub fn sentinel_target_valid_from(&self, origin: Pos, dir: Direction, target: Pos) -> bool {
+    #[must_use] 
+    pub const fn sentinel_target_valid_from(&self, origin: Pos, dir: Direction, target: Pos) -> bool {
         let dist_sq = origin.distance_squared(target);
         if dist_sq == 0 || dist_sq > SENTINEL_VISION_RADIUS_SQ {
             return false;
@@ -177,7 +182,7 @@ impl Game {
                 let entity = self
                     .entities
                     .get_mut(&id)
-                    .unwrap_or_else(|| panic!("tile entity id missing from entities: {}", id));
+                    .unwrap_or_else(|| panic!("tile entity id missing from entities: {id}"));
                 if let Some(mut unit) = entity.as_unit_mut() {
                     unit.action_cooldown += SENTINEL_STUN_DURATION;
                     unit.move_cooldown += SENTINEL_STUN_DURATION;
@@ -196,7 +201,8 @@ impl Game {
     }
 
     /// Check whether `target` is in the Breach's 180° cone within attack
-    /// radius (radius² ≤ BREACH_ATTACK_RADIUS_SQ, forward half-plane).
+    /// radius (radius² ≤ `BREACH_ATTACK_RADIUS_SQ`, forward half-plane).
+    #[must_use] 
     pub fn breach_target_valid(&self, turret_id: i32, target: Pos) -> bool {
         let entity = self.entity(turret_id).expect("unknown turret");
         let Turret::Breach(turret) = entity.as_turret().expect("not a turret") else {
@@ -206,7 +212,8 @@ impl Game {
     }
 
     /// Same cone check from a hypothetical position/direction.
-    pub fn breach_target_valid_from(&self, origin: Pos, dir: Direction, target: Pos) -> bool {
+    #[must_use] 
+    pub const fn breach_target_valid_from(&self, origin: Pos, dir: Direction, target: Pos) -> bool {
         let dist_sq = origin.distance_squared(target);
         if dist_sq == 0 || dist_sq > BREACH_ATTACK_RADIUS_SQ {
             return false;
@@ -247,6 +254,7 @@ impl Game {
     }
 
     /// Check whether `target` is within the Launcher's action range.
+    #[must_use] 
     pub fn launcher_target_valid(&self, turret_id: i32, target: Pos) -> bool {
         let entity = self.entity(turret_id).expect("unknown turret");
         let origin = entity.position;
@@ -259,7 +267,7 @@ impl Game {
         // Move the bot from its current position to the target.
         let from_pos = match self.entity(bot_id) {
             Some(Entity::BuilderBot(bot)) => bot.position,
-            _ => panic!("fire_launcher: bot_id {} is not a builder bot", bot_id),
+            _ => panic!("fire_launcher: bot_id {bot_id} is not a builder bot"),
         };
         self.game_map.tile_mut(from_pos).builder_bot = None;
         self.game_map.tile_mut(target).builder_bot = Some(bot_id);
@@ -280,8 +288,7 @@ impl Game {
         turret.ammo_amount -= ammo_cost;
         assert!(
             turret.ammo_amount >= 0,
-            "turret {} does not have enough ammo",
-            turret_id
+            "turret {turret_id} does not have enough ammo"
         );
         if turret.ammo_amount == 0 {
             turret.ammo_type = None;

@@ -22,7 +22,7 @@ pub fn load_map(path: &str) -> io::Result<(Vec<Vec<Environment>>, Vec<(Pos, Team
                     Ok(proto::Environment::EnvWall) => Environment::Wall,
                     Ok(proto::Environment::EnvOreTitanium) => Environment::OreTitanium,
                     Ok(proto::Environment::EnvOreAxionite) => Environment::OreAxionite,
-                    Err(_) => panic!("unknown environment value: {}", tile),
+                    Err(_) => panic!("unknown environment value: {tile}"),
                 })
                 .collect()
         })
@@ -34,9 +34,7 @@ pub fn load_map(path: &str) -> io::Result<(Vec<Vec<Environment>>, Vec<(Pos, Team
         .map(|core| {
             let pos = core
                 .position
-                .as_ref()
-                .map(|p| Pos { x: p.x, y: p.y })
-                .unwrap_or_else(|| panic!("core missing position"));
+                .as_ref().map_or_else(|| panic!("core missing position"), |p| Pos { x: p.x, y: p.y });
             let team = match proto::Team::try_from(core.team) {
                 Ok(proto::Team::A) => Team::A,
                 Ok(proto::Team::B) => Team::B,
@@ -68,11 +66,10 @@ pub fn save_map(
     let map = build_proto_map(environment, cores);
     let mut buf = Vec::new();
     map.encode(&mut buf)
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-    if let Some(parent) = Path::new(path).parent() {
-        if !parent.as_os_str().is_empty() {
+        .map_err(|err| io::Error::other(err))?;
+    if let Some(parent) = Path::new(path).parent()
+        && !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;
         }
-    }
     fs::write(path, buf)
 }

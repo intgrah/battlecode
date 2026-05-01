@@ -10,7 +10,7 @@
 //! - `replay_diff` — `GameDiff` event enum and `ReplayRecorder` (memory-only
 //!   storage). Serialization to protobuf lives in the `libre-replay` crate.
 //!
-//! This crate is pure: no IPC, no Python, no clock_gettime, no async
+//! This crate is pure: no IPC, no Python, no `clock_gettime`, no async
 //! exception injection. Suitable for direct use from native Rust bots,
 //! fuzzers, replay-driven tests, etc.
 

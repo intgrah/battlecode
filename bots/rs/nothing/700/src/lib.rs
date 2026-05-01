@@ -6,7 +6,7 @@ pub struct Player;
 
 impl Bot for Player {
     fn new() -> Self {
-        Player
+        Self
     }
 
     fn run(&mut self, c: &mut Controller<'_>) {

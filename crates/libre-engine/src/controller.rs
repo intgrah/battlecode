@@ -3,7 +3,7 @@
 //!
 //! `Controller` is the trait pyrust mirrors into Python codegen.
 //! `UnitView<'a>` is the canonical impl over a borrowed `Game`. The
-//! PyO3 `Controller` class in the `libre` binary wraps a
+//! `PyO3` `Controller` class in the `libre` binary wraps a
 //! `Rc<RefCell<Game>>` and delegates each method to a fresh
 //! `UnitView` constructed from a `&mut Game` borrow. Native Rust bots
 //! receive `&mut UnitView` directly via the `Player` trait, no Python.
@@ -211,7 +211,7 @@ pub struct UnitView<'a> {
 }
 
 impl<'a> UnitView<'a> {
-    pub fn new(game: &'a mut Game, unit: i32) -> Self {
+    pub const fn new(game: &'a mut Game, unit: i32) -> Self {
         Self {
             game,
             unit,
@@ -246,7 +246,7 @@ impl<'a> UnitView<'a> {
         // The core occupies a 3x3 area; it counts as in-vision if any of its
         // 9 tiles is within range.
         if matches!(entity, Entity::Core(_)) {
-            use Direction::*;
+            use Direction::{North, Northeast, East, Southeast, South, Southwest, West, Northwest, Centre};
             let in_vision = [
                 North, Northeast, East, Southeast, South, Southwest, West, Northwest, Centre,
             ]
@@ -280,11 +280,10 @@ impl<'a> UnitView<'a> {
         if tile.environment == Environment::Wall {
             return false;
         }
-        if let Some(existing_id) = tile.building {
-            if !matches!(self.game.entity(existing_id), Some(Entity::Marker(_))) {
+        if let Some(existing_id) = tile.building
+            && !matches!(self.game.entity(existing_id), Some(Entity::Marker(_))) {
                 return false;
             }
-        }
         let cost = self.game.scaled_cost(bot.team, base_cost);
         self.game.players[bot.team.index()].can_afford(cost)
     }
@@ -319,7 +318,7 @@ impl<'a> UnitView<'a> {
                 }
             }
             EntityType::Sentinel => {
-                let r = (SENTINEL_VISION_RADIUS_SQ as f64).sqrt().ceil() as i32;
+                let r = f64::from(SENTINEL_VISION_RADIUS_SQ).sqrt().ceil() as i32;
                 let (dx, dy) = dir.delta();
                 for cy in -r..=r {
                     for cx in -r..=r {
@@ -349,7 +348,7 @@ impl<'a> UnitView<'a> {
                 }
             }
             EntityType::Breach => {
-                let r = (BREACH_ATTACK_RADIUS_SQ as f64).sqrt().ceil() as i32;
+                let r = f64::from(BREACH_ATTACK_RADIUS_SQ).sqrt().ceil() as i32;
                 let (dx, dy) = dir.delta();
                 for cy in -r..=r {
                     for cx in -r..=r {
@@ -372,7 +371,7 @@ impl<'a> UnitView<'a> {
                 }
             }
             EntityType::Launcher => {
-                let r = (LAUNCHER_VISION_RADIUS_SQ as f64).sqrt().ceil() as i32;
+                let r = f64::from(LAUNCHER_VISION_RADIUS_SQ).sqrt().ceil() as i32;
                 for cy in -r..=r {
                     for cx in -r..=r {
                         let dsq = cx * cx + cy * cy;
@@ -672,7 +671,7 @@ impl Controller for UnitView<'_> {
 
     fn get_scale_percent(&self) -> Result<f64> {
         let team = self.game.entity(self.unit).expect("unknown unit").team;
-        Ok(self.game.players[team.index()].scale_milli as f64 / 10.0)
+        Ok(f64::from(self.game.players[team.index()].scale_milli) / 10.0)
     }
 
     fn get_unit_count(&self) -> Result<i32> {
@@ -1046,7 +1045,7 @@ impl Controller for UnitView<'_> {
         let Some(building) = self
             .game
             .entity(building_id)
-            .and_then(|entity| entity.as_building())
+            .and_then(super::game_map::Entity::as_building)
         else {
             return Ok(false);
         };
@@ -1075,7 +1074,7 @@ impl Controller for UnitView<'_> {
         let team = self
             .game
             .entity(bot_id)
-            .and_then(|e| e.as_unit())
+            .and_then(super::game_map::Entity::as_unit)
             .expect("healer is not a unit")
             .team;
         // 1 Ti per heal action — flat, not scaled.
@@ -1216,7 +1215,7 @@ impl Controller for UnitView<'_> {
         let team = self
             .game
             .entity(self.unit)
-            .and_then(|e| e.as_unit())
+            .and_then(super::game_map::Entity::as_unit)
             .expect("can_place_marker was true but entity is not a unit")
             .team;
         self.game.place_marker(team, position, value);
@@ -1591,13 +1590,12 @@ impl Controller for UnitView<'_> {
             .ok_or_else(|| GameError::new("Unit is not a unit"))?;
         let pos = unit.position;
         let vision = unit.vision_radius_sq();
-        if let Some(d) = dist_sq {
-            if d > vision {
+        if let Some(d) = dist_sq
+            && d > vision {
                 return Err(GameError::new("dist_sq exceeds vision radius"));
             }
-        }
         let radius_sq = dist_sq.unwrap_or(vision);
-        let r = (radius_sq as f64).sqrt().ceil() as i32;
+        let r = f64::from(radius_sq).sqrt().ceil() as i32;
         let mut result = Vec::new();
         for dy in -r..=r {
             for dx in -r..=r {
@@ -1638,7 +1636,7 @@ impl Controller for UnitView<'_> {
             .filter(|id| {
                 self.game
                     .entity(*id)
-                    .and_then(|e| e.as_building())
+                    .and_then(super::game_map::Entity::as_building)
                     .is_some()
             })
             .collect())
@@ -1648,7 +1646,7 @@ impl Controller for UnitView<'_> {
         let all = self.get_nearby_entities(dist_sq)?;
         Ok(all
             .into_iter()
-            .filter(|id| self.game.entity(*id).and_then(|e| e.as_unit()).is_some())
+            .filter(|id| self.game.entity(*id).and_then(super::game_map::Entity::as_unit).is_some())
             .collect())
     }
 

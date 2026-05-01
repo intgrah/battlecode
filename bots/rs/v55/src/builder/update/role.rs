@@ -8,7 +8,7 @@ const _OPENING_ROLES: [Role; 4] = [
     Role::Econ,
 ];
 
-/// ECON_REACTIVE auto-flips to DEFENSE once `self.round` exceeds this.
+/// `ECON_REACTIVE` auto-flips to DEFENSE once `self.round` exceeds this.
 /// Picks up an early-game economic-map snapshot before pivoting.
 const _ECON_REACTIVE_FLIP_ROUND: i32 = 25;
 
@@ -49,7 +49,7 @@ const _TRANSITION_PARASITIC: [(Role, u32); 3] =
 const _TRANSITION_PERM_ECON: [(Role, u32); 1] = [(Role::PermEcon, 1)];
 const _TRANSITION_PERM_DEFENSE: [(Role, u32); 1] = [(Role::PermDefense, 1)];
 
-fn _transition_for(role: Role) -> &'static [(Role, u32)] {
+const fn _transition_for(role: Role) -> &'static [(Role, u32)] {
     match role {
         Role::Econ => &_TRANSITION_ECON,
         Role::Defense => &_TRANSITION_DEFENSE,
@@ -74,7 +74,10 @@ fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
     // Mirror Python's `random.choices(population, weights=..., k=1)` so
     // role transitions match across native ⇄ translated builds.
     let population: Vec<Role> = pyrust::collect!(pyrust::map!(pyrust::iter!(choices), |t| t.0));
-    let weights: Vec<f64> = pyrust::collect!(pyrust::map!(pyrust::iter!(choices), |t| pyrust::float!(t.1)));
+    let weights: Vec<f64> = pyrust::collect!(pyrust::map!(
+        pyrust::iter!(choices),
+        |t| pyrust::float!(t.1)
+    ));
     *builder.state.rng.choices(&population, Some(&weights), 1)[0]
 }
 

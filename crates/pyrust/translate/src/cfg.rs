@@ -39,7 +39,7 @@ pub struct CfgEnv {
     /// where `Struct` also has a `<name>` field. The translator emits
     /// `obj.<name>()` calls as `obj.<name>` (attribute access) for these
     /// names, bypassing the field-shadowing problem in folded trait
-    /// default bodies (where ra_ap can't see through the generic).
+    /// default bodies (where `ra_ap` can't see through the generic).
     pub field_accessor_names: std::collections::HashSet<String>,
     /// Names of types/traits carrying `#[pyrust::transparent]`. Found by a
     /// syntactic walk of the workspace's `.rs` files. Translator drops
@@ -53,6 +53,7 @@ pub struct CfgEnv {
 
 impl CfgEnv {
     /// Default environment: `debug_assertions` is set, nothing else.
+    #[must_use] 
     pub fn debug() -> Self {
         let mut env = Self::default();
         env.flags.insert("debug_assertions".into(), true);
@@ -90,12 +91,14 @@ impl CfgEnv {
         Ok(())
     }
 
+    #[must_use] 
     pub fn is_set(&self, name: &str) -> bool {
         self.flags.get(name).copied().unwrap_or(false)
     }
 
+    #[must_use] 
     pub fn kv_matches(&self, name: &str, value: &str) -> bool {
-        self.kv.get(name).map(|v| v == value).unwrap_or(false)
+        self.kv.get(name).is_some_and(|v| v == value)
     }
 
     /// Evaluate a `cfg(...)` predicate inside a `#[cfg(...)]` attribute.
@@ -173,7 +176,7 @@ impl CfgEnv {
 }
 
 fn path_ident(p: &syn::Path) -> Option<String> {
-    p.get_ident().map(|i| i.to_string())
+    p.get_ident().map(std::string::ToString::to_string)
 }
 
 fn path_to_string(p: &syn::Path) -> String {

@@ -14,7 +14,7 @@
 //!
 //! Methods on `Controller` (the engine's trait) are monomorphised into
 //! the bot's compiled copy, so no `dyn` fat-pointer is exchanged across
-//! the FFI boundary — only `*mut c_void` (UnitView) and `*mut c_void`
+//! the FFI boundary — only `*mut c_void` (`UnitView`) and `*mut c_void`
 //! (the boxed `Box<dyn Player>`).
 
 use std::ffi::c_void;
@@ -60,6 +60,7 @@ impl RustBackend {
         })
     }
 
+    #[must_use] 
     pub fn create_bot(&self) -> *mut c_void {
         unsafe { (self.create)() }
     }
@@ -67,7 +68,7 @@ impl RustBackend {
     /// Run one turn for `bot` against `view`. The view borrow lives only
     /// for the duration of this call.
     pub fn run_bot(&self, bot: *mut c_void, view: &mut UnitView<'_>) {
-        let view_ptr = view as *mut UnitView<'_> as *mut c_void;
+        let view_ptr = std::ptr::from_mut::<UnitView<'_>>(view).cast::<c_void>();
         unsafe { (self.run)(bot, view_ptr) }
     }
 

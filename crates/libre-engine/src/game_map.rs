@@ -64,21 +64,21 @@ impl Deref for Entity {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            Entity::BuilderBot(bot) => bot,
-            Entity::Conveyor(c) => c,
-            Entity::Splitter(c) => c,
-            Entity::ArmouredConveyor(c) => c,
-            Entity::Bridge(b) => b,
-            Entity::Harvester(h) => h,
-            Entity::Foundry(f) => f,
-            Entity::Road(r) => r,
-            Entity::Barrier(b) => b,
-            Entity::Marker(m) => m,
-            Entity::Core(c) => c,
-            Entity::Gunner(t) => t,
-            Entity::Sentinel(t) => t,
-            Entity::Breach(t) => t,
-            Entity::Launcher(t) => t,
+            Self::BuilderBot(bot) => bot,
+            Self::Conveyor(c) => c,
+            Self::Splitter(c) => c,
+            Self::ArmouredConveyor(c) => c,
+            Self::Bridge(b) => b,
+            Self::Harvester(h) => h,
+            Self::Foundry(f) => f,
+            Self::Road(r) => r,
+            Self::Barrier(b) => b,
+            Self::Marker(m) => m,
+            Self::Core(c) => c,
+            Self::Gunner(t) => t,
+            Self::Sentinel(t) => t,
+            Self::Breach(t) => t,
+            Self::Launcher(t) => t,
         }
     }
 }
@@ -86,143 +86,148 @@ impl Deref for Entity {
 impl DerefMut for Entity {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
-            Entity::BuilderBot(bot) => bot,
-            Entity::Conveyor(c) => c,
-            Entity::Splitter(c) => c,
-            Entity::ArmouredConveyor(c) => c,
-            Entity::Bridge(b) => b,
-            Entity::Harvester(h) => h,
-            Entity::Foundry(f) => f,
-            Entity::Road(r) => r,
-            Entity::Barrier(b) => b,
-            Entity::Marker(m) => m,
-            Entity::Core(c) => c,
-            Entity::Gunner(t) => t,
-            Entity::Sentinel(t) => t,
-            Entity::Breach(t) => t,
-            Entity::Launcher(t) => t,
+            Self::BuilderBot(bot) => bot,
+            Self::Conveyor(c) => c,
+            Self::Splitter(c) => c,
+            Self::ArmouredConveyor(c) => c,
+            Self::Bridge(b) => b,
+            Self::Harvester(h) => h,
+            Self::Foundry(f) => f,
+            Self::Road(r) => r,
+            Self::Barrier(b) => b,
+            Self::Marker(m) => m,
+            Self::Core(c) => c,
+            Self::Gunner(t) => t,
+            Self::Sentinel(t) => t,
+            Self::Breach(t) => t,
+            Self::Launcher(t) => t,
         }
     }
 }
 
 impl Entity {
-    pub fn as_unit(&self) -> Option<Unit<'_>> {
+    #[must_use] 
+    pub const fn as_unit(&self) -> Option<Unit<'_>> {
         match self {
-            Entity::BuilderBot(bot) => Some(Unit::BuilderBot(bot)),
-            Entity::Core(core) => Some(Unit::Core(core)),
-            Entity::Gunner(t) => Some(Unit::Gunner(t)),
-            Entity::Sentinel(t) => Some(Unit::Sentinel(t)),
-            Entity::Breach(t) => Some(Unit::Breach(t)),
-            Entity::Launcher(t) => Some(Unit::Launcher(t)),
+            Self::BuilderBot(bot) => Some(Unit::BuilderBot(bot)),
+            Self::Core(core) => Some(Unit::Core(core)),
+            Self::Gunner(t) => Some(Unit::Gunner(t)),
+            Self::Sentinel(t) => Some(Unit::Sentinel(t)),
+            Self::Breach(t) => Some(Unit::Breach(t)),
+            Self::Launcher(t) => Some(Unit::Launcher(t)),
             _ => None,
         }
     }
 
-    pub fn as_unit_mut(&mut self) -> Option<UnitMut<'_>> {
+    pub const fn as_unit_mut(&mut self) -> Option<UnitMut<'_>> {
         match self {
-            Entity::BuilderBot(bot) => Some(UnitMut::BuilderBot(bot)),
-            Entity::Core(core) => Some(UnitMut::Core(core)),
-            Entity::Gunner(t) => Some(UnitMut::Gunner(t)),
-            Entity::Sentinel(t) => Some(UnitMut::Sentinel(t)),
-            Entity::Breach(t) => Some(UnitMut::Breach(t)),
-            Entity::Launcher(t) => Some(UnitMut::Launcher(t)),
+            Self::BuilderBot(bot) => Some(UnitMut::BuilderBot(bot)),
+            Self::Core(core) => Some(UnitMut::Core(core)),
+            Self::Gunner(t) => Some(UnitMut::Gunner(t)),
+            Self::Sentinel(t) => Some(UnitMut::Sentinel(t)),
+            Self::Breach(t) => Some(UnitMut::Breach(t)),
+            Self::Launcher(t) => Some(UnitMut::Launcher(t)),
             _ => None,
         }
     }
 
-    pub fn as_turret(&self) -> Option<Turret<'_>> {
+    #[must_use] 
+    pub const fn as_turret(&self) -> Option<Turret<'_>> {
         match self {
-            Entity::Gunner(t) => Some(Turret::Gunner(t)),
-            Entity::Sentinel(t) => Some(Turret::Sentinel(t)),
-            Entity::Breach(t) => Some(Turret::Breach(t)),
-            Entity::Launcher(t) => Some(Turret::Launcher(t)),
+            Self::Gunner(t) => Some(Turret::Gunner(t)),
+            Self::Sentinel(t) => Some(Turret::Sentinel(t)),
+            Self::Breach(t) => Some(Turret::Breach(t)),
+            Self::Launcher(t) => Some(Turret::Launcher(t)),
             _ => None,
         }
     }
 
-    pub fn as_turret_mut(&mut self) -> Option<TurretMut<'_>> {
+    pub const fn as_turret_mut(&mut self) -> Option<TurretMut<'_>> {
         match self {
-            Entity::Gunner(t) => Some(TurretMut::Gunner(t)),
-            Entity::Sentinel(t) => Some(TurretMut::Sentinel(t)),
-            Entity::Breach(t) => Some(TurretMut::Breach(t)),
-            Entity::Launcher(t) => Some(TurretMut::Launcher(t)),
+            Self::Gunner(t) => Some(TurretMut::Gunner(t)),
+            Self::Sentinel(t) => Some(TurretMut::Sentinel(t)),
+            Self::Breach(t) => Some(TurretMut::Breach(t)),
+            Self::Launcher(t) => Some(TurretMut::Launcher(t)),
             _ => None,
         }
     }
 
-    pub fn as_building(&self) -> Option<Building<'_>> {
+    #[must_use] 
+    pub const fn as_building(&self) -> Option<Building<'_>> {
         match self {
-            Entity::BuilderBot(_) => None,
-            Entity::Conveyor(c) => Some(Building::Conveyor(c)),
-            Entity::Splitter(c) => Some(Building::Splitter(c)),
-            Entity::ArmouredConveyor(c) => Some(Building::ArmouredConveyor(c)),
-            Entity::Bridge(b) => Some(Building::Bridge(b)),
-            Entity::Harvester(h) => Some(Building::Harvester(h)),
-            Entity::Foundry(f) => Some(Building::Foundry(f)),
-            Entity::Road(r) => Some(Building::Road(r)),
-            Entity::Barrier(b) => Some(Building::Barrier(b)),
-            Entity::Marker(m) => Some(Building::Marker(m)),
-            Entity::Core(c) => Some(Building::Core(c)),
-            Entity::Gunner(t) => Some(Building::Gunner(t)),
-            Entity::Sentinel(t) => Some(Building::Sentinel(t)),
-            Entity::Breach(t) => Some(Building::Breach(t)),
-            Entity::Launcher(t) => Some(Building::Launcher(t)),
+            Self::BuilderBot(_) => None,
+            Self::Conveyor(c) => Some(Building::Conveyor(c)),
+            Self::Splitter(c) => Some(Building::Splitter(c)),
+            Self::ArmouredConveyor(c) => Some(Building::ArmouredConveyor(c)),
+            Self::Bridge(b) => Some(Building::Bridge(b)),
+            Self::Harvester(h) => Some(Building::Harvester(h)),
+            Self::Foundry(f) => Some(Building::Foundry(f)),
+            Self::Road(r) => Some(Building::Road(r)),
+            Self::Barrier(b) => Some(Building::Barrier(b)),
+            Self::Marker(m) => Some(Building::Marker(m)),
+            Self::Core(c) => Some(Building::Core(c)),
+            Self::Gunner(t) => Some(Building::Gunner(t)),
+            Self::Sentinel(t) => Some(Building::Sentinel(t)),
+            Self::Breach(t) => Some(Building::Breach(t)),
+            Self::Launcher(t) => Some(Building::Launcher(t)),
         }
     }
 
-    pub fn as_building_mut(&mut self) -> Option<BuildingMut<'_>> {
+    pub const fn as_building_mut(&mut self) -> Option<BuildingMut<'_>> {
         match self {
-            Entity::BuilderBot(_) => None,
-            Entity::Conveyor(c) => Some(BuildingMut::Conveyor(c)),
-            Entity::Splitter(c) => Some(BuildingMut::Splitter(c)),
-            Entity::ArmouredConveyor(c) => Some(BuildingMut::ArmouredConveyor(c)),
-            Entity::Bridge(b) => Some(BuildingMut::Bridge(b)),
-            Entity::Harvester(h) => Some(BuildingMut::Harvester(h)),
-            Entity::Foundry(f) => Some(BuildingMut::Foundry(f)),
-            Entity::Road(r) => Some(BuildingMut::Road(r)),
-            Entity::Barrier(b) => Some(BuildingMut::Barrier(b)),
-            Entity::Marker(m) => Some(BuildingMut::Marker(m)),
-            Entity::Core(c) => Some(BuildingMut::Core(c)),
-            Entity::Gunner(t) => Some(BuildingMut::Gunner(t)),
-            Entity::Sentinel(t) => Some(BuildingMut::Sentinel(t)),
-            Entity::Breach(t) => Some(BuildingMut::Breach(t)),
-            Entity::Launcher(t) => Some(BuildingMut::Launcher(t)),
+            Self::BuilderBot(_) => None,
+            Self::Conveyor(c) => Some(BuildingMut::Conveyor(c)),
+            Self::Splitter(c) => Some(BuildingMut::Splitter(c)),
+            Self::ArmouredConveyor(c) => Some(BuildingMut::ArmouredConveyor(c)),
+            Self::Bridge(b) => Some(BuildingMut::Bridge(b)),
+            Self::Harvester(h) => Some(BuildingMut::Harvester(h)),
+            Self::Foundry(f) => Some(BuildingMut::Foundry(f)),
+            Self::Road(r) => Some(BuildingMut::Road(r)),
+            Self::Barrier(b) => Some(BuildingMut::Barrier(b)),
+            Self::Marker(m) => Some(BuildingMut::Marker(m)),
+            Self::Core(c) => Some(BuildingMut::Core(c)),
+            Self::Gunner(t) => Some(BuildingMut::Gunner(t)),
+            Self::Sentinel(t) => Some(BuildingMut::Sentinel(t)),
+            Self::Breach(t) => Some(BuildingMut::Breach(t)),
+            Self::Launcher(t) => Some(BuildingMut::Launcher(t)),
         }
     }
 
-    pub fn scale_contribution(&self) -> i32 {
+    #[must_use] 
+    pub const fn scale_contribution(&self) -> i32 {
         // Values are in milli-percent: +10 = +1%. Per docs/spec/reference.md
         // and docs/spec/resources.md cost-scaling table.
         match self {
-            Entity::Road(_) => 5, // +0.5%
-            Entity::Conveyor(_)
-            | Entity::Splitter(_)
-            | Entity::ArmouredConveyor(_)
-            | Entity::Barrier(_) => 10, // +1%
-            Entity::Harvester(_) => 50, // +5%
-            Entity::Bridge(_) | Entity::Gunner(_) | Entity::Breach(_) | Entity::Launcher(_) => 100, // +10%
-            Entity::Sentinel(_) => 200, // +20%
-            Entity::Foundry(_) => 500,  // +50%
+            Self::Road(_) => 5, // +0.5%
+            Self::Conveyor(_)
+            | Self::Splitter(_)
+            | Self::ArmouredConveyor(_)
+            | Self::Barrier(_) => 10, // +1%
+            Self::Harvester(_) => 50, // +5%
+            Self::Bridge(_) | Self::Gunner(_) | Self::Breach(_) | Self::Launcher(_) => 100, // +10%
+            Self::Sentinel(_) => 200, // +20%
+            Self::Foundry(_) => 500,  // +50%
             // BuilderBot scale (+20%) is applied at spawn/remove sites,
             // not via scale_contribution (it isn't a building).
             _ => 0,
         }
     }
 
+    #[must_use] 
     pub fn resource_to_feed(&self) -> Option<ResourceType> {
         match self {
-            Entity::Conveyor(c) => c.stored,
-            Entity::Splitter(s) => s.stored,
-            Entity::ArmouredConveyor(c) => c.stored,
-            Entity::Bridge(b) => b.stored,
-            Entity::Harvester(h) => {
+            Self::Conveyor(c) => c.stored,
+            Self::Splitter(s) => s.stored,
+            Self::ArmouredConveyor(c) => c.stored,
+            Self::Bridge(b) => b.stored,
+            Self::Harvester(h) => {
                 if h.cooldown == 0 {
                     Some(h.resource_type)
                 } else {
                     None
                 }
             }
-            Entity::Foundry(f) => {
+            Self::Foundry(f) => {
                 if f.stored == Some(ResourceType::RefinedAxionite) {
                     Some(ResourceType::RefinedAxionite)
                 } else {
@@ -233,12 +238,13 @@ impl Entity {
         }
     }
 
+    #[must_use] 
     pub fn output_targets(&self) -> Vec<Pos> {
         match self {
-            Entity::Conveyor(c) => vec![c.position + c.direction],
-            Entity::ArmouredConveyor(c) => vec![c.position + c.direction],
-            Entity::Bridge(b) => vec![b.target],
-            Entity::Splitter(s) => {
+            Self::Conveyor(c) => vec![c.position + c.direction],
+            Self::ArmouredConveyor(c) => vec![c.position + c.direction],
+            Self::Bridge(b) => vec![b.target],
+            Self::Splitter(s) => {
                 let excluded = s.direction.opposite();
                 let dirs = [
                     Direction::North,
@@ -251,7 +257,7 @@ impl Entity {
                     .map(|d| s.position + *d)
                     .collect()
             }
-            Entity::Harvester(h) => {
+            Self::Harvester(h) => {
                 let dirs = [
                     Direction::North,
                     Direction::East,
@@ -260,7 +266,7 @@ impl Entity {
                 ];
                 dirs.iter().map(|d| h.position + *d).collect()
             }
-            Entity::Foundry(f) => {
+            Self::Foundry(f) => {
                 let dirs = [
                     Direction::North,
                     Direction::East,
@@ -275,24 +281,24 @@ impl Entity {
 
     pub fn consume_feed(&mut self) {
         match self {
-            Entity::Conveyor(c) => {
+            Self::Conveyor(c) => {
                 c.stored = None;
                 c.stored_resource_id = None;
             }
-            Entity::Splitter(s) => {
+            Self::Splitter(s) => {
                 s.stored = None;
                 s.stored_resource_id = None;
             }
-            Entity::ArmouredConveyor(c) => {
+            Self::ArmouredConveyor(c) => {
                 c.stored = None;
                 c.stored_resource_id = None;
             }
-            Entity::Bridge(b) => {
+            Self::Bridge(b) => {
                 b.stored = None;
                 b.stored_resource_id = None;
             }
-            Entity::Harvester(h) => h.cooldown = 4,
-            Entity::Foundry(f) => {
+            Self::Harvester(h) => h.cooldown = 4,
+            Self::Foundry(f) => {
                 f.stored = None;
                 f.stored_resource_id = None;
             }
@@ -300,6 +306,7 @@ impl Entity {
         }
     }
 
+    #[must_use] 
     pub fn can_accept_from(
         &self,
         resource: ResourceType,
@@ -307,11 +314,11 @@ impl Entity {
         source_is_bridge: bool,
     ) -> bool {
         match self {
-            Entity::Conveyor(c) => {
+            Self::Conveyor(c) => {
                 // Rejects input from its output direction.
                 (source_is_bridge || source_pos != c.position + c.direction) && c.stored.is_none()
             }
-            Entity::Splitter(s) => {
+            Self::Splitter(s) => {
                 // Splitter only accepts input from its entry side (direction.opposite()).
                 let input_pos = s.position + s.direction.opposite();
                 if !source_is_bridge && source_pos != input_pos {
@@ -319,12 +326,12 @@ impl Entity {
                 }
                 s.stored.is_none()
             }
-            Entity::ArmouredConveyor(c) => {
+            Self::ArmouredConveyor(c) => {
                 // Rejects input from its output direction.
                 (source_is_bridge || source_pos != c.position + c.direction) && c.stored.is_none()
             }
-            Entity::Bridge(b) => b.stored.is_none(),
-            Entity::Foundry(f) => {
+            Self::Bridge(b) => b.stored.is_none(),
+            Self::Foundry(f) => {
                 matches!(
                     (resource, f.stored),
                     (
@@ -336,14 +343,14 @@ impl Entity {
                     )
                 )
             }
-            Entity::Core(_) => true,
-            Entity::Gunner(t) => {
+            Self::Core(_) => true,
+            Self::Gunner(t) => {
                 t.ammo_amount == 0 && (source_is_bridge || source_pos != t.position + t.direction)
             }
-            Entity::Sentinel(t) => {
+            Self::Sentinel(t) => {
                 t.ammo_amount == 0 && (source_is_bridge || source_pos != t.position + t.direction)
             }
-            Entity::Breach(t) => {
+            Self::Breach(t) => {
                 // Breach accepts any resource type; titanium and raw axionite
                 // are silently destroyed in receive_resource. Only refined
                 // axionite actually loads as ammo. See docs/spec/turrets.md
@@ -352,7 +359,7 @@ impl Entity {
                 t.ammo_amount == 0 && (source_is_bridge || source_pos != t.position + t.direction)
             }
 
-            Entity::Launcher(_) => false,
+            Self::Launcher(_) => false,
             _ => false,
         }
     }
@@ -369,34 +376,34 @@ impl Entity {
         fresh_id_fn: &mut dyn FnMut() -> i32,
     ) {
         match self {
-            Entity::Conveyor(c) => {
+            Self::Conveyor(c) => {
                 c.stored = Some(resource);
                 c.stored_resource_id = Some(in_id);
             }
-            Entity::Splitter(s) => {
+            Self::Splitter(s) => {
                 s.stored = Some(resource);
                 s.stored_resource_id = Some(in_id);
             }
-            Entity::ArmouredConveyor(c) => {
+            Self::ArmouredConveyor(c) => {
                 c.stored = Some(resource);
                 c.stored_resource_id = Some(in_id);
             }
-            Entity::Bridge(b) => {
+            Self::Bridge(b) => {
                 b.stored = Some(resource);
                 b.stored_resource_id = Some(in_id);
             }
-            Entity::Core(core) => core.received.push(resource),
+            Self::Core(core) => core.received.push(resource),
             // Gunner / Sentinel: titanium and refined axionite load as ammo.
             // Raw axionite delivered to a turret is destroyed (per
             // docs/spec/turrets.md "Raw axionite fed into a turret is
             // destroyed").
-            Entity::Gunner(t) => t.turret.load_ammo_for_standard_turret(resource),
-            Entity::Sentinel(t) => t.turret.load_ammo_for_standard_turret(resource),
+            Self::Gunner(t) => t.turret.load_ammo_for_standard_turret(resource),
+            Self::Sentinel(t) => t.turret.load_ammo_for_standard_turret(resource),
             // Breach: only refined axionite loads as ammo. Titanium and raw
             // axionite are destroyed (this prevents conveyor backups feeding
             // a breach with non-axionite resources).
-            Entity::Breach(t) => t.turret.load_ammo_for_breach(resource),
-            Entity::Foundry(f) => match (resource, f.stored) {
+            Self::Breach(t) => t.turret.load_ammo_for_breach(resource),
+            Self::Foundry(f) => match (resource, f.stored) {
                 (r @ (ResourceType::Titanium | ResourceType::RawAxionite), None) => {
                     f.stored = Some(r);
                     f.stored_resource_id = Some(in_id);
@@ -423,13 +430,14 @@ impl Entity {
     /// For harvesters, returns `None` even when `cooldown == 0`, because
     /// a producer doesn't know its output id until it actually produces;
     /// the distribute loop assigns a fresh id at that moment.
+    #[must_use] 
     pub fn feed_id(&self) -> Option<i32> {
         match self {
-            Entity::Conveyor(c) => c.stored_resource_id,
-            Entity::Splitter(s) => s.stored_resource_id,
-            Entity::ArmouredConveyor(c) => c.stored_resource_id,
-            Entity::Bridge(b) => b.stored_resource_id,
-            Entity::Foundry(f) if f.stored == Some(ResourceType::RefinedAxionite) => {
+            Self::Conveyor(c) => c.stored_resource_id,
+            Self::Splitter(s) => s.stored_resource_id,
+            Self::ArmouredConveyor(c) => c.stored_resource_id,
+            Self::Bridge(b) => b.stored_resource_id,
+            Self::Foundry(f) if f.stored == Some(ResourceType::RefinedAxionite) => {
                 f.stored_resource_id
             }
             _ => None,
@@ -506,15 +514,17 @@ define_category! {
 }
 
 impl UnitBase {
-    pub fn can_act(&self) -> bool {
+    #[must_use] 
+    pub const fn can_act(&self) -> bool {
         self.action_cooldown <= 0
     }
 
-    pub fn can_move(&self) -> bool {
+    #[must_use] 
+    pub const fn can_move(&self) -> bool {
         self.move_cooldown <= 0
     }
 
-    pub fn end_turn(&mut self) {
+    pub const fn end_turn(&mut self) {
         if self.action_cooldown > 0 {
             self.action_cooldown -= 1;
         }
@@ -525,7 +535,8 @@ impl UnitBase {
 }
 
 impl Unit<'_> {
-    pub fn vision_radius_sq(&self) -> i32 {
+    #[must_use] 
+    pub const fn vision_radius_sq(&self) -> i32 {
         match self {
             Unit::BuilderBot(_) => BUILDER_BOT_VISION_RADIUS_SQ,
             Unit::Core(_) => CORE_VISION_RADIUS_SQ,
@@ -536,7 +547,8 @@ impl Unit<'_> {
         }
     }
 
-    pub fn action_radius_sq(&self) -> i32 {
+    #[must_use] 
+    pub const fn action_radius_sq(&self) -> i32 {
         match self {
             Unit::Core(_) => CORE_ACTION_RADIUS_SQ,
             Unit::Launcher(_) => LAUNCHER_VISION_RADIUS_SQ,
@@ -593,7 +605,8 @@ impl TurretBase {
 }
 
 impl Turret<'_> {
-    pub fn vision_radius_sq(&self) -> i32 {
+    #[must_use] 
+    pub const fn vision_radius_sq(&self) -> i32 {
         match self {
             Turret::Gunner(_) => GUNNER_VISION_RADIUS_SQ,
             Turret::Sentinel(_) => SENTINEL_VISION_RADIUS_SQ,
@@ -742,10 +755,12 @@ pub struct Tile {
 }
 
 impl Tile {
+    #[must_use] 
     pub fn is_empty(&self) -> bool {
         self.building.is_none() && self.environment != Environment::Wall
     }
 
+    #[must_use] 
     pub fn is_bot_passable(&self, entities: &FxHashMap<i32, Entity>, team: Team) -> bool {
         if self.builder_bot.is_some() {
             return false;
@@ -753,7 +768,7 @@ impl Tile {
         if let Some(id) = self.building {
             let entity = entities
                 .get(&id)
-                .unwrap_or_else(|| panic!("tile building id missing entity {}", id));
+                .unwrap_or_else(|| panic!("tile building id missing entity {id}"));
             matches!(
                 entity,
                 Entity::Conveyor(_)
@@ -776,17 +791,19 @@ pub struct GameMap {
 }
 
 impl GameMap {
-    pub fn in_bounds(&self, pos: Pos) -> bool {
+    #[must_use] 
+    pub const fn in_bounds(&self, pos: Pos) -> bool {
         pos.x >= 0 && pos.x < self.width && pos.y >= 0 && pos.y < self.height
     }
 
+    #[must_use] 
     pub fn tile(&self, pos: Pos) -> &Tile {
-        assert!(self.in_bounds(pos), "position out of bounds: {:?}", pos);
+        assert!(self.in_bounds(pos), "position out of bounds: {pos:?}");
         &self.tiles[pos.y as usize][pos.x as usize]
     }
 
     pub fn tile_mut(&mut self, pos: Pos) -> &mut Tile {
-        assert!(self.in_bounds(pos), "position out of bounds: {:?}", pos);
+        assert!(self.in_bounds(pos), "position out of bounds: {pos:?}");
         &mut self.tiles[pos.y as usize][pos.x as usize]
     }
 
@@ -890,8 +907,7 @@ impl GameMap {
             Environment::OreTitanium => ResourceType::Titanium,
             Environment::OreAxionite => ResourceType::RawAxionite,
             env => panic!(
-                "build_harvester called on non-ore tile {:?}: {:?}",
-                position, env
+                "build_harvester called on non-ore tile {position:?}: {env:?}"
             ),
         };
         Harvester {
@@ -1088,16 +1104,17 @@ pub struct PlayerState {
 }
 
 impl PlayerState {
-    pub fn can_afford(&self, cost: (i32, i32)) -> bool {
+    #[must_use] 
+    pub const fn can_afford(&self, cost: (i32, i32)) -> bool {
         self.titanium >= cost.0 && self.axionite >= cost.1
     }
 
-    pub fn spend(&mut self, cost: (i32, i32)) {
+    pub const fn spend(&mut self, cost: (i32, i32)) {
         self.titanium -= cost.0;
         self.axionite -= cost.1;
     }
 
-    pub fn add_resource(&mut self, resource: ResourceType) {
+    pub const fn add_resource(&mut self, resource: ResourceType) {
         match resource {
             ResourceType::Titanium => {
                 self.titanium += STACK_SIZE;

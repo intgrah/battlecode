@@ -16,19 +16,14 @@ use crate::builder::helpers::{move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::{DIR4, DIR8};
 
-fn is_turret(kind: Option<EntityType>) -> bool {
+const fn is_turret(kind: Option<EntityType>) -> bool {
     matches!(
         kind,
-        Some(
-            EntityType::Gunner
-                | EntityType::Sentinel
-                | EntityType::Breach
-                | EntityType::Launcher
-        )
+        Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Breach | EntityType::Launcher)
     )
 }
 
-fn is_turret_or_transport(kind: Option<EntityType>) -> bool {
+const fn is_turret_or_transport(kind: Option<EntityType>) -> bool {
     matches!(
         kind,
         Some(
@@ -56,7 +51,7 @@ fn is_precious_friendly(kind: Option<EntityType>, bteam: Option<Team>, team: Tea
 }
 
 /// Snap the unit vector from `src` to `dst` to the nearest 45-degree direction.
-fn direction_to(src: Position, dst: Position) -> Direction {
+const fn direction_to(src: Position, dst: Position) -> Direction {
     let dx = dst.x - src.x;
     let dy = dst.y - src.y;
     if dx == 0 && dy == 0 {
@@ -87,6 +82,7 @@ fn direction_to(src: Position, dst: Position) -> Direction {
     }
 }
 
+#[must_use] 
 pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
     if !pyrust::vec::contains!(self_.adjacent_to_harvester, &position) {
         return None;
@@ -145,7 +141,8 @@ pub fn sentinel_facing(
     let team = self_.team_at(position);
     let nearest = self_.nearest_enemy_turret;
     if pyrust::is_none!(nearest)
-        || position.distance_squared(pyrust::unwrap!(nearest)) > GameConstants::SENTINEL_VISION_RADIUS_SQ
+        || position.distance_squared(pyrust::unwrap!(nearest))
+            > GameConstants::SENTINEL_VISION_RADIUS_SQ
         || !pyrust::vec::contains!(self_.adjacent_to_harvester, &position)
         || !self_.is_buildable(position)
         || is_turret_or_transport(kind)
@@ -178,8 +175,8 @@ pub fn sentinel_facing(
         return None;
     }
 
-    let shootable_tiles = pyrust::unwrap!(ct
-        .get_attackable_tiles_from(position, d, EntityType::Sentinel));
+    let shootable_tiles =
+        pyrust::unwrap!(ct.get_attackable_tiles_from(position, d, EntityType::Sentinel));
     if pyrust::vec::contains!(shootable_tiles, &nearest) {
         return Some(d);
     }

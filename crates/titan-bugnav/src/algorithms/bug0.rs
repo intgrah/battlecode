@@ -94,7 +94,7 @@ impl Bug0 {
         outcome
     }
 
-    fn enter_follow(&mut self, blocked_dir: usize) {
+    const fn enter_follow(&mut self, blocked_dir: usize) {
         self.mode = Mode::Follow;
         self.wf = WallFollowState {
             pos: self.pos,

@@ -10,22 +10,21 @@ use libre::runner::MatchSummary;
 use libre_engine::common::Team;
 
 /// Python install prefix at build time — baked in via build.rs probing
-/// `PYO3_PYTHON`. Used to set PYTHONHOME before Py_Initialize so the
+/// `PYO3_PYTHON`. Used to set PYTHONHOME before `Py_Initialize` so the
 /// embedded interpreter finds its standard library.
 const BAKED_PYTHON_HOME: Option<&str> = option_env!("CAMBC_PYTHON_HOME");
 
 fn main() -> PyResult<()> {
     // Set PYTHONHOME before pyo3's auto-initialize fires (which happens
     // on the first `Python::with_gil`). User-set PYTHONHOME wins.
-    if std::env::var_os("PYTHONHOME").is_none() {
-        if let Some(home) = BAKED_PYTHON_HOME {
+    if std::env::var_os("PYTHONHOME").is_none()
+        && let Some(home) = BAKED_PYTHON_HOME {
             // SAFETY: single-threaded — main() hasn't started Python or
             // spawned any threads.
             unsafe {
                 std::env::set_var("PYTHONHOME", home);
             }
         }
-    }
     let args = match libre::cli::parse_args() {
         Ok(args) => args,
         Err(err) => {

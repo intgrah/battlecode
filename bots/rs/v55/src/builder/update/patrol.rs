@@ -23,7 +23,11 @@ pub fn update_patrol(builder: &mut Builder) {
 
     if builder.state.friendly_bots.is_empty() {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("n"), Value::Number(own_count.into()));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("n"),
+            Value::Number(own_count.into())
+        );
         log(
             "patrol: refreshed {n} own-vision tiles, no friends in vision",
             args,
@@ -39,7 +43,8 @@ pub fn update_patrol(builder: &mut Builder) {
     // of HashSet iteration order.
     let mut best_key: (i32, i32, i32) = (1, 1 << 30, 1 << 30);
     let mut best_pos = None;
-    let friends: Vec<_> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.state.friendly_bots)));
+    let friends: Vec<_> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.state.friendly_bots)));
     for f in &friends {
         let d = (f.x - mx) * (f.x - mx) + (f.y - my) * (f.y - my);
         let key = (-d, f.y, f.x);
@@ -51,7 +56,11 @@ pub fn update_patrol(builder: &mut Builder) {
     let best_d = -best_key.0;
     let Some(best) = best_pos else {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("n"), Value::Number(own_count.into()));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("n"),
+            Value::Number(own_count.into())
+        );
         log(
             "patrol: refreshed {n} own-vision tiles, no farthest friend selected",
             args,
@@ -63,7 +72,7 @@ pub fn update_patrol(builder: &mut Builder) {
     let fy = best.y;
     let w = builder.state.width;
     let h = builder.state.height;
-    let base = (fy as i32) * (MAX_WIDTH as i32) + (fx as i32);
+    let base = fy * (MAX_WIDTH as i32) + fx;
     let mut transitive_count: i32 = 0;
     let offsets: Vec<(i32, i32, i32)> = pyrust::clone!(builder._vision_offsets);
     if pyrust::vec::contains!((4..(w - 4)), &fx) && pyrust::vec::contains!((4..(h - 4)), &fy) {
@@ -83,8 +92,16 @@ pub fn update_patrol(builder: &mut Builder) {
     }
     let nf = pyrust::len!(friends) as i64;
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("own"), Value::Number(own_count.into()));
-    pyrust::dict::insert!(args, pyrust::to_string!("trans"), Value::Number(transitive_count.into()));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("own"),
+        Value::Number(own_count.into())
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("trans"),
+        Value::Number(transitive_count.into())
+    );
     pyrust::dict::insert!(args, pyrust::to_string!("friend"), auto_wrap_position(best));
     pyrust::dict::insert!(args, pyrust::to_string!("d"), Value::Number(best_d.into()));
     pyrust::dict::insert!(args, pyrust::to_string!("nf"), Value::Number(nf.into()));

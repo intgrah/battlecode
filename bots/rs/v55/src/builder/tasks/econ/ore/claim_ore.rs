@@ -12,7 +12,7 @@ use crate::builder::harvest::walk_to_ore_claim;
 use crate::builder::helpers::ore_available;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
-fn resolve_target(self_: &Builder) -> Option<Position> {
+const fn resolve_target(self_: &Builder) -> Option<Position> {
     if let Some(t) = self_.ore_target {
         return Some(t);
     }
@@ -30,20 +30,17 @@ pub fn claim_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     };
     if self_.my_pos == target {
         return Some(TaskRejected::from_string(format!(
-            "already standing on ore {:?}",
-            target
+            "already standing on ore {target:?}"
         )));
     }
     if !ore_available(self_, target) {
         return Some(TaskRejected::from_string(format!(
-            "ore {:?} no longer available",
-            target
+            "ore {target:?} no longer available"
         )));
     }
     if !walk_to_ore_claim(self_, ct, target) {
         return Some(TaskRejected::from_string(format!(
-            "could not progress toward ore {:?}",
-            target
+            "could not progress toward ore {target:?}"
         )));
     }
     None

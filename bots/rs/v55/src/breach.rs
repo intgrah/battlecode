@@ -19,11 +19,11 @@ impl Breach {
 }
 
 impl Unit for Breach {
-    fn state(&self) -> &UnitState {
+    fn unit_state(&self) -> &UnitState {
         &self.state
     }
 
-    fn state_mut(&mut self) -> &mut UnitState {
+    fn unit_state_mut(&mut self) -> &mut UnitState {
         &mut self.state
     }
 

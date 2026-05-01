@@ -6,7 +6,7 @@ use super::stmt::{self, Tail};
 use super::types::{self, Ty};
 use super::writer::PyWriter;
 
-pub fn needs_leading_blank(item: &syn::Item) -> bool {
+pub const fn needs_leading_blank(item: &syn::Item) -> bool {
     matches!(
         item,
         syn::Item::Fn(_) | syn::Item::Struct(_) | syn::Item::Enum(_)
@@ -30,13 +30,12 @@ pub fn produces_output(item: &syn::Item) -> bool {
     }
     // `cambc_bot!(MyBot);` only matters for the native-Rust cdylib build;
     // pyrust translation drops it silently.
-    if let syn::Item::Macro(m) = item {
-        if let Some(name) = m.mac.path.get_ident().map(|i| i.to_string())
+    if let syn::Item::Macro(m) = item
+        && let Some(name) = m.mac.path.get_ident().map(std::string::ToString::to_string)
             && name == "cambc_bot"
         {
             return false;
         }
-    }
     true
 }
 
@@ -368,11 +367,10 @@ pub fn emit_enum_with_file(
         .items
         .iter()
         .filter_map(|i| {
-            if let syn::Item::Impl(im) = i {
-                if impl_target_name(&im.self_ty).as_deref() == Some(name.as_str()) {
+            if let syn::Item::Impl(im) = i
+                && impl_target_name(&im.self_ty).as_deref() == Some(name.as_str()) {
                     return Some(im);
                 }
-            }
             None
         })
         .collect();
@@ -534,7 +532,7 @@ fn emit_sum_enum_with_file(
             syn::Fields::Named(named) => named
                 .named
                 .iter()
-                .filter_map(|f| f.ident.as_ref().map(|i| i.to_string()))
+                .filter_map(|f| f.ident.as_ref().map(std::string::ToString::to_string))
                 .collect(),
             _ => Vec::new(),
         };
@@ -788,7 +786,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
             // also field accessors — skip them too.
             if fields
                 .iter()
-                .any(|f| f.ident.as_ref().map(|i| *i == name).unwrap_or(false))
+                .any(|f| f.ident.as_ref().is_some_and(|i| *i == name))
             {
                 emitted_methods.insert(name);
                 continue;
@@ -956,7 +954,7 @@ fn impl_target_name(ty: &syn::Type) -> Option<String> {
     None
 }
 
-fn impl_item_kind(item: &syn::ImplItem) -> &'static str {
+const fn impl_item_kind(item: &syn::ImplItem) -> &'static str {
     match item {
         syn::ImplItem::Const(_) => "const",
         syn::ImplItem::Fn(_) => "fn",
@@ -1062,7 +1060,7 @@ fn emit_thread_local(w: &mut PyWriter, mac: &syn::Macro) -> Result<(), String> {
             while !input.is_empty() {
                 statics.push(input.parse()?);
             }
-            Ok(ThreadLocalBody { statics })
+            Ok(Self { statics })
         }
     }
     let body: ThreadLocalBody = syn::parse2(mac.tokens.clone())
@@ -1194,7 +1192,7 @@ fn is_field_accessor(
     let name = f.sig.ident.to_string();
     fields
         .iter()
-        .any(|fld| fld.ident.as_ref().map(|i| i == &name).unwrap_or(false))
+        .any(|fld| fld.ident.as_ref().is_some_and(|i| i == &name))
 }
 
 /// Walk a trait's default-method bodies for the leaf identifiers of
@@ -1401,7 +1399,7 @@ fn collect_assigned_statics(block: &syn::Block, w: &PyWriter) -> Vec<String> {
         statics: &'a std::collections::HashSet<String>,
         found: std::collections::BTreeSet<String>,
     }
-    impl<'a, 'ast> Visit<'ast> for AssignVisitor<'a> {
+    impl<'ast> Visit<'ast> for AssignVisitor<'_> {
         fn visit_expr_assign(&mut self, a: &'ast syn::ExprAssign) {
             if let syn::Expr::Path(p) = &*a.left
                 && let Some(seg) = p.path.segments.last()
@@ -1434,7 +1432,7 @@ fn emit_top_level_block(w: &mut PyWriter, block: &syn::Block) -> Result<(), Stri
     Ok(())
 }
 
-fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
+const fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
     if let Some((last, rest)) = stmts.split_last()
         && let syn::Stmt::Expr(e, None) = last
     {
@@ -1479,7 +1477,7 @@ fn collect_params(
     Ok((names, typed))
 }
 
-fn item_kind(item: &syn::Item) -> &'static str {
+const fn item_kind(item: &syn::Item) -> &'static str {
     match item {
         syn::Item::Const(_) => "const",
         syn::Item::Enum(_) => "enum",

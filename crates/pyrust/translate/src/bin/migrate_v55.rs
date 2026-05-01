@@ -39,12 +39,12 @@ struct V55Migrator<'src> {
 /// macro name (which may differ from the method name — e.g.
 /// `min_by_key` → `min_by`). The argument count is part of the
 /// signature so `T::insert(k, v)` (2-arg) and `T::insert(idx, x)`
-/// (Vec::insert, also 2-arg) don't get mistakenly rewritten — only
+/// (`Vec::insert`, also 2-arg) don't get mistakenly rewritten — only
 /// methods on this whitelist do.
 fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
     match (method, n_args) {
         // ---- Iterator-chain identities (Python no-op: emit recv) ----
-        ("iter", 0) | ("into_iter", 0) | ("copied", 0) | ("cloned", 0) | ("collect", 0) => {
+        ("iter" | "into_iter" | "copied" | "cloned" | "collect", 0) => {
             Some(match method {
                 "iter" => "iter",
                 "into_iter" => "into_iter",
@@ -168,7 +168,7 @@ impl<'src> V55Migrator<'src> {
         let recv_text = self.build_recv_text(&mc.receiver);
         let arg_texts: Vec<String> = mc.args.iter().map(|a| self.build_arg_text(a)).collect();
         if arg_texts.is_empty() {
-            format!("pyrust::{}!({})", macro_name, recv_text)
+            format!("pyrust::{macro_name}!({recv_text})")
         } else {
             format!(
                 "pyrust::{}!({}, {})",
@@ -180,9 +180,9 @@ impl<'src> V55Migrator<'src> {
     }
 
     /// Rewrite a chain-method argument. If the arg is itself a chain
-    /// method, recurse via build_chain_text. If it's a non-chain
+    /// method, recurse via `build_chain_text`. If it's a non-chain
     /// method call sitting on top of a chain (like `(x).abs()` where
-    /// `.abs()` is a chain method), the build_recv_text path captures
+    /// `.abs()` is a chain method), the `build_recv_text` path captures
     /// it. For anything else we emit verbatim source — closure bodies,
     /// arithmetic exprs, calls, etc.
     fn build_arg_text(&self, e: &syn::Expr) -> String {
@@ -215,8 +215,7 @@ impl<'src> V55Migrator<'src> {
                 .as_ref()
                 .map(|t| self.span_text(t.span()))
                 .unwrap_or_default();
-            let arg_texts: Vec<String> =
-                mc.args.iter().map(|a| self.span_text(a.span())).collect();
+            let arg_texts: Vec<String> = mc.args.iter().map(|a| self.span_text(a.span())).collect();
             return format!(
                 "{}.{}{}({})",
                 recv_text,
@@ -239,7 +238,7 @@ impl<'src> V55Migrator<'src> {
     }
 }
 
-impl<'ast, 'src> Visit<'ast> for V55Migrator<'src> {
+impl<'ast> Visit<'ast> for V55Migrator<'_> {
     fn visit_expr_method_call(&mut self, mc: &'ast syn::ExprMethodCall) {
         let method = mc.method.to_string();
         let n_args = mc.args.len();
@@ -289,22 +288,20 @@ impl<'ast, 'src> Visit<'ast> for V55Migrator<'src> {
 
     /// Descend into the body of a `pyrust::*!` macro so chain
     /// methods nested inside macro arguments still get migrated.
-    /// (syn::visit::Visit's default for ExprMacro skips token bodies.)
+    /// (`syn::visit::Visit`'s default for `ExprMacro` skips token bodies.)
     fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
         let path = &em.mac.path;
         let is_pyrust = path
             .segments
             .first()
-            .map(|s| s.ident == "pyrust")
-            .unwrap_or(false);
+            .is_some_and(|s| s.ident == "pyrust");
         if !is_pyrust {
             return;
         }
         // Parse macro body as a comma-separated list of expressions.
         // For try_!/unwrap!/etc with a single expr, this still works.
         let tokens = em.mac.tokens.clone();
-        let parser =
-            syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+        let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
         if let Ok(args) = syn::parse::Parser::parse2(parser, tokens) {
             for arg in args {
                 self.visit_expr(&arg);

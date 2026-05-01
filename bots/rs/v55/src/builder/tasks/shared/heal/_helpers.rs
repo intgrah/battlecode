@@ -13,6 +13,7 @@ use crate::util::metrics::chebyshev;
 /// Count enemy builder bots currently in attack range of `target`
 /// (builder bots fire at their own tile, so anyone within 1 king-step
 /// of target is potentially dealing 2 dmg/turn to it).
+#[must_use] 
 pub fn count_visible_attackers(self_: &Builder, target: Position) -> i32 {
     let mut n = 0;
     for &p in &self_.enemy_bots {
@@ -56,6 +57,7 @@ pub fn deconflict_rank(
 }
 
 /// Healers required to outpace `attackers` hitting a single tile.
+///
 /// Attackers deal 2 dmg/turn each, healers restore 4 hp/turn each, so
 /// break-even is ceil(attackers/2). Always at least 1 — one bot still
 /// comes for chip damage even with no visible attacker.
@@ -70,6 +72,7 @@ pub const fn healers_needed(attackers: i32) -> i32 {
 /// True iff `position` hosts a damaged enemy building. Used to
 /// detect tiles where a friendly builder is mid-kill and shouldn't be
 /// pulled away by a heal.
+#[must_use] 
 pub fn has_wounded_enemy(self_: &Builder, position: Position) -> bool {
     let Some((_kind, team)) = self_.get_building(position) else {
         return false;

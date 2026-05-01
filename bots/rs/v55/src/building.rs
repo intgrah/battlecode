@@ -1,5 +1,5 @@
 //! Per-tile building helpers. The bot stores building state in the
-//! `Builder`'s SoA arrays (`building_kind[i]`, `building_team[i]`,
+//! `Builder`'s `SoA` arrays (`building_kind[i]`, `building_team[i]`,
 //! `out_edges[i]`) — there's no separate `Building` ADT.
 //!
 //! These free functions handle reading from `ct` at `_add_topology` time

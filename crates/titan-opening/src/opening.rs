@@ -99,12 +99,11 @@ impl Opening {
         let Some(slot) = plan.actions.get_mut(i) else {
             return false;
         };
-        if let Some(cat) = action.category() {
-            if let Some(existing) = slot.items.iter_mut().find(|a| a.category() == Some(cat)) {
+        if let Some(cat) = action.category()
+            && let Some(existing) = slot.items.iter_mut().find(|a| a.category() == Some(cat)) {
                 *existing = action;
                 return true;
             }
-        }
         slot.items.push(action);
         true
     }
@@ -288,7 +287,7 @@ pub enum Action {
 pub enum ActionCategory {
     /// Builder movement (one per turn).
     Move,
-    /// Primary action consuming action_cooldown: build / heal / attack /
+    /// Primary action consuming `action_cooldown`: build / heal / attack /
     /// spawn (core) / rotate (turret).
     Primary,
     /// Marker placement (one per round, separate from action cooldown).

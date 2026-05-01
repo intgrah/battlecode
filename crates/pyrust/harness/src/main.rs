@@ -23,14 +23,11 @@ impl Paths {
             .parent()
             .ok_or("CARGO_MANIFEST_DIR has no parent")?
             .to_path_buf();
-        let translate_bin = match std::env::var_os("PYRUST_TRANSLATE_BIN") {
-            Some(p) => PathBuf::from(p),
-            None => {
-                let exe = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
-                let dir = exe.parent().ok_or("current_exe has no parent")?;
-                let suffix = if cfg!(windows) { ".exe" } else { "" };
-                dir.join(format!("pyrust-translate{suffix}"))
-            }
+        let translate_bin = if let Some(p) = std::env::var_os("PYRUST_TRANSLATE_BIN") { PathBuf::from(p) } else {
+            let exe = std::env::current_exe().map_err(|e| format!("current_exe: {e}"))?;
+            let dir = exe.parent().ok_or("current_exe has no parent")?;
+            let suffix = if cfg!(windows) { ".exe" } else { "" };
+            dir.join(format!("pyrust-translate{suffix}"))
         };
         if !translate_bin.exists() {
             return Err(format!(
@@ -141,9 +138,7 @@ impl Report {
 fn case_label(root: &Path, case_dir: &Path) -> String {
     case_dir
         .strip_prefix(root)
-        .ok()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|| case_dir.display().to_string())
+        .ok().map_or_else(|| case_dir.display().to_string(), |p| p.to_string_lossy().into_owned())
 }
 
 #[derive(Clone, Copy, Debug)]

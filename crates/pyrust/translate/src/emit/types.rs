@@ -52,8 +52,7 @@ impl Scope {
     pub fn is_in_current_frame(&self, name: &str) -> bool {
         self.frames
             .last()
-            .map(|f| f.contains_key(name))
-            .unwrap_or(false)
+            .is_some_and(|f| f.contains_key(name))
     }
 
     pub fn is_in_outer_frame(&self, name: &str) -> bool {
@@ -104,7 +103,7 @@ pub fn type_from_annotation(ty: &syn::Type) -> Ty {
     }
 }
 
-pub fn promote_numeric(a: Ty, b: Ty) -> Ty {
+pub const fn promote_numeric(a: Ty, b: Ty) -> Ty {
     match (a, b) {
         (Ty::Float, _) | (_, Ty::Float) => Ty::Float,
         (Ty::Int, Ty::Int) => Ty::Int,
@@ -188,26 +187,15 @@ fn path_type_to_python(path: &syn::Path) -> Result<String, String> {
         (false, ["f32" | "f64"]) => Ok("float".to_owned()),
         (false, ["bool"]) => Ok("bool".to_owned()),
         (false, ["str" | "String"]) => Ok("str".to_owned()),
-        (
-            false,
-            ["List"]
-            | ["pyrust", "List"]
-            | ["Vec"]
-            | ["VecDeque"]
-            | ["std", "collections", "VecDeque"],
-        ) => {
+        (false,
+["List" | "Vec" | "VecDeque"] | ["pyrust", "List"] |
+["std", "collections", "VecDeque"]) => {
             let arg = generic_type_arg(last_seg, 0)?;
             Ok(format!("list[{}]", type_to_python_str(arg)?))
         }
-        (
-            false,
-            ["Dict"]
-            | ["pyrust", "Dict"]
-            | ["HashMap"]
-            | ["BTreeMap"]
-            | ["std", "collections", "HashMap"]
-            | ["std", "collections", "BTreeMap"],
-        ) => {
+        (false,
+["Dict" | "HashMap" | "BTreeMap"] | ["pyrust", "Dict"] |
+["std", "collections", "HashMap" | "BTreeMap"]) => {
             let k = generic_type_arg(last_seg, 0)?;
             let v = generic_type_arg(last_seg, 1)?;
             Ok(format!(
@@ -216,15 +204,9 @@ fn path_type_to_python(path: &syn::Path) -> Result<String, String> {
                 type_to_python_str(v)?
             ))
         }
-        (
-            false,
-            ["Set"]
-            | ["pyrust", "Set"]
-            | ["HashSet"]
-            | ["BTreeSet"]
-            | ["std", "collections", "HashSet"]
-            | ["std", "collections", "BTreeSet"],
-        ) => {
+        (false,
+["Set" | "HashSet" | "BTreeSet"] | ["pyrust", "Set"] |
+["std", "collections", "HashSet" | "BTreeSet"]) => {
             let arg = generic_type_arg(last_seg, 0)?;
             Ok(format!("set[{}]", type_to_python_str(arg)?))
         }

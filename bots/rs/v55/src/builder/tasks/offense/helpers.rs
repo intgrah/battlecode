@@ -20,10 +20,15 @@ use crate::builder::helpers::{can_afford, make_move, try_move_dir};
 use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 
+#[must_use] 
 pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |p| self_.is_passable(*p) && !pyrust::dict::contains!(self_.all_bots, p)))
+    pyrust::collect!(pyrust::filter!(
+        pyrust::copied!(pyrust::iter!(positions)),
+        |p| self_.is_passable(*p) && !pyrust::dict::contains!(self_.all_bots, p)
+    ))
 }
 
+#[must_use] 
 pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     matches!(
         self_.kind_at(position),
@@ -36,12 +41,20 @@ pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     ) && self_.team_at(position) == Some(self_.my_team)
 }
 
+#[must_use] 
 pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |&p| !is_allied_transport(self_, p)))
+    pyrust::collect!(pyrust::filter!(
+        pyrust::copied!(pyrust::iter!(positions)),
+        |&p| !is_allied_transport(self_, p)
+    ))
 }
 
+#[must_use] 
 pub fn buildable(self_: &Builder, positions: &[Position]) -> Vec<Position> {
-    pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(positions)), |&p| is_cheap_overbuild(self_, p)))
+    pyrust::collect!(pyrust::filter!(
+        pyrust::copied!(pyrust::iter!(positions)),
+        |&p| is_cheap_overbuild(self_, p)
+    ))
 }
 
 fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
@@ -60,13 +73,18 @@ fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
     kind == EntityType::Road && self_.team_at(pos) == Some(self_.my_team)
 }
 
+#[must_use] 
 pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
     if self_.enemy_bots.is_empty() {
         return None;
     }
-    closest(self_.my_pos, pyrust::copied!(pyrust::iter!(self_.enemy_bots)))
+    closest(
+        self_.my_pos,
+        pyrust::copied!(pyrust::iter!(self_.enemy_bots)),
+    )
 }
 
+#[must_use] 
 pub fn should_attack(self_: &Builder, pos: Position) -> bool {
     let enemy_builder = nearest_enemy_bot(self_);
     let i = self_.idx(pos);
@@ -77,14 +95,17 @@ pub fn should_attack(self_: &Builder, pos: Position) -> bool {
         || can_afford(self_, EntityType::Harvester)
 }
 
+#[must_use] 
 pub fn enemy_healer_near(self_: &Builder, pos: Position) -> bool {
-    pyrust::any!(pyrust::iter!(self_
-        .enemy_bots), |p| p.distance_squared(pos) <= 2)
+    pyrust::any!(pyrust::iter!(self_.enemy_bots), |p| p.distance_squared(pos)
+        <= 2)
 }
 
+#[must_use] 
 pub fn friendly_bot_adjacent(self_: &Builder, pos: Position) -> bool {
-    pyrust::any!(pyrust::iter!(self_
-        .friendly_bots), |p| p.distance_squared(pos) <= 1)
+    pyrust::any!(pyrust::iter!(self_.friendly_bots), |p| p
+        .distance_squared(pos)
+        <= 1)
 }
 
 /// Chebyshev distance from `pos` to the nearest OTHER friendly
@@ -185,6 +206,7 @@ pub fn pick_conveyor_target(
 
 /// Pick a cardinal neighbour of `target` (an enemy harvester) for
 /// us to stand on and attack.
+#[must_use] 
 pub fn pick_attack_destination(
     self_: &Builder,
     target: Position,
@@ -224,11 +246,7 @@ pub fn pick_attack_destination(
         if avoid_healers && enemy_healer_near(self_, pos) {
             continue;
         }
-        let in_ray: i32 = if pyrust::vec::contains!(self_.enemy_turret_ray_tiles, &pos) {
-            1
-        } else {
-            0
-        };
+        let in_ray: i32 = i32::from(pyrust::vec::contains!(self_.enemy_turret_ray_tiles, &pos));
         let dist = self_.my_pos.distance_squared(pos);
         pyrust::vec::push!(candidates, (in_ray, cost, dist, pos));
     }
@@ -242,6 +260,7 @@ pub fn pick_attack_destination(
 /// Return a direction (any of DIR8) such that a gunner placed at
 /// `pos` facing that way has an enemy conveyor/splitter/bridge as
 /// the first building in its forward ray.
+#[must_use] 
 pub fn gunner_chain_facing(self_: &Builder, pos: Position) -> Option<Direction> {
     for d in DIR8 {
         let mut current = pos;
@@ -299,6 +318,7 @@ fn has_open_side(self_: &Builder, position: Position) -> bool {
 
 /// Enemy harvesters with at least one passable, unoccupied,
 /// non-allied-transport cardinal.
+#[must_use] 
 pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
     let mut result: Vec<Position> = pyrust::vec::new!();
     for &p in &self_.nearby_buildings {
@@ -319,6 +339,7 @@ pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
 }
 
 /// 3-tier preference over vulnerable harvesters.
+#[must_use] 
 pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Position {
     let my_pos = self_.my_pos;
     let mut sorted: Vec<Position> = vulnerable.to_vec();
@@ -333,7 +354,10 @@ pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Positi
             return h;
         }
     }
-    pyrust::expect!(closest(my_pos, pyrust::copied!(pyrust::iter!(vulnerable))), "vulnerable is non-empty by caller contract")
+    pyrust::expect!(
+        closest(my_pos, pyrust::copied!(pyrust::iter!(vulnerable))),
+        "vulnerable is non-empty by caller contract"
+    )
 }
 
 pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
@@ -347,7 +371,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
-            >= ((GameConstants::HARVESTER_BASE_COST.0 + 50) as f64 * (1.0 + self_.scale)) as i32
+            >= (f64::from(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale)) as i32
     {
         explore(self_, ct);
     } else {
@@ -364,8 +388,14 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
 /// Per-turn offense bookkeeping.
 pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
     if !self_.attack_tile_blacklist.is_empty() {
-        let new_blacklist: HashMap<Position, i32> = pyrust::collect!(pyrust::filter_map!(pyrust::iter!(self_
-            .attack_tile_blacklist), |t| if *t.1 > 1 { Some((*t.0, *t.1 - 1)) } else { None }));
+        let new_blacklist: HashMap<Position, i32> = pyrust::collect!(pyrust::filter_map!(
+            pyrust::iter!(self_.attack_tile_blacklist),
+            |t| if *t.1 > 1 {
+                Some((*t.0, *t.1 - 1))
+            } else {
+                None
+            }
+        ));
         self_.attack_tile_blacklist = new_blacklist;
     }
     if let Some(last) = self_.last_fire

@@ -15,7 +15,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::debug::debug as log;
 use crate::util::visualiser::auto_wrap_position;
 
-fn resolve_target(self_: &Builder) -> Option<Position> {
+const fn resolve_target(self_: &Builder) -> Option<Position> {
     if let Some(t) = self_.ore_target {
         return Some(t);
     }
@@ -35,8 +35,7 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
     };
     if self_.my_pos != target {
         return Some(TaskRejected::from_string(format!(
-            "not standing on ore {:?}",
-            target
+            "not standing on ore {target:?}"
         )));
     }
     if !ore_available(self_, target) {
@@ -47,7 +46,11 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
     }
     if !can_afford(self_, EntityType::Harvester) {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target)
+        );
         log(
             "build_harvester: waiting on Ti for HARVESTER on {target}",
             args,
@@ -57,7 +60,11 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
     if pyrust::is_none!(harvester_feed_cardinal(self_, target)) {
         if !clear_barriered_feed(self_, ct, target) {
             let mut args = Map::new();
-            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("target"),
+                auto_wrap_position(target)
+            );
             log(
                 "build_harvester: no viable feed cardinal for {target}; waiting",
                 args,
@@ -67,7 +74,11 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
     }
     if !step_off_and_build_harvester(self_, ct, target) {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target)
+        );
         log(
             "build_harvester: could not step off {target} this turn; waiting",
             args,

@@ -51,8 +51,16 @@ pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     };
 
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
-    pyrust::dict::insert!(args, pyrust::to_string!("d"), serde_json::Value::Number(target_d.into()));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("target"),
+        auto_wrap_position(target)
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("d"),
+        serde_json::Value::Number(target_d.into())
+    );
     log("stalk_enemy: following {target} (d²={d})", args);
     make_move(self_, ct, target);
     None

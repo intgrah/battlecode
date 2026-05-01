@@ -17,7 +17,9 @@ use crate::util::directions::DIR8;
 ///    in action range.
 pub fn end_of_turn_heal(builder: &mut Builder, ct: &mut Controller<'_>) {
     let my_pos = pyrust::unwrap!(ct.get_position(None));
-    if pyrust::unwrap!(ct.can_heal(my_pos)) && pyrust::unwrap!(ct.get_hp(None)) < pyrust::unwrap!(ct.get_max_hp(None)) {
+    if pyrust::unwrap!(ct.can_heal(my_pos))
+        && pyrust::unwrap!(ct.get_hp(None)) < pyrust::unwrap!(ct.get_max_hp(None))
+    {
         log(&format!("end_of_turn_heal: self at {my_pos:?}"), Map::new());
         pyrust::unwrap!(ct.heal(my_pos));
     }

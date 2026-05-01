@@ -47,7 +47,11 @@ pub fn run_policy(self_: &mut Builder, ct: &mut Controller<'_>, policy: &Policy)
                 && !gate(self_, ct)
             {
                 let mut args = Map::new();
-                pyrust::dict::insert!(args, pyrust::to_string!("name"), serde_json::Value::String(pyrust::to_string!(group.name)));
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("name"),
+                    serde_json::Value::String(pyrust::to_string!(group.name))
+                );
                 log("{name}: gated off", args);
                 return false;
             }
@@ -66,8 +70,16 @@ pub fn run_policy(self_: &mut Builder, ct: &mut Controller<'_>, policy: &Policy)
                 None => true,
                 Some(rej) => {
                     let mut args = Map::new();
-                    pyrust::dict::insert!(args, pyrust::to_string!("name"), serde_json::Value::String(pyrust::to_string!((*name))));
-                    pyrust::dict::insert!(args, pyrust::to_string!("reason"), serde_json::Value::String(rej.reason.clone()));
+                    pyrust::dict::insert!(
+                        args,
+                        pyrust::to_string!("name"),
+                        serde_json::Value::String(pyrust::to_string!((*name)))
+                    );
+                    pyrust::dict::insert!(
+                        args,
+                        pyrust::to_string!("reason"),
+                        serde_json::Value::String(rej.reason)
+                    );
                     log("{name}: {reason}", args);
                     false
                 }

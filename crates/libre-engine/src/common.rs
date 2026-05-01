@@ -91,11 +91,11 @@ pub struct Pos {
 }
 
 impl Add<Direction> for Pos {
-    type Output = Pos;
+    type Output = Self;
 
-    fn add(self, d: Direction) -> Pos {
+    fn add(self, d: Direction) -> Self {
         let (dx, dy) = d.delta();
-        Pos {
+        Self {
             x: self.x + dx,
             y: self.y + dy,
         }
@@ -103,7 +103,8 @@ impl Add<Direction> for Pos {
 }
 
 impl Pos {
-    pub fn distance_squared(self, other: Pos) -> i32 {
+    #[must_use] 
+    pub const fn distance_squared(self, other: Self) -> i32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
         dx * dx + dy * dy
@@ -112,8 +113,9 @@ impl Pos {
     /// Inherent shorthand for `<Pos as Add<Direction>>::add`. Lets bots
     /// write `pos.add(d)` without importing `std::ops::Add`, matching the
     /// Python `Position.add(d)` shape.
-    pub fn add(self, d: Direction) -> Pos {
-        <Pos as std::ops::Add<Direction>>::add(self, d)
+    #[must_use] 
+    pub fn add(self, d: Direction) -> Self {
+        <Self as std::ops::Add<Direction>>::add(self, d)
     }
 }
 
@@ -124,10 +126,11 @@ pub enum Team {
 }
 
 impl Team {
-    pub fn index(self) -> usize {
+    #[must_use] 
+    pub const fn index(self) -> usize {
         match self {
-            Team::A => 0,
-            Team::B => 1,
+            Self::A => 0,
+            Self::B => 1,
         }
     }
 }
@@ -135,8 +138,8 @@ impl Team {
 impl fmt::Display for Team {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Team::A => write!(f, "a"),
-            Team::B => write!(f, "b"),
+            Self::A => write!(f, "a"),
+            Self::B => write!(f, "b"),
         }
     }
 }
@@ -146,8 +149,8 @@ impl FromStr for Team {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "a" => Ok(Team::A),
-            "b" => Ok(Team::B),
+            "a" => Ok(Self::A),
+            "b" => Ok(Self::B),
             _ => Err(()),
         }
     }
@@ -179,21 +182,21 @@ impl FromStr for EntityType {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "builder_bot" => Ok(EntityType::BuilderBot),
-            "core" => Ok(EntityType::Core),
-            "gunner" => Ok(EntityType::Gunner),
-            "sentinel" => Ok(EntityType::Sentinel),
-            "breach" => Ok(EntityType::Breach),
-            "launcher" => Ok(EntityType::Launcher),
-            "conveyor" => Ok(EntityType::Conveyor),
-            "splitter" => Ok(EntityType::Splitter),
-            "armoured_conveyor" => Ok(EntityType::ArmouredConveyor),
-            "bridge" => Ok(EntityType::Bridge),
-            "harvester" => Ok(EntityType::Harvester),
-            "foundry" => Ok(EntityType::Foundry),
-            "road" => Ok(EntityType::Road),
-            "barrier" => Ok(EntityType::Barrier),
-            "marker" => Ok(EntityType::Marker),
+            "builder_bot" => Ok(Self::BuilderBot),
+            "core" => Ok(Self::Core),
+            "gunner" => Ok(Self::Gunner),
+            "sentinel" => Ok(Self::Sentinel),
+            "breach" => Ok(Self::Breach),
+            "launcher" => Ok(Self::Launcher),
+            "conveyor" => Ok(Self::Conveyor),
+            "splitter" => Ok(Self::Splitter),
+            "armoured_conveyor" => Ok(Self::ArmouredConveyor),
+            "bridge" => Ok(Self::Bridge),
+            "harvester" => Ok(Self::Harvester),
+            "foundry" => Ok(Self::Foundry),
+            "road" => Ok(Self::Road),
+            "barrier" => Ok(Self::Barrier),
+            "marker" => Ok(Self::Marker),
             _ => Err(()),
         }
     }
@@ -209,9 +212,9 @@ pub enum ResourceType {
 impl fmt::Display for ResourceType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ResourceType::Titanium => write!(f, "titanium"),
-            ResourceType::RawAxionite => write!(f, "raw_axionite"),
-            ResourceType::RefinedAxionite => write!(f, "refined_axionite"),
+            Self::Titanium => write!(f, "titanium"),
+            Self::RawAxionite => write!(f, "raw_axionite"),
+            Self::RefinedAxionite => write!(f, "refined_axionite"),
         }
     }
 }
@@ -221,9 +224,9 @@ impl FromStr for ResourceType {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "titanium" => Ok(ResourceType::Titanium),
-            "raw_axionite" => Ok(ResourceType::RawAxionite),
-            "refined_axionite" => Ok(ResourceType::RefinedAxionite),
+            "titanium" => Ok(Self::Titanium),
+            "raw_axionite" => Ok(Self::RawAxionite),
+            "refined_axionite" => Ok(Self::RefinedAxionite),
             _ => Err(()),
         }
     }
@@ -240,10 +243,10 @@ pub enum Environment {
 impl fmt::Display for Environment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Environment::Empty => write!(f, "empty"),
-            Environment::Wall => write!(f, "wall"),
-            Environment::OreTitanium => write!(f, "ore_titanium"),
-            Environment::OreAxionite => write!(f, "ore_axionite"),
+            Self::Empty => write!(f, "empty"),
+            Self::Wall => write!(f, "wall"),
+            Self::OreTitanium => write!(f, "ore_titanium"),
+            Self::OreAxionite => write!(f, "ore_axionite"),
         }
     }
 }
@@ -253,10 +256,10 @@ impl FromStr for Environment {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "empty" => Ok(Environment::Empty),
-            "wall" => Ok(Environment::Wall),
-            "ore_titanium" => Ok(Environment::OreTitanium),
-            "ore_axionite" => Ok(Environment::OreAxionite),
+            "empty" => Ok(Self::Empty),
+            "wall" => Ok(Self::Wall),
+            "ore_titanium" => Ok(Self::OreTitanium),
+            "ore_axionite" => Ok(Self::OreAxionite),
             _ => Err(()),
         }
     }
@@ -278,15 +281,15 @@ pub enum Direction {
 impl fmt::Display for Direction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Direction::North => write!(f, "north"),
-            Direction::Northeast => write!(f, "northeast"),
-            Direction::East => write!(f, "east"),
-            Direction::Southeast => write!(f, "southeast"),
-            Direction::South => write!(f, "south"),
-            Direction::Southwest => write!(f, "southwest"),
-            Direction::West => write!(f, "west"),
-            Direction::Northwest => write!(f, "northwest"),
-            Direction::Centre => write!(f, "centre"),
+            Self::North => write!(f, "north"),
+            Self::Northeast => write!(f, "northeast"),
+            Self::East => write!(f, "east"),
+            Self::Southeast => write!(f, "southeast"),
+            Self::South => write!(f, "south"),
+            Self::Southwest => write!(f, "southwest"),
+            Self::West => write!(f, "west"),
+            Self::Northwest => write!(f, "northwest"),
+            Self::Centre => write!(f, "centre"),
         }
     }
 }
@@ -296,57 +299,61 @@ impl FromStr for Direction {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "north" => Ok(Direction::North),
-            "northeast" => Ok(Direction::Northeast),
-            "east" => Ok(Direction::East),
-            "southeast" => Ok(Direction::Southeast),
-            "south" => Ok(Direction::South),
-            "southwest" => Ok(Direction::Southwest),
-            "west" => Ok(Direction::West),
-            "northwest" => Ok(Direction::Northwest),
-            "centre" => Ok(Direction::Centre),
+            "north" => Ok(Self::North),
+            "northeast" => Ok(Self::Northeast),
+            "east" => Ok(Self::East),
+            "southeast" => Ok(Self::Southeast),
+            "south" => Ok(Self::South),
+            "southwest" => Ok(Self::Southwest),
+            "west" => Ok(Self::West),
+            "northwest" => Ok(Self::Northwest),
+            "centre" => Ok(Self::Centre),
             _ => Err(()),
         }
     }
 }
 
 impl Direction {
-    pub fn is_cardinal(self) -> bool {
+    #[must_use] 
+    pub const fn is_cardinal(self) -> bool {
         matches!(
             self,
-            Direction::North | Direction::East | Direction::South | Direction::West
+            Self::North | Self::East | Self::South | Self::West
         )
     }
 
+    #[must_use] 
     pub fn is_directional(self) -> bool {
-        self != Direction::Centre
+        self != Self::Centre
     }
 
-    pub fn delta(self) -> (i32, i32) {
+    #[must_use] 
+    pub const fn delta(self) -> (i32, i32) {
         match self {
-            Direction::North => (0, -1),
-            Direction::Northeast => (1, -1),
-            Direction::East => (1, 0),
-            Direction::Southeast => (1, 1),
-            Direction::South => (0, 1),
-            Direction::Southwest => (-1, 1),
-            Direction::West => (-1, 0),
-            Direction::Northwest => (-1, -1),
-            Direction::Centre => (0, 0),
+            Self::North => (0, -1),
+            Self::Northeast => (1, -1),
+            Self::East => (1, 0),
+            Self::Southeast => (1, 1),
+            Self::South => (0, 1),
+            Self::Southwest => (-1, 1),
+            Self::West => (-1, 0),
+            Self::Northwest => (-1, -1),
+            Self::Centre => (0, 0),
         }
     }
 
-    pub fn opposite(self) -> Direction {
+    #[must_use] 
+    pub const fn opposite(self) -> Self {
         match self {
-            Direction::North => Direction::South,
-            Direction::Northeast => Direction::Southwest,
-            Direction::East => Direction::West,
-            Direction::Southeast => Direction::Northwest,
-            Direction::South => Direction::North,
-            Direction::Southwest => Direction::Northeast,
-            Direction::West => Direction::East,
-            Direction::Northwest => Direction::Southeast,
-            Direction::Centre => Direction::Centre,
+            Self::North => Self::South,
+            Self::Northeast => Self::Southwest,
+            Self::East => Self::West,
+            Self::Southeast => Self::Northwest,
+            Self::South => Self::North,
+            Self::Southwest => Self::Northeast,
+            Self::West => Self::East,
+            Self::Northwest => Self::Southeast,
+            Self::Centre => Self::Centre,
         }
     }
 }
