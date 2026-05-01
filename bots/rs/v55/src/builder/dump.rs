@@ -150,10 +150,10 @@ fn _reach_roots(builder: &Builder, w: i32, h: i32) -> Vec<i16> {
 
 fn _hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     let i = (h * 6.0) as i32;
-    let f = h.mul_add(6.0, -pyrust::float!(i));
+    let f = h * 6.0 - pyrust::float!(i);
     let p = v * (1.0 - s);
-    let q = v * s.mul_add(-f, 1.0);
-    let t = v * s.mul_add(-(1.0 - f), 1.0);
+    let q = v * (s * -f + 1.0);
+    let t = v * (s * -(1.0 - f) + 1.0);
     let (r, g, b) = match pyrust::rem_euclid!(i, 6) {
         0 => (v, t, p),
         1 => (q, v, p),
