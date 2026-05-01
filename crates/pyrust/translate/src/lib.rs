@@ -493,6 +493,14 @@ fn translate_source(source: &str, path: &Path, cfg: &CfgEnv) -> Result<String, S
 fn scan_inline_fns(src: &Path) -> std::collections::HashMap<String, crate::cfg::InlineFn> {
     let mut map: std::collections::HashMap<String, crate::cfg::InlineFn> = std::collections::HashMap::new();
     let mut conflicts: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // Workspace-wide collection of all method/free-fn bodies by name.
+    // After scanning, any inline-registered name whose body diverges
+    // from any same-named method anywhere in the workspace (annotated
+    // or not) is dropped: substituting the wrong body at a call site
+    // whose receiver-type we can't statically determine would change
+    // semantics.
+    let mut all_bodies: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        std::collections::HashMap::new();
     let workspace_root = match find_workspace_root(src) {
         Some(r) => r,
         None => src.to_path_buf(),
@@ -521,10 +529,65 @@ fn scan_inline_fns(src: &Path) -> std::collections::HashMap<String, crate::cfg::
                     continue;
                 };
                 collect_inline_fns(&file, &mut map, &mut conflicts);
+                collect_all_method_bodies(&file, &mut all_bodies);
             }
         }
     }
+    // Drop entries whose method name has divergent bodies workspace-wide.
+    map.retain(|name, def| {
+        let Some(bodies) = all_bodies.get(name) else {
+            return true;
+        };
+        let inline_sig = format!("{:?}", def.body);
+        // Safe to keep iff every workspace impl/fn with this name has
+        // the same body as the inline def. (A 1-element set containing
+        // the inline body itself is the common case.)
+        bodies.iter().all(|b| b == &inline_sig)
+    });
     map
+}
+
+/// Collect a body signature for every fn/method (annotated or not)
+/// keyed by name. Used by `scan_inline_fns` to detect cross-impl
+/// divergence. Single-expression bodies stringify to the inner Expr's
+/// Debug repr so they line up with the inline registry's `def.body`
+/// signatures; multi-statement bodies stringify to the full `Vec<Stmt>`.
+fn collect_all_method_bodies(
+    file: &syn::File,
+    out: &mut std::collections::HashMap<String, std::collections::HashSet<String>>,
+) {
+    fn block_sig(block: &syn::Block) -> String {
+        if block.stmts.len() == 1
+            && let syn::Stmt::Expr(e, None) = &block.stmts[0]
+        {
+            return format!("{e:?}");
+        }
+        format!("{:?}", block.stmts)
+    }
+    for item in &file.items {
+        match item {
+            syn::Item::Fn(f) => {
+                out.entry(f.sig.ident.to_string()).or_default().insert(block_sig(&f.block));
+            }
+            syn::Item::Impl(im) => {
+                for ii in &im.items {
+                    if let syn::ImplItem::Fn(f) = ii {
+                        out.entry(f.sig.ident.to_string()).or_default().insert(block_sig(&f.block));
+                    }
+                }
+            }
+            syn::Item::Trait(t) => {
+                for ii in &t.items {
+                    if let syn::TraitItem::Fn(f) = ii
+                        && let Some(b) = &f.default
+                    {
+                        out.entry(f.sig.ident.to_string()).or_default().insert(block_sig(b));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 fn collect_inline_fns(
