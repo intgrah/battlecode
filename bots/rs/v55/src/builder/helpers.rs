@@ -9,7 +9,6 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::Builder;
-use crate::building::Building;
 use crate::util::constants::{MAX_WIDTH, base_cost};
 use crate::util::debug::{Scope, debug as log};
 use crate::util::directions::{DIR4, DIR8, delta_to_dir};
@@ -356,20 +355,21 @@ fn _trace_downstream_inner(
     let mut current_pos = start_pos;
     loop {
         path.push(current_pos);
-        let bld = builder.get_building(current_pos);
-        match bld {
-            Some(
-                Building::Conveyor { direction, .. } | Building::ArmouredConveyor { direction, .. },
-            ) => {
-                current_pos = current_pos.add(direction);
+        let i = builder.idx(current_pos);
+        let kind = builder.building_kind[i];
+        match kind {
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge) => {
+                if builder.out_edges[i].is_empty() {
+                    break;
+                }
+                current_pos = builder.out_edges[i][0];
             }
-            Some(Building::Splitter { direction, .. }) => {
-                let handled = false;
-                for sd in DIR4 {
-                    if sd == direction.opposite() {
-                        continue;
-                    }
-                    let new_pos = current_pos.add(sd);
+            Some(EntityType::Splitter) => {
+                // Splitter's 3 outputs (forward + two perpendicular sides).
+                // Try each as a path branch.
+                let outs: Vec<Position> = builder.out_edges[i].clone();
+                let mut handled = false;
+                for new_pos in outs.iter().copied() {
                     if let Some(target_head) = target_head {
                         let mut new_path = path.clone();
                         _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
@@ -379,15 +379,18 @@ fn _trace_downstream_inner(
                         }
                     } else if builder.get_building(new_pos).is_none() {
                         path.push(new_pos);
+                        handled = true;
                         return;
                     }
                 }
                 if !handled {
-                    current_pos = current_pos.add(direction);
+                    if outs.is_empty() {
+                        break;
+                    }
+                    // Forward = first output (canonical convention from
+                    // `edge_targets`).
+                    current_pos = outs[0];
                 }
-            }
-            Some(Building::Bridge { target, .. }) => {
-                current_pos = target;
             }
             _ => break,
         }
@@ -405,7 +408,7 @@ pub fn try_heal(
 ) -> bool {
     if conserve_ti && let Some(repair_pos) = builder.repair_pos {
         let i = builder.idx(repair_pos);
-        if builder.buildings[i].is_none() || builder.hp[i] > builder.max_hp[i] - 4 {
+        if builder.building_kind[i].is_none() || builder.hp[i] > builder.max_hp[i] - 4 {
             return false;
         }
     }
@@ -446,15 +449,12 @@ pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
 }
 
 pub fn ore_available(builder: &Builder, pos: Position) -> bool {
-    let b = builder.get_building(pos);
-    if let Some(b) = b {
+    if let Some((kind, _team)) = builder.get_building(pos) {
         let allowed = matches!(
-            b,
-            Building::Road { .. } | Building::Marker { .. } | Building::Barrier { .. }
-        ) || (matches!(
-            b,
-            Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
-        ) && is_inward_guard(builder, pos));
+            kind,
+            EntityType::Road | EntityType::Marker | EntityType::Barrier
+        ) || (matches!(kind, EntityType::Conveyor | EntityType::ArmouredConveyor)
+            && is_inward_guard(builder, pos));
         if !allowed {
             return false;
         }
@@ -506,22 +506,25 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             classification.push((c, "wall"));
             continue;
         }
-        let b = builder.get_building(c);
-        if let Some(bv) = b
-            && matches!(
-                bv,
-                Building::Bridge { .. }
-                    | Building::Conveyor { .. }
-                    | Building::ArmouredConveyor { .. }
-                    | Building::Splitter { .. }
+        let ci = builder.idx(c);
+        let kind = builder.building_kind[ci];
+        let team = builder.building_team[ci];
+        if matches!(
+            kind,
+            Some(
+                EntityType::Bridge
+                    | EntityType::Conveyor
+                    | EntityType::ArmouredConveyor
+                    | EntityType::Splitter
             )
-            && bv.team() != builder.state.my_team
+        ) && team != Some(builder.state.my_team)
         {
             classification.push((c, "enemy_transport"));
             continue;
         }
-        match b {
-            Some(Building::Bridge { target, .. }) => {
+        match kind {
+            Some(EntityType::Bridge) => {
+                let target = builder.out_edges[ci].first().copied().unwrap_or(c);
                 if target == ore_pos {
                     classification.push((c, "inward_guard: bridge target == ore"));
                 } else {
@@ -530,10 +533,9 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 }
                 continue;
             }
-            Some(
-                Building::Conveyor { direction, .. } | Building::ArmouredConveyor { direction, .. },
-            ) => {
-                if c.add(direction) == ore_pos {
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
+                let target = builder.out_edges[ci].first().copied().unwrap_or(c);
+                if target == ore_pos {
                     classification.push((c, "inward_guard: conveyor output -> ore"));
                 } else {
                     tier1.push(c);
@@ -541,20 +543,26 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 }
                 continue;
             }
-            Some(Building::Splitter { direction, .. }) => {
-                if c.add(direction.opposite()) == ore_pos {
-                    tier1.push(c);
-                    classification.push((c, "tier1: outward splitter"));
-                } else {
-                    classification.push((c, "inward_guard: splitter back not -> ore"));
+            Some(EntityType::Splitter) => {
+                // Splitter back-input cell = mirror of forward across c.
+                // From the 3 outputs: 4*c - sum(outputs) = c - forward_dir.
+                let outs = &builder.out_edges[ci];
+                if outs.len() == 3 {
+                    let back = crate::building::splitter_back_input(c, outs);
+                    if back == ore_pos {
+                        tier1.push(c);
+                        classification.push((c, "tier1: outward splitter"));
+                    } else {
+                        classification.push((c, "inward_guard: splitter back not -> ore"));
+                    }
                 }
                 continue;
             }
             Some(
-                Building::Foundry { .. }
-                | Building::Core { .. }
-                | Building::Harvester { .. }
-                | Building::Barrier { .. },
+                EntityType::Foundry
+                | EntityType::Core
+                | EntityType::Harvester
+                | EntityType::Barrier,
             ) => {
                 classification.push((c, "blocking_building"));
                 continue;
@@ -644,17 +652,16 @@ pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<P
             reserved.insert(*c);
             continue;
         }
-        let b = builder.get_building(*c);
         if matches!(
-            b,
+            builder.kind_at(*c),
             Some(
-                Building::Conveyor { .. }
-                    | Building::ArmouredConveyor { .. }
-                    | Building::Splitter { .. }
-                    | Building::Bridge { .. }
-                    | Building::Foundry { .. }
-                    | Building::Core { .. }
-                    | Building::Harvester { .. }
+                EntityType::Conveyor
+                    | EntityType::ArmouredConveyor
+                    | EntityType::Splitter
+                    | EntityType::Bridge
+                    | EntityType::Foundry
+                    | EntityType::Core
+                    | EntityType::Harvester
             )
         ) {
             reserved.insert(*c);
@@ -674,7 +681,7 @@ pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool
         if !builder.in_bounds(c) {
             continue;
         }
-        if matches!(builder.get_building(c), Some(Building::Barrier { .. })) {
+        if builder.kind_at(c) == Some(EntityType::Barrier) {
             barriers += 1;
         }
     }
@@ -697,13 +704,11 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
         if builder.get_env(*pos) != Some(Environment::OreTitanium) {
             continue;
         }
-        match builder.get_building(*pos) {
-            Some(Building::Harvester { .. }) => continue,
+        match builder.kind_at(*pos) {
+            Some(EntityType::Harvester) => continue,
             None
-            | Some(Building::Road { .. })
-            | Some(Building::Marker { .. })
-            | Some(Building::Barrier { .. }) => {}
-            Some(Building::Conveyor { .. } | Building::ArmouredConveyor { .. }) => {
+            | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
                 if !is_inward_guard(builder, *pos) {
                     continue;
                 }
@@ -767,18 +772,17 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         if !builder.in_bounds(n) {
             continue;
         }
-        let b = builder.get_building(n);
-        let Some(b) = b else { continue };
+        let Some((kind, team)) = builder.get_building(n) else { continue };
         if !matches!(
-            b,
-            Building::Conveyor { .. }
-                | Building::ArmouredConveyor { .. }
-                | Building::Splitter { .. }
-                | Building::Bridge { .. }
+            kind,
+            EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Splitter
+                | EntityType::Bridge
         ) {
             continue;
         }
-        if b.team() != builder.state.my_team {
+        if team != builder.state.my_team {
             continue;
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
@@ -793,7 +797,7 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         }
         hostile_found = true;
         if ore_env == Some(Environment::OreAxionite) {
-            if matches!(b, Building::Conveyor { .. }) {
+            if kind == EntityType::Conveyor {
                 pure_ti_conveyor_count += 1;
             } else {
                 heavy_hostile_count += 1;
@@ -817,25 +821,27 @@ pub fn on_enemy_side(builder: &Builder, pos: Position) -> bool {
 /// True if `pos` hosts a friendly conveyor whose flow direction
 /// points at an adjacent friendly harvester.
 pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
-    let b = builder.get_building(pos);
-    let Some(b) = b else {
+    let i = builder.idx(pos);
+    let kind = builder.building_kind[i];
+    let team = builder.building_team[i];
+    if !matches!(
+        kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+    ) {
         return false;
-    };
-    let direction = match b {
-        Building::Conveyor { team, direction } | Building::ArmouredConveyor { team, direction } => {
-            if team != builder.state.my_team {
-                return false;
-            }
-            direction
-        }
-        _ => return false,
-    };
-    let target = pos.add(direction);
+    }
+    if team != Some(builder.state.my_team) {
+        return false;
+    }
+    if builder.out_edges[i].is_empty() {
+        return false;
+    }
+    let target = builder.out_edges[i][0];
     if !builder.in_bounds(target) {
         return false;
     }
-    let target_b = builder.get_building(target);
-    matches!(target_b, Some(Building::Harvester { team }) if team == builder.state.my_team)
+    builder.kind_at(target) == Some(EntityType::Harvester)
+        && builder.team_at(target) == Some(builder.state.my_team)
 }
 
 fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
@@ -845,13 +851,11 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
         if builder.get_env(*pos) != Some(wanted) {
             continue;
         }
-        match builder.get_building(*pos) {
-            Some(Building::Harvester { .. }) => continue,
+        match builder.kind_at(*pos) {
+            Some(EntityType::Harvester) => continue,
             None
-            | Some(Building::Road { .. })
-            | Some(Building::Marker { .. })
-            | Some(Building::Barrier { .. }) => {}
-            Some(Building::Conveyor { .. } | Building::ArmouredConveyor { .. }) => {
+            | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
                 if !is_inward_guard(builder, *pos) {
                     continue;
                 }
@@ -942,16 +946,17 @@ pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> 
 }
 
 pub fn chain_has_foundry(builder: &Builder, start: Position) -> bool {
+    let my_team = builder.state.my_team;
     for pos in upstream_tree(builder, start) {
-        if let Some(Building::Foundry { team }) = builder.get_building(pos)
-            && team == builder.state.my_team
+        if builder.kind_at(pos) == Some(EntityType::Foundry)
+            && builder.team_at(pos) == Some(my_team)
         {
             return true;
         }
     }
     for pos in downstream_tree(builder, start) {
-        if let Some(Building::Foundry { team }) = builder.get_building(pos)
-            && team == builder.state.my_team
+        if builder.kind_at(pos) == Some(EntityType::Foundry)
+            && builder.team_at(pos) == Some(my_team)
         {
             return true;
         }
@@ -971,8 +976,8 @@ pub fn ax_feeds_target(builder: &Builder, target: Position) -> bool {
             continue;
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
-        let nb = builder.buildings[ni];
-        if matches!(nb, Some(Building::Harvester { team }) if team == builder.state.my_team)
+        if builder.building_kind[ni] == Some(EntityType::Harvester)
+            && builder.building_team[ni] == Some(builder.state.my_team)
             && builder.env[ni] == Some(Environment::OreAxionite)
         {
             return true;

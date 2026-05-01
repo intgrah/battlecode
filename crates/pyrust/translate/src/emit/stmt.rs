@@ -935,6 +935,19 @@ fn emit_if_stmt(w: &mut PyWriter, i: &syn::ExprIf, tail: Tail) -> Result<(), Str
         w.line(&format!("return {ternary}"));
         return Ok(());
     }
+    // `if cfg!(predicate) { then } else { else }` — evaluate the cfg
+    // predicate at translation time and emit only the live branch (or
+    // nothing if both branches are eliminated). Avoids emitting dead
+    // code that may not be valid Python (e.g. `serde_json::Number::from`
+    // wrappers in debug-only logging blocks under release mode).
+    if let Some(v) = eval_cfg_macro_cond(w, &i.cond)? {
+        if v {
+            emit_block(w, &i.then_branch, tail)?;
+        } else if let Some((_, else_branch)) = &i.else_branch {
+            emit_else_force(w, else_branch, tail)?;
+        }
+        return Ok(());
+    }
     if let Some(cond_text) = emit_let_or_chain(w, &i.cond)? {
         w.line(&format!("if {cond_text}:"));
         w.enter_indent();
@@ -954,6 +967,33 @@ fn emit_if_stmt(w: &mut PyWriter, i: &syn::ExprIf, tail: Tail) -> Result<(), Str
         emit_else(w, else_branch, tail)?;
     }
     Ok(())
+}
+
+/// If `cond` is `cfg!(...)`, evaluate the predicate and return
+/// `Some(true)` / `Some(false)`. Otherwise `None`. Used by `emit_if_stmt`
+/// to drop dead branches at translation time.
+fn eval_cfg_macro_cond(w: &PyWriter, cond: &syn::Expr) -> Result<Option<bool>, String> {
+    let syn::Expr::Macro(m) = cond else {
+        return Ok(None);
+    };
+    if !m.mac.path.is_ident("cfg") {
+        return Ok(None);
+    }
+    let meta: syn::Meta = syn::parse2(m.mac.tokens.clone())
+        .map_err(|e| w.err(m.span(), format!("cfg!(): {e}")))?;
+    let v = w.cfg().eval_meta(&meta).map_err(|e| w.err(m.span(), e))?;
+    Ok(Some(v))
+}
+
+/// Like [`emit_else`] but always emits the body without the `else:`
+/// header. Used when we've already eliminated the `if`-branch and only
+/// the `else` body should remain.
+fn emit_else_force(w: &mut PyWriter, else_branch: &syn::Expr, tail: Tail) -> Result<(), String> {
+    match else_branch {
+        syn::Expr::Block(b) => emit_block(w, &b.block, tail),
+        syn::Expr::If(nested) => emit_if_stmt(w, nested, tail),
+        other => Err(w.err(other.span(), "else branch must be a block or if-chain")),
+    }
 }
 
 /// Handle `if let Some(p) = expr { ... }` and let-chains

@@ -11,7 +11,6 @@ use cambc::{BuildExtra, Controller, ControllerApi, EntityType, Environment};
 use crate::builder::Builder;
 use crate::builder::helpers::{ax_feeds_target, can_afford, make_move, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::debug::debug as log;
 use serde_json::Map;
 
@@ -28,19 +27,19 @@ pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult
     let Some(target) = self_.foundry_target else {
         return Err(TaskRejected::new("foundry_target is None"));
     };
-    let bld = self_.get_building(target);
+    let kind = self_.kind_at(target);
+    let team = self_.team_at(target);
     let is_conveyor = matches!(
-        bld,
-        Some(Building::Conveyor { .. } | Building::ArmouredConveyor { .. })
+        kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     );
     if !is_conveyor {
         return Err(TaskRejected::from_string(format!(
             "{:?}: got {:?}, expected Ti conveyor",
-            target, bld
+            target, kind
         )));
     }
-    let bld = bld.unwrap();
-    if bld.team() != self_.my_team {
+    if team != Some(self_.my_team) {
         return Err(TaskRejected::from_string(format!(
             "{:?}: conveyor held by enemy team",
             target

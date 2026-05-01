@@ -52,20 +52,18 @@ fn _pick_head(builder: &Builder) -> Option<Position> {
     let rnd = builder.state.round;
     let mx = builder.state.my_pos.x;
     let my_y = builder.state.my_pos.y;
-    let mut best_age: i32 = -1;
-    let mut best_dist: i32 = 1 << 30;
+    // Score: maximise age, then minimise distance, then prefer smaller (y, x).
+    // Encoded as a tuple to be minimised: (-age, dist, y, x).
+    let mut best_key: (i32, i32, i32, i32) = (1, 1 << 30, 1 << 30, 1 << 30);
     let mut best_pos: Option<Position> = None;
     for pos in _candidate_iter(builder) {
         let age = rnd - last_seen[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)];
-        if age < best_age {
-            continue;
-        }
         let dx = pos.x - mx;
         let dy = pos.y - my_y;
         let d = dx * dx + dy * dy;
-        if age > best_age || d < best_dist {
-            best_age = age;
-            best_dist = d;
+        let key = (-age, d, pos.y, pos.x);
+        if key < best_key {
+            best_key = key;
             best_pos = Some(pos);
         }
     }

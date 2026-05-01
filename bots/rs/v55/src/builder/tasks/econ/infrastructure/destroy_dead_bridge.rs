@@ -8,12 +8,11 @@
 
 use std::collections::HashSet;
 
-use cambc::{Controller, ControllerApi, Position};
+use cambc::{Controller, ControllerApi, EntityType, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::constants::MAX_WIDTH;
 use crate::util::metrics::chebyshev;
 
@@ -34,9 +33,8 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
                 continue;
             }
             visited.insert(u);
-            let bld = self_.get_building(u);
-            if let Some(Building::Bridge { team, .. }) = bld
-                && team == self_.my_team
+            if self_.kind_at(u) == Some(EntityType::Bridge)
+                && self_.team_at(u) == Some(self_.my_team)
             {
                 return Some(u);
             }

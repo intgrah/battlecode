@@ -66,10 +66,10 @@ fn y_of_table() -> Vec<i32> {
 /// struct (Phase G6) embeds an instance of this and passes it to each
 /// `search` call; the algorithm code never touches the rest of the Builder.
 pub struct EconAstarCtx {
-    pub ax_routable: Vec<bool>,
-    pub ti_routable: Vec<bool>,
-    pub routing_extra: Vec<u8>,
-    pub reach_parent: Vec<i32>,
+    pub ax_routable: [bool; MAX_N],
+    pub ti_routable: [bool; MAX_N],
+    pub routing_extra: [u8; MAX_N],
+    pub reach_parent: [i32; MAX_N],
     pub my_pos: Position,
     pub nearby_tiles: Vec<Position>,
     pub all_bots: HashMap<Position, i32>,

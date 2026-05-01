@@ -17,7 +17,6 @@ use cambc::{
 use crate::builder::Builder;
 use crate::builder::explore::explore;
 use crate::builder::helpers::{can_afford, make_move, try_move_dir};
-use crate::building::Building;
 use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 
@@ -31,14 +30,14 @@ pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
 
 pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     matches!(
-        self_.get_building(position),
+        self_.kind_at(position),
         Some(
-            Building::Conveyor { team, .. }
-                | Building::ArmouredConveyor { team, .. }
-                | Building::Splitter { team, .. }
-                | Building::Bridge { team, .. }
-        ) if team == self_.my_team
-    )
+            EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Splitter
+                | EntityType::Bridge
+        )
+    ) && self_.team_at(position) == Some(self_.my_team)
 }
 
 pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<Position> {
@@ -64,13 +63,13 @@ fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
     if self_.get_env(pos) == Some(Environment::Wall) {
         return false;
     }
-    let Some(b) = self_.get_building(pos) else {
+    let Some(kind) = self_.kind_at(pos) else {
         return true;
     };
-    if matches!(b, Building::Marker { .. }) {
+    if kind == EntityType::Marker {
         return true;
     }
-    matches!(b, Building::Road { team } if team == self_.my_team)
+    kind == EntityType::Road && self_.team_at(pos) == Some(self_.my_team)
 }
 
 pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
@@ -139,18 +138,18 @@ pub fn pick_conveyor_target(
     let mut best: Option<Position> = None;
     let mut best_score: Option<(i32, i32, i32)> = None;
     for &pos in &self_.nearby_buildings {
-        let Some(b) = self_.get_building(pos) else {
+        let Some((kind, team)) = self_.get_building(pos) else {
             continue;
         };
-        if b.team() == self_.my_team {
+        if team == self_.my_team {
             continue;
         }
         if !matches!(
-            b,
-            Building::Conveyor { .. }
-                | Building::ArmouredConveyor { .. }
-                | Building::Splitter { .. }
-                | Building::Bridge { .. }
+            kind,
+            EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Splitter
+                | EntityType::Bridge
         ) {
             continue;
         }
@@ -230,13 +229,12 @@ pub fn pick_attack_destination(
         if self_.friendly_turret_ray_tiles.contains(&pos) {
             continue;
         }
-        let b = self_.get_building(pos);
-        let cost = match b {
+        let kind = self_.kind_at(pos);
+        let team = self_.team_at(pos);
+        let cost = match kind {
             None => 0,
-            Some(b) if b.team() == self_.my_team => 0,
-            Some(
-                Building::Conveyor { .. } | Building::Splitter { .. } | Building::Bridge { .. },
-            ) => 20,
+            Some(_) if team == Some(self_.my_team) => 0,
+            Some(EntityType::Conveyor | EntityType::Splitter | EntityType::Bridge) => 20,
             _ => 5,
         };
         if avoid_healers && enemy_healer_near(self_, pos) {
@@ -274,18 +272,18 @@ pub fn gunner_chain_facing(self_: &Builder, pos: Position) -> Option<Direction> 
             if self_.get_env(current) == Some(Environment::Wall) {
                 break;
             }
-            let Some(b) = self_.get_building(current) else {
+            let Some((kind, team)) = self_.get_building(current) else {
                 continue;
             };
-            if b.team() == self_.my_team {
+            if team == self_.my_team {
                 break;
             }
             if matches!(
-                b,
-                Building::Conveyor { .. }
-                    | Building::ArmouredConveyor { .. }
-                    | Building::Splitter { .. }
-                    | Building::Bridge { .. }
+                kind,
+                EntityType::Conveyor
+                    | EntityType::ArmouredConveyor
+                    | EntityType::Splitter
+                    | EntityType::Bridge
             ) {
                 return Some(d);
             }
@@ -320,13 +318,13 @@ fn has_open_side(self_: &Builder, position: Position) -> bool {
 pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
     let mut result: Vec<Position> = Vec::new();
     for &p in &self_.nearby_buildings {
-        let Some(b) = self_.get_building(p) else {
+        let Some((kind, team)) = self_.get_building(p) else {
             continue;
         };
-        if b.team() == self_.my_team {
+        if team == self_.my_team {
             continue;
         }
-        if !matches!(b, Building::Harvester { .. }) {
+        if kind != EntityType::Harvester {
             continue;
         }
         if has_open_side(self_, p) {

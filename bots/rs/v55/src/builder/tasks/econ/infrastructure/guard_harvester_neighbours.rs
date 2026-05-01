@@ -11,7 +11,6 @@ use crate::builder::Builder;
 use crate::builder::harvest::{needs_harvester_guard, place_harvester_guard};
 use crate::builder::helpers::{can_afford, harvester_feed_cardinal, harvester_io_cardinals};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
 use crate::util::visualiser::auto_wrap_position;
@@ -19,9 +18,8 @@ use crate::util::visualiser::auto_wrap_position;
 pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let mut targets: Vec<Position> = Vec::new();
     for &pos in &self_.nearby_tiles {
-        let b = self_.get_building(pos);
-        if let Some(Building::Harvester { team }) = b
-            && team == self_.my_team
+        if self_.kind_at(pos) == Some(EntityType::Harvester)
+            && self_.team_at(pos) == Some(self_.my_team)
             && self_.get_env(pos) == Some(Environment::OreTitanium)
         {
             targets.push(pos);

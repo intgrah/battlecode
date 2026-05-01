@@ -12,7 +12,6 @@ use crate::builder::tasks::offense::helpers::{
     vulnerable_harvesters,
 };
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::directions::DIR4;
 
 /// Snap the unit vector from `src` to `dst` to the nearest 45-degree direction.
@@ -100,14 +99,15 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         if !self_.in_bounds(n) {
             continue;
         }
-        let nb = self_.get_building(n);
-        let Some(nb) = nb else { continue };
-        if nb.team() != self_.my_team {
+        let Some((nk, nt)) = self_.get_building(n) else {
+            continue;
+        };
+        if nt != self_.my_team {
             continue;
         }
-        if matches!(nb, Building::Gunner { .. }) {
+        if nk == EntityType::Gunner {
             n_gunner += 1;
-        } else if matches!(nb, Building::Sentinel { .. }) {
+        } else if nk == EntityType::Sentinel {
             n_sentinel += 1;
         }
     }

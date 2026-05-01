@@ -8,7 +8,6 @@ use cambc::{BuildExtra, Controller, Direction, EntityType, Position};
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::constants::MAX_WIDTH;
 use crate::util::directions::{DIR4, delta_to_dir};
 
@@ -40,14 +39,16 @@ pub fn split_before_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
     let mut best_dir: Option<Direction> = None;
     let mut best_dist = 1 << 30;
     for &sent_pos in &self_.nearby_buildings {
-        let b = self_.get_building(sent_pos);
-        if !matches!(b, Some(Building::Sentinel { team, .. }) if team == self_.my_team) {
+        if !(self_.kind_at(sent_pos) == Some(EntityType::Sentinel)
+            && self_.team_at(sent_pos) == Some(self_.my_team))
+        {
             continue;
         }
         let feeders = self_.in_edges[sent_pos.y as usize * MAX_WIDTH + sent_pos.x as usize].clone();
         for split_pos in feeders {
-            let sb = self_.get_building(split_pos);
-            if !matches!(sb, Some(Building::Conveyor { team, .. }) if team == self_.my_team) {
+            if !(self_.kind_at(split_pos) == Some(EntityType::Conveyor)
+                && self_.team_at(split_pos) == Some(self_.my_team))
+            {
                 continue;
             }
             if let Some(&uid) = self_.all_bots.get(&split_pos)

@@ -28,19 +28,27 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         Map::new(),
     );
 
+    // Sort the junction iteration so candidate-feeder accumulation is
+    // deterministic across hash-randomized iteration of `congested_junctions`.
+    let mut junctions: Vec<Position> = self_.congested_junctions.iter().copied().collect();
+    junctions.sort_by_key(|p| (p.y, p.x));
     let mut targets: Vec<Position> = Vec::new();
-    for &j in &self_.congested_junctions {
+    for j in junctions {
         for &feeder in &self_.in_edges[j.y as usize * MAX_WIDTH + j.x as usize] {
-            let fb = self_.buildings[feeder.y as usize * MAX_WIDTH + feeder.x as usize];
-            let Some(fb) = fb else {
+            let fi = feeder.y as usize * MAX_WIDTH + feeder.x as usize;
+            if self_.building_kind[fi].is_none() {
                 continue;
-            };
-            if fb.team() != self_.my_team {
+            }
+            if self_.building_team[fi] != Some(self_.my_team) {
                 continue;
             }
             targets.push(feeder);
         }
     }
+    // Same feeder may be reachable through multiple junctions; dedupe and
+    // re-sort so destroy / approach order is fully deterministic.
+    targets.sort_by_key(|p| (p.y, p.x));
+    targets.dedup();
 
     if targets.is_empty() {
         log(
@@ -69,9 +77,10 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     }
 
     let my_pos = self_.my_pos;
+    // Tiebreak by (y, x) on top of chebyshev distance.
     let nearest = *targets
         .iter()
-        .min_by_key(|&&p| chebyshev(my_pos, p))
+        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x))
         .unwrap();
     log(
         &format!(

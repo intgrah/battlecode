@@ -1,113 +1,88 @@
-//! Translation of `bots/intgrah/v54.7.9/building.py`.
+//! Per-tile building helpers. The bot stores building state in the
+//! `Builder`'s SoA arrays (`building_kind[i]`, `building_team[i]`,
+//! `out_edges[i]`) — there's no separate `Building` ADT.
 //!
-//! The Python ADT uses 14 frozen dataclasses unioned via `type Building = ...`.
-//! In Rust this is a single sum-type enum with named-field variants — type-safe
-//! and zero-cost. Pyrust will eventually translate this to the original 14
-//! dataclasses + union (when the sum-type-enum extension lands).
+//! These free functions handle reading from `ct` at `_add_topology` time
+//! (the only place Building info enters the bot's state).
 
 use cambc::{Controller, ControllerApi, Direction, EntityType, Position, Team};
 
-/// A building in the bot's vision. Construct via `make_building`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Building {
-    Core { team: Team },
-    Harvester { team: Team },
-    Conveyor { team: Team, direction: Direction },
-    ArmouredConveyor { team: Team, direction: Direction },
-    Splitter { team: Team, direction: Direction },
-    Bridge { team: Team, target: Position },
-    Foundry { team: Team },
-    Barrier { team: Team },
-    Road { team: Team },
-    Gunner { team: Team, direction: Direction },
-    Sentinel { team: Team, direction: Direction },
-    Breach { team: Team, direction: Direction },
-    Launcher { team: Team },
-    Marker { team: Team, value: u32 },
+/// Read kind + team at `bid` from `ct`. Panics on `BuilderBot` (not a
+/// building) — by convention callers gate on `is_in_vision` first.
+#[must_use]
+pub fn make_building(ct: &Controller<'_>, bid: i32) -> (EntityType, Team) {
+    let kind = ct.get_entity_type(Some(bid)).unwrap();
+    let team = ct.get_team(Some(bid)).unwrap();
+    if matches!(kind, EntityType::BuilderBot) {
+        panic!("BUILDER_BOT is not a building");
+    }
+    (kind, team)
 }
 
-impl Building {
-    /// The team that owns this building.
-    #[must_use]
-    pub const fn team(&self) -> Team {
-        match *self {
-            Building::Core { team }
-            | Building::Harvester { team }
-            | Building::Conveyor { team, .. }
-            | Building::ArmouredConveyor { team, .. }
-            | Building::Splitter { team, .. }
-            | Building::Bridge { team, .. }
-            | Building::Foundry { team }
-            | Building::Barrier { team }
-            | Building::Road { team }
-            | Building::Gunner { team, .. }
-            | Building::Sentinel { team, .. }
-            | Building::Breach { team, .. }
-            | Building::Launcher { team }
-            | Building::Marker { team, .. } => team,
+/// Routing output positions for the building at `pos` (id `bid`, kind
+/// `kind`). Empty for non-routing variants. Used by `_add_topology` to
+/// populate `out_edges[i]`.
+#[must_use]
+pub fn edge_targets(
+    ct: &Controller<'_>,
+    pos: Position,
+    bid: i32,
+    kind: EntityType,
+) -> Vec<Position> {
+    match kind {
+        EntityType::Conveyor | EntityType::ArmouredConveyor => {
+            vec![pos.add(ct.get_direction(Some(bid)).unwrap())]
         }
+        EntityType::Bridge => vec![ct.get_bridge_target(bid).unwrap()],
+        EntityType::Splitter => {
+            let d = ct.get_direction(Some(bid)).unwrap();
+            vec![
+                pos.add(d),
+                pos.add(rotate_right_2(d)),
+                pos.add(rotate_left_2(d)),
+            ]
+        }
+        _ => Vec::new(),
     }
 }
 
-/// Read the building at entity id `bid` from the controller's vision.
-///
-/// Panics if `bid` refers to a `BuilderBot` (not a building). Mirrors the
-/// Python `make_building(ct, bid)` factory which raises `ValueError`.
-/// Controller calls `.unwrap()`: by convention bots check `is_in_vision`
-/// and friends before calling these — any `GameError` is a logic bug.
-pub fn make_building(ct: &Controller<'_>, bid: i32) -> Building {
-    let team = ct.get_team(Some(bid)).unwrap();
-    let direction = || ct.get_direction(Some(bid)).unwrap();
-    match ct.get_entity_type(Some(bid)).unwrap() {
-        EntityType::Conveyor => Building::Conveyor {
-            team,
-            direction: direction(),
-        },
-        EntityType::ArmouredConveyor => Building::ArmouredConveyor {
-            team,
-            direction: direction(),
-        },
-        EntityType::Splitter => Building::Splitter {
-            team,
-            direction: direction(),
-        },
-        EntityType::Gunner => Building::Gunner {
-            team,
-            direction: direction(),
-        },
-        EntityType::Sentinel => Building::Sentinel {
-            team,
-            direction: direction(),
-        },
-        EntityType::Breach => Building::Breach {
-            team,
-            direction: direction(),
-        },
-        EntityType::Bridge => Building::Bridge {
-            team,
-            target: ct.get_bridge_target(bid).unwrap(),
-        },
-        EntityType::Core => Building::Core { team },
-        EntityType::Harvester => Building::Harvester { team },
-        EntityType::Foundry => Building::Foundry { team },
-        EntityType::Barrier => Building::Barrier { team },
-        EntityType::Road => Building::Road { team },
-        EntityType::Launcher => Building::Launcher { team },
-        EntityType::Marker => {
-            // Per the spec, `get_marker_value` is only valid for friendly
-            // markers — calling it on an enemy marker is a `GameError`.
-            // v54.7.9 calls it unconditionally and relies on `main.py`'s
-            // last-resort `except` to recover; v55 gates on team so the
-            // turn isn't lost. Enemy markers carry an opaque 0 here; bot
-            // code that cares about the value already checks team.
-            let my_team = ct.get_team(None).unwrap();
-            let value = if team == my_team {
-                ct.get_marker_value(bid).unwrap()
-            } else {
-                0
-            };
-            Building::Marker { team, value }
-        }
-        EntityType::BuilderBot => panic!("BUILDER_BOT is not a building"),
+/// Splitter back-input cell (the side opposite its forward output). Sum
+/// of the three outputs = `3*pos + d`, so `4*pos - sum = pos - d`.
+/// Order-independent.
+#[must_use]
+pub fn splitter_back_input(pos: Position, outputs: &[Position]) -> Position {
+    let sum_x: i32 = outputs.iter().map(|p| p.x).sum();
+    let sum_y: i32 = outputs.iter().map(|p| p.y).sum();
+    Position {
+        x: 4 * pos.x - sum_x,
+        y: 4 * pos.y - sum_y,
+    }
+}
+
+const fn rotate_right_2(d: Direction) -> Direction {
+    match d {
+        Direction::North => Direction::East,
+        Direction::Northeast => Direction::Southeast,
+        Direction::East => Direction::South,
+        Direction::Southeast => Direction::Southwest,
+        Direction::South => Direction::West,
+        Direction::Southwest => Direction::Northwest,
+        Direction::West => Direction::North,
+        Direction::Northwest => Direction::Northeast,
+        Direction::Centre => Direction::Centre,
+    }
+}
+
+const fn rotate_left_2(d: Direction) -> Direction {
+    match d {
+        Direction::North => Direction::West,
+        Direction::Northeast => Direction::Northwest,
+        Direction::East => Direction::North,
+        Direction::Southeast => Direction::Northeast,
+        Direction::South => Direction::East,
+        Direction::Southwest => Direction::Southeast,
+        Direction::West => Direction::South,
+        Direction::Northwest => Direction::Southwest,
+        Direction::Centre => Direction::Centre,
     }
 }

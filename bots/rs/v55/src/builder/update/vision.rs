@@ -1,68 +1,20 @@
 use std::collections::HashSet;
 
-use cambc::{Controller, ControllerApi, Direction, EntityType, Environment, GameConstants, Position};
+use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, Position};
 
 use crate::builder::Builder;
-use crate::building::{Building, make_building};
+use crate::building::{edge_targets, make_building};
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST};
 use crate::util::directions::DIR8;
 use crate::util::symmetry::Symmetry;
 
-/// Structural output tiles of `bld` placed at `pos`. One entry for a
-/// conveyor / armoured conveyor / bridge; three for a splitter; empty for
-/// non-routing buildings (which participate via separate sets).
-fn _edge_targets(pos: Position, bld: Building) -> Vec<Position> {
-    match bld {
-        Building::Conveyor { direction: d, .. }
-        | Building::ArmouredConveyor { direction: d, .. } => {
-            vec![pos.add(d)]
-        }
-        Building::Bridge { target: t, .. } => vec![t],
-        Building::Splitter { direction: d, .. } => {
-            vec![
-                pos.add(d),
-                pos.add(rotate_right(rotate_right(d))),
-                pos.add(rotate_left(rotate_left(d))),
-            ]
-        }
-        _ => Vec::new(),
-    }
-}
-
-const fn rotate_right(d: Direction) -> Direction {
-    match d {
-        Direction::North => Direction::Northeast,
-        Direction::Northeast => Direction::East,
-        Direction::East => Direction::Southeast,
-        Direction::Southeast => Direction::South,
-        Direction::South => Direction::Southwest,
-        Direction::Southwest => Direction::West,
-        Direction::West => Direction::Northwest,
-        Direction::Northwest => Direction::North,
-        Direction::Centre => Direction::Centre,
-    }
-}
-
-const fn rotate_left(d: Direction) -> Direction {
-    match d {
-        Direction::North => Direction::Northwest,
-        Direction::Northeast => Direction::North,
-        Direction::East => Direction::Northeast,
-        Direction::Southeast => Direction::East,
-        Direction::South => Direction::Southeast,
-        Direction::Southwest => Direction::South,
-        Direction::West => Direction::Southwest,
-        Direction::Northwest => Direction::West,
-        Direction::Centre => Direction::Centre,
-    }
-}
-
 pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
-    let old_bld = builder.buildings[i];
-    if let Some(b) = old_bld
-        && b.team() == builder.state.my_team
-    {
-        for t in _edge_targets(pos, b) {
+    let old_kind = builder.building_kind[i];
+    let old_team = builder.building_team[i];
+    let my_team = builder.state.my_team;
+    if old_team == Some(my_team) && !builder.out_edges[i].is_empty() {
+        let outs: Vec<Position> = builder.out_edges[i].clone();
+        for t in outs {
             if !builder.in_bounds(t) {
                 continue;
             }
@@ -77,21 +29,15 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
         builder.out_edges[i] = Vec::new();
         builder._on_out_edges_changed(pos);
     }
-    match old_bld {
-        Some(Building::Foundry { team }) if team == builder.state.my_team => {
+    match old_kind {
+        Some(EntityType::Foundry) if old_team == Some(my_team) => {
             builder.my_foundries.remove(&pos);
             builder._bump_foundry(pos, -1);
         }
-        Some(Building::Harvester { team }) if team == builder.state.my_team => {
-            builder.my_harvesters.remove(&pos);
-            let env = builder.env[i];
-            if env == Some(Environment::OreAxionite) {
-                builder._bump_ax_harv(pos, -1);
-            } else if env == Some(Environment::OreTitanium) {
-                builder._bump_ti_harv(pos, -1);
+        Some(EntityType::Harvester) => {
+            if old_team == Some(my_team) {
+                builder.my_harvesters.remove(&pos);
             }
-        }
-        Some(Building::Harvester { .. }) => {
             let env = builder.env[i];
             if env == Some(Environment::OreAxionite) {
                 builder._bump_ax_harv(pos, -1);
@@ -103,14 +49,21 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
     }
 }
 
-pub fn _add_topology(builder: &mut Builder, pos: Position, bld: Building) {
+pub fn _add_topology(
+    builder: &mut Builder,
+    ct: &Controller<'_>,
+    pos: Position,
+    bid: i32,
+    kind: EntityType,
+    team: cambc::Team,
+) {
     let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
     if builder.reach_parent[i] == -1 {
         builder.reach_parent[i] = i as i32;
         builder.reach_frontier.push(i as i32);
     }
-    if bld.team() == builder.state.my_team {
-        let targets = _edge_targets(pos, bld);
+    if team == builder.state.my_team {
+        let targets = edge_targets(ct, pos, bid, kind);
         if !targets.is_empty() {
             let mut outs: Vec<Position> = Vec::new();
             for t in targets {
@@ -141,21 +94,15 @@ pub fn _add_topology(builder: &mut Builder, pos: Position, bld: Building) {
             return;
         }
     }
-    match bld {
-        Building::Foundry { team } if team == builder.state.my_team => {
+    match kind {
+        EntityType::Foundry if team == builder.state.my_team => {
             builder.my_foundries.insert(pos);
             builder._bump_foundry(pos, 1);
         }
-        Building::Harvester { team } if team == builder.state.my_team => {
-            builder.my_harvesters.insert(pos);
-            let idx = builder.idx(pos);
-            match builder.env[idx] {
-                Some(Environment::OreAxionite) => builder._bump_ax_harv(pos, 1),
-                Some(Environment::OreTitanium) => builder._bump_ti_harv(pos, 1),
-                _ => {}
+        EntityType::Harvester => {
+            if team == builder.state.my_team {
+                builder.my_harvesters.insert(pos);
             }
-        }
-        Building::Harvester { .. } => {
             let idx = builder.idx(pos);
             match builder.env[idx] {
                 Some(Environment::OreAxionite) => builder._bump_ax_harv(pos, 1),
@@ -171,9 +118,6 @@ pub fn _add_topology(builder: &mut Builder, pos: Position, bld: Building) {
 /// (added, removed, or replaced). Refreshes cost grid, precomputed
 /// neighbours, and dangling status for the tile and any splitter
 /// feeders whose satisfaction count may have flipped.
-///
-/// Called from `update_vision` (start-of-turn observation) and from
-/// `apply_local_destroy` (mid-turn `ct.destroy` invariant fix-up).
 fn _apply_post_transition(
     builder: &mut Builder,
     pos: Position,
@@ -181,16 +125,16 @@ fn _apply_post_transition(
     env: Option<Environment>,
     trigger: &str,
 ) {
-    let bld = builder.buildings[i];
-    _update_cost(builder, i, env, bld);
+    let kind = builder.building_kind[i];
+    let team = builder.building_team[i];
+    _update_cost(builder, i, env, kind, team);
     builder.update_pnb(i);
     builder._check_dangling(pos, trigger);
     let feeders: Vec<Position> = builder.in_edges[i].clone();
     for feeder in &feeders {
-        let fb = builder.buildings[(feeder.y as usize) * MAX_WIDTH + (feeder.x as usize)];
-        if matches!(fb, Some(Building::Splitter { .. })) {
-            let siblings: Vec<Position> =
-                builder.out_edges[(feeder.y as usize) * MAX_WIDTH + (feeder.x as usize)].clone();
+        let fi = (feeder.y as usize) * MAX_WIDTH + (feeder.x as usize);
+        if builder.building_kind[fi] == Some(EntityType::Splitter) {
+            let siblings: Vec<Position> = builder.out_edges[fi].clone();
             for sib in siblings {
                 if sib != pos {
                     builder._check_dangling(sib, "splitter_sibling");
@@ -200,20 +144,12 @@ fn _apply_post_transition(
     }
 }
 
-/// Mid-turn invariant fix-up after `ct.destroy(pos)`. The bot's
-/// belief (cost_grid, in_edges/out_edges, hp, harvester adjacency,
-/// upstream sets, dangling) is otherwise frozen at start-of-turn —
-/// a subsequent `try_move_with_road` or bugnav read on the destroyed
-/// tile would see stale data. This mirrors the destroy path in
-/// `update_vision`: `_remove_topology` first, then clear the slot,
-/// then run the shared post-transition work.
-///
-/// Safe to call after issuing `ct.destroy(pos)` regardless of what
-/// was there (friendly conveyor / barrier / road / armoured / etc.).
+/// Mid-turn invariant fix-up after `ct.destroy(pos)`.
 pub fn apply_local_destroy(builder: &mut Builder, pos: Position) {
     let i = builder.idx(pos);
     _remove_topology(builder, pos, i);
-    builder.buildings[i] = None;
+    builder.building_kind[i] = None;
+    builder.building_team[i] = None;
     builder.hp[i] = 0;
     builder.max_hp[i] = 0;
     let env = builder.env[i];
@@ -224,7 +160,8 @@ pub fn _update_cost(
     builder: &mut Builder,
     i: usize,
     terrain: Option<Environment>,
-    bld: Option<Building>,
+    kind: Option<EntityType>,
+    team: Option<cambc::Team>,
 ) {
     let mut routing_extra: i32 = 0;
     let cost: i32;
@@ -232,29 +169,29 @@ pub fn _update_cost(
     if terrain == Some(Environment::Wall) {
         cost = INF;
         buildable = false;
-    } else if let Some(b) = bld {
-        match b {
-            Building::Road { team } if team == builder.state.my_team => {
+    } else if let Some(k) = kind {
+        match k {
+            EntityType::Road if team == Some(builder.state.my_team) => {
                 cost = 1;
                 buildable = true;
             }
-            Building::Road { .. } => {
+            EntityType::Road => {
                 cost = 1;
                 buildable = true;
                 routing_extra = 4;
             }
-            Building::Marker { .. } => {
+            EntityType::Marker => {
                 cost = ROAD_COST;
                 buildable = true;
             }
-            Building::Conveyor { .. }
-            | Building::Splitter { .. }
-            | Building::ArmouredConveyor { .. }
-            | Building::Bridge { .. } => {
+            EntityType::Conveyor
+            | EntityType::Splitter
+            | EntityType::ArmouredConveyor
+            | EntityType::Bridge => {
                 cost = 1;
                 buildable = false;
             }
-            Building::Core { team } if team == builder.state.my_team => {
+            EntityType::Core if team == Some(builder.state.my_team) => {
                 cost = 1;
                 buildable = false;
             }
@@ -283,11 +220,14 @@ fn _update_turret_rays(
     builder: &mut Builder,
     ct: &mut Controller<'_>,
     pos: Position,
-    bld: Building,
+    bid: i32,
+    kind: EntityType,
+    team: cambc::Team,
 ) {
     let my_team = builder.state.my_team;
-    match bld {
-        Building::Launcher { team } if team != my_team => {
+    let enemy = team != my_team;
+    match kind {
+        EntityType::Launcher if enemy => {
             for d in DIR8 {
                 let n = pos.add(d);
                 if builder.in_bounds(n) {
@@ -295,7 +235,8 @@ fn _update_turret_rays(
                 }
             }
         }
-        Building::Gunner { team, direction: d } if team != my_team => {
+        EntityType::Gunner if enemy => {
+            let d = ct.get_direction(Some(bid)).unwrap();
             let mut ray = pos;
             for _ in 0..3 {
                 ray = ray.add(d);
@@ -307,7 +248,8 @@ fn _update_turret_rays(
                 }
             }
         }
-        Building::Sentinel { team, direction: d } if team != my_team => {
+        EntityType::Sentinel if enemy => {
+            let d = ct.get_direction(Some(bid)).unwrap();
             for tile in ct
                 .get_attackable_tiles_from(pos, d, EntityType::Sentinel)
                 .unwrap()
@@ -315,7 +257,8 @@ fn _update_turret_rays(
                 builder.enemy_turret_ray_tiles.insert(tile);
             }
         }
-        Building::Gunner { team, direction: d } if team == my_team => {
+        EntityType::Gunner => {
+            let d = ct.get_direction(Some(bid)).unwrap();
             let mut ray = pos;
             for _ in 0..3 {
                 ray = ray.add(d);
@@ -334,7 +277,8 @@ fn _update_turret_rays(
                 }
             }
         }
-        Building::Sentinel { team, direction: d } if team == my_team => {
+        EntityType::Sentinel => {
+            let d = ct.get_direction(Some(bid)).unwrap();
             let mut ray = pos;
             for _ in 0..6 {
                 ray = ray.add(d);
@@ -409,15 +353,20 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                 apply_local_destroy(builder, pos);
             } else {
                 _remove_topology(builder, pos, i);
-                let bld = make_building(ct, bid.unwrap());
-                builder.buildings[i] = Some(bld);
+                let bid_v = bid.unwrap();
+                let (kind, team) = make_building(ct, bid_v);
+                builder.building_kind[i] = Some(kind);
+                builder.building_team[i] = Some(team);
                 builder.hp[i] = ct.get_hp(bid).unwrap();
                 builder.max_hp[i] = ct.get_max_hp(bid).unwrap();
-                _add_topology(builder, pos, bld);
+                _add_topology(builder, ct, pos, bid_v, kind, team);
                 _apply_post_transition(builder, pos, i, Some(env), "building_changed");
             }
-            if let Some(bld) = builder.buildings[i] {
-                _update_turret_rays(builder, ct, pos, bld);
+            if let Some(bid_v) = bid
+                && let Some(kind) = builder.building_kind[i]
+                && let Some(team) = builder.building_team[i]
+            {
+                _update_turret_rays(builder, ct, pos, bid_v, kind, team);
             }
         } else if bid.is_some() {
             builder.hp[i] = ct.get_hp(bid).unwrap();
@@ -425,22 +374,20 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
 
         if bid.is_some() {
-            let bld = builder.buildings[i];
+            let kind = builder.building_kind[i];
+            let team = builder.building_team[i];
             builder.nearby_buildings.push(pos);
-            if let Some(b) = bld
-                && builder.hp[i] < builder.max_hp[i]
-                && b.team() == builder.state.my_team
-            {
+            if builder.hp[i] < builder.max_hp[i] && team == Some(builder.state.my_team) {
                 builder.healable_buildings.push(pos);
             }
 
             if matches!(
-                bld,
+                kind,
                 Some(
-                    Building::Conveyor { .. }
-                        | Building::ArmouredConveyor { .. }
-                        | Building::Bridge { .. }
-                        | Building::Splitter { .. }
+                    EntityType::Conveyor
+                        | EntityType::ArmouredConveyor
+                        | EntityType::Bridge
+                        | EntityType::Splitter
                 )
             ) {
                 let bid_v = bid.unwrap();
@@ -472,7 +419,7 @@ fn _narrow_symmetry(builder: &mut Builder, new_observations: &[(Position, Enviro
             let Some(mirror_env) = mirror_env else {
                 continue;
             };
-            let mirror_is_core = matches!(builder.buildings[mi], Some(Building::Core { .. }));
+            let mirror_is_core = builder.building_kind[mi] == Some(EntityType::Core);
             if mirror_env != env || mirror_is_core != is_core {
                 invalid.insert(sym);
                 break;

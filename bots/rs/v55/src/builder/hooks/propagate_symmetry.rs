@@ -26,7 +26,7 @@ pub fn end_of_turn_propagate_symmetry(builder: &mut Builder, ct: &mut Controller
         if builder.env[i] == Some(Environment::Wall) {
             continue;
         }
-        if builder.buildings[i].is_some() {
+        if builder.building_kind[i].is_some() {
             continue;
         }
         if ct.can_place_marker(target).unwrap() {

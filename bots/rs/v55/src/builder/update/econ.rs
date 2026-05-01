@@ -9,7 +9,6 @@ use crate::builder::helpers::{
     ax_feeds_target, can_afford_ore_claim, harvester_would_contaminate, is_inward_guard,
     ore_available, pick_ax_ore_target, pick_offensive_ti_ore_target, pick_ore_target,
 };
-use crate::building::Building;
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, base_cost};
 use crate::util::debug::Scope;
 use crate::util::debug::debug as log;
@@ -17,12 +16,12 @@ use crate::util::directions::DIR4;
 use crate::util::metrics::{chebyshev, claims_by_proximity};
 
 pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
-    let bld = builder.get_building(pos);
-    let ok = match bld {
+    let my_team = builder.state.my_team;
+    let kind = builder.kind_at(pos);
+    let team = builder.team_at(pos);
+    let ok = match kind {
         None => true,
-        Some(Building::Conveyor { team, .. }) | Some(Building::Road { team }) => {
-            team == builder.state.my_team
-        }
+        Some(EntityType::Conveyor | EntityType::Road) => team == Some(my_team),
         _ => false,
     };
     if !ok {
@@ -47,12 +46,12 @@ pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
         if builder.get_env(new_pos) != Some(Environment::Empty) {
             continue;
         }
-        match builder.get_building(new_pos) {
+        let nk = builder.kind_at(new_pos);
+        let nt = builder.team_at(new_pos);
+        match nk {
             None => buildable_count += 1,
-            Some(
-                Building::Conveyor { .. } | Building::Bridge { .. } | Building::Splitter { .. },
-            ) => {}
-            Some(b) if b.team() == builder.state.my_team => buildable_count += 1,
+            Some(EntityType::Conveyor | EntityType::Bridge | EntityType::Splitter) => {}
+            Some(_) if nt == Some(my_team) => buildable_count += 1,
             Some(_) => {}
         }
     }
@@ -80,8 +79,7 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     let my_team = builder.state.my_team;
     for pos in &nearby {
         let pos = *pos;
-        let bld = builder.get_building(pos);
-        if !matches!(bld, Some(Building::Harvester { .. })) {
+        if builder.kind_at(pos) != Some(EntityType::Harvester) {
             continue;
         }
         let mut adjacent_conveyor = false;
@@ -90,42 +88,43 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
             if !builder.in_bounds(n) {
                 continue;
             }
-            match builder.get_building(n) {
-                Some(
-                    Building::Conveyor {
-                        team,
-                        direction: cdir,
-                    }
-                    | Building::ArmouredConveyor {
-                        team,
-                        direction: cdir,
-                    },
-                ) if team == my_team => {
-                    if cdir != d.opposite() {
-                        let target = n.add(cdir);
-                        if builder.in_bounds(target)
-                            && matches!(
-                                builder.get_building(target),
-                                Some(Building::Harvester { .. })
-                            )
-                        {
-                            // skip — pushes into a harvester
-                        } else {
-                            adjacent_conveyor = true;
-                            break;
+            let ni = builder.idx(n);
+            let nk = builder.building_kind[ni];
+            let nt = builder.building_team[ni];
+            match nk {
+                Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+                    if nt == Some(my_team) =>
+                {
+                    // The conveyor's output is the back-of-harvester check.
+                    // n.add(cdir) where cdir = direction(n), but here we
+                    // need to know if the output points away from the
+                    // harvester. Equivalent: out_edges[ni][0] != pos.
+                    if let Some(&out) = builder.out_edges[ni].first() {
+                        if out != pos {
+                            // The conveyor faces somewhere else than the
+                            // harvester's tile. If that destination is itself
+                            // a friendly harvester, this conveyor pushes
+                            // INTO another harvester — skip; otherwise it's
+                            // a real outbound feeder.
+                            if !(builder.in_bounds(out)
+                                && builder.kind_at(out) == Some(EntityType::Harvester))
+                            {
+                                adjacent_conveyor = true;
+                                break;
+                            }
                         }
                     }
                 }
                 Some(
-                    Building::Bridge { team, .. }
-                    | Building::Splitter { team, .. }
-                    | Building::Foundry { team }
-                    | Building::Core { team }
-                    | Building::Gunner { team, .. }
-                    | Building::Sentinel { team, .. }
-                    | Building::Breach { team, .. }
-                    | Building::Launcher { team },
-                ) if team == my_team => {
+                    EntityType::Bridge
+                    | EntityType::Splitter
+                    | EntityType::Foundry
+                    | EntityType::Core
+                    | EntityType::Gunner
+                    | EntityType::Sentinel
+                    | EntityType::Breach
+                    | EntityType::Launcher,
+                ) if nt == Some(my_team) => {
                     adjacent_conveyor = true;
                     break;
                 }
@@ -162,11 +161,14 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
     }
 
-    // Reconcile dangling_set with harvester-adjacency changes
-    let changed: HashSet<Position> = prev_unconn
+    // Reconcile dangling_set with harvester-adjacency changes. Sort by
+    // (y, x) so any logs / side-effect ordering inside `_check_dangling`
+    // are deterministic across hash-randomized iteration.
+    let mut changed: Vec<Position> = prev_unconn
         .symmetric_difference(&builder.adjacent_to_unconnected_harvester)
         .copied()
         .collect();
+    changed.sort_by_key(|p| (p.y, p.x));
     for p in changed {
         builder._check_dangling(p, "unconn_flip");
     }
@@ -180,7 +182,10 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
         return;
     }
     let my_root = find(&mut builder.reach_parent, my_i as i32);
-    let dangling: Vec<Position> = builder.dangling_set.iter().copied().collect();
+    // Sort by (y, x) so the log output and any downstream observable side
+    // effects are deterministic across hash-randomized iteration.
+    let mut dangling: Vec<Position> = builder.dangling_set.iter().copied().collect();
+    dangling.sort_by_key(|p| (p.y, p.x));
     for t in dangling {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if builder.reach_parent[i] == -1 || find(&mut builder.reach_parent, i as i32) != my_root {
@@ -194,7 +199,8 @@ pub fn update_unreachable_dangling(builder: &mut Builder) {
             builder.unreachable_dangling.insert(t);
         }
     }
-    let unreach: Vec<Position> = builder.unreachable_dangling.iter().copied().collect();
+    let mut unreach: Vec<Position> = builder.unreachable_dangling.iter().copied().collect();
+    unreach.sort_by_key(|p| (p.y, p.x));
     for t in unreach {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         if builder.reach_parent[i] != -1 && find(&mut builder.reach_parent, i as i32) == my_root {
@@ -288,7 +294,9 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
         None
     };
     let mut best: Option<Position> = None;
-    let mut best_score: (i32, i32) = (1 << 30, 1 << 30);
+    // Tiebreak by (y, x) on top of (my_d, chain_d) so iteration order over
+    // the hash collection isn't observable.
+    let mut best_score: (i32, i32, i32, i32) = (1 << 30, 1 << 30, 1 << 30, 1 << 30);
     let dangling_iter: Vec<Position> = builder.dangling_set.iter().copied().collect();
     for pos in dangling_iter {
         if let Some(c) = ct
@@ -311,7 +319,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
             }
             _ => chebyshev_to_nearest_core_edge(builder, pos),
         };
-        let score = (my_d, chain_d);
+        let score = (my_d, chain_d, pos.y, pos.x);
         if score < best_score {
             best_score = score;
             best = Some(pos);
@@ -393,11 +401,11 @@ const _AX_HARVESTER_ROUND_GATE: i32 = 500;
 /// Ax chain — `harvester_would_contaminate` has already admitted the Ax
 /// harvester under the same geometric rule.
 fn _is_zero_length_foundry_spot(builder: &Builder, pos: Position) -> bool {
-    let bld = builder.buildings[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)];
-    let Some(Building::Conveyor { team, .. }) = bld else {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    if builder.building_kind[i] != Some(EntityType::Conveyor) {
         return false;
-    };
-    if team != builder.state.my_team {
+    }
+    if builder.building_team[i] != Some(builder.state.my_team) {
         return false;
     }
     let mut ax_harv_count = 0;
@@ -407,9 +415,8 @@ fn _is_zero_length_foundry_spot(builder: &Builder, pos: Position) -> bool {
             continue;
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
-        let nb = builder.buildings[ni];
-        if let Some(Building::Harvester { team }) = nb
-            && team == builder.state.my_team
+        if builder.building_kind[ni] == Some(EntityType::Harvester)
+            && builder.building_team[ni] == Some(builder.state.my_team)
             && builder.env[ni] == Some(Environment::OreAxionite)
         {
             ax_harv_count += 1;
@@ -426,18 +433,16 @@ fn _is_zero_length_foundry_spot(builder: &Builder, pos: Position) -> bool {
 /// of any known Ax harvester.
 fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
     let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
-    let bld = builder.buildings[i];
-    let Some(b) = bld else {
-        return false;
-    };
+    let kind = builder.building_kind[i];
+    let team = builder.building_team[i];
     let is_conv = matches!(
-        b,
-        Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+        kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     );
     if !is_conv {
         return false;
     }
-    if b.team() != builder.state.my_team {
+    if team != Some(builder.state.my_team) {
         return false;
     }
     if builder.upstream_of_dangling.contains(&pos) {
@@ -508,14 +513,9 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
     let mut result: Vec<Position> = Vec::new();
     for t in &builder.nearby_buildings {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
-        let bld = builder.buildings[i];
         if !matches!(
-            bld,
-            Some(
-                Building::Conveyor { .. }
-                    | Building::ArmouredConveyor { .. }
-                    | Building::Bridge { .. }
-            )
+            builder.building_kind[i],
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
         ) {
             continue;
         }
@@ -553,14 +553,9 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
     let mut result: Vec<Position> = Vec::new();
     for t in &builder.nearby_buildings {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
-        let bld = builder.buildings[i];
         if !matches!(
-            bld,
-            Some(
-                Building::Conveyor { .. }
-                    | Building::ArmouredConveyor { .. }
-                    | Building::Bridge { .. }
-            )
+            builder.building_kind[i],
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
         ) {
             continue;
         }
@@ -929,18 +924,16 @@ fn _feeder_flow_kind(builder: &Builder, f: Position) -> Option<&'static str> {
 /// delivering Ax only.
 fn _is_junction(builder: &Builder, pos: Position) -> bool {
     let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
-    let bld = builder.buildings[i];
-    let Some(b) = bld else {
-        return false;
-    };
+    let kind = builder.building_kind[i];
+    let team = builder.building_team[i];
     let is_conv = matches!(
-        b,
-        Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+        kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     );
     if !is_conv {
         return false;
     }
-    if b.team() != builder.state.my_team {
+    if team != Some(builder.state.my_team) {
         return false;
     }
     let feeders = &builder.in_edges[i];
@@ -1003,12 +996,16 @@ pub fn update_foundry_target(builder: &mut Builder) {
     let mut ti_cand_best: Option<Position> = None;
     let mut ti_cand_d: i32 = 1 << 30;
 
+    // Tiebreak by (y, x) so iteration order over the hash collections is
+    // not observable: when two positions share the same Manhattan distance
+    // from `origin`, the one with the smaller (y, x) wins deterministically.
     {
         let _g = Scope::new_timed("junctions");
         for pos in &builder.junctions {
-            let d = _manhattan(origin, *pos);
-            if d < junction_d {
-                junction_d = d;
+            let key = (_manhattan(origin, *pos), pos.y, pos.x);
+            let best_key = junction_best.map(|p| (junction_d, p.y, p.x));
+            if best_key.is_none_or(|bk| key < bk) {
+                junction_d = key.0;
                 junction_best = Some(*pos);
             }
         }
@@ -1017,9 +1014,10 @@ pub fn update_foundry_target(builder: &mut Builder) {
     {
         let _g = Scope::new_timed("foundries");
         for pos in &builder.my_foundries {
-            let d = _manhattan(origin, *pos);
-            if d < foundry_d {
-                foundry_d = d;
+            let key = (_manhattan(origin, *pos), pos.y, pos.x);
+            let best_key = foundry_best.map(|p| (foundry_d, p.y, p.x));
+            if best_key.is_none_or(|bk| key < bk) {
+                foundry_d = key.0;
                 foundry_best = Some(*pos);
             }
         }
@@ -1031,9 +1029,10 @@ pub fn update_foundry_target(builder: &mut Builder) {
             if !_pure_ax_merge_ok(builder, *pos) {
                 continue;
             }
-            let d = _manhattan(origin, *pos);
-            if d < ax_chain_d {
-                ax_chain_d = d;
+            let key = (_manhattan(origin, *pos), pos.y, pos.x);
+            let best_key = ax_chain_best.map(|p| (ax_chain_d, p.y, p.x));
+            if best_key.is_none_or(|bk| key < bk) {
+                ax_chain_d = key.0;
                 ax_chain_best = Some(*pos);
             }
         }
@@ -1045,9 +1044,10 @@ pub fn update_foundry_target(builder: &mut Builder) {
             if !_foundry_local_ok(builder, *pos) {
                 continue;
             }
-            let d = _manhattan(origin, *pos);
-            if d < ti_cand_d {
-                ti_cand_d = d;
+            let key = (_manhattan(origin, *pos), pos.y, pos.x);
+            let best_key = ti_cand_best.map(|p| (ti_cand_d, p.y, p.x));
+            if best_key.is_none_or(|bk| key < bk) {
+                ti_cand_d = key.0;
                 ti_cand_best = Some(*pos);
             }
         }
@@ -1075,12 +1075,11 @@ pub fn update_foundry_target(builder: &mut Builder) {
 
     let ft = builder.foundry_target;
     if let Some(ft) = ft {
-        let bld = builder.buildings[(ft.y as usize) * MAX_WIDTH + (ft.x as usize)];
+        let fi = (ft.y as usize) * MAX_WIDTH + (ft.x as usize);
         let is_transport = matches!(
-            bld,
-            Some(Building::Conveyor { team, .. } | Building::ArmouredConveyor { team, .. })
-                if team == builder.state.my_team
-        );
+            builder.building_kind[fi],
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+        ) && builder.building_team[fi] == Some(builder.state.my_team);
         let still_valid_junction = is_transport && builder.junctions.contains(&ft);
         let still_valid_kind_c = is_transport
             && builder.reaches_core.contains(&ft)
@@ -1103,18 +1102,16 @@ pub fn update_foundry_target(builder: &mut Builder) {
 /// Empirical Ti-sink candidate.
 fn _ti_sink_ok(builder: &Builder, pos: Position) -> bool {
     let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
-    let bld = builder.buildings[i];
-    let Some(b) = bld else {
-        return false;
-    };
+    let kind = builder.building_kind[i];
+    let team = builder.building_team[i];
     let is_conv = matches!(
-        b,
-        Building::Conveyor { .. } | Building::ArmouredConveyor { .. }
+        kind,
+        Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     );
     if !is_conv {
         return false;
     }
-    if b.team() != builder.state.my_team {
+    if team != Some(builder.state.my_team) {
         return false;
     }
     if is_inward_guard(builder, pos) {

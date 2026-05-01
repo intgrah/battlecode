@@ -14,49 +14,44 @@ use cambc::{
 use crate::builder::Builder;
 use crate::builder::helpers::{move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::building::Building;
 use crate::util::directions::{DIR4, DIR8};
 
-fn is_turret(b: Option<Building>) -> bool {
+fn is_turret(kind: Option<EntityType>) -> bool {
     matches!(
-        b,
+        kind,
         Some(
-            Building::Gunner { .. }
-                | Building::Sentinel { .. }
-                | Building::Breach { .. }
-                | Building::Launcher { .. }
+            EntityType::Gunner
+                | EntityType::Sentinel
+                | EntityType::Breach
+                | EntityType::Launcher
         )
     )
 }
 
-fn is_turret_or_transport(b: Option<Building>) -> bool {
+fn is_turret_or_transport(kind: Option<EntityType>) -> bool {
     matches!(
-        b,
+        kind,
         Some(
-            Building::Gunner { .. }
-                | Building::Sentinel { .. }
-                | Building::Breach { .. }
-                | Building::Launcher { .. }
-                | Building::Conveyor { .. }
-                | Building::ArmouredConveyor { .. }
-                | Building::Splitter { .. }
+            EntityType::Gunner
+                | EntityType::Sentinel
+                | EntityType::Breach
+                | EntityType::Launcher
+                | EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Splitter
         )
     )
 }
 
-/// True if `b` is a friendly building we must NOT destroy when
-/// placing a turret. Destroying conveyors / roads / markers / enemy
-/// stuff is fine — they're cheap or hostile — but stomping our own
-/// harvester wipes ore output, and stomping our own foundry /
-/// launcher kills a huge Ti + scaling investment.
-fn is_precious_friendly(b: Option<Building>, team: Team) -> bool {
-    let Some(b) = b else { return false };
-    if b.team() != team {
+/// True if the building kind+team is a friendly building we must NOT
+/// destroy when placing a turret.
+fn is_precious_friendly(kind: Option<EntityType>, bteam: Option<Team>, team: Team) -> bool {
+    if bteam != Some(team) {
         return false;
     }
     matches!(
-        b,
-        Building::Harvester { .. } | Building::Foundry { .. } | Building::Launcher { .. }
+        kind,
+        Some(EntityType::Harvester | EntityType::Foundry | EntityType::Launcher)
     )
 }
 
@@ -99,11 +94,12 @@ pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
     if !self_.is_buildable(position) {
         return None;
     }
-    let b = self_.get_building(position);
-    if is_precious_friendly(b, self_.my_team) {
+    let kind = self_.kind_at(position);
+    let team = self_.team_at(position);
+    if is_precious_friendly(kind, team, self_.my_team) {
         return None;
     }
-    if is_turret(b) {
+    if is_turret(kind) {
         return None;
     }
     if let Some(&uid) = self_.all_bots.get(&position)
@@ -116,11 +112,12 @@ pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
         if !self_.in_bounds(n) {
             continue;
         }
-        let nb = self_.get_building(n);
-        let is_enemy_gunner_or_sentinel = matches!(
-            nb,
-            Some(Building::Gunner { team, .. } | Building::Sentinel { team, .. }) if team != self_.my_team
-        );
+        let nk = self_.kind_at(n);
+        let nt = self_.team_at(n);
+        let is_enemy_gunner_or_sentinel =
+            matches!(nk, Some(EntityType::Gunner | EntityType::Sentinel))
+                && nt.is_some()
+                && nt != Some(self_.my_team);
         if !is_enemy_gunner_or_sentinel {
             continue;
         }
@@ -130,7 +127,7 @@ pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
                 if !self_.in_bounds(hn) {
                     continue;
                 }
-                if matches!(self_.get_building(hn), Some(Building::Harvester { .. })) {
+                if self_.kind_at(hn) == Some(EntityType::Harvester) {
                     return Some(d);
                 }
             }
@@ -144,14 +141,15 @@ pub fn sentinel_facing(
     ct: &mut Controller<'_>,
     position: Position,
 ) -> Option<Direction> {
-    let b = self_.get_building(position);
+    let kind = self_.kind_at(position);
+    let team = self_.team_at(position);
     let nearest = self_.nearest_enemy_turret;
     if nearest.is_none()
         || position.distance_squared(nearest.unwrap()) > GameConstants::SENTINEL_VISION_RADIUS_SQ
         || !self_.adjacent_to_harvester.contains(&position)
         || !self_.is_buildable(position)
-        || is_turret_or_transport(b)
-        || is_precious_friendly(b, self_.my_team)
+        || is_turret_or_transport(kind)
+        || is_precious_friendly(kind, team, self_.my_team)
         || !self_.in_bounds(position)
     {
         return None;
@@ -171,7 +169,7 @@ pub fn sentinel_facing(
             if !self_.in_bounds(hn) {
                 continue;
             }
-            if matches!(self_.get_building(hn), Some(Building::Harvester { .. })) {
+            if self_.kind_at(hn) == Some(EntityType::Harvester) {
                 found_harvester = true;
             }
         }

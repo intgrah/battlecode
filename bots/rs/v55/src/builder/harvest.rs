@@ -25,7 +25,6 @@ use crate::builder::helpers::{
     can_afford, harvester_feed_cardinal, make_move, make_move_or_adjacent, on_enemy_side,
     ore_available, try_move_with_road,
 };
-use crate::building::Building;
 use crate::util::debug::debug as log;
 use crate::util::directions::{DIR4, delta_to_dir};
 use crate::util::visualiser::auto_wrap_position;
@@ -39,18 +38,18 @@ pub fn find_contest_target(builder: &Builder, pos: Position, my_team: Team) -> O
         if !builder.in_bounds(n) {
             continue;
         }
-        let Some(b) = builder.get_building(n) else {
+        let Some((kind, team)) = builder.get_building(n) else {
             continue;
         };
-        if b.team() == my_team {
+        if team == my_team {
             continue;
         }
         if matches!(
-            b,
-            Building::Road { .. }
-                | Building::Conveyor { .. }
-                | Building::Splitter { .. }
-                | Building::Bridge { .. }
+            kind,
+            EntityType::Road
+                | EntityType::Conveyor
+                | EntityType::Splitter
+                | EntityType::Bridge
         ) {
             return Some(n);
         }
@@ -66,10 +65,10 @@ pub fn is_guarded_cardinal(builder: &Builder, pos: Position) -> bool {
     if builder.get_env(pos) == Some(Environment::Wall) {
         return true;
     }
-    let Some(b) = builder.get_building(pos) else {
+    let Some(kind) = builder.kind_at(pos) else {
         return false;
     };
-    !matches!(b, Building::Road { .. } | Building::Marker { .. })
+    !matches!(kind, EntityType::Road | EntityType::Marker)
 }
 
 /// Walk toward `target_pos`, clearing any contest tile along the way.
@@ -126,14 +125,9 @@ pub fn walk_to_ore_claim(
     // armoured) placed earlier as the protective ring of an ADJACENT
     // harvester, tear it down so we can walk onto the now-empty tile.
     if builder.state.my_pos.distance_squared(target_pos) <= 2 {
-        let existing = builder.get_building(target_pos);
         if matches!(
-            existing,
-            Some(
-                Building::Barrier { .. }
-                    | Building::Conveyor { .. }
-                    | Building::ArmouredConveyor { .. }
-            )
+            builder.kind_at(target_pos),
+            Some(EntityType::Barrier | EntityType::Conveyor | EntityType::ArmouredConveyor)
         ) && ct.can_destroy(target_pos).unwrap()
         {
             let mut args = Map::new();
@@ -179,12 +173,13 @@ pub fn needs_harvester_guard(
     if is_guarded_cardinal(builder, cardinal) {
         return false;
     }
-    let b = builder.get_building(cardinal);
-    if let Some(
-        Building::Conveyor { team, direction } | Building::ArmouredConveyor { team, direction },
-    ) = b
-        && team == builder.state.my_team
-        && cardinal.add(direction) == target
+    let ci = builder.idx(cardinal);
+    let kind = builder.building_kind[ci];
+    let team = builder.building_team[ci];
+    if matches!(kind, Some(EntityType::Conveyor | EntityType::ArmouredConveyor))
+        && team == Some(builder.state.my_team)
+        && !builder.out_edges[ci].is_empty()
+        && builder.out_edges[ci][0] == target
     {
         return false;
     }
@@ -204,7 +199,7 @@ pub fn place_harvester_guard(
     } else {
         EntityType::Conveyor
     };
-    if matches!(builder.get_building(cardinal), Some(Building::Road { .. }))
+    if builder.kind_at(cardinal) == Some(EntityType::Road)
         && ct.can_destroy(cardinal).unwrap()
         && can_afford(builder, etype)
     {
@@ -308,9 +303,8 @@ pub fn clear_barriered_feed(
         if builder.get_env(c) == Some(Environment::Wall) {
             continue;
         }
-        let b = builder.get_building(c);
-        if let Some(Building::Barrier { team }) = b
-            && team == builder.state.my_team
+        if builder.kind_at(c) == Some(EntityType::Barrier)
+            && builder.team_at(c) == Some(builder.state.my_team)
             && ct.can_destroy(c).unwrap()
         {
             candidates.push(c);
@@ -368,8 +362,9 @@ pub fn step_off_and_build_harvester(
         return true;
     }
 
-    let b = builder.get_building(builder.state.my_pos);
-    if matches!(b, Some(Building::Road { .. })) && ct.can_destroy(builder.state.my_pos).unwrap() {
+    if builder.kind_at(builder.state.my_pos) == Some(EntityType::Road)
+        && ct.can_destroy(builder.state.my_pos).unwrap()
+    {
         if !ct.can_move(d).unwrap() {
             let mut args = Map::new();
             args.insert("feed".to_string(), auto_wrap_position(feed));
@@ -410,14 +405,14 @@ pub fn step_off_and_build_harvester(
             ct.build_harvester(target_pos).unwrap();
             builder.ore_target = None;
         } else {
-            let bld = builder.get_building(target_pos);
+            let kind = builder.kind_at(target_pos);
             let mut args = Map::new();
             args.insert("feed".to_string(), auto_wrap_position(feed));
             args.insert("target".to_string(), auto_wrap_position(target_pos));
             args.insert(
                 "bld".to_string(),
-                serde_json::Value::String(match bld {
-                    Some(b) => format!("{b:?}"),
+                serde_json::Value::String(match kind {
+                    Some(k) => format!("{k:?}"),
                     None => "None".to_string(),
                 }),
             );
@@ -459,8 +454,8 @@ pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> 
         if !builder.in_bounds(n) {
             continue;
         }
-        let b = builder.get_building(n);
-        if matches!(b, Some(Building::Harvester { team }) if team == builder.state.my_team)
+        if builder.kind_at(n) == Some(EntityType::Harvester)
+            && builder.team_at(n) == Some(builder.state.my_team)
             && builder.get_env(n) == Some(Environment::OreTitanium)
         {
             out.push(n);

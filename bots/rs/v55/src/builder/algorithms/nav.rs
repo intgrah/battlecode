@@ -27,7 +27,7 @@ const PLAN_BUDGET: i32 = 25;
 /// this each turn from its own fields and pass `&mut` to `step`.
 pub struct NavCtx<'a> {
     pub my_pos: Position,
-    pub cost_grid: &'a mut Vec<i32>,
+    pub cost_grid: &'a mut [i32; MAX_N],
     pub w: i32,
     pub h: i32,
     pub nearby_tiles: &'a [Position],

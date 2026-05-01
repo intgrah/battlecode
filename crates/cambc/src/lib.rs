@@ -18,15 +18,22 @@ pub use libre_engine::game_map::{
 };
 
 /// A Rust bot. Implementors live as `class Player` after pyrust
-/// translation; the engine calls `run(c)` each turn the unit is alive.
-/// Name it `Player` in your bot crate so the translated Python module
-/// exposes `class Player` (matching the Python loader's contract).
+/// translation; the engine calls `new()` once and `run(c)` each turn
+/// the unit is alive. Name it `Player` in your bot crate so the
+/// translated Python module exposes `class Player` (matching the
+/// Python loader's contract — `new` lowers to `__init__`).
 ///
 /// `#[pyrust::transparent]` tells the translator that this trait has no
 /// Python class — implementations don't inherit from it in the emitted
 /// Python.
 #[pyrust::transparent]
 pub trait Bot {
+    /// Construct a fresh bot instance. The engine calls this once per
+    /// unit. `where Self: Sized` keeps the trait dyn-compatible so the
+    /// FFI layer can hold a `Box<dyn Bot>` after construction.
+    fn new() -> Self
+    where
+        Self: Sized;
     fn run(&mut self, c: &mut Controller<'_>);
 }
 
@@ -54,10 +61,10 @@ pub mod ffi {
 /// ```ignore
 /// use cambc::*;
 ///
-/// #[derive(Default)]
 /// pub struct Player;
 ///
 /// impl Bot for Player {
+///     fn new() -> Self { Player }
 ///     fn run(&mut self, c: &mut Controller<'_>) { /* ... */ }
 /// }
 ///
@@ -71,7 +78,7 @@ macro_rules! cambc_bot {
         #[unsafe(no_mangle)]
         pub extern "C" fn __cambc_create_bot() -> *mut ::std::ffi::c_void {
             let bot: ::std::boxed::Box<dyn $crate::Bot> =
-                ::std::boxed::Box::new(<$ty as ::std::default::Default>::default());
+                ::std::boxed::Box::new(<$ty as $crate::Bot>::new());
             ::std::boxed::Box::into_raw(::std::boxed::Box::new(bot)) as *mut ::std::ffi::c_void
         }
 
