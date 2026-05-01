@@ -64,7 +64,8 @@ pub mod vec {
         __pyrust_vec_clear as clear, __pyrust_vec_contains as contains,
         __pyrust_vec_extend as extend, __pyrust_vec_is_empty as is_empty,
         __pyrust_vec_len as len, __pyrust_vec_new as new, __pyrust_vec_pop as pop,
-        __pyrust_vec_push as push,
+        __pyrust_vec_pop_front as pop_front, __pyrust_vec_push as push,
+        __pyrust_vec_push_back as push_back, __pyrust_vec_push_front as push_front,
     };
 }
 pub mod set {
