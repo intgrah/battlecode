@@ -773,7 +773,7 @@ impl AStarSearch {
     ) -> Option<Vec<Position>> {
         let stride = MAX_WIDTH as i32;
         let mut saved: Vec<(usize, bool, bool)> = pyrust::vec::new!();
-        let nearby = ctx.nearby_tiles.clone();
+        let nearby = pyrust::clone!(ctx.nearby_tiles);
         for pos in &nearby {
             if pyrust::dict::contains!(ctx.all_bots, pos) && *pos != start {
                 let idx = (pos.y * stride + pos.x) as usize;

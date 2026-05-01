@@ -46,7 +46,7 @@ impl Launcher {
 
     fn find_harvester_attack_tiles(&self, ct: &mut Controller<'_>) -> Vec<Position> {
         let mut targets: Vec<Position> = pyrust::vec::new!();
-        let nearby = self.state.nearby_tiles.clone();
+        let nearby = pyrust::clone!(self.state.nearby_tiles);
         let my_team = self.state.my_team;
         for pos in nearby {
             let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(pos)) else {
@@ -78,7 +78,7 @@ impl Launcher {
     fn find_enemy_throw_tile(&self, ct: &mut Controller<'_>) -> (Option<Position>, i32) {
         let mut best: Option<Position> = None;
         let mut best_dist: i32 = 0;
-        let nearby = self.state.nearby_tiles.clone();
+        let nearby = pyrust::clone!(self.state.nearby_tiles);
         let my_team = self.state.my_team;
         let my_pos = self.state.my_pos;
         for pos in nearby {

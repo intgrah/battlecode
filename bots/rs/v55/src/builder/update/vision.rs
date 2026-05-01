@@ -13,7 +13,7 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
     let old_team = builder.building_team[i];
     let my_team = builder.state.my_team;
     if old_team == Some(my_team) && !builder.out_edges[i].is_empty() {
-        let outs: Vec<Position> = builder.out_edges[i].clone();
+        let outs: Vec<Position> = pyrust::clone!(builder.out_edges[i]);
         for t in outs {
             if !builder.in_bounds(t) {
                 continue;
@@ -77,7 +77,7 @@ pub fn _add_topology(
             let was_ti_in = pyrust::vec::contains!(builder.ti_upstream, &pos);
             let was_ax_in = pyrust::vec::contains!(builder.ax_upstream, &pos);
             let pi = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
-            builder.out_edges[pi] = outs.clone();
+            builder.out_edges[pi] = pyrust::clone!(outs);
             builder._on_out_edges_changed(pos);
             for t in &outs {
                 let ti = builder.idx(*t);
@@ -130,11 +130,11 @@ fn _apply_post_transition(
     _update_cost(builder, i, env, kind, team);
     builder.update_pnb(i);
     builder._check_dangling(pos, trigger);
-    let feeders: Vec<Position> = builder.in_edges[i].clone();
+    let feeders: Vec<Position> = pyrust::clone!(builder.in_edges[i]);
     for feeder in &feeders {
         let fi = (feeder.y as usize) * MAX_WIDTH + (feeder.x as usize);
         if builder.building_kind[fi] == Some(EntityType::Splitter) {
-            let siblings: Vec<Position> = builder.out_edges[fi].clone();
+            let siblings: Vec<Position> = pyrust::clone!(builder.out_edges[fi]);
             for sib in siblings {
                 if sib != pos {
                     builder._check_dangling(sib, "splitter_sibling");
@@ -308,7 +308,7 @@ fn _update_turret_rays(
 
 pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
     let mut new_observations: Vec<(Position, Environment, bool)> = pyrust::vec::new!();
-    let nearby = builder.state.nearby_tiles.clone();
+    let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         let pos = *pos;
         let i = builder.idx(pos);

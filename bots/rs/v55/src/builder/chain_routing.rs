@@ -232,7 +232,7 @@ fn _lay_segment(
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
     let destination_team = pyrust::map!(destination_building, |b| pyrust::unwrap!(ct.get_team(Some(b))));
-    let destination_is_marker = pyrust::unwrap_or!(pyrust::map!(destination_building, |b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Marker), false);
+    let destination_is_marker = pyrust::unwrap_or!(pyrust::map!(destination_building, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Marker), false);
 
     if let Some(d) = direction
         && is_cardinal(d)
@@ -325,9 +325,9 @@ pub fn extend_step(
     };
     let Some(mut path) = path else {
         let fail = if is_ax {
-            builder.ax_conv_search.last_fail_reason.clone()
+            pyrust::clone!(builder.ax_conv_search.last_fail_reason)
         } else {
-            builder.conv_search.last_fail_reason.clone()
+            pyrust::clone!(builder.conv_search.last_fail_reason)
         };
         return Some(TaskRejected::from_string(format!(
             "A* {resource} {start:?}->{target:?}: {fail}"

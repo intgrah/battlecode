@@ -31,7 +31,7 @@ pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
         return None;
     }
 
-    let dir_neighbours_8 = self_.dir_neighbours_8.clone();
+    let dir_neighbours_8 = pyrust::clone!(self_.dir_neighbours_8);
     for (d, n) in dir_neighbours_8 {
         if pyrust::unwrap!(ct.can_move(d)) && !has_wounded_enemy(self_, n) {
             pyrust::unwrap!(ct.move_(d));

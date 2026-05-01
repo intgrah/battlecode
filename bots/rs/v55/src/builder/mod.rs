@@ -489,11 +489,11 @@ impl Builder {
     }
 
     pub fn get_in_edges(&self, pos: Position) -> Vec<Position> {
-        self.in_edges[self.idx(pos)].clone()
+        pyrust::clone!(self.in_edges[self.idx(pos)])
     }
 
     pub fn get_out_edges(&self, pos: Position) -> Vec<Position> {
-        self.out_edges[self.idx(pos)].clone()
+        pyrust::clone!(self.out_edges[self.idx(pos)])
     }
 
     pub fn is_buildable(&self, pos: Position) -> bool {
@@ -608,13 +608,13 @@ impl Builder {
 
     fn make_econ_ctx(&self) -> EconAstarCtx {
         EconAstarCtx {
-            ax_routable: self.ax_routable.clone(),
-            ti_routable: self.ti_routable.clone(),
-            routing_extra: self.routing_extra.clone(),
-            reach_parent: self.reach_parent.clone(),
+            ax_routable: pyrust::clone!(self.ax_routable),
+            ti_routable: pyrust::clone!(self.ti_routable),
+            routing_extra: pyrust::clone!(self.routing_extra),
+            reach_parent: pyrust::clone!(self.reach_parent),
             my_pos: self.state.my_pos,
-            nearby_tiles: self.state.nearby_tiles.clone(),
-            all_bots: self.state.all_bots.clone(),
+            nearby_tiles: pyrust::clone!(self.state.nearby_tiles),
+            all_bots: pyrust::clone!(self.state.all_bots),
         }
     }
 
@@ -732,7 +732,7 @@ impl Builder {
             pyrust::set::remove!(self.ti_upstream, &t);
             delta = -1;
         }
-        let outs: Vec<Position> = self.out_edges[i].clone();
+        let outs: Vec<Position> = pyrust::clone!(self.out_edges[i]);
         for out in &outs {
             let oi = self.idx(*out);
             self._ti_in_count[oi] += delta;
@@ -757,7 +757,7 @@ impl Builder {
             pyrust::set::remove!(self.ax_upstream, &t);
             delta = -1;
         }
-        let outs: Vec<Position> = self.out_edges[i].clone();
+        let outs: Vec<Position> = pyrust::clone!(self.out_edges[i]);
         for out in &outs {
             let oi = self.idx(*out);
             self._ax_in_count[oi] += delta;
@@ -873,7 +873,7 @@ impl Builder {
 
         let unconn_adj = pyrust::vec::contains!(self.adjacent_to_unconnected_harvester, &t);
         let mut feeders_unsatisfied = false;
-        let in_edges_t: Vec<Position> = self.in_edges[i].clone();
+        let in_edges_t: Vec<Position> = pyrust::clone!(self.in_edges[i]);
         for f in &in_edges_t {
             let in_ti = pyrust::vec::contains!(self.ti_upstream, f);
             let in_ax = pyrust::vec::contains!(self.ax_upstream, f);

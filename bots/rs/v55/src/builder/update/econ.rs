@@ -55,7 +55,7 @@ pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
 }
 
 pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
-    let prev_unconn = builder.adjacent_to_unconnected_harvester.clone();
+    let prev_unconn = pyrust::clone!(builder.adjacent_to_unconnected_harvester);
     builder.adjacent_to_unconnected_harvester = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(builder
         .adjacent_to_unconnected_harvester)), |p| !pyrust::unwrap!(ct.is_in_vision(*p))));
     builder.adjacent_to_harvester = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(builder
@@ -63,7 +63,7 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
 
     // Pass 1: scan visible harvesters to maintain
     // `adjacent_to_unconnected_harvester` and `adjacent_to_harvester`.
-    let nearby = builder.state.nearby_tiles.clone();
+    let nearby = pyrust::clone!(builder.state.nearby_tiles);
     let my_team = builder.state.my_team;
     for pos in &nearby {
         let pos = *pos;
@@ -1045,7 +1045,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
     let mut tier1_d: i32 = 1 << 30;
     let mut tier3_best: Option<Position> = None;
     let mut tier3_d: i32 = 1 << 30;
-    let nearby = builder.state.nearby_tiles.clone();
+    let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         if !_ti_sink_ok(builder, *pos) {
             continue;

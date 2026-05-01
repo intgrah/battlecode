@@ -107,6 +107,16 @@ macro_rules! __pyrust_abs {
     };
 }
 
+/// `pyrust::clone!(x)` — Rust `x.clone()`, Python `list(x)` (default
+/// to Vec-shaped clone). For HashSet/HashMap clones use the
+/// type-specific `pyrust::set::clone!` / `pyrust::dict::clone!`.
+#[macro_export]
+macro_rules! __pyrust_clone {
+    ($x:expr) => {
+        ($x).clone()
+    };
+}
+
 /// `pyrust::round!(x)` — Python `round(x)` (returns float in Rust,
 /// but Python's `round` on float returns int by default).
 #[macro_export]

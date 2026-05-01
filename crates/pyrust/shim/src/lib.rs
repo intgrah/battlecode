@@ -28,6 +28,7 @@ pub use crate::__pyrust_is_some_and as is_some_and;
 pub use crate::__pyrust_cast_int as int;
 pub use crate::__pyrust_cast_float as float;
 pub use crate::__pyrust_abs as abs;
+pub use crate::__pyrust_clone as clone;
 pub use crate::__pyrust_round as round;
 pub use crate::__pyrust_sqrt as sqrt;
 pub use crate::__pyrust_floor as floor;

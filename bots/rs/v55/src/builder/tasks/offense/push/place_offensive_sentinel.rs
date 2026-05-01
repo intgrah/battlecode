@@ -76,7 +76,7 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
     let mut best_pos: Option<Position> = None;
     let mut best_facing: Option<Direction> = None;
     let mut best_dist = 1 << 30;
-    let dangling = self_.dangling_set.clone();
+    let dangling = pyrust::clone!(self_.dangling_set);
     for pos in dangling {
         if !self_.is_buildable(pos) {
             continue;
