@@ -2294,6 +2294,33 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Int,
             )))
         }
+        ["opt_take"] => {
+            // `pyrust::opt_take!(obj.field)` — Rust `Option::take`.
+            // Reads `obj.field` (returning the old value) and sets it
+            // to None as a side effect. Python emits a tuple-walrus
+            // expression: `((__t := obj.field), setattr(obj, 'field', None))[0]`.
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "opt_take!: expected (obj.field)"));
+            }
+            // The arg must be a syn::Expr::Field for setattr to work.
+            let syn::Expr::Field(fexpr) = &args[0] else {
+                return Err(w.err(em.span(), "opt_take!: argument must be a field expression"));
+            };
+            let base = emit_expr(w, &fexpr.base)?;
+            let field_name = match &fexpr.member {
+                syn::Member::Named(id) => id.to_string(),
+                syn::Member::Unnamed(idx) => idx.index.to_string(),
+            };
+            let tmp = w.fresh_tmp();
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "(({tmp} := {0}.{field_name}), setattr({0}, '{field_name}', None))[0]",
+                    base.text
+                ),
+                Ty::Unknown,
+            )))
+        }
         ["next"] => {
             let args = parse_args!();
             if args.len() != 1 {

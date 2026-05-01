@@ -108,7 +108,7 @@ impl BugNav {
 
             if replan {
                 // Reclaim path_idx from any in-flight planner.
-                if let Some(planner) = self.planner.take() {
+                if let Some(planner) = pyrust::opt_take!(self.planner) {
                     self.path_idx_storage = planner.into_path_idx();
                 }
                 self.active_goal = Some(goal);
@@ -140,7 +140,7 @@ impl BugNav {
                         Some(true) => {
                             self.gen_done = true;
                             self.path_idx_storage =
-                                pyrust::expect!(self.planner.take(), "planner is Some")
+                                pyrust::expect!(pyrust::opt_take!(self.planner), "planner is Some")
                                     .into_path_idx();
                             break;
                         }
@@ -148,7 +148,7 @@ impl BugNav {
                             self.gen_done = true;
                             self.unreachable = true;
                             self.path_idx_storage =
-                                pyrust::expect!(self.planner.take(), "planner is Some")
+                                pyrust::expect!(pyrust::opt_take!(self.planner), "planner is Some")
                                     .into_path_idx();
                             break;
                         }
