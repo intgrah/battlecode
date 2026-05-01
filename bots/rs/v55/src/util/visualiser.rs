@@ -342,6 +342,7 @@ pub fn auto_wrap_scalar(v: ScalarValue) -> serde_json::Value {
     serialise_dump(&Dump::Scalar { value: v })
 }
 
+#[pyrust::inline]
 #[must_use]
 pub fn auto_wrap_dump(d: &Dump) -> serde_json::Value {
     serialise_dump(d)

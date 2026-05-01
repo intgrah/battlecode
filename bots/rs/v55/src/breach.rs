@@ -19,6 +19,7 @@ impl Breach {
 }
 
 impl Unit for Breach {
+    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }

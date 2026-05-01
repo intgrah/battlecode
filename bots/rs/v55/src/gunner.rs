@@ -184,6 +184,7 @@ impl Default for Gunner {
 }
 
 impl Unit for Gunner {
+    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }

@@ -223,6 +223,7 @@ impl BugNav {
         false
     }
 
+    #[pyrust::inline]
     /// Raw flat path-index array. Cell value = position-along-path,
     /// `-1` if not on plan. Used by the state dump as an `I16Grid`.
     #[must_use]
@@ -241,11 +242,13 @@ impl BugNav {
         }))
     }
 
+    #[pyrust::inline]
     #[must_use]
     pub const fn active_goal(&self) -> Option<Position> {
         self.active_goal
     }
 
+    #[pyrust::inline]
     /// True iff the planner finished (success or proven unreachable). When
     /// false, the planner is still suspended and will resume next turn.
     #[must_use]
@@ -253,6 +256,7 @@ impl BugNav {
         self.gen_done
     }
 
+    #[pyrust::inline]
     /// True iff the planner concluded the goal is unreachable. When this
     /// is true, `step()` returns `None` unconditionally until the goal
     /// changes.
