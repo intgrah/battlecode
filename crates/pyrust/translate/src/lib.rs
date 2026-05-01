@@ -134,16 +134,219 @@ pub fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String>
         return Err(format!("not a directory: {}", src.display()));
     }
     fs::create_dir_all(out).map_err(|e| format!("create {}: {e}", out.display()))?;
-    for entry in walk_rs(src)? {
+    let entries = walk_rs(src)?;
+    let mut cfg = cfg.clone();
+
+    // Pre-scan the bot's source tree: build the project-wide sum-enum
+    // registry so cross-module `use` of a sum type can also import its
+    // variant dataclasses.
+    for entry in &entries {
         let rel = entry
             .strip_prefix(src)
             .map_err(|e| format!("path strip: {e}"))?
             .to_path_buf();
-        let mut dest = out.join(&rel);
-        dest.set_extension("py");
-        translate_file(&entry, Some(&dest), cfg)?;
+        let module_path = rel_to_module_path(&rel);
+        let source = read_source(entry)?;
+        let file = match parse::parse_file(&source, entry) {
+            Ok(f) => f,
+            Err(_) => continue,
+        };
+        let variants = collect_sum_enums(&file, &cfg);
+        if !variants.is_empty() {
+            cfg.sum_enum_registry.insert(module_path.clone(), variants);
+        }
+        for item in &file.items {
+            if let syn::Item::Trait(t) = item {
+                cfg.trait_registry
+                    .insert(t.ident.to_string(), (t.clone(), module_path.clone()));
+            }
+        }
+    }
+
+    // Walk the enclosing cargo workspace's path-dep tree and collect
+    // every type/trait carrying `#[pyrust::transparent]` or
+    // `#[pyrust::exception]`. Pure syntactic — read .rs files, parse with
+    // syn, look at attributes. Used by `emit_use` (drop transparent
+    // imports) and the struct emitter (subclass `Exception`).
+    let (transparent, exception) = scan_pyrust_attrs(src);
+    for n in transparent {
+        cfg.transparent_def_names.insert(n);
+    }
+    for n in exception {
+        cfg.exception_def_names.insert(n);
+    }
+
+    let table = tyctx::FileTyTable::empty();
+    for entry in &entries {
+        let rel = entry
+            .strip_prefix(src)
+            .map_err(|e| format!("path strip: {e}"))?
+            .to_path_buf();
+        let dest = py_dest(&rel, out);
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("create {}: {e}", parent.display()))?;
+        }
+        let source = read_source(entry)?;
+        let py = translate_source(&source, entry, &cfg)?;
+        fs::write(&dest, py.as_bytes())
+            .map_err(|e| format!("write {}: {e}", dest.display()))?;
+        let _ = &table; // suppress unused warning; threading slot for future use
     }
     Ok(())
+}
+
+/// Map a Rust source path (relative to the crate root) to the
+/// corresponding Python file under `out`. `mod.rs` becomes `__init__.py`
+/// (the Rust module-declaration convention maps to Python's package
+/// marker). `lib.rs` at the root is the bot's entry point and maps to
+/// `main.py`. Everything else keeps its name and gets a `.py` extension.
+fn py_dest(rel: &Path, out: &Path) -> PathBuf {
+    let parent = rel.parent().unwrap_or_else(|| Path::new(""));
+    let stem = rel.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+    let leaf = match stem {
+        "mod" => "__init__.py".to_owned(),
+        "lib" if parent.as_os_str().is_empty() => "main.py".to_owned(),
+        _ => format!("{stem}.py"),
+    };
+    out.join(parent).join(leaf)
+}
+
+fn rel_to_module_path(rel: &Path) -> String {
+    let mut parts: Vec<String> = rel
+        .components()
+        .filter_map(|c| c.as_os_str().to_str().map(String::from))
+        .collect();
+    if let Some(last) = parts.last_mut() {
+        if let Some(stem) = Path::new(last).file_stem().and_then(|s| s.to_str()) {
+            *last = stem.to_owned();
+        }
+        if last == "mod" || last == "lib" {
+            parts.pop();
+        }
+    }
+    parts.join(".")
+}
+
+fn collect_sum_enums(
+    file: &syn::File,
+    cfg: &CfgEnv,
+) -> std::collections::HashMap<String, Vec<String>> {
+    let mut out = std::collections::HashMap::new();
+    for item in &file.items {
+        let syn::Item::Enum(e) = item else { continue };
+        if !cfg.item_enabled(&e.attrs).unwrap_or(true) {
+            continue;
+        }
+        let is_sum = e
+            .variants
+            .iter()
+            .any(|v| !matches!(v.fields, syn::Fields::Unit));
+        if !is_sum {
+            continue;
+        }
+        let name = e.ident.to_string();
+        let variants: Vec<String> = e.variants.iter().map(|v| v.ident.to_string()).collect();
+        out.insert(name, variants);
+    }
+    out
+}
+
+/// Walk upwards from `src` to the workspace root (the topmost directory
+/// containing a `Cargo.toml`), then walk the whole workspace's `.rs`
+/// files looking for items with `#[pyrust::transparent]` or
+/// `#[pyrust::exception]` attributes. Returns `(transparent, exception)`
+/// name sets. Pure syntactic — no ra_ap, no cargo metadata.
+fn scan_pyrust_attrs(
+    src: &Path,
+) -> (
+    std::collections::HashSet<String>,
+    std::collections::HashSet<String>,
+) {
+    let mut transparent = std::collections::HashSet::new();
+    let mut exception = std::collections::HashSet::new();
+    let workspace_root = match find_workspace_root(src) {
+        Some(r) => r,
+        None => src.to_path_buf(),
+    };
+    let mut stack = vec![workspace_root];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(ft) = entry.file_type() else { continue };
+            if ft.is_dir() {
+                // Skip target dirs and hidden dirs.
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str == "target" || name_str.starts_with('.') {
+                    continue;
+                }
+                stack.push(path);
+            } else if ft.is_file() && path.extension().is_some_and(|ext| ext == "rs") {
+                let Ok(source) = fs::read_to_string(&path) else {
+                    continue;
+                };
+                let Ok(file) = syn::parse_file(&source) else {
+                    continue;
+                };
+                collect_pyrust_attrs_from_file(&file, &mut transparent, &mut exception);
+            }
+        }
+    }
+    (transparent, exception)
+}
+
+fn find_workspace_root(start: &Path) -> Option<PathBuf> {
+    let canonical = start.canonicalize().ok()?;
+    let mut dir: &Path = if canonical.is_file() {
+        canonical.parent()?
+    } else {
+        &canonical
+    };
+    let mut last_with_cargo: Option<PathBuf> = None;
+    loop {
+        if dir.join("Cargo.toml").is_file() {
+            last_with_cargo = Some(dir.to_path_buf());
+        }
+        match dir.parent() {
+            Some(p) if p != dir => dir = p,
+            _ => break,
+        }
+    }
+    last_with_cargo
+}
+
+fn collect_pyrust_attrs_from_file(
+    file: &syn::File,
+    transparent: &mut std::collections::HashSet<String>,
+    exception: &mut std::collections::HashSet<String>,
+) {
+    for item in &file.items {
+        let (name, attrs): (String, &[syn::Attribute]) = match item {
+            syn::Item::Struct(s) => (s.ident.to_string(), &s.attrs),
+            syn::Item::Enum(e) => (e.ident.to_string(), &e.attrs),
+            syn::Item::Trait(t) => (t.ident.to_string(), &t.attrs),
+            _ => continue,
+        };
+        for attr in attrs {
+            let path_text: String = attr
+                .path()
+                .segments
+                .iter()
+                .map(|s| s.ident.to_string())
+                .collect::<Vec<_>>()
+                .join("::");
+            if path_text == "pyrust::transparent" {
+                transparent.insert(name.clone());
+            } else if path_text == "pyrust::exception" {
+                exception.insert(name.clone());
+            }
+        }
+    }
 }
 
 fn walk_rs(root: &Path) -> Result<Vec<PathBuf>, String> {
