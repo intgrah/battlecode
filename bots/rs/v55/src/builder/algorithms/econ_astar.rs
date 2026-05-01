@@ -48,12 +48,20 @@ fn conv_neighbors() -> Vec<(i32, i32, i32)> {
     out
 }
 
-fn x_of_table() -> Vec<i32> {
-    pyrust::collect!(pyrust::map!((0..MAX_N), |i| (i % MAX_WIDTH) as i32))
+fn x_of_table() -> [i32; MAX_N] {
+    let mut out = [0i32; MAX_N];
+    for i in 0..MAX_N {
+        out[i] = (i % MAX_WIDTH) as i32;
+    }
+    out
 }
 
-fn y_of_table() -> Vec<i32> {
-    pyrust::collect!(pyrust::map!((0..MAX_N), |i| (i / MAX_WIDTH) as i32))
+fn y_of_table() -> [i32; MAX_N] {
+    let mut out = [0i32; MAX_N];
+    for i in 0..MAX_N {
+        out[i] = (i / MAX_WIDTH) as i32;
+    }
+    out
 }
 
 /// Subset of `Builder` state read/written by the A* search. The Builder
@@ -74,35 +82,35 @@ pub struct AStarSearch {
     pub last_nodes_expanded: i32,
     /// Neighbour stencil (with extra cost) per cell. Bridge + diagonal
     /// (extra=9) and cardinal (extra=0) merged.
-    neighbors: Vec<Vec<(i32, i32)>>,
+    neighbors: [Vec<(i32, i32)>; MAX_N],
     /// Cardinal-only neighbour list (flat int) for the inner loop.
-    cardinal_neighbors: Vec<Vec<i32>>,
+    cardinal_neighbors: [Vec<i32>; MAX_N],
     /// Diagonal + bridge neighbours (all carry extra=9).
-    weighted_neighbors: Vec<Vec<i32>>,
-    pub _dist: Vec<i32>,
-    dist_bwd: Vec<i32>,
-    parent_fwd: Vec<i32>,
-    parent_bwd: Vec<i32>,
-    closed_fwd: Vec<bool>,
-    closed_bwd: Vec<bool>,
+    weighted_neighbors: [Vec<i32>; MAX_N],
+    pub _dist: [i32; MAX_N],
+    dist_bwd: [i32; MAX_N],
+    parent_fwd: [i32; MAX_N],
+    parent_bwd: [i32; MAX_N],
+    closed_fwd: [bool; MAX_N],
+    closed_bwd: [bool; MAX_N],
     touched_fwd: Vec<i32>,
     touched_bwd: Vec<i32>,
-    buckets_fwd: Vec<Vec<i32>>,
-    buckets_bwd: Vec<Vec<i32>>,
-    x_heur_fwd: Vec<i32>,
-    y_heur_fwd: Vec<i32>,
-    x_heur_bwd: Vec<i32>,
-    y_heur_bwd: Vec<i32>,
-    reach_root_cache: Vec<i32>,
+    buckets_fwd: [Vec<i32>; BUCKET_COUNT],
+    buckets_bwd: [Vec<i32>; BUCKET_COUNT],
+    x_heur_fwd: [i32; MAX_WIDTH],
+    y_heur_fwd: [i32; MAX_WIDTH],
+    x_heur_bwd: [i32; MAX_WIDTH],
+    y_heur_bwd: [i32; MAX_WIDTH],
+    reach_root_cache: [i32; MAX_N],
     reach_root_touched: Vec<i32>,
     /// `f_at[ni]` caches the f-value (g + h) of the most recent push of ni
     /// into the open list. On pop, comparing `f_at[ni] != cur_f` is a cheap
     /// stale-check.
-    f_at: Vec<i32>,
+    f_at: [i32; MAX_N],
     finished: bool,
     target: Option<Position>,
-    x_of: Vec<i32>,
-    y_of: Vec<i32>,
+    x_of: [i32; MAX_N],
+    y_of: [i32; MAX_N],
 }
 
 impl AStarSearch {
@@ -110,30 +118,25 @@ impl AStarSearch {
     #[must_use]
     pub fn new() -> Self {
         let neighbors_template = conv_neighbors();
-        let mut neighbors: Vec<Vec<(i32, i32)>> = Vec::with_capacity(MAX_N);
-        let mut cardinal_neighbors: Vec<Vec<i32>> = Vec::with_capacity(MAX_N);
-        let mut weighted_neighbors: Vec<Vec<i32>> = Vec::with_capacity(MAX_N);
+        let mut neighbors: [Vec<(i32, i32)>; MAX_N] = [const { Vec::new() }; MAX_N];
+        let mut cardinal_neighbors: [Vec<i32>; MAX_N] = [const { Vec::new() }; MAX_N];
+        let mut weighted_neighbors: [Vec<i32>; MAX_N] = [const { Vec::new() }; MAX_N];
         for cy in 0..MAX_WIDTH as i32 {
             for cx in 0..MAX_WIDTH as i32 {
-                let mut all: Vec<(i32, i32)> = pyrust::vec::new!();
-                let mut card: Vec<i32> = pyrust::vec::new!();
-                let mut wt: Vec<i32> = pyrust::vec::new!();
+                let i = (cy * MAX_WIDTH as i32 + cx) as usize;
                 for &(dx, dy, extra) in &neighbors_template {
                     let nx = cx + dx;
                     let ny = cy + dy;
                     if 0 <= nx && nx < MAX_WIDTH as i32 && 0 <= ny && ny < MAX_WIDTH as i32 {
                         let ni = ny * (MAX_WIDTH as i32) + nx;
-                        pyrust::vec::push!(all, (ni, extra));
+                        pyrust::vec::push!(neighbors[i], (ni, extra));
                         if extra == 0 {
-                            pyrust::vec::push!(card, ni);
+                            pyrust::vec::push!(cardinal_neighbors[i], ni);
                         } else {
-                            pyrust::vec::push!(wt, ni);
+                            pyrust::vec::push!(weighted_neighbors[i], ni);
                         }
                     }
                 }
-                pyrust::vec::push!(neighbors, all);
-                pyrust::vec::push!(cardinal_neighbors, card);
-                pyrust::vec::push!(weighted_neighbors, wt);
             }
         }
         Self {
@@ -142,23 +145,23 @@ impl AStarSearch {
             neighbors,
             cardinal_neighbors,
             weighted_neighbors,
-            _dist: vec![INF; MAX_N],
-            dist_bwd: vec![INF; MAX_N],
-            parent_fwd: vec![-1; MAX_N],
-            parent_bwd: vec![-1; MAX_N],
-            closed_fwd: vec![false; MAX_N],
-            closed_bwd: vec![false; MAX_N],
+            _dist: [INF; MAX_N],
+            dist_bwd: [INF; MAX_N],
+            parent_fwd: [-1; MAX_N],
+            parent_bwd: [-1; MAX_N],
+            closed_fwd: [false; MAX_N],
+            closed_bwd: [false; MAX_N],
             touched_fwd: pyrust::vec::new!(),
             touched_bwd: pyrust::vec::new!(),
-            buckets_fwd: pyrust::collect!(pyrust::map!((0..BUCKET_COUNT), |_| pyrust::vec::new!())),
-            buckets_bwd: pyrust::collect!(pyrust::map!((0..BUCKET_COUNT), |_| pyrust::vec::new!())),
-            x_heur_fwd: vec![0; MAX_WIDTH],
-            y_heur_fwd: vec![0; MAX_WIDTH],
-            x_heur_bwd: vec![0; MAX_WIDTH],
-            y_heur_bwd: vec![0; MAX_WIDTH],
-            reach_root_cache: vec![-1; MAX_N],
+            buckets_fwd: [const { Vec::new() }; BUCKET_COUNT],
+            buckets_bwd: [const { Vec::new() }; BUCKET_COUNT],
+            x_heur_fwd: [0; MAX_WIDTH],
+            y_heur_fwd: [0; MAX_WIDTH],
+            x_heur_bwd: [0; MAX_WIDTH],
+            y_heur_bwd: [0; MAX_WIDTH],
+            reach_root_cache: [-1; MAX_N],
             reach_root_touched: pyrust::vec::new!(),
-            f_at: vec![0; MAX_N],
+            f_at: [0; MAX_N],
             finished: true,
             target: None,
             x_of: x_of_table(),
