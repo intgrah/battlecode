@@ -268,11 +268,13 @@ pub fn try_place(
             "need".to_string(),
             serde_json::Value::Number(serde_json::Number::from(ti_needed(builder, etype))),
         );
+        let base_for_log = match base_cost(etype) {
+            Some(c) => c.0,
+            None => 0,
+        };
         args.insert(
             "base".to_string(),
-            serde_json::Value::Number(serde_json::Number::from(
-                base_cost(etype).map(|c| c.0).unwrap_or(0),
-            )),
+            serde_json::Value::Number(serde_json::Number::from(base_for_log)),
         );
         args.insert("scale".to_string(), serde_json::json!(builder.state.scale));
         log(
@@ -783,7 +785,7 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         let is_bad = bad_upstream.contains(&n)
             || builder.flow_history[ni].iter().any(
                 |(r, _): &(Option<ResourceType>, Option<i32>)| {
-                    r.is_some_and(|r| bad_flows.contains(&r))
+                    r.is_some_and(|res| bad_flows.contains(&res))
                 },
             );
         if !is_bad {

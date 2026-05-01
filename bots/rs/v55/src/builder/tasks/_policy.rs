@@ -17,7 +17,7 @@
 use cambc::Controller;
 
 use crate::builder::Builder;
-use crate::builder::tasks::rejected::TaskResult;
+use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::debug::{Scope, debug as log};
 
 use serde_json::Map;

@@ -9,7 +9,7 @@ use cambc::{Controller, ControllerApi, Direction, EntityType, Position, Resource
 use crate::config::HARDCODE;
 use crate::core::spawn_tempo::compute_spawn_tempo;
 use crate::hardcode::identify::{KnownMap, identify_map};
-use crate::unit::{CoreAwareUnit, Unit, UnitState, run_default};
+use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::debug::Scope;
 use crate::util::directions::{DIR4, DIR8};
 
@@ -209,7 +209,10 @@ impl Unit for Core {
     }
 
     fn post_init(&mut self, ct: &mut Controller<'_>) {
-        CoreAwareUnit::post_init_core_aware(self, ct);
+        self.state.init_static_state(ct);
+        self.state.narrow_symmetry_from_vision(ct);
+        let core = self.resolve_my_core(ct);
+        self.set_my_core(core);
         let known = if HARDCODE {
             identify_map(self.state.width, self.state.height, self.my_core)
         } else {
@@ -226,7 +229,8 @@ impl Unit for Core {
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
-        run_default(self, ct);
+        self.state.cache_per_turn_state(ct);
+        self.state.check_symmetry_marker(ct);
         let incoming = self.count_incoming(ct);
         if self.deliveries.len() == Self::INCOME_SAMPLES {
             self.deliveries.pop_back();

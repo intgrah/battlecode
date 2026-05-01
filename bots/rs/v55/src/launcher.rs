@@ -2,7 +2,7 @@
 
 use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, Position};
 
-use crate::unit::{Unit, UnitState, run_default};
+use crate::unit::{Unit, UnitState};
 use crate::util::directions::DIR4;
 
 const PASSABLE_BUILDINGS: [EntityType; 5] = [
@@ -19,6 +19,13 @@ pub struct Launcher {
 }
 
 impl Launcher {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            state: UnitState::new(),
+        }
+    }
+
     fn is_empty_walkable(&self, ct: &mut Controller<'_>, pos: Position) -> bool {
         self.is_walkable(ct, pos) && !self.state.all_bots.contains_key(&pos)
     }
@@ -104,7 +111,8 @@ impl Unit for Launcher {
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
-        run_default(self, ct);
+        self.state.cache_per_turn_state(ct);
+        self.state.check_symmetry_marker(ct);
 
         let (enemy_throw_tile, enemy_throw_dist) = self.find_enemy_throw_tile(ct);
         let harvester_targets = self.find_harvester_attack_tiles(ct);

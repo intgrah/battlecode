@@ -7,6 +7,11 @@
 
 /// A task cannot fire this turn. The `reason` string is rendered to
 /// the debug log when a task rejects.
+///
+/// `#[pyrust::exception]` makes the translated Python class subclass
+/// `Exception`, so v55's `Err(TaskRejected::new(...))` lowering as
+/// `raise TaskRejected(...)` works at runtime.
+#[pyrust::exception]
 #[derive(Clone, Debug)]
 pub struct TaskRejected {
     pub reason: String,

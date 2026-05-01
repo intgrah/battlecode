@@ -23,7 +23,7 @@ use crate::builder::tasks::rejected::TaskRejected;
 use crate::building::Building;
 use crate::util::constants::MAX_WIDTH;
 use crate::util::debug::{Scope, debug, line};
-use crate::util::directions::{DIR4, DIR8, get_direction_object};
+use crate::util::directions::{DIR4, DIR8, delta_to_dir, get_direction_object};
 use crate::util::metrics::{chebyshev, reachable_path_end};
 use crate::util::visualiser::auto_wrap_position;
 
@@ -151,7 +151,7 @@ fn _clear_with_turret(
     }
     let dx = target_pos.x - build_pos.x;
     let dy = target_pos.y - build_pos.y;
-    let Some(direction) = crate::util::directions::delta_to_dir(dx, dy) else {
+    let Some(direction) = delta_to_dir(dx, dy) else {
         return false;
     };
     try_place(

@@ -18,7 +18,7 @@ use cambc::{Controller, ControllerApi, Direction, EntityType, Environment, Posit
 use crate::marker::find_symmetry_marker;
 use crate::util::constants::MAX_WIDTH;
 use crate::util::directions::{DIR4, DIR8};
-use crate::util::symmetry::Symmetry;
+use crate::util::symmetry::{ALL, Symmetry};
 
 /// Per-unit PRNG, seeded from the unit's entity id. Wraps
 /// `pyrust::random::Random` (a bit-exact reimplementation of CPython's
@@ -85,7 +85,7 @@ impl UnitState {
     #[must_use]
     pub fn new() -> Self {
         let mut symmetry_candidates: HashSet<Symmetry> = HashSet::new();
-        for s in Symmetry::ALL {
+        for s in ALL {
             symmetry_candidates.insert(s);
         }
         Self {
@@ -110,11 +110,161 @@ impl UnitState {
             symmetry_candidates,
         }
     }
+
+    /// One-time setup shared by every unit. Concrete `Unit::post_init`
+    /// impls call this on their `state` field — the receiver is concrete
+    /// `&mut UnitState`, so pyrust translates field accesses cleanly.
+    pub fn init_static_state(&mut self, ct: &mut Controller<'_>) {
+        self.width = ct.get_map_width().unwrap();
+        self.height = ct.get_map_height().unwrap();
+        self.my_id = ct.get_id().unwrap();
+        self.my_team = ct.get_team(None).unwrap();
+        self.rng = Rng::new(self.my_id as i64);
+    }
+
+    /// Per-turn caching shared by every unit: position, neighbours, round,
+    /// resources, visible bots. Concrete `Unit::run` impls call this on
+    /// their `state` field.
+    pub fn cache_per_turn_state(&mut self, ct: &mut Controller<'_>) {
+        let my_pos = ct.get_position(None).unwrap();
+        let width = self.width;
+        let height = self.height;
+        let my_team = self.my_team;
+        let my_id = self.my_id;
+
+        let mut dir_neighbours_4: Vec<(Direction, Position)> = Vec::with_capacity(4);
+        for &d in &DIR4 {
+            let p = my_pos.add(d);
+            if in_bounds(p, width, height) {
+                dir_neighbours_4.push((d, p));
+            }
+        }
+        let mut dir_neighbours_8: Vec<(Direction, Position)> = Vec::with_capacity(8);
+        for &d in &DIR8 {
+            let p = my_pos.add(d);
+            if in_bounds(p, width, height) {
+                dir_neighbours_8.push((d, p));
+            }
+        }
+        let neighbours_4: Vec<Position> = dir_neighbours_4.iter().map(|&(_, p)| p).collect();
+        let neighbours_8: Vec<Position> = dir_neighbours_8.iter().map(|&(_, p)| p).collect();
+
+        let round = ct.get_current_round().unwrap();
+        let (ti, ax) = ct.get_global_resources().unwrap();
+        let scale = ct.get_scale_percent().unwrap() / 100.0;
+        let nearby_tiles = ct.get_nearby_tiles(None).unwrap();
+
+        let mut enemy_bots: HashSet<Position> = HashSet::new();
+        let mut friendly_bots: HashSet<Position> = HashSet::new();
+        let mut all_bots: HashMap<Position, i32> = HashMap::new();
+        for &pos in &nearby_tiles {
+            let Some(uid) = ct.get_tile_builder_bot_id(pos).unwrap() else {
+                continue;
+            };
+            all_bots.insert(pos, uid);
+            if ct.get_team(Some(uid)).unwrap() == my_team {
+                if uid != my_id {
+                    friendly_bots.insert(pos);
+                }
+            } else {
+                enemy_bots.insert(pos);
+            }
+        }
+
+        self.my_pos = my_pos;
+        self.dir_neighbours_4 = dir_neighbours_4;
+        self.dir_neighbours_8 = dir_neighbours_8;
+        self.neighbours_4 = neighbours_4;
+        self.neighbours_8 = neighbours_8;
+        self.round = round;
+        self.ti = ti;
+        self.ax = ax;
+        self.scale = scale;
+        self.nearby_tiles = nearby_tiles;
+        self.enemy_bots = enemy_bots;
+        self.friendly_bots = friendly_bots;
+        self.all_bots = all_bots;
+    }
+
+    /// One-shot narrowing of `symmetry_candidates` from current vision.
+    /// Mirrors Python `narrow_symmetry_from_vision`.
+    pub fn narrow_symmetry_from_vision(&mut self, ct: &mut Controller<'_>) {
+        if self.resolved_symmetry().is_some() {
+            return;
+        }
+        let width = self.width;
+        let height = self.height;
+        let mut vision: HashMap<Position, (Environment, bool)> = HashMap::new();
+        for pos in ct.get_nearby_tiles(None).unwrap() {
+            let bid = ct.get_tile_building_id(pos).unwrap();
+            let is_core = match bid {
+                Some(b) => ct.get_entity_type(Some(b)).unwrap() == EntityType::Core,
+                None => false,
+            };
+            vision.insert(pos, (ct.get_tile_env(pos).unwrap(), is_core));
+        }
+
+        let mut invalid: HashSet<Symmetry> = HashSet::new();
+        let candidates: Vec<Symmetry> = self.symmetry_candidates.iter().copied().collect();
+        for sym in candidates {
+            for (&pos, val) in &vision {
+                let other = vision.get(&sym.action(pos, width, height));
+                if let Some(o) = other
+                    && o != val
+                {
+                    invalid.insert(sym);
+                    break;
+                }
+            }
+        }
+        for sym in invalid {
+            self.symmetry_candidates.remove(&sym);
+        }
+    }
+
+    /// Mirrors Python `_check_symmetry_marker`: pin candidate set to whatever
+    /// an allied symmetry marker in vision asserts.
+    pub fn check_symmetry_marker(&mut self, ct: &mut Controller<'_>) {
+        if self.resolved_symmetry().is_some() {
+            return;
+        }
+        let nearby = self.nearby_tiles.clone();
+        let my_team = self.my_team;
+        if let Some(sym) = find_symmetry_marker(ct, &nearby, my_team) {
+            self.symmetry_candidates.clear();
+            self.symmetry_candidates.insert(sym);
+        }
+    }
+
+    /// Resolved symmetry iff exactly one candidate remains. Renamed from
+    /// `symmetry` to avoid clashing with concrete units' cached `symmetry`
+    /// field (which Python would shadow).
+    #[must_use]
+    pub fn resolved_symmetry(&self) -> Option<Symmetry> {
+        if self.symmetry_candidates.len() == 1 {
+            self.symmetry_candidates.iter().next().copied()
+        } else {
+            None
+        }
+    }
+
+    /// Mirroring symmetry usable even when unresolved. ROT → VER → HOR
+    /// priority; ROT fallback if all eliminated. Mirrors Python.
+    #[must_use]
+    pub fn symmetry_guess(&self) -> Symmetry {
+        for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
+            if self.symmetry_candidates.contains(&sym) {
+                return sym;
+            }
+        }
+        Symmetry::Rot
+    }
 }
 
-/// Behaviour shared by every unit. Default methods mirror Python `Unit`'s
-/// `post_init`, `run`, and helpers; subclasses inherit by simply implementing
-/// `state` / `state_mut`.
+/// Behaviour shared by every unit. The post-init / run defaults delegate
+/// to inherent methods on `UnitState`, so the receiver in their bodies is
+/// concrete and pyrust translates field accesses cleanly. Subclasses
+/// inherit by implementing `state` / `state_mut`.
 pub trait Unit {
     /// Read access to the embedded `UnitState`.
     fn state(&self) -> &UnitState;
@@ -124,13 +274,17 @@ pub trait Unit {
     /// ct-dependent init. Runs once on first turn for this unit. Mirrors
     /// Python `Unit.post_init`.
     fn post_init(&mut self, ct: &mut Controller<'_>) {
-        post_init_default(self, ct);
+        let s = self.state_mut();
+        s.init_static_state(ct);
+        s.narrow_symmetry_from_vision(ct);
     }
 
     /// Cache per-turn state: position, neighbours, visible bots, resources.
     /// Mirrors Python `Unit.run`.
     fn run(&mut self, ct: &mut Controller<'_>) {
-        run_default(self, ct);
+        let s = self.state_mut();
+        s.cache_per_turn_state(ct);
+        s.check_symmetry_marker(ct);
     }
 
     /// Position to flat index. Stride is `MAX_WIDTH=50` regardless of actual
@@ -144,88 +298,6 @@ pub trait Unit {
         let s = self.state();
         in_bounds(pos, s.width, s.height)
     }
-
-    /// Resolved symmetry iff exactly one candidate remains.
-    fn symmetry(&self) -> Option<Symmetry> {
-        let s = self.state();
-        if s.symmetry_candidates.len() == 1 {
-            s.symmetry_candidates.iter().next().copied()
-        } else {
-            None
-        }
-    }
-
-    /// A `Symmetry` value usable for mirroring even when unresolved. Picks the
-    /// first surviving candidate in priority order ROT → VER → HOR; falls
-    /// back to ROT if all have been eliminated (shouldn't happen on a valid
-    /// map). Mirrors the Python `symmetry_guess` ordering exactly.
-    fn symmetry_guess(&self) -> Symmetry {
-        let s = self.state();
-        for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
-            if s.symmetry_candidates.contains(&sym) {
-                return sym;
-            }
-        }
-        Symmetry::Rot
-    }
-
-    /// One-shot narrowing using only what we can see right now. For static
-    /// units (core, turrets) this is the only chance — they don't move, so
-    /// their vision never grows.
-    fn narrow_symmetry_from_vision(&mut self, ct: &mut Controller<'_>) {
-        if self.symmetry().is_some() {
-            return;
-        }
-        let (width, height) = {
-            let s = self.state();
-            (s.width, s.height)
-        };
-        let mut vision: HashMap<Position, (Environment, bool)> = HashMap::new();
-        for pos in ct.get_nearby_tiles(None).unwrap() {
-            let bid = ct.get_tile_building_id(pos).unwrap();
-            let is_core = match bid {
-                Some(b) => ct.get_entity_type(Some(b)).unwrap() == EntityType::Core,
-                None => false,
-            };
-            vision.insert(pos, (ct.get_tile_env(pos).unwrap(), is_core));
-        }
-
-        let mut invalid: HashSet<Symmetry> = HashSet::new();
-        let candidates: Vec<Symmetry> = self.state().symmetry_candidates.iter().copied().collect();
-        for sym in candidates {
-            for (&pos, val) in &vision {
-                let other = vision.get(&sym.action(pos, width, height));
-                if let Some(o) = other
-                    && o != val
-                {
-                    invalid.insert(sym);
-                    break;
-                }
-            }
-        }
-        let s = self.state_mut();
-        for sym in invalid {
-            s.symmetry_candidates.remove(&sym);
-        }
-    }
-
-    /// Mirrors Python `_check_symmetry_marker`: if symmetry is still
-    /// unresolved, scan `nearby_tiles` for an allied symmetry marker and
-    /// pin the candidate set to whatever it asserts.
-    fn check_symmetry_marker(&mut self, ct: &mut Controller<'_>) {
-        if self.symmetry().is_some() {
-            return;
-        }
-        let (nearby, my_team) = {
-            let s = self.state();
-            (s.nearby_tiles.clone(), s.my_team)
-        };
-        if let Some(sym) = find_symmetry_marker(ct, &nearby, my_team) {
-            let s = self.state_mut();
-            s.symmetry_candidates.clear();
-            s.symmetry_candidates.insert(sym);
-        }
-    }
 }
 
 /// In-bounds check shared with the trait's default `in_bounds` method. Free
@@ -233,90 +305,6 @@ pub trait Unit {
 #[must_use]
 pub const fn in_bounds(pos: Position, width: i32, height: i32) -> bool {
     pos.x >= 0 && pos.x < width && pos.y >= 0 && pos.y < height
-}
-
-/// Body of `Unit::run`'s default impl, exposed as a free function so concrete
-/// units that override `run` can still call the base logic (Rust's analogue
-/// of Python's `super().run(ct)`).
-/// Body of `Unit::post_init`'s default impl, exposed as a free function so
-/// concrete units that override `post_init` can still call the base logic
-/// (Rust's analogue of Python's `super().post_init(ct)`). Calling
-/// `Unit::post_init` from a trait method would dispatch dynamically and
-/// recurse back into the override.
-pub fn post_init_default<U: Unit + ?Sized>(this: &mut U, ct: &mut Controller<'_>) {
-    let s = this.state_mut();
-    s.width = ct.get_map_width().unwrap();
-    s.height = ct.get_map_height().unwrap();
-    s.my_id = ct.get_id().unwrap();
-    s.my_team = ct.get_team(None).unwrap();
-    s.rng = Rng::new(s.my_id as i64);
-    this.narrow_symmetry_from_vision(ct);
-}
-
-pub fn run_default<U: Unit + ?Sized>(this: &mut U, ct: &mut Controller<'_>) {
-    let my_pos = ct.get_position(None).unwrap();
-    let (width, height, my_team, my_id) = {
-        let s = this.state();
-        (s.width, s.height, s.my_team, s.my_id)
-    };
-
-    let mut dir_neighbours_4: Vec<(Direction, Position)> = Vec::with_capacity(4);
-    for &d in &DIR4 {
-        let p = my_pos.add(d);
-        if in_bounds(p, width, height) {
-            dir_neighbours_4.push((d, p));
-        }
-    }
-    let mut dir_neighbours_8: Vec<(Direction, Position)> = Vec::with_capacity(8);
-    for &d in &DIR8 {
-        let p = my_pos.add(d);
-        if in_bounds(p, width, height) {
-            dir_neighbours_8.push((d, p));
-        }
-    }
-    let neighbours_4: Vec<Position> = dir_neighbours_4.iter().map(|&(_, p)| p).collect();
-    let neighbours_8: Vec<Position> = dir_neighbours_8.iter().map(|&(_, p)| p).collect();
-
-    let round = ct.get_current_round().unwrap();
-    let (ti, ax) = ct.get_global_resources().unwrap();
-    let scale = ct.get_scale_percent().unwrap() / 100.0;
-    let nearby_tiles = ct.get_nearby_tiles(None).unwrap();
-
-    let mut enemy_bots: HashSet<Position> = HashSet::new();
-    let mut friendly_bots: HashSet<Position> = HashSet::new();
-    let mut all_bots: HashMap<Position, i32> = HashMap::new();
-    for &pos in &nearby_tiles {
-        let Some(uid) = ct.get_tile_builder_bot_id(pos).unwrap() else {
-            continue;
-        };
-        all_bots.insert(pos, uid);
-        if ct.get_team(Some(uid)).unwrap() == my_team {
-            if uid != my_id {
-                friendly_bots.insert(pos);
-            }
-        } else {
-            enemy_bots.insert(pos);
-        }
-    }
-
-    {
-        let s = this.state_mut();
-        s.my_pos = my_pos;
-        s.dir_neighbours_4 = dir_neighbours_4;
-        s.dir_neighbours_8 = dir_neighbours_8;
-        s.neighbours_4 = neighbours_4;
-        s.neighbours_8 = neighbours_8;
-        s.round = round;
-        s.ti = ti;
-        s.ax = ax;
-        s.scale = scale;
-        s.nearby_tiles = nearby_tiles;
-        s.enemy_bots = enemy_bots;
-        s.friendly_bots = friendly_bots;
-        s.all_bots = all_bots;
-    }
-
-    this.check_symmetry_marker(ct);
 }
 
 /// Unit that knows where its allied core is. Subclassed by `Core` (which IS
@@ -335,10 +323,10 @@ pub trait CoreAwareUnit: Unit {
 
     /// Override `Unit::post_init` chain for core-aware units. Concrete
     /// `Unit::post_init` impls on `CoreAwareUnit` types should delegate here.
-    /// Calls `post_init_default` directly rather than `Unit::post_init` to
-    /// avoid recursing back into the concrete unit's own `post_init` override.
     fn post_init_core_aware(&mut self, ct: &mut Controller<'_>) {
-        post_init_default(self, ct);
+        let s = self.state_mut();
+        s.init_static_state(ct);
+        s.narrow_symmetry_from_vision(ct);
         let core = self.resolve_my_core(ct);
         self.set_my_core(core);
     }
@@ -347,7 +335,6 @@ pub trait CoreAwareUnit: Unit {
     /// `symmetry_guess`. Exact once symmetry is resolved.
     fn en_core_guess(&self) -> Position {
         let s = self.state();
-        self.symmetry_guess()
-            .action(self.my_core(), s.width, s.height)
+        s.symmetry_guess().action(self.my_core(), s.width, s.height)
     }
 }

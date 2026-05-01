@@ -2,11 +2,20 @@
 
 use cambc::Controller;
 
-use crate::unit::{Unit, UnitState, run_default};
+use crate::unit::{Unit, UnitState};
 
 #[derive(Default)]
 pub struct Breach {
     state: UnitState,
+}
+
+impl Breach {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            state: UnitState::new(),
+        }
+    }
 }
 
 impl Unit for Breach {
@@ -19,7 +28,8 @@ impl Unit for Breach {
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
-        run_default(self, ct);
+        self.state.cache_per_turn_state(ct);
+        self.state.check_symmetry_marker(ct);
         unimplemented!("Breach behaviour not implemented");
     }
 }

@@ -38,7 +38,7 @@ struct Frame {
 pub struct DebugCtx {
     /// The root node of the current turn's tree. `None` when no scope is
     /// active. Owns all nested children.
-    root: Option<Map<String, Value>>,
+    root: Option<Value>,
     /// Frame stack. Empty when no scope is active. The top frame is always
     /// the current scope; new children are appended to it.
     frames: Vec<Frame>,
@@ -62,30 +62,24 @@ impl DebugCtx {
 
     /// Walk into the current scope node (the deepest open scope), using
     /// the parent-child indices recorded in `frames`.
-    fn current_scope_mut(&mut self) -> &mut Map<String, Value> {
+    fn current_scope_mut(&mut self) -> &mut Value {
         let root = self.root.as_mut().expect("scope active but root is None");
-        let mut node: &mut Map<String, Value> = root;
+        let mut node: &mut Value = root;
         // Skip frame 0 (the root frame). Each subsequent frame says which
         // child slot of the previous scope it occupies.
         for f in &self.frames[1..] {
             let idx = f.parent_child_idx.expect("non-root frame must have idx");
-            let children = node
-                .get_mut("children")
-                .and_then(Value::as_array_mut)
-                .expect("scope node missing children array");
-            node = children
-                .get_mut(idx)
-                .and_then(Value::as_object_mut)
-                .expect("child at idx must be a scope object");
+            node = &mut node["children"][idx];
         }
         node
     }
 
     pub fn push_scope(&mut self, label: &str, timed: bool) {
-        let mut node = Map::new();
-        node.insert(TYPE_KEY.to_string(), Value::String("scope".to_string()));
-        node.insert("name".to_string(), Value::String(label.to_string()));
-        node.insert("children".to_string(), Value::Array(Vec::new()));
+        let node = serde_json::json!({
+            TYPE_KEY: "scope",
+            "name": label.to_string(),
+            "children": [],
+        });
         let t0 = if timed { Some(Instant::now()) } else { None };
         if self.root.is_none() {
             // First scope of the turn: this becomes the root.
@@ -97,12 +91,9 @@ impl DebugCtx {
             return;
         }
         let parent = self.current_scope_mut();
-        let children = parent
-            .get_mut("children")
-            .and_then(Value::as_array_mut)
-            .expect("scope node missing children array");
+        let children = parent["children"].as_array_mut().unwrap();
         let idx = children.len();
-        children.push(Value::Object(node));
+        children.push(node);
         self.frames.push(Frame {
             parent_child_idx: Some(idx),
             t0,
@@ -119,19 +110,11 @@ impl DebugCtx {
             if self.frames.is_empty() {
                 // The frame we just popped was the root.
                 let root = self.root.as_mut().expect("ROOT must be Some");
-                root.insert("us".to_string(), Value::Number(us.into()));
+                root["us"] = serde_json::Value::Number(us.into());
             } else {
                 let idx = frame.parent_child_idx.expect("non-root has idx");
                 let parent = self.current_scope_mut();
-                let children = parent
-                    .get_mut("children")
-                    .and_then(Value::as_array_mut)
-                    .expect("scope node missing children array");
-                let node = children
-                    .get_mut(idx)
-                    .and_then(Value::as_object_mut)
-                    .expect("child at idx must be a scope object");
-                node.insert("us".to_string(), Value::Number(us.into()));
+                parent["children"][idx]["us"] = serde_json::Value::Number(us.into());
             }
         }
         // Once the outer scope drops, clear ROOT so the next turn's first
@@ -142,23 +125,20 @@ impl DebugCtx {
         }
     }
 
-    fn emit_child(&mut self, node: Map<String, Value>) {
+    fn emit_child(&mut self, node: Value) {
         if self.frames.is_empty() {
             return;
         }
         let parent = self.current_scope_mut();
-        let children = parent
-            .get_mut("children")
-            .and_then(Value::as_array_mut)
-            .expect("scope node missing children array");
-        children.push(Value::Object(node));
+        parent["children"].as_array_mut().unwrap().push(node);
     }
 
     pub fn debug(&mut self, tmpl: &str, args: Map<String, Value>) {
-        let mut node = Map::new();
-        node.insert(TYPE_KEY.to_string(), Value::String("msg".to_string()));
-        node.insert("tmpl".to_string(), Value::String(tmpl.to_string()));
-        node.insert("args".to_string(), Value::Object(args));
+        let node = serde_json::json!({
+            TYPE_KEY: "msg",
+            "tmpl": tmpl.to_string(),
+            "args": Value::Object(args),
+        });
         self.emit_child(node);
     }
 
@@ -166,27 +146,15 @@ impl DebugCtx {
         if self.frames.is_empty() {
             return;
         }
-        // Split-borrow: dumper.dump needs `&mut Vec<Value>` (the children
-        // array of the current scope) AND `&mut Dumper`, both off `self`.
-        // Walk to the children array via raw indexing into root + frames
-        // so the borrow on `self.dumper` is independent.
+        // Split-borrow: walk root → child slot via raw indexing so the
+        // borrow into the children Vec is disjoint from `self.dumper`.
         let root = self.root.as_mut().expect("scope active but root is None");
-        let mut node: &mut Map<String, Value> = root;
+        let mut node: &mut Value = root;
         for f in &self.frames[1..] {
             let idx = f.parent_child_idx.expect("non-root frame must have idx");
-            let children = node
-                .get_mut("children")
-                .and_then(Value::as_array_mut)
-                .expect("scope node missing children array");
-            node = children
-                .get_mut(idx)
-                .and_then(Value::as_object_mut)
-                .expect("child at idx must be a scope object");
+            node = &mut node["children"][idx];
         }
-        let children = node
-            .get_mut("children")
-            .and_then(Value::as_array_mut)
-            .expect("scope node missing children array");
+        let children = node["children"].as_array_mut().unwrap();
         self.dumper.dump(children, name, value);
     }
 
@@ -196,7 +164,7 @@ impl DebugCtx {
             .root
             .as_mut()
             .expect("flush() called outside any Scope");
-        root.insert("prev_flush_us".to_string(), Value::Number(prev_us.into()));
+        root["prev_flush_us"] = serde_json::Value::Number(prev_us.into());
         let t0 = Instant::now();
         let payload = serde_json::to_string(root).expect("root scope must serialise");
         println!("{payload}");
@@ -218,7 +186,10 @@ static mut CTX: Option<DebugCtx> = None;
 
 #[allow(static_mut_refs)]
 fn ctx() -> &'static mut DebugCtx {
-    unsafe { CTX.get_or_insert_with(DebugCtx::new) }
+    if unsafe { CTX.is_none() } {
+        unsafe { CTX = Some(DebugCtx::new()) };
+    }
+    unsafe { CTX.as_mut().unwrap() }
 }
 
 /// Tree-internal scope guard. Constructed via `Scope::new` (untimed) or
@@ -229,8 +200,7 @@ fn ctx() -> &'static mut DebugCtx {
 /// pyrust will translate `let _g = Scope::new("foo");` blocks back to Python
 /// `with Scope("foo"):` blocks (RAII guard ↔ context manager).
 pub struct Scope {
-    // No fields needed — all state lives in the global context.
-    _private: (),
+    pub label: String,
 }
 
 impl Scope {
@@ -240,7 +210,9 @@ impl Scope {
         if DEBUG_LOG {
             ctx().push_scope(label, false);
         }
-        Self { _private: () }
+        Self {
+            label: label.to_string(),
+        }
     }
 
     /// Push a timed scope; on drop, records `us` (microseconds elapsed).
@@ -250,7 +222,9 @@ impl Scope {
         if DEBUG_LOG {
             ctx().push_scope(label, true);
         }
-        Self { _private: () }
+        Self {
+            label: label.to_string(),
+        }
     }
 }
 
