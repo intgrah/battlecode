@@ -359,6 +359,14 @@ macro_rules! __pyrust_find {
     };
 }
 
+/// `pyrust::find_map!(it, closure)`.
+#[macro_export]
+macro_rules! __pyrust_find_map {
+    ($e:expr, $f:expr) => {
+        $e.find_map($f)
+    };
+}
+
 /// `pyrust::position!(it, closure)` — `Iterator::position`. Returns
 /// `Option<usize>`; Python emits `next((i for i, x in enumerate(it)
 /// if pred(x)), None)`.

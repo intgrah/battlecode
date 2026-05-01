@@ -38,6 +38,7 @@ pub use crate::__pyrust_expect as expect;
 pub use crate::__pyrust_filter as filter;
 pub use crate::__pyrust_filter_map as filter_map;
 pub use crate::__pyrust_find as find;
+pub use crate::__pyrust_find_map as find_map;
 pub use crate::__pyrust_floor as floor;
 pub use crate::__pyrust_into_iter as into_iter;
 pub use crate::__pyrust_into as into;

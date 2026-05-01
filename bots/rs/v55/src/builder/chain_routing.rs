@@ -182,7 +182,11 @@ fn _lay_segment(
     }
 
     let bid = pyrust::unwrap!(ct.get_tile_building_id(start_pos));
-    let entity_type = pyrust::map!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
+    let entity_type: Option<EntityType> = if let Some(b) = bid {
+        Some(pyrust::unwrap!(ct.get_entity_type(Some(b))))
+    } else {
+        None
+    };
 
     if entity_type == Some(EntityType::Road)
         && let Some(b) = bid
