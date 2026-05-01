@@ -39,14 +39,16 @@ pub fn reachable_path_end(path: &[Position], current_pos: Position, max_range: i
 }
 
 /// Returns the position in `positions` closest to `target` (by squared
-/// Euclidean distance). `None` for an empty iterator.
+/// Euclidean distance). `None` for an empty iterator. Distance ties are
+/// broken by `(y, x)` lex order so the result is deterministic
+/// regardless of the iterator's source ordering.
 pub fn closest<I>(target: Position, positions: I) -> Option<Position>
 where
     I: IntoIterator<Item = Position>,
 {
     positions
         .into_iter()
-        .min_by_key(|p| euclidean_sq(target, *p))
+        .min_by_key(|p| (euclidean_sq(target, *p), p.y, p.x))
 }
 
 /// Returns `true` iff `my_id` at `my_pos` is the rightful claimant of `target`

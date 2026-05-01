@@ -34,23 +34,21 @@ pub fn update_patrol(builder: &mut Builder) {
     let my_pos = builder.state.my_pos;
     let mx = my_pos.x;
     let my = my_pos.y;
-    let mut best_d: i32 = -1;
+    // Maximise distance, breaking ties by (y, x) lex. Encoded as a tuple
+    // to be MINIMISED: (-d, y, x). Deterministic across runs regardless
+    // of HashSet iteration order.
+    let mut best_key: (i32, i32, i32) = (1, 1 << 30, 1 << 30);
     let mut best_pos = None;
     let friends: Vec<_> = builder.state.friendly_bots.iter().copied().collect();
     for f in &friends {
         let d = (f.x - mx) * (f.x - mx) + (f.y - my) * (f.y - my);
-        let take = if d > best_d {
-            true
-        } else if d == best_d {
-            builder.state.rng.randint(0, 1) == 0
-        } else {
-            false
-        };
-        if take {
-            best_d = d;
+        let key = (-d, f.y, f.x);
+        if key < best_key {
+            best_key = key;
             best_pos = Some(*f);
         }
     }
+    let best_d = -best_key.0;
     let Some(best) = best_pos else {
         let mut args = Map::new();
         args.insert("n".to_string(), Value::Number(own_count.into()));
