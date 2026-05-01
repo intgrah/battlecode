@@ -253,7 +253,7 @@ impl Pending {
 }
 
 impl App {
-    #[must_use] 
+    #[must_use]
     pub fn new(
         atlas: Arc<SpriteSet>,
         map: proto::Map,
@@ -1457,44 +1457,45 @@ impl App {
         // All authoring is keyboard-driven via the chord scheme; the
         // sidebar is just a window into the opening's per-turn slots.
         if let Some(id) = self.selected
-            && let Some(&opening_id) = self.sim.engine_to_opening.get(&id) {
-                let turn = self.edit_turn;
-                if turn < self.opening.horizon {
-                    titan_core::style::section_title(ui, &format!("actions @ T{turn}"));
-                    let queue: Vec<(usize, String)> = self
-                        .opening
-                        .actions(opening_id, turn)
-                        .iter()
-                        .enumerate()
-                        .map(|(i, a)| (i, a.label()))
-                        .collect();
-                    if queue.is_empty() {
-                        ui.label(egui::RichText::new("(empty)").weak());
+            && let Some(&opening_id) = self.sim.engine_to_opening.get(&id)
+        {
+            let turn = self.edit_turn;
+            if turn < self.opening.horizon {
+                titan_core::style::section_title(ui, &format!("actions @ T{turn}"));
+                let queue: Vec<(usize, String)> = self
+                    .opening
+                    .actions(opening_id, turn)
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| (i, a.label()))
+                    .collect();
+                if queue.is_empty() {
+                    ui.label(egui::RichText::new("(empty)").weak());
+                }
+                let mut delete_idx: Option<usize> = None;
+                for (i, label) in queue {
+                    if ui
+                        .selectable_label(false, format!("{i}. {label}  ✕"))
+                        .clickable()
+                        .clicked()
+                    {
+                        delete_idx = Some(i);
                     }
-                    let mut delete_idx: Option<usize> = None;
-                    for (i, label) in queue {
-                        if ui
-                            .selectable_label(false, format!("{i}. {label}  ✕"))
-                            .clickable()
-                            .clicked()
-                        {
-                            delete_idx = Some(i);
-                        }
-                    }
-                    if let Some(idx) = delete_idx {
-                        let snapshot = self.opening.clone();
-                        if self.opening.remove_action(opening_id, turn, idx) {
-                            self.undo_stack.push(UndoEntry {
-                                before: snapshot,
-                                label: format!("delete T{turn}[{idx}]"),
-                            });
-                            self.opening.ensure_unit_tree();
-                            self.refresh_sim();
-                            self.last_event = Some(format!("deleted T{turn}[{idx}]"));
-                        }
+                }
+                if let Some(idx) = delete_idx {
+                    let snapshot = self.opening.clone();
+                    if self.opening.remove_action(opening_id, turn, idx) {
+                        self.undo_stack.push(UndoEntry {
+                            before: snapshot,
+                            label: format!("delete T{turn}[{idx}]"),
+                        });
+                        self.opening.ensure_unit_tree();
+                        self.refresh_sim();
+                        self.last_event = Some(format!("deleted T{turn}[{idx}]"));
                     }
                 }
             }
+        }
         ui.separator();
 
         titan_core::style::section_title(ui, "spawn order");
@@ -1615,30 +1616,31 @@ impl App {
 
         // Click / drag: convert pointer to (turn, lane), seek+select.
         if (response.clicked() || response.dragged())
-            && let Some(p) = response.interact_pointer_pos() {
-                let frac = ((p.x - plot_x0) / plot_w).clamp(0.0, 1.0);
-                let target_turn = (frac * horizon as f32) as usize;
-                let last = self.opening.horizon.saturating_sub(1);
-                self.edit_turn = target_turn.min(last);
-                self.refresh_sim();
+            && let Some(p) = response.interact_pointer_pos()
+        {
+            let frac = ((p.x - plot_x0) / plot_w).clamp(0.0, 1.0);
+            let target_turn = (frac * horizon as f32) as usize;
+            let last = self.opening.horizon.saturating_sub(1);
+            self.edit_turn = target_turn.min(last);
+            self.refresh_sim();
 
-                if !lanes.is_empty() {
-                    let lane_top = rect.top() + ROW_PADDING_Y;
-                    let lane = (((p.y - lane_top) / row_h).floor() as i32)
-                        .clamp(0, lanes.len() as i32 - 1) as usize;
-                    let target_oid = lanes[lane];
-                    let engine_id = self
-                        .sim
-                        .engine_to_opening
-                        .iter()
-                        .find(|&(_, &oid)| oid == target_oid)
-                        .map(|(&eid, _)| eid);
-                    match engine_id {
-                        Some(eid) => self.select_unit(eid),
-                        None => self.select_opening_id_latent(target_oid),
-                    }
+            if !lanes.is_empty() {
+                let lane_top = rect.top() + ROW_PADDING_Y;
+                let lane = (((p.y - lane_top) / row_h).floor() as i32)
+                    .clamp(0, lanes.len() as i32 - 1) as usize;
+                let target_oid = lanes[lane];
+                let engine_id = self
+                    .sim
+                    .engine_to_opening
+                    .iter()
+                    .find(|&(_, &oid)| oid == target_oid)
+                    .map(|(&eid, _)| eid);
+                match engine_id {
+                    Some(eid) => self.select_unit(eid),
+                    None => self.select_opening_id_latent(target_oid),
                 }
             }
+        }
 
         // X-axis ticks (every 5 turns).
         let tick_color = ui.visuals().weak_text_color();
@@ -1729,7 +1731,8 @@ impl App {
             if let Some(parent_id) = plan.parent
                 && let Some(&parent_lane) = lane_idx.get(&parent_id)
             {
-                let parent_y = (parent_lane as f32 + 0.5).mul_add(row_h, rect.top() + ROW_PADDING_Y);
+                let parent_y =
+                    (parent_lane as f32 + 0.5).mul_add(row_h, rect.top() + ROW_PADDING_Y);
                 painter.line_segment(
                     [egui::pos2(x0, parent_y), egui::pos2(x0, lane_y)],
                     egui::Stroke::new(1.5, kind_color.gamma_multiply(0.6)),
@@ -1820,7 +1823,10 @@ impl App {
                 for (i, option) in wheel.options.iter().enumerate() {
                     let angle =
                         std::f32::consts::TAU.mul_add(i as f32 / n, -std::f32::consts::FRAC_PI_2);
-                    let p = egui::pos2(angle.cos().mul_add(mid, centre.x), angle.sin().mul_add(mid, centre.y));
+                    let p = egui::pos2(
+                        angle.cos().mul_add(mid, centre.x),
+                        angle.sin().mul_add(mid, centre.y),
+                    );
                     let hit_rect = egui::Rect::from_center_size(p, egui::Vec2::splat(wedge));
                     let resp = ui
                         .interact(
@@ -2461,7 +2467,8 @@ fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
     let (x, y) = (e.position.x, e.position.y);
     let opening_id = sim.engine_to_opening.get(&uid).copied();
     let plan = opening_id.and_then(|oid| opening.team.units.get(&oid));
-    let kind = plan.map_or_else(|| match e {
+    let kind = plan.map_or_else(
+        || match e {
             libre_engine::game_map::Entity::Core(_) => "core".to_string(),
             libre_engine::game_map::Entity::BuilderBot(_) => "builder".to_string(),
             libre_engine::game_map::Entity::Gunner(_) => "gunner".to_string(),
@@ -2469,7 +2476,9 @@ fn unit_label(sim: &Sim, opening: &Opening, uid: i32) -> String {
             libre_engine::game_map::Entity::Breach(_) => "breach".to_string(),
             libre_engine::game_map::Entity::Launcher(_) => "launcher".to_string(),
             _ => format!("uid {uid}"),
-        }, |p| p.kind.label().to_string());
+        },
+        |p| p.kind.label().to_string(),
+    );
     match (opening_id, plan) {
         (Some(0), _) => format!("{kind} ({x},{y})"),
         (Some(_), Some(p)) => format!("{kind} T{} ({x},{y})", p.spawn_turn),

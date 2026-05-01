@@ -100,10 +100,11 @@ impl Opening {
             return false;
         };
         if let Some(cat) = action.category()
-            && let Some(existing) = slot.items.iter_mut().find(|a| a.category() == Some(cat)) {
-                *existing = action;
-                return true;
-            }
+            && let Some(existing) = slot.items.iter_mut().find(|a| a.category() == Some(cat))
+        {
+            *existing = action;
+            return true;
+        }
         slot.items.push(action);
         true
     }
