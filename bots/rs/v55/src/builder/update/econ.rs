@@ -722,11 +722,11 @@ pub fn check_invariants(builder: &Builder) {
         let mut miss: Vec<Position> =
             pyrust::collect!(pyrust::copied!(oracle_ti.difference(&builder.ti_upstream)));
         miss.sort();
-        miss.truncate(8);
+        pyrust::vec::truncate!(miss, 8);
         let mut extra: Vec<Position> =
             pyrust::collect!(pyrust::copied!(builder.ti_upstream.difference(&oracle_ti)));
         extra.sort();
-        extra.truncate(8);
+        pyrust::vec::truncate!(extra, 8);
         let mut args = Map::new();
         pyrust::dict::insert!(
             args,
@@ -781,11 +781,11 @@ pub fn check_invariants(builder: &Builder) {
         let mut miss: Vec<Position> =
             pyrust::collect!(pyrust::copied!(oracle_ax.difference(&builder.ax_upstream)));
         miss.sort();
-        miss.truncate(8);
+        pyrust::vec::truncate!(miss, 8);
         let mut extra: Vec<Position> =
             pyrust::collect!(pyrust::copied!(builder.ax_upstream.difference(&oracle_ax)));
         extra.sort();
-        extra.truncate(8);
+        pyrust::vec::truncate!(extra, 8);
         let mut args = Map::new();
         pyrust::dict::insert!(
             args,

@@ -20,7 +20,7 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
             }
             let ti = builder.idx(t);
             if pyrust::vec::contains!(builder.in_edges[ti], &pos) {
-                builder.in_edges[ti].retain(|&p| p != pos);
+                pyrust::vec::retain!(builder.in_edges[ti], |&p| p != pos);
                 builder._on_in_edge_removed(t, pos);
                 builder._check_multi_input(t);
                 builder._check_dangling(t, &format!("edge_removed src={pos:?}"));

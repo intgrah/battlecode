@@ -481,7 +481,7 @@ impl AStarSearch {
             }
             pyrust::vec::push!(rev_path, node);
         }
-        rev_path.reverse();
+        pyrust::vec::reverse!(rev_path);
         node = best_meet;
         while node != gi {
             node = self.parent_bwd[node as usize];

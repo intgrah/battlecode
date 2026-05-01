@@ -9,15 +9,15 @@ pub fn prune_stale(builder: &mut Builder, ct: &mut Controller<'_>) {
         pyrust::copied!(pyrust::iter!(builder.healable_buildings)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));
-    builder.adjacent_to_enemy_launcher = pyrust::collect!(pyrust::filter!(
+    builder.adjacent_to_enemy_launcher = pyrust::set::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.adjacent_to_enemy_launcher)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));
-    builder.enemy_turret_ray_tiles = pyrust::collect!(pyrust::filter!(
+    builder.enemy_turret_ray_tiles = pyrust::set::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.enemy_turret_ray_tiles)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));
-    builder.friendly_turret_ray_tiles = pyrust::collect!(pyrust::filter!(
+    builder.friendly_turret_ray_tiles = pyrust::set::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.friendly_turret_ray_tiles)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));

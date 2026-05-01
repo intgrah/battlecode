@@ -89,22 +89,32 @@ fn ctx_manager_let<'a>(
     stmt: &'a syn::Stmt,
 ) -> Option<(String, &'a syn::Expr)> {
     let syn::Stmt::Local(l) = stmt else { return None };
-    let init = l.init.as_ref()?;
+    is_ctx_manager_local(w, l).then(|| {
+        let bind_name = match &l.pat {
+            syn::Pat::Ident(pi) => pi.ident.to_string(),
+            _ => unreachable!(),
+        };
+        (bind_name, l.init.as_ref().unwrap().expr.as_ref())
+    })
+}
+
+/// Same predicate as `ctx_manager_let`, but on a bare `Local`. Returns
+/// only the boolean — the caller has the local handy and can extract
+/// the binding name / init expression itself.
+pub fn is_ctx_manager_local(w: &PyWriter, l: &syn::Local) -> bool {
+    let Some(init) = l.init.as_ref() else { return false };
     if init.diverge.is_some() {
-        return None;
+        return false;
     }
     let bind_name = match &l.pat {
         syn::Pat::Ident(pi) => pi.ident.to_string(),
-        _ => return None,
+        _ => return false,
     };
     if !bind_name.starts_with('_') {
-        return None;
+        return false;
     }
-    let head = ctx_manager_call_head(&init.expr)?;
-    if !w.is_context_manager_type(&head) {
-        return None;
-    }
-    Some((bind_name, init.expr.as_ref()))
+    let Some(head) = ctx_manager_call_head(&init.expr) else { return false };
+    w.is_context_manager_type(&head)
 }
 
 /// Extract the head type-name from a call/path expression. For
