@@ -1961,15 +1961,16 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
         return Err(w.err(p.span(), "qualified paths not supported"));
     }
     // `#[pyrust::transparent]` enum unit variant — `Foo::None` becomes
-    // Python `None`. Only a multi-segment path can be a variant (a bare
-    // ident is a variable binding, which we mustn't erase even if its
-    // type is the transparent enum).
-    if p.path.segments.len() >= 2
-        && let Some(result_kind) = w.ty_at(p.span())
-        && let Some(adt) = result_kind.adt()
-        && adt.is_transparent
-    {
-        return Ok(Emitted::atomic("None", Ty::Unknown));
+    // Python `None`. Match syntactically: if the path's penultimate
+    // segment names a `#[pyrust::transparent]` type known via the
+    // workspace pre-scan, the trailing segment is a unit variant we can
+    // erase. ra_ap-era code consulted type info; we now rely on the
+    // syntactic registry built by `scan_pyrust_attrs`.
+    if p.path.segments.len() >= 2 {
+        let head = &p.path.segments[p.path.segments.len() - 2].ident.to_string();
+        if w.is_transparent_type(head) {
+            return Ok(Emitted::atomic("None", Ty::Unknown));
+        }
     }
     if p.path.leading_colon.is_none() && p.path.segments.len() == 2 {
         let head = p.path.segments[0].ident.to_string();
@@ -2077,19 +2078,23 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         return emit_expr(w, c.args.first().unwrap());
     }
     // `#[pyrust::transparent]` enum variant constructor — erase the
-    // wrapper. `Foo::Direction(d)` becomes just `d`; multi-field variants
-    // are an error because there's no obvious Python equivalent.
-    if let Some(result_kind) = w.ty_at(c.span())
-        && let Some(adt) = result_kind.adt()
-        && adt.is_transparent
+    // wrapper. `Foo::Direction(d)` becomes `d`. Detected syntactically:
+    // the call's func path's penultimate segment is a transparent-type
+    // name. Multi-field variants are an error.
+    if let syn::Expr::Path(fp) = c.func.as_ref()
+        && fp.qself.is_none()
+        && fp.path.segments.len() >= 2
     {
-        if c.args.len() == 1 {
-            return emit_expr(w, c.args.first().unwrap());
+        let head = &fp.path.segments[fp.path.segments.len() - 2].ident.to_string();
+        if w.is_transparent_type(head) {
+            if c.args.len() == 1 {
+                return emit_expr(w, c.args.first().unwrap());
+            }
+            return Err(w.err(
+                c.span(),
+                "transparent enum variant must have exactly one field",
+            ));
         }
-        return Err(w.err(
-            c.span(),
-            "transparent enum variant must have exactly one field",
-        ));
     }
     let path = match c.func.as_ref() {
         syn::Expr::Path(p) if p.qself.is_none() => &p.path,

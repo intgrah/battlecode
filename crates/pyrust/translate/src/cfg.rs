@@ -41,6 +41,14 @@ pub struct CfgEnv {
     /// names, bypassing the field-shadowing problem in folded trait
     /// default bodies (where ra_ap can't see through the generic).
     pub field_accessor_names: std::collections::HashSet<String>,
+    /// Names of types/traits carrying `#[pyrust::transparent]`. Found by a
+    /// syntactic walk of the workspace's `.rs` files. Translator drops
+    /// imports of these names and erases their variant constructors
+    /// (`Foo::None` → `None`, `Foo::Bar(x)` → `x`).
+    pub transparent_def_names: std::collections::HashSet<String>,
+    /// Names of types carrying `#[pyrust::exception]`. The struct emitter
+    /// adds `Exception` to the type's Python base list so `raise X` works.
+    pub exception_def_names: std::collections::HashSet<String>,
 }
 
 impl CfgEnv {

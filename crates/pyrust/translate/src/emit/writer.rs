@@ -88,13 +88,15 @@ impl PyWriter {
     /// either way, no Python class is emitted, so any `use` of the name
     /// must be dropped.
     pub fn is_transparent_type(&self, name: &str) -> bool {
-        self.types.is_transparent_name(name) || self.cfg.trait_registry.contains_key(name)
+        self.types.is_transparent_name(name)
+            || self.cfg.trait_registry.contains_key(name)
+            || self.cfg.transparent_def_names.contains(name)
     }
 
     /// True when `name` carries `#[pyrust::exception]` and so should be
     /// emitted as a Python `Exception` subclass.
     pub fn is_exception_type(&self, name: &str) -> bool {
-        self.types.is_exception_name(name)
+        self.types.is_exception_name(name) || self.cfg.exception_def_names.contains(name)
     }
 
     /// True if a folded-trait import for `ident` has already been emitted
