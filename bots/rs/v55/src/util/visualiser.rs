@@ -225,8 +225,8 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
 
 fn pos_xy(p: Position) -> serde_json::Value {
     serde_json::Value::Array(vec![
-        serde_json::Value::Number(p.x.into()),
-        serde_json::Value::Number(p.y.into()),
+        serde_json::Value::Number(pyrust::into!(p.x)),
+        serde_json::Value::Number(pyrust::into!(p.y)),
     ])
 }
 
