@@ -70,7 +70,7 @@ impl Core {
     pub fn new() -> Self {
         let mut deliveries: VecDeque<i32> = VecDeque::with_capacity(Self::INCOME_SAMPLES);
         for _ in 0..Self::INCOME_SAMPLES {
-            deliveries.push_back(0);
+            pyrust::vec::push_back!(deliveries, 0);
         }
         Self {
             state: UnitState::new(),
@@ -235,7 +235,7 @@ impl Unit for Core {
         if self.deliveries.len() == Self::INCOME_SAMPLES {
             self.deliveries.pop_back();
         }
-        self.deliveries.push_front(incoming);
+        pyrust::vec::push_front!(self.deliveries, incoming);
         let total: i32 = pyrust::sum!(pyrust::iter!(self.deliveries));
         let income_rate = pyrust::float!(total) / self.deliveries.len() as f64;
 

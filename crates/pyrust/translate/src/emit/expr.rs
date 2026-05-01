@@ -1350,19 +1350,42 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
     // are the well-known empty-collection idioms — the bot can keep
     // using bare `Vec::new()` etc. in const positions where the
     // `pyrust::vec::new!()` macro can't expand to a const expression.
-    if c.args.is_empty() {
+    {
         let segs: Vec<String> = path.segments.iter().map(|s| s.ident.to_string()).collect();
         let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
-        let py = match slice.as_slice() {
-            ["Vec", "new"] | ["VecDeque", "new"] => Some(("[]", Ty::List)),
-            ["HashSet", "new"] | ["BTreeSet", "new"] => Some(("set()", Ty::Set)),
-            ["HashMap", "new"] | ["BTreeMap", "new"] => Some(("{}", Ty::Dict)),
-            ["serde_json", "Map", "new"] | ["Map", "new"] => Some(("{}", Ty::Dict)),
-            ["String", "new"] => Some(("\"\"", Ty::Str)),
-            _ => None,
-        };
-        if let Some((py_text, py_ty)) = py {
-            return Ok(Emitted::atomic(py_text.to_string(), py_ty));
+        // Zero-arg empty constructor.
+        if c.args.is_empty() {
+            let py = match slice.as_slice() {
+                ["Vec", "new"] | ["VecDeque", "new"] => Some(("[]", Ty::List)),
+                ["HashSet", "new"] | ["BTreeSet", "new"] => Some(("set()", Ty::Set)),
+                ["HashMap", "new"] | ["BTreeMap", "new"] => Some(("{}", Ty::Dict)),
+                ["serde_json", "Map", "new"] | ["Map", "new"] => Some(("{}", Ty::Dict)),
+                ["String", "new"] => Some(("\"\"", Ty::Str)),
+                _ => None,
+            };
+            if let Some((py_text, py_ty)) = py {
+                return Ok(Emitted::atomic(py_text.to_string(), py_ty));
+            }
+        }
+        // 1-arg `with_capacity(n)` — Python has no capacity hint; drop arg.
+        if c.args.len() == 1
+            && matches!(
+                slice.as_slice(),
+                ["Vec", "with_capacity"]
+                    | ["VecDeque", "with_capacity"]
+                    | ["HashSet", "with_capacity"]
+                    | ["HashMap", "with_capacity"]
+                    | ["String", "with_capacity"]
+            )
+        {
+            let py = match slice[0] {
+                "Vec" | "VecDeque" => "[]",
+                "HashSet" => "set()",
+                "HashMap" => "{}",
+                "String" => "\"\"",
+                _ => unreachable!(),
+            };
+            return Ok(Emitted::atomic(py.to_string(), Ty::List));
         }
     }
     // `Some(x)` / `Option::Some(x)` / `Ok(x)` / `Result::Ok(x)` collapse to
@@ -2281,15 +2304,37 @@ fn emit_pyrust_dsl(
         // vec::*
         // ============================================================
         ["vec", "new"] => Ok(Some(Emitted::atomic("[]".to_string(), Ty::List))),
-        ["vec", "push"] => {
+        ["vec", "push"] | ["vec", "push_back"] => {
             let args = parse_args!();
             if args.len() != 2 {
-                return Err(w.err(em.span(), "vec::push!: expected (vec, item)"));
+                return Err(w.err(em.span(), "vec::push(_back)!: expected (vec, item)"));
             }
             let emits = emit_args(w, &args)?;
             Ok(Some(Emitted::atomic(
                 format!("{}.append({})", emits[0].text, emits[1].text),
                 Ty::Unit,
+            )))
+        }
+        ["vec", "push_front"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::push_front!: expected (vec, item)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.insert(0, {})", emits[0].text, emits[1].text),
+                Ty::Unit,
+            )))
+        }
+        ["vec", "pop_front"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::pop_front!: expected (vec)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("({0}.pop(0) if {0} else None)", emits[0].text),
+                Ty::Unknown,
             )))
         }
         ["vec", "pop"] => {

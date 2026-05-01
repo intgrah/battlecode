@@ -385,6 +385,32 @@ macro_rules! __pyrust_vec_push {
     };
 }
 
+/// `pyrust::vec::push_back!(v, x)` — Rust `VecDeque::push_back`, Python `v.append(x)`.
+#[macro_export]
+macro_rules! __pyrust_vec_push_back {
+    ($v:expr, $x:expr) => {
+        $v.push_back($x)
+    };
+}
+
+/// `pyrust::vec::push_front!(v, x)` — Rust `VecDeque::push_front`,
+/// Python `v.insert(0, x)`.
+#[macro_export]
+macro_rules! __pyrust_vec_push_front {
+    ($v:expr, $x:expr) => {
+        $v.push_front($x)
+    };
+}
+
+/// `pyrust::vec::pop_front!(v)` — Rust `VecDeque::pop_front`, Python
+/// `(v.pop(0) if v else None)`.
+#[macro_export]
+macro_rules! __pyrust_vec_pop_front {
+    ($v:expr) => {
+        $v.pop_front()
+    };
+}
+
 /// Pop the last element. Returns `Option<T>` — `None` on empty.
 /// Translator emits `(v.pop() if v else None)` for Python parity.
 #[macro_export]

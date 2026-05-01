@@ -317,7 +317,7 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         let env_changed = builder.env[i] != Some(env);
         let bld_changed = builder.building_ids[i] != bid;
         if pyrust::is_none!(builder.env[i]) {
-            builder.reflect_queue.push_back(i);
+            pyrust::vec::push_back!(builder.reflect_queue, i);
             let is_core =
                 bid.is_some_and(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
             pyrust::vec::push!(new_observations, (pos, env, is_core));
@@ -392,9 +392,9 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                 let bid_v = pyrust::unwrap!(bid);
                 let r = pyrust::unwrap!(ct.get_stored_resource(Some(bid_v)));
                 let rid = pyrust::unwrap!(ct.get_stored_resource_id(Some(bid_v)));
-                builder.flow_history[i].push_back((r, rid));
+                pyrust::vec::push_back!(builder.flow_history[i], (r, rid));
                 while builder.flow_history[i].len() > FLOW_HISTORY_LEN {
-                    builder.flow_history[i].pop_front();
+                    pyrust::vec::pop_front!(builder.flow_history[i]);
                 }
             }
         }
