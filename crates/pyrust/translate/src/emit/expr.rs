@@ -2479,6 +2479,23 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        ["vec", "swap_remove"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::swap_remove!: expected (vec, idx)"));
+            }
+            let emits = emit_args(w, &args)?;
+            // O(1) swap with last then pop. Order not preserved.
+            // Emit as a tuple-assignment trick to keep it a single
+            // expression-shaped statement.
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "({0}.__setitem__({1}, {0}[-1]) or {0}.pop())",
+                    emits[0].text, emits[1].text
+                ),
+                Ty::Unknown,
+            )))
+        }
         ["vec", "pop"] => {
             let args = parse_args!();
             if args.len() != 1 {

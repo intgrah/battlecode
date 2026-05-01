@@ -400,7 +400,7 @@ impl Builder {
                     pyrust::vec::push!(nb_list, i as i32);
                 }
             } else if let Some(p) = pyrust::position!(pyrust::iter!(nb_list), |&x| x == i as i32) {
-                nb_list.swap_remove(p);
+                pyrust::vec::swap_remove!(nb_list, p);
             }
         }
     }
