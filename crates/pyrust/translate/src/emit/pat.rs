@@ -137,7 +137,19 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 .iter()
                 .map(|s| s.ident.to_string())
                 .collect();
-            let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+            // Resolve Self::Variant to surrounding class.
+            let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false) {
+                if let Some(cls) = w.current_class() {
+                    let mut v = vec![cls.to_string()];
+                    v.extend(segs.iter().skip(1).cloned());
+                    v
+                } else {
+                    segs.clone()
+                }
+            } else {
+                segs.clone()
+            };
+            let slice: Vec<&str> = resolved.iter().map(String::as_str).collect();
             // `Some(p)` collapses to the inner pattern.
             if matches!(slice.as_slice(), ["Some"] | ["Option", "Some"]) {
                 if ts.elems.len() != 1 {
@@ -189,13 +201,25 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 .iter()
                 .map(|seg| seg.ident.to_string())
                 .collect();
-            let class = match segs.as_slice() {
+            // Resolve `Self::Variant` to current class.
+            let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false) {
+                if let Some(cls) = w.current_class() {
+                    let mut v = vec![cls.to_string()];
+                    v.extend(segs.iter().skip(1).cloned());
+                    v
+                } else {
+                    segs.clone()
+                }
+            } else {
+                segs.clone()
+            };
+            let class = match resolved.as_slice() {
                 [single] => single.clone(),
                 [head, tail] => format!("{head}{tail}"),
                 _ => {
                     return Err(w.err(
                         s.span(),
-                        format!("unsupported struct pattern path: {}", segs.join("::")),
+                        format!("unsupported struct pattern path: {}", resolved.join("::")),
                     ));
                 }
             };
