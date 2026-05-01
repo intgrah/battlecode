@@ -191,6 +191,25 @@ fn file_uses_method_name(items: &[&syn::Item], names: &[&str]) -> bool {
             }
             syn::visit::visit_expr_method_call(self, mc);
         }
+        fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
+            // Also recognise the math operations when wrapped in
+            // pyrust DSL macros (e.g. `pyrust::sqrt!(x)`). Descend
+            // into the macro body too — chains like
+            // `pyrust::abs!(pyrust::sqrt!(x))` only show the inner
+            // macro after parsing the body.
+            if let Some(last) = em.mac.path.segments.last() {
+                let n = last.ident.to_string();
+                if self.names.iter().any(|x| *x == n) {
+                    self.hit = true;
+                }
+            }
+            let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+            if let Ok(args) = syn::parse::Parser::parse2(parser, em.mac.tokens.clone()) {
+                for arg in args {
+                    self.visit_expr(&arg);
+                }
+            }
+        }
     }
     let mut v = V { names, hit: false };
     for item in items {
