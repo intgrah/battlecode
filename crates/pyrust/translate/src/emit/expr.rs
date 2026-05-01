@@ -823,14 +823,26 @@ fn matches_pat_to_bool(w: &mut PyWriter, scrut: &str, pat: &syn::Pat) -> Result<
                 .iter()
                 .map(|s| s.ident.to_string())
                 .collect();
-            let s: Vec<&str> = segs.iter().map(String::as_str).collect();
+            // Resolve `Self::Variant` to the surrounding class.
+            let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false) {
+                if let Some(cls) = w.current_class() {
+                    let mut v = vec![cls.to_string()];
+                    v.extend(segs.iter().skip(1).cloned());
+                    v
+                } else {
+                    segs.clone()
+                }
+            } else {
+                segs.clone()
+            };
+            let s: Vec<&str> = resolved.iter().map(String::as_str).collect();
             match s.as_slice() {
                 ["None"] | ["Option", "None"] => Ok(format!("{scrut} is None")),
                 [single] => Ok(format!("{scrut} == {single}")),
                 [class, variant] => Ok(format!("{scrut} == {class}.{variant}")),
                 _ => Err(w.err(
                     p.span(),
-                    format!("unsupported matches! path pattern: {}", segs.join("::")),
+                    format!("unsupported matches! path pattern: {}", resolved.join("::")),
                 )),
             }
         }
@@ -2074,6 +2086,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             Ok(Some(Emitted::atomic(
                 format!("list({})", inner.text),
                 Ty::Unknown,
+            )))
+        }
+        ["to_vec"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "to_vec!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("list({})", inner.text),
+                Ty::List,
             )))
         }
         ["drop"] => {

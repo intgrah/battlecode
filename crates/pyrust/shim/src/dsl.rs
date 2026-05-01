@@ -127,6 +127,14 @@ macro_rules! __pyrust_clone {
     };
 }
 
+/// `pyrust::to_vec!(x)` — Rust `x.to_vec()`, Python `list(x)`.
+#[macro_export]
+macro_rules! __pyrust_to_vec {
+    ($x:expr) => {
+        ($x).to_vec()
+    };
+}
+
 /// `pyrust::drop!(x)` — Rust prelude `drop(x)`. In Python we emit
 /// `x.drop()` so a user-defined `Drop` impl runs explicitly (the
 /// translator emits `impl Drop for T` as `def drop(self)`).
