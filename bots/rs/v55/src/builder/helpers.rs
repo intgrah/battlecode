@@ -561,7 +561,7 @@ pub fn ore_available(builder: &Builder, pos: Position) -> bool {
 #[must_use] 
 pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<Position> {
     let sink: Option<Position> = if on_enemy_side(builder, ore_pos) {
-        if pyrust::is_some!(builder.symmetry()) {
+        if pyrust::is_some!(builder.symmetry) {
             Some(builder.en_core_guess())
         } else {
             None

@@ -13,7 +13,7 @@ use crate::util::directions::DIR8;
 /// destroy anything to place one, so we only place on tiles that are
 /// already unbuilt.
 pub fn end_of_turn_propagate_symmetry(builder: &mut Builder, ct: &mut Controller<'_>) {
-    let Some(symmetry) = builder.symmetry() else {
+    let Some(symmetry) = builder.symmetry else {
         return;
     };
     let payload = Marker::Symmetry { symmetry }.encode();
