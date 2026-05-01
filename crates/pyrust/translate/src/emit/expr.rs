@@ -2201,6 +2201,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Float,
             )))
         }
+        ["signum"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "signum!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("(({0} > 0) - ({0} < 0))", inner.text),
+                Ty::Int,
+            )))
+        }
         ["powf"] | ["powi"] => {
             let args = parse_args!();
             if args.len() != 2 {
@@ -3044,6 +3055,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             Ok(Some(Emitted::atomic(
                 format!("{}.clear()", inner.text),
                 Ty::Unit,
+            )))
+        }
+        ["dict", "collect"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "dict::collect!: expected (it)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("dict({})", inner.text),
+                Ty::Dict,
             )))
         }
         ["dict", "items"] => {

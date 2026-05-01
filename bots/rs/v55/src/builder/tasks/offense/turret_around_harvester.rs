@@ -37,7 +37,7 @@ const fn direction_to(src: Position, dst: Position) -> Direction {
             Direction::East
         };
     }
-    match (dx.signum(), dy.signum()) {
+    match (pyrust::signum!(dx), pyrust::signum!(dy)) {
         (1, -1) => Direction::Northeast,
         (1, 1) => Direction::Southeast,
         (-1, 1) => Direction::Southwest,

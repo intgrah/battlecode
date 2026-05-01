@@ -76,6 +76,7 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("abs", 0) => Some("abs"),
         ("round", 0) => Some("round"),
         ("sqrt", 0) => Some("sqrt"),
+        ("signum", 0) => Some("signum"),
         ("floor", 0) => Some("floor"),
         ("ceil", 0) => Some("ceil"),
         ("rem_euclid", 1) => Some("rem_euclid"),

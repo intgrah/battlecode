@@ -388,7 +388,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
 /// Per-turn offense bookkeeping.
 pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
     if !pyrust::vec::is_empty!(self_.attack_tile_blacklist) {
-        let new_blacklist: HashMap<Position, i32> = pyrust::collect!(pyrust::filter_map!(
+        let new_blacklist: HashMap<Position, i32> = pyrust::dict::collect!(pyrust::filter_map!(
             pyrust::dict::items!(self_.attack_tile_blacklist),
             |t| if *t.1 > 1 {
                 Some((*t.0, *t.1 - 1))
