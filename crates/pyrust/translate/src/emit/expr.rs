@@ -1416,10 +1416,21 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 Ty::Unknown,
             ));
         }
+        // `T::new(args)` constructor convention — Rust idiom for any
+        // user-defined type. Python equivalent is calling the class
+        // itself (`T(args)`), since the bot's `impl T { fn new() }`
+        // is the canonical constructor. This is path-recognised, not
+        // method-name guessing on a receiver.
+        if tail == "new" {
+            return Ok(Emitted::atomic(
+                format!("{class_name}({joined})"),
+                Ty::Unknown,
+            ));
+        }
         // Generic `Type::method(args)` — pass through as Python class
         // method call. Bot is responsible for wrapping any Rust builtin
-        // (Vec::new, String::from, i64::from, ...) in a `pyrust::*!` macro
-        // — the translator does not name-match here.
+        // (String::from, i64::from, ...) in a `pyrust::*!` macro — the
+        // translator does not name-match here.
         return Ok(Emitted::atomic(
             format!("{class_name}.{tail}({joined})"),
             Ty::Unknown,

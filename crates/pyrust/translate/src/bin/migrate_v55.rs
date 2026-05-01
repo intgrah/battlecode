@@ -93,48 +93,45 @@ impl<'src> V55Migrator<'src> {
 
 impl<'ast, 'src> Visit<'ast> for V55Migrator<'src> {
     fn visit_expr_method_call(&mut self, mc: &'ast syn::ExprMethodCall) {
-        // Recurse first so nested calls get rewritten.
-        syn::visit::visit_expr_method_call(self, mc);
         let method = mc.method.to_string();
-        // Only rewrite specific method names. Everything else passes through.
-        let macro_name = match method.as_str() {
-            "is_some" if mc.args.is_empty() => "is_some",
-            "is_none" if mc.args.is_empty() => "is_none",
-            "unwrap" if mc.args.is_empty() => "unwrap",
-            "expect" if mc.args.len() == 1 => "expect",
-            "unwrap_or" if mc.args.len() == 1 => "unwrap_or",
-            "iter" if mc.args.is_empty() => "iter",
-            "into_iter" if mc.args.is_empty() => "into_iter",
-            "copied" if mc.args.is_empty() => "copied",
-            "cloned" if mc.args.is_empty() => "cloned",
-            "collect" if mc.args.is_empty() => "collect",
-            "to_string" if mc.args.is_empty() => "to_string",
-            _ => return,
+        // Single-shot rewrites that turn the method call into a pyrust
+        // DSL macro. Receiver captured verbatim; we do NOT recurse into
+        // it (its rewrites would overlap byte ranges with this one).
+        let single_shot = match method.as_str() {
+            "is_some" if mc.args.is_empty() => Some("is_some"),
+            "is_none" if mc.args.is_empty() => Some("is_none"),
+            "unwrap" if mc.args.is_empty() => Some("unwrap"),
+            "expect" if mc.args.len() == 1 => Some("expect"),
+            "unwrap_or" if mc.args.len() == 1 => Some("unwrap_or"),
+            _ => None,
         };
-        // Compute the receiver's byte range in source.
+        if let Some(macro_name) = single_shot {
+            self.rewrite_simple(mc, macro_name);
+            for a in &mc.args {
+                self.visit_expr(a);
+            }
+            return;
+        }
+        // Not rewriting this call — visit children normally.
+        syn::visit::visit_expr_method_call(self, mc);
+    }
+}
+
+impl<'src> V55Migrator<'src> {
+    fn rewrite_simple(&mut self, mc: &syn::ExprMethodCall, macro_name: &str) {
         let recv_span = mc.receiver.span();
-        let (recv_start, _recv_end) = match self.span_to_byte_range(recv_span) {
+        let (recv_start, recv_end) = match self.span_to_byte_range(recv_span) {
             Some(r) => r,
             None => return,
         };
-        // The whole method-call's byte range.
         let (mc_start, mc_end) = match self.span_to_byte_range(mc.span()) {
             Some(r) => r,
             None => return,
         };
         if mc_start != recv_start {
-            // Receiver doesn't start at the method-call's start — likely
-            // a parenthesized or borrow-expression head. Skip; bot author
-            // can hand-fix.
             return;
         }
-        // Receiver text from src.
-        let recv_end = match self.span_to_byte_range(recv_span) {
-            Some((_, e)) => e,
-            None => return,
-        };
         let recv_text = &self.src[recv_start..recv_end];
-        // Build the replacement text.
         let replacement = if mc.args.is_empty() {
             format!("pyrust::{macro_name}!({recv_text})")
         } else {
