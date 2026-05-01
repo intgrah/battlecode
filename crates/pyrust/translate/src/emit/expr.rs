@@ -2620,6 +2620,28 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::List,
             )))
         }
+        ["vec", "first"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::first!: expected (vec)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("({0}[0] if {0} else None)", inner.text),
+                Ty::Unknown,
+            )))
+        }
+        ["vec", "last"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::last!: expected (vec)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("({0}[-1] if {0} else None)", inner.text),
+                Ty::Unknown,
+            )))
+        }
         ["vec", "swap_remove"] => {
             let args = parse_args!();
             if args.len() != 2 {

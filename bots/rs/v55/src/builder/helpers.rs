@@ -615,7 +615,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         }
         match kind {
             Some(EntityType::Bridge) => {
-                let target = pyrust::unwrap_or!(pyrust::copied!(builder.out_edges[ci].first()), c);
+                let target = pyrust::unwrap_or!(pyrust::copied!(pyrust::vec::first!(builder.out_edges[ci])), c);
                 if target == ore_pos {
                     pyrust::vec::push!(classification, (c, "inward_guard: bridge target == ore"));
                 } else {
@@ -625,7 +625,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 continue;
             }
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                let target = pyrust::unwrap_or!(pyrust::copied!(builder.out_edges[ci].first()), c);
+                let target = pyrust::unwrap_or!(pyrust::copied!(pyrust::vec::first!(builder.out_edges[ci])), c);
                 if target == ore_pos {
                     pyrust::vec::push!(classification, (c, "inward_guard: conveyor output -> ore"));
                 } else {

@@ -113,6 +113,8 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("pop_back", 0) => Some("vec::pop_back"),
         ("swap_remove", 1) => Some("vec::swap_remove"),
         ("fill", 1) => Some("vec::fill"),
+        ("first", 0) => Some("vec::first"),
+        ("last", 0) => Some("vec::last"),
         ("extend", 1) => Some("vec::extend"),
         // 1-arg `.insert(x)` is HashSet::insert / BTreeSet::insert; the
         // bot's Vec::insert sites (2-arg with index) translate to dict
