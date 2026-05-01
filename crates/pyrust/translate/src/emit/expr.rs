@@ -351,84 +351,104 @@ fn emit_inline_call(
     use std::collections::HashMap;
     // Build (formal name, expr) list. Receiver (`self`) goes first if
     // the def is a method.
-    let mut bindings: Vec<(&'static str, &syn::Expr)> = Vec::new();
+    let mut bindings: Vec<(&'static str, syn::Expr)> = Vec::new();
     if def.has_self {
-        bindings.push(("self", receiver.expect("method inline needs receiver")));
+        bindings.push(("self", receiver.expect("method inline needs receiver").clone()));
     }
-    // Owned param names so we can mix with the static "self".
     let owned_names: Vec<String> = def.params.clone();
-    let mut subst: HashMap<String, String> = HashMap::new();
-    // Emit each arg/receiver to text, wrapping in walrus when the
-    // body refs the formal 2+ times AND the arg isn't atomic.
+    // For each formal: either substitute the arg expression in directly
+    // (atomic / single-ref), or pre-evaluate into `__inlN` and substitute
+    // that ident. Walrus prefix is `(__inl0 := arg, __inl1 := arg2, body)[-1]`.
     let body_ref_counts = count_path_refs(&def.body);
-    let mut walrus_chain: Vec<String> = Vec::new();
+    let mut walrus_emits: Vec<(String, Emitted)> = Vec::new();
+    let mut subst: HashMap<String, syn::Expr> = HashMap::new();
     let mut tmp_n: u32 = 0;
-    let mut next_tmp = || {
-        let n = format!("__inl{tmp_n}");
-        tmp_n += 1;
-        n
-    };
-    for (i, b) in bindings.iter().enumerate() {
-        let formal = b.0;
-        let expr = b.1;
-        let refs = body_ref_counts.get(formal).copied().unwrap_or(0);
+    let handle = |w: &mut PyWriter,
+                      formal: String,
+                      expr: &syn::Expr,
+                      refs: usize,
+                      walrus_emits: &mut Vec<(String, Emitted)>,
+                      subst: &mut HashMap<String, syn::Expr>,
+                      tmp_n: &mut u32|
+     -> Result<(), String> {
         if refs == 0 {
-            continue;
+            return Ok(());
         }
-        let em = emit_expr(w, expr)?;
-        let atomic = is_atomic_expr(expr);
-        if atomic || refs == 1 {
-            // For atomic OR single-ref, parenthesise non-atomic to make
-            // attr/index access on the substituted text safe.
-            let text = if em.prec < Prec::Atom {
-                format!("({})", em.text)
-            } else {
-                em.text.clone()
-            };
-            subst.insert(formal.to_string(), text);
+        if is_atomic_expr(expr) || refs == 1 {
+            subst.insert(formal, expr.clone());
         } else {
-            let tmp = next_tmp();
-            walrus_chain.push(format!("({tmp} := {})", em.text));
-            subst.insert(formal.to_string(), tmp);
+            let tmp = format!("__inl{tmp_n}");
+            *tmp_n += 1;
+            let em = emit_expr(w, expr)?;
+            let tmp_expr: syn::Expr = syn::parse_str(&tmp).map_err(|e| format!("inline tmp ident: {e}"))?;
+            walrus_emits.push((tmp, em));
+            subst.insert(formal, tmp_expr);
         }
-        let _ = i;
+        Ok(())
+    };
+    for (formal, expr) in &bindings {
+        let refs = body_ref_counts.get(formal).copied().unwrap_or(0);
+        handle(w, (*formal).to_string(), expr, refs, &mut walrus_emits, &mut subst, &mut tmp_n)?;
     }
     for (i, formal) in owned_names.iter().enumerate() {
-        let expr = args[i];
         let refs = body_ref_counts.get(formal.as_str()).copied().unwrap_or(0);
-        if refs == 0 {
-            continue;
-        }
-        let em = emit_expr(w, expr)?;
-        let atomic = is_atomic_expr(expr);
-        if atomic || refs == 1 {
-            let text = if em.prec < Prec::Atom {
-                format!("({})", em.text)
-            } else {
-                em.text.clone()
-            };
-            subst.insert(formal.clone(), text);
-        } else {
-            let tmp = next_tmp();
-            walrus_chain.push(format!("({tmp} := {})", em.text));
-            subst.insert(formal.clone(), tmp);
-        }
+        handle(w, formal.clone(), args[i], refs, &mut walrus_emits, &mut subst, &mut tmp_n)?;
     }
-    // Re-emit body with substitution.
+    // AST-substitute formals in a clone of the body. visit_mut walks
+    // the tree and replaces leaf single-segment Path matches with the
+    // bound expression. After substitution we call `emit_expr` on the
+    // result, so DSL detection / macro expansion / method renaming
+    // still apply just as for non-inlined call sites.
+    let mut body = def.body.clone();
+    substitute_idents(&mut body, &subst);
     w.push_inlining(name);
-    let body_em = emit_expr_with_subst(w, &def.body, &subst);
+    let body_em = emit_expr(w, &body);
     w.pop_inlining();
     let body_em = body_em?;
-    if walrus_chain.is_empty() {
+    if walrus_emits.is_empty() {
         return Ok(body_em);
     }
-    // (__a := arg, …, body)[-1]
-    let mut parts = walrus_chain;
+    let mut parts: Vec<String> = walrus_emits
+        .iter()
+        .map(|(tmp, em)| format!("({tmp} := {})", em.text))
+        .collect();
     parts.push(body_em.text);
     Ok(Emitted::atomic(
         format!("({})[-1]", parts.join(", ")),
         body_em.ty,
     ))
+}
+
+/// Walk `e` and replace every single-segment `Expr::Path` whose ident
+/// is a key in `subst` with the corresponding expression. `self` is the
+/// Rust keyword path; `syn` represents it as a single-segment path with
+/// ident `self`, so it substitutes uniformly with normal idents.
+fn substitute_idents(
+    e: &mut syn::Expr,
+    subst: &std::collections::HashMap<String, syn::Expr>,
+) {
+    use syn::visit_mut::VisitMut;
+    struct V<'a> {
+        subst: &'a std::collections::HashMap<String, syn::Expr>,
+    }
+    impl VisitMut for V<'_> {
+        fn visit_expr_mut(&mut self, e: &mut syn::Expr) {
+            // Recurse first so children are substituted before we
+            // (potentially) replace the current node.
+            syn::visit_mut::visit_expr_mut(self, e);
+            if let syn::Expr::Path(p) = e
+                && p.qself.is_none()
+                && p.path.leading_colon.is_none()
+                && p.path.segments.len() == 1
+            {
+                let name = p.path.segments[0].ident.to_string();
+                if let Some(replacement) = self.subst.get(&name) {
+                    *e = replacement.clone();
+                }
+            }
+        }
+    }
+    V { subst }.visit_expr_mut(e);
 }
 
 /// Count occurrences of each single-segment path ident in `e`.
@@ -477,107 +497,6 @@ fn is_atomic_expr(e: &syn::Expr) -> bool {
         syn::Expr::Paren(p) => is_atomic_expr(&p.expr),
         _ => false,
     }
-}
-
-/// Re-emit `e` with single-segment ident references replaced by the
-/// substitution table's text. `self` references (`self` and
-/// `self.<field>` chains) get the receiver-text substitution.
-fn emit_expr_with_subst(
-    w: &mut PyWriter,
-    e: &syn::Expr,
-    subst: &std::collections::HashMap<String, String>,
-) -> Result<Emitted, String> {
-    // Walk + rewrite. We do this by transforming the AST on the fly:
-    // wherever a single-segment Expr::Path matches, return the
-    // substitution as an atomic Emitted. For everything else, re-enter
-    // emit_expr after recursively transforming child Exprs that contain
-    // refs.
-    //
-    // The simplest correct implementation: walk via syn::fold to
-    // produce a new Expr with text-substitutions wrapped in a
-    // `Verbatim` token group. But syn::fold is heavyweight.
-    //
-    // Easier: special-case the common shapes (Path, Field, Index,
-    // Binary, Unary, Call, MethodCall, Paren, Tuple) and recurse into
-    // children. Anything else: clone + emit_expr (loses substitutions
-    // beneath it — accept for now).
-    if let syn::Expr::Path(p) = e
-        && p.qself.is_none()
-        && p.path.leading_colon.is_none()
-        && p.path.segments.len() == 1
-    {
-        let name = p.path.segments[0].ident.to_string();
-        if let Some(text) = subst.get(&name) {
-            return Ok(Emitted::atomic(text.clone(), Ty::Unknown));
-        }
-    }
-    if let syn::Expr::Field(f) = e {
-        let base = emit_expr_with_subst(w, &f.base, subst)?;
-        let base_text = if base.prec < Prec::Atom {
-            format!("({})", base.text)
-        } else {
-            base.text
-        };
-        let field_text = match &f.member {
-            syn::Member::Named(n) => n.to_string(),
-            syn::Member::Unnamed(i) => format!("[{}]", i.index),
-        };
-        return Ok(match &f.member {
-            syn::Member::Named(_) => Emitted::atomic(format!("{base_text}.{field_text}"), Ty::Unknown),
-            syn::Member::Unnamed(_) => Emitted::atomic(format!("{base_text}{field_text}"), Ty::Unknown),
-        });
-    }
-    if let syn::Expr::Index(i) = e {
-        let base = emit_expr_with_subst(w, &i.expr, subst)?;
-        let idx = emit_expr_with_subst(w, &i.index, subst)?;
-        let base_text = if base.prec < Prec::Atom {
-            format!("({})", base.text)
-        } else {
-            base.text
-        };
-        return Ok(Emitted::atomic(
-            format!("{base_text}[{}]", idx.text),
-            Ty::Unknown,
-        ));
-    }
-    if let syn::Expr::Binary(b) = e {
-        let l = emit_expr_with_subst(w, &b.left, subst)?;
-        let r = emit_expr_with_subst(w, &b.right, subst)?;
-        let op = match b.op {
-            syn::BinOp::Add(_) => "+",
-            syn::BinOp::Sub(_) => "-",
-            syn::BinOp::Mul(_) => "*",
-            syn::BinOp::Div(_) => "//", // integer division for usize/i32
-            syn::BinOp::Rem(_) => "%",
-            syn::BinOp::Eq(_) => "==",
-            syn::BinOp::Ne(_) => "!=",
-            syn::BinOp::Lt(_) => "<",
-            syn::BinOp::Le(_) => "<=",
-            syn::BinOp::Gt(_) => ">",
-            syn::BinOp::Ge(_) => ">=",
-            syn::BinOp::And(_) => "and",
-            syn::BinOp::Or(_) => "or",
-            _ => {
-                // Fall back to full emit on unknown ops.
-                return emit_expr(w, e);
-            }
-        };
-        return Ok(Emitted::atomic(
-            format!("({} {} {})", l.text, op, r.text),
-            Ty::Unknown,
-        ));
-    }
-    if let syn::Expr::Paren(p) = e {
-        return emit_expr_with_subst(w, &p.expr, subst);
-    }
-    if let syn::Expr::Cast(c) = e {
-        // `as <Ty>` is a no-op in Python (translator strips casts).
-        return emit_expr_with_subst(w, &c.expr, subst);
-    }
-    // Fallback: anything not specially handled above gets standard
-    // emission. Substitutions beneath that node are lost, which is OK
-    // for the simple bodies we target.
-    emit_expr(w, e)
 }
 
 fn paren_at_least(e: &Emitted, ctx: Prec) -> String {
