@@ -14,7 +14,7 @@ use crate::util::debug::Scope;
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
 use crate::util::metrics::{chebyshev, claims_by_proximity};
-use auto_wrap_position;
+use crate::util::visualiser::auto_wrap_position;
 
 #[must_use] 
 pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
