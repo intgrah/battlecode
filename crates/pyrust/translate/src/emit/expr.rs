@@ -2305,6 +2305,23 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        ["rng_choices"] => {
+            let args = parse_args!();
+            if args.len() != 4 {
+                return Err(w.err(em.span(), "rng_choices!: expected (rng, pop, weights, k)"));
+            }
+            let rng = emit_expr(w, &args[0])?;
+            let pop = emit_expr(w, &args[1])?;
+            let weights = emit_expr(w, &args[2])?;
+            let k = emit_expr(w, &args[3])?;
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "{}.choices({}, {}, k={})",
+                    rng.text, pop.text, weights.text, k.text
+                ),
+                Ty::List,
+            )))
+        }
         ["sum"] => {
             let args = parse_args!();
             if args.len() != 1 {

@@ -78,7 +78,7 @@ fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
         pyrust::iter!(choices),
         |t| pyrust::float!(t.1)
     ));
-    *builder.state.rng.choices(&population, Some(&weights), 1)[0]
+    *pyrust::rng_choices!(builder.state.rng, population, weights, 1)[0]
 }
 
 /// Opening spawn slots use the hardcoded sequence indexed by the
