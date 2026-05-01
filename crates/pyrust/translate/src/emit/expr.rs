@@ -2157,6 +2157,18 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Float,
             )))
         }
+        ["rem_euclid"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "rem_euclid!: expected (a, b)"));
+            }
+            let a = emit_expr(w, &args[0])?;
+            let b = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("(({}) % ({}))", a.text, b.text),
+                Ty::Int,
+            )))
+        }
 
         // ============================================================
         // Iterator: identity / no-op in Python (lists/dicts are iterable)

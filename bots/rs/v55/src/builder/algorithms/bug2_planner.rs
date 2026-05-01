@@ -396,7 +396,7 @@ impl Bug2Planner {
     fn cw_substep(&mut self, cost: &[i32]) {
         let mut moved = false;
         for _ in 0..8 {
-            self.cw_dir = (self.cw_dir - 1).rem_euclid(8);
+            self.cw_dir = pyrust::rem_euclid!((self.cw_dir - 1), 8);
             let nx2 = self.cw_px + DX[self.cw_dir as usize];
             let ny2 = self.cw_py + DY[self.cw_dir as usize];
             if !(0 <= nx2 && nx2 < self.w && 0 <= ny2 && ny2 < self.h) {
@@ -451,9 +451,9 @@ impl Bug2Planner {
                 self.cw_cross = nxt_cross;
                 pyrust::vec::push!(self.cw_path, cell);
                 if IS_CARDINAL[self.cw_dir as usize] {
-                    self.cw_dir = (self.cw_dir + 2).rem_euclid(8);
+                    self.cw_dir = pyrust::rem_euclid!((self.cw_dir + 2), 8);
                 } else {
-                    self.cw_dir = (self.cw_dir + 3).rem_euclid(8);
+                    self.cw_dir = pyrust::rem_euclid!((self.cw_dir + 3), 8);
                 }
                 self.cw_wox = self.cw_px + DX[self.cw_dir as usize];
                 self.cw_woy = self.cw_py + DY[self.cw_dir as usize];
@@ -496,7 +496,7 @@ impl Bug2Planner {
     fn ccw_substep(&mut self, cost: &[i32]) {
         let mut moved = false;
         for _ in 0..8 {
-            self.ccw_dir = (self.ccw_dir + 1).rem_euclid(8);
+            self.ccw_dir = pyrust::rem_euclid!((self.ccw_dir + 1), 8);
             let nx2 = self.ccw_px + DX[self.ccw_dir as usize];
             let ny2 = self.ccw_py + DY[self.ccw_dir as usize];
             if !(0 <= nx2 && nx2 < self.w && 0 <= ny2 && ny2 < self.h) {
@@ -551,9 +551,9 @@ impl Bug2Planner {
                 self.ccw_cross = nxt_cross;
                 pyrust::vec::push!(self.ccw_path, cell);
                 if IS_CARDINAL[self.ccw_dir as usize] {
-                    self.ccw_dir = (self.ccw_dir - 2).rem_euclid(8);
+                    self.ccw_dir = pyrust::rem_euclid!((self.ccw_dir - 2), 8);
                 } else {
-                    self.ccw_dir = (self.ccw_dir - 3).rem_euclid(8);
+                    self.ccw_dir = pyrust::rem_euclid!((self.ccw_dir - 3), 8);
                 }
                 self.ccw_wox = self.ccw_px + DX[self.ccw_dir as usize];
                 self.ccw_woy = self.ccw_py + DY[self.ccw_dir as usize];

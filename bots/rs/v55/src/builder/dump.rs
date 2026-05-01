@@ -154,7 +154,7 @@ fn _hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     let p = v * (1.0 - s);
     let q = v * s.mul_add(-f, 1.0);
     let t = v * s.mul_add(-(1.0 - f), 1.0);
-    let (r, g, b) = match i.rem_euclid(6) {
+    let (r, g, b) = match pyrust::rem_euclid!(i, 6) {
         0 => (v, t, p),
         1 => (q, v, p),
         2 => (p, v, t),
@@ -184,7 +184,7 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
     keys.sort_unstable();
     let mut special: Vec<(i64, Colour)> = vec![(-1, TRANSPARENT)];
     for (k, key) in pyrust::enumerate!(pyrust::iter!(keys)) {
-        let hue = ((k as f64) * _GOLDEN).rem_euclid(1.0);
+        let hue = pyrust::rem_euclid!(((k as f64) * _GOLDEN), 1.0);
         let (r, g, b) = _hsv_to_rgb(hue, 0.65, 0.95);
         pyrust::vec::push!(special, (i64::from(*key), Colour::new(r, g, b, 160)));
     }

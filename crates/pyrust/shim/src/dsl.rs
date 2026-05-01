@@ -178,6 +178,16 @@ macro_rules! __pyrust_ceil {
     };
 }
 
+/// `pyrust::rem_euclid!(a, b)` — Rust `a.rem_euclid(b)`, Python `a % b`.
+/// Python's `%` matches `rem_euclid` for positive divisors (always
+/// returns a non-negative result with same sign as divisor).
+#[macro_export]
+macro_rules! __pyrust_rem_euclid {
+    ($a:expr, $b:expr) => {
+        ($a).rem_euclid($b)
+    };
+}
+
 // =====================================================================
 // Iterator — chains / adapters / consumers (top-level macros)
 // =====================================================================
