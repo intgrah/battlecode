@@ -421,7 +421,7 @@ impl Builder {
     }
 
     /// Resolved symmetry (inherent shadow of `Unit::symmetry` so peer code
-    /// can use `builder.symmetry()` without importing the trait).
+    /// can use `builder.symmetry` without importing the trait).
     #[inline]
     #[must_use] 
     pub const fn symmetry(&self) -> Option<Symmetry> {

@@ -13,7 +13,7 @@ use crate::builder::helpers::on_enemy_side;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn push_extend(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if pyrust::is_none!(self_.symmetry()) {
+    if pyrust::is_none!(self_.symmetry) {
         return Some(TaskRejected::new("symmetry unresolved; en_core unknown"));
     }
     let Some(start) = self_.dangling_output else {

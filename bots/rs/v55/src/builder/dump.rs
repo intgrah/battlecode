@@ -268,7 +268,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             None => vis_scalar_null("role"),
         }
         vis_scalar_int("role_age", i64::from(builder.role_age));
-        match builder.symmetry() {
+        match builder.symmetry {
             Some(s) => vis_scalar_str("symmetry", &format!("{s}")),
             None => vis_scalar_null("symmetry"),
         }
