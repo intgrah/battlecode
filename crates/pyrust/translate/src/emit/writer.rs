@@ -45,6 +45,12 @@ pub struct PyWriter {
     /// Identifiers we've auto-imported because a folded trait default
     /// body referenced them as free functions in another module.
     folded_imports: HashSet<String>,
+    /// Per-class-frame override for `Self` resolution. Pushed alongside
+    /// `current_class`. `None` means default (Self = current class
+    /// name); `Some(enum_name)` means we're inside a sum-type variant
+    /// class but want `Self::Variant` paths to resolve through the
+    /// enum (whose dataclass for Variant is `EnumNameVariant`).
+    self_overrides: Vec<Option<String>>,
 }
 
 impl PyWriter {
@@ -65,6 +71,7 @@ impl PyWriter {
             types: types.clone(),
             tmp_counter: std::cell::Cell::new(0),
             folded_imports: HashSet::new(),
+            self_overrides: Vec::new(),
         }
     }
 
@@ -209,15 +216,37 @@ impl PyWriter {
 
     pub fn enter_class(&mut self, name: String) {
         self.current_class.push(name);
+        self.self_overrides.push(None);
+    }
+
+    /// Same as `enter_class` but overrides the Self-resolution: while the
+    /// returned class is the current "container" (so methods are emitted
+    /// inside it), `Self::X` paths resolve as if Self were `self_type`.
+    /// Used when emitting a sum-type variant class: methods are folded
+    /// into the variant dataclass (current_class = "MarkerSymmetry"),
+    /// but `Self::Variant` in the source still means `Marker::Variant`.
+    pub fn enter_class_with_self(&mut self, name: String, self_type: String) {
+        self.current_class.push(name);
+        self.self_overrides.push(Some(self_type));
     }
 
     pub fn exit_class(&mut self) {
         self.current_class.pop();
+        self.self_overrides.pop();
         self.current_class_fields.clear();
     }
 
     pub fn current_class(&self) -> Option<&str> {
         self.current_class.last().map(String::as_str)
+    }
+
+    /// Resolution target for `Self::X` paths. Defaults to the current
+    /// class name; an active `enter_class_with_self` overrides it.
+    pub fn self_type(&self) -> Option<&str> {
+        match self.self_overrides.last() {
+            Some(Some(s)) => Some(s.as_str()),
+            _ => self.current_class.last().map(String::as_str),
+        }
     }
 
     pub fn set_current_class_fields(&mut self, fields: Vec<String>) {

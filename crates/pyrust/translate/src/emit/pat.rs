@@ -93,9 +93,10 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                     .iter()
                     .map(|s| s.ident.to_string())
                     .collect();
-                // Resolve `Self::Variant` to the surrounding class.
+                // Resolve `Self::Variant` to the surrounding class
+                // (or the variant-class enum override).
                 let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
-                    if let Some(cls) = w.current_class() {
+                    if let Some(cls) = w.self_type() {
                         let mut v = vec![cls.to_string()];
                         v.extend(segs.iter().skip(1).cloned());
                         v
@@ -136,9 +137,10 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 .iter()
                 .map(|s| s.ident.to_string())
                 .collect();
-            // Resolve Self::Variant to surrounding class.
+            // Resolve Self::Variant to surrounding class (or variant
+            // override).
             let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
-                if let Some(cls) = w.current_class() {
+                if let Some(cls) = w.self_type() {
                     let mut v = vec![cls.to_string()];
                     v.extend(segs.iter().skip(1).cloned());
                     v
@@ -200,9 +202,9 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                 .iter()
                 .map(|seg| seg.ident.to_string())
                 .collect();
-            // Resolve `Self::Variant` to current class.
+            // Resolve `Self::Variant` to current class (or variant override).
             let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
-                if let Some(cls) = w.current_class() {
+                if let Some(cls) = w.self_type() {
                     let mut v = vec![cls.to_string()];
                     v.extend(segs.iter().skip(1).cloned());
                     v
