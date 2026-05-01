@@ -6,7 +6,7 @@ use crate::builder::Builder;
 use crate::util::debug::dot;
 
 /// Paint per-builder economy state into the replay: ore targets,
-/// foundry target, chain endpoints. Only has effect when DEBUG_LOG is set
+/// foundry target, chain endpoints. Only has effect when `DEBUG_LOG` is set
 /// (the helpers in `util.log` are no-ops otherwise).
 pub fn indicators(builder: &mut Builder, ct: &mut Controller<'_>) {
     if let Some(target) = builder.ore_target {

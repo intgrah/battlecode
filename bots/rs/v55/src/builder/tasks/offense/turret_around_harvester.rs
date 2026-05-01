@@ -15,7 +15,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::DIR4;
 
 /// Snap the unit vector from `src` to `dst` to the nearest 45-degree direction.
-fn direction_to(src: Position, dst: Position) -> Direction {
+const fn direction_to(src: Position, dst: Position) -> Direction {
     let dx = dst.x - src.x;
     let dy = dst.y - src.y;
     if dx == 0 && dy == 0 {

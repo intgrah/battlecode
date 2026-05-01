@@ -41,7 +41,8 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         ));
     }
 
-    let near: HashSet<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.nearby_tiles)));
+    let near: HashSet<Position> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.nearby_tiles)));
     let affords_road = can_afford(self_, EntityType::Road);
     let affords_guard = can_afford(self_, EntityType::Conveyor);
 

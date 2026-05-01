@@ -99,7 +99,11 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
             let age = rnd - builder.last_seen[(h.y as usize) * MAX_WIDTH + (h.x as usize)];
             let mut args = Map::new();
             pyrust::dict::insert!(args, pyrust::to_string!("head"), auto_wrap_position(h));
-            pyrust::dict::insert!(args, pyrust::to_string!("age"), serde_json::Value::Number(serde_json::Number::from(age)));
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("age"),
+                serde_json::Value::Number(serde_json::Number::from(age))
+            );
             log("patrol: new head {head} (age={age})", args);
         }
     }

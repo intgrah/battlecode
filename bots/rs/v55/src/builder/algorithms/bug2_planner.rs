@@ -1,6 +1,6 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/algorithms/bug2_planner.py`.
 //!
-//! Bug2 plan generator that mutates a path_idx list in place.
+//! Bug2 plan generator that mutates a `path_idx` list in place.
 //!
 //! Drains under a budget per turn — yields after each walker step, after
 //! each m-line cell, and after each chosen-path cell. Caller drives the
@@ -32,6 +32,7 @@ const DY: [i32; 8] = [-1, -1, 0, 1, 1, 1, 0, -1];
 const IS_CARDINAL: [bool; 8] = [true, false, true, false, true, false, true, false];
 
 /// Build the Bresenham m-line sequence from `(sx, sy)` to `(gx, gy)`.
+#[must_use] 
 pub fn build_mline_seq(sx: i32, sy: i32, gx: i32, gy: i32) -> Vec<(i32, i32)> {
     let mut out: Vec<(i32, i32)> = pyrust::vec::new!();
     let dx = pyrust::abs!((gx - sx));
@@ -69,7 +70,7 @@ enum State {
     EmitChosen { idx: usize },
     /// Emit the winning cell.
     EmitWinner,
-    /// After winner emission, advance m_i past covered cells.
+    /// After winner emission, advance `m_i` past covered cells.
     AdvanceAfterWinner,
     /// Done — return value is in `done_value`.
     Done,
@@ -126,7 +127,7 @@ pub struct Bug2Planner {
     win_x: i32,
     win_y: i32,
     met: bool,
-    /// Phase within WalkerRace: 0 = run CW substep next, 1 = run CCW substep next.
+    /// Phase within `WalkerRace`: 0 = run CW substep next, 1 = run CCW substep next.
     walker_phase: u8,
 
     /// Current state machine node.
@@ -140,6 +141,7 @@ pub struct Bug2Planner {
 
 impl Bug2Planner {
     /// Construct a new planner. Equivalent to entering the Python generator.
+    #[must_use] 
     pub fn new(cost: &[i32], w: i32, h: i32, si: i32, gi: i32, path_idx: Vec<i32>) -> Self {
         let stride = MAX_WIDTH as i32;
         let n_pad = stride * stride;
@@ -205,13 +207,13 @@ impl Bug2Planner {
         }
     }
 
-    /// Read-only borrow of the in-progress path_idx array.
+    /// Read-only borrow of the in-progress `path_idx` array.
     #[must_use]
     pub fn path_idx(&self) -> &[i32] {
         &self.path_idx
     }
 
-    /// Take ownership of path_idx.
+    /// Take ownership of `path_idx`.
     #[must_use]
     pub fn into_path_idx(self) -> Vec<i32> {
         self.path_idx

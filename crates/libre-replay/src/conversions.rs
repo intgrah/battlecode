@@ -8,13 +8,14 @@ pub trait ToProto {
     fn to_proto(&self) -> Self::Output;
 }
 
+#[must_use] 
 pub fn build_proto_map(environment: &[Vec<Environment>], cores: &[(Pos, Team)]) -> proto::Map {
     let height = environment.len() as i32;
-    let width = environment.first().map(|row| row.len()).unwrap_or(0) as i32;
+    let width = environment.first().map_or(0, std::vec::Vec::len) as i32;
     let rows = environment
         .iter()
         .map(|row| proto::TileRow {
-            tiles: row.iter().map(|env| env.to_proto()).collect(),
+            tiles: row.iter().map(ToProto::to_proto).collect(),
         })
         .collect();
     let cores = cores
@@ -66,7 +67,7 @@ impl ToProto for [GameDiff] {
 
     fn to_proto(&self) -> Self::Output {
         proto::Turn {
-            updates: self.iter().map(|diff| diff.to_proto()).collect(),
+            updates: self.iter().map(ToProto::to_proto).collect(),
         }
     }
 }
@@ -76,23 +77,23 @@ impl ToProto for GameDiff {
 
     fn to_proto(&self) -> Self::Output {
         match self {
-            GameDiff::PlaceEntity { entity, .. } => proto::Update {
+            Self::PlaceEntity { entity, .. } => proto::Update {
                 kind: Some(proto::update::Kind::PlaceEntity(proto::PlaceEntity {
                     entity: Some(entity.to_proto()),
                 })),
             },
-            GameDiff::MoveBuilderBot { id, to } => proto::Update {
+            Self::MoveBuilderBot { id, to } => proto::Update {
                 kind: Some(proto::update::Kind::MoveBuilderBot(proto::MoveBuilderBot {
                     id: *id,
                     to: Some(to.to_proto()),
                 })),
             },
-            GameDiff::RemoveEntity { id } => proto::Update {
+            Self::RemoveEntity { id } => proto::Update {
                 kind: Some(proto::update::Kind::RemoveEntity(proto::RemoveEntity {
                     id: *id,
                 })),
             },
-            GameDiff::DistributeResources { moves } => proto::Update {
+            Self::DistributeResources { moves } => proto::Update {
                 kind: Some(proto::update::Kind::DistributeResources(
                     proto::DistributeResources {
                         moves: moves
@@ -106,18 +107,18 @@ impl ToProto for GameDiff {
                     },
                 )),
             },
-            GameDiff::UpdateHp { id, delta } => proto::Update {
+            Self::UpdateHp { id, delta } => proto::Update {
                 kind: Some(proto::update::Kind::UpdateHp(proto::UpdateHp {
                     id: *id,
                     delta: *delta,
                 })),
             },
-            GameDiff::UpdatePlayers { players } => proto::Update {
+            Self::UpdatePlayers { players } => proto::Update {
                 kind: Some(proto::update::Kind::UpdatePlayers(proto::UpdatePlayers {
                     players: Some(players.to_proto()),
                 })),
             },
-            GameDiff::SetActionCooldown { id, value } => proto::Update {
+            Self::SetActionCooldown { id, value } => proto::Update {
                 kind: Some(proto::update::Kind::SetActionCooldown(
                     proto::SetActionCooldown {
                         id: *id,
@@ -125,7 +126,7 @@ impl ToProto for GameDiff {
                     },
                 )),
             },
-            GameDiff::SetMoveCooldown { id, value } => proto::Update {
+            Self::SetMoveCooldown { id, value } => proto::Update {
                 kind: Some(proto::update::Kind::SetMoveCooldown(
                     proto::SetMoveCooldown {
                         id: *id,
@@ -133,7 +134,7 @@ impl ToProto for GameDiff {
                     },
                 )),
             },
-            GameDiff::BotOutput {
+            Self::BotOutput {
                 id,
                 stdout,
                 exec_time_us,
@@ -146,7 +147,7 @@ impl ToProto for GameDiff {
                     tled: *tled,
                 })),
             },
-            GameDiff::IndicatorLine {
+            Self::IndicatorLine {
                 id,
                 pos_a,
                 pos_b,
@@ -163,7 +164,7 @@ impl ToProto for GameDiff {
                     b: *b,
                 })),
             },
-            GameDiff::IndicatorDot { id, pos, r, g, b } => proto::Update {
+            Self::IndicatorDot { id, pos, r, g, b } => proto::Update {
                 kind: Some(proto::update::Kind::IndicatorDot(proto::IndicatorDot {
                     id: *id,
                     pos: Some(pos.to_proto()),
@@ -172,13 +173,13 @@ impl ToProto for GameDiff {
                     b: *b,
                 })),
             },
-            GameDiff::FireTurret { from, to } => proto::Update {
+            Self::FireTurret { from, to } => proto::Update {
                 kind: Some(proto::update::Kind::FireTurret(proto::FireTurret {
                     from: Some(from.to_proto()),
                     to: Some(to.to_proto()),
                 })),
             },
-            GameDiff::BuilderAttack { id } => proto::Update {
+            Self::BuilderAttack { id } => proto::Update {
                 kind: Some(proto::update::Kind::BuilderAttack(proto::BuilderAttack {
                     id: *id,
                 })),
@@ -200,59 +201,59 @@ impl ToProto for Entity {
             kind: None,
         };
         proto_entity.kind = Some(match self {
-            Entity::BuilderBot(bot) => proto::entity::Kind::BuilderBot(proto::BuilderBot {
+            Self::BuilderBot(bot) => proto::entity::Kind::BuilderBot(proto::BuilderBot {
                 action_cooldown: bot.action_cooldown,
                 move_cooldown: bot.move_cooldown,
             }),
-            Entity::Conveyor(conveyor) => proto::entity::Kind::Conveyor(proto::Conveyor {
+            Self::Conveyor(conveyor) => proto::entity::Kind::Conveyor(proto::Conveyor {
                 direction: conveyor.direction.to_proto(),
                 stored: conveyor.stored.to_proto(),
             }),
-            Entity::Splitter(splitter) => proto::entity::Kind::Splitter(proto::Splitter {
+            Self::Splitter(splitter) => proto::entity::Kind::Splitter(proto::Splitter {
                 direction: splitter.direction.to_proto(),
                 stored: splitter.stored.to_proto(),
             }),
-            Entity::ArmouredConveyor(conveyor) => {
+            Self::ArmouredConveyor(conveyor) => {
                 proto::entity::Kind::ArmouredConveyor(proto::ArmouredConveyor {
                     direction: conveyor.direction.to_proto(),
                     stored: conveyor.stored.to_proto(),
                 })
             }
-            Entity::Bridge(bridge) => proto::entity::Kind::Bridge(proto::Bridge {
+            Self::Bridge(bridge) => proto::entity::Kind::Bridge(proto::Bridge {
                 target: Some(bridge.target.to_proto()),
                 stored: bridge.stored.to_proto(),
             }),
-            Entity::Harvester(harvester) => proto::entity::Kind::Harvester(proto::Harvester {
+            Self::Harvester(harvester) => proto::entity::Kind::Harvester(proto::Harvester {
                 cooldown: harvester.cooldown,
                 resource_type: Some(harvester.resource_type).to_proto(),
             }),
-            Entity::Foundry(foundry) => proto::entity::Kind::Foundry(proto::Foundry {
+            Self::Foundry(foundry) => proto::entity::Kind::Foundry(proto::Foundry {
                 stored: foundry.stored.to_proto(),
             }),
-            Entity::Road(_) => proto::entity::Kind::Road(proto::Road {}),
-            Entity::Barrier(_) => proto::entity::Kind::Barrier(proto::Barrier {}),
-            Entity::Marker(marker) => proto::entity::Kind::Marker(proto::Marker {
+            Self::Road(_) => proto::entity::Kind::Road(proto::Road {}),
+            Self::Barrier(_) => proto::entity::Kind::Barrier(proto::Barrier {}),
+            Self::Marker(marker) => proto::entity::Kind::Marker(proto::Marker {
                 value: marker.value,
             }),
-            Entity::Core(core) => proto::entity::Kind::Core(proto::Core {
+            Self::Core(core) => proto::entity::Kind::Core(proto::Core {
                 action_cooldown: core.action_cooldown,
             }),
-            Entity::Gunner(gunner) => proto::entity::Kind::Gunner(proto::Gunner {
+            Self::Gunner(gunner) => proto::entity::Kind::Gunner(proto::Gunner {
                 direction: gunner.direction.to_proto(),
                 ammo_type: gunner.ammo_type.to_proto(),
                 ammo_amount: gunner.ammo_amount,
             }),
-            Entity::Sentinel(sentinel) => proto::entity::Kind::Sentinel(proto::Sentinel {
+            Self::Sentinel(sentinel) => proto::entity::Kind::Sentinel(proto::Sentinel {
                 direction: sentinel.direction.to_proto(),
                 ammo_type: sentinel.ammo_type.to_proto(),
                 ammo_amount: sentinel.ammo_amount,
             }),
-            Entity::Breach(breach) => proto::entity::Kind::Breach(proto::Breach {
+            Self::Breach(breach) => proto::entity::Kind::Breach(proto::Breach {
                 direction: breach.direction.to_proto(),
                 ammo_type: breach.ammo_type.to_proto(),
                 ammo_amount: breach.ammo_amount,
             }),
-            Entity::Launcher(launcher) => proto::entity::Kind::Launcher(proto::Launcher {
+            Self::Launcher(launcher) => proto::entity::Kind::Launcher(proto::Launcher {
                 ammo_type: launcher.ammo_type.to_proto(),
                 ammo_amount: launcher.ammo_amount,
             }),
@@ -277,8 +278,8 @@ impl ToProto for Team {
 
     fn to_proto(&self) -> Self::Output {
         match self {
-            Team::A => proto::Team::A as i32,
-            Team::B => proto::Team::B as i32,
+            Self::A => proto::Team::A as i32,
+            Self::B => proto::Team::B as i32,
         }
     }
 }
@@ -288,15 +289,15 @@ impl ToProto for Direction {
 
     fn to_proto(&self) -> Self::Output {
         match self {
-            Direction::Centre => proto::Direction::DirCentre as i32,
-            Direction::North => proto::Direction::DirNorth as i32,
-            Direction::Northeast => proto::Direction::DirNortheast as i32,
-            Direction::East => proto::Direction::DirEast as i32,
-            Direction::Southeast => proto::Direction::DirSoutheast as i32,
-            Direction::South => proto::Direction::DirSouth as i32,
-            Direction::Southwest => proto::Direction::DirSouthwest as i32,
-            Direction::West => proto::Direction::DirWest as i32,
-            Direction::Northwest => proto::Direction::DirNorthwest as i32,
+            Self::Centre => proto::Direction::DirCentre as i32,
+            Self::North => proto::Direction::DirNorth as i32,
+            Self::Northeast => proto::Direction::DirNortheast as i32,
+            Self::East => proto::Direction::DirEast as i32,
+            Self::Southeast => proto::Direction::DirSoutheast as i32,
+            Self::South => proto::Direction::DirSouth as i32,
+            Self::Southwest => proto::Direction::DirSouthwest as i32,
+            Self::West => proto::Direction::DirWest as i32,
+            Self::Northwest => proto::Direction::DirNorthwest as i32,
         }
     }
 }
@@ -321,10 +322,10 @@ impl ToProto for Environment {
 
     fn to_proto(&self) -> Self::Output {
         match self {
-            Environment::Empty => proto::Environment::EnvEmpty as i32,
-            Environment::Wall => proto::Environment::EnvWall as i32,
-            Environment::OreTitanium => proto::Environment::EnvOreTitanium as i32,
-            Environment::OreAxionite => proto::Environment::EnvOreAxionite as i32,
+            Self::Empty => proto::Environment::EnvEmpty as i32,
+            Self::Wall => proto::Environment::EnvWall as i32,
+            Self::OreTitanium => proto::Environment::EnvOreTitanium as i32,
+            Self::OreAxionite => proto::Environment::EnvOreAxionite as i32,
         }
     }
 }

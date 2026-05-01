@@ -7,6 +7,7 @@ use cambc::{Controller, Position};
 
 /// Placeholder for `find_core(ct, pos)`. Real impl returns the centre of a
 /// known core in vision; the stub is unreachable when `HARDCODE` is false.
+#[must_use] 
 pub fn find_core(_ct: &Controller<'_>, _hint: Position) -> Position {
     unimplemented!("hardcode::identify::find_core stub — Phase E")
 }
@@ -15,7 +16,7 @@ pub fn find_core(_ct: &Controller<'_>, _hint: Position) -> Position {
 /// `KnownMap` describing the precomputed level. Returns `None` because
 /// the v55 default is `HARDCODE=false`.
 #[must_use]
-pub fn identify_map(_w: i32, _h: i32, _my_core: Position) -> Option<KnownMap> {
+pub const fn identify_map(_w: i32, _h: i32, _my_core: Position) -> Option<KnownMap> {
     None
 }
 

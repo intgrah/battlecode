@@ -18,7 +18,7 @@ pub fn emit_block(w: &mut PyWriter, block: &syn::Block, tail: Tail) -> Result<()
 }
 
 /// Same as [`emit_block`] but does not push or pop a scope frame. The caller is
-/// expected to enter and exit the frame (used by item::emit_fn so that fn
+/// expected to enter and exit the frame (used by `item::emit_fn` so that fn
 /// parameters share the body's frame).
 pub fn emit_block_inplace(w: &mut PyWriter, block: &syn::Block, tail: Tail) -> Result<(), String> {
     let stmts = &block.stmts;
@@ -46,12 +46,11 @@ pub fn emit_block_inplace(w: &mut PyWriter, block: &syn::Block, tail: Tail) -> R
     Ok(())
 }
 
-fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
-    if let Some((last, rest)) = stmts.split_last() {
-        if let syn::Stmt::Expr(e, None) = last {
+const fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
+    if let Some((last, rest)) = stmts.split_last()
+        && let syn::Stmt::Expr(e, None) = last {
             return (rest, Some(e));
         }
-    }
     (stmts, None)
 }
 
@@ -214,7 +213,7 @@ pub fn emit_local_public(w: &mut PyWriter, l: &syn::Local) -> Result<(), String>
 /// rather than yielding a value. Used to decide whether `let pat = if ...`
 /// must be lifted to a statement form.
 fn if_has_divergent_branch(i: &syn::ExprIf) -> bool {
-    fn branch_diverges(stmts: &[syn::Stmt]) -> bool {
+    const fn branch_diverges(stmts: &[syn::Stmt]) -> bool {
         let Some(last) = stmts.last() else {
             return false;
         };
@@ -306,21 +305,18 @@ fn emit_branch_into_target(
     for s in body {
         emit_stmt(w, s)?;
     }
-    match tail {
-        Some(t) => {
-            // Divergent tails (return/break/continue) emit as statements;
-            // value tails assign to the target.
-            match t {
-                syn::Expr::Return(_) | syn::Expr::Break(_) | syn::Expr::Continue(_) => {
-                    emit_tail(w, t, Tail::Discard)?;
-                }
-                _ => {
-                    let em = expr::emit_expr(w, t)?;
-                    w.line(&format!("{bind_text} = {}", em.text));
-                }
+    if let Some(t) = tail {
+        // Divergent tails (return/break/continue) emit as statements;
+        // value tails assign to the target.
+        match t {
+            syn::Expr::Return(_) | syn::Expr::Break(_) | syn::Expr::Continue(_) => {
+                emit_tail(w, t, Tail::Discard)?;
+            }
+            _ => {
+                let em = expr::emit_expr(w, t)?;
+                w.line(&format!("{bind_text} = {}", em.text));
             }
         }
-        None => {}
     }
     Ok(())
 }
@@ -361,7 +357,7 @@ fn emit_match_into_let(
     }
     let ordered: Vec<&syn::Arm> = none_arms
         .into_iter()
-        .chain(other_arms.into_iter())
+        .chain(other_arms)
         .collect();
     for arm in ordered {
         let pat_text = super::pat::pat_to_python(w, &arm.pat)?;
@@ -600,7 +596,7 @@ fn emit_local(w: &mut PyWriter, l: &syn::Local) -> Result<(), String> {
         // Avoid the temp when RHS is a simple ident — write attributes
         // directly off the original.
         let base = if matches!(init.expr.as_ref(), syn::Expr::Path(_)) {
-            rhs.text.clone()
+            rhs.text
         } else {
             w.line(&format!("{tmp} = {}", rhs.text));
             tmp
@@ -995,8 +991,8 @@ fn eval_cfg_macro_cond(w: &PyWriter, cond: &syn::Expr) -> Result<Option<bool>, S
     if !m.mac.path.is_ident("cfg") {
         return Ok(None);
     }
-    let meta: syn::Meta = syn::parse2(m.mac.tokens.clone())
-        .map_err(|e| w.err(m.span(), format!("cfg!(): {e}")))?;
+    let meta: syn::Meta =
+        syn::parse2(m.mac.tokens.clone()).map_err(|e| w.err(m.span(), format!("cfg!(): {e}")))?;
     let v = w.cfg().eval_meta(&meta).map_err(|e| w.err(m.span(), e))?;
     Ok(Some(v))
 }
@@ -1463,7 +1459,7 @@ fn emit_for_stmt(w: &mut PyWriter, fl: &syn::ExprForLoop, tail: Tail) -> Result<
     } else {
         iter.text
     };
-    w.line(&format!("for {pat_text} in {}:", iter_text));
+    w.line(&format!("for {pat_text} in {iter_text}:"));
     w.enter_indent();
     w.enter_block();
     declare_pat(w, &fl.pat, Ty::Unknown);
@@ -1531,7 +1527,7 @@ fn emit_result_match_as_try(
         _ => None,
     };
     let scrut = expr::emit_expr(w, scrut_expr)?;
-    let bind = err_binding.clone().unwrap_or_else(|| "_e".to_owned());
+    let bind = err_binding.unwrap_or_else(|| "_e".to_owned());
     w.declare(&bind, Ty::Unknown);
     w.line(&format!("{bind} = {}", scrut.text));
     w.line(&format!("if {bind} is None:"));
@@ -1659,7 +1655,7 @@ fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(
     }
     let ordered: Vec<&syn::Arm> = none_arms
         .into_iter()
-        .chain(other_arms.into_iter())
+        .chain(other_arms)
         .collect();
 
     w.line(&format!("match {}:", scrutinee.text));

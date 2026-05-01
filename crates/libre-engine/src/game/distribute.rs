@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BinaryHeap};
 use rand::RngExt;
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use super::*;
+use super::{Game, Pos, Entity, GameDiff};
 use crate::common::ResourceType;
 use crate::game_map::{ArmouredConveyor, Bridge, Conveyor, Foundry, Splitter};
 
@@ -53,19 +53,15 @@ impl Game {
                     let entity = self
                         .entities
                         .get(&id)
-                        .unwrap_or_else(|| panic!("tile building id missing entity {}", id));
+                        .unwrap_or_else(|| panic!("tile building id missing entity {id}"));
                     let no_output = matches!(
                         entity,
-                        Entity::Conveyor(Conveyor { stored: None, .. })
-                            | Entity::Splitter(Splitter { stored: None, .. })
-                            | Entity::ArmouredConveyor(ArmouredConveyor { stored: None, .. })
-                            | Entity::Bridge(Bridge { stored: None, .. })
-                            | Entity::Foundry(Foundry {
-                                stored: None
-                                    | Some(ResourceType::Titanium)
-                                    | Some(ResourceType::RawAxionite),
-                                ..
-                            })
+                        Entity::Conveyor(Conveyor { stored: None, .. }) |
+Entity::Splitter(Splitter { stored: None, .. }) |
+Entity::ArmouredConveyor(ArmouredConveyor { stored: None, .. }) |
+Entity::Bridge(Bridge { stored: None, .. }) |
+Entity::Foundry(Foundry {
+stored: None | Some(ResourceType::Titanium | ResourceType::RawAxionite), .. })
                     );
                     if no_output {
                         processed.insert(tile.position);
@@ -91,7 +87,7 @@ impl Game {
         // more-recently-used edges get more negative values (lower priority in max-heap).
         let edge_priority = |source: Pos, sink: Pos| -> i32 {
             let src_out = outgoing_count.get(&source).copied().unwrap_or(0);
-            let sink_in = incoming.get(&sink).map(|v| v.len()).unwrap_or(0);
+            let sink_in = incoming.get(&sink).map_or(0, std::vec::Vec::len);
             if src_out == 1 && sink_in == 1 {
                 i32::MAX
             } else {
@@ -109,15 +105,15 @@ impl Game {
                 .game_map
                 .tile(*sink_pos)
                 .building
-                .unwrap_or_else(|| panic!("incoming sink missing building at {:?}", sink_pos));
+                .unwrap_or_else(|| panic!("incoming sink missing building at {sink_pos:?}"));
             for source_pos in sources {
                 let source_id = self.game_map.tile(*source_pos).building.unwrap_or_else(|| {
-                    panic!("incoming source missing building at {:?}", source_pos)
+                    panic!("incoming source missing building at {source_pos:?}")
                 });
                 let source = self
                     .entities
                     .get(&source_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", source_id));
+                    .unwrap_or_else(|| panic!("unknown building id {source_id}"));
                 let resource = match source.resource_to_feed() {
                     Some(resource) => resource,
                     None => continue,
@@ -125,7 +121,7 @@ impl Game {
                 let sink = self
                     .entities
                     .get(&sink_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", sink_id));
+                    .unwrap_or_else(|| panic!("unknown building id {sink_id}"));
                 let sink_can_accept = sink.can_accept_from(
                     resource,
                     *source_pos,
@@ -135,7 +131,7 @@ impl Game {
                     let priority = edge_priority(*source_pos, *sink_pos);
                     let jitter = self.rng.random::<f64>();
                     heap.push(Edge {
-                        priority: priority as f64 + jitter,
+                        priority: f64::from(priority) + jitter,
                         source: *source_pos,
                         sink: *sink_pos,
                     });
@@ -162,7 +158,7 @@ impl Game {
                 let source = self
                     .entities
                     .get(&source_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", source_id));
+                    .unwrap_or_else(|| panic!("unknown building id {source_id}"));
                 source.resource_to_feed()
             };
             let resource = match resource {
@@ -173,11 +169,11 @@ impl Game {
                 let source = self
                     .entities
                     .get(&source_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", source_id));
+                    .unwrap_or_else(|| panic!("unknown building id {source_id}"));
                 let sink = self
                     .entities
                     .get(&sink_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", sink_id));
+                    .unwrap_or_else(|| panic!("unknown building id {sink_id}"));
                 sink.can_accept_from(resource, edge.source, matches!(source, Entity::Bridge(_)))
             };
             if !sink_can_accept {
@@ -206,14 +202,14 @@ impl Game {
                 let sink = self
                     .entities
                     .get_mut(&sink_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", sink_id));
+                    .unwrap_or_else(|| panic!("unknown building id {sink_id}"));
                 sink.receive_resource(resource, in_id, &mut fresh_id);
             }
             {
                 let source = self
                     .entities
                     .get_mut(&source_id)
-                    .unwrap_or_else(|| panic!("unknown building id {}", source_id));
+                    .unwrap_or_else(|| panic!("unknown building id {source_id}"));
                 source.consume_feed();
             }
             moves.push((edge.source, edge.sink, in_id));
@@ -228,13 +224,13 @@ impl Game {
                     .tile(upstream_pos)
                     .building
                     .unwrap_or_else(|| {
-                        panic!("upstream source missing building at {:?}", upstream_pos)
+                        panic!("upstream source missing building at {upstream_pos:?}")
                     });
                 let upstream_resource = {
                     let upstream = self
                         .entities
                         .get(&upstream_id)
-                        .unwrap_or_else(|| panic!("unknown building id {}", upstream_id));
+                        .unwrap_or_else(|| panic!("unknown building id {upstream_id}"));
                     upstream.resource_to_feed()
                 };
                 if let Some(up_resource) = upstream_resource {
@@ -242,11 +238,11 @@ impl Game {
                         let upstream = self
                             .entities
                             .get(&upstream_id)
-                            .unwrap_or_else(|| panic!("unknown building id {}", upstream_id));
+                            .unwrap_or_else(|| panic!("unknown building id {upstream_id}"));
                         let source = self
                             .entities
                             .get(&source_id)
-                            .unwrap_or_else(|| panic!("unknown building id {}", source_id));
+                            .unwrap_or_else(|| panic!("unknown building id {source_id}"));
                         source.can_accept_from(
                             up_resource,
                             upstream_pos,
@@ -257,7 +253,7 @@ impl Game {
                         let priority = edge_priority(upstream_pos, edge.source);
                         let jitter = self.rng.random::<f64>();
                         heap.push(Edge {
-                            priority: priority as f64 + jitter,
+                            priority: f64::from(priority) + jitter,
                             source: upstream_pos,
                             sink: edge.source,
                         });

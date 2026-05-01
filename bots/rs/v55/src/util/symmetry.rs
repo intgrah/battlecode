@@ -22,15 +22,15 @@ impl Symmetry {
     #[must_use]
     pub const fn action(self, pos: Position, w: i32, h: i32) -> Position {
         match self {
-            Symmetry::Rot => Position {
+            Self::Rot => Position {
                 x: w - 1 - pos.x,
                 y: h - 1 - pos.y,
             },
-            Symmetry::Hor => Position {
+            Self::Hor => Position {
                 x: pos.x,
                 y: h - 1 - pos.y,
             },
-            Symmetry::Ver => Position {
+            Self::Ver => Position {
                 x: w - 1 - pos.x,
                 y: pos.y,
             },
@@ -41,9 +41,9 @@ impl Symmetry {
 impl core::fmt::Display for Symmetry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(match self {
-            Symmetry::Rot => "ROT",
-            Symmetry::Hor => "HOR",
-            Symmetry::Ver => "VER",
+            Self::Rot => "ROT",
+            Self::Hor => "HOR",
+            Self::Ver => "VER",
         })
     }
 }

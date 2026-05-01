@@ -21,7 +21,7 @@ use crate::util::directions::{DIR4, DIR8};
 use crate::util::symmetry::{ALL, Symmetry};
 
 /// Per-unit PRNG, seeded from the unit's entity id. Wraps
-/// `pyrust::random::Random` (a bit-exact reimplementation of CPython's
+/// `pyrust::random::Random` (a bit-exact reimplementation of `CPython`'s
 /// MT19937 + `_randbelow` algorithm), so any random call produces the
 /// same sequence in native Rust as in pyrust-translated Python — the
 /// requirement for v55-native ⇄ v55-translated replay parity.
@@ -119,7 +119,7 @@ impl UnitState {
         self.height = pyrust::unwrap!(ct.get_map_height());
         self.my_id = pyrust::unwrap!(ct.get_id());
         self.my_team = pyrust::unwrap!(ct.get_team(None));
-        self.rng = Rng::new(self.my_id as i64);
+        self.rng = Rng::new(i64::from(self.my_id));
     }
 
     /// Per-turn caching shared by every unit: position, neighbours, round,
@@ -146,8 +146,10 @@ impl UnitState {
                 pyrust::vec::push!(dir_neighbours_8, (d, p));
             }
         }
-        let neighbours_4: Vec<Position> = pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_4), |t| t.1));
-        let neighbours_8: Vec<Position> = pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_8), |t| t.1));
+        let neighbours_4: Vec<Position> =
+            pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_4), |t| t.1));
+        let neighbours_8: Vec<Position> =
+            pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_8), |t| t.1));
 
         let round = pyrust::unwrap!(ct.get_current_round());
         let (ti, ax) = pyrust::unwrap!(ct.get_global_resources());
@@ -201,11 +203,16 @@ impl UnitState {
                 Some(b) => pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core,
                 None => false,
             };
-            pyrust::dict::insert!(vision, pos, (pyrust::unwrap!(ct.get_tile_env(pos)), is_core));
+            pyrust::dict::insert!(
+                vision,
+                pos,
+                (pyrust::unwrap!(ct.get_tile_env(pos)), is_core)
+            );
         }
 
         let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
-        let candidates: Vec<Symmetry> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self.symmetry_candidates)));
+        let candidates: Vec<Symmetry> =
+            pyrust::collect!(pyrust::copied!(pyrust::iter!(self.symmetry_candidates)));
         for sym in candidates {
             for (&pos, val) in &vision {
                 let other = vision.get(&sym.action(pos, width, height));
@@ -267,14 +274,14 @@ impl UnitState {
 /// inherit by implementing `state` / `state_mut`.
 pub trait Unit {
     /// Read access to the embedded `UnitState`.
-    fn state(&self) -> &UnitState;
+    fn unit_state(&self) -> &UnitState;
     /// Mutable access to the embedded `UnitState`.
-    fn state_mut(&mut self) -> &mut UnitState;
+    fn unit_state_mut(&mut self) -> &mut UnitState;
 
     /// ct-dependent init. Runs once on first turn for this unit. Mirrors
     /// Python `Unit.post_init`.
     fn post_init(&mut self, ct: &mut Controller<'_>) {
-        let s = self.state_mut();
+        let s = self.unit_state_mut();
         s.init_static_state(ct);
         s.narrow_symmetry_from_vision(ct);
     }
@@ -282,7 +289,7 @@ pub trait Unit {
     /// Cache per-turn state: position, neighbours, visible bots, resources.
     /// Mirrors Python `Unit.run`.
     fn run(&mut self, ct: &mut Controller<'_>) {
-        let s = self.state_mut();
+        let s = self.unit_state_mut();
         s.cache_per_turn_state(ct);
         s.check_symmetry_marker(ct);
     }
@@ -295,7 +302,7 @@ pub trait Unit {
 
     /// Is in bounds of the actual map.
     fn in_bounds(&self, pos: Position) -> bool {
-        let s = self.state();
+        let s = self.unit_state();
         in_bounds(pos, s.width, s.height)
     }
 }
@@ -324,7 +331,7 @@ pub trait CoreAwareUnit: Unit {
     /// Override `Unit::post_init` chain for core-aware units. Concrete
     /// `Unit::post_init` impls on `CoreAwareUnit` types should delegate here.
     fn post_init_core_aware(&mut self, ct: &mut Controller<'_>) {
-        let s = self.state_mut();
+        let s = self.unit_state_mut();
         s.init_static_state(ct);
         s.narrow_symmetry_from_vision(ct);
         let core = self.resolve_my_core(ct);
@@ -334,7 +341,7 @@ pub trait CoreAwareUnit: Unit {
     /// Best guess at the enemy core position: mirrors `my_core` under
     /// `symmetry_guess`. Exact once symmetry is resolved.
     fn en_core_guess(&self) -> Position {
-        let s = self.state();
+        let s = self.unit_state();
         s.symmetry_guess().action(self.my_core(), s.width, s.height)
     }
 }

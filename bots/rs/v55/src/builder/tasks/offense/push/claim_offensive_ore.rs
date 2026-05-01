@@ -17,20 +17,17 @@ pub fn claim_offensive_ore(self_: &mut Builder, ct: &mut Controller<'_>) -> Task
     };
     if self_.my_pos == target {
         return Some(TaskRejected::from_string(format!(
-            "already on offensive ore {:?}",
-            target
+            "already on offensive ore {target:?}"
         )));
     }
     if !ore_available(self_, target) {
         return Some(TaskRejected::from_string(format!(
-            "offensive ore {:?} unavailable",
-            target
+            "offensive ore {target:?} unavailable"
         )));
     }
     if !walk_to_ore_claim(self_, ct, target) {
         return Some(TaskRejected::from_string(format!(
-            "no progress toward {:?}",
-            target
+            "no progress toward {target:?}"
         )));
     }
     None

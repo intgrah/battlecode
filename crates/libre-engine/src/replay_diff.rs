@@ -59,7 +59,7 @@ pub enum GameDiff {
         to: Pos,
     },
     /// Builder bot using its own-tile fire action (`c.fire(my_pos)`).
-    /// Visualised separately from FireTurret because the source is a unit
+    /// Visualised separately from `FireTurret` because the source is a unit
     /// (not a turret) and the target is always its own tile.
     BuilderAttack {
         id: i32,
@@ -75,7 +75,8 @@ pub struct ReplayRecorder {
 }
 
 impl ReplayRecorder {
-    pub fn new(
+    #[must_use] 
+    pub const fn new(
         environment: Vec<Vec<Environment>>,
         cores: Vec<(Pos, Team)>,
         suppress_indicators: bool,
@@ -125,12 +126,15 @@ impl ReplayRecorder {
     }
 
     /// Borrowed views for the `libre-replay` crate's protobuf builder.
+    #[must_use] 
     pub fn environment(&self) -> &[Vec<Environment>] {
         &self.environment
     }
+    #[must_use] 
     pub fn cores(&self) -> &[(Pos, Team)] {
         &self.cores
     }
+    #[must_use] 
     pub fn turns(&self) -> &[Vec<GameDiff>] {
         &self.diffs
     }

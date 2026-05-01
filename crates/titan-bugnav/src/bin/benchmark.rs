@@ -22,7 +22,7 @@ impl Lcg {
             .wrapping_add(1442695040888963407);
         self.0
     }
-    fn range(&mut self, lo: usize, hi: usize) -> usize {
+    const fn range(&mut self, lo: usize, hi: usize) -> usize {
         lo + (self.next() as usize) % (hi - lo)
     }
 }

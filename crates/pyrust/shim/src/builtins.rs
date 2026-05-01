@@ -184,16 +184,16 @@ pub trait PySorted {
 }
 
 impl<T: Ord + Clone> PySorted for List<T> {
-    type Owned = List<T>;
-    fn py_sorted(&self) -> List<T> {
+    type Owned = Self;
+    fn py_sorted(&self) -> Self {
         let mut v = self.0.clone();
         v.sort();
-        List(v)
+        Self(v)
     }
-    fn py_reversed(&self) -> List<T> {
+    fn py_reversed(&self) -> Self {
         let mut v = self.0.clone();
         v.reverse();
-        List(v)
+        Self(v)
     }
 }
 
@@ -205,10 +205,12 @@ pub fn reversed<T: PySorted + ?Sized>(value: &T) -> T::Owned {
     value.py_reversed()
 }
 
+#[must_use] 
 pub fn any(value: &List<bool>) -> bool {
     value.0.iter().copied().any(|x| x)
 }
 
+#[must_use] 
 pub fn all(value: &List<bool>) -> bool {
     value.0.iter().copied().all(|x| x)
 }

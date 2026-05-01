@@ -1,4 +1,4 @@
-use super::*;
+use super::{paste, Game, Pos, Entity, GameDiff, Direction, CONVEYOR_BASE_COST, SPLITTER_BASE_COST, BRIDGE_BASE_COST, ARMOURED_CONVEYOR_BASE_COST, HARVESTER_BASE_COST, FOUNDRY_BASE_COST, ROAD_BASE_COST, BARRIER_BASE_COST, GUNNER_BASE_COST, SENTINEL_BASE_COST, BREACH_BASE_COST, LAUNCHER_BASE_COST, Team, BUILDER_BOT_BASE_COST, BuilderBot, UnitBase, EntityBase, BUILDER_BOT_MAX_HP};
 
 macro_rules! build_methods {
     ($($name:ident ($pos:ident : Pos $(, $arg:ident : $ty:ty)* $(,)?));* $(;)?) => {
@@ -34,8 +34,7 @@ impl Game {
         let team = building.team;
         assert!(
             !self.entities.contains_key(&id),
-            "entity id already exists {}",
-            id
+            "entity id already exists {id}"
         );
         self.players[team.index()].scale_milli += building.scale_contribution();
         self.entities.insert(id, building.clone());
@@ -86,8 +85,7 @@ impl Game {
     pub fn place_marker(&mut self, team: Team, position: Pos, value: u32) {
         assert!(
             self.game_map.in_bounds(position),
-            "marker position out of bounds: {:?}",
-            position
+            "marker position out of bounds: {position:?}"
         );
         let tile = self.game_map.tile(position);
         if let Some(id) = tile.building {
@@ -100,10 +98,9 @@ impl Game {
                     });
                 }
                 Some(_) => panic!(
-                    "marker placed on enemy marker or non-marker building id {}",
-                    id
+                    "marker placed on enemy marker or non-marker building id {id}"
                 ),
-                None => panic!("tile building id missing entity {}", id),
+                None => panic!("tile building id missing entity {id}"),
             }
         } else {
             let id = self.new_id();
@@ -120,8 +117,7 @@ impl Game {
         let team = self.entity(core_id).expect("unknown core").team;
         assert!(
             self.game_map.in_bounds(position),
-            "builder spawn position out of bounds: {:?}",
-            position
+            "builder spawn position out of bounds: {position:?}"
         );
         let cost = self.scaled_cost(team, BUILDER_BOT_BASE_COST);
         self.spend(team, cost);

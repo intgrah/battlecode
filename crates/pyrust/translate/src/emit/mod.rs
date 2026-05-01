@@ -75,7 +75,7 @@ pub fn emit_file(
     for item in &file.items {
         // Drop items whose `#[cfg(...)]` predicates evaluate false.
         let attrs = item_attrs(item);
-        if !cfg.item_enabled(attrs).map_err(|e| e)? {
+        if !cfg.item_enabled(attrs)? {
             continue;
         }
         if !item::produces_output(item) {
@@ -183,7 +183,7 @@ fn file_uses_method_name(items: &[&syn::Item], names: &[&str]) -> bool {
         names: &'a [&'a str],
         hit: bool,
     }
-    impl<'a, 'ast> Visit<'ast> for V<'a> {
+    impl<'ast> Visit<'ast> for V<'_> {
         fn visit_expr_method_call(&mut self, mc: &'ast syn::ExprMethodCall) {
             let n = mc.method.to_string();
             if self.names.iter().any(|x| *x == n) {
@@ -295,15 +295,15 @@ impl RuntimeIdentCollector {
         if names.len() >= 2 {
             let head = &names[names.len() - 2];
             let tail = &names[names.len() - 1];
-            if head.chars().next().is_some_and(|c| c.is_uppercase())
-                && tail.chars().next().is_some_and(|c| c.is_uppercase())
+            if head.chars().next().is_some_and(char::is_uppercase)
+                && tail.chars().next().is_some_and(char::is_uppercase)
             {
                 self.idents.insert(format!("{head}{tail}"));
             }
             // First segment of a multi-segment path — record as a module
             // reference. Used by `emit_file` to decide which `pub mod X;`
             // declarations need a `from . import X` line.
-            if names[0].chars().next().is_some_and(|c| c.is_lowercase()) {
+            if names[0].chars().next().is_some_and(char::is_lowercase) {
                 self.module_refs.insert(names[0].clone());
             }
         }
@@ -398,8 +398,8 @@ impl RuntimeIdentCollector {
                         && let proc_macro2::TokenTree::Ident(tail) = &tts[idx + 3]
                     {
                         let tail_s = tail.to_string();
-                        if name.chars().next().is_some_and(|c| c.is_uppercase())
-                            && tail_s.chars().next().is_some_and(|c| c.is_uppercase())
+                        if name.chars().next().is_some_and(char::is_uppercase)
+                            && tail_s.chars().next().is_some_and(char::is_uppercase)
                         {
                             self.idents.insert(format!("{name}{tail_s}"));
                         }
@@ -435,6 +435,6 @@ impl syn::parse::Parse for MacroExprList {
             }
             let _: syn::Token![,] = input.parse()?;
         }
-        Ok(MacroExprList(out))
+        Ok(Self(out))
     }
 }

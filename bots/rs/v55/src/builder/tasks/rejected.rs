@@ -22,7 +22,7 @@ impl TaskRejected {
 
     /// Build a rejection from an owned reason string (for templated reasons).
     #[must_use]
-    pub fn from_string(reason: String) -> Self {
+    pub const fn from_string(reason: String) -> Self {
         Self { reason }
     }
 }

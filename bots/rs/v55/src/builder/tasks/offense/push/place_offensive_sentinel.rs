@@ -44,8 +44,7 @@ fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     if pyrust::vec::contains!(in_edges, &side) {
         return true;
     }
-    self_.kind_at(side) == Some(EntityType::Harvester)
-        && self_.team_at(side) == Some(self_.my_team)
+    self_.kind_at(side) == Some(EntityType::Harvester) && self_.team_at(side) == Some(self_.my_team)
 }
 
 /// First DIR8 direction such that a sentinel at `pos` facing `d`
@@ -57,8 +56,7 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
         if self_.in_bounds(front) && delivers_ammo(self_, pos, front) {
             continue;
         }
-        let tiles = pyrust::unwrap!(ct
-            .get_attackable_tiles_from(pos, d, EntityType::Sentinel));
+        let tiles = pyrust::unwrap!(ct.get_attackable_tiles_from(pos, d, EntityType::Sentinel));
         for t in tiles {
             if is_enemy_valuable(self_, t) {
                 return Some(d);

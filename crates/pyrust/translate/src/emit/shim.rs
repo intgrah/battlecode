@@ -20,23 +20,23 @@ pub enum ShimCall {
 }
 
 impl ShimCall {
-    pub fn python_name(self) -> &'static str {
+    pub const fn python_name(self) -> &'static str {
         match self {
-            ShimCall::Print => "print",
-            ShimCall::Len => "len",
-            ShimCall::Min => "min",
-            ShimCall::Max => "max",
-            ShimCall::Sum => "sum",
-            ShimCall::Abs => "abs",
-            ShimCall::Sorted => "sorted",
-            ShimCall::Reversed => "reversed",
-            ShimCall::Any => "any",
-            ShimCall::All => "all",
-            ShimCall::Enumerate => "enumerate",
-            ShimCall::Zip => "zip",
-            ShimCall::RandomChoice => "random.choice",
-            ShimCall::RandomRandint => "random.randint",
-            ShimCall::RandomSeed => "random.seed",
+            Self::Print => "print",
+            Self::Len => "len",
+            Self::Min => "min",
+            Self::Max => "max",
+            Self::Sum => "sum",
+            Self::Abs => "abs",
+            Self::Sorted => "sorted",
+            Self::Reversed => "reversed",
+            Self::Any => "any",
+            Self::All => "all",
+            Self::Enumerate => "enumerate",
+            Self::Zip => "zip",
+            Self::RandomChoice => "random.choice",
+            Self::RandomRandint => "random.randint",
+            Self::RandomSeed => "random.seed",
         }
     }
 }

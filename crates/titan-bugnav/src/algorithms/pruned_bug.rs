@@ -135,9 +135,7 @@ fn bug2_path_with(
         };
         version = version.wrapping_add(1);
         if version == 0 {
-            for s in &mut seen {
-                *s = 0;
-            }
+            seen.fill(0);
             version = 1;
         }
         seen[state_idx(w, &wf)] = version;
@@ -234,9 +232,7 @@ fn distbug_path_with(
         };
         version = version.wrapping_add(1);
         if version == 0 {
-            for s in &mut seen {
-                *s = 0;
-            }
+            seen.fill(0);
             version = 1;
         }
         seen[state_idx(w, &wf)] = version;
@@ -424,9 +420,7 @@ pub fn bug1_path(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Option<Vec
         // First walk: CW.
         version = version.wrapping_add(1);
         if version == 0 {
-            for s in &mut seen {
-                *s = 0;
-            }
+            seen.fill(0);
             version = 1;
         }
         let cw = walk_perim(
@@ -451,9 +445,7 @@ pub fn bug1_path(grid: &Grid, start: (i32, i32), goal: (i32, i32)) -> Option<Vec
             // Edge-flip tangle: CW-reversed != ACW walk. Run ACW too.
             version = version.wrapping_add(1);
             if version == 0 {
-                for s in &mut seen {
-                    *s = 0;
-                }
+                seen.fill(0);
                 version = 1;
             }
             let acw = walk_perim(

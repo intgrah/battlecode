@@ -75,9 +75,9 @@ impl Gunner {
     }
 
     /// Walk the forward ray from `my_pos` in `direction` (3 steps,
-    /// capped by GUNNER_VISION_RADIUS_SQ). Return (score, blocker_pos):
+    /// capped by `GUNNER_VISION_RADIUS_SQ`). Return (score, `blocker_pos)`:
     ///
-    ///   3 — enemy turret in VALID_ROTATION_TARGETS (highest value)
+    ///   3 — enemy turret in `VALID_ROTATION_TARGETS` (highest value)
     ///   2 — enemy builder bot
     ///   1 — enemy core (always-on chip damage; below builders so a
     ///       free builder wins the rotation tiebreak)
@@ -184,11 +184,11 @@ impl Default for Gunner {
 }
 
 impl Unit for Gunner {
-    fn state(&self) -> &UnitState {
+    fn unit_state(&self) -> &UnitState {
         &self.state
     }
 
-    fn state_mut(&mut self) -> &mut UnitState {
+    fn unit_state_mut(&mut self) -> &mut UnitState {
         &mut self.state
     }
 
@@ -213,7 +213,7 @@ impl Unit for Gunner {
             self.idle_turns += 1;
         }
 
-        if self.idle_turns > Gunner::SELF_DESTRUCT_THRESHOLD {
+        if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD {
             self.try_self_destruct(ct);
         }
     }

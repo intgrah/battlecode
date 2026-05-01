@@ -1,10 +1,10 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/algorithms/nav.py`.
 //!
-//! Movement navigation: bug2-bounded planner + dp_step path-follower.
+//! Movement navigation: bug2-bounded planner + `dp_step` path-follower.
 //!
 //! Replaces A*/BFS for movement. Plan-incrementally-walk reactive style:
 //!
-//! - The `BugNav` state holds (goal, path_idx, planner, gen_done).
+//! - The `BugNav` state holds (goal, `path_idx`, planner, `gen_done`).
 //! - Each turn, when the bot wants to move toward a goal:
 //!   - If `goal` differs from cached, reset state and start a new plan.
 //!   - Else if no path-tile is currently visible, the cached plan is stale
@@ -43,7 +43,7 @@ pub struct BugNav {
     /// `path_idx_storage`.
     planner: Option<Bug2Planner>,
     gen_done: bool,
-    /// Canonical path_idx storage when no planner is active.
+    /// Canonical `path_idx` storage when no planner is active.
     path_idx_storage: Vec<i32>,
     unreachable: bool,
     /// Cell indices the planner has committed to the path so far,
@@ -71,7 +71,7 @@ impl BugNav {
         }
     }
 
-    /// Read-only access to the current path_idx array (whether owned by the
+    /// Read-only access to the current `path_idx` array (whether owned by the
     /// planner or by storage).
     fn path_idx(&self) -> &[i32] {
         if let Some(p) = self.planner.as_ref() {
@@ -139,19 +139,17 @@ impl BugNav {
                     match planner.step(ctx.cost_grid) {
                         Some(true) => {
                             self.gen_done = true;
-                            self.path_idx_storage = pyrust::expect!(self
-                                .planner
-                                .take(), "planner is Some")
-                                .into_path_idx();
+                            self.path_idx_storage =
+                                pyrust::expect!(self.planner.take(), "planner is Some")
+                                    .into_path_idx();
                             break;
                         }
                         Some(false) => {
                             self.gen_done = true;
                             self.unreachable = true;
-                            self.path_idx_storage = pyrust::expect!(self
-                                .planner
-                                .take(), "planner is Some")
-                                .into_path_idx();
+                            self.path_idx_storage =
+                                pyrust::expect!(self.planner.take(), "planner is Some")
+                                    .into_path_idx();
                             break;
                         }
                         None => {
@@ -170,7 +168,7 @@ impl BugNav {
             // Overlay other-builder positions as INF in cost_grid so dp_step
             // routes around them. Restore after the call.
             let mut saved: Vec<(usize, i32)> = pyrust::vec::new!();
-            for (fb_pos, _) in ctx.all_bots {
+            for fb_pos in ctx.all_bots.keys() {
                 if *fb_pos == pos {
                     continue;
                 }
@@ -237,20 +235,20 @@ impl BugNav {
     pub fn committed_positions(&self) -> Vec<Position> {
         let stride = MAX_WIDTH as i32;
         pyrust::collect!(pyrust::map!(pyrust::iter!(self.committed), |i| Position {
-                x: i % stride,
-                y: i / stride,
-            }))
+            x: i % stride,
+            y: i / stride,
+        }))
     }
 
     #[must_use]
-    pub fn active_goal(&self) -> Option<Position> {
+    pub const fn active_goal(&self) -> Option<Position> {
         self.active_goal
     }
 
     /// True iff the planner finished (success or proven unreachable). When
     /// false, the planner is still suspended and will resume next turn.
     #[must_use]
-    pub fn gen_done(&self) -> bool {
+    pub const fn gen_done(&self) -> bool {
         self.gen_done
     }
 
@@ -258,7 +256,7 @@ impl BugNav {
     /// is true, `step()` returns `None` unconditionally until the goal
     /// changes.
     #[must_use]
-    pub fn unreachable(&self) -> bool {
+    pub const fn unreachable(&self) -> bool {
         self.unreachable
     }
 
@@ -269,6 +267,9 @@ impl BugNav {
         let (Some(s), Some(g)) = (self.active_start, self.active_goal) else {
             return pyrust::vec::new!();
         };
-        pyrust::collect!(pyrust::map!(pyrust::into_iter!(build_mline_seq(s.x, s.y, g.x, g.y)), |t| Position { x: t.0, y: t.1 }))
+        pyrust::collect!(pyrust::map!(
+            pyrust::into_iter!(build_mline_seq(s.x, s.y, g.x, g.y)),
+            |t| Position { x: t.0, y: t.1 }
+        ))
     }
 }

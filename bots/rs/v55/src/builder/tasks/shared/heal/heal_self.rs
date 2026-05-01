@@ -18,7 +18,9 @@ pub fn heal_self(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
             "low HP on enemy tile — fight to death, no heal",
         ));
     }
-    if pyrust::unwrap!(ct.get_hp(None)) > pyrust::unwrap!(ct.get_max_hp(None)) - GameConstants::HEAL_AMOUNT {
+    if pyrust::unwrap!(ct.get_hp(None))
+        > pyrust::unwrap!(ct.get_max_hp(None)) - GameConstants::HEAL_AMOUNT
+    {
         return Some(TaskRejected::new(
             "self HP within HEAL_AMOUNT of max — heal would waste Ti",
         ));

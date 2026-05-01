@@ -21,15 +21,13 @@ pub fn push_extend(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     };
     if !on_enemy_side(self_, start) {
         return Some(TaskRejected::from_string(format!(
-            "dangling {:?} is on our side of the bisector",
-            start
+            "dangling {start:?} is on our side of the bisector"
         )));
     }
     let resource = resource_at(self_, start);
     if resource != Some(ResourceType::Titanium) {
         return Some(TaskRejected::from_string(format!(
-            "dangling {:?} is {:?}, push_extend is Ti-only",
-            start, resource
+            "dangling {start:?} is {resource:?}, push_extend is Ti-only"
         )));
     }
     let target = self_.en_core_guess;

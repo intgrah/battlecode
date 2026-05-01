@@ -1,12 +1,12 @@
 //! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/heal/`.
 //!
 //! Heal tasks. Three flat leaves under one group:
-//!   heal_buildings        — pick a damaged friendly building (deconflicted),
+//!   `heal_buildings`        — pick a damaged friendly building (deconflicted),
 //!                           walk to it, heal in-range tiles before/after
 //!                           the move.
-//!   heal_adjacent_builder — heal a damaged friendly bot within action
+//!   `heal_adjacent_builder` — heal a damaged friendly bot within action
 //!                           range. No movement.
-//!   heal_self             — heal own tile, with step-off when standing on
+//!   `heal_self`             — heal own tile, with step-off when standing on
 //!                           an enemy structure.
 
 pub mod _helpers;

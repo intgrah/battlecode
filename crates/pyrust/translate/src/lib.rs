@@ -111,12 +111,11 @@ pub fn translate_file(input: &Path, output: Option<&Path>, cfg: &CfgEnv) -> Resu
                 .map_err(|e| format!("write stdout: {e}"))?;
         }
         Some(path) => {
-            if let Some(parent) = path.parent() {
-                if !parent.as_os_str().is_empty() {
+            if let Some(parent) = path.parent()
+                && !parent.as_os_str().is_empty() {
                     fs::create_dir_all(parent)
                         .map_err(|e| format!("create {}: {e}", parent.display()))?;
                 }
-            }
             fs::write(path, py.as_bytes()).map_err(|e| format!("write {}: {e}", path.display()))?;
         }
     }
@@ -184,13 +183,11 @@ pub fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String>
             .to_path_buf();
         let dest = py_dest(&rel, out);
         if let Some(parent) = dest.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("create {}: {e}", parent.display()))?;
+            fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
         }
         let source = read_source(entry)?;
         let py = translate_source(&source, entry, &cfg)?;
-        fs::write(&dest, py.as_bytes())
-            .map_err(|e| format!("write {}: {e}", dest.display()))?;
+        fs::write(&dest, py.as_bytes()).map_err(|e| format!("write {}: {e}", dest.display()))?;
         let _ = &table; // suppress unused warning; threading slot for future use
     }
     Ok(())
@@ -256,7 +253,7 @@ fn collect_sum_enums(
 /// containing a `Cargo.toml`), then walk the whole workspace's `.rs`
 /// files looking for items with `#[pyrust::transparent]` or
 /// `#[pyrust::exception]` attributes. Returns `(transparent, exception)`
-/// name sets. Pure syntactic — no ra_ap, no cargo metadata.
+/// name sets. Pure syntactic — no `ra_ap`, no cargo metadata.
 fn scan_pyrust_attrs(
     src: &Path,
 ) -> (

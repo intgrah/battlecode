@@ -14,7 +14,7 @@ const TARGET_DRIFT_SQ: i32 = 25;
 /// CPU budget measured as absolute turn-elapsed in microseconds (since
 /// `ct.get_cpu_time_elapsed()` returns the time since the start of the
 /// current turn). 1729us leaves ~270us for post-A* work before the 2ms
-/// server enforcement. Update() p50 is ~800us so A* typically runs for
+/// server enforcement. `Update()` p50 is ~800us so A* typically runs for
 /// ~900us here; on rare slow-update turns A* may be compressed.
 const CPU_BUDGET: u64 = 1_7290;
 const BUCKET_COUNT: usize = 32;
@@ -358,7 +358,7 @@ impl AStarSearch {
                                 }
                             }
                         }
-                        let nd = gn + 1 + extra + (routing_extra[ni as usize] as i32);
+                        let nd = gn + 1 + extra + i32::from(routing_extra[ni as usize]);
                         if nd >= self._dist[ni as usize] {
                             continue;
                         }
@@ -369,7 +369,10 @@ impl AStarSearch {
                         self.parent_fwd[ni as usize] = node_i;
                         let h_val = self.x_heur_fwd[self.x_of[ni as usize] as usize]
                             + self.y_heur_fwd[self.y_of[ni as usize] as usize];
-                        pyrust::vec::push!(self.buckets_fwd[((nd + h_val) & bucket_mask) as usize], ni);
+                        pyrust::vec::push!(
+                            self.buckets_fwd[((nd + h_val) & bucket_mask) as usize],
+                            ni
+                        );
                         let other_dist = self.dist_bwd[ni as usize];
                         if other_dist != INF {
                             let cand = nd + other_dist;
@@ -436,7 +439,7 @@ impl AStarSearch {
                             }
                         }
                     }
-                    let nd = gn + 1 + extra + (routing_extra[ni as usize] as i32);
+                    let nd = gn + 1 + extra + i32::from(routing_extra[ni as usize]);
                     if nd >= self.dist_bwd[ni as usize] {
                         continue;
                     }
@@ -490,12 +493,13 @@ impl AStarSearch {
         }
 
         pyrust::string::clear!(self.last_fail_reason);
-        Some(
-            pyrust::collect!(pyrust::map!(pyrust::into_iter!(rev_path), |i| Position {
-                    x: self.x_of[i as usize],
-                    y: self.y_of[i as usize],
-                })),
-        )
+        Some(pyrust::collect!(pyrust::map!(
+            pyrust::into_iter!(rev_path),
+            |i| Position {
+                x: self.x_of[i as usize],
+                y: self.y_of[i as usize],
+            }
+        )))
     }
 
     fn search_unidirectional(
@@ -623,7 +627,7 @@ impl AStarSearch {
                             continue;
                         }
                     }
-                    let nd = base_nd + (routing_extra[ni as usize] as i32);
+                    let nd = base_nd + i32::from(routing_extra[ni as usize]);
                     if nd >= self._dist[ni as usize] {
                         continue;
                     }
@@ -654,7 +658,7 @@ impl AStarSearch {
                             continue;
                         }
                     }
-                    let nd = weighted_nd + (routing_extra[ni as usize] as i32);
+                    let nd = weighted_nd + i32::from(routing_extra[ni as usize]);
                     if nd >= self._dist[ni as usize] {
                         continue;
                     }
@@ -754,12 +758,13 @@ impl AStarSearch {
         }
 
         pyrust::string::clear!(self.last_fail_reason);
-        Some(
-            pyrust::collect!(pyrust::map!(pyrust::into_iter!(path), |i| Position {
-                    x: self.x_of[i as usize],
-                    y: self.y_of[i as usize],
-                })),
-        )
+        Some(pyrust::collect!(pyrust::map!(
+            pyrust::into_iter!(path),
+            |i| Position {
+                x: self.x_of[i as usize],
+                y: self.y_of[i as usize],
+            }
+        )))
     }
 
     /// Run `search` but treat tiles occupied by other friendly bots as

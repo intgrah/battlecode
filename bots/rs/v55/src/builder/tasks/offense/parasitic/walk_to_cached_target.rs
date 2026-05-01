@@ -22,15 +22,14 @@ pub fn walk_to_cached_target(self_: &mut Builder, ct: &mut Controller<'_>) -> Ta
         return Some(TaskRejected::new("offense_target is None"));
     };
 
-    if let Some(ol) = self_.offense_launcher {
-        if self_.kind_at(ol) == Some(EntityType::Launcher)
+    if let Some(ol) = self_.offense_launcher
+        && self_.kind_at(ol) == Some(EntityType::Launcher)
             && self_.team_at(ol) == Some(self_.my_team)
             && self_.my_pos.distance_squared(offense_target) > 8
         {
             make_move(self_, ct, ol);
             return None;
         }
-    }
     make_move(self_, ct, offense_target);
     None
 }

@@ -33,9 +33,9 @@ pub enum Marker {
 impl Marker {
     /// Encode to the wire `u32` (tag-prefixed, then XOR-scrambled with `KEY`).
     #[must_use]
-    pub fn encode(self) -> u32 {
+    pub const fn encode(self) -> u32 {
         let (tag, payload) = match self {
-            Marker::Symmetry { symmetry } => (TAG_SYMMETRY, symmetry as u32),
+            Self::Symmetry { symmetry } => (TAG_SYMMETRY, symmetry as u32),
         };
         let raw = (tag << TAG_SHIFT) | (payload & PAYLOAD_MASK);
         raw ^ KEY
@@ -44,7 +44,7 @@ impl Marker {
     /// Decode a wire `u32` back to a `Marker`. Returns `None` if the tag is
     /// unknown (e.g. emitted by an enemy or an older bot version).
     #[must_use]
-    pub fn decode(encrypted: u32) -> Option<Marker> {
+    pub const fn decode(encrypted: u32) -> Option<Self> {
         let raw = encrypted ^ KEY;
         let tag = (raw >> TAG_SHIFT) & TAG_MASK;
         let payload = raw & PAYLOAD_MASK;
@@ -58,7 +58,7 @@ impl Marker {
                 2 => Symmetry::Ver,
                 _ => return None,
             };
-            Some(Marker::Symmetry { symmetry: sym })
+            Some(Self::Symmetry { symmetry: sym })
         } else {
             None
         }
@@ -68,6 +68,7 @@ impl Marker {
 /// Scan `nearby_tiles` for an allied `MarkerSymmetry` and return its symmetry.
 /// Returns the first one found, or `None` if no friendly symmetry marker is
 /// in vision.
+#[must_use] 
 pub fn find_symmetry_marker(
     ct: &Controller<'_>,
     nearby_tiles: &[Position],

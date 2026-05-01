@@ -2,10 +2,8 @@ use proc_macro2::Span;
 use syn::spanned::Spanned;
 
 use super::collection;
-use super::shim::{self, ShimCall};
 use super::types::{Ty, promote_numeric};
 use super::writer::PyWriter;
-use crate::tyctx::TyKind;
 
 #[derive(Clone, Debug)]
 pub struct Emitted {
@@ -193,7 +191,7 @@ fn emit_field_expr(w: &mut PyWriter, f: &syn::ExprField) -> Result<Emitted, Stri
         syn::Member::Named(name) => {
             // Struct field access `obj.field` → `obj.field`.
             Ok(Emitted::atomic(
-                format!("{recv_text}.{}", name),
+                format!("{recv_text}.{name}"),
                 Ty::Unknown,
             ))
         }
@@ -646,9 +644,9 @@ fn emit_range_expr(w: &mut PyWriter, r: &syn::ExprRange) -> Result<Emitted, Stri
 
 /// Translate `matches!(expr, Pat)` to a Python boolean expression. Common
 /// cases:
-///   matches!(x, EnumName::A | EnumName::B)           → `x in (EnumName.A, EnumName.B)`
-///   matches!(x, EnumName::Variant { .. })            → `isinstance(x, EnumNameVariant)`
-///   matches!(x, EnumName::A { .. } | EnumName::B {.}) → `isinstance(x, EnumNameA | EnumNameB)`
+///   matches!(x, `EnumName::A` | `EnumName::B`)           → `x in (EnumName.A, EnumName.B)`
+///   matches!(x, `EnumName::Variant` { .. })            → `isinstance(x, EnumNameVariant)`
+///   matches!(x, `EnumName::A` { .. } | `EnumName::B` {.}) → `isinstance(x, EnumNameA | EnumNameB)`
 ///   matches!(x, Some(_))                              → `x is not None`
 ///   matches!(x, None)                                 → `x is None`
 ///   matches!(x, Pat if guard)                         → `(matches expr) and guard`
@@ -675,7 +673,7 @@ fn emit_matches(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Emitted, String
             if input.peek(syn::Token![,]) {
                 let _: syn::Token![,] = input.parse()?;
             }
-            Ok(MatchesArgs {
+            Ok(Self {
                 scrutinee,
                 pat,
                 guard,
@@ -700,11 +698,7 @@ fn emit_matches(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Emitted, String
         let tmp = w.fresh_tmp();
         let attrs: Vec<String> = bindings.iter().map(|b| format!("{tmp}.{b}")).collect();
         let lam_args = bindings.join(", ");
-        let lam = format!(
-            "(lambda {lam_args}: {})({})",
-            g_em.text,
-            attrs.join(", ")
-        );
+        let lam = format!("(lambda {lam_args}: {})({})", g_em.text, attrs.join(", "));
         let body = format!(
             "(({tmp} := {scrut}) is not None and isinstance({tmp}, {class_union}) and {lam})"
         );
@@ -729,7 +723,12 @@ fn some_or_struct_bindings(pat: &syn::Pat) -> Option<(Vec<String>, Vec<String>)>
     let syn::Pat::TupleStruct(ts) = pat else {
         return None;
     };
-    let segs: Vec<String> = ts.path.segments.iter().map(|s| s.ident.to_string()).collect();
+    let segs: Vec<String> = ts
+        .path
+        .segments
+        .iter()
+        .map(|s| s.ident.to_string())
+        .collect();
     let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
     if !matches!(slice.as_slice(), ["Some"] | ["Option", "Some"]) {
         return None;
@@ -873,7 +872,7 @@ fn matches_pat_to_bool(w: &mut PyWriter, scrut: &str, pat: &syn::Pat) -> Result<
             let em = emit_expr(w, &syn::Expr::Lit(lit.clone()))?;
             Ok(format!("{scrut} == {}", em.text))
         }
-        syn::Pat::Ident(i) => {
+        syn::Pat::Ident(_i) => {
             // A bare ident in matches! is just a binding (always true).
             Ok(format!("({scrut}, _ := {scrut}) and True[1]")).map(|_| "True".to_string())
         }
@@ -976,7 +975,7 @@ fn json_value(
     // Bare ident `null` is JSON null → Python None.
     if trees.len() == 1
         && let TokenTree::Ident(i) = &trees[0]
-        && i.to_string() == "null"
+        && *i == "null"
     {
         return Ok("None".to_string());
     }
@@ -1179,7 +1178,12 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
     }
     // `serde_json::Value::Null` / `Value::Null` → Python `None`.
     {
-        let segs: Vec<String> = p.path.segments.iter().map(|s| s.ident.to_string()).collect();
+        let segs: Vec<String> = p
+            .path
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect();
         let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
         if matches!(
             slice.as_slice(),
@@ -1299,14 +1303,9 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
         let is_serde_wrapper = matches!(
             slice.as_slice(),
-            ["serde_json", "Value", "String"]
-                | ["serde_json", "Value", "Number"]
-                | ["serde_json", "Value", "Bool"]
-                | ["Value", "String"]
-                | ["Value", "Number"]
-                | ["Value", "Bool"]
-                | ["serde_json", "Number", "from"]
-                | ["Number", "from"]
+            ["serde_json", "Value", "String" | "Number" | "Bool"] |
+["Value", "String" | "Number" | "Bool"] | ["serde_json", "Number", "from"] |
+["Number", "from"]
         );
         if is_serde_wrapper {
             return emit_expr(w, c.args.first().unwrap());
@@ -1320,7 +1319,9 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         && fp.qself.is_none()
         && fp.path.segments.len() >= 2
     {
-        let head = &fp.path.segments[fp.path.segments.len() - 2].ident.to_string();
+        let head = &fp.path.segments[fp.path.segments.len() - 2]
+            .ident
+            .to_string();
         if w.is_transparent_type(head) {
             if c.args.len() == 1 {
                 return emit_expr(w, c.args.first().unwrap());
@@ -1356,9 +1357,9 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         // Zero-arg empty constructor.
         if c.args.is_empty() {
             let py = match slice.as_slice() {
-                ["Vec", "new"] | ["VecDeque", "new"] => Some(("[]", Ty::List)),
-                ["HashSet", "new"] | ["BTreeSet", "new"] => Some(("set()", Ty::Set)),
-                ["HashMap", "new"] | ["BTreeMap", "new"] => Some(("{}", Ty::Dict)),
+                ["Vec" | "VecDeque", "new"] => Some(("[]", Ty::List)),
+                ["HashSet" | "BTreeSet", "new"] => Some(("set()", Ty::Set)),
+                ["HashMap" | "BTreeMap", "new"] => Some(("{}", Ty::Dict)),
                 ["serde_json", "Map", "new"] | ["Map", "new"] => Some(("{}", Ty::Dict)),
                 ["String", "new"] => Some(("\"\"", Ty::Str)),
                 _ => None,
@@ -1371,11 +1372,7 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         if c.args.len() == 1
             && matches!(
                 slice.as_slice(),
-                ["Vec", "with_capacity"]
-                    | ["VecDeque", "with_capacity"]
-                    | ["HashSet", "with_capacity"]
-                    | ["HashMap", "with_capacity"]
-                    | ["String", "with_capacity"]
+                ["Vec" | "VecDeque" | "HashSet" | "HashMap" | "String", "with_capacity"]
             )
         {
             let py = match slice[0] {
@@ -1396,7 +1393,7 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         let slice: Vec<&str> = names.iter().map(String::as_str).collect();
         if matches!(
             slice.as_slice(),
-            ["Some"] | ["Option", "Some"] | ["Ok"] | ["Result", "Ok"]
+            ["Some" | "Ok"] | ["Option", "Some"] | ["Result", "Ok"]
         ) {
             if c.args.len() != 1 {
                 return Err(w.err(c.span(), "Some/Ok expects exactly one argument"));
@@ -1700,11 +1697,10 @@ fn emit_if_expr(w: &mut PyWriter, i: &syn::ExprIf) -> Result<Emitted, String> {
 }
 
 pub fn single_tail(stmts: &[syn::Stmt]) -> Option<&syn::Expr> {
-    if stmts.len() == 1 {
-        if let syn::Stmt::Expr(e, None) = &stmts[0] {
+    if stmts.len() == 1
+        && let syn::Stmt::Expr(e, None) = &stmts[0] {
             return Some(e);
         }
-    }
     None
 }
 
@@ -1811,7 +1807,7 @@ fn py_string_literal(value: &str) -> String {
     s
 }
 
-fn expr_kind(e: &syn::Expr) -> &'static str {
+const fn expr_kind(e: &syn::Expr) -> &'static str {
     match e {
         syn::Expr::Array(_) => "array",
         syn::Expr::Assign(_) => "assignment",
@@ -1872,7 +1868,7 @@ fn expr_kind(e: &syn::Expr) -> &'static str {
 /// Public surface for use by `emit_stmt_macro` so a statement-position
 /// `pyrust::vec::push!(v, x);` reaches the same dispatch as an
 /// expression-position macro.
-pub(crate) fn emit_pyrust_dsl_for_stmt(
+pub fn emit_pyrust_dsl_for_stmt(
     w: &mut PyWriter,
     em: &syn::ExprMacro,
 ) -> Result<Option<Emitted>, String> {
@@ -1881,10 +1877,7 @@ pub(crate) fn emit_pyrust_dsl_for_stmt(
 
 /// Try the pyrust DSL pattern dispatch. Returns `Some(emitted)` if the
 /// macro path matched a known DSL macro, `None` otherwise.
-fn emit_pyrust_dsl(
-    w: &mut PyWriter,
-    em: &syn::ExprMacro,
-) -> Result<Option<Emitted>, String> {
+fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitted>, String> {
     let segs: Vec<String> = em
         .mac
         .path
@@ -2008,7 +2001,7 @@ fn emit_pyrust_dsl(
                 .map_err(|e| w.err(em.span(), format!("is_some_and!: {e}")))?;
             let opt = emit_expr(w, &parsed.recv)?;
             let body = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             Ok(Some(Emitted {
                 text: format!(
                     "({0} is not None and (lambda {1}: {2})({0}))",
@@ -2112,7 +2105,7 @@ fn emit_pyrust_dsl(
         // ============================================================
         // Iterator: identity / no-op in Python (lists/dicts are iterable)
         // ============================================================
-        ["iter"] | ["into_iter"] | ["copied"] | ["cloned"] | ["collect"] => {
+        ["iter" | "into_iter" | "copied" | "cloned" | "collect"] => {
             Ok(Some(identity(w, tail[0])?))
         }
         ["enumerate"] => {
@@ -2185,18 +2178,15 @@ fn emit_pyrust_dsl(
                 Ty::Unknown,
             )))
         }
-        ["map"] | ["filter"] | ["filter_map"] => {
+        ["map" | "filter" | "filter_map"] => {
             let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
                 .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
             let it = emit_expr(w, &parsed.recv)?;
             let body = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             let text = match tail[0] {
                 "map" => format!("({} for {} in {})", body.text, pname, it.text),
-                "filter" => format!(
-                    "({1} for {1} in {2} if {0})",
-                    body.text, pname, it.text
-                ),
+                "filter" => format!("({1} for {1} in {2} if {0})", body.text, pname, it.text),
                 "filter_map" => format!(
                     "(__v for {1} in {2} if (__v := {0}) is not None)",
                     body.text, pname, it.text
@@ -2210,7 +2200,7 @@ fn emit_pyrust_dsl(
                 .map_err(|e| w.err(em.span(), format!("find!: {e}")))?;
             let it = emit_expr(w, &parsed.recv)?;
             let body = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             Ok(Some(Emitted::atomic(
                 format!(
                     "next(({1} for {1} in {2} if {0}), None)",
@@ -2219,18 +2209,15 @@ fn emit_pyrust_dsl(
                 Ty::Unknown,
             )))
         }
-        ["any"] | ["all"] => {
+        ["any" | "all"] => {
             let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
                 .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
             let it = emit_expr(w, &parsed.recv)?;
             let body = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             let py_fn = tail[0];
             Ok(Some(Emitted::atomic(
-                format!(
-                    "{0}({1} for {2} in {3})",
-                    py_fn, body.text, pname, it.text
-                ),
+                format!("{0}({1} for {2} in {3})", py_fn, body.text, pname, it.text),
                 Ty::Bool,
             )))
         }
@@ -2264,7 +2251,7 @@ fn emit_pyrust_dsl(
             let it = emit_expr(w, &args[0])?;
             Ok(Some(Emitted::atomic(format!("sum({})", it.text), Ty::Int)))
         }
-        ["min"] | ["max"] => {
+        ["min" | "max"] => {
             let args = parse_args!();
             let py_fn = tail[0];
             if args.len() == 1 {
@@ -2284,12 +2271,12 @@ fn emit_pyrust_dsl(
                 Err(w.err(em.span(), "min/max!: expected 1 or 2 arguments"))
             }
         }
-        ["min_by"] | ["max_by"] => {
+        ["min_by" | "max_by"] => {
             let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
                 .map_err(|e| w.err(em.span(), format!("{display}!: {e}")))?;
             let it = emit_expr(w, &parsed.recv)?;
             let key = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             let py_fn = if tail[0] == "min_by" { "min" } else { "max" };
             Ok(Some(Emitted::atomic(
                 format!(
@@ -2305,14 +2292,17 @@ fn emit_pyrust_dsl(
                 return Err(w.err(em.span(), "sort!: expected (vec)"));
             }
             let v = emit_expr(w, &args[0])?;
-            Ok(Some(Emitted::atomic(format!("{}.sort()", v.text), Ty::Unit)))
+            Ok(Some(Emitted::atomic(
+                format!("{}.sort()", v.text),
+                Ty::Unit,
+            )))
         }
         ["sort_by_key"] => {
             let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
                 .map_err(|e| w.err(em.span(), format!("sort_by_key!: {e}")))?;
             let v = emit_expr(w, &parsed.recv)?;
             let key = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             Ok(Some(Emitted::atomic(
                 format!("{}.sort(key=lambda {}: {})", v.text, pname, key.text),
                 Ty::Unit,
@@ -2334,7 +2324,7 @@ fn emit_pyrust_dsl(
                 .map_err(|e| w.err(em.span(), format!("sorted_by_key!: {e}")))?;
             let it = emit_expr(w, &parsed.recv)?;
             let key = emit_expr(w, &parsed.body)?;
-            let pname = parsed.param.to_string();
+            let pname = parsed.param.clone();
             Ok(Some(Emitted::atomic(
                 format!("sorted({}, key=lambda {}: {})", it.text, pname, key.text),
                 Ty::Unknown,
@@ -2348,7 +2338,10 @@ fn emit_pyrust_dsl(
                 .map(|e| e.text.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            Ok(Some(Emitted::atomic(format!("print({})", joined), Ty::Unit)))
+            Ok(Some(Emitted::atomic(
+                format!("print({joined})"),
+                Ty::Unit,
+            )))
         }
         ["len"] => {
             let args = parse_args!();
@@ -2380,7 +2373,7 @@ fn emit_pyrust_dsl(
         // vec::*
         // ============================================================
         ["vec", "new"] => Ok(Some(Emitted::atomic("[]".to_string(), Ty::List))),
-        ["vec", "push"] | ["vec", "push_back"] => {
+        ["vec", "push" | "push_back"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "vec::push(_back)!: expected (vec, item)"));
@@ -2497,7 +2490,7 @@ fn emit_pyrust_dsl(
                 Ty::Bool,
             )))
         }
-        ["set", "contains"] | ["dict", "contains"] => {
+        ["set" | "dict", "contains"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "contains!: expected (collection, item)"));
@@ -2747,7 +2740,7 @@ impl syn::parse::Parse for ClosureArgs {
         }
         let param = format_closure_param(closure.inputs.first().unwrap());
         let body = (*closure.body).clone();
-        Ok(ClosureArgs { recv, param, body })
+        Ok(Self { recv, param, body })
     }
 }
 

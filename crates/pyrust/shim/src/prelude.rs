@@ -143,7 +143,7 @@ impl<T: PyDisplay> PyDisplay for [T] {
     }
 }
 
-/// HashMap iteration order is not Python-compatible; we render but the order
+/// `HashMap` iteration order is not Python-compatible; we render but the order
 /// is not guaranteed to match Python. Phase 3 corpus does not print dicts.
 impl<K: PyDisplay, V: PyDisplay> PyDisplay for HashMap<K, V> {
     fn fmt_py(&self, f: &mut fmt::Formatter<'_>, _repr: bool) -> fmt::Result {
@@ -160,7 +160,7 @@ impl<K: PyDisplay, V: PyDisplay> PyDisplay for HashMap<K, V> {
     }
 }
 
-/// HashSet iteration order is non-deterministic; do not print directly in the
+/// `HashSet` iteration order is non-deterministic; do not print directly in the
 /// corpus until a deterministic order type is introduced.
 impl<T: PyDisplay> PyDisplay for HashSet<T> {
     fn fmt_py(&self, f: &mut fmt::Formatter<'_>, _repr: bool) -> fmt::Result {

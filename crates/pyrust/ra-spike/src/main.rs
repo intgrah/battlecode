@@ -17,8 +17,8 @@ use ra_ap_project_model::CargoConfig;
 use ra_ap_syntax::ast::{self, AstNode};
 use ra_ap_vfs::VfsPath;
 
-fn adt_name<'a>(
-    db: &'a ra_ap_ide_db::RootDatabase,
+fn adt_name(
+    db: &ra_ap_ide_db::RootDatabase,
     ty: &ra_ap_hir::Type<'_>,
 ) -> Option<&'static str> {
     let adt = ty.as_adt()?;

@@ -21,18 +21,17 @@ fn main() {
             "import sysconfig; p = sysconfig.get_paths(); print(p['include'])",
         ])
         .output();
-    if let Ok(ref out) = py_cfg {
-        if out.status.success() {
+    if let Ok(ref out) = py_cfg
+        && out.status.success() {
             let include_dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            let c_src = format!(
-                r#"
+            let c_src = r#"
 #define Py_BUILD_CORE
 #include <Python.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <internal/pycore_interp.h>
 #include <internal/pycore_ceval_state.h>
-int main() {{
+int main() {
     printf("pub const ASYNC_EXC_OFFSET: usize = %zu;\n",
         offsetof(PyThreadState, async_exc));
     printf("pub const THREAD_ID_OFFSET: usize = %zu;\n",
@@ -43,9 +42,8 @@ int main() {{
     printf("pub const INTERP_OFFSET: usize = %zu;\n",
         offsetof(PyThreadState, interp));
     return 0;
-}}
-"#
-            );
+}
+"#.to_string();
             let c_path = out_dir.join("cpython_offsets.c");
             let bin_path = out_dir.join("cpython_offsets_probe");
             fs::write(&c_path, &c_src).expect("write cpython_offsets.c");
@@ -63,22 +61,20 @@ int main() {{
             if let Ok(ref cout) = compile {
                 if cout.status.success() {
                     let run = Command::new(&bin_path).output();
-                    if let Ok(ref rout) = run {
-                        if rout.status.success() {
+                    if let Ok(ref rout) = run
+                        && rout.status.success() {
                             let rs_code = String::from_utf8_lossy(&rout.stdout);
                             fs::write(&offsets_path, rs_code.as_ref())
                                 .expect("write cpython_offsets.rs");
                             eprintln!("cpython offsets:\n{rs_code}");
                             probed = true;
                         }
-                    }
                 } else {
                     let stderr = String::from_utf8_lossy(&cout.stderr);
                     eprintln!("Warning: cpython offset probe compile failed: {stderr}");
                 }
             }
         }
-    }
 
     if !probed && !offsets_path.exists() {
         fs::write(

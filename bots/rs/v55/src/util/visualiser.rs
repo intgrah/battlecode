@@ -22,7 +22,7 @@ impl Colour {
         Self { r, g, b, a }
     }
 
-    fn as_array(&self) -> [u8; 4] {
+    const fn as_array(&self) -> [u8; 4] {
         [self.r, self.g, self.b, self.a]
     }
 }
@@ -180,8 +180,8 @@ pub enum Dump {
 }
 
 fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Value {
-    let stops: Vec<serde_json::Value> = pyrust::collect!(pyrust::map!(pyrust::iter!(p
-        .stops), |s| {
+    let stops: Vec<serde_json::Value> =
+        pyrust::collect!(pyrust::map!(pyrust::iter!(p.stops), |s| {
             serde_json::json!([
                 serde_json::to_value(&s.t).unwrap_or(serde_json::Value::Null),
                 s.colour.as_array()[0],
@@ -198,16 +198,28 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
         } else {
             pyrust::to_string!(v)
         };
-        pyrust::dict::insert!(special_obj, key, serde_json::json!([
+        pyrust::dict::insert!(
+            special_obj,
+            key,
+            serde_json::json!([
                 c.as_array()[0],
                 c.as_array()[1],
                 c.as_array()[2],
                 c.as_array()[3],
-            ]));
+            ])
+        );
     }
     let mut obj = serde_json::Map::new();
-    pyrust::dict::insert!(obj, pyrust::to_string!("stops"), serde_json::Value::Array(stops));
-    pyrust::dict::insert!(obj, pyrust::to_string!("special"), serde_json::Value::Object(special_obj));
+    pyrust::dict::insert!(
+        obj,
+        pyrust::to_string!("stops"),
+        serde_json::Value::Array(stops)
+    );
+    pyrust::dict::insert!(
+        obj,
+        pyrust::to_string!("special"),
+        serde_json::Value::Object(special_obj)
+    );
     serde_json::Value::Object(obj)
 }
 
@@ -284,10 +296,22 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
         }
         Dump::VectorField { angles, magnitudes } => {
             let mut obj = serde_json::Map::new();
-            pyrust::dict::insert!(obj, pyrust::to_string!("$type"), serde_json::json!("vectorfield"));
-            pyrust::dict::insert!(obj, pyrust::to_string!("angles"), pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null));
+            pyrust::dict::insert!(
+                obj,
+                pyrust::to_string!("$type"),
+                serde_json::json!("vectorfield")
+            );
+            pyrust::dict::insert!(
+                obj,
+                pyrust::to_string!("angles"),
+                pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null)
+            );
             if let Some(m) = magnitudes {
-                pyrust::dict::insert!(obj, pyrust::to_string!("magnitudes"), pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null));
+                pyrust::dict::insert!(
+                    obj,
+                    pyrust::to_string!("magnitudes"),
+                    pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null)
+                );
             }
             serde_json::Value::Object(obj)
         }
@@ -305,6 +329,7 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
 }
 
 /// Auto-wrap a raw value into a tagged dict for use in `debug()` message args.
+///
 /// Mirrors the Python `_auto_wrap`. Position values become hoverable cell rings;
 /// `Dump` values are used as-is; anything else is a scalar.
 #[must_use]

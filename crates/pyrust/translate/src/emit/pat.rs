@@ -219,7 +219,7 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
     }
 }
 
-fn pat_kind(pat: &syn::Pat) -> &'static str {
+const fn pat_kind(pat: &syn::Pat) -> &'static str {
     match pat {
         syn::Pat::Const(_) => "const",
         syn::Pat::Ident(_) => "ident",

@@ -4,13 +4,13 @@
 //! `random.X(...)` for `random::X(...)` calls. For the audit goal
 //! (v55-native and v55-translated-Python producing identical replays),
 //! the underlying PRNG and every consumer (`choice`, `randint`, `random`,
-//! `choices`, `shuffle`, `getrandbits`) must match CPython byte-for-byte.
+//! `choices`, `shuffle`, `getrandbits`) must match `CPython` byte-for-byte.
 //!
-//! The CPython algorithm is fully specified:
+//! The `CPython` algorithm is fully specified:
 //!   - Mersenne Twister MT19937 as the core 32-bit generator.
 //!   - `Random.seed(n)` derives the MT state via `init_by_array` over the
 //!     32-bit limbs of `n` (positive form, with the sign-bit handling
-//!     CPython documents).
+//!     `CPython` documents).
 //!   - `getrandbits(k)` reads `ceil(k/32)` 32-bit words and trims to k bits.
 //!   - `_randbelow(n)` uses reject sampling on `getrandbits(bit_length(n))`.
 //!   - `choice`, `randint`, `shuffle` all build on `_randbelow`.
@@ -50,9 +50,9 @@ impl Random {
         r
     }
 
-    /// CPython `Random.seed(n)` for an integer `n`. The integer is
+    /// `CPython` `Random.seed(n)` for an integer `n`. The integer is
     /// converted to its absolute value's little-endian 32-bit limb array
-    /// (CPython does the same — Python signs are absorbed into magnitude
+    /// (`CPython` does the same — Python signs are absorbed into magnitude
     /// for seeding) and fed to `init_by_array`.
     pub fn seed(&mut self, seed: i64) {
         let mag = seed.unsigned_abs();
@@ -71,7 +71,7 @@ impl Random {
     }
 
     /// Standard MT19937 `init_by_array` (Matsumoto/Nishimura reference). Same
-    /// constants as CPython's `_random.Random` C module.
+    /// constants as `CPython`'s `_random.Random` C module.
     fn init_by_array(&mut self, key: &[u32]) {
         self.init_genrand(19650218);
         let mut i = 1usize;
@@ -146,7 +146,7 @@ impl Random {
         y
     }
 
-    /// CPython `Random.getrandbits(k)`: produce a non-negative integer with
+    /// `CPython` `Random.getrandbits(k)`: produce a non-negative integer with
     /// `k` random bits, reading `ceil(k/32)` 32-bit words and trimming the
     /// top word to `k mod 32` bits.
     pub fn getrandbits(&mut self, k: u32) -> u128 {
@@ -159,12 +159,12 @@ impl Random {
                 let bits_in_top = k - 32 * (words as u32 - 1);
                 w >>= 32 - bits_in_top;
             }
-            out |= (w as u128) << (32 * i);
+            out |= u128::from(w) << (32 * i);
         }
         out
     }
 
-    /// CPython `Random._randbelow(n)`: a uniform integer in `[0, n)` via
+    /// `CPython` `Random._randbelow(n)`: a uniform integer in `[0, n)` via
     /// reject sampling on `getrandbits(bit_length(n))`.
     pub fn randbelow(&mut self, n: u128) -> u128 {
         assert!(n > 0, "randbelow on n=0");
@@ -177,27 +177,27 @@ impl Random {
         }
     }
 
-    /// CPython `Random.random()`: a 53-bit float in [0, 1).
+    /// `CPython` `Random.random()`: a 53-bit float in [0, 1).
     pub fn random(&mut self) -> f64 {
         let a = self.genrand_uint32() >> 5; // 27 bits
         let b = self.genrand_uint32() >> 6; // 26 bits
-        (a as f64 * 67108864.0 + b as f64) * (1.0 / 9007199254740992.0)
+        (f64::from(a) * 67108864.0 + f64::from(b)) * (1.0 / 9007199254740992.0)
     }
 
-    /// CPython `Random.randint(a, b)`: uniform integer in `[a, b]` (inclusive).
+    /// `CPython` `Random.randint(a, b)`: uniform integer in `[a, b]` (inclusive).
     pub fn randint(&mut self, a: i64, b: i64) -> i64 {
         assert!(a <= b, "randint requires a <= b");
         let span = (b - a) as u128 + 1;
         a + self.randbelow(span) as i64
     }
 
-    /// CPython `Random.choice(seq)`: uniform pick from a non-empty slice.
+    /// `CPython` `Random.choice(seq)`: uniform pick from a non-empty slice.
     pub fn choice<'a, T>(&mut self, seq: &'a [T]) -> &'a T {
         assert!(!seq.is_empty(), "choice on empty");
         &seq[self.randbelow(seq.len() as u128) as usize]
     }
 
-    /// CPython `Random.shuffle(x)`: in-place Fisher–Yates using `_randbelow`.
+    /// `CPython` `Random.shuffle(x)`: in-place Fisher–Yates using `_randbelow`.
     pub fn shuffle<T>(&mut self, x: &mut [T]) {
         let n = x.len();
         for i in (1..n).rev() {
@@ -206,8 +206,8 @@ impl Random {
         }
     }
 
-    /// CPython `Random.choices(population, weights, k)`. With `weights = None`,
-    /// CPython uses `population[floor(random() * n)]` per draw — not
+    /// `CPython` `Random.choices(population, weights, k)`. With `weights = None`,
+    /// `CPython` uses `population[floor(random() * n)]` per draw — not
     /// `_randbelow` — so we mirror that. Otherwise build cumulative weights
     /// and `bisect_right` per draw using `random() * total`.
     pub fn choices<'a, T>(
@@ -244,7 +244,7 @@ impl Random {
                 let mut lo = 0;
                 let mut hi = n;
                 while lo < hi {
-                    let mid = (lo + hi) / 2;
+                    let mid = usize::midpoint(lo, hi);
                     if r < cum[mid] {
                         hi = mid;
                     } else {
@@ -270,10 +270,12 @@ pub fn seed(s: i64) {
     DEFAULT.with(|r| r.borrow_mut().seed(s));
 }
 
+#[must_use] 
 pub fn random() -> f64 {
     DEFAULT.with(|r| r.borrow_mut().random())
 }
 
+#[must_use] 
 pub fn randint(a: i64, b: i64) -> i64 {
     DEFAULT.with(|r| r.borrow_mut().randint(a, b))
 }
@@ -286,6 +288,7 @@ pub fn shuffle<T>(items: &mut [T]) {
     DEFAULT.with(|r| r.borrow_mut().shuffle(items));
 }
 
+#[must_use] 
 pub fn getrandbits(k: u32) -> u128 {
     DEFAULT.with(|r| r.borrow_mut().getrandbits(k))
 }

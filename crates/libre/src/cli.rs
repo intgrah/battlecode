@@ -45,11 +45,11 @@ pub enum Command {
         /// One of: bash, zsh, fish, powershell, elvish.
         shell: Shell,
     },
-    /// Internal: list bots from the configured bots_dir, one per line.
+    /// Internal: list bots from the configured `bots_dir`, one per line.
     /// Used by shell completions.
     #[command(name = "_list-bots", hide = true)]
     ListBots,
-    /// Internal: list maps from the configured maps_dir, one per line.
+    /// Internal: list maps from the configured `maps_dir`, one per line.
     /// Used by shell completions.
     #[command(name = "_list-maps", hide = true)]
     ListMaps,
@@ -121,23 +121,22 @@ fn default_maps_dir() -> String {
 fn default_replay() -> String {
     "replay.replay26".into()
 }
-fn default_seed() -> u64 {
+const fn default_seed() -> u64 {
     1
 }
 
-/// Walk up from cwd looking for `cambc.toml`. Returns (config, project_root).
+/// Walk up from cwd looking for `cambc.toml`. Returns (config, `project_root`).
 /// If no `cambc.toml` is found, returns defaults rooted at cwd.
 fn find_config() -> (CambcConfig, PathBuf) {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let mut dir: Option<&Path> = Some(cwd.as_path());
     while let Some(d) = dir {
         let candidate = d.join("cambc.toml");
-        if candidate.is_file() {
-            if let Ok(text) = fs::read_to_string(&candidate) {
+        if candidate.is_file()
+            && let Ok(text) = fs::read_to_string(&candidate) {
                 let cfg: CambcConfig = toml::from_str(&text).unwrap_or_default();
                 return (cfg, d.to_path_buf());
             }
-        }
         dir = d.parent();
     }
     (CambcConfig::default(), cwd)
@@ -341,7 +340,7 @@ fn resolve_map(path_str: &str, maps_dir: &Path) -> Result<String, String> {
     }
     for p in &candidates {
         if p.is_file() {
-            return Ok(canonical(p)?);
+            return canonical(p);
         }
     }
     Err(format!("map not found: {path_str}"))
@@ -414,7 +413,7 @@ fn list_maps(maps_dir: &Path) {
 /// Fish-specific tail appended after `clap_complete::generate` so that
 /// positional args of `run` get dynamic completion from the configured
 /// `bots_dir` and `maps_dir`.
-const FISH_DYNAMIC_TAIL: &str = r##"
+const FISH_DYNAMIC_TAIL: &str = r#"
 # --- dynamic completion for `run` positionals (cambc-libre) ---
 function __cambc_libre_run_position
     set -l cmd (commandline -opc)
@@ -442,7 +441,7 @@ end
 
 complete -c cambc-libre -n "__fish_cambc_libre_using_subcommand run; and test (__cambc_libre_run_position) -le 1" -f -a "(cambc-libre _list-bots)"
 complete -c cambc-libre -n "__fish_cambc_libre_using_subcommand run; and test (__cambc_libre_run_position) -eq 2" -f -a "(cambc-libre _list-maps)"
-"##;
+"#;
 
 pub fn parse_args() -> Result<Args, String> {
     let cli = Cli::parse();

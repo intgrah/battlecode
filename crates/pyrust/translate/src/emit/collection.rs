@@ -80,7 +80,7 @@ impl Parse for RepeatExpr {
         let value = input.parse()?;
         let _: syn::Token![;] = input.parse()?;
         let len = input.parse()?;
-        Ok(RepeatExpr { value, len })
+        Ok(Self { value, len })
     }
 }
 
@@ -286,7 +286,7 @@ struct DictPair {
 
 impl Parse for DictPair {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(DictPair {
+        Ok(Self {
             key: input.parse()?,
             _arrow: input.parse()?,
             value: input.parse()?,
@@ -307,11 +307,11 @@ impl Parse for CompClause {
             let pat = syn::Pat::parse_single(input)?;
             let _: syn::Token![in] = input.parse()?;
             let iter: syn::Expr = input.parse()?;
-            Ok(CompClause::For { pat, iter })
+            Ok(Self::For { pat, iter })
         } else if lookahead.peek(syn::Token![if]) {
             let _: syn::Token![if] = input.parse()?;
             let cond: syn::Expr = input.parse()?;
-            Ok(CompClause::If { cond })
+            Ok(Self::If { cond })
         } else {
             Err(lookahead.error())
         }
@@ -328,7 +328,7 @@ impl Parse for ListComp {
         let expr: syn::Expr = input.parse()?;
         let _: syn::Token![;] = input.parse()?;
         let clauses = parse_clauses(input)?;
-        Ok(ListComp { expr, clauses })
+        Ok(Self { expr, clauses })
     }
 }
 
@@ -345,7 +345,7 @@ impl Parse for DictComp {
         let value: syn::Expr = input.parse()?;
         let _: syn::Token![;] = input.parse()?;
         let clauses = parse_clauses(input)?;
-        Ok(DictComp {
+        Ok(Self {
             key,
             value,
             clauses,

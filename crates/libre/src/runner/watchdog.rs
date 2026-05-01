@@ -1,8 +1,8 @@
 //! Pure-Rust watchdog for TLE enforcement.
 //!
 //! Runs on a dedicated OS thread pinned to core 0 (separate from the engine on
-//! core 1). Uses direct atomic writes to CPython's `tstate->async_exc` and
-//! `interp->ceval.eval_breaker` to inject SystemExit — no GIL acquisition needed.
+//! core 1). Uses direct atomic writes to `CPython`'s `tstate->async_exc` and
+//! `interp->ceval.eval_breaker` to inject `SystemExit` — no GIL acquisition needed.
 //!
 //! After the wall-clock timeout, the watchdog checks the main thread's CPU time.
 //! If CPU budget remains (e.g. kernel preempted the bot), it resleeps via busy-wait
@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-/// Offsets into CPython structs, computed at build time by build.rs.
+/// Offsets into `CPython` structs, computed at build time by build.rs.
 /// Verified at runtime against the known `thread_id` field.
 #[cfg(feature = "tle")]
 mod offsets {
@@ -40,12 +40,12 @@ struct Inner {
 struct State {
     /// Wall-clock deadline. None = disarmed.
     deadline: Option<Instant>,
-    /// Hard wall-clock cap (HARD_WALL_MULTIPLIER × wall_timeout past arm time).
+    /// Hard wall-clock cap (`HARD_WALL_MULTIPLIER` × `wall_timeout` past arm time).
     hard_deadline: Option<Instant>,
     shutdown: bool,
-    /// Raw pointer to the subinterpreter's PyThreadState for this unit.
+    /// Raw pointer to the subinterpreter's `PyThreadState` for this unit.
     tstate: *mut u8,
-    /// PyExc_SystemExit pointer (immortal object, no refcount needed).
+    /// `PyExc_SystemExit` pointer (immortal object, no refcount needed).
     system_exit: *mut u8,
 }
 
@@ -58,7 +58,7 @@ impl Watchdog {
     /// Create a new Rust watchdog for the given subinterpreter thread state.
     ///
     /// `tstate` must be a valid `PyThreadState*` for the unit's subinterpreter.
-    /// The caller must have the GIL (for reading PyExc_SystemExit).
+    /// The caller must have the GIL (for reading `PyExc_SystemExit`).
     ///
     /// The watchdog thread is pinned to core 0 to avoid competing with the
     /// engine on core 1.
@@ -68,7 +68,7 @@ impl Watchdog {
         // matches pthread_self() (which is what CPython stores there).
         let current_pthread = unsafe { libc::pthread_self() } as std::ffi::c_ulong;
         let tid_at_offset = unsafe {
-            *((tstate as *const u8).add(offsets::THREAD_ID_OFFSET) as *const std::ffi::c_ulong)
+            *(tstate as *const u8).add(offsets::THREAD_ID_OFFSET).cast::<std::ffi::c_ulong>()
         };
         assert_eq!(
             current_pthread,
@@ -78,14 +78,14 @@ impl Watchdog {
             offsets::THREAD_ID_OFFSET,
         );
 
-        let system_exit = unsafe { pyo3_ffi::PyExc_SystemExit as *mut u8 };
+        let system_exit = unsafe { pyo3_ffi::PyExc_SystemExit.cast::<u8>() };
 
         let inner = Arc::new(Inner {
             mu: Mutex::new(State {
                 deadline: None,
                 hard_deadline: None,
                 shutdown: false,
-                tstate: tstate as *mut u8,
+                tstate: tstate.cast::<u8>(),
                 system_exit,
             }),
             cv: Condvar::new(),
@@ -97,7 +97,7 @@ impl Watchdog {
             .spawn(move || watchdog_thread(inner2))
             .expect("spawn watchdog thread");
 
-        Watchdog {
+        Self {
             inner,
             handle: Some(handle),
         }
@@ -146,7 +146,7 @@ impl Watchdog {
         let state = self.inner.mu.lock().unwrap();
         if !state.tstate.is_null() {
             unsafe {
-                let async_exc_ptr = state.tstate.add(offsets::ASYNC_EXC_OFFSET) as *mut *mut u8;
+                let async_exc_ptr = state.tstate.add(offsets::ASYNC_EXC_OFFSET).cast::<*mut u8>();
                 std::ptr::write_volatile(async_exc_ptr, std::ptr::null_mut());
             }
         }
@@ -178,7 +178,7 @@ fn watchdog_thread(inner: Arc<Inner>) {
     unsafe {
         let mut cpuset: libc::cpu_set_t = std::mem::zeroed();
         libc::CPU_SET(0, &mut cpuset);
-        let ret = libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &cpuset);
+        let ret = libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &raw const cpuset);
         if ret != 0 {
             eprintln!(
                 "[watchdog] sched_setaffinity to core 0 failed: {}",
@@ -268,7 +268,7 @@ fn wait_until<'a>(
         }
         let remaining = target - now;
         if remaining > Duration::from_millis(1) {
-            let sleep_for = remaining - Duration::from_millis(1);
+            let sleep_for = remaining.checked_sub(Duration::from_millis(1)).unwrap();
             let (g, _) = inner.cv.wait_timeout(guard, sleep_for).unwrap();
             guard = g;
             if guard.shutdown || guard.deadline.is_none() {
@@ -285,18 +285,18 @@ fn wait_until<'a>(
     }
 }
 
-/// Inject SystemExit into the target thread state via direct memory writes.
+/// Inject `SystemExit` into the target thread state via direct memory writes.
 #[cfg(feature = "tle")]
 fn fire(state: &State) {
     let count = FIRE_COUNT.fetch_add(1, Ordering::Relaxed) + 1;
-    if count <= 20 || count % 500 == 0 {
+    if count <= 20 || count.is_multiple_of(500) {
         eprintln!("[watchdog #{count}] fired");
     }
 
     unsafe {
         // 1. Set tstate->async_exc = PyExc_SystemExit
         //    SystemExit is immortal in CPython 3.12 — no Py_INCREF needed.
-        let async_exc_ptr = state.tstate.add(offsets::ASYNC_EXC_OFFSET) as *mut *mut u8;
+        let async_exc_ptr = state.tstate.add(offsets::ASYNC_EXC_OFFSET).cast::<*mut u8>();
         let async_exc_atomic = &*(async_exc_ptr as *const std::sync::atomic::AtomicPtr<u8>);
         async_exc_atomic.store(state.system_exit, Ordering::Release);
 

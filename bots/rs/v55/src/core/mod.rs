@@ -112,7 +112,9 @@ impl Core {
                 if pyrust::unwrap!(ct.get_direction(Some(bid))).opposite() != cd {
                     continue;
                 }
-                if pyrust::unwrap!(ct.get_stored_resource(Some(bid))) == Some(ResourceType::Titanium) {
+                if pyrust::unwrap!(ct.get_stored_resource(Some(bid)))
+                    == Some(ResourceType::Titanium)
+                {
                     count += 1;
                 }
             }
@@ -135,12 +137,10 @@ impl Core {
             return false;
         }
         let live = pyrust::float!(live_units);
-        let income_threshold = (Self::INCOME_PER_UNIT * live
-            + Self::INCOME_QUADRATIC_TERM * live * live)
+        let income_threshold = Self::INCOME_PER_UNIT.mul_add(live, Self::INCOME_QUADRATIC_TERM * live * live)
             / self.spawn_tempo;
         let has_income = income_rate * 4.0 > income_threshold;
-        let surplus_threshold = (pyrust::float!(Self::SURPLUS_BASELINE)
-            + pyrust::float!(Self::SURPLUS_SCALE_FACTOR) * (pyrust::unwrap!(ct.get_scale_percent()) / 100.0))
+        let surplus_threshold = f64::from(Self::SURPLUS_SCALE_FACTOR).mul_add(pyrust::unwrap!(ct.get_scale_percent()) / 100.0, f64::from(Self::SURPLUS_BASELINE))
             * (2.0 - self.spawn_tempo);
         let has_surplus = pyrust::float!(self.state.ti) > surplus_threshold;
         let builder_ti_cost = pyrust::unwrap!(ct.get_builder_bot_cost()).0;
@@ -162,7 +162,10 @@ impl Core {
         if self.spawned < Self::INITIAL_SPAWNS {
             let en_core = self.en_core_guess();
             let mut corners: Vec<Position> =
-                pyrust::collect!(pyrust::map!(pyrust::iter!(CORNERS), |&d| self.state.my_pos.add(d)));
+                pyrust::collect!(pyrust::map!(pyrust::iter!(CORNERS), |&d| self
+                    .state
+                    .my_pos
+                    .add(d)));
             pyrust::sort_by_key!(corners, |p| en_core.distance_squared(*p));
             let preferred = corners[self.spawned as usize];
             if pyrust::unwrap!(ct.can_spawn(preferred)) {
@@ -200,11 +203,11 @@ impl Default for Core {
 }
 
 impl Unit for Core {
-    fn state(&self) -> &UnitState {
+    fn unit_state(&self) -> &UnitState {
         &self.state
     }
 
-    fn state_mut(&mut self) -> &mut UnitState {
+    fn unit_state_mut(&mut self) -> &mut UnitState {
         &mut self.state
     }
 

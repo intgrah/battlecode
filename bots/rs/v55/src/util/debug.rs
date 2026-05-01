@@ -84,25 +84,33 @@ impl DebugCtx {
         if pyrust::is_none!(self.root) {
             // First scope of the turn: this becomes the root.
             self.root = Some(node);
-            pyrust::vec::push!(self.frames, Frame {
-                parent_child_idx: None,
-                t0,
-            });
+            pyrust::vec::push!(
+                self.frames,
+                Frame {
+                    parent_child_idx: None,
+                    t0,
+                }
+            );
             return;
         }
         let parent = self.current_scope_mut();
         let children = pyrust::unwrap!(parent["children"].as_array_mut());
         let idx = pyrust::len!(children);
         pyrust::vec::push!(children, node);
-        pyrust::vec::push!(self.frames, Frame {
-            parent_child_idx: Some(idx),
-            t0,
-        });
+        pyrust::vec::push!(
+            self.frames,
+            Frame {
+                parent_child_idx: Some(idx),
+                t0,
+            }
+        );
     }
 
     pub fn pop_scope(&mut self) {
-        let frame = pyrust::expect!(pyrust::vec::pop!(self
-            .frames), "Scope::drop with empty frame stack");
+        let frame = pyrust::expect!(
+            pyrust::vec::pop!(self.frames),
+            "Scope::drop with empty frame stack"
+        );
         if let Some(t0) = frame.t0 {
             let us = t0.elapsed().as_micros() as u64;
             if self.frames.is_empty() {
@@ -158,9 +166,7 @@ impl DebugCtx {
 
     pub fn flush(&mut self) {
         let prev_us = self.last_flush_us;
-        let root = pyrust::expect!(self
-            .root
-            .as_mut(), "flush() called outside any Scope");
+        let root = pyrust::expect!(self.root.as_mut(), "flush() called outside any Scope");
         root["prev_flush_us"] = serde_json::Value::Number(prev_us.into());
         let t0 = Instant::now();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");

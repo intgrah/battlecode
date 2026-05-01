@@ -23,7 +23,7 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
                 builder.in_edges[ti].retain(|&p| p != pos);
                 builder._on_in_edge_removed(t, pos);
                 builder._check_multi_input(t);
-                builder._check_dangling(t, &format!("edge_removed src={:?}", pos));
+                builder._check_dangling(t, &format!("edge_removed src={pos:?}"));
             }
         }
         builder.out_edges[i] = pyrust::vec::new!();
@@ -89,7 +89,7 @@ pub fn _add_topology(
                     builder._ax_in_count[ti] += 1;
                     builder._reeval_ax_upstream(*t);
                 }
-                builder._check_dangling(*t, &format!("edge_added src={:?}", pos));
+                builder._check_dangling(*t, &format!("edge_added src={pos:?}"));
             }
             return;
         }
@@ -250,8 +250,7 @@ fn _update_turret_rays(
         }
         EntityType::Sentinel if enemy => {
             let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
-            for tile in pyrust::unwrap!(ct
-                .get_attackable_tiles_from(pos, d, EntityType::Sentinel))
+            for tile in pyrust::unwrap!(ct.get_attackable_tiles_from(pos, d, EntityType::Sentinel))
             {
                 pyrust::set::add!(builder.enemy_turret_ray_tiles, tile);
             }
@@ -318,8 +317,8 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         let bld_changed = builder.building_ids[i] != bid;
         if pyrust::is_none!(builder.env[i]) {
             pyrust::vec::push_back!(builder.reflect_queue, i);
-            let is_core =
-                bid.is_some_and(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
+            let is_core = bid
+                .is_some_and(|b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Core);
             pyrust::vec::push!(new_observations, (pos, env, is_core));
             if env != Environment::Wall {
                 let py = pos.y;
@@ -407,7 +406,9 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
 
 fn _narrow_symmetry(builder: &mut Builder, new_observations: &[(Position, Environment, bool)]) {
     let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
-    let candidates: Vec<Symmetry> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.state.symmetry_candidates)));
+    let candidates: Vec<Symmetry> = pyrust::collect!(pyrust::copied!(pyrust::iter!(
+        builder.state.symmetry_candidates
+    )));
     let w = builder.state.width;
     let h = builder.state.height;
     for sym in candidates {

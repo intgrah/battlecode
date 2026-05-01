@@ -1,9 +1,9 @@
-//! Bot-facing API for cambc_libre.
+//! Bot-facing API for `cambc_libre`.
 //!
 //! Mirrors the Python `cambc` module. Native Rust bots `use cambc::*` and
 //! receive `&mut Controller` — a re-export of the engine's `UnitView<'_>`.
 //! pyrust-translated bots emit Python that imports the same names from
-//! `cambc`, where `Controller` is the runtime PyO3 wrapper.
+//! `cambc`, where `Controller` is the runtime `PyO3` wrapper.
 
 pub use libre_engine::common::{
     Direction, EntityType, Environment, Pos as Position, ResourceType, Team,

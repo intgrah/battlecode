@@ -27,7 +27,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn new(game: Rc<RefCell<Game>>, unit: i32) -> Self {
+    pub const fn new(game: Rc<RefCell<Game>>, unit: i32) -> Self {
         Self {
             game,
             unit,
@@ -582,7 +582,7 @@ impl Controller {
     fn get_attackable_tiles(&self, py: Python) -> PyResult<PyObject> {
         self.check_deadline()?;
         let tiles = map_err(self.with_view(|v| v.get_attackable_tiles()))?;
-        Ok(tiles.into_pyobject(py)?.unbind().into())
+        Ok(tiles.into_pyobject(py)?.unbind())
     }
 
     /// Raw geometric attack pattern of a hypothetical turret.
@@ -597,7 +597,7 @@ impl Controller {
         let tiles = map_err(
             self.with_view(|v| v.get_attackable_tiles_from(position, direction, turret_type)),
         )?;
-        Ok(tiles.into_pyobject(py)?.unbind().into())
+        Ok(tiles.into_pyobject(py)?.unbind())
     }
 
     /// Generic `can_build(entity_type, position, extra)` dispatch. `extra`
@@ -631,7 +631,7 @@ impl Controller {
 }
 
 /// Extract `BuildExtra` from a Python `Direction | Position | None`.
-/// Tries `Direction` first, then `Position`. The dispatch into UnitView
+/// Tries `Direction` first, then `Position`. The dispatch into `UnitView`
 /// validates whether the extracted variant matches what the entity type
 /// requires.
 fn extract_build_extra(py: Python, extra: Option<PyObject>) -> PyResult<BuildExtra> {

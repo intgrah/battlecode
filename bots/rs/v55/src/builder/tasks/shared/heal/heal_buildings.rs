@@ -54,11 +54,7 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
             3
         } else if damage >= 4 && can_reach {
             2
-        } else if damage >= 4 {
-            1
-        } else {
-            0
-        };
+        } else { i32::from(damage >= 4) };
         let score = (tier, damage, turns_to_die - turns_to_reach);
 
         if score > best_score {
@@ -66,8 +62,10 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
             best_score = score;
         }
     }
-    self_.healable_buildings = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(self_
-        .healable_buildings)), |&p| self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]));
+    self_.healable_buildings = pyrust::collect!(pyrust::filter!(
+        pyrust::copied!(pyrust::iter!(self_.healable_buildings)),
+        |&p| self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]
+    ));
     best
 }
 
@@ -109,7 +107,8 @@ pub fn heal_buildings(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResul
         }
     }
     let new_repair = best_healable_building(self_, ct);
-    if (pyrust::is_some!(new_repair) && pyrust::unwrap!(new_repair).distance_squared(self_.my_pos) <= 2)
+    if (pyrust::is_some!(new_repair)
+        && pyrust::unwrap!(new_repair).distance_squared(self_.my_pos) <= 2)
         || pyrust::is_none!(self_.repair_pos)
     {
         self_.repair_pos = new_repair;

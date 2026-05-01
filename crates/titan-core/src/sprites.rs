@@ -156,6 +156,7 @@ impl SpriteSet {
     /// and upload to the GPU. Heavy CPU work runs on rayon's pool;
     /// the wgpu uploads themselves are serialised on the calling thread
     /// (which is what the renderer requires anyway).
+    #[must_use] 
     pub fn load(rs: &egui_wgpu::RenderState, assets_dir: &Path, config: SpriteConfig<'_>) -> Self {
         let mut image_paths: Vec<std::path::PathBuf> = Vec::new();
         collect_images(assets_dir, &mut image_paths);

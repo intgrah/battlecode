@@ -27,6 +27,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
+use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
 use crate::builder::hooks::heal::end_of_turn_heal;
@@ -36,18 +37,17 @@ use crate::builder::role::Role;
 use crate::builder::tasks::_policy::run_policy;
 use crate::builder::tasks::offense::helpers::begin_turn_offense;
 use crate::builder::tasks::policy_for_role;
-use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::update::update;
 use crate::builder::update::vision::apply_local_destroy as vision_apply_local_destroy;
-use cambc::Team;
 use crate::config::{DEBUG_DUMP, HARDCODE};
 use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
-use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_N, MAX_WIDTH, ROAD_COST};
+use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
 use crate::util::debug::{Scope, debug as log};
 use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
 use crate::util::symmetry::Symmetry;
 use crate::util::visualiser::auto_wrap_position;
+use cambc::Team;
 
 /// The Builder unit. Embeds `UnitState` (auto-Deref'd so `builder.my_pos`
 /// resolves transparently) plus per-builder map belief, navigation state,
@@ -68,7 +68,7 @@ pub struct Builder {
     /// else `None`. Cached field for peer code that uses `if builder.symmetry`.
     pub symmetry: Option<Symmetry>,
 
-    /// Wall / Empty / OreTitanium / OreAxionite per tile (None = unobserved).
+    /// Wall / Empty / `OreTitanium` / `OreAxionite` per tile (None = unobserved).
     pub env: [Option<Environment>; MAX_N],
     /// Cached entity ids per tile, for change detection.
     pub building_ids: [Option<i32>; MAX_N],
@@ -120,7 +120,7 @@ pub struct Builder {
     /// A* search instance for Ax chain routing.
     pub ax_conv_search: AStarSearch,
 
-    /// Bug2-bounded planner + dp_step path-follower. Persists across turns.
+    /// Bug2-bounded planner + `dp_step` path-follower. Persists across turns.
     pub bugnav: BugNav,
 
     /// Per-tile rolling window of `(resource, stack_id)` observations.
@@ -328,12 +328,14 @@ impl Builder {
     fn build_initial_pnb() -> [Vec<i32>; MAX_N] {
         let mut pnb: [Vec<i32>; MAX_N] = [const { Vec::new() }; MAX_N];
         let stride = MAX_WIDTH as i32;
-        let offsets: Vec<i32> = pyrust::collect!(pyrust::map!(pyrust::iter!(DIR8_DELTA), |t| t.1 * stride + t.0));
+        let offsets: Vec<i32> =
+            pyrust::collect!(pyrust::map!(pyrust::iter!(DIR8_DELTA), |t| t.1 * stride + t.0));
         for cy in 1..(MAX_WIDTH as i32 - 1) {
             let row = cy * stride;
             for cx in 1..(MAX_WIDTH as i32 - 1) {
                 let i = (row + cx) as usize;
-                pnb[i] = pyrust::collect!(pyrust::map!(pyrust::iter!(offsets), |&o| (i as i32) + o));
+                pnb[i] =
+                    pyrust::collect!(pyrust::map!(pyrust::iter!(offsets), |&o| (i as i32) + o));
             }
         }
         for cy in 0..MAX_WIDTH as i32 {
@@ -349,7 +351,9 @@ impl Builder {
                 for &(dx, dy) in &DIR8_DELTA {
                     let nx = cx + dx;
                     let ny = cy + dy;
-                    if pyrust::vec::contains!((0..MAX_WIDTH as i32), &nx) && pyrust::vec::contains!((0..MAX_WIDTH as i32), &ny) {
+                    if pyrust::vec::contains!((0..MAX_WIDTH as i32), &nx)
+                        && pyrust::vec::contains!((0..MAX_WIDTH as i32), &ny)
+                    {
                         pyrust::vec::push!(nbs, ny * stride + nx);
                     }
                 }
@@ -404,24 +408,28 @@ impl Builder {
     /// Position to flat index (inherent shadow of `Unit::idx` so peer code
     /// in `crate::builder::*` doesn't need to import the trait).
     #[inline]
-    pub fn idx(&self, pos: Position) -> usize {
+    #[must_use] 
+    pub const fn idx(&self, pos: Position) -> usize {
         (pos.y as usize) * MAX_WIDTH + (pos.x as usize)
     }
 
     /// In-bounds check (inherent shadow of `Unit::in_bounds`).
     #[inline]
-    pub fn in_bounds(&self, pos: Position) -> bool {
+    #[must_use] 
+    pub const fn in_bounds(&self, pos: Position) -> bool {
         pos.x >= 0 && pos.x < self.state.width && pos.y >= 0 && pos.y < self.state.height
     }
 
     /// Resolved symmetry (inherent shadow of `Unit::symmetry` so peer code
     /// can use `builder.symmetry()` without importing the trait).
     #[inline]
-    pub fn symmetry(&self) -> Option<Symmetry> {
+    #[must_use] 
+    pub const fn symmetry(&self) -> Option<Symmetry> {
         self.symmetry
     }
 
     /// Inherent shadow of `Unit::symmetry_guess`.
+    #[must_use] 
     pub fn symmetry_guess(&self) -> Symmetry {
         for sym in [Symmetry::Rot, Symmetry::Ver, Symmetry::Hor] {
             if pyrust::vec::contains!(self.state.symmetry_candidates, &sym) {
@@ -433,36 +441,44 @@ impl Builder {
 
     /// Cached enemy core guess.
     #[inline]
-    pub fn en_core_guess(&self) -> Position {
+    #[must_use] 
+    pub const fn en_core_guess(&self) -> Position {
         self.en_core_guess
     }
 
-    pub fn get_env(&self, pos: Position) -> Option<Environment> {
+    #[must_use] 
+    pub const fn get_env(&self, pos: Position) -> Option<Environment> {
         self.env[self.idx(pos)]
     }
 
     /// Kind + team at `pos`, or `None` if no building / not in vision.
+    #[must_use] 
     pub fn get_building(&self, pos: Position) -> Option<(EntityType, Team)> {
         let i = self.idx(pos);
         Some((self.building_kind[i]?, self.building_team[i]?))
     }
 
-    pub fn kind_at(&self, pos: Position) -> Option<EntityType> {
+    #[must_use] 
+    pub const fn kind_at(&self, pos: Position) -> Option<EntityType> {
         self.building_kind[self.idx(pos)]
     }
 
-    pub fn team_at(&self, pos: Position) -> Option<Team> {
+    #[must_use] 
+    pub const fn team_at(&self, pos: Position) -> Option<Team> {
         self.building_team[self.idx(pos)]
     }
 
-    pub fn get_cost(&self, pos: Position) -> i32 {
+    #[must_use] 
+    pub const fn get_cost(&self, pos: Position) -> i32 {
         self.cost_grid[self.idx(pos)]
     }
 
-    pub fn is_passable(&self, pos: Position) -> bool {
+    #[must_use] 
+    pub const fn is_passable(&self, pos: Position) -> bool {
         self.cost_grid[self.idx(pos)] != INF
     }
 
+    #[must_use] 
     pub fn is_reachable(&self, pos: Position) -> bool {
         let i = self.idx(pos) as i32;
         let my_i = (self.state.my_pos.y * (MAX_WIDTH as i32)) + self.state.my_pos.x;
@@ -472,7 +488,8 @@ impl Builder {
         find_ro(&self.reach_parent, i) == find_ro(&self.reach_parent, my_i)
     }
 
-    pub fn is_walkable(&self, pos: Position) -> bool {
+    #[must_use] 
+    pub const fn is_walkable(&self, pos: Position) -> bool {
         if !self.is_passable(pos) {
             return false;
         }
@@ -488,14 +505,17 @@ impl Builder {
         )
     }
 
+    #[must_use] 
     pub fn get_in_edges(&self, pos: Position) -> Vec<Position> {
         pyrust::clone!(self.in_edges[self.idx(pos)])
     }
 
+    #[must_use] 
     pub fn get_out_edges(&self, pos: Position) -> Vec<Position> {
         pyrust::clone!(self.out_edges[self.idx(pos)])
     }
 
+    #[must_use] 
     pub fn is_buildable(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         self.env[i] != Some(Environment::Wall)
@@ -503,6 +523,7 @@ impl Builder {
                 || self.building_team[i] == Some(self.state.my_team))
     }
 
+    #[must_use] 
     pub fn is_friendly_turret(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         let Some(kind) = self.building_kind[i] else {
@@ -521,6 +542,7 @@ impl Builder {
         self.building_team[i] == Some(self.state.my_team)
     }
 
+    #[must_use] 
     pub fn is_enemy_building(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         match self.building_team[i] {
@@ -529,6 +551,7 @@ impl Builder {
         }
     }
 
+    #[must_use] 
     pub fn leads_to_enemy_building(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         if self.building_team[i] != Some(self.state.my_team) {
@@ -646,7 +669,7 @@ impl Builder {
         bugnav.step(&mut ctx, target)
     }
 
-    fn _refresh_ti_leakage(&mut self, i: usize) {
+    const fn _refresh_ti_leakage(&mut self, i: usize) {
         let new = self._ax_harv_at[i] > 0 || self._foundry_at[i] > 0;
         if new != self.ti_leakage[i] {
             self.ti_leakage[i] = new;
@@ -654,7 +677,7 @@ impl Builder {
         }
     }
 
-    fn _refresh_ax_leakage(&mut self, i: usize) {
+    const fn _refresh_ax_leakage(&mut self, i: usize) {
         let new = self._ti_harv_at[i] > 0;
         if new != self.ax_leakage[i] {
             self.ax_leakage[i] = new;
@@ -930,11 +953,11 @@ impl Builder {
 }
 
 impl Unit for Builder {
-    fn state(&self) -> &UnitState {
+    fn unit_state(&self) -> &UnitState {
         &self.state
     }
 
-    fn state_mut(&mut self) -> &mut UnitState {
+    fn unit_state_mut(&mut self) -> &mut UnitState {
         &mut self.state
     }
 
@@ -950,7 +973,7 @@ impl Unit for Builder {
         let r = self.state.rng.random();
         self.opportunistic = r < 0.5;
 
-        let s = pyrust::max!(self.state.width, self.state.height) as f64;
+        let s = f64::from(pyrust::max!(self.state.width, self.state.height));
         self.econ_radius_sq = pyrust::round!(((0.7 * s) * (0.7 * s))) as i32;
 
         // Mark off-map cells as INF.
@@ -996,9 +1019,21 @@ impl Unit for Builder {
 
         let _g = Scope::new_timed("body");
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("id"), serde_json::Value::Number(serde_json::Number::from(self.state.my_id)));
-        pyrust::dict::insert!(args, pyrust::to_string!("pos"), auto_wrap_position(self.state.my_pos));
-        pyrust::dict::insert!(args, pyrust::to_string!("round"), serde_json::Value::Number(serde_json::Number::from(self.state.round)));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("id"),
+            serde_json::Value::Number(serde_json::Number::from(self.state.my_id))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("pos"),
+            auto_wrap_position(self.state.my_pos)
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("round"),
+            serde_json::Value::Number(serde_json::Number::from(self.state.round))
+        );
         log("Builder {id} pos={pos} round={round}", args);
 
         update(self, ct);

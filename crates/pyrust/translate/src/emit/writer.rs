@@ -14,7 +14,7 @@ pub struct PyWriter {
     pub scope: Scope,
     current_class: Vec<String>,
     /// Field names of the struct we're currently emitting a class body for.
-    /// Used by folded trait default methods (where ra_ap type info isn't
+    /// Used by folded trait default methods (where `ra_ap` type info isn't
     /// available for the body's spans because they live in another file)
     /// to recognise `self.<name>` as a field access vs method call.
     current_class_fields: Vec<String>,
@@ -127,15 +127,15 @@ impl PyWriter {
         self.statics.insert(name.to_owned());
     }
 
-    pub fn statics(&self) -> &HashSet<String> {
+    pub const fn statics(&self) -> &HashSet<String> {
         &self.statics
     }
 
-    pub fn has_emitted_type_checking_import(&self) -> bool {
+    pub const fn has_emitted_type_checking_import(&self) -> bool {
         self.type_checking_imported
     }
 
-    pub fn mark_type_checking_imported(&mut self) {
+    pub const fn mark_type_checking_imported(&mut self) {
         self.type_checking_imported = true;
     }
 
@@ -170,7 +170,7 @@ impl PyWriter {
     /// `enum_name`. Distinguishes a constructor-call path (`Marker::Symmetry`)
     /// from a method call on the enum (`Marker::decode`).
     pub fn is_sum_enum_variant(&self, enum_name: &str, variant: &str) -> bool {
-        for (_, enums) in self.cfg.sum_enum_registry.iter() {
+        for (_, enums) in &self.cfg.sum_enum_registry {
             if let Some(variants) = enums.get(enum_name)
                 && variants.iter().any(|v| v == variant)
             {
@@ -196,7 +196,7 @@ impl PyWriter {
         self.module_refs.contains(name)
     }
 
-    pub fn cfg(&self) -> &CfgEnv {
+    pub const fn cfg(&self) -> &CfgEnv {
         &self.cfg
     }
 
@@ -235,11 +235,11 @@ impl PyWriter {
         self.buf.push('\n');
     }
 
-    pub fn enter_indent(&mut self) {
+    pub const fn enter_indent(&mut self) {
         self.indent += 1;
     }
 
-    pub fn exit_indent(&mut self) {
+    pub const fn exit_indent(&mut self) {
         self.indent = self.indent.checked_sub(1).expect("dedent below zero");
     }
 

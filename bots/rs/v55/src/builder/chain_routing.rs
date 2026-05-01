@@ -2,8 +2,8 @@
 //!
 //! Two public entry points share a single one-step worker `extend_step`:
 //!
-//! - `extend_chain` — auto-pick target by resource (Ti -> ti_sink, Ax ->
-//!   ax_sink). Used by ECON's chain-extension tasks.
+//! - `extend_chain` — auto-pick target by resource (Ti -> `ti_sink`, Ax ->
+//!   `ax_sink`). Used by ECON's chain-extension tasks.
 //! - `extend_step` — picks an explicit target. Used by OFFENSE
 //!   (`push_extend`) to point at the enemy core.
 //!
@@ -32,6 +32,7 @@ const _UPSTREAM_MAX_NODES_RES: usize = 80;
 /// Infer which resource a chain starting at `pos` carries. Returns None
 /// if it can't be determined — caller must NOT silently default to Ti,
 /// because routing Ax as Ti sends raw Ax to the core where it's destroyed.
+#[must_use] 
 pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
     let ax_adj = pyrust::vec::contains!(builder.ax_harvester_adjacent, &pos);
     let ti_adj = pyrust::vec::contains!(builder.ti_harvester_adjacent, &pos);
@@ -61,8 +62,8 @@ pub fn resource_at(builder: &Builder, pos: Position) -> Option<ResourceType> {
         for &(r, _rid) in &builder.flow_history[pi] {
             match r {
                 Some(ResourceType::Titanium) => seen_ti = true,
-                Some(ResourceType::RawAxionite) | Some(ResourceType::RefinedAxionite) => {
-                    seen_ax = true
+                Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite) => {
+                    seen_ax = true;
                 }
                 _ => {}
             }
@@ -112,7 +113,7 @@ fn _retarget_foundry_to_junction(builder: &mut Builder, landing: Position) {
     for &(r, _rid) in hist {
         match r {
             Some(ResourceType::Titanium) => saw_ti = true,
-            Some(ResourceType::RawAxionite) | Some(ResourceType::RefinedAxionite) => has_ax = true,
+            Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite) => has_ax = true,
             _ => {}
         }
     }
@@ -120,7 +121,11 @@ fn _retarget_foundry_to_junction(builder: &mut Builder, landing: Position) {
         return;
     }
     let mut args = Map::new();
-    pyrust::dict::insert!(args, pyrust::to_string!("landing"), auto_wrap_position(landing));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("landing"),
+        auto_wrap_position(landing)
+    );
     debug("retarget foundry to junction at {landing}", args);
     builder.foundry_target = Some(landing);
 }
@@ -179,20 +184,26 @@ fn _lay_segment(
     let bid = pyrust::unwrap!(ct.get_tile_building_id(start_pos));
     let entity_type = pyrust::map!(bid, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))));
 
-    if let Some(EntityType::Road) = entity_type
+    if entity_type == Some(EntityType::Road)
         && let Some(b) = bid
         && pyrust::unwrap!(ct.get_team(Some(b))) != builder.state.my_team
         && pyrust::unwrap!(ct.can_fire(start_pos))
     {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("pos"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("pos"),
+            auto_wrap_position(start_pos)
+        );
         debug("chain: fire on enemy road at {pos}", args);
         pyrust::unwrap!(ct.fire(start_pos));
         return true;
     }
 
     let mut direction: Option<Direction> = None;
-    if start_pos.distance_squared(builder.my_core) <= 5 && path[pyrust::len!(path) - 1] == builder.my_core {
+    if start_pos.distance_squared(builder.my_core) <= 5
+        && path[pyrust::len!(path) - 1] == builder.my_core
+    {
         for d in DIR4 {
             if start_pos.add(d).distance_squared(builder.my_core) <= 2 {
                 direction = Some(d);
@@ -203,12 +214,13 @@ fn _lay_segment(
         direction = get_direction_object(start_pos, path[1]);
     }
 
-    if let Some(EntityType::Conveyor) = entity_type
-        && pyrust::unwrap!(ct.get_direction(bid)) == pyrust::unwrap_or!(direction, Direction::Centre)
+    if entity_type == Some(EntityType::Conveyor)
+        && pyrust::unwrap!(ct.get_direction(bid))
+            == pyrust::unwrap_or!(direction, Direction::Centre)
     {
         return true;
     }
-    if let Some(EntityType::Bridge) = entity_type
+    if entity_type == Some(EntityType::Bridge)
         && let Some(b) = bid
     {
         let bridge_output = pyrust::unwrap!(ct.get_bridge_target(b));
@@ -231,8 +243,15 @@ fn _lay_segment(
     }
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
-    let destination_team = pyrust::map!(destination_building, |b| pyrust::unwrap!(ct.get_team(Some(b))));
-    let destination_is_marker = pyrust::unwrap_or!(pyrust::map!(destination_building, |b| pyrust::unwrap!(ct.get_entity_type(Some(b))) == EntityType::Marker), false);
+    let destination_team = pyrust::map!(destination_building, |b| pyrust::unwrap!(
+        ct.get_team(Some(b))
+    ));
+    let destination_is_marker = pyrust::unwrap_or!(
+        pyrust::map!(destination_building, |b| pyrust::unwrap!(
+            ct.get_entity_type(Some(b))
+        ) == EntityType::Marker),
+        false
+    );
 
     if let Some(d) = direction
         && is_cardinal(d)
@@ -339,7 +358,8 @@ pub fn extend_step(
         line(ct, path[i], path[i + 1], colour.0, colour.1, colour.2);
     }
 
-    let existing_set: HashSet<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(existing_path)));
+    let existing_set: HashSet<Position> =
+        pyrust::collect!(pyrust::copied!(pyrust::iter!(existing_path)));
     let mut path_start_index: usize = 0;
     for (i, pos) in pyrust::enumerate!(pyrust::iter!(path)) {
         if pyrust::vec::contains!(existing_set, pos) {
@@ -372,7 +392,7 @@ pub fn extend_step(
 }
 
 /// Auto-target wrapper around `extend_step`: classifies the chain's
-/// resource and picks the right sink. Ti -> ti_sink, Ax -> ax_sink.
+/// resource and picks the right sink. Ti -> `ti_sink`, Ax -> `ax_sink`.
 pub fn extend_chain(
     builder: &mut Builder,
     ct: &mut Controller<'_>,

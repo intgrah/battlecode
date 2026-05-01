@@ -157,9 +157,7 @@ impl titan_core::Playback for App {
         // the algorithm is on track. Falls back to step_count so the bar
         // is always meaningful if optimal isn't known yet.
         self.optimal_path
-            .as_ref()
-            .map(|p| p.len().saturating_sub(1).max(1))
-            .unwrap_or_else(|| self.step_count.max(1))
+            .as_ref().map_or_else(|| self.step_count.max(1), |p| p.len().saturating_sub(1).max(1))
     }
     fn playing(&self) -> bool {
         self.playing
