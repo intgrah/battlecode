@@ -154,6 +154,34 @@ pub fn apply_local_destroy(builder: &mut Builder, pos: Position) {
     builder.max_hp[i] = 0;
     let env = builder.env[i];
     _apply_post_transition(builder, pos, i, env, "local_destroy");
+    _refresh_ore_set(builder, pos, env);
+}
+
+/// Maintain the incremental `visible_{ti,ax}_ores` sets: a tile is in
+/// the matching set iff its env is the corresponding ore type AND it
+/// has no harvester on it. Called wherever the env or building on
+/// `pos` may have changed (vision update, mid-turn local destroy).
+fn _refresh_ore_set(builder: &mut Builder, pos: Position, env: Option<Environment>) {
+    let i = builder.idx(pos);
+    let has_harvester = builder.building_kind[i] == Some(EntityType::Harvester);
+    if env == Some(Environment::OreTitanium) {
+        if has_harvester {
+            pyrust::set::remove!(builder.visible_ti_ores, &pos);
+        } else {
+            pyrust::set::add!(builder.visible_ti_ores, pos);
+        }
+        pyrust::set::remove!(builder.visible_ax_ores, &pos);
+    } else if env == Some(Environment::OreAxionite) {
+        if has_harvester {
+            pyrust::set::remove!(builder.visible_ax_ores, &pos);
+        } else {
+            pyrust::set::add!(builder.visible_ax_ores, pos);
+        }
+        pyrust::set::remove!(builder.visible_ti_ores, &pos);
+    } else {
+        pyrust::set::remove!(builder.visible_ti_ores, &pos);
+        pyrust::set::remove!(builder.visible_ax_ores, &pos);
+    }
 }
 
 pub fn _update_cost(
@@ -371,6 +399,8 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
             builder.hp[i] = pyrust::unwrap!(ct.get_hp(bid));
             builder.max_hp[i] = pyrust::unwrap!(ct.get_max_hp(bid));
         }
+
+        _refresh_ore_set(builder, pos, Some(env));
 
         if pyrust::is_some!(bid) {
             let kind = builder.building_kind[i];

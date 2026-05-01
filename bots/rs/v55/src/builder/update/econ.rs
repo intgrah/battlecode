@@ -319,7 +319,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
     best
 }
 
-pub fn update_ore_target(builder: &mut Builder) {
+pub fn update_ti_ore_target(builder: &mut Builder) {
     let mut candidate_ore = pick_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ore_target)
         || pyrust::is_some_and!(builder.ore_target, |t| !ore_available(builder, t))
