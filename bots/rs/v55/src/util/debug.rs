@@ -116,11 +116,11 @@ impl DebugCtx {
             if pyrust::vec::is_empty!(self.frames) {
                 // The frame we just popped was the root.
                 let root = pyrust::expect!(self.root.as_mut(), "ROOT must be Some");
-                root["us"] = serde_json::Value::Number(us.into());
+                root["us"] = serde_json::Value::Number(pyrust::into!(us));
             } else {
                 let idx = pyrust::expect!(frame.parent_child_idx, "non-root has idx");
                 let parent = self.current_scope_mut();
-                parent["children"][idx]["us"] = serde_json::Value::Number(us.into());
+                parent["children"][idx]["us"] = serde_json::Value::Number(pyrust::into!(us));
             }
         }
         // Once the outer scope drops, clear ROOT so the next turn's first
@@ -167,7 +167,7 @@ impl DebugCtx {
     pub fn flush(&mut self) {
         let prev_us = self.last_flush_us;
         let root = pyrust::expect!(self.root.as_mut(), "flush() called outside any Scope");
-        root["prev_flush_us"] = serde_json::Value::Number(prev_us.into());
+        root["prev_flush_us"] = serde_json::Value::Number(pyrust::into!(prev_us));
         let t0 = Instant::now();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");
         println!("{payload}");

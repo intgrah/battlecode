@@ -181,6 +181,14 @@ macro_rules! __pyrust_into_iter {
     };
 }
 
+/// `pyrust::into!(x)` — Rust generic `.into()`, Python identity.
+#[macro_export]
+macro_rules! __pyrust_into {
+    ($e:expr) => {
+        ($e).into()
+    };
+}
+
 /// `pyrust::copied!(it)` — no-op in Python; in Rust elements become owned.
 #[macro_export]
 macro_rules! __pyrust_copied {

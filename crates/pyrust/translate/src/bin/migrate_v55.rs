@@ -44,13 +44,14 @@ struct V55Migrator<'src> {
 fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
     match (method, n_args) {
         // ---- Iterator-chain identities (Python no-op: emit recv) ----
-        ("iter" | "into_iter" | "copied" | "cloned" | "collect", 0) => {
+        ("iter" | "into_iter" | "copied" | "cloned" | "collect" | "into", 0) => {
             Some(match method {
                 "iter" => "iter",
                 "into_iter" => "into_iter",
                 "copied" => "copied",
                 "cloned" => "cloned",
                 "collect" => "collect",
+                "into" => "into",
                 _ => unreachable!(),
             })
         }

@@ -38,6 +38,7 @@ pub use crate::__pyrust_filter_map as filter_map;
 pub use crate::__pyrust_find as find;
 pub use crate::__pyrust_floor as floor;
 pub use crate::__pyrust_into_iter as into_iter;
+pub use crate::__pyrust_into as into;
 pub use crate::__pyrust_is_none as is_none;
 pub use crate::__pyrust_is_some as is_some;
 pub use crate::__pyrust_is_some_and as is_some_and;
