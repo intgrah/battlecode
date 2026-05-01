@@ -117,6 +117,16 @@ macro_rules! __pyrust_clone {
     };
 }
 
+/// `pyrust::drop!(x)` — Rust prelude `drop(x)`. In Python we emit
+/// `x.drop()` so a user-defined `Drop` impl runs explicitly (the
+/// translator emits `impl Drop for T` as `def drop(self)`).
+#[macro_export]
+macro_rules! __pyrust_drop {
+    ($x:expr) => {
+        ::std::mem::drop($x)
+    };
+}
+
 /// `pyrust::round!(x)` — Python `round(x)` (returns float in Rust,
 /// but Python's `round` on float returns int by default).
 #[macro_export]

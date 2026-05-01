@@ -2076,6 +2076,20 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        ["drop"] => {
+            // `pyrust::drop!(x)` — invoke a `Drop` impl explicitly. In
+            // Python the translator emits `x.drop()` so the user's
+            // `impl Drop for T` (lowered to a `drop` method) fires.
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "drop!: expected 1 argument"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.drop()", inner.text),
+                Ty::Unit,
+            )))
+        }
         ["round"] => {
             let args = parse_args!();
             if args.len() != 1 {
@@ -2124,8 +2138,23 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
         // ============================================================
         // Iterator: identity / no-op in Python (lists/dicts are iterable)
         // ============================================================
-        ["iter" | "into_iter" | "copied" | "cloned" | "collect"] => {
+        ["iter" | "into_iter" | "copied" | "cloned"] => {
             Ok(Some(identity(w, tail[0])?))
+        }
+        ["collect"] => {
+            // Materialize a (lazy) generator/iterator into a list. The
+            // Rust expansion is `.collect()` (target type from binding).
+            // Python: `list(it)` to force evaluation so subsequent
+            // mutations like `.sort()` work.
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "collect!: expected 1 argument"));
+            }
+            let it = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("list({})", it.text),
+                Ty::List,
+            )))
         }
         ["enumerate"] => {
             let args = parse_args!();
