@@ -166,8 +166,12 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     score -= _FRONTIER_REWARD * (unseen as f64) / (_LINE_SAMPLES as f64);
 
     // Cluster penalty: if any friendly bot is near the candidate, add
-    // to the score. Linear falloff to zero at _CLUSTER_RADIUS.
-    for fb in &builder.state.friendly_bots {
+    // to the score. Linear falloff to zero at _CLUSTER_RADIUS. Iterate
+    // (y, x)-sorted so the float accumulation order matches across runs
+    // (HashSet iteration is randomized; sorted folds are not).
+    let mut friendlies: Vec<Position> = builder.state.friendly_bots.iter().copied().collect();
+    friendlies.sort_by_key(|p| (p.y, p.x));
+    for fb in &friendlies {
         if *fb == pos {
             continue;
         }

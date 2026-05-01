@@ -22,7 +22,7 @@ pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
 
     let my_pos = self_.my_pos;
     let mut target: Option<Position> = None;
-    let mut target_d: i32 = 1 << 30;
+    let mut best_key: (i32, i32, i32) = (1 << 30, 0, 0);
     for &e in &self_.enemy_bots {
         let my_d = (e.x - my_pos.x) * (e.x - my_pos.x) + (e.y - my_pos.y) * (e.y - my_pos.y);
         let mut closer_friend = false;
@@ -36,11 +36,13 @@ pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
         if closer_friend {
             continue;
         }
-        if my_d < target_d {
-            target_d = my_d;
+        let key = (my_d, e.y, e.x);
+        if key < best_key {
+            best_key = key;
             target = Some(e);
         }
     }
+    let target_d = best_key.0;
 
     let Some(target) = target else {
         return Err(TaskRejected::new(
