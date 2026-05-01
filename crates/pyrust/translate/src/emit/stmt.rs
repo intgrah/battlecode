@@ -131,6 +131,22 @@ fn expr_attrs(e: &syn::Expr) -> &[syn::Attribute] {
 }
 
 fn emit_stmt_macro(w: &mut PyWriter, sm: &syn::StmtMacro) -> Result<(), String> {
+    // Try the pyrust DSL first — `pyrust::vec::push!(v, x);`,
+    // `pyrust::result::try_!(call());`, etc. The expression-form emit
+    // already produces a statement-shaped result for `result::try_!`
+    // (writes its `_r = ...; if _r is not None: return _r` directly via
+    // `w.line`); other macros are statement-safe expressions whose
+    // emitted text is the entire stmt.
+    let em_expr = syn::ExprMacro {
+        attrs: sm.attrs.clone(),
+        mac: sm.mac.clone(),
+    };
+    if let Some(out) = expr::emit_pyrust_dsl_for_stmt(w, &em_expr)? {
+        if !out.text.is_empty() && out.text != "None" {
+            w.line(&out.text);
+        }
+        return Ok(());
+    }
     let path = &sm.mac.path;
     if path.leading_colon.is_none() && path.segments.len() == 1 {
         let name = path.segments[0].ident.to_string();
