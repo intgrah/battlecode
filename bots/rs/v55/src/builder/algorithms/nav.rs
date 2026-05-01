@@ -74,7 +74,7 @@ impl BugNav {
     /// Read-only access to the current `path_idx` array (whether owned by the
     /// planner or by storage).
     fn path_idx(&self) -> &[i32] {
-        if let Some(p) = self.planner.as_ref() {
+        if let Some(p) = pyrust::as_ref!(self.planner) {
             p.path_idx()
         } else {
             &self.path_idx_storage
@@ -135,7 +135,7 @@ impl BugNav {
 
             if !self.gen_done && pyrust::is_some!(self.planner) {
                 for _ in 0..PLAN_BUDGET {
-                    let planner = pyrust::expect!(self.planner.as_mut(), "planner is Some");
+                    let planner = pyrust::expect!(pyrust::as_mut!(self.planner), "planner is Some");
                     match planner.step(ctx.cost_grid) {
                         Some(true) => {
                             self.gen_done = true;
@@ -176,7 +176,7 @@ impl BugNav {
                 pyrust::vec::push!(saved, (fi, ctx.cost_grid[fi]));
                 ctx.cost_grid[fi] = INF;
             }
-            let path_idx_ref: &[i32] = if let Some(p) = self.planner.as_ref() {
+            let path_idx_ref: &[i32] = if let Some(p) = pyrust::as_ref!(self.planner) {
                 p.path_idx()
             } else {
                 &self.path_idx_storage

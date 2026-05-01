@@ -199,6 +199,22 @@ macro_rules! __pyrust_into {
     };
 }
 
+/// `pyrust::as_ref!(x)` — Rust `Option::as_ref()`/etc., Python identity.
+#[macro_export]
+macro_rules! __pyrust_as_ref {
+    ($e:expr) => {
+        ($e).as_ref()
+    };
+}
+
+/// `pyrust::as_mut!(x)` — Rust `Option::as_mut()`/etc., Python identity.
+#[macro_export]
+macro_rules! __pyrust_as_mut {
+    ($e:expr) => {
+        ($e).as_mut()
+    };
+}
+
 /// `pyrust::copied!(it)` — no-op in Python; in Rust elements become owned.
 #[macro_export]
 macro_rules! __pyrust_copied {

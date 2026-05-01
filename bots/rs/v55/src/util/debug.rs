@@ -63,7 +63,7 @@ impl DebugCtx {
     /// Walk into the current scope node (the deepest open scope), using
     /// the parent-child indices recorded in `frames`.
     fn current_scope_mut(&mut self) -> &mut Value {
-        let root = pyrust::expect!(self.root.as_mut(), "scope active but root is None");
+        let root = pyrust::expect!(pyrust::as_mut!(self.root), "scope active but root is None");
         let mut node: &mut Value = root;
         // Skip frame 0 (the root frame). Each subsequent frame says which
         // child slot of the previous scope it occupies.
@@ -115,7 +115,7 @@ impl DebugCtx {
             let us = t0.elapsed().as_micros() as u64;
             if pyrust::vec::is_empty!(self.frames) {
                 // The frame we just popped was the root.
-                let root = pyrust::expect!(self.root.as_mut(), "ROOT must be Some");
+                let root = pyrust::expect!(pyrust::as_mut!(self.root), "ROOT must be Some");
                 root["us"] = serde_json::Value::Number(pyrust::into!(us));
             } else {
                 let idx = pyrust::expect!(frame.parent_child_idx, "non-root has idx");
@@ -154,7 +154,7 @@ impl DebugCtx {
         }
         // Split-borrow: walk root → child slot via raw indexing so the
         // borrow into the children Vec is disjoint from `self.dumper`.
-        let root = pyrust::expect!(self.root.as_mut(), "scope active but root is None");
+        let root = pyrust::expect!(pyrust::as_mut!(self.root), "scope active but root is None");
         let mut node: &mut Value = root;
         for f in &self.frames[1..] {
             let idx = pyrust::expect!(f.parent_child_idx, "non-root frame must have idx");
@@ -166,7 +166,7 @@ impl DebugCtx {
 
     pub fn flush(&mut self) {
         let prev_us = self.last_flush_us;
-        let root = pyrust::expect!(self.root.as_mut(), "flush() called outside any Scope");
+        let root = pyrust::expect!(pyrust::as_mut!(self.root), "flush() called outside any Scope");
         root["prev_flush_us"] = serde_json::Value::Number(pyrust::into!(prev_us));
         let t0 = Instant::now();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");
@@ -192,7 +192,7 @@ fn ctx() -> &'static mut DebugCtx {
     if unsafe { pyrust::is_none!(CTX) } {
         unsafe { CTX = Some(DebugCtx::new()) };
     }
-    unsafe { pyrust::unwrap!(CTX.as_mut()) }
+    unsafe { pyrust::unwrap!(pyrust::as_mut!(CTX)) }
 }
 
 /// Tree-internal scope guard. Constructed via `Scope::new` (untimed) or
