@@ -78,9 +78,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     let my_pos = self_.my_pos;
     // Tiebreak by (y, x) on top of chebyshev distance.
-    let nearest = *pyrust::unwrap!(targets
-        .iter()
-        .min_by_key(|&&p| (chebyshev(my_pos, p), p.y, p.x)));
+    let nearest = *pyrust::unwrap!(pyrust::min_by!(pyrust::iter!(targets), |&&p| (chebyshev(my_pos, p), p.y, p.x)));
     log(
         &format!(
             "resolve_congestion: walking toward nearest feeder {:?}",

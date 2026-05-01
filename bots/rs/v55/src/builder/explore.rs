@@ -138,8 +138,8 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     {
         let cx = (dx > 0) as i32 - (dx < 0) as i32;
         let cy = (dy > 0) as i32 - (dy < 0) as i32;
-        let h_mag = pyrust::abs!((((hx * hx + hy * hy) as f64).sqrt()));
-        let c_mag = pyrust::abs!((((cx * cx + cy * cy) as f64).sqrt()));
+        let h_mag = pyrust::abs!((pyrust::sqrt!(((hx * hx + hy * hy) as f64))));
+        let c_mag = pyrust::abs!((pyrust::sqrt!(((cx * cx + cy * cy) as f64))));
         if h_mag > 0.0 && c_mag > 0.0 {
             let cos_align = ((hx * cx + hy * cy) as f64) / (h_mag * c_mag);
             score += _HEADING_WEIGHT * (1.0 - cos_align);

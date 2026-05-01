@@ -101,9 +101,8 @@ impl DebugCtx {
     }
 
     pub fn pop_scope(&mut self) {
-        let frame = pyrust::expect!(self
-            .frames
-            .pop(), "Scope::drop with empty frame stack");
+        let frame = pyrust::expect!(pyrust::vec::pop!(self
+            .frames), "Scope::drop with empty frame stack");
         if let Some(t0) = frame.t0 {
             let us = t0.elapsed().as_micros() as u64;
             if self.frames.is_empty() {

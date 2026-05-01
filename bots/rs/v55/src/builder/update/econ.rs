@@ -261,7 +261,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
     let friendly: Vec<(Position, i32)> = pyrust::collect!(pyrust::map!(pyrust::filter!(pyrust::iter!(builder
         .state
         .all_bots), |t| {
-            *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0)
+            *t.1 != builder.state.my_id && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
         }), |t| (*t.0, *t.1)));
     let en_core = if pyrust::is_some!(builder.symmetry) {
         Some(builder.en_core_guess)
@@ -679,7 +679,7 @@ pub fn check_invariants(builder: &Builder) {
         );
         for t in pyrust::take!(pyrust::iter!(miss), 4) {
             let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
-            let feeders: Vec<(Position, bool, bool)> = pyrust::collect!(pyrust::map!(pyrust::iter!(in_edges[i]), |f| (*f, builder.ti_upstream.contains(f), oracle_ti.contains(f))));
+            let feeders: Vec<(Position, bool, bool)> = pyrust::collect!(pyrust::map!(pyrust::iter!(in_edges[i]), |f| (*f, pyrust::vec::contains!(builder.ti_upstream, f), pyrust::vec::contains!(oracle_ti, f))));
             let mut args = Map::new();
             pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
             pyrust::dict::insert!(args, pyrust::to_string!("ti_in_count"), Value::Number(builder._ti_in_count[i].into()));
@@ -708,7 +708,7 @@ pub fn check_invariants(builder: &Builder) {
         );
         for t in pyrust::take!(pyrust::iter!(miss), 4) {
             let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
-            let feeders: Vec<(Position, bool, bool)> = pyrust::collect!(pyrust::map!(pyrust::iter!(in_edges[i]), |f| (*f, builder.ax_upstream.contains(f), oracle_ax.contains(f))));
+            let feeders: Vec<(Position, bool, bool)> = pyrust::collect!(pyrust::map!(pyrust::iter!(in_edges[i]), |f| (*f, pyrust::vec::contains!(builder.ax_upstream, f), pyrust::vec::contains!(oracle_ax, f))));
             let mut args = Map::new();
             pyrust::dict::insert!(args, pyrust::to_string!("t"), Value::String(format!("{:?}", t)));
             pyrust::dict::insert!(args, pyrust::to_string!("ax_in_count"), Value::Number(builder._ax_in_count[i].into()));
@@ -740,8 +740,8 @@ pub fn check_invariants(builder: &Builder) {
             }
             continue;
         }
-        let ti_expected = pyrust::count!(pyrust::filter!(pyrust::iter!(in_edges[i]), |f| builder.ti_upstream.contains(f))) as i32;
-        let ax_expected = pyrust::count!(pyrust::filter!(pyrust::iter!(in_edges[i]), |f| builder.ax_upstream.contains(f))) as i32;
+        let ti_expected = pyrust::count!(pyrust::filter!(pyrust::iter!(in_edges[i]), |f| pyrust::vec::contains!(builder.ti_upstream, f))) as i32;
+        let ax_expected = pyrust::count!(pyrust::filter!(pyrust::iter!(in_edges[i]), |f| pyrust::vec::contains!(builder.ax_upstream, f))) as i32;
         if ti_expected != builder._ti_in_count[i] {
             let t = Position {
                 x: (i % MAX_WIDTH) as i32,

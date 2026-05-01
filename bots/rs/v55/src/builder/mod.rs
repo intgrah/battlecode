@@ -920,7 +920,7 @@ impl Builder {
     fn refresh_symmetry_cache(&mut self) {
         let count = pyrust::len!(self.state.symmetry_candidates);
         self.symmetry = if count == 1 {
-            pyrust::copied!(pyrust::iter!(self.state.symmetry_candidates).next())
+            pyrust::copied!(pyrust::next!(pyrust::iter!(self.state.symmetry_candidates)))
         } else {
             None
         };

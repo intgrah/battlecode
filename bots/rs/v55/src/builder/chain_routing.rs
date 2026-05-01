@@ -232,8 +232,7 @@ fn _lay_segment(
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
     let destination_team = pyrust::map!(destination_building, |b| pyrust::unwrap!(ct.get_team(Some(b))));
-    let destination_is_marker = pyrust::unwrap_or!(destination_building
-        .map(|b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Marker), false);
+    let destination_is_marker = pyrust::unwrap_or!(pyrust::map!(destination_building, |b| ct.get_entity_type(Some(b)).unwrap() == EntityType::Marker), false);
 
     if let Some(d) = direction
         && is_cardinal(d)
