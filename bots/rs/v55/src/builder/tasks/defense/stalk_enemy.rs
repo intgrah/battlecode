@@ -16,7 +16,7 @@ use crate::util::debug::debug as log;
 use crate::util::visualiser::auto_wrap_position;
 
 pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if self_.enemy_bots.is_empty() {
+    if pyrust::vec::is_empty!(self_.enemy_bots) {
         return Some(TaskRejected::new("no enemy builder in vision"));
     }
 

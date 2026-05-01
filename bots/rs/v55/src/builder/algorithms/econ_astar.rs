@@ -282,13 +282,13 @@ impl AStarSearch {
 
         while emp_fwd < nb_count && emp_bwd < nb_count {
             while emp_fwd < nb_count
-                && self.buckets_fwd[(cur_fwd & bucket_mask) as usize].is_empty()
+                && pyrust::vec::is_empty!(self.buckets_fwd[(cur_fwd & bucket_mask) as usize])
             {
                 cur_fwd += 1;
                 emp_fwd += 1;
             }
             while emp_bwd < nb_count
-                && self.buckets_bwd[(cur_bwd & bucket_mask) as usize].is_empty()
+                && pyrust::vec::is_empty!(self.buckets_bwd[(cur_bwd & bucket_mask) as usize])
             {
                 cur_bwd += 1;
                 emp_bwd += 1;
@@ -574,7 +574,7 @@ impl AStarSearch {
         let cpu_budget = CPU_BUDGET;
         let mut found = false;
         while emp < nb_count {
-            if self.buckets_fwd[(cur_f & bucket_mask) as usize].is_empty() {
+            if pyrust::vec::is_empty!(self.buckets_fwd[(cur_f & bucket_mask) as usize]) {
                 cur_f += 1;
                 emp += 1;
                 continue;

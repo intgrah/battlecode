@@ -21,7 +21,7 @@ pub fn update_patrol(builder: &mut Builder) {
         own_count += 1;
     }
 
-    if builder.state.friendly_bots.is_empty() {
+    if pyrust::vec::is_empty!(builder.state.friendly_bots) {
         let mut args = Map::new();
         pyrust::dict::insert!(
             args,

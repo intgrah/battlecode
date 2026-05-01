@@ -177,7 +177,7 @@ fn _lay_segment(
     start_pos: Position,
     path: &[Position],
 ) -> bool {
-    if path.is_empty() {
+    if pyrust::vec::is_empty!(path) {
         return false;
     }
 
@@ -314,7 +314,7 @@ pub fn extend_step(
 
     let current_pos = builder.state.my_pos;
     let existing_path = trace_upstream(builder, start);
-    if existing_path.is_empty() {
+    if pyrust::vec::is_empty!(existing_path) {
         return Some(TaskRejected::from_string(format!(
             "no upstream chain reaches {start:?}"
         )));

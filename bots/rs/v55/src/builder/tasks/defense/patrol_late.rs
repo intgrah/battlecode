@@ -12,7 +12,7 @@ use crate::builder::patrol::run_patrol;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn patrol_late(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if self_.adjacent_to_harvester.is_empty() {
+    if pyrust::vec::is_empty!(self_.adjacent_to_harvester) {
         return Some(TaskRejected::new(
             "no friendly harvester-adjacent tile in view",
         ));

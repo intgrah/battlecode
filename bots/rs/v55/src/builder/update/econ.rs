@@ -34,7 +34,7 @@ pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
         pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(conv)), |c| c
             .distance_squared(pos)
             <= 2));
-    if pyrust::len!(conv_adj) >= 2 || conv.is_empty() {
+    if pyrust::len!(conv_adj) >= 2 || pyrust::vec::is_empty!(conv) {
         return false;
     }
     let mut buildable_count = 0;
@@ -241,7 +241,7 @@ fn flood_forward(out_edges: &[Vec<Position>], seeds: &HashSet<Position>) -> Hash
         if pyrust::vec::contains!(target, s) {
             continue;
         }
-        if out_edges[(s.y as usize) * MAX_WIDTH + (s.x as usize)].is_empty() {
+        if pyrust::vec::is_empty!(out_edges[(s.y as usize) * MAX_WIDTH + (s.x as usize)]) {
             continue;
         }
         pyrust::set::add!(target, *s);
@@ -581,7 +581,7 @@ pub fn update_economy_reachability(builder: &mut Builder) {
         flood_back(&builder.in_edges, &roots, &mut builder.reaches_core);
     }
 
-    if !builder.my_foundries.is_empty() {
+    if !pyrust::vec::is_empty!(builder.my_foundries) {
         let roots: Vec<Position> =
             pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
         flood_back(&builder.in_edges, &roots, &mut builder.reaches_foundry);
@@ -589,7 +589,7 @@ pub fn update_economy_reachability(builder: &mut Builder) {
 
     let dangling_roots: Vec<Position> = pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.dangling_set)),
-        |p| !builder.in_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)].is_empty()
+        |p| !pyrust::vec::is_empty!(builder.in_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)])
     ));
     flood_back(
         &builder.in_edges,
@@ -838,7 +838,7 @@ pub fn check_invariants(builder: &Builder) {
 
     // --- C: in-count drift (independent of B's outcome) ---
     for i in 0..pyrust::len!(in_edges) {
-        if in_edges[i].is_empty() {
+        if pyrust::vec::is_empty!(in_edges[i]) {
             if builder._ti_in_count[i] != 0 || builder._ax_in_count[i] != 0 {
                 let t = Position {
                     x: (i % MAX_WIDTH) as i32,
@@ -1026,7 +1026,7 @@ pub fn update_junctions(builder: &mut Builder) {
 
 /// Re-derive `ax_sink` every turn from three option classes.
 pub fn update_foundry_target(builder: &mut Builder) {
-    if pyrust::is_none!(builder.ax_ore_target) && builder.ax_harvester_adjacent.is_empty() {
+    if pyrust::is_none!(builder.ax_ore_target) && pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
         builder.ax_sink = None;
         builder.foundry_target = None;
         return;
@@ -1116,7 +1116,7 @@ pub fn update_foundry_target(builder: &mut Builder) {
             (ti_cand_d + _FOUNDRY_REUSE_THRESHOLD, p, "ti_candidate")
         );
     }
-    if options.is_empty() {
+    if pyrust::vec::is_empty!(options) {
         builder.ax_sink = None;
     } else {
         pyrust::sort_by_key!(options, |o| o.0);

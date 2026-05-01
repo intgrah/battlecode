@@ -108,7 +108,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
             pyrust::vec::push!(candidates, Position { x, y });
         }
     }
-    if candidates.is_empty() {
+    if pyrust::vec::is_empty!(candidates) {
         return None;
     }
 

@@ -17,7 +17,7 @@ use crate::util::debug::debug as log;
 use crate::util::metrics::chebyshev;
 
 pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if self_.congested_junctions.is_empty() {
+    if pyrust::vec::is_empty!(self_.congested_junctions) {
         return Some(TaskRejected::new("no congested junction in range"));
     }
     log(
@@ -51,7 +51,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     pyrust::sort_by_key!(targets, |p| (p.y, p.x));
     targets.dedup();
 
-    if targets.is_empty() {
+    if pyrust::vec::is_empty!(targets) {
         log(
             "resolve_congestion: no friendly feeders to remove",
             Map::new(),

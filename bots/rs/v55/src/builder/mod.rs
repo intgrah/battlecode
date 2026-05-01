@@ -568,7 +568,7 @@ impl Builder {
         ) {
             return false;
         }
-        if self.out_edges[i].is_empty() {
+        if pyrust::vec::is_empty!(self.out_edges[i]) {
             return false;
         }
         let output_location = self.out_edges[i][0];
@@ -729,14 +729,14 @@ impl Builder {
 
     pub fn _reeval_ti_upstream(&mut self, t: Position) {
         let i = self.idx(t);
-        let has_seed = self._ti_harv_at[i] > 0 && !self.out_edges[i].is_empty();
+        let has_seed = self._ti_harv_at[i] > 0 && !pyrust::vec::is_empty!(self.out_edges[i]);
         let target = has_seed || self._ti_in_count[i] > 0;
         self._set_ti_upstream(t, target);
     }
 
     pub fn _reeval_ax_upstream(&mut self, t: Position) {
         let i = self.idx(t);
-        let has_seed = self._ax_harv_at[i] > 0 && !self.out_edges[i].is_empty();
+        let has_seed = self._ax_harv_at[i] > 0 && !pyrust::vec::is_empty!(self.out_edges[i]);
         let target = has_seed || self._ax_in_count[i] > 0;
         self._set_ax_upstream(t, target);
     }

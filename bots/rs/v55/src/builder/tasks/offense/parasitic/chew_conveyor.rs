@@ -16,7 +16,7 @@ use crate::builder::tasks::offense::helpers::{
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn chew_conveyor(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if !vulnerable_harvesters(self_).is_empty() {
+    if !pyrust::vec::is_empty!(vulnerable_harvesters(self_)) {
         return Some(TaskRejected::new(
             "a vulnerable harvester is in vision — handle that first",
         ));

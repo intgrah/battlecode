@@ -75,7 +75,7 @@ fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
 
 #[must_use] 
 pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
-    if self_.enemy_bots.is_empty() {
+    if pyrust::vec::is_empty!(self_.enemy_bots) {
         return None;
     }
     closest(
@@ -250,7 +250,7 @@ pub fn pick_attack_destination(
         let dist = self_.my_pos.distance_squared(pos);
         pyrust::vec::push!(candidates, (in_ray, cost, dist, pos));
     }
-    if candidates.is_empty() {
+    if pyrust::vec::is_empty!(candidates) {
         return None;
     }
     candidates.sort();
@@ -387,7 +387,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
 
 /// Per-turn offense bookkeeping.
 pub fn begin_turn_offense(self_: &mut Builder, ct: &mut Controller<'_>) {
-    if !self_.attack_tile_blacklist.is_empty() {
+    if !pyrust::vec::is_empty!(self_.attack_tile_blacklist) {
         let new_blacklist: HashMap<Position, i32> = pyrust::collect!(pyrust::filter_map!(
             pyrust::iter!(self_.attack_tile_blacklist),
             |t| if *t.1 > 1 {

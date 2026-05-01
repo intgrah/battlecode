@@ -60,6 +60,9 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("count", 0) => Some("count"),
         ("next", 0) => Some("next"),
         ("len", 0) => Some("len"),
+        // `.is_empty()` works for Vec/HashSet/HashMap/String all the
+        // same way (Python `not coll`); use vec::is_empty as default.
+        ("is_empty", 0) => Some("vec::is_empty"),
         ("sum", 0) => Some("sum"),
         ("min", 0) => Some("min"),
         ("max", 0) => Some("max"),

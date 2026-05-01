@@ -201,7 +201,7 @@ pub fn needs_harvester_guard(
         kind,
         Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
     ) && team == Some(builder.state.my_team)
-        && !builder.out_edges[ci].is_empty()
+        && !pyrust::vec::is_empty!(builder.out_edges[ci])
         && builder.out_edges[ci][0] == target
     {
         return false;
@@ -338,7 +338,7 @@ pub fn clear_barriered_feed(
             pyrust::vec::push!(candidates, c);
         }
     }
-    if candidates.is_empty() {
+    if pyrust::vec::is_empty!(candidates) {
         return false;
     }
     let chosen =
