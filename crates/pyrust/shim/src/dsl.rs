@@ -83,6 +83,16 @@ macro_rules! __pyrust_is_some_and {
     };
 }
 
+/// `pyrust::is_none_or!(opt, closure)` — Rust `Option::is_none_or`.
+/// Returns true if opt is None OR closure(value) is true. Python:
+/// `(opt is None or closure(opt))`.
+#[macro_export]
+macro_rules! __pyrust_is_none_or {
+    ($e:expr, $f:expr) => {
+        $e.is_none_or($f)
+    };
+}
+
 /// `pyrust::opt_take!(field)` — Rust `Option::take()`. The translator
 /// emits a 2-step rebind in Python (read field, clear it, yield old
 /// value). Argument MUST be a place expression `obj.field`.
@@ -619,6 +629,25 @@ macro_rules! __pyrust_vec_take {
 macro_rules! __pyrust_signum {
     ($x:expr) => {
         ($x).signum()
+    };
+}
+
+/// `pyrust::mul_add!(a, b, c)` — Rust `a.mul_add(b, c)` = `a*b + c`
+/// (fused multiply-add). Python: `(a * b + c)`.
+#[macro_export]
+macro_rules! __pyrust_mul_add {
+    ($a:expr, $b:expr, $c:expr) => {
+        ($a).mul_add($b, $c)
+    };
+}
+
+/// `pyrust::opt_map!(opt, |x| body)` — Rust `Option::map`, distinct from
+/// `pyrust::map!` (iterator map). Python: `(body if opt is not None else None)`
+/// where `x` is the closure parameter bound to `opt`.
+#[macro_export]
+macro_rules! __pyrust_opt_map {
+    ($e:expr, $f:expr) => {
+        ($e).map($f)
     };
 }
 

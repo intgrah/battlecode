@@ -1047,8 +1047,8 @@ pub fn update_foundry_target(builder: &mut Builder) {
         let _g = Scope::new_timed("junctions");
         for pos in &builder.junctions {
             let key = (_manhattan(origin, *pos), pos.y, pos.x);
-            let best_key = pyrust::map!(junction_best, |p| (junction_d, p.y, p.x));
-            if best_key.is_none_or(|bk| key < bk) {
+            let best_key = pyrust::opt_map!(junction_best, |p| (junction_d, p.y, p.x));
+            if pyrust::is_none_or!(best_key, |bk| key < bk) {
                 junction_d = key.0;
                 junction_best = Some(*pos);
             }
@@ -1059,8 +1059,8 @@ pub fn update_foundry_target(builder: &mut Builder) {
         let _g = Scope::new_timed("foundries");
         for pos in &builder.my_foundries {
             let key = (_manhattan(origin, *pos), pos.y, pos.x);
-            let best_key = pyrust::map!(foundry_best, |p| (foundry_d, p.y, p.x));
-            if best_key.is_none_or(|bk| key < bk) {
+            let best_key = pyrust::opt_map!(foundry_best, |p| (foundry_d, p.y, p.x));
+            if pyrust::is_none_or!(best_key, |bk| key < bk) {
                 foundry_d = key.0;
                 foundry_best = Some(*pos);
             }
@@ -1074,8 +1074,8 @@ pub fn update_foundry_target(builder: &mut Builder) {
                 continue;
             }
             let key = (_manhattan(origin, *pos), pos.y, pos.x);
-            let best_key = pyrust::map!(ax_chain_best, |p| (ax_chain_d, p.y, p.x));
-            if best_key.is_none_or(|bk| key < bk) {
+            let best_key = pyrust::opt_map!(ax_chain_best, |p| (ax_chain_d, p.y, p.x));
+            if pyrust::is_none_or!(best_key, |bk| key < bk) {
                 ax_chain_d = key.0;
                 ax_chain_best = Some(*pos);
             }
@@ -1089,8 +1089,8 @@ pub fn update_foundry_target(builder: &mut Builder) {
                 continue;
             }
             let key = (_manhattan(origin, *pos), pos.y, pos.x);
-            let best_key = pyrust::map!(ti_cand_best, |p| (ti_cand_d, p.y, p.x));
-            if best_key.is_none_or(|bk| key < bk) {
+            let best_key = pyrust::opt_map!(ti_cand_best, |p| (ti_cand_d, p.y, p.x));
+            if pyrust::is_none_or!(best_key, |bk| key < bk) {
                 ti_cand_d = key.0;
                 ti_cand_best = Some(*pos);
             }

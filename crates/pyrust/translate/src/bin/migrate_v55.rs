@@ -78,6 +78,7 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("round", 0) => Some("round"),
         ("sqrt", 0) => Some("sqrt"),
         ("signum", 0) => Some("signum"),
+        ("mul_add", 2) => Some("mul_add"),
         ("floor", 0) => Some("floor"),
         ("ceil", 0) => Some("ceil"),
         ("rem_euclid", 1) => Some("rem_euclid"),
@@ -137,6 +138,7 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("expect", 1) => Some("expect"),
         ("unwrap_or", 1) => Some("unwrap_or"),
         ("is_some_and", 1) => Some("is_some_and"),
+        ("is_none_or", 1) => Some("is_none_or"),
         _ => None,
     }
 }
