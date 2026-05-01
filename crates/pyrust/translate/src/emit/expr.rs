@@ -2707,6 +2707,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Set,
             )))
         }
+        ["set", "collect"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "set::collect!: expected (it)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("set({})", inner.text),
+                Ty::Set,
+            )))
+        }
         ["set", "add"] => {
             let args = parse_args!();
             if args.len() != 2 {
