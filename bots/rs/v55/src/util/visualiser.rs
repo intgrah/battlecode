@@ -183,7 +183,7 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
     let stops: Vec<serde_json::Value> =
         pyrust::collect!(pyrust::map!(pyrust::iter!(p.stops), |s| {
             serde_json::json!([
-                serde_json::to_value(&s.t).unwrap_or(serde_json::Value::Null),
+                pyrust::unwrap_or!(serde_json::to_value(&s.t), serde_json::Value::Null),
                 s.colour.as_array()[0],
                 s.colour.as_array()[1],
                 s.colour.as_array()[2],

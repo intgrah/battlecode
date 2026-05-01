@@ -302,20 +302,14 @@ impl<'ast> Visit<'ast> for V55Migrator<'_> {
         syn::visit::visit_expr_method_call(self, mc);
     }
 
-    /// Descend into the body of a `pyrust::*!` macro so chain
-    /// methods nested inside macro arguments still get migrated.
-    /// (`syn::visit::Visit`'s default for `ExprMacro` skips token bodies.)
+    /// Descend into ANY macro's body so chain methods nested inside
+    /// macro arguments (`vec![x.unwrap()]`, `format!("{}", x.iter())`,
+    /// `pyrust::*!(x.copied())`, etc.) still get migrated. syn's
+    /// default for ExprMacro skips token bodies; we parse them as a
+    /// comma-separated expression list. Best-effort — macros whose
+    /// grammar isn't comma-separated expressions fail to parse and
+    /// we just don't recurse.
     fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
-        let path = &em.mac.path;
-        let is_pyrust = path
-            .segments
-            .first()
-            .is_some_and(|s| s.ident == "pyrust");
-        if !is_pyrust {
-            return;
-        }
-        // Parse macro body as a comma-separated list of expressions.
-        // For try_!/unwrap!/etc with a single expr, this still works.
         let tokens = em.mac.tokens.clone();
         let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
         if let Ok(args) = syn::parse::Parser::parse2(parser, tokens) {

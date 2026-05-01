@@ -87,7 +87,7 @@ fn _transport_outputs(
     etype: EntityType,
 ) -> Vec<Position> {
     if etype == EntityType::Bridge {
-        return vec![ct.get_bridge_target(bid).unwrap()];
+        return vec![pyrust::unwrap!(ct.get_bridge_target(bid))];
     }
     let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
     if etype == EntityType::Splitter {

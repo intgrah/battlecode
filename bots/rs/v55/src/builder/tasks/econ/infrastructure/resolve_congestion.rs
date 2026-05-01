@@ -23,7 +23,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     log(
         &format!(
             "resolve_congestion: {} congested junctions visible",
-            self_.congested_junctions.len()
+            pyrust::len!(self_.congested_junctions)
         ),
         Map::new(),
     );
@@ -61,7 +61,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         ));
     }
     log(
-        &format!("resolve_congestion: {} candidate feeders", targets.len()),
+        &format!("resolve_congestion: {} candidate feeders", pyrust::len!(targets)),
         Map::new(),
     );
 
