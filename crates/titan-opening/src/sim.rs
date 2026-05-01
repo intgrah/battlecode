@@ -28,14 +28,19 @@ pub struct Sim {
     /// `unit_idx` indexes deterministically into it for the whole turn.
     pub turn_units: Vec<i32>,
     pub cursor: Cursor,
-    /// `engine_id → (team_idx, opening_id)`. Built up as the sim runs.
-    /// Cores are inserted at `from_map` time; builders gain entries
-    /// when their `Spawn` action fires.
-    pub engine_to_opening: HashMap<i32, (u8, u32)>,
-    /// Per-team count of spawned-builder opening IDs already allocated.
-    /// Next builder for team T gets opening ID `1 + spawns_processed[T]`
-    /// (0 is reserved for the core).
-    pub spawns_processed: [u32; 2],
+    /// `engine_id → opening_id` for player-team units only. Team B
+    /// entities are never registered — the opening doesn't model them
+    /// and `dispatch_unit` short-circuits on missing keys.
+    /// The player-team core is inserted at `from_map` time; children
+    /// (builders, turrets, launchers) bind to their pre-allocated
+    /// `UnitPlan` ids when their creating action fires.
+    pub engine_to_opening: HashMap<i32, u32>,
+    /// `opening_id → (birth_turn, birth_x, birth_y)`. This is the
+    /// runtime-stable identity used by the exported Python: engine
+    /// ids interleave between teams in the real game and don't match
+    /// what we see locally, but a unit's birthday turn and birth
+    /// tile uniquely pin it down.
+    pub birth: HashMap<u32, (usize, i32, i32)>,
 }
 
 impl Sim {
@@ -48,15 +53,18 @@ impl Sim {
         let game = Game::new(env, cores, 0, true);
         let turn_units = game.unit_order.clone();
 
-        // Cores get opening_id 0 for their team.
+        // Player team A only. Team B's core exists on the map for
+        // symmetry but isn't tracked — `advance_unit` skips any
+        // engine_id that's not in this map.
         let mut engine_to_opening = HashMap::new();
+        let mut birth = HashMap::new();
         for (&id, e) in &game.entities {
-            if matches!(e, Entity::Core(_)) {
-                let team_idx = match e.team {
-                    Team::A => 0u8,
-                    Team::B => 1u8,
-                };
-                engine_to_opening.insert(id, (team_idx, crate::opening::CORE_OPENING_ID));
+            if matches!(e, Entity::Core(_)) && matches!(e.team, Team::A) {
+                engine_to_opening.insert(id, crate::opening::CORE_OPENING_ID);
+                birth.insert(
+                    crate::opening::CORE_OPENING_ID,
+                    (0_usize, e.position.x, e.position.y),
+                );
             }
         }
 
@@ -68,7 +76,7 @@ impl Sim {
                 unit_idx: 0,
             },
             engine_to_opening,
-            spawns_processed: [0, 0],
+            birth,
         })
     }
 
@@ -163,26 +171,43 @@ impl Sim {
             return Ok(());
         };
 
-        let Some(&(team_idx, opening_id)) = self.engine_to_opening.get(&uid) else {
-            // Unit isn't tracked by the opening (e.g. ghost from a dead
-            // unit, or built mid-turn before our mapping caught up).
+        let Some(&opening_id) = self.engine_to_opening.get(&uid) else {
+            // Untracked entity (team B core, mid-turn ghost, etc.).
+            // The opening doesn't model it; skip its action slot.
             self.cursor.unit_idx += 1;
             return Ok(());
         };
 
-        let actions: Vec<Action> = opening
-            .actions(team_idx as usize, opening_id, self.cursor.turn)
-            .to_vec();
+        let actions: Vec<Action> = opening.actions(opening_id, self.cursor.turn).to_vec();
 
         let mut errors: Vec<SimError> = Vec::new();
         for action in actions {
-            let is_spawn = matches!(action, Action::Spawn { .. });
+            let creates = action.creates_unit().is_some();
             match dispatch_one(&mut self.game, uid, action) {
-                Ok(Some(new_id)) if is_spawn => {
-                    let opening_id = 1 + self.spawns_processed[team_idx as usize];
-                    self.spawns_processed[team_idx as usize] += 1;
-                    self.engine_to_opening
-                        .insert(new_id, (team_idx, opening_id));
+                Ok(Some(new_id)) if creates => {
+                    // Bind the new entity to the pre-allocated UnitPlan
+                    // whose (parent, spawn_turn) matches. The plan was
+                    // allocated by `Opening::ensure_unit_tree` when
+                    // the user added the creating action.
+                    let child_spawn = self.cursor.turn + 1;
+                    let child_opening_id = opening
+                        .team
+                        .units
+                        .iter()
+                        .find(|(_, p)| p.parent == Some(opening_id) && p.spawn_turn == child_spawn)
+                        .map(|(&id, _)| id);
+                    if let Some(cid) = child_opening_id {
+                        self.engine_to_opening.insert(new_id, cid);
+                        // Capture birth tile from the new entity's
+                        // current position. The engine places newly
+                        // built turrets / spawned builders on the
+                        // requested tile, so this is the unit's
+                        // birthday position — what the runtime bot
+                        // will see on its first `run()`.
+                        if let Some(e) = self.game.entities.get(&new_id) {
+                            self.birth.insert(cid, (child_spawn, e.position.x, e.position.y));
+                        }
+                    }
                 }
                 Ok(_) => {}
                 Err(message) => errors.push(SimError::Action {

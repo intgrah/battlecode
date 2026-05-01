@@ -21,6 +21,11 @@ pub use libre_engine::game_map::{
 /// translation; the engine calls `run(c)` each turn the unit is alive.
 /// Name it `Player` in your bot crate so the translated Python module
 /// exposes `class Player` (matching the Python loader's contract).
+///
+/// `#[pyrust::transparent]` tells the translator that this trait has no
+/// Python class — implementations don't inherit from it in the emitted
+/// Python.
+#[pyrust::transparent]
 pub trait Bot {
     fn run(&mut self, c: &mut Controller<'_>);
 }
