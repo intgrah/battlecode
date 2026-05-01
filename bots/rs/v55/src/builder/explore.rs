@@ -87,7 +87,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
     );
     let radius = (pyrust::float!(pyrust::max!(w, h)) * frac) as i32;
     let center = if is_offense {
-        builder.en_core_guess()
+        builder.en_core_guess
     } else {
         builder.state.my_pos
     };
