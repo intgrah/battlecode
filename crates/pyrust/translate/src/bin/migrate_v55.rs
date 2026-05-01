@@ -92,6 +92,7 @@ fn dsl_macro(method: &str, n_args: usize) -> Option<&'static str> {
         ("filter", 1) => Some("filter"),
         ("filter_map", 1) => Some("filter_map"),
         ("find", 1) => Some("find"),
+        ("find_map", 1) => Some("find_map"),
         ("position", 1) => Some("position"),
         ("any", 1) => Some("any"),
         ("all", 1) => Some("all"),
