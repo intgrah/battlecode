@@ -41,7 +41,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         ));
     }
 
-    let near: HashSet<Position> = self_.nearby_tiles.iter().copied().collect();
+    let near: HashSet<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.nearby_tiles)));
     let affords_road = can_afford(self_, EntityType::Road);
     let affords_guard = can_afford(self_, EntityType::Conveyor);
 
@@ -65,7 +65,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             && pyrust::unwrap!(ct.can_build_road(feed))
         {
             let mut args = Map::new();
-            args.insert("feed".to_string(), auto_wrap_position(feed));
+            args.insert(pyrust::to_string!("feed"), auto_wrap_position(feed));
             log(
                 "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
                 args,

@@ -17,7 +17,7 @@ pub fn wander(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let my_pos = self_.my_pos;
     let my_core = self_.my_core;
     let mut dirs = DIR8.to_vec();
-    dirs.sort_by_key(|&d| -chebyshev(my_pos.add(d), my_core));
+    pyrust::sort_by_key!(dirs, |&d| -chebyshev(my_pos.add(d), my_core));
     for d in dirs {
         if try_move_dir(ct, d) {
             return None;

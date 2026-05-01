@@ -51,8 +51,8 @@ pub fn edge_targets(
 /// Order-independent.
 #[must_use]
 pub fn splitter_back_input(pos: Position, outputs: &[Position]) -> Position {
-    let sum_x: i32 = outputs.iter().map(|p| p.x).sum();
-    let sum_y: i32 = outputs.iter().map(|p| p.y).sum();
+    let sum_x: i32 = pyrust::sum!(pyrust::map!(pyrust::iter!(outputs), |p| p.x));
+    let sum_y: i32 = pyrust::sum!(pyrust::map!(pyrust::iter!(outputs), |p| p.y));
     Position {
         x: 4 * pos.x - sum_x,
         y: 4 * pos.y - sum_y,

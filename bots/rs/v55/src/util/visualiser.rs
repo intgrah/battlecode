@@ -59,7 +59,7 @@ impl<T: Clone + PartialEq> Palette<T> {
     pub fn with_special(&self, special: &[(T, Colour)]) -> Self {
         let mut merged: Vec<(T, Colour)> = self.special.clone();
         for (k, c) in special {
-            if let Some(slot) = merged.iter_mut().find(|t| &t.0 == k) {
+            if let Some(slot) = pyrust::find!(merged.iter_mut(), |t| &t.0 == k) {
                 slot.1 = *c;
             } else {
                 merged.push((k.clone(), *c));
@@ -180,10 +180,8 @@ pub enum Dump {
 }
 
 fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Value {
-    let stops: Vec<serde_json::Value> = p
-        .stops
-        .iter()
-        .map(|s| {
+    let stops: Vec<serde_json::Value> = pyrust::collect!(pyrust::map!(pyrust::iter!(p
+        .stops), |s| {
             serde_json::json!([
                 serde_json::to_value(&s.t).unwrap_or(serde_json::Value::Null),
                 s.colour.as_array()[0],
@@ -191,15 +189,14 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
                 s.colour.as_array()[2],
                 s.colour.as_array()[3],
             ])
-        })
-        .collect();
+        }));
     let mut special_obj = serde_json::Map::new();
     for (k, c) in &p.special {
         let v = pyrust::unwrap_or!(serde_json::to_value(k), serde_json::Value::Null);
         let key = if let Some(s) = v.as_str() {
-            s.to_string()
+            pyrust::to_string!(s)
         } else {
-            v.to_string()
+            pyrust::to_string!(v)
         };
         special_obj.insert(
             key,
@@ -212,9 +209,9 @@ fn serialise_palette_t<T: Serialize + Clone>(p: &Palette<T>) -> serde_json::Valu
         );
     }
     let mut obj = serde_json::Map::new();
-    obj.insert("stops".to_string(), serde_json::Value::Array(stops));
+    obj.insert(pyrust::to_string!("stops"), serde_json::Value::Array(stops));
     obj.insert(
-        "special".to_string(),
+        pyrust::to_string!("special"),
         serde_json::Value::Object(special_obj),
     );
     serde_json::Value::Object(obj)
@@ -293,14 +290,14 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
         }
         Dump::VectorField { angles, magnitudes } => {
             let mut obj = serde_json::Map::new();
-            obj.insert("$type".to_string(), serde_json::json!("vectorfield"));
+            obj.insert(pyrust::to_string!("$type"), serde_json::json!("vectorfield"));
             obj.insert(
-                "angles".to_string(),
+                pyrust::to_string!("angles"),
                 pyrust::unwrap_or!(serde_json::to_value(angles), serde_json::Value::Null),
             );
             if let Some(m) = magnitudes {
                 obj.insert(
-                    "magnitudes".to_string(),
+                    pyrust::to_string!("magnitudes"),
                     pyrust::unwrap_or!(serde_json::to_value(m), serde_json::Value::Null),
                 );
             }
@@ -369,7 +366,7 @@ impl Dumper {
         let payload = serialise_dump(value);
         let same = self.same_cache.get(name) == Some(&payload);
         if !same {
-            self.same_cache.insert(name.to_string(), payload.clone());
+            self.same_cache.insert(pyrust::to_string!(name), payload.clone());
         }
         let value_field = if same {
             serde_json::json!({"$type": "same"})

@@ -55,11 +55,11 @@ fn conv_neighbors() -> Vec<(i32, i32, i32)> {
 }
 
 fn x_of_table() -> Vec<i32> {
-    (0..MAX_N).map(|i| (i % MAX_WIDTH) as i32).collect()
+    pyrust::collect!(pyrust::map!((0..MAX_N), |i| (i % MAX_WIDTH) as i32))
 }
 
 fn y_of_table() -> Vec<i32> {
-    (0..MAX_N).map(|i| (i / MAX_WIDTH) as i32).collect()
+    pyrust::collect!(pyrust::map!((0..MAX_N), |i| (i / MAX_WIDTH) as i32))
 }
 
 /// Subset of `Builder` state read/written by the A* search. The Builder
@@ -156,8 +156,8 @@ impl AStarSearch {
             closed_bwd: vec![false; MAX_N],
             touched_fwd: pyrust::vec::new!(),
             touched_bwd: pyrust::vec::new!(),
-            buckets_fwd: (0..BUCKET_COUNT).map(|_| pyrust::vec::new!()).collect(),
-            buckets_bwd: (0..BUCKET_COUNT).map(|_| pyrust::vec::new!()).collect(),
+            buckets_fwd: pyrust::collect!(pyrust::map!((0..BUCKET_COUNT), |_| pyrust::vec::new!())),
+            buckets_bwd: pyrust::collect!(pyrust::map!((0..BUCKET_COUNT), |_| pyrust::vec::new!())),
             x_heur_fwd: vec![0; MAX_WIDTH],
             y_heur_fwd: vec![0; MAX_WIDTH],
             x_heur_bwd: vec![0; MAX_WIDTH],
@@ -333,7 +333,7 @@ impl AStarSearch {
                     }
                     if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
                         self.finished = true;
-                        self.last_fail_reason = "cpu_budget".to_string();
+                        self.last_fail_reason = pyrust::to_string!("cpu_budget");
                         return None;
                     }
                     let nbrs = &self.neighbors[node_i as usize];
@@ -411,7 +411,7 @@ impl AStarSearch {
                 }
                 if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
                     self.finished = true;
-                    self.last_fail_reason = "cpu_budget".to_string();
+                    self.last_fail_reason = pyrust::to_string!("cpu_budget");
                     return None;
                 }
                 let nbrs = &self.neighbors[node_i as usize];
@@ -464,7 +464,7 @@ impl AStarSearch {
 
         self.finished = true;
         if best_meet == -1 {
-            self.last_fail_reason = "exhausted".to_string();
+            self.last_fail_reason = pyrust::to_string!("exhausted");
             return None;
         }
 
@@ -473,7 +473,7 @@ impl AStarSearch {
         while node != si {
             node = self.parent_fwd[node as usize];
             if node == -1 {
-                self.last_fail_reason = "extraction_stuck".to_string();
+                self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                 return None;
             }
             rev_path.push(node);
@@ -483,7 +483,7 @@ impl AStarSearch {
         while node != gi {
             node = self.parent_bwd[node as usize];
             if node == -1 {
-                self.last_fail_reason = "extraction_stuck".to_string();
+                self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                 return None;
             }
             rev_path.push(node);
@@ -491,13 +491,10 @@ impl AStarSearch {
 
         pyrust::string::clear!(self.last_fail_reason);
         Some(
-            rev_path
-                .into_iter()
-                .map(|i| Position {
+            pyrust::collect!(pyrust::map!(pyrust::into_iter!(rev_path), |i| Position {
                     x: self.x_of[i as usize],
                     y: self.y_of[i as usize],
-                })
-                .collect(),
+                })),
         )
     }
 
@@ -581,7 +578,7 @@ impl AStarSearch {
             // CPU budget check at bucket boundaries only.
             if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > cpu_budget {
                 self.finished = false;
-                self.last_fail_reason = "cpu_budget".to_string();
+                self.last_fail_reason = pyrust::to_string!("cpu_budget");
                 self.last_nodes_expanded = nodes_expanded;
                 return None;
             }
@@ -679,7 +676,7 @@ impl AStarSearch {
         self.finished = true;
         self.last_nodes_expanded = nodes_expanded;
         if !found {
-            self.last_fail_reason = "exhausted".to_string();
+            self.last_fail_reason = pyrust::to_string!("exhausted");
             return None;
         }
 
@@ -723,7 +720,7 @@ impl AStarSearch {
                     }
                 }
                 if best == node {
-                    self.last_fail_reason = "extraction_stuck".to_string();
+                    self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                     return None;
                 }
                 path.push(best);
@@ -747,7 +744,7 @@ impl AStarSearch {
                     }
                 }
                 if best == node {
-                    self.last_fail_reason = "extraction_stuck".to_string();
+                    self.last_fail_reason = pyrust::to_string!("extraction_stuck");
                     return None;
                 }
                 path.push(best);
@@ -758,12 +755,10 @@ impl AStarSearch {
 
         pyrust::string::clear!(self.last_fail_reason);
         Some(
-            path.into_iter()
-                .map(|i| Position {
+            pyrust::collect!(pyrust::map!(pyrust::into_iter!(path), |i| Position {
                     x: self.x_of[i as usize],
                     y: self.y_of[i as usize],
-                })
-                .collect(),
+                })),
         )
     }
 

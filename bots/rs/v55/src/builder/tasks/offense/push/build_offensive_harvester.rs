@@ -28,7 +28,7 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
     }
     if !can_afford(self_, EntityType::Harvester) {
         let mut args = Map::new();
-        args.insert("target".to_string(), auto_wrap_position(target));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
         log(
             "build_offensive_harvester: waiting on Ti for {target}",
             args,
@@ -38,7 +38,7 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
     if pyrust::is_none!(harvester_feed_cardinal(self_, target)) {
         if !clear_barriered_feed(self_, ct, target) {
             let mut args = Map::new();
-            args.insert("target".to_string(), auto_wrap_position(target));
+            args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
             log(
                 "build_offensive_harvester: no feed cardinal for {target}; waiting",
                 args,
@@ -48,7 +48,7 @@ pub fn build_offensive_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -
     }
     if !step_off_and_build_harvester(self_, ct, target) {
         let mut args = Map::new();
-        args.insert("target".to_string(), auto_wrap_position(target));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
         log(
             "build_offensive_harvester: cannot step off {target}; waiting",
             args,

@@ -407,7 +407,7 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
 
 fn _narrow_symmetry(builder: &mut Builder, new_observations: &[(Position, Environment, bool)]) {
     let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
-    let candidates: Vec<Symmetry> = builder.state.symmetry_candidates.iter().copied().collect();
+    let candidates: Vec<Symmetry> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.state.symmetry_candidates)));
     let w = builder.state.width;
     let h = builder.state.height;
     for sym in candidates {

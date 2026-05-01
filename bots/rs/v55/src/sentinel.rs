@@ -172,7 +172,7 @@ impl Unit for Sentinel {
         let attackable = pyrust::unwrap!(ct.get_attackable_tiles());
         for tile in attackable {
             let bid = pyrust::unwrap!(ct.get_tile_building_id(tile));
-            let uid = self.state.all_bots.get(&tile).copied();
+            let uid = pyrust::copied!(self.state.all_bots.get(&tile));
 
             if self.state.enemy_bots.contains(&tile) {
                 let hp = pyrust::unwrap!(ct.get_hp(uid));

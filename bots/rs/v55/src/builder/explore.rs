@@ -169,8 +169,8 @@ fn _score(builder: &Builder, c: Position, heading: Option<(i32, i32)>) -> f64 {
     // to the score. Linear falloff to zero at _CLUSTER_RADIUS. Iterate
     // (y, x)-sorted so the float accumulation order matches across runs
     // (HashSet iteration is randomized; sorted folds are not).
-    let mut friendlies: Vec<Position> = builder.state.friendly_bots.iter().copied().collect();
-    friendlies.sort_by_key(|p| (p.y, p.x));
+    let mut friendlies: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.state.friendly_bots)));
+    pyrust::sort_by_key!(friendlies, |p| (p.y, p.x));
     for fb in &friendlies {
         if *fb == pos {
             continue;

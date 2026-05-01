@@ -66,12 +66,8 @@ fn best_healable_building(self_: &mut Builder, ct: &mut Controller<'_>) -> Optio
             best_score = score;
         }
     }
-    self_.healable_buildings = self_
-        .healable_buildings
-        .iter()
-        .copied()
-        .filter(|&p| self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)])
-        .collect();
+    self_.healable_buildings = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(self_
+        .healable_buildings)), |&p| self_.hp[self_.idx(p)] < self_.max_hp[self_.idx(p)]));
     best
 }
 

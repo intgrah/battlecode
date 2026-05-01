@@ -328,15 +328,12 @@ impl Builder {
     fn build_initial_pnb() -> [Vec<i32>; MAX_N] {
         let mut pnb: [Vec<i32>; MAX_N] = [const { Vec::new() }; MAX_N];
         let stride = MAX_WIDTH as i32;
-        let offsets: Vec<i32> = DIR8_DELTA
-            .iter()
-            .map(|t| t.1 * stride + t.0)
-            .collect();
+        let offsets: Vec<i32> = pyrust::collect!(pyrust::map!(pyrust::iter!(DIR8_DELTA), |t| t.1 * stride + t.0));
         for cy in 1..(MAX_WIDTH as i32 - 1) {
             let row = cy * stride;
             for cx in 1..(MAX_WIDTH as i32 - 1) {
                 let i = (row + cx) as usize;
-                pnb[i] = offsets.iter().map(|&o| (i as i32) + o).collect();
+                pnb[i] = pyrust::collect!(pyrust::map!(pyrust::iter!(offsets), |&o| (i as i32) + o));
             }
         }
         for cy in 0..MAX_WIDTH as i32 {
@@ -398,7 +395,7 @@ impl Builder {
                 if !nb_list.contains(&(i as i32)) {
                     nb_list.push(i as i32);
                 }
-            } else if let Some(p) = nb_list.iter().position(|&x| x == i as i32) {
+            } else if let Some(p) = pyrust::iter!(nb_list).position(|&x| x == i as i32) {
                 nb_list.swap_remove(p);
             }
         }
@@ -923,7 +920,7 @@ impl Builder {
     fn refresh_symmetry_cache(&mut self) {
         let count = self.state.symmetry_candidates.len();
         self.symmetry = if count == 1 {
-            self.state.symmetry_candidates.iter().next().copied()
+            pyrust::copied!(pyrust::iter!(self.state.symmetry_candidates).next())
         } else {
             None
         };
@@ -975,7 +972,7 @@ impl Unit for Builder {
         };
 
         // Core perimeter — 8 tiles in DIR8 order.
-        for (i, d) in DIR8.iter().enumerate() {
+        for (i, d) in pyrust::enumerate!(pyrust::iter!(DIR8)) {
             self.core_edges[i] = self.my_core.add(*d);
         }
 
@@ -1000,12 +997,12 @@ impl Unit for Builder {
         let _g = Scope::new_timed("body");
         let mut args = Map::new();
         args.insert(
-            "id".to_string(),
+            pyrust::to_string!("id"),
             serde_json::Value::Number(serde_json::Number::from(self.state.my_id)),
         );
-        args.insert("pos".to_string(), auto_wrap_position(self.state.my_pos));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(self.state.my_pos));
         args.insert(
-            "round".to_string(),
+            pyrust::to_string!("round"),
             serde_json::Value::Number(serde_json::Number::from(self.state.round)),
         );
         log("Builder {id} pos={pos} round={round}", args);

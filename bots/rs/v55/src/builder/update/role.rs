@@ -67,14 +67,14 @@ const _REASSIGN_PERIOD: i32 = 150;
 const _REASSIGN_AFTER: i32 = 400;
 
 fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
-    let total: u32 = choices.iter().map(|t| t.1).sum();
+    let total: u32 = pyrust::sum!(pyrust::map!(pyrust::iter!(choices), |t| t.1));
     if total == 0 {
         return choices[0].0;
     }
     // Mirror Python's `random.choices(population, weights=..., k=1)` so
     // role transitions match across native ⇄ translated builds.
-    let population: Vec<Role> = choices.iter().map(|t| t.0).collect();
-    let weights: Vec<f64> = choices.iter().map(|t| pyrust::float!(t.1)).collect();
+    let population: Vec<Role> = pyrust::collect!(pyrust::map!(pyrust::iter!(choices), |t| t.0));
+    let weights: Vec<f64> = pyrust::collect!(pyrust::map!(pyrust::iter!(choices), |t| pyrust::float!(t.1)));
     *builder.state.rng.choices(&population, Some(&weights), 1)[0]
 }
 

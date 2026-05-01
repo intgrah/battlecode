@@ -36,7 +36,7 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     let mut destination = pick_attack_destination(self_, target, false);
     if pyrust::is_none!(destination) {
-        let cardinal_positions: Vec<_> = DIR4.iter().map(|&d| target.add(d)).collect();
+        let cardinal_positions: Vec<_> = pyrust::collect!(pyrust::map!(pyrust::iter!(DIR4), |&d| target.add(d)));
         let opens = open_tiles(self_, &cardinal_positions);
         let filtered = without_allied_transport(self_, &opens);
         destination = closest(self_.my_pos, filtered);
@@ -50,12 +50,8 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     let buildable_8 = buildable(self_, &neighbours_8);
     let launcher_location = closest(destination, buildable_8);
 
-    let adjacent_launchers: Vec<_> = self_
-        .neighbours_8
-        .iter()
-        .copied()
-        .filter(|&p| self_.kind_at(p) == Some(EntityType::Launcher))
-        .collect();
+    let adjacent_launchers: Vec<_> = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(self_
+        .neighbours_8)), |&p| self_.kind_at(p) == Some(EntityType::Launcher)));
     let best_adjacent_launcher = closest(destination, adjacent_launchers);
 
     if self_.my_pos.distance_squared(destination) <= 2 || self_.my_pos.distance_squared(target) < 9

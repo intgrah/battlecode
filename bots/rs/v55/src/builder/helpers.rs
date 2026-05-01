@@ -21,7 +21,7 @@ use crate::util::visualiser::auto_wrap_position;
 pub fn make_move(builder: &mut Builder, ct: &mut Controller<'_>, target: Position) -> bool {
     if builder.state.my_pos == target {
         let mut args = Map::new();
-        args.insert("target".to_string(), auto_wrap_position(target));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
         log("make_move: already on target {target}", args);
         return false;
     }
@@ -30,10 +30,10 @@ pub fn make_move(builder: &mut Builder, ct: &mut Controller<'_>, target: Positio
         if move_random(builder, ct) {
             let mut args = Map::new();
             args.insert(
-                "start".to_string(),
+                pyrust::to_string!("start"),
                 auto_wrap_position(builder.state.my_pos),
             );
-            args.insert("target".to_string(), auto_wrap_position(target));
+            args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
             log(
                 "make_move: bugnav stuck, took random step {start}->{target}",
                 args,
@@ -42,10 +42,10 @@ pub fn make_move(builder: &mut Builder, ct: &mut Controller<'_>, target: Positio
         }
         let mut args = Map::new();
         args.insert(
-            "start".to_string(),
+            pyrust::to_string!("start"),
             auto_wrap_position(builder.state.my_pos),
         );
-        args.insert("target".to_string(), auto_wrap_position(target));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
         log(
             "make_move: FAILED {start}->{target} (bugnav: no plan, random step also blocked)",
             args,
@@ -54,11 +54,11 @@ pub fn make_move(builder: &mut Builder, ct: &mut Controller<'_>, target: Positio
     };
     let mut args = Map::new();
     args.insert(
-        "start".to_string(),
+        pyrust::to_string!("start"),
         auto_wrap_position(builder.state.my_pos),
     );
-    args.insert("target".to_string(), auto_wrap_position(target));
-    args.insert("next".to_string(), auto_wrap_position(next_move));
+    args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
+    args.insert(pyrust::to_string!("next"), auto_wrap_position(next_move));
     log("make_move: bugnav {start}->{target} step {next}", args);
     try_move_with_road(builder, ct, next_move)
 }
@@ -88,7 +88,7 @@ pub fn make_move_or_adjacent(
     }
     let Some(best) = best else {
         let mut args = Map::new();
-        args.insert("target".to_string(), auto_wrap_position(target));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
         log(
             "make_move_or_adjacent: {target} impassable AND no passable cardinal",
             args,
@@ -97,8 +97,8 @@ pub fn make_move_or_adjacent(
     };
     if builder.state.my_pos == best {
         let mut args = Map::new();
-        args.insert("target".to_string(), auto_wrap_position(target));
-        args.insert("pos".to_string(), auto_wrap_position(builder.state.my_pos));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(builder.state.my_pos));
         log(
             "make_move_or_adjacent: already adjacent to {target} (at {pos})",
             args,
@@ -106,8 +106,8 @@ pub fn make_move_or_adjacent(
         return false;
     }
     let mut args = Map::new();
-    args.insert("target".to_string(), auto_wrap_position(target));
-    args.insert("adj".to_string(), auto_wrap_position(best));
+    args.insert(pyrust::to_string!("target"), auto_wrap_position(target));
+    args.insert(pyrust::to_string!("adj"), auto_wrap_position(best));
     log(
         "make_move_or_adjacent: {target} impassable, routing to cardinal {adj}",
         args,
@@ -118,7 +118,7 @@ pub fn make_move_or_adjacent(
 pub fn try_move_dir(ct: &mut Controller<'_>, d: Direction) -> bool {
     if pyrust::unwrap!(ct.can_move(d)) {
         let mut args = Map::new();
-        args.insert("dir".to_string(), serde_json::Value::String(format!("{d}")));
+        args.insert(pyrust::to_string!("dir"), serde_json::Value::String(format!("{d}")));
         log("try_move_dir: moving {dir}", args);
         pyrust::unwrap!(ct.move_(d));
         return true;
@@ -135,11 +135,11 @@ pub fn try_move_to(builder: &mut Builder, ct: &mut Controller<'_>, target_pos: P
     if pyrust::unwrap!(ct.can_move(d)) {
         let mut args = Map::new();
         args.insert(
-            "start".to_string(),
+            pyrust::to_string!("start"),
             auto_wrap_position(builder.state.my_pos),
         );
-        args.insert("target".to_string(), auto_wrap_position(target_pos));
-        args.insert("dir".to_string(), serde_json::Value::String(format!("{d}")));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
+        args.insert(pyrust::to_string!("dir"), serde_json::Value::String(format!("{d}")));
         log("try_move_to: {start}->{target} dir {dir}", args);
         let hx = (dx > 0) as i32 - (dx < 0) as i32;
         let hy = (dy > 0) as i32 - (dy < 0) as i32;
@@ -157,9 +157,9 @@ pub fn try_move_with_road(
 ) -> bool {
     if builder.get_cost(target_pos) > 1 && pyrust::unwrap!(ct.can_build_road(target_pos)) {
         let mut args = Map::new();
-        args.insert("target".to_string(), auto_wrap_position(target_pos));
+        args.insert(pyrust::to_string!("target"), auto_wrap_position(target_pos));
         args.insert(
-            "cost".to_string(),
+            pyrust::to_string!("cost"),
             serde_json::Value::Number(serde_json::Number::from(builder.get_cost(target_pos))),
         );
         log(
@@ -174,7 +174,7 @@ pub fn try_move_with_road(
 pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
     if pyrust::unwrap!(ct.can_fire(pos)) {
         let mut args = Map::new();
-        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(pos));
         log("try_attack: firing on {pos}", args);
         pyrust::unwrap!(ct.fire(pos));
         return true;
@@ -255,16 +255,16 @@ pub fn try_place(
     if !can_afford(builder, etype) {
         let mut args = Map::new();
         args.insert(
-            "etype".to_string(),
+            pyrust::to_string!("etype"),
             serde_json::Value::String(format!("{etype:?}")),
         );
-        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(pos));
         args.insert(
-            "have".to_string(),
+            pyrust::to_string!("have"),
             serde_json::Value::Number(serde_json::Number::from(builder.state.ti)),
         );
         args.insert(
-            "need".to_string(),
+            pyrust::to_string!("need"),
             serde_json::Value::Number(serde_json::Number::from(ti_needed(builder, etype))),
         );
         let base_for_log = match base_cost(etype) {
@@ -272,10 +272,10 @@ pub fn try_place(
             None => 0,
         };
         args.insert(
-            "base".to_string(),
+            pyrust::to_string!("base"),
             serde_json::Value::Number(serde_json::Number::from(base_for_log)),
         );
-        args.insert("scale".to_string(), serde_json::json!(builder.state.scale));
+        args.insert(pyrust::to_string!("scale"), serde_json::json!(builder.state.scale));
         log(
             "try_place: cannot afford {etype} at {pos} (have {have}, need {need}; base {base}, scale {scale:.2f})",
             args,
@@ -284,9 +284,9 @@ pub fn try_place(
     }
     if destroy && pyrust::unwrap!(ct.can_destroy(pos)) {
         let mut args = Map::new();
-        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(pos));
         args.insert(
-            "etype".to_string(),
+            pyrust::to_string!("etype"),
             serde_json::Value::String(format!("{etype:?}")),
         );
         log(
@@ -299,19 +299,19 @@ pub fn try_place(
     if pyrust::unwrap!(ct.can_build(etype, pos, extra)) {
         let mut args = Map::new();
         args.insert(
-            "etype".to_string(),
+            pyrust::to_string!("etype"),
             serde_json::Value::String(format!("{etype:?}")),
         );
-        args.insert("pos".to_string(), auto_wrap_position(pos));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(pos));
         args.insert(
-            "extra".to_string(),
+            pyrust::to_string!("extra"),
             serde_json::Value::String(format!("{extra:?}")),
         );
         args.insert(
-            "ti".to_string(),
+            pyrust::to_string!("ti"),
             serde_json::Value::Number(serde_json::Number::from(builder.state.ti)),
         );
-        args.insert("scale".to_string(), serde_json::json!(builder.state.scale));
+        args.insert(pyrust::to_string!("scale"), serde_json::json!(builder.state.scale));
         log(
             "try_place: built {etype} at {pos} extra={extra} (ti={ti}, scale={scale:.2f})",
             args,
@@ -321,12 +321,12 @@ pub fn try_place(
     }
     let mut args = Map::new();
     args.insert(
-        "etype".to_string(),
+        pyrust::to_string!("etype"),
         serde_json::Value::String(format!("{etype:?}")),
     );
-    args.insert("pos".to_string(), auto_wrap_position(pos));
+    args.insert(pyrust::to_string!("pos"), auto_wrap_position(pos));
     args.insert(
-        "extra".to_string(),
+        pyrust::to_string!("extra"),
         serde_json::Value::String(format!("{extra:?}")),
     );
     log(
@@ -369,7 +369,7 @@ fn _trace_downstream_inner(
                 // Try each as a path branch.
                 let outs: Vec<Position> = builder.out_edges[i].clone();
                 let mut handled = false;
-                for new_pos in outs.iter().copied() {
+                for new_pos in pyrust::copied!(pyrust::iter!(outs)) {
                     if let Some(target_head) = target_head {
                         let mut new_path = path.clone();
                         _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
@@ -414,7 +414,7 @@ pub fn try_heal(
     }
     if pyrust::unwrap!(ct.can_heal(position)) {
         let mut args = Map::new();
-        args.insert("pos".to_string(), auto_wrap_position(position));
+        args.insert(pyrust::to_string!("pos"), auto_wrap_position(position));
         log("try_heal: healing {pos}", args);
         pyrust::unwrap!(ct.heal(position));
         return true;
@@ -482,7 +482,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
     };
     let Some(sink) = sink else {
         let mut args = Map::new();
-        args.insert("ore".to_string(), auto_wrap_position(ore_pos));
+        args.insert(pyrust::to_string!("ore"), auto_wrap_position(ore_pos));
         log(
             "harvester_feed_cardinal({ore}): no sink — symmetry unresolved",
             args,
@@ -582,9 +582,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             c.add(rotate_left(d_away)),
             c.add(rotate_right(d_away)),
         ];
-        let has_escape = u_shape
-            .iter()
-            .any(|p| builder.in_bounds(*p) && builder.is_passable(*p));
+        let has_escape = pyrust::any!(pyrust::iter!(u_shape), |p| builder.in_bounds(*p) && builder.is_passable(*p));
         if !has_escape {
             classification.push((c, "no_escape"));
             continue;
@@ -613,7 +611,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         let label = format!("feed_pick_{}_{}", ore_pos.x, ore_pos.y);
         let _g = Scope::new(&label);
         let mut args = Map::new();
-        args.insert("ore".to_string(), auto_wrap_position(ore_pos));
+        args.insert(pyrust::to_string!("ore"), auto_wrap_position(ore_pos));
         log("feed_pick({ore}): NONE", args);
         for d in DIR4 {
             let c = ore_pos.add(d);
@@ -624,10 +622,10 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 .iter()
                 .find_map(|t| if t.0 == c { Some(t.1) } else { None }), "?");
             let mut args = Map::new();
-            args.insert("c".to_string(), auto_wrap_position(c));
+            args.insert(pyrust::to_string!("c"), auto_wrap_position(c));
             args.insert(
-                "status".to_string(),
-                serde_json::Value::String(status.to_string()),
+                pyrust::to_string!("status"),
+                serde_json::Value::String(pyrust::to_string!(status)),
             );
             log("  {c}: {status}", args);
         }
@@ -638,11 +636,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
 
 /// Cardinals of `ore_pos` that must NOT be barriered.
 pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<Position> {
-    let cardinals: Vec<Position> = DIR4
-        .iter()
-        .map(|&d| ore_pos.add(d))
-        .filter(|p| builder.in_bounds(*p))
-        .collect();
+    let cardinals: Vec<Position> = pyrust::collect!(pyrust::filter!(pyrust::map!(pyrust::iter!(DIR4), |&d| ore_pos.add(d)), |p| builder.in_bounds(*p)));
     let mut reserved: HashSet<Position> = pyrust::set::new!();
     for c in &cardinals {
         if *c == builder.state.my_pos {
@@ -725,7 +719,7 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
         if harvester_would_contaminate(builder, *pos) {
             continue;
         }
-        let friends_iter = builder.state.all_bots.iter().filter_map(|t| {
+        let friends_iter = pyrust::filter_map!(pyrust::iter!(builder.state.all_bots), |t| {
             if *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0) {
                 Some((*t.0, *t.1))
             } else {
@@ -784,9 +778,7 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
         let is_bad = bad_upstream.contains(&n)
-            || builder.flow_history[ni]
-                .iter()
-                .any(|t| t.0.is_some_and(|res| bad_flows.contains(&res)));
+            || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| t.0.is_some_and(|res| bad_flows.contains(&res)));
         if !is_bad {
             continue;
         }
@@ -873,7 +865,7 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
         if pyrust::is_none!(harvester_feed_cardinal(builder, *pos)) {
             continue;
         }
-        let friends_iter = builder.state.all_bots.iter().filter_map(|t| {
+        let friends_iter = pyrust::filter_map!(pyrust::iter!(builder.state.all_bots), |t| {
             if *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0) {
                 Some((*t.0, *t.1))
             } else {

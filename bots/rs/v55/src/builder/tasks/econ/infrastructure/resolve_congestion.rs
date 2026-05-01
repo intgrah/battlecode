@@ -30,8 +30,8 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     // Sort the junction iteration so candidate-feeder accumulation is
     // deterministic across hash-randomized iteration of `congested_junctions`.
-    let mut junctions: Vec<Position> = self_.congested_junctions.iter().copied().collect();
-    junctions.sort_by_key(|p| (p.y, p.x));
+    let mut junctions: Vec<Position> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self_.congested_junctions)));
+    pyrust::sort_by_key!(junctions, |p| (p.y, p.x));
     let mut targets: Vec<Position> = pyrust::vec::new!();
     for j in junctions {
         for &feeder in &self_.in_edges[j.y as usize * MAX_WIDTH + j.x as usize] {
@@ -47,7 +47,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     }
     // Same feeder may be reachable through multiple junctions; dedupe and
     // re-sort so destroy / approach order is fully deterministic.
-    targets.sort_by_key(|p| (p.y, p.x));
+    pyrust::sort_by_key!(targets, |p| (p.y, p.x));
     targets.dedup();
 
     if targets.is_empty() {

@@ -236,13 +236,10 @@ impl BugNav {
     #[must_use]
     pub fn committed_positions(&self) -> Vec<Position> {
         let stride = MAX_WIDTH as i32;
-        self.committed
-            .iter()
-            .map(|i| Position {
+        pyrust::collect!(pyrust::map!(pyrust::iter!(self.committed), |i| Position {
                 x: i % stride,
                 y: i / stride,
-            })
-            .collect()
+            }))
     }
 
     #[must_use]
@@ -272,9 +269,6 @@ impl BugNav {
         let (Some(s), Some(g)) = (self.active_start, self.active_goal) else {
             return pyrust::vec::new!();
         };
-        build_mline_seq(s.x, s.y, g.x, g.y)
-            .into_iter()
-            .map(|t| Position { x: t.0, y: t.1 })
-            .collect()
+        pyrust::collect!(pyrust::map!(pyrust::into_iter!(build_mline_seq(s.x, s.y, g.x, g.y)), |t| Position { x: t.0, y: t.1 }))
     }
 }

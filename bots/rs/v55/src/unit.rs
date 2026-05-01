@@ -146,8 +146,8 @@ impl UnitState {
                 dir_neighbours_8.push((d, p));
             }
         }
-        let neighbours_4: Vec<Position> = dir_neighbours_4.iter().map(|t| t.1).collect();
-        let neighbours_8: Vec<Position> = dir_neighbours_8.iter().map(|t| t.1).collect();
+        let neighbours_4: Vec<Position> = pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_4), |t| t.1));
+        let neighbours_8: Vec<Position> = pyrust::collect!(pyrust::map!(pyrust::iter!(dir_neighbours_8), |t| t.1));
 
         let round = pyrust::unwrap!(ct.get_current_round());
         let (ti, ax) = pyrust::unwrap!(ct.get_global_resources());
@@ -205,7 +205,7 @@ impl UnitState {
         }
 
         let mut invalid: HashSet<Symmetry> = pyrust::set::new!();
-        let candidates: Vec<Symmetry> = self.symmetry_candidates.iter().copied().collect();
+        let candidates: Vec<Symmetry> = pyrust::collect!(pyrust::copied!(pyrust::iter!(self.symmetry_candidates)));
         for sym in candidates {
             for (&pos, val) in &vision {
                 let other = vision.get(&sym.action(pos, width, height));
@@ -242,7 +242,7 @@ impl UnitState {
     #[must_use]
     pub fn resolved_symmetry(&self) -> Option<Symmetry> {
         if self.symmetry_candidates.len() == 1 {
-            self.symmetry_candidates.iter().next().copied()
+            pyrust::copied!(pyrust::iter!(self.symmetry_candidates).next())
         } else {
             None
         }
