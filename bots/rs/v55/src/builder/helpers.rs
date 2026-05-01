@@ -294,7 +294,7 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
 #[must_use] 
 pub fn ore_claim_leniency(builder: &Builder) -> f64 {
     let n = pyrust::len!(builder.my_harvesters) as f64;
-    0.95 * (1.0 - 0.958f64.powf(n)) + 0.65
+    0.95 * (1.0 - pyrust::powf!(0.958f64, n)) + 0.65
 }
 
 #[must_use] 

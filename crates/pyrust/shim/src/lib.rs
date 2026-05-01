@@ -66,6 +66,8 @@ pub use crate::__pyrust_sort_by_key as sort_by_key;
 pub use crate::__pyrust_sorted as sorted;
 pub use crate::__pyrust_sorted_by_key as sorted_by_key;
 pub use crate::__pyrust_sqrt as sqrt;
+pub use crate::__pyrust_powf as powf;
+pub use crate::__pyrust_powi as powi;
 pub use crate::__pyrust_take as take;
 pub use crate::__pyrust_opt_take as opt_take;
 pub use crate::__pyrust_to_string as to_string;
