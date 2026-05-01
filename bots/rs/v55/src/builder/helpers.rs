@@ -885,9 +885,8 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
         let is_bad = pyrust::vec::contains!(bad_upstream, &n)
-            || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| t
-                .0
-                .is_some_and(|res| pyrust::vec::contains!(bad_flows, &res)));
+            || pyrust::any!(pyrust::iter!(builder.flow_history[ni]), |t| pyrust::is_some_and!(t
+                .0, |res| pyrust::vec::contains!(bad_flows, &res)));
         if !is_bad {
             continue;
         }

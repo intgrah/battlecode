@@ -328,18 +328,15 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
 pub fn update_ore_target(builder: &mut Builder) {
     let mut candidate_ore = pick_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ore_target)
-        || builder
-            .ore_target
-            .is_some_and(|t| !ore_available(builder, t))
-        || builder.ore_target.is_some_and(|t| !builder.is_reachable(t))
-        || builder
-            .ore_target
-            .is_some_and(|t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder
+            .ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder.ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder
+            .ore_target, |t| harvester_would_contaminate(builder, t))
         || (pyrust::is_some!(candidate_ore)
             && pyrust::unwrap!(candidate_ore).distance_squared(builder.state.my_pos) <= 2
-            && builder
-                .ore_target
-                .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder
+                .ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
         if let Some(c) = candidate_ore
@@ -357,20 +354,16 @@ pub fn update_ore_target(builder: &mut Builder) {
 pub fn update_offensive_ore_target(builder: &mut Builder) {
     let mut candidate = pick_offensive_ti_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.offensive_ore_target)
-        || builder
-            .offensive_ore_target
-            .is_some_and(|t| !ore_available(builder, t))
-        || builder
-            .offensive_ore_target
-            .is_some_and(|t| !builder.is_reachable(t))
-        || builder
-            .offensive_ore_target
-            .is_some_and(|t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder
+            .offensive_ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder
+            .offensive_ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder
+            .offensive_ore_target, |t| harvester_would_contaminate(builder, t))
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
-            && builder
-                .offensive_ore_target
-                .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder
+                .offensive_ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
     if needs_pick {
         let sink = if pyrust::is_some!(builder.symmetry) {
             Some(builder.en_core_guess)
@@ -1306,20 +1299,16 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
     }
     let mut candidate = pick_ax_ore_target(builder);
     let needs_pick = pyrust::is_none!(builder.ax_ore_target)
-        || builder
-            .ax_ore_target
-            .is_some_and(|t| !ore_available(builder, t))
-        || builder
-            .ax_ore_target
-            .is_some_and(|t| !builder.is_reachable(t))
-        || builder
-            .ax_ore_target
-            .is_some_and(|t| harvester_would_contaminate(builder, t))
+        || pyrust::is_some_and!(builder
+            .ax_ore_target, |t| !ore_available(builder, t))
+        || pyrust::is_some_and!(builder
+            .ax_ore_target, |t| !builder.is_reachable(t))
+        || pyrust::is_some_and!(builder
+            .ax_ore_target, |t| harvester_would_contaminate(builder, t))
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
-            && builder
-                .ax_ore_target
-                .is_some_and(|t| t.distance_squared(builder.state.my_pos) > 2));
+            && pyrust::is_some_and!(builder
+                .ax_ore_target, |t| t.distance_squared(builder.state.my_pos) > 2));
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ax_sink, builder.my_core);
         if let Some(c) = candidate
