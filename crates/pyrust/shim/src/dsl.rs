@@ -334,6 +334,16 @@ macro_rules! __pyrust_next {
     };
 }
 
+/// `pyrust::rng_choices!(rng, pop, weights, k)` — Python's
+/// `random.Random.choices` requires `k` as a keyword-only argument.
+/// Rust expansion just calls `rng.choices(&pop, Some(&weights), k)`.
+#[macro_export]
+macro_rules! __pyrust_rng_choices {
+    ($rng:expr, $pop:expr, $weights:expr, $k:expr) => {
+        $rng.choices(&$pop, ::std::option::Option::Some(&$weights), $k)
+    };
+}
+
 /// Sum of an iterator's elements. Receiver must already be an iterator.
 /// Item type inferred from binding context.
 #[macro_export]

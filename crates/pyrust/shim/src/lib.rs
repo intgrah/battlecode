@@ -51,6 +51,7 @@ pub use crate::__pyrust_len as len;
 pub use crate::__pyrust_map as map;
 pub use crate::__pyrust_next as next;
 pub use crate::__pyrust_position as position;
+pub use crate::__pyrust_rng_choices as rng_choices;
 pub use crate::__pyrust_print as print;
 pub use crate::__pyrust_rev as rev;
 pub use crate::__pyrust_round as round;
