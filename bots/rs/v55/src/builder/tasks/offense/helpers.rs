@@ -20,7 +20,7 @@ use crate::builder::helpers::{can_afford, make_move, try_move_dir};
 use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 
-#[must_use] 
+#[must_use]
 pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(positions)),
@@ -28,7 +28,7 @@ pub fn open_tiles(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     ))
 }
 
-#[must_use] 
+#[must_use]
 pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     matches!(
         self_.kind_at(position),
@@ -41,7 +41,7 @@ pub fn is_allied_transport(self_: &Builder, position: Position) -> bool {
     ) && self_.team_at(position) == Some(self_.my_team)
 }
 
-#[must_use] 
+#[must_use]
 pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(positions)),
@@ -49,7 +49,7 @@ pub fn without_allied_transport(self_: &Builder, positions: &[Position]) -> Vec<
     ))
 }
 
-#[must_use] 
+#[must_use]
 pub fn buildable(self_: &Builder, positions: &[Position]) -> Vec<Position> {
     pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(positions)),
@@ -73,7 +73,7 @@ fn is_cheap_overbuild(self_: &Builder, pos: Position) -> bool {
     kind == EntityType::Road && self_.team_at(pos) == Some(self_.my_team)
 }
 
-#[must_use] 
+#[must_use]
 pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
     if pyrust::vec::is_empty!(self_.enemy_bots) {
         return None;
@@ -84,7 +84,7 @@ pub fn nearest_enemy_bot(self_: &Builder) -> Option<Position> {
     )
 }
 
-#[must_use] 
+#[must_use]
 pub fn should_attack(self_: &Builder, pos: Position) -> bool {
     let enemy_builder = nearest_enemy_bot(self_);
     let i = self_.idx(pos);
@@ -95,13 +95,13 @@ pub fn should_attack(self_: &Builder, pos: Position) -> bool {
         || can_afford(self_, EntityType::Harvester)
 }
 
-#[must_use] 
+#[must_use]
 pub fn enemy_healer_near(self_: &Builder, pos: Position) -> bool {
     pyrust::any!(pyrust::iter!(self_.enemy_bots), |p| p.distance_squared(pos)
         <= 2)
 }
 
-#[must_use] 
+#[must_use]
 pub fn friendly_bot_adjacent(self_: &Builder, pos: Position) -> bool {
     pyrust::any!(pyrust::iter!(self_.friendly_bots), |p| p
         .distance_squared(pos)
@@ -206,7 +206,7 @@ pub fn pick_conveyor_target(
 
 /// Pick a cardinal neighbour of `target` (an enemy harvester) for
 /// us to stand on and attack.
-#[must_use] 
+#[must_use]
 pub fn pick_attack_destination(
     self_: &Builder,
     target: Position,
@@ -260,7 +260,7 @@ pub fn pick_attack_destination(
 /// Return a direction (any of DIR8) such that a gunner placed at
 /// `pos` facing that way has an enemy conveyor/splitter/bridge as
 /// the first building in its forward ray.
-#[must_use] 
+#[must_use]
 pub fn gunner_chain_facing(self_: &Builder, pos: Position) -> Option<Direction> {
     for d in DIR8 {
         let mut current = pos;
@@ -318,7 +318,7 @@ fn has_open_side(self_: &Builder, position: Position) -> bool {
 
 /// Enemy harvesters with at least one passable, unoccupied,
 /// non-allied-transport cardinal.
-#[must_use] 
+#[must_use]
 pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
     let mut result: Vec<Position> = pyrust::vec::new!();
     for &p in &self_.nearby_buildings {
@@ -339,7 +339,7 @@ pub fn vulnerable_harvesters(self_: &Builder) -> Vec<Position> {
 }
 
 /// 3-tier preference over vulnerable harvesters.
-#[must_use] 
+#[must_use]
 pub fn pick_harvester_target(self_: &Builder, vulnerable: &[Position]) -> Position {
     let my_pos = self_.my_pos;
     let mut sorted: Vec<Position> = pyrust::to_vec!(vulnerable);
@@ -371,7 +371,8 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
-            >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale)) as i32
+            >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale))
+                as i32
     {
         explore(self_, ct);
     } else {

@@ -32,7 +32,7 @@ use crate::util::visualiser::auto_wrap_position;
 /// Enemy road/conveyor/splitter/bridge cardinal-adjacent to `pos`,
 /// or None. Such a tile would dump our harvester's output into an
 /// enemy chain — must be cleared before claim.
-#[must_use] 
+#[must_use]
 pub fn find_contest_target(builder: &Builder, pos: Position, my_team: Team) -> Option<Position> {
     for d in DIR4 {
         let n = pos.add(d);
@@ -59,7 +59,7 @@ pub fn find_contest_target(builder: &Builder, pos: Position, my_team: Team) -> O
 /// when an enemy can't easily place a parasitic conveyor there. That
 /// is: walls, harvesters (any team), and any non-{road,marker} building
 /// occupying the tile.
-#[must_use] 
+#[must_use]
 pub fn is_guarded_cardinal(builder: &Builder, pos: Position) -> bool {
     if builder.get_env(pos) == Some(Environment::Wall) {
         return true;
@@ -140,21 +140,22 @@ pub fn walk_to_ore_claim(
         && matches!(
             builder.kind_at(target_pos),
             Some(EntityType::Barrier | EntityType::Conveyor | EntityType::ArmouredConveyor)
-        ) && pyrust::unwrap!(ct.can_destroy(target_pos))
-        {
-            let mut args = Map::new();
-            pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("target"),
-                auto_wrap_position(target_pos)
-            );
-            log(
-                "walk_to_ore_claim: destroying friendly guard on ore {target}",
-                args,
-            );
-            pyrust::unwrap!(ct.destroy(target_pos));
-            builder.apply_local_destroy(target_pos);
-        }
+        )
+        && pyrust::unwrap!(ct.can_destroy(target_pos))
+    {
+        let mut args = Map::new();
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target_pos)
+        );
+        log(
+            "walk_to_ore_claim: destroying friendly guard on ore {target}",
+            args,
+        );
+        pyrust::unwrap!(ct.destroy(target_pos));
+        builder.apply_local_destroy(target_pos);
+    }
 
     let mut args = Map::new();
     pyrust::dict::insert!(
@@ -178,7 +179,7 @@ pub fn walk_to_ore_claim(
 
 /// Whether `cardinal` (a tile cardinal to harvester/claimed-ore
 /// `target`) needs a guard (barrier or inward conveyor) placed.
-#[must_use] 
+#[must_use]
 pub fn needs_harvester_guard(
     builder: &Builder,
     cardinal: Position,
@@ -482,7 +483,7 @@ pub fn step_off_and_build_harvester(
 /// Tiles cardinal to `pos` that are friendly Ti harvesters OR a
 /// claimed-but-unbuilt ore tile. Used by `guard_harvester_neighbours` to find
 /// pave targets reachable from `pos`.
-#[must_use] 
+#[must_use]
 pub fn adjacent_pave_targets(builder: &Builder, pos: Position) -> Vec<Position> {
     let mut out: Vec<Position> = pyrust::vec::new!();
     let mut claimed_targets: HashSet<Position> = pyrust::set::new!();

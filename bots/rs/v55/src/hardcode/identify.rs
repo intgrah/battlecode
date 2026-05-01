@@ -7,7 +7,7 @@ use cambc::{Controller, Position};
 
 /// Placeholder for `find_core(ct, pos)`. Real impl returns the centre of a
 /// known core in vision; the stub is unreachable when `HARDCODE` is false.
-#[must_use] 
+#[must_use]
 pub fn find_core(_ct: &Controller<'_>, _hint: Position) -> Position {
     unimplemented!("hardcode::identify::find_core stub — Phase E")
 }

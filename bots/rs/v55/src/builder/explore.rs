@@ -78,8 +78,8 @@ const fn _target_invalid(builder: &Builder, target: Position) -> bool {
 fn _pick_target(builder: &mut Builder) -> Option<Position> {
     let w = builder.state.width;
     let h = builder.state.height;
-    let is_offense = pyrust::is_some_and!(builder
-        .role, |r: crate::builder::role::Role| r.is_offensive());
+    let is_offense = pyrust::is_some_and!(builder.role, |r: crate::builder::role::Role| r
+        .is_offensive());
     let cap: f64 = if is_offense { 1.0 } else { 0.8 };
     let frac = pyrust::min!(
         (cap),

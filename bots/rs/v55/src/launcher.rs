@@ -116,7 +116,8 @@ impl Unit for Launcher {
 
         let (enemy_throw_tile, enemy_throw_dist) = self.find_enemy_throw_tile(ct);
         let harvester_targets = self.find_harvester_attack_tiles(ct);
-        let harvest_dest: Option<Position> = pyrust::copied!(pyrust::vec::first!(harvester_targets));
+        let harvest_dest: Option<Position> =
+            pyrust::copied!(pyrust::vec::first!(harvester_targets));
 
         let mut best_bot: Option<Position> = None;
         let mut best_dest: Option<Position> = None;

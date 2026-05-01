@@ -103,8 +103,16 @@ pub fn update_patrol(builder: &mut Builder) {
         Value::Number(pyrust::into!(transitive_count))
     );
     pyrust::dict::insert!(args, pyrust::to_string!("friend"), auto_wrap_position(best));
-    pyrust::dict::insert!(args, pyrust::to_string!("d"), Value::Number(pyrust::into!(best_d)));
-    pyrust::dict::insert!(args, pyrust::to_string!("nf"), Value::Number(pyrust::into!(nf)));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("d"),
+        Value::Number(pyrust::into!(best_d))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("nf"),
+        Value::Number(pyrust::into!(nf))
+    );
     log(
         "patrol: refreshed own={own} + transitive={trans} via farthest friend \
          {friend} (d²={d}, total friends={nf})",

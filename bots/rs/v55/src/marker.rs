@@ -35,7 +35,7 @@ impl Marker {
     #[must_use]
     pub const fn encode(self) -> u32 {
         let (tag, payload) = match self {
-            Marker::Symmetry { symmetry } => (TAG_SYMMETRY, symmetry as u32),
+            Self::Symmetry { symmetry } => (TAG_SYMMETRY, symmetry as u32),
         };
         let raw = (tag << TAG_SHIFT) | (payload & PAYLOAD_MASK);
         raw ^ KEY
@@ -58,7 +58,7 @@ impl Marker {
                 2 => Symmetry::Ver,
                 _ => return None,
             };
-            Some(Marker::Symmetry { symmetry: sym })
+            Some(Self::Symmetry { symmetry: sym })
         } else {
             None
         }
@@ -68,7 +68,7 @@ impl Marker {
 /// Scan `nearby_tiles` for an allied `MarkerSymmetry` and return its symmetry.
 /// Returns the first one found, or `None` if no friendly symmetry marker is
 /// in vision.
-#[must_use] 
+#[must_use]
 pub fn find_symmetry_marker(
     ct: &Controller<'_>,
     nearby_tiles: &[Position],
