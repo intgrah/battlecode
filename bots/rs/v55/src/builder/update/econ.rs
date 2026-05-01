@@ -30,7 +30,7 @@ pub fn can_place_junction(builder: &Builder, pos: Position) -> bool {
 
     let conv = builder.get_in_edges(pos);
     let conv_adj: Vec<Position> = pyrust::collect!(pyrust::filter!(pyrust::copied!(pyrust::iter!(conv)), |c| c.distance_squared(pos) <= 2));
-    if conv_adj.len() >= 2 || conv.is_empty() {
+    if pyrust::len!(conv_adj) >= 2 || conv.is_empty() {
         return false;
     }
     let mut buildable_count = 0;
@@ -491,11 +491,11 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
             continue;
         }
         let feeders = &builder.in_edges[i];
-        if feeders.len() < 2 {
+        if pyrust::len!(feeders) < 2 {
             continue;
         }
         let hist = &builder.flow_history[i];
-        if hist.len() < FLOW_HISTORY_LEN {
+        if pyrust::len!(hist) < FLOW_HISTORY_LEN {
             continue;
         }
         if pyrust::count!(pyrust::filter!(pyrust::iter!(hist), |t| pyrust::is_some!(t.0))) < FLOW_HISTORY_LEN {
@@ -505,7 +505,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
         let mut complete = true;
         for f in feeders {
             let fh = &builder.flow_history[(f.y as usize) * MAX_WIDTH + (f.x as usize)];
-            if fh.len() < FLOW_HISTORY_LEN {
+            if pyrust::len!(fh) < FLOW_HISTORY_LEN {
                 complete = false;
                 break;
             }
@@ -531,7 +531,7 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
             continue;
         }
         let hist = &builder.flow_history[i];
-        if hist.len() < FLOW_HISTORY_LEN {
+        if pyrust::len!(hist) < FLOW_HISTORY_LEN {
             continue;
         }
         if pyrust::count!(pyrust::filter!(pyrust::iter!(hist), |t| pyrust::is_some!(t.0))) >= FLOW_HISTORY_LEN {
@@ -722,7 +722,7 @@ pub fn check_invariants(builder: &Builder) {
     }
 
     // --- C: in-count drift (independent of B's outcome) ---
-    for i in 0..in_edges.len() {
+    for i in 0..pyrust::len!(in_edges) {
         if in_edges[i].is_empty() {
             if builder._ti_in_count[i] != 0 || builder._ax_in_count[i] != 0 {
                 let t = Position {
@@ -818,7 +818,7 @@ fn _is_junction(builder: &Builder, pos: Position) -> bool {
         return false;
     }
     let feeders = &builder.in_edges[i];
-    if feeders.len() < 2 {
+    if pyrust::len!(feeders) < 2 {
         return false;
     }
 

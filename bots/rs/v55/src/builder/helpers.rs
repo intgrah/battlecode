@@ -214,7 +214,7 @@ pub fn required_ti_for_ore_claim(builder: &Builder, ore_pos: Position, sink_pos:
 /// Leniency multiplier on `required_ti_for_ore_claim`. Decaying
 /// exponential in friendly harvester count: starts at 0.65, asymptotes to 1.60.
 pub fn ore_claim_leniency(builder: &Builder) -> f64 {
-    let n = builder.my_harvesters.len() as f64;
+    let n = pyrust::len!(builder.my_harvesters) as f64;
     0.65 + 0.95 * (1.0 - 0.958f64.powf(n))
 }
 
@@ -502,7 +502,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 // Splitter back-input cell = mirror of forward across c.
                 // From the 3 outputs: 4*c - sum(outputs) = c - forward_dir.
                 let outs = &builder.out_edges[ci];
-                if outs.len() == 3 {
+                if pyrust::len!(outs) == 3 {
                     let back = crate::building::splitter_back_input(c, outs);
                     if back == ore_pos {
                         pyrust::vec::push!(tier1, c);
@@ -850,7 +850,7 @@ pub fn upstream_tree(builder: &Builder, start: Position) -> HashSet<Position> {
     pyrust::set::add!(visited, start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(pos) = pyrust::vec::pop!(queue) {
-        if visited.len() >= _UPSTREAM_MAX_NODES {
+        if pyrust::len!(visited) >= _UPSTREAM_MAX_NODES {
             break;
         }
         for &u in &builder.in_edges[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {
@@ -870,7 +870,7 @@ pub fn downstream_tree(builder: &Builder, start: Position) -> HashSet<Position> 
     pyrust::set::add!(visited, start);
     let mut queue: Vec<Position> = vec![start];
     while let Some(pos) = pyrust::vec::pop!(queue) {
-        if visited.len() >= _DOWNSTREAM_MAX_NODES {
+        if pyrust::len!(visited) >= _DOWNSTREAM_MAX_NODES {
             break;
         }
         for &out in &builder.out_edges[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)] {

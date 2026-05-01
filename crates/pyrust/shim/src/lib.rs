@@ -46,6 +46,7 @@ pub use crate::__pyrust_find as find;
 pub use crate::__pyrust_any as any;
 pub use crate::__pyrust_all as all;
 pub use crate::__pyrust_count as count;
+pub use crate::__pyrust_next as next;
 pub use crate::__pyrust_iter_sum as sum;
 pub use crate::__pyrust_iter_min as min;
 pub use crate::__pyrust_iter_max as max;

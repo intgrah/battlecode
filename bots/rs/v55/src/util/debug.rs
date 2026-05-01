@@ -92,7 +92,7 @@ impl DebugCtx {
         }
         let parent = self.current_scope_mut();
         let children = pyrust::unwrap!(parent["children"].as_array_mut());
-        let idx = children.len();
+        let idx = pyrust::len!(children);
         pyrust::vec::push!(children, node);
         pyrust::vec::push!(self.frames, Frame {
             parent_child_idx: Some(idx),

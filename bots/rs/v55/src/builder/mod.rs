@@ -810,7 +810,7 @@ impl Builder {
 
     pub fn _check_multi_input(&mut self, t: Position) {
         let idx = self.idx(t);
-        if self.in_edges[idx].len() >= 2 {
+        if pyrust::len!(self.in_edges[idx]) >= 2 {
             pyrust::set::add!(self.is_multi_input, t);
         } else {
             pyrust::set::remove!(self.is_multi_input, &t);
@@ -918,7 +918,7 @@ impl Builder {
 
     /// Mirror `my_core` under `symmetry_guess`.
     fn refresh_symmetry_cache(&mut self) {
-        let count = self.state.symmetry_candidates.len();
+        let count = pyrust::len!(self.state.symmetry_candidates);
         self.symmetry = if count == 1 {
             pyrust::copied!(pyrust::iter!(self.state.symmetry_candidates).next())
         } else {

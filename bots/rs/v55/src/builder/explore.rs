@@ -92,7 +92,7 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
     let cy = center.y;
     let mut candidates: Vec<Position> = pyrust::vec::new!();
     for _ in 0..(_K_CANDIDATES * 4) {
-        if candidates.len() >= _K_CANDIDATES {
+        if pyrust::len!(candidates) >= _K_CANDIDATES {
             break;
         }
         let x = builder.state.rng.randint(0, (w - 1) as i64) as i32;

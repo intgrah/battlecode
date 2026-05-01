@@ -81,7 +81,7 @@ pub fn update_patrol(builder: &mut Builder) {
             }
         }
     }
-    let nf = friends.len() as i64;
+    let nf = pyrust::len!(friends) as i64;
     let mut args = Map::new();
     pyrust::dict::insert!(args, pyrust::to_string!("own"), Value::Number(own_count.into()));
     pyrust::dict::insert!(args, pyrust::to_string!("trans"), Value::Number(transitive_count.into()));
