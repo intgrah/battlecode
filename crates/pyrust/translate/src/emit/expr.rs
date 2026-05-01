@@ -2138,7 +2138,7 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
         // ============================================================
         // Iterator: identity / no-op in Python (lists/dicts are iterable)
         // ============================================================
-        ["iter" | "into_iter" | "copied" | "cloned"] => {
+        ["iter" | "into_iter" | "copied" | "cloned" | "into"] => {
             Ok(Some(identity(w, tail[0])?))
         }
         ["collect"] => {
