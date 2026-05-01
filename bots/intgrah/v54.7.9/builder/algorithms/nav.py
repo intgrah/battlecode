@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from builder.algorithms.bug2_planner import _build_mline_seq, bug2_plan_iter
 from builder.algorithms.dp_step import dp_step
 from cambc import Position
-from util.constants import INF, MAX_N, MAX_WIDTH
+from util.constants import IDX_TO_POS, INF, MAX_N, MAX_WIDTH
 from util.debug import debug as log
 from util.visualiser import DumpScalar
 
@@ -173,7 +173,7 @@ class BugNav:
                 # Second attempt: stale even after replan, give up.
                 continue
 
-            return Position(nxt % MAX_WIDTH, nxt // MAX_WIDTH)
+            return IDX_TO_POS[nxt]
 
         log("bugnav.step exit: both attempts failed")
         return None
@@ -197,7 +197,7 @@ class BugNav:
     def committed_positions(self: BugNav) -> list[Position]:
         """Cells the planner has committed to the path so far, in order
         (start → goalward). Used by the state dump as a `DumpPath`."""
-        return [Position(i % MAX_WIDTH, i // MAX_WIDTH) for i in self._committed]
+        return [IDX_TO_POS[i] for i in self._committed]
 
     @property
     def active_goal(self: BugNav) -> Position | None:

@@ -17,7 +17,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, EntityType, Environment, Position, ResourceType
-from util.constants import BASE_COST, FLOW_HISTORY_LEN, INF, MAX_WIDTH
+from util.constants import BASE_COST, FLOW_HISTORY_LEN, IDX_TO_POS, INF, MAX_WIDTH
 from util.debug import Scope
 from util.debug import debug as log
 from util.directions import DIR4
@@ -554,14 +554,10 @@ def check_invariants(self: Builder) -> None:
 
     # --- A: harvester-adjacent set vs counter ---
     expected_ti_adj = {
-        Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
-        for i in range(len(self._ti_harv_at))
-        if self._ti_harv_at[i] > 0
+        IDX_TO_POS[i] for i in range(len(self._ti_harv_at)) if self._ti_harv_at[i] > 0
     }
     expected_ax_adj = {
-        Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
-        for i in range(len(self._ax_harv_at))
-        if self._ax_harv_at[i] > 0
+        IDX_TO_POS[i] for i in range(len(self._ax_harv_at)) if self._ax_harv_at[i] > 0
     }
     if expected_ti_adj != self.ti_harvester_adjacent:
         log(
@@ -626,7 +622,7 @@ def check_invariants(self: Builder) -> None:
     for i in range(len(in_edges)):
         if not in_edges[i]:
             if self._ti_in_count[i] != 0 or self._ax_in_count[i] != 0:
-                t = Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
+                t = IDX_TO_POS[i]
                 log(
                     f"INVARIANT_FAIL in_count nonzero with empty in_edges "
                     f"t={t} ti={self._ti_in_count[i]} ax={self._ax_in_count[i]}",
@@ -635,14 +631,14 @@ def check_invariants(self: Builder) -> None:
         ti_expected = sum(1 for f in in_edges[i] if f in self.ti_upstream)
         ax_expected = sum(1 for f in in_edges[i] if f in self.ax_upstream)
         if ti_expected != self._ti_in_count[i]:
-            t = Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
+            t = IDX_TO_POS[i]
             log(
                 f"INVARIANT_FAIL ti_in_count drift t={t} "
                 f"have={self._ti_in_count[i]} expected={ti_expected} "
                 f"in_edges={in_edges[i]}",
             )
         if ax_expected != self._ax_in_count[i]:
-            t = Position(x=i % MAX_WIDTH, y=i // MAX_WIDTH)
+            t = IDX_TO_POS[i]
             log(
                 f"INVARIANT_FAIL ax_in_count drift t={t} "
                 f"have={self._ax_in_count[i]} expected={ax_expected} "
