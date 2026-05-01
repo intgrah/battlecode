@@ -1315,12 +1315,26 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
         let is_serde_wrapper = matches!(
             slice.as_slice(),
-            ["serde_json", "Value", "String" | "Number" | "Bool"] |
-["Value", "String" | "Number" | "Bool"] | ["serde_json", "Number", "from"] |
-["Number", "from"]
+            ["serde_json", "Value", "String" | "Number" | "Bool" | "Object" | "Array"]
+                | ["Value", "String" | "Number" | "Bool" | "Object" | "Array"]
+                | ["serde_json", "Number", "from"]
+                | ["Number", "from"]
         );
         if is_serde_wrapper {
             return emit_expr(w, c.args.first().unwrap());
+        }
+        // `serde_json::to_string(v)` → `json.dumps(v)`. Path-matched.
+        // The `import json` is added at file level via file_uses_macro_path
+        // (or file_uses_serde_to_string) detection in mod.rs.
+        if matches!(
+            slice.as_slice(),
+            ["serde_json", "to_string"]
+        ) {
+            let inner = emit_expr(w, c.args.first().unwrap())?;
+            return Ok(Emitted::atomic(
+                format!("json.dumps({})", inner.text),
+                Ty::Str,
+            ));
         }
     }
     // `#[pyrust::transparent]` enum variant constructor — erase the
@@ -2189,15 +2203,32 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             Ok(Some(identity(w, tail[0])?))
         }
         ["collect"] => {
-            // Materialize a (lazy) generator/iterator into a list. The
-            // Rust expansion is `.collect()` (target type from binding).
-            // Python: `list(it)` to force evaluation so subsequent
-            // mutations like `.sort()` work.
-            let args = parse_args!();
-            if args.len() != 1 {
-                return Err(w.err(em.span(), "collect!: expected 1 argument"));
+            // Materialize a (lazy) generator/iterator into a list. Two
+            // forms accepted:
+            //   pyrust::collect!(it)          // Rust: it.collect()
+            //   pyrust::collect!(it, T)       // Rust: it.collect::<T>()
+            // The optional second arg is a Rust *type*, not an expression
+            // (so it doesn't parse as Expr). We split tokens on the first
+            // top-level comma manually, parse the head as Expr, and
+            // ignore the tail. Python: `list(it)`.
+            let trees: Vec<proc_macro2::TokenTree> = tokens.clone().into_iter().collect();
+            let mut split = 0;
+            for (i, tt) in trees.iter().enumerate() {
+                if let proc_macro2::TokenTree::Punct(p) = tt
+                    && p.as_char() == ','
+                {
+                    split = i;
+                    break;
+                }
             }
-            let it = emit_expr(w, &args[0])?;
+            let head: proc_macro2::TokenStream = if split == 0 {
+                trees.iter().cloned().collect()
+            } else {
+                trees[..split].iter().cloned().collect()
+            };
+            let expr: syn::Expr = syn::parse2(head)
+                .map_err(|e| w.err(em.span(), format!("collect!: parse it: {e}")))?;
+            let it = emit_expr(w, &expr)?;
             Ok(Some(Emitted::atomic(
                 format!("list({})", it.text),
                 Ty::List,
@@ -2978,6 +3009,34 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 ty: Ty::Bool,
                 prec: Prec::Cmp,
             }))
+        }
+
+        // ============================================================
+        // serde::* — serde_json::Value accessors (identity in Python)
+        // ============================================================
+        ["serde", "array_mut"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "serde::array_mut!: expected (v)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(inner.text, Ty::List)))
+        }
+
+        // ============================================================
+        // time::* — instrumentation clock
+        // ============================================================
+        ["time", "now_ns"] => {
+            let args = parse_args!();
+            if !args.is_empty() {
+                return Err(w.err(em.span(), "time::now_ns!: expected ()"));
+            }
+            // `import time` is added at the file level via
+            // file_uses_macro_path detection in mod.rs.
+            Ok(Some(Emitted::atomic(
+                "time.perf_counter_ns()".to_string(),
+                Ty::Int,
+            )))
         }
 
         _ => Ok(None),

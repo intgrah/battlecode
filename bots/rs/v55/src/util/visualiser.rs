@@ -262,7 +262,7 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
         }),
         Dump::Tiles { data } => serde_json::json!({
             "$type": "tiles",
-            "v": data.iter().copied().map(pos_xy).collect::<Vec<_>>(),
+            "v": pyrust::collect!(pyrust::map!(pyrust::copied!(pyrust::iter!(data)), |p| pos_xy(p)), Vec<_>),
         }),
         Dump::Tile { pos } => match pos {
             None => serde_json::json!({"$type": "tile", "x": null, "y": null}),
@@ -290,7 +290,7 @@ pub fn serialise_dump(v: &Dump) -> serde_json::Value {
             let arr = colour.as_array();
             serde_json::json!({
                 "$type": "path",
-                "v": points.iter().copied().map(pos_xy).collect::<Vec<_>>(),
+                "v": pyrust::collect!(pyrust::map!(pyrust::copied!(pyrust::iter!(points)), |p| pos_xy(p)), Vec<_>),
                 "colour": [arr[0], arr[1], arr[2], arr[3]],
             })
         }

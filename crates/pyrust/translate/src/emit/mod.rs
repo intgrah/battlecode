@@ -170,7 +170,110 @@ fn required_imports(file: &syn::File, cfg: &CfgEnv) -> Result<Vec<String>, Strin
     ) {
         out.push("import math".to_owned());
     }
+    if file_uses_macro_path(&enabled_items, &[&["time", "now_ns"]]) {
+        out.push("import time".to_owned());
+    }
+    if file_uses_call_path(&enabled_items, &[&["serde_json", "to_string"]]) {
+        out.push("import json".to_owned());
+    }
     Ok(out)
+}
+
+/// True if any expression in the file invokes a free-function call
+/// whose path matches one of `paths` exactly.
+fn file_uses_call_path(items: &[&syn::Item], paths: &[&[&str]]) -> bool {
+    use syn::visit::Visit;
+    struct V<'a> {
+        paths: &'a [&'a [&'a str]],
+        hit: bool,
+    }
+    impl<'ast> Visit<'ast> for V<'_> {
+        fn visit_expr_call(&mut self, c: &'ast syn::ExprCall) {
+            if let syn::Expr::Path(p) = &*c.func
+                && p.qself.is_none()
+            {
+                let segs: Vec<String> =
+                    p.path.segments.iter().map(|s| s.ident.to_string()).collect();
+                let tail: Vec<&str> = segs.iter().map(String::as_str).collect();
+                if self
+                    .paths
+                    .iter()
+                    .any(|p| p.len() == tail.len() && p.iter().zip(&tail).all(|(a, b)| a == b))
+                {
+                    self.hit = true;
+                }
+            }
+            syn::visit::visit_expr_call(self, c);
+        }
+        fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
+            // Calls buried inside macro bodies (`pyrust::expect!(...)`,
+            // `vec![...]`, `format!(...)`) still count.
+            let parser =
+                syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+            if let Ok(args) = syn::parse::Parser::parse2(parser, em.mac.tokens.clone()) {
+                for arg in args {
+                    self.visit_expr(&arg);
+                }
+            }
+        }
+    }
+    let mut v = V { paths, hit: false };
+    for item in items {
+        v.visit_item(item);
+        if v.hit {
+            return true;
+        }
+    }
+    false
+}
+
+/// True if any expression in the file invokes a `pyrust::*!` DSL macro
+/// whose path tail (after `pyrust::`) matches one of `paths`. Used at
+/// file level to gate stdlib imports.
+fn file_uses_macro_path(items: &[&syn::Item], paths: &[&[&str]]) -> bool {
+    use syn::visit::Visit;
+    struct V<'a> {
+        paths: &'a [&'a [&'a str]],
+        hit: bool,
+    }
+    impl<'ast> Visit<'ast> for V<'_> {
+        fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
+            let segs: Vec<String> = em
+                .mac
+                .path
+                .segments
+                .iter()
+                .map(|s| s.ident.to_string())
+                .collect();
+            // Strip leading `pyrust` segment.
+            let tail: Vec<&str> = if segs.first().map(String::as_str) == Some("pyrust") {
+                segs[1..].iter().map(String::as_str).collect()
+            } else {
+                segs.iter().map(String::as_str).collect()
+            };
+            if self
+                .paths
+                .iter()
+                .any(|p| p.len() == tail.len() && p.iter().zip(&tail).all(|(a, b)| a == b))
+            {
+                self.hit = true;
+            }
+            let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+            if let Ok(args) = syn::parse::Parser::parse2(parser, em.mac.tokens.clone()) {
+                for arg in args {
+                    self.visit_expr(&arg);
+                }
+            }
+        }
+    }
+    let mut v = V { paths, hit: false };
+    for item in items {
+        v.visit_item(item);
+        if v.hit {
+            return true;
+        }
+    }
+    false
 }
 
 /// True if any expression in the file calls a method whose ident matches
