@@ -103,7 +103,7 @@ impl Add<Direction> for Pos {
 }
 
 impl Pos {
-    #[must_use] 
+    #[must_use]
     pub const fn distance_squared(self, other: Self) -> i32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
@@ -113,7 +113,7 @@ impl Pos {
     /// Inherent shorthand for `<Pos as Add<Direction>>::add`. Lets bots
     /// write `pos.add(d)` without importing `std::ops::Add`, matching the
     /// Python `Position.add(d)` shape.
-    #[must_use] 
+    #[must_use]
     pub fn add(self, d: Direction) -> Self {
         <Self as std::ops::Add<Direction>>::add(self, d)
     }
@@ -126,7 +126,7 @@ pub enum Team {
 }
 
 impl Team {
-    #[must_use] 
+    #[must_use]
     pub const fn index(self) -> usize {
         match self {
             Self::A => 0,
@@ -314,20 +314,17 @@ impl FromStr for Direction {
 }
 
 impl Direction {
-    #[must_use] 
+    #[must_use]
     pub const fn is_cardinal(self) -> bool {
-        matches!(
-            self,
-            Self::North | Self::East | Self::South | Self::West
-        )
+        matches!(self, Self::North | Self::East | Self::South | Self::West)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_directional(self) -> bool {
         self != Self::Centre
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn delta(self) -> (i32, i32) {
         match self {
             Self::North => (0, -1),
@@ -342,7 +339,7 @@ impl Direction {
         }
     }
 
-    #[must_use] 
+    #[must_use]
     pub const fn opposite(self) -> Self {
         match self {
             Self::North => Self::South,

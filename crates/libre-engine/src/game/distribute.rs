@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BinaryHeap};
 use rand::RngExt;
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use super::{Game, Pos, Entity, GameDiff};
+use super::{Entity, Game, GameDiff, Pos};
 use crate::common::ResourceType;
 use crate::game_map::{ArmouredConveyor, Bridge, Conveyor, Foundry, Splitter};
 
@@ -56,12 +56,15 @@ impl Game {
                         .unwrap_or_else(|| panic!("tile building id missing entity {id}"));
                     let no_output = matches!(
                         entity,
-                        Entity::Conveyor(Conveyor { stored: None, .. }) |
-Entity::Splitter(Splitter { stored: None, .. }) |
-Entity::ArmouredConveyor(ArmouredConveyor { stored: None, .. }) |
-Entity::Bridge(Bridge { stored: None, .. }) |
-Entity::Foundry(Foundry {
-stored: None | Some(ResourceType::Titanium | ResourceType::RawAxionite), .. })
+                        Entity::Conveyor(Conveyor { stored: None, .. })
+                            | Entity::Splitter(Splitter { stored: None, .. })
+                            | Entity::ArmouredConveyor(ArmouredConveyor { stored: None, .. })
+                            | Entity::Bridge(Bridge { stored: None, .. })
+                            | Entity::Foundry(Foundry {
+                                stored: None
+                                    | Some(ResourceType::Titanium | ResourceType::RawAxionite),
+                                ..
+                            })
                     );
                     if no_output {
                         processed.insert(tile.position);

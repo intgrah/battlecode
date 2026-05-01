@@ -133,10 +133,11 @@ fn find_config() -> (CambcConfig, PathBuf) {
     while let Some(d) = dir {
         let candidate = d.join("cambc.toml");
         if candidate.is_file()
-            && let Ok(text) = fs::read_to_string(&candidate) {
-                let cfg: CambcConfig = toml::from_str(&text).unwrap_or_default();
-                return (cfg, d.to_path_buf());
-            }
+            && let Ok(text) = fs::read_to_string(&candidate)
+        {
+            let cfg: CambcConfig = toml::from_str(&text).unwrap_or_default();
+            return (cfg, d.to_path_buf());
+        }
         dir = d.parent();
     }
     (CambcConfig::default(), cwd)

@@ -1,4 +1,10 @@
-use super::{paste, Game, Pos, Entity, GameDiff, Direction, CONVEYOR_BASE_COST, SPLITTER_BASE_COST, BRIDGE_BASE_COST, ARMOURED_CONVEYOR_BASE_COST, HARVESTER_BASE_COST, FOUNDRY_BASE_COST, ROAD_BASE_COST, BARRIER_BASE_COST, GUNNER_BASE_COST, SENTINEL_BASE_COST, BREACH_BASE_COST, LAUNCHER_BASE_COST, Team, BUILDER_BOT_BASE_COST, BuilderBot, UnitBase, EntityBase, BUILDER_BOT_MAX_HP};
+use super::{
+    ARMOURED_CONVEYOR_BASE_COST, BARRIER_BASE_COST, BREACH_BASE_COST, BRIDGE_BASE_COST,
+    BUILDER_BOT_BASE_COST, BUILDER_BOT_MAX_HP, BuilderBot, CONVEYOR_BASE_COST, Direction, Entity,
+    EntityBase, FOUNDRY_BASE_COST, GUNNER_BASE_COST, Game, GameDiff, HARVESTER_BASE_COST,
+    LAUNCHER_BASE_COST, Pos, ROAD_BASE_COST, SENTINEL_BASE_COST, SPLITTER_BASE_COST, Team,
+    UnitBase, paste,
+};
 
 macro_rules! build_methods {
     ($($name:ident ($pos:ident : Pos $(, $arg:ident : $ty:ty)* $(,)?));* $(;)?) => {
@@ -97,9 +103,7 @@ impl Game {
                         entity: Entity::Marker(marker.clone()),
                     });
                 }
-                Some(_) => panic!(
-                    "marker placed on enemy marker or non-marker building id {id}"
-                ),
+                Some(_) => panic!("marker placed on enemy marker or non-marker building id {id}"),
                 None => panic!("tile building id missing entity {id}"),
             }
         } else {

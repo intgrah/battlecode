@@ -329,7 +329,7 @@ impl<'py> IntoPyObject<'py> for EntityType {
 }
 
 /// Create a `GameError` using the cached class (never calls py.import).
-#[must_use] 
+#[must_use]
 pub fn game_error(message: &str) -> PyErr {
     Python::with_gil(|py| {
         PY_TYPE_CACHES.with(|m| {
@@ -340,9 +340,9 @@ pub fn game_error(message: &str) -> PyErr {
                     .bind(py)
                     .clone()
                     .downcast_into::<pyo3::types::PyType>()
-                {
-                    return PyErr::from_type(err_cls, message.to_string());
-                }
+            {
+                return PyErr::from_type(err_cls, message.to_string());
+            }
             pyo3::exceptions::PyValueError::new_err(message.to_string())
         })
     })

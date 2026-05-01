@@ -34,8 +34,9 @@ pub fn write_replay(recorder: &ReplayRecorder, path: &str, winner: Option<Team>)
         .encode(&mut buf)
         .map_err(|err| io::Error::other(err.to_string()))?;
     if let Some(parent) = Path::new(path).parent()
-        && !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
+    }
     fs::write(path, buf)
 }

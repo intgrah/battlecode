@@ -8,7 +8,7 @@ pub trait ToProto {
     fn to_proto(&self) -> Self::Output;
 }
 
-#[must_use] 
+#[must_use]
 pub fn build_proto_map(environment: &[Vec<Environment>], cores: &[(Pos, Team)]) -> proto::Map {
     let height = environment.len() as i32;
     let width = environment.first().map_or(0, std::vec::Vec::len) as i32;

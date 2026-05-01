@@ -246,7 +246,9 @@ impl<'a> UnitView<'a> {
         // The core occupies a 3x3 area; it counts as in-vision if any of its
         // 9 tiles is within range.
         if matches!(entity, Entity::Core(_)) {
-            use Direction::{North, Northeast, East, Southeast, South, Southwest, West, Northwest, Centre};
+            use Direction::{
+                Centre, East, North, Northeast, Northwest, South, Southeast, Southwest, West,
+            };
             let in_vision = [
                 North, Northeast, East, Southeast, South, Southwest, West, Northwest, Centre,
             ]
@@ -281,9 +283,10 @@ impl<'a> UnitView<'a> {
             return false;
         }
         if let Some(existing_id) = tile.building
-            && !matches!(self.game.entity(existing_id), Some(Entity::Marker(_))) {
-                return false;
-            }
+            && !matches!(self.game.entity(existing_id), Some(Entity::Marker(_)))
+        {
+            return false;
+        }
         let cost = self.game.scaled_cost(bot.team, base_cost);
         self.game.players[bot.team.index()].can_afford(cost)
     }
@@ -1591,9 +1594,10 @@ impl Controller for UnitView<'_> {
         let pos = unit.position;
         let vision = unit.vision_radius_sq();
         if let Some(d) = dist_sq
-            && d > vision {
-                return Err(GameError::new("dist_sq exceeds vision radius"));
-            }
+            && d > vision
+        {
+            return Err(GameError::new("dist_sq exceeds vision radius"));
+        }
         let radius_sq = dist_sq.unwrap_or(vision);
         let r = f64::from(radius_sq).sqrt().ceil() as i32;
         let mut result = Vec::new();
@@ -1646,7 +1650,12 @@ impl Controller for UnitView<'_> {
         let all = self.get_nearby_entities(dist_sq)?;
         Ok(all
             .into_iter()
-            .filter(|id| self.game.entity(*id).and_then(super::game_map::Entity::as_unit).is_some())
+            .filter(|id| {
+                self.game
+                    .entity(*id)
+                    .and_then(super::game_map::Entity::as_unit)
+                    .is_some()
+            })
             .collect())
     }
 

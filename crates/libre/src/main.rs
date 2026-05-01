@@ -18,13 +18,14 @@ fn main() -> PyResult<()> {
     // Set PYTHONHOME before pyo3's auto-initialize fires (which happens
     // on the first `Python::with_gil`). User-set PYTHONHOME wins.
     if std::env::var_os("PYTHONHOME").is_none()
-        && let Some(home) = BAKED_PYTHON_HOME {
-            // SAFETY: single-threaded — main() hasn't started Python or
-            // spawned any threads.
-            unsafe {
-                std::env::set_var("PYTHONHOME", home);
-            }
+        && let Some(home) = BAKED_PYTHON_HOME
+    {
+        // SAFETY: single-threaded — main() hasn't started Python or
+        // spawned any threads.
+        unsafe {
+            std::env::set_var("PYTHONHOME", home);
         }
+    }
     let args = match libre::cli::parse_args() {
         Ok(args) => args,
         Err(err) => {

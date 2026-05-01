@@ -60,7 +60,7 @@ impl RustBackend {
         })
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn create_bot(&self) -> *mut c_void {
         unsafe { (self.create)() }
     }
