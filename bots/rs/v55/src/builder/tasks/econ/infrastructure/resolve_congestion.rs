@@ -49,7 +49,7 @@ pub fn resolve_congestion(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     // Same feeder may be reachable through multiple junctions; dedupe and
     // re-sort so destroy / approach order is fully deterministic.
     pyrust::sort_by_key!(targets, |p| (p.y, p.x));
-    targets.dedup();
+    pyrust::vec::dedup!(targets);
 
     if pyrust::vec::is_empty!(targets) {
         log(

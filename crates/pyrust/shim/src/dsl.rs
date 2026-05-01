@@ -613,6 +613,45 @@ macro_rules! __pyrust_vec_take {
     };
 }
 
+/// `pyrust::vec::dedup!(v)` — `Vec::dedup()`, removes consecutive
+/// duplicates in place. Python equivalent: rebuild list keeping only
+/// elements that differ from the previous one.
+#[macro_export]
+macro_rules! __pyrust_vec_dedup {
+    ($v:expr) => {
+        ($v).dedup()
+    };
+}
+
+/// `pyrust::vec::retain!(v, |x| pred)` — `Vec::retain(closure)`, keeps
+/// elements where the predicate returns true (in-place). Python: rebuild
+/// list with the same predicate.
+#[macro_export]
+macro_rules! __pyrust_vec_retain {
+    ($v:expr, $f:expr) => {
+        ($v).retain($f)
+    };
+}
+
+/// `pyrust::vec::reverse!(v)` — `Vec::reverse()`, in-place reversal.
+/// Python: `v.reverse()` (same name, but bare passthrough is risky on
+/// non-list types).
+#[macro_export]
+macro_rules! __pyrust_vec_reverse {
+    ($v:expr) => {
+        ($v).reverse()
+    };
+}
+
+/// `pyrust::vec::truncate!(v, n)` — `Vec::truncate(n)`, drops elements
+/// past index `n`. Python: `del v[n:]`.
+#[macro_export]
+macro_rules! __pyrust_vec_truncate {
+    ($v:expr, $n:expr) => {
+        ($v).truncate($n)
+    };
+}
+
 /// `pyrust::vec::first!(v)` — `Vec::first()`, Python `(v[0] if v else None)`.
 #[macro_export]
 macro_rules! __pyrust_vec_first {

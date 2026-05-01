@@ -1149,6 +1149,58 @@ fn emit_block_expr(w: &mut PyWriter, b: &syn::ExprBlock) -> Result<Emitted, Stri
         let (last, prelude) = stmts.split_last().unwrap();
         let all_lets = prelude.iter().all(|s| matches!(s, syn::Stmt::Local(_)));
         if all_lets && let syn::Stmt::Expr(inner, None) = last {
+            // If any prelude `let` binds a `#[pyrust::context_manager]`
+            // value, the with-block must wrap the tail. Emit
+            //   __block_value: the_value_type
+            //   with T(args) as _g [, T2(args) as _g2 …]:
+            //       __block_value = tail
+            // and evaluate to `__block_value` in expression position.
+            let ctx_lets: Vec<&syn::Local> = prelude
+                .iter()
+                .filter_map(|s| {
+                    if let syn::Stmt::Local(l) = s
+                        && super::stmt::is_ctx_manager_local(w, l)
+                    {
+                        Some(l)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            if !ctx_lets.is_empty() {
+                let tmp = "__block_value";
+                let mut openers: Vec<(String, String)> = Vec::new();
+                for s in prelude {
+                    if let syn::Stmt::Local(l) = s {
+                        if super::stmt::is_ctx_manager_local(w, l) {
+                            let bind_name = match &l.pat {
+                                syn::Pat::Ident(pi) => pi.ident.to_string(),
+                                _ => unreachable!(),
+                            };
+                            let init_expr = l.init.as_ref().unwrap().expr.as_ref();
+                            let init = emit_expr(w, init_expr)?;
+                            w.declare(&bind_name, Ty::Unknown);
+                            openers.push((init.text, bind_name));
+                        } else {
+                            super::stmt::emit_local_public(w, l)?;
+                        }
+                    }
+                }
+                let opener_line = openers
+                    .iter()
+                    .map(|(e, n)| format!("{e} as {n}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                w.line(&format!("with {opener_line}:"));
+                w.enter_indent();
+                w.enter_block();
+                let inner_em = emit_expr(w, inner)?;
+                w.line(&format!("{tmp} = {}", inner_em.text));
+                w.exit_block();
+                w.exit_indent();
+                w.declare(tmp, inner_em.ty);
+                return Ok(Emitted::atomic(tmp.to_string(), inner_em.ty));
+            }
             for s in prelude {
                 if let syn::Stmt::Local(l) = s {
                     super::stmt::emit_local_public(w, l)?;
@@ -2649,6 +2701,62 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                     base.text
                 ),
                 Ty::List,
+            )))
+        }
+        ["vec", "dedup"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::dedup!: expected (vec)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            // In-place rebuild: keep first element, then each item that
+            // differs from its left neighbour. Equivalent to Rust's
+            // `Vec::dedup()` which removes consecutive duplicates.
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "{0}.__setitem__(slice(None), [__x for __i, __x in enumerate({0}) if __i == 0 or __x != {0}[__i-1]])",
+                    inner.text
+                ),
+                Ty::Unit,
+            )))
+        }
+        ["vec", "retain"] => {
+            // Vec::retain(|x| pred): keep elements where pred is true.
+            // Python: rebuild list with same predicate.
+            let parsed = syn::parse2::<ClosureArgs>(tokens.clone())
+                .map_err(|e| w.err(em.span(), format!("vec::retain!: {e}")))?;
+            let v = emit_expr(w, &parsed.recv)?;
+            let body = emit_expr(w, &parsed.body)?;
+            let pname = parsed.param.clone();
+            Ok(Some(Emitted::atomic(
+                format!(
+                    "{0}.__setitem__(slice(None), [{1} for {1} in {0} if {2}])",
+                    v.text, pname, body.text
+                ),
+                Ty::Unit,
+            )))
+        }
+        ["vec", "reverse"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::reverse!: expected (vec)"));
+            }
+            let inner = emit_expr(w, &args[0])?;
+            Ok(Some(Emitted::atomic(
+                format!("{}.reverse()", inner.text),
+                Ty::Unit,
+            )))
+        }
+        ["vec", "truncate"] => {
+            let args = parse_args!();
+            if args.len() != 2 {
+                return Err(w.err(em.span(), "vec::truncate!: expected (vec, n)"));
+            }
+            let v = emit_expr(w, &args[0])?;
+            let n = emit_expr(w, &args[1])?;
+            Ok(Some(Emitted::atomic(
+                format!("del {}[{}:]", v.text, n.text),
+                Ty::Unit,
             )))
         }
         ["vec", "first"] => {
