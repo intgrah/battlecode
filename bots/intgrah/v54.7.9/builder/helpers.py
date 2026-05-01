@@ -438,7 +438,10 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
         if (
             isinstance(
                 b,
-                BuildingBridge | BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter,
+                BuildingBridge
+                | BuildingConveyor
+                | BuildingArmouredConveyor
+                | BuildingSplitter,
             )
             and b.team != self.my_team
         ):
@@ -585,26 +588,28 @@ def harvester_barrier_saturated(self: Builder, ore_pos: Position) -> bool:
     return barriers >= 3
 
 
-def pick_ore_target(self: Builder) -> Position | None:
-    return _pick_ore(self, Environment.ORE_TITANIUM)
-
-
-def pick_ax_ore_target(self: Builder) -> Position | None:
-    return _pick_ore(self, Environment.ORE_AXIONITE)
-
-
 def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
-    """Pick a Ti ore tile outside our econ disc (further than
-    sqrt(econ_radius_sq) = 0.7·max(w,h) from our core) for an
-    offensive harvester."""
+    econ_radius_sq = self.econ_radius_sq
+    my_pos = self.my_pos
+    my_core = self.my_core
+    friendlies = [
+        (fb_pos, fb_id)
+        for fb_pos, fb_id in self.all_bots.items()
+        if fb_id != self.my_id and fb_pos in self.friendly_bots
+    ]
     best_target = None
     min_dist = INF
-    for pos in self.nearby_tiles:
-        if self.get_env(pos) != Environment.ORE_TITANIUM:
+    for pos in self.visible_ti_ores:
+        if not self.is_reachable(pos):
+            continue
+        if pos.distance_squared(my_core) <= econ_radius_sq:
+            continue
+        if not ore_available(self, pos):
+            continue
+        d = my_pos.distance_squared(pos)
+        if d >= min_dist:
             continue
         match self.get_building(pos):
-            case BuildingHarvester():
-                continue
             case None | BuildingRoad() | BuildingMarker() | BuildingBarrier():
                 pass
             case BuildingConveyor() | BuildingArmouredConveyor():
@@ -612,29 +617,12 @@ def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
                     continue
             case _:
                 continue
-        if not self.is_reachable(pos):
-            continue
-        d = self.my_pos.distance_squared(pos)
-        if not ore_available(self, pos):
-            continue
-        if pos.distance_squared(self.my_core) <= self.econ_radius_sq:
+        if not claims_by_proximity(my_pos, self.my_id, pos, friendlies):
             continue
         if harvester_would_contaminate(self, pos):
             continue
-        if not claims_by_proximity(
-            self.my_pos,
-            self.my_id,
-            pos,
-            (
-                (fb_pos, fb_id)
-                for fb_pos, fb_id in self.all_bots.items()
-                if fb_id != self.my_id and fb_pos in self.friendly_bots
-            ),
-        ):
-            continue
-        if d < min_dist:
-            min_dist = d
-            best_target = pos
+        min_dist = d
+        best_target = pos
     return best_target
 
 
@@ -734,62 +722,48 @@ def is_inward_guard(self: Builder, pos: Position) -> bool:
     return isinstance(target_b, BuildingHarvester) and target_b.team == self.my_team
 
 
-def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
+def pick_ore(self: Builder, wanted: Environment) -> Position | None:
+    ore_set = (
+        self.visible_ti_ores
+        if wanted == Environment.ORE_TITANIUM
+        else self.visible_ax_ores
+    )
+    econ_radius_sq = self.econ_radius_sq
+    my_pos = self.my_pos
+    my_core = self.my_core
+    friendlies = [
+        (fb_pos, fb_id)
+        for fb_pos, fb_id in self.all_bots.items()
+        if fb_id != self.my_id and fb_pos in self.friendly_bots
+    ]
     best_target = None
     min_dist = INF
-    for pos in self.nearby_tiles:
-        if self.get_env(pos) != wanted:
+    for pos in ore_set:
+        if not self.is_reachable(pos):
+            continue
+        if pos.distance_squared(my_core) > econ_radius_sq:
+            continue
+        if not ore_available(self, pos):
+            continue
+        d = my_pos.distance_squared(pos)
+        if d >= min_dist:
             continue
         match self.get_building(pos):
-            case BuildingHarvester():
-                continue
             case None | BuildingRoad() | BuildingMarker() | BuildingBarrier():
                 pass
             case BuildingConveyor() | BuildingArmouredConveyor():
-                # Allow only if it's our own inward guard pointing at
-                # an adjacent friendly harvester — we'll destroy it
-                # before claiming. Outward / sideways / enemy conveyors
-                # still block.
                 if not is_inward_guard(self, pos):
                     continue
             case _:
                 continue
-        if not self.is_reachable(pos):
+        if not claims_by_proximity(my_pos, self.my_id, pos, friendlies):
             continue
-        d = self.my_pos.distance_squared(pos)
-        if not ore_available(self, pos):
-            continue
-        if pos.distance_squared(self.my_core) > self.econ_radius_sq:
-            continue
-        # Contamination gate: skip an ore if placing a harvester there would
-        # leak Ti into an Ax chain (or Ax into a Ti chain) via an adjacent
-        # transport tile.
         if harvester_would_contaminate(self, pos):
             continue
-        # Feed-availability gate: skip ores with no viable feed cardinal
-        # (e.g. boxed in by enemy transports / walls / friendly inward
-        # guards / harvesters). Without a feed slot the harvester can't
-        # be built or its output goes nowhere we control.
         if harvester_feed_cardinal(self, pos) is None:
             continue
-        # Coordination: skip an ore tile if any visible friendly builder is
-        # strictly closer. Each builder ends up claiming the ores it is
-        # nearest to, so several builders don't converge on the same tile
-        # and deadlock while one places the harvester.
-        if not claims_by_proximity(
-            self.my_pos,
-            self.my_id,
-            pos,
-            (
-                (fb_pos, fb_id)
-                for fb_pos, fb_id in self.all_bots.items()
-                if fb_id != self.my_id and fb_pos in self.friendly_bots
-            ),
-        ):
-            continue
-        if d < min_dist:
-            min_dist = d
-            best_target = pos
+        min_dist = d
+        best_target = pos
     return best_target
 
 

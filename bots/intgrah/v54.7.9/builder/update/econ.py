@@ -30,9 +30,8 @@ from builder.helpers import (
     harvester_would_contaminate,
     is_inward_guard,
     ore_available,
-    pick_ax_ore_target,
     pick_offensive_ti_ore_target,
-    pick_ore_target,
+    pick_ore,
 )
 
 if TYPE_CHECKING:
@@ -256,8 +255,8 @@ def pick_dangling_output(
     return best
 
 
-def update_ore_target(self: Builder) -> None:
-    candidate_ore = pick_ore_target(self)
+def update_ti_ore_target(self: Builder) -> None:
+    candidate_ore = pick_ore(self, Environment.ORE_TITANIUM)
     if (
         not self.ore_target
         or not ore_available(self, self.ore_target)
@@ -810,15 +809,15 @@ def update_foundry_target(self: Builder) -> None:
         )
         still_valid_junction = is_transport and ft in self.junctions
         still_valid_kind_c = (
-            is_transport
-            and ft in self.reaches_core
-            and ft not in self.reaches_foundry
+            is_transport and ft in self.reaches_core and ft not in self.reaches_foundry
         )
         if not (still_valid_junction or still_valid_kind_c):
             self.foundry_target = None
     if self.foundry_target is None and self.ax_sink is not None:
         chosen = self.ax_sink
-        if chosen in self.junctions or (_foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen)):
+        if chosen in self.junctions or (
+            _foundry_local_ok(self, chosen) and ax_feeds_target(self, chosen)
+        ):
             self.foundry_target = chosen
 
 
@@ -954,7 +953,7 @@ def update_ax_ore_target(self: Builder) -> None:
     if self.ti < 2 * int(ti_base * self.scale):
         self.ax_ore_target = None
         return
-    candidate = pick_ax_ore_target(self)
+    candidate = pick_ore(self, Environment.ORE_AXIONITE)
     if (
         not self.ax_ore_target
         or not ore_available(self, self.ax_ore_target)
