@@ -624,7 +624,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             }
             let status = classification
                 .iter()
-                .find_map(|(p, s)| if *p == c { Some(*s) } else { None })
+                .find_map(|t| if t.0 == c { Some(t.1) } else { None })
                 .unwrap_or("?");
             let mut args = Map::new();
             args.insert("c".to_string(), auto_wrap_position(c));
@@ -728,9 +728,9 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
         if harvester_would_contaminate(builder, *pos) {
             continue;
         }
-        let friends_iter = builder.state.all_bots.iter().filter_map(|(p, &fid)| {
-            if fid != builder.state.my_id && builder.state.friendly_bots.contains(p) {
-                Some((*p, fid))
+        let friends_iter = builder.state.all_bots.iter().filter_map(|t| {
+            if *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0) {
+                Some((*t.0, *t.1))
             } else {
                 None
             }
@@ -787,11 +787,9 @@ pub fn harvester_would_contaminate(builder: &Builder, pos: Position) -> bool {
         }
         let ni = (n.y as usize) * MAX_WIDTH + (n.x as usize);
         let is_bad = bad_upstream.contains(&n)
-            || builder.flow_history[ni].iter().any(
-                |(r, _): &(Option<ResourceType>, Option<i32>)| {
-                    r.is_some_and(|res| bad_flows.contains(&res))
-                },
-            );
+            || builder.flow_history[ni]
+                .iter()
+                .any(|t| t.0.is_some_and(|res| bad_flows.contains(&res)));
         if !is_bad {
             continue;
         }
@@ -878,9 +876,9 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
         if harvester_feed_cardinal(builder, *pos).is_none() {
             continue;
         }
-        let friends_iter = builder.state.all_bots.iter().filter_map(|(p, &fid)| {
-            if fid != builder.state.my_id && builder.state.friendly_bots.contains(p) {
-                Some((*p, fid))
+        let friends_iter = builder.state.all_bots.iter().filter_map(|t| {
+            if *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0) {
+                Some((*t.0, *t.1))
             } else {
                 None
             }

@@ -67,14 +67,14 @@ const _REASSIGN_PERIOD: i32 = 150;
 const _REASSIGN_AFTER: i32 = 400;
 
 fn weighted_choice(builder: &mut Builder, choices: &[(Role, u32)]) -> Role {
-    let total: u32 = choices.iter().map(|&(_, w)| w).sum();
+    let total: u32 = choices.iter().map(|t| t.1).sum();
     if total == 0 {
         return choices[0].0;
     }
     // Mirror Python's `random.choices(population, weights=..., k=1)` so
     // role transitions match across native ⇄ translated builds.
-    let population: Vec<Role> = choices.iter().map(|&(r, _)| r).collect();
-    let weights: Vec<f64> = choices.iter().map(|&(_, w)| f64::from(w)).collect();
+    let population: Vec<Role> = choices.iter().map(|t| t.0).collect();
+    let weights: Vec<f64> = choices.iter().map(|t| f64::from(t.1)).collect();
     *builder.state.rng.choices(&population, Some(&weights), 1)[0]
 }
 

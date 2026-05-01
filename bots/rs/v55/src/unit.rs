@@ -146,8 +146,8 @@ impl UnitState {
                 dir_neighbours_8.push((d, p));
             }
         }
-        let neighbours_4: Vec<Position> = dir_neighbours_4.iter().map(|&(_, p)| p).collect();
-        let neighbours_8: Vec<Position> = dir_neighbours_8.iter().map(|&(_, p)| p).collect();
+        let neighbours_4: Vec<Position> = dir_neighbours_4.iter().map(|t| t.1).collect();
+        let neighbours_8: Vec<Position> = dir_neighbours_8.iter().map(|t| t.1).collect();
 
         let round = ct.get_current_round().unwrap();
         let (ti, ax) = ct.get_global_resources().unwrap();

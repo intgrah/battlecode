@@ -283,10 +283,10 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
         .state
         .all_bots
         .iter()
-        .filter(|&(pos, &uid)| {
-            uid != builder.state.my_id && builder.state.friendly_bots.contains(pos)
+        .filter(|t| {
+            *t.1 != builder.state.my_id && builder.state.friendly_bots.contains(t.0)
         })
-        .map(|(&pos, &uid)| (pos, uid))
+        .map(|t| (*t.0, *t.1))
         .collect();
     let en_core = if builder.symmetry.is_some() {
         Some(builder.en_core_guess)
@@ -482,7 +482,7 @@ fn _foundry_local_ok(builder: &Builder, pos: Position) -> bool {
 fn _tile_volume(builder: &Builder, pos: Position) -> usize {
     builder.flow_history[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)]
         .iter()
-        .filter(|(r, _)| r.is_some())
+        .filter(|t| t.0.is_some())
         .count()
 }
 
@@ -527,7 +527,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
         if hist.len() < FLOW_HISTORY_LEN {
             continue;
         }
-        if hist.iter().filter(|(r, _)| r.is_some()).count() < FLOW_HISTORY_LEN {
+        if hist.iter().filter(|t| t.0.is_some()).count() < FLOW_HISTORY_LEN {
             continue;
         }
         let mut total: usize = 0;
@@ -538,7 +538,7 @@ fn _detect_congested_junctions(builder: &Builder) -> Vec<Position> {
                 complete = false;
                 break;
             }
-            total += fh.iter().filter(|(r, _)| r.is_some()).count();
+            total += fh.iter().filter(|t| t.0.is_some()).count();
         }
         if complete && total > FLOW_HISTORY_LEN {
             result.push(*t);
@@ -563,7 +563,7 @@ fn _detect_saturated_tiles(builder: &Builder) -> Vec<Position> {
         if hist.len() < FLOW_HISTORY_LEN {
             continue;
         }
-        if hist.iter().filter(|(r, _)| r.is_some()).count() >= FLOW_HISTORY_LEN {
+        if hist.iter().filter(|t| t.0.is_some()).count() >= FLOW_HISTORY_LEN {
             result.push(*t);
         }
     }
@@ -644,11 +644,11 @@ pub fn check_invariants(builder: &Builder) {
         ._ti_harv_at
         .iter()
         .enumerate()
-        .filter_map(|(i, &c)| {
-            if c > 0 {
+        .filter_map(|t| {
+            if *t.1 > 0 {
                 Some(Position {
-                    x: (i % MAX_WIDTH) as i32,
-                    y: (i / MAX_WIDTH) as i32,
+                    x: (t.0 % MAX_WIDTH) as i32,
+                    y: (t.0 / MAX_WIDTH) as i32,
                 })
             } else {
                 None
@@ -659,11 +659,11 @@ pub fn check_invariants(builder: &Builder) {
         ._ax_harv_at
         .iter()
         .enumerate()
-        .filter_map(|(i, &c)| {
-            if c > 0 {
+        .filter_map(|t| {
+            if *t.1 > 0 {
                 Some(Position {
-                    x: (i % MAX_WIDTH) as i32,
-                    y: (i / MAX_WIDTH) as i32,
+                    x: (t.0 % MAX_WIDTH) as i32,
+                    y: (t.0 / MAX_WIDTH) as i32,
                 })
             } else {
                 None

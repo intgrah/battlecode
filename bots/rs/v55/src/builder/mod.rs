@@ -330,7 +330,7 @@ impl Builder {
         let stride = MAX_WIDTH as i32;
         let offsets: Vec<i32> = DIR8_DELTA
             .iter()
-            .map(|&(dx, dy)| dy * stride + dx)
+            .map(|t| t.1 * stride + t.0)
             .collect();
         for cy in 1..(MAX_WIDTH as i32 - 1) {
             let row = cy * stride;
