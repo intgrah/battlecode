@@ -11,16 +11,26 @@
 
 use cambc::{Controller, ControllerApi, Environment, Position};
 
+#[pyrust::inline]
 const BIAS: f64 = 1.6306;
+#[pyrust::inline]
 const W_ECCENTRICITY: f64 = -0.5978;
+#[pyrust::inline]
 const W_EDGE_DIST: f64 = -0.0143;
+#[pyrust::inline]
 const W_CARDINAL_EXITS: f64 = -0.0114;
+#[pyrust::inline]
 const W_INNER_WALL_DENSITY: f64 = -0.2698;
+#[pyrust::inline]
 const W_OUTER_WALL_DENSITY: f64 = -0.2340;
+#[pyrust::inline]
 const W_NEAREST_TI_D2: f64 = -0.0109;
+#[pyrust::inline]
 const W_NEAREST_WALL_D2: f64 = -0.0015;
 
+#[pyrust::inline]
 const CORE_VISION_R2: i32 = 36;
+#[pyrust::inline]
 const INNER_R2: i32 = 8;
 
 /// Compute the spawn-tempo multiplier directly from post_init-visible map

@@ -11,7 +11,6 @@ mod writer;
 use std::collections::HashSet;
 use std::path::Path;
 
-use syn::spanned::Spanned;
 use syn::visit::Visit;
 
 use writer::PyWriter;
@@ -42,20 +41,12 @@ pub fn emit_file(
         if let syn::Item::Static(s) = item {
             w.note_static(&s.ident.to_string());
         }
-        // `#[pyrust::inline]` on a literal-RHS const: drop the
-        // declaration, substitute the literal at every use site.
-        if let syn::Item::Const(c) = item
-            && cfg.item_enabled(&c.attrs).unwrap_or(true)
-            && has_inline_attr(&c.attrs)
-        {
-            let lit = const_literal_text(&c.expr).ok_or_else(|| {
-                w.err(
-                    c.expr.span(),
-                    "#[pyrust::inline] const RHS must be a literal (int/float/bool/str)",
-                )
-            })?;
-            w.note_inline_const(c.ident.to_string(), lit);
-        }
+    }
+    // Workspace-wide `#[pyrust::inline]` consts collected by `scan_inline_consts`.
+    // Use sites resolve to the literal (LOAD_CONST), the declaration
+    // is also emitted so cross-module imports keep working.
+    for (name, lit) in &cfg.inline_consts {
+        w.note_inline_const(name.clone(), lit.clone());
     }
     // Pre-scan: collect all identifiers referenced from runtime (non-type)
     // positions so emit_use can decide which imports must run at module
@@ -579,37 +570,3 @@ impl syn::parse::Parse for MacroExprList {
     }
 }
 
-/// True if `attrs` includes `#[pyrust::inline]`.
-fn has_inline_attr(attrs: &[syn::Attribute]) -> bool {
-    attrs.iter().any(|a| {
-        let segs: Vec<String> = a
-            .path()
-            .segments
-            .iter()
-            .map(|s| s.ident.to_string())
-            .collect();
-        segs == ["pyrust", "inline"]
-    })
-}
-
-/// If `expr` is a literal (or a unary-`-` wrapping a literal),
-/// return its Python textual representation. Otherwise return None.
-fn const_literal_text(expr: &syn::Expr) -> Option<String> {
-    match expr {
-        syn::Expr::Lit(l) => match &l.lit {
-            syn::Lit::Int(i) => Some(i.base10_digits().to_string()),
-            syn::Lit::Float(f) => Some(f.base10_digits().to_string()),
-            syn::Lit::Bool(b) => Some(if b.value { "True" } else { "False" }.to_string()),
-            syn::Lit::Str(s) => {
-                let v = s.value().replace('\\', "\\\\").replace('"', "\\\"");
-                Some(format!("\"{v}\""))
-            }
-            _ => None,
-        },
-        syn::Expr::Unary(u) if matches!(u.op, syn::UnOp::Neg(_)) => {
-            const_literal_text(&u.expr).map(|s| format!("-{s}"))
-        }
-        // `-1.0f64` etc. parse as Lit, no special path needed beyond Unary.
-        _ => None,
-    }
-}

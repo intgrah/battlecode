@@ -16,6 +16,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::constants::MAX_WIDTH;
 use crate::util::metrics::chebyshev;
 
+#[pyrust::inline]
 const UPSTREAM_SEARCH_CAP: usize = 80;
 
 /// BFS backwards from `start` through `in_edges` until a friendly

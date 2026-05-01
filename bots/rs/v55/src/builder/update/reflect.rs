@@ -3,6 +3,7 @@ use cambc::{Environment, Position};
 use crate::builder::Builder;
 use crate::util::constants::{INF, MAX_WIDTH, ROAD_COST};
 
+#[pyrust::inline]
 const _REFLECT_BUDGET: usize = 25;
 
 /// Drain the reflect queue. No-op if symmetry isn't resolved yet —

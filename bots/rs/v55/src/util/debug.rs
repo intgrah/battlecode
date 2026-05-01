@@ -21,6 +21,7 @@ use serde_json::{Map, Value};
 use crate::config::DEBUG_LOG;
 use crate::util::visualiser::{Dump, Dumper};
 
+#[pyrust::inline]
 /// Discriminator key for typed JSON nodes (matches Python `_TYPE = "$type"`).
 const TYPE_KEY: &str = "$type";
 

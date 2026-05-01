@@ -2,17 +2,21 @@
 
 use cambc::{EntityType, GameConstants};
 
+#[pyrust::inline]
 /// Length of per-tile `flow_history` deques. Each entry is one observation
 /// of the tile's stored resource (or `None`). Flow/volume metrics divide
 /// counts by this constant to normalise to `[0, 1]`.
 pub const FLOW_HISTORY_LEN: usize = 8;
 
+#[pyrust::inline]
 /// Large number used to represent unreachable distances or hard preferences.
 pub const INF: i32 = 1_000_000;
 
+#[pyrust::inline]
 /// The cost of having to place a road on an empty tile, used for A* navigation.
 pub const ROAD_COST: i32 = 3;
 
+#[pyrust::inline]
 /// Hardcoded map-size stride for flat indexing. All flat arrays are length `MAX_N`.
 pub const MAX_WIDTH: usize = 50;
 

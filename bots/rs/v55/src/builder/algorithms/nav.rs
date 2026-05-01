@@ -21,6 +21,7 @@ use crate::builder::algorithms::bug2_planner::{Bug2Planner, build_mline_seq};
 use crate::builder::algorithms::dp_step::dp_step;
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
 
+#[pyrust::inline]
 const PLAN_BUDGET: i32 = 25;
 
 /// Subset of `Builder` state read by nav. Phase G6's `Builder` will populate

@@ -166,6 +166,7 @@ fn _hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     ((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8)
 }
 
+#[pyrust::inline]
 const _GOLDEN: f64 = 0.6180339887498949;
 
 fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {

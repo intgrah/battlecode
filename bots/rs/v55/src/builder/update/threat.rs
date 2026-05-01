@@ -8,6 +8,7 @@ use crate::builder::Builder;
 use crate::builder::update::vision::_update_cost;
 use crate::util::constants::{INF, MAX_WIDTH};
 
+#[pyrust::inline]
 /// Additive penalty applied to threatened tiles. Sized so `dp_step`
 /// prefers a detour of up to ~16 extra `ROAD_COST` hops (50 / 3) over
 /// walking through a turret ray.

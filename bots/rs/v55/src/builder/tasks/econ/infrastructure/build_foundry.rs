@@ -14,6 +14,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::debug::debug as log;
 use serde_json::Map;
 
+#[pyrust::inline]
 /// First foundry >= turn 500.
 const FOUNDRY_ROUND_GATE: i32 = 500;
 
