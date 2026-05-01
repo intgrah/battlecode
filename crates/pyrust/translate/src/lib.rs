@@ -112,10 +112,11 @@ pub fn translate_file(input: &Path, output: Option<&Path>, cfg: &CfgEnv) -> Resu
         }
         Some(path) => {
             if let Some(parent) = path.parent()
-                && !parent.as_os_str().is_empty() {
-                    fs::create_dir_all(parent)
-                        .map_err(|e| format!("create {}: {e}", parent.display()))?;
-                }
+                && !parent.as_os_str().is_empty()
+            {
+                fs::create_dir_all(parent)
+                    .map_err(|e| format!("create {}: {e}", parent.display()))?;
+            }
             fs::write(path, py.as_bytes()).map_err(|e| format!("write {}: {e}", path.display()))?;
         }
     }

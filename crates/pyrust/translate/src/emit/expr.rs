@@ -190,10 +190,7 @@ fn emit_field_expr(w: &mut PyWriter, f: &syn::ExprField) -> Result<Emitted, Stri
         }
         syn::Member::Named(name) => {
             // Struct field access `obj.field` → `obj.field`.
-            Ok(Emitted::atomic(
-                format!("{recv_text}.{name}"),
-                Ty::Unknown,
-            ))
+            Ok(Emitted::atomic(format!("{recv_text}.{name}"), Ty::Unknown))
         }
     }
 }
@@ -824,16 +821,16 @@ fn matches_pat_to_bool(w: &mut PyWriter, scrut: &str, pat: &syn::Pat) -> Result<
                 .map(|s| s.ident.to_string())
                 .collect();
             // Resolve `Self::Variant` to the surrounding class.
-            let resolved: Vec<String> = if segs.first().map(|s| s == "Self").unwrap_or(false) {
+            let resolved: Vec<String> = if segs.first().is_some_and(|s| s == "Self") {
                 if let Some(cls) = w.current_class() {
                     let mut v = vec![cls.to_string()];
                     v.extend(segs.iter().skip(1).cloned());
                     v
                 } else {
-                    segs.clone()
+                    segs
                 }
             } else {
-                segs.clone()
+                segs
             };
             let s: Vec<&str> = resolved.iter().map(String::as_str).collect();
             match s.as_slice() {
@@ -1367,8 +1364,11 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
         let is_serde_wrapper = matches!(
             slice.as_slice(),
-            ["serde_json", "Value", "String" | "Number" | "Bool" | "Object" | "Array"]
-                | ["Value", "String" | "Number" | "Bool" | "Object" | "Array"]
+            [
+                "serde_json",
+                "Value",
+                "String" | "Number" | "Bool" | "Object" | "Array"
+            ] | ["Value", "String" | "Number" | "Bool" | "Object" | "Array"]
                 | ["serde_json", "Number", "from"]
                 | ["Number", "from"]
         );
@@ -1378,10 +1378,7 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         // `serde_json::to_string(v)` → `json.dumps(v)`. Path-matched.
         // The `import json` is added at file level via file_uses_macro_path
         // (or file_uses_serde_to_string) detection in mod.rs.
-        if matches!(
-            slice.as_slice(),
-            ["serde_json", "to_string"]
-        ) {
+        if matches!(slice.as_slice(), ["serde_json", "to_string"]) {
             let inner = emit_expr(w, c.args.first().unwrap())?;
             return Ok(Emitted::atomic(
                 format!("json.dumps({})", inner.text),
@@ -1438,12 +1435,12 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         // requiring a DSL macro.
         if c.args.len() == 1 {
             let py = match slice.as_slice() {
-                ["f32", "from"] | ["f64", "from"] => Some(("float", Ty::Float)),
-                ["i8", "from"] | ["i16", "from"] | ["i32", "from"] | ["i64", "from"]
-                | ["i128", "from"] | ["isize", "from"] | ["u8", "from"] | ["u16", "from"]
-                | ["u32", "from"] | ["u64", "from"] | ["u128", "from"] | ["usize", "from"] => {
-                    Some(("int", Ty::Int))
-                }
+                ["f32" | "f64", "from"] => Some(("float", Ty::Float)),
+                [
+                    "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
+                    | "u128" | "usize",
+                    "from",
+                ] => Some(("int", Ty::Int)),
                 _ => None,
             };
             if let Some((name, ty)) = py {
@@ -1469,7 +1466,10 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         if c.args.len() == 1
             && matches!(
                 slice.as_slice(),
-                ["Vec" | "VecDeque" | "HashSet" | "HashMap" | "String", "with_capacity"]
+                [
+                    "Vec" | "VecDeque" | "HashSet" | "HashMap" | "String",
+                    "with_capacity"
+                ]
             )
         {
             let py = match slice[0] {
@@ -1795,9 +1795,10 @@ fn emit_if_expr(w: &mut PyWriter, i: &syn::ExprIf) -> Result<Emitted, String> {
 
 pub fn single_tail(stmts: &[syn::Stmt]) -> Option<&syn::Expr> {
     if stmts.len() == 1
-        && let syn::Stmt::Expr(e, None) = &stmts[0] {
-            return Some(e);
-        }
+        && let syn::Stmt::Expr(e, None) = &stmts[0]
+    {
+        return Some(e);
+    }
     None
 }
 
@@ -2212,7 +2213,7 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Int,
             )))
         }
-        ["powf"] | ["powi"] => {
+        ["powf" | "powi"] => {
             let args = parse_args!();
             if args.len() != 2 {
                 return Err(w.err(em.span(), "powf/powi!: expected (x, y)"));
@@ -2599,10 +2600,7 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 .map(|e| e.text.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            Ok(Some(Emitted::atomic(
-                format!("print({joined})"),
-                Ty::Unit,
-            )))
+            Ok(Some(Emitted::atomic(format!("print({joined})"), Ty::Unit)))
         }
         ["len"] => {
             let args = parse_args!();

@@ -50,9 +50,7 @@ impl Scope {
     }
 
     pub fn is_in_current_frame(&self, name: &str) -> bool {
-        self.frames
-            .last()
-            .is_some_and(|f| f.contains_key(name))
+        self.frames.last().is_some_and(|f| f.contains_key(name))
     }
 
     pub fn is_in_outer_frame(&self, name: &str) -> bool {
@@ -187,15 +185,19 @@ fn path_type_to_python(path: &syn::Path) -> Result<String, String> {
         (false, ["f32" | "f64"]) => Ok("float".to_owned()),
         (false, ["bool"]) => Ok("bool".to_owned()),
         (false, ["str" | "String"]) => Ok("str".to_owned()),
-        (false,
-["List" | "Vec" | "VecDeque"] | ["pyrust", "List"] |
-["std", "collections", "VecDeque"]) => {
+        (
+            false,
+            ["List" | "Vec" | "VecDeque"] | ["pyrust", "List"] | ["std", "collections", "VecDeque"],
+        ) => {
             let arg = generic_type_arg(last_seg, 0)?;
             Ok(format!("list[{}]", type_to_python_str(arg)?))
         }
-        (false,
-["Dict" | "HashMap" | "BTreeMap"] | ["pyrust", "Dict"] |
-["std", "collections", "HashMap" | "BTreeMap"]) => {
+        (
+            false,
+            ["Dict" | "HashMap" | "BTreeMap"]
+            | ["pyrust", "Dict"]
+            | ["std", "collections", "HashMap" | "BTreeMap"],
+        ) => {
             let k = generic_type_arg(last_seg, 0)?;
             let v = generic_type_arg(last_seg, 1)?;
             Ok(format!(
@@ -204,9 +206,12 @@ fn path_type_to_python(path: &syn::Path) -> Result<String, String> {
                 type_to_python_str(v)?
             ))
         }
-        (false,
-["Set" | "HashSet" | "BTreeSet"] | ["pyrust", "Set"] |
-["std", "collections", "HashSet" | "BTreeSet"]) => {
+        (
+            false,
+            ["Set" | "HashSet" | "BTreeSet"]
+            | ["pyrust", "Set"]
+            | ["std", "collections", "HashSet" | "BTreeSet"],
+        ) => {
             let arg = generic_type_arg(last_seg, 0)?;
             Ok(format!("set[{}]", type_to_python_str(arg)?))
         }

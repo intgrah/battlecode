@@ -32,10 +32,10 @@ pub fn produces_output(item: &syn::Item) -> bool {
     // pyrust translation drops it silently.
     if let syn::Item::Macro(m) = item
         && let Some(name) = m.mac.path.get_ident().map(std::string::ToString::to_string)
-            && name == "cambc_bot"
-        {
-            return false;
-        }
+        && name == "cambc_bot"
+    {
+        return false;
+    }
     true
 }
 
@@ -368,9 +368,10 @@ pub fn emit_enum_with_file(
         .iter()
         .filter_map(|i| {
             if let syn::Item::Impl(im) = i
-                && impl_target_name(&im.self_ty).as_deref() == Some(name.as_str()) {
-                    return Some(im);
-                }
+                && impl_target_name(&im.self_ty).as_deref() == Some(name.as_str())
+            {
+                return Some(im);
+            }
             None
         })
         .collect();

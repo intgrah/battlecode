@@ -192,8 +192,12 @@ fn file_uses_call_path(items: &[&syn::Item], paths: &[&[&str]]) -> bool {
             if let syn::Expr::Path(p) = &*c.func
                 && p.qself.is_none()
             {
-                let segs: Vec<String> =
-                    p.path.segments.iter().map(|s| s.ident.to_string()).collect();
+                let segs: Vec<String> = p
+                    .path
+                    .segments
+                    .iter()
+                    .map(|s| s.ident.to_string())
+                    .collect();
                 let tail: Vec<&str> = segs.iter().map(String::as_str).collect();
                 if self
                     .paths
@@ -208,8 +212,7 @@ fn file_uses_call_path(items: &[&syn::Item], paths: &[&[&str]]) -> bool {
         fn visit_expr_macro(&mut self, em: &'ast syn::ExprMacro) {
             // Calls buried inside macro bodies (`pyrust::expect!(...)`,
             // `vec![...]`, `format!(...)`) still count.
-            let parser =
-                syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+            let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
             if let Ok(args) = syn::parse::Parser::parse2(parser, em.mac.tokens.clone()) {
                 for arg in args {
                     self.visit_expr(&arg);

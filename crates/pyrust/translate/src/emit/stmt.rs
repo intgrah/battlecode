@@ -84,11 +84,10 @@ fn emit_stmt_seq(
 /// convention `_*`) AND `EXPR` is a call/path whose head segment is a
 /// registered `#[pyrust::context_manager]` type, return `(NAME, EXPR)`.
 /// Otherwise None.
-fn ctx_manager_let<'a>(
-    w: &PyWriter,
-    stmt: &'a syn::Stmt,
-) -> Option<(String, &'a syn::Expr)> {
-    let syn::Stmt::Local(l) = stmt else { return None };
+fn ctx_manager_let<'a>(w: &PyWriter, stmt: &'a syn::Stmt) -> Option<(String, &'a syn::Expr)> {
+    let syn::Stmt::Local(l) = stmt else {
+        return None;
+    };
     is_ctx_manager_local(w, l).then(|| {
         let bind_name = match &l.pat {
             syn::Pat::Ident(pi) => pi.ident.to_string(),
@@ -102,7 +101,9 @@ fn ctx_manager_let<'a>(
 /// only the boolean — the caller has the local handy and can extract
 /// the binding name / init expression itself.
 pub fn is_ctx_manager_local(w: &PyWriter, l: &syn::Local) -> bool {
-    let Some(init) = l.init.as_ref() else { return false };
+    let Some(init) = l.init.as_ref() else {
+        return false;
+    };
     if init.diverge.is_some() {
         return false;
     }
@@ -113,7 +114,9 @@ pub fn is_ctx_manager_local(w: &PyWriter, l: &syn::Local) -> bool {
     if !bind_name.starts_with('_') {
         return false;
     }
-    let Some(head) = ctx_manager_call_head(&init.expr) else { return false };
+    let Some(head) = ctx_manager_call_head(&init.expr) else {
+        return false;
+    };
     w.is_context_manager_type(&head)
 }
 
@@ -126,15 +129,18 @@ fn ctx_manager_call_head(e: &syn::Expr) -> Option<String> {
         syn::Expr::Path(p) => return p.path.segments.first().map(|s| s.ident.to_string()),
         _ => return None,
     };
-    let syn::Expr::Path(p) = func else { return None };
+    let syn::Expr::Path(p) = func else {
+        return None;
+    };
     p.path.segments.first().map(|s| s.ident.to_string())
 }
 
 const fn split_tail(stmts: &[syn::Stmt]) -> (&[syn::Stmt], Option<&syn::Expr>) {
     if let Some((last, rest)) = stmts.split_last()
-        && let syn::Stmt::Expr(e, None) = last {
-            return (rest, Some(e));
-        }
+        && let syn::Stmt::Expr(e, None) = last
+    {
+        return (rest, Some(e));
+    }
     (stmts, None)
 }
 
@@ -439,10 +445,7 @@ fn emit_match_into_let(
             other_arms.push(arm);
         }
     }
-    let ordered: Vec<&syn::Arm> = none_arms
-        .into_iter()
-        .chain(other_arms)
-        .collect();
+    let ordered: Vec<&syn::Arm> = none_arms.into_iter().chain(other_arms).collect();
     for arm in ordered {
         let pat_text = super::pat::pat_to_python(w, &arm.pat)?;
         let some_check = some_binding_check(&arm.pat);
@@ -1030,10 +1033,9 @@ fn emit_tail(w: &mut PyWriter, e: &syn::Expr, tail: Tail) -> Result<(), String> 
                     let name = match &fv.member {
                         syn::Member::Named(n) => n.to_string(),
                         syn::Member::Unnamed(_) => {
-                            return Err(w.err(
-                                fv.span(),
-                                "tuple struct literals not supported in Self {}",
-                            ));
+                            return Err(
+                                w.err(fv.span(), "tuple struct literals not supported in Self {}")
+                            );
                         }
                     };
                     let value = expr::emit_expr(w, &fv.expr)?;
@@ -1769,10 +1771,7 @@ fn emit_match_stmt(w: &mut PyWriter, m: &syn::ExprMatch, tail: Tail) -> Result<(
             other_arms.push(arm);
         }
     }
-    let ordered: Vec<&syn::Arm> = none_arms
-        .into_iter()
-        .chain(other_arms)
-        .collect();
+    let ordered: Vec<&syn::Arm> = none_arms.into_iter().chain(other_arms).collect();
 
     w.line(&format!("match {}:", scrutinee.text));
     w.enter_indent();

@@ -270,12 +270,12 @@ pub fn seed(s: i64) {
     DEFAULT.with(|r| r.borrow_mut().seed(s));
 }
 
-#[must_use] 
+#[must_use]
 pub fn random() -> f64 {
     DEFAULT.with(|r| r.borrow_mut().random())
 }
 
-#[must_use] 
+#[must_use]
 pub fn randint(a: i64, b: i64) -> i64 {
     DEFAULT.with(|r| r.borrow_mut().randint(a, b))
 }
@@ -288,7 +288,7 @@ pub fn shuffle<T>(items: &mut [T]) {
     DEFAULT.with(|r| r.borrow_mut().shuffle(items));
 }
 
-#[must_use] 
+#[must_use]
 pub fn getrandbits(k: u32) -> u128 {
     DEFAULT.with(|r| r.borrow_mut().getrandbits(k))
 }

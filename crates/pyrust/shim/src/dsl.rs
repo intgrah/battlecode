@@ -623,8 +623,8 @@ macro_rules! __pyrust_signum {
 }
 
 /// `pyrust::dict::collect!(it)` — collect an iterator of (k, v) pairs
-/// into a HashMap (Rust) / dict (Python). Bot author chooses this when
-/// the target type is a HashMap; the bare `pyrust::collect!` would emit
+/// into a `HashMap` (Rust) / dict (Python). Bot author chooses this when
+/// the target type is a `HashMap`; the bare `pyrust::collect!` would emit
 /// a list in Python.
 #[macro_export]
 macro_rules! __pyrust_dict_collect {

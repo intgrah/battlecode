@@ -177,7 +177,7 @@ impl PyWriter {
     /// `enum_name`. Distinguishes a constructor-call path (`Marker::Symmetry`)
     /// from a method call on the enum (`Marker::decode`).
     pub fn is_sum_enum_variant(&self, enum_name: &str, variant: &str) -> bool {
-        for (_, enums) in &self.cfg.sum_enum_registry {
+        for enums in self.cfg.sum_enum_registry.values() {
             if let Some(variants) = enums.get(enum_name)
                 && variants.iter().any(|v| v == variant)
             {

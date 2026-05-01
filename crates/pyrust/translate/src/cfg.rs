@@ -57,7 +57,7 @@ pub struct CfgEnv {
 
 impl CfgEnv {
     /// Default environment: `debug_assertions` is set, nothing else.
-    #[must_use] 
+    #[must_use]
     pub fn debug() -> Self {
         let mut env = Self::default();
         env.flags.insert("debug_assertions".into(), true);
@@ -95,12 +95,12 @@ impl CfgEnv {
         Ok(())
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn is_set(&self, name: &str) -> bool {
         self.flags.get(name).copied().unwrap_or(false)
     }
 
-    #[must_use] 
+    #[must_use]
     pub fn kv_matches(&self, name: &str, value: &str) -> bool {
         self.kv.get(name).is_some_and(|v| v == value)
     }
