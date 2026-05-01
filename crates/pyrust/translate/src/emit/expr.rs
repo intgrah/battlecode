@@ -1972,6 +1972,17 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
             return Ok(Emitted::atomic("None", Ty::Unknown));
         }
     }
+    // `serde_json::Value::Null` / `Value::Null` → Python `None`.
+    {
+        let segs: Vec<String> = p.path.segments.iter().map(|s| s.ident.to_string()).collect();
+        let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+        if matches!(
+            slice.as_slice(),
+            ["serde_json", "Value", "Null"] | ["Value", "Null"]
+        ) {
+            return Ok(Emitted::atomic("None", Ty::Unknown));
+        }
+    }
     if p.path.leading_colon.is_none() && p.path.segments.len() == 2 {
         let head = p.path.segments[0].ident.to_string();
         let tail = p.path.segments[1].ident.to_string();
@@ -2065,17 +2076,36 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
 }
 
 fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
-    // Type-driven: a 1-arg call that produces `serde_json::Value` (or
-    // `serde_json::Number`) is wrapping a Python-equivalent value into a
-    // tagged JSON node. Python's `json` module uses bare dict/list/str/int,
-    // so emit just the argument and drop the constructor.
+    // `serde_json::Value::*` and `serde_json::Number::from(...)` /
+    // `Number::from(...)` are JSON-wrapper constructors. Python's `json`
+    // module accepts bare dict/list/str/int, so the wrapper is erased:
+    // emit the inner argument and drop the constructor. Path-matched
+    // syntactically — no type info needed.
     if c.args.len() == 1
-        && let Some(result_kind) = w.ty_at(c.span())
-        && let Some(adt) = result_kind.adt()
-        && (adt.matches_crate_type("serde_json", "Value")
-            || adt.matches_crate_type("serde_json", "Number"))
+        && let syn::Expr::Path(fp) = c.func.as_ref()
+        && fp.qself.is_none()
     {
-        return emit_expr(w, c.args.first().unwrap());
+        let segs: Vec<String> = fp
+            .path
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect();
+        let slice: Vec<&str> = segs.iter().map(String::as_str).collect();
+        let is_serde_wrapper = matches!(
+            slice.as_slice(),
+            ["serde_json", "Value", "String"]
+                | ["serde_json", "Value", "Number"]
+                | ["serde_json", "Value", "Bool"]
+                | ["Value", "String"]
+                | ["Value", "Number"]
+                | ["Value", "Bool"]
+                | ["serde_json", "Number", "from"]
+                | ["Number", "from"]
+        );
+        if is_serde_wrapper {
+            return emit_expr(w, c.args.first().unwrap());
+        }
     }
     // `#[pyrust::transparent]` enum variant constructor — erase the
     // wrapper. `Foo::Direction(d)` becomes `d`. Detected syntactically:
