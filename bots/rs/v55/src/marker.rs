@@ -35,7 +35,7 @@ impl Marker {
     #[must_use]
     pub const fn encode(self) -> u32 {
         let (tag, payload) = match self {
-            Self::Symmetry { symmetry } => (TAG_SYMMETRY, symmetry as u32),
+            Marker::Symmetry { symmetry } => (TAG_SYMMETRY, symmetry as u32),
         };
         let raw = (tag << TAG_SHIFT) | (payload & PAYLOAD_MASK);
         raw ^ KEY
@@ -58,7 +58,7 @@ impl Marker {
                 2 => Symmetry::Ver,
                 _ => return None,
             };
-            Some(Self::Symmetry { symmetry: sym })
+            Some(Marker::Symmetry { symmetry: sym })
         } else {
             None
         }
