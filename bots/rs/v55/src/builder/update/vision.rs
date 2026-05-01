@@ -12,7 +12,7 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
     let old_kind = builder.building_kind[i];
     let old_team = builder.building_team[i];
     let my_team = builder.state.my_team;
-    if old_team == Some(my_team) && !builder.out_edges[i].is_empty() {
+    if old_team == Some(my_team) && !pyrust::vec::is_empty!(builder.out_edges[i]) {
         let outs: Vec<Position> = pyrust::clone!(builder.out_edges[i]);
         for t in outs {
             if !builder.in_bounds(t) {
@@ -64,7 +64,7 @@ pub fn _add_topology(
     }
     if team == builder.state.my_team {
         let targets = edge_targets(ct, pos, bid, kind);
-        if !targets.is_empty() {
+        if !pyrust::vec::is_empty!(targets) {
             let mut outs: Vec<Position> = pyrust::vec::new!();
             for t in targets {
                 if builder.in_bounds(t) {

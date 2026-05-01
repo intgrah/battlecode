@@ -243,7 +243,7 @@ pub fn try_attack(ct: &mut Controller<'_>, pos: Position) -> bool {
 pub fn ti_needed(builder: &Builder, etype: EntityType) -> i32 {
     let base = pyrust::unwrap_or!(pyrust::map!(base_cost(etype), |c| c.0), 0);
     let scale = builder.state.scale;
-    let foundry = if builder.state.round >= 500 && !builder.ax_harvester_adjacent.is_empty() {
+    let foundry = if builder.state.round >= 500 && !pyrust::vec::is_empty!(builder.ax_harvester_adjacent) {
         (pyrust::float!(pyrust::unwrap!(base_cost(EntityType::Foundry)).0) * scale) as i32
     } else {
         0
@@ -443,7 +443,7 @@ fn _trace_downstream_inner(
         let kind = builder.building_kind[i];
         match kind {
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge) => {
-                if builder.out_edges[i].is_empty() {
+                if pyrust::vec::is_empty!(builder.out_edges[i]) {
                     break;
                 }
                 current_pos = builder.out_edges[i][0];
@@ -457,7 +457,7 @@ fn _trace_downstream_inner(
                     if let Some(target_head) = target_head {
                         let mut new_path = pyrust::clone!(path);
                         _trace_downstream_inner(builder, new_pos, Some(target_head), &mut new_path);
-                        if !new_path.is_empty() && pyrust::vec::contains!(new_path, &target_head) {
+                        if !pyrust::vec::is_empty!(new_path) && pyrust::vec::contains!(new_path, &target_head) {
                             *path = new_path;
                             return;
                         }
@@ -468,7 +468,7 @@ fn _trace_downstream_inner(
                     }
                 }
                 if !handled {
-                    if outs.is_empty() {
+                    if pyrust::vec::is_empty!(outs) {
                         break;
                     }
                     // Forward = first output (canonical convention from
@@ -526,7 +526,7 @@ pub fn move_random(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
 pub fn trace_upstream(builder: &Builder, position: Position) -> Vec<Position> {
     let mut path: Vec<Position> = pyrust::vec::new!();
     let mut feeders: Vec<Position> = vec![position];
-    while !feeders.is_empty() {
+    while !pyrust::vec::is_empty!(feeders) {
         let position = feeders[0];
         feeders = builder.get_in_edges(position);
         if pyrust::vec::contains!(path, &position) {
@@ -686,12 +686,12 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         pyrust::vec::push!(classification, (c, "tier2"));
     }
 
-    let chosen: Option<Position> = if !tier1.is_empty() {
+    let chosen: Option<Position> = if !pyrust::vec::is_empty!(tier1) {
         Some(*pyrust::unwrap!(pyrust::min_by!(
             pyrust::iter!(tier1),
             |c| c.distance_squared(sink)
         )))
-    } else if !tier2.is_empty() {
+    } else if !pyrust::vec::is_empty!(tier2) {
         Some(*pyrust::unwrap!(pyrust::min_by!(
             pyrust::iter!(tier2),
             |c| c.distance_squared(sink)
@@ -930,7 +930,7 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
     if team != Some(builder.state.my_team) {
         return false;
     }
-    if builder.out_edges[i].is_empty() {
+    if pyrust::vec::is_empty!(builder.out_edges[i]) {
         return false;
     }
     let target = builder.out_edges[i][0];

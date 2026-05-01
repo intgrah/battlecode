@@ -16,7 +16,7 @@ use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
-    if vulnerable.is_empty() {
+    if pyrust::vec::is_empty!(vulnerable) {
         return Some(TaskRejected::new(
             "not cardinally adjacent to a vulnerable harvester",
         ));

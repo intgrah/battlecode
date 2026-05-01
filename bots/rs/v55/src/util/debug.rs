@@ -113,7 +113,7 @@ impl DebugCtx {
         );
         if let Some(t0) = frame.t0 {
             let us = t0.elapsed().as_micros() as u64;
-            if self.frames.is_empty() {
+            if pyrust::vec::is_empty!(self.frames) {
                 // The frame we just popped was the root.
                 let root = pyrust::expect!(self.root.as_mut(), "ROOT must be Some");
                 root["us"] = serde_json::Value::Number(us.into());
@@ -126,13 +126,13 @@ impl DebugCtx {
         // Once the outer scope drops, clear ROOT so the next turn's first
         // `Scope::new` rebuilds a fresh tree. Mirrors Python's `_stack`
         // emptying on outer-scope exit.
-        if self.frames.is_empty() {
+        if pyrust::vec::is_empty!(self.frames) {
             self.root = None;
         }
     }
 
     fn emit_child(&mut self, node: Value) {
-        if self.frames.is_empty() {
+        if pyrust::vec::is_empty!(self.frames) {
             return;
         }
         let parent = self.current_scope_mut();
@@ -149,7 +149,7 @@ impl DebugCtx {
     }
 
     pub fn vis(&mut self, name: &str, value: &Dump) {
-        if self.frames.is_empty() {
+        if pyrust::vec::is_empty!(self.frames) {
             return;
         }
         // Split-borrow: walk root → child slot via raw indexing so the

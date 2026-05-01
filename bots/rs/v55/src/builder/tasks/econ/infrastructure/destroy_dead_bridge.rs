@@ -45,7 +45,7 @@ fn find_upstream_bridge(self_: &Builder, start: Position) -> Option<Position> {
 }
 
 pub fn destroy_dead_bridge(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if self_.unreachable_dangling.is_empty() {
+    if pyrust::vec::is_empty!(self_.unreachable_dangling) {
         return Some(TaskRejected::new("no unreachable dangling"));
     }
     let my_pos = self_.my_pos;

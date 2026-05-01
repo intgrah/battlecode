@@ -20,7 +20,7 @@ use crate::util::metrics::closest;
 
 pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
-    if vulnerable.is_empty() {
+    if pyrust::vec::is_empty!(vulnerable) {
         return Some(TaskRejected::new(
             "no vulnerable enemy harvesters in vision",
         ));

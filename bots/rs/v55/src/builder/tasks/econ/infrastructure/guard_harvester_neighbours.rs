@@ -35,7 +35,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         }
     }
 
-    if targets.is_empty() {
+    if pyrust::vec::is_empty!(targets) {
         return Some(TaskRejected::new(
             "nothing to guard around any visible harvester / claim",
         ));
