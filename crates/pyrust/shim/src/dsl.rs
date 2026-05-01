@@ -469,6 +469,15 @@ macro_rules! __pyrust_vec_pop_front {
     };
 }
 
+/// `pyrust::vec::pop_back!(v)` — Rust `VecDeque::pop_back`, Python
+/// `(v.pop() if v else None)`.
+#[macro_export]
+macro_rules! __pyrust_vec_pop_back {
+    ($v:expr) => {
+        $v.pop_back()
+    };
+}
+
 /// Pop the last element. Returns `Option<T>` — `None` on empty.
 /// Translator emits `(v.pop() if v else None)` for Python parity.
 #[macro_export]

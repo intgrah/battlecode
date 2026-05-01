@@ -2425,6 +2425,17 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
                 Ty::Unknown,
             )))
         }
+        ["vec", "pop_back"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "vec::pop_back!: expected (vec)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("({0}.pop() if {0} else None)", emits[0].text),
+                Ty::Unknown,
+            )))
+        }
         ["vec", "pop"] => {
             let args = parse_args!();
             if args.len() != 1 {
