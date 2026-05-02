@@ -28,7 +28,7 @@ const CPU_BUDGET_US: u64 = 1729;
 /// bridge skipping to the next reachable tile along the path. Costed the
 /// same as a bridge so A* doesn't prefer a diagonal over a bridge unless
 /// the two cardinal alternatives are genuinely blocked.
-const DIAG_WEIGHT: i32 = 9;
+const DIAG_WEIGHT: i32 = 11;
 
 fn bridge_deltas() -> Vec<(i32, i32, i32)> {
     let mut out: Vec<(i32, i32, i32)> = pyrust::vec::new!();
@@ -607,7 +607,7 @@ impl AStarSearch {
                 }
                 let gn = self._dist[node_i as usize];
                 let base_nd = gn + 1;
-                let weighted_nd = base_nd + 9;
+                let weighted_nd = base_nd + DIAG_WEIGHT;
                 let cardinals = &self.cardinal_neighbors[node_i as usize];
                 for &ni in cardinals {
                     if !routable[ni as usize] {
