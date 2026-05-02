@@ -12,7 +12,7 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Positi
 use crate::builder::Builder;
 use crate::builder::helpers::{move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::util::directions::{DIR4, DIR8};
+use crate::util::directions::{DIR4, DIR8, is_cardinal, rotate_right};
 use crate::util::posint::{DIR4_INT, DIR8_INT, idx_of};
 
 const fn is_turret(kind: Option<EntityType>) -> bool {
@@ -20,6 +20,37 @@ const fn is_turret(kind: Option<EntityType>) -> bool {
         kind,
         Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Breach | EntityType::Launcher)
     )
+}
+
+const fn is_resource_building(kind: Option<EntityType>) -> bool {
+    matches!(
+        kind,
+        Some(
+            EntityType::Harvester
+                | EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Splitter
+                | EntityType::Bridge
+                | EntityType::Foundry
+        )
+    )
+}
+
+/// If `d` faces directly into a friendly resource building adjacent to
+/// `pos`, rotate it one step clockwise. Prevents placing a turret that
+/// points at our own conveyor / harvester / foundry.
+pub fn safe_facing(self_: &Builder, pos: Position, d: Direction) -> Direction {
+    if !is_cardinal(d) {
+        return d;
+    }
+    let front = pos.add(d);
+    if self_.in_bounds(front)
+        && is_resource_building(self_.kind_at(front))
+        && self_.team_at(front) == Some(self_.state.my_team)
+    {
+        return rotate_right(d);
+    }
+    d
 }
 
 const fn is_turret_or_transport(kind: Option<EntityType>) -> bool {

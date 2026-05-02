@@ -65,6 +65,10 @@ def run_match(job: Job) -> dict:
         "ti_a_mined": int(ti.group(2)) if ti else 0,
         "ti_b": int(ti.group(3)) if ti else 0,
         "ti_b_mined": int(ti.group(4)) if ti else 0,
+        "ax_a": int(ax.group(1)) if ax else 0,
+        "ax_a_mined": int(ax.group(2)) if ax else 0,
+        "ax_b": int(ax.group(3)) if ax else 0,
+        "ax_b_mined": int(ax.group(4)) if ax else 0,
         "units_a": int(units.group(1)) if units else 0,
         "units_b": int(units.group(2)) if units else 0,
         "buildings_a": int(bld.group(1)) if bld else 0,
@@ -86,6 +90,7 @@ def main() -> None:
     fields = [
         "map", "seed", "side", "bot_a", "bot_b", "winner", "condition", "turns",
         "ti_a", "ti_a_mined", "ti_b", "ti_b_mined",
+        "ax_a", "ax_a_mined", "ax_b", "ax_b_mined",
         "units_a", "units_b", "buildings_a", "buildings_b", "wall_time_s",
     ]
     completed = 0
