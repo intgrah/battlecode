@@ -182,7 +182,7 @@ fn _reach_palette(builder: &Builder, w: i32, h: i32) -> Palette<i64> {
             }
         }
     }
-    keys.sort_unstable();
+    pyrust::sort!(keys);
     let mut special: Vec<(i64, Colour)> = vec![(-1, TRANSPARENT)];
     for (k, key) in pyrust::enumerate!(pyrust::iter!(keys)) {
         let hue = pyrust::rem_euclid!(((k as f64) * _GOLDEN), 1.0);
@@ -278,7 +278,10 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             |s| format!("{s}")
         ));
         sym_names.sort();
-        vis_scalar_str("symmetry_candidates", &sym_names.join(", "));
+        vis_scalar_str(
+            "symmetry_candidates",
+            &pyrust::string::join!(", ", sym_names),
+        );
         vis_scalar_bool("en_core_seen", builder.en_core_seen);
         vis(
             "bugnav_path",
