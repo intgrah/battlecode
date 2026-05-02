@@ -345,6 +345,29 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
     } else {
         recv.text
     };
+    // Primitive numeric methods that don't exist on Python ints/floats:
+    // rewrite as builtins.
+    match (method.as_str(), arg_texts.as_slice()) {
+        ("abs", []) => {
+            return Ok(Emitted::atomic(
+                format!("abs({recv_text})"),
+                Ty::Unknown,
+            ));
+        }
+        ("max", [arg]) => {
+            return Ok(Emitted::atomic(
+                format!("max({recv_text}, {arg})"),
+                Ty::Unknown,
+            ));
+        }
+        ("min", [arg]) => {
+            return Ok(Emitted::atomic(
+                format!("min({recv_text}, {arg})"),
+                Ty::Unknown,
+            ));
+        }
+        _ => {}
+    }
     // Rust-keyword renames: `move_` → `move` (Python keyword in pattern
     // position only; method name is fine in Python).
     let py_method: &str = match method.as_str() {
@@ -1796,12 +1819,12 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 Ty::Unknown,
             ));
         }
-        // `T::new(args)` constructor convention — Rust idiom for any
-        // user-defined type. Python equivalent is calling the class
-        // itself (`T(args)`), since the bot's `impl T { fn new() }`
+        // `T::new(args)` / `T::new_timed(args)` constructor convention —
+        // Rust idiom for any user-defined type. Python equivalent is calling
+        // the class itself (`T(args)`), since the bot's `impl T { fn new() }`
         // is the canonical constructor. This is path-recognised, not
         // method-name guessing on a receiver.
-        if tail == "new" {
+        if tail == "new" || tail == "new_timed" {
             return Ok(Emitted::atomic(
                 format!("{class_name}({joined})"),
                 Ty::Unknown,
