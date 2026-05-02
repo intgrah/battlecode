@@ -10,7 +10,7 @@ impl Bot for Player {
     }
 
     fn run(&mut self, c: &mut Controller<'_>) {
-        if c.get_current_round().unwrap() == 800 {
+        if pyrust::unwrap!(c.get_current_round()) == 800 {
             let _ = c.resign(None);
         }
     }

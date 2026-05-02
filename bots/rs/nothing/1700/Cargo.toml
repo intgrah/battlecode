@@ -8,6 +8,7 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 cambc.workspace = true
+pyrust.workspace = true
 
 [lints]
 workspace = true
