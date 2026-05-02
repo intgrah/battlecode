@@ -10,7 +10,6 @@ use crate::builder::helpers::{can_afford, harvester_feed_cardinal, harvester_io_
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::DIR4;
 use crate::util::metrics::chebyshev;
-use crate::util::symmetry::ALL as SYM_ALL;
 
 /// Buffer turns subtracted from the closest possible enemy-arrival
 /// chebyshev distance. Until that turn, defer proactive harvester
@@ -25,7 +24,7 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
     let h = self_.state.height;
     let my_core = self_.my_core;
     let mut min_d: i32 = i32::MAX;
-    for sym in SYM_ALL {
+    for sym in pyrust::copied!(pyrust::iter!(self_.state.symmetry_candidates)) {
         let en = sym.action(my_core, w, h);
         let d = chebyshev(my_core, en);
         if d < min_d {

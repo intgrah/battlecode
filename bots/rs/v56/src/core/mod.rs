@@ -1,3 +1,4 @@
+pub mod opening;
 pub mod spawn_tempo;
 
 use std::collections::VecDeque;
@@ -5,6 +6,7 @@ use std::collections::VecDeque;
 use cambc::{Controller, ControllerApi, Direction, EntityType, Position, ResourceType};
 
 use crate::config::HARDCODE;
+use crate::core::opening::{OpeningTemplate, classify as classify_opening};
 use crate::core::spawn_tempo::compute_spawn_tempo;
 use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
@@ -49,6 +51,8 @@ pub struct Core {
     pub spawn_tempo: f64,
     /// Hardcoded-map identity if recognised at `post_init`.
     pub known_map: Option<KnownMap>,
+    /// Opening template, classified once at `post_init`.
+    pub opening: OpeningTemplate,
 }
 
 impl Core {
@@ -79,6 +83,7 @@ impl Core {
             max_team_units: 0,
             spawn_tempo: 1.0,
             known_map: None,
+            opening: OpeningTemplate::DefaultBalanced,
         }
     }
 
@@ -120,8 +125,14 @@ impl Core {
         count
     }
 
+    fn initial_spawns(&self) -> i32 {
+        let scaled =
+            pyrust::round!((Self::INITIAL_SPAWNS as f64 * self.opening.initial_spawn_factor()));
+        pyrust::max!(scaled as i32, 1)
+    }
+
     fn should_spawn(&self, ct: &mut Controller<'_>, income_rate: f64) -> bool {
-        if self.spawned < Self::INITIAL_SPAWNS {
+        if self.spawned < self.initial_spawns() {
             return true;
         }
         let live_units = pyrust::unwrap!(ct.get_unit_count());
@@ -134,18 +145,21 @@ impl Core {
         if pyrust::len!(self.state.friendly_bots) > Self::CROWDING_LIMIT {
             return false;
         }
+        let eagerness = self.opening.spawn_eagerness();
         let live = pyrust::float!(live_units);
         let income_threshold = pyrust::mul_add!(
             Self::INCOME_PER_UNIT,
             live,
             Self::INCOME_QUADRATIC_TERM * live * live
-        ) / self.spawn_tempo;
+        ) * eagerness
+            / self.spawn_tempo;
         let has_income = income_rate * 4.0 > income_threshold;
         let surplus_threshold = pyrust::mul_add!(
             f64::from(Self::SURPLUS_SCALE_FACTOR),
             pyrust::unwrap!(ct.get_scale_percent()) / 100.0,
             f64::from(Self::SURPLUS_BASELINE)
-        ) * (2.0 - self.spawn_tempo);
+        ) * (2.0 - self.spawn_tempo)
+            * eagerness;
         let has_surplus = pyrust::float!(self.state.ti) > surplus_threshold;
         let builder_ti_cost = pyrust::unwrap!(ct.get_builder_bot_cost()).0;
         let has_trickle = pyrust::float!(self.state.ti)
@@ -163,7 +177,7 @@ impl Core {
     }
 
     fn try_spawn(&mut self, ct: &mut Controller<'_>) {
-        if self.spawned < Self::INITIAL_SPAWNS {
+        if self.spawned < self.initial_spawns() {
             let en_core = self.en_core_guess();
             let mut corners: Vec<Position> =
                 pyrust::collect!(pyrust::map!(pyrust::iter!(CORNERS), |&d| self
@@ -234,6 +248,16 @@ impl Unit for Core {
         self.max_team_units = pyrust::round!(raw) as i32;
         pyrust::with!(Scope::new_timed("spawn_tempo"), {
             self.spawn_tempo = compute_spawn_tempo(self.state.width, self.state.height, ct);
+        });
+        pyrust::with!(Scope::new_timed("opening_classify"), {
+            let en_core = self.en_core_guess();
+            self.opening = classify_opening(
+                self.state.width,
+                self.state.height,
+                self.my_core,
+                en_core,
+                ct,
+            );
         });
     }
 

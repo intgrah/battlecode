@@ -25,7 +25,6 @@ use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
 use crate::util::metrics::chebyshev;
-use crate::util::symmetry::ALL as SYM_ALL;
 use crate::util::visualiser::auto_wrap_position;
 
 #[pyrust::inline]
@@ -108,16 +107,15 @@ pub fn in_any_cluster_locus(builder: &Builder, p: Position) -> bool {
 }
 
 /// Earliest possible enemy arrival turn at our core: the chebyshev
-/// distance from `my_core` to its mirror under any candidate symmetry.
-/// Pessimistic — all three symmetries are considered regardless of
-/// what the bot has already ruled out, so the trigger fires on the
-/// most defensive estimate.
+/// distance from `my_core` to its mirror under any *surviving*
+/// symmetry candidate. As candidates are ruled out, the bound only
+/// grows (later trigger).
 fn _min_enemy_arrival(builder: &Builder) -> i32 {
     let w = builder.state.width;
     let h = builder.state.height;
     let my_core = builder.my_core;
     let mut min_d = i32::MAX;
-    for sym in SYM_ALL {
+    for sym in pyrust::copied!(pyrust::iter!(builder.state.symmetry_candidates)) {
         let en = sym.action(my_core, w, h);
         let d = chebyshev(my_core, en);
         if d < min_d {
@@ -238,9 +236,10 @@ fn _centroid_d2(centroid: (f64, f64), p: Position) -> f64 {
 /// discretised to an i64 key (×1e6) because `f64` isn't `Ord`.
 fn _polar_sort(cluster: &mut Vec<Position>, centroid: (f64, f64)) {
     pyrust::sort_by_key!(cluster, |p| {
-        let dy = pyrust::float!(p.y) - centroid.1;
-        let dx = pyrust::float!(p.x) - centroid.0;
-        (pyrust::atan2!(dy, dx) * 1_000_000.0) as i64
+        (pyrust::atan2!(
+            pyrust::float!(p.y) - centroid.1,
+            pyrust::float!(p.x) - centroid.0
+        ) * 1_000_000.0) as i64
     });
 }
 

@@ -15,8 +15,13 @@ use crate::util::metrics::{chebyshev, claims_by_proximity};
 
 pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     let prev_unconn = pyrust::set::clone!(builder.adjacent_to_unconnected_harvester);
+    let prev_unconn_foundry = pyrust::set::clone!(builder.adjacent_to_unconnected_foundry);
     builder.adjacent_to_unconnected_harvester = pyrust::set::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.adjacent_to_unconnected_harvester)),
+        |p| !pyrust::unwrap!(ct.is_in_vision(*p))
+    ));
+    builder.adjacent_to_unconnected_foundry = pyrust::set::collect!(pyrust::filter!(
+        pyrust::copied!(pyrust::iter!(builder.adjacent_to_unconnected_foundry)),
         |p| !pyrust::unwrap!(ct.is_in_vision(*p))
     ));
     builder.adjacent_to_harvester = pyrust::set::collect!(pyrust::filter!(
@@ -85,6 +90,59 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
         }
     }
 
+    // Pass 1b: same shape as Pass 1, but for friendly foundries with no
+    // non-inward output consumer. Cardinal-adjacent empties become
+    // dangling tiles (Rax-class).
+    for pos in &nearby {
+        let pos = *pos;
+        if builder.kind_at(pos) != Some(EntityType::Foundry) {
+            continue;
+        }
+        if builder.team_at(pos) != Some(my_team) {
+            continue;
+        }
+        let mut adjacent_consumer = false;
+        for d in DIR4 {
+            let n = pos.add(d);
+            if !builder.in_bounds(n) {
+                continue;
+            }
+            let ni = builder.idx(n);
+            let nk = builder.building_kind[ni];
+            let nt = builder.building_team[ni];
+            match nk {
+                Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+                    if nt == Some(my_team) =>
+                {
+                    if !is_inward_guard(builder, n) {
+                        adjacent_consumer = true;
+                        break;
+                    }
+                }
+                Some(
+                    EntityType::Bridge
+                    | EntityType::Splitter
+                    | EntityType::Core
+                    | EntityType::Breach
+                    | EntityType::Gunner
+                    | EntityType::Sentinel,
+                ) if nt == Some(my_team) => {
+                    adjacent_consumer = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if !adjacent_consumer {
+            for d in DIR4 {
+                let n = pos.add(d);
+                if builder.in_bounds(n) {
+                    pyrust::set::add!(builder.adjacent_to_unconnected_foundry, n);
+                }
+            }
+        }
+    }
+
     // Pass 2: movement cost_grid per-turn penalties for enemy turret rays
     // and launcher adjacency.
     for pos in &nearby {
@@ -108,6 +166,13 @@ pub fn update_map_econ(builder: &mut Builder, ct: &mut Controller<'_>) {
     pyrust::sort_by_key!(changed, |p| (p.y, p.x));
     for p in changed {
         builder._check_dangling(p, "unconn_flip");
+    }
+    let mut changed_foundry: Vec<Position> = pyrust::collect!(pyrust::copied!(
+        prev_unconn_foundry.symmetric_difference(&builder.adjacent_to_unconnected_foundry)
+    ));
+    pyrust::sort_by_key!(changed_foundry, |p| (p.y, p.x));
+    for p in changed_foundry {
+        builder._check_dangling(p, "unconn_foundry_flip");
     }
 
     // Re-validate every visible tile. _check_dangling early-exits cheaply
