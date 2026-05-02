@@ -49,6 +49,13 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         trace::exit(ct, "vision");
     }
     {
+        // Mirror cost_grid passability into nav_bfs for any tile in
+        // current vision. set_passable no-ops on unchanged tiles, so
+        // this is cheap once steady-state.
+        let _g = Scope::new_timed("nav_bfs_sync");
+        builder.sync_nav_bfs_passable();
+    }
+    {
         let _g = Scope::new_timed("markers");
         trace::enter(ct, "markers");
         markers::update_markers(builder, ct);
