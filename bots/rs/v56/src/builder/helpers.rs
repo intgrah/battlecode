@@ -9,6 +9,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::Builder;
+use crate::config::DEBUG_LOG;
 use crate::util::constants::{MAX_WIDTH, base_cost};
 use crate::util::debug::{Scope, debug as log};
 use crate::util::directions::{DIR4, DIR8, delta_to_dir};
@@ -750,23 +751,16 @@ pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool
 
 /// Pick a Ti ore tile outside our econ disc for an offensive harvester.
 #[must_use]
-pub fn pick_offensive_ti_ore_target(builder: &mut Builder) -> Option<Position> {
+pub fn pick_offensive_ti_ore_target(
+    builder: &mut Builder,
+    friendlies: &[(Position, i32)],
+) -> Option<Position> {
     let mut candidates: Vec<Position> = pyrust::sorted!(builder.visible_ti_ores);
     builder.state.rng.shuffle(&mut candidates);
 
     let econ_radius_sq = builder.econ_radius_sq;
     let my_pos = builder.state.my_pos;
     let my_core = builder.my_core;
-    let friendlies: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
-        pyrust::dict::items!(builder.state.all_bots),
-        |t| if *t.1 != builder.state.my_id
-            && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
-        {
-            Some((*t.0, *t.1))
-        } else {
-            None
-        }
-    ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
     let mut deep_checks: i32 = 0;
@@ -919,6 +913,23 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
     has_harvester || has_friendly_bot
 }
 
+/// Build the per-turn list of (position, id) for OTHER friendly bots
+/// in vision. Used as input to `claims_by_proximity` in pick_ore /
+/// pick_offensive_ti_ore_target. Build once per turn and share.
+#[must_use]
+pub fn build_ore_friendlies(builder: &Builder) -> Vec<(Position, i32)> {
+    pyrust::collect!(pyrust::filter_map!(
+        pyrust::dict::items!(builder.state.all_bots),
+        |t| if *t.1 != builder.state.my_id
+            && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
+        {
+            Some((*t.0, *t.1))
+        } else {
+            None
+        }
+    ))
+}
+
 /// Cap on *expensive* filter chains per pick-ore call. The cheap O(1)
 /// filters (is_reachable, distance, ore_available, kind_at) run for
 /// every candidate; only the bottom three expensive ones
@@ -928,10 +939,13 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
 /// every visible ore still gets a fair shot at the cheap filters.
 const _PICK_ORE_DEEP_BUDGET: i32 = 3;
 
-pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
+pub fn pick_ore(
+    builder: &mut Builder,
+    wanted: Environment,
+    friendlies: &[(Position, i32)],
+) -> Option<Position> {
     let _g = Scope::new_timed("pick_ore");
     let mut candidates: Vec<Position> = pyrust::vec::new!();
-    let mut friendlies: Vec<(Position, i32)> = pyrust::vec::new!();
     {
         let _g = Scope::new_timed("pick_ore_setup");
         candidates = if wanted == Environment::OreTitanium {
@@ -940,16 +954,6 @@ pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> 
             pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ax_ores)))
         };
         builder.state.rng.shuffle(&mut candidates);
-        friendlies = pyrust::collect!(pyrust::filter_map!(
-            pyrust::dict::items!(builder.state.all_bots),
-            |t| if *t.1 != builder.state.my_id
-                && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
-            {
-                Some((*t.0, *t.1))
-            } else {
-                None
-            }
-        ));
     }
 
     let econ_radius_sq = builder.econ_radius_sq;
@@ -1028,7 +1032,7 @@ pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> 
         min_dist = d;
         best_target = Some(pos);
     }
-    {
+    if DEBUG_LOG {
         let _g = Scope::new_timed("pick_ore_log");
         let mut args = serde_json::Map::new();
         pyrust::dict::insert!(

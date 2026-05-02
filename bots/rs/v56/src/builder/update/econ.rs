@@ -235,8 +235,8 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
     best
 }
 
-pub fn update_ti_ore_target(builder: &mut Builder) {
-    let mut candidate_ore = pick_ore(builder, Environment::OreTitanium);
+pub fn update_ti_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)]) {
+    let mut candidate_ore = pick_ore(builder, Environment::OreTitanium, friendlies);
     let needs_pick = pyrust::is_none!(builder.ore_target)
         || pyrust::is_some_and!(builder.ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ore_target, |t| !builder.is_reachable(t))
@@ -262,8 +262,8 @@ pub fn update_ti_ore_target(builder: &mut Builder) {
 /// Enemy-side Ti ore claim. Same re-evaluation semantics as
 /// `update_ore_target`: keep the current pick if still valid and not
 /// trivially beaten by a much-closer alternative.
-pub fn update_offensive_ore_target(builder: &mut Builder) {
-    let mut candidate = pick_offensive_ti_ore_target(builder);
+pub fn update_offensive_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)]) {
+    let mut candidate = pick_offensive_ti_ore_target(builder, friendlies);
     let needs_pick = pyrust::is_none!(builder.offensive_ore_target)
         || pyrust::is_some_and!(builder.offensive_ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.offensive_ore_target, |t| !builder.is_reachable(t))
@@ -903,7 +903,7 @@ pub fn update_ti_sink(builder: &mut Builder) {
 }
 
 /// Pick the nearest unclaimed Ax-ore tile, gated on round AND Ti buffer.
-pub fn update_ax_ore_target(builder: &mut Builder) {
+pub fn update_ax_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)]) {
     if builder.state.round < AX_ROUND_GATE {
         builder.ax_ore_target = None;
         return;
@@ -916,7 +916,7 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
         builder.ax_ore_target = None;
         return;
     }
-    let mut candidate = pick_ore(builder, Environment::OreAxionite);
+    let mut candidate = pick_ore(builder, Environment::OreAxionite, friendlies);
     let needs_pick = pyrust::is_none!(builder.ax_ore_target)
         || pyrust::is_some_and!(builder.ax_ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ax_ore_target, |t| !builder.is_reachable(t))
