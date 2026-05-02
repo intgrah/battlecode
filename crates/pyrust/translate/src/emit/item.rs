@@ -614,8 +614,19 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
                     w.line(&line);
                 }
             }
+            let is_ctx = w.is_context_manager_type(&class_name);
             let mut emitted_method = false;
             w.enter_class(class_name.clone());
+            // Context manager unit structs need an __init__ that accepts and
+            // ignores the label argument emitted by T::new(label) calls.
+            if is_ctx {
+                w.blank_line();
+                w.line("def __init__(self, *_args):");
+                w.enter_indent();
+                w.line("pass");
+                w.exit_indent();
+                emitted_method = true;
+            }
             for item in &file.items {
                 if let syn::Item::Impl(im) = item
                     && impl_target_name(&im.self_ty).as_deref() == Some(class_name.as_str())
@@ -637,7 +648,18 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
                     }
                 }
             }
-            if !emitted_method {
+            if is_ctx {
+                w.blank_line();
+                w.line("def __enter__(self):");
+                w.enter_indent();
+                w.line("return self");
+                w.exit_indent();
+                w.blank_line();
+                w.line("def __exit__(self, exc_type, exc, tb):");
+                w.enter_indent();
+                w.line("pass");
+                w.exit_indent();
+            } else if !emitted_method {
                 w.line("pass");
             }
             w.exit_class();
@@ -688,7 +710,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
     if let Some(nf) = new_fn {
         emit_init_from_new(w, nf, &class_name)?;
     } else {
-        emit_auto_init(w, &field_specs);
+        emit_auto_init(w, &field_specs, w.is_context_manager_type(&class_name));
     }
 
     // If the struct has `impl Deref { fn deref(&self) -> &self.field }`,
@@ -843,9 +865,13 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
     Ok(())
 }
 
-fn emit_auto_init(w: &mut PyWriter, fields: &[(String, String, Ty)]) {
+fn emit_auto_init(w: &mut PyWriter, fields: &[(String, String, Ty)], is_ctx_manager: bool) {
     let header = if fields.is_empty() {
-        "self".to_owned()
+        if is_ctx_manager {
+            "self, *_args".to_owned()
+        } else {
+            "self".to_owned()
+        }
     } else {
         let mut parts = vec!["self".to_owned()];
         for (n, t, _) in fields {
