@@ -942,157 +942,166 @@ pub fn pick_ore(
     wanted: Environment,
     friendlies: &[(Position, i32)],
 ) -> Option<Position> {
-    let _g = Scope::new_timed("pick_ore");
     let mut candidates: Vec<Position> = pyrust::vec::new!();
-    {
-        let _g = Scope::new_timed("pick_ore_setup");
-        candidates = if wanted == Environment::OreTitanium {
-            pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ti_ores)))
-        } else {
-            pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ax_ores)))
-        };
-        builder.state.rng.shuffle(&mut candidates);
-    }
-
-    let econ_radius_sq = builder.econ_radius_sq;
-    let my_pos = builder.state.my_pos;
-    let my_core = builder.my_core;
-    let n_candidates = pyrust::len!(candidates) as i32;
-    let mut n_reach: i32 = 0;
-    let mut n_econ: i32 = 0;
-    let mut n_avail: i32 = 0;
-    let mut n_dist: i32 = 0;
-    let mut n_kind: i32 = 0;
-    let mut n_deep: i32 = 0;
-    let mut n_claims: i32 = 0;
-    let mut n_contam: i32 = 0;
-    let mut n_feed: i32 = 0;
     let mut best_target: Option<Position> = None;
-    let mut min_dist = i32::MAX;
-    for pos in candidates {
-        if !builder.is_reachable(pos) {
-            continue;
-        }
-        n_reach += 1;
-        if pos.distance_squared(my_core) > econ_radius_sq {
-            continue;
-        }
-        n_econ += 1;
-        if !ore_available(builder, pos) {
-            continue;
-        }
-        n_avail += 1;
-        let d = my_pos.distance_squared(pos);
-        if d >= min_dist {
-            continue;
-        }
-        n_dist += 1;
-        match builder.kind_at(pos) {
-            None | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
-            Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
-                if !is_inward_guard(builder, pos) {
-                    continue;
+    pyrust::with!(Scope::new_timed("pick_ore"), {
+        pyrust::with!(Scope::new_timed("pick_ore_setup"), {
+            candidates = if wanted == Environment::OreTitanium {
+                pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ti_ores)))
+            } else {
+                pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ax_ores)))
+            };
+            builder.state.rng.shuffle(&mut candidates);
+        });
+
+        let econ_radius_sq = builder.econ_radius_sq;
+        let my_pos = builder.state.my_pos;
+        let my_core = builder.my_core;
+        let n_candidates = pyrust::len!(candidates) as i32;
+        let mut n_reach: i32 = 0;
+        let mut n_econ: i32 = 0;
+        let mut n_avail: i32 = 0;
+        let mut n_dist: i32 = 0;
+        let mut n_kind: i32 = 0;
+        let mut n_deep: i32 = 0;
+        let mut n_claims: i32 = 0;
+        let mut n_contam: i32 = 0;
+        let mut n_feed: i32 = 0;
+        let mut min_dist = i32::MAX;
+        for pos in &candidates {
+            let pos = *pos;
+            if !builder.is_reachable(pos) {
+                continue;
+            }
+            n_reach += 1;
+            if pos.distance_squared(my_core) > econ_radius_sq {
+                continue;
+            }
+            n_econ += 1;
+            if !ore_available(builder, pos) {
+                continue;
+            }
+            n_avail += 1;
+            let d = my_pos.distance_squared(pos);
+            if d >= min_dist {
+                continue;
+            }
+            n_dist += 1;
+            match builder.kind_at(pos) {
+                None | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
+                Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
+                    if !is_inward_guard(builder, pos) {
+                        continue;
+                    }
                 }
+                _ => continue,
             }
-            _ => continue,
-        }
-        n_kind += 1;
-        if n_deep >= _PICK_ORE_DEEP_BUDGET {
-            break;
-        }
-        n_deep += 1;
-        {
-            let _g = Scope::new_timed("pick_ore_claims");
-            if !claims_by_proximity(
-                my_pos,
-                builder.state.my_id,
-                pos,
-                pyrust::copied!(pyrust::iter!(friendlies)),
-            ) {
+            n_kind += 1;
+            if n_deep >= _PICK_ORE_DEEP_BUDGET {
+                break;
+            }
+            n_deep += 1;
+            let mut skip = false;
+            pyrust::with!(Scope::new_timed("pick_ore_claims"), {
+                if !claims_by_proximity(
+                    my_pos,
+                    builder.state.my_id,
+                    pos,
+                    pyrust::copied!(pyrust::iter!(friendlies)),
+                ) {
+                    skip = true;
+                }
+            });
+            if skip {
                 continue;
             }
-        }
-        n_claims += 1;
-        {
-            let _g = Scope::new_timed("pick_ore_contam");
-            if harvester_would_contaminate(builder, pos) {
+            n_claims += 1;
+            pyrust::with!(Scope::new_timed("pick_ore_contam"), {
+                if harvester_would_contaminate(builder, pos) {
+                    skip = true;
+                }
+            });
+            if skip {
                 continue;
             }
-        }
-        n_contam += 1;
-        {
-            let _g = Scope::new_timed("pick_ore_feed");
-            if pyrust::is_none!(harvester_feed_cardinal(builder, pos)) {
+            n_contam += 1;
+            pyrust::with!(Scope::new_timed("pick_ore_feed"), {
+                if pyrust::is_none!(harvester_feed_cardinal(builder, pos)) {
+                    skip = true;
+                }
+            });
+            if skip {
                 continue;
             }
+            n_feed += 1;
+            min_dist = d;
+            best_target = Some(pos);
         }
-        n_feed += 1;
-        min_dist = d;
-        best_target = Some(pos);
-    }
-    if DEBUG_LOG {
-        let _g = Scope::new_timed("pick_ore_log");
-        let mut args = serde_json::Map::new();
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("env"),
-            serde_json::Value::String(format!("{wanted:?}"))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("n"),
-            serde_json::Value::Number(serde_json::Number::from(n_candidates))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("reach"),
-            serde_json::Value::Number(serde_json::Number::from(n_reach))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("econ"),
-            serde_json::Value::Number(serde_json::Number::from(n_econ))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("avail"),
-            serde_json::Value::Number(serde_json::Number::from(n_avail))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("dist"),
-            serde_json::Value::Number(serde_json::Number::from(n_dist))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("kind"),
-            serde_json::Value::Number(serde_json::Number::from(n_kind))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("deep"),
-            serde_json::Value::Number(serde_json::Number::from(n_deep))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("claims"),
-            serde_json::Value::Number(serde_json::Number::from(n_claims))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("contam"),
-            serde_json::Value::Number(serde_json::Number::from(n_contam))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("feed"),
-            serde_json::Value::Number(serde_json::Number::from(n_feed))
-        );
-        log(
-            "pick_ore: env={env} n={n} reach={reach} econ={econ} avail={avail} dist={dist} kind={kind} deep={deep} claims={claims} contam={contam} feed={feed}",
-            args,
-        );
-    }
+        if DEBUG_LOG {
+            pyrust::with!(Scope::new_timed("pick_ore_log"), {
+                let mut args = serde_json::Map::new();
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("env"),
+                    serde_json::Value::String(format!("{wanted:?}"))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("n"),
+                    serde_json::Value::Number(serde_json::Number::from(n_candidates))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("reach"),
+                    serde_json::Value::Number(serde_json::Number::from(n_reach))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("econ"),
+                    serde_json::Value::Number(serde_json::Number::from(n_econ))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("avail"),
+                    serde_json::Value::Number(serde_json::Number::from(n_avail))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("dist"),
+                    serde_json::Value::Number(serde_json::Number::from(n_dist))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("kind"),
+                    serde_json::Value::Number(serde_json::Number::from(n_kind))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("deep"),
+                    serde_json::Value::Number(serde_json::Number::from(n_deep))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("claims"),
+                    serde_json::Value::Number(serde_json::Number::from(n_claims))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("contam"),
+                    serde_json::Value::Number(serde_json::Number::from(n_contam))
+                );
+                pyrust::dict::insert!(
+                    args,
+                    pyrust::to_string!("feed"),
+                    serde_json::Value::Number(serde_json::Number::from(n_feed))
+                );
+                log(
+                    "pick_ore: env={env} n={n} reach={reach} econ={econ} avail={avail} dist={dist} kind={kind} deep={deep} claims={claims} contam={contam} feed={feed}",
+                    args,
+                );
+            });
+        }
+    });
     best_target
 }
 
