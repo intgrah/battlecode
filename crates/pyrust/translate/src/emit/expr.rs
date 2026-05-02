@@ -12,12 +12,8 @@ use super::writer::PyWriter;
 /// `Direction.North` would `AttributeError` there. Translate variant
 /// names for these classes; user-defined enums (e.g. `Role`, `Symmetry`)
 /// keep their source casing.
-const CAMBC_SCREAMING_SNAKE_ENUMS: &[&str] = &[
-    "Direction",
-    "EntityType",
-    "Environment",
-    "ResourceType",
-];
+const CAMBC_SCREAMING_SNAKE_ENUMS: &[&str] =
+    &["Direction", "EntityType", "Environment", "ResourceType"];
 
 fn pascal_to_screaming_snake(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
@@ -1566,7 +1562,10 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
             return Ok(Emitted::atomic(format!("{class}{tail}()"), Ty::Unknown));
         }
         let py_variant = cambc_variant_name(&class, &tail);
-        return Ok(Emitted::atomic(format!("{class}.{py_variant}"), Ty::Unknown));
+        return Ok(Emitted::atomic(
+            format!("{class}.{py_variant}"),
+            Ty::Unknown,
+        ));
     }
     if p.path.leading_colon.is_some() || p.path.segments.len() != 1 {
         // Multi-segment path in value position (e.g. `crate::config::HARDCODE`).
