@@ -614,6 +614,9 @@ impl Builder {
 
     #[must_use]
     pub const fn is_passable(&self, pos: Position) -> bool {
+        if pos.x < 0 || pos.x >= self.state.width || pos.y < 0 || pos.y >= self.state.height {
+            return false;
+        }
         self.cost_grid[self.idx(pos)] != INF
     }
 

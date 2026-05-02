@@ -74,10 +74,6 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
 }
 
 pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if !can_afford(self_, EntityType::Sentinel) {
-        return Some(TaskRejected::new("cannot afford SENTINEL"));
-    }
-
     let mut best_pos: Option<Position> = None;
     let mut best_facing: Option<Direction> = None;
     let mut best_dist = 1 << 30;
@@ -110,6 +106,22 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
             "no dangling end with an enemy in sentinel range",
         ));
     };
+
+    // adgato fix: if we can't afford the sentinel yet, pave a road on
+    // the chosen tile to reserve it. The dangling tip stays "claimed"
+    // until next turn when we (hopefully) can afford the sentinel and
+    // overwrite the road with the sentinel placement.
+    if !can_afford(self_, EntityType::Sentinel) {
+        try_place(
+            self_,
+            ct,
+            EntityType::Road,
+            best_pos,
+            BuildExtra::None,
+            false,
+        );
+        return None;
+    }
 
     if self_.my_pos == best_pos {
         move_random(self_, ct);
