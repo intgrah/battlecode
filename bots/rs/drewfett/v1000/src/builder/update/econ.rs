@@ -358,12 +358,12 @@ pub fn update_ore_target(builder: &mut Builder) {
                 .distance_squared(builder.state.my_pos)
                 > 2));
     if needs_pick {
-        // Drop the can_afford_ore_claim gate (intgrah/v56 fix 05f34d26).
-        // Was zeroing the candidate when we couldn't afford the chain
-        // build-out, but ore IS the prerequisite for the claim — no
-        // target means the bot wanders past the ore, missing it
-        // entirely. Better to keep the target and let downstream tasks
-        // wait for Ti.
+        let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
+        if let Some(c) = candidate_ore
+            && !can_afford_ore_claim(builder, c, sink)
+        {
+            candidate_ore = None;
+        }
         builder.ore_target = candidate_ore;
     }
 }
