@@ -68,7 +68,7 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         let i = idx_of(t) as usize;
         let kind = bk[i];
         let team = bt[i];
-        let valid = matches!(kind, Some(EntityType::Gunner | EntityType::Sentinel))
+        let valid = matches!(kind, Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Launcher))
             && team != Some(my_team)
             && pyrust::is_some!(team);
         if !valid {
@@ -84,7 +84,7 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         let i = pi as usize;
         let kind = bk[i];
         let team = bt[i];
-        let is_enemy_turret = matches!(kind, Some(EntityType::Gunner | EntityType::Sentinel))
+        let is_enemy_turret = matches!(kind, Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Launcher))
             && team != Some(my_team)
             && pyrust::is_some!(team);
         if is_enemy_turret {
