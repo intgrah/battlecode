@@ -27,24 +27,38 @@ LOCAL_REPLAYS = ROOT / "replays" / "b"
 
 
 def ssh(*args: str, check: bool = True) -> int:
-    cmd = ["ssh", "-o", "ControlMaster=auto", "-o", "ControlPath=~/.ssh/cm-%C",
-           "-o", "ControlPersist=60s", REMOTE, *args]
+    cmd = [
+        "ssh",
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        "ControlPath=~/.ssh/cm-%C",
+        "-o",
+        "ControlPersist=60s",
+        REMOTE,
+        *args,
+    ]
     return subprocess.run(cmd, check=check).returncode
 
 
 def rsync(src: str, dst: str, *extra: str) -> None:
-    subprocess.run(["rsync", "-az", "--mkpath", *extra, src, dst], check=True)
+    subprocess.run(["rsync", "-az", "--mkpath", *extra, src, dst], check=True)  # noqa: S607
 
 
 def cmd_sync(_: argparse.Namespace) -> None:
     ssh(f"mkdir -p {REMOTE_DIR}")
     # Engine + workspace, excluding heavy build artefacts.
     rsync(
-        f"{ROOT}/", f"{REMOTE}:{REMOTE_DIR}/",
+        f"{ROOT}/",
+        f"{REMOTE}:{REMOTE_DIR}/",
         "--delete",
-        "--exclude=target/", "--exclude=replays/", "--exclude=.git/",
-        "--exclude=__pycache__/", "--exclude=.venv/",
-        "--exclude=node_modules/", "--exclude=*.replay26",
+        "--exclude=target/",
+        "--exclude=replays/",
+        "--exclude=.git/",
+        "--exclude=__pycache__/",
+        "--exclude=.venv/",
+        "--exclude=node_modules/",
+        "--exclude=*.replay26",
     )
     print(f"synced {ROOT} → {REMOTE}:{REMOTE_DIR}")
 
@@ -55,6 +69,7 @@ def cmd_build(args: argparse.Namespace) -> None:
     bot = args.bot
     extra_env = f"DEBUG_DUMP={args.debug_dump}" if args.debug_dump else ""
     script = f"""set -e
+. "$HOME/.cargo/env"
 cd {REMOTE_DIR}
 {env} {extra_env} cargo install --path crates/libre --bin cambc-libre --offline --quiet 2>&1 | tail -3 || true
 {env} {extra_env} cargo build --release -p {shlex.quote(bot)}
@@ -64,7 +79,7 @@ cd {REMOTE_DIR}
 
 def cmd_run(args: argparse.Namespace) -> None:
     LOCAL_REPLAYS.mkdir(parents=True, exist_ok=True)
-    remote_dir = f"/tmp/b_replays_{int(time.time())}"
+    remote_dir = f"/tmp/b_replays_{int(time.time())}"  # noqa: S108
     debug = "DEBUG_DUMP=1 " if args.debug_dump else ""
     rounds_arg = f"--rounds {args.rounds}" if args.rounds else ""
     map_arg = args.map
@@ -73,6 +88,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     a_safe = a.replace("/", "_")
     b_safe = b.replace("/", "_")
     cmd = f"""set -e
+. "$HOME/.cargo/env"
 mkdir -p {remote_dir}
 cd {REMOTE_DIR}
 for i in $(seq 1 {n}); do
@@ -99,7 +115,9 @@ def main() -> None:
 
     bld = sub.add_parser("build")
     bld.add_argument("bot", default="v55", nargs="?")
-    bld.add_argument("--debug-dump", default="1", help="DEBUG_DUMP value (default 1, empty to unset)")
+    bld.add_argument(
+        "--debug-dump", default="1", help="DEBUG_DUMP value (default 1, empty to unset)"
+    )
     bld.set_defaults(fn=cmd_build)
 
     run = sub.add_parser("run")
@@ -108,7 +126,9 @@ def main() -> None:
     run.add_argument("-m", "--map", default="craters")
     run.add_argument("-n", type=int, default=1)
     run.add_argument("-r", "--rounds", type=int, default=200)
-    run.add_argument("--no-debug-dump", dest="debug_dump", action="store_false", default=True)
+    run.add_argument(
+        "--no-debug-dump", dest="debug_dump", action="store_false", default=True
+    )
     run.set_defaults(fn=cmd_run)
 
     s = sub.add_parser("ssh")
