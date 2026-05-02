@@ -219,8 +219,13 @@ impl Unit for Gunner {
             self.idle_turns += 1;
         }
 
-        if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD {
-            self.try_self_destruct(ct);
-        }
+        // Self-destruct disabled: each gunner cost real Ti to build; freeing
+        // the unit slot doesn't recoup the build cost. Keeping the gunner
+        // in place is a net win even when idle (still occupies a cone +
+        // contributes to defense if anything wanders into vision).
+        // if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD {
+        //     self.try_self_destruct(ct);
+        // }
+        let _ = self.idle_turns;
     }
 }
