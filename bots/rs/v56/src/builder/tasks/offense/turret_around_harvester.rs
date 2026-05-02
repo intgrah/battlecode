@@ -9,6 +9,7 @@ use crate::builder::tasks::offense::helpers::{
     gunner_chain_facing, is_allied_transport, pick_harvester_target, scout_toward_enemy,
     vulnerable_harvesters,
 };
+use crate::builder::tasks::econ::infrastructure::place_gunner::safe_facing;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::DIR4;
 
@@ -115,6 +116,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         if let Some(gd) = gdir {
             if can_afford(self_, EntityType::Gunner) {
                 move_random(self_, ct);
+                let gd = safe_facing(self_, build_position, gd);
                 placed = try_place(
                     self_,
                     ct,
@@ -130,6 +132,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
     if !placed && n_sentinel == 0 && self_.get_env(target) == Some(Environment::OreTitanium) {
         if can_afford(self_, EntityType::Sentinel) {
             move_random(self_, ct);
+            let direction = safe_facing(self_, build_position, direction);
             placed = try_place(
                 self_,
                 ct,

@@ -12,13 +12,43 @@ use cambc::{
 use crate::builder::Builder;
 use crate::builder::helpers::{move_random, try_place};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::util::directions::{DIR4, DIR8};
+use crate::util::directions::{DIR4, DIR8, is_cardinal, rotate_right};
 
 const fn is_turret(kind: Option<EntityType>) -> bool {
     matches!(
         kind,
         Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Breach | EntityType::Launcher)
     )
+}
+
+const fn is_resource_building(kind: Option<EntityType>) -> bool {
+    matches!(
+        kind,
+        Some(
+            EntityType::Harvester
+                | EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Splitter
+                | EntityType::Bridge
+                | EntityType::Foundry
+        )
+    )
+}
+
+/// If `d` faces directly into a friendly resource building adjacent to `pos`,
+/// rotate it one step clockwise.
+pub fn safe_facing(self_: &Builder, pos: Position, d: Direction) -> Direction {
+    if !is_cardinal(d) {
+        return d;
+    }
+    let front = pos.add(d);
+    if self_.in_bounds(front)
+        && is_resource_building(self_.kind_at(front))
+        && self_.team_at(front) == Some(self_.state.my_team)
+    {
+        return rotate_right(d);
+    }
+    d
 }
 
 const fn is_turret_or_transport(kind: Option<EntityType>) -> bool {
@@ -186,6 +216,7 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
     for test_position in neighbours_8 {
         let result = sentinel_facing(self_, ct, test_position);
         if let Some(d) = result {
+            let d = safe_facing(self_, test_position, d);
             return try_place(
                 self_,
                 ct,
@@ -201,6 +232,7 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
     if let Some(d) = result
         && move_random(self_, ct)
     {
+        let d = safe_facing(self_, my_pos, d);
         try_place(
             self_,
             ct,
@@ -219,6 +251,7 @@ pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult 
     for test_position in neighbours_8 {
         let result = gunner_facing(self_, test_position);
         if let Some(d) = result {
+            let d = safe_facing(self_, test_position, d);
             if try_place(
                 self_,
                 ct,
@@ -239,6 +272,7 @@ pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult 
     if let Some(d) = result
         && move_random(self_, ct)
     {
+        let d = safe_facing(self_, my_pos, d);
         try_place(
             self_,
             ct,

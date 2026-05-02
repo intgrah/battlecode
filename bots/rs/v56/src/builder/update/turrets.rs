@@ -9,7 +9,7 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         let i = (t.y as usize) * MAX_WIDTH + (t.x as usize);
         let valid = matches!(
             builder.building_kind[i],
-            Some(EntityType::Gunner | EntityType::Sentinel)
+            Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Launcher)
         ) && builder.building_team[i] != Some(my_team);
         if !valid {
             builder.nearest_enemy_turret = None;
@@ -22,7 +22,7 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
         let is_enemy_turret = matches!(
             builder.building_kind[i],
-            Some(EntityType::Gunner | EntityType::Sentinel)
+            Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Launcher)
         ) && builder.building_team[i] != Some(my_team)
             && pyrust::is_some!(builder.building_team[i]);
         if is_enemy_turret {
