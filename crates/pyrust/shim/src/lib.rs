@@ -5,6 +5,9 @@ pub mod macros;
 pub mod prelude;
 pub mod random;
 
+#[doc(hidden)]
+pub use crate::dsl::__pyrust_now_ns;
+
 // pyrust DSL surface. The translator path-matches `pyrust::*!` macros
 // and emits the corresponding Python. ANYTHING NOT WRAPPED IN A
 // `pyrust::*!` MACRO PASSES THROUGH TO PYTHON LITERALLY — bare
@@ -114,14 +117,16 @@ pub mod dict {
 pub mod string {
     pub use crate::{
         __pyrust_string_clear as clear, __pyrust_string_is_empty as is_empty,
-        __pyrust_string_len as len, __pyrust_string_new as new,
+        __pyrust_string_join as join, __pyrust_string_len as len, __pyrust_string_new as new,
     };
 }
 pub mod time {
     pub use crate::__pyrust_time_now_ns as now_ns;
 }
 pub mod serde {
-    pub use crate::__pyrust_serde_array_mut as array_mut;
+    pub use crate::{
+        __pyrust_serde_array_mut as array_mut, __pyrust_serde_to_value as to_value,
+    };
 }
 
 pub use builtins::{
