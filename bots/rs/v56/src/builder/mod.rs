@@ -45,7 +45,7 @@ use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
 use crate::util::debug::Scope;
-use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
+use crate::util::directions::{DIR4, DIR8};
 use crate::util::symmetry::Symmetry;
 use crate::util::visualiser::auto_wrap_position;
 use cambc::Team;
@@ -113,10 +113,6 @@ pub struct Builder {
 
     pub _ti_in_count: [i32; MAX_N],
     pub _ax_in_count: [i32; MAX_N],
-
-    /// Passable-neighbour list per tile (flat indices). Pre-built for full
-    /// `MAX_WIDTH × MAX_WIDTH`; trimmed in `post_init` for the actual map.
-    pub pnb: [Vec<i32>; MAX_N],
 
     /// Union-find parent pointer for incremental reachability.
     pub reach_parent: [i32; MAX_N],
@@ -282,7 +278,6 @@ impl Builder {
     /// ct-independent allocation. Mirrors Python `Builder.__init__`.
     #[must_use]
     pub fn new() -> Self {
-        let pnb = Self::build_initial_pnb();
         let flow_history: [VecDeque<(Option<ResourceType>, Option<i32>)>; MAX_N] =
             [const { VecDeque::new() }; MAX_N];
         let in_edges: [Vec<Position>; MAX_N] = [const { Vec::new() }; MAX_N];
@@ -327,7 +322,6 @@ impl Builder {
             _foundry_at: [0; MAX_N],
             _ti_in_count: [0; MAX_N],
             _ax_in_count: [0; MAX_N],
-            pnb,
             reach_parent: [-1; MAX_N],
             reach_frontier: pyrust::vec::new!(),
             conv_search: AStarSearch::new(),
@@ -399,44 +393,6 @@ impl Builder {
         }
     }
 
-    fn build_initial_pnb() -> [Vec<i32>; MAX_N] {
-        let mut pnb: [Vec<i32>; MAX_N] = [const { Vec::new() }; MAX_N];
-        let stride = MAX_WIDTH as i32;
-        let offsets: Vec<i32> =
-            pyrust::collect!(pyrust::map!(pyrust::iter!(DIR8_DELTA), |t| t.1 * stride + t.0));
-        for cy in 1..(MAX_WIDTH as i32 - 1) {
-            let row = cy * stride;
-            for cx in 1..(MAX_WIDTH as i32 - 1) {
-                let i = (row + cx) as usize;
-                pnb[i] =
-                    pyrust::collect!(pyrust::map!(pyrust::iter!(offsets), |&o| (i as i32) + o));
-            }
-        }
-        for cy in 0..MAX_WIDTH as i32 {
-            let row = cy * stride;
-            for cx in 0..MAX_WIDTH as i32 {
-                if pyrust::vec::contains!((1..(MAX_WIDTH as i32 - 1)), &cx)
-                    && pyrust::vec::contains!((1..(MAX_WIDTH as i32 - 1)), &cy)
-                {
-                    continue;
-                }
-                let i = (row + cx) as usize;
-                let mut nbs: Vec<i32> = pyrust::vec::new!();
-                for &(dx, dy) in &DIR8_DELTA {
-                    let nx = cx + dx;
-                    let ny = cy + dy;
-                    if pyrust::vec::contains!((0..MAX_WIDTH as i32), &nx)
-                        && pyrust::vec::contains!((0..MAX_WIDTH as i32), &ny)
-                    {
-                        pyrust::vec::push!(nbs, ny * stride + nx);
-                    }
-                }
-                pnb[i] = nbs;
-            }
-        }
-        pnb
-    }
-
     /// Slide the Ti-income ring buffer one round forward. Records
     /// `max(0, state.ti - _prev_ti)` in the current slot, evicts the
     /// oldest slot from the running sum, advances the index. O(1).
@@ -457,49 +413,6 @@ impl Builder {
     #[must_use]
     pub fn ti_income_per_round(&self) -> i32 {
         self._ti_income_sum / 32
-    }
-
-    /// Recompute `pnb[i]` and the relevant entries of every neighbour after
-    /// tile i's passability changed. Mirrors Python `Builder.update_pnb`.
-    pub fn update_pnb(&mut self, i: usize) {
-        let w = self.state.width;
-        let h = self.state.height;
-        let p = self.idx_to_pos[i];
-        let cx = p.x;
-        let cy = p.y;
-        let passable = self.cost_grid[i] != INF;
-        self.pnb[i].clear();
-        if passable {
-            for &(dx, dy) in &DIR8_DELTA {
-                let nx = cx + dx;
-                let ny = cy + dy;
-                if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
-                    let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
-                    if self.cost_grid[ni] != INF {
-                        pyrust::vec::push!(self.pnb[i], ni as i32);
-                    }
-                }
-            }
-        }
-        for &(dx, dy) in &DIR8_DELTA {
-            let nx = cx + dx;
-            let ny = cy + dy;
-            if !(pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny)) {
-                continue;
-            }
-            let ni = (ny as usize) * MAX_WIDTH + (nx as usize);
-            if self.cost_grid[ni] == INF {
-                continue;
-            }
-            let nb_list = &mut self.pnb[ni];
-            if passable {
-                if !pyrust::vec::contains!(nb_list, &(i as i32)) {
-                    pyrust::vec::push!(nb_list, i as i32);
-                }
-            } else if let Some(p) = pyrust::position!(pyrust::iter!(nb_list), |&x| x == i as i32) {
-                pyrust::vec::swap_remove!(nb_list, p);
-            }
-        }
     }
 
     /// Position to flat index (inherent shadow of `Unit::idx` so peer code
@@ -1065,22 +978,6 @@ impl Builder {
         }
     }
 
-    /// Set `pnb[(cy, cx)]` to its 8-king-move neighbours within `(w, h)`.
-    /// Pulled out of `post_init` so the body is a single statement and the
-    /// translator doesn't need multi-statement-closure support.
-    fn pnb_fix_boundary(&mut self, cx: i32, cy: i32, w: i32, h: i32) {
-        let stride = MAX_WIDTH as i32;
-        let mut nbs: Vec<i32> = pyrust::vec::new!();
-        for &(dx, dy) in &DIR8_DELTA {
-            let nx = cx + dx;
-            let ny = cy + dy;
-            if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
-                pyrust::vec::push!(nbs, ny * stride + nx);
-            }
-        }
-        self.pnb[(cy * stride + cx) as usize] = nbs;
-    }
-
     /// Mirror `my_core` under `symmetry_guess`.
     fn refresh_symmetry_cache(&mut self) {
         let count = pyrust::len!(self.state.symmetry_candidates);
@@ -1161,16 +1058,6 @@ impl Unit for Builder {
         for (i, d) in pyrust::enumerate!(pyrust::iter!(DIR8)) {
             self.core_edges[i] = self.my_core.add(*d);
         }
-
-        // Trim pnb at the actual map boundary (right column + bottom row).
-        pyrust::with!(Scope::new_timed("pnb"), {
-            for cx in 0..w {
-                self.pnb_fix_boundary(cx, h - 1, w, h);
-            }
-            for cy in 0..(h - 1) {
-                self.pnb_fix_boundary(w - 1, cy, w, h);
-            }
-        });
 
         self.refresh_symmetry_cache();
     }

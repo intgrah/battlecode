@@ -271,6 +271,49 @@ pub fn insert_into_clusters(
     centroids[best_i] = (cx, cy);
 }
 
+/// Insert `p` into the closest existing cluster IFF its centroid is
+/// within `_CLUSTER_THRESHOLD`. No new cluster is spawned — used for
+/// "decoration" tiles (friendly conveyors) that should join an existing
+/// harvester cluster but never seed one of their own.
+pub fn insert_into_existing_cluster(
+    clusters: &mut Vec<Vec<Position>>,
+    centroids: &mut Vec<(f64, f64)>,
+    p: Position,
+) {
+    let n = pyrust::len!(clusters);
+    if n == 0 {
+        return;
+    }
+    let mut best_i: usize = 0;
+    let mut best_d: f64 = f64::MAX;
+    for i in 0..n {
+        let d = _centroid_d2(centroids[i], p);
+        if d < best_d {
+            best_d = d;
+            best_i = i;
+        }
+    }
+    if best_d > pyrust::float!(_CLUSTER_THRESHOLD) {
+        return;
+    }
+    let q = &mut clusters[best_i];
+    let mut bj: usize = 0;
+    let mut bd = p.distance_squared(q[0]);
+    for j in 1..pyrust::len!(q) {
+        let d = p.distance_squared(q[j]);
+        if d < bd {
+            bd = d;
+            bj = j;
+        }
+    }
+    q.insert(bj + 1, p);
+    let new_size = pyrust::float!(pyrust::len!(q));
+    let old_size = new_size - 1.0;
+    let cx = (centroids[best_i].0 * old_size + pyrust::float!(p.x)) / new_size;
+    let cy = (centroids[best_i].1 * old_size + pyrust::float!(p.y)) / new_size;
+    centroids[best_i] = (cx, cy);
+}
+
 /// Remove `p` from whichever cluster contains it. Update centroid; if
 /// the cluster becomes empty, drop it (and its centroid).
 pub fn remove_from_clusters(

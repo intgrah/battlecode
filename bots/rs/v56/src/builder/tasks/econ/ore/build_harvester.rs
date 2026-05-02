@@ -17,9 +17,7 @@ const fn resolve_target(self_: &Builder) -> Option<Position> {
     if let Some(t) = self_.ore_target {
         return Some(t);
     }
-    if let Some(t) = self_.ax_ore_target
-        && pyrust::is_some!(self_.ax_sink)
-    {
+    if let Some(t) = self_.ax_ore_target {
         return Some(t);
     }
     None
