@@ -12,7 +12,6 @@ use crate::builder::tasks::econ::chains::extend_chain_in_range::extend_chain_in_
 use crate::builder::tasks::econ::infrastructure::ECON_INFRASTRUCTURE_GROUP;
 use crate::builder::tasks::econ::ore::build_harvester::build_harvester;
 use crate::builder::tasks::econ::ore::claim_ore::claim_ore;
-use crate::builder::tasks::shared::deny_enemy_ore::deny_enemy_ore;
 use crate::builder::tasks::shared::explore::explore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
 use crate::builder::tasks::shared::opportunistic_attack::opportunistic_attack;
@@ -25,10 +24,6 @@ const ECON_CHILDREN: &[Policy] = &[
         fn_: extend_chain_in_range,
     },
     HEAL_GROUP,
-    Policy::Leaf {
-        name: "deny_enemy_ore",
-        fn_: deny_enemy_ore,
-    },
     Policy::Leaf {
         name: "claim_ore",
         fn_: claim_ore,

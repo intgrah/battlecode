@@ -184,6 +184,7 @@ pub fn pick_conveyor_target(
         // Use cached building_ids to avoid a Python-boundary ct call.
         // bid is still needed for ct.get_stored_resource (no cached equiv).
         if let Some(bid) = self_.building_ids[pi as usize]
+            && pyrust::unwrap!(ct.is_in_vision(pos))
             && pyrust::is_some!(pyrust::unwrap!(ct.get_stored_resource(Some(bid))))
         {
             has_flow = true;
@@ -222,7 +223,7 @@ pub fn pick_attack_destination(
     let mut candidates: Vec<(i32, i32, i32, Position)> = pyrust::vec::new!();
     for &dp in &DIR4_INT {
         let pi = target_p + dp;
-        if self_.posint_valid[pi as usize] == 0 {
+        if pi < 0 || (pi as usize) >= self_.posint_valid.len() || self_.posint_valid[pi as usize] == 0 {
             continue;
         }
         if !self_.is_passable_p(pi) {
@@ -286,7 +287,7 @@ pub fn gunner_chain_facing(self_: &Builder, pos: Position) -> Option<Direction> 
         let mut cp = pos_p;
         for _ in 0..4 {
             cp += dp;
-            if self_.posint_valid[cp as usize] == 0 {
+            if cp < 0 || (cp as usize) >= self_.posint_valid.len() || self_.posint_valid[cp as usize] == 0 {
                 break;
             }
             if dist_sq(pos_p, cp) > GameConstants::GUNNER_VISION_RADIUS_SQ {
@@ -322,7 +323,7 @@ fn has_open_side(self_: &Builder, position: Position) -> bool {
     let pos_p = idx_of(position);
     for &dp in &DIR4_INT {
         let np = pos_p + dp;
-        if self_.posint_valid[np as usize] == 0 {
+        if np < 0 || (np as usize) >= self_.posint_valid.len() || self_.posint_valid[np as usize] == 0 {
             continue;
         }
         if !self_.is_passable_p(np) {
