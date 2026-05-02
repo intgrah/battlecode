@@ -44,7 +44,7 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     let mut being_healed = false;
     if let Some((pos, expected_hp)) = self_.last_fire
         && pos == self_.my_pos
-        && self_.building_ids[my_pos_i].is_some()
+        && pyrust::is_some!(self_.building_ids[my_pos_i])
     {
         let current_hp = self_.hp[my_pos_i];
         if current_hp > expected_hp {
@@ -82,7 +82,7 @@ pub fn fire_on_enemy_tile(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
     }
 
     // Use cached building_ids + hp to avoid two Python-boundary ct calls.
-    if self_.building_ids[my_pos_i].is_some() {
+    if pyrust::is_some!(self_.building_ids[my_pos_i]) {
         let pre_hp = self_.hp[my_pos_i];
         self_.last_fire = Some((my_pos, pyrust::max!((pre_hp - 2), 0)));
     }

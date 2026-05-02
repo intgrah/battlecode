@@ -123,6 +123,9 @@ pub mod string {
 pub mod time {
     pub use crate::__pyrust_time_now_ns as now_ns;
 }
+pub mod bytearray {
+    pub use crate::__pyrust_bytearray_new as new;
+}
 pub mod serde {
     pub use crate::{__pyrust_serde_array_mut as array_mut, __pyrust_serde_to_value as to_value};
 }

@@ -10,14 +10,32 @@
 use std::path::PathBuf;
 use syn::spanned::Spanned;
 
-fn is_single_expr_body(b: &syn::Block) -> bool {
+fn is_single_expr_body(b: &syn::Block, params: &[String]) -> bool {
     if b.stmts.len() != 1 {
         return false;
     }
     let syn::Stmt::Expr(e, None) = &b.stmts[0] else {
         return false;
     };
-    body_is_supported(e)
+    body_is_supported(e, params)
+}
+
+/// Extract the parameter names from a function signature. `self` is
+/// always implicit at the call site (the receiver expression substitutes
+/// it), so include it in the safe-name list.
+fn param_names(sig: &syn::Signature) -> Vec<String> {
+    let mut names = vec!["self".to_string()];
+    for arg in &sig.inputs {
+        match arg {
+            syn::FnArg::Receiver(_) => {} // already covered by "self"
+            syn::FnArg::Typed(pt) => {
+                if let syn::Pat::Ident(id) = pt.pat.as_ref() {
+                    names.push(id.ident.to_string());
+                }
+            }
+        }
+    }
+    names
 }
 
 /// Whitelist of expression shapes the inliner handles correctly.
@@ -30,7 +48,7 @@ fn is_single_expr_body(b: &syn::Block) -> bool {
 /// emission all behave as if the body had been written at the call
 /// site.
 ///
-/// Two classes of expression are NOT safe to inline:
+/// Three classes of expression are NOT safe to inline:
 ///
 /// 1. `Self::*` — emit_expr resolves `Self` to the *current* impl
 ///    context, which is the call site, not the inlinee's impl.
@@ -40,26 +58,50 @@ fn is_single_expr_body(b: &syn::Block) -> bool {
 ///    macro token streams, so formals referenced inside a macro
 ///    (e.g. `pyrust::vec::push!(self.x, y)`) would emit literally
 ///    rather than being substituted.
-fn body_is_supported(e: &syn::Expr) -> bool {
+/// 3. Free identifiers / types not in the param list — these would
+///    resolve against the call-site module's namespace, but the
+///    substituted body lives in a different module. Example:
+///    `pub fn pick_ore_target(builder: &Builder) -> ... { _pick_ore(builder, Environment::OreTitanium) }`
+///    inlined into `econ::update_ore_target` would emit
+///    `_pick_ore(builder, Environment.ORE_TITANIUM)` in `econ.py`,
+///    which never imported `_pick_ore` → NameError. Reject any free
+///    identifier whose first segment isn't a parameter or `self`.
+fn body_is_supported(e: &syn::Expr, params: &[String]) -> bool {
     match e {
         syn::Expr::Path(p) => {
             if p.qself.is_some() || p.path.leading_colon.is_some() {
                 return false;
             }
-            // Reject `Self::...` paths: meaning is impl-context-bound.
-            // Bare `self` is fine — it's substituted with the receiver.
-            if let Some(first) = p.path.segments.first()
-                && first.ident == "Self"
-            {
+            let Some(first) = p.path.segments.first() else {
+                return false;
+            };
+            // `Self::...` resolves against the call-site impl, not the inlinee's.
+            if first.ident == "Self" {
                 return false;
             }
-            true
+            // Bare `self` is fine — substituted with the receiver expression.
+            if first.ident == "self" {
+                return true;
+            }
+            // Multi-segment paths (e.g. `Foo::Bar`, `module::fn`) are
+            // module-scoped names that may not exist at the call site.
+            if p.path.segments.len() > 1 {
+                return false;
+            }
+            // Single-segment: must be a parameter that the substitution
+            // pass will replace with the caller's expression. Anything
+            // else (a free function, top-level const, enum variant
+            // brought in via `use`) might be undefined at the call site.
+            let name = first.ident.to_string();
+            params.iter().any(|p| p == &name)
         }
         syn::Expr::Lit(_) => true,
         syn::Expr::Field(f) => {
-            matches!(&f.member, syn::Member::Named(_)) && body_is_supported(&f.base)
+            matches!(&f.member, syn::Member::Named(_)) && body_is_supported(&f.base, params)
         }
-        syn::Expr::Index(i) => body_is_supported(&i.expr) && body_is_supported(&i.index),
+        syn::Expr::Index(i) => {
+            body_is_supported(&i.expr, params) && body_is_supported(&i.index, params)
+        }
         syn::Expr::Binary(b) => {
             let op_ok = matches!(
                 b.op,
@@ -77,32 +119,28 @@ fn body_is_supported(e: &syn::Expr) -> bool {
                     | syn::BinOp::And(_)
                     | syn::BinOp::Or(_)
             );
-            op_ok && body_is_supported(&b.left) && body_is_supported(&b.right)
+            op_ok
+                && body_is_supported(&b.left, params)
+                && body_is_supported(&b.right, params)
         }
         syn::Expr::Unary(u) => {
             let op_ok = matches!(
                 u.op,
                 syn::UnOp::Neg(_) | syn::UnOp::Not(_) | syn::UnOp::Deref(_)
             );
-            op_ok && body_is_supported(&u.expr)
+            op_ok && body_is_supported(&u.expr, params)
         }
-        syn::Expr::Reference(r) => body_is_supported(&r.expr),
-        syn::Expr::Paren(p) => body_is_supported(&p.expr),
-        syn::Expr::Cast(c) => body_is_supported(&c.expr),
-        syn::Expr::Tuple(t) => t.elems.iter().all(body_is_supported),
+        syn::Expr::Reference(r) => body_is_supported(&r.expr, params),
+        syn::Expr::Paren(p) => body_is_supported(&p.expr, params),
+        syn::Expr::Cast(c) => body_is_supported(&c.expr, params),
+        syn::Expr::Tuple(t) => t.elems.iter().all(|e| body_is_supported(e, params)),
         syn::Expr::MethodCall(mc) => {
-            body_is_supported(&mc.receiver) && mc.args.iter().all(body_is_supported)
+            body_is_supported(&mc.receiver, params)
+                && mc.args.iter().all(|e| body_is_supported(e, params))
         }
         syn::Expr::Call(c) => {
-            // Reject `Self::foo()` calls — the func path would resolve
-            // against the call-site impl, not the inlinee's.
-            if let syn::Expr::Path(p) = c.func.as_ref()
-                && let Some(first) = p.path.segments.first()
-                && first.ident == "Self"
-            {
-                return false;
-            }
-            body_is_supported(&c.func) && c.args.iter().all(body_is_supported)
+            body_is_supported(&c.func, params)
+                && c.args.iter().all(|e| body_is_supported(e, params))
         }
         // Macro/Struct/Match/If/Block/Loop/Closure/Return/Try/Async/Range etc.
         _ => false,
@@ -177,7 +215,8 @@ fn migrate_file(path: &std::path::Path) -> std::io::Result<usize> {
                 if !signature_is_inlinable(&f.sig) {
                     continue;
                 }
-                if !is_single_expr_body(&f.block) {
+                let params = param_names(&f.sig);
+                if !is_single_expr_body(&f.block, &params) {
                     continue;
                 }
                 let span = item.span().start();
@@ -195,7 +234,8 @@ fn migrate_file(path: &std::path::Path) -> std::io::Result<usize> {
                     if !signature_is_inlinable(&f.sig) {
                         continue;
                     }
-                    if !is_single_expr_body(&f.block) {
+                    let params = param_names(&f.sig);
+                    if !is_single_expr_body(&f.block, &params) {
                         continue;
                     }
                     let span = ii.span().start();

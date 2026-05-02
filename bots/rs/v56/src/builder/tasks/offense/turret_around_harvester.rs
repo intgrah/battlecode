@@ -4,7 +4,7 @@
 use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position};
 
 use crate::builder::Builder;
-use crate::builder::helpers::{move_random, try_place};
+use crate::builder::helpers::{can_afford, move_random, try_place};
 use crate::builder::tasks::offense::helpers::{
     gunner_chain_facing, is_allied_transport, pick_harvester_target, scout_toward_enemy,
     vulnerable_harvesters,
@@ -62,29 +62,28 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
     let vulnerable = vulnerable_harvesters(self_);
     if pyrust::vec::is_empty!(vulnerable) {
         return Some(TaskRejected::new(
-            "not on empty terrain cardinal to a vulnerable harvester",
+            "no vulnerable harvester",
         ));
     }
     let target = pick_harvester_target(self_, &vulnerable);
     if self_.my_pos.distance_squared(target) != 1 {
         return Some(TaskRejected::new(
-            "not on empty terrain cardinal to a vulnerable harvester",
+            "not cardinally adjacent to a vulnerable harvester",
         ));
     }
     if is_allied_transport(self_, self_.my_pos) {
         return Some(TaskRejected::new(
-            "not on empty terrain cardinal to a vulnerable harvester",
+            "on allied transport cardinal to a vulnerable harvester",
         ));
     }
     if self_.is_enemy_building(self_.my_pos) {
         return Some(TaskRejected::new(
-            "not on empty terrain cardinal to a vulnerable harvester",
+            "on enemy building cardinal to a vulnerable harvester",
         ));
     }
 
     let build_position = self_.my_pos;
     let enemy_core = self_.en_core_guess;
-    move_random(self_, ct);
     let mut direction = direction_to(build_position, enemy_core);
     if direction == direction_to(build_position, target) {
         direction = rotate_right(direction);
@@ -110,29 +109,40 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         }
     }
 
+    let mut placed = false;
     if n_gunner < 2 {
         let gdir = gunner_chain_facing(self_, build_position);
         if let Some(gd) = gdir {
-            try_place(
-                self_,
-                ct,
-                EntityType::Gunner,
-                build_position,
-                BuildExtra::Direction(gd),
-                true,
-            );
+            if can_afford(self_, EntityType::Gunner) {
+                move_random(self_, ct);
+                placed = try_place(
+                    self_,
+                    ct,
+                    EntityType::Gunner,
+                    build_position,
+                    BuildExtra::Direction(gd),
+                    true,
+                );
+            } else {
+                try_place(self_, ct, EntityType::Road, build_position, BuildExtra::None, false);
+            }
         }
     }
 
-    if n_sentinel == 0 && self_.get_env(target) == Some(Environment::OreTitanium) {
-        try_place(
-            self_,
-            ct,
-            EntityType::Sentinel,
-            build_position,
-            BuildExtra::Direction(direction),
-            true,
-        );
+    if !placed && n_sentinel == 0 && self_.get_env(target) == Some(Environment::OreTitanium) {
+        if can_afford(self_, EntityType::Sentinel) {
+            move_random(self_, ct);
+            try_place(
+                self_,
+                ct,
+                EntityType::Sentinel,
+                build_position,
+                BuildExtra::Direction(direction),
+                true,
+            );
+        } else {
+            try_place(self_, ct, EntityType::Road, build_position, BuildExtra::None, false);
+        }
     }
 
     if pyrust::unwrap!(ct.can_build_road(build_position)) {

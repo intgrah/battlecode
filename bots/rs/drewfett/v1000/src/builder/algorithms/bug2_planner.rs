@@ -174,6 +174,40 @@ impl Bug2Planner {
         let sy = si / stride;
         let gx = gi % stride;
         let gy = gi / stride;
+        // adgato fix: if goal tile is impassable, retarget to nearest
+        // passable 8-neighbour (closest to start). Lets bug2 produce a
+        // useful path when the requested goal is itself blocked.
+        //
+        // Imperative form (mut + if-block) instead of `let (a,b,c) = if
+        // ... { ... } else { let block };` because pyrust-translate
+        // can't emit a let-binding-tuple destructure when the else
+        // branch needs multi-statement scratch state.
+        let mut gi = gi;
+        let mut gx = gx;
+        let mut gy = gy;
+        if cost[gi as usize] == INF {
+            let mut best_dist = i32::MAX;
+            for d in 0..8usize {
+                let nx = gx + DX[d];
+                let ny = gy + DY[d];
+                if nx < 0 || nx >= w || ny < 0 || ny >= h {
+                    continue;
+                }
+                let ni = ny * stride + nx;
+                if cost[ni as usize] == INF {
+                    continue;
+                }
+                let ddx = nx - sx;
+                let ddy = ny - sy;
+                let dist = ddx * ddx + ddy * ddy;
+                if dist < best_dist {
+                    best_dist = dist;
+                    gi = ni;
+                    gx = nx;
+                    gy = ny;
+                }
+            }
+        }
         let mdx = gx - sx;
         let mdy = gy - sy;
         let goal_dot = mdx * mdx + mdy * mdy;

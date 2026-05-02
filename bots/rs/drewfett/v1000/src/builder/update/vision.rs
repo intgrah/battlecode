@@ -323,9 +323,15 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
         let px = pos.x;
         let py = pos.y;
         let i = idx_of(pos) as usize;
-        let env = pyrust::unwrap!(ct.get_tile_env(pos));
-        let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
         let prev_env = builder.env[i];
+        // env is immutable in the engine (Empty/Wall/OreTitanium/OreAxionite).
+        // Skip the get_tile_env FFI if we already observed this tile.
+        let env = if let Some(e) = prev_env {
+            e
+        } else {
+            pyrust::unwrap!(ct.get_tile_env(pos))
+        };
+        let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
         let prev_bid = builder.building_ids[i];
         let env_changed = prev_env != Some(env);
         let bld_changed = prev_bid != bid;
@@ -372,8 +378,8 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                 _update_turret_rays(builder, ct, pos, bid_v, kind, team);
             }
         } else if pyrust::is_some!(bid) {
+            // max_hp is constant for a given building_id; only refresh hp.
             builder.hp[i] = pyrust::unwrap!(ct.get_hp(bid));
-            builder.max_hp[i] = pyrust::unwrap!(ct.get_max_hp(bid));
         }
 
         // Populate typed sub-lists for consumers (avoids them re-scanning

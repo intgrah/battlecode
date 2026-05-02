@@ -345,6 +345,29 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
     } else {
         recv.text
     };
+    // Primitive numeric methods that don't exist on Python ints/floats:
+    // rewrite as builtins.
+    match (method.as_str(), arg_texts.as_slice()) {
+        ("abs", []) => {
+            return Ok(Emitted::atomic(
+                format!("abs({recv_text})"),
+                Ty::Unknown,
+            ));
+        }
+        ("max", [arg]) => {
+            return Ok(Emitted::atomic(
+                format!("max({recv_text}, {arg})"),
+                Ty::Unknown,
+            ));
+        }
+        ("min", [arg]) => {
+            return Ok(Emitted::atomic(
+                format!("min({recv_text}, {arg})"),
+                Ty::Unknown,
+            ));
+        }
+        _ => {}
+    }
     // Rust-keyword renames: `move_` → `move` (Python keyword in pattern
     // position only; method name is fine in Python).
     let py_method: &str = match method.as_str() {
@@ -1796,12 +1819,12 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 Ty::Unknown,
             ));
         }
-        // `T::new(args)` constructor convention — Rust idiom for any
-        // user-defined type. Python equivalent is calling the class
-        // itself (`T(args)`), since the bot's `impl T { fn new() }`
+        // `T::new(args)` / `T::new_timed(args)` constructor convention —
+        // Rust idiom for any user-defined type. Python equivalent is calling
+        // the class itself (`T(args)`), since the bot's `impl T { fn new() }`
         // is the canonical constructor. This is path-recognised, not
         // method-name guessing on a receiver.
-        if tail == "new" {
+        if tail == "new" || tail == "new_timed" {
             return Ok(Emitted::atomic(
                 format!("{class_name}({joined})"),
                 Ty::Unknown,
@@ -2969,6 +2992,26 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
             Ok(Some(Emitted::atomic(
                 format!("str({})", inner.text),
                 Ty::Str,
+            )))
+        }
+
+        // ============================================================
+        // bytearray::*
+        // ============================================================
+        // `pyrust::bytearray::new!(n)` → `bytearray(n)` (n zero bytes).
+        // CPython byte-level read/write avoids per-element PyLong boxing
+        // — used for hot inner-loop arrays of small ints (BFS distance
+        // fields, passability flags). Indexing/iteration is identical
+        // to a list[int] so call sites need no other changes.
+        ["bytearray", "new"] => {
+            let args = parse_args!();
+            if args.len() != 1 {
+                return Err(w.err(em.span(), "bytearray::new!: expected (n)"));
+            }
+            let emits = emit_args(w, &args)?;
+            Ok(Some(Emitted::atomic(
+                format!("bytearray({})", emits[0].text),
+                Ty::Unknown,
             )))
         }
 

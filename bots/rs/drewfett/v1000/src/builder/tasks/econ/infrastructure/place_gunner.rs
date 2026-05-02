@@ -195,7 +195,7 @@ pub fn sentinel_facing(
         return None;
     }
     let p = idx_of(position);
-    if self_.posint_valid[p as usize] == 0 {
+    if p < 0 || self_.posint_valid[p as usize] == 0 {
         return None;
     }
     if !pyrust::vec::contains!(self_.adjacent_to_harvester, &p) {

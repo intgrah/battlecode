@@ -111,7 +111,11 @@ pub fn classify(
             if x < 0 || x >= width || y < 0 || y >= height {
                 continue;
             }
-            let env = pyrust::unwrap!(ct.get_tile_env(Position { x, y }));
+            let p = Position { x, y };
+            if !pyrust::unwrap!(ct.is_in_vision(p)) {
+                continue;
+            }
+            let env = pyrust::unwrap!(ct.get_tile_env(p));
             inner_total += 1;
             if env == Environment::Wall {
                 inner_walls += 1;

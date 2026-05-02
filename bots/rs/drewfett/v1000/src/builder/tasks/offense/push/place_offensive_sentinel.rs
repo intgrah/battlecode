@@ -4,7 +4,7 @@
 //! enemy structure. Candidates come from `dangling_set` (chain tips, never
 //! existing conveyors).
 
-use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Position};
+use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
@@ -37,14 +37,21 @@ fn is_enemy_valuable(self_: &Builder, pos: Position) -> bool {
     )
 }
 
-/// `side` is a deliverer for a turret at `pos` iff it's a structural
-/// feeder of `pos` or a friendly harvester.
+/// `side` is a deliverer for a sentinel at `pos` iff it's a structural
+/// feeder of `pos` or a friendly **Ti** harvester. Ax harvesters output
+/// raw Ax — sentinels accept Ti as ammo and would clog/waste resources
+/// if we treated an Ax harvester as a delivery slot. Without this
+/// filter we'd avoid facing the Ax-harvester direction (preserving a
+/// nonexistent ammo input) and lose a viable enemy-attack facing.
 fn delivers_ammo(self_: &Builder, pos: Position, side: Position) -> bool {
     let in_edges = &self_.in_edges[idx_of(pos) as usize];
     if pyrust::vec::contains!(in_edges, &side) {
         return true;
     }
-    self_.kind_at(side) == Some(EntityType::Harvester) && self_.team_at(side) == Some(self_.my_team)
+    let i = idx_of(side) as usize;
+    self_.building_kind[i] == Some(EntityType::Harvester)
+        && self_.building_team[i] == Some(self_.my_team)
+        && self_.env[i] == Some(Environment::OreTitanium)
 }
 
 /// First DIR8 direction such that a sentinel at `pos` facing `d`
@@ -56,7 +63,11 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
         let d = DIR8[ii];
         let dp = DIR8_INT[ii];
         let fp = pos_p + dp;
-        if self_.posint_valid[fp as usize] != 0 && delivers_ammo(self_, pos, pos_of(fp)) {
+        if fp >= 0
+            
+            && self_.posint_valid[fp as usize] != 0
+            && delivers_ammo(self_, pos, pos_of(fp))
+        {
             continue;
         }
         let tiles = pyrust::unwrap!(ct.get_attackable_tiles_from(pos, d, EntityType::Sentinel));
@@ -70,10 +81,6 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
 }
 
 pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-    if !can_afford(self_, EntityType::Sentinel) {
-        return Some(TaskRejected::new("cannot afford SENTINEL"));
-    }
-
     let mut best_pos: Option<Position> = None;
     let mut best_facing: Option<Direction> = None;
     let mut best_dist = 1 << 30;
@@ -106,6 +113,22 @@ pub fn place_offensive_sentinel(self_: &mut Builder, ct: &mut Controller<'_>) ->
             "no dangling end with an enemy in sentinel range",
         ));
     };
+
+    // adgato fix: if we can't afford the sentinel yet, pave a road on
+    // the chosen tile to reserve it. The dangling tip stays "claimed"
+    // until next turn when we (hopefully) can afford the sentinel and
+    // overwrite the road with the sentinel placement.
+    if !can_afford(self_, EntityType::Sentinel) {
+        try_place(
+            self_,
+            ct,
+            EntityType::Road,
+            best_pos,
+            BuildExtra::None,
+            false,
+        );
+        return None;
+    }
 
     if self_.my_pos == best_pos {
         move_random(self_, ct);

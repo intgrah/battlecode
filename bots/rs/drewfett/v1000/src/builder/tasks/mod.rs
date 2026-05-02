@@ -40,7 +40,6 @@ use crate::builder::tasks::offense::push::OFFENSE_PUSH_GROUP;
 use crate::builder::tasks::offense::push::split_before_sentinel::split_before_sentinel;
 use crate::builder::tasks::offense::scout_toward_enemy::scout_toward_enemy;
 use crate::builder::tasks::offense::turret_around_harvester::turret_around_harvester;
-use crate::builder::tasks::shared::deny_enemy_ore::deny_enemy_ore;
 use crate::builder::tasks::shared::explore::explore;
 use crate::builder::tasks::shared::heal::HEAL_GROUP;
 use crate::builder::tasks::shared::opportunistic_attack::opportunistic_attack;
@@ -84,10 +83,6 @@ const DEFENDER_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "stalk_enemy",
         fn_: stalk_enemy,
-    },
-    Policy::Leaf {
-        name: "deny_enemy_ore",
-        fn_: deny_enemy_ore,
     },
     Policy::Leaf {
         name: "extend_chain_in_range",
@@ -201,10 +196,6 @@ const FREE_CHILDREN: &[Policy] = &[
     },
     OFFENSE_PARASITIC_GROUP,
     OFFENSE_PUSH_GROUP,
-    Policy::Leaf {
-        name: "deny_enemy_ore",
-        fn_: deny_enemy_ore,
-    },
     Policy::Leaf {
         name: "stalk_enemy",
         fn_: stalk_enemy,

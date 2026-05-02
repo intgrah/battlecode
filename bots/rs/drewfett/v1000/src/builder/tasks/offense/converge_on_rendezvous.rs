@@ -80,7 +80,7 @@ pub fn place_marker_best_effort(self_: &Builder, ct: &mut Controller<'_>, payloa
     let my_p = idx_of(self_.state.my_pos);
     for &dp in &DIR8_INT {
         let cp = my_p + dp;
-        if self_.posint_valid[cp as usize] == 0 {
+        if cp < 0 || self_.posint_valid[cp as usize] == 0 {
             continue;
         }
         let i = cp as usize;

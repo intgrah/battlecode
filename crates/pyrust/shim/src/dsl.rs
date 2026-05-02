@@ -555,6 +555,19 @@ macro_rules! __pyrust_vec_new {
     };
 }
 
+/// `pyrust::bytearray::new!(n)` — Python `bytearray(n)` (n zero bytes).
+/// Rust expansion is `vec![0u8; n]`; the read/write API is identical
+/// to `Vec<u8>` from the bot's perspective. Use this when the array is
+/// hot-iterated in Python and elements are bytes (0–255), e.g. BFS
+/// distance fields. CPython indexes `bytearray` at C speed without
+/// boxing each element into a `PyLong`.
+#[macro_export]
+macro_rules! __pyrust_bytearray_new {
+    ($n:expr) => {
+        ::std::vec![0u8; ($n) as usize]
+    };
+}
+
 #[macro_export]
 macro_rules! __pyrust_vec_push {
     ($v:expr, $x:expr) => {
