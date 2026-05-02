@@ -22,8 +22,8 @@ use serde_json::Map;
 
 use crate::builder::Builder;
 use crate::builder::helpers::{
-    can_afford, harvester_feed_cardinal, make_move, make_move_or_adjacent, on_enemy_side,
-    ore_available, try_move_with_road,
+    can_afford, harvester_feed_cardinal, make_move, make_move_or_adjacent, move_random,
+    on_enemy_side, ore_available, try_move_with_road,
 };
 use crate::util::debug::debug as log;
 use crate::util::directions::{DIR4, delta_to_dir};
@@ -368,6 +368,16 @@ pub fn clear_barriered_feed(
 /// Standing on the ore, step off ONTO THE FEED CARDINAL (the
 /// harvester's chosen output tile) and place the harvester in the
 /// same turn.
+/// Number of consecutive blocked-feed turns before the bot rolls
+/// a coinflip to abandon the claim and walk off. Mitigates two-bot
+/// deadlocks where each bot's step-off tile is occupied by the other.
+const _STEP_OFF_DEADLOCK_TURNS: i32 = 8;
+
+/// Probability (0..=1) of giving up the claim once the deadlock
+/// threshold is reached. Random per bot per turn so two bots in
+/// symmetric deadlock have a ~75% chance at least one gives up.
+const _STEP_OFF_BACKOFF_P: f64 = 0.5;
+
 pub fn step_off_and_build_harvester(
     builder: &mut Builder,
     ct: &mut Controller<'_>,
@@ -402,6 +412,9 @@ pub fn step_off_and_build_harvester(
         && pyrust::unwrap!(ct.can_destroy(builder.state.my_pos))
     {
         if !pyrust::unwrap!(ct.can_move(d)) {
+            if _step_off_deadlock_backoff(builder, ct, target_pos) {
+                return true;
+            }
             let mut args = Map::new();
             pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
             log(
@@ -427,6 +440,8 @@ pub fn step_off_and_build_harvester(
     }
 
     if pyrust::unwrap!(ct.can_move(d)) {
+        // Successful step — clear the deadlock counter.
+        builder._step_off_wait_turns = 0;
         let mut args = Map::new();
         pyrust::dict::insert!(
             args,
@@ -476,12 +491,52 @@ pub fn step_off_and_build_harvester(
         }
         return true;
     }
+    if _step_off_deadlock_backoff(builder, ct, target_pos) {
+        return true;
+    }
     let mut args = Map::new();
     pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
     log(
         "step_off_and_build_harvester: cannot move to feed {feed}; waiting",
         args,
     );
+    true
+}
+
+/// Increment the deadlock counter; if the threshold is reached and a
+/// per-turn coinflip favours abandonment, clear the ore target and
+/// walk off in any direction. Returns true iff backoff fired (caller
+/// should treat the turn as already-acted).
+fn _step_off_deadlock_backoff(
+    builder: &mut Builder,
+    ct: &mut Controller<'_>,
+    target_pos: Position,
+) -> bool {
+    builder._step_off_wait_turns += 1;
+    if builder._step_off_wait_turns < _STEP_OFF_DEADLOCK_TURNS {
+        return false;
+    }
+    if builder.state.rng.random() >= _STEP_OFF_BACKOFF_P {
+        return false;
+    }
+    builder._step_off_wait_turns = 0;
+    if builder.ore_target == Some(target_pos) {
+        builder.ore_target = None;
+    }
+    if builder.ax_ore_target == Some(target_pos) {
+        builder.ax_ore_target = None;
+    }
+    let mut args = Map::new();
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("target"),
+        auto_wrap_position(target_pos)
+    );
+    log(
+        "step_off_and_build_harvester: 8-turn deadlock on {target}, backing off (random walk, claim abandoned)",
+        args,
+    );
+    move_random(builder, ct);
     true
 }
 

@@ -203,6 +203,12 @@ pub struct Builder {
     // rounds. `ti_income_sum` is the running sum; `ti_income_per_round()`
     // returns sum/32. Spend rounds (delta <= 0) contribute 0, so the
     // estimate is a lower bound when spending dominates.
+    /// Consecutive turns the bot has been waiting on a blocked feed
+    /// cardinal in `step_off_and_build_harvester`. After 8 turns the
+    /// task gambles a 50% coinflip to abandon the claim and walk off,
+    /// breaking the deadlock when two bots stand on each other's only
+    /// step-off tile.
+    pub _step_off_wait_turns: i32,
     pub _ti_income_window: [i32; 32],
     pub _ti_income_sum: i32,
     pub _ti_income_idx: usize,
@@ -352,6 +358,7 @@ impl Builder {
             offense_launcher: None,
             last_fire: None,
             attack_tile_blacklist: pyrust::dict::new!(),
+            _step_off_wait_turns: 0,
             _ti_income_window: [0; 32],
             _ti_income_sum: 0,
             _ti_income_idx: 0,
