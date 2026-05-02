@@ -1,137 +1,430 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/patrol.py`.
+//! Cluster-aware cyclic patrol with alert-graded expansion.
+//!
+//! Each builder maintains a list of clusters: `patrol_clusters[i]` is
+//! a Vec<Position> (insertion-NN cycle), `patrol_cluster_centroids[i]`
+//! is its centroid. New harvesters join the cluster whose centroid is
+//! closest, provided d² ≤ `_CLUSTER_THRESHOLD`. Otherwise a new
+//! cluster is born. No merging, no splitting.
+//!
+//! On entering patrol, the builder picks one cluster:
+//! - First time, or its current cluster is dead → closest cluster by
+//!   centroid d² to `my_pos`.
+//! - Else if `alert == 0` and 50 turns have passed since last reroll →
+//!   weighted random pick by cluster size.
+//! - Otherwise → keep the current pick.
+//!
+//! The walk target is `expand_outward(cycle[idx], my_core, expansion)`
+//! where `expansion = LOW * (1 - alert/MAX)`.
 
-use crate::config::DEBUG_LOG;
 use cambc::{Controller, Position};
-use serde_json::Map;
+use serde_json::{Map, Value};
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
-use crate::util::constants::INF;
+use crate::config::DEBUG_LOG;
+use crate::util::constants::{INF, STRIDE};
 use crate::util::debug::debug as log;
-use crate::util::posint::{DIR4_INT, dist_sq, idx_of, pos_of};
+use crate::util::directions::DIR4;
 use crate::util::visualiser::auto_wrap_position;
 
-/// Bugnav rejects impassable goals. Return `pos` if walkable,
-/// otherwise the cheapest passable cardinal neighbour.
+#[pyrust::inline]
+const _ALERT_BOOST_TO: i32 = 30;
+#[pyrust::inline]
+const _ALERT_MAX: i32 = 30;
+#[pyrust::inline]
+const _EXPANSION_LOW: f64 = 8.0;
+#[pyrust::inline]
+const _CLUSTER_THRESHOLD: i32 = 200;
+#[pyrust::inline]
+const _REROLL_INTERVAL: i32 = 50;
+
+#[pyrust::inline]
+const _ECON_RADIUS_FLOOR: i32 = 64;
+#[pyrust::inline]
+const _ECON_RADIUS_CAP: i32 = 400;
+#[pyrust::inline]
+const _ECON_RADIUS_PICK_SHRINK: i32 = 16;
+#[pyrust::inline]
+const _ECON_RADIUS_DRY_GROW: i32 = 1;
+
+/// Ratchet the ECON exploration locus radius. Shrinks on a recent
+/// harvester observation (just-picked = good, pull bot back toward
+/// known infra). Grows otherwise (dry streak = bot needs to look
+/// further). Clamped to `[_ECON_RADIUS_FLOOR, _ECON_RADIUS_CAP]`.
+pub fn update_econ_explore_radius(builder: &mut Builder) {
+    let dry = builder.state.round - builder.last_harvester_add_round;
+    if dry <= 1 {
+        builder.econ_explore_radius_sq -= _ECON_RADIUS_PICK_SHRINK;
+    } else {
+        builder.econ_explore_radius_sq += _ECON_RADIUS_DRY_GROW;
+    }
+    if builder.econ_explore_radius_sq < _ECON_RADIUS_FLOOR {
+        builder.econ_explore_radius_sq = _ECON_RADIUS_FLOOR;
+    }
+    if builder.econ_explore_radius_sq > _ECON_RADIUS_CAP {
+        builder.econ_explore_radius_sq = _ECON_RADIUS_CAP;
+    }
+}
+
+/// True iff `p` is within `econ_explore_radius_sq` of any member of
+/// the bot's chosen cluster. Vacuously true if there are no clusters.
+#[must_use]
+pub fn in_chosen_cluster_locus(builder: &Builder, p: Position) -> bool {
+    let n = pyrust::len!(builder.patrol_clusters);
+    if n == 0 {
+        return true;
+    }
+    let ci = if builder.patrol_cluster_idx < n {
+        builder.patrol_cluster_idx
+    } else {
+        0
+    };
+    let r = builder.econ_explore_radius_sq;
+    let cluster = &builder.patrol_clusters[ci];
+    for m in cluster {
+        if p.distance_squared(*m) <= r {
+            return true;
+        }
+    }
+    false
+}
+
+/// Bump alert if any enemy bot OR turret is in vision; else decay by
+/// 1 (floored at 0). Capped at `_ALERT_MAX`.
+pub fn update_alert(builder: &mut Builder) {
+    let has_enemy = !pyrust::vec::is_empty!(builder.state.enemy_bots)
+        || pyrust::is_some!(builder.nearest_enemy_turret);
+    if has_enemy {
+        if builder.alert < _ALERT_BOOST_TO {
+            builder.alert = _ALERT_BOOST_TO;
+        }
+    } else if builder.alert > 0 {
+        builder.alert -= 1;
+    }
+    if builder.alert > _ALERT_MAX {
+        builder.alert = _ALERT_MAX;
+    }
+}
+
+/// Per-builder expansion cap, scaled down as game scale grows.
+/// Quadratic taper: stays near `_EXPANSION_LOW` (8) through the rapid
+/// early-game scale ramp, accelerates downward later, hits 0 at
+/// scale=12 (1200%).
+fn _expansion_cap(scale: f64) -> f64 {
+    let t: f64 = (scale - 1.0) / 11.0;
+    let factor: f64 = 1.0 - t * t;
+    let f = pyrust::max!(0.0_f64, factor);
+    _EXPANSION_LOW * f
+}
+
+pub fn alert_expansion(alert: i32, scale: f64) -> f64 {
+    let t = pyrust::float!(alert) / pyrust::float!(_ALERT_MAX);
+    _expansion_cap(scale) * (1.0 - t)
+}
+
+pub fn expand_outward(t: Position, core: Position, expansion: f64, w: i32, h: i32) -> Position {
+    let dx = pyrust::float!((t.x - core.x));
+    let dy = pyrust::float!((t.y - core.y));
+    let len_sq = dx * dx + dy * dy;
+    if len_sq <= 0.0 {
+        return t;
+    }
+    let len = pyrust::sqrt!(len_sq);
+    let factor = 1.0 + expansion / len;
+    let nx = pyrust::round!((dx * factor)) as i32 + core.x;
+    let ny = pyrust::round!((dy * factor)) as i32 + core.y;
+    Position {
+        x: pyrust::max!(0, pyrust::min!(nx, w - 1)),
+        y: pyrust::max!(0, pyrust::min!(ny, h - 1)),
+    }
+}
+
 fn _walkable_anchor(builder: &Builder, pos: Position) -> Option<Position> {
     let cost_grid = &builder.cost_grid;
-    let p = idx_of(pos);
-    if cost_grid[p as usize] != INF {
+    if cost_grid[(pos.y as usize) * STRIDE + (pos.x as usize)] != INF {
         return Some(pos);
     }
-    let posint_valid = &builder.posint_valid;
     let mut best: Option<Position> = None;
     let mut best_cost = INF;
-    for &d in &DIR4_INT {
-        let np = p + d;
-        if np < 0 || posint_valid[np as usize] == 0 {
+    for d in DIR4 {
+        let n = pos.add(d);
+        if !builder.in_bounds(n) {
             continue;
         }
-        let c = cost_grid[np as usize];
+        let c = cost_grid[(n.y as usize) * STRIDE + (n.x as usize)];
         if c != INF && c < best_cost {
             best_cost = c;
-            best = Some(pos_of(np));
+            best = Some(n);
         }
     }
     best
 }
 
-/// Important tiles to patrol: harvesters, foundries, the core, plus
-/// every friendly transport carrying Ti or Ax (the union of
-/// `ti_upstream` and `ax_upstream` covers conveyor / armoured /
-/// bridge / splitter tiles that are downstream of a harvester).
-fn _candidate_iter(builder: &Builder) -> Vec<Position> {
-    let mut out: Vec<Position> = pyrust::vec::new!();
-    pyrust::vec::extend!(
-        out,
-        pyrust::map!(pyrust::iter!(builder.my_harvesters), |p| pos_of(*p))
-    );
-    pyrust::vec::extend!(
-        out,
-        pyrust::map!(pyrust::iter!(builder.my_foundries), |p| pos_of(*p))
-    );
-    pyrust::vec::extend!(
-        out,
-        pyrust::map!(pyrust::iter!(builder.ti_upstream), |p| pos_of(*p))
-    );
-    pyrust::vec::extend!(
-        out,
-        pyrust::map!(pyrust::iter!(builder.ax_upstream), |p| pos_of(*p))
-    );
-    pyrust::vec::push!(out, builder.my_core);
-    out
+fn _centroid_d2(centroid: (f64, f64), p: Position) -> f64 {
+    let dx = centroid.0 - pyrust::float!(p.x);
+    let dy = centroid.1 - pyrust::float!(p.y);
+    dx * dx + dy * dy
 }
 
-fn _pick_head(builder: &Builder) -> Option<Position> {
-    let last_seen = &builder.last_seen;
-    let rnd = builder.state.round;
-    let my_p = idx_of(builder.state.my_pos);
-    // Score: maximise age, then minimise distance, then prefer smaller (y, x).
-    // Encoded as a tuple to be minimised: (-age, dist, y, x).
-    let mut best_key: (i32, i32, i32, i32) = (1, 1 << 30, 1 << 30, 1 << 30);
-    let mut best_pos: Option<Position> = None;
-    for pos in _candidate_iter(builder) {
-        let pp = idx_of(pos);
-        let age = rnd - last_seen[pp as usize];
-        let d = dist_sq(my_p, pp);
-        let key = (-age, d, pos.y, pos.x);
-        if key < best_key {
-            best_key = key;
-            best_pos = Some(pos);
+/// Insert `p` into the cluster system: join the cluster with the
+/// closest centroid if d² ≤ `_CLUSTER_THRESHOLD`; otherwise spawn a
+/// new cluster `[p]`. Insertion-NN within the chosen cluster.
+pub fn insert_into_clusters(
+    clusters: &mut Vec<Vec<Position>>,
+    centroids: &mut Vec<(f64, f64)>,
+    p: Position,
+) {
+    let n = pyrust::len!(clusters);
+    let mut best_i: usize = 0;
+    let mut best_d: f64 = f64::MAX;
+    for i in 0..n {
+        let d = _centroid_d2(centroids[i], p);
+        if d < best_d {
+            best_d = d;
+            best_i = i;
         }
     }
-    best_pos
+    if n == 0 || best_d > pyrust::float!(_CLUSTER_THRESHOLD) {
+        let mut q: Vec<Position> = pyrust::vec::new!();
+        pyrust::vec::push!(q, p);
+        pyrust::vec::push!(clusters, q);
+        pyrust::vec::push!(centroids, (pyrust::float!(p.x), pyrust::float!(p.y)));
+        return;
+    }
+    // Insertion-NN: find closest entry in chosen cluster, insert after.
+    let q = &mut clusters[best_i];
+    let mut bj: usize = 0;
+    let mut bd = p.distance_squared(q[0]);
+    for j in 1..pyrust::len!(q) {
+        let d = p.distance_squared(q[j]);
+        if d < bd {
+            bd = d;
+            bj = j;
+        }
+    }
+    q.insert(bj + 1, p);
+    // Update centroid as running mean.
+    let new_size = pyrust::float!(pyrust::len!(q));
+    let old_size = new_size - 1.0;
+    let cx = (centroids[best_i].0 * old_size + pyrust::float!(p.x)) / new_size;
+    let cy = (centroids[best_i].1 * old_size + pyrust::float!(p.y)) / new_size;
+    centroids[best_i] = (cx, cy);
 }
 
-/// Walk toward the oldest important tile. Sticky: keeps the
-/// previously-chosen `patrol_head` until we reach it (`dist² <= 2`)
-/// or its `last_seen` advances past a margin, so the bot doesn't
-/// flip-flop between two harvesters when ages tick at similar rates.
-///
-/// Important tiles: friendly harvesters, foundries, core, plus all
-/// friendly transports carrying Ti or Ax. `last_seen` is refreshed in
-/// `update_patrol` (own vision + one trusted friend's vision).
+/// Remove `p` from whichever cluster contains it. Update centroid; if
+/// the cluster becomes empty, drop it (and its centroid).
+pub fn remove_from_clusters(
+    clusters: &mut Vec<Vec<Position>>,
+    centroids: &mut Vec<(f64, f64)>,
+    p: Position,
+) {
+    let n = pyrust::len!(clusters);
+    let mut found_i: i32 = -1;
+    for i in 0..n {
+        let q = &clusters[i];
+        for j in 0..pyrust::len!(q) {
+            if q[j] == p {
+                found_i = i as i32;
+                break;
+            }
+        }
+        if found_i >= 0 {
+            break;
+        }
+    }
+    if found_i < 0 {
+        return;
+    }
+    let i = found_i as usize;
+    pyrust::vec::retain!(clusters[i], |&q| q != p);
+    let new_size = pyrust::len!(clusters[i]);
+    if new_size == 0 {
+        clusters.remove(i);
+        centroids.remove(i);
+        return;
+    }
+    let old_size = new_size + 1;
+    let cx = (centroids[i].0 * pyrust::float!(old_size) - pyrust::float!(p.x))
+        / pyrust::float!(new_size);
+    let cy = (centroids[i].1 * pyrust::float!(old_size) - pyrust::float!(p.y))
+        / pyrust::float!(new_size);
+    centroids[i] = (cx, cy);
+}
+
+/// Cluster with the closest centroid to `pos`. Returns 0 if there are
+/// no clusters (caller must guard).
+fn _closest_cluster(centroids: &[(f64, f64)], pos: Position) -> usize {
+    let mut best_i: usize = 0;
+    let mut best_d = f64::MAX;
+    for i in 0..pyrust::len!(centroids) {
+        let d = _centroid_d2(centroids[i], pos);
+        if d < best_d {
+            best_d = d;
+            best_i = i;
+        }
+    }
+    best_i
+}
+
+/// Weighted-random cluster index, weighted by cluster size.
+fn _weighted_random_cluster(builder: &mut Builder) -> usize {
+    let n = pyrust::len!(builder.patrol_clusters);
+    let mut population: Vec<i32> = pyrust::vec::new!();
+    let mut weights: Vec<f64> = pyrust::vec::new!();
+    for i in 0..n {
+        pyrust::vec::push!(population, i as i32);
+        pyrust::vec::push!(
+            weights,
+            pyrust::float!(pyrust::len!(builder.patrol_clusters[i]))
+        );
+    }
+    *pyrust::rng_choices!(builder.state.rng, population, weights, 1)[0] as usize
+}
+
+/// Try one random 2-opt swap on the chosen cluster. No-op if cluster
+/// has fewer than 4 nodes (no non-adjacent edge pair). Picks two
+/// random non-adjacent edges; if reversing the segment between them
+/// shortens the tour, applies the reversal in place.
+fn _try_one_2opt_swap(builder: &mut Builder, ci: usize) {
+    let n = pyrust::len!(builder.patrol_clusters[ci]);
+    if n < 4 {
+        return;
+    }
+    let r1 = builder.state.rng.random();
+    let r2 = builder.state.rng.random();
+    let i = (r1 * pyrust::float!(n)) as usize % n;
+    let j = (r2 * pyrust::float!(n)) as usize % n;
+    if i == j {
+        return;
+    }
+    if (i + 1) % n == j || (j + 1) % n == i {
+        return;
+    }
+    let (lo, hi) = if i < j { (i, j) } else { (j, i) };
+    let cluster = &builder.patrol_clusters[ci];
+    let a = cluster[lo];
+    let b = cluster[lo + 1];
+    let c = cluster[hi];
+    let d = cluster[(hi + 1) % n];
+    let cur = a.distance_squared(b) + c.distance_squared(d);
+    let alt = a.distance_squared(c) + b.distance_squared(d);
+    if alt < cur {
+        let cluster_mut = &mut builder.patrol_clusters[ci];
+        let mut l = lo + 1;
+        let mut r = hi;
+        while l < r {
+            let tmp = cluster_mut[l];
+            cluster_mut[l] = cluster_mut[r];
+            cluster_mut[r] = tmp;
+            l += 1;
+            r -= 1;
+        }
+    }
+}
+
 pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
-    let rnd = builder.state.round;
-    let my_p = idx_of(builder.state.my_pos);
-
-    let mut head = builder.patrol_head;
-    if let Some(h) = head {
-        let hp = idx_of(h);
-        let head_age = rnd - builder.last_seen[hp as usize];
-        let reached = dist_sq(my_p, hp) <= 2;
-        if reached || head_age <= 0 {
-            if DEBUG_LOG {
-                let mut args = Map::new();
-                pyrust::dict::insert!(args, pyrust::to_string!("head"), auto_wrap_position(h));
-                log("patrol: head {head} reached / refreshed, repicking", args);
-            }
-            head = None;
-        }
-    }
-
-    if pyrust::is_none!(head) {
-        head = _pick_head(builder);
-        if let Some(h) = head {
-            let age = rnd - builder.last_seen[idx_of(h) as usize];
-            if DEBUG_LOG {
-                let mut args = Map::new();
-                pyrust::dict::insert!(args, pyrust::to_string!("head"), auto_wrap_position(h));
-                pyrust::dict::insert!(
-                    args,
-                    pyrust::to_string!("age"),
-                    serde_json::Value::Number(serde_json::Number::from(age))
-                );
-                log("patrol: new head {head} (age={age})", args);
-            }
-        }
-    }
-
-    builder.patrol_head = head;
-    let Some(head) = head else {
+    let n_clusters = pyrust::len!(builder.patrol_clusters);
+    if n_clusters == 0 {
         return false;
-    };
-    let Some(anchor) = _walkable_anchor(builder, head) else {
+    }
+
+    // Cluster pick.
+    let mut ci = builder.patrol_cluster_idx;
+    let stale = ci >= n_clusters;
+    let due_reroll = builder.alert == 0
+        && (builder.state.round - builder.patrol_last_reroll_round) >= _REROLL_INTERVAL;
+    if stale {
+        ci = _closest_cluster(&builder.patrol_cluster_centroids, builder.state.my_pos);
+        builder.patrol_pos_idx = usize::MAX;
+    } else if due_reroll {
+        ci = _weighted_random_cluster(builder);
+        // Reroll direction too: half flip CW vs CCW each interval.
+        let flip = builder.state.rng.random();
+        builder.patrol_dir = if flip < 0.5 { 1 } else { -1 };
+        builder.patrol_last_reroll_round = builder.state.round;
+        builder.patrol_pos_idx = usize::MAX;
+    }
+    builder.patrol_cluster_idx = ci;
+
+    // Per-turn cycle self-correction: one random 2-opt swap on the
+    // active cluster (if it has >= 4 nodes). Cheap O(1) per turn.
+    _try_one_2opt_swap(builder, ci);
+
+    let qlen = pyrust::len!(builder.patrol_clusters[ci]);
+    if qlen == 0 {
+        return false;
+    }
+    let mut idx = builder.patrol_pos_idx;
+    if idx >= qlen {
+        idx = (builder.state.my_id as usize) % qlen;
+    }
+    let raw_target = builder.patrol_clusters[ci][idx];
+    let core = builder.my_core;
+    let expansion = alert_expansion(builder.alert, builder.state.scale);
+    let expanded_target = expand_outward(
+        raw_target,
+        core,
+        expansion,
+        builder.state.width,
+        builder.state.height,
+    );
+    let advance = builder.state.my_pos.distance_squared(expanded_target) <= 5;
+    if advance {
+        if builder.patrol_dir > 0 {
+            idx = (idx + 1) % qlen;
+        } else {
+            idx = (idx + qlen - 1) % qlen;
+        }
+    }
+    builder.patrol_pos_idx = idx;
+    let raw_target = builder.patrol_clusters[ci][idx];
+    let target = expand_outward(
+        raw_target,
+        core,
+        expansion,
+        builder.state.width,
+        builder.state.height,
+    );
+
+    if DEBUG_LOG {
+        let mut args = Map::new();
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target)
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("raw"),
+            auto_wrap_position(raw_target)
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("alert"),
+            Value::Number(pyrust::into!(builder.alert as i64))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("ci"),
+            Value::Number(pyrust::into!(ci as i64))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("idx"),
+            Value::Number(pyrust::into!(idx as i64))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("qlen"),
+            Value::Number(pyrust::into!(qlen as i64))
+        );
+        log(
+            "patrol: target {target} raw={raw} alert={alert} cluster={ci} (idx={idx}/{qlen})",
+            args,
+        );
+    }
+
+    let Some(anchor) = _walkable_anchor(builder, target) else {
         return false;
     };
     make_move(builder, ct, anchor);
