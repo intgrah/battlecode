@@ -3,11 +3,13 @@
 //! DEFENSE role policy tree.
 
 pub mod clear_enemy_turret;
+pub mod kill_feeder;
 pub mod patrol_cheap;
 pub mod patrol_late;
 pub mod stalk_enemy;
 
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
+use crate::builder::tasks::defense::kill_feeder::kill_feeder;
 use crate::builder::tasks::defense::patrol_cheap::patrol_cheap;
 use crate::builder::tasks::defense::patrol_late::patrol_late;
 use crate::builder::tasks::defense::stalk_enemy::stalk_enemy;
@@ -31,6 +33,10 @@ const DEFENSE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "stalk_enemy",
         fn_: stalk_enemy,
+    },
+    Policy::Leaf {
+        name: "kill_feeder",
+        fn_: kill_feeder,
     },
     Policy::Leaf {
         name: "patrol_cheap",

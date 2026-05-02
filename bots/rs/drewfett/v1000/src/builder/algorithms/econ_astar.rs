@@ -20,12 +20,41 @@ const TARGET_DRIFT_SQ: i32 = 25;
 const CPU_BUDGET: u64 = 1_7290;
 const BUCKET_COUNT: usize = 32;
 const BIDIRECTIONAL: bool = false;
+
+/// Result of one (possibly partial) A* search call.
+///
+/// `Done(path)` — full path from start to target.
+/// `Pending` — CPU budget exhausted; caller should defer and re-call next
+///   turn with the same `(start, target, resource)` to resume.
+/// `NoPath` — search completed without finding any path.
+#[derive(Clone, Debug)]
+pub enum AstarStep {
+    Done(Vec<Position>),
+    Pending,
+    NoPath,
+}
 /// Diagonal (r²=2) is never a cardinal conveyor and never a legal bridge
 /// (bridges need r² in [3, 9]), so any diagonal step materialises as a
 /// bridge skipping to the next reachable tile along the path. Costed the
 /// same as a bridge so A* doesn't prefer a diagonal over a bridge unless
 /// the two cardinal alternatives are genuinely blocked.
 const DIAG_WEIGHT: i32 = 9;
+
+/// Resource equality. `ResourceType` doesn't derive `PartialEq` for
+/// translation reasons, so use explicit variant matching. `RawAxionite`
+/// and `RefinedAxionite` are treated as the same resource for the A*
+/// resumption guard since they share the `ax_routable` mask.
+fn resource_eq(a: ResourceType, b: ResourceType) -> bool {
+    let a_is_ax = matches!(
+        a,
+        ResourceType::RawAxionite | ResourceType::RefinedAxionite
+    );
+    let b_is_ax = matches!(
+        b,
+        ResourceType::RawAxionite | ResourceType::RefinedAxionite
+    );
+    a_is_ax == b_is_ax
+}
 
 fn bridge_deltas() -> Vec<(i32, i32, i32)> {
     let mut out: Vec<(i32, i32, i32)> = pyrust::vec::new!();
@@ -108,6 +137,22 @@ pub struct AStarSearch {
     f_at: Vec<i32>,
     finished: bool,
     target: Option<Position>,
+    /// Saved start position from the in-progress bidirectional search so
+    /// resumption can verify `(start, target, resource)` matches.
+    saved_start: Option<Position>,
+    /// Saved resource so resumption respects the original routable mask.
+    saved_resource: Option<ResourceType>,
+    /// Saved bucket cursors / emptiness counters / best-meet bookkeeping
+    /// for cross-turn resumption of `search_bidirectional`.
+    saved_cur_fwd: i32,
+    saved_cur_bwd: i32,
+    saved_emp_fwd: i32,
+    saved_emp_bwd: i32,
+    saved_best_cost: i32,
+    saved_best_meet: i32,
+    /// Saved reachability root index from the start position. Resuming
+    /// without this would force `uf_find` to re-walk the parent chain.
+    saved_my_root: i32,
     x_of: Vec<i32>,
     y_of: Vec<i32>,
 }
@@ -174,6 +219,15 @@ impl AStarSearch {
             f_at: vec![0; BOUND_RANGE],
             finished: true,
             target: None,
+            saved_start: None,
+            saved_resource: None,
+            saved_cur_fwd: 0,
+            saved_cur_bwd: 0,
+            saved_emp_fwd: 0,
+            saved_emp_bwd: 0,
+            saved_best_cost: INF,
+            saved_best_meet: -1,
+            saved_my_root: -1,
             x_of: x_of_table(),
             y_of: y_of_table(),
         }
@@ -185,12 +239,13 @@ impl AStarSearch {
         start: Position,
         target: Position,
         resource: ResourceType,
+        budget_us: u64,
         ctx: &mut EconAstarCtx,
-    ) -> Option<Vec<Position>> {
+    ) -> AstarStep {
         if BIDIRECTIONAL {
-            return self.search_bidirectional(ct, start, target, resource, ctx);
+            return self.search_bidirectional(ct, start, target, resource, budget_us, ctx);
         }
-        self.search_unidirectional(ct, start, target, resource, ctx)
+        self.search_unidirectional(ct, start, target, resource, budget_us, ctx)
     }
 
     fn search_bidirectional(
@@ -199,8 +254,9 @@ impl AStarSearch {
         start: Position,
         target: Position,
         resource: ResourceType,
+        budget_us: u64,
         ctx: &mut EconAstarCtx,
-    ) -> Option<Vec<Position>> {
+    ) -> AstarStep {
         let si = idx_of(start);
         let gi = idx_of(target);
         let gx = target.x;
@@ -213,16 +269,20 @@ impl AStarSearch {
         if si == gi {
             self.finished = true;
             self.target = Some(target);
+            self.saved_start = Some(start);
+            self.saved_resource = Some(resource);
             pyrust::string::clear!(self.last_fail_reason);
             self.last_nodes_expanded = 0;
-            return Some(vec![start]);
+            return AstarStep::Done(vec![start]);
         }
         if dx + dy == 1 {
             self.finished = true;
             self.target = Some(target);
+            self.saved_start = Some(start);
+            self.saved_resource = Some(resource);
             pyrust::string::clear!(self.last_fail_reason);
             self.last_nodes_expanded = 0;
-            return Some(vec![start, target]);
+            return AstarStep::Done(vec![start, target]);
         }
 
         let routable: &[bool] = if matches!(
@@ -234,57 +294,92 @@ impl AStarSearch {
             &ctx.ti_routable
         };
         let routing_extra = &ctx.routing_extra;
-        for i in 0..MAX_WIDTH {
-            self.x_heur_fwd[i] = pyrust::abs!(((i as i32) - gx));
-            self.y_heur_fwd[i] = pyrust::abs!(((i as i32) - gy));
-            self.x_heur_bwd[i] = pyrust::abs!(((i as i32) - sx));
-            self.y_heur_bwd[i] = pyrust::abs!(((i as i32) - sy));
-        }
-        for &idx in &self.touched_fwd {
-            self._dist[idx as usize] = INF;
-            self.parent_fwd[idx as usize] = -1;
-            self.closed_fwd[idx as usize] = false;
-        }
-        self.touched_fwd.clear();
-        for &idx in &self.touched_bwd {
-            self.dist_bwd[idx as usize] = INF;
-            self.parent_bwd[idx as usize] = -1;
-            self.closed_bwd[idx as usize] = false;
-        }
-        self.touched_bwd.clear();
-        let my_root = uf_find(&mut ctx.reach_parent, idx_of(ctx.my_pos));
-        for &cached_i in &self.reach_root_touched {
-            self.reach_root_cache[cached_i as usize] = -1;
-        }
-        self.reach_root_touched.clear();
-        self.last_nodes_expanded = 0;
-        self.target = Some(target);
-        self.finished = false;
 
-        self._dist[si as usize] = 0;
-        self.parent_fwd[si as usize] = si;
-        pyrust::vec::push!(self.touched_fwd, si);
-        self.dist_bwd[gi as usize] = 0;
-        self.parent_bwd[gi as usize] = gi;
-        pyrust::vec::push!(self.touched_bwd, gi);
+        // Resumption check: same (start, target, resource) AND prior call
+        // returned Pending. If so, skip the reset block and reuse the
+        // accumulated bucket / parent / dist state.
+        let resource_matches = pyrust::is_some!(self.saved_resource)
+            && resource_eq(pyrust::unwrap!(self.saved_resource), resource);
+        let can_resume = !self.finished
+            && pyrust::is_some!(self.saved_start)
+            && pyrust::is_some!(self.target)
+            && resource_matches
+            && pyrust::unwrap!(self.saved_start) == start
+            && pyrust::unwrap!(self.target) == target;
 
         let nb_count = BUCKET_COUNT as i32;
         let bucket_mask = nb_count - 1;
-        let f0 = self.x_heur_fwd[sx as usize] + self.y_heur_fwd[sy as usize];
-        for bucket in &mut self.buckets_fwd {
-            bucket.clear();
+
+        let mut cur_fwd: i32;
+        let mut cur_bwd: i32;
+        let mut emp_fwd: i32;
+        let mut emp_bwd: i32;
+        let mut best_cost: i32;
+        let mut best_meet: i32;
+        let my_root: i32;
+
+        if can_resume {
+            cur_fwd = self.saved_cur_fwd;
+            cur_bwd = self.saved_cur_bwd;
+            emp_fwd = self.saved_emp_fwd;
+            emp_bwd = self.saved_emp_bwd;
+            best_cost = self.saved_best_cost;
+            best_meet = self.saved_best_meet;
+            my_root = self.saved_my_root;
+        } else {
+            for i in 0..MAX_WIDTH {
+                self.x_heur_fwd[i] = pyrust::abs!(((i as i32) - gx));
+                self.y_heur_fwd[i] = pyrust::abs!(((i as i32) - gy));
+                self.x_heur_bwd[i] = pyrust::abs!(((i as i32) - sx));
+                self.y_heur_bwd[i] = pyrust::abs!(((i as i32) - sy));
+            }
+            for &idx in &self.touched_fwd {
+                self._dist[idx as usize] = INF;
+                self.parent_fwd[idx as usize] = -1;
+                self.closed_fwd[idx as usize] = false;
+            }
+            self.touched_fwd.clear();
+            for &idx in &self.touched_bwd {
+                self.dist_bwd[idx as usize] = INF;
+                self.parent_bwd[idx as usize] = -1;
+                self.closed_bwd[idx as usize] = false;
+            }
+            self.touched_bwd.clear();
+            my_root = uf_find(&mut ctx.reach_parent, idx_of(ctx.my_pos));
+            for &cached_i in &self.reach_root_touched {
+                self.reach_root_cache[cached_i as usize] = -1;
+            }
+            self.reach_root_touched.clear();
+            self.last_nodes_expanded = 0;
+            self.target = Some(target);
+            self.saved_start = Some(start);
+            self.saved_resource = Some(resource);
+            self.finished = false;
+
+            self._dist[si as usize] = 0;
+            self.parent_fwd[si as usize] = si;
+            pyrust::vec::push!(self.touched_fwd, si);
+            self.dist_bwd[gi as usize] = 0;
+            self.parent_bwd[gi as usize] = gi;
+            pyrust::vec::push!(self.touched_bwd, gi);
+
+            let f0 = self.x_heur_fwd[sx as usize] + self.y_heur_fwd[sy as usize];
+            for bucket in &mut self.buckets_fwd {
+                bucket.clear();
+            }
+            for bucket in &mut self.buckets_bwd {
+                bucket.clear();
+            }
+            pyrust::vec::push!(self.buckets_fwd[(f0 & bucket_mask) as usize], si);
+            pyrust::vec::push!(self.buckets_bwd[(f0 & bucket_mask) as usize], gi);
+            cur_fwd = f0;
+            cur_bwd = f0;
+            emp_fwd = 0;
+            emp_bwd = 0;
+            best_cost = INF;
+            best_meet = -1;
+            self.saved_my_root = my_root;
         }
-        for bucket in &mut self.buckets_bwd {
-            bucket.clear();
-        }
-        pyrust::vec::push!(self.buckets_fwd[(f0 & bucket_mask) as usize], si);
-        pyrust::vec::push!(self.buckets_bwd[(f0 & bucket_mask) as usize], gi);
-        let mut cur_fwd = f0;
-        let mut cur_bwd = f0;
-        let mut emp_fwd: i32 = 0;
-        let mut emp_bwd: i32 = 0;
-        let mut best_cost = INF;
-        let mut best_meet: i32 = -1;
 
         while emp_fwd < nb_count && emp_bwd < nb_count {
             while emp_fwd < nb_count
@@ -337,10 +432,16 @@ impl AStarSearch {
                             best_meet = node_i;
                         }
                     }
-                    if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
-                        self.finished = true;
+                    if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > budget_us {
+                        self.finished = false;
+                        self.saved_cur_fwd = cur_fwd;
+                        self.saved_cur_bwd = cur_bwd;
+                        self.saved_emp_fwd = emp_fwd;
+                        self.saved_emp_bwd = emp_bwd;
+                        self.saved_best_cost = best_cost;
+                        self.saved_best_meet = best_meet;
                         self.last_fail_reason = pyrust::to_string!("cpu_budget");
-                        return None;
+                        return AstarStep::Pending;
                     }
                     let nbrs = &self.neighbors[node_i as usize];
                     for &(ni, extra) in nbrs {
@@ -418,10 +519,16 @@ impl AStarSearch {
                         best_meet = node_i;
                     }
                 }
-                if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET {
-                    self.finished = true;
+                if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > budget_us {
+                    self.finished = false;
+                    self.saved_cur_fwd = cur_fwd;
+                    self.saved_cur_bwd = cur_bwd;
+                    self.saved_emp_fwd = emp_fwd;
+                    self.saved_emp_bwd = emp_bwd;
+                    self.saved_best_cost = best_cost;
+                    self.saved_best_meet = best_meet;
                     self.last_fail_reason = pyrust::to_string!("cpu_budget");
-                    return None;
+                    return AstarStep::Pending;
                 }
                 let nbrs = &self.neighbors[node_i as usize];
                 for &(ni, extra) in nbrs {
@@ -474,7 +581,7 @@ impl AStarSearch {
         self.finished = true;
         if best_meet == -1 {
             self.last_fail_reason = pyrust::to_string!("exhausted");
-            return None;
+            return AstarStep::NoPath;
         }
 
         let mut rev_path: Vec<i32> = vec![best_meet];
@@ -483,7 +590,7 @@ impl AStarSearch {
             node = self.parent_fwd[node as usize];
             if node == -1 {
                 self.last_fail_reason = pyrust::to_string!("extraction_stuck");
-                return None;
+                return AstarStep::NoPath;
             }
             pyrust::vec::push!(rev_path, node);
         }
@@ -493,13 +600,13 @@ impl AStarSearch {
             node = self.parent_bwd[node as usize];
             if node == -1 {
                 self.last_fail_reason = pyrust::to_string!("extraction_stuck");
-                return None;
+                return AstarStep::NoPath;
             }
             pyrust::vec::push!(rev_path, node);
         }
 
         pyrust::string::clear!(self.last_fail_reason);
-        Some(pyrust::collect!(pyrust::map!(
+        AstarStep::Done(pyrust::collect!(pyrust::map!(
             pyrust::into_iter!(rev_path),
             |i| Position {
                 x: self.x_of[i as usize],
@@ -514,8 +621,9 @@ impl AStarSearch {
         start: Position,
         target: Position,
         resource: ResourceType,
+        budget_us: u64,
         ctx: &mut EconAstarCtx,
-    ) -> Option<Vec<Position>> {
+    ) -> AstarStep {
         let si = idx_of(start);
         let mut gi = idx_of(target);
         let mut resumed_search = false;
@@ -578,7 +686,7 @@ impl AStarSearch {
         let mut cur_f = f0;
         let mut emp: i32 = 0;
 
-        let cpu_budget = CPU_BUDGET;
+        let cpu_budget = budget_us;
         let mut found = false;
         // Local aliases: hoisting `self.X` out of the hot loop trades one
         // `LOAD_ATTR` per access for a `LOAD_FAST`. CPython's bytecode makes
@@ -608,7 +716,7 @@ impl AStarSearch {
                 self.finished = false;
                 self.last_fail_reason = pyrust::to_string!("cpu_budget");
                 self.last_nodes_expanded = nodes_expanded;
-                return None;
+                return AstarStep::Pending;
             }
             emp = 0;
             let slot = (cur_f & bucket_mask) as usize;
@@ -705,7 +813,7 @@ impl AStarSearch {
         self.last_nodes_expanded = nodes_expanded;
         if !found {
             self.last_fail_reason = pyrust::to_string!("exhausted");
-            return None;
+            return AstarStep::NoPath;
         }
 
         let mut path: Vec<i32> = vec![si];
@@ -749,7 +857,7 @@ impl AStarSearch {
                 }
                 if best == node {
                     self.last_fail_reason = pyrust::to_string!("extraction_stuck");
-                    return None;
+                    return AstarStep::NoPath;
                 }
                 pyrust::vec::push!(path, best);
                 node = best;
@@ -773,7 +881,7 @@ impl AStarSearch {
                 }
                 if best == node {
                     self.last_fail_reason = pyrust::to_string!("extraction_stuck");
-                    return None;
+                    return AstarStep::NoPath;
                 }
                 pyrust::vec::push!(path, best);
                 node = best;
@@ -782,7 +890,7 @@ impl AStarSearch {
         }
 
         pyrust::string::clear!(self.last_fail_reason);
-        Some(pyrust::collect!(pyrust::map!(
+        AstarStep::Done(pyrust::collect!(pyrust::map!(
             pyrust::into_iter!(path),
             |i| Position {
                 x: self.x_of[i as usize],
@@ -799,7 +907,7 @@ impl AStarSearch {
         start: Position,
         goal: Position,
         ctx: &mut EconAstarCtx,
-    ) -> Option<Vec<Position>> {
+    ) -> AstarStep {
         let mut saved: Vec<(usize, bool, bool)> = pyrust::vec::new!();
         let nearby = pyrust::clone!(ctx.nearby_tiles);
         for pos in &nearby {
@@ -810,7 +918,7 @@ impl AStarSearch {
                 ctx.ax_routable[idx] = false;
             }
         }
-        let result = self.search(ct, start, goal, ResourceType::Titanium, ctx);
+        let result = self.search(ct, start, goal, ResourceType::Titanium, CPU_BUDGET, ctx);
         for (idx, ti_val, ax_val) in saved {
             ctx.ti_routable[idx] = ti_val;
             ctx.ax_routable[idx] = ax_val;

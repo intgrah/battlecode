@@ -11,13 +11,18 @@ use cambc::{Controller, ControllerApi, Direction, EntityType, GameConstants, Pos
 use crate::unit::{Unit, UnitState};
 use crate::util::directions::DIR8;
 
-/// Valid priority targets for rotation: other enemy turrets we should
-/// actually use our shot on.
+/// Valid priority targets for rotation: enemy turrets, plus enemy
+/// Foundry (50 HP, 50% scale — destroying it denies their refined Ax
+/// economy entirely; 5 shots at 10 dmg or 2 with refined-Ax ammo).
 #[must_use]
 const fn is_valid_rotation_target(et: EntityType) -> bool {
     matches!(
         et,
-        EntityType::Sentinel | EntityType::Gunner | EntityType::Launcher | EntityType::Breach,
+        EntityType::Sentinel
+            | EntityType::Gunner
+            | EntityType::Launcher
+            | EntityType::Breach
+            | EntityType::Foundry,
     )
 }
 
