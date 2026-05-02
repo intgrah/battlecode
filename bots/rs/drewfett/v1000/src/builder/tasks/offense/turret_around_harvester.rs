@@ -6,7 +6,10 @@
 use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, Position};
 
 use crate::builder::Builder;
-use crate::builder::helpers::{move_random, try_place};
+use crate::builder::helpers::{can_afford, move_random, try_place};
+use crate::builder::tasks::econ::infrastructure::place_gunner::{
+    blocks_ax_harvester, is_resource_building,
+};
 use crate::builder::tasks::offense::converge_on_rendezvous::place_marker_best_effort;
 use crate::builder::tasks::offense::helpers::{
     friendly_bot_adjacent, gunner_chain_facing, is_allied_transport, pick_harvester_target,
@@ -14,6 +17,7 @@ use crate::builder::tasks::offense::helpers::{
 };
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::marker::{Marker, decode, encode, round_lo};
+use crate::util::directions::is_cardinal;
 use crate::util::posint::{DIR4_INT, idx_of};
 
 /// Snap the unit vector from `src` to `dst` to the nearest 45-degree direction.
@@ -87,24 +91,17 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
             "not on empty terrain cardinal to a vulnerable harvester",
         ));
     }
+    // Don't place a turret cardinal to our own Ax harvester — would
+    // intercept raw Ax flow to the foundry.
+    if blocks_ax_harvester(self_, self_.my_pos) {
+        return Some(TaskRejected::new(
+            "would block friendly Ax harvester feed",
+        ));
+    }
 
     let build_position = self_.my_pos;
     let enemy_core = self_.en_core_guess;
 
-    // WS-4: emit a `RendezvousAttack` marker when we've spotted a
-    // high-value enemy harvester and no friendly bot is already adjacent
-    // to it. Best-effort — silently drops if the 1-marker/round budget
-    // is exhausted or no empty adjacent tile is available.
-    if !friendly_bot_adjacent(self_, target) {
-        let payload = encode(Marker::RendezvousAttack {
-            target_x: target.x as u32,
-            target_y: target.y as u32,
-            round_lo: round_lo(self_.state.round),
-        });
-        place_marker_best_effort(self_, ct, payload);
-    }
-
-    move_random(self_, ct);
     let mut direction = direction_to(build_position, enemy_core);
     if direction == direction_to(build_position, target) {
         direction = rotate_right(direction);
@@ -131,34 +128,56 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
         }
     }
 
-    if n_gunner < 2 {
-        let gdir = gunner_chain_facing(self_, build_position);
-        if let Some(gd) = gdir {
-            try_place(
+    let gdir = if n_gunner < 2 {
+        gunner_chain_facing(self_, build_position)
+    } else {
+        None
+    };
+    let want_gunner = pyrust::is_some!(gdir) && can_afford(self_, EntityType::Gunner);
+    // Don't sentinel-block our own resource building when sentinel direction
+    // is cardinal toward it (sentinel cone would block ammo/Ti routing).
+    let sentinel_dir_ok = !is_cardinal(direction)
+        || !self_.in_bounds(build_position.add(direction))
+        || !is_resource_building(self_.kind_at(build_position.add(direction)))
+        || self_.team_at(build_position.add(direction)) != Some(self_.my_team);
+    let want_sentinel = sentinel_dir_ok
+        && n_sentinel == 0
+        && self_.get_env_p(target_p) == Some(Environment::OreTitanium)
+        && can_afford(self_, EntityType::Sentinel);
+
+    let mut placed = false;
+    if want_gunner || want_sentinel {
+        move_random(self_, ct);
+        if want_gunner {
+            placed = try_place(
                 self_,
                 ct,
                 EntityType::Gunner,
                 build_position,
-                BuildExtra::Direction(gd),
+                BuildExtra::Direction(pyrust::unwrap!(gdir)),
+                true,
+            );
+        }
+        if !placed && want_sentinel {
+            placed = try_place(
+                self_,
+                ct,
+                EntityType::Sentinel,
+                build_position,
+                BuildExtra::Direction(direction),
                 true,
             );
         }
     }
 
-    if n_sentinel == 0 && self_.get_env_p(target_p) == Some(Environment::OreTitanium) {
-        try_place(
-            self_,
-            ct,
-            EntityType::Sentinel,
-            build_position,
-            BuildExtra::Direction(direction),
-            true,
-        );
+    if !placed {
+        if pyrust::unwrap!(ct.can_build_road(build_position)) {
+            pyrust::unwrap!(ct.build_road(build_position));
+        } else {
+            return Some(TaskRejected::new("couldn't place a turret or road"));
+        }
     }
 
-    if pyrust::unwrap!(ct.can_build_road(build_position)) {
-        pyrust::unwrap!(ct.build_road(build_position));
-    }
     scout_toward_enemy(self_, ct);
     None
 }

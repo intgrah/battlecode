@@ -20,6 +20,8 @@ pub fn explore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
             self_.ti, EXPLORE_MIN_TI
         )));
     }
-    run_explore(self_, ct);
-    None
+    if run_explore(self_, ct) {
+        return None;
+    }
+    Some(TaskRejected::new("explore did not move"))
 }

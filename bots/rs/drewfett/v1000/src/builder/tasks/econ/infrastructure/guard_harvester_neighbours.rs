@@ -36,13 +36,14 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         }
     }
     let my_pos = self_.state.my_pos;
-    for tgt_opt in [self_.ore_target, self_.ax_ore_target] {
-        if let Some(tgt) = tgt_opt
-            && my_pos == tgt
-            && !pyrust::vec::contains!(targets, &tgt)
-        {
-            pyrust::vec::push!(targets, tgt);
-        }
+    // Only Ti claims need guarding/pre-paving. Ax harvesters don't —
+    // their raw output flows straight to the foundry on a single chain
+    // and the guards just cost Ti for no defensive return.
+    if let Some(tgt) = self_.ore_target
+        && my_pos == tgt
+        && !pyrust::vec::contains!(targets, &tgt)
+    {
+        pyrust::vec::push!(targets, tgt);
     }
 
     if pyrust::vec::is_empty!(targets) {
@@ -52,12 +53,10 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
     }
 
     // Pre-harvest barrier-conversion: only when the bot is standing on
-    // its claimed ore (about to plant a harvester). For each cardinal
-    // holding a stale friendly barrier (rule says conveyor now),
-    // destroy + replace with inward conveyor.
-    let pre_harvest_target: Option<Position> = match (self_.ore_target, self_.ax_ore_target) {
-        (Some(t), _) if my_pos == t => Some(t),
-        (_, Some(t)) if my_pos == t => Some(t),
+    // its claimed Ti ore (about to plant a harvester). Ax claims skip
+    // this — see note above re: ax doesn't need guards.
+    let pre_harvest_target: Option<Position> = match self_.ore_target {
+        Some(t) if my_pos == t => Some(t),
         _ => None,
     };
     if let Some(tgt) = pre_harvest_target {

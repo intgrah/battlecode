@@ -25,6 +25,7 @@ pub mod shared;
 use crate::builder::role::Role;
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
 use crate::builder::tasks::defense::clear_enemy_turret::clear_enemy_turret;
+use crate::builder::tasks::defense::kill_feeder::kill_feeder;
 use crate::builder::tasks::defense::patrol_cheap::patrol_cheap;
 use crate::builder::tasks::defense::patrol_late::patrol_late;
 use crate::builder::tasks::defense::stalk_enemy::stalk_enemy;
@@ -33,7 +34,6 @@ use crate::builder::tasks::econ::chains::extend_chain_in_range::extend_chain_in_
 use crate::builder::tasks::econ::infrastructure::ECON_INFRASTRUCTURE_GROUP;
 use crate::builder::tasks::econ::ore::build_harvester::build_harvester;
 use crate::builder::tasks::econ::ore::claim_ore::claim_ore;
-use crate::builder::tasks::offense::converge_on_rendezvous::converge_on_rendezvous;
 use crate::builder::tasks::offense::fire_on_enemy_tile::fire_on_enemy_tile;
 use crate::builder::tasks::offense::parasitic::OFFENSE_PARASITIC_GROUP;
 use crate::builder::tasks::offense::push::OFFENSE_PUSH_GROUP;
@@ -73,12 +73,13 @@ const DEFENDER_CHILDREN: &[Policy] = &[
         name: "clear_enemy_turret",
         fn_: clear_enemy_turret,
     },
-    // Right after placing a sentinel via clear_enemy_turret, upgrade the
-    // upstream conveyor into a splitter so flow continues to core via
-    // splitter side outputs. Without this, the chain dies at the sentinel.
     Policy::Leaf {
         name: "split_before_sentinel",
         fn_: split_before_sentinel,
+    },
+    Policy::Leaf {
+        name: "kill_feeder",
+        fn_: kill_feeder,
     },
     Policy::Leaf {
         name: "stalk_enemy",
@@ -189,10 +190,6 @@ const FREE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "extend_chain_approach",
         fn_: extend_chain_approach,
-    },
-    Policy::Leaf {
-        name: "converge_on_rendezvous",
-        fn_: converge_on_rendezvous,
     },
     OFFENSE_PARASITIC_GROUP,
     OFFENSE_PUSH_GROUP,
