@@ -1225,6 +1225,17 @@ impl Unit for Builder {
             dump_state(self, ct);
         }
 
+        // Time-budget bail. update() must complete (its derived caches feed
+        // every task gate next turn), but tasks are skippable. If we burned
+        // most of the 2ms turn budget on update (turn 1 / mid-game spawn /
+        // chain-busy update_vision), skip task dispatch this turn rather
+        // than risk hitting the engine's hard cap mid-bug2 and losing the
+        // commit. Bot stays alive, makes no action this turn.
+        let elapsed = pyrust::unwrap_or!(ct.get_cpu_time_elapsed(), 0);
+        if elapsed > 2000 {
+            return;
+        }
+
         let role = pyrust::expect!(self.role, "role must be set after update");
         {
             let _g = Scope::new_timed("tasks");
