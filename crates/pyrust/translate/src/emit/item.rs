@@ -72,10 +72,17 @@ pub fn emit_item(w: &mut PyWriter, item: &syn::Item, file: &syn::File) -> Result
         // `pub type Foo = Bar;` — Python has `type Foo = Bar` (PEP 695)
         // since 3.12. Emit it directly.
         syn::Item::Type(t) => {
+            // PEP 695 `type X = Y` aliases are lazy on CPython but evaluate
+            // eagerly on PyPy (cambc_pypy). When `Y` references names that
+            // live under `if TYPE_CHECKING:` (e.g. `Builder`, `BuildExtra`)
+            // PyPy raises NameError at module load. Emit aliases as quoted
+            // strings so the body never needs to resolve at runtime — the
+            // bot only uses these in annotations which are themselves
+            // strings under `from __future__ import annotations`.
             let name = t.ident.to_string();
             let ty = types::type_to_python_str(&t.ty)
                 .map_err(|e| w.err(t.ty.span(), format!("type alias: {e}")))?;
-            w.line(&format!("type {name} = {ty}"));
+            w.line(&format!("{name} = \"{ty}\""));
             Ok(())
         }
         // Trait declarations don't have a direct Python analog (we lower
