@@ -77,9 +77,6 @@ pub struct InlineFn {
     pub params: Vec<String>,
     /// True iff the function takes `&self` as its first arg.
     pub has_self: bool,
-    /// Python module path of the file that defined this inline function,
-    /// relative to the translated src dir (e.g. `builder.helpers`).
-    pub source_module: String,
     /// The single-expression body (the tail expression of `{ expr }`,
     /// or the bare expression if the source uses `=> expr` form).
     pub body: syn::Expr,

@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use proc_macro2::Span;
@@ -9,7 +9,6 @@ use crate::tyctx::{FileTyTable, TyKind};
 
 pub struct PyWriter {
     source_path: PathBuf,
-    module_path: String,
     buf: String,
     indent: usize,
     pub scope: Scope,
@@ -46,11 +45,6 @@ pub struct PyWriter {
     /// Identifiers we've auto-imported because a folded trait default
     /// body referenced them as free functions in another module.
     folded_imports: HashSet<String>,
-    /// `from ... import ...` lines requested while emitting inline
-    /// expansions inside this file. Deferred until finish so they can be
-    /// inserted into the file preamble instead of corrupting indentation.
-    deferred_inline_imports: BTreeSet<String>,
-    deferred_inline_imports_at: Option<usize>,
     /// Per-class-frame override for `Self` resolution. Pushed alongside
     /// `current_class`. `None` means default (Self = current class
     /// name); `Some(enum_name)` means we're inside a sum-type variant
@@ -71,7 +65,6 @@ impl PyWriter {
     pub fn new(source_path: &Path, cfg: CfgEnv, types: &FileTyTable) -> Self {
         Self {
             source_path: source_path.to_path_buf(),
-            module_path: module_path_from_source_path(source_path),
             buf: String::new(),
             indent: 0,
             scope: Scope::new(),
@@ -86,8 +79,6 @@ impl PyWriter {
             types: types.clone(),
             tmp_counter: std::cell::Cell::new(0),
             folded_imports: HashSet::new(),
-            deferred_inline_imports: BTreeSet::new(),
-            deferred_inline_imports_at: None,
             self_overrides: Vec::new(),
             inline_consts: HashMap::new(),
             inlining_stack: Vec::new(),
@@ -184,22 +175,6 @@ impl PyWriter {
 
     pub fn note_static(&mut self, name: &str) {
         self.statics.insert(name.to_owned());
-    }
-
-    pub fn mark_deferred_inline_import_insertion_point(&mut self) {
-        self.deferred_inline_imports_at = Some(self.buf.len());
-    }
-
-    pub fn note_inline_import(&mut self, source_module: &str, ident: &str) {
-        if ident.is_empty() || source_module.is_empty() || source_module == self.module_path {
-            return;
-        }
-        let line = if is_cambc_inline_import(ident) {
-            format!("from cambc import {ident}")
-        } else {
-            format!("from {source_module} import {ident}")
-        };
-        self.deferred_inline_imports.insert(line);
     }
 
     pub const fn statics(&self) -> &HashSet<String> {
@@ -366,16 +341,6 @@ impl PyWriter {
 
     pub fn finish(self) -> String {
         let mut s = self.buf;
-        if !self.deferred_inline_imports.is_empty() {
-            let mut block = String::new();
-            for line in self.deferred_inline_imports {
-                block.push_str(&line);
-                block.push('\n');
-            }
-            block.push('\n');
-            let at = self.deferred_inline_imports_at.unwrap_or_default();
-            s.insert_str(at, &block);
-        }
         if !s.ends_with('\n') {
             s.push('\n');
         }
@@ -392,27 +357,4 @@ impl PyWriter {
             msg.into()
         )
     }
-}
-
-fn module_path_from_source_path(source_path: &Path) -> String {
-    let mut parts: Vec<String> = source_path
-        .components()
-        .filter_map(|c| c.as_os_str().to_str().map(String::from))
-        .collect();
-    if let Some(last) = parts.last_mut() {
-        if let Some(stem) = Path::new(last).file_stem().and_then(|s| s.to_str()) {
-            *last = stem.to_owned();
-        }
-        if last == "mod" || last == "lib" {
-            parts.pop();
-        }
-    }
-    parts.join(".")
-}
-
-fn is_cambc_inline_import(ident: &str) -> bool {
-    matches!(
-        ident,
-        "Direction" | "EntityType" | "Environment" | "ResourceType" | "Team" | "Position"
-    )
 }
