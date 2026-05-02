@@ -12,6 +12,7 @@ pub mod vision;
 use cambc::Controller;
 
 use crate::builder::Builder;
+use crate::builder::helpers::build_ore_friendlies;
 use crate::builder::patrol::{update_alert, update_econ_explore_radius};
 use crate::config::DEBUG_INVARIANTS;
 use crate::util::debug::Scope;
@@ -68,17 +69,18 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
     }
     {
         let _g = Scope::new_timed("ore_target");
+        let friendlies = build_ore_friendlies(builder);
         {
             let _g = Scope::new_timed("update_ti_ore_target");
-            econ::update_ti_ore_target(builder);
+            econ::update_ti_ore_target(builder, &friendlies);
         }
         {
             let _g = Scope::new_timed("update_ax_ore_target");
-            econ::update_ax_ore_target(builder);
+            econ::update_ax_ore_target(builder, &friendlies);
         }
         {
             let _g = Scope::new_timed("update_offensive_ore_target");
-            econ::update_offensive_ore_target(builder);
+            econ::update_offensive_ore_target(builder, &friendlies);
         }
     }
     {

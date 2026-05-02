@@ -36,8 +36,10 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
 
     let mut destination = pick_attack_destination(self_, target, false);
     if pyrust::is_none!(destination) {
-        let cardinal_positions: Vec<_> =
-            pyrust::collect!(pyrust::map!(pyrust::iter!(DIR4), |&d| target.add(d)));
+        let cardinal_positions: Vec<_> = pyrust::collect!(pyrust::filter!(
+            pyrust::map!(pyrust::iter!(DIR4), |&d| target.add(d)),
+            |p| self_.in_bounds(*p)
+        ));
         let opens = open_tiles(self_, &cardinal_positions);
         let filtered = without_allied_transport(self_, &opens);
         destination = closest(self_.my_pos, filtered);
