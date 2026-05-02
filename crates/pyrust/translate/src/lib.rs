@@ -384,6 +384,75 @@ fn has_pyrust_inline(attrs: &[syn::Attribute]) -> bool {
     })
 }
 
+/// Walk an inline-fn body and reject any free identifier that isn't a
+/// parameter, `self`, or a literal — because such names would resolve
+/// against the call-site module's namespace, but the substituted body
+/// emits in different modules with different imports. See the comment
+/// in `try_register` for the motivating bug. Mirrors the same predicate
+/// in `bin/inline_fns_v55.rs::body_is_supported`; kept in sync by
+/// philosophy rather than code-share since the bin runs as a separate
+/// migration tool.
+fn inline_body_uses_only_safe_paths(e: &syn::Expr, params: &[String]) -> bool {
+    match e {
+        syn::Expr::Path(p) => {
+            if p.qself.is_some() || p.path.leading_colon.is_some() {
+                return false;
+            }
+            let Some(first) = p.path.segments.first() else {
+                return false;
+            };
+            if first.ident == "Self" {
+                return false;
+            }
+            if first.ident == "self" {
+                return true;
+            }
+            if p.path.segments.len() > 1 {
+                return false;
+            }
+            let name = first.ident.to_string();
+            params.iter().any(|p| p == &name)
+        }
+        syn::Expr::Lit(_) => true,
+        syn::Expr::Field(f) => {
+            matches!(&f.member, syn::Member::Named(_))
+                && inline_body_uses_only_safe_paths(&f.base, params)
+        }
+        syn::Expr::Index(i) => {
+            inline_body_uses_only_safe_paths(&i.expr, params)
+                && inline_body_uses_only_safe_paths(&i.index, params)
+        }
+        syn::Expr::Binary(b) => {
+            inline_body_uses_only_safe_paths(&b.left, params)
+                && inline_body_uses_only_safe_paths(&b.right, params)
+        }
+        syn::Expr::Unary(u) => inline_body_uses_only_safe_paths(&u.expr, params),
+        syn::Expr::Reference(r) => inline_body_uses_only_safe_paths(&r.expr, params),
+        syn::Expr::Paren(p) => inline_body_uses_only_safe_paths(&p.expr, params),
+        syn::Expr::Cast(c) => inline_body_uses_only_safe_paths(&c.expr, params),
+        syn::Expr::Tuple(t) => t
+            .elems
+            .iter()
+            .all(|e| inline_body_uses_only_safe_paths(e, params)),
+        syn::Expr::MethodCall(mc) => {
+            inline_body_uses_only_safe_paths(&mc.receiver, params)
+                && mc
+                    .args
+                    .iter()
+                    .all(|e| inline_body_uses_only_safe_paths(e, params))
+        }
+        syn::Expr::Call(c) => {
+            inline_body_uses_only_safe_paths(&c.func, params)
+                && c.args
+                    .iter()
+                    .all(|e| inline_body_uses_only_safe_paths(e, params))
+        }
+        // Macros / Struct / Match / If / Block / Loop / Closure / Return /
+        // Try / Async / Range etc. — all rejected.
+        _ => false,
+    }
+}
+
 fn literal_const_text(expr: &syn::Expr) -> Option<String> {
     match expr {
         syn::Expr::Lit(l) => match &l.lit {
@@ -670,6 +739,22 @@ fn collect_inline_fns(
                 return;
             };
             params.push(pi.ident.to_string());
+        }
+        // Defensive: refuse to register an inline body that references any
+        // free identifier (multi-segment paths or single-segment idents
+        // that aren't parameters). Such bodies inline correctly only when
+        // every call site's module imports the same free symbols — which
+        // pyrust can't guarantee. A wrapper like
+        //   pub fn pick_ore_target(builder: &Builder) -> ... {
+        //       _pick_ore(builder, Environment::OreTitanium)
+        //   }
+        // would otherwise inline `_pick_ore(builder, Environment.ORE_TITANIUM)`
+        // into `econ.py`, which never imports `_pick_ore` → NameError.
+        // The migration tool `inline_fns_v55.rs` enforces the same rule
+        // when annotating, but a stale or hand-written `#[pyrust::inline]`
+        // could still slip through; this is the belt-and-suspenders pass.
+        if !inline_body_uses_only_safe_paths(body, &params) {
+            return;
         }
         let new_def = crate::cfg::InlineFn {
             params,
