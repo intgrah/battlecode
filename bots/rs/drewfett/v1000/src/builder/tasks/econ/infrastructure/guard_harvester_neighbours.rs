@@ -6,7 +6,9 @@ use cambc::{Controller, ControllerApi, EntityType, Environment, Position};
 use serde_json::Map;
 
 use crate::builder::Builder;
-use crate::builder::harvest::{needs_harvester_guard, place_harvester_guard};
+use crate::builder::harvest::{
+    convert_stale_barrier_to_conveyor, needs_harvester_guard, place_harvester_guard,
+};
 use crate::builder::helpers::{can_afford, harvester_feed_cardinal, harvester_io_cardinals};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::config::DEBUG_LOG;
@@ -47,6 +49,31 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
         return Some(TaskRejected::new(
             "nothing to guard around any visible harvester / claim",
         ));
+    }
+
+    // Pre-harvest barrier-conversion: only when the bot is standing on
+    // its claimed ore (about to plant a harvester). For each cardinal
+    // holding a stale friendly barrier (rule says conveyor now),
+    // destroy + replace with inward conveyor.
+    let pre_harvest_target: Option<Position> = match (self_.ore_target, self_.ax_ore_target) {
+        (Some(t), _) if my_pos == t => Some(t),
+        (_, Some(t)) if my_pos == t => Some(t),
+        _ => None,
+    };
+    if let Some(tgt) = pre_harvest_target {
+        let tx = tgt.x;
+        let ty = tgt.y;
+        for &(dx, dy) in &DIR4_DELTA {
+            let nx = tx + dx;
+            let ny = ty + dy;
+            if nx < 0 || nx >= w || ny < 0 || ny >= h {
+                continue;
+            }
+            let pos = Position { x: nx, y: ny };
+            if convert_stale_barrier_to_conveyor(self_, ct, pos, tgt) {
+                return None;
+            }
+        }
     }
 
     let near: std::collections::HashSet<Position> =

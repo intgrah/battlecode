@@ -81,28 +81,58 @@ impl Launcher {
     }
 
     fn find_enemy_throw_tile(&self, ct: &mut Controller<'_>) -> (Option<Position>, i32) {
-        let mut best: Option<Position> = None;
-        let mut best_dist: i32 = 0;
+        // Throw enemies AWAY from their econ. Proxy for "away from
+        // enemy core" without needing the core position: sum of
+        // distance² from each visible enemy building (conveyor, etc).
+        // The chosen tile maximizes that sum — i.e. is farthest from
+        // their infrastructure. Falls back to "farthest from us" if no
+        // enemy buildings are visible.
         let nearby = pyrust::clone!(self.state.nearby_tiles);
         let my_team = self.state.my_team;
         let my_pos = self.state.my_pos;
+        // Collect visible enemy building positions.
+        let mut enemy_buildings: Vec<Position> = pyrust::vec::new!();
+        for &p in &nearby {
+            let Some(bid) = pyrust::unwrap!(ct.get_tile_building_id(p)) else {
+                continue;
+            };
+            if pyrust::unwrap!(ct.get_team(Some(bid))) != my_team {
+                pyrust::vec::push!(enemy_buildings, p);
+            }
+        }
+        let mut best: Option<Position> = None;
+        let mut best_score: i64 = i64::MIN;
         for pos in nearby {
-            let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
             if !self.is_empty_walkable(ct, pos) {
                 continue;
             }
+            let bid = pyrust::unwrap!(ct.get_tile_building_id(pos));
             if let Some(b) = bid
                 && pyrust::unwrap!(ct.get_team(Some(b))) == my_team
             {
                 continue;
             }
-            let dist = my_pos.distance_squared(pos);
-            if dist > best_dist {
-                best_dist = dist;
+            let score: i64 = if pyrust::vec::is_empty!(enemy_buildings) {
+                my_pos.distance_squared(pos) as i64
+            } else {
+                let mut s: i64 = 0;
+                for ep in &enemy_buildings {
+                    s += pos.distance_squared(*ep) as i64;
+                }
+                s
+            };
+            if score > best_score {
+                best_score = score;
                 best = Some(pos);
             }
         }
-        (best, best_dist)
+        // Caller wants throw-distance for priority comparison vs the
+        // friendly-throw branch.
+        let dist = match best {
+            Some(p) => my_pos.distance_squared(p),
+            None => 0,
+        };
+        (best, dist)
     }
 }
 
