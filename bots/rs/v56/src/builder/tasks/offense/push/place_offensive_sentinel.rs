@@ -6,10 +6,10 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Positi
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, make_move, move_random, try_place};
+use crate::builder::tasks::econ::infrastructure::place_gunner::is_resource_building;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::constants::MAX_WIDTH;
 use crate::util::debug::debug as log;
-use crate::builder::tasks::econ::infrastructure::place_gunner::is_resource_building;
 use crate::util::directions::{DIR8, is_cardinal};
 use serde_json::Map;
 

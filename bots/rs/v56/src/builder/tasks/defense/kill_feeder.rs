@@ -48,8 +48,7 @@ pub fn kill_feeder(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
             // Defensive: explicitly skip friendly Harvesters even though
             // they can't pass the transport check (Harvester isn't in
             // `_is_transport`). Future-proof.
-            if self_.kind_at(c) == Some(EntityType::Harvester)
-                && self_.team_at(c) == Some(my_team)
+            if self_.kind_at(c) == Some(EntityType::Harvester) && self_.team_at(c) == Some(my_team)
             {
                 continue;
             }
