@@ -111,14 +111,14 @@ impl NavBfs {
         }
 
         let offsets: [i32; 8] = [
-            -pw + 1,  // NE
-            pw + 1,   // SE
-            pw - 1,   // SW
-            -pw - 1,  // NW
-            -pw,      // N
-            1,        // E
-            pw,       // S
-            -1,       // W
+            -pw + 1, // NE
+            pw + 1,  // SE
+            pw - 1,  // SW
+            -pw - 1, // NW
+            -pw,     // N
+            1,       // E
+            pw,      // S
+            -1,      // W
         ];
 
         Self {
@@ -534,8 +534,7 @@ impl NavBfs {
             self.rebuild_pnb();
         }
         let goal_pi = self.pi_of(target);
-        let goals_match =
-            !pyrust::vec::is_empty!(self.goals) && self.goals[0] == goal_pi;
+        let goals_match = !pyrust::vec::is_empty!(self.goals) && self.goals[0] == goal_pi;
         if !goals_match {
             let mut gv: Vec<i32> = pyrust::vec::new!();
             pyrust::vec::push!(gv, goal_pi);

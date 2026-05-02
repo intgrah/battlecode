@@ -61,9 +61,7 @@ const fn rotate_right(d: Direction) -> Direction {
 pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
     if pyrust::vec::is_empty!(vulnerable) {
-        return Some(TaskRejected::new(
-            "no vulnerable harvester",
-        ));
+        return Some(TaskRejected::new("no vulnerable harvester"));
     }
     let target = pick_harvester_target(self_, &vulnerable);
     if self_.my_pos.distance_squared(target) != 1 {
@@ -144,9 +142,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
     if pyrust::unwrap!(ct.can_build_road(build_position)) {
         pyrust::unwrap!(ct.build_road(build_position));
     } else if !placed {
-        return Some(TaskRejected::new(
-            "couldn't place a sentinel or road",
-        ));
+        return Some(TaskRejected::new("couldn't place a sentinel or road"));
     }
 
     scout_toward_enemy(self_, ct);

@@ -10,9 +10,10 @@ use crate::builder::explore::explore as run_explore;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 
 pub fn explore(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
-
     if run_explore(self_, ct) {
         return None;
     }
-    Some(TaskRejected::from_string(format!("didn't move during explore")))
+    Some(TaskRejected::from_string(format!(
+        "didn't move during explore"
+    )))
 }
