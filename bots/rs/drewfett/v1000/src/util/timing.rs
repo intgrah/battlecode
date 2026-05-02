@@ -1,9 +1,6 @@
 //! Cross-target wall-clock helper: native uses SystemTime, translated
 //! Python uses `time.perf_counter_ns`.
 
-#[cfg(pyrust_translate)]
-use pyrust::time;
-
 #[cfg(not(pyrust_translate))]
 pub fn perf_counter_ns() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -15,5 +12,5 @@ pub fn perf_counter_ns() -> u64 {
 
 #[cfg(pyrust_translate)]
 pub fn perf_counter_ns() -> u64 {
-    time::perf_counter_ns()
+    pyrust::time::now_ns!()
 }

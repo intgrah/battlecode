@@ -363,6 +363,40 @@ fn emit_method_call(w: &mut PyWriter, m: &syn::ExprMethodCall) -> Result<Emitted
                 Ty::Unknown,
             ));
         }
+        // `Option::as_mut()` and `Option::as_ref()` are no-ops in Python
+        // (everything is already a mutable reference). Pass receiver
+        // through unchanged. Same for `serde_json::Value::as_array_mut`
+        // (just returns the underlying list). `.unwrap()` as a method
+        // call (not `pyrust::unwrap!`) — the receiver IS already the
+        // inner value in Python because Some/Ok wrappers are erased.
+        ("as_mut" | "as_ref" | "as_array_mut" | "unwrap", []) => {
+            return Ok(Emitted::atomic(recv_text, Ty::Unknown));
+        }
+        // `serde_json::Value::as_str()` → returns Some(&str) if the value
+        // is a string, else None. In Python: receiver if it's a str, else None.
+        ("as_str", []) => {
+            return Ok(Emitted::atomic(
+                format!("({recv_text} if isinstance({recv_text}, str) else None)"),
+                Ty::Unknown,
+            ));
+        }
+        // `Option::unwrap_or(default)` → `(recv if recv is not None else default)`.
+        // Python sees the bare value directly, so a None-check is the
+        // direct equivalent of Rust's Some/None matching.
+        ("unwrap_or", [default]) => {
+            return Ok(Emitted::atomic(
+                format!("({recv_text} if {recv_text} is not None else {default})"),
+                Ty::Unknown,
+            ));
+        }
+        // `.clone()` on a serde_json::Value or any copy-cheap type — in
+        // Python objects pass by reference and shallow aliasing is fine
+        // for the patterns we actually use (cache storage, debug payload
+        // copies). Identity strip; if a bot really needs a deep copy it
+        // should call `pyrust::clone!()` (which translates explicitly).
+        ("clone", []) => {
+            return Ok(Emitted::atomic(recv_text, Ty::Unknown));
+        }
         _ => {}
     }
     // Rust-keyword renames: `move_` → `move` (Python keyword in pattern
@@ -1653,6 +1687,22 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
                 format!("json.dumps({})", inner.text),
                 Ty::Str,
             ));
+        }
+        // `serde_json::to_value(x)` → `x` — Python values ARE their JSON
+        // repr (dicts, lists, ints, etc.). The serde wrap is a no-op.
+        // Strip a trailing `&` reference too.
+        if matches!(
+            slice.as_slice(),
+            ["serde_json", "to_value"] | ["to_value"]
+        ) && c.args.len() == 1
+        {
+            let arg = c.args.first().unwrap();
+            let inner_expr = if let syn::Expr::Reference(r) = arg {
+                r.expr.as_ref()
+            } else {
+                arg
+            };
+            return emit_expr(w, inner_expr);
         }
     }
     // `#[pyrust::transparent]` enum variant constructor — erase the

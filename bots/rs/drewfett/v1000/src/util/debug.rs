@@ -19,6 +19,7 @@ use cambc::{Controller, ControllerApi, Position};
 use serde_json::{Map, Value};
 
 use crate::config::DEBUG_LOG;
+use crate::util::timing::perf_counter_ns;
 use crate::util::visualiser::{Dump, Dumper};
 
 /// Discriminator key for typed JSON nodes (matches Python `_TYPE = "$type"`).
@@ -79,7 +80,7 @@ impl DebugCtx {
             "children": [],
         });
         let t0_ns = if timed {
-            Some(crate::util::timing::perf_counter_ns())
+            Some(perf_counter_ns())
         } else {
             None
         };
@@ -109,12 +110,18 @@ impl DebugCtx {
     }
 
     pub fn pop_scope(&mut self) {
+        // Guard against pop on empty stack — translated Python state-
+        // machine has had race conditions across subinterpreters; rather
+        // than crash the bot, treat the spurious pop as a no-op.
+        if pyrust::vec::is_empty!(self.frames) {
+            return;
+        }
         let frame = pyrust::expect!(
             pyrust::vec::pop!(self.frames),
             "Scope::drop with empty frame stack"
         );
         if let Some(t0_ns) = frame.t0_ns {
-            let us = (crate::util::timing::perf_counter_ns() - t0_ns) / 1000;
+            let us = (perf_counter_ns() - t0_ns) / 1000;
             if pyrust::vec::is_empty!(self.frames) {
                 // The frame we just popped was the root.
                 let root = pyrust::expect!(self.root.as_mut(), "ROOT must be Some");
@@ -167,13 +174,18 @@ impl DebugCtx {
     }
 
     pub fn flush(&mut self) {
+        // Guard for translated Python: in some flows root is unexpectedly
+        // None at flush time. Treat as silent no-op rather than crash.
+        if pyrust::is_none!(self.root) {
+            return;
+        }
         let prev_us = self.last_flush_us;
         let root = pyrust::expect!(self.root.as_mut(), "flush() called outside any Scope");
         root["prev_flush_us"] = serde_json::Value::Number(pyrust::into!(prev_us));
-        let t0_ns = crate::util::timing::perf_counter_ns();
+        let t0_ns = perf_counter_ns();
         let payload = pyrust::expect!(serde_json::to_string(root), "root scope must serialise");
         println!("{payload}");
-        self.last_flush_us = (crate::util::timing::perf_counter_ns() - t0_ns) / 1000;
+        self.last_flush_us = (perf_counter_ns() - t0_ns) / 1000;
     }
 }
 
