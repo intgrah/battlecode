@@ -1067,45 +1067,85 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
     // harvester_would_contaminate, harvester_feed_cardinal). With many
     // friendly bots in the friendlies list, this dominated the search
     // budget before the reorder.
+    //
+    // Each rejection emits a `_pick_ore` log line under DEBUG_LOG so the
+    // debug-dump scope tree records why a candidate was filtered. Reads
+    // back via `scripts/dump_decode.py` for skip-ore investigation.
     for &pi in ore_list {
         if !builder.is_reachable_p(pi) {
+            _log_pick_reject(pi, "unreachable");
             continue;
         }
         if dist_sq(pi, core_idx) > econ_radius_sq {
+            _log_pick_reject(pi, "outside_econ_disc");
             continue;
         }
         let pos = pos_of(pi);
         if !ore_available_p(builder, pi, pos) {
+            _log_pick_reject(pi, "ore_unavailable");
             continue;
         }
         let d = dist_sq(my_idx, pi);
         if d >= min_dist {
+            // No log: we already have a closer pick, this isn't a "skip".
             continue;
         }
         let i = pi as usize;
         match bk[i] {
-            Some(EntityType::Harvester) => continue,
+            Some(EntityType::Harvester) => {
+                _log_pick_reject(pi, "harvester_already");
+                continue;
+            }
             None | Some(EntityType::Road | EntityType::Marker | EntityType::Barrier) => {}
             Some(EntityType::Conveyor | EntityType::ArmouredConveyor) => {
                 if !is_inward_guard_p(builder, pi) {
+                    _log_pick_reject(pi, "conveyor_not_inward");
                     continue;
                 }
             }
-            _ => continue,
+            _ => {
+                _log_pick_reject(pi, "blocking_kind");
+                continue;
+            }
         }
         if !claims_by_proximity_p(my_idx, my_id, pi, pyrust::copied!(pyrust::iter!(friends))) {
+            _log_pick_reject(pi, "friend_closer");
             continue;
         }
         if harvester_would_contaminate_p(builder, pi) {
+            _log_pick_reject(pi, "would_contaminate");
             continue;
         }
         if pyrust::is_none!(harvester_feed_cardinal_p(builder, pi)) {
+            _log_pick_reject(pi, "no_feed_cardinal");
             continue;
         }
         min_dist = d;
         best_target = Some(pos);
     }
     best_target
+}
+
+#[cfg(any())]
+fn _log_pick_reject(_pi: PosInt, _reason: &'static str) {}
+
+#[cfg(not(any()))]
+fn _log_pick_reject(pi: PosInt, reason: &'static str) {
+    if !crate::config::DEBUG_LOG {
+        return;
+    }
+    let mut args = serde_json::Map::new();
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("pos"),
+        crate::util::visualiser::auto_wrap_position(pos_of(pi))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("reason"),
+        serde_json::Value::String(pyrust::to_string!(reason))
+    );
+    crate::util::debug::debug("_pick_ore reject {pos}: {reason}", args);
 }
 
 const _UPSTREAM_MAX_NODES: usize = 80;
