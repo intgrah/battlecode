@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use cambc::{Controller, Position};
 
 use crate::builder::Builder;
+use crate::builder::patrol::{alert_expansion, expand_outward};
 use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::{Scope, vis};
 use crate::util::visualiser::{Colour, Dump, Palette, PaletteStop, ScalarValue, TRANSPARENT};
@@ -300,6 +301,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             None => vis_scalar_null("role"),
         }
         vis_scalar_int("role_age", i64::from(builder.role_age));
+        vis_scalar_int("alert", i64::from(builder.alert));
         match builder.symmetry {
             Some(s) => vis_scalar_str("symmetry", &format!("{s}")),
             None => vis_scalar_null("symmetry"),
@@ -544,22 +546,64 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             None => vis_scalar_null("explore_heading"),
         }
         vis_scalar_bool("opportunistic", builder.opportunistic);
-        let queue = &builder.patrol_queue;
-        if !pyrust::vec::is_empty!(queue) {
-            let target = queue[builder.patrol_queue_idx % pyrust::len!(queue)];
-            vis_tile("patrol_target", Some(target));
-            let mut closed: Vec<Position> = pyrust::clone!(queue);
-            pyrust::vec::push!(closed, queue[0]);
+        let n_clusters = pyrust::len!(builder.patrol_clusters);
+        let core = builder.my_core;
+        let expansion = alert_expansion(builder.alert, builder.state.scale);
+        if n_clusters == 0 {
+            vis_tile("patrol_target", None);
+        } else {
+            let ci = pyrust::min!(builder.patrol_cluster_idx, n_clusters - 1);
+            let cycle = &builder.patrol_clusters[ci];
+            let qlen = pyrust::len!(cycle);
+            if qlen > 0 {
+                let raw_target = cycle[builder.patrol_pos_idx % qlen];
+                let target =
+                    expand_outward(raw_target, core, expansion, w, h);
+                vis_tile("patrol_target", Some(target));
+            } else {
+                vis_tile("patrol_target", None);
+            }
+            // Combine all clusters' raw cycles + expanded cycles into single
+            // Path dumps (each cluster closes back to its start).
+            let mut raw_all: Vec<Position> = pyrust::vec::new!();
+            let mut exp_all: Vec<Position> = pyrust::vec::new!();
+            for i in 0..n_clusters {
+                let q = &builder.patrol_clusters[i];
+                if pyrust::vec::is_empty!(q) {
+                    continue;
+                }
+                for p in q {
+                    pyrust::vec::push!(raw_all, *p);
+                    pyrust::vec::push!(
+                        exp_all,
+                        expand_outward(*p, core, expansion, w, h)
+                    );
+                }
+                pyrust::vec::push!(raw_all, q[0]);
+                pyrust::vec::push!(
+                    exp_all,
+                    expand_outward(q[0], core, expansion, w, h)
+                );
+            }
             vis(
                 "patrol_cycle",
                 &Dump::Path {
-                    points: closed,
+                    points: raw_all,
                     colour: Colour::new(255, 200, 80, 200),
                 },
             );
-        } else {
-            vis_tile("patrol_target", None);
+            vis(
+                "patrol_cycle_expanded",
+                &Dump::Path {
+                    points: exp_all,
+                    colour: Colour::new(120, 220, 255, 200),
+                },
+            );
         }
+        vis_scalar_int(
+            "n_patrol_clusters",
+            pyrust::len!(builder.patrol_clusters) as i64,
+        );
         // for y in 0..h {
         //     let base = (y as usize) * MAX_WIDTH;
         //     let row_base = (y * w) as usize;

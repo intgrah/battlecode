@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, Position};
 
 use crate::builder::Builder;
-use crate::builder::patrol::insert_into_queue;
+use crate::builder::patrol::{insert_into_clusters, remove_from_clusters};
 use crate::building::{edge_targets, make_building};
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST};
 use crate::util::directions::DIR8;
@@ -37,7 +37,11 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
         Some(EntityType::Harvester) => {
             if old_team == Some(my_team) {
                 pyrust::set::remove!(builder.my_harvesters, &pos);
-                pyrust::vec::retain!(builder.patrol_queue, |&q| q != pos);
+                remove_from_clusters(
+                    &mut builder.patrol_clusters,
+                    &mut builder.patrol_cluster_centroids,
+                    pos,
+                );
             }
             let env = builder.env[i];
             if env == Some(Environment::OreAxionite) {
@@ -102,7 +106,11 @@ pub fn _add_topology(
         EntityType::Harvester => {
             if team == builder.state.my_team {
                 pyrust::set::add!(builder.my_harvesters, pos);
-                insert_into_queue(&mut builder.patrol_queue, pos);
+                insert_into_clusters(
+                    &mut builder.patrol_clusters,
+                    &mut builder.patrol_cluster_centroids,
+                    pos,
+                );
             }
             let idx = builder.idx(pos);
             match builder.env[idx] {

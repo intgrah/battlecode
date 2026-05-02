@@ -12,6 +12,7 @@ pub mod vision;
 use cambc::Controller;
 
 use crate::builder::Builder;
+use crate::builder::patrol::update_alert;
 use crate::config::DEBUG_INVARIANTS;
 use crate::util::debug::Scope;
 
@@ -51,7 +52,7 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
     }
     {
         let _g = Scope::new_timed("alert");
-        crate::builder::patrol::update_alert(builder);
+        update_alert(builder);
     }
     {
         let _g = Scope::new_timed("econ");

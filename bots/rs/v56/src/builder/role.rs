@@ -10,10 +10,6 @@ pub enum Role {
     PermEcon = 3,
     PermDefense = 4,
     Parasitic = 5,
-    /// ECON that auto-flips to DEFENSE at round > 25. Used for the
-    /// third opening builder so it gathers map intel as ECON early, then
-    /// pivots to DEFENSE with a real picture of the economic terrain.
-    EconReactive = 6,
 }
 
 impl Role {
@@ -32,7 +28,6 @@ impl fmt::Display for Role {
             Self::PermEcon => "perm_econ",
             Self::PermDefense => "perm_defense",
             Self::Parasitic => "parasitic",
-            Self::EconReactive => "econ_reactive",
         })
     }
 }
