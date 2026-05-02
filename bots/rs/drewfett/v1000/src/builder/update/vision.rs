@@ -372,8 +372,8 @@ pub fn update_vision(builder: &mut Builder, ct: &mut Controller<'_>) {
                 _update_turret_rays(builder, ct, pos, bid_v, kind, team);
             }
         } else if pyrust::is_some!(bid) {
+            // max_hp is constant for a given building_id; only refresh hp.
             builder.hp[i] = pyrust::unwrap!(ct.get_hp(bid));
-            builder.max_hp[i] = pyrust::unwrap!(ct.get_max_hp(bid));
         }
 
         // Populate typed sub-lists for consumers (avoids them re-scanning

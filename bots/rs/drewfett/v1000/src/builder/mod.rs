@@ -135,6 +135,9 @@ pub struct Builder {
     /// `state.nearby_tiles`. Avoids 580k `ct.is_in_vision` engine calls
     /// per game (~172ms total: 130ns×580k direct + engine overhead).
     pub vision_mask: Vec<u8>,
+    /// PosInts that had `vision_mask == 1` last turn — lets us reset
+    /// the mask in O(prev-vision-size) instead of memsetting BOUND_RANGE.
+    pub last_vision: Vec<i32>,
 
     /// Passable-neighbour list per tile (flat indices). Pre-built for full
     /// `MAX_WIDTH × MAX_WIDTH`; trimmed in `post_init` for the actual map.
@@ -336,6 +339,7 @@ impl Builder {
             _ax_in_count: [0; BOUND_RANGE],
             posint_valid: vec![0u8; POSINT_VALID_LEN],
             vision_mask: vec![0u8; BOUND_RANGE],
+            last_vision: pyrust::vec::new!(),
             pnb,
             reach_parent: [-1; BOUND_RANGE],
             reach_frontier: pyrust::vec::new!(),

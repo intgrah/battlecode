@@ -21,6 +21,22 @@ use crate::util::trace;
 pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
     let _g = Scope::new_timed("update");
     {
+        // Repopulate vision_mask before prune. Zero last turn's PosInts,
+        // set 1 for current nearby_tiles. Lets prune + vision + tasks
+        // skip ct.is_in_vision FFI in favour of an O(1) array read.
+        let _g = Scope::new_timed("vision_mask");
+        for &p in &builder.last_vision {
+            builder.vision_mask[p as usize] = 0;
+        }
+        let mut cur: Vec<i32> = pyrust::vec::new!();
+        for &pos in &builder.state.nearby_tiles {
+            let pi = crate::util::posint::idx_of(pos);
+            builder.vision_mask[pi as usize] = 1;
+            pyrust::vec::push!(cur, pi);
+        }
+        builder.last_vision = cur;
+    }
+    {
         let _g = Scope::new_timed("prune");
         trace::enter(ct, "prune");
         prune::prune_stale(builder, ct);
