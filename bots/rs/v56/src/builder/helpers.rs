@@ -930,26 +930,31 @@ const _PICK_ORE_DEEP_BUDGET: i32 = 3;
 
 pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
     let _g = Scope::new_timed("pick_ore");
-    let mut candidates: Vec<Position> = if wanted == Environment::OreTitanium {
-        pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ti_ores)))
-    } else {
-        pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ax_ores)))
-    };
-    builder.state.rng.shuffle(&mut candidates);
+    let mut candidates: Vec<Position> = pyrust::vec::new!();
+    let mut friendlies: Vec<(Position, i32)> = pyrust::vec::new!();
+    {
+        let _g = Scope::new_timed("pick_ore_setup");
+        candidates = if wanted == Environment::OreTitanium {
+            pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ti_ores)))
+        } else {
+            pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.visible_ax_ores)))
+        };
+        builder.state.rng.shuffle(&mut candidates);
+        friendlies = pyrust::collect!(pyrust::filter_map!(
+            pyrust::dict::items!(builder.state.all_bots),
+            |t| if *t.1 != builder.state.my_id
+                && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
+            {
+                Some((*t.0, *t.1))
+            } else {
+                None
+            }
+        ));
+    }
 
     let econ_radius_sq = builder.econ_radius_sq;
     let my_pos = builder.state.my_pos;
     let my_core = builder.my_core;
-    let friendlies: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
-        pyrust::dict::items!(builder.state.all_bots),
-        |t| if *t.1 != builder.state.my_id
-            && pyrust::vec::contains!(builder.state.friendly_bots, t.0)
-        {
-            Some((*t.0, *t.1))
-        } else {
-            None
-        }
-    ));
     let n_candidates = pyrust::len!(candidates) as i32;
     let mut n_reach: i32 = 0;
     let mut n_econ: i32 = 0;
@@ -1023,66 +1028,69 @@ pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> 
         min_dist = d;
         best_target = Some(pos);
     }
-    let mut args = serde_json::Map::new();
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("env"),
-        serde_json::Value::String(format!("{wanted:?}"))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("n"),
-        serde_json::Value::Number(serde_json::Number::from(n_candidates))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("reach"),
-        serde_json::Value::Number(serde_json::Number::from(n_reach))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("econ"),
-        serde_json::Value::Number(serde_json::Number::from(n_econ))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("avail"),
-        serde_json::Value::Number(serde_json::Number::from(n_avail))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("dist"),
-        serde_json::Value::Number(serde_json::Number::from(n_dist))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("kind"),
-        serde_json::Value::Number(serde_json::Number::from(n_kind))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("deep"),
-        serde_json::Value::Number(serde_json::Number::from(n_deep))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("claims"),
-        serde_json::Value::Number(serde_json::Number::from(n_claims))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("contam"),
-        serde_json::Value::Number(serde_json::Number::from(n_contam))
-    );
-    pyrust::dict::insert!(
-        args,
-        pyrust::to_string!("feed"),
-        serde_json::Value::Number(serde_json::Number::from(n_feed))
-    );
-    log(
-        "pick_ore: env={env} n={n} reach={reach} econ={econ} avail={avail} dist={dist} kind={kind} deep={deep} claims={claims} contam={contam} feed={feed}",
-        args,
-    );
+    {
+        let _g = Scope::new_timed("pick_ore_log");
+        let mut args = serde_json::Map::new();
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("env"),
+            serde_json::Value::String(format!("{wanted:?}"))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("n"),
+            serde_json::Value::Number(serde_json::Number::from(n_candidates))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("reach"),
+            serde_json::Value::Number(serde_json::Number::from(n_reach))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("econ"),
+            serde_json::Value::Number(serde_json::Number::from(n_econ))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("avail"),
+            serde_json::Value::Number(serde_json::Number::from(n_avail))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("dist"),
+            serde_json::Value::Number(serde_json::Number::from(n_dist))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("kind"),
+            serde_json::Value::Number(serde_json::Number::from(n_kind))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("deep"),
+            serde_json::Value::Number(serde_json::Number::from(n_deep))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("claims"),
+            serde_json::Value::Number(serde_json::Number::from(n_claims))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("contam"),
+            serde_json::Value::Number(serde_json::Number::from(n_contam))
+        );
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("feed"),
+            serde_json::Value::Number(serde_json::Number::from(n_feed))
+        );
+        log(
+            "pick_ore: env={env} n={n} reach={reach} econ={econ} avail={avail} dist={dist} kind={kind} deep={deep} claims={claims} contam={contam} feed={feed}",
+            args,
+        );
+    }
     best_target
 }
 

@@ -26,14 +26,14 @@ __all__ = ["Core"]
 class Core(CoreAwareUnit):
     INITIAL_SPAWNS: Final[int] = 4
     INCOME_SAMPLES: Final[int] = 16
-    INCOME_PER_UNIT: Final[float] = 0.65
+    INCOME_PER_UNIT: Final[float] = 0.70
     """Each live unit demands at least this much expected income per
     round (x4 for the actual harvest cadence) before another spawn is
     allowed. Setting this above 0.25 (a single harvester's contribution)
     means new spawns require strictly growing income — at equilibrium
     no further spawns happen, so constant-income games don't bleed Ti
     into builders that contribute nothing extra."""
-    INCOME_QUADRATIC_TERM: Final[float] = 0.04
+    INCOME_QUADRATIC_TERM: Final[float] = 0.05
     """Quadratic kicker on the income gate: required income grows as
     `INCOME_PER_UNIT * N + INCOME_QUADRATIC_TERM * N²`. Mild at small
     N (4 builders ≈ +27% over linear, 8 ≈ +53%, 16 ≈ +106%) so early

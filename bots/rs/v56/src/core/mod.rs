@@ -56,8 +56,8 @@ pub struct Core {
 impl Core {
     pub const INITIAL_SPAWNS: i32 = 4;
     pub const INCOME_SAMPLES: usize = 16;
-    pub const INCOME_PER_UNIT: f64 = 0.65;
-    pub const INCOME_QUADRATIC_TERM: f64 = 0.04;
+    pub const INCOME_PER_UNIT: f64 = 0.70;
+    pub const INCOME_QUADRATIC_TERM: f64 = 0.05;
     pub const SURPLUS_BASELINE: i32 = 40;
     pub const SURPLUS_SCALE_FACTOR: i32 = 50;
     pub const TRICKLE_COST_MULTIPLIER: f64 = 8.0;
