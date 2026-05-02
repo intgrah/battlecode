@@ -27,6 +27,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
+use crate::builder::algorithms::econ_astar::AstarStep;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::nav_bfs::NavBfs;
@@ -747,19 +748,23 @@ impl Builder {
 
     /// Run the Ti A* search. Constructs an `EconAstarCtx` from this
     /// builder's borrowed state and forwards to `conv_search.search`.
+    /// `budget_us` is the absolute turn-elapsed CPU threshold (μs); the
+    /// search returns `Pending` if exceeded mid-loop and resumes on the
+    /// next call with the same `(start, target, resource)`.
     pub fn ti_conv_astar(
         &mut self,
         ct: &mut Controller<'_>,
         start: Position,
         target: Position,
         resource: ResourceType,
-    ) -> Option<Vec<Position>> {
+        budget_us: u64,
+    ) -> AstarStep {
         let mut ctx = self.make_econ_ctx();
-        let path = self
+        let step = self
             .conv_search
-            .search(ct, start, target, resource, &mut ctx);
+            .search(ct, start, target, resource, budget_us, &mut ctx);
         self.absorb_econ_ctx(ctx);
-        path
+        step
     }
 
     /// Run the Ax A* search. Same shape as `ti_conv_astar` but goes
@@ -770,13 +775,14 @@ impl Builder {
         start: Position,
         target: Position,
         resource: ResourceType,
-    ) -> Option<Vec<Position>> {
+        budget_us: u64,
+    ) -> AstarStep {
         let mut ctx = self.make_econ_ctx();
-        let path = self
+        let step = self
             .ax_conv_search
-            .search(ct, start, target, resource, &mut ctx);
+            .search(ct, start, target, resource, budget_us, &mut ctx);
         self.absorb_econ_ctx(ctx);
-        path
+        step
     }
 
     fn make_econ_ctx(&self) -> EconAstarCtx {
