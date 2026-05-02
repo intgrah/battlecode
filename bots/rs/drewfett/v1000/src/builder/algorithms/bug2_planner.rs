@@ -174,6 +174,38 @@ impl Bug2Planner {
         let sy = si / stride;
         let gx = gi % stride;
         let gy = gi / stride;
+        // adgato fix: if goal tile is impassable, retarget to nearest
+        // passable 8-neighbour (closest to start). Lets bug2 produce a
+        // useful path when the requested goal is itself blocked.
+        let (gi, gx, gy) = if cost[gi as usize] != INF {
+            (gi, gx, gy)
+        } else {
+            let mut best_gi = gi;
+            let mut best_gx = gx;
+            let mut best_gy = gy;
+            let mut best_dist = i32::MAX;
+            for d in 0..8usize {
+                let nx = gx + DX[d];
+                let ny = gy + DY[d];
+                if nx < 0 || nx >= w || ny < 0 || ny >= h {
+                    continue;
+                }
+                let ni = ny * stride + nx;
+                if cost[ni as usize] == INF {
+                    continue;
+                }
+                let ddx = nx - sx;
+                let ddy = ny - sy;
+                let dist = ddx * ddx + ddy * ddy;
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_gi = ni;
+                    best_gx = nx;
+                    best_gy = ny;
+                }
+            }
+            (best_gi, best_gx, best_gy)
+        };
         let mdx = gx - sx;
         let mdy = gy - sy;
         let goal_dot = mdx * mdx + mdy * mdy;
