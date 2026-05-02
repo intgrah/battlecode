@@ -142,8 +142,6 @@ pub struct Builder {
 
     /// Passable-neighbour list per tile (flat indices). Pre-built for full
     /// `MAX_WIDTH × MAX_WIDTH`; trimmed in `post_init` for the actual map.
-    pub pnb: [Vec<i32>; BOUND_RANGE],
-
     /// Union-find parent pointer for incremental reachability.
     pub reach_parent: [i32; BOUND_RANGE],
     /// Frontier of admitted-but-unexpanded tiles. Persists across turns.
@@ -309,7 +307,6 @@ impl Builder {
     /// ct-independent allocation. Mirrors Python `Builder.__init__`.
     #[must_use]
     pub fn new() -> Self {
-        let pnb = Self::build_initial_pnb();
         let flow_history: [VecDeque<(Option<ResourceType>, Option<i32>)>; BOUND_RANGE] =
             [const { VecDeque::new() }; BOUND_RANGE];
         let in_edges: [Vec<Position>; BOUND_RANGE] = [const { Vec::new() }; BOUND_RANGE];
@@ -352,7 +349,6 @@ impl Builder {
             posint_valid: vec![0u8; POSINT_VALID_LEN],
             vision_mask: vec![0u8; BOUND_RANGE],
             last_vision: pyrust::vec::new!(),
-            pnb,
             reach_parent: [-1; BOUND_RANGE],
             reach_frontier: pyrust::vec::new!(),
             conv_search: AStarSearch::new(),
@@ -427,85 +423,10 @@ impl Builder {
         }
     }
 
-    fn build_initial_pnb() -> [Vec<i32>; BOUND_RANGE] {
-        let mut pnb: [Vec<i32>; BOUND_RANGE] = [const { Vec::new() }; BOUND_RANGE];
-        let stride = STRIDE as i32;
-        let offsets: Vec<i32> =
-            pyrust::collect!(pyrust::map!(pyrust::iter!(DIR8_DELTA), |t| t.1 * stride + t.0));
-        for cy in 1..(MAX_WIDTH as i32 - 1) {
-            let row = cy * stride;
-            for cx in 1..(MAX_WIDTH as i32 - 1) {
-                let i = (row + cx) as usize;
-                pnb[i] =
-                    pyrust::collect!(pyrust::map!(pyrust::iter!(offsets), |&o| (i as i32) + o));
-            }
-        }
-        for cy in 0..MAX_WIDTH as i32 {
-            let row = cy * stride;
-            for cx in 0..MAX_WIDTH as i32 {
-                if pyrust::vec::contains!((1..(MAX_WIDTH as i32 - 1)), &cx)
-                    && pyrust::vec::contains!((1..(MAX_WIDTH as i32 - 1)), &cy)
-                {
-                    continue;
-                }
-                let i = (row + cx) as usize;
-                let mut nbs: Vec<i32> = pyrust::vec::new!();
-                for &(dx, dy) in &DIR8_DELTA {
-                    let nx = cx + dx;
-                    let ny = cy + dy;
-                    if pyrust::vec::contains!((0..MAX_WIDTH as i32), &nx)
-                        && pyrust::vec::contains!((0..MAX_WIDTH as i32), &ny)
-                    {
-                        pyrust::vec::push!(nbs, ny * stride + nx);
-                    }
-                }
-                pnb[i] = nbs;
-            }
-        }
-        pnb
-    }
-
-    /// Recompute `pnb[i]` and the relevant entries of every neighbour after
-    /// tile i's passability changed. Mirrors Python `Builder.update_pnb`.
-    pub fn update_pnb(&mut self, i: usize) {
-        let w = self.state.width;
-        let h = self.state.height;
-        let cx = (i % STRIDE) as i32;
-        let cy = (i / STRIDE) as i32;
-        let passable = self.cost_grid[i] != INF;
-        self.pnb[i].clear();
-        if passable {
-            for &(dx, dy) in &DIR8_DELTA {
-                let nx = cx + dx;
-                let ny = cy + dy;
-                if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
-                    let ni = (ny as usize) * STRIDE + (nx as usize);
-                    if self.cost_grid[ni] != INF {
-                        pyrust::vec::push!(self.pnb[i], ni as i32);
-                    }
-                }
-            }
-        }
-        for &(dx, dy) in &DIR8_DELTA {
-            let nx = cx + dx;
-            let ny = cy + dy;
-            if !(pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny)) {
-                continue;
-            }
-            let ni = (ny as usize) * STRIDE + (nx as usize);
-            if self.cost_grid[ni] == INF {
-                continue;
-            }
-            let nb_list = &mut self.pnb[ni];
-            if passable {
-                if !pyrust::vec::contains!(nb_list, &(i as i32)) {
-                    pyrust::vec::push!(nb_list, i as i32);
-                }
-            } else if let Some(p) = pyrust::position!(pyrust::iter!(nb_list), |&x| x == i as i32) {
-                pyrust::vec::swap_remove!(nb_list, p);
-            }
-        }
-    }
+    /// DEAD: `pnb` field was built but never consumed. Stub kept so the
+    /// existing call site in `_apply_post_transition` doesn't need editing.
+    /// No-op; eligible for full removal once call sites are cleaned up.
+    pub fn update_pnb(&mut self, _i: usize) {}
 
     /// Position to flat index (inherent shadow of `Unit::idx` so peer code
     /// in `crate::builder::*` doesn't need to import the trait).
@@ -1167,20 +1088,8 @@ impl Builder {
         }
     }
 
-    /// Set `pnb[(cy, cx)]` to its 8-king-move neighbours within `(w, h)`.
-    /// Pulled out of `post_init` so the body is a single statement and the
-    /// translator doesn't need multi-statement-closure support.
-    fn pnb_fix_boundary(&mut self, cx: i32, cy: i32, w: i32, h: i32) {
-        let stride = STRIDE as i32;
-        let mut nbs: Vec<i32> = pyrust::vec::new!();
-        for &(dx, dy) in &DIR8_DELTA {
-            let nx = cx + dx;
-            let ny = cy + dy;
-            if pyrust::vec::contains!((0..w), &nx) && pyrust::vec::contains!((0..h), &ny) {
-                pyrust::vec::push!(nbs, ny * stride + nx);
-            }
-        }
-        self.pnb[(cy * stride + cx) as usize] = nbs;
+    /// DEAD: pnb field removed; no-op stub kept for caller convenience.
+    fn pnb_fix_boundary(&mut self, _cx: i32, _cy: i32, _w: i32, _h: i32) {
     }
 
     /// Mirror `my_core` under `symmetry_guess`.
