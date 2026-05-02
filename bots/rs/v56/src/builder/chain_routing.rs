@@ -444,10 +444,10 @@ pub fn extend_step(
     // blocked we just reject the chain extension this turn — no A*
     // fallback. The A* code (econ_astar.rs) is intentionally left
     // intact and unused so it can be re-wired later if needed.
-    let path = {
-        let _g = Scope::new_timed("conv_greedy");
-        greedy_route(builder, start, target, resource)
-    };
+    let mut path: Option<Vec<Position>> = None;
+    pyrust::with!(Scope::new_timed("conv_greedy"), {
+        path = greedy_route(builder, start, target, resource);
+    });
     if let Some(ref pp) = path {
         builder.last_greedy_path = Some(pyrust::clone!(pp));
         builder.last_greedy_path_is_ax = is_ax;

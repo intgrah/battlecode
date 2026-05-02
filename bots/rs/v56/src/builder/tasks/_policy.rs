@@ -53,35 +53,40 @@ pub fn run_policy(self_: &mut Builder, ct: &mut Controller<'_>, policy: &Policy)
                 log("{name}: gated off", args);
                 return false;
             }
-            let _scope = Scope::new_timed(group.name);
-            for child in group.children {
-                if run_policy(self_, ct, child) {
-                    return true;
+            let mut found = false;
+            pyrust::with!(Scope::new_timed(group.name), {
+                for child in group.children {
+                    if run_policy(self_, ct, child) {
+                        found = true;
+                        break;
+                    }
                 }
-            }
-            false
+            });
+            found
         }
         Policy::Leaf { name, fn_ } => {
             let scope_label = format!("task={name}");
-            let _scope = Scope::new_timed(&scope_label);
-            match fn_(self_, ct) {
-                None => true,
-                Some(rej) => {
-                    let mut args = Map::new();
-                    pyrust::dict::insert!(
-                        args,
-                        pyrust::to_string!("name"),
-                        serde_json::Value::String(pyrust::to_string!((*name)))
-                    );
-                    pyrust::dict::insert!(
-                        args,
-                        pyrust::to_string!("reason"),
-                        serde_json::Value::String(rej.reason)
-                    );
-                    log("{name}: {reason}", args);
-                    false
+            let mut completed = false;
+            pyrust::with!(Scope::new_timed(&scope_label), {
+                match fn_(self_, ct) {
+                    None => completed = true,
+                    Some(rej) => {
+                        let mut args = Map::new();
+                        pyrust::dict::insert!(
+                            args,
+                            pyrust::to_string!("name"),
+                            serde_json::Value::String(pyrust::to_string!((*name)))
+                        );
+                        pyrust::dict::insert!(
+                            args,
+                            pyrust::to_string!("reason"),
+                            serde_json::Value::String(rej.reason)
+                        );
+                        log("{name}: {reason}", args);
+                    }
                 }
-            }
+            });
+            completed
         }
     }
 }

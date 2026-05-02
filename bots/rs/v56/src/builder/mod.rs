@@ -1166,15 +1166,14 @@ impl Unit for Builder {
         }
 
         // Trim pnb at the actual map boundary (right column + bottom row).
-        {
-            let _scope = Scope::new_timed("pnb");
+        pyrust::with!(Scope::new_timed("pnb"), {
             for cx in 0..w {
                 self.pnb_fix_boundary(cx, h - 1, w, h);
             }
             for cy in 0..(h - 1) {
                 self.pnb_fix_boundary(w - 1, cy, w, h);
             }
-        }
+        });
 
         self.refresh_symmetry_cache();
     }
@@ -1184,52 +1183,50 @@ impl Unit for Builder {
         self.state.check_symmetry_marker(ct);
         self.refresh_symmetry_cache();
 
-        let _g = Scope::new_timed("body");
-        let mut args = Map::new();
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("id"),
-            serde_json::Value::Number(serde_json::Number::from(self.state.my_id))
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("pos"),
-            auto_wrap_position(self.state.my_pos)
-        );
-        pyrust::dict::insert!(
-            args,
-            pyrust::to_string!("round"),
-            serde_json::Value::Number(serde_json::Number::from(self.state.round))
-        );
+        pyrust::with!(Scope::new_timed("body"), {
+            let mut args = Map::new();
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("id"),
+                serde_json::Value::Number(serde_json::Number::from(self.state.my_id))
+            );
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("pos"),
+                auto_wrap_position(self.state.my_pos)
+            );
+            pyrust::dict::insert!(
+                args,
+                pyrust::to_string!("round"),
+                serde_json::Value::Number(serde_json::Number::from(self.state.round))
+            );
 
-        update(self, ct);
-        begin_turn_offense(self, ct);
+            update(self, ct);
+            begin_turn_offense(self, ct);
 
-        if DEBUG_DUMP {
-            dump(self, ct);
-        }
+            if DEBUG_DUMP {
+                dump(self, ct);
+            }
 
-        let role = pyrust::expect!(self.role, "role must be set after update");
-        {
-            let _g = Scope::new_timed("tasks");
-            let policy = policy_for_role(role);
-            run_policy(self, ct, policy);
-        }
-        {
-            let _g = Scope::new_timed("hooks");
-            {
-                let _g = Scope::new_timed("indicators");
-                indicators(self, ct);
-            }
-            if !role.is_offensive() {
-                let _g = Scope::new_timed("heal");
-                end_of_turn_heal(self, ct);
-            }
-            {
-                let _g = Scope::new_timed("symmetry");
-                end_of_turn_propagate_symmetry(self, ct);
-            }
-        }
+            let role = pyrust::expect!(self.role, "role must be set after update");
+            pyrust::with!(Scope::new_timed("tasks"), {
+                let policy = policy_for_role(role);
+                run_policy(self, ct, policy);
+            });
+            pyrust::with!(Scope::new_timed("hooks"), {
+                pyrust::with!(Scope::new_timed("indicators"), {
+                    indicators(self, ct);
+                });
+                if !role.is_offensive() {
+                    pyrust::with!(Scope::new_timed("heal"), {
+                        end_of_turn_heal(self, ct);
+                    });
+                }
+                pyrust::with!(Scope::new_timed("symmetry"), {
+                    end_of_turn_propagate_symmetry(self, ct);
+                });
+            });
+        });
     }
 }
 
