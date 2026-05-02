@@ -1269,6 +1269,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drewfett_v1001"
+version = "0.1.0"
+dependencies = [
+ "cambc",
+ "pyrust",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "drop_bomb"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

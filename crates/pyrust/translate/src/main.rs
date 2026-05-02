@@ -26,6 +26,9 @@ fn main() -> ExitCode {
             eprintln!("  --cfg KEY           set boolean cfg flag (truthy)");
             eprintln!("  --cfg KEY=true|false explicit boolean");
             eprintln!("  --cfg KEY=value     set kv form for cfg(KEY = \"value\") matching");
+            eprintln!();
+            eprintln!("  --cfg preserve_comments  emit `///` doc-comments as Python");
+            eprintln!("                           docstrings (default: stripped)");
             ExitCode::from(2)
         }
     }
