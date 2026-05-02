@@ -238,9 +238,7 @@ fn _centroid_d2(centroid: (f64, f64), p: Position) -> f64 {
 /// discretised to an i64 key (×1e6) because `f64` isn't `Ord`.
 fn _polar_sort(cluster: &mut Vec<Position>, centroid: (f64, f64)) {
     pyrust::sort_by_key!(cluster, |p| {
-        let dy = pyrust::float!(p.y) - centroid.1;
-        let dx = pyrust::float!(p.x) - centroid.0;
-        (pyrust::atan2!(dy, dx) * 1_000_000.0) as i64
+        (pyrust::atan2!(pyrust::float!(p.y) - centroid.1, pyrust::float!(p.x) - centroid.0) * 1_000_000.0) as i64
     });
 }
 

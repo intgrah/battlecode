@@ -5,6 +5,7 @@ reachability
 ore targets being ignored
 
 FIXED
+gunner cardinally facing resource
 defend against launchers w/ sentinels
 bug2 can't path to impassible
 don't extend a path instead of waiting for sentinel
