@@ -11,7 +11,7 @@ use serde_json::Map;
 
 use crate::builder::Builder;
 use crate::builder::harvest::{clear_barriered_feed, step_off_and_build_harvester};
-use crate::builder::helpers::{can_afford, harvester_feed_cardinal, ore_available};
+use crate::builder::helpers::{can_afford, harvester_feed_cardinal, ore_available, try_attack};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::debug::debug as log;
 use crate::util::metrics::chebyshev;
@@ -38,6 +38,15 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
             "no ore_target / ax_ore_target to harvest",
         ));
     };
+    // If an enemy building sits on the ore tile, fire at it instead of
+    // attempting to build the harvester. Destroying it unblocks the
+    // claim. Port from intgrah/v56 (commit 05f34d26).
+    if let Some(kt) = self_.get_building(target)
+        && kt.1 != self_.state.my_team
+        && try_attack(ct, target)
+    {
+        return None;
+    }
     if self_.my_pos != target {
         return Some(TaskRejected::from_string(format!(
             "not standing on ore {target:?}"
