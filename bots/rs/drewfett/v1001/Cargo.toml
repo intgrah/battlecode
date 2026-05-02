@@ -1,0 +1,16 @@
+[package]
+name = "drewfett_v1001"
+version = "0.1.0"
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+cambc.workspace = true
+pyrust.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
