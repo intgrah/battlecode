@@ -311,7 +311,6 @@ pub trait Unit {
     }
 }
 
-#[pyrust::inline]
 /// In-bounds check shared with the trait's default `in_bounds` method. Free
 /// function so trait impls can call it without going through `state()` twice.
 #[must_use]

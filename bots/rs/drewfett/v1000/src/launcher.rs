@@ -107,7 +107,6 @@ impl Launcher {
 }
 
 impl Unit for Launcher {
-    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }

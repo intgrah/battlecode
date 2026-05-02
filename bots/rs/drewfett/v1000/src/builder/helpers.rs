@@ -986,7 +986,6 @@ pub fn harvester_would_contaminate_p(builder: &Builder, p: PosInt) -> bool {
         && pure_ti_conveyor_count == 1)
 }
 
-#[pyrust::inline]
 /// True if `pos` is outside our econ disc — i.e. more than
 /// `sqrt(econ_radius_sq)` (= 0.7·max(w,h)) from our core.
 #[must_use]
