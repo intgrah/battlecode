@@ -190,25 +190,21 @@ impl BugNav {
                 cur_min,
             );
 
-            // use P[1] as
-            // lookahead: pick the neighbour minimising Chebyshev distance to
-            // it, tie-breaking by cost so roads beat bare tiles.
-            let nxt = if dp_nxt != si {
+            // Use P[1] as lookahead: pick the neighbour minimising Chebyshev
+            // distance to it, tie-breaking by cost so roads beat bare tiles.
+            let mut nxt = dp_nxt;
+            if dp_nxt != si {
                 let dp_nxt_idx = path_idx_ref[dp_nxt as usize];
-                let lookahead = if dp_nxt_idx >= 0
-                    && (dp_nxt_idx as usize + 1) < pyrust::len!(self.committed)
-                {
-                    self.committed[dp_nxt_idx as usize + 1]
-                } else {
-                    dp_nxt
-                };
+                let mut lookahead = dp_nxt;
+                if dp_nxt_idx >= 0 && (dp_nxt_idx as usize + 1) < pyrust::len!(self.committed) {
+                    lookahead = self.committed[dp_nxt_idx as usize + 1];
+                }
                 let lx = lookahead % stride;
                 let ly = lookahead / stride;
                 let cheby_to_lookahead = (pos.x - lx).abs().max((pos.y - ly).abs());
                 if cheby_to_lookahead == 1 && ctx.cost_grid[lookahead as usize] != INF {
-                    lookahead
+                    nxt = lookahead;
                 } else {
-                    let mut best = si;
                     let mut best_cheby = i32::MAX;
                     let mut best_cost = i32::MAX;
                     for (dx, dy) in [(-1i32, -1i32), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
@@ -226,14 +222,11 @@ impl BugNav {
                         if cheby < best_cheby || (cheby == best_cheby && c < best_cost) {
                             best_cheby = cheby;
                             best_cost = c;
-                            best = ny * stride + nx;
+                            nxt = ny * stride + nx;
                         }
                     }
-                    best
-                } // else cheby_to_lookahead != 1
-            } else {
-                dp_nxt
-            };
+                }
+            }
 
             for (fi, prev) in saved {
                 ctx.cost_grid[fi] = prev;
