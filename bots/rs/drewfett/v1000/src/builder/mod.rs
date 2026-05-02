@@ -244,6 +244,39 @@ pub struct Builder {
 
     // Patrol
     pub patrol_head: Option<Position>,
+    /// Patrol clusters. Each inner Vec is a cluster's cyclic queue,
+    /// maintained in insertion-NN order. Seeded at post_init with one
+    /// cluster containing the 4 core-footprint corners. New harvesters
+    /// join the cluster with the closest centroid (within d² ≤ 200);
+    /// else spawn a new cluster.
+    pub patrol_clusters: Vec<Vec<Position>>,
+    /// Centroid (mean position) of each cluster, parallel to
+    /// `patrol_clusters`. Updated on every add/remove.
+    pub patrol_cluster_centroids: Vec<(f64, f64)>,
+    /// Which cluster this builder is currently patrolling.
+    pub patrol_cluster_idx: usize,
+    /// Index into the chosen cluster's queue.
+    pub patrol_pos_idx: usize,
+    /// Round at which we last rerolled the cluster pick. Re-pick (via
+    /// weighted random) every 50 turns when alert is 0.
+    pub patrol_last_reroll_round: i32,
+    /// Traversal direction along the cycle: +1 (CW) or -1 (CCW).
+    /// Picked once at post_init from this builder's rng so multiple
+    /// patrollers split evenly between the two directions.
+    pub patrol_dir: i32,
+    /// Alert level: 0 (calm) up to MAX_ALERT (max). Bumped on enemy
+    /// sighting, decays each turn. Controls how far OUTSIDE the
+    /// patrol cycle the bot ranges — high alert → tight on infra,
+    /// low alert → expanded ring further from core (= exploration).
+    pub alert: i32,
+    /// Ratchet d² bound for the ECON-bounded explore locus. A
+    /// candidate explore tile is accepted iff its d² to some member of
+    /// the bot's chosen cluster is ≤ this. Shrinks on harvester
+    /// observed, grows on dry rounds. Clamped to `[64, 400]`.
+    pub econ_explore_radius_sq: i32,
+    /// Round at which we last observed a friendly harvester join the
+    /// econ. Used to drive the explore-radius ratchet.
+    pub last_harvester_add_round: i32,
     pub last_seen: [i32; BOUND_RANGE],
     pub _vision_offsets: Vec<(i32, i32, i32)>,
 
@@ -394,6 +427,15 @@ impl Builder {
             last_fire: None,
             attack_tile_blacklist: pyrust::dict::new!(),
             patrol_head: None,
+            patrol_clusters: pyrust::vec::new!(),
+            patrol_cluster_centroids: pyrust::vec::new!(),
+            patrol_cluster_idx: usize::MAX,
+            patrol_pos_idx: usize::MAX,
+            patrol_last_reroll_round: -1,
+            patrol_dir: 1,
+            alert: 0,
+            econ_explore_radius_sq: 64,
+            last_harvester_add_round: 0,
             last_seen: [0; BOUND_RANGE],
             _vision_offsets: vision_offsets,
             explore_target: None,
@@ -1168,8 +1210,31 @@ impl Unit for Builder {
         let core = self.resolve_my_core(ct);
         self.set_my_core(core);
 
+        // Seed cluster 0 with the 4 corners of the 3×3 core footprint
+        // in cyclic order (NW→NE→SE→SW) so the path forms a square, not
+        // an hourglass. Centroid = my_core.
+        let mut seed_cluster: Vec<Position> = pyrust::vec::new!();
+        for &(dx, dy) in &[(-1, -1), (1, -1), (1, 1), (-1, 1)] {
+            let c = Position {
+                x: core.x + dx,
+                y: core.y + dy,
+            };
+            if self.in_bounds(c) {
+                pyrust::vec::push!(seed_cluster, c);
+            }
+        }
+        if !pyrust::vec::is_empty!(seed_cluster) {
+            pyrust::vec::push!(self.patrol_clusters, seed_cluster);
+            pyrust::vec::push!(
+                self.patrol_cluster_centroids,
+                (pyrust::float!(core.x), pyrust::float!(core.y))
+            );
+        }
+
         let r = self.state.rng.random();
         self.opportunistic = r < 0.5;
+        let r2 = self.state.rng.random();
+        self.patrol_dir = if r2 < 0.5 { 1 } else { -1 };
 
         let s = pyrust::float!(pyrust::max!(self.state.width, self.state.height));
         self.econ_radius_sq = pyrust::round!(((0.7 * s) * (0.7 * s))) as i32;

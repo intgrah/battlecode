@@ -25,8 +25,7 @@ pub mod shared;
 use crate::builder::role::Role;
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
 use crate::builder::tasks::defense::clear_enemy_turret::clear_enemy_turret;
-use crate::builder::tasks::defense::patrol_cheap::patrol_cheap;
-use crate::builder::tasks::defense::patrol_late::patrol_late;
+use crate::builder::tasks::defense::patrol::patrol;
 use crate::builder::tasks::defense::stalk_enemy::stalk_enemy;
 use crate::builder::tasks::econ::chains::extend_chain_approach::extend_chain_approach;
 use crate::builder::tasks::econ::chains::extend_chain_in_range::extend_chain_in_range;
@@ -101,12 +100,8 @@ const DEFENDER_CHILDREN: &[Policy] = &[
         fn_: extend_chain_approach,
     },
     Policy::Leaf {
-        name: "patrol_late",
-        fn_: patrol_late,
-    },
-    Policy::Leaf {
-        name: "patrol_cheap",
-        fn_: patrol_cheap,
+        name: "patrol",
+        fn_: patrol,
     },
     Policy::Leaf {
         name: "explore",
