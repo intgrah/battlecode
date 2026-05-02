@@ -201,6 +201,11 @@ pub struct Builder {
 
     // Patrol
     pub patrol_head: Option<Position>,
+    /// Index into the per-turn-recomputed patrol cycle. Persists across
+    /// turns so we keep advancing along the cycle instead of restarting.
+    /// Reset to `(my_id mod cycle_len)` whenever the current value falls
+    /// outside the cycle (first run, or after the cycle shrank).
+    pub patrol_cycle_idx: usize,
     pub last_seen: [i32; MAX_N],
     pub _vision_offsets: Vec<(i32, i32, i32)>,
 
@@ -339,6 +344,7 @@ impl Builder {
             last_fire: None,
             attack_tile_blacklist: pyrust::dict::new!(),
             patrol_head: None,
+            patrol_cycle_idx: usize::MAX,
             last_seen: [0; MAX_N],
             _vision_offsets: vision_offsets,
             explore_target: None,

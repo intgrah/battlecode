@@ -817,7 +817,6 @@ pub fn pick_ax_ore_target(builder: &mut Builder) -> Option<Position> {
 pub fn pick_offensive_ti_ore_target(builder: &mut Builder) -> Option<Position> {
     let mut candidates: Vec<Position> = pyrust::sorted!(builder.visible_ti_ores);
     builder.state.rng.shuffle(&mut candidates);
-    pyrust::vec::truncate!(candidates, _PICK_ORE_SAMPLE);
 
     let econ_radius_sq = builder.econ_radius_sq;
     let my_pos = builder.state.my_pos;
@@ -834,6 +833,7 @@ pub fn pick_offensive_ti_ore_target(builder: &mut Builder) -> Option<Position> {
     ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
+    let mut deep_checks: i32 = 0;
     for pos in candidates {
         if !builder.is_reachable(pos) {
             continue;
@@ -857,6 +857,10 @@ pub fn pick_offensive_ti_ore_target(builder: &mut Builder) -> Option<Position> {
             }
             _ => continue,
         }
+        if deep_checks >= _PICK_ORE_DEEP_BUDGET {
+            break;
+        }
+        deep_checks += 1;
         if !claims_by_proximity(
             my_pos,
             builder.state.my_id,
@@ -972,13 +976,14 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
         && builder.team_at(target) == Some(builder.state.my_team)
 }
 
-/// Hard cap on candidate ores per `_pick_ore` / `pick_offensive_ti_ore_target`
-/// call. The full filter chain (claims_by_proximity + harvester_would_contaminate
-/// + harvester_feed_cardinal) is dozens of ops per candidate; with many ores
-/// in vision we'd TLE. Sample uniformly via the per-bot RNG and accept the
-/// possibility that we miss the globally-best tile this turn — the bot
-/// gets another shot next turn.
-const _PICK_ORE_SAMPLE: usize = 5;
+/// Cap on *expensive* filter chains per pick-ore call. The cheap O(1)
+/// filters (is_reachable, distance, ore_available, kind_at) run for
+/// every candidate; only the bottom three expensive ones
+/// (claims_by_proximity / harvester_would_contaminate /
+/// harvester_feed_cardinal) are gated by this cap. Bounds the
+/// per-turn cost without starving on "5 random picks all fail" —
+/// every visible ore still gets a fair shot at the cheap filters.
+const _PICK_ORE_DEEP_BUDGET: i32 = 5;
 
 fn _pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
     // Materialise + sort to drop the immutable borrow on visible_*_ores
@@ -992,7 +997,6 @@ fn _pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
         pyrust::sorted!(builder.visible_ax_ores)
     };
     builder.state.rng.shuffle(&mut candidates);
-    pyrust::vec::truncate!(candidates, _PICK_ORE_SAMPLE);
 
     let econ_radius_sq = builder.econ_radius_sq;
     let my_pos = builder.state.my_pos;
@@ -1009,6 +1013,7 @@ fn _pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
     ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
+    let mut deep_checks: i32 = 0;
     for pos in candidates {
         if !builder.is_reachable(pos) {
             continue;
@@ -1032,6 +1037,12 @@ fn _pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
             }
             _ => continue,
         }
+        // Cheap filters above passed; everything below is expensive.
+        // Bail once we've spent the budget.
+        if deep_checks >= _PICK_ORE_DEEP_BUDGET {
+            break;
+        }
+        deep_checks += 1;
         if !claims_by_proximity(
             my_pos,
             builder.state.my_id,

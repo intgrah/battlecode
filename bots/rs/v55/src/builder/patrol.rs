@@ -1,7 +1,11 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/patrol.py`.
+//! Cycle-based patrol. Builders walk a deterministic Hamiltonian-ish
+//! cycle through every known piece of friendly infra, starting at an
+//! id-derived offset so multiple builders cover disjoint arcs of the
+//! cycle in parallel. Worst-case revisit time is `cycle_len / K` for
+//! `K` live patrollers.
 
 use cambc::{Controller, Position};
-use serde_json::Map;
+use serde_json::{Map, Value};
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
@@ -47,72 +51,98 @@ fn _candidate_iter(builder: &Builder) -> Vec<Position> {
     out
 }
 
-fn _pick_head(builder: &Builder) -> Option<Position> {
-    let last_seen = &builder.last_seen;
-    let rnd = builder.state.round;
-    let mx = builder.state.my_pos.x;
-    let my_y = builder.state.my_pos.y;
-    // Score: maximise age, then minimise distance, then prefer smaller (y, x).
-    // Encoded as a tuple to be minimised: (-age, dist, y, x).
-    let mut best_key: (i32, i32, i32, i32) = (1, 1 << 30, 1 << 30, 1 << 30);
-    let mut best_pos: Option<Position> = None;
-    for pos in _candidate_iter(builder) {
-        let age = rnd - last_seen[(pos.y as usize) * MAX_WIDTH + (pos.x as usize)];
-        let dx = pos.x - mx;
-        let dy = pos.y - my_y;
-        let d = dx * dx + dy * dy;
-        let key = (-age, d, pos.y, pos.x);
-        if key < best_key {
-            best_key = key;
-            best_pos = Some(pos);
+/// Build a route through every known infra tile. Nearest-neighbour
+/// TSP heuristic seeded at `my_core` so the cycle starts (and loops
+/// back to) the core. The seeded vec is sorted lex first so ties in
+/// distance break deterministically — same cycle in native Rust and
+/// pyrust-translated Python.
+///
+/// O(N²) for N infra tiles. Real games sit at N ≈ 30–60, so this is
+/// a few thousand ops per turn — cheap relative to the per-turn
+/// budget. Recomputed every call so chain growth / building loss is
+/// reflected immediately.
+fn _build_cycle(candidates: &Vec<Position>, seed: Position) -> Vec<Position> {
+    let mut remaining: Vec<Position> = pyrust::clone!(candidates);
+    pyrust::sort!(remaining);
+    let mut cycle: Vec<Position> = pyrust::vec::new!();
+    let mut cur = seed;
+    while !pyrust::vec::is_empty!(remaining) {
+        let mut best_i: usize = 0;
+        let mut best_d = cur.distance_squared(remaining[0]);
+        let mut best_p = remaining[0];
+        for i in 1..pyrust::len!(remaining) {
+            let p = remaining[i];
+            let d = cur.distance_squared(p);
+            if d < best_d || (d == best_d && p < best_p) {
+                best_d = d;
+                best_i = i;
+                best_p = p;
+            }
         }
+        pyrust::vec::push!(cycle, best_p);
+        pyrust::vec::swap_remove!(remaining, best_i);
+        cur = best_p;
     }
-    best_pos
+    cycle
 }
 
-/// Walk toward the oldest important tile. Sticky: keeps the
-/// previously-chosen `patrol_head` until we reach it (`dist² <= 2`)
-/// or its `last_seen` advances past a margin, so the bot doesn't
-/// flip-flop between two harvesters when ages tick at similar rates.
-///
-/// Important tiles: friendly harvesters, foundries, core, plus all
-/// friendly transports carrying Ti or Ax. `last_seen` is refreshed in
-/// `update_patrol` (own vision + one trusted friend's vision).
+/// Walk a fixed cycle through known infra. Each builder's index into
+/// the cycle is offset by `(my_id mod cycle_len)` so multiple
+/// builders cover disjoint arcs without coordination. Reaching a
+/// tile (`dist² <= 2`) advances the index; the next target is
+/// always the next cycle entry, never the "oldest" — that's what
+/// gives convergence (every tile visited every `cycle_len / K`
+/// rounds) instead of greedy oldest-pick which can starve corners.
 pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
-    let rnd = builder.state.round;
-
-    let mut head = builder.patrol_head;
-    if let Some(h) = head {
-        let head_age = rnd - builder.last_seen[(h.y as usize) * MAX_WIDTH + (h.x as usize)];
-        let reached = builder.state.my_pos.distance_squared(h) <= 2;
-        if reached || head_age <= 0 {
-            let mut args = Map::new();
-            pyrust::dict::insert!(args, pyrust::to_string!("head"), auto_wrap_position(h));
-            log("patrol: head {head} reached / refreshed, repicking", args);
-            head = None;
-        }
-    }
-
-    if pyrust::is_none!(head) {
-        head = _pick_head(builder);
-        if let Some(h) = head {
-            let age = rnd - builder.last_seen[(h.y as usize) * MAX_WIDTH + (h.x as usize)];
-            let mut args = Map::new();
-            pyrust::dict::insert!(args, pyrust::to_string!("head"), auto_wrap_position(h));
-            pyrust::dict::insert!(
-                args,
-                pyrust::to_string!("age"),
-                serde_json::Value::Number(serde_json::Number::from(age))
-            );
-            log("patrol: new head {head} (age={age})", args);
-        }
-    }
-
-    builder.patrol_head = head;
-    let Some(head) = head else {
+    let candidates = _candidate_iter(builder);
+    if pyrust::vec::is_empty!(candidates) {
         return false;
-    };
-    let Some(anchor) = _walkable_anchor(builder, head) else {
+    }
+    let my_core = builder.my_core;
+    let cycle = _build_cycle(&candidates, my_core);
+    if pyrust::vec::is_empty!(cycle) {
+        return false;
+    }
+    let cycle_len = pyrust::len!(cycle);
+
+    // Seed cycle_idx by id on first call, or whenever it falls outside
+    // the current cycle bounds (e.g. after infra was destroyed and the
+    // cycle shrank). Modulo by cycle_len keeps it valid; the id
+    // dependence spreads multiple builders around the cycle.
+    let mut idx = builder.patrol_cycle_idx;
+    if idx >= cycle_len {
+        idx = (builder.state.my_id as usize) % cycle_len;
+    }
+
+    // Advance through any already-reached entries this turn — handles
+    // the case where two consecutive cycle tiles are within dist² ≤ 2
+    // of `my_pos`, so we don't waste a turn standing still.
+    for _ in 0..cycle_len {
+        let target = cycle[idx];
+        if builder.state.my_pos.distance_squared(target) > 2 {
+            break;
+        }
+        idx = (idx + 1) % cycle_len;
+    }
+    builder.patrol_cycle_idx = idx;
+    let target = cycle[idx];
+    builder.patrol_head = Some(target);
+
+    let mut args = Map::new();
+    pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("idx"),
+        Value::Number(pyrust::into!(idx as i64))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("len"),
+        Value::Number(pyrust::into!(cycle_len as i64))
+    );
+    log("patrol: cycle target {target} (idx={idx}/{len})", args);
+
+    let Some(anchor) = _walkable_anchor(builder, target) else {
         return false;
     };
     make_move(builder, ct, anchor);
