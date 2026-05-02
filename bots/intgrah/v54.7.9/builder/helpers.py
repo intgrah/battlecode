@@ -15,8 +15,7 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position, ResourceType
-from util.constants import BASE_COST, INF, MAX_WIDTH
-from util.debug import Scope
+from util.constants import BASE_COST, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
 from util.metrics import chebyshev, claims_by_proximity, manhattan
@@ -423,16 +422,13 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
     # conveyors are always rejected.
     tier1: list[Position] = []
     tier2: list[Position] = []
-    classification: dict[Position, str] = {}
     for d in DIR4:
         c = ore_pos.add(d)
         if not self.in_bounds(c):
             continue
         if c == self.my_pos:
-            classification[c] = "my_pos"
             continue
         if self.get_env(c) == Environment.WALL:
-            classification[c] = "wall"
             continue
         b = self.get_building(c)
         if (
@@ -445,52 +441,24 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             )
             and b.team != self.my_team
         ):
-            # Enemy transports never feed our chain — their flow goes
-            # somewhere we don't control.
-            classification[c] = "enemy_transport"
             continue
         if isinstance(b, BuildingBridge):
-            # Inward iff the bridge would deliver its stack back into the
-            # harvester tile. ore_pos is a harvester — its raw output is
-            # destroyed there.
-            if b.target == ore_pos:
-                classification[c] = "inward_guard: bridge target == ore"
-                continue
-            tier1.append(c)
-            classification[c] = "tier1: bridge"
+            if b.target != ore_pos:
+                tier1.append(c)
             continue
         if isinstance(b, BuildingConveyor | BuildingArmouredConveyor):
-            # 1 output (along `direction`), 3 inputs. Inward iff its
-            # output points at the ore.
-            if c.add(b.direction) == ore_pos:
-                classification[c] = "inward_guard: conveyor output -> ore"
-                continue
-            tier1.append(c)
-            classification[c] = "tier1: outward conveyor"
+            if c.add(b.direction) != ore_pos:
+                tier1.append(c)
             continue
         if isinstance(b, BuildingSplitter):
-            # Splitter has 3 outputs (direction, +90°, -90°) and 1 input
-            # from the back (opposite of direction). Outward iff the back
-            # faces the ore — only then does the splitter accept the
-            # harvester's output AND keep all 3 outputs pointing away.
             if c.add(b.direction.opposite()) == ore_pos:
                 tier1.append(c)
-                classification[c] = "tier1: outward splitter"
-            else:
-                classification[c] = "inward_guard: splitter back not -> ore"
             continue
         if isinstance(
             b,
             BuildingFoundry | BuildingCore | BuildingHarvester | BuildingBarrier,
         ):
-            classification[c] = type(b).__name__
             continue
-        # Escape check (tier 2 only): when the builder steps off the
-        # ore onto c, the harvester sits on ore_pos. The builder must
-        # be able to move to at least one passable tile in c's
-        # U shape — top (across from ore_pos), left/right perp, and
-        # left/right far-diagonal corners — otherwise trapped.
-        # Same U shape as the barrier-vs-conveyor heuristic.
         d_away = ore_pos.direction_to(c)
         u_shape = (
             c.add(d_away),
@@ -499,37 +467,14 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             c.add(d_away.rotate_left()),
             c.add(d_away.rotate_right()),
         )
-        has_escape = any(self.in_bounds(p) and self.is_passable(p) for p in u_shape)
-        if not has_escape:
-            classification[c] = "no_escape"
-            continue
-        tier2.append(c)
-        classification[c] = "tier2: " + (type(b).__name__ if b is not None else "empty")
+        if any(self.in_bounds(p) and self.is_passable(p) for p in u_shape):
+            tier2.append(c)
 
-    chosen: Position | None = None
-    chosen_tier = "none"
     if tier1:
-        chosen = min(tier1, key=lambda c: c.distance_squared(sink))
-        chosen_tier = "tier1"
-    elif tier2:
-        chosen = min(tier2, key=lambda c: c.distance_squared(sink))
-        chosen_tier = "tier2"
-
-    del chosen_tier  # Was used for debugging
-
-    # Verbose per-cardinal breakdown only when no feed was found —
-    # that's the diagnostic case. When feed is chosen, a single
-    # summary line is enough.
-    if chosen is None:
-        with Scope(f"feed_pick_{ore_pos.x}_{ore_pos.y}"):
-            log("feed_pick({ore}): NONE", ore=ore_pos)
-            for d in DIR4:
-                c = ore_pos.add(d)
-                if not self.in_bounds(c):
-                    continue
-                log("  {c}: {status}", c=c, status=classification.get(c, "?"))
-
-    return chosen
+        return min(tier1, key=lambda c: c.distance_squared(sink))
+    if tier2:
+        return min(tier2, key=lambda c: c.distance_squared(sink))
+    return None
 
 
 def harvester_io_cardinals(self: Builder, ore_pos: Position) -> set[Position]:
@@ -597,17 +542,13 @@ def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
         for fb_pos, fb_id in self.all_bots.items()
         if fb_id != self.my_id and fb_pos in self.friendly_bots
     ]
-    best_target = None
-    min_dist = INF
+    candidates: list[tuple[int, Position]] = []
     for pos in self.visible_ti_ores:
         if not self.is_reachable(pos):
             continue
         if pos.distance_squared(my_core) <= econ_radius_sq:
             continue
         if not ore_available(self, pos):
-            continue
-        d = my_pos.distance_squared(pos)
-        if d >= min_dist:
             continue
         match self.get_building(pos):
             case None | BuildingRoad() | BuildingMarker() | BuildingBarrier():
@@ -619,11 +560,13 @@ def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
                 continue
         if not claims_by_proximity(my_pos, self.my_id, pos, friendlies):
             continue
+        candidates.append((my_pos.distance_squared(pos), pos))
+    candidates.sort()
+    for _d, pos in candidates:
         if harvester_would_contaminate(self, pos):
             continue
-        min_dist = d
-        best_target = pos
-    return best_target
+        return pos
+    return None
 
 
 def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
@@ -736,17 +679,13 @@ def pick_ore(self: Builder, wanted: Environment) -> Position | None:
         for fb_pos, fb_id in self.all_bots.items()
         if fb_id != self.my_id and fb_pos in self.friendly_bots
     ]
-    best_target = None
-    min_dist = INF
+    candidates: list[tuple[int, Position]] = []
     for pos in ore_set:
         if not self.is_reachable(pos):
             continue
         if pos.distance_squared(my_core) > econ_radius_sq:
             continue
         if not ore_available(self, pos):
-            continue
-        d = my_pos.distance_squared(pos)
-        if d >= min_dist:
             continue
         match self.get_building(pos):
             case None | BuildingRoad() | BuildingMarker() | BuildingBarrier():
@@ -758,13 +697,15 @@ def pick_ore(self: Builder, wanted: Environment) -> Position | None:
                 continue
         if not claims_by_proximity(my_pos, self.my_id, pos, friendlies):
             continue
+        candidates.append((my_pos.distance_squared(pos), pos))
+    candidates.sort()
+    for _d, pos in candidates:
         if harvester_would_contaminate(self, pos):
             continue
         if harvester_feed_cardinal(self, pos) is None:
             continue
-        min_dist = d
-        best_target = pos
-    return best_target
+        return pos
+    return None
 
 
 _UPSTREAM_MAX_NODES = 80
