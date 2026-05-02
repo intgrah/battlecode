@@ -5,10 +5,10 @@ use serde_json::{Map, Value};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{
-    can_afford_ore_claim, harvester_would_contaminate, is_inward_guard, ore_available,
+    can_afford_ax_claim, can_afford_ti_claim, is_inward_guard, ore_available,
     pick_offensive_ti_ore_target, pick_ore,
 };
-use crate::util::constants::{AX_ROUND_GATE, FLOW_HISTORY_LEN, INF, MAX_WIDTH, base_cost};
+use crate::util::constants::{AX_ROUND_GATE, FLOW_HISTORY_LEN, INF, MAX_WIDTH};
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
 use crate::util::metrics::{chebyshev, claims_by_proximity};
@@ -240,9 +240,6 @@ pub fn update_ti_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)
     let needs_pick = pyrust::is_none!(builder.ore_target)
         || pyrust::is_some_and!(builder.ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder.ore_target, |t| harvester_would_contaminate(
-            builder, t
-        ))
         || (pyrust::is_some!(candidate_ore)
             && pyrust::unwrap!(candidate_ore).distance_squared(builder.state.my_pos) <= 2
             && pyrust::is_some_and!(builder.ore_target, |t| t
@@ -251,7 +248,7 @@ pub fn update_ti_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ti_sink, builder.my_core);
         if let Some(c) = candidate_ore
-            && !can_afford_ore_claim(builder, c, sink)
+            && !can_afford_ti_claim(builder, c, sink)
         {
             candidate_ore = None;
         }
@@ -267,9 +264,6 @@ pub fn update_offensive_ore_target(builder: &mut Builder, friendlies: &[(Positio
     let needs_pick = pyrust::is_none!(builder.offensive_ore_target)
         || pyrust::is_some_and!(builder.offensive_ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.offensive_ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder.offensive_ore_target, |t| {
-            harvester_would_contaminate(builder, t)
-        })
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
             && pyrust::is_some_and!(builder.offensive_ore_target, |t| t
@@ -283,7 +277,7 @@ pub fn update_offensive_ore_target(builder: &mut Builder, friendlies: &[(Positio
         };
         if let Some(c) = candidate
             && let Some(s) = sink
-            && !can_afford_ore_claim(builder, c, s)
+            && !can_afford_ti_claim(builder, c, s)
         {
             candidate = None;
         }
@@ -902,17 +896,10 @@ pub fn update_ti_sink(builder: &mut Builder) {
     builder.ti_sink = chosen;
 }
 
-/// Pick the nearest unclaimed Ax-ore tile, gated on round AND Ti buffer.
+/// Pick the nearest unclaimed Ax-ore tile, gated on round only —
+/// affordability is handled by `can_afford_ax_claim` below.
 pub fn update_ax_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)]) {
     if builder.state.round < AX_ROUND_GATE {
-        builder.ax_ore_target = None;
-        return;
-    }
-    let Some((ti_base, _ax_base)) = base_cost(EntityType::Harvester) else {
-        builder.ax_ore_target = None;
-        return;
-    };
-    if builder.state.ti < 2 * ((pyrust::float!(ti_base) * builder.state.scale) as i32) {
         builder.ax_ore_target = None;
         return;
     }
@@ -920,9 +907,6 @@ pub fn update_ax_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)
     let needs_pick = pyrust::is_none!(builder.ax_ore_target)
         || pyrust::is_some_and!(builder.ax_ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ax_ore_target, |t| !builder.is_reachable(t))
-        || pyrust::is_some_and!(builder.ax_ore_target, |t| harvester_would_contaminate(
-            builder, t
-        ))
         || (pyrust::is_some!(candidate)
             && pyrust::unwrap!(candidate).distance_squared(builder.state.my_pos) <= 2
             && pyrust::is_some_and!(builder.ax_ore_target, |t| t
@@ -931,7 +915,7 @@ pub fn update_ax_ore_target(builder: &mut Builder, friendlies: &[(Position, i32)
     if needs_pick {
         let sink = pyrust::unwrap_or!(builder.ax_sink, builder.my_core);
         if let Some(c) = candidate
-            && !can_afford_ore_claim(builder, c, sink)
+            && !can_afford_ax_claim(builder, c, sink)
         {
             candidate = None;
         }
