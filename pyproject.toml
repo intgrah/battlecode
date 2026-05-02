@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Cambridge Battlecode bot"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "cambc>=1.7.1",
+    "cambc>=1.8.0",
     "hcloud>=2.17.1",
     "networkx>=3.6.1",
     "pillow>=12.1.1",
@@ -16,7 +16,6 @@ dependencies = [
     "bench-nav",
     "hitl",
     "proto",
-    "visualiser",
 ]
 
 [project.scripts]
@@ -48,7 +47,7 @@ obfuscate = "scripts.obfuscate:main"
 blueprint-preview = "scripts.blueprint_preview:main"
 replay-times = "scripts.replay_times:main"
 replay-livelock = "scripts.replay_livelock:main"
-connected-textures = "visualiser.scripts.connected_textures:main"
+connected-textures = "scripts.connected_textures:main"
 
 [dependency-groups]
 dev = [
@@ -69,7 +68,6 @@ dev = [
 bench-nav = { workspace = true }
 hitl = { workspace = true }
 proto = { workspace = true }
-visualiser = { workspace = true }
 
 [tool.uv.build-backend]
 module-root = ""
@@ -126,7 +124,6 @@ members = [
     "bots/adgato/*",
     "bots/drewfett/*",
     "bots/nothing/*",
-    "pkg/visualiser",
     "pkg/proto",
     "pkg/bench_nav",
     "pkg/hitl",

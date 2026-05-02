@@ -273,6 +273,21 @@ def _lay_segment(
 
     bid = ct.get_tile_building_id(start_pos)
     entity_type = ct.get_entity_type(bid) if bid else None
+
+    # Enemy road on our standing tile: routing accepted it (with a +4
+    # penalty) on the assumption we'd clear it. Fire to destroy before
+    # placing — 4 HP / 2 dmg per shot = 2 turns. After destruction the
+    # tile becomes empty and the next call lays the conveyor.
+    if (
+        entity_type == EntityType.ROAD
+        and bid is not None
+        and ct.get_team(bid) != self.my_team
+        and ct.can_fire(start_pos)
+    ):
+        debug("chain: fire on enemy road at {pos}", pos=start_pos)
+        ct.fire(start_pos)
+        return True
+
     direction: Direction | None = None
     if (
         self.my_core

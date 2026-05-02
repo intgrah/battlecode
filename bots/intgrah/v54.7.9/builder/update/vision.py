@@ -29,6 +29,24 @@ if TYPE_CHECKING:
     from builder import Builder
 
 
+def _refresh_ore_set(self: Builder, pos: Position, env: Environment | None) -> None:
+    if env == Environment.ORE_TITANIUM:
+        if isinstance(self.buildings[pos.y * MAX_WIDTH + pos.x], BuildingHarvester):
+            self.visible_ti_ores.discard(pos)
+        else:
+            self.visible_ti_ores.add(pos)
+        self.visible_ax_ores.discard(pos)
+    elif env == Environment.ORE_AXIONITE:
+        if isinstance(self.buildings[pos.y * MAX_WIDTH + pos.x], BuildingHarvester):
+            self.visible_ax_ores.discard(pos)
+        else:
+            self.visible_ax_ores.add(pos)
+        self.visible_ti_ores.discard(pos)
+    else:
+        self.visible_ti_ores.discard(pos)
+        self.visible_ax_ores.discard(pos)
+
+
 def _edge_targets(pos: Position, bld: Building) -> tuple[Position, ...]:
     """Structural output tiles of `bld` placed at `pos`. One entry for a
     conveyor / armoured conveyor / bridge; three for a splitter; empty for
@@ -189,6 +207,7 @@ def apply_local_destroy(self: Builder, pos: Position) -> None:
     self.hp[i] = 0
     self.max_hp[i] = 0
     _apply_post_transition(self, pos, i, self.env[i], "local_destroy")
+    _refresh_ore_set(self, pos, self.env[i])
 
 
 def _update_cost(
@@ -203,6 +222,7 @@ def _update_cost(
     # buildable: True iff we can place a conveyor/bridge/etc. right now —
     # empty terrain with no building, OR friendly road, OR any marker
     # (1 HP, any team can overbuild).
+    routing_extra = 0
     if terrain == Environment.WALL:
         cost = INF
         buildable = False
@@ -213,7 +233,8 @@ def _update_cost(
                 buildable = True
             case BuildingRoad():
                 cost = 1
-                buildable = False
+                buildable = True
+                routing_extra = 4  # destroy cost: 2 fires at 2 Ti each
             case BuildingMarker():
                 cost = ROAD_COST
                 buildable = True
@@ -238,6 +259,7 @@ def _update_cost(
         cost = ROAD_COST
         buildable = False
     self.cost_grid[i] = cost
+    self.routing_extra[i] = routing_extra
     if self.buildable[i] != buildable:
         self.buildable[i] = buildable
         self.ti_routable[i] = buildable and not self.ti_leakage[i]
@@ -357,6 +379,8 @@ def update_vision(self: Builder, ct: Controller) -> None:
             if bid is not None:
                 self.hp[i] = ct.get_hp(bid)
                 self.max_hp[i] = ct.get_max_hp(bid)
+
+        _refresh_ore_set(self, pos, env)
 
         if bid is not None:
             bld = self.buildings[i]

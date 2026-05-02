@@ -1,0 +1,12 @@
+[package]
+name = "libre-replay"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cambc-proto.workspace = true
+libre-engine.workspace = true
+prost.workspace = true
+
+[lints]
+workspace = true

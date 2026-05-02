@@ -15,11 +15,10 @@ from building import (
     BuildingSplitter,
 )
 from cambc import Controller, Direction, EntityType, Environment, Position, ResourceType
-from util.constants import BASE_COST, INF, MAX_WIDTH
-from util.debug import Scope
+from util.constants import BASE_COST, MAX_WIDTH
 from util.debug import debug as log
 from util.directions import DIR4, DIR8
-from util.metrics import claims_by_proximity, manhattan
+from util.metrics import chebyshev, claims_by_proximity, manhattan
 
 if TYPE_CHECKING:
     from builder import Builder
@@ -62,6 +61,46 @@ def make_move(self: Builder, ct: Controller, target: Position) -> bool:
         next=next_move,
     )
     return try_move_with_road(self, ct, next_move)
+
+
+def make_move_or_adjacent(self: Builder, ct: Controller, target: Position) -> bool:
+    """Like `make_move`, but if `target` itself is impassable (e.g. an
+    ore covered by a barrier, or our own conveyor), routes to the
+    closest passable cardinal of `target` instead. The caller is
+    responsible for whatever happens once adjacent (destroy the
+    blocker, fire on it, etc.). Returns False when the bot is already
+    adjacent so the caller takes over."""
+    if self.is_passable(target):
+        return make_move(self, ct, target)
+    best: Position | None = None
+    best_d = 1 << 30
+    for d in DIR4:
+        c = target.add(d)
+        if not self.in_bounds(c) or not self.is_passable(c):
+            continue
+        cd = chebyshev(self.my_pos, c)
+        if cd < best_d:
+            best_d = cd
+            best = c
+    if best is None:
+        log(
+            "make_move_or_adjacent: {target} impassable AND no passable cardinal",
+            target=target,
+        )
+        return False
+    if self.my_pos == best:
+        log(
+            "make_move_or_adjacent: already adjacent to {target} (at {pos})",
+            target=target,
+            pos=self.my_pos,
+        )
+        return False
+    log(
+        "make_move_or_adjacent: {target} impassable, routing to cardinal {adj}",
+        target=target,
+        adj=best,
+    )
+    return make_move(self, ct, best)
 
 
 def try_move_dir(ct: Controller, d: Direction) -> bool:
@@ -172,23 +211,21 @@ def required_ti_for_ore_claim(
 
 def ore_claim_leniency(self: Builder) -> float:
     """Leniency multiplier on `required_ti_for_ore_claim`. Decaying
-    exponential in friendly harvester count: starts at 0.8 with no
-    harvesters (commit to a claim with only 80% of the estimated cost
-    in hand — incoming income covers the rest), asymptotes to 2.4
-    once the colony is fully built up (trunk saturated, routes
-    detour, want >2x the optimistic estimate before risking a
-    distant claim). Harvester-count rather than round number so a
+    exponential in friendly harvester count: starts at 0.65 (commit
+    to a claim with only 65% of the estimated cost in hand — incoming
+    income covers the rest), asymptotes to 1.60 once the colony is
+    fully built up. Harvester-count rather than round number so a
     slow start delays the gate until we've actually built up.
 
-        n=0   → 0.80
-        n=4   → 1.10
-        n=8   → 1.27
-        n=16  → 1.66
-        n=32  → 2.07
-        n→∞   → 2.40
+        n=0   → 0.65
+        n=4   → 0.80
+        n=8   → 0.93
+        n=16  → 1.13
+        n=32  → 1.37
+        n→∞   → 1.60
     """
     n = len(self.my_harvesters)
-    return 0.8 + 1.6 * (1 - 0.95**n)
+    return 0.65 + 0.95 * (1 - 0.958**n)
 
 
 def can_afford_ore_claim(
@@ -385,71 +422,43 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
     # conveyors are always rejected.
     tier1: list[Position] = []
     tier2: list[Position] = []
-    classification: dict[Position, str] = {}
     for d in DIR4:
         c = ore_pos.add(d)
         if not self.in_bounds(c):
             continue
         if c == self.my_pos:
-            classification[c] = "my_pos"
             continue
         if self.get_env(c) == Environment.WALL:
-            classification[c] = "wall"
             continue
         b = self.get_building(c)
         if (
             isinstance(
                 b,
-                BuildingBridge | BuildingConveyor | BuildingArmouredConveyor | BuildingSplitter,
+                BuildingBridge
+                | BuildingConveyor
+                | BuildingArmouredConveyor
+                | BuildingSplitter,
             )
             and b.team != self.my_team
         ):
-            # Enemy transports never feed our chain — their flow goes
-            # somewhere we don't control.
-            classification[c] = "enemy_transport"
             continue
         if isinstance(b, BuildingBridge):
-            # Inward iff the bridge would deliver its stack back into the
-            # harvester tile. ore_pos is a harvester — its raw output is
-            # destroyed there.
-            if b.target == ore_pos:
-                classification[c] = "inward_guard: bridge target == ore"
-                continue
-            tier1.append(c)
-            classification[c] = "tier1: bridge"
+            if b.target != ore_pos:
+                tier1.append(c)
             continue
         if isinstance(b, BuildingConveyor | BuildingArmouredConveyor):
-            # 1 output (along `direction`), 3 inputs. Inward iff its
-            # output points at the ore.
-            if c.add(b.direction) == ore_pos:
-                classification[c] = "inward_guard: conveyor output -> ore"
-                continue
-            tier1.append(c)
-            classification[c] = "tier1: outward conveyor"
+            if c.add(b.direction) != ore_pos:
+                tier1.append(c)
             continue
         if isinstance(b, BuildingSplitter):
-            # Splitter has 3 outputs (direction, +90°, -90°) and 1 input
-            # from the back (opposite of direction). Outward iff the back
-            # faces the ore — only then does the splitter accept the
-            # harvester's output AND keep all 3 outputs pointing away.
             if c.add(b.direction.opposite()) == ore_pos:
                 tier1.append(c)
-                classification[c] = "tier1: outward splitter"
-            else:
-                classification[c] = "inward_guard: splitter back not -> ore"
             continue
         if isinstance(
             b,
             BuildingFoundry | BuildingCore | BuildingHarvester | BuildingBarrier,
         ):
-            classification[c] = type(b).__name__
             continue
-        # Escape check (tier 2 only): when the builder steps off the
-        # ore onto c, the harvester sits on ore_pos. The builder must
-        # be able to move to at least one passable tile in c's
-        # U shape — top (across from ore_pos), left/right perp, and
-        # left/right far-diagonal corners — otherwise trapped.
-        # Same U shape as the barrier-vs-conveyor heuristic.
         d_away = ore_pos.direction_to(c)
         u_shape = (
             c.add(d_away),
@@ -458,37 +467,14 @@ def harvester_feed_cardinal(self: Builder, ore_pos: Position) -> Position | None
             c.add(d_away.rotate_left()),
             c.add(d_away.rotate_right()),
         )
-        has_escape = any(self.in_bounds(p) and self.is_passable(p) for p in u_shape)
-        if not has_escape:
-            classification[c] = "no_escape"
-            continue
-        tier2.append(c)
-        classification[c] = "tier2: " + (type(b).__name__ if b is not None else "empty")
+        if any(self.in_bounds(p) and self.is_passable(p) for p in u_shape):
+            tier2.append(c)
 
-    chosen: Position | None = None
-    chosen_tier = "none"
     if tier1:
-        chosen = min(tier1, key=lambda c: c.distance_squared(sink))
-        chosen_tier = "tier1"
-    elif tier2:
-        chosen = min(tier2, key=lambda c: c.distance_squared(sink))
-        chosen_tier = "tier2"
-
-    del chosen_tier  # Was used for debugging
-
-    # Verbose per-cardinal breakdown only when no feed was found —
-    # that's the diagnostic case. When feed is chosen, a single
-    # summary line is enough.
-    if chosen is None:
-        with Scope(f"feed_pick_{ore_pos.x}_{ore_pos.y}"):
-            log("feed_pick({ore}): NONE", ore=ore_pos)
-            for d in DIR4:
-                c = ore_pos.add(d)
-                if not self.in_bounds(c):
-                    continue
-                log("  {c}: {status}", c=c, status=classification.get(c, "?"))
-
-    return chosen
+        return min(tier1, key=lambda c: c.distance_squared(sink))
+    if tier2:
+        return min(tier2, key=lambda c: c.distance_squared(sink))
+    return None
 
 
 def harvester_io_cardinals(self: Builder, ore_pos: Position) -> set[Position]:
@@ -547,30 +533,24 @@ def harvester_barrier_saturated(self: Builder, ore_pos: Position) -> bool:
     return barriers >= 3
 
 
-def pick_ore_target(self: Builder) -> Position | None:
-    return _pick_ore(self, Environment.ORE_TITANIUM)
-
-
-def pick_ax_ore_target(self: Builder) -> Position | None:
-    return _pick_ore(self, Environment.ORE_AXIONITE)
-
-
 def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
-    """Pick an enemy-side Ti ore tile (more than r²=20 closer to enemy
-    core than to ours) for an offensive harvester. Requires symmetry to
-    be resolved; returns None otherwise.
-    """
-    if self.symmetry is None:
-        return None
-    enemy_core = self.en_core_guess
-    best_target = None
-    min_dist = INF
-    for pos in self.nearby_tiles:
-        if self.get_env(pos) != Environment.ORE_TITANIUM:
+    econ_radius_sq = self.econ_radius_sq
+    my_pos = self.my_pos
+    my_core = self.my_core
+    friendlies = [
+        (fb_pos, fb_id)
+        for fb_pos, fb_id in self.all_bots.items()
+        if fb_id != self.my_id and fb_pos in self.friendly_bots
+    ]
+    candidates: list[tuple[int, Position]] = []
+    for pos in self.visible_ti_ores:
+        if not self.is_reachable(pos):
+            continue
+        if pos.distance_squared(my_core) <= econ_radius_sq:
+            continue
+        if not ore_available(self, pos):
             continue
         match self.get_building(pos):
-            case BuildingHarvester():
-                continue
             case None | BuildingRoad() | BuildingMarker() | BuildingBarrier():
                 pass
             case BuildingConveyor() | BuildingArmouredConveyor():
@@ -578,33 +558,15 @@ def pick_offensive_ti_ore_target(self: Builder) -> Position | None:
                     continue
             case _:
                 continue
-        if not self.is_reachable(pos):
+        if not claims_by_proximity(my_pos, self.my_id, pos, friendlies):
             continue
-        d = self.my_pos.distance_squared(pos)
-        if not ore_available(self, pos):
-            continue
-        if (
-            pos.distance_squared(enemy_core)
-            >= pos.distance_squared(self.my_core) - self.bisector_margin_r2
-        ):
-            continue
+        candidates.append((my_pos.distance_squared(pos), pos))
+    candidates.sort()
+    for _d, pos in candidates:
         if harvester_would_contaminate(self, pos):
             continue
-        if not claims_by_proximity(
-            self.my_pos,
-            self.my_id,
-            pos,
-            (
-                (fb_pos, fb_id)
-                for fb_pos, fb_id in self.all_bots.items()
-                if fb_id != self.my_id and fb_pos in self.friendly_bots
-            ),
-        ):
-            continue
-        if d < min_dist:
-            min_dist = d
-            best_target = pos
-    return best_target
+        return pos
+    return None
 
 
 def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
@@ -677,22 +639,11 @@ def harvester_would_contaminate(self: Builder, pos: Position) -> bool:
 
 
 def on_enemy_side(self: Builder, pos: Position) -> bool:
-    """True if `pos` is more than `self.bisector_margin_r2` closer to
-    enemy_core than to ours. The margin scales linearly with map size
-    (computed in `post_init`); on a 50x50 map it's 20, smaller on
-    smaller maps.
-    Mirrors the rule used by `_pick_ore` for harvester placement, so econ
-    routing of harvester outputs uses the same split: ours-side tiles are
-    routed home, enemy-side tiles are left for OFFENSE's `push_extend`.
-    Requires symmetry to be resolved; returns False otherwise.
-    """
-    if self.symmetry is None:
-        return False
-    enemy_core = self.en_core_guess
-    return (
-        pos.distance_squared(self.my_core)
-        > pos.distance_squared(enemy_core) + self.bisector_margin_r2
-    )
+    """True if `pos` is outside our econ disc — i.e. more than
+    sqrt(econ_radius_sq) (= 0.7·max(w,h)) from our core. Tiles inside
+    the disc are economy-eligible; tiles outside are offence-only.
+    Independent of symmetry resolution (uses our own core only)."""
+    return pos.distance_squared(self.my_core) > self.econ_radius_sq
 
 
 def is_inward_guard(self: Builder, pos: Position) -> bool:
@@ -714,70 +665,47 @@ def is_inward_guard(self: Builder, pos: Position) -> bool:
     return isinstance(target_b, BuildingHarvester) and target_b.team == self.my_team
 
 
-def _pick_ore(self: Builder, wanted: Environment) -> Position | None:
-    enemy_core = self.en_core_guess
-    best_target = None
-    min_dist = INF
-    for pos in self.nearby_tiles:
-        if self.get_env(pos) != wanted:
+def pick_ore(self: Builder, wanted: Environment) -> Position | None:
+    ore_set = (
+        self.visible_ti_ores
+        if wanted == Environment.ORE_TITANIUM
+        else self.visible_ax_ores
+    )
+    econ_radius_sq = self.econ_radius_sq
+    my_pos = self.my_pos
+    my_core = self.my_core
+    friendlies = [
+        (fb_pos, fb_id)
+        for fb_pos, fb_id in self.all_bots.items()
+        if fb_id != self.my_id and fb_pos in self.friendly_bots
+    ]
+    candidates: list[tuple[int, Position]] = []
+    for pos in ore_set:
+        if not self.is_reachable(pos):
+            continue
+        if pos.distance_squared(my_core) > econ_radius_sq:
+            continue
+        if not ore_available(self, pos):
             continue
         match self.get_building(pos):
-            case BuildingHarvester():
-                continue
             case None | BuildingRoad() | BuildingMarker() | BuildingBarrier():
                 pass
             case BuildingConveyor() | BuildingArmouredConveyor():
-                # Allow only if it's our own inward guard pointing at
-                # an adjacent friendly harvester — we'll destroy it
-                # before claiming. Outward / sideways / enemy conveyors
-                # still block.
                 if not is_inward_guard(self, pos):
                     continue
             case _:
                 continue
-        if not self.is_reachable(pos):
+        if not claims_by_proximity(my_pos, self.my_id, pos, friendlies):
             continue
-        d = self.my_pos.distance_squared(pos)
-        if not ore_available(self, pos):
-            continue
-        # Bisector gate: skip ore that is more than r²=20 closer to enemy
-        # core than to ours. Routing such ore home is expensive, and if we
-        # could afford it we'd already have economic dominance.
-        if (
-            pos.distance_squared(self.my_core)
-            > pos.distance_squared(enemy_core) + self.bisector_margin_r2
-        ):
-            continue
-        # Contamination gate: skip an ore if placing a harvester there would
-        # leak Ti into an Ax chain (or Ax into a Ti chain) via an adjacent
-        # transport tile.
+        candidates.append((my_pos.distance_squared(pos), pos))
+    candidates.sort()
+    for _d, pos in candidates:
         if harvester_would_contaminate(self, pos):
             continue
-        # Feed-availability gate: skip ores with no viable feed cardinal
-        # (e.g. boxed in by enemy transports / walls / friendly inward
-        # guards / harvesters). Without a feed slot the harvester can't
-        # be built or its output goes nowhere we control.
         if harvester_feed_cardinal(self, pos) is None:
             continue
-        # Coordination: skip an ore tile if any visible friendly builder is
-        # strictly closer. Each builder ends up claiming the ores it is
-        # nearest to, so several builders don't converge on the same tile
-        # and deadlock while one places the harvester.
-        if not claims_by_proximity(
-            self.my_pos,
-            self.my_id,
-            pos,
-            (
-                (fb_pos, fb_id)
-                for fb_pos, fb_id in self.all_bots.items()
-                if fb_id != self.my_id and fb_pos in self.friendly_bots
-            ),
-        ):
-            continue
-        if d < min_dist:
-            min_dist = d
-            best_target = pos
-    return best_target
+        return pos
+    return None
 
 
 _UPSTREAM_MAX_NODES = 80

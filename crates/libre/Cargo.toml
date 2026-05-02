@@ -1,0 +1,31 @@
+[package]
+name = "libre"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cambc = { path = "../cambc" }
+cambc-proto.workspace = true
+clap = { version = "4.6.1", features = ["derive"] }
+clap_complete = "4"
+libc = { version = "0.2.186", optional = true }
+libloading = "0.8"
+libre-engine = { workspace = true, features = ["pyo3"] }
+libre-replay.workspace = true
+prost.workspace = true
+pyrust-translate.workspace = true
+pyo3 = { version = "0.23.5", features = ["auto-initialize"] }
+pyo3-ffi = "0.23.5"
+serde = { workspace = true, features = ["derive"] }
+toml.workspace = true
+
+[[bin]]
+name = "cambc-libre"
+path = "src/main.rs"
+
+[features]
+default = ["tle"]
+tle = ["dep:libc"]
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "pyrust-ra-spike"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "pyrust-ra-spike"
+path = "src/main.rs"
+
+[dependencies]
+ra_ap_hir = "=0.0.330"
+ra_ap_ide = "=0.0.330"
+ra_ap_ide_db = "=0.0.330"
+ra_ap_load-cargo = "=0.0.330"
+ra_ap_paths = "=0.0.330"
+ra_ap_project_model = "=0.0.330"
+ra_ap_syntax = "=0.0.330"
+ra_ap_vfs = "=0.0.330"
+
+[lints]
+workspace = true

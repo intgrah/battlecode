@@ -1,0 +1,54 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/cambc-proto",
+    "crates/titan-core",
+    "crates/titan-blueprint",
+    "crates/titan-bugnav",
+    "crates/titan-replay",
+    "crates/titan-opening",
+    "crates/titan",
+    "crates/pyrust/shim",
+    "crates/pyrust/translate",
+    "crates/pyrust/harness",
+    "crates/pyrust/macros",
+    "crates/pyrust/ra-spike",
+    "crates/libre-engine",
+    "crates/libre-replay",
+    "crates/libre",
+    "crates/cambc",
+    "bots/rs/v55",
+    "bots/rs/nothing/*",
+]
+exclude = ["crates/pyrust/runner"]
+
+[workspace.dependencies.libre-engine]
+path = "crates/libre-engine"
+[workspace.dependencies.libre-replay]
+path = "crates/libre-replay"
+[workspace.dependencies.cambc]
+path = "crates/cambc"
+[workspace.dependencies.pyrust]
+path = "crates/pyrust/shim"
+[workspace.dependencies.pyrust-translate]
+path = "crates/pyrust/translate"
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+cambc-proto = { path = "crates/cambc-proto" }
+titan-core = { path = "crates/titan-core" }
+eframe = "0.34.1"
+image = "0.25.10"
+prost = "0.14.3"
+prost-build = "0.14.3"
+rayon = "1.12"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+toml = "0.9"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
