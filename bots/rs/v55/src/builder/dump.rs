@@ -480,7 +480,7 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 "deny_ore_neighbours",
                 pyrust::copied!(pyrust::iter!(builder.deny_ore_neighbours)),
             );
-            vis_tiles("econ_disc", _econ_disc_tiles(builder));
+            // vis_tiles("econ_disc", _econ_disc_tiles(builder));
         }
     }
     {
