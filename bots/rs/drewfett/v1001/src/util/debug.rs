@@ -79,11 +79,7 @@ impl DebugCtx {
             "name": pyrust::to_string!(label),
             "children": [],
         });
-        let t0_ns = if timed {
-            Some(perf_counter_ns())
-        } else {
-            None
-        };
+        let t0_ns = if timed { Some(perf_counter_ns()) } else { None };
         if pyrust::is_none!(self.root) {
             // First scope of the turn: this becomes the root.
             self.root = Some(node);

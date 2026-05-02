@@ -88,6 +88,14 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         trace::exit(ct, "threat");
     }
     {
+        let _g = Scope::new_timed("alert");
+        crate::builder::patrol::update_alert(builder);
+    }
+    {
+        let _g = Scope::new_timed("econ_explore_radius");
+        crate::builder::patrol::update_econ_explore_radius(builder);
+    }
+    {
         let _g = Scope::new_timed("role");
         trace::enter(ct, "role");
         role::update_role(builder);

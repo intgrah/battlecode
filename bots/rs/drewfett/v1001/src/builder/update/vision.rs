@@ -119,6 +119,17 @@ pub fn _add_topology(
                 }
                 builder._check_dangling(*t, &format!("edge_added src={pos:?}"));
             }
+            if matches!(kind, EntityType::Conveyor | EntityType::ArmouredConveyor)
+                && team == builder.state.my_team
+            {
+                insert_into_existing_cluster(
+                    &mut builder.patrol_clusters,
+                    &mut builder.patrol_cluster_centroids,
+                    &mut builder.patrol_cluster_weights,
+                    pos,
+                    CONVEYOR_WEIGHT,
+                );
+            }
             return;
         }
     }
@@ -130,6 +141,14 @@ pub fn _add_topology(
         EntityType::Harvester => {
             if team == builder.state.my_team {
                 pyrust::set::add!(builder.my_harvesters, idx_of(pos));
+                builder.last_harvester_add_round = builder.state.round;
+                insert_into_clusters(
+                    &mut builder.patrol_clusters,
+                    &mut builder.patrol_cluster_centroids,
+                    &mut builder.patrol_cluster_weights,
+                    pos,
+                    HARVESTER_WEIGHT,
+                );
             }
             let idx = builder.idx(pos);
             match builder.env[idx] {

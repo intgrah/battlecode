@@ -1121,8 +1121,7 @@ impl Builder {
     }
 
     /// DEAD: pnb field removed; no-op stub kept for caller convenience.
-    fn pnb_fix_boundary(&mut self, _cx: i32, _cy: i32, _w: i32, _h: i32) {
-    }
+    fn pnb_fix_boundary(&mut self, _cx: i32, _cy: i32, _w: i32, _h: i32) {}
 
     /// Mirror `my_core` under `symmetry_guess`.
     fn refresh_symmetry_cache(&mut self) {

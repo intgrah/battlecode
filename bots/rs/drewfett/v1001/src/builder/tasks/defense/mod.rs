@@ -3,13 +3,11 @@
 //! DEFENSE role policy tree.
 
 pub mod clear_enemy_turret;
-pub mod patrol_cheap;
-pub mod patrol_late;
+pub mod patrol;
 pub mod stalk_enemy;
 
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
-use crate::builder::tasks::defense::patrol_cheap::patrol_cheap;
-use crate::builder::tasks::defense::patrol_late::patrol_late;
+use crate::builder::tasks::defense::patrol::patrol;
 use crate::builder::tasks::defense::stalk_enemy::stalk_enemy;
 use crate::builder::tasks::econ::chains::extend_chain_approach::extend_chain_approach;
 use crate::builder::tasks::econ::chains::extend_chain_in_range::extend_chain_in_range;
@@ -33,8 +31,8 @@ const DEFENSE_CHILDREN: &[Policy] = &[
         fn_: stalk_enemy,
     },
     Policy::Leaf {
-        name: "patrol_cheap",
-        fn_: patrol_cheap,
+        name: "patrol",
+        fn_: patrol,
     },
     Policy::Leaf {
         name: "claim_ore",
@@ -47,10 +45,6 @@ const DEFENSE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "extend_chain_approach",
         fn_: extend_chain_approach,
-    },
-    Policy::Leaf {
-        name: "patrol_late",
-        fn_: patrol_late,
     },
     Policy::Leaf {
         name: "opportunistic_attack",
