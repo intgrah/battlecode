@@ -41,6 +41,7 @@ use crate::builder::tasks::policy_for_role;
 use crate::builder::update::update;
 use crate::builder::update::vision::apply_local_destroy as vision_apply_local_destroy;
 use crate::config::{DEBUG_DUMP, HARDCODE};
+use crate::core::opening::{OpeningTemplate, classify as classify_opening};
 use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
@@ -142,6 +143,12 @@ pub struct Builder {
     pub nearby_buildings: Vec<Position>,
     pub healable_buildings: Vec<Position>,
     pub adjacent_to_unconnected_harvester: HashSet<Position>,
+    /// Cardinal-adjacent empty tiles to a friendly foundry that has no
+    /// non-inward output consumer. Same shape as
+    /// `adjacent_to_unconnected_harvester` — these tiles enter
+    /// `dangling_set` so chain extension can reach the foundry's Rax
+    /// output side.
+    pub adjacent_to_unconnected_foundry: HashSet<Position>,
     pub adjacent_to_harvester: HashSet<Position>,
     pub ti_harvester_adjacent: HashSet<Position>,
     pub ax_harvester_adjacent: HashSet<Position>,
@@ -263,6 +270,8 @@ pub struct Builder {
     pub last_harvester_add_round: i32,
     pub econ_radius_sq: i32,
     pub known_map: Option<KnownMap>,
+    /// Opening template, classified once at `post_init`.
+    pub opening: OpeningTemplate,
     /// 8 perimeter tiles of the core's 3x3 block.
     pub core_edges: [Position; 8],
 }
@@ -347,6 +356,7 @@ impl Builder {
             nearby_buildings: pyrust::vec::new!(),
             healable_buildings: pyrust::vec::new!(),
             adjacent_to_unconnected_harvester: pyrust::set::new!(),
+            adjacent_to_unconnected_foundry: pyrust::set::new!(),
             adjacent_to_harvester: pyrust::set::new!(),
             ti_harvester_adjacent: pyrust::set::new!(),
             ax_harvester_adjacent: pyrust::set::new!(),
@@ -405,6 +415,7 @@ impl Builder {
             last_harvester_add_round: 0,
             econ_radius_sq: 0,
             known_map: None,
+            opening: OpeningTemplate::DefaultBalanced,
             core_edges: [Position { x: 0, y: 0 }; 8],
         }
     }
@@ -521,6 +532,9 @@ impl Builder {
 
     #[must_use]
     pub fn is_reachable(&self, pos: Position) -> bool {
+        if !self.in_bounds(pos) {
+            return false;
+        }
         let i = self.idx(pos) as i32;
         let my_i = (self.state.my_pos.y * (MAX_WIDTH as i32)) + self.state.my_pos.x;
         if self.reach_parent[i as usize] == -1 || self.reach_parent[my_i as usize] == -1 {
@@ -956,7 +970,8 @@ impl Builder {
             return;
         }
 
-        let unconn_adj = pyrust::vec::contains!(self.adjacent_to_unconnected_harvester, &t);
+        let unconn_adj = pyrust::vec::contains!(self.adjacent_to_unconnected_harvester, &t)
+            || pyrust::vec::contains!(self.adjacent_to_unconnected_foundry, &t);
         let mut feeders_unsatisfied = false;
         let in_edges_t: Vec<Position> = pyrust::clone!(self.in_edges[i]);
         for f in &in_edges_t {
@@ -1056,6 +1071,16 @@ impl Unit for Builder {
         }
 
         self.refresh_symmetry_cache();
+
+        pyrust::with!(Scope::new_timed("opening_classify"), {
+            self.opening = classify_opening(
+                self.state.width,
+                self.state.height,
+                self.my_core,
+                self.en_core_guess,
+                ct,
+            );
+        });
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
