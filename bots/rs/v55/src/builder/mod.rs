@@ -199,6 +199,15 @@ pub struct Builder {
     pub last_fire: Option<(Position, i32)>,
     pub attack_tile_blacklist: HashMap<Position, i32>,
 
+    // Income tracking — ring buffer of positive Ti deltas over the last 32
+    // rounds. `ti_income_sum` is the running sum; `ti_income_per_round()`
+    // returns sum/32. Spend rounds (delta <= 0) contribute 0, so the
+    // estimate is a lower bound when spending dominates.
+    pub _ti_income_window: [i32; 32],
+    pub _ti_income_sum: i32,
+    pub _ti_income_idx: usize,
+    pub _prev_ti: i32,
+
     // Patrol
     pub patrol_head: Option<Position>,
     /// Index into the per-turn-recomputed patrol cycle. Persists across
@@ -343,6 +352,12 @@ impl Builder {
             offense_launcher: None,
             last_fire: None,
             attack_tile_blacklist: pyrust::dict::new!(),
+            _ti_income_window: [0; 32],
+            _ti_income_sum: 0,
+            _ti_income_idx: 0,
+            // Game starts with 500 Ti (game_constants); first turn's delta
+            // resolves to 0, so we don't dump 500 into the window slot.
+            _prev_ti: 500,
             patrol_head: None,
             patrol_cycle_idx: usize::MAX,
             last_seen: [0; MAX_N],
@@ -392,6 +407,28 @@ impl Builder {
             }
         }
         pnb
+    }
+
+    /// Slide the Ti-income ring buffer one round forward. Records
+    /// `max(0, state.ti - _prev_ti)` in the current slot, evicts the
+    /// oldest slot from the running sum, advances the index. O(1).
+    pub fn update_income(&mut self) {
+        let cur = self.state.ti;
+        let delta = cur - self._prev_ti;
+        let positive = if delta > 0 { delta } else { 0 };
+        self._ti_income_sum -= self._ti_income_window[self._ti_income_idx];
+        self._ti_income_window[self._ti_income_idx] = positive;
+        self._ti_income_sum += positive;
+        self._ti_income_idx = (self._ti_income_idx + 1) % 32;
+        self._prev_ti = cur;
+    }
+
+    /// Mean Ti income per round across the last 32-round window. Spend
+    /// rounds (delta ≤ 0) contribute 0 — the estimate is a lower bound
+    /// when spending dominates income.
+    #[must_use]
+    pub fn ti_income_per_round(&self) -> i32 {
+        self._ti_income_sum / 32
     }
 
     /// Recompute `pnb[i]` and the relevant entries of every neighbour after

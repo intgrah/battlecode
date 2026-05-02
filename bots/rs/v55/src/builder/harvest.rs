@@ -289,12 +289,17 @@ fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position)
 
     let passable = |p: Position| -> bool { builder.in_bounds(p) && builder.is_passable(p) };
 
-    let top_p = passable(top);
-    let left_p = passable(guard_pos.add(left_perp)) || passable(guard_pos.add(left_diag));
-    let right_p = passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
-
-    let must_use_conveyor = (!top_p) && left_p && right_p;
-    !must_use_conveyor
+    // Default: inward conveyor (carries the harvester's output away).
+    // Only fall back to a barrier when every tile of the U-shape
+    // (top + both cardinal sides + both diagonal corners) is
+    // impassable — i.e. there's no exit route at all, so a wall
+    // makes more sense than a one-way conveyor with nowhere to go.
+    let any_passable = passable(top)
+        || passable(guard_pos.add(left_perp))
+        || passable(guard_pos.add(right_perp))
+        || passable(guard_pos.add(left_diag))
+        || passable(guard_pos.add(right_diag));
+    !any_passable
 }
 
 /// Last-resort: when `harvester_feed_cardinal(target_pos)` returns

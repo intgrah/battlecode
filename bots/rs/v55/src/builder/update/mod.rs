@@ -18,6 +18,10 @@ use crate::util::debug::Scope;
 pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
     let _g = Scope::new_timed("update");
     {
+        let _g = Scope::new_timed("income");
+        builder.update_income();
+    }
+    {
         let _g = Scope::new_timed("prune");
         prune::prune_stale(builder, ct);
     }
