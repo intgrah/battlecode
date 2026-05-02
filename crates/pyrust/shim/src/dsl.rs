@@ -576,6 +576,19 @@ macro_rules! __pyrust_bytearray_new {
     };
 }
 
+/// `pyrust::bytearray::fill_range!(arr, start, end, value)` — fill
+/// `arr[start..end]` with byte `value`. Python: `arr[s:e] = bytes([v]) * (e-s)`,
+/// a single C-level memcpy instead of an O(end-start) per-element loop.
+/// Rust expansion delegates to `[T]::fill`.
+#[macro_export]
+macro_rules! __pyrust_bytearray_fill_range {
+    ($arr:expr, $start:expr, $end:expr, $value:expr) => {{
+        let __s = ($start) as usize;
+        let __e = ($end) as usize;
+        ($arr)[__s..__e].fill(($value) as u8);
+    }};
+}
+
 #[macro_export]
 macro_rules! __pyrust_vec_push {
     ($v:expr, $x:expr) => {
@@ -633,6 +646,19 @@ macro_rules! __pyrust_vec_fill {
     ($v:expr, $x:expr) => {
         ($v).fill($x)
     };
+}
+
+/// `pyrust::vec::fill_range!(v, start, end, value)` — fill `v[start..end]`
+/// with `value`. Python: `v[s:e] = [value] * (e - s)`, a single C-level
+/// list-slice assign instead of a per-element loop. Use for general-type
+/// arrays; for `bytearray` use `pyrust::bytearray::fill_range!` (faster).
+#[macro_export]
+macro_rules! __pyrust_vec_fill_range {
+    ($v:expr, $start:expr, $end:expr, $value:expr) => {{
+        let __s = ($start) as usize;
+        let __e = ($end) as usize;
+        ($v)[__s..__e].fill($value);
+    }};
 }
 
 /// `pyrust::vec::take!(obj.field)` — Rust `std::mem::take(&mut obj.field)`.
