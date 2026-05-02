@@ -1663,6 +1663,20 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
             return Err(w.err(other.span(), "only path-form calls are supported"));
         }
     };
+    // `#[pyrust::inline]` free-fn call: if the path's last segment names
+    // a registered inline-fn (no `self`), substitute the body inline.
+    // Method calls hit the same registry above via the Method-call branch.
+    if let Some(last) = path.segments.last() {
+        let name = last.ident.to_string();
+        if let Some(def) = w.cfg().inline_fns.get(&name).cloned()
+            && !def.has_self
+            && def.params.len() == c.args.len()
+            && !w.is_inlining(&name)
+        {
+            let arg_exprs: Vec<&syn::Expr> = c.args.iter().collect();
+            return emit_inline_call(w, &name, &def, None, &arg_exprs);
+        }
+    }
     let mut arg_emits = Vec::with_capacity(c.args.len());
     for arg in &c.args {
         arg_emits.push(emit_expr(w, arg)?);

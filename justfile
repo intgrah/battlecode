@@ -6,6 +6,12 @@ run a b map=default_map:
 r a b map=default_map:
     VIRTUAL_ENV= uv run --project pkg/cambc_pypy cambc_pypy run {{ a }} {{ b }} {{ map }}
 
+v replay="replay.replay26": vv
+    target/release/visualiser-viewer {{ replay }}
+
+vv:
+    cargo build --release -p visualiser-viewer
+
 w replay="replay.replay26":
     cambc watch {{ replay }}
 
