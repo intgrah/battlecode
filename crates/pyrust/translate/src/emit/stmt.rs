@@ -237,6 +237,15 @@ fn emit_stmt_macro(w: &mut PyWriter, sm: &syn::StmtMacro) -> Result<(), String> 
         return Ok(());
     }
     let path = &sm.mac.path;
+    // `with!(...)` and `pyrust::with!(...)` are both accepted forms.
+    let is_with_macro = path.leading_colon.is_none()
+        && (path.is_ident("with")
+            || (path.segments.len() == 2
+                && path.segments[0].ident == "pyrust"
+                && path.segments[1].ident == "with"));
+    if is_with_macro {
+        return emit_with_macro(w, sm);
+    }
     if path.leading_colon.is_none() && path.segments.len() == 1 {
         let name = path.segments[0].ident.to_string();
         match name.as_str() {
@@ -297,6 +306,38 @@ fn emit_stmt_macro(w: &mut PyWriter, sm: &syn::StmtMacro) -> Result<(), String> 
 /// let bindings out of a multi-statement block in expression position.
 pub fn emit_local_public(w: &mut PyWriter, l: &syn::Local) -> Result<(), String> {
     emit_local(w, l)
+}
+
+/// `with!(EXPR, { body })` translation. Parses the macro tokens as
+/// `(syn::Expr, syn::ExprBlock)`, emits `with EXPR as _g:` followed by
+/// the indented body. The body's statements go through `emit_stmt_seq`
+/// so further `with!` / context-manager lets nest naturally.
+fn emit_with_macro(w: &mut PyWriter, sm: &syn::StmtMacro) -> Result<(), String> {
+    struct WithArgs {
+        cm: syn::Expr,
+        body: syn::Block,
+    }
+    impl syn::parse::Parse for WithArgs {
+        fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+            let cm: syn::Expr = input.parse()?;
+            input.parse::<syn::Token![,]>()?;
+            let body: syn::Block = input.parse()?;
+            Ok(Self { cm, body })
+        }
+    }
+    let WithArgs { cm, body } = syn::parse2::<WithArgs>(sm.mac.tokens.clone())
+        .map_err(|e| w.err(sm.span(), format!("with!: {e}")))?;
+    let cm_emit = expr::emit_expr(w, &cm)?;
+    w.line(&format!("with {} as _g:", cm_emit.text));
+    w.enter_indent();
+    w.enter_block();
+    let emitted = emit_stmt_seq(w, &body.stmts, None, Tail::Discard)?;
+    if !emitted {
+        w.line("pass");
+    }
+    w.exit_block();
+    w.exit_indent();
+    Ok(())
 }
 
 /// True if any branch of the if-chain diverges (return / break / continue)
