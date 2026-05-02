@@ -264,6 +264,7 @@ impl Bug2Planner {
         }
     }
 
+    #[pyrust::inline]
     /// Take ownership of `path_idx`.
     #[must_use]
     pub fn into_path_idx(self) -> Vec<i32> {

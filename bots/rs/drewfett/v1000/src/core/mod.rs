@@ -221,6 +221,7 @@ impl Default for Core {
 }
 
 impl Unit for Core {
+    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }
@@ -270,6 +271,7 @@ impl Unit for Core {
 }
 
 impl CoreAwareUnit for Core {
+    #[pyrust::inline]
     fn my_core_pos(&self) -> Position {
         self.my_core
     }
