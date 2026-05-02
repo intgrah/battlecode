@@ -661,6 +661,14 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
                 }
                 continue;
             }
+            Some(EntityType::Core) if team == Some(builder.state.my_team) => {
+                // Our own core is the ideal feeder: harvester output flows
+                // straight in. If the ore is adjacent to the core there is
+                // literally nothing else to be done — pick it.
+                pyrust::vec::push!(tier1, c);
+                pyrust::vec::push!(classification, (c, "tier1: my_core"));
+                continue;
+            }
             Some(
                 EntityType::Foundry
                 | EntityType::Core
