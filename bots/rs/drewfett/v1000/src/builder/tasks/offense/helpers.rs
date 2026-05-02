@@ -407,11 +407,7 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
         self_.en_core_seen = true;
     }
 
-    // Pre-econ (no friendly harvester yet): don't sprint to enemy core.
-    // Defer to explore which will pick a target near my_pos.
-    let pre_econ = pyrust::vec::is_empty!(self_.my_harvesters);
-
-    if !self_.en_core_seen && !pre_econ {
+    if !self_.en_core_seen {
         make_move(self_, ct, en_core);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti

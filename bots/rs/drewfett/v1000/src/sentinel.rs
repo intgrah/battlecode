@@ -42,8 +42,11 @@ const fn priority(et: EntityType) -> i32 {
         EntityType::Gunner => 5,
         EntityType::Launcher => 4,
         EntityType::Conveyor | EntityType::ArmouredConveyor => 3,
-        EntityType::Core | EntityType::Foundry => 2,
+        EntityType::Core => 2,
         EntityType::Barrier | EntityType::Road => 1,
+        // Foundry intentionally NOT a target (per intgrah): wasting
+        // sentinel ammo on a foundry is poor — the chain feeding it is
+        // the real economic chokepoint.
         _ => 0,
     }
 }
