@@ -863,11 +863,18 @@ impl Builder {
     /// Cheap: O(60) per turn, set_passable no-ops when unchanged.
     pub fn sync_nav_bfs_passable(&mut self) {
         let w = self.state.width;
+        let my_team = self.state.my_team;
         let nearby = pyrust::clone!(self.state.nearby_tiles);
         for pos in &nearby {
             let real_i = pos.y * w + pos.x;
-            let walkable = self.cost_grid[idx_of(*pos) as usize] != INF;
+            let pi = idx_of(*pos) as usize;
+            let walkable = self.cost_grid[pi] != INF;
             self.nav_bfs.set_passable(real_i, walkable);
+            // Tiebreak preference: friendly Road tiles. Empty tiles and
+            // other passable buildings won't be flagged.
+            let is_road = self.building_kind[pi] == Some(EntityType::Road)
+                && self.building_team[pi] == Some(my_team);
+            self.nav_bfs.set_road(real_i, is_road);
         }
     }
 

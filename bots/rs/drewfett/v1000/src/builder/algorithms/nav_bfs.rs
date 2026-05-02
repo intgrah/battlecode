@@ -38,6 +38,10 @@ pub struct NavBfs {
     pub n: i32,
     /// `passable[pi] != 0` iff tile is walkable.
     pub passable: Vec<u8>,
+    /// `is_road[pi] != 0` iff tile holds a friendly Road. Used as a
+    /// tiebreaker in `_best_step` so bots prefer existing infra over
+    /// paving fresh roads on equal-dist alternatives.
+    pub is_road: Vec<u8>,
     /// Padded neighbours to enqueue for BFS.
     pub pnb_push: Vec<Vec<i32>>,
     /// Padded neighbours that get dist set without enqueue.
@@ -120,6 +124,7 @@ impl NavBfs {
             rn,
             n,
             passable,
+            is_road: vec![0u8; n_us],
             pnb_push,
             pnb_set,
             pnb_dirty: pyrust::set::new!(),
@@ -165,6 +170,12 @@ impl NavBfs {
     #[must_use]
     pub fn has_dirty_pnb(&self) -> bool {
         !pyrust::set::is_empty!(self.pnb_dirty)
+    }
+
+    /// Update road-tile flag. Used only for tiebreak preference.
+    pub fn set_road(&mut self, i: i32, is_road: bool) {
+        let pi = self.real_to_padded(i);
+        self.is_road[pi as usize] = if is_road { 1u8 } else { 0u8 };
     }
 
     /// Update one real-tile passability. Marks pnb dirty and forces a
@@ -446,6 +457,7 @@ impl NavBfs {
         let mut best_d: i32 = _BFS_INF;
         let mut best_dx: i32 = 0;
         let mut best_dy: i32 = 0;
+        let mut best_road: bool = false;
         for ii in 0..8usize {
             let off = self.offsets[ii];
             let (dx, dy) = deltas[ii];
@@ -460,10 +472,16 @@ impl NavBfs {
                 continue;
             }
             let d = self.dist[ni as usize];
-            if d < best_d {
+            let is_road = self.is_road[ni as usize] != 0;
+            // Strict-better dist always wins. On equal dist, prefer a
+            // road tile over a non-road tile (saves Ti by reusing infra).
+            let strictly_better = d < best_d;
+            let same_d_road_wins = d == best_d && is_road && !best_road;
+            if strictly_better || same_d_road_wins {
                 best_d = d;
                 best_dx = dx;
                 best_dy = dy;
+                best_road = is_road;
             }
         }
         if best_d >= _BFS_INF {
