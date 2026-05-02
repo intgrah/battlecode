@@ -192,8 +192,7 @@ pub fn translate_dir(src: &Path, out: &Path, cfg: &CfgEnv) -> Result<(), String>
             fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
         }
         let source = read_source(entry)?;
-        let file = parse::parse_file(&source, entry)?;
-        let py = emit::emit_file(&file, &rel, &cfg, &tyctx::FileTyTable::empty())?;
+        let py = translate_source(&source, entry, &cfg)?;
         fs::write(&dest, py.as_bytes()).map_err(|e| format!("write {}: {e}", dest.display()))?;
         let _ = &table; // suppress unused warning; threading slot for future use
     }
@@ -385,14 +384,15 @@ fn has_pyrust_inline(attrs: &[syn::Attribute]) -> bool {
     })
 }
 
-/// Whitelist of inline-body shapes that the substitution machinery
-/// handles correctly.
-///
-/// Free module-level names are allowed: `emit_inline_call` now tracks
-/// those separately and emits imports into the call-site file. We still
-/// reject `Self::*` and macros because those resolve against the wrong
-/// context or hide identifiers from `syn::visit_mut`.
-fn inline_body_is_supported(e: &syn::Expr, params: &[String]) -> bool {
+/// Walk an inline-fn body and reject any free identifier that isn't a
+/// parameter, `self`, or a literal — because such names would resolve
+/// against the call-site module's namespace, but the substituted body
+/// emits in different modules with different imports. See the comment
+/// in `try_register` for the motivating bug. Mirrors the same predicate
+/// in `bin/inline_fns_v55.rs::body_is_supported`; kept in sync by
+/// philosophy rather than code-share since the bin runs as a separate
+/// migration tool.
+fn inline_body_uses_only_safe_paths(e: &syn::Expr, params: &[String]) -> bool {
     match e {
         syn::Expr::Path(p) => {
             if p.qself.is_some() || p.path.leading_colon.is_some() {
@@ -407,31 +407,45 @@ fn inline_body_is_supported(e: &syn::Expr, params: &[String]) -> bool {
             if first.ident == "self" {
                 return true;
             }
-            let _ = params;
-            true
+            if p.path.segments.len() > 1 {
+                return false;
+            }
+            let name = first.ident.to_string();
+            params.iter().any(|p| p == &name)
         }
         syn::Expr::Lit(_) => true,
         syn::Expr::Field(f) => {
-            matches!(&f.member, syn::Member::Named(_)) && inline_body_is_supported(&f.base, params)
+            matches!(&f.member, syn::Member::Named(_))
+                && inline_body_uses_only_safe_paths(&f.base, params)
         }
         syn::Expr::Index(i) => {
-            inline_body_is_supported(&i.expr, params) && inline_body_is_supported(&i.index, params)
+            inline_body_uses_only_safe_paths(&i.expr, params)
+                && inline_body_uses_only_safe_paths(&i.index, params)
         }
         syn::Expr::Binary(b) => {
-            inline_body_is_supported(&b.left, params) && inline_body_is_supported(&b.right, params)
+            inline_body_uses_only_safe_paths(&b.left, params)
+                && inline_body_uses_only_safe_paths(&b.right, params)
         }
-        syn::Expr::Unary(u) => inline_body_is_supported(&u.expr, params),
-        syn::Expr::Reference(r) => inline_body_is_supported(&r.expr, params),
-        syn::Expr::Paren(p) => inline_body_is_supported(&p.expr, params),
-        syn::Expr::Cast(c) => inline_body_is_supported(&c.expr, params),
-        syn::Expr::Tuple(t) => t.elems.iter().all(|e| inline_body_is_supported(e, params)),
+        syn::Expr::Unary(u) => inline_body_uses_only_safe_paths(&u.expr, params),
+        syn::Expr::Reference(r) => inline_body_uses_only_safe_paths(&r.expr, params),
+        syn::Expr::Paren(p) => inline_body_uses_only_safe_paths(&p.expr, params),
+        syn::Expr::Cast(c) => inline_body_uses_only_safe_paths(&c.expr, params),
+        syn::Expr::Tuple(t) => t
+            .elems
+            .iter()
+            .all(|e| inline_body_uses_only_safe_paths(e, params)),
         syn::Expr::MethodCall(mc) => {
-            inline_body_is_supported(&mc.receiver, params)
-                && mc.args.iter().all(|e| inline_body_is_supported(e, params))
+            inline_body_uses_only_safe_paths(&mc.receiver, params)
+                && mc
+                    .args
+                    .iter()
+                    .all(|e| inline_body_uses_only_safe_paths(e, params))
         }
         syn::Expr::Call(c) => {
-            inline_body_is_supported(&c.func, params)
-                && c.args.iter().all(|e| inline_body_is_supported(e, params))
+            inline_body_uses_only_safe_paths(&c.func, params)
+                && c.args
+                    .iter()
+                    .all(|e| inline_body_uses_only_safe_paths(e, params))
         }
         // Macros / Struct / Match / If / Block / Loop / Closure / Return /
         // Try / Async / Range etc. — all rejected.
@@ -595,9 +609,7 @@ fn scan_inline_fns(src: &Path) -> std::collections::HashMap<String, crate::cfg::
                 let Ok(file) = syn::parse_file(&source) else {
                     continue;
                 };
-                if let Ok(rel) = path.strip_prefix(src) {
-                    collect_inline_fns(&file, &rel_to_module_path(rel), &mut map, &mut conflicts);
-                }
+                collect_inline_fns(&file, &mut map, &mut conflicts);
                 collect_all_method_bodies(&file, &mut all_bodies);
             }
         }
@@ -673,7 +685,6 @@ fn collect_all_method_bodies(
 
 fn collect_inline_fns(
     file: &syn::File,
-    source_module: &str,
     map: &mut std::collections::HashMap<String, crate::cfg::InlineFn>,
     conflicts: &mut std::collections::HashSet<String>,
 ) {
@@ -703,7 +714,6 @@ fn collect_inline_fns(
         name: String,
         sig: &syn::Signature,
         body: Option<&syn::Expr>,
-        source_module: &str,
         map: &mut std::collections::HashMap<String, crate::cfg::InlineFn>,
         conflicts: &mut std::collections::HashSet<String>,
     ) {
@@ -730,20 +740,31 @@ fn collect_inline_fns(
             };
             params.push(pi.ident.to_string());
         }
-        if !inline_body_is_supported(body, &params) {
+        // Defensive: refuse to register an inline body that references any
+        // free identifier (multi-segment paths or single-segment idents
+        // that aren't parameters). Such bodies inline correctly only when
+        // every call site's module imports the same free symbols — which
+        // pyrust can't guarantee. A wrapper like
+        //   pub fn pick_ore_target(builder: &Builder) -> ... {
+        //       _pick_ore(builder, Environment::OreTitanium)
+        //   }
+        // would otherwise inline `_pick_ore(builder, Environment.ORE_TITANIUM)`
+        // into `econ.py`, which never imports `_pick_ore` → NameError.
+        // The migration tool `inline_fns_v55.rs` enforces the same rule
+        // when annotating, but a stale or hand-written `#[pyrust::inline]`
+        // could still slip through; this is the belt-and-suspenders pass.
+        if !inline_body_uses_only_safe_paths(body, &params) {
             return;
         }
         let new_def = crate::cfg::InlineFn {
             params,
             has_self,
-            source_module: source_module.to_owned(),
             body: body.clone(),
         };
         match map.get(&name) {
             Some(prev) => {
                 if prev.params != new_def.params
                     || prev.has_self != new_def.has_self
-                    || prev.source_module != new_def.source_module
                     || body_signature(&prev.body) != body_signature(&new_def.body)
                 {
                     conflicts.insert(name.clone());
@@ -763,7 +784,6 @@ fn collect_inline_fns(
                     f.sig.ident.to_string(),
                     &f.sig,
                     extract_single_expr(&f.block),
-                    source_module,
                     map,
                     conflicts,
                 );
@@ -777,7 +797,6 @@ fn collect_inline_fns(
                             f.sig.ident.to_string(),
                             &f.sig,
                             extract_single_expr(&f.block),
-                            source_module,
                             map,
                             conflicts,
                         );
