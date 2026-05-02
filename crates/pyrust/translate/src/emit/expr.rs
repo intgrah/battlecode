@@ -1691,10 +1691,8 @@ fn emit_call(w: &mut PyWriter, c: &syn::ExprCall) -> Result<Emitted, String> {
         // `serde_json::to_value(x)` → `x` — Python values ARE their JSON
         // repr (dicts, lists, ints, etc.). The serde wrap is a no-op.
         // Strip a trailing `&` reference too.
-        if matches!(
-            slice.as_slice(),
-            ["serde_json", "to_value"] | ["to_value"]
-        ) && c.args.len() == 1
+        if matches!(slice.as_slice(), ["serde_json", "to_value"] | ["to_value"])
+            && c.args.len() == 1
         {
             let arg = c.args.first().unwrap();
             let inner_expr = if let syn::Expr::Reference(r) = arg {
@@ -3162,9 +3160,10 @@ fn emit_pyrust_dsl(w: &mut PyWriter, em: &syn::ExprMacro) -> Result<Option<Emitt
         ["vec", "fill_range"] => {
             let args = parse_args!();
             if args.len() != 4 {
-                return Err(
-                    w.err(em.span(), "vec::fill_range!: expected (vec, start, end, value)")
-                );
+                return Err(w.err(
+                    em.span(),
+                    "vec::fill_range!: expected (vec, start, end, value)",
+                ));
             }
             let emits = emit_args(w, &args)?;
             Ok(Some(Emitted::atomic(
