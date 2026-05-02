@@ -116,7 +116,10 @@ pub fn pat_to_python(w: &mut PyWriter, pat: &syn::Pat) -> Result<String, String>
                         if w.is_sum_enum(class) {
                             Ok(format!("{class}{variant}()"))
                         } else {
-                            Ok(format!("{class}.{variant}"))
+                            Ok(format!(
+                                "{class}.{}",
+                                expr::cambc_variant_name(class, variant)
+                            ))
                         }
                     }
                     _ => Err(w.err(

@@ -31,15 +31,18 @@ impl Gunner {
         }
     }
 
-    /// Walk the forward ray. Return the first blocker iff firing
-    /// actually damages the enemy: enemy non-harvester building OR
-    /// enemy bot. A friendly absorber (any of our buildings except a
-    /// marker, or our bot) returns None — the engine shoots the first
-    /// blocker and a friendly one would eat the projectile.
+    /// Walk the forward ray. Return the position the engine will fire at
+    /// iff firing eventually damages the enemy. The engine always hits the
+    /// first non-marker blocker on the ray; we therefore aim at the first
+    /// friendly road (cheap to sacrifice) when an enemy HVT sits behind
+    /// it, knowing the road dies this turn and the HVT becomes shootable
+    /// next turn. Other friendly absorbers (any non-road friendly
+    /// building, or our own bot) still return None.
     fn fire_target(&self, ct: &mut Controller<'_>, direction: Direction) -> Option<Position> {
         let my_pos = self.state.my_pos;
         let my_team = self.state.my_team;
         let mut cur = my_pos;
+        let mut first_friendly_road: Option<Position> = None;
         for _ in 0..3 {
             cur = cur.add(direction);
             if cur.distance_squared(my_pos) > GameConstants::GUNNER_VISION_RADIUS_SQ {
@@ -57,18 +60,27 @@ impl Gunner {
                     continue;
                 }
                 if pyrust::unwrap!(ct.get_team(Some(bid))) == my_team {
+                    if etype == EntityType::Road {
+                        if first_friendly_road.is_none() {
+                            first_friendly_road = Some(cur);
+                        }
+                        continue;
+                    }
                     return None;
                 }
                 if etype == EntityType::Harvester {
                     return None;
                 }
-                return Some(cur);
+                // Enemy HVT reached. If a friendly road was in the way,
+                // fire at the road — engine hits it first; next turn the
+                // road is gone and we can shoot through.
+                return Some(first_friendly_road.unwrap_or(cur));
             }
             if let Some(&uid) = self.state.all_bots.get(&cur) {
                 if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
                     return None;
                 }
-                return Some(cur);
+                return Some(first_friendly_road.unwrap_or(cur));
             }
         }
         None
@@ -84,9 +96,12 @@ impl Gunner {
     ///   0 — empty ray, friendly absorber, enemy harvester, enemy
     ///       non-target transport (conveyor / road etc.), vision gap
     ///
-    /// Markers are transparent. A friendly bot or non-marker friendly
-    /// building scores 0 (would eat our shot). Enemy harvesters score
-    /// 0 (15 shots to kill, may feed a chain we're parasitising).
+    /// Markers are transparent. Friendly roads are also transparent —
+    /// they're cheap to sacrifice, so a HVT behind them still scores
+    /// (we destroy the road this turn, hit the HVT next turn). Other
+    /// non-marker friendly buildings or our own bot score 0 (would eat
+    /// our shot). Enemy harvesters score 0 (15 shots to kill, may feed
+    /// a chain we're parasitising).
     fn score_ray(&self, ct: &mut Controller<'_>, direction: Direction) -> (i32, Option<Position>) {
         let my_pos = self.state.my_pos;
         let my_team = self.state.my_team;
@@ -108,6 +123,9 @@ impl Gunner {
                     continue;
                 }
                 if pyrust::unwrap!(ct.get_team(Some(bid))) == my_team {
+                    if etype == EntityType::Road {
+                        continue; // see through friendly road
+                    }
                     return (0, Some(cur)); // friendly building absorbs
                 }
                 if etype == EntityType::Harvester {
@@ -117,7 +135,7 @@ impl Gunner {
                     return (1, Some(cur)); // enemy core
                 }
                 if !is_valid_rotation_target(etype) {
-                    return (0, Some(cur)); // conveyor / road / etc.
+                    return (0, Some(cur)); // conveyor / etc.
                 }
                 return (3, Some(cur)); // enemy turret
             }

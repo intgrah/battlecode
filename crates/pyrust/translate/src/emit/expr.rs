@@ -5,6 +5,43 @@ use super::collection;
 use super::types::{Ty, promote_numeric};
 use super::writer::PyWriter;
 
+/// cambc enums whose Python representation uses `SCREAMING_SNAKE_CASE`
+/// variant names (vs the Rust `PascalCase` source). The local `cambc`
+/// shim adds PascalCase aliases at runtime, but the production server
+/// only exposes the canonical SCREAMING_SNAKE names — emitting
+/// `Direction.North` would `AttributeError` there. Translate variant
+/// names for these classes; user-defined enums (e.g. `Role`, `Symmetry`)
+/// keep their source casing.
+const CAMBC_SCREAMING_SNAKE_ENUMS: &[&str] = &[
+    "Direction",
+    "EntityType",
+    "Environment",
+    "ResourceType",
+];
+
+fn pascal_to_screaming_snake(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 4);
+    for (i, ch) in s.chars().enumerate() {
+        if ch.is_ascii_uppercase() && i > 0 {
+            out.push('_');
+        }
+        out.push(ch.to_ascii_uppercase());
+    }
+    out
+}
+
+/// Map a `Class::Variant` source pair to the Python attribute name. For
+/// cambc enums listed in [`CAMBC_SCREAMING_SNAKE_ENUMS`], converts the
+/// variant from PascalCase to SCREAMING_SNAKE; otherwise returns the
+/// variant unchanged.
+pub(super) fn cambc_variant_name(class: &str, variant: &str) -> String {
+    if CAMBC_SCREAMING_SNAKE_ENUMS.contains(&class) {
+        pascal_to_screaming_snake(variant)
+    } else {
+        variant.to_string()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Emitted {
     pub text: String,
@@ -1037,7 +1074,10 @@ fn matches_pat_to_bool(w: &mut PyWriter, scrut: &str, pat: &syn::Pat) -> Result<
             match s.as_slice() {
                 ["None"] | ["Option", "None"] => Ok(format!("{scrut} is None")),
                 [single] => Ok(format!("{scrut} == {single}")),
-                [class, variant] => Ok(format!("{scrut} == {class}.{variant}")),
+                [class, variant] => Ok(format!(
+                    "{scrut} == {class}.{}",
+                    cambc_variant_name(class, variant)
+                )),
                 _ => Err(w.err(
                     p.span(),
                     format!("unsupported matches! path pattern: {}", resolved.join("::")),
@@ -1525,7 +1565,8 @@ fn emit_path(w: &mut PyWriter, p: &syn::ExprPath) -> Result<Emitted, String> {
         if w.is_sum_enum_variant(&class, &tail) {
             return Ok(Emitted::atomic(format!("{class}{tail}()"), Ty::Unknown));
         }
-        return Ok(Emitted::atomic(format!("{class}.{tail}"), Ty::Unknown));
+        let py_variant = cambc_variant_name(&class, &tail);
+        return Ok(Emitted::atomic(format!("{class}.{py_variant}"), Ty::Unknown));
     }
     if p.path.leading_colon.is_some() || p.path.segments.len() != 1 {
         // Multi-segment path in value position (e.g. `crate::config::HARDCODE`).
