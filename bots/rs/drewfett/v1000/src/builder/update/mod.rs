@@ -14,7 +14,6 @@ pub mod vision;
 use cambc::Controller;
 
 use crate::builder::Builder;
-use crate::builder::patrol::{update_alert, update_econ_explore_radius};
 use crate::config::DEBUG_INVARIANTS;
 use crate::util::debug::Scope;
 use crate::util::trace;
@@ -74,14 +73,6 @@ pub fn update(builder: &mut Builder, ct: &mut Controller<'_>) {
         trace::enter(ct, "role");
         role::update_role(builder);
         trace::exit(ct, "role");
-    }
-    {
-        let _g = Scope::new_timed("alert");
-        update_alert(builder);
-    }
-    {
-        let _g = Scope::new_timed("econ_explore_radius");
-        update_econ_explore_radius(builder);
     }
     {
         let _g = Scope::new_timed("econ");
