@@ -25,14 +25,15 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             pyrust::vec::push!(targets, pos);
         }
     }
+    // Ax ore is excluded: raw Ax can't be parasitised for offence, so
+    // leaking some to a placed enemy conveyor isn't worth the Ti spent
+    // on inward conveyors / barriers around the Ax harvester.
     let my_pos = self_.my_pos;
-    for tgt_opt in [self_.ore_target, self_.ax_ore_target] {
-        if let Some(tgt) = tgt_opt
-            && my_pos == tgt
-            && !pyrust::vec::contains!(targets, &tgt)
-        {
-            pyrust::vec::push!(targets, tgt);
-        }
+    if let Some(tgt) = self_.ore_target
+        && my_pos == tgt
+        && !pyrust::vec::contains!(targets, &tgt)
+    {
+        pyrust::vec::push!(targets, tgt);
     }
 
     if pyrust::vec::is_empty!(targets) {
