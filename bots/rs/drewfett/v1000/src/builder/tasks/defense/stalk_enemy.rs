@@ -7,11 +7,12 @@
 //! mirrored.
 
 use crate::config::DEBUG_LOG;
-use cambc::{Controller, Position};
+use cambc::{Controller, EntityType, Position};
 use serde_json::Map;
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
+use crate::builder::role::Role;
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::debug::debug as log;
 use crate::util::visualiser::auto_wrap_position;
@@ -19,6 +20,26 @@ use crate::util::visualiser::auto_wrap_position;
 pub fn stalk_enemy(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if pyrust::vec::is_empty!(self_.enemy_bots) {
         return Some(TaskRejected::new("no enemy builder in vision"));
+    }
+    // Free bots: only stalk when a friendly harvester is currently in
+    // vision. Without something local to defend, a Free bot chasing an
+    // enemy gets pulled across the map (kited). Defenders skip this gate
+    // — it's their job to chase regardless.
+    if self_.role == Some(Role::Free) {
+        let mut sees_harvester = false;
+        for &pos in &self_.nearby_buildings {
+            if self_.kind_at(pos) == Some(EntityType::Harvester)
+                && self_.team_at(pos) == Some(self_.my_team)
+            {
+                sees_harvester = true;
+                break;
+            }
+        }
+        if !sees_harvester {
+            return Some(TaskRejected::new(
+                "Free bot with no friendly harvester in vision — would just kite",
+            ));
+        }
     }
 
     let my_pos = self_.my_pos;

@@ -85,21 +85,20 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
     let h = builder.state.height;
     // Free bots can explore deep into enemy territory; Defender bots
     // bias their exploration toward our own half (smaller cap).
-    // Pre-econ exception: until we have at least one friendly harvester,
-    // even Free bots explore relative to their own position — racing to
-    // enemy core before any econ exists wastes the bot.
     let is_offense = builder.role == Some(Role::Free);
-    let pre_econ = pyrust::vec::is_empty!(builder.my_harvesters);
-    let cap: f64 = if is_offense && !pre_econ { 1.0 } else { 0.8 };
+    let cap: f64 = if is_offense { 1.0 } else { 0.8 };
     let frac = pyrust::min!(
         (cap),
         0.4 + (cap - 0.4) * pyrust::float!(builder.state.round) / 100.0
     );
     let radius = (pyrust::float!(pyrust::max!(w, h)) * frac) as i32;
-    let center = if is_offense && !pre_econ {
+    // Defenders anchor at my_core (not my_pos) to avoid a drift feedback
+    // loop where chasing an enemy moves my_pos and the next exploration
+    // sample-center moves with it.
+    let center = if is_offense {
         builder.en_core_guess
     } else {
-        builder.state.my_pos
+        builder.my_core
     };
     let cx = center.x;
     let cy = center.y;
