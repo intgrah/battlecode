@@ -342,6 +342,22 @@ fn _flow_has_ax(builder: &Builder, pos: Position) -> bool {
 /// guard, reachable. The future foundry spot before any Ax arrives.
 /// Existing built foundries are handled separately in
 /// `update_foundry_target` and don't need this rule.
+/// True iff every in-edge of `pos` has pure-Ti flow history. Used when
+/// `pos` itself has mixed flow (a transient Ax packet), but all its
+/// sources are Ti-only, so the foundry candidate is still valid.
+fn _flow_is_mixed_with_pure_sources(builder: &Builder, pos: Position) -> bool {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    if pyrust::vec::is_empty!(builder.in_edges[i]) {
+        return false;
+    }
+    for src in &builder.in_edges[i] {
+        if !_flow_is_pure_ti(builder, *src) {
+            return false;
+        }
+    }
+    true
+}
+
 fn _foundry_candidate_ok(builder: &Builder, pos: Position) -> bool {
     if !builder.is_reachable(pos) {
         return false;
