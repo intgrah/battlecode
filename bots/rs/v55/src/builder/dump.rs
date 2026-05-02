@@ -307,86 +307,86 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             },
         );
     }
-    {
-        let _g = Scope::new("terrain");
-        let mut unseen: Vec<bool> = Vec::with_capacity((w * h) as usize);
-        for y in 0..h {
-            for x in 0..w {
-                pyrust::vec::push!(
-                    unseen,
-                    pyrust::is_none!(builder.env[(y as usize) * MAX_WIDTH + (x as usize)])
-                );
-            }
-        }
-        vis(
-            "unseen",
-            &Dump::BoolGrid {
-                data: unseen,
-                palette: p_fog(),
-            },
-        );
-        vis(
-            "cost",
-            &Dump::I16Grid {
-                data: _crop(&builder.cost_grid, w, h),
-                palette: p_cost(),
-            },
-        );
-        vis(
-            "buildable",
-            &Dump::BoolGrid {
-                data: _crop_bool(&builder.buildable, w, h),
-                palette: p_bool(),
-            },
-        );
-    }
-    {
-        let _g = Scope::new("routability");
-        vis(
-            "ti_routable",
-            &Dump::BoolGrid {
-                data: _crop_bool(&builder.ti_routable, w, h),
-                palette: p_bool(),
-            },
-        );
-        vis(
-            "ax_routable",
-            &Dump::BoolGrid {
-                data: _crop_bool(&builder.ax_routable, w, h),
-                palette: p_bool(),
-            },
-        );
-        vis(
-            "ti_leakage",
-            &Dump::BoolGrid {
-                data: _crop_bool(&builder.ti_leakage, w, h),
-                palette: p_bool(),
-            },
-        );
-        vis(
-            "ax_leakage",
-            &Dump::BoolGrid {
-                data: _crop_bool(&builder.ax_leakage, w, h),
-                palette: p_bool(),
-            },
-        );
-    }
+    // {
+    //     let _g = Scope::new("terrain");
+    //     let mut unseen: Vec<bool> = Vec::with_capacity((w * h) as usize);
+    //     for y in 0..h {
+    //         for x in 0..w {
+    //             pyrust::vec::push!(
+    //                 unseen,
+    //                 pyrust::is_none!(builder.env[(y as usize) * MAX_WIDTH + (x as usize)])
+    //             );
+    //         }
+    //     }
+    //     vis(
+    //         "unseen",
+    //         &Dump::BoolGrid {
+    //             data: unseen,
+    //             palette: p_fog(),
+    //         },
+    //     );
+    //     vis(
+    //         "cost",
+    //         &Dump::I16Grid {
+    //             data: _crop(&builder.cost_grid, w, h),
+    //             palette: p_cost(),
+    //         },
+    //     );
+    //     vis(
+    //         "buildable",
+    //         &Dump::BoolGrid {
+    //             data: _crop_bool(&builder.buildable, w, h),
+    //             palette: p_bool(),
+    //         },
+    //     );
+    // }
+    // {
+    //     let _g = Scope::new("routability");
+    //     vis(
+    //         "ti_routable",
+    //         &Dump::BoolGrid {
+    //             data: _crop_bool(&builder.ti_routable, w, h),
+    //             palette: p_bool(),
+    //         },
+    //     );
+    //     vis(
+    //         "ax_routable",
+    //         &Dump::BoolGrid {
+    //             data: _crop_bool(&builder.ax_routable, w, h),
+    //             palette: p_bool(),
+    //         },
+    //     );
+    //     vis(
+    //         "ti_leakage",
+    //         &Dump::BoolGrid {
+    //             data: _crop_bool(&builder.ti_leakage, w, h),
+    //             palette: p_bool(),
+    //         },
+    //     );
+    //     vis(
+    //         "ax_leakage",
+    //         &Dump::BoolGrid {
+    //             data: _crop_bool(&builder.ax_leakage, w, h),
+    //             palette: p_bool(),
+    //         },
+    //     );
+    // }
     {
         let _g = Scope::new("distances");
-        vis(
-            "reach_root",
-            &Dump::I16Grid {
-                data: _reach_roots(builder, w, h),
-                palette: _reach_palette(builder, w, h),
-            },
-        );
-        vis(
-            "ti_conv_dist",
-            &Dump::I16Grid {
-                data: _crop(&builder.conv_search._dist, w, h),
-                palette: p_dist(),
-            },
-        );
+        // vis(
+        //     "reach_root",
+        //     &Dump::I16Grid {
+        //         data: _reach_roots(builder, w, h),
+        //         palette: _reach_palette(builder, w, h),
+        //     },
+        // );
+        // vis(
+        //     "ti_conv_dist",
+        //     &Dump::I16Grid {
+        //         data: _crop(&builder.conv_search._dist, w, h),
+        //         palette: p_dist(),
+        //     },
+        // );
         vis(
             "ax_conv_dist",
             &Dump::I16Grid {
@@ -458,30 +458,30 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 pyrust::copied!(pyrust::iter!(builder.my_foundries)),
             );
         }
-        {
-            let _g = Scope::new("harvesters");
-            vis_tiles(
-                "ti_harvester_adjacent",
-                pyrust::copied!(pyrust::iter!(builder.ti_harvester_adjacent)),
-            );
-            vis_tiles(
-                "ax_harvester_adjacent",
-                pyrust::copied!(pyrust::iter!(builder.ax_harvester_adjacent)),
-            );
-            vis_tiles(
-                "harvester_adjacent",
-                pyrust::copied!(pyrust::iter!(builder.adjacent_to_harvester)),
-            );
-            vis_tiles(
-                "unconnected_harvester",
-                pyrust::copied!(pyrust::iter!(builder.adjacent_to_unconnected_harvester)),
-            );
-            vis_tiles(
-                "deny_ore_neighbours",
-                pyrust::copied!(pyrust::iter!(builder.deny_ore_neighbours)),
-            );
-            // vis_tiles("econ_disc", _econ_disc_tiles(builder));
-        }
+        // {
+        //     let _g = Scope::new("harvesters");
+        //     vis_tiles(
+        //         "ti_harvester_adjacent",
+        //         pyrust::copied!(pyrust::iter!(builder.ti_harvester_adjacent)),
+        //     );
+        //     vis_tiles(
+        //         "ax_harvester_adjacent",
+        //         pyrust::copied!(pyrust::iter!(builder.ax_harvester_adjacent)),
+        //     );
+        //     vis_tiles(
+        //         "harvester_adjacent",
+        //         pyrust::copied!(pyrust::iter!(builder.adjacent_to_harvester)),
+        //     );
+        //     vis_tiles(
+        //         "unconnected_harvester",
+        //         pyrust::copied!(pyrust::iter!(builder.adjacent_to_unconnected_harvester)),
+        //     );
+        //     vis_tiles(
+        //         "deny_ore_neighbours",
+        //         pyrust::copied!(pyrust::iter!(builder.deny_ore_neighbours)),
+        //     );
+        //     // vis_tiles("econ_disc", _econ_disc_tiles(builder));
+        // }
     }
     {
         let _g = Scope::new("offense");
@@ -523,32 +523,32 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         }
         vis_scalar_bool("opportunistic", builder.opportunistic);
         vis_tile("patrol_head", builder.patrol_head);
-        let mut patrol_age: Vec<f32> = vec![-1.0; (w * h) as usize];
-        let mut last_seen_grid: Vec<i16> = vec![0; (w * h) as usize];
+        // let mut patrol_age: Vec<f32> = vec![-1.0; (w * h) as usize];
+        // let mut last_seen_grid: Vec<i16> = vec![0; (w * h) as usize];
         let crnd = builder.state.round;
-        for y in 0..h {
-            let base = (y as usize) * MAX_WIDTH;
-            let row_base = (y * w) as usize;
-            for x in 0..w {
-                let seen = builder.last_seen[base + (x as usize)];
-                last_seen_grid[row_base + (x as usize)] = seen as i16;
-                patrol_age[row_base + (x as usize)] = (crnd - seen) as f32;
-            }
-        }
-        vis(
-            "patrol_age",
-            &Dump::F32Grid {
-                data: patrol_age,
-                palette: p_patrol(),
-            },
-        );
-        vis(
-            "last_seen",
-            &Dump::I16Grid {
-                data: last_seen_grid,
-                palette: p_dist(),
-            },
-        );
+        // for y in 0..h {
+        //     let base = (y as usize) * MAX_WIDTH;
+        //     let row_base = (y * w) as usize;
+        //     for x in 0..w {
+        //         let seen = builder.last_seen[base + (x as usize)];
+        //         last_seen_grid[row_base + (x as usize)] = seen as i16;
+        //         patrol_age[row_base + (x as usize)] = (crnd - seen) as f32;
+        //     }
+        // }
+        // vis(
+        //     "patrol_age",
+        //     &Dump::F32Grid {
+        //         data: patrol_age,
+        //         palette: p_patrol(),
+        //     },
+        // );
+        // vis(
+        //     "last_seen",
+        //     &Dump::I16Grid {
+        //         data: last_seen_grid,
+        //         palette: p_dist(),
+        //     },
+        // );
         let mut best_age: i32 = -1;
         let mut best_dist: i32 = 1 << 30;
         let mut best_pos: Option<Position> = None;
