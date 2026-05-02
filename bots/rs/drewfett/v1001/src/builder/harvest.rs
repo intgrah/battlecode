@@ -310,8 +310,7 @@ fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position)
     let left_passable = passable(guard_pos.add(left_perp)) || passable(guard_pos.add(left_diag));
     let right_passable = passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
 
-    let must_use_conveyor = (!top_passable) && left_passable && right_passable;
-    !must_use_conveyor
+    top_passable && left_passable && right_passable
 }
 
 /// Last-resort: when `harvester_feed_cardinal(target_pos)` returns
