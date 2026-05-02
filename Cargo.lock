@@ -2770,6 +2770,7 @@ name = "nothing-100"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2777,6 +2778,7 @@ name = "nothing-1000"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2784,6 +2786,7 @@ name = "nothing-1100"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2791,6 +2794,7 @@ name = "nothing-1200"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2798,6 +2802,7 @@ name = "nothing-1300"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2805,6 +2810,7 @@ name = "nothing-1400"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2812,6 +2818,7 @@ name = "nothing-1500"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2819,6 +2826,7 @@ name = "nothing-1600"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2826,6 +2834,7 @@ name = "nothing-1700"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2833,6 +2842,7 @@ name = "nothing-1800"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2840,6 +2850,7 @@ name = "nothing-1900"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2847,6 +2858,7 @@ name = "nothing-200"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2854,6 +2866,7 @@ name = "nothing-2000"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2861,6 +2874,7 @@ name = "nothing-300"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2868,6 +2882,7 @@ name = "nothing-400"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2875,6 +2890,7 @@ name = "nothing-50"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2882,6 +2898,7 @@ name = "nothing-500"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2889,6 +2906,7 @@ name = "nothing-600"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2896,6 +2914,7 @@ name = "nothing-700"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2903,6 +2922,7 @@ name = "nothing-800"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]
@@ -2910,6 +2930,7 @@ name = "nothing-900"
 version = "0.1.0"
 dependencies = [
  "cambc",
+ "pyrust",
 ]
 
 [[package]]

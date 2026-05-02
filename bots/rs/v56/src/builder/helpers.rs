@@ -560,6 +560,36 @@ pub fn ore_available(builder: &Builder, pos: Position) -> bool {
     true
 }
 
+/// True iff the friendly transport at `pos` has its first out-edge land
+/// on a friendly tile that hosts a chain consumer (Conveyor / ArmouredConveyor
+/// / Bridge / Splitter / Foundry / Core).
+#[must_use]
+fn _transport_output_to_friendly_chain(builder: &Builder, pos: Position) -> bool {
+    let i = builder.idx(pos);
+    if pyrust::vec::is_empty!(builder.out_edges[i]) {
+        return false;
+    }
+    let target = builder.out_edges[i][0];
+    if !builder.in_bounds(target) {
+        return false;
+    }
+    let ti = builder.idx(target);
+    if builder.building_team[ti] != Some(builder.state.my_team) {
+        return false;
+    }
+    matches!(
+        builder.building_kind[ti],
+        Some(
+            EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Bridge
+                | EntityType::Splitter
+                | EntityType::Foundry
+                | EntityType::Core
+        )
+    )
+}
+
 /// The cardinal of `ore_pos` chosen as the future flow-feed slot. A
 /// cardinal is feedable iff it's in-bounds, not a wall, and either
 /// empty or holds a friendly transport / core. Direction of existing
@@ -584,8 +614,14 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
     };
 
     let my_team = builder.state.my_team;
-    let mut chosen: Option<Position> = None;
-    let mut best_d: i32 = i32::MAX;
+    // Two tiers: PRIMARY (preferred) = empty / road / marker / friendly
+    // outward transport / friendly core. FALLBACK = inward conveyors,
+    // only used when no primary cardinal exists. The tier separation
+    // keeps the feed pick stable across turns: once a road or empty
+    // cardinal is picked, later inward-conveyor guards on other
+    // cardinals don't usurp it.
+    let mut primary: Option<(i32, Position)> = None;
+    let mut fallback: Option<(i32, Position)> = None;
     for d in DIR4 {
         let c = ore_pos.add(d);
         if !builder.in_bounds(c) {
@@ -597,29 +633,61 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         let ci = builder.idx(c);
         let kind = builder.building_kind[ci];
         let team = builder.building_team[ci];
-        let feedable = match kind {
+        let primary_feedable = match kind {
             None => true,
             Some(EntityType::Road | EntityType::Marker) => true,
-            Some(
-                EntityType::Conveyor
-                | EntityType::ArmouredConveyor
-                | EntityType::Bridge
-                | EntityType::Splitter
-                | EntityType::Core,
-            ) => team == Some(my_team),
+            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge) => {
+                team == Some(my_team) && _transport_output_to_friendly_chain(builder, c)
+            }
+            Some(EntityType::Splitter) => {
+                team == Some(my_team)
+                    && pyrust::len!(builder.out_edges[ci]) == 3
+                    && crate::building::splitter_back_input(c, &builder.out_edges[ci]) == ore_pos
+            }
+            Some(EntityType::Core) => team == Some(my_team),
             _ => false,
         };
-        if !feedable {
-            continue;
-        }
+        let inward = !primary_feedable
+            && matches!(
+                kind,
+                Some(EntityType::Conveyor | EntityType::ArmouredConveyor)
+            )
+            && is_inward_guard(builder, c);
         let dsq = c.distance_squared(sink);
-        if dsq < best_d {
-            best_d = dsq;
-            chosen = Some(c);
+        if primary_feedable {
+            if pyrust::is_none_or!(primary, |p: (i32, Position)| dsq < p.0) {
+                primary = Some((dsq, c));
+            }
+        } else if inward && pyrust::is_none_or!(fallback, |p: (i32, Position)| dsq < p.0) {
+            fallback = Some((dsq, c));
         }
     }
 
-    chosen
+    let result: Option<Position> = if pyrust::is_some!(primary) {
+        Some(pyrust::unwrap!(primary).1)
+    } else if pyrust::is_some!(fallback) {
+        Some(pyrust::unwrap!(fallback).1)
+    } else {
+        None
+    };
+    let mut args = Map::new();
+    pyrust::dict::insert!(args, pyrust::to_string!("ore"), auto_wrap_position(ore_pos));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("primary"),
+        serde_json::Value::String(format!("{primary:?}"))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("fallback"),
+        serde_json::Value::String(format!("{fallback:?}"))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("chose"),
+        serde_json::Value::String(format!("{result:?}"))
+    );
+    result
 }
 
 /// Cardinals of `ore_pos` that must NOT be barriered.
@@ -647,6 +715,14 @@ pub fn harvester_io_cardinals(builder: &Builder, ore_pos: Position) -> HashSet<P
                     | EntityType::Harvester
             )
         ) {
+            pyrust::set::add!(reserved, *c);
+        }
+        // A friendly Road on a cardinal is a planned step-off / feed slot.
+        // Reserve it permanently — even if the feed pick later drifts to
+        // a different cardinal, this road must not be overwritten.
+        if builder.kind_at(*c) == Some(EntityType::Road)
+            && builder.team_at(*c) == Some(builder.state.my_team)
+        {
             pyrust::set::add!(reserved, *c);
         }
     }
@@ -809,8 +885,10 @@ pub const fn on_enemy_side(builder: &Builder, pos: Position) -> bool {
     pos.distance_squared(builder.my_core) > builder.econ_radius_sq
 }
 
-/// True if `pos` hosts a friendly conveyor whose flow direction
-/// points at an adjacent friendly harvester.
+/// An inward conveyor is exactly: a friendly Conveyor / ArmouredConveyor
+/// whose output points at a Titanium ore tile, where that ore tile holds
+/// a friendly builder bot OR a harvester. Treated as "no building" for
+/// routing purposes — feed picking, chain routing, etc.
 #[must_use]
 pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
     let i = builder.idx(pos);
@@ -832,8 +910,13 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
     if !builder.in_bounds(target) {
         return false;
     }
-    builder.kind_at(target) == Some(EntityType::Harvester)
-        && builder.team_at(target) == Some(builder.state.my_team)
+    let ti = builder.idx(target);
+    if builder.env[ti] != Some(Environment::OreTitanium) {
+        return false;
+    }
+    let has_harvester = builder.building_kind[ti] == Some(EntityType::Harvester);
+    let has_friendly_bot = pyrust::vec::contains!(builder.state.friendly_bots, &target);
+    has_harvester || has_friendly_bot
 }
 
 /// Cap on *expensive* filter chains per pick-ore call. The cheap O(1)
@@ -1106,4 +1189,3 @@ pub fn tile_has_ax_flow(builder: &Builder, pos: Position) -> bool {
     }
     false
 }
-

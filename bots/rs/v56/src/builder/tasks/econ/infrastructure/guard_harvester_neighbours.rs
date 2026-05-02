@@ -5,17 +5,43 @@
 use std::collections::HashSet;
 
 use cambc::{Controller, ControllerApi, EntityType, Environment, Position};
-use serde_json::Map;
 
 use crate::builder::Builder;
 use crate::builder::harvest::{needs_harvester_guard, place_harvester_guard};
 use crate::builder::helpers::{can_afford, harvester_feed_cardinal, harvester_io_cardinals};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
-use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
-use crate::util::visualiser::auto_wrap_position;
+use crate::util::metrics::chebyshev;
+use crate::util::symmetry::ALL as SYM_ALL;
+
+/// Buffer turns subtracted from the closest possible enemy-arrival
+/// chebyshev distance. Until that turn, defer proactive harvester
+/// guarding — the placements often get overwritten in the early game.
+#[pyrust::inline]
+const GUARD_BUFFER: i32 = 4;
 
 pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
+    // Gate: don't proactively guard harvesters until the earliest possible
+    // enemy arrival is GUARD_BUFFER turns away.
+    let w = self_.state.width;
+    let h = self_.state.height;
+    let my_core = self_.my_core;
+    let mut min_d: i32 = i32::MAX;
+    for sym in SYM_ALL {
+        let en = sym.action(my_core, w, h);
+        let d = chebyshev(my_core, en);
+        if d < min_d {
+            min_d = d;
+        }
+    }
+    let gate = min_d - GUARD_BUFFER;
+    if self_.state.round < gate {
+        return Some(TaskRejected::from_string(format!(
+            "deferred: round {} < guard gate {} (min enemy arrival {})",
+            self_.state.round, gate, min_d
+        )));
+    }
+
     let mut targets: Vec<Position> = pyrust::vec::new!();
     for &pos in &self_.nearby_tiles {
         if self_.kind_at(pos) == Some(EntityType::Harvester)
@@ -70,12 +96,6 @@ pub fn guard_harvester_neighbours(self_: &mut Builder, ct: &mut Controller<'_>) 
             && self_.get_cost(feed) > 1
             && pyrust::unwrap!(ct.can_build_road(feed))
         {
-            let mut args = Map::new();
-            pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
-            log(
-                "guard_harvester_neighbours: ROAD on feed {feed} (prep step-off)",
-                args,
-            );
             pyrust::unwrap!(ct.build_road(feed));
             return None;
         }

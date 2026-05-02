@@ -18,7 +18,7 @@ use serde_json::Map;
 use crate::builder::Builder;
 use crate::builder::algorithms::greedy_route::greedy_route;
 use crate::builder::helpers::{
-    is_inward_guard, make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
+    make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
 };
 use crate::builder::tasks::rejected::TaskRejected;
 use crate::util::constants::MAX_WIDTH;
@@ -180,6 +180,9 @@ fn _lay_segment(
     path: &[Position],
 ) -> bool {
     if pyrust::vec::is_empty!(path) {
+        let mut args = Map::new();
+        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        debug("_lay_segment FAIL: path empty at {start}", args);
         return false;
     }
 
@@ -218,10 +221,15 @@ fn _lay_segment(
     }
 
     if entity_type == Some(EntityType::Conveyor)
-        && (pyrust::unwrap!(ct.get_direction(bid))
+        && pyrust::unwrap!(ct.get_direction(bid))
             == pyrust::unwrap_or!(direction, Direction::Centre)
-            || is_inward_guard(builder, start_pos))
     {
+        let mut args = Map::new();
+        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        debug(
+            "_lay_segment OK noop: existing Conveyor already matches direction at {start}",
+            args,
+        );
         return true;
     }
     if entity_type == Some(EntityType::Bridge)
@@ -229,6 +237,12 @@ fn _lay_segment(
     {
         let bridge_output = pyrust::unwrap!(ct.get_bridge_target(b));
         if !pyrust::unwrap!(ct.is_in_vision(bridge_output)) || builder.is_buildable(bridge_output) {
+            let mut args = Map::new();
+            pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+            debug(
+                "_lay_segment OK noop: existing Bridge with valid output at {start}",
+                args,
+            );
             return true;
         }
     }
@@ -236,7 +250,7 @@ fn _lay_segment(
     let next_pos = path[1];
     if !pyrust::unwrap!(ct.is_in_vision(next_pos)) {
         let target = reachable_path_end(path, start_pos, 3);
-        return try_place(
+        let ok = try_place(
             builder,
             ct,
             EntityType::Bridge,
@@ -244,6 +258,19 @@ fn _lay_segment(
             BuildExtra::Position(target),
             true,
         );
+        let mut args = Map::new();
+        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("ok"),
+            serde_json::Value::Bool(ok)
+        );
+        debug(
+            "_lay_segment Bridge (next not in vision): {start}->{target} ok={ok}",
+            args,
+        );
+        return ok;
     }
 
     let destination_building = pyrust::unwrap!(ct.get_tile_building_id(next_pos));
@@ -270,6 +297,15 @@ fn _lay_segment(
             BuildExtra::Direction(d),
             true,
         );
+        let mut args = Map::new();
+        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(args, pyrust::to_string!("dir"),
+            serde_json::Value::String(format!("{d:?}")));
+        pyrust::dict::insert!(args, pyrust::to_string!("ok"), serde_json::Value::Bool(ok));
+        debug(
+            "_lay_segment Conveyor at {start} dir={dir} ok={ok}",
+            args,
+        );
         if ok {
             line(ct, start_pos, next_pos, 255, 255, 0);
             _retarget_foundry_to_junction(builder, next_pos);
@@ -279,17 +315,56 @@ fn _lay_segment(
 
     let pending_bridge = reachable_path_end(path, start_pos, 3);
     if builder.is_enemy_building(pending_bridge) {
+        let mut args = Map::new();
+        pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(pending_bridge)
+        );
+        debug(
+            "_lay_segment FAIL: pending bridge target {target} is enemy; falling back to clear-with-turret from {start}",
+            args,
+        );
         _clear_with_turret(builder, ct, start_pos, pending_bridge);
         return false;
     }
-    if try_place(
+    let ok = try_place(
         builder,
         ct,
         EntityType::Bridge,
         start_pos,
         BuildExtra::Position(pending_bridge),
         true,
-    ) {
+    );
+    let mut args = Map::new();
+    pyrust::dict::insert!(args, pyrust::to_string!("start"), auto_wrap_position(start_pos));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("target"),
+        auto_wrap_position(pending_bridge)
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("dir"),
+        serde_json::Value::String(format!("{direction:?}"))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("dest_kind"),
+        serde_json::Value::String(format!("{:?}", builder.kind_at(next_pos)))
+    );
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("dest_team"),
+        serde_json::Value::String(format!("{destination_team:?}"))
+    );
+    pyrust::dict::insert!(args, pyrust::to_string!("ok"), serde_json::Value::Bool(ok));
+    debug(
+        "_lay_segment Bridge fallback {start}->{target} (dir={dir}, dest_kind={dest_kind}, dest_team={dest_team}) ok={ok}",
+        args,
+    );
+    if ok {
         _retarget_foundry_to_junction(builder, pending_bridge);
         return true;
     }
@@ -345,16 +420,16 @@ pub fn extend_step(
         let _g = Scope::new_timed("conv_greedy");
         greedy_route(builder, start, target, resource)
     };
+    if let Some(ref pp) = path {
+        builder.last_greedy_path = Some(pyrust::clone!(pp));
+        builder.last_greedy_path_is_ax = is_ax;
+    }
     let Some(mut path) = path else {
         return Some(TaskRejected::from_string(format!(
             "greedy {resource} {start:?}->{target:?}: no Bresenham/L route"
         )));
     };
 
-    let colour: (i32, i32, i32) = if is_ax { (200, 0, 255) } else { (80, 160, 255) };
-    for i in 0..(pyrust::len!(path) - 1) {
-        line(ct, path[i], path[i + 1], colour.0, colour.1, colour.2);
-    }
 
     let existing_set: HashSet<Position> =
         pyrust::collect!(pyrust::copied!(pyrust::iter!(existing_path)));

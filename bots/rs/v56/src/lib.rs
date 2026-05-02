@@ -26,7 +26,7 @@ use crate::gunner::Gunner;
 use crate::launcher::Launcher;
 use crate::sentinel::Sentinel;
 use crate::unit::Unit;
-use crate::util::debug::{Scope, flush};
+use crate::util::debug::{Scope, flush, set_current_bot};
 
 /// The bot. The engine constructs one `Player` per unit (the FFI entry
 /// point) and calls `Bot::run` each turn. `unit` caches which of the six
@@ -56,6 +56,7 @@ impl Bot for Player {
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
+        set_current_bot(pyrust::unwrap!(ct.get_id()));
         let _turn = Scope::new("turn");
         if pyrust::is_none!(self.unit) {
             let kind = pyrust::unwrap!(ct.get_entity_type(None));

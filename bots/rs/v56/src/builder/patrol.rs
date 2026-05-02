@@ -1,8 +1,13 @@
-//! Cycle-based patrol. Builders walk a deterministic Hamiltonian-ish
-//! cycle through every known piece of friendly infra, starting at an
-//! id-derived offset so multiple builders cover disjoint arcs of the
-//! cycle in parallel. Worst-case revisit time is `cycle_len / K` for
-//! `K` live patrollers.
+//! Cyclic-queue patrol with alert-graded expansion. The queue is
+//! seeded at post_init with the 4 core-footprint corners; each new
+//! harvester is incrementally inserted via `insert_into_queue`
+//! (insertion-NN, O(N) per add). Per-turn `run_patrol` is O(1).
+//!
+//! The actual walk target is the cycle entry expanded radially
+//! outward from `my_core` by `expansion = LOW * (1 - alert/MAX)`.
+//! Alert is bumped on enemy sighting and decays. So at low alert
+//! the bot patrols a fat ring 6 tiles outside the cycle (= exploration);
+//! at high alert it patrols tight on infra.
 
 use cambc::{Controller, Position};
 use serde_json::{Map, Value};
@@ -13,6 +18,53 @@ use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
 use crate::util::visualiser::auto_wrap_position;
+
+#[pyrust::inline]
+const _ALERT_BOOST_TO: i32 = 30;
+#[pyrust::inline]
+const _ALERT_MAX: i32 = 30;
+#[pyrust::inline]
+const _EXPANSION_LOW: f64 = 6.0;
+
+/// Bump alert if any enemy bot is in vision; else decay by 1 (floored
+/// at 0). Capped at `_ALERT_MAX`.
+pub fn update_alert(builder: &mut Builder) {
+    let has_enemy = !pyrust::vec::is_empty!(builder.state.enemy_bots);
+    if has_enemy {
+        if builder.alert < _ALERT_BOOST_TO {
+            builder.alert = _ALERT_BOOST_TO;
+        }
+    } else if builder.alert > 0 {
+        builder.alert -= 1;
+    }
+    if builder.alert > _ALERT_MAX {
+        builder.alert = _ALERT_MAX;
+    }
+}
+
+/// Expansion magnitude in tiles: 0 at full alert, `_EXPANSION_LOW` at
+/// zero alert. Linear in between.
+fn _expansion(alert: i32) -> f64 {
+    let t = pyrust::float!(alert) / pyrust::float!(_ALERT_MAX);
+    _EXPANSION_LOW * (1.0 - t)
+}
+
+/// Push `T` outward from `core` by `expansion` tiles along the radial
+/// vector. If `T == core`, return `T` unchanged.
+fn _expand_outward(t: Position, core: Position, expansion: f64) -> Position {
+    let dx = pyrust::float!((t.x - core.x));
+    let dy = pyrust::float!((t.y - core.y));
+    let len_sq = dx * dx + dy * dy;
+    if len_sq <= 0.0 {
+        return t;
+    }
+    let len = pyrust::sqrt!(len_sq);
+    let factor = 1.0 + expansion / len;
+    Position {
+        x: pyrust::round!((dx * factor)) as i32 + core.x,
+        y: pyrust::round!((dy * factor)) as i32 + core.y,
+    }
+}
 
 /// Bugnav rejects impassable goals. Return `pos` if walkable,
 /// otherwise the cheapest passable cardinal neighbour.
@@ -37,99 +89,60 @@ fn _walkable_anchor(builder: &Builder, pos: Position) -> Option<Position> {
     best
 }
 
-/// Important tiles to patrol: harvesters, foundries, the core, plus
-/// every friendly transport carrying Ti or Ax (the union of
-/// `ti_upstream` and `ax_upstream` covers conveyor / armoured /
-/// bridge / splitter tiles that are downstream of a harvester).
-fn _candidate_iter(builder: &Builder) -> Vec<Position> {
-    let mut out: Vec<Position> = pyrust::vec::new!();
-    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.my_harvesters)));
-    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.my_foundries)));
-    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.ti_upstream)));
-    pyrust::vec::extend!(out, pyrust::copied!(pyrust::iter!(builder.ax_upstream)));
-    pyrust::vec::push!(out, builder.my_core);
-    out
-}
-
-/// Build a route through every known infra tile. Nearest-neighbour
-/// TSP heuristic seeded at `my_core` so the cycle starts (and loops
-/// back to) the core. The seeded vec is sorted lex first so ties in
-/// distance break deterministically — same cycle in native Rust and
-/// pyrust-translated Python.
-///
-/// O(N²) for N infra tiles. Real games sit at N ≈ 30–60, so this is
-/// a few thousand ops per turn — cheap relative to the per-turn
-/// budget. Recomputed every call so chain growth / building loss is
-/// reflected immediately.
-fn _build_cycle(candidates: &Vec<Position>, seed: Position) -> Vec<Position> {
-    let mut remaining: Vec<Position> = pyrust::clone!(candidates);
-    pyrust::sort!(remaining);
-    let mut cycle: Vec<Position> = pyrust::vec::new!();
-    let mut cur = seed;
-    while !pyrust::vec::is_empty!(remaining) {
-        let mut best_i: usize = 0;
-        let mut best_d = cur.distance_squared(remaining[0]);
-        let mut best_p = remaining[0];
-        for i in 1..pyrust::len!(remaining) {
-            let p = remaining[i];
-            let d = cur.distance_squared(p);
-            if d < best_d || (d == best_d && p < best_p) {
-                best_d = d;
-                best_i = i;
-                best_p = p;
-            }
-        }
-        pyrust::vec::push!(cycle, best_p);
-        pyrust::vec::swap_remove!(remaining, best_i);
-        cur = best_p;
+/// Find the closest existing entry to `p` in the queue and insert `p`
+/// right after it. If the queue is empty, just push. O(N) per call.
+pub fn insert_into_queue(queue: &mut Vec<Position>, p: Position) {
+    if pyrust::vec::is_empty!(queue) {
+        pyrust::vec::push!(queue, p);
+        return;
     }
-    cycle
+    let mut best_i: usize = 0;
+    let mut best_d = p.distance_squared(queue[0]);
+    for i in 1..pyrust::len!(queue) {
+        let d = p.distance_squared(queue[i]);
+        if d < best_d {
+            best_d = d;
+            best_i = i;
+        }
+    }
+    queue.insert(best_i + 1, p);
 }
 
-/// Walk a fixed cycle through known infra. Each builder's index into
-/// the cycle is offset by `(my_id mod cycle_len)` so multiple
-/// builders cover disjoint arcs without coordination. Reaching a
-/// tile (`dist² <= 2`) advances the index; the next target is
-/// always the next cycle entry, never the "oldest" — that's what
-/// gives convergence (every tile visited every `cycle_len / K`
-/// rounds) instead of greedy oldest-pick which can starve corners.
 pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
-    let candidates = _candidate_iter(builder);
-    if pyrust::vec::is_empty!(candidates) {
+    let qlen = pyrust::len!(builder.patrol_queue);
+    if qlen == 0 {
         return false;
     }
-    let my_core = builder.my_core;
-    let cycle = _build_cycle(&candidates, my_core);
-    if pyrust::vec::is_empty!(cycle) {
-        return false;
+    let mut idx = builder.patrol_queue_idx;
+    if idx >= qlen {
+        idx = (builder.state.my_id as usize) % qlen;
     }
-    let cycle_len = pyrust::len!(cycle);
-
-    // Seed cycle_idx by id on first call, or whenever it falls outside
-    // the current cycle bounds (e.g. after infra was destroyed and the
-    // cycle shrank). Modulo by cycle_len keeps it valid; the id
-    // dependence spreads multiple builders around the cycle.
-    let mut idx = builder.patrol_cycle_idx;
-    if idx >= cycle_len {
-        idx = (builder.state.my_id as usize) % cycle_len;
+    let raw_target = builder.patrol_queue[idx];
+    let core = builder.my_core;
+    let expansion = _expansion(builder.alert);
+    let mut expanded_target = _expand_outward(raw_target, core, expansion);
+    if !builder.in_bounds(expanded_target) {
+        expanded_target = raw_target;
     }
-
-    // Advance through any already-reached entries this turn — handles
-    // the case where two consecutive cycle tiles are within dist² ≤ 2
-    // of `my_pos`, so we don't waste a turn standing still.
-    for _ in 0..cycle_len {
-        let target = cycle[idx];
-        if builder.state.my_pos.distance_squared(target) > 2 {
-            break;
-        }
-        idx = (idx + 1) % cycle_len;
+    let advance = builder.state.my_pos.distance_squared(expanded_target) <= 5;
+    if advance {
+        idx = (idx + 1) % qlen;
     }
-    builder.patrol_cycle_idx = idx;
-    let target = cycle[idx];
-    builder.patrol_head = Some(target);
+    builder.patrol_queue_idx = idx;
+    let raw_target = builder.patrol_queue[idx];
+    let mut target = _expand_outward(raw_target, core, expansion);
+    if !builder.in_bounds(target) {
+        target = raw_target;
+    }
 
     let mut args = Map::new();
     pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+    pyrust::dict::insert!(args, pyrust::to_string!("raw"), auto_wrap_position(raw_target));
+    pyrust::dict::insert!(
+        args,
+        pyrust::to_string!("alert"),
+        Value::Number(pyrust::into!(builder.alert as i64))
+    );
     pyrust::dict::insert!(
         args,
         pyrust::to_string!("idx"),
@@ -137,10 +150,13 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     );
     pyrust::dict::insert!(
         args,
-        pyrust::to_string!("len"),
-        Value::Number(pyrust::into!(cycle_len as i64))
+        pyrust::to_string!("qlen"),
+        Value::Number(pyrust::into!(qlen as i64))
     );
-    log("patrol: cycle target {target} (idx={idx}/{len})", args);
+    log(
+        "patrol: target {target} raw={raw} alert={alert} (idx={idx}/{qlen})",
+        args,
+    );
 
     let Some(anchor) = _walkable_anchor(builder, target) else {
         return false;
