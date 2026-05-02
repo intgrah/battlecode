@@ -603,16 +603,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "beacon_v670"
-version = "0.1.0"
-dependencies = [
- "cambc",
- "pyrust",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

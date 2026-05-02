@@ -24,6 +24,15 @@ use crate::util::posint::idx_of;
 
 const PLAN_BUDGET: i32 = 25;
 
+/// Number of consecutive `step()` calls returning None due to dp_step
+/// being unable to find a next move (not at goal, not unreachable)
+/// before the next replan treats other bots as walls. The bug2 planner
+/// normally ignores bots; if persistent enemy bot blockers cause dp_step
+/// to fail every turn, the cached plan keeps being unactionable. After
+/// threshold consecutive stuck turns, replan with bots overlaid as INF
+/// so bug2 routes around the blockade.
+const STUCK_THRESHOLD: i32 = 3;
+
 /// WS-6: maximum number of cached `(start, target) → path` entries kept
 /// across turns. FIFO-evicted on insert. Sized so memory is bounded across
 /// up to ~50 living units; each entry is at most a few hundred Positions.
@@ -68,6 +77,16 @@ pub struct BugNav {
     /// Cell indices the planner has committed to the path so far,
     /// in the order they were laid down. Reset on replan.
     committed: Vec<i32>,
+    /// Consecutive turns where step() returned None due to inability
+    /// to make progress (not at goal, not unreachable). Reset on
+    /// successful step. When this reaches `STUCK_THRESHOLD`, the next
+    /// replan treats other bots as walls so bug2 routes around the
+    /// blockade rather than the planner ignoring bots and dp failing.
+    stuck_count: i32,
+    /// When true, the next replan should overlay other bots as INF in
+    /// cost_grid for the planner. Set when stuck_count reaches the
+    /// threshold; cleared on successful step.
+    bot_aware_replan: bool,
 }
 
 impl Default for BugNav {
@@ -87,6 +106,8 @@ impl BugNav {
             path_idx_storage: vec![-1; BOUND_RANGE],
             unreachable: false,
             committed: pyrust::vec::new!(),
+            stuck_count: 0,
+            bot_aware_replan: false,
         }
     }
 
@@ -184,16 +205,20 @@ impl BugNav {
                 // hit, populate path_idx + committed directly and skip the
                 // planner. On a miss (or invalid entry), spawn the planner
                 // and let the result be cached on completion.
-                let cached_path: Option<Vec<Position>> =
-                    if let Some(p) = ctx.path_cache.get(&(pos, goal)) {
-                        if path_is_passable(p, ctx.cost_grid, stride as usize, ctx.w, ctx.h) {
-                            Some(pyrust::clone!(p))
-                        } else {
-                            None
-                        }
+                // Bot-aware replan: skip the cache (cached path may route
+                // through other bots) and force a fresh bug2 plan with
+                // bot positions overlaid as INF in cost_grid.
+                let cached_path: Option<Vec<Position>> = if self.bot_aware_replan {
+                    None
+                } else if let Some(p) = ctx.path_cache.get(&(pos, goal)) {
+                    if path_is_passable(p, ctx.cost_grid, stride as usize, ctx.w, ctx.h) {
+                        Some(pyrust::clone!(p))
                     } else {
                         None
-                    };
+                    }
+                } else {
+                    None
+                };
                 if let Some(path) = cached_path {
                     // Replay cached path into path_idx_storage / committed.
                     for (i, p) in pyrust::enumerate!(pyrust::iter!(path)) {
@@ -216,6 +241,22 @@ impl BugNav {
                             ));
                         *ctx.path_cache_order = _filtered;
                     }
+                    // Bot-aware replan: overlay other-bot positions as INF
+                    // before constructing the planner so bug2 routes around
+                    // them. Restored after the planner completes (within
+                    // this turn — bot-aware replans plan to completion
+                    // uncapped, see below).
+                    let mut bot_overlay: Vec<(usize, i32)> = pyrust::vec::new!();
+                    if self.bot_aware_replan {
+                        for fb_pos in ctx.all_bots.keys() {
+                            if *fb_pos == pos {
+                                continue;
+                            }
+                            let fi = idx_of(*fb_pos) as usize;
+                            pyrust::vec::push!(bot_overlay, (fi, ctx.cost_grid[fi]));
+                            ctx.cost_grid[fi] = INF;
+                        }
+                    }
                     let path_idx = pyrust::clone!(self.path_idx_storage);
                     self.path_idx_storage = vec![-1; BOUND_RANGE];
                     self.planner = Some(Bug2Planner::new(
@@ -227,6 +268,48 @@ impl BugNav {
                         path_idx,
                     ));
                     self.gen_done = false;
+                    // Run bot-aware replan to completion uncapped this turn,
+                    // then restore overlay so subsequent dp / suspended
+                    // plans see the real cost_grid. Plain replans suspend
+                    // across turns under the PLAN_BUDGET cap below.
+                    if self.bot_aware_replan {
+                        loop {
+                            let Some(planner) = &mut self.planner else {
+                                break;
+                            };
+                            match planner.step(ctx.cost_grid) {
+                                Some(true) => {
+                                    self.gen_done = true;
+                                    self.path_idx_storage = pyrust::expect!(
+                                        pyrust::opt_take!(self.planner),
+                                        "planner is Some"
+                                    )
+                                    .into_path_idx();
+                                    break;
+                                }
+                                Some(false) => {
+                                    self.gen_done = true;
+                                    self.unreachable = true;
+                                    self.path_idx_storage = pyrust::expect!(
+                                        pyrust::opt_take!(self.planner),
+                                        "planner is Some"
+                                    )
+                                    .into_path_idx();
+                                    break;
+                                }
+                                None => {
+                                    let yielded = planner.last_yielded;
+                                    if yielded != -1 {
+                                        pyrust::vec::push!(self.committed, yielded);
+                                    }
+                                }
+                            }
+                        }
+                        for (fi, prev) in bot_overlay {
+                            ctx.cost_grid[fi] = prev;
+                        }
+                        self.bot_aware_replan = false;
+                    }
                 }
             }
 
@@ -306,12 +389,20 @@ impl BugNav {
                 continue;
             }
 
+            self.stuck_count = 0;
+            self.bot_aware_replan = false;
             return Some(Position {
                 x: nxt % stride,
                 y: nxt / stride,
             });
         }
 
+        if !self.unreachable {
+            self.stuck_count += 1;
+            if self.stuck_count >= STUCK_THRESHOLD {
+                self.bot_aware_replan = true;
+            }
+        }
         None
     }
 

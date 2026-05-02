@@ -203,6 +203,11 @@ pub struct Builder {
     // than hashing a Position in CPython, and lookups don't need to allocate
     // a Position struct for the comparison key.
     pub adjacent_to_unconnected_harvester: HashSet<PosInt>,
+    /// Cardinal-adjacent in-bounds tiles to a friendly foundry that has
+    /// no non-inward output consumer. Mirrors the harvester-unconn shape
+    /// — these tiles enter `dangling_set` so a builder can extend the
+    /// foundry's Rax output side.
+    pub adjacent_to_unconnected_foundry: HashSet<PosInt>,
     pub adjacent_to_harvester: HashSet<PosInt>,
     pub ti_harvester_adjacent: HashSet<PosInt>,
     pub ax_harvester_adjacent: HashSet<PosInt>,
@@ -378,6 +383,7 @@ impl Builder {
             visible_ax_ore: pyrust::vec::new!(),
             visible_harvesters: pyrust::vec::new!(),
             adjacent_to_unconnected_harvester: pyrust::set::new!(),
+            adjacent_to_unconnected_foundry: pyrust::set::new!(),
             adjacent_to_harvester: pyrust::set::new!(),
             ti_harvester_adjacent: pyrust::set::new!(),
             ax_harvester_adjacent: pyrust::set::new!(),
@@ -1090,7 +1096,8 @@ impl Builder {
             return;
         }
 
-        let unconn_adj = pyrust::vec::contains!(self.adjacent_to_unconnected_harvester, &idx_of(t));
+        let unconn_adj = pyrust::vec::contains!(self.adjacent_to_unconnected_harvester, &idx_of(t))
+            || pyrust::vec::contains!(self.adjacent_to_unconnected_foundry, &idx_of(t));
         let mut feeders_unsatisfied = false;
         let in_edges_t: Vec<Position> = pyrust::clone!(self.in_edges[i]);
         for f in &in_edges_t {
