@@ -156,7 +156,6 @@ impl Sentinel {
 }
 
 impl Unit for Sentinel {
-    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }

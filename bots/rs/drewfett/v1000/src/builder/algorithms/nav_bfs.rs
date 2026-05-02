@@ -152,21 +152,18 @@ impl NavBfs {
         }
     }
 
-    #[pyrust::inline]
     /// Convert real `y * w + x` index to padded `pi = (y+1)*pw + (x+1)`.
     #[must_use]
     pub fn real_to_padded(&self, i: i32) -> i32 {
         i + 2 * (i / self.w) + self.pw + 1
     }
 
-    #[pyrust::inline]
     /// Padded index from a `Position`.
     #[must_use]
     pub fn pi_of(&self, pos: Position) -> i32 {
         (pos.y + 1) * self.pw + (pos.x + 1)
     }
 
-    #[pyrust::inline]
     /// True once the initial pnb build has finished.
     #[must_use]
     pub fn ready(&self) -> bool {
