@@ -111,10 +111,6 @@ pub fn update_role(builder: &mut Builder) {
     if pyrust::is_none!(builder.role) {
         builder.role = Some(_pick_initial_role(builder));
     }
-    if builder.role == Some(Role::EconReactive) && builder.state.round > _ECON_REACTIVE_FLIP_ROUND {
-        builder.role = Some(Role::Defense);
-        builder.role_age = 0;
-    }
     if builder.role_age > _REASSIGN_PERIOD && builder.state.round > _REASSIGN_AFTER {
         builder.role_age = 0;
         let row = _transition_for(pyrust::unwrap!(builder.role));
