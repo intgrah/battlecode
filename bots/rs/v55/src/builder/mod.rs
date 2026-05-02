@@ -27,10 +27,10 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::algorithms::econ_astar::AStarSearch;
-use crate::builder::dump::dump;
 use crate::builder::algorithms::econ_astar::EconAstarCtx;
 use crate::builder::algorithms::nav::{BugNav, NavCtx};
 use crate::builder::algorithms::reachability::{find_ro, update_reachability};
+use crate::builder::dump::dump;
 use crate::builder::hooks::heal::end_of_turn_heal;
 use crate::builder::hooks::indicators::indicators;
 use crate::builder::hooks::propagate_symmetry::end_of_turn_propagate_symmetry;
@@ -86,6 +86,13 @@ pub struct Builder {
     pub cost_grid: [i32; MAX_N],
     /// Flat indices currently carrying a threat penalty in `cost_grid`.
     pub _threat_bumped: HashSet<usize>,
+
+    /// `idx_to_pos[i] == Position { x: i % MAX_WIDTH, y: i / MAX_WIDTH }`.
+    /// Built once in `new()` and never mutated. Saves recomputing the
+    /// div/mod and rebuilding a `Position` at every flat-index → tile
+    /// site (the per-turn benefit is real in translated Python, where
+    /// `Position(x=…, y=…)` is two extra opcodes per call).
+    pub idx_to_pos: [Position; MAX_N],
 
     /// True iff a routable building could be placed on this tile.
     pub buildable: [bool; MAX_N],
@@ -246,6 +253,13 @@ impl Builder {
                 }
             }
         }
+        let mut idx_to_pos = [Position { x: 0, y: 0 }; MAX_N];
+        for i in 0..MAX_N {
+            idx_to_pos[i] = Position {
+                x: (i % MAX_WIDTH) as i32,
+                y: (i / MAX_WIDTH) as i32,
+            };
+        }
         Self {
             state: UnitState::new(),
             my_core: Position { x: 0, y: 0 },
@@ -259,6 +273,7 @@ impl Builder {
             max_hp: [0; MAX_N],
             cost_grid: [ROAD_COST; MAX_N],
             _threat_bumped: pyrust::set::new!(),
+            idx_to_pos,
             buildable: [false; MAX_N],
             ti_leakage: [false; MAX_N],
             ax_leakage: [false; MAX_N],
@@ -378,8 +393,9 @@ impl Builder {
     pub fn update_pnb(&mut self, i: usize) {
         let w = self.state.width;
         let h = self.state.height;
-        let cx = (i % MAX_WIDTH) as i32;
-        let cy = (i / MAX_WIDTH) as i32;
+        let p = self.idx_to_pos[i];
+        let cx = p.x;
+        let cy = p.y;
         let passable = self.cost_grid[i] != INF;
         self.pnb[i].clear();
         if passable {
@@ -627,9 +643,12 @@ impl Builder {
         start: Position,
         target: Position,
         resource: ResourceType,
+        ct: &mut Controller<'_>,
     ) -> Option<Vec<Position>> {
         let mut ctx = self.make_econ_ctx();
-        let path = self.conv_search.search(start, target, resource, &mut ctx);
+        let path = self
+            .conv_search
+            .search(start, target, resource, &mut ctx, ct);
         self.absorb_econ_ctx(ctx);
         path
     }
@@ -641,11 +660,12 @@ impl Builder {
         start: Position,
         target: Position,
         resource: ResourceType,
+        ct: &mut Controller<'_>,
     ) -> Option<Vec<Position>> {
         let mut ctx = self.make_econ_ctx();
         let path = self
             .ax_conv_search
-            .search(start, target, resource, &mut ctx);
+            .search(start, target, resource, &mut ctx, ct);
         self.absorb_econ_ctx(ctx);
         path
     }

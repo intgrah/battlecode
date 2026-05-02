@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use cambc::{Position, ResourceType};
+use cambc::{Controller, ControllerApi, Position, ResourceType};
 
 use crate::builder::algorithms::reachability::find as uf_find;
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH};
@@ -16,6 +16,12 @@ const TARGET_DRIFT_SQ: i32 = 25;
 const BUCKET_COUNT: usize = 32;
 #[pyrust::inline]
 const BIDIRECTIONAL: bool = false;
+#[pyrust::inline]
+/// Per-turn CPU budget (µs since `run()` started) for the econ A*
+/// search. When `ct.get_cpu_time_elapsed()` exceeds this we bail out
+/// with `last_fail_reason = "tle"`; `_dist` and `target` are left
+/// intact so the next turn resumes from the partial frontier.
+const CPU_BUDGET_US: u64 = 1729;
 #[pyrust::inline]
 /// Diagonal (r²=2) is never a cardinal conveyor and never a legal bridge
 /// (bridges need r² in [3, 9]), so any diagonal step materialises as a
@@ -179,11 +185,12 @@ impl AStarSearch {
         target: Position,
         resource: ResourceType,
         ctx: &mut EconAstarCtx,
+        ct: &mut Controller<'_>,
     ) -> Option<Vec<Position>> {
         if BIDIRECTIONAL {
-            return self.search_bidirectional(start, target, resource, ctx);
+            return self.search_bidirectional(start, target, resource, ctx, ct);
         }
-        self.search_unidirectional(start, target, resource, ctx)
+        self.search_unidirectional(start, target, resource, ctx, ct)
     }
 
     fn search_bidirectional(
@@ -192,6 +199,7 @@ impl AStarSearch {
         target: Position,
         resource: ResourceType,
         ctx: &mut EconAstarCtx,
+        ct: &mut Controller<'_>,
     ) -> Option<Vec<Position>> {
         let stride = MAX_WIDTH as i32;
         let si = start.y * stride + start.x;
@@ -280,6 +288,10 @@ impl AStarSearch {
         let mut best_meet: i32 = -1;
 
         while emp_fwd < nb_count && emp_bwd < nb_count {
+            if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET_US {
+                self.last_fail_reason = pyrust::to_string!("tle");
+                return None;
+            }
             while emp_fwd < nb_count
                 && pyrust::vec::is_empty!(self.buckets_fwd[(cur_fwd & bucket_mask) as usize])
             {
@@ -497,6 +509,7 @@ impl AStarSearch {
         target: Position,
         resource: ResourceType,
         ctx: &mut EconAstarCtx,
+        ct: &mut Controller<'_>,
     ) -> Option<Vec<Position>> {
         let stride = MAX_WIDTH as i32;
         let si = start.y * stride + start.x;
@@ -561,6 +574,14 @@ impl AStarSearch {
 
         let mut found = false;
         while emp < nb_count {
+            // Per-turn CPU budget. If we bust it, leave `_dist` and
+            // `target` intact and return without setting `finished` so
+            // the next turn resumes from the partial frontier.
+            if pyrust::unwrap!(ct.get_cpu_time_elapsed()) > CPU_BUDGET_US {
+                self.last_nodes_expanded = nodes_expanded;
+                self.last_fail_reason = pyrust::to_string!("tle");
+                return None;
+            }
             if pyrust::vec::is_empty!(self.buckets_fwd[(cur_f & bucket_mask) as usize]) {
                 cur_f += 1;
                 emp += 1;
@@ -754,6 +775,7 @@ impl AStarSearch {
         start: Position,
         goal: Position,
         ctx: &mut EconAstarCtx,
+        ct: &mut Controller<'_>,
     ) -> Option<Vec<Position>> {
         let stride = MAX_WIDTH as i32;
         let mut saved: Vec<(usize, bool, bool)> = pyrust::vec::new!();
@@ -766,7 +788,7 @@ impl AStarSearch {
                 ctx.ax_routable[idx] = false;
             }
         }
-        let result = self.search(start, goal, ResourceType::Titanium, ctx);
+        let result = self.search(start, goal, ResourceType::Titanium, ctx, ct);
         for (idx, ti_val, ax_val) in saved {
             ctx.ti_routable[idx] = ti_val;
             ctx.ax_routable[idx] = ax_val;
