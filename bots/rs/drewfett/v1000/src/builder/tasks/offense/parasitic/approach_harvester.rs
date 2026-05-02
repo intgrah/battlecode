@@ -6,7 +6,7 @@
 //! and walks via the launcher / cached `offense_target` / direct-to-target
 //! cascade.
 
-use cambc::{BuildExtra, Controller, ControllerApi, EntityType, GameConstants};
+use cambc::{BuildExtra, Controller, ControllerApi, EntityType, GameConstants, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::{make_move, try_attack, try_place};
@@ -16,7 +16,7 @@ use crate::builder::tasks::offense::helpers::{
 };
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::DIR4;
-use crate::util::metrics::closest;
+use crate::util::metrics::{claims_by_proximity, closest};
 
 pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let vulnerable = vulnerable_harvesters(self_);
@@ -26,6 +26,27 @@ pub fn approach_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskR
         ));
     }
     let target = pick_harvester_target(self_, &vulnerable);
+
+    // Proximity dedup: only the closest friendly approaches each target.
+    // Multiple bots converging on the same enemy harvester clusters us
+    // as splash bait. Use claims_by_proximity (Chebyshev + smaller-id
+    // tiebreak) — same mechanism as ore claims.
+    let my_id = self_.state.my_id;
+    let friends: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
+        pyrust::iter!(self_.state.all_bots),
+        |(p, id)| {
+            if *id != my_id && pyrust::set::contains!(self_.state.friendly_bots, p) {
+                Some((*p, *id))
+            } else {
+                None
+            }
+        }
+    ));
+    if !claims_by_proximity(self_.my_pos, my_id, target, pyrust::copied!(pyrust::iter!(friends))) {
+        return Some(TaskRejected::new(
+            "a closer friendly is approaching this target",
+        ));
+    }
 
     let on_friendly_conveyor = is_allied_transport(self_, self_.my_pos);
     if self_.my_pos.distance_squared(target) == 1 && !on_friendly_conveyor {

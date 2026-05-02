@@ -457,6 +457,27 @@ pub fn step_off_and_build_harvester(
         return false;
     };
 
+    // If the feed cardinal hosts a friendly Barrier, destroy it (free
+    // for builders) so we can step there next turn. Common when a
+    // newly-claimed ore is adjacent to an existing harvester whose
+    // defensive ring put a barrier on what is now our intended feed.
+    if builder.kind_at(feed) == Some(EntityType::Barrier)
+        && builder.team_at(feed) == Some(builder.state.my_team)
+        && pyrust::unwrap!(ct.can_destroy(feed))
+    {
+        if DEBUG_LOG {
+            let mut args = Map::new();
+            pyrust::dict::insert!(args, pyrust::to_string!("feed"), auto_wrap_position(feed));
+            log(
+                "step_off_and_build_harvester: destroy friendly BARRIER on feed {feed}",
+                args,
+            );
+        }
+        pyrust::unwrap!(ct.destroy(feed));
+        builder.apply_local_destroy(feed);
+        return true;
+    }
+
     if !pyrust::unwrap!(ct.can_move(d))
         && builder.get_cost(feed) > 1
         && can_afford(builder, EntityType::Road)
