@@ -16,16 +16,36 @@ pub fn update_enemy_turrets(builder: &mut Builder) {
         }
     }
 
+    builder.enemy_turrets = pyrust::vec::new!();
     let mut min_dist = INF;
     let nearby = pyrust::clone!(builder.state.nearby_tiles);
     for pos in &nearby {
         let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
-        let is_enemy_turret = matches!(
-            builder.building_kind[i],
+        let kind = builder.building_kind[i];
+        let team = builder.building_team[i];
+        let is_enemy = pyrust::is_some!(team) && team != Some(my_team);
+        if !is_enemy {
+            continue;
+        }
+        // Full enemy-turret list: Gunner, Sentinel, Launcher, Breach.
+        if matches!(
+            kind,
+            Some(
+                EntityType::Gunner
+                    | EntityType::Sentinel
+                    | EntityType::Launcher
+                    | EntityType::Breach
+            )
+        ) {
+            pyrust::vec::push!(builder.enemy_turrets, *pos);
+        }
+        // `nearest_enemy_turret` covers Gunner / Sentinel / Launcher
+        // (post-merge with adgato's widening). Sentinels can shoot
+        // launchers, so launcher counts as a sentinel-fallback target.
+        if matches!(
+            kind,
             Some(EntityType::Gunner | EntityType::Sentinel | EntityType::Launcher)
-        ) && builder.building_team[i] != Some(my_team)
-            && pyrust::is_some!(builder.building_team[i]);
-        if is_enemy_turret {
+        ) {
             let dist = builder.state.my_pos.distance_squared(*pos);
             if dist < min_dist {
                 min_dist = dist;

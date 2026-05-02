@@ -159,6 +159,12 @@ pub struct Builder {
     pub enemy_turret_ray_tiles: HashSet<Position>,
     pub friendly_turret_ray_tiles: HashSet<Position>,
     pub nearest_enemy_turret: Option<Position>,
+    /// Every enemy Gunner / Sentinel / Launcher / Breach currently in
+    /// vision. Refreshed each turn by `update_enemy_turrets`. Input to
+    /// reactive turret-placement and `kill_feeder` tasks. Sister to
+    /// `nearest_enemy_turret` (which is just the closest, and excludes
+    /// Launcher / Breach).
+    pub enemy_turrets: Vec<Position>,
 
     // Role
     pub role: Option<Role>,
@@ -354,6 +360,7 @@ impl Builder {
             enemy_turret_ray_tiles: pyrust::set::new!(),
             friendly_turret_ray_tiles: pyrust::set::new!(),
             nearest_enemy_turret: None,
+            enemy_turrets: pyrust::vec::new!(),
             role: None,
             role_age: 0,
             ore_target: None,

@@ -6,7 +6,8 @@
 //! step-off.
 
 use cambc::{
-    BuildExtra, Controller, ControllerApi, Direction, EntityType, GameConstants, Position, Team,
+    BuildExtra, Controller, ControllerApi, Direction, Environment, EntityType, GameConstants,
+    Position, ResourceType, Team,
 };
 
 use crate::builder::Builder;
@@ -110,11 +111,73 @@ const fn direction_to(src: Position, dst: Position) -> Direction {
     }
 }
 
+const fn _is_cardinal(d: Direction) -> bool {
+    matches!(
+        d,
+        Direction::North | Direction::South | Direction::East | Direction::West
+    )
+}
+
+/// True iff `pos` has Ti flowing in from a non-facing side. Sources:
+/// 1. Friendly Ti harvester cardinal of `pos` (direct ore output).
+/// 2. An `in_edges[pos]` transport carrying Ti — structurally
+///    (`ti_upstream`) OR empirically (`flow_history` contains Ti).
+/// Cardinal-facing turrets reject ammo from the facing cardinal;
+/// diagonal-facing turrets accept from all 4 cardinals (so we don't
+/// exclude any when `facing` is diagonal).
 #[must_use]
-pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
-    if !pyrust::vec::contains!(self_.adjacent_to_harvester, &position) {
-        return None;
+fn _feedable(self_: &Builder, pos: Position, facing: Direction) -> bool {
+    let facing_pos = if _is_cardinal(facing) {
+        Some(pos.add(facing))
+    } else {
+        None
+    };
+    // Source 1: direct Ti harvester output.
+    for d in DIR4 {
+        let c = pos.add(d);
+        if pyrust::is_some_and!(facing_pos, |fp: Position| fp == c) {
+            continue;
+        }
+        if !self_.in_bounds(c) {
+            continue;
+        }
+        if self_.kind_at(c) == Some(EntityType::Harvester)
+            && self_.team_at(c) == Some(self_.my_team)
+            && self_.get_env(c) == Some(Environment::OreTitanium)
+        {
+            return true;
+        }
     }
+    // Source 2: Ti-carrying transport in_edge.
+    let i = self_.idx(pos);
+    let in_edges_clone: Vec<Position> = pyrust::clone!(self_.in_edges[i]);
+    for f in &in_edges_clone {
+        if pyrust::is_some_and!(facing_pos, |fp: Position| fp == *f) {
+            continue;
+        }
+        if pyrust::vec::contains!(self_.ti_upstream, f) {
+            return true;
+        }
+        let fi = self_.idx(*f);
+        for (r, _) in &self_.flow_history[fi] {
+            if *r == Some(ResourceType::Titanium) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Pick a facing direction at `position` that targets an enemy turret
+/// in `enemy_turrets` AND leaves the placement spot feedable. Replaces
+/// the older harvester-adjacency rule: any visible enemy Gunner /
+/// Sentinel / Launcher / Breach is a valid trigger.
+#[must_use]
+pub fn gunner_facing(
+    self_: &Builder,
+    ct: &mut Controller<'_>,
+    position: Position,
+) -> Option<Direction> {
     if !self_.is_buildable(position) {
         return None;
     }
@@ -131,36 +194,25 @@ pub fn gunner_facing(self_: &Builder, position: Position) -> Option<Direction> {
     {
         return None;
     }
-    // For each friendly harvester H cardinally adjacent to `position`,
-    // react iff some OTHER DIR4 cardinal of H holds an enemy
-    // gunner/sentinel. DIR4 (not DIR8) because parasitic chain-stealing
-    // requires cardinal connectivity from the enemy turret to H.
-    for h_dir in DIR4 {
-        let h_pos = position.add(h_dir);
-        if !self_.in_bounds(h_pos) {
+    let r2 = GameConstants::GUNNER_VISION_RADIUS_SQ;
+    let turrets = pyrust::clone!(self_.enemy_turrets);
+    for t in &turrets {
+        if position.distance_squared(*t) > r2 {
             continue;
         }
-        if self_.kind_at(h_pos) != Some(EntityType::Harvester)
-            || self_.team_at(h_pos) != Some(self_.my_team)
-        {
+        let d = direction_to(position, *t);
+        if matches!(d, Direction::Centre) {
             continue;
         }
-        for e_dir in DIR4 {
-            let e_pos = h_pos.add(e_dir);
-            if e_pos == position || !self_.in_bounds(e_pos) {
-                continue;
-            }
-            let nk = self_.kind_at(e_pos);
-            let nt = self_.team_at(e_pos);
-            let is_enemy_gunner_or_sentinel =
-                matches!(nk, Some(EntityType::Gunner | EntityType::Sentinel))
-                    && pyrust::is_some!(nt)
-                    && nt != Some(self_.my_team);
-            if !is_enemy_gunner_or_sentinel {
-                continue;
-            }
-            return Some(direction_to(position, e_pos));
+        let attackable =
+            pyrust::unwrap!(ct.get_attackable_tiles_from(position, d, EntityType::Gunner));
+        if !pyrust::vec::contains!(attackable, t) {
+            continue;
         }
+        if !_feedable(self_, position, d) {
+            continue;
+        }
+        return Some(d);
     }
     None
 }
@@ -262,7 +314,7 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
 pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     let neighbours_8 = pyrust::clone!(self_.neighbours_8);
     for test_position in neighbours_8 {
-        let result = gunner_facing(self_, test_position);
+        let result = gunner_facing(self_, ct, test_position);
         if let Some(d) = result {
             let d = safe_facing(self_, test_position, d);
             if try_place(
@@ -281,7 +333,7 @@ pub fn place_gunner(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult 
         }
     }
     let my_pos = self_.my_pos;
-    let result = gunner_facing(self_, my_pos);
+    let result = gunner_facing(self_, ct, my_pos);
     if let Some(d) = result
         && move_random(self_, ct)
     {
