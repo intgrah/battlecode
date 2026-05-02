@@ -230,8 +230,11 @@ impl Scope {
         if DEBUG_LOG {
             ctx().push_scope(label, false);
         }
+        // `label` is unread externally — always store empty to skip
+        // `pyrust::to_string!(label)` in the translated Python hot path
+        // (Scope::new_timed("…") is invoked dozens of times per turn).
         Self {
-            label: pyrust::to_string!(label),
+            label: pyrust::string::new!(),
         }
     }
 
@@ -243,7 +246,7 @@ impl Scope {
             ctx().push_scope(label, true);
         }
         Self {
-            label: pyrust::to_string!(label),
+            label: pyrust::string::new!(),
         }
     }
 }
