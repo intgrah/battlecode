@@ -376,11 +376,27 @@ impl NavBfs {
     /// or the queue empties or we've expanded one wave past the agent.
     /// Returns true if BFS is complete (or sufficient for current
     /// agent position) for this call.
+    ///
+    /// Destructure-borrow at top: each neighbour list (`pnb_push`,
+    /// `pnb_set`) is iterated *by reference* rather than via
+    /// `pyrust::clone!`, which translates to `list(...)` in Python and
+    /// allocates a fresh list per popped node. On a 50×50 labyrinth this
+    /// was the single largest CPython hotspot (~720μs / call). Identity
+    /// `pyrust::iter!` is a no-op in Python, so the loop iterates the
+    /// existing list directly.
     fn _compute(&mut self, max_pops: i32) -> bool {
         let g = self.gen_val;
         let cur_idx = self.cur_idx;
-        let cd = if cur_idx >= 0 && self.gen_arr[cur_idx as usize] == g {
-            self.dist[cur_idx as usize]
+        let Self {
+            pnb_push,
+            pnb_set,
+            q,
+            dist,
+            gen_arr,
+            ..
+        } = self;
+        let cd = if cur_idx >= 0 && gen_arr[cur_idx as usize] == g {
+            dist[cur_idx as usize]
         } else {
             -1
         };
@@ -389,10 +405,10 @@ impl NavBfs {
         let mut qi = self.qi;
         let mut qlen = self.qlen;
         while qi < qlen {
-            let node = self.q[qi as usize];
+            let node = q[qi as usize];
             qi += 1;
             pops += 1;
-            let d = self.dist[node as usize] + 1;
+            let d = dist[node as usize] + 1;
             if node == cur_idx {
                 stop_at = d;
             }
@@ -402,29 +418,25 @@ impl NavBfs {
                 return true;
             }
             // pnb_push neighbours: enqueue.
-            let push = pyrust::clone!(self.pnb_push[node as usize]);
-            for ni in &push {
-                let ni = *ni;
-                if self.gen_arr[ni as usize] == g {
+            for &ni in pyrust::iter!(pnb_push[node as usize]) {
+                if gen_arr[ni as usize] == g {
                     continue;
                 }
-                self.gen_arr[ni as usize] = g;
-                self.dist[ni as usize] = d;
-                self.q[qlen as usize] = ni;
+                gen_arr[ni as usize] = g;
+                dist[ni as usize] = d;
+                q[qlen as usize] = ni;
                 qlen += 1;
             }
             // pnb_set neighbours: just write dist, no enqueue.
-            let set = pyrust::clone!(self.pnb_set[node as usize]);
-            for ni in &set {
-                let ni = *ni;
-                if self.gen_arr[ni as usize] == g {
+            for &ni in pyrust::iter!(pnb_set[node as usize]) {
+                if gen_arr[ni as usize] == g {
                     continue;
                 }
                 if ni == cur_idx {
                     stop_at = d + 1;
                 }
-                self.gen_arr[ni as usize] = g;
-                self.dist[ni as usize] = d;
+                gen_arr[ni as usize] = g;
+                dist[ni as usize] = d;
             }
             if pops >= max_pops {
                 self.qi = qi;
