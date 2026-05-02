@@ -680,25 +680,6 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
             }
             _ => {}
         }
-        // Escape check for tier 2.
-        let dx = c.x - ore_pos.x;
-        let dy = c.y - ore_pos.y;
-        let Some(d_away) = delta_to_dir(dx, dy) else {
-            continue;
-        };
-        let u_shape = [
-            c.add(d_away),
-            c.add(rotate_left(rotate_left(d_away))),
-            c.add(rotate_right(rotate_right(d_away))),
-            c.add(rotate_left(d_away)),
-            c.add(rotate_right(d_away)),
-        ];
-        let has_escape = pyrust::any!(pyrust::iter!(u_shape), |p| builder.in_bounds(*p)
-            && builder.is_passable(*p));
-        if !has_escape {
-            pyrust::vec::push!(classification, (c, "no_escape"));
-            continue;
-        }
         pyrust::vec::push!(tier2, c);
         pyrust::vec::push!(classification, (c, "tier2"));
     }
@@ -971,7 +952,7 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
 /// harvester_feed_cardinal) are gated by this cap. Bounds the
 /// per-turn cost without starving on "5 random picks all fail" —
 /// every visible ore still gets a fair shot at the cheap filters.
-const _PICK_ORE_DEEP_BUDGET: i32 = 5;
+const _PICK_ORE_DEEP_BUDGET: i32 = 3;
 
 pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
     let _g = Scope::new_timed("pick_ore");
@@ -1235,30 +1216,3 @@ pub fn tile_has_ax_flow(builder: &Builder, pos: Position) -> bool {
     false
 }
 
-const fn rotate_right(d: Direction) -> Direction {
-    match d {
-        Direction::North => Direction::Northeast,
-        Direction::Northeast => Direction::East,
-        Direction::East => Direction::Southeast,
-        Direction::Southeast => Direction::South,
-        Direction::South => Direction::Southwest,
-        Direction::Southwest => Direction::West,
-        Direction::West => Direction::Northwest,
-        Direction::Northwest => Direction::North,
-        Direction::Centre => Direction::Centre,
-    }
-}
-
-const fn rotate_left(d: Direction) -> Direction {
-    match d {
-        Direction::North => Direction::Northwest,
-        Direction::Northeast => Direction::North,
-        Direction::East => Direction::Northeast,
-        Direction::Southeast => Direction::East,
-        Direction::South => Direction::Southeast,
-        Direction::Southwest => Direction::South,
-        Direction::West => Direction::Southwest,
-        Direction::Northwest => Direction::West,
-        Direction::Centre => Direction::Centre,
-    }
-}
