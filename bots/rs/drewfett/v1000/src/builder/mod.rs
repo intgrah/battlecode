@@ -1266,16 +1266,11 @@ impl Unit for Builder {
 
         self.refresh_symmetry_cache();
 
-        // WS-3: classify opening template using the same map features the
-        // Core uses. Deterministic across all friendly bots, no comms needed.
-        let _scope = Scope::new_timed("opening_classify");
-        self.opening = classify_opening(
-            self.state.width,
-            self.state.height,
-            self.my_core,
-            self.en_core_guess,
-            ct,
-        );
+        // First-turn TLE budget: Builder skips opening classification (~50
+        // ct calls). The Core still classifies for spawn-pacing; Builder's
+        // copy only fed `update_role`'s defender_period, where we accept
+        // the DefaultBalanced N=4 (25% defenders) on every map.
+        // self.opening defaults to DefaultBalanced via Default impl.
     }
 
     fn run(&mut self, ct: &mut Controller<'_>) {
