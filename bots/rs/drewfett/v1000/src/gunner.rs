@@ -23,25 +23,30 @@ const fn is_valid_rotation_target(et: EntityType) -> bool {
 
 pub struct Gunner {
     state: UnitState,
-    /// Consecutive turns the gunner has neither fired nor seen an enemy
-    /// in vision. Captures both "no ammo" and "no targets ever" — either
-    /// way the unit slot is wasted. When this exceeds the threshold,
-    /// `try_self_destruct` recycles us so a fresh builder can spawn.
+    /// Consecutive turns the gunner has not fired (rotation alone
+    /// doesn't reset). Combined with `starved_turns`, gates self-destruct.
     idle_turns: i32,
+    /// Consecutive turns the gunner has held zero ammo. A healthy chain
+    /// keeps this near zero; a dead chain lets it accumulate. Required
+    /// to be high alongside `idle_turns` before recycling — prevents
+    /// killing a gunner that's just temporarily out of targets but
+    /// receiving ammo (deterrent value against future enemies).
+    starved_turns: i32,
 }
 
 impl Gunner {
-    /// Recycle once we've been idle (no fire, no enemy visible) for this
-    /// many consecutive turns. Conservative — covers chains that died,
-    /// chains that never connected, and gunners placed in the wrong
-    /// direction with no enemy ever passing through their cone.
-    const SELF_DESTRUCT_THRESHOLD: i32 = 30;
+    /// Recycle thresholds: must be both ammo-starved AND target-idle for
+    /// this long, AND no enemy in vision. Picked higher than v1000's
+    /// initial 30-turn gate so early/mid-game gunners (chain still
+    /// connecting) aren't killed prematurely. ~12 seconds of game time.
+    const SELF_DESTRUCT_THRESHOLD: i32 = 60;
 
     #[must_use]
     pub fn new() -> Self {
         Self {
             state: UnitState::new(),
             idle_turns: 0,
+            starved_turns: 0,
         }
     }
 
@@ -196,6 +201,7 @@ impl Default for Gunner {
 }
 
 impl Unit for Gunner {
+    #[pyrust::inline]
     fn unit_state(&self) -> &UnitState {
         &self.state
     }
@@ -209,6 +215,14 @@ impl Unit for Gunner {
         self.state.cache_per_turn_state(ct);
         self.state.check_symmetry_marker(ct);
 
+        // Update ammo-starvation counter. Healthy chain = ammo > 0 most
+        // turns; dead chain = ammo stays at 0 indefinitely.
+        if pyrust::unwrap!(ct.get_ammo_amount()) > 0 {
+            self.starved_turns = 0;
+        } else {
+            self.starved_turns += 1;
+        }
+
         let facing = pyrust::unwrap!(ct.get_direction(None));
         let fire_target = self.fire_target(ct, facing);
         if let Some(target) = fire_target
@@ -221,12 +235,15 @@ impl Unit for Gunner {
 
         self.try_rotate_to_enemy(ct);
 
-        // Reset only on actual fire; rotating to a target without firing
-        // still increments idle. `try_self_destruct` separately gates on
-        // no-enemy-in-vision, so a gunner that only sees enemies but
-        // can't fire (no ammo) won't actually recycle until they leave.
+        // Reset idle only on actual fire; rotating to a target without
+        // firing still increments. We require BOTH idle and ammo-starved
+        // before recycling — a healthy gunner with no current targets
+        // should keep its slot (deterrent value against future enemies).
+        // `try_self_destruct` further requires no enemy in vision.
         self.idle_turns += 1;
-        if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD {
+        if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD
+            && self.starved_turns > Self::SELF_DESTRUCT_THRESHOLD
+        {
             self.try_self_destruct(ct);
         }
     }
