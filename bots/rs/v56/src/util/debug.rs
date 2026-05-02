@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/util/debug.py`.
-//!
 //! Bot-side debug helpers — structured per-turn JSON tree + cambc indicator
 //! overlays.
 //!
@@ -217,25 +215,26 @@ pub fn set_current_bot(id: i32) {
     ctx().current_bot_id = id;
 }
 
-/// Tree-internal scope guard. Constructed via `Scope::new` (untimed) or
-/// `Scope::new_timed` (records `us` elapsed on drop). The constructor pushes
-/// a `scope` node onto the stack and attaches it to its parent; `Drop` pops
-/// the stack and records elapsed microseconds if timed.
+/// Tree-internal scope guard. The full implementation only exists when
+/// `DEBUG_LOG=1` was set at build time (build.rs emits `--cfg debug_log`).
+/// When the cfg is off, `Scope` is a ZST whose constructors and Drop are
+/// no-ops, so `let _g = Scope::new(...)` compiles to nothing in release.
 ///
-/// pyrust will translate `let _g = Scope::new("foo");` blocks back to Python
-/// `with Scope("foo"):` blocks (RAII guard ↔ context manager).
+/// pyrust always sees the `#[pyrust::context_manager]` annotation on this
+/// struct (it ignores `#[cfg]`), so Python emission still gets `with`-blocks
+/// regardless of the native build's cfg state.
 #[pyrust::context_manager]
+#[cfg(debug_log)]
 pub struct Scope {
     pub label: String,
 }
 
+#[cfg(debug_log)]
 impl Scope {
     /// Push an untimed scope onto the stack. The returned guard pops on drop.
     #[must_use]
     pub fn new(label: &str) -> Self {
-        if DEBUG_LOG {
-            ctx().push_scope(label, false);
-        }
+        ctx().push_scope(label, false);
         Self {
             label: pyrust::to_string!(label),
         }
@@ -245,20 +244,36 @@ impl Scope {
     /// Mirrors Python `Scope(label, time=True)`.
     #[must_use]
     pub fn new_timed(label: &str) -> Self {
-        if DEBUG_LOG {
-            ctx().push_scope(label, true);
-        }
+        ctx().push_scope(label, true);
         Self {
             label: pyrust::to_string!(label),
         }
     }
 }
 
+#[cfg(debug_log)]
 impl Drop for Scope {
     fn drop(&mut self) {
-        if DEBUG_LOG {
-            ctx().pop_scope();
-        }
+        ctx().pop_scope();
+    }
+}
+
+#[pyrust::context_manager]
+#[cfg(not(debug_log))]
+pub struct Scope;
+
+#[cfg(not(debug_log))]
+impl Scope {
+    #[inline(always)]
+    #[must_use]
+    pub const fn new(_label: &str) -> Self {
+        Self
+    }
+
+    #[inline(always)]
+    #[must_use]
+    pub const fn new_timed(_label: &str) -> Self {
+        Self
     }
 }
 

@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/marker/__init__.py`.
-//!
 //! Python defines an `ABC` `Marker` with auto-registered subclasses (one tag
 //! per class, assigned at class-definition time). Since the only concrete
 //! variant in v54.7.9 is `MarkerSymmetry`, the Rust translation is a single

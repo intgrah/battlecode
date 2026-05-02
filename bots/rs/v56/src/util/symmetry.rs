@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/util/symmetry.py`.
-
 use cambc::Position;
 
 /// All maps exhibit one of these symmetries.

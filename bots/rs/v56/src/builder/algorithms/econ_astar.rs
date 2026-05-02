@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/algorithms/econ_astar.py`.
-//!
 //! A*-on-Dial conveyor router. The `AStarSearch` instance keeps long-lived
 //! buckets / bookkeeping so a paused search can resume next turn.
 

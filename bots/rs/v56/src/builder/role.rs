@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/role.py`.
-
 use core::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

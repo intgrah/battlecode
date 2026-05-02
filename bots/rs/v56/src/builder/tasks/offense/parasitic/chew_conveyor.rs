@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/parasitic/chew_conveyor.py`.
-//!
 //! Fallback offense: with no vulnerable harvester and no cached target,
 //! pick an enemy conveyor/splitter/bridge tile (via `pick_conveyor_target` —
 //! prefers near-enemy-core, then visible-flow tiles, with spacing from our

@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/place_offensive_sentinel.py`.
-//!
 //! Drop a sentinel on a dangling end whose attack ray reaches a valuable
 //! enemy structure. Candidates come from `dangling_set` (chain tips, never
 //! existing conveyors).

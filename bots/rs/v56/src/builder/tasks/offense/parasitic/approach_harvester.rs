@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/parasitic/approach_harvester.py`.
-//!
 //! Walk toward a vulnerable enemy harvester so a follow-up turn can fire
 //! on it. Picks a cardinal-of-target destination via `pick_attack_destination`
 //! (prefers no-healer, low-HP, close), optionally stages a launcher en route,

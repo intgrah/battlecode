@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/`.
-//!
 //! ECON role policy tree.
 
 pub mod chains;

@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/`.
-//!
 //! Offense role policy trees.
 
 pub mod fire_on_enemy_tile;

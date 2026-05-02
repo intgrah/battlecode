@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/_policy.py`.
-//!
 //! Tree-structured policy primitives.
 //!
 //! A `Policy` is either a `TaskGroup` (an internal node with named children

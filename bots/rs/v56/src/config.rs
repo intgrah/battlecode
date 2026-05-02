@@ -1,18 +1,18 @@
-//! Translation of `bots/intgrah/v54.7.9/config.py`.
-//!
-//! Debug flags. Python reads these from environment variables; Rust reads them
-//! once via `option_env!` at compile time so they're zero-overhead in release
-//! builds. Set `DEBUG_DUMP=1`, `DEBUG_LOG=1`, etc. as build-time env vars.
+//! Debug flags. Set as build-time env vars (`DEBUG_LOG=1 cargo build`, etc.).
+//! `build.rs` translates the env vars into `--cfg debug_log` / `--cfg debug_dump`
+//! / etc. so call sites can use `#[cfg(...)]` for AST-level elimination, and
+//! the const bools below mirror those for value-level `if` gates.
 
 /// Resign upon error.
-pub const DEBUG_RESIGN: bool = pyrust::is_some!(option_env!("DEBUG_RESIGN"));
+pub const DEBUG_RESIGN: bool = cfg!(debug_resign);
 
 /// Dump using rich debugging. This slows down the bot a lot.
-pub const DEBUG_DUMP: bool = pyrust::is_some!(option_env!("DEBUG_DUMP"));
+pub const DEBUG_DUMP: bool = cfg!(debug_dump);
 
 /// `DEBUG_DUMP` implies `DEBUG_LOG`: the dump pipeline rides the per-turn
-/// tree machinery, so dumping with logging off would emit nothing.
-pub const DEBUG_LOG: bool = pyrust::is_some!(option_env!("DEBUG_LOG")) || DEBUG_DUMP;
+/// tree machinery, so dumping with logging off would emit nothing. (build.rs
+/// already enforces this implication when emitting `--cfg debug_log`.)
+pub const DEBUG_LOG: bool = cfg!(debug_log);
 
 #[pyrust::inline]
 /// Use hardcoding.

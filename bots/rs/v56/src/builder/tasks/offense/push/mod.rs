@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/`.
-//!
 //! Forward-push subtree: drop sentinels on dangling ends, fork the
 //! chain behind them with splitters, plant offensive harvesters on
 //! enemy-side ore, extend chains toward the enemy core. The structural

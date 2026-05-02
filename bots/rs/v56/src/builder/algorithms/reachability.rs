@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/algorithms/reachability.py`.
-//!
 //! Incremental reachability via union-find.
 //!
 //! `parent[i] == -1`  : tile i has not been admitted (no evidence it is

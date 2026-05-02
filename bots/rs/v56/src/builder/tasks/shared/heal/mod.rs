@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/heal/`.
-//!
 //! Heal tasks. Three flat leaves under one group:
 //!   `heal_buildings`        — pick a damaged friendly building (deconflicted),
 //!                           walk to it, heal in-range tiles before/after

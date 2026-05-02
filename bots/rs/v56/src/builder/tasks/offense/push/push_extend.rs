@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/push_extend.py`.
-//!
 //! Extend `dangling_output` toward the enemy core (instead of `ti_sink`
 //! or `my_core`). Used after a forward harvester is planted, growing the
 //! offensive chain toward enemy lines. Requires symmetry to be resolved so

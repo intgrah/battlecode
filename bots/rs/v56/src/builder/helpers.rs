@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/helpers.py`.
-
 use std::collections::HashSet;
 
 use cambc::{

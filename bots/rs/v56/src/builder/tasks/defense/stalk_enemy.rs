@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/defense/stalk_enemy.py`.
-//!
 //! Stalk a visible enemy builder when this bot is the closest friendly
 //! to it. Pure follow — no firing. Cheap structural pressure: an enemy bot
 //! shadowed by ours can't safely commit to a build action without taking

@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/`.
-//!
 //! Infrastructure subtree: foundry / turret placement, repair-style
 //! fixes, congestion relief, dead-bridge teardown, harvester-neighbour
 //! paving. High-priority structural maintenance work for ECON / DEFENSE.

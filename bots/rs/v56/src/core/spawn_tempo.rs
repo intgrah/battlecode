@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/core/spawn_tempo.py`.
-//!
 //! Spawn tempo: a per-game scalar derived from map features visible to the
 //! Core at `post_init` time. Higher tempo -> spawn more aggressively; lower
 //! tempo -> spawn slower (denser walls, eccentric core, etc.).

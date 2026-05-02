@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/push/build_offensive_harvester.py`.
-//!
 //! Step off the claimed offensive ore and place a Ti harvester. Mirrors
 //! `build_harvester` (and shares its anchor-when-waiting semantics).
 

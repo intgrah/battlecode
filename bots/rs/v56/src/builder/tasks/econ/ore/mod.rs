@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/ore/`.
-//!
 //! Ore-claim tasks: claim → pave inward ring (in INFRASTRUCTURE) →
 //! build harvester. Three fine-grained phases instead of one monolithic
 //! `build_at_ore`. The pave step lives in INFRASTRUCTURE because it's

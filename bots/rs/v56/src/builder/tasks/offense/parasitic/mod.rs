@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/parasitic/`.
-//!
 //! Parasitic-attack subtree: walk toward an enemy harvester / cached
 //! target / enemy conveyor and fire from adjacent tiles. Last-resort
 //! offense once the cheap fire / turret / push branches have all rejected.

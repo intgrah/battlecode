@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/wander.py`.
-//!
 //! Walk-away-from-core fallback for ECON / DEFENSE roles. Tries each
 //! of the 8 directions in order of decreasing Chebyshev distance from
 //! our core, walking only on pre-existing walkable tiles — no road

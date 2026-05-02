@@ -24,6 +24,8 @@ use crate::builder::helpers::make_move;
 use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
+use crate::util::metrics::chebyshev;
+use crate::util::symmetry::ALL as SYM_ALL;
 use crate::util::visualiser::auto_wrap_position;
 
 #[pyrust::inline]
@@ -31,20 +33,34 @@ const _ALERT_BOOST_TO: i32 = 30;
 #[pyrust::inline]
 const _ALERT_MAX: i32 = 30;
 #[pyrust::inline]
+/// Turns before earliest possible enemy arrival at our core to one-shot
+/// max-alert all builders. `min_chebyshev_to_mirrored_core - this`.
+const _PRE_EMPTIVE_BUFFER: i32 = 8;
+#[pyrust::inline]
 const _EXPANSION_LOW: f64 = 8.0;
+#[pyrust::inline]
+/// Cluster size at which the size-cap on expansion starts dropping.
+/// Below this, the size-cap is _EXPANSION_LOW (8). Above, it falls
+/// linearly toward 0.
+const _SIZE_CAP_KNEE: f64 = 4.0;
+#[pyrust::inline]
+/// Cluster size at which the size-cap reaches the half-cap target (4).
+/// Used to set the linear slope past the knee; cap continues falling
+/// past this point at the same rate.
+const _SIZE_CAP_HALF: f64 = 10.0;
 #[pyrust::inline]
 const _CLUSTER_THRESHOLD: i32 = 100;
 #[pyrust::inline]
 const _REROLL_INTERVAL: i32 = 50;
 
 #[pyrust::inline]
-const _ECON_RADIUS_FLOOR: i32 = 64;
+const _ECON_RADIUS_FLOOR: i32 = 256;
 #[pyrust::inline]
-const _ECON_RADIUS_CAP: i32 = 400;
+const _ECON_RADIUS_CAP: i32 = 1600;
 #[pyrust::inline]
-const _ECON_RADIUS_PICK_SHRINK: i32 = 16;
+const _ECON_RADIUS_PICK_SHRINK: i32 = 8;
 #[pyrust::inline]
-const _ECON_RADIUS_DRY_GROW: i32 = 1;
+const _ECON_RADIUS_DRY_GROW: i32 = 4;
 
 /// Ratchet the ECON exploration locus radius. Shrinks on a recent
 /// harvester observation (just-picked = good, pull bot back toward
@@ -85,8 +101,29 @@ pub fn in_any_cluster_locus(builder: &Builder, p: Position) -> bool {
     false
 }
 
+/// Earliest possible enemy arrival turn at our core: the chebyshev
+/// distance from `my_core` to its mirror under any candidate symmetry.
+/// Pessimistic — all three symmetries are considered regardless of
+/// what the bot has already ruled out, so the trigger fires on the
+/// most defensive estimate.
+fn _min_enemy_arrival(builder: &Builder) -> i32 {
+    let w = builder.state.width;
+    let h = builder.state.height;
+    let my_core = builder.my_core;
+    let mut min_d = i32::MAX;
+    for sym in SYM_ALL {
+        let en = sym.action(my_core, w, h);
+        let d = chebyshev(my_core, en);
+        if d < min_d {
+            min_d = d;
+        }
+    }
+    min_d
+}
+
 /// Bump alert if any enemy bot OR turret is in vision; else decay by
-/// 1 (floored at 0). Capped at `_ALERT_MAX`.
+/// 1 every other turn (floored at 0). One-shot pre-emptive max-alert
+/// at `min_enemy_arrival - _PRE_EMPTIVE_BUFFER`. Capped at `_ALERT_MAX`.
 pub fn update_alert(builder: &mut Builder) {
     let has_enemy = !pyrust::vec::is_empty!(builder.state.enemy_bots)
         || pyrust::is_some!(builder.nearest_enemy_turret);
@@ -94,28 +131,46 @@ pub fn update_alert(builder: &mut Builder) {
         if builder.alert < _ALERT_BOOST_TO {
             builder.alert = _ALERT_BOOST_TO;
         }
-    } else if builder.alert > 0 {
+    } else if builder.alert > 0 && builder.state.round % 2 == 0 {
         builder.alert -= 1;
+    }
+    let trigger = _min_enemy_arrival(builder) - _PRE_EMPTIVE_BUFFER;
+    if builder.state.round == trigger {
+        builder.alert = _ALERT_MAX;
     }
     if builder.alert > _ALERT_MAX {
         builder.alert = _ALERT_MAX;
     }
 }
 
-/// Per-builder expansion cap, scaled down as game scale grows.
-/// Quadratic taper: stays near `_EXPANSION_LOW` (8) through the rapid
+/// Scale-driven cap: stays near `_EXPANSION_LOW` (8) through the rapid
 /// early-game scale ramp, accelerates downward later, hits 0 at
 /// scale=12 (1200%).
-fn _expansion_cap(scale: f64) -> f64 {
+fn _scale_cap(scale: f64) -> f64 {
     let t: f64 = (scale - 1.0) / 11.0;
     let factor: f64 = 1.0 - t * t;
     let f = pyrust::max!(0.0_f64, factor);
     _EXPANSION_LOW * f
 }
 
-pub fn alert_expansion(alert: i32, scale: f64) -> f64 {
+/// Cluster-size-driven cap: a 10-tile cluster is a long perimeter to
+/// circumnavigate, and overshooting it 8 tiles outward stretches the
+/// patrol path past anything navigable. Linear: 8 below the knee,
+/// drops to 4 by the half-knee, continues at the same slope past.
+fn _size_cap(cluster_len: usize) -> f64 {
+    let n = pyrust::float!(cluster_len);
+    let over = pyrust::max!(0.0_f64, n - _SIZE_CAP_KNEE);
+    let slope = (_EXPANSION_LOW - _EXPANSION_LOW / 2.0) / (_SIZE_CAP_HALF - _SIZE_CAP_KNEE);
+    pyrust::max!(0.0_f64, _EXPANSION_LOW - over * slope)
+}
+
+fn _expansion_cap(scale: f64, cluster_len: usize) -> f64 {
+    pyrust::min!(_scale_cap(scale), _size_cap(cluster_len))
+}
+
+pub fn alert_expansion(alert: i32, scale: f64, cluster_len: usize) -> f64 {
     let t = pyrust::float!(alert) / pyrust::float!(_ALERT_MAX);
-    _expansion_cap(scale) * (1.0 - t)
+    _expansion_cap(scale, cluster_len) * (1.0 - t)
 }
 
 /// Push `t` outward from `centroid` by `expansion` tiles along the
@@ -365,7 +420,7 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     }
     let raw_target = builder.patrol_clusters[ci][idx];
     let centroid = builder.patrol_cluster_centroids[ci];
-    let expansion = alert_expansion(builder.alert, builder.state.scale);
+    let expansion = alert_expansion(builder.alert, builder.state.scale, qlen);
     let expanded_target = expand_outward(
         raw_target,
         centroid,

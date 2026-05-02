@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/algorithms/nav.py`.
-//!
 //! Movement navigation: bug2-bounded planner + `dp_step` path-follower.
 //!
 //! Replaces A*/BFS for movement. Plan-incrementally-walk reactive style:

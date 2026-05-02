@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/offense/helpers.py`.
-//!
 //! Shared helpers for the offense task family. Hosts target-selection
 //! predicates (`vulnerable_harvesters`, `pick_harvester_target`,
 //! `pick_attack_destination`, `pick_conveyor_target`), gating predicates

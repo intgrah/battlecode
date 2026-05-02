@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/hooks/propagate_symmetry.py`.
-
 use cambc::{Controller, ControllerApi, Environment};
 
 use crate::builder::Builder;

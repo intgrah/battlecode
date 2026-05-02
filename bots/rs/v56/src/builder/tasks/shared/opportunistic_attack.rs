@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/opportunistic_attack.py`.
-//!
 //! Cheap, low-priority opportunistic fire used by ECON / DEFENSE roles.
 //! A small fraction of builders (`self.opportunistic` set at init) randomly
 //! fire (p=0.2) on the enemy building under their feet, but only after round

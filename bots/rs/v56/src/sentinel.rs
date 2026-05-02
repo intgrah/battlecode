@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/sentinel/__init__.py`.
-
 use cambc::{Controller, ControllerApi, Direction, EntityType, GameConstants, Position, Team};
 
 use crate::unit::{Unit, UnitState};

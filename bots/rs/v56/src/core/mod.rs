@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/core/__init__.py`.
-
 pub mod spawn_tempo;
 
 use std::collections::VecDeque;

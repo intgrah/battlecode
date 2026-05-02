@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/breach/__init__.py`.
-
 use cambc::Controller;
 
 use crate::unit::{Unit, UnitState};

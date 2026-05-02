@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/shared/heal/heal_self.py`.
-//!
 //! Heal own tile. If standing on an enemy building, step off first
 //! (otherwise the heal is wasted on the enemy structure too) — but only
 //! when there's an unwounded escape direction. Bails out under the

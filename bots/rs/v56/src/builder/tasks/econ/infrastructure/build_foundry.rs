@@ -1,5 +1,3 @@
-//! Translation of `bots/intgrah/v54.7.9/builder/tasks/econ/infrastructure/build_foundry.py`.
-//!
 //! Replace a designated Ti conveyor (`foundry_target`) with a foundry
 //! once its Ax feed is established. Gated on round >= `FOUNDRY_ROUND_GATE`.
 //! Checks the target is still a friendly pure conveyor, that an Ax cardinal
