@@ -91,32 +91,19 @@ fn _transport_outputs(
     bid: i32,
     pos: Position,
     etype: EntityType,
-    w: i32,
-    h: i32,
 ) -> Vec<Position> {
-    let in_bounds = |p: Position| p.x >= 0 && p.x < w && p.y >= 0 && p.y < h;
     if etype == EntityType::Bridge {
         return vec![pyrust::unwrap!(ct.get_bridge_target(bid))];
     }
     let d = pyrust::unwrap!(ct.get_direction(Some(bid)));
-    let mut out: Vec<Position> = pyrust::vec::new!();
     if etype == EntityType::Splitter {
-        for q in [
+        return vec![
             pos.add(d),
             pos.add(rotate_right(rotate_right(d))),
             pos.add(rotate_left(rotate_left(d))),
-        ] {
-            if in_bounds(q) {
-                pyrust::vec::push!(out, q);
-            }
-        }
-        return out;
+        ];
     }
-    let q = pos.add(d);
-    if in_bounds(q) {
-        pyrust::vec::push!(out, q);
-    }
-    out
+    vec![pos.add(d)]
 }
 
 fn _feeds_enemy_combat(ct: &mut Controller<'_>, my_team: Team, outputs: &[Position]) -> bool {
@@ -219,7 +206,7 @@ impl Unit for Sentinel {
             }
             let mut score = priority(etype);
             if is_transport(etype) {
-                let outputs = _transport_outputs(ct, bid, tile, etype, self.state.width, self.state.height);
+                let outputs = _transport_outputs(ct, bid, tile, etype);
                 if _feeds_enemy_combat(ct, my_team, &outputs) {
                     score = 12;
                 }
