@@ -633,14 +633,12 @@ pub fn check_invariants(builder: &Builder) {
     let in_edges = &builder.in_edges;
 
     // --- A: harvester-adjacent set vs counter ---
+    let idx_to_pos = &builder.idx_to_pos;
     let expected_ti_adj: HashSet<Position> = pyrust::collect!(pyrust::filter_map!(
         pyrust::enumerate!(pyrust::iter!(builder._ti_harv_at)),
         |t| {
             if *t.1 > 0 {
-                Some(Position {
-                    x: (t.0 % MAX_WIDTH) as i32,
-                    y: (t.0 / MAX_WIDTH) as i32,
-                })
+                Some(idx_to_pos[t.0])
             } else {
                 None
             }
@@ -650,10 +648,7 @@ pub fn check_invariants(builder: &Builder) {
         pyrust::enumerate!(pyrust::iter!(builder._ax_harv_at)),
         |t| {
             if *t.1 > 0 {
-                Some(Position {
-                    x: (t.0 % MAX_WIDTH) as i32,
-                    y: (t.0 / MAX_WIDTH) as i32,
-                })
+                Some(idx_to_pos[t.0])
             } else {
                 None
             }
@@ -837,10 +832,7 @@ pub fn check_invariants(builder: &Builder) {
     for i in 0..pyrust::len!(in_edges) {
         if pyrust::vec::is_empty!(in_edges[i]) {
             if builder._ti_in_count[i] != 0 || builder._ax_in_count[i] != 0 {
-                let t = Position {
-                    x: (i % MAX_WIDTH) as i32,
-                    y: (i / MAX_WIDTH) as i32,
-                };
+                let t = builder.idx_to_pos[i];
                 let mut args = Map::new();
                 pyrust::dict::insert!(
                     args,
@@ -873,10 +865,7 @@ pub fn check_invariants(builder: &Builder) {
             |f| pyrust::vec::contains!(builder.ax_upstream, f)
         )) as i32;
         if ti_expected != builder._ti_in_count[i] {
-            let t = Position {
-                x: (i % MAX_WIDTH) as i32,
-                y: (i / MAX_WIDTH) as i32,
-            };
+            let t = builder.idx_to_pos[i];
             let mut args = Map::new();
             pyrust::dict::insert!(
                 args,
@@ -904,10 +893,7 @@ pub fn check_invariants(builder: &Builder) {
             );
         }
         if ax_expected != builder._ax_in_count[i] {
-            let t = Position {
-                x: (i % MAX_WIDTH) as i32,
-                y: (i / MAX_WIDTH) as i32,
-            };
+            let t = builder.idx_to_pos[i];
             let mut args = Map::new();
             pyrust::dict::insert!(
                 args,

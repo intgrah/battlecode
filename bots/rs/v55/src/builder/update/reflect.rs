@@ -1,4 +1,4 @@
-use cambc::{Environment, Position};
+use cambc::Environment;
 
 use crate::builder::Builder;
 use crate::util::constants::{INF, MAX_WIDTH, ROAD_COST};
@@ -22,10 +22,7 @@ pub fn update_reflect(builder: &mut Builder) {
     let n = pyrust::min!(pyrust::len!(builder.reflect_queue), _REFLECT_BUDGET);
     for _ in 0..n {
         let i = pyrust::unwrap!(pyrust::vec::pop_front!(builder.reflect_queue));
-        let t = Position {
-            x: (i % MAX_WIDTH) as i32,
-            y: (i / MAX_WIDTH) as i32,
-        };
+        let t = builder.idx_to_pos[i as usize];
         let m = sym.action(t, w, h);
         let mi = (m.y as usize) * MAX_WIDTH + (m.x as usize);
         if pyrust::is_some!(builder.env[mi]) {
