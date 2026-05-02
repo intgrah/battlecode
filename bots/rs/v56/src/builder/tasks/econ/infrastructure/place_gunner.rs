@@ -6,7 +6,7 @@
 //! step-off.
 
 use cambc::{
-    BuildExtra, Controller, ControllerApi, Direction, Environment, EntityType, GameConstants,
+    BuildExtra, Controller, ControllerApi, Direction, EntityType, Environment, GameConstants,
     Position, ResourceType, Team,
 };
 

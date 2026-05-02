@@ -304,8 +304,7 @@ fn _should_use_barrier(builder: &Builder, guard_pos: Position, target: Position)
     let passable = |p: Position| builder.in_bounds(p) && builder.is_passable(p);
     let top_passable = passable(guard_pos.add(d));
     let left_passable = passable(guard_pos.add(left_perp)) || passable(guard_pos.add(left_diag));
-    let right_passable =
-        passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
+    let right_passable = passable(guard_pos.add(right_perp)) || passable(guard_pos.add(right_diag));
     top_passable && left_passable && right_passable
 }
 

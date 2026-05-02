@@ -46,8 +46,15 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
         && b.1 != self_.my_team
     {
         let mut args = Map::new();
-        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
-        log("build_harvester: firing on enemy building at {target}", args);
+        pyrust::dict::insert!(
+            args,
+            pyrust::to_string!("target"),
+            auto_wrap_position(target)
+        );
+        log(
+            "build_harvester: firing on enemy building at {target}",
+            args,
+        );
         try_attack(ct, target);
         return None;
     }

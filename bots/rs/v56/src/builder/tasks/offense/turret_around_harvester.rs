@@ -5,11 +5,13 @@ use cambc::{BuildExtra, Controller, ControllerApi, Direction, EntityType, Enviro
 
 use crate::builder::Builder;
 use crate::builder::helpers::{can_afford, move_random, try_place};
+use crate::builder::tasks::econ::infrastructure::place_gunner::{
+    is_resource_building, safe_facing,
+};
 use crate::builder::tasks::offense::helpers::{
     gunner_chain_facing, is_allied_transport, pick_harvester_target, scout_toward_enemy,
     vulnerable_harvesters,
 };
-use crate::builder::tasks::econ::infrastructure::place_gunner::{is_resource_building, safe_facing};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::directions::{DIR4, is_cardinal};
 
