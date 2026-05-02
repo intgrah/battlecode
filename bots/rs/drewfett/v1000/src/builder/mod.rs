@@ -769,6 +769,12 @@ impl Builder {
         if !self.in_bounds(output_location) {
             return false;
         }
+        // Ignore enemy markers — 1HP placeholders, not real infrastructure.
+        // Our stack destroys the marker on arrival and the tile clears.
+        let oi = self.idx(output_location);
+        if self.building_kind[oi] == Some(EntityType::Marker) {
+            return false;
+        }
         self.is_enemy_building(output_location)
     }
 
