@@ -210,6 +210,11 @@ pub struct Builder {
     pub ax_harvester_adjacent: HashSet<PosInt>,
     pub reaches_core: HashSet<PosInt>,
     pub reaches_foundry: HashSet<PosInt>,
+    /// Tiles structurally downstream of a friendly foundry's output —
+    /// computed by forward-flooding `out_edges` from `my_foundries`. A Ti
+    /// conveyor here would receive refined Ax from the foundry and clog,
+    /// so it must not become a new `foundry_target`.
+    pub downstream_of_foundry: HashSet<PosInt>,
     pub ti_upstream: HashSet<PosInt>,
     pub ax_upstream: HashSet<PosInt>,
     pub upstream_of_dangling: HashSet<PosInt>,
@@ -372,6 +377,7 @@ impl Builder {
             ax_harvester_adjacent: pyrust::set::new!(),
             reaches_core: pyrust::set::new!(),
             reaches_foundry: pyrust::set::new!(),
+            downstream_of_foundry: pyrust::set::new!(),
             ti_upstream: pyrust::set::new!(),
             ax_upstream: pyrust::set::new!(),
             upstream_of_dangling: pyrust::set::new!(),
