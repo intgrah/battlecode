@@ -600,6 +600,28 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
             "rounds_since_harvester_add",
             i64::from(builder.state.round - builder.last_harvester_add_round),
         );
+        // Locus of the bot's chosen cluster: union of discs of radius
+        // sqrt(econ_explore_radius_sq) around each cluster member,
+        // clamped to map bounds. ECON/PermEcon explore is restricted to
+        // these tiles.
+        if n_clusters > 0 {
+            let ci = pyrust::min!(builder.patrol_cluster_idx, n_clusters - 1);
+            let cluster = &builder.patrol_clusters[ci];
+            let r2 = builder.econ_explore_radius_sq;
+            let mut locus: HashSet<Position> = pyrust::set::new!();
+            for m in cluster {
+                for y in 0..h {
+                    for x in 0..w {
+                        let p = Position { x, y };
+                        if p.distance_squared(*m) <= r2 {
+                            pyrust::set::add!(locus, p);
+                        }
+                    }
+                }
+            }
+            vis_tiles("econ_explore_locus", pyrust::copied!(pyrust::iter!(locus)));
+            vis_scalar_int("econ_explore_cluster_idx", ci as i64);
+        }
         // for y in 0..h {
         //     let base = (y as usize) * MAX_WIDTH;
         //     let row_base = (y * w) as usize;
