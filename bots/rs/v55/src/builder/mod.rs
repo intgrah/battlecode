@@ -592,31 +592,58 @@ impl Builder {
         }
     }
 
+    /// Stricter sibling of `is_enemy_building`: also rejects "stupid"
+    /// enemy tiles (markers, roads, barriers) that don't accept or
+    /// route resources, so feeding them isn't actually a leak.
+    #[must_use]
+    pub fn is_enemy_consumer(&self, pos: Position) -> bool {
+        let i = self.idx(pos);
+        let Some(team) = self.building_team[i] else {
+            return false;
+        };
+        if team == self.state.my_team {
+            return false;
+        }
+        !matches!(
+            self.building_kind[i],
+            Some(EntityType::Marker | EntityType::Road | EntityType::Barrier)
+        )
+    }
+
     #[must_use]
     pub fn leads_to_enemy_building(&self, pos: Position) -> bool {
         let i = self.idx(pos);
         if self.building_team[i] != Some(self.state.my_team) {
             return false;
         }
-        // Routing buildings (Conveyor / ArmouredConveyor / Bridge) have a
-        // single output edge; non-routing kinds have empty `out_edges`.
-        // Splitters have 3 outputs and are deliberately excluded — only
-        // single-target routers count as "leading to" downstream.
         let kind = self.building_kind[i];
-        if !matches!(
-            kind,
-            Some(EntityType::Conveyor | EntityType::ArmouredConveyor | EntityType::Bridge)
-        ) {
-            return false;
+        // Routers (Conveyor / ArmouredConveyor / Bridge / Splitter) have
+        // their forward output(s) populated in `out_edges`. Splitter has 3
+        // entries — iterating covers all of them.
+        // Harvesters output ore to all four cardinals (LRU rotation each
+        // round); foundries output refined-ax via whichever side has
+        // capacity. For both we conservatively scan the 4 cardinals.
+        let outputs: Vec<Position> = match kind {
+            Some(
+                EntityType::Conveyor
+                | EntityType::ArmouredConveyor
+                | EntityType::Bridge
+                | EntityType::Splitter,
+            ) => pyrust::clone!(self.out_edges[i]),
+            Some(EntityType::Harvester | EntityType::Foundry) => {
+                pyrust::collect!(pyrust::map!(pyrust::iter!(DIR4), |&d| pos.add(d)))
+            }
+            _ => return false,
+        };
+        for out in &outputs {
+            if !self.in_bounds(*out) {
+                continue;
+            }
+            if self.is_enemy_consumer(*out) {
+                return true;
+            }
         }
-        if pyrust::vec::is_empty!(self.out_edges[i]) {
-            return false;
-        }
-        let output_location = self.out_edges[i][0];
-        if !self.in_bounds(output_location) {
-            return false;
-        }
-        self.is_enemy_building(output_location)
+        false
     }
 
     /// Drain the reachability frontier, expanding admitted tiles into their
