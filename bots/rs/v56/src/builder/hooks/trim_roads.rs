@@ -19,7 +19,10 @@ pub fn end_of_turn_trim_roads(builder: &mut Builder, ct: &mut Controller<'_>) {
         return;
     }
     for (cdx, cdy) in [(0i32, -1i32), (1, 0), (0, 1), (-1, 0)] {
-        let np = Position { x: pos.x + cdx, y: pos.y + cdy };
+        let np = Position {
+            x: pos.x + cdx,
+            y: pos.y + cdy,
+        };
         if !builder.in_bounds(np) {
             continue;
         }
@@ -44,7 +47,10 @@ pub fn end_of_turn_trim_roads(builder: &mut Builder, ct: &mut Controller<'_>) {
         let mut adj_non_road = false;
         let mut adj_ore = false;
         for (dx, dy) in [(0i32, -1i32), (-1, 0), (1, 0), (0, 1)] {
-            let neighbor = Position { x: np.x + dx, y: np.y + dy };
+            let neighbor = Position {
+                x: np.x + dx,
+                y: np.y + dy,
+            };
             if !builder.in_bounds(neighbor) {
                 continue;
             }
@@ -66,11 +72,16 @@ pub fn end_of_turn_trim_roads(builder: &mut Builder, ct: &mut Controller<'_>) {
         // (cdy.abs(), cdx.abs()).
         let perp_x = cdy.abs();
         let perp_y = cdx.abs();
-        let d0 = Position { x: pos.x + cdx + perp_x, y: pos.y + cdy + perp_y };
-        let d1 = Position { x: pos.x + cdx - perp_x, y: pos.y + cdy - perp_y };
-        let passable = |p: Position| {
-            builder.in_bounds(p) && builder.cost_grid[builder.idx(p)] < ROAD_COST
+        let d0 = Position {
+            x: pos.x + cdx + perp_x,
+            y: pos.y + cdy + perp_y,
         };
+        let d1 = Position {
+            x: pos.x + cdx - perp_x,
+            y: pos.y + cdy - perp_y,
+        };
+        let passable =
+            |p: Position| builder.in_bounds(p) && builder.cost_grid[builder.idx(p)] < ROAD_COST;
         if passable(d0) && passable(d1) {
             if pyrust::unwrap!(ct.can_destroy(np)) {
                 pyrust::unwrap!(ct.destroy(np));

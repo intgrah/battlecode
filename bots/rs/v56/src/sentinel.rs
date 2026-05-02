@@ -158,7 +158,12 @@ impl Sentinel {
             let pos = pyrust::unwrap!(ct.get_position(None));
             let w = self.state.width;
             let h = self.state.height;
-            for d in [Direction::North, Direction::South, Direction::East, Direction::West] {
+            for d in [
+                Direction::North,
+                Direction::South,
+                Direction::East,
+                Direction::West,
+            ] {
                 let p = pos.add(d);
                 if p.x < 0 || p.x >= w || p.y < 0 || p.y >= h {
                     continue;

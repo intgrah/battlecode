@@ -317,6 +317,33 @@ fn _flow_is_pure_ax(builder: &Builder, pos: Position) -> bool {
     saw_ax
 }
 
+/// True iff `pos` has BOTH Ti and Ax (raw/refined) in its flow_history,
+/// AND every in_edge feeder is pure single-resource (pure Ti or pure
+/// Ax). This is the empirical signature of a foundry merge tile —
+/// builders other than the original connector use this to identify
+/// the same spot without needing the connector's `ax_upstream` state.
+fn _flow_is_mixed_with_pure_sources(builder: &Builder, pos: Position) -> bool {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    let mut has_ti = false;
+    let mut has_ax = false;
+    for (r, _) in &builder.flow_history[i] {
+        match r {
+            Some(ResourceType::Titanium) => has_ti = true,
+            Some(ResourceType::RawAxionite | ResourceType::RefinedAxionite) => has_ax = true,
+            _ => {}
+        }
+    }
+    if !(has_ti && has_ax) {
+        return false;
+    }
+    for f in &builder.in_edges[i] {
+        if !(_flow_is_pure_ti(builder, *f) || _flow_is_pure_ax(builder, *f)) {
+            return false;
+        }
+    }
+    true
+}
+
 /// True iff `pos`'s flow_history contains any Ax (raw or refined).
 fn _flow_has_ax(builder: &Builder, pos: Position) -> bool {
     let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
@@ -332,26 +359,16 @@ fn _flow_has_ax(builder: &Builder, pos: Position) -> bool {
 }
 
 /// True iff `pos` is a friendly Conveyor/ArmouredConveyor cardinally
-/// adjacent to a friendly Ti harvester, carrying pure Ti, not an inward
-/// guard, reachable. The future foundry spot before any Ax arrives.
+/// adjacent to a friendly Ti harvester, not an inward guard, reachable,
+/// AND its flow signature matches one of:
+///   - **Pure Ti** (bootstrap): the future foundry spot before any Ax
+///     has been routed in. Used by the connector to pick the merge tile.
+///   - **Mixed Ti+Ax with pure single-resource in_edges** (empirical):
+///     the post-connection signature. Lets builders other than the
+///     original connector identify the same spot without needing the
+///     connector's `ax_upstream` structural state.
 /// Existing built foundries are handled separately in
 /// `update_foundry_target` and don't need this rule.
-/// True iff every in-edge of `pos` has pure-Ti flow history. Used when
-/// `pos` itself has mixed flow (a transient Ax packet), but all its
-/// sources are Ti-only, so the foundry candidate is still valid.
-fn _flow_is_mixed_with_pure_sources(builder: &Builder, pos: Position) -> bool {
-    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
-    if pyrust::vec::is_empty!(builder.in_edges[i]) {
-        return false;
-    }
-    for src in &builder.in_edges[i] {
-        if !_flow_is_pure_ti(builder, *src) {
-            return false;
-        }
-    }
-    true
-}
-
 fn _foundry_candidate_ok(builder: &Builder, pos: Position) -> bool {
     if !builder.is_reachable(pos) {
         return false;
@@ -695,9 +712,11 @@ pub fn check_invariants(builder: &Builder) {
 }
 
 /// Pick `ax_sink` and `foundry_target` per the simplified rules:
-///   1. nearest in-vision foundry candidate (friendly conveyor adj-Ti-harvester
-///      with pure-Ax feeder, not inward-guard) — also sets `foundry_target`.
-///   2. else nearest pure-Ax merge conveyor — `foundry_target` cleared.
+///   1. nearest existing friendly foundry — `ax_sink` only (already
+///      built; no `foundry_target` to plant).
+///   2. else nearest in-vision foundry candidate (friendly conveyor
+///      adj-Ti-harvester carrying pure Ti) — `ax_sink` and
+///      `foundry_target` both set to it.
 pub fn update_foundry_target(builder: &mut Builder) {
     if pyrust::is_none!(builder.ax_ore_target)
         && pyrust::vec::is_empty!(builder.ax_harvester_adjacent)
@@ -708,6 +727,23 @@ pub fn update_foundry_target(builder: &mut Builder) {
     }
     let origin = pyrust::unwrap_or!(builder.dangling_output, builder.state.my_pos);
 
+    // Prefer an existing foundry — no need to build a new one.
+    let mut foundry_best: Option<Position> = None;
+    let mut foundry_key: (i32, i32, i32) = (i32::MAX, 0, 0);
+    for f in &builder.my_foundries {
+        let key = (_manhattan(origin, *f), f.y, f.x);
+        if key < foundry_key {
+            foundry_key = key;
+            foundry_best = Some(*f);
+        }
+    }
+    if let Some(p) = foundry_best {
+        builder.ax_sink = Some(p);
+        builder.foundry_target = None;
+        return;
+    }
+
+    // Otherwise, scan for a foundry candidate to plant a new one.
     let mut found_best: Option<Position> = None;
     let mut found_key: (i32, i32, i32) = (i32::MAX, 0, 0);
     let nearby = pyrust::clone!(builder.nearby_buildings);
