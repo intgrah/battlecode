@@ -599,6 +599,7 @@ pub fn harvester_feed_cardinal(builder: &Builder, ore_pos: Position) -> Option<P
         let team = builder.building_team[ci];
         let feedable = match kind {
             None => true,
+            Some(EntityType::Road | EntityType::Marker) => true,
             Some(
                 EntityType::Conveyor
                 | EntityType::ArmouredConveyor
