@@ -201,13 +201,23 @@ impl BugNav {
                 }
                 let lx = lookahead % stride;
                 let ly = lookahead / stride;
-                let cheby_to_lookahead = (pos.x - lx).abs().max((pos.y - ly).abs());
+                let cheby_to_lookahead =
+                    pyrust::max!(pyrust::abs!((pos.x - lx)), pyrust::abs!((pos.y - ly)));
                 if cheby_to_lookahead == 1 && ctx.cost_grid[lookahead as usize] != INF {
                     nxt = lookahead;
                 } else {
                     let mut best_cheby = i32::MAX;
                     let mut best_cost = i32::MAX;
-                    for (dx, dy) in [(-1i32, -1i32), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)] {
+                    for (dx, dy) in [
+                        (-1i32, -1i32),
+                        (0, -1),
+                        (1, -1),
+                        (-1, 0),
+                        (1, 0),
+                        (-1, 1),
+                        (0, 1),
+                        (1, 1),
+                    ] {
                         let nx = pos.x + dx;
                         let ny = pos.y + dy;
                         if nx < 0 || nx >= ctx.w || ny < 0 || ny >= ctx.h {
@@ -217,7 +227,7 @@ impl BugNav {
                         if ctx.cost_grid[ni] == INF {
                             continue;
                         }
-                        let cheby = (nx - lx).abs().max((ny - ly).abs());
+                        let cheby = pyrust::max!(pyrust::abs!((nx - lx)), pyrust::abs!((ny - ly)));
                         let c = ctx.cost_grid[ni];
                         if cheby < best_cheby || (cheby == best_cheby && c < best_cost) {
                             best_cheby = cheby;

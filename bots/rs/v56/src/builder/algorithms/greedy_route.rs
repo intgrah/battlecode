@@ -11,7 +11,26 @@
 use cambc::{Position, ResourceType};
 
 use crate::builder::Builder;
+use crate::builder::algorithms::reachability::find_ro;
 use crate::builder::helpers::is_inward_guard;
+use crate::util::constants::MAX_WIDTH;
+
+/// True iff `pos`'s UF root equals the bot's UF root. Bot's tile is
+/// always admitted (`reach_parent[my_i] != -1`); a `-1` at `pos`
+/// means the tile is unreachable from anyone and must NEVER be used
+/// in routing.
+fn _same_uf_root(builder: &Builder, pos: Position) -> bool {
+    let i = (pos.y as usize) * MAX_WIDTH + (pos.x as usize);
+    if builder.reach_parent[i] == -1 {
+        return false;
+    }
+    let my_pos = builder.state.my_pos;
+    let my_i = (my_pos.y as usize) * MAX_WIDTH + (my_pos.x as usize);
+    if builder.reach_parent[my_i] == -1 {
+        return false;
+    }
+    find_ro(&builder.reach_parent, i as i32) == find_ro(&builder.reach_parent, my_i as i32)
+}
 
 /// Try Bresenham-ish first, then the two L-shapes in randomly-chosen
 /// order. Returns the first that reaches `target`. None if all three
@@ -43,6 +62,13 @@ pub fn greedy_route(
 #[must_use]
 fn _routable(builder: &Builder, pos: Position, resource: ResourceType) -> bool {
     if !builder.in_bounds(pos) {
+        return false;
+    }
+    // UF gate: never route through a tile whose component is unknown
+    // (`reach_parent == -1`) or differs from ours. Even buildable
+    // tiles fail this if they sit behind a wall we haven't proven
+    // around — laying conveyor there would orphan the chain.
+    if !_same_uf_root(builder, pos) {
         return false;
     }
     let i = builder.idx(pos);

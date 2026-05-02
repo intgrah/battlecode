@@ -625,7 +625,11 @@ pub fn update_economy_reachability(builder: &mut Builder) {
         // foundries, which never qualify as Ti-conveyor candidates anyway.
         let roots2: Vec<PosInt> =
             pyrust::collect!(pyrust::copied!(pyrust::iter!(builder.my_foundries)));
-        flood_back(&builder.out_edges, &roots2, &mut builder.downstream_of_foundry);
+        flood_back(
+            &builder.out_edges,
+            &roots2,
+            &mut builder.downstream_of_foundry,
+        );
     }
 
     let dangling_roots: Vec<PosInt> = pyrust::collect!(pyrust::filter!(

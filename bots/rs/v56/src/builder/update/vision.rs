@@ -4,7 +4,8 @@ use cambc::{Controller, ControllerApi, EntityType, Environment, GameConstants, P
 
 use crate::builder::Builder;
 use crate::builder::patrol::{
-    insert_into_clusters, insert_into_existing_cluster, remove_from_clusters,
+    CONVEYOR_WEIGHT, HARVESTER_WEIGHT, insert_into_clusters, insert_into_existing_cluster,
+    remove_from_clusters,
 };
 use crate::building::{edge_targets, make_building};
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, ROAD_COST};
@@ -39,7 +40,9 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
         remove_from_clusters(
             &mut builder.patrol_clusters,
             &mut builder.patrol_cluster_centroids,
+            &mut builder.patrol_cluster_weights,
             pos,
+            CONVEYOR_WEIGHT,
         );
     }
     match old_kind {
@@ -53,7 +56,9 @@ pub fn _remove_topology(builder: &mut Builder, pos: Position, i: usize) {
                 remove_from_clusters(
                     &mut builder.patrol_clusters,
                     &mut builder.patrol_cluster_centroids,
+                    &mut builder.patrol_cluster_weights,
                     pos,
+                    HARVESTER_WEIGHT,
                 );
             }
             let env = builder.env[i];
@@ -112,7 +117,9 @@ pub fn _add_topology(
                 insert_into_existing_cluster(
                     &mut builder.patrol_clusters,
                     &mut builder.patrol_cluster_centroids,
+                    &mut builder.patrol_cluster_weights,
                     pos,
+                    CONVEYOR_WEIGHT,
                 );
             }
             return;
@@ -130,7 +137,9 @@ pub fn _add_topology(
                 insert_into_clusters(
                     &mut builder.patrol_clusters,
                     &mut builder.patrol_cluster_centroids,
+                    &mut builder.patrol_cluster_weights,
                     pos,
+                    HARVESTER_WEIGHT,
                 );
             }
             let idx = builder.idx(pos);

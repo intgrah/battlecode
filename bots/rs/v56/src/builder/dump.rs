@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use cambc::{Controller, Position};
 
 use crate::builder::Builder;
+use crate::builder::algorithms::reachability::find_ro;
 use crate::builder::patrol::{alert_expansion, expand_outward};
 use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::{Scope, vis};
@@ -177,7 +178,13 @@ fn _reach_roots(builder: &Builder, w: i32, h: i32) -> Vec<i16> {
     for y in 0..h {
         let base = (y as usize) * MAX_WIDTH;
         for x in 0..w {
-            pyrust::vec::push!(out, parent[base + (x as usize)] as i16);
+            let i = base + (x as usize);
+            let root: i16 = if parent[i] == -1 {
+                -1
+            } else {
+                find_ro(parent, i as i32) as i16
+            };
+            pyrust::vec::push!(out, root);
         }
     }
     out
@@ -404,13 +411,13 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
         //     );
         // }
         pyrust::with!(Scope::new("distances"), {
-            // vis(
-            //     "reach_root",
-            //     &Dump::I16Grid {
-            //         data: _reach_roots(builder, w, h),
-            //         palette: _reach_palette(builder, w, h),
-            //     },
-            // );
+            vis(
+                "reach_root",
+                &Dump::I16Grid {
+                    data: _reach_roots(builder, w, h),
+                    palette: _reach_palette(builder, w, h),
+                },
+            );
             // vis(
             //     "ti_conv_dist",
             //     &Dump::I16Grid {

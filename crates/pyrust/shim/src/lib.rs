@@ -24,6 +24,7 @@ pub use crate::dsl::__pyrust_now_ns;
 pub use crate::__pyrust_abs as abs;
 pub use crate::__pyrust_all as all;
 pub use crate::__pyrust_any as any;
+pub use crate::__pyrust_atan2 as atan2;
 pub use crate::__pyrust_as_mut as as_mut;
 pub use crate::__pyrust_as_ref as as_ref;
 pub use crate::__pyrust_cast_float as float;

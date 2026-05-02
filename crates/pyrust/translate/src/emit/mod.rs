@@ -192,7 +192,7 @@ fn required_imports(file: &syn::File, cfg: &CfgEnv) -> Result<Vec<String>, Strin
     // those method names appears anywhere in the file.
     if file_uses_method_name(
         &enabled_items,
-        &["floor", "ceil", "sqrt", "log", "log2", "log10", "exp"],
+        &["floor", "ceil", "sqrt", "log", "log2", "log10", "exp", "atan2"],
     ) {
         out.push("import math".to_owned());
     }
