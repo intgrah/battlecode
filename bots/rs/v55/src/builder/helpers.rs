@@ -800,18 +800,6 @@ pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool
     barriers >= 3
 }
 
-#[pyrust::inline]
-#[must_use]
-pub fn pick_ore_target(builder: &mut Builder) -> Option<Position> {
-    _pick_ore(builder, Environment::OreTitanium)
-}
-
-#[pyrust::inline]
-#[must_use]
-pub fn pick_ax_ore_target(builder: &mut Builder) -> Option<Position> {
-    _pick_ore(builder, Environment::OreAxionite)
-}
-
 /// Pick a Ti ore tile outside our econ disc for an offensive harvester.
 #[must_use]
 pub fn pick_offensive_ti_ore_target(builder: &mut Builder) -> Option<Position> {
@@ -985,7 +973,7 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
 /// every visible ore still gets a fair shot at the cheap filters.
 const _PICK_ORE_DEEP_BUDGET: i32 = 5;
 
-fn _pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
+pub fn pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
     // Materialise + sort to drop the immutable borrow on visible_*_ores
     // before we take a mutable borrow on the rng. `sorted!` gives a
     // deterministic baseline order; the rng-driven shuffle then mirrors

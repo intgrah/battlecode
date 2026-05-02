@@ -15,8 +15,8 @@ use crate::util::debug::debug as log;
 use serde_json::Map;
 
 #[pyrust::inline]
-/// First foundry >= turn 500.
-const FOUNDRY_ROUND_GATE: i32 = 500;
+/// First foundry >= turn 100.
+const FOUNDRY_ROUND_GATE: i32 = 100;
 
 pub fn build_foundry(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResult {
     if self_.round < FOUNDRY_ROUND_GATE {

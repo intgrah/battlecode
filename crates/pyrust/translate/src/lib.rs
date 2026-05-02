@@ -487,6 +487,17 @@ fn translate_source(source: &str, path: &Path, cfg: &CfgEnv) -> Result<String, S
 
 /// Walk the workspace and collect every `#[pyrust::inline]`-annotated
 /// function or `&self` method whose body is a single expression.
+/// Span-free string signature of a `syn::Expr`. Used as the equality
+/// key for cross-file inline-body divergence detection — two methods
+/// with identical syntactic bodies in different files produce the
+/// same signature even though their `Span`s differ.
+fn expr_signature(e: &syn::Expr) -> String {
+    use quote::ToTokens;
+    let mut ts = proc_macro2::TokenStream::new();
+    e.to_tokens(&mut ts);
+    ts.to_string()
+}
+
 /// Same conflict policy as `scan_inline_consts`: a name with two
 /// different bodies (or different param lists) across files is
 /// dropped from the map.
@@ -539,7 +550,7 @@ fn scan_inline_fns(src: &Path) -> std::collections::HashMap<String, crate::cfg::
         let Some(bodies) = all_bodies.get(name) else {
             return true;
         };
-        let inline_sig = format!("{:?}", def.body);
+        let inline_sig = expr_signature(&def.body);
         // Safe to keep iff every workspace impl/fn with this name has
         // the same body as the inline def. (A 1-element set containing
         // the inline body itself is the common case.)
@@ -561,9 +572,15 @@ fn collect_all_method_bodies(
         if block.stmts.len() == 1
             && let syn::Stmt::Expr(e, None) = &block.stmts[0]
         {
-            return format!("{e:?}");
+            return expr_signature(e);
         }
-        format!("{:?}", block.stmts)
+        // Multi-statement blocks: token-stream them all, span-free.
+        use quote::ToTokens;
+        let mut ts = proc_macro2::TokenStream::new();
+        for stmt in &block.stmts {
+            stmt.to_tokens(&mut ts);
+        }
+        ts.to_string()
     }
     for item in &file.items {
         match item {
@@ -603,12 +620,13 @@ fn collect_inline_fns(
     conflicts: &mut std::collections::HashSet<String>,
 ) {
     fn body_signature(body: &syn::Expr) -> String {
-        // Conflict detection across files: just stringify via Debug.
-        // Token-equality would be tighter but requires `quote::ToTokens`,
-        // which isn't in this crate's deps. Debug captures structural
-        // equality including spans, which is fine — same source text
-        // round-trips to the same Debug output deterministically.
-        format!("{body:?}")
+        // Conflict detection across files: stringify via the
+        // `quote::ToTokens` token stream, which is span-free.
+        // `format!("{body:?}")` would include `Span`s — different
+        // source-file positions for the same syntactic body produce
+        // different Debug output, falsely flagging two identical
+        // method bodies in different files as divergent.
+        expr_signature(body)
     }
 
     fn extract_single_expr(b: &syn::Block) -> Option<&syn::Expr> {

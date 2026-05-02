@@ -7,7 +7,7 @@ use crate::builder::Builder;
 use crate::builder::algorithms::reachability::find;
 use crate::builder::helpers::{
     ax_feeds_target, can_afford_ore_claim, harvester_would_contaminate, is_inward_guard,
-    ore_available, pick_ax_ore_target, pick_offensive_ti_ore_target, pick_ore_target,
+    ore_available, pick_offensive_ti_ore_target, pick_ore,
 };
 use crate::util::constants::{FLOW_HISTORY_LEN, INF, MAX_WIDTH, base_cost};
 use crate::util::debug::Scope;
@@ -320,7 +320,7 @@ pub fn pick_dangling_output(builder: &Builder, ct: Option<&Controller<'_>>) -> O
 }
 
 pub fn update_ti_ore_target(builder: &mut Builder) {
-    let mut candidate_ore = pick_ore_target(builder);
+    let mut candidate_ore = pick_ore(builder, Environment::OreTitanium);
     let needs_pick = pyrust::is_none!(builder.ore_target)
         || pyrust::is_some_and!(builder.ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ore_target, |t| !builder.is_reachable(t))
@@ -1286,7 +1286,7 @@ pub fn update_ax_ore_target(builder: &mut Builder) {
         builder.ax_ore_target = None;
         return;
     }
-    let mut candidate = pick_ax_ore_target(builder);
+    let mut candidate = pick_ore(builder, Environment::OreAxionite);
     let needs_pick = pyrust::is_none!(builder.ax_ore_target)
         || pyrust::is_some_and!(builder.ax_ore_target, |t| !ore_available(builder, t))
         || pyrust::is_some_and!(builder.ax_ore_target, |t| !builder.is_reachable(t))
