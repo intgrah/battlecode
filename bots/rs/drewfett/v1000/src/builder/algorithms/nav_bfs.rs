@@ -56,7 +56,12 @@ pub struct NavBfs {
     /// Padded indices of current goals (typically 1).
     pub goals: Vec<i32>,
     pub dirty: bool,
-    pub dist: Vec<i32>,
+    /// BFS distance field. Values fit in u8 (max ≈ map perimeter, ≪ 255).
+    /// Backed by a Python `bytearray` post-translation so inner-loop
+    /// reads/writes hit C-level byte slots instead of allocating
+    /// `PyLong`s per assignment. Sentinel "not reached" is checked via
+    /// `gen_arr[i] == gen_val`, not via a magic value in `dist`.
+    pub dist: Vec<u8>,
     /// Generation byte; eq to `gen_val` ⇔ dist is fresh this BFS run.
     pub gen_arr: Vec<u8>,
     pub gen_val: u8,
@@ -66,7 +71,9 @@ pub struct NavBfs {
     pub qlen: i32,
     /// True iff a partial BFS is parked mid-run.
     pub resumable: bool,
-    pub cur_dist: i32,
+    /// Last-computed distance from agent to goal. `0xFF` is the
+    /// "not reached / unreachable" sentinel (matches `dist`'s u8 type).
+    pub cur_dist: u8,
     pub cur_idx: i32,
 
     pub running_target: Option<Position>,
@@ -87,16 +94,13 @@ impl NavBfs {
         let n_us = n as usize;
 
         // Border = 0, interior = 1 (default-walkable until observed).
-        let mut passable: Vec<u8> = vec![1u8; n_us];
-        // Top + bottom border rows.
-        for x in 0..pw {
-            passable[x as usize] = 0;
-            passable[((h + 1) * pw + x) as usize] = 0;
-        }
-        // Left + right border columns.
+        // Init zeros via bytearray for Python-side speed, then write 1s
+        // into the interior. Border stays 0.
+        let mut passable: Vec<u8> = pyrust::bytearray::new!(n_us);
         for ry in 1..=h {
-            passable[(ry * pw) as usize] = 0;
-            passable[(ry * pw + pw - 1) as usize] = 0;
+            for rx in 1..=w {
+                passable[(ry * pw + rx) as usize] = 1;
+            }
         }
 
         let mut pnb_push: Vec<Vec<i32>> = pyrust::vec::new!();
@@ -124,7 +128,7 @@ impl NavBfs {
             rn,
             n,
             passable,
-            is_road: vec![0u8; n_us],
+            is_road: pyrust::bytearray::new!(n_us),
             pnb_push,
             pnb_set,
             pnb_dirty: pyrust::set::new!(),
@@ -132,14 +136,14 @@ impl NavBfs {
             offsets,
             goals: pyrust::vec::new!(),
             dirty: true,
-            dist: vec![0i32; n_us],
-            gen_arr: vec![0u8; n_us],
+            dist: pyrust::bytearray::new!(n_us),
+            gen_arr: pyrust::bytearray::new!(n_us),
             gen_val: 1,
             q: vec![0i32; n_us],
             qi: 0,
             qlen: 0,
             resumable: false,
-            cur_dist: -1,
+            cur_dist: 0xFF,
             cur_idx: -1,
             running_target: None,
             prev_target: None,
@@ -395,12 +399,19 @@ impl NavBfs {
             gen_arr,
             ..
         } = self;
-        let cd = if cur_idx >= 0 && gen_arr[cur_idx as usize] == g {
+        // u8 throughout: dist is u8, sentinel is 0xFF. We rely on real
+        // BFS distances staying well below 255 (bounded by reachable
+        // map diameter, max ~200 on the largest 50×50 map). Plain `+ 1`
+        // translates to vanilla Python `+ 1` (no method-call overhead).
+        // If a future map ever pushed the diameter past 254 a tile would
+        // be incorrectly tagged as "unreached" — accept that limitation
+        // for the speed.
+        let cd: u8 = if cur_idx >= 0 && gen_arr[cur_idx as usize] == g {
             dist[cur_idx as usize]
         } else {
-            -1
+            0xFF
         };
-        let mut stop_at = if cd != -1 { cd + 1 } else { _BFS_INF };
+        let mut stop_at: u8 = if cd != 0xFF { cd + 1 } else { 0xFF };
         let mut pops: i32 = 0;
         let mut qi = self.qi;
         let mut qlen = self.qlen;
@@ -408,7 +419,7 @@ impl NavBfs {
             let node = q[qi as usize];
             qi += 1;
             pops += 1;
-            let d = dist[node as usize] + 1;
+            let d: u8 = dist[node as usize] + 1;
             if node == cur_idx {
                 stop_at = d;
             }
@@ -466,7 +477,8 @@ impl NavBfs {
             (0, 1),
             (-1, 0),
         ];
-        let mut best_d: i32 = _BFS_INF;
+        // dist is u8 with 0xFF = unreached sentinel; mirror that here.
+        let mut best_d: u8 = 0xFF;
         let mut best_dx: i32 = 0;
         let mut best_dy: i32 = 0;
         let mut best_road: bool = false;
@@ -496,7 +508,7 @@ impl NavBfs {
                 best_road = is_road;
             }
         }
-        if best_d >= _BFS_INF {
+        if best_d == 0xFF {
             return None;
         }
         Some(Position {
@@ -550,11 +562,11 @@ impl NavBfs {
         self.cur_dist = if self.gen_arr[self.cur_idx as usize] == g {
             self.dist[self.cur_idx as usize]
         } else {
-            -1
+            0xFF
         };
         self.running_target = Some(target);
         self.prev_target = Some(target);
-        if self.cur_dist < 0 {
+        if self.cur_dist == 0xFF {
             self.no_path = true;
             self.prev_no_path = true;
             return None;
