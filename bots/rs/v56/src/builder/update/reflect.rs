@@ -41,6 +41,5 @@ pub fn update_reflect(builder: &mut Builder) {
             builder.ti_routable[mi] = buildable && !builder.ti_leakage[mi];
             builder.ax_routable[mi] = buildable && !builder.ax_leakage[mi];
         }
-        builder.update_pnb(mi);
     }
 }

@@ -884,24 +884,11 @@ impl Builder {
         }
     }
 
-    /// One step toward `target`. Tries BFS first (gradient descent on
-    /// the dist field), falls back to bug2 if BFS hasn't reached the
-    /// agent's tile yet (initial turns) or returns no-path.
+    /// One step toward `target` via bug2 + dp_step. BFS pre-pass disabled
+    /// (was costing ~30% of bot time / 1070ms per builder over 1600 turns;
+    /// gameplay quality on labyrinth was modest, but TLE on the actual
+    /// server made it net-negative). v56 plays on the ladder bug2-only.
     pub fn bugnav_step(&mut self, target: Position) -> Option<Position> {
-        // BFS attempt — uses up to ~256 queue pops per call. Reaches
-        // the agent in ≤1 call for typical map sizes once goal is set.
-        let bfs_step = self.nav_bfs.search(self.state.my_pos, target, 1024);
-        if let Some(path) = bfs_step
-            && pyrust::len!(path) >= 2
-        {
-            // BFS suggested a step. Trust it unless the chosen tile is
-            // a friendly bot (BFS doesn't know about transient bot
-            // positions); in that case fall through to bug2.
-            let next = path[1];
-            if !pyrust::dict::contains!(self.state.all_bots, &next) {
-                return Some(next);
-            }
-        }
         let Self {
             bugnav,
             cost_grid,
@@ -1234,17 +1221,11 @@ impl Unit for Builder {
         let s = pyrust::float!(pyrust::max!(self.state.width, self.state.height));
         self.econ_radius_sq = pyrust::round!(((0.7 * s) * (0.7 * s))) as i32;
 
-        // Re-create NavBfs with actual map dimensions, then fully build
-        // its pnb tables in one shot (max ~2500 real tiles → ~10k ops,
-        // fast). No chunked init; we'd rather pay the post_init cost than
-        // run partial BFS on the first few turns.
-        self.nav_bfs = NavBfs::new(
-            self.state.width,
-            self.state.height,
-        );
-        while !self.nav_bfs.ready() {
-            self.nav_bfs.init_pnb_chunk(10000);
-        }
+        // BFS pre-pass disabled in bugnav_step — skip the expensive
+        // pnb-table init that fed it. On a 50×50 map this was ~22k inner-
+        // loop ops in Python on round 1, contributing to the first-turn
+        // TLE that killed builders before they could update_ore_target.
+        // The NavBfs field still exists (cheap 1×1 stub) for API compat.
 
         // Mark off-map cells as INF, and the "hole" stride slots
         // (x ∈ [MAX_WIDTH, STRIDE)) stay INF forever — they're never valid

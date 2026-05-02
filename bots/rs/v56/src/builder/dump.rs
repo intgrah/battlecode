@@ -533,7 +533,6 @@ pub fn dump(builder: &mut Builder, _ct: &mut Controller<'_>) {
                 Some((x, y)) => vis_scalar_str("explore_heading", &format!("({x},{y})")),
                 None => vis_scalar_null("explore_heading"),
             }
-            vis_scalar_bool("opportunistic", builder.opportunistic);
             let n_clusters = pyrust::len!(builder.patrol_clusters);
             if n_clusters == 0 {
                 vis_tile("patrol_target", None);

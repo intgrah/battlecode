@@ -1,7 +1,7 @@
 use cambc::{Controller, ControllerApi};
 
 use crate::builder::Builder;
-use crate::util::posint::pos_of;
+use crate::util::posint::{idx_of, pos_of};
 
 pub fn prune_stale(builder: &mut Builder, ct: &mut Controller<'_>) {
     builder.nearby_buildings = pyrust::vec::new!();
@@ -12,7 +12,7 @@ pub fn prune_stale(builder: &mut Builder, ct: &mut Controller<'_>) {
     let mask = pyrust::clone!(builder.vision_mask);
     builder.healable_buildings = pyrust::collect!(pyrust::filter!(
         pyrust::copied!(pyrust::iter!(builder.healable_buildings)),
-        |p| mask[crate::util::posint::idx_of(*p) as usize] == 0
+        |p| mask[idx_of(*p) as usize] == 0
     ));
     let prev_launcher = pyrust::set::clone!(builder.adjacent_to_enemy_launcher);
     pyrust::set::clear!(builder.adjacent_to_enemy_launcher);
