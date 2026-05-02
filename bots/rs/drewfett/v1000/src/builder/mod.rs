@@ -884,24 +884,11 @@ impl Builder {
         }
     }
 
-    /// One step toward `target`. Tries BFS first (gradient descent on
-    /// the dist field), falls back to bug2 if BFS hasn't reached the
-    /// agent's tile yet (initial turns) or returns no-path.
+    /// One step toward `target` via bug2 + dp_step. BFS pre-pass disabled
+    /// (was costing ~30% of bot time / 1070ms per builder over 1600 turns;
+    /// gameplay quality on labyrinth was modest, but TLE on the actual
+    /// server made it net-negative). v56 plays on the ladder bug2-only.
     pub fn bugnav_step(&mut self, target: Position) -> Option<Position> {
-        // BFS attempt — uses up to ~256 queue pops per call. Reaches
-        // the agent in ≤1 call for typical map sizes once goal is set.
-        let bfs_step = self.nav_bfs.search(self.state.my_pos, target, 1024);
-        if let Some(path) = bfs_step
-            && pyrust::len!(path) >= 2
-        {
-            // BFS suggested a step. Trust it unless the chosen tile is
-            // a friendly bot (BFS doesn't know about transient bot
-            // positions); in that case fall through to bug2.
-            let next = path[1];
-            if !pyrust::dict::contains!(self.state.all_bots, &next) {
-                return Some(next);
-            }
-        }
         let Self {
             bugnav,
             cost_grid,
