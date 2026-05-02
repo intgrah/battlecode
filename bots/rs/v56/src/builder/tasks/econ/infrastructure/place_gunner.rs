@@ -21,7 +21,7 @@ const fn is_turret(kind: Option<EntityType>) -> bool {
     )
 }
 
-const fn is_resource_building(kind: Option<EntityType>) -> bool {
+pub const fn is_resource_building(kind: Option<EntityType>) -> bool {
     matches!(
         kind,
         Some(
@@ -208,6 +208,16 @@ pub fn sentinel_facing(
         return None;
     }
 
+    if is_cardinal(d) {
+        let front = position.add(d);
+        if self_.in_bounds(front)
+            && is_resource_building(self_.kind_at(front))
+            && self_.team_at(front) == Some(self_.state.my_team)
+        {
+            return None;
+        }
+    }
+
     let shootable_tiles =
         pyrust::unwrap!(ct.get_attackable_tiles_from(position, d, EntityType::Sentinel));
     if pyrust::vec::contains!(shootable_tiles, &nearest) {
@@ -221,7 +231,6 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
     for test_position in neighbours_8 {
         let result = sentinel_facing(self_, ct, test_position);
         if let Some(d) = result {
-            let d = safe_facing(self_, test_position, d);
             return try_place(
                 self_,
                 ct,
@@ -237,7 +246,6 @@ pub fn place_sentinel_nearby(self_: &mut Builder, ct: &mut Controller<'_>) -> bo
     if let Some(d) = result
         && move_random(self_, ct)
     {
-        let d = safe_facing(self_, my_pos, d);
         try_place(
             self_,
             ct,
