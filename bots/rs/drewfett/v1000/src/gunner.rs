@@ -23,28 +23,25 @@ const fn is_valid_rotation_target(et: EntityType) -> bool {
 
 pub struct Gunner {
     state: UnitState,
-    /// Consecutive turns the gunner has been below the 2-Ti firing
-    /// threshold. When this exceeds `SELF_DESTRUCT_THRESHOLD` and no
-    /// enemy is in vision, the gunner recycles itself to free a unit
-    /// slot for a fresh builder. Reset whenever ammo is observed.
-    starved_turns: i32,
+    /// Consecutive turns the gunner has neither fired nor seen an enemy
+    /// in vision. Captures both "no ammo" and "no targets ever" — either
+    /// way the unit slot is wasted. When this exceeds the threshold,
+    /// `try_self_destruct` recycles us so a fresh builder can spawn.
+    idle_turns: i32,
 }
 
 impl Gunner {
-    /// Recycle the gunner once it has been ammo-starved for this many
-    /// consecutive turns. Sized so a chain that died 30 rounds ago is
-    /// reclaimed, but a transient gap (one missed delivery) doesn't
-    /// trigger. 1 round = 1 turn for non-spawning units.
+    /// Recycle once we've been idle (no fire, no enemy visible) for this
+    /// many consecutive turns. Conservative — covers chains that died,
+    /// chains that never connected, and gunners placed in the wrong
+    /// direction with no enemy ever passing through their cone.
     const SELF_DESTRUCT_THRESHOLD: i32 = 30;
-    /// Gunner fires at 2-Ti per shot. Below this we cannot fire at all,
-    /// so the unit is purely a blocker until ammo arrives.
-    const FIRE_AMMO: i32 = 2;
 
     #[must_use]
     pub fn new() -> Self {
         Self {
             state: UnitState::new(),
-            starved_turns: 0,
+            idle_turns: 0,
         }
     }
 
@@ -212,28 +209,24 @@ impl Unit for Gunner {
         self.state.cache_per_turn_state(ct);
         self.state.check_symmetry_marker(ct);
 
-        let ammo = pyrust::unwrap!(ct.get_ammo_amount());
-        if ammo >= Self::FIRE_AMMO {
-            self.starved_turns = 0;
-        } else {
-            self.starved_turns += 1;
-        }
-
         let facing = pyrust::unwrap!(ct.get_direction(None));
         let fire_target = self.fire_target(ct, facing);
         if let Some(target) = fire_target
             && pyrust::unwrap!(ct.can_fire(target))
         {
             pyrust::unwrap!(ct.fire(target));
+            self.idle_turns = 0;
             return;
         }
 
         self.try_rotate_to_enemy(ct);
 
-        // Recycle once the chain has been dead long enough that this gunner
-        // is functionally a marker. `try_self_destruct` only fires when no
-        // enemy is in vision, so we never give up a useful deterrent.
-        if self.starved_turns > Self::SELF_DESTRUCT_THRESHOLD {
+        // Reset only on actual fire; rotating to a target without firing
+        // still increments idle. `try_self_destruct` separately gates on
+        // no-enemy-in-vision, so a gunner that only sees enemies but
+        // can't fire (no ammo) won't actually recycle until they leave.
+        self.idle_turns += 1;
+        if self.idle_turns > Self::SELF_DESTRUCT_THRESHOLD {
             self.try_self_destruct(ct);
         }
     }
