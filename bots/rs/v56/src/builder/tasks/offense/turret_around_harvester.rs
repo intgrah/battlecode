@@ -123,8 +123,6 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
                     BuildExtra::Direction(gd),
                     true,
                 );
-            } else {
-                try_place(self_, ct, EntityType::Road, build_position, BuildExtra::None, false);
             }
         }
     }
@@ -132,7 +130,7 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
     if !placed && n_sentinel == 0 && self_.get_env(target) == Some(Environment::OreTitanium) {
         if can_afford(self_, EntityType::Sentinel) {
             move_random(self_, ct);
-            try_place(
+            placed = try_place(
                 self_,
                 ct,
                 EntityType::Sentinel,
@@ -140,14 +138,17 @@ pub fn turret_around_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> 
                 BuildExtra::Direction(direction),
                 true,
             );
-        } else {
-            try_place(self_, ct, EntityType::Road, build_position, BuildExtra::None, false);
         }
     }
 
     if pyrust::unwrap!(ct.can_build_road(build_position)) {
         pyrust::unwrap!(ct.build_road(build_position));
+    } else if !placed {
+        return Some(TaskRejected::new(
+            "couldn't place a sentinel or road",
+        ));
     }
+
     scout_toward_enemy(self_, ct);
     None
 }

@@ -147,17 +147,12 @@ impl Sentinel {
 
     fn try_self_destruct(&mut self, ct: &mut Controller<'_>) {
         let my_team = self.state.my_team;
-        let mut has_ally = false;
         for uid in pyrust::unwrap!(ct.get_nearby_units(None)) {
             if pyrust::unwrap!(ct.get_team(Some(uid))) == my_team {
-                has_ally = true;
-            } else {
                 return;
             }
         }
-        if has_ally {
-            pyrust::unwrap!(ct.self_destruct());
-        }
+        pyrust::unwrap!(ct.self_destruct());
     }
 }
 

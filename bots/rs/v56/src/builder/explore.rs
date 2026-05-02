@@ -47,11 +47,14 @@ const _FRONTIER_REWARD: f64 = 6.0;
 const _CLUSTER_PENALTY: f64 = 30.0;
 
 #[pyrust::inline]
+const EXPLORE_MIN_TI: i32 = 100;
+
+#[pyrust::inline]
 /// Friendly bots within this chebyshev radius of a candidate add the
 /// full γ penalty; falls off linearly to 0 at radius.
 const _CLUSTER_RADIUS: i32 = 20;
 
-pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) {
+pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     if pyrust::is_none!(builder.explore_target)
         || _target_invalid(builder, pyrust::unwrap!(builder.explore_target))
     {
@@ -59,9 +62,16 @@ pub fn explore(builder: &mut Builder, ct: &mut Controller<'_>) {
     }
 
     let Some(target) = builder.explore_target else {
-        return;
+        return false;
     };
+    if builder.ti <= EXPLORE_MIN_TI {
+        return false;
+    }
     make_move(builder, ct, target);
+    if builder.bugnav.unreachable() {
+        builder.explore_target = None;
+    }
+    true
 }
 
 /// A target is invalid once it has been observed (env transitioned

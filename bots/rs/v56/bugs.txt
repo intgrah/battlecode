@@ -1,6 +1,9 @@
 UNFIXED
 not cardinally adjacent to a vulnerable harvester
 exploration kinda broken -- bot stuck at edge of map
+launchers considered passable
+sentinel self destruct
+reachability
 
 FIXED
 bug2 can't path to impassible

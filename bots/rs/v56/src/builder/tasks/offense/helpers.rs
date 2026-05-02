@@ -15,6 +15,7 @@ use cambc::{
 use crate::builder::Builder;
 use crate::builder::explore::explore;
 use crate::builder::helpers::{can_afford, make_move, try_move_dir};
+use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::directions::{DIR4, DIR8};
 use crate::util::metrics::{chebyshev, closest};
 
@@ -366,7 +367,36 @@ pub fn scout_toward_enemy(self_: &mut Builder, ct: &mut Controller<'_>) {
     }
 
     if !self_.en_core_seen {
-        make_move(self_, ct, en_core);
+        let stride = MAX_WIDTH as i32;
+        let core_i = (en_core.y * stride + en_core.x) as usize;
+        let scout_target = if self_.cost_grid[core_i] == INF {
+            let w = self_.state.width;
+            let h = self_.state.height;
+            let mut best: Option<Position> = None;
+            let mut best_dist = i32::MAX;
+            for dy in -2i32..=2 {
+                for dx in -2i32..=2 {
+                    let nx = en_core.x + dx;
+                    let ny = en_core.y + dy;
+                    if nx < 0 || nx >= w || ny < 0 || ny >= h {
+                        continue;
+                    }
+                    let ni = (ny * stride + nx) as usize;
+                    if self_.cost_grid[ni] == INF {
+                        continue;
+                    }
+                    let dist = self_.state.my_pos.distance_squared(Position { x: nx, y: ny });
+                    if dist < best_dist {
+                        best_dist = dist;
+                        best = Some(Position { x: nx, y: ny });
+                    }
+                }
+            }
+            best.unwrap_or(en_core)
+        } else {
+            en_core
+        };
+        make_move(self_, ct, scout_target);
     } else if pyrust::vec::contains!(self_.nearby_tiles, &en_core)
         || self_.ti
             >= (pyrust::float!(GameConstants::HARVESTER_BASE_COST.0 + 50) * (1.0 + self_.scale))

@@ -44,7 +44,7 @@ use crate::config::{DEBUG_DUMP, HARDCODE};
 use crate::hardcode::identify::{KnownMap, identify_map};
 use crate::unit::{CoreAwareUnit, Unit, UnitState};
 use crate::util::constants::{INF, MAX_N, MAX_WIDTH, ROAD_COST};
-use crate::util::debug::Scope;
+use crate::util::debug::{Scope, debug as log};
 use crate::util::directions::{DIR4, DIR8, DIR8_DELTA};
 use crate::util::symmetry::Symmetry;
 use crate::util::visualiser::auto_wrap_position;
@@ -192,6 +192,7 @@ pub struct Builder {
     pub offense_target: Option<Position>,
     pub offense_turns: i32,
     pub offense_launcher: Option<Position>,
+    pub harvester_target: Option<Position>,
     pub last_fire: Option<(Position, i32)>,
     pub attack_tile_blacklist: HashMap<Position, i32>,
 
@@ -372,6 +373,7 @@ impl Builder {
             offense_target: None,
             offense_turns: 0,
             offense_launcher: None,
+            harvester_target: None,
             last_fire: None,
             attack_tile_blacklist: pyrust::dict::new!(),
             _step_off_wait_turns: 0,
@@ -805,7 +807,24 @@ impl Builder {
             nearby_tiles: &state.nearby_tiles,
             all_bots: &state.all_bots,
         };
-        bugnav.step(&mut ctx, target)
+        let result = bugnav.step(&mut ctx, target);
+        {
+            let mut args = serde_json::Map::new();
+            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+            pyrust::dict::insert!(args, pyrust::to_string!("is_some"), serde_json::Value::Bool(pyrust::is_some!(result)));
+            log("bugnav_step: result is_some={is_some} target={target}", args);
+        }
+        if let Some(next) = result {
+            let next_cost = self.cost_grid[(next.y as usize) * MAX_WIDTH + next.x as usize];
+            let in_launcher_set = pyrust::set::contains!(self.adjacent_to_enemy_launcher, &next);
+            let mut args = serde_json::Map::new();
+            pyrust::dict::insert!(args, pyrust::to_string!("next"), auto_wrap_position(next));
+            pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+            pyrust::dict::insert!(args, pyrust::to_string!("cost"), serde_json::Value::Number(serde_json::Number::from(next_cost)));
+            pyrust::dict::insert!(args, pyrust::to_string!("in_set"), serde_json::Value::Bool(in_launcher_set));
+            log("bugnav_step: step {next} cost={cost} in_launcher_set={in_set} target={target}", args);
+        }
+        result
     }
 
     const fn _refresh_ti_leakage(&mut self, i: usize) {
