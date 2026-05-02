@@ -40,7 +40,7 @@ from .task_secure_ore import secure_ore
 
 DEBUG_DUMP = False
 
-type TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
+TaskFn = Callable[[State, Controller], tuple[Direction, Action | None] | None]
 
 TASK_FNS: dict[Task, TaskFn] = {
     Task.CONNECT_EXCESS_TI_RAX_CORE: connect_excess_ti_rax_core,
