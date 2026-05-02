@@ -16,11 +16,11 @@
 //! The walk target is `expand_outward(cycle[idx], my_core, expansion)`
 //! where `expansion = LOW * (1 - alert/MAX)`.
 
-use cambc::{Controller, Position};
+use cambc::{Controller, EntityType, Position};
 use serde_json::{Map, Value};
 
 use crate::builder::Builder;
-use crate::builder::helpers::make_move;
+use crate::builder::helpers::{make_move, ti_needed};
 use crate::util::constants::{INF, MAX_WIDTH};
 use crate::util::debug::debug as log;
 use crate::util::directions::DIR4;
@@ -172,9 +172,21 @@ fn _expansion_cap(scale: f64, cluster_len: usize) -> f64 {
     pyrust::min!(_scale_cap(scale), _size_cap(cluster_len))
 }
 
-pub fn alert_expansion(alert: i32, scale: f64, cluster_len: usize) -> f64 {
+pub fn alert_expansion(alert: i32, scale: f64, cluster_len: usize, money_factor: f64) -> f64 {
     let t = pyrust::float!(alert) / pyrust::float!(_ALERT_MAX);
-    _expansion_cap(scale, cluster_len) * (1.0 - t)
+    _expansion_cap(scale, cluster_len) * (1.0 - t) * money_factor
+}
+
+/// Money factor: 0 when team Ti is empty, 1 once we can afford a
+/// (scaled) harvester. Scales expansion down so cash-poor builders
+/// stay close to centroid instead of wandering.
+#[must_use]
+pub fn money_factor(builder: &Builder) -> f64 {
+    let h_cost = pyrust::max!(1, ti_needed(builder, EntityType::Harvester));
+    pyrust::min!(
+        1.0_f64,
+        pyrust::float!(builder.state.ti) / pyrust::float!(h_cost)
+    )
 }
 
 /// Push `t` outward from `centroid` by `expansion` tiles along the
@@ -426,7 +438,12 @@ pub fn run_patrol(builder: &mut Builder, ct: &mut Controller<'_>) -> bool {
     }
     let raw_target = builder.patrol_clusters[ci][idx];
     let centroid = builder.patrol_cluster_centroids[ci];
-    let expansion = alert_expansion(builder.alert, builder.state.scale, qlen);
+    let expansion = alert_expansion(
+        builder.alert,
+        builder.state.scale,
+        qlen,
+        money_factor(&*builder),
+    );
     let expanded_target = expand_outward(
         raw_target,
         centroid,
