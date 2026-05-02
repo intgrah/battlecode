@@ -20,6 +20,8 @@ use cambc::{Controller, Position};
 
 use crate::builder::Builder;
 use crate::builder::helpers::make_move;
+use crate::builder::patrol::in_chosen_cluster_locus;
+use crate::builder::role::Role;
 use crate::util::constants::MAX_WIDTH;
 
 #[pyrust::inline]
@@ -111,7 +113,16 @@ fn _pick_target(builder: &mut Builder) -> Option<Position> {
         }
         let i = (y as usize) * MAX_WIDTH + (x as usize);
         if pyrust::is_none!(builder.env[i]) {
-            pyrust::vec::push!(candidates, Position { x, y });
+            let p = Position { x, y };
+            // ECON-bounded locus: candidate must lie within the bot's
+            // chosen-cluster shape locus (union of small discs around
+            // each cluster member). Other roles ignore the bound.
+            if matches!(builder.role, Some(Role::Econ | Role::PermEcon))
+                && !in_chosen_cluster_locus(builder, p)
+            {
+                continue;
+            }
+            pyrust::vec::push!(candidates, p);
         }
     }
     if pyrust::vec::is_empty!(candidates) {

@@ -37,6 +37,57 @@ const _CLUSTER_THRESHOLD: i32 = 200;
 #[pyrust::inline]
 const _REROLL_INTERVAL: i32 = 50;
 
+#[pyrust::inline]
+const _ECON_RADIUS_FLOOR: i32 = 64;
+#[pyrust::inline]
+const _ECON_RADIUS_CAP: i32 = 400;
+#[pyrust::inline]
+const _ECON_RADIUS_PICK_SHRINK: i32 = 16;
+#[pyrust::inline]
+const _ECON_RADIUS_DRY_GROW: i32 = 1;
+
+/// Ratchet the ECON exploration locus radius. Shrinks on a recent
+/// harvester observation (just-picked = good, pull bot back toward
+/// known infra). Grows otherwise (dry streak = bot needs to look
+/// further). Clamped to `[_ECON_RADIUS_FLOOR, _ECON_RADIUS_CAP]`.
+pub fn update_econ_explore_radius(builder: &mut Builder) {
+    let dry = builder.state.round - builder.last_harvester_add_round;
+    if dry <= 1 {
+        builder.econ_explore_radius_sq -= _ECON_RADIUS_PICK_SHRINK;
+    } else {
+        builder.econ_explore_radius_sq += _ECON_RADIUS_DRY_GROW;
+    }
+    if builder.econ_explore_radius_sq < _ECON_RADIUS_FLOOR {
+        builder.econ_explore_radius_sq = _ECON_RADIUS_FLOOR;
+    }
+    if builder.econ_explore_radius_sq > _ECON_RADIUS_CAP {
+        builder.econ_explore_radius_sq = _ECON_RADIUS_CAP;
+    }
+}
+
+/// True iff `p` is within `econ_explore_radius_sq` of any member of
+/// the bot's chosen cluster. Vacuously true if there are no clusters.
+#[must_use]
+pub fn in_chosen_cluster_locus(builder: &Builder, p: Position) -> bool {
+    let n = pyrust::len!(builder.patrol_clusters);
+    if n == 0 {
+        return true;
+    }
+    let ci = if builder.patrol_cluster_idx < n {
+        builder.patrol_cluster_idx
+    } else {
+        0
+    };
+    let r = builder.econ_explore_radius_sq;
+    let cluster = &builder.patrol_clusters[ci];
+    for m in cluster {
+        if p.distance_squared(*m) <= r {
+            return true;
+        }
+    }
+    false
+}
+
 /// Bump alert if any enemy bot OR turret is in vision; else decay by
 /// 1 (floored at 0). Capped at `_ALERT_MAX`.
 pub fn update_alert(builder: &mut Builder) {

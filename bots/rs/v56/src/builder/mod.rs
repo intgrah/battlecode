@@ -152,7 +152,6 @@ pub struct Builder {
     pub ax_harvester_adjacent: HashSet<Position>,
     pub ti_upstream: HashSet<Position>,
     pub ax_upstream: HashSet<Position>,
-    pub upstream_of_dangling: HashSet<Position>,
     pub my_foundries: HashSet<Position>,
     /// Currently-visible Ti ore tiles with no harvester on them. Maintained
     /// incrementally in vision update so `pick_ore_target` and friends only
@@ -247,6 +246,14 @@ pub struct Builder {
 
     // post_init-derived
     pub opportunistic: bool,
+    /// Ratchet d² bound for the ECON-bounded explore locus. A
+    /// candidate explore tile is accepted iff its d² to some member of
+    /// the bot's chosen cluster is ≤ this. Shrinks on harvester
+    /// observed, grows on dry rounds. Clamped to `[64, 400]`.
+    pub econ_explore_radius_sq: i32,
+    /// Round at which we last observed a friendly harvester join the
+    /// econ. Used to drive the explore-radius ratchet.
+    pub last_harvester_add_round: i32,
     pub econ_radius_sq: i32,
     pub known_map: Option<KnownMap>,
     /// 8 perimeter tiles of the core's 3x3 block.
@@ -340,7 +347,6 @@ impl Builder {
             ax_harvester_adjacent: pyrust::set::new!(),
             ti_upstream: pyrust::set::new!(),
             ax_upstream: pyrust::set::new!(),
-            upstream_of_dangling: pyrust::set::new!(),
             my_foundries: pyrust::set::new!(),
             visible_ti_ores: pyrust::set::new!(),
             visible_ax_ores: pyrust::set::new!(),
@@ -388,6 +394,8 @@ impl Builder {
             explore_target: None,
             explore_heading: None,
             opportunistic: false,
+            econ_explore_radius_sq: 64,
+            last_harvester_add_round: 0,
             econ_radius_sq: 0,
             known_map: None,
             core_edges: [Position { x: 0, y: 0 }; 8],

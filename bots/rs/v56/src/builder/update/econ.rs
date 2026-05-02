@@ -350,9 +350,6 @@ fn _pure_ax_merge_ok(builder: &Builder, pos: Position) -> bool {
     if is_inward_guard(builder, pos) {
         return false;
     }
-    if pyrust::vec::contains!(builder.upstream_of_dangling, &pos) {
-        return false;
-    }
     if _tile_volume(builder, pos) >= FLOW_HISTORY_LEN {
         return false;
     }
@@ -410,43 +407,6 @@ fn _foundry_candidate_ok(builder: &Builder, pos: Position) -> bool {
 
 const fn _manhattan(a: Position, b: Position) -> i32 {
     pyrust::abs!((a.x - b.x)) + pyrust::abs!((a.y - b.y))
-}
-
-/// Per-turn backward flood over `in_edges` from `dangling_set`. Sole
-/// reachability output retained — `reaches_core` / `reaches_foundry`
-/// were dropped along with the heuristics that consumed them.
-pub fn update_economy_reachability(builder: &mut Builder) {
-    builder.upstream_of_dangling = pyrust::set::new!();
-
-    let dangling_roots: Vec<Position> = pyrust::collect!(pyrust::filter!(
-        pyrust::copied!(pyrust::iter!(builder.dangling_set)),
-        |p| !pyrust::vec::is_empty!(builder.in_edges[(p.y as usize) * MAX_WIDTH + (p.x as usize)])
-    ));
-    flood_back(
-        &builder.in_edges,
-        &dangling_roots,
-        &mut builder.upstream_of_dangling,
-    );
-}
-
-fn flood_back(in_edges: &[Vec<Position>], roots: &[Position], target: &mut HashSet<Position>) {
-    let mut stack: Vec<Position> = pyrust::vec::new!();
-    for r in roots {
-        if !pyrust::vec::contains!(target, r) {
-            pyrust::set::add!(target, *r);
-            pyrust::vec::push!(stack, *r);
-        }
-    }
-    while let Some(p) = pyrust::vec::pop!(stack) {
-        let i = (p.y as usize) * MAX_WIDTH + (p.x as usize);
-        for u in &in_edges[i] {
-            if pyrust::vec::contains!(target, u) {
-                continue;
-            }
-            pyrust::set::add!(target, *u);
-            pyrust::vec::push!(stack, *u);
-        }
-    }
 }
 
 /// Oracle: recompute the incrementally-maintained sets from scratch
