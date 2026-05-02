@@ -347,20 +347,18 @@ pub fn extend_step(
     // Falls back to A* only when all three greedy attempts hit walls
     // unbridgeable. Greedy is ~10x cheaper per call and yields shorter
     // paths in most open-map cases.
-    let path = {
+    let mut path = {
         let _g = Scope::new_timed("conv_greedy");
         crate::builder::algorithms::greedy_route::greedy_route(builder, start, target, resource)
     };
-    let path = if pyrust::is_some!(path) {
-        path
-    } else {
+    if pyrust::is_none!(path) {
         let _g = Scope::new_timed("conv_astar");
-        if is_ax {
+        path = if is_ax {
             builder.ax_conv_astar(ct, start, target, resource)
         } else {
             builder.ti_conv_astar(ct, start, target, resource)
-        }
-    };
+        };
+    }
     let Some(mut path) = path else {
         let fail = if is_ax {
             pyrust::clone!(builder.ax_conv_search.last_fail_reason)
