@@ -19,6 +19,7 @@ use cambc::{
 use serde_json::Map;
 
 use crate::builder::Builder;
+use crate::builder::algorithms::greedy_route::greedy_route;
 use crate::builder::helpers::{
     make_move, on_enemy_side, trace_upstream, try_move_with_road, try_place,
 };
@@ -349,7 +350,7 @@ pub fn extend_step(
     // paths in most open-map cases.
     let mut path = {
         let _g = Scope::new_timed("conv_greedy");
-        crate::builder::algorithms::greedy_route::greedy_route(builder, start, target, resource)
+        greedy_route(builder, start, target, resource)
     };
     if pyrust::is_none!(path) {
         let _g = Scope::new_timed("conv_astar");
