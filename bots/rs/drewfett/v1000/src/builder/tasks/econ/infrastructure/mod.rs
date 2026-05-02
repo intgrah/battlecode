@@ -5,11 +5,9 @@
 //! paving. High-priority structural maintenance work for ECON / DEFENSE.
 
 pub mod build_foundry;
-pub mod destroy_dead_bridge;
 pub mod fix_enemy_conveyor;
 pub mod guard_harvester_neighbours;
 pub mod place_gunner;
-pub mod resolve_congestion;
 
 use crate::builder::tasks::_policy::{Policy, TaskGroup};
 
@@ -29,10 +27,6 @@ const ECON_INFRASTRUCTURE_CHILDREN: &[Policy] = &[
     Policy::Leaf {
         name: "guard_harvester_neighbours",
         fn_: guard_harvester_neighbours::guard_harvester_neighbours,
-    },
-    Policy::Leaf {
-        name: "resolve_congestion",
-        fn_: resolve_congestion::resolve_congestion,
     },
 ];
 

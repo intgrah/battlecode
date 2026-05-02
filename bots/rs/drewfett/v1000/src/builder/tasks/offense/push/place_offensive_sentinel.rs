@@ -56,7 +56,11 @@ fn sentinel_facing(self_: &Builder, ct: &mut Controller<'_>, pos: Position) -> O
         let d = DIR8[ii];
         let dp = DIR8_INT[ii];
         let fp = pos_p + dp;
-        if self_.posint_valid[fp as usize] != 0 && delivers_ammo(self_, pos, pos_of(fp)) {
+        if fp >= 0
+            && (fp as usize) < self_.posint_valid.len()
+            && self_.posint_valid[fp as usize] != 0
+            && delivers_ammo(self_, pos, pos_of(fp))
+        {
             continue;
         }
         let tiles = pyrust::unwrap!(ct.get_attackable_tiles_from(pos, d, EntityType::Sentinel));
