@@ -80,19 +80,11 @@ Reference plans:
   drop the per-section ENTER/EXIT trace. We already have the infra
   (`config::TRACE_TLE`).
 
-#### B5. `pick_offensive_ti_ore_target` requires `is_reachable_p` 
+#### B5. ~~`is_reachable_p` over-restricts offensive ore~~ **WITHDRAWN**
 
-- File: `src/builder/helpers.rs::pick_offensive_ti_ore_target`
-- An offensive ore tile beyond our chain's reach is by definition not in our
-  union-find component — `is_reachable_p` returns false → the tile is never
-  picked. We can't claim ore that's farther than our current chain.
-- Question: is this even what we want? The whole point of "offensive ore" is
-  to plant a harvester FAR from current chain. The current logic effectively
-  caps offensive ore at chain-reachable distance, which is the same disc as
-  defensive ore.
-- Action: replace `is_reachable_p` with a lighter "movement-reachable from
-  my_pos" check, or just drop the reachability gate entirely for offensive
-  ore.
+- `is_reachable_p` is a movement-reachability union-find over passable
+  tiles, not a flow-reachability check. Correct as a gate — we shouldn't
+  try to claim ore we can't physically walk to. No bug here.
 
 ### P2 — gaps in attack/defence micro
 
