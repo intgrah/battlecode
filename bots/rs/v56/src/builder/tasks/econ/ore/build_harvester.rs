@@ -8,7 +8,7 @@ use serde_json::Map;
 
 use crate::builder::Builder;
 use crate::builder::harvest::{clear_barriered_feed, step_off_and_build_harvester};
-use crate::builder::helpers::{can_afford, harvester_feed_cardinal, ore_available};
+use crate::builder::helpers::{can_afford, harvester_feed_cardinal, ore_available, try_attack};
 use crate::builder::tasks::rejected::{TaskRejected, TaskResult};
 use crate::util::debug::debug as log;
 use crate::util::visualiser::auto_wrap_position;
@@ -39,6 +39,17 @@ pub fn build_harvester(self_: &mut Builder, ct: &mut Controller<'_>) -> TaskResu
         return Some(TaskRejected::new(
             "no ore_target / ax_ore_target to harvest",
         ));
+    }
+    // If there's an enemy building on the ore tile, fire at it regardless
+    // of harvester affordability — destroying it unblocks placement.
+    if let Some((_, team)) = self_.get_building(target)
+        && team != self_.my_team
+    {
+        let mut args = Map::new();
+        pyrust::dict::insert!(args, pyrust::to_string!("target"), auto_wrap_position(target));
+        log("build_harvester: firing on enemy building at {target}", args);
+        try_attack(ct, target);
+        return None;
     }
     if !can_afford(self_, EntityType::Harvester) {
         let mut args = Map::new();
