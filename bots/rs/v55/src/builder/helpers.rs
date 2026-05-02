@@ -802,24 +802,26 @@ pub fn harvester_barrier_saturated(builder: &Builder, ore_pos: Position) -> bool
 
 #[pyrust::inline]
 #[must_use]
-pub fn pick_ore_target(builder: &Builder) -> Option<Position> {
+pub fn pick_ore_target(builder: &mut Builder) -> Option<Position> {
     _pick_ore(builder, Environment::OreTitanium)
 }
 
 #[pyrust::inline]
 #[must_use]
-pub fn pick_ax_ore_target(builder: &Builder) -> Option<Position> {
+pub fn pick_ax_ore_target(builder: &mut Builder) -> Option<Position> {
     _pick_ore(builder, Environment::OreAxionite)
 }
 
 /// Pick a Ti ore tile outside our econ disc for an offensive harvester.
 #[must_use]
-pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
+pub fn pick_offensive_ti_ore_target(builder: &mut Builder) -> Option<Position> {
+    let mut candidates: Vec<Position> = pyrust::sorted!(builder.visible_ti_ores);
+    builder.state.rng.shuffle(&mut candidates);
+    pyrust::vec::truncate!(candidates, _PICK_ORE_SAMPLE);
+
     let econ_radius_sq = builder.econ_radius_sq;
     let my_pos = builder.state.my_pos;
     let my_core = builder.my_core;
-    // Materialise once: re-iterating `all_bots` per candidate inside the
-    // hot loop dominated the search before this fix.
     let friendlies: Vec<(Position, i32)> = pyrust::collect!(pyrust::filter_map!(
         pyrust::dict::items!(builder.state.all_bots),
         |t| if *t.1 != builder.state.my_id
@@ -832,11 +834,7 @@ pub fn pick_offensive_ti_ore_target(builder: &Builder) -> Option<Position> {
     ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
-    // Cheapest filters first: O(1) UF lookup, O(1) distance, then
-    // bot/building checks, then early-exit on distance, then the
-    // expensive cardinal-scan filters last. Sort for deterministic
-    // iteration order across native-Rust and pyrust-translated runs.
-    for pos in pyrust::sorted!(builder.visible_ti_ores) {
+    for pos in candidates {
         if !builder.is_reachable(pos) {
             continue;
         }
@@ -974,12 +972,28 @@ pub fn is_inward_guard(builder: &Builder, pos: Position) -> bool {
         && builder.team_at(target) == Some(builder.state.my_team)
 }
 
-fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
-    let ore_set = if wanted == Environment::OreTitanium {
-        &builder.visible_ti_ores
+/// Hard cap on candidate ores per `_pick_ore` / `pick_offensive_ti_ore_target`
+/// call. The full filter chain (claims_by_proximity + harvester_would_contaminate
+/// + harvester_feed_cardinal) is dozens of ops per candidate; with many ores
+/// in vision we'd TLE. Sample uniformly via the per-bot RNG and accept the
+/// possibility that we miss the globally-best tile this turn — the bot
+/// gets another shot next turn.
+const _PICK_ORE_SAMPLE: usize = 5;
+
+fn _pick_ore(builder: &mut Builder, wanted: Environment) -> Option<Position> {
+    // Materialise + sort to drop the immutable borrow on visible_*_ores
+    // before we take a mutable borrow on the rng. `sorted!` gives a
+    // deterministic baseline order; the rng-driven shuffle then mirrors
+    // CPython's `random.shuffle` so native-Rust and pyrust-translated
+    // runs see the same sample.
+    let mut candidates: Vec<Position> = if wanted == Environment::OreTitanium {
+        pyrust::sorted!(builder.visible_ti_ores)
     } else {
-        &builder.visible_ax_ores
+        pyrust::sorted!(builder.visible_ax_ores)
     };
+    builder.state.rng.shuffle(&mut candidates);
+    pyrust::vec::truncate!(candidates, _PICK_ORE_SAMPLE);
+
     let econ_radius_sq = builder.econ_radius_sq;
     let my_pos = builder.state.my_pos;
     let my_core = builder.my_core;
@@ -995,11 +1009,7 @@ fn _pick_ore(builder: &Builder, wanted: Environment) -> Option<Position> {
     ));
     let mut best_target: Option<Position> = None;
     let mut min_dist = i32::MAX;
-    // Sort for deterministic iteration order — Rust HashSet and Python
-    // set iterate in different orders, so without an explicit sort
-    // the native-Rust and pyrust-translated runs would tie-break
-    // differently and diverge at the first ore tile.
-    for pos in pyrust::sorted!(ore_set) {
+    for pos in candidates {
         if !builder.is_reachable(pos) {
             continue;
         }
