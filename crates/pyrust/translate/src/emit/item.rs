@@ -619,6 +619,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
             for item in &file.items {
                 if let syn::Item::Impl(im) = item
                     && impl_target_name(&im.self_ty).as_deref() == Some(class_name.as_str())
+                    && w.cfg().item_enabled(&im.attrs).unwrap_or(true)
                 {
                     for impl_item in &im.items {
                         if let syn::ImplItem::Fn(f) = impl_item {
@@ -680,7 +681,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
     // If the user provides `impl fn new(...) -> Self`, that's the
     // constructor — translate its body into __init__. Otherwise, auto-gen
     // __init__ from the struct fields (positional, in declaration order).
-    let new_fn = find_new_fn(file, &class_name);
+    let new_fn = find_new_fn(w.cfg(), file, &class_name);
     w.enter_class(class_name.clone());
     w.set_current_class_fields(field_specs.iter().map(|(n, _, _)| n.clone()).collect());
     w.blank_line();
@@ -709,6 +710,7 @@ fn emit_struct(w: &mut PyWriter, s: &syn::ItemStruct, file: &syn::File) -> Resul
     for item in &file.items {
         if let syn::Item::Impl(im) = item
             && impl_target_name(&im.self_ty).as_deref() == Some(class_name.as_str())
+            && w.cfg().item_enabled(&im.attrs).unwrap_or(true)
         {
             if let Some((_, trait_path, _)) = im.trait_.as_ref() {
                 let trait_name = trait_path
@@ -863,7 +865,11 @@ fn emit_auto_init(w: &mut PyWriter, fields: &[(String, String, Ty)]) {
     w.exit_indent();
 }
 
-fn find_new_fn<'a>(file: &'a syn::File, class_name: &str) -> Option<&'a syn::ImplItemFn> {
+fn find_new_fn<'a>(
+    cfg: &crate::cfg::CfgEnv,
+    file: &'a syn::File,
+    class_name: &str,
+) -> Option<&'a syn::ImplItemFn> {
     // Inherent `impl Foo { fn new(...) -> Self { ... } }` wins. If absent,
     // accept a trait-impl's `new()` (e.g. `impl Bot for Player { fn new() })
     // — the constructor body is the same regardless of which surface
@@ -872,6 +878,7 @@ fn find_new_fn<'a>(file: &'a syn::File, class_name: &str) -> Option<&'a syn::Imp
     for item in &file.items {
         if let syn::Item::Impl(im) = item
             && impl_target_name(&im.self_ty).as_deref() == Some(class_name)
+            && cfg.item_enabled(&im.attrs).unwrap_or(true)
         {
             for impl_item in &im.items {
                 if let syn::ImplItem::Fn(f) = impl_item
